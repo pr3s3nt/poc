@@ -1,41 +1,42 @@
 import { cleanupReasonLabels, type CleanupReason, cleanupReasons } from '../../shared/api/errors';
+import { t } from '../../shared/i18n';
 
 // Own-key lookup with a generic fallback: a persisted value outside the table is never shown as text.
 const pick = (map: Record<string, string>, key: string, generic: string) => (Object.hasOwn(map, key) ? map[key] ?? generic : generic);
 
 export const resourceStatusLabel = (key: string) => pick({
-  PENDING: 'Đang chờ', PROVISIONING: 'Đang tạo', READY: 'Sẵn sàng', FAILED: 'Thất bại', UNREFERENCED: 'Không còn được tham chiếu', INTERRUPTED: 'Bị gián đoạn',
-  NEEDS_ATTENTION: 'Cần xử lý', DESTROYING: 'Đang xóa', DESTROYED: 'Đã xóa',
-}, key, 'Trạng thái không rõ');
+  PENDING: t('resources.labels.pending'), PROVISIONING: t('resources.labels.creating'), READY: t('resources.labels.ready'), FAILED: t('resources.labels.failed'), UNREFERENCED: t('resources.labels.unreferenced'), INTERRUPTED: t('resources.labels.interrupted'),
+  NEEDS_ATTENTION: t('resources.labels.needsAttention'), DESTROYING: t('resources.labels.deleting'), DESTROYED: t('resources.labels.deleted'),
+}, key, t('resources.labels.unknownStatus'));
 
-export const scopeLabel = (key: string) => pick({ APPLICATION: 'Ứng dụng', ENVIRONMENT: 'Môi trường', WORKLOAD: 'Workload', SHARED: 'Dùng chung' }, key, 'Phạm vi không rõ');
+export const scopeLabel = (key: string) => pick({ APPLICATION: t('resources.labels.application'), ENVIRONMENT: t('resources.labels.environment'), WORKLOAD: 'Workload', SHARED: t('resources.labels.shared') }, key, t('resources.labels.unknownScope'));
 
 export const stageLabel = (key: string) => pick({
-  REQUESTED: 'Đã nhận yêu cầu', CHECKING: 'Đang kiểm tra', DESTROYING: 'Đang xóa', VERIFYING: 'Đang xác minh đã hết', INTENT: 'Ghi nhận ý định', INIT: 'Khởi tạo module', PLANNING: 'Đang lập kế hoạch',
-  PLANNED: 'Đã lập kế hoạch', APPLYING: 'Đang áp dụng', APPLIED: 'Đã áp dụng', OUTPUTS: 'Đọc đầu ra', READINESS: 'Kiểm tra sẵn sàng', READY: 'Sẵn sàng', NO_CHANGE: 'Không có thay đổi', DESTROYED: 'Đã xóa', RECOVERY: 'Đang khôi phục',
-}, key, 'Giai đoạn không rõ');
+  REQUESTED: t('resources.labels.requestReceived'), CHECKING: t('resources.labels.checking'), DESTROYING: t('resources.labels.deleting'), VERIFYING: t('resources.labels.verifyingGone'), INTENT: t('resources.labels.intentRecorded'), INIT: t('resources.labels.moduleInitialization'), PLANNING: t('resources.labels.planning'),
+  PLANNED: t('resources.labels.planned'), APPLYING: t('resources.labels.applying'), APPLIED: t('resources.labels.applied'), OUTPUTS: t('resources.labels.readingOutputs'), READINESS: t('resources.labels.readinessCheck'), READY: t('resources.labels.ready'), NO_CHANGE: t('resources.labels.noChanges'), DESTROYED: t('resources.labels.deleted'), RECOVERY: t('resources.labels.recovering'),
+}, key, t('resources.labels.unknownPhase'));
 
 export const operationStatusLabel = (key: string) => pick({
-  ACTIVE: 'Đang chạy', RECOVERING: 'Đang khôi phục', INTERRUPTED: 'Bị gián đoạn — cần xử lý', SUCCEEDED: 'Hoàn tất', FAILED: 'Thất bại', RECOVERED: 'Đã khôi phục',
-}, key, 'Trạng thái không rõ');
+  ACTIVE: t('resources.labels.running'), RECOVERING: t('resources.labels.recovering'), INTERRUPTED: t('resources.labels.interruptedNeedsAttention'), SUCCEEDED: t('resources.labels.completed'), FAILED: t('resources.labels.failed'), RECOVERED: t('resources.labels.recovered'),
+}, key, t('resources.labels.unknownStatus'));
 
 export const outcomeLabel = (key: string) => pick({
-  DESTROYED: 'Đã xóa và xác minh đã hết', DESTROYING: 'Đang xóa', PENDING: 'Đang chờ', REMAINING: 'Chưa xóa hết — còn lại', RETAINED: 'Được giữ lại (không xóa)', NEEDS_ATTENTION: 'Cần xử lý', UNKNOWN: 'Chưa rõ',
-}, key, 'Chưa rõ');
+  DESTROYED: t('resources.labels.deletedAndVerifiedGone'), DESTROYING: t('resources.labels.deleting'), PENDING: t('resources.labels.pending'), REMAINING: t('resources.labels.notFullyDeletedRemaining'), RETAINED: t('resources.labels.keptNotDeleted'), NEEDS_ATTENTION: t('resources.labels.needsAttention'), UNKNOWN: t('resources.labels.unknown'),
+}, key, t('resources.labels.unknown'));
 
 export const reasonCodeLabel = (key: string) => pick({
-  NOT_ATTEMPTED: 'Chưa thử xóa vì một bước trước cần xử lý', RETAINED_CONSUMER: 'Giữ lại vì một tài nguyên dùng nó chưa được xóa', NEEDS_ATTENTION: 'Chưa rõ kết quả; cần kiểm tra thủ công',
-  INSTANCE_HELD: 'Lần thử trước chưa được giải quyết', ORIGINAL_TARGET_UNAVAILABLE: 'Không dùng được đích gốc', DESTRUCTIVE_PLAN: 'Kế hoạch xóa không hợp lệ nên bị chặn',
-  NAMESPACE_NOT_OWNED: 'Namespace còn đối tượng không thuộc tập đã chọn', DESTROY_FAILED: 'Xóa không hoàn tất', UNKNOWN_ERROR: 'Lỗi không xác định',
-}, key, 'Lỗi không xác định');
+  NOT_ATTEMPTED: t('resources.labels.notAttemptedBecauseAnEarlier'), RETAINED_CONSUMER: t('resources.labels.keptBecauseAResourceUsing'), NEEDS_ATTENTION: t('resources.labels.outcomeUnknownManualCheckNeeded'),
+  INSTANCE_HELD: t('resources.labels.aPreviousAttemptIsUnresolved'), ORIGINAL_TARGET_UNAVAILABLE: t('resources.labels.theOriginalTargetIsUnusable'), DESTRUCTIVE_PLAN: t('resources.labels.theDeletionPlanIsInvalid'),
+  NAMESPACE_NOT_OWNED: t('resources.labels.theNamespaceStillHasObjects'), DESTROY_FAILED: t('resources.labels.deletionIncomplete'), UNKNOWN_ERROR: t('resources.labels.unknownError'),
+}, key, t('resources.labels.unknownError'));
 
 export const failureLabel = (key: string) => pick({
-  CLEANUP_INCOMPLETE: 'Chưa xóa hết tài nguyên đã chọn.', CLEANUP_REJECTED: 'Yêu cầu bị từ chối trước khi xóa; chưa có gì bị xóa.', CLEANUP_ERROR: 'Thao tác xóa gặp lỗi.', CLEANUP_NEEDS_ATTENTION: 'Chưa rõ kết quả; Môi trường được giữ cho tới khi xử lý.',
-  CLEANUP_FAILED: 'Thao tác xóa không hoàn tất.',
-}, key, 'Thao tác xóa không hoàn tất.');
+  CLEANUP_INCOMPLETE: t('resources.labels.theSelectedResourcesWereNot'), CLEANUP_REJECTED: t('resources.labels.theRequestWasRejectedBefore'), CLEANUP_ERROR: t('resources.labels.theDeletionFailed'), CLEANUP_NEEDS_ATTENTION: t('resources.labels.outcomeUnknownTheEnvironmentIs'),
+  CLEANUP_FAILED: t('resources.labels.theDeletionDidNotComplete'),
+}, key, t('resources.labels.theDeletionDidNotComplete'));
 
 export const consumerKindLabel = (key: string) => pick({
-  RESOURCE: 'Tài nguyên', WORKLOAD: 'Workload hiện tại', PENDING_WORKLOAD: 'Workload đang chờ triển khai', DEPLOYMENT_SET: 'Tập triển khai hiện tại',
-}, key, 'Bên dùng không rõ');
+  RESOURCE: t('resources.labels.resource'), WORKLOAD: t('resources.labels.currentWorkload'), PENDING_WORKLOAD: t('resources.labels.workloadPendingDeployment'), DEPLOYMENT_SET: t('resources.labels.currentDeploymentSet'),
+}, key, t('resources.labels.unknownConsumer'));
 
-export const refusalLabel = (key: string) => (cleanupReasons as readonly string[]).includes(key) ? cleanupReasonLabels[key as CleanupReason] : 'Không đủ điều kiện xóa.';
+export const refusalLabel = (key: string) => (cleanupReasons as readonly string[]).includes(key) ? cleanupReasonLabels[key as CleanupReason] : t('resources.labels.notEligibleForDeletion');

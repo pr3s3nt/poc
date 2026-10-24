@@ -1,4 +1,5 @@
 import type { CapabilityVariable } from './capabilities';
+import { t } from '../../shared/i18n';
 
 // Typed authoring of Driver Input variables (UC-03 BR-24/BR-25). The typed form
 // and the advanced JSON serialize to the same driverInputs.values.variables
@@ -24,8 +25,8 @@ export const emptyVariableDraft = (): VariableDraft => ({});
 
 export function parseObjectText(text: string, label: string): { value?: JsonObject; error?: string } {
   let parsed: unknown;
-  try { parsed = JSON.parse(text); } catch { return { error: `${label} phải là JSON hợp lệ.` }; }
-  if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object') return { error: `${label} phải là một JSON object.` };
+  try { parsed = JSON.parse(text); } catch { return { error: t('platform.typedVariables.labelMustBeValidJSON', { label }) }; }
+  if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object') return { error: t('platform.typedVariables.labelMustBeAJSON', { label }) };
   return { value: parsed as JsonObject };
 }
 
@@ -54,9 +55,9 @@ export function variablesToDraft(object: JsonObject, variables: CapabilityVariab
   const draft: VariableDraft = {};
   for (const [name, value] of Object.entries(object)) {
     const variable = byName.get(name);
-    if (!variable) return { reason: `Tham số "${name}" không có control typed (không được hỗ trợ, do hệ thống sở hữu hoặc là credential). Giữ trong JSON nâng cao.` };
+    if (!variable) return { reason: t('platform.typedVariables.parameterNameHasNoTyped', { name }) };
     const entry = entryFor(variable, value);
-    if (!entry) return { reason: `Giá trị của "${name}" không biểu diễn an toàn bằng control ${variable.type}. Giữ trong JSON nâng cao.` };
+    if (!entry) return { reason: t('platform.typedVariables.theValueOfNameCannot', { name, type: variable.type }) };
     draft[name] = entry;
   }
   return { draft };
@@ -71,18 +72,18 @@ export function entryValue(variable: CapabilityVariable, entry: VariableEntry): 
     case 'number': {
       const trimmed = text.trim();
       const number = trimmed === '' ? Number.NaN : Number(trimmed);
-      return Number.isFinite(number) ? { value: number } : { error: `"${variable.name}" phải là số hợp lệ hoặc một placeholder nguyên vẹn dạng \${...}.` };
+      return Number.isFinite(number) ? { value: number } : { error: t('platform.typedVariables.nameMustBeAValid', { name: variable.name }) };
     }
     case 'bool':
       if (text === 'true') return { value: true };
       if (text === 'false') return { value: false };
-      return { error: `"${variable.name}" phải là true, false hoặc một placeholder nguyên vẹn dạng \${...}.` };
+      return { error: t('platform.typedVariables.nameMustBeTrueFalse', { name: variable.name }) };
     default: {
       let parsed: unknown;
-      try { parsed = JSON.parse(text); } catch { return { error: `"${variable.name}" phải là JSON hợp lệ (${variable.type}) hoặc một placeholder nguyên vẹn dạng \${...}.` }; }
-      if (parsed === null) return { error: `"${variable.name}" không được là null.` };
-      if (kind === 'list' && !Array.isArray(parsed)) return { error: `"${variable.name}" phải là danh sách JSON (${variable.type}).` };
-      if (kind === 'map' && (typeof parsed !== 'object' || Array.isArray(parsed))) return { error: `"${variable.name}" phải là JSON object (${variable.type}).` };
+      try { parsed = JSON.parse(text); } catch { return { error: t('platform.typedVariables.nameMustBeValidJSON', { name: variable.name, type: variable.type }) }; }
+      if (parsed === null) return { error: t('platform.typedVariables.nameMustNotBeNull', { name: variable.name }) };
+      if (kind === 'list' && !Array.isArray(parsed)) return { error: t('platform.typedVariables.nameMustBeAJSON', { name: variable.name, type: variable.type }) };
+      if (kind === 'map' && (typeof parsed !== 'object' || Array.isArray(parsed))) return { error: t('platform.typedVariables.nameMustBeAJSON2', { name: variable.name, type: variable.type }) };
       return { value: parsed };
     }
   }
@@ -94,7 +95,7 @@ export function draftToVariables(draft: VariableDraft, variables: CapabilityVari
   // Never drop an opted-in value silently if the metadata no longer lists it.
   const known = new Set(variables.map((variable) => variable.name));
   const orphan = Object.entries(draft).find(([name, entry]) => entry.on && !known.has(name));
-  if (orphan) return { problem: `Tham số "${orphan[0]}" không còn trong metadata của cách tạo này. Tải lại metadata hoặc bỏ ghi đè tham số này; giá trị không bị bỏ âm thầm.` };
+  if (orphan) return { problem: t('platform.typedVariables.parameterValueIsNoLonger', { value: orphan[0] }) };
   for (const variable of variables) {
     const entry = draft[variable.name];
     if (!entry?.on) continue;

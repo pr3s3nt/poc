@@ -3,15 +3,16 @@ import { navigate } from '../../app/routes';
 import { ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
 import { platformDomain } from '../../shared/types/application';
+import { t } from '../../shared/i18n';
 
 // Mirrors the backend DNS-label rule (UC-01 BR-03); the backend stays authoritative.
 const subdomainPattern = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 
 type FieldErrors = { name?: string; subdomain?: string };
 
-const nameRequired = 'Nhập tên ứng dụng.';
-const subdomainRequired = 'Nhập subdomain.';
-const subdomainInvalid = 'Chỉ dùng chữ thường không dấu, số và dấu gạch ngang; bắt đầu và kết thúc bằng chữ hoặc số, tối đa 63 ký tự.';
+const nameRequired = t('applications.createApplication.enterAnApplicationName');
+const subdomainRequired = t('applications.createApplication.enterASubdomain');
+const subdomainInvalid = t('applications.createApplication.useOnlyLowercaseLettersWithout');
 
 // Input aid only: the backend stays authoritative for the ID and for uniqueness.
 export function suggestSubdomain(name: string): string {
@@ -28,10 +29,10 @@ export function suggestSubdomain(name: string): string {
 
 function describeCreateError(err: unknown): { fields: FieldErrors; form?: string } {
   if (err instanceof ApiError && (err.field === 'name' || err.field === 'subdomain')) {
-    if (err.code === 'DUPLICATE') return { fields: err.field === 'name' ? { name: 'Tên ứng dụng này đã tồn tại.' } : { subdomain: 'Subdomain này đã được sử dụng.' } };
+    if (err.code === 'DUPLICATE') return { fields: err.field === 'name' ? { name: t('applications.createApplication.thisApplicationNameAlreadyExists') } : { subdomain: t('applications.createApplication.thisSubdomainIsAlreadyIn') } };
     if (err.code === 'INVALID_REQUEST') return { fields: err.field === 'name' ? { name: nameRequired } : { subdomain: subdomainInvalid } };
   }
-  return { fields: {}, form: err instanceof ApiError && err.status !== 400 && err.status !== 409 ? `Không thể tạo ứng dụng. ${err.message}` : 'Không thể tạo ứng dụng. Hãy thử lại.' };
+  return { fields: {}, form: err instanceof ApiError && err.status !== 400 && err.status !== 409 ? t('applications.createApplication.couldNotCreateTheApplication', { message: err.message }) : t('applications.createApplication.couldNotCreateTheApplication2') };
 }
 
 // UC-01: only Name and Subdomain. Each Environment chooses its own execution
@@ -64,12 +65,12 @@ export function CreateApplicationPage({ onCreate }: { onCreate(name: string, sub
       .catch((err: unknown) => { const described = describeCreateError(err); setFieldErrors(described.fields); setError(described.form ?? null); setSubmitting(false); });
   }
   const host = normalized || 'ten-ung-dung';
-  return <section className="page narrow-page"><button className="back-link" onClick={() => navigate({ name: 'applications' })}>← Ứng dụng</button><header className="form-header"><p className="eyebrow">Ứng dụng mới</p><h1>Tạo ứng dụng</h1><p>Hệ thống tự tạo môi trường staging và production. Chọn kết nối cho từng môi trường sau, trong Cài đặt môi trường.</p></header>
-    <form className="create-form" aria-label="Tạo ứng dụng" onSubmit={submit} noValidate>{error ? <div className="form-error" role="alert">{error}</div> : null}
-      <label htmlFor="application-name">Tên ứng dụng</label><input id="application-name" placeholder="Ví dụ: Thanh toán" value={name} disabled={submitting} aria-invalid={Boolean(fieldErrors.name)} onChange={(event) => changeName(event.target.value)} />{fieldErrors.name ? <span className="field-error">{fieldErrors.name}</span> : null}
-      <label htmlFor="application-subdomain">Subdomain</label><input id="application-subdomain" placeholder="Ví dụ: thanh-toan" value={subdomain} disabled={submitting} aria-invalid={Boolean(fieldErrors.subdomain)} onChange={(event) => { setSubdomainEdited(true); setSubdomain(event.target.value); }} />{fieldErrors.subdomain ? <span className="field-error">{fieldErrors.subdomain}</span> : null}<small>Gợi ý từ tên ứng dụng, bạn có thể sửa. Chỉ dùng chữ thường không dấu, số và dấu gạch ngang.</small>
-      <div className="url-preview" role="group" aria-label="Endpoint sẽ được tạo"><span>Endpoint sẽ được tạo</span><strong>staging.{host}.{platformDomain}</strong><strong>{host}.{platformDomain}</strong></div>
-      <div className="form-actions"><Button type="button" onClick={() => navigate({ name: 'applications' })}>Hủy</Button><Button tone="primary" type="submit" disabled={submitting}>{submitting ? 'Đang tạo ứng dụng…' : 'Tạo ứng dụng'}</Button></div>
+  return <section className="page narrow-page"><button className="back-link" onClick={() => navigate({ name: 'applications' })}>{t('applications.createApplication.applications')}</button><header className="form-header"><p className="eyebrow">{t('applications.createApplication.newApplication')}</p><h1>{t('applications.createApplication.createApplication')}</h1><p>{t('applications.createApplication.theSystemCreatesTheStaging')}</p></header>
+    <form className="create-form" aria-label={t('applications.createApplication.createApplication')} onSubmit={submit} noValidate>{error ? <div className="form-error" role="alert">{error}</div> : null}
+      <label htmlFor="application-name">{t('applications.createApplication.applicationName')}</label><input id="application-name" placeholder={t('applications.createApplication.examplePayments')} value={name} disabled={submitting} aria-invalid={Boolean(fieldErrors.name)} onChange={(event) => changeName(event.target.value)} />{fieldErrors.name ? <span className="field-error">{fieldErrors.name}</span> : null}
+      <label htmlFor="application-subdomain">Subdomain</label><input id="application-subdomain" placeholder={t('applications.createApplication.examplePayments2')} value={subdomain} disabled={submitting} aria-invalid={Boolean(fieldErrors.subdomain)} onChange={(event) => { setSubdomainEdited(true); setSubdomain(event.target.value); }} />{fieldErrors.subdomain ? <span className="field-error">{fieldErrors.subdomain}</span> : null}<small>{t('applications.createApplication.suggestedFromTheApplicationName')}</small>
+      <div className="url-preview" role="group" aria-label={t('applications.createApplication.endpointToBeCreated')}><span>{t('applications.createApplication.endpointToBeCreated')}</span><strong>staging.{host}.{platformDomain}</strong><strong>{host}.{platformDomain}</strong></div>
+      <div className="form-actions"><Button type="button" onClick={() => navigate({ name: 'applications' })}>{t('applications.createApplication.cancel')}</Button><Button tone="primary" type="submit" disabled={submitting}>{submitting ? t('applications.createApplication.creatingApplication') : t('applications.createApplication.createApplication')}</Button></div>
     </form>
   </section>;
 }

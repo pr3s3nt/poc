@@ -18,6 +18,7 @@ import { draftToVariables, emptyVariableDraft, missingRequired, parseObjectText,
 import { provisionToRows, rowsToProvision, type ProvisionRow } from './typedProvision';
 import { GitModuleSource } from './GitModuleSource';
 import { listAccounts, typeLabel, type Account } from './accounts/accountsApi';
+import { t } from '../../shared/i18n';
 
 type APIApplication = { key: string; name?: string; environments?: ApiEnvironment[] };
 // The public Definition DTO (UC-03 V02-01): Name, version and Driver Account; no profile or Connection field.
@@ -25,7 +26,7 @@ type Definition = {
   key: string; name?: string; version?: number; resourceType: string; driverType: string; driverAccount?: string;
   driverInputs?: { values?: Record<string, unknown> }; provision?: Record<string, unknown>; criteria?: Partial<Criterion>[];
 };
-const driverLabels: Record<string, string> = { terraform: 'Terraform (module đã kiểm chứng)', kubernetes: 'Tạo trong cluster (Kubernetes)', 'existing-cluster': 'Cluster có sẵn (existing-cluster)' };
+const driverLabels: Record<string, string> = { terraform: t('platform.resourceDefinitions.terraformVerifiedModule'), kubernetes: t('platform.resourceDefinitions.createInClusterKubernetes'), 'existing-cluster': t('platform.resourceDefinitions.existingClusterExistingCluster') };
 const idShape = /^[a-z0-9-]+$/;
 const regionShape = /^[a-z]{2}(-[a-z]+)+-[0-9]{1,2}$/;
 const maxNameLength = 253;
@@ -49,24 +50,24 @@ type Review = { kind: 'stale' | 'unknown'; created?: string } | null;
 // Specific guidance comes from the stable error code; raw backend text is never shown.
 function describeFailure(reason: unknown, editing: boolean): string {
   if (!(reason instanceof ApiError)) return editing
-    ? 'Chưa nhận được phản hồi từ máy chủ nên chưa rõ thay đổi đã được lưu hay chưa. Console không tự gửi lại; hãy tải lại cấu hình để xem kết quả thực tế.'
-    : 'Chưa nhận được phản hồi từ máy chủ nên chưa rõ kết quả: cấu hình có thể đã được đăng ký. Hãy tải lại danh sách trước khi thử lại.';
+    ? t('platform.resourceDefinitions.noResponseFromTheServer')
+    : t('platform.resourceDefinitions.noResponseFromTheServer2');
   const field = fieldNote(reason.field);
   const specific = specificGuidance(reason.code, reason.message, reason.field);
-  if (specific) return `Máy chủ từ chối cấu hình. ${specific}`;
+  if (specific) return t('platform.resourceDefinitions.theServerRejectedTheDefinition', { specific });
   switch (reason.status) {
-    case 400: return `Máy chủ từ chối cấu hình này. Kiểm tra ID, Tên, module đã chọn, tài khoản, vùng, ánh xạ, Tham số cấu hình và Quy tắc tạo tài nguyên liên quan rồi thử lại. Dữ liệu đã nhập được giữ lại.${field}`;
-    case 401: return 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.';
-    case 403: return 'Bạn không có quyền đăng ký hoặc sửa cấu hình tài nguyên. Chỉ Kỹ sư nền tảng hoặc Quản trị viên được phép.';
-    case 404: return 'Không tìm thấy cấu hình này trong Tổ chức của bạn. Tải lại danh sách.';
-    case 409: return 'ID cấu hình đã tồn tại. Hãy đổi ID rồi thử lại.';
-    case 413: return 'Nội dung cấu hình quá lớn. Hãy rút gọn rồi thử lại.';
-    default: return 'Máy chủ gặp lỗi khi lưu cấu hình. Dữ liệu đã nhập được giữ lại; hãy tải lại trước khi thử lại.';
+    case 400: return t('platform.resourceDefinitions.theServerRejectedThisDefinition', { field });
+    case 401: return t('platform.resourceDefinitions.yourSessionHasExpiredPlease');
+    case 403: return t('platform.resourceDefinitions.youAreNotAllowedTo');
+    case 404: return t('platform.resourceDefinitions.thisDefinitionWasNotFound');
+    case 409: return t('platform.resourceDefinitions.theDefinitionIDAlreadyExists');
+    case 413: return t('platform.resourceDefinitions.theDefinitionContentIsToo');
+    default: return t('platform.resourceDefinitions.theServerFailedWhileSaving');
   }
 }
-const listFailure = () => 'Không tải được dữ liệu từ máy chủ.';
-const accountFailure = () => 'Không tải được danh sách tài khoản hạ tầng.';
-const capabilityFailure = () => 'Không tải được metadata module đã kiểm chứng từ máy chủ.';
+const listFailure = () => t('platform.resourceDefinitions.couldNotLoadDataFrom');
+const accountFailure = () => t('platform.resourceDefinitions.couldNotLoadTheInfrastructure');
+const capabilityFailure = () => t('platform.resourceDefinitions.couldNotLoadTheVerified');
 
 const loadTypes = async (): Promise<TypeContract[]> => parseTypeMetadata(await api<unknown>('/resource-types'));
 const loadDefinitions = async () => (await api<{ resourceDefinitions: Definition[] }>('/resource-definitions')).resourceDefinitions ?? [];
@@ -150,13 +151,13 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
 
   // The mapping as the server will receive it, from whichever mode is active.
   const mappingObject = (): { value?: { input_mapping: JsonObject; output_mapping: JsonObject; provider_bindings: JsonObject }; problem?: string } => {
-    if (!pin) return { problem: 'Chọn một module đã kiểm chứng.' };
+    if (!pin) return { problem: t('platform.resourceDefinitions.chooseAVerifiedModule') };
     if (draft.mapMode === 'typed') return { value: mappingToObject(draft.map, pin) };
-    const parsed = parseObjectText(draft.mapJSON, 'Ánh xạ module');
+    const parsed = parseObjectText(draft.mapJSON, t('platform.resourceDefinitions.moduleMapping'));
     if (!parsed.value) return { problem: parsed.error };
     const extra = Object.keys(parsed.value).find((name) => !['input_mapping', 'output_mapping', 'provider_bindings'].includes(name));
-    if (extra) return { problem: `Ánh xạ module chỉ nhận input_mapping, output_mapping và provider_bindings; không nhận "${extra}".` };
-    if (typeof parsed.value.provider_bindings !== 'object' || parsed.value.provider_bindings === null || Array.isArray(parsed.value.provider_bindings)) return { problem: 'Ánh xạ module cần provider_bindings là một JSON object.' };
+    if (extra) return { problem: t('platform.resourceDefinitions.theModuleMappingAcceptsOnly', { extra }) };
+    if (typeof parsed.value.provider_bindings !== 'object' || parsed.value.provider_bindings === null || Array.isArray(parsed.value.provider_bindings)) return { problem: t('platform.resourceDefinitions.theModuleMappingNeedsProvider') };
     return { value: { input_mapping: (parsed.value.input_mapping ?? {}) as JsonObject, output_mapping: (parsed.value.output_mapping ?? {}) as JsonObject, provider_bindings: parsed.value.provider_bindings as JsonObject } };
   };
   const currentMapping = pin ? mappingObject() : {};
@@ -178,8 +179,8 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
       patchDraft({ varMode: 'json', varsJSON: JSON.stringify(built.value, null, 2), varsNote: '' });
       return;
     }
-    const parsed = parseObjectText(draft.varsJSON, 'Tham số cấu hình');
-    if (!parsed.value) { patchDraft({ varsNote: `${parsed.error ?? ''} Sửa JSON trước khi chuyển sang biểu mẫu.` }); return; }
+    const parsed = parseObjectText(draft.varsJSON, t('platform.resourceDefinitions.definitionParameters'));
+    if (!parsed.value) { patchDraft({ varsNote: t('platform.resourceDefinitions.valueFixTheJSONBefore', { value: parsed.error ?? '' }) }); return; }
     const converted = variablesToDraft(parsed.value, variableList);
     if (!converted.draft) { patchDraft({ varsNote: converted.reason ?? '' }); return; }
     patchDraft({ varMode: 'typed', vars: converted.draft, varsNote: '' });
@@ -194,11 +195,11 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
       patchDraft({ mapMode: 'json', mapJSON: JSON.stringify(mappingToObject(draft.map, pin), null, 2), mapNote: '', provMode: 'json', provJSON: JSON.stringify(built.value, null, 2), provNote: '' });
       return;
     }
-    const parsed = parseObjectText(draft.mapJSON, 'Ánh xạ module');
+    const parsed = parseObjectText(draft.mapJSON, t('platform.resourceDefinitions.moduleMapping'));
     const mapping = parsed.value ? objectToMapping(parsed.value, pin, typeContract, clusterClasses) : undefined;
     const provision = provisionToRows(draft.provJSON);
     if (!mapping?.draft || !provision.rows) {
-      patchDraft({ mapNote: !parsed.value ? `${parsed.error ?? ''} Sửa JSON trước khi chuyển sang biểu mẫu.` : mapping?.reason ?? '', provNote: provision.reason ?? '' });
+      patchDraft({ mapNote: !parsed.value ? t('platform.resourceDefinitions.valueFixTheJSONBefore', { value: parsed.error ?? '' }) : mapping?.reason ?? '', provNote: provision.reason ?? '' });
       return;
     }
     patchDraft({ mapMode: 'typed', map: mapping.draft, mapNote: '', provMode: 'typed', rows: provision.rows, provNote: '' });
@@ -207,22 +208,22 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   // Every mode serializes to the same driverInputs.values / provision objects.
   function buildInputs(): { values?: Record<string, unknown>; provision?: Record<string, unknown>; problem?: string } {
     if (existingCluster && pin) {
-      const provision = draft.provMode === 'typed' ? rowsToProvision(draft.rows) : parseObjectText(draft.provJSON, 'Quy tắc tạo tài nguyên liên quan');
-      return provision.value ? { values: { variables: {} }, provision: provision.value } : { problem: 'Kiểm tra quy tắc tạo tài nguyên liên quan.' };
+      const provision = draft.provMode === 'typed' ? rowsToProvision(draft.rows) : parseObjectText(draft.provJSON, t('platform.resourceDefinitions.relatedResourceRules'));
+      return provision.value ? { values: { variables: {} }, provision: provision.value } : { problem: t('platform.resourceDefinitions.checkTheRelatedResourceRules') };
     }
-    if (!pin?.source) return { problem: 'Chọn một Loại tài nguyên có module đã kiểm chứng.' };
+    if (!pin?.source) return { problem: t('platform.resourceDefinitions.chooseAResourceTypeWith') };
     let variables: Record<string, unknown>, provision: Record<string, unknown>;
     if (draft.varMode === 'typed') {
       const built = draftToVariables(draft.vars, variableList);
       if (!built.value) return { problem: built.problem };
       variables = built.value;
     } else {
-      const parsed = parseObjectText(draft.varsJSON, 'Tham số cấu hình');
+      const parsed = parseObjectText(draft.varsJSON, t('platform.resourceDefinitions.definitionParameters'));
       if (!parsed.value) return { problem: parsed.error };
       variables = parsed.value;
     }
     if (accountRequired) {
-      if (Object.hasOwn(variables, regionName)) return { problem: `Vùng AWS nhập ở ô “Vùng AWS”, không nhập trong Tham số cấu hình (${regionName}).` };
+      if (Object.hasOwn(variables, regionName)) return { problem: t('platform.resourceDefinitions.enterTheAWSRegionIn', { regionName }) };
       if (chosenRegion !== '') variables = { ...variables, [regionName]: chosenRegion };
     }
     const mapping = mappingObject();
@@ -232,7 +233,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
       if (!built.value) return { problem: built.problem };
       provision = built.value;
     } else {
-      const parsed = parseObjectText(draft.provJSON, 'Quy tắc tạo tài nguyên liên quan');
+      const parsed = parseObjectText(draft.provJSON, t('platform.resourceDefinitions.relatedResourceRules'));
       if (!parsed.value) return { problem: parsed.error };
       provision = parsed.value;
     }
@@ -242,25 +243,25 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
 
   // Guidance before the request; the server checks the same rules again.
   function guidance(): string {
-    if (existingCluster && !pin) return 'Chưa xác nhận được hỗ trợ cluster có sẵn từ máy chủ. Tải lại metadata rồi thử lại.';
-    if (!pin) return metadataReady ? 'Chọn một Loại tài nguyên và module đã kiểm chứng.' : 'Chưa xác nhận được module đã kiểm chứng từ máy chủ. Tải lại metadata rồi thử lại.';
-    if (!typesReady || !typeContract) return 'Chưa tải được hợp đồng của Loại tài nguyên. Tải lại rồi thử lại.';
-    if (accountRequired && chosenAccount === '') return `Chọn tài khoản ${typeLabel(pin.account.type ?? '')} sẵn sàng cho cấu hình này.`;
-    if (regionRequired && !regionShape.test(chosenRegion)) return 'Nhập vùng AWS là một chuỗi literal hợp lệ, ví dụ ap-southeast-1 (không dùng placeholder).';
+    if (existingCluster && !pin) return t('platform.resourceDefinitions.existingClusterSupportCouldNot');
+    if (!pin) return metadataReady ? t('platform.resourceDefinitions.chooseAResourceTypeAnd') : t('platform.resourceDefinitions.theVerifiedModuleCouldNot');
+    if (!typesReady || !typeContract) return t('platform.resourceDefinitions.couldNotLoadTheResource');
+    if (accountRequired && chosenAccount === '') return t('platform.resourceDefinitions.chooseAReadyTypeLabelAccount', { typeLabel: typeLabel(pin.account.type ?? '') });
+    if (regionRequired && !regionShape.test(chosenRegion)) return t('platform.resourceDefinitions.enterTheAWSRegionAs');
     if (existingCluster) return '';
     if (draft.mapMode === 'typed') {
       const problem = mappingProblems(draft.map, pin, typeContract)[0];
       if (problem) return problem.message;
     }
     if (draft.mapMode === 'json') {
-      const parsed = parseObjectText(draft.mapJSON, 'Ánh xạ module');
+      const parsed = parseObjectText(draft.mapJSON, t('platform.resourceDefinitions.moduleMapping'));
       const bindings = parsed.value && isObject(parsed.value.provider_bindings) ? parsed.value.provider_bindings : {};
       for (const binding of Object.values(bindings)) {
-        if (isObject(binding) && binding.target === 'environment') return 'Binding Kubernetes tới Môi trường đã ngừng hỗ trợ. Chọn tài nguyên cluster làm đích provider.';
+        if (isObject(binding) && binding.target === 'environment') return t('platform.resourceDefinitions.kubernetesBindingsToAnEnvironment');
       }
     }
     const uncovered = missingRequired(draft.vars, variableList, covered).map((variable) => variable.name);
-    if (draft.varMode === 'typed' && uncovered.length > 0) return `Cần nhập trước khi lưu: ${uncovered.join(', ')} (bắt buộc, không có mặc định và không được tham số của Loại cung cấp).`;
+    if (draft.varMode === 'typed' && uncovered.length > 0) return t('platform.resourceDefinitions.requiredBeforeSavingUncoveredRequired', { uncovered: uncovered.join(', ') });
     return '';
   }
 
@@ -296,7 +297,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
       // Nothing of the old module configuration is guessed or carried over: the author must pick a verified module explicitly before Save.
       setKey(definition.key); setName(definition.name ?? ''); setResourceType(definition.resourceType); setPinChoice(''); setDrafts({}); setCriteriaDraft(draftFromCriteria(definition.criteria));
       setEditing({ key: definition.key, version: definition.version ?? 0 }); setSourceLost(true);
-      setError('Module Terraform của cấu hình này không còn nằm trong metadata đã kiểm chứng của máy chủ. Cấu hình module cũ không được giữ lại; hãy chọn module đã kiểm chứng và nhập lại ánh xạ trước khi lưu.');
+      setError(t('platform.resourceDefinitions.theTerraformModuleOfThis'));
 
       return;
     }
@@ -338,17 +339,17 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
     const target = review?.created ?? editing?.key;
     if (!target) return;
     let latest: Definition | undefined;
-    try { latest = (await loadDefinitions()).find((definition) => definition.key === target); } catch { setError('Chưa tải lại được cấu hình từ máy chủ. Bản nháp của bạn vẫn được giữ; hãy thử lại.'); return; }
+    try { latest = (await loadDefinitions()).find((definition) => definition.key === target); } catch { setError(t('platform.resourceDefinitions.couldNotReloadTheDefinition')); return; }
     void definitionList.reload();
     if (review?.created) {
-      if (!latest) { setReview(null); setError(''); setNotice(`Máy chủ không có cấu hình ${target}: lần đăng ký trước không được lưu. Bản nháp được giữ; bạn có thể đăng ký lại.`); return; }
+      if (!latest) { setReview(null); setError(''); setNotice(t('platform.resourceDefinitions.theServerHasNoDefinition', { target })); return; }
       startEdit(latest);
-      setNotice(`Cấu hình ${target} đã có trên máy chủ (lần đăng ký trước đã được lưu). Đang mở bản đã lưu để xem lại; Console không gửi lại.`);
+      setNotice(t('platform.resourceDefinitions.definitionTargetExistsOnThe', { target }));
       return;
     }
-    if (!latest) { setError('Cấu hình này không còn trong danh sách của máy chủ. Bản nháp của bạn vẫn được giữ.'); return; }
+    if (!latest) { setError(t('platform.resourceDefinitions.thisDefinitionIsNoLonger')); return; }
     startEdit(latest);
-    setNotice('Đã tải lại bản mới nhất từ máy chủ; bản nháp trước đó đã được thay thế.');
+    setNotice(t('platform.resourceDefinitions.theLatestVersionWasReloaded'));
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -356,10 +357,10 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
     if (saving || review) return;
     setError(''); setIdError(''); setNameError(''); setNotice('');
     // The backend owns the ID rule (UC-02 BR-05); the ID is checked, never changed.
-    if (key === '') { setTab('configuration'); setIdError('Nhập ID cấu hình.'); return; }
-    if (!idShape.test(key)) { setTab('configuration'); setIdError('ID chỉ gồm chữ thường a-z, số 0-9 và dấu gạch ngang. ID không được tự sửa hộ.'); return; }
-    if (name.trim() === '') { setTab('configuration'); setNameError('Nhập Tên hiển thị của cấu hình.'); return; }
-    if ([...name].length > maxNameLength) { setTab('configuration'); setNameError(`Tên tối đa ${maxNameLength} ký tự.`); return; }
+    if (key === '') { setTab('configuration'); setIdError(t('platform.resourceDefinitions.enterADefinitionID')); return; }
+    if (!idShape.test(key)) { setTab('configuration'); setIdError(t('platform.resourceDefinitions.theIDMayContainOnly')); return; }
+    if (name.trim() === '') { setTab('configuration'); setNameError(t('platform.resourceDefinitions.enterTheDisplayNameOf')); return; }
+    if ([...name].length > maxNameLength) { setTab('configuration'); setNameError(t('platform.resourceDefinitions.theNameCanHaveAt', { maxNameLength })); return; }
     const blocked = guidance();
     if (blocked) { setTab('configuration'); setAdvancedOpen(true); setError(blocked); return; }
     const inputs = buildInputs();
@@ -384,7 +385,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
       }
       // Committed: stay on the edited Definition at its new version; the list reload is a separate, retryable GET.
       setEditing({ key: saved.key, version: saved.version ?? editing.version + 1 });
-      setNotice(`Đã lưu cấu hình ${saved.key} (phiên bản ${saved.version ?? editing.version + 1}). Chỉ Xem trước và Triển khai mới dùng cấu hình mới; tài nguyên đã triển khai và snapshot cũ không đổi.`);
+      setNotice(t('platform.resourceDefinitions.savedDefinitionKeyVersionValue', { key: saved.key, value: saved.version ?? editing.version + 1 }));
       setSaving(false);
       // Definition criteria change the server-computed Resource Type classes.
       await Promise.all([definitionList.reload(), typeList.reload(), capabilityList.reload()]);
@@ -399,16 +400,16 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
       return;
     }
     // Committed: report it and reset the submitted pin's draft before reloading.
-    setNotice(`Đã đăng ký cấu hình tài nguyên ${submitted}.`); setSourceMode('git'); setGitPin(null); setGitDraftVersion((version) => version + 1); setClusterMethod('terraform');
+    setNotice(t('platform.resourceDefinitions.registeredResourceDefinitionSubmitted', { submitted })); setSourceMode('git'); setGitPin(null); setGitDraftVersion((version) => version + 1); setClusterMethod('terraform');
     setKey(''); setName(''); setDrafts((current) => { const next = { ...current }; delete next[submittedDraft]; return next; }); setCriteriaDraft(emptyDraft()); setSaving(false);
     await Promise.all([definitionList.reload(), typeList.reload(), capabilityList.reload()]);
   }
 
   // Full unsaved candidate for the exact matching preview: same shape as the save request, built without side effects.
   const matching = ((): MatchingCandidateInput => {
-    if (key === '' || !idShape.test(key)) return { definition: null, problem: 'Nhập ID cấu hình hợp lệ để kiểm tra matching chính xác.' };
-    if (!pin) return { definition: null, problem: 'Chọn Loại tài nguyên và module đã kiểm chứng để kiểm tra matching chính xác.' };
-    if (existingCluster && !chosenAccount) return { definition: null, problem: 'Chọn tài khoản Internal để kiểm tra matching chính xác.' };
+    if (key === '' || !idShape.test(key)) return { definition: null, problem: t('platform.resourceDefinitions.enterAValidDefinitionID') };
+    if (!pin) return { definition: null, problem: t('platform.resourceDefinitions.chooseAResourceTypeAnd2') };
+    if (existingCluster && !chosenAccount) return { definition: null, problem: t('platform.resourceDefinitions.chooseAnInternalAccountTo') };
     const inputs = buildInputs();
     if (!inputs.values || !inputs.provision) return { definition: null, problem: inputs.problem ?? '' };
     const { criteria, problem } = draftToCriteria(criteriaDraft);
@@ -419,7 +420,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   const previewScope = `accounts:${accountList.loading ? 'loading' : accountList.loadError ? 'error' : JSON.stringify(accountList.items.map((account) => [account.key, account.status, account.version]))}|editing:${editing ? `${editing.key}@${editing.version}` : ''}`;
 
   const listError = definitionList.loadError;
-  const typeOptionLabel = (typeKey: string) => (capabilityList.loading ? `${typeKey} (đang kiểm tra hỗ trợ…)` : capabilityList.loadError ? `${typeKey} (chưa xác nhận hỗ trợ)` : supportedType(typeKey) ? typeKey : `${typeKey} (chưa có module đã kiểm chứng)`);
+  const typeOptionLabel = (typeKey: string) => (capabilityList.loading ? t('platform.resourceDefinitions.typeKeyCheckingSupport', { typeKey }) : capabilityList.loadError ? t('platform.resourceDefinitions.typeKeySupportNotConfirmed', { typeKey }) : supportedType(typeKey) ? typeKey : t('platform.resourceDefinitions.typeKeyNoVerifiedModule', { typeKey }));
   const problems = pin && draft.mapMode === 'typed' ? mappingProblems(draft.map, pin, typeContract) : [];
   const accountName = (accountKey: string) => { const account = accountList.items.find((item) => item.key === accountKey); return account ? accountLabel(account) : accountKey; };
   const reviewInputs = buildInputs();
@@ -429,108 +430,108 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   const saveDisabled = saving || types.length === 0 || !metadataReady || review !== null || (!existingCluster && sourceMode === 'git' && !gitPin);
 
   const identityFields = <>
-<div className={`field-grid definition-identity-fields${editing ? ' definition-edit-identity' : ''}`}><label>ID cấu hình (Definition ID)<input value={key} tabIndex={editing ? -1 : undefined} readOnly={editing !== null} aria-readonly={editing !== null ? true : undefined} aria-required="true" aria-invalid={idError ? true : undefined} aria-describedby={idError ? 'definition-id-hint definition-id-error' : 'definition-id-hint'} onChange={(event) => { setKey(event.target.value); setIdError(''); }} /></label>
-          <label>Tên hiển thị<input value={name} maxLength={maxNameLength} aria-required="true" aria-invalid={nameError ? true : undefined} aria-describedby={nameError ? 'definition-name-error' : undefined} onChange={(event) => { setName(event.target.value); setNameError(''); }} /></label>
-          <label>Loại tài nguyên<select value={resourceType} aria-required="true" disabled={editing !== null} onChange={(event) => { setResourceType(event.target.value); setPinChoice(''); setClusterMethod('terraform'); }}><option value="">{typeList.loading && types.length === 0 ? 'Đang tải loại tài nguyên…' : 'Chọn loại tài nguyên'}</option>{types.map((type) => <option key={type.key} value={type.key} disabled={!typesReady || !metadataReady}>{typeOptionLabel(type.key)}</option>)}</select></label></div>
-        <details className="definition-help"><summary>Về ID và Tên hiển thị</summary><p id="definition-id-hint" className="feature-note">ID cấu hình là tên kỹ thuật của cấu hình này: chữ thường, số và dấu gạch ngang, không đổi sau khi tạo và không được tự sửa hộ. Đây khác với ID tài nguyên (<code>res_id</code>) dùng trong điều kiện áp dụng bên dưới. Tên hiển thị là chữ tự do (tối đa {maxNameLength} ký tự) và sửa được.</p></details>
+<div className={`field-grid definition-identity-fields${editing ? ' definition-edit-identity' : ''}`}><label>{t('platform.resourceDefinitions.definitionID')}<input value={key} tabIndex={editing ? -1 : undefined} readOnly={editing !== null} aria-readonly={editing !== null ? true : undefined} aria-required="true" aria-invalid={idError ? true : undefined} aria-describedby={idError ? 'definition-id-hint definition-id-error' : 'definition-id-hint'} onChange={(event) => { setKey(event.target.value); setIdError(''); }} /></label>
+          <label>{t('platform.resourceDefinitions.displayName')}<input value={name} maxLength={maxNameLength} aria-required="true" aria-invalid={nameError ? true : undefined} aria-describedby={nameError ? 'definition-name-error' : undefined} onChange={(event) => { setName(event.target.value); setNameError(''); }} /></label>
+          <label>{t('platform.resourceDefinitions.resourceType')}<select value={resourceType} aria-required="true" disabled={editing !== null} onChange={(event) => { setResourceType(event.target.value); setPinChoice(''); setClusterMethod('terraform'); }}><option value="">{typeList.loading && types.length === 0 ? t('platform.resourceDefinitions.loadingResourceTypes') : t('platform.resourceDefinitions.chooseAResourceType')}</option>{types.map((type) => <option key={type.key} value={type.key} disabled={!typesReady || !metadataReady}>{typeOptionLabel(type.key)}</option>)}</select></label></div>
+        <details className="definition-help"><summary>{t('platform.resourceDefinitions.aboutTheIDAndDisplay')}</summary><p id="definition-id-hint" className="feature-note">{t('platform.resourceDefinitions.theDefinitionIDIsThe')}<code>res_id</code>{t('platform.resourceDefinitions.usedInTheMatchingCriteria')}{' '} {maxNameLength} {' '}{t('platform.resourceDefinitions.charactersAndCanBeEdited')}</p></details>
         {idError ? <div id="definition-id-error" className="form-error" role="alert">{idError}</div> : null}
         {nameError ? <div id="definition-name-error" className="form-error" role="alert">{nameError}</div> : null}
   </>;
 
   return <section className={`page definition-page definition-view-${view}`}>
     <div hidden={view !== 'catalog'}>
-    <header className="page-header"><div><p className="eyebrow">Nền tảng</p><h1>Cấu hình tài nguyên</h1><p>Quản lý cách tạo tài nguyên và nơi áp dụng từng cấu hình.</p></div><div className="form-actions">{editing || key || name ? <Button type="button" onClick={() => setView('editor')}>Tiếp tục bản nháp</Button> : null}<Button type="button" tone="primary" onClick={() => { if (editing) resetForm(); setNotice(''); setView('editor'); }}>Tạo cấu hình</Button></div></header>
-    <section className="content-panel"><div className="section-header"><h2>Cấu hình đã đăng ký</h2></div>{listError ? <div className="form-error" role="alert" aria-label="Lỗi tải danh sách">{listError} <Button type="button" onClick={() => { void definitionList.reload(); }}>Thử lại</Button></div> : definitionList.loading && definitionList.items.length === 0 ? <p>Đang tải danh sách cấu hình tài nguyên…</p> : definitions.length === 0 ? <p>Chưa có cấu hình tài nguyên nào.</p> : <div className="catalog-list">{definitions.map((definition) => <div key={definition.key} className="catalog-entry" data-definition={definition.key}><strong>{definition.name || definition.key}</strong><span>ID <code>{definition.key}</code> · {definition.resourceType} · {own(driverLabels, definition.driverType) ?? definition.driverType}{definition.driverAccount ? ` · tài khoản ${accountName(definition.driverAccount)}` : ''} · phiên bản {definition.version ?? '?'} · {definition.criteria?.length ?? 0} điều kiện áp dụng</span>
-      {definition.key !== 'builtin-existing-cluster' ? <Button type="button" aria-label={`Sửa cấu hình ${definition.key}`} disabled={saving || !metadataReady || !typesReady} onClick={() => startEdit(definition)}>Sửa</Button> : null}</div>)}</div>}</section>
+    <header className="page-header"><div><p className="eyebrow">{t('platform.resourceDefinitions.platform')}</p><h1>{t('platform.resourceDefinitions.resourceDefinitions')}</h1><p>{t('platform.resourceDefinitions.manageHowResourcesAreCreated')}</p></div><div className="form-actions">{editing || key || name ? <Button type="button" onClick={() => setView('editor')}>{t('platform.resourceDefinitions.continueDraft')}</Button> : null}<Button type="button" tone="primary" onClick={() => { if (editing) resetForm(); setNotice(''); setView('editor'); }}>{t('platform.resourceDefinitions.createDefinition')}</Button></div></header>
+    <section className="content-panel"><div className="section-header"><h2>{t('platform.resourceDefinitions.registeredDefinitions')}</h2></div>{listError ? <div className="form-error" role="alert" aria-label={t('platform.resourceDefinitions.listLoadError')}>{listError} <Button type="button" onClick={() => { void definitionList.reload(); }}>{t('platform.resourceDefinitions.retry')}</Button></div> : definitionList.loading && definitionList.items.length === 0 ? <p>{t('platform.resourceDefinitions.loadingResourceDefinitions')}</p> : definitions.length === 0 ? <p>{t('platform.resourceDefinitions.noResourceDefinitionsYet')}</p> : <div className="catalog-list">{definitions.map((definition) => <div key={definition.key} className="catalog-entry" data-definition={definition.key}><strong>{definition.name || definition.key}</strong><span>ID <code>{definition.key}</code> · {definition.resourceType} · {own(driverLabels, definition.driverType) ?? definition.driverType}{definition.driverAccount ? t('platform.resourceDefinitions.accountAccountName', { accountName: accountName(definition.driverAccount) }) : ''} {' '}{t('platform.resourceDefinitions.version')}{' '} {definition.version ?? '?'} · {definition.criteria?.length ?? 0} {' '}{t('platform.resourceDefinitions.matchingCriteria')}</span>
+      {definition.key !== 'builtin-existing-cluster' ? <Button type="button" aria-label={t('platform.resourceDefinitions.editDefinitionKey', { key: definition.key })} disabled={saving || !metadataReady || !typesReady} onClick={() => startEdit(definition)}>{t('platform.resourceDefinitions.edit')}</Button> : null}</div>)}</div>}</section>
     </div>
-    <section className="definition-detail" hidden={view !== 'editor'} ref={formRef} aria-label={editing ? 'Sửa cấu hình tài nguyên' : 'Đăng ký cấu hình tài nguyên'}>
-      <nav className="definition-breadcrumb" aria-label="Đường dẫn cấu hình"><span>Nền tảng</span><span>/</span><button type="button" disabled={saving} onClick={() => { setView('catalog'); }}>Cấu hình tài nguyên</button><span>/</span><span>{editing?.key || 'Tạo mới'}</span></nav>
-      <header className="definition-heading"><div><h1>{name || (editing ? editing.key : 'Cấu hình tài nguyên mới')} {pin ? <span className="definition-driver">{existingCluster ? 'Cluster có sẵn' : 'Terraform'}</span> : null}</h1><p>{key || 'Bản nháp mới'} <span>/</span> Loại tài nguyên: {resourceType || 'Chưa chọn'}</p></div>{editing ? <span className="definition-version">Phiên bản {editing.version}</span> : null}</header>
-      <h2 className="definition-sr-only">{editing ? `Sửa cấu hình ${editing.key}` : 'Đăng ký cấu hình tài nguyên'}</h2>
-      {view === 'editor' && listError ? <div className="form-error" role="alert" aria-label="Lỗi tải danh sách">{listError} <Button type="button" onClick={() => { void definitionList.reload(); }}>Thử lại</Button></div> : null}
-      {review ? <div className="form-warning" role="alert" aria-label="Cần tải lại cấu hình">
-        <p>{review.kind === 'stale' ? 'Cấu hình đã được người khác thay đổi kể từ lần bạn tải (phiên bản không còn khớp). Chưa có gì bị ghi đè. Bản nháp của bạn vẫn được giữ trên màn hình.' : review.created ? 'Chưa biết lần đăng ký đã được lưu hay chưa. Console không tự gửi lại.' : 'Chưa biết thay đổi đã được lưu hay chưa. Console không tự gửi lại.'}</p>
-        <p>{review.created ? 'Hãy kiểm tra trên máy chủ: nếu cấu hình đã có thì mở bản đã lưu, nếu chưa có thì bản nháp được giữ để bạn đăng ký lại. Nút Đăng ký tạm tắt cho đến khi kiểm tra.' : 'Hãy tải lại bản mới nhất, xem lại rồi lưu lại tường minh. Nút Lưu tạm tắt cho đến khi tải lại.'}</p>
-        <div className="form-actions"><Button type="button" onClick={() => { void definitionList.reload(); }}>Tải lại danh sách</Button><Button type="button" tone="primary" onClick={() => { void reloadLatest(); }}>{review.created ? 'Kiểm tra trên máy chủ' : 'Tải lại bản mới nhất'}</Button></div></div> : null}
+    <section className="definition-detail" hidden={view !== 'editor'} ref={formRef} aria-label={editing ? t('platform.resourceDefinitions.editResourceDefinition') : t('platform.resourceDefinitions.registerResourceDefinition')}>
+      <nav className="definition-breadcrumb" aria-label={t('platform.resourceDefinitions.definitionPath')}><span>{t('platform.resourceDefinitions.platform')}</span><span>/</span><button type="button" disabled={saving} onClick={() => { setView('catalog'); }}>{t('platform.resourceDefinitions.resourceDefinitions')}</button><span>/</span><span>{editing?.key || t('platform.resourceDefinitions.create')}</span></nav>
+      <header className="definition-heading"><div><h1>{name || (editing ? editing.key : t('platform.resourceDefinitions.newResourceDefinition'))} {pin ? <span className="definition-driver">{existingCluster ? t('platform.resourceDefinitions.existingCluster') : 'Terraform'}</span> : null}</h1><p>{key || t('platform.resourceDefinitions.newDraft')} <span>/</span> {' '}{t('platform.resourceDefinitions.resourceType2')}{' '} {resourceType || t('platform.resourceDefinitions.notSelected')}</p></div>{editing ? <span className="definition-version">{t('platform.resourceDefinitions.versionVersion', { version: editing.version })}</span> : null}</header>
+      <h2 className="definition-sr-only">{editing ? t('platform.resourceDefinitions.editDefinitionKey', { key: editing.key }) : t('platform.resourceDefinitions.registerResourceDefinition')}</h2>
+      {view === 'editor' && listError ? <div className="form-error" role="alert" aria-label={t('platform.resourceDefinitions.listLoadError')}>{listError} <Button type="button" onClick={() => { void definitionList.reload(); }}>{t('platform.resourceDefinitions.retry')}</Button></div> : null}
+      {review ? <div className="form-warning" role="alert" aria-label={t('platform.resourceDefinitions.definitionNeedsReloading')}>
+        <p>{review.kind === 'stale' ? t('platform.resourceDefinitions.theDefinitionWasChangedBy') : review.created ? t('platform.resourceDefinitions.itIsUnknownWhetherThe') : t('platform.resourceDefinitions.itIsUnknownWhetherThe2')}</p>
+        <p>{review.created ? t('platform.resourceDefinitions.checkOnTheServerIf') : t('platform.resourceDefinitions.reloadTheLatestVersionReview')}</p>
+        <div className="form-actions"><Button type="button" onClick={() => { void definitionList.reload(); }}>{t('platform.resourceDefinitions.reloadList')}</Button><Button type="button" tone="primary" onClick={() => { void reloadLatest(); }}>{review.created ? t('platform.resourceDefinitions.checkOnServer') : t('platform.resourceDefinitions.reloadLatestVersion')}</Button></div></div> : null}
       <form onSubmit={submit} noValidate><fieldset className="editor-grid form-fieldset" disabled={saving} aria-busy={saving}>
-        {typeList.loadError ? <div className="form-error" role="alert" aria-label="Lỗi tải loại tài nguyên">Không tải được loại tài nguyên. Dữ liệu đã nhập được giữ nguyên. <Button type="button" onClick={() => { void typeList.reload(); }}>Thử lại</Button></div> : null}
-        {capabilityList.loading ? <p role="status" className="feature-note">Đang tải metadata module đã kiểm chứng…</p> : null}
-        {capabilityList.loadError ? <div className="form-error" role="alert" aria-label="Lỗi tải metadata module">{capabilityList.loadError} Chưa chọn được module và chưa lưu được; dữ liệu đã nhập được giữ nguyên. <Button type="button" onClick={() => { void capabilityList.reload(); }}>Thử lại</Button></div> : null}
-        <div className="tabs definition-tabs" role="tablist" aria-label="Tác vụ cấu hình tài nguyên">
+        {typeList.loadError ? <div className="form-error" role="alert" aria-label={t('platform.resourceDefinitions.resourceTypeLoadError')}>{t('platform.resourceDefinitions.couldNotLoadResourceTypes')}{' '} <Button type="button" onClick={() => { void typeList.reload(); }}>{t('platform.resourceDefinitions.retry')}</Button></div> : null}
+        {capabilityList.loading ? <p role="status" className="feature-note">{t('platform.resourceDefinitions.loadingVerifiedModuleMetadata')}</p> : null}
+        {capabilityList.loadError ? <div className="form-error" role="alert" aria-label={t('platform.resourceDefinitions.moduleMetadataLoadError')}>{capabilityList.loadError} {' '}{t('platform.resourceDefinitions.noModuleCanBeChosen')}{' '} <Button type="button" onClick={() => { void capabilityList.reload(); }}>{t('platform.resourceDefinitions.retry')}</Button></div> : null}
+        <div className="tabs definition-tabs" role="tablist" aria-label={t('platform.resourceDefinitions.resourceDefinitionTasks')}>
           {(['configuration', 'criteria'] as const).map((value) => <button key={value} type="button" role="tab" id={`${tabId}-${value}-tab`} aria-controls={`${tabId}-${value}-panel`} aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} className={`tab ${tab === value ? 'tab-active' : ''}`} onClick={() => setTab(value)} onKeyDown={(event) => {
             if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
             event.preventDefault();
             const next = event.key === 'Home' ? 'configuration' : event.key === 'End' ? 'criteria' : value === 'configuration' ? 'criteria' : 'configuration';
             setTab(next); document.getElementById(`${tabId}-${next}-tab`)?.focus();
-          }}>{value === 'configuration' ? 'Cấu hình' : `Điều kiện áp dụng (${criteriaDraft.rows.length})`}</button>)}
+          }}>{value === 'configuration' ? t('platform.resourceDefinitions.definition') : t('platform.resourceDefinitions.matchingCriteriaCount', { count: criteriaDraft.rows.length })}</button>)}
         </div>
         <div role="tabpanel" id={`${tabId}-configuration-panel`} aria-labelledby={`${tabId}-configuration-tab`} hidden={tab !== 'configuration'} className="definition-configuration">
-        <div className="definition-tab-intro"><h2>Cách tạo tài nguyên</h2><p>Chọn cách cung cấp tài nguyên, tài khoản và các thông số cần thiết.</p></div>
+        <div className="definition-tab-intro"><h2>{t('platform.resourceDefinitions.provisioningMethod')}</h2><p>{t('platform.resourceDefinitions.chooseHowTheResourceIs')}</p></div>
         <div className="definition-layout"><div className="definition-main">
-        {!editing ? <section className="definition-card definition-create-identity" aria-label="Thông tin cấu hình">{identityFields}</section> : null}
-        {resourceType === clusterType ? <section className="definition-card"><label>Cách cung cấp cluster<select value={clusterMethod} onChange={(event) => setClusterMethod(event.target.value as 'terraform' | 'existing-cluster')}><option value="terraform">Tạo cluster bằng Terraform</option><option value="existing-cluster" disabled={!existingCapability}>Dùng cluster có sẵn</option></select></label></section> : null}
-        {existingCluster ? <section className="definition-card"><h3>Cluster có sẵn</h3><p>Chọn tài khoản Internal đã đăng ký và xác minh ở trang Tài khoản hạ tầng. Điều kiện áp dụng quyết định khi nào dùng cluster này; namespace và workload kế thừa tài khoản qua tham chiếu. Cluster có sẵn không bao giờ bị tạo hay xóa.</p></section> : null}
-        <section hidden={existingCluster} className="definition-card definition-module" aria-label="Module Terraform"><div className="definition-card-title"><span className="definition-step">1</span><h3>Module Terraform</h3>{pin ? <span className="definition-verified">✓ Đã xác minh</span> : null}</div>
-        <div className="definition-segmented" role="group" aria-label="Nguồn module Terraform"><Button type="button" aria-pressed={sourceMode === 'git'} onClick={() => setSourceMode('git')}>Thêm từ Git</Button><Button type="button" aria-pressed={sourceMode === 'installed'} onClick={() => setSourceMode('installed')}>Module đã đăng ký</Button></div>
+        {!editing ? <section className="definition-card definition-create-identity" aria-label={t('platform.resourceDefinitions.definitionDetails')}>{identityFields}</section> : null}
+        {resourceType === clusterType ? <section className="definition-card"><label>{t('platform.resourceDefinitions.clusterProvisioning')}<select value={clusterMethod} onChange={(event) => setClusterMethod(event.target.value as 'terraform' | 'existing-cluster')}><option value="terraform">{t('platform.resourceDefinitions.createAClusterWithTerraform')}</option><option value="existing-cluster" disabled={!existingCapability}>{t('platform.resourceDefinitions.useAnExistingCluster')}</option></select></label></section> : null}
+        {existingCluster ? <section className="definition-card"><h3>{t('platform.resourceDefinitions.existingCluster')}</h3><p>{t('platform.resourceDefinitions.chooseAnInternalAccountRegistered')}</p></section> : null}
+        <section hidden={existingCluster} className="definition-card definition-module" aria-label={t('platform.resourceDefinitions.terraformModule')}><div className="definition-card-title"><span className="definition-step">1</span><h3>{t('platform.resourceDefinitions.terraformModule')}</h3>{pin ? <span className="definition-verified">{t('platform.resourceDefinitions.verified')}</span> : null}</div>
+        <div className="definition-segmented" role="group" aria-label={t('platform.resourceDefinitions.terraformModuleSource')}><Button type="button" aria-pressed={sourceMode === 'git'} onClick={() => setSourceMode('git')}>{t('platform.resourceDefinitions.addFromGit')}</Button><Button type="button" aria-pressed={sourceMode === 'installed'} onClick={() => setSourceMode('installed')}>{t('platform.resourceDefinitions.registeredModules')}</Button></div>
         <GitModuleSource key={gitDraftVersion} resourceType={resourceType} active={sourceMode === 'git'} disabled={saving || !typesReady || !metadataReady} onResult={setGitPin} />
-        <div className="field-grid"><label hidden={sourceMode === 'git'}>Module đã kiểm chứng<select value={pin ? capabilityKey(pin) : ''} aria-required="true" disabled={typePins.length <= 1 && !sourceLost} onChange={(event) => setPinChoice(event.target.value)}>
-            {typePins.length === 0 ? <option value="">Chưa chọn (cần chọn loại có module đã kiểm chứng)</option> : typePins.length > 1 || sourceLost ? <option value="">Chọn module và phiên bản</option> : null}
+        <div className="field-grid"><label hidden={sourceMode === 'git'}>{t('platform.resourceDefinitions.verifiedModules')}<select value={pin ? capabilityKey(pin) : ''} aria-required="true" disabled={typePins.length <= 1 && !sourceLost} onChange={(event) => setPinChoice(event.target.value)}>
+            {typePins.length === 0 ? <option value="">{t('platform.resourceDefinitions.notSelectedChooseAType')}</option> : typePins.length > 1 || sourceLost ? <option value="">{t('platform.resourceDefinitions.chooseAModuleAndVersion')}</option> : null}
             {typePins.map((candidate) => <option key={capabilityKey(candidate)} value={capabilityKey(candidate)}>{pinLabel(candidate)}</option>)}</select></label>
-          <label className="definition-sr-only">Driver Type<input aria-label="Driver Type" tabIndex={-1} readOnly value={pin ? own(driverLabels, pin.driverType) ?? pin.driverType : ''} placeholder="Theo module đã chọn" aria-describedby="driver-type-hint" /></label></div>
-        <p id="driver-type-hint" className="definition-sr-only">Driver Type lấy từ metadata của máy chủ theo module đã kiểm chứng; không tự suy từ tên Loại tài nguyên.</p>
-        {pin?.source ? <details><summary>Chi tiết kỹ thuật module</summary><dl className="pin-panel" aria-label="Pin module đã kiểm chứng">
-          <div><dt>Module</dt><dd><code>{pin.source.moduleId}</code></dd></div><div><dt>Nguồn</dt><dd><code>{pin.source.sourceId}</code></dd></div>
-          <div><dt>Git URL</dt><dd>{pin.source.repositoryUrl ?? 'Module nền tảng'}</dd></div><div><dt>Revision</dt><dd><code>{pin.source.revision}</code></dd></div><div><dt>Thư mục con</dt><dd><code>{pin.source.subdirectory}</code></dd></div>
-          <div><dt>SHA-256 nội dung</dt><dd><code>{pin.source.contentSha256}</code></dd></div>
-          <div><dt>Terraform</dt><dd>{pin.terraformVersion ?? 'không rõ'}</dd></div>
-          <div><dt>Provider</dt><dd>{pin.providerRequirements.map((provider) => `${provider.name} ${provider.version}`).join(', ') || 'không có'}</dd></div></dl></details> : null}
+          <label className="definition-sr-only">Driver Type<input aria-label="Driver Type" tabIndex={-1} readOnly value={pin ? own(driverLabels, pin.driverType) ?? pin.driverType : ''} placeholder={t('platform.resourceDefinitions.followsTheSelectedModule')} aria-describedby="driver-type-hint" /></label></div>
+        <p id="driver-type-hint" className="definition-sr-only">{t('platform.resourceDefinitions.theDriverTypeComesFrom')}</p>
+        {pin?.source ? <details><summary>{t('platform.resourceDefinitions.moduleTechnicalDetails')}</summary><dl className="pin-panel" aria-label={t('platform.resourceDefinitions.verifiedModulePin')}>
+          <div><dt>Module</dt><dd><code>{pin.source.moduleId}</code></dd></div><div><dt>{t('platform.resourceDefinitions.source')}</dt><dd><code>{pin.source.sourceId}</code></dd></div>
+          <div><dt>Git URL</dt><dd>{pin.source.repositoryUrl ?? t('platform.resourceDefinitions.platformModule')}</dd></div><div><dt>Revision</dt><dd><code>{pin.source.revision}</code></dd></div><div><dt>{t('platform.resourceDefinitions.subdirectory')}</dt><dd><code>{pin.source.subdirectory}</code></dd></div>
+          <div><dt>{t('platform.resourceDefinitions.contentSHA256')}</dt><dd><code>{pin.source.contentSha256}</code></dd></div>
+          <div><dt>Terraform</dt><dd>{pin.terraformVersion ?? t('platform.resourceDefinitions.unknown')}</dd></div>
+          <div><dt>Provider</dt><dd>{pin.providerRequirements.map((provider) => `${provider.name} ${provider.version}`).join(', ') || t('platform.resourceDefinitions.none')}</dd></div></dl></details> : null}
         </section>
-        <section className="definition-card definition-parameters"><div className="definition-card-title"><span className="definition-step">2</span><h3>Tài khoản &amp; thông số</h3></div>
+        <section className="definition-card definition-parameters"><div className="definition-card-title"><span className="definition-step">2</span><h3>{t('platform.resourceDefinitions.accountSettings')}</h3></div>
         {editing ? identityFields : null}
-        {pin ? <section className="catalog-fields connection-fields" aria-label="Kết nối hạ tầng">
-          <div className="section-header"><div><h3>Kết nối hạ tầng</h3><p className="feature-note">Chọn tài khoản hoặc nguồn truy cập mà module cần trước khi cung cấp thông số.</p></div></div>
+        {pin ? <section className="catalog-fields connection-fields" aria-label={t('platform.resourceDefinitions.infrastructureConnection')}>
+          <div className="section-header"><div><h3>{t('platform.resourceDefinitions.infrastructureConnection')}</h3><p className="feature-note">{t('platform.resourceDefinitions.chooseTheAccountOrAccess')}</p></div></div>
           <InfrastructureConnection capability={pin} accountRequired={accountRequired} accounts={{ items: accountList.items, loading: accountList.loading, error: accountList.loadError, reload: () => { void accountList.reload(); } }}
             account={chosenAccount} region={draft.region} regionRequired={regionRequired} onAccount={(value) => patchDraft({ account: value })} onRegion={(value) => patchDraft({ region: value })}
             mapping={draft.map} mappingEditable={draft.mapMode === 'typed'} clusterClasses={clusterClasses} onBinding={setBinding} problems={problems} disabled={saving} />
         </section> : null}
-        {pin && !existingCluster ? <section className="catalog-fields" aria-label="Tham số cấu hình">
-          <div className="section-header"><div><h3>Thông số tài nguyên</h3><details className="definition-help"><summary>Cách cung cấp giá trị</summary><p>Mỗi thông số chỉ được gửi khi bạn chọn một nguồn: giá trị nhập trực tiếp, ngữ cảnh triển khai hoặc output của tài nguyên khác. Thông số bỏ trống giữ mặc định của module hoặc giá trị từ Loại tài nguyên. Biểu thức được sinh tự động và chỉ hiện trong phần kỹ thuật. Không nhận credential hoặc tham chiếu bí mật.</p></details></div>
-            <div className="definition-segmented" role="group" aria-label="Cách nhập tham số"><Button type="button" aria-label="Tham số: biểu mẫu" aria-pressed={draft.varMode === 'typed'} onClick={() => switchVariables('typed')}>Biểu mẫu</Button><Button type="button" aria-label="Tham số: JSON nâng cao" aria-pressed={draft.varMode === 'json'} onClick={() => switchVariables('json')}>JSON nâng cao</Button></div></div>
+        {pin && !existingCluster ? <section className="catalog-fields" aria-label={t('platform.resourceDefinitions.definitionParameters')}>
+          <div className="section-header"><div><h3>{t('platform.resourceDefinitions.resourceSettings')}</h3><details className="definition-help"><summary>{t('platform.resourceDefinitions.howValuesAreProvided')}</summary><p>{t('platform.resourceDefinitions.eachSettingIsSentOnly')}</p></details></div>
+            <div className="definition-segmented" role="group" aria-label={t('platform.resourceDefinitions.parameterInputMode')}><Button type="button" aria-label={t('platform.resourceDefinitions.parametersForm')} aria-pressed={draft.varMode === 'typed'} onClick={() => switchVariables('typed')}>{t('platform.resourceDefinitions.form')}</Button><Button type="button" aria-label={t('platform.resourceDefinitions.parametersAdvancedJSON')} aria-pressed={draft.varMode === 'json'} onClick={() => switchVariables('json')}>{t('platform.resourceDefinitions.advancedJSON')}</Button></div></div>
           {draft.varsNote ? <div className="form-warning" role="note">{draft.varsNote}</div> : null}
-          {draft.varMode === 'typed' && missingRequired(draft.vars, variableList, covered).length > 0 ? <p className="feature-note">Cần nhập trước khi lưu (không có mặc định và không có tham số của Loại cung cấp): {missingRequired(draft.vars, variableList, covered).map((variable) => variable.name).join(', ')}. Máy chủ vẫn kiểm tra khi lưu.</p> : null}
+          {draft.varMode === 'typed' && missingRequired(draft.vars, variableList, covered).length > 0 ? <p className="feature-note">{t('platform.resourceDefinitions.requiredBeforeSavingNoDefault', { value: missingRequired(draft.vars, variableList, covered).map((variable) => variable.name).join(', ') })}</p> : null}
           {draft.varMode === 'typed' ? <ParameterSources variables={variableList} draft={draft.vars} onChange={(vars) => patchDraft({ vars })} executorOwned={pin.executorOwned} types={types} disabled={saving} mapped={mapped} covered={covered} />
-            : <>{pin.executorOwned.length > 0 ? <p className="feature-note">Hệ thống tự cung cấp, không có ô nhập: {pin.executorOwned.map((name) => <code key={name}>{name} </code>)}</p> : null}<label>Tham số cấu hình (JSON object)<textarea aria-label="Tham số cấu hình (JSON object)" value={draft.varsJSON} rows={6} spellCheck={false} aria-describedby="driver-variables-hint" onChange={(event) => patchDraft({ varsJSON: event.target.value, varsNote: '' })} /></label>
-              <p id="driver-variables-hint" className="feature-note">Chỉ nhận tham số mà module đã chọn khai báo, và giá trị literal phải đúng kiểu khai báo.{accountRequired ? ` Vùng AWS (${regionName}) nhập ở ô riêng, không nhập ở đây.` : ''} JSON hợp lệ vẫn được máy chủ kiểm tra nghiêm ngặt.</p></>}
+            : <>{pin.executorOwned.length > 0 ? <p className="feature-note">{t('platform.resourceDefinitions.providedByTheSystemNo')}{' '} {pin.executorOwned.map((name) => <code key={name}>{name} </code>)}</p> : null}<label>{t('platform.resourceDefinitions.definitionParametersJSONObject')}<textarea aria-label={t('platform.resourceDefinitions.definitionParametersJSONObject')} value={draft.varsJSON} rows={6} spellCheck={false} aria-describedby="driver-variables-hint" onChange={(event) => patchDraft({ varsJSON: event.target.value, varsNote: '' })} /></label>
+              <p id="driver-variables-hint" className="feature-note">{t('platform.resourceDefinitions.onlyParametersDeclaredByThe', { value: accountRequired ? t('platform.resourceDefinitions.theAWSRegionRegionNameIs', { regionName }) : '' })}</p></>}
         </section> : null}
         </section>
         {pin && !existingCluster ? <details className="definition-advanced" open={advancedOpen} onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}>
-          <summary>Thiết lập nâng cao · ánh xạ &amp; tài nguyên liên quan</summary>
-          <div className="definition-advanced-toolbar"><p className="feature-note">Chỉnh ánh xạ hoặc khai báo tài nguyên đi kèm.</p><div className="definition-segmented" role="group" aria-label="Cách nhập thiết lập nâng cao"><Button type="button" aria-label="Nâng cao: biểu mẫu" aria-pressed={draft.mapMode === 'typed'} onClick={() => switchAdvanced('typed')}>Biểu mẫu</Button><Button type="button" aria-label="Nâng cao: JSON nâng cao" aria-pressed={draft.mapMode === 'json'} onClick={() => switchAdvanced('json')}>JSON nâng cao</Button></div></div>
-        <section className="catalog-fields" aria-label="Ánh xạ module">
+          <summary>{t('platform.resourceDefinitions.advancedSettingsMappingRelatedResources')}</summary>
+          <div className="definition-advanced-toolbar"><p className="feature-note">{t('platform.resourceDefinitions.editTheMappingOrDeclare')}</p><div className="definition-segmented" role="group" aria-label={t('platform.resourceDefinitions.advancedSettingsInputMode')}><Button type="button" aria-label={t('platform.resourceDefinitions.advancedForm')} aria-pressed={draft.mapMode === 'typed'} onClick={() => switchAdvanced('typed')}>{t('platform.resourceDefinitions.form')}</Button><Button type="button" aria-label={t('platform.resourceDefinitions.advancedAdvancedJSON')} aria-pressed={draft.mapMode === 'json'} onClick={() => switchAdvanced('json')}>{t('platform.resourceDefinitions.advancedJSON')}</Button></div></div>
+        <section className="catalog-fields" aria-label={t('platform.resourceDefinitions.moduleMapping')}>
           {draft.mapNote ? <div className="form-warning" role="note">{draft.mapNote}</div> : null}
-          {!typeContract ? <p className="feature-note" role="status">Đang chờ hợp đồng của Loại tài nguyên.</p> : draft.mapMode === 'typed'
+          {!typeContract ? <p className="feature-note" role="status">{t('platform.resourceDefinitions.waitingForTheResourceType')}</p> : draft.mapMode === 'typed'
             ? <MappingEditor capability={pin} type={typeContract} draft={draft.map} onChange={(map) => patchDraft({ map })} problems={problems} disabled={saving} />
-            : <><label>Ánh xạ module (JSON object: input_mapping, output_mapping, provider_bindings)<textarea aria-label="Ánh xạ module JSON" value={draft.mapJSON} rows={8} spellCheck={false} onChange={(event) => patchDraft({ mapJSON: event.target.value, mapNote: '' })} /></label>
-              <p className="feature-note">JSON hợp lệ vẫn được máy chủ kiểm tra nghiêm ngặt: biến, output, kiểu và provider phải có trong module đã kiểm chứng; provider AWS dùng <code>{'{"target": "account"}'}</code>; không nhận endpoint hay credential.</p></>}
+            : <><label>{t('platform.resourceDefinitions.moduleMappingJSONObjectInput')}<textarea aria-label={t('platform.resourceDefinitions.moduleMappingJSON')} value={draft.mapJSON} rows={8} spellCheck={false} onChange={(event) => patchDraft({ mapJSON: event.target.value, mapNote: '' })} /></label>
+              <p className="feature-note">{t('platform.resourceDefinitions.validJSONIsStillChecked')}{' '} <code>{'{"target": "account"}'}</code>{t('platform.resourceDefinitions.endpointsAndCredentialsAreNot')}</p></>}
         </section>
-        <section className="catalog-fields" aria-label="Quy tắc tạo tài nguyên liên quan">
-          {draft.provMode === 'json' ? <div className="section-header"><div><h3>Tài nguyên đi kèm</h3><p className="feature-note">Khai báo thêm tài nguyên cần tạo cùng cấu hình này.</p></div></div> : null}
+        <section className="catalog-fields" aria-label={t('platform.resourceDefinitions.relatedResourceRules')}>
+          {draft.provMode === 'json' ? <div className="section-header"><div><h3>{t('platform.resourceDefinitions.companionResources')}</h3><p className="feature-note">{t('platform.resourceDefinitions.declareAdditionalResourcesToCreate')}</p></div></div> : null}
           {draft.provNote ? <div className="form-warning" role="note">{draft.provNote}</div> : null}
           {draft.provMode === 'typed' ? <CompanionResources rows={draft.rows} onChange={(rows) => patchDraft({ rows })} parentType={resourceType} types={types} disabled={saving} />
-            : <label>Quy tắc tạo tài nguyên liên quan (JSON object)<textarea aria-label="Quy tắc tạo tài nguyên liên quan (JSON object)" value={draft.provJSON} rows={4} spellCheck={false} onChange={(event) => patchDraft({ provJSON: event.target.value, provNote: '' })} /></label>}
+            : <label>{t('platform.resourceDefinitions.relatedResourceRulesJSONObject')}<textarea aria-label={t('platform.resourceDefinitions.relatedResourceRulesJSONObject')} value={draft.provJSON} rows={4} spellCheck={false} onChange={(event) => patchDraft({ provJSON: event.target.value, provNote: '' })} /></label>}
         </section>
         </details> : null}
-        </div><aside className="definition-overview" aria-label="Tổng quan cấu hình"><h3>TỔNG QUAN</h3><dl><div><dt>Loại tài nguyên</dt><dd>{resourceType || 'Chưa chọn'}</dd></div><div><dt>Driver</dt><dd>{pin ? (existingCluster ? 'Cluster có sẵn' : 'Terraform') : 'Chưa chọn'}</dd></div><div><dt>Module</dt><dd>{existingCluster ? 'Không cần module' : pin?.module || 'Chưa chọn'}</dd></div><div><dt>Phiên bản</dt><dd>{existingCluster ? 'Không áp dụng' : pin?.source?.revision.slice(0, 12) || 'Chưa chọn'}</dd></div></dl><p>Chọn nơi sử dụng cấu hình này trong tab</p><Button type="button" tone="quiet" onClick={() => setTab('criteria')}>Điều kiện áp dụng →</Button></aside></div>
+        </div><aside className="definition-overview" aria-label={t('platform.resourceDefinitions.definitionOverview')}><h3>{t('platform.resourceDefinitions.oVERVIEW')}</h3><dl><div><dt>{t('platform.resourceDefinitions.resourceType')}</dt><dd>{resourceType || t('platform.resourceDefinitions.notSelected')}</dd></div><div><dt>Driver</dt><dd>{pin ? (existingCluster ? t('platform.resourceDefinitions.existingCluster') : 'Terraform') : t('platform.resourceDefinitions.notSelected')}</dd></div><div><dt>Module</dt><dd>{existingCluster ? t('platform.resourceDefinitions.noModuleNeeded') : pin?.module || t('platform.resourceDefinitions.notSelected')}</dd></div><div><dt>{t('platform.resourceDefinitions.version2')}</dt><dd>{existingCluster ? t('platform.resourceDefinitions.notApplicable') : pin?.source?.revision.slice(0, 12) || t('platform.resourceDefinitions.notSelected')}</dd></div></dl><p>{t('platform.resourceDefinitions.chooseWhereThisDefinitionIs')}</p><Button type="button" tone="quiet" onClick={() => setTab('criteria')}>{t('platform.resourceDefinitions.matchingCriteria2')}</Button></aside></div>
         </div>
         <div role="tabpanel" id={`${tabId}-criteria-panel`} aria-labelledby={`${tabId}-criteria-tab`} hidden={tab !== 'criteria'}>
         <CriteriaEditor rules draft={criteriaDraft} onChange={setCriteriaDraft} applications={{ items: applicationList.items, loading: applicationList.loading, error: applicationList.loadError, onRetry: () => { void applicationList.reload(); } }} sources={{ items: definitions, loading: definitionList.loading, error: definitionList.loadError, onRetry: () => { void definitionList.reload(); } }} resourceType={resourceType} matching={matching} scopeKey={previewScope} excludeKey={editing?.key ?? ''} />
         </div>
-        <details className="definition-review"><summary>Xem bản đang nhập trước khi lưu</summary>
-          {editing ? <p className="feature-note">ID và Loại tài nguyên không đổi. Chỉ lần Xem trước và Triển khai mới dùng cấu hình mới; Lưu không tạo hay thay đổi tài nguyên đã triển khai.</p> : null}
-          <p className="feature-note">Nội dung hiện tại; máy chủ vẫn kiểm tra đầy đủ khi lưu.</p>
-          {reviewProblem ? <p role="status">Chưa dựng được nội dung: {reviewProblem}</p> : <pre aria-label="Bản cấu hình đang nhập">{JSON.stringify(reviewDocument, null, 2)}</pre>}
+        <details className="definition-review"><summary>{t('platform.resourceDefinitions.reviewTheEnteredVersionBefore')}</summary>
+          {editing ? <p className="feature-note">{t('platform.resourceDefinitions.theIDAndResourceType')}</p> : null}
+          <p className="feature-note">{t('platform.resourceDefinitions.currentContentTheServerStill')}</p>
+          {reviewProblem ? <p role="status">{t('platform.resourceDefinitions.couldNotBuildTheContent', { reviewProblem })}</p> : <pre aria-label={t('platform.resourceDefinitions.definitionBeingEntered')}>{JSON.stringify(reviewDocument, null, 2)}</pre>}
         </details>
-        {error ? <div className="form-error" role="alert">{error}</div> : null}{notice ? <div className="form-success" role="status">{notice}</div> : null}<div className="definition-savebar"><span>{editing ? `Đang sửa · phiên bản ${editing.version}` : 'Bản nháp · chưa lưu'}</span><div className="form-actions">{editing ? <Button type="button" onClick={resetForm}>Hủy sửa</Button> : null}<Button type="submit" tone="primary" disabled={saveDisabled}>{saving ? (editing ? 'Đang lưu…' : 'Đang đăng ký…') : editing ? 'Lưu thay đổi' : 'Đăng ký cấu hình tài nguyên'}</Button></div></div>
+        {error ? <div className="form-error" role="alert">{error}</div> : null}{notice ? <div className="form-success" role="status">{notice}</div> : null}<div className="definition-savebar"><span>{editing ? t('platform.resourceDefinitions.editingVersionVersion', { version: editing.version }) : t('platform.resourceDefinitions.draftUnsaved')}</span><div className="form-actions">{editing ? <Button type="button" onClick={resetForm}>{t('platform.resourceDefinitions.cancelEditing')}</Button> : null}<Button type="submit" tone="primary" disabled={saveDisabled}>{saving ? (editing ? t('platform.resourceDefinitions.saving') : t('platform.resourceDefinitions.registering')) : editing ? t('platform.resourceDefinitions.saveChanges') : t('platform.resourceDefinitions.registerResourceDefinition')}</Button></div></div>
       </fieldset></form>
     </section>
   </section>;

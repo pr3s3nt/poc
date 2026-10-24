@@ -81,6 +81,7 @@ không đổi. Nhãn không đổi API enum hoặc matching semantics.
 | Platform Engineer / Developer / Admin | Kỹ sư nền tảng / Nhà phát triển / Quản trị viên | Role IDs không đổi. |
 
 Text tĩnh, validation FE, aria-label, empty/loading/error states, notification và
-thông báo trợ giúp đều dùng tiếng Việt. Tên do người dùng đặt, image, descriptor,
+thông báo trợ giúp dùng tiếng Việt trong catalog mặc định `vi.json`; catalog ngôn
+ngữ khác dịch cùng key theo [ADR-020](architecture/decisions/ADR-020-console-message-catalogs.md). Tên do người dùng đặt, image, descriptor,
 module, key, driver ID, JSON, URLs và giá trị API không dịch. Không dùng regex
 thay thế từ trong raw backend errors để Việt hóa.

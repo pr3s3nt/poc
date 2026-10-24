@@ -651,3 +651,10 @@ a { color: inherit; }
 .eff-range label { display:grid; gap:4px; color:var(--muted); font-size:12px; }
 .eff-sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
 @media (max-width:1200px) { .eff-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+.language-select { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; }
+.language-select select { border:1px solid var(--border); border-radius:6px; padding:4px 6px; background:var(--surface); color:var(--ink); font-size:12px; }
+.sidebar .language-select { color:#8b949e; }
+.sidebar .language-select select { border-color:rgba(255,255,255,.2); background:transparent; color:#c9d1d9; }
+.sidebar .language-select option { color:var(--ink); }
+.app-shell-collapsed .language-select { display:none; }
+.sign-in-form .language-select { justify-content:center; color:var(--muted); font-weight:400; }

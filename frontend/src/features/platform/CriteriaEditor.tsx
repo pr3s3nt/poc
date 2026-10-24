@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { CriteriaRules, criterionFields as fields } from './CriteriaRules';
 import { Button } from '../../shared/ui/Button';
 import { MatchingPreviewPanel, type MatchingCandidateInput } from './MatchingPreviewPanel';
+import { t } from '../../shared/i18n';
 
 // Shared "Điều kiện áp dụng" editor (UC-03 T02B, V02-02). It edits the five-field
 // Matching Criteria contract and serializes it unchanged; modes are only a
@@ -21,10 +22,10 @@ export type CriteriaSource = { key: string; name?: string; version?: number; res
 export type ListState<T> = { items: readonly T[]; loading: boolean; error: string; onRetry(): void };
 
 const modes: { key: CriteriaMode; label: string; hint: string }[] = [
-  { key: 'all', label: 'Mọi nơi', hint: 'Áp dụng cho mọi ứng dụng và môi trường (điều kiện rỗng).' },
-  { key: 'env_type', label: 'Theo loại môi trường', hint: 'Chỉ áp dụng cho môi trường thuộc một loại (env_type).' },
-  { key: 'app_env', label: 'Theo ứng dụng (+ môi trường)', hint: 'Áp dụng cho một ứng dụng, có thể giới hạn một môi trường của ứng dụng đó.' },
-  { key: 'advanced', label: 'Tùy chỉnh nâng cao', hint: 'Năm field chuẩn, nhiều dòng; các dòng là lựa chọn thay thế nhau.' },
+  { key: 'all', label: t('platform.criteriaEditor.everywhere'), hint: t('platform.criteriaEditor.appliesToEveryApplicationAnd') },
+  { key: 'env_type', label: t('platform.criteriaEditor.byEnvironmentType'), hint: t('platform.criteriaEditor.appliesOnlyToEnvironmentsOf') },
+  { key: 'app_env', label: t('platform.criteriaEditor.byApplicationEnvironment'), hint: t('platform.criteriaEditor.appliesToOneApplicationOptionally') },
+  { key: 'advanced', label: t('platform.criteriaEditor.advanced'), hint: t('platform.criteriaEditor.theFiveStandardFieldsMultiple') },
 ];
 const modeLabel = (mode: CriteriaMode) => modes.find((item) => item.key === mode)?.label ?? mode;
 
@@ -84,26 +85,26 @@ function lossless(rows: Criterion[], mode: CriteriaMode): boolean {
 export function draftToCriteria(draft: CriteriaDraft): { criteria: Record<string, string>[]; problem: string } {
   if (draft.fields) {
     const incomplete = draft.fields.some((keys, index) => keys.some((key) => draft.rows[index]?.[key] === ''));
-    if (incomplete) return { criteria: [], problem: 'Nhập giá trị cho mỗi điều kiện đã chọn, hoặc xóa điều kiện để áp dụng mọi nơi.' };
+    if (incomplete) return { criteria: [], problem: t('platform.criteriaEditor.enterAValueForEach') };
   }
   const clean = (rows: Criterion[]) => rows.map((row) => Object.fromEntries(Object.entries(row).filter(([, value]) => value !== '')) as Record<string, string>);
   const [row = emptyCriterion()] = draft.rows;
   if (draft.mode === 'all') return { criteria: [{}], problem: '' };
-  if (draft.mode === 'env_type') return row.env_type === '' ? { criteria: [], problem: 'Nhập loại môi trường cho điều kiện áp dụng, hoặc chọn “Mọi nơi”.' } : { criteria: clean([{ ...emptyCriterion(), env_type: row.env_type }]), problem: '' };
-  if (draft.mode === 'app_env') return row.app_id === '' ? { criteria: [], problem: 'Chọn ứng dụng cho điều kiện áp dụng, hoặc chọn “Mọi nơi”.' } : { criteria: clean([{ ...emptyCriterion(), app_id: row.app_id, env_id: row.env_id }]), problem: '' };
-  return draft.rows.length === 0 ? { criteria: [], problem: 'Thêm ít nhất một điều kiện, hoặc chọn “Mọi nơi”.' } : { criteria: clean(draft.rows), problem: '' };
+  if (draft.mode === 'env_type') return row.env_type === '' ? { criteria: [], problem: t('platform.criteriaEditor.enterTheEnvironmentTypeFor') } : { criteria: clean([{ ...emptyCriterion(), env_type: row.env_type }]), problem: '' };
+  if (draft.mode === 'app_env') return row.app_id === '' ? { criteria: [], problem: t('platform.criteriaEditor.chooseTheApplicationForThe') } : { criteria: clean([{ ...emptyCriterion(), app_id: row.app_id, env_id: row.env_id }]), problem: '' };
+  return draft.rows.length === 0 ? { criteria: [], problem: t('platform.criteriaEditor.addAtLeastOneCondition') } : { criteria: clean(draft.rows), problem: '' };
 }
 
 const canOverlap = (a: Record<string, string>, b: Record<string, string>) => fields.every(({ key }) => !a[key] || !b[key] || a[key] === b[key]);
 
 function describeRow(row: Record<string, string>, applications: readonly ApplicationOption[]): string {
   const parts: string[] = [];
-  if (row.env_type) parts.push(`Loại môi trường (env_type): ${row.env_type}`);
-  if (row.app_id) { const app = applications.find((item) => item.key === row.app_id); parts.push(`Ứng dụng (app_id): ${app && app.name !== app.key ? `${app.name} (${app.key})` : row.app_id}`); }
-  if (row.env_id) parts.push(`Môi trường (env_id): ${row.env_id}`);
-  if (row.res_id) parts.push(`Tài nguyên (res_id): ${row.res_id}`);
+  if (row.env_type) parts.push(t('platform.criteriaEditor.environmentTypeEnvTypeEnv', { env_type: row.env_type }));
+  if (row.app_id) { const app = applications.find((item) => item.key === row.app_id); parts.push(t('platform.criteriaEditor.applicationAppIdValue', { value: app && app.name !== app.key ? `${app.name} (${app.key})` : row.app_id })); }
+  if (row.env_id) parts.push(t('platform.criteriaEditor.environmentEnvIdEnvId', { env_id: row.env_id }));
+  if (row.res_id) parts.push(t('platform.criteriaEditor.resourceResIdResId', { res_id: row.res_id }));
   if (row.class) parts.push(`Class: ${row.class}`);
-  return parts.length === 0 ? 'Mọi nơi (không giới hạn)' : parts.join(' · ');
+  return parts.length === 0 ? t('platform.criteriaEditor.everywhereNoLimit') : parts.join(' · ');
 }
 
 type Pending = { kind: 'mode'; target: CriteriaMode } | { kind: 'copy'; source: string; draft: CriteriaDraft };
@@ -162,65 +163,65 @@ export function CriteriaEditor({ draft, onChange, applications, sources, resourc
 
   const sampleApp = applications.items.find((app) => app.key === sample.app);
   const sampleEnv = sampleApp?.environments.find((env) => env.key === sample.env);
-  const missing = [sampleApp && sampleEnv ? '' : 'ứng dụng và môi trường', sample.resId.trim() ? '' : 'ID tài nguyên (res_id)', sample.cls.trim() ? '' : 'Class'].filter(Boolean);
+  const missing = [sampleApp && sampleEnv ? '' : t('platform.criteriaEditor.applicationAndEnvironment'), sample.resId.trim() ? '' : t('platform.criteriaEditor.resourceIDResId'), sample.cls.trim() ? '' : 'Class'].filter(Boolean);
 
   return <section className={`catalog-fields criteria-editor${rules ? ' criteria-editor-rules' : ''}`} aria-labelledby={`${id}-title`}>
-    <div className="section-header"><div><h3 id={`${id}-title`}>{rules ? 'Cấu hình này được dùng ở đâu?' : 'Điều kiện áp dụng'}</h3><p>{rules ? 'Thêm các điều kiện cần giới hạn. Chỉ cần một trường hợp bên dưới khớp.' : 'Chọn nơi cấu hình này được xét. Hệ thống chỉ dùng năm field chuẩn. Không có bộ lọc theo profile, tài khoản hay vùng.'}</p></div></div>
+    <div className="section-header"><div><h3 id={`${id}-title`}>{rules ? t('platform.criteriaEditor.whereIsThisDefinitionUsed') : t('platform.criteriaEditor.matchingCriteria')}</h3><p>{rules ? t('platform.criteriaEditor.addTheConditionsToLimit') : t('platform.criteriaEditor.chooseWhereThisDefinitionIs')}</p></div></div>
 
-    {rules ? <CriteriaRules draft={draft} onChange={onChange} /> : <div role="radiogroup" aria-label="Chế độ điều kiện áp dụng" className="criteria-modes">{modes.map((mode) => <label key={mode.key} className="criteria-mode"><input type="radio" name={`${id}-mode`} checked={draft.mode === mode.key} onChange={() => chooseMode(mode.key)} /><span><strong>{mode.label}</strong><small>{mode.hint}</small></span></label>)}</div>}
+    {rules ? <CriteriaRules draft={draft} onChange={onChange} /> : <div role="radiogroup" aria-label={t('platform.criteriaEditor.matchingCriteriaMode')} className="criteria-modes">{modes.map((mode) => <label key={mode.key} className="criteria-mode"><input type="radio" name={`${id}-mode`} checked={draft.mode === mode.key} onChange={() => chooseMode(mode.key)} /><span><strong>{mode.label}</strong><small>{mode.hint}</small></span></label>)}</div>}
 
-    {pending ? <div role="group" aria-label="Xác nhận thay đổi điều kiện" className="form-warning criteria-confirm">
-      <p>{pending.kind === 'mode' ? `Chế độ “${modeLabel(pending.target)}” không biểu diễn đầy đủ các điều kiện nâng cao hiện tại. Nếu tiếp tục, các điều kiện này sẽ bị bỏ.` : `Sao chép từ ${pending.source} sẽ thay thế các điều kiện đang nhập.`}</p>
-      <div className="form-actions"><Button type="button" onClick={() => setPending(null)}>{pending.kind === 'mode' ? 'Giữ điều kiện nâng cao' : 'Giữ điều kiện hiện tại'}</Button><Button type="button" tone="danger" onClick={confirm}>{pending.kind === 'mode' ? 'Bỏ điều kiện và chuyển chế độ' : 'Thay bằng bản sao chép'}</Button></div>
+    {pending ? <div role="group" aria-label={t('platform.criteriaEditor.confirmCriteriaChange')} className="form-warning criteria-confirm">
+      <p>{pending.kind === 'mode' ? t('platform.criteriaEditor.theModeLabelModeCannotFully', { modeLabel: modeLabel(pending.target) }) : t('platform.criteriaEditor.copyingFromSourceWillReplace', { source: pending.source })}</p>
+      <div className="form-actions"><Button type="button" onClick={() => setPending(null)}>{pending.kind === 'mode' ? t('platform.criteriaEditor.keepAdvancedCriteria') : t('platform.criteriaEditor.keepCurrentCriteria')}</Button><Button type="button" tone="danger" onClick={confirm}>{pending.kind === 'mode' ? t('platform.criteriaEditor.dropCriteriaAndSwitchMode') : t('platform.criteriaEditor.replaceWithTheCopy')}</Button></div>
     </div> : null}
 
-    {!rules && draft.mode === 'env_type' ? <label>Loại môi trường<input list={`${id}-types`} value={row.env_type} aria-invalid={problem ? true : undefined} onChange={(event) => setRows([{ ...emptyCriterion(), env_type: event.target.value }])} /><datalist id={`${id}-types`}>{knownTypes.map((type) => <option key={type} value={type} />)}</datalist></label> : null}
+    {!rules && draft.mode === 'env_type' ? <label>{t('platform.criteriaEditor.environmentType')}<input list={`${id}-types`} value={row.env_type} aria-invalid={problem ? true : undefined} onChange={(event) => setRows([{ ...emptyCriterion(), env_type: event.target.value }])} /><datalist id={`${id}-types`}>{knownTypes.map((type) => <option key={type} value={type} />)}</datalist></label> : null}
     {!rules && draft.mode === 'app_env' ? <div className="field-grid">
-      <label>Ứng dụng<select value={row.app_id} aria-invalid={problem ? true : undefined} onChange={(event) => setRows([{ ...emptyCriterion(), app_id: event.target.value }])}>
-        <option value="">{applications.loading && applications.items.length === 0 ? 'Đang tải ứng dụng…' : 'Chọn ứng dụng'}</option>
-        {row.app_id !== '' && !selectedApp ? <option value={row.app_id}>{row.app_id} (không có trong danh sách hiện tại)</option> : null}
+      <label>{t('platform.criteriaEditor.application')}<select value={row.app_id} aria-invalid={problem ? true : undefined} onChange={(event) => setRows([{ ...emptyCriterion(), app_id: event.target.value }])}>
+        <option value="">{applications.loading && applications.items.length === 0 ? t('platform.criteriaEditor.loadingApplications') : t('platform.criteriaEditor.chooseAnApplication')}</option>
+        {row.app_id !== '' && !selectedApp ? <option value={row.app_id}>{t('platform.criteriaEditor.appIdNotInThe', { app_id: row.app_id })}</option> : null}
         {applications.items.map((app) => <option key={app.key} value={app.key}>{app.name !== app.key ? `${app.name} (${app.key})` : app.key}</option>)}</select></label>
-      <label>Môi trường (tùy chọn)<select value={row.env_id} disabled={row.app_id === ''} onChange={(event) => setRows([{ ...row, env_id: event.target.value }])}>
-        <option value="">Mọi môi trường của ứng dụng</option>
-        {row.env_id !== '' && !selectedApp?.environments.some((env) => env.key === row.env_id) ? <option value={row.env_id}>{row.env_id} (không có trong danh sách hiện tại)</option> : null}
-        {(selectedApp?.environments ?? []).map((env) => <option key={env.key} value={env.key}>{env.name !== env.key ? `${env.name} (${env.key})` : env.key} · loại {env.environmentType}</option>)}</select></label>
+      <label>{t('platform.criteriaEditor.environmentOptional')}<select value={row.env_id} disabled={row.app_id === ''} onChange={(event) => setRows([{ ...row, env_id: event.target.value }])}>
+        <option value="">{t('platform.criteriaEditor.everyEnvironmentOfTheApplication')}</option>
+        {row.env_id !== '' && !selectedApp?.environments.some((env) => env.key === row.env_id) ? <option value={row.env_id}>{t('platform.criteriaEditor.envIdNotInThe', { env_id: row.env_id })}</option> : null}
+        {(selectedApp?.environments ?? []).map((env) => <option key={env.key} value={env.key}>{t('platform.criteriaEditor.valueTypeEnvironmentType', { value: env.name !== env.key ? `${env.name} (${env.key})` : env.key, environmentType: env.environmentType })}</option>)}</select></label>
     </div> : null}
-    {!rules && draft.mode === 'advanced' ? <>{rows.map((item, index) => <div className="catalog-criterion" key={index}>{fields.map(({ key, label }) => <label key={key}>{label}<input aria-label={`Điều kiện ${index + 1} ${label}`} value={item[key]} onChange={(event) => setRow(index, key, event.target.value)} /></label>)}<Button type="button" tone="quiet" aria-label={`Xóa điều kiện ${index + 1}`} disabled={rows.length <= 1} onClick={() => setRows(rows.filter((_, position) => position !== index))}>Xóa</Button></div>)}
-      <div><Button type="button" onClick={() => setRows([...rows, emptyCriterion()])}>+ Thêm điều kiện</Button></div>
-      <p className="feature-note">Dòng để trống là wildcard tường minh. Các dòng là lựa chọn thay thế nhau.</p></> : null}
+    {!rules && draft.mode === 'advanced' ? <>{rows.map((item, index) => <div className="catalog-criterion" key={index}>{fields.map(({ key, label }) => <label key={key}>{label}<input aria-label={t('platform.criteriaEditor.conditionValueLabel', { value: index + 1, label })} value={item[key]} onChange={(event) => setRow(index, key, event.target.value)} /></label>)}<Button type="button" tone="quiet" aria-label={t('platform.criteriaEditor.removeConditionValue', { value: index + 1 })} disabled={rows.length <= 1} onClick={() => setRows(rows.filter((_, position) => position !== index))}>{t('platform.criteriaEditor.remove')}</Button></div>)}
+      <div><Button type="button" onClick={() => setRows([...rows, emptyCriterion()])}>{t('platform.criteriaEditor.addCondition')}</Button></div>
+      <p className="feature-note">{t('platform.criteriaEditor.anEmptyRowIsAn')}</p></> : null}
 
-    {applications.error ? <div className="form-error" role="alert" aria-label="Lỗi tải ứng dụng">Không tải được danh sách ứng dụng nên chưa có lựa chọn ứng dụng/môi trường. Điều kiện đang nhập được giữ nguyên. <Button type="button" onClick={applications.onRetry}>Thử lại</Button></div> : null}
-    {sources.error ? <div className="form-error" role="alert" aria-label="Lỗi tải cấu hình để sao chép">Không tải được danh sách cấu hình để sao chép hoặc kiểm tra chồng lấn. Điều kiện đang nhập được giữ nguyên. <Button type="button" onClick={sources.onRetry}>Thử lại</Button></div> : null}
+    {applications.error ? <div className="form-error" role="alert" aria-label={t('platform.criteriaEditor.applicationLoadError')}>{t('platform.criteriaEditor.couldNotLoadTheApplication')}{' '} <Button type="button" onClick={applications.onRetry}>{t('platform.criteriaEditor.retry')}</Button></div> : null}
+    {sources.error ? <div className="form-error" role="alert" aria-label={t('platform.criteriaEditor.errorLoadingDefinitionsToCopy')}>{t('platform.criteriaEditor.couldNotLoadTheDefinitions')}{' '} <Button type="button" onClick={sources.onRetry}>{t('platform.criteriaEditor.retry')}</Button></div> : null}
     {problem ? <p className="feature-note" id={`${id}-problem`}>{problem}</p> : null}
 
-    <details open={rules ? undefined : true}><summary>Sao chép từ cấu hình khác</summary><div className="criteria-copy field-grid"><label>Sao chép điều kiện từ cấu hình khác<select aria-label="Sao chép điều kiện từ cấu hình khác" value={copyFrom} onChange={(event) => setCopyFrom(event.target.value)}><option value="">{sources.loading && sources.items.length === 0 ? 'Đang tải cấu hình…' : sources.items.length === 0 ? 'Chưa có cấu hình để sao chép' : 'Chọn cấu hình'}</option>{sources.items.filter((source) => source.key !== excludeKey).map((source) => <option key={source.key} value={source.key}>{source.name && source.name !== source.key ? `${source.name} (${source.key})` : source.key} ({source.resourceType})</option>)}</select></label>
-      <div className="form-actions"><Button type="button" disabled={copyFrom === ''} onClick={copy}>Sao chép điều kiện</Button></div></div>
-    <p className="feature-note">Sao chép chỉ lấy một bản độc lập tại thời điểm bấm; sửa cấu hình nguồn sau đó không làm đổi điều kiện này.</p></details>
+    <details open={rules ? undefined : true}><summary>{t('platform.criteriaEditor.copyFromAnotherDefinition')}</summary><div className="criteria-copy field-grid"><label>{t('platform.criteriaEditor.copyCriteriaFromAnotherDefinition')}<select aria-label={t('platform.criteriaEditor.copyCriteriaFromAnotherDefinition')} value={copyFrom} onChange={(event) => setCopyFrom(event.target.value)}><option value="">{sources.loading && sources.items.length === 0 ? t('platform.criteriaEditor.loadingDefinitions') : sources.items.length === 0 ? t('platform.criteriaEditor.noDefinitionsToCopy') : t('platform.criteriaEditor.chooseADefinition')}</option>{sources.items.filter((source) => source.key !== excludeKey).map((source) => <option key={source.key} value={source.key}>{source.name && source.name !== source.key ? `${source.name} (${source.key})` : source.key} ({source.resourceType})</option>)}</select></label>
+      <div className="form-actions"><Button type="button" disabled={copyFrom === ''} onClick={copy}>{t('platform.criteriaEditor.copyCriteria')}</Button></div></div>
+    <p className="feature-note">{t('platform.criteriaEditor.copyingTakesAnIndependentCopy')}</p></details>
 
-    <div className="criteria-summary" role="group" aria-label="Tóm tắt phạm vi áp dụng">
-      <h4>Phạm vi áp dụng</h4>
-      {problem ? <p>Chưa đủ thông tin để tóm tắt phạm vi.</p> : rules ? <>{criteria.map((item, index) => <div className="criteria-summary-case" key={index}><small>Trường hợp {index + 1}</small>{Object.keys(item).length === 0 ? <p>Mọi nơi (không giới hạn)</p> : fields.filter(({ key }) => item[key] !== undefined).map(({ key }) => <p key={key}>{describeRow({ [key]: item[key] ?? '' }, applications.items)}</p>)}</div>)}<p className="criteria-summary-note">Các điều kiện chỉ quyết định khi nào cấu hình được chọn.</p></> : <ul>{criteria.map((item, index) => <li key={index}>{describeRow(item, applications.items)}</li>)}</ul>}
+    <div className="criteria-summary" role="group" aria-label={t('platform.criteriaEditor.scopeSummary')}>
+      <h4>{t('platform.criteriaEditor.scope')}</h4>
+      {problem ? <p>{t('platform.criteriaEditor.notEnoughInformationToSummarize')}</p> : rules ? <>{criteria.map((item, index) => <div className="criteria-summary-case" key={index}><small>{t('platform.criteriaEditor.caseValue', { value: index + 1 })}</small>{Object.keys(item).length === 0 ? <p>{t('platform.criteriaEditor.everywhereNoLimit')}</p> : fields.filter(({ key }) => item[key] !== undefined).map(({ key }) => <p key={key}>{describeRow({ [key]: item[key] ?? '' }, applications.items)}</p>)}</div>)}<p className="criteria-summary-note">{t('platform.criteriaEditor.criteriaOnlyDecideWhenThe')}</p></> : <ul>{criteria.map((item, index) => <li key={index}>{describeRow(item, applications.items)}</li>)}</ul>}
     </div>
 
-    {overlaps.length > 0 ? <div role="group" aria-label="Cảnh báo nguy cơ chồng lấn" className="form-warning">Điều kiện này có thể chồng lấn với {overlaps.map((item) => item.key).join(', ')}: cùng Loại tài nguyên và các điều kiện không loại trừ nhau. Đây chỉ là cảnh báo nguy cơ từ giao diện; chỉ “Kiểm tra matching” trên máy chủ mới cho biết cấu hình thắng, hòa hay không khớp.</div> : null}
+    {overlaps.length > 0 ? <div role="group" aria-label={t('platform.criteriaEditor.overlapRiskWarning')} className="form-warning">{t('platform.criteriaEditor.theseCriteriaMayOverlapWith', { value: overlaps.map((item) => item.key).join(', ') })}</div> : null}
 
-    <details open={rules ? undefined : true}><summary>Kiểm tra cấu hình được chọn</summary><div className="criteria-preview" role="group" aria-label="Ngữ cảnh kiểm tra matching">
-      <h4>Ngữ cảnh kiểm tra matching</h4>
-      <p className="feature-note">Chọn ứng dụng và môi trường thật rồi nhập ID tài nguyên (res_id) và Class. env_type được máy chủ lấy từ môi trường; trình duyệt không tự đánh giá hay xếp hạng cấu hình.</p>
+    <details open={rules ? undefined : true}><summary>{t('platform.criteriaEditor.checkTheSelectedDefinition')}</summary><div className="criteria-preview" role="group" aria-label={t('platform.criteriaEditor.matchingCheckContext')}>
+      <h4>{t('platform.criteriaEditor.matchingCheckContext')}</h4>
+      <p className="feature-note">{t('platform.criteriaEditor.chooseARealApplicationAnd')}</p>
       <div className="field-grid">
-        <label>Ứng dụng kiểm tra<select aria-label="Ứng dụng kiểm tra" value={sample.app} onChange={(event) => setSample({ ...sample, app: event.target.value, env: '' })}><option value="">Chọn ứng dụng</option>{applications.items.map((app) => <option key={app.key} value={app.key}>{app.name !== app.key ? `${app.name} (${app.key})` : app.key}</option>)}</select></label>
-        <label>Môi trường kiểm tra<select aria-label="Môi trường kiểm tra" value={sample.env} disabled={!sampleApp} onChange={(event) => setSample({ ...sample, env: event.target.value })}><option value="">Chọn môi trường</option>{(sampleApp?.environments ?? []).map((env) => <option key={env.key} value={env.key}>{env.name !== env.key ? `${env.name} (${env.key})` : env.key}</option>)}</select></label>
-        <label>ID tài nguyên kiểm tra (res_id)<input value={sample.resId} onChange={(event) => setSample({ ...sample, resId: event.target.value })} /></label>
-        <label>Class kiểm tra<input value={sample.cls} onChange={(event) => setSample({ ...sample, cls: event.target.value })} /></label>
+        <label>{t('platform.criteriaEditor.checkApplication')}<select aria-label={t('platform.criteriaEditor.checkApplication')} value={sample.app} onChange={(event) => setSample({ ...sample, app: event.target.value, env: '' })}><option value="">{t('platform.criteriaEditor.chooseAnApplication')}</option>{applications.items.map((app) => <option key={app.key} value={app.key}>{app.name !== app.key ? `${app.name} (${app.key})` : app.key}</option>)}</select></label>
+        <label>{t('platform.criteriaEditor.checkEnvironment')}<select aria-label={t('platform.criteriaEditor.checkEnvironment')} value={sample.env} disabled={!sampleApp} onChange={(event) => setSample({ ...sample, env: event.target.value })}><option value="">{t('platform.criteriaEditor.chooseAnEnvironment')}</option>{(sampleApp?.environments ?? []).map((env) => <option key={env.key} value={env.key}>{env.name !== env.key ? `${env.name} (${env.key})` : env.key}</option>)}</select></label>
+        <label>{t('platform.criteriaEditor.checkResourceIDResId')}<input value={sample.resId} onChange={(event) => setSample({ ...sample, resId: event.target.value })} /></label>
+        <label>{t('platform.criteriaEditor.checkClass')}<input value={sample.cls} onChange={(event) => setSample({ ...sample, cls: event.target.value })} /></label>
       </div>
-      {missing.length > 0 ? <p>Cần thêm ngữ cảnh: {missing.join(', ')}. Chưa đủ ngữ cảnh nên chưa kiểm tra matching.</p> : problem ? <p>Hoàn thiện điều kiện áp dụng trước khi kiểm tra.</p> : null}
+      {missing.length > 0 ? <p>{t('platform.criteriaEditor.moreContextNeededMissingMatching', { missing: missing.join(', ') })}</p> : problem ? <p>{t('platform.criteriaEditor.completeTheMatchingCriteriaBefore')}</p> : null}
     </div>
 
     {matching ? <MatchingPreviewPanel candidate={matching} scopeKey={`${scopeKey}|${sampleEnv?.environmentType ?? ''}|${sampleEnv?.snapshotKey ?? ''}|apps:${applications.loading ? 'loading' : 'idle'}:${applications.error}|defs:${sources.loading ? 'loading' : 'idle'}:${sources.error}|${JSON.stringify(sources.items)}`} sample={{ applicationId: sample.app, environmentId: sampleApp && sampleEnv ? sample.env : '', resourceId: sample.resId, class: sample.cls }} /> : null}
     </details>
-    <details open={rules ? undefined : true}><summary>Cách hệ thống chọn cấu hình</summary><div className="feature-note criteria-rules" role="note" aria-label="Quy tắc so khớp"><p><strong>AND trong một dòng, OR giữa các dòng.</strong> Mọi field đã nhập trong cùng một dòng phải khớp cùng lúc; cấu hình khớp khi có ít nhất một dòng khớp, và lấy điểm của dòng tốt nhất.</p>
-      <p>Trọng số cố định: env_type 1 · app_id 2 · env_id 4 · res_id 8 · class 16. Cấu hình có điểm cao nhất duy nhất sẽ thắng; hòa điểm cao nhất và không có cấu hình nào khớp là hai kết quả khác nhau.</p>
-      <p><strong>Không có điều kiện</strong> (danh sách trống) bị từ chối. <strong>Dòng trống <code>{'{}'}</code></strong> là wildcard tường minh, khớp mọi nơi với điểm 0 (chế độ “Mọi nơi”).</p>
-      <p>Lưu ý: ID cấu hình (Definition ID) khác ID tài nguyên <code>res_id</code>; chỉ <code>res_id</code> là điều kiện so khớp.</p></div></details>
+    <details open={rules ? undefined : true}><summary>{t('platform.criteriaEditor.howTheSystemSelectsA')}</summary><div className="feature-note criteria-rules" role="note" aria-label={t('platform.criteriaEditor.matchingRules')}><p><strong>{t('platform.criteriaEditor.aNDWithinARowOR')}</strong> {' '}{t('platform.criteriaEditor.everyFieldEnteredInThe')}</p>
+      <p>{t('platform.criteriaEditor.fixedWeightsEnvType1')}</p>
+      <p><strong>{t('platform.criteriaEditor.noCriteria')}</strong> {' '}{t('platform.criteriaEditor.emptyListIsRejected')}{' '} <strong>{t('platform.criteriaEditor.emptyRow')}{' '} <code>{'{}'}</code></strong> {' '}{t('platform.criteriaEditor.isAnExplicitWildcardMatching')}</p>
+      <p>{t('platform.criteriaEditor.noteTheDefinitionIDDefinition')}{' '} <code>res_id</code>{t('platform.criteriaEditor.only')}{' '} <code>res_id</code> {' '}{t('platform.criteriaEditor.isAMatchingCondition')}</p></div></details>
   </section>;
 }

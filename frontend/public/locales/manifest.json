@@ -1,0 +1,12 @@
+[
+  {
+    "code": "vi",
+    "name": "Tiếng Việt",
+    "intl": "vi-VN"
+  },
+  {
+    "code": "en",
+    "name": "English",
+    "intl": "en-US"
+  }
+]

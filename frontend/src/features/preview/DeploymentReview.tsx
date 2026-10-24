@@ -3,6 +3,7 @@ import { routeReviewEdges, connectionPath, reviewRowGap } from './reviewEdges';
 import { reviewMetrics } from './reviewMetrics';
 import { nodeFacts } from './reviewProperties';
 import { reasonLabel } from '../../shared/ui/DependencyGraph';
+import { t } from '../../shared/i18n';
 
 export type ReviewSide = { availability: 'AVAILABLE' | 'PARTIAL' | 'ABSENT' | 'UNAVAILABLE'; text?: string; reason?: string; provenance?: Record<string, string>; redactedPaths?: string[]; unknownPaths?: string[] };
 export type ReviewArtifact = { id: string; nodeId: string; kind: string; path: string; language: string; before: ReviewSide; after: ReviewSide };
@@ -10,8 +11,8 @@ export type ReviewNode = { properties?: { key: string; availability: 'AVAILABLE'
 export type DeploymentReviewData = { version: 1; planHash: string; nodes: ReviewNode[]; edges: { consumer: string; provider: string; reason: string; path?: string }[]; batches: string[][]; artifacts: ReviewArtifact[] };
 export type ReviewProgress = { nodeId: string; state: string; status?: string; stage?: string; attempt?: number; startedAt?: string; updatedAt?: string; finishedAt?: string; blockingProviderIds: string[]; safeErrorCode?: string; observedAt: string };
 
-const reason: Record<string, string> = { BASELINE_MISSING: 'Chưa có bản đã áp dụng phù hợp', CONTENT_UNAVAILABLE: 'Không có nội dung module đã xác minh', UNSUPPORTED_PREVIEW: 'Không thể xem trước cấu trúc này', LIMIT_EXCEEDED: 'Nội dung vượt giới hạn', REDACTION_REQUIRED: 'Không thể lọc an toàn', RENDER_UNAVAILABLE: 'Không thể dựng bản xem trước' };
-const states: Record<string, string> = { PENDING: 'Chưa chạy', WAITING: 'Chờ phụ thuộc', PROVISIONING: 'Đang cấp phát', CHECKING: 'Kiểm tra sẵn sàng', READY: 'Sẵn sàng', RETAINED: 'Giữ nguyên', FAILED: 'Thất bại', BLOCKED: 'Bị chặn', UNKNOWN: 'Chưa xác định' };
+const reason: Record<string, string> = { BASELINE_MISSING: t('preview.deploymentReview.noMatchingAppliedVersionYet'), CONTENT_UNAVAILABLE: t('preview.deploymentReview.noVerifiedModuleContent'), UNSUPPORTED_PREVIEW: t('preview.deploymentReview.thisStructureCannotBePreviewed'), LIMIT_EXCEEDED: t('preview.deploymentReview.contentExceedsTheLimit'), REDACTION_REQUIRED: t('preview.deploymentReview.cannotBeFilteredSafely'), RENDER_UNAVAILABLE: t('preview.deploymentReview.couldNotBuildThePreview') };
+const states: Record<string, string> = { PENDING: t('preview.deploymentReview.notStarted'), WAITING: t('preview.deploymentReview.waitingForDependencies'), PROVISIONING: t('preview.deploymentReview.provisioning'), CHECKING: t('preview.deploymentReview.readinessCheck'), READY: t('preview.deploymentReview.ready'), RETAINED: t('preview.deploymentReview.unchanged'), FAILED: t('preview.deploymentReview.failed'), BLOCKED: t('preview.deploymentReview.blocked'), UNKNOWN: t('preview.deploymentReview.undetermined') };
 const text = (map: Record<string, string>, key: string) => Object.hasOwn(map, key) ? map[key] : key;
 type DiffLine = { type: 'same' | 'old' | 'new'; old?: number; next?: number; value: string };
 
@@ -46,29 +47,29 @@ function CodePane({ artifact }: { artifact: ReviewArtifact }) {
   }, []);
   const before = artifact.before; const after = artifact.after;
   const copy = async () => {
-    try { if (!navigator.clipboard) throw new Error(); await navigator.clipboard.writeText(after.text ?? ''); setCopyStatus('Đã sao chép'); }
-    catch { setCopyStatus('Không thể sao chép tự động; hãy chọn code và nhấn Ctrl+C.'); }
+    try { if (!navigator.clipboard) throw new Error(); await navigator.clipboard.writeText(after.text ?? ''); setCopyStatus(t('preview.deploymentReview.copied')); }
+    catch { setCopyStatus(t('preview.deploymentReview.couldNotCopyAutomaticallySelect')); }
   };
   const both = [before, after].every(side => ['AVAILABLE', 'PARTIAL', 'ABSENT'].includes(side.availability));
   const lines = useMemo(() => both ? diffLines(before.text ?? '', after.text ?? '') : undefined, [both, before.text, after.text]);
   const additions = lines?.filter(line => line.type === 'new').length;
   const removals = lines?.filter(line => line.type === 'old').length;
   return <div ref={codeRef} className={`review-code ${expanded ? 'review-code-expanded' : ''}`}>
-    <div className="review-code-toolbar"><div className="review-code-modes"><button aria-pressed={!afterOnly} onClick={() => setAfterOnly(false)}>Xem diff</button><button aria-pressed={afterOnly} onClick={() => setAfterOnly(true)}>Sau thay đổi</button></div><button className="review-text-button" aria-label={expanded ? 'Thu gọn' : 'Mở rộng'} aria-expanded={expanded} onClick={() => {
+    <div className="review-code-toolbar"><div className="review-code-modes"><button aria-pressed={!afterOnly} onClick={() => setAfterOnly(false)}>{t('preview.deploymentReview.viewDiff')}</button><button aria-pressed={afterOnly} onClick={() => setAfterOnly(true)}>{t('preview.deploymentReview.afterChange')}</button></div><button className="review-text-button" aria-label={expanded ? t('preview.deploymentReview.collapse') : t('preview.deploymentReview.expand')} aria-expanded={expanded} onClick={() => {
       if (!expanded) codeRef.current?.requestFullscreen?.().catch(() => undefined);
       else if (document.fullscreenElement) void document.exitFullscreen();
       setExpanded(value => !value);
-    }}>{expanded ? 'Thu gọn' : 'Mở rộng'} ↗</button></div>
-    {lines ? <div className="review-diff-summary"><span className="review-added">+{additions} dòng thêm</span><span className="review-removed">−{removals} dòng bỏ</span></div> : null}
-    <div className="review-code-header"><strong>{artifact.path}</strong><button disabled={!after.text} onClick={() => void copy()}>Sao chép bản sau</button></div>
-    {before.availability === 'UNAVAILABLE' ? <p className="review-unavailable">Bản trước: {text(reason, before.reason ?? 'BASELINE_MISSING')}</p> : null}
-    {after.availability === 'UNAVAILABLE' ? <p className="review-unavailable">Bản sau: {text(reason, after.reason ?? 'CONTENT_UNAVAILABLE')}</p> : null}
+    }}>{expanded ? t('preview.deploymentReview.collapse') : t('preview.deploymentReview.expand')} ↗</button></div>
+    {lines ? <div className="review-diff-summary"><span className="review-added">{t('preview.deploymentReview.additionsLinesAdded', { additions })}</span><span className="review-removed">{t('preview.deploymentReview.removalsLinesRemoved', { removals })}</span></div> : null}
+    <div className="review-code-header"><strong>{artifact.path}</strong><button disabled={!after.text} onClick={() => void copy()}>{t('preview.deploymentReview.copyAfterVersion')}</button></div>
+    {before.availability === 'UNAVAILABLE' ? <p className="review-unavailable">{t('preview.deploymentReview.beforeText', { text: text(reason, before.reason ?? 'BASELINE_MISSING') })}</p> : null}
+    {after.availability === 'UNAVAILABLE' ? <p className="review-unavailable">{t('preview.deploymentReview.afterText', { text: text(reason, after.reason ?? 'CONTENT_UNAVAILABLE') })}</p> : null}
     {after.text || (both && before.text) ? afterOnly || !both || !lines ? <pre className="review-after"><code>{after.text}</code></pre> : <div className="review-diff" role="table" aria-label={`Diff ${artifact.path}`}>{lines.map((line, index) => <div className={`review-diff-line review-diff-${line.type}`} role="row" key={`${index}-${line.type}`}><span role="cell" className="review-gutter">{line.old ?? ''}</span><span role="cell" className="review-gutter">{line.next ?? ''}</span><span role="cell" className="review-sign">{line.type === 'old' ? '−' : line.type === 'new' ? '+' : ' '}</span><code role="cell">{line.value || ' '}</code></div>)}</div> : null}
     {copyStatus ? <p role="status" className="review-code-note">{copyStatus}</p> : null}
-    {!afterOnly && both && !lines ? <p className="review-unavailable">Diff quá lớn để hiển thị; bản sau vẫn có thể xem và sao chép.</p> : null}
-    {before.redactedPaths?.length || after.redactedPaths?.length ? <p className="review-code-note">Giá trị đã ẩn không thể đối chiếu. Bản hiển thị đã được lọc, không dùng để thực thi.</p> : null}
-    {after.unknownPaths?.length ? <p className="review-code-note">{after.unknownPaths.length} giá trị đang chờ đầu ra tài nguyên.</p> : null}
-    {after.provenance ? <details className="review-technical"><summary>Nguồn và phiên bản</summary><dl className="review-properties">{Object.entries(after.provenance).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl></details> : null}
+    {!afterOnly && both && !lines ? <p className="review-unavailable">{t('preview.deploymentReview.theDiffIsTooLarge')}</p> : null}
+    {before.redactedPaths?.length || after.redactedPaths?.length ? <p className="review-code-note">{t('preview.deploymentReview.hiddenValuesCannotBeCompared')}</p> : null}
+    {after.unknownPaths?.length ? <p className="review-code-note">{t('preview.deploymentReview.countValuesAreWaitingFor', { count: after.unknownPaths.length })}</p> : null}
+    {after.provenance ? <details className="review-technical"><summary>{t('preview.deploymentReview.sourceAndVersion')}</summary><dl className="review-properties">{Object.entries(after.provenance).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl></details> : null}
   </div>;
 }
 
@@ -85,15 +86,15 @@ function levelsOf(review: DeploymentReviewData): ReviewNode[][] {
 
 function nodeLabel(node: ReviewNode): string {
   if (node.kind === 'workload' || !node.name.includes('#')) return node.name;
-  const labels: Record<string, string> = { 'k8s-cluster': node.ownership === 'PREEXISTING' ? 'Cluster nội bộ' : 'Cluster', 'k8s-namespace': 'Namespace', postgres: 'PostgreSQL', redis: 'Redis', vpc: 'VPC' };
+  const labels: Record<string, string> = { 'k8s-cluster': node.ownership === 'PREEXISTING' ? t('preview.deploymentReview.internalCluster') : 'Cluster', 'k8s-namespace': 'Namespace', postgres: 'PostgreSQL', redis: 'Redis', vpc: 'VPC' };
   return labels[node.resourceType] ?? node.resourceType;
 }
 function nodeDescription(node: ReviewNode): string {
-  if (node.ownership === 'PREEXISTING') return 'Cluster có sẵn';
+  if (node.ownership === 'PREEXISTING') return t('preview.deploymentReview.existingCluster');
   const modules: Record<string, string> = { eks: 'Amazon EKS', aurora: 'Amazon Aurora', elasticache: 'Amazon ElastiCache' };
   if (node.module && modules[node.module.module]) return modules[node.module.module]!;
-  const labels: Record<string, string> = { 'k8s-cluster': 'Kubernetes cluster', 'k8s-namespace': 'Kubernetes namespace', postgres: 'Database', redis: 'Cache', vpc: 'Mạng riêng trên cloud' };
-  return node.kind === 'workload' ? 'Ứng dụng · ' + (node.class || 'default') : labels[node.resourceType] ?? node.class;
+  const labels: Record<string, string> = { 'k8s-cluster': 'Kubernetes cluster', 'k8s-namespace': 'Kubernetes namespace', postgres: 'Database', redis: 'Cache', vpc: t('preview.deploymentReview.cloudPrivateNetwork') };
+  return node.kind === 'workload' ? t('preview.deploymentReview.application') + (node.class || 'default') : labels[node.resourceType] ?? node.class;
 }
 function NodeIcon({ node }: { node: ReviewNode }) {
   const paths: Record<string, ReactNode> = {
@@ -149,17 +150,17 @@ function ReviewGraph({ review, progress, selected, select, title }: { review: De
   const facts = new Map(review.nodes.map(node => [node.id, nodeFacts(node, review.artifacts.filter(a => a.nodeId === node.id))]));
   const scale = availableWidth ? Math.max(.85, Math.min(1, (availableWidth - 16) / width)) : 1;
   const nameOf = (id: string) => { const item = review.nodes.find(n => n.id === id); return item ? nodeLabel(item) : id; };
-  return <section className="review-graph" aria-label="Sơ đồ triển khai">
-    <header className="review-panel-heading"><div><h3>{title}</h3><p>Chọn một thành phần để khám phá thay đổi.</p></div><span className="review-map-badge">{cloudScope ? 'Cloud' : review.nodes.some(n => n.resourceType === 'k8s-cluster') ? 'Kubernetes' : 'Kế hoạch'}</span></header>
-    <div className="review-graph-controls"><label><input type="checkbox" checked={focusedOnly} onChange={event => setFocusedOnly(event.target.checked)} /> Chỉ đường nối của node đang chọn</label><span>Cuộn để xem toàn bộ sơ đồ</span></div>
+  return <section className="review-graph" aria-label={t('preview.deploymentReview.deploymentDiagram')}>
+    <header className="review-panel-heading"><div><h3>{title}</h3><p>{t('preview.deploymentReview.chooseAComponentToExplore')}</p></div><span className="review-map-badge">{cloudScope ? 'Cloud' : review.nodes.some(n => n.resourceType === 'k8s-cluster') ? 'Kubernetes' : t('preview.deploymentReview.plan')}</span></header>
+    <div className="review-graph-controls"><label><input type="checkbox" checked={focusedOnly} onChange={event => setFocusedOnly(event.target.checked)} /> {' '}{t('preview.deploymentReview.onlyTheEdgesOfThe')}</label><span>{t('preview.deploymentReview.scrollToSeeTheWhole')}</span></div>
     <div ref={viewport} className="review-graph-scroll"><div className="review-graph-canvas" style={{ width: width * scale, height: height * scale }}><div className="review-graph-stage" style={{ width, height, transform: `scale(${scale})` }}>
       {cloudScope ? <div className="review-cloud-boundary" style={{ width: width - 16, height: height - 24 }}><strong>{cloudScope}</strong></div> : null}
       {groupIds.map(id => {
         const members = review.nodes.filter(n => groupOf(n) === id); const ys = members.map(n => positions.get(n.id)?.y ?? 58);
         const top = Math.min(...ys) - 24; const bottom = Math.max(...ys) + nodeHeight + 20;
-        return <div key={id} className={`review-placement-group ${id === 'outside' ? 'review-placement-outside' : ''}`} style={{ left: starts.get(id), top, width: groupWidth(id), height: bottom - top }} data-cluster={id}><strong>{id === 'outside' ? 'Hạ tầng ngoài Kubernetes' : id === 'unresolved' ? 'Vị trí chưa xác định' : nameOf(id)}</strong></div>;
+        return <div key={id} className={`review-placement-group ${id === 'outside' ? 'review-placement-outside' : ''}`} style={{ left: starts.get(id), top, width: groupWidth(id), height: bottom - top }} data-cluster={id}><strong>{id === 'outside' ? t('preview.deploymentReview.infrastructureOutsideKubernetes') : id === 'unresolved' ? t('preview.deploymentReview.undeterminedLocation') : nameOf(id)}</strong></div>;
       })}
-      <svg className="review-edges" width={width} height={height} aria-label="Các cạnh phụ thuộc"><defs><marker id={arrowId} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7" fill="context-stroke" /></marker></defs>{connections.map(edge => {
+      <svg className="review-edges" width={width} height={height} aria-label={t('preview.deploymentReview.dependencyEdges')}><defs><marker id={arrowId} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7" fill="context-stroke" /></marker></defs>{connections.map(edge => {
         const focus = hovered ?? selected;
         return <path key={JSON.stringify([edge.provider, edge.consumer])} d={connectionPath(edge)} style={{ display: focusedOnly && selected && edge.provider !== selected && edge.consumer !== selected ? 'none' : undefined }} data-provider={edge.provider} data-consumer={edge.consumer} data-focused={focus === edge.provider || focus === edge.consumer} data-outer-lane={edge.indirectLane} markerEnd={`url(#${arrowId})`}><title>{nameOf(edge.provider)} → {nameOf(edge.consumer)}: {[...new Set(edge.reasons.map(reason => reasonLabel(reason.reason)))].join(' · ')}</title></path>;
       })}</svg>
@@ -169,10 +170,10 @@ function ReviewGraph({ review, progress, selected, select, title }: { review: De
         </button>;
       })}
     </div></div></div>
-    <footer className="review-graph-legend"><span>→ Điều kiện sẵn sàng → thành phần phụ thuộc</span><span>Nét đứt: liên kết đi qua nhiều tầng</span><span>Chọn thành phần để làm rõ các đường nối.</span><span>Cuộn ngang/dọc để xem đầy đủ sơ đồ.</span></footer>
+    <footer className="review-graph-legend"><span>{t('preview.deploymentReview.readinessConditionDependentComponent')}</span><span>{t('preview.deploymentReview.dashedLinkAcrossSeveralLayers')}</span><span>{t('preview.deploymentReview.chooseAComponentToHighlight')}</span><span>{t('preview.deploymentReview.scrollHorizontallyVerticallyToSee')}</span></footer>
   </section>;
 }
-const intents: Record<string,string> = { CREATE:'Tạo mới',UPDATE:'Cập nhật',RETAIN:'Giữ nguyên',REMOVE:'Gỡ bỏ',UNREFERENCED:'Gỡ tham chiếu',BIND:'Liên kết',UNVERIFIED:'Chưa xác minh' };
+const intents: Record<string,string> = { CREATE:t('preview.deploymentReview.create'),UPDATE:t('preview.deploymentReview.update'),RETAIN:t('preview.deploymentReview.unchanged'),REMOVE:t('preview.deploymentReview.remove'),UNREFERENCED:t('preview.deploymentReview.removeReference'),BIND:t('preview.deploymentReview.link'),UNVERIFIED:t('preview.deploymentReview.notVerified') };
 const intentLabel=(value?:string)=>text(intents,value??'UNVERIFIED');
 function ProgressInfo({ value }: { value?: ReviewProgress }) {
   const [now, setNow] = useState(Date.now());
@@ -181,8 +182,8 @@ function ProgressInfo({ value }: { value?: ReviewProgress }) {
   const start = value?.startedAt ? Date.parse(value.startedAt) : NaN;
   const end = value?.finishedAt ? Date.parse(value.finishedAt) : active ? now : value?.updatedAt ? Date.parse(value.updatedAt) : NaN;
   const seconds = Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, Math.floor((end - start) / 1000)) : undefined;
-  const descriptions: Record<string, string> = { PENDING: 'Chưa có bản ghi bắt đầu thực thi.', WAITING: 'Đang chờ các thành phần phụ thuộc sẵn sàng.', PROVISIONING: 'Thành phần đang được cấp phát hoặc áp dụng.', CHECKING: 'Đang kiểm tra điều kiện sẵn sàng.', READY: 'Đã xác nhận sẵn sàng trong bản ghi thực thi.', RETAINED: 'Giữ lại tài nguyên đã được xác minh trong kế hoạch này.', FAILED: 'Thực thi chưa hoàn tất. Xem mã lỗi và các phụ thuộc bên dưới.', BLOCKED: 'Một phụ thuộc thất bại đang chặn thành phần này.', UNKNOWN: 'Chưa đủ dữ liệu để kết luận trạng thái.' };
-  return <section className="review-runtime-card" data-state={value?.state ?? 'PENDING'}><div><strong>Trạng thái cấp phát</strong><StateBadge state={value?.state} /></div><p>{descriptions[value?.state ?? 'PENDING'] ?? descriptions.UNKNOWN}</p><dl><div><dt>Thời gian thực thi</dt><dd>{seconds === undefined ? 'Chưa có thời gian' : `${Math.floor(seconds / 60)} phút ${seconds % 60} giây`}</dd></div><div><dt>Bước hiện tại</dt><dd>{value?.stage || (value ? text(states, value.state) : 'Chưa chạy')}{value?.attempt ? ` · lần ${value.attempt}` : ''}</dd></div></dl></section>;
+  const descriptions: Record<string, string> = { PENDING: t('preview.deploymentReview.noExecutionStartRecordYet'), WAITING: t('preview.deploymentReview.waitingForDependentComponentsTo'), PROVISIONING: t('preview.deploymentReview.theComponentIsBeingProvisioned'), CHECKING: t('preview.deploymentReview.checkingReadinessConditions'), READY: t('preview.deploymentReview.readinessConfirmedInTheExecution'), RETAINED: t('preview.deploymentReview.keepsTheResourcesVerifiedIn'), FAILED: t('preview.deploymentReview.executionNotCompletedSeeThe'), BLOCKED: t('preview.deploymentReview.aFailedDependencyIsBlocking'), UNKNOWN: t('preview.deploymentReview.notEnoughDataToDetermine') };
+  return <section className="review-runtime-card" data-state={value?.state ?? 'PENDING'}><div><strong>{t('preview.deploymentReview.provisioningStatus')}</strong><StateBadge state={value?.state} /></div><p>{descriptions[value?.state ?? 'PENDING'] ?? descriptions.UNKNOWN}</p><dl><div><dt>{t('preview.deploymentReview.executionTime')}</dt><dd>{seconds === undefined ? t('preview.deploymentReview.noTimeYet') : t('preview.deploymentReview.floorMinValueS', { floor: Math.floor(seconds / 60), value: seconds % 60 })}</dd></div><div><dt>{t('preview.deploymentReview.currentStep')}</dt><dd>{value?.stage || (value ? text(states, value.state) : t('preview.deploymentReview.notStarted'))}{value?.attempt ? t('preview.deploymentReview.attemptAttempt', { attempt: value.attempt }) : ''}</dd></div></dl></section>;
 }
 
 function ArtifactChange({artifact}:{artifact:ReviewArtifact}) {
@@ -192,18 +193,18 @@ function ArtifactChange({artifact}:{artifact:ReviewArtifact}) {
   const lines=safeBefore&&safeAfter?diffLines(before.text??'',after.text??''):undefined;
   const additions=lines?.filter(l=>l.type==='new').length;
   const removals=lines?.filter(l=>l.type==='old').length;
-  return <li className="review-change-card"><strong>{artifact.path}</strong>{lines?<span><em className="review-added">+{additions} dòng thêm</em> · <em className="review-removed">−{removals} dòng bỏ</em></span>:<span>{text(reason,before.reason??after.reason??'BASELINE_MISSING')}</span>}
-    {lines?.some(line => line.type === 'old') ? <div className="review-change-before"><small>Trước thay đổi</small><code>{lines.filter(line => line.type === 'old').slice(0, 3).map(line => line.value).join('\n')}</code></div> : null}
-    {lines?.some(line => line.type === 'new') ? <div className="review-change-after"><small>Sau thay đổi</small><code>{lines.filter(line => line.type === 'new').slice(0, 3).map(line => line.value).join('\n')}</code></div> : null}
-    {before.text===after.text&&lines?<small>Phần nội dung hiển thị không đổi.</small>:null}
-    {before.redactedPaths?.length||after.redactedPaths?.length||before.unknownPaths?.length||after.unknownPaths?.length?<small>Giá trị đã ẩn / chưa có chưa thể đối chiếu.</small>:null}
+  return <li className="review-change-card"><strong>{artifact.path}</strong>{lines?<span><em className="review-added">{t('preview.deploymentReview.additionsLinesAdded', { additions })}</em> · <em className="review-removed">{t('preview.deploymentReview.removalsLinesRemoved', { removals })}</em></span>:<span>{text(reason,before.reason??after.reason??'BASELINE_MISSING')}</span>}
+    {lines?.some(line => line.type === 'old') ? <div className="review-change-before"><small>{t('preview.deploymentReview.beforeChange')}</small><code>{lines.filter(line => line.type === 'old').slice(0, 3).map(line => line.value).join('\n')}</code></div> : null}
+    {lines?.some(line => line.type === 'new') ? <div className="review-change-after"><small>{t('preview.deploymentReview.afterChange')}</small><code>{lines.filter(line => line.type === 'new').slice(0, 3).map(line => line.value).join('\n')}</code></div> : null}
+    {before.text===after.text&&lines?<small>{t('preview.deploymentReview.theDisplayedContentIsUnchanged')}</small>:null}
+    {before.redactedPaths?.length||after.redactedPaths?.length||before.unknownPaths?.length||after.unknownPaths?.length?<small>{t('preview.deploymentReview.hiddenMissingValuesCannotBe')}</small>:null}
   </li>;
 }
-export function DeploymentReview({ review, progress, title = 'Bản đồ triển khai' }: { review?: DeploymentReviewData; progress?: ReviewProgress[]; title?: string }) {
+export function DeploymentReview({ review, progress, title = t('preview.deploymentReview.deploymentMap') }: { review?: DeploymentReviewData; progress?: ReviewProgress[]; title?: string }) {
   // No-change/legacy responses may carry the Go zero value (version 0 and
   // null collections). Check the wire shape before reading any collection.
   if (!review || review.version !== 1 || !Array.isArray(review.nodes) || !Array.isArray(review.edges) || !Array.isArray(review.artifacts) || !Array.isArray(review.batches)) {
-    return <p className="review-unavailable">Bản review của kế hoạch này chưa có.</p>;
+    return <p className="review-unavailable">{t('preview.deploymentReview.theReviewOfThisPlan')}</p>;
   }
   return <DeploymentReviewContent review={review} progress={progress} title={title} />;
 }
@@ -224,41 +225,41 @@ function DeploymentReviewContent({ review, progress, title }: { review: Deployme
   for (const edge of dependencies) dependenciesByProvider.set(edge.provider, [...(dependenciesByProvider.get(edge.provider) ?? []), edge]);
   const ready = review?.nodes.filter(n => progress?.some(p => p.nodeId === n.id && ['READY', 'RETAINED'].includes(p.state))).length ?? 0;
   const running = progress?.filter(p => ['PROVISIONING', 'CHECKING'].includes(p.state)).length ?? 0;
-  const properties = node ? nodeFacts(node, artifacts).filter(([label]) => !['Tài khoản', 'Vùng', 'Module'].includes(label)) : [];
+  const properties = node ? nodeFacts(node, artifacts).filter(([label]) => ![t('preview.deploymentReview.account'), t('preview.deploymentReview.region'), 'Module'].includes(label)) : [];
   const selectNode = (id: string) => { setSelected(id); setTab('overview'); setFileId(''); };
   const scopeNames = [...new Set(review.nodes.flatMap(n => { const account = n.placement?.account || n.account; const region = n.placement?.region || n.region; return account && region ? [account + ' · ' + region] : []; }))];
-  const totals = [{ intents: ['CREATE'], label: 'tạo mới', tone: 'create' }, { intents: ['UPDATE'], label: 'cập nhật', tone: 'update' }, { intents: ['RETAIN', 'BIND'], label: 'giữ nguyên / liên kết', tone: 'retain' }, { intents: ['REMOVE', 'UNREFERENCED'], label: 'gỡ bỏ / tham chiếu', tone: 'remove' }];
+  const totals = [{ intents: ['CREATE'], label: t('preview.deploymentReview.create2'), tone: 'create' }, { intents: ['UPDATE'], label: t('preview.deploymentReview.update2'), tone: 'update' }, { intents: ['RETAIN', 'BIND'], label: t('preview.deploymentReview.unchangedLink'), tone: 'retain' }, { intents: ['REMOVE', 'UNREFERENCED'], label: t('preview.deploymentReview.removeReference2'), tone: 'remove' }];
   const stages = levelsOf(review);
   return <section className="deployment-review" aria-label={title}>
-    <div className="review-summary"><div className="review-summary-title"><span className="review-summary-icon" aria-hidden="true">✓</span><div><strong>{review.nodes.length} thành phần trong kế hoạch</strong><small>{scopeNames.join(' · ') || 'Đích triển khai theo Resource Definition'}</small></div></div><div className="review-intent-counts">{totals.map(total => { const count = review.nodes.filter(n => total.intents.includes(n.intent ?? '')).length; return count ? <span key={total.tone} data-intent={total.tone}><i />{count} {total.label}</span> : null; })}</div></div>
+    <div className="review-summary"><div className="review-summary-title"><span className="review-summary-icon" aria-hidden="true">✓</span><div><strong>{t('preview.deploymentReview.countComponentsInThePlan', { count: review.nodes.length })}</strong><small>{scopeNames.join(' · ') || t('preview.deploymentReview.deploymentTargetPerResourceDefinition')}</small></div></div><div className="review-intent-counts">{totals.map(total => { const count = review.nodes.filter(n => total.intents.includes(n.intent ?? '')).length; return count ? <span key={total.tone} data-intent={total.tone}><i />{count} {total.label}</span> : null; })}</div></div>
     <div className="review-layout"><ReviewGraph review={review} progress={progress} selected={node?.id} title={title} select={selectNode} />
-      <aside className="review-inspector" aria-label="Chi tiết thành phần">{node ? <><header className="review-detail-heading" data-resource-type={node.kind === 'workload' ? 'workload' : node.resourceType}><span className="review-detail-icon"><NodeIcon node={node} /></span><div><h3 title={node.id}>{nodeLabel(node)}</h3><p>{nodeDescription(node)}</p></div><StateBadge state={state?.state} /></header>
-        <div className="review-tabs" role="tablist" aria-label="Chi tiết thành phần">{(['overview', 'changes', 'code'] as const).map((key, index) => <button key={key} ref={el => { tabs.current[index] = el; }} role="tab" tabIndex={tab === key ? 0 : -1} aria-selected={tab === key} onKeyDown={event => {
+      <aside className="review-inspector" aria-label={t('preview.deploymentReview.componentDetails')}>{node ? <><header className="review-detail-heading" data-resource-type={node.kind === 'workload' ? 'workload' : node.resourceType}><span className="review-detail-icon"><NodeIcon node={node} /></span><div><h3 title={node.id}>{nodeLabel(node)}</h3><p>{nodeDescription(node)}</p></div><StateBadge state={state?.state} /></header>
+        <div className="review-tabs" role="tablist" aria-label={t('preview.deploymentReview.componentDetails')}>{(['overview', 'changes', 'code'] as const).map((key, index) => <button key={key} ref={el => { tabs.current[index] = el; }} role="tab" tabIndex={tab === key ? 0 : -1} aria-selected={tab === key} onKeyDown={event => {
           if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
           event.preventDefault(); const next = event.key === 'Home' ? 0 : event.key === 'End' ? 2 : (index + (event.key === 'ArrowRight' ? 1 : -1) + 3) % 3;
           setTab((['overview', 'changes', 'code'] as const)[next] ?? 'overview'); tabs.current[next]?.focus();
-        }} onClick={() => setTab(key)}>{key === 'overview' ? 'Tổng quan' : key === 'changes' ? <>Thay đổi <span className="review-tab-count">{artifacts.length}</span></> : 'Code'}</button>)}</div>
-        {tab === 'overview' ? <div className="review-inspector-body"><ProgressInfo value={state} /><h4>Cấu hình dự kiến</h4><dl className="review-properties">
+        }} onClick={() => setTab(key)}>{key === 'overview' ? t('preview.deploymentReview.overview') : key === 'changes' ? <>{t('preview.deploymentReview.changes')}{' '} <span className="review-tab-count">{artifacts.length}</span></> : 'Code'}</button>)}</div>
+        {tab === 'overview' ? <div className="review-inspector-body"><ProgressInfo value={state} /><h4>{t('preview.deploymentReview.expectedConfiguration')}</h4><dl className="review-properties">
           {properties.map(([label, value]) => <div key={label}><dt>{label}</dt><dd title={value}>{value}</dd></div>)}
-          <div><dt>Vị trí triển khai</dt><dd>{node.placement?.cluster ? nodeLabel(review.nodes.find(n => n.id === node.placement?.cluster) ?? node) : node.resourceType === 'k8s-cluster' ? nodeLabel(node) : 'Ngoài Kubernetes'}</dd></div>
-          {node.account || node.placement?.account ? <div><dt>Tài khoản / vùng</dt><dd>{node.placement?.account || node.account}{node.placement?.region || node.region ? ` / ${node.placement?.region || node.region}` : ''}</dd></div> : null}
-          <div><dt>Module / renderer</dt><dd title={node.module?.revision || node.renderer}>{node.module?.module || node.renderer?.split('@')[0] || 'Liên kết có sẵn'}</dd></div>
-          <div><dt>Thay đổi dự kiến</dt><dd><span className="review-intent-badge" data-intent={node.intent}>{intentLabel(node.intent)}</span></dd></div>
-        </dl><h4>Điều kiện sẵn sàng</h4>{dependencies.length ? <div className="review-dependencies">{[...dependenciesByProvider].map(([id, edges]) => {
+          <div><dt>{t('preview.deploymentReview.deploymentLocation')}</dt><dd>{node.placement?.cluster ? nodeLabel(review.nodes.find(n => n.id === node.placement?.cluster) ?? node) : node.resourceType === 'k8s-cluster' ? nodeLabel(node) : t('preview.deploymentReview.outsideKubernetes')}</dd></div>
+          {node.account || node.placement?.account ? <div><dt>{t('preview.deploymentReview.accountRegion')}</dt><dd>{node.placement?.account || node.account}{node.placement?.region || node.region ? ` / ${node.placement?.region || node.region}` : ''}</dd></div> : null}
+          <div><dt>Module / renderer</dt><dd title={node.module?.revision || node.renderer}>{node.module?.module || node.renderer?.split('@')[0] || t('preview.deploymentReview.existingLink')}</dd></div>
+          <div><dt>{t('preview.deploymentReview.expectedChanges')}</dt><dd><span className="review-intent-badge" data-intent={node.intent}>{intentLabel(node.intent)}</span></dd></div>
+        </dl><h4>{t('preview.deploymentReview.readinessCondition')}</h4>{dependencies.length ? <div className="review-dependencies">{[...dependenciesByProvider].map(([id, edges]) => {
           const provider = review.nodes.find(n => n.id === id); const observation = progress?.find(p => p.nodeId === id);
           const reasons = [...new Set(edges.map(edge => reasonLabel(edge.reason)))].join(' · ');
-          return <button key={id} className="review-dependency" title={reasons} onClick={() => selectNode(id)}><span>{provider ? nodeLabel(provider) : id}<small>{reasons}</small></span><span>{observation ? text(states, observation.state) : 'Chưa chạy'} →</span></button>;
-        })}</div> : <p className="review-description">Không có phụ thuộc trong kế hoạch.</p>}
-        {state?.blockingProviderIds.length ? <p className="review-unavailable">Đang chờ: {state.blockingProviderIds.map(id => { const provider = review.nodes.find(n => n.id === id); return provider ? nodeLabel(provider) : id; }).join(', ')}</p> : null}
-        {state?.safeErrorCode ? <p className="review-unavailable">Lỗi: {state.safeErrorCode}</p> : null}
-        {artifacts.length ? <button className="review-code-link" onClick={() => setTab('code')}>Xem {node.kind === 'workload' ? 'Kubernetes manifest' : 'Terraform source'} ↗</button> : null}
-        <details className="review-technical"><summary>Thông tin kỹ thuật</summary><dl className="review-properties"><div><dt>ID</dt><dd>{node.id}</dd></div><div><dt>Definition</dt><dd>{node.definitionKey || '—'} {node.definitionVersion ? `v${node.definitionVersion}` : ''}</dd></div><div><dt>Cluster / namespace</dt><dd>{node.placement?.cluster || '—'} / {node.placement?.namespace || 'Chờ cấp phát'}</dd></div><div><dt>Phiên bản</dt><dd>{node.module?.revision || node.renderer || '—'}</dd></div></dl></details></div> : null}
-        {tab === 'changes' ? <div className="review-inspector-body"><p className="review-description">{intentLabel(node.intent)} · So sánh nội dung được phép hiển thị trước và sau thay đổi.</p><ul className="review-change-list">{artifacts.map(a => <ArtifactChange key={a.id} artifact={a} />)}</ul>{!artifacts.length ? <p>Chưa có artifact an toàn cho nút này.</p> : null}<p className="review-code-note">Đây là thay đổi cấu hình dự kiến, không phải Terraform plan hay kết quả provider.</p></div> : null}
-        {tab === 'code' ? <div className="review-inspector-body">{artifacts.length ? <><div className="review-file-tabs" aria-label="Chọn file">{artifacts.map(a => <button key={a.id} aria-pressed={artifact?.id === a.id} onClick={() => setFileId(a.id)}>{a.path}</button>)}</div>{artifact ? <CodePane key={artifact.id} artifact={artifact} /> : null}</> : <p className="review-unavailable">Chưa có code an toàn cho nút này.</p>}</div> : null}
+          return <button key={id} className="review-dependency" title={reasons} onClick={() => selectNode(id)}><span>{provider ? nodeLabel(provider) : id}<small>{reasons}</small></span><span>{observation ? text(states, observation.state) : t('preview.deploymentReview.notStarted')} →</span></button>;
+        })}</div> : <p className="review-description">{t('preview.deploymentReview.noDependenciesInThePlan')}</p>}
+        {state?.blockingProviderIds.length ? <p className="review-unavailable">{t('preview.deploymentReview.waitingForValue', { value: state.blockingProviderIds.map(id => { const provider = review.nodes.find(n => n.id === id); return provider ? nodeLabel(provider) : id; }).join(', ') })}</p> : null}
+        {state?.safeErrorCode ? <p className="review-unavailable">{t('preview.deploymentReview.errorSafeErrorCode', { safeErrorCode: state.safeErrorCode })}</p> : null}
+        {artifacts.length ? <button className="review-code-link" onClick={() => setTab('code')}>{t('preview.deploymentReview.viewValue', { value: node.kind === 'workload' ? 'Kubernetes manifest' : 'Terraform source' })}</button> : null}
+        <details className="review-technical"><summary>{t('preview.deploymentReview.technicalInformation')}</summary><dl className="review-properties"><div><dt>ID</dt><dd>{node.id}</dd></div><div><dt>Definition</dt><dd>{node.definitionKey || '—'} {node.definitionVersion ? `v${node.definitionVersion}` : ''}</dd></div><div><dt>Cluster / namespace</dt><dd>{node.placement?.cluster || '—'} / {node.placement?.namespace || t('preview.deploymentReview.waitingForProvisioning')}</dd></div><div><dt>{t('preview.deploymentReview.version')}</dt><dd>{node.module?.revision || node.renderer || '—'}</dd></div></dl></details></div> : null}
+        {tab === 'changes' ? <div className="review-inspector-body"><p className="review-description">{t('preview.deploymentReview.intentLabelComparesTheDisplayableContent', { intentLabel: intentLabel(node.intent) })}</p><ul className="review-change-list">{artifacts.map(a => <ArtifactChange key={a.id} artifact={a} />)}</ul>{!artifacts.length ? <p>{t('preview.deploymentReview.noSafeArtifactForThis')}</p> : null}<p className="review-code-note">{t('preview.deploymentReview.thisIsTheExpectedConfiguration')}</p></div> : null}
+        {tab === 'code' ? <div className="review-inspector-body">{artifacts.length ? <><div className="review-file-tabs" aria-label={t('preview.deploymentReview.chooseFile')}>{artifacts.map(a => <button key={a.id} aria-pressed={artifact?.id === a.id} onClick={() => setFileId(a.id)}>{a.path}</button>)}</div>{artifact ? <CodePane key={artifact.id} artifact={artifact} /> : null}</> : <p className="review-unavailable">{t('preview.deploymentReview.noSafeCodeForThis')}</p>}</div> : null}
       </> : null}</aside></div>
-    <section className="review-execution"><div className="review-execution-heading"><div><h3>{progress ? 'Tiến độ triển khai' : 'Điều gì sẽ xảy ra?'}</h3><p>{progress ? 'Trạng thái được đọc từ bản ghi thực thi của từng thành phần.' : 'Các phụ thuộc sẵn sàng trước, ứng dụng triển khai sau.'}</p></div><span>{progress ? `${running} đang xử lý` : 'Chưa triển khai'}</span></div>
-      {progress ? <><div className="review-progress-track" aria-hidden="true"><span style={{ width: `${review.nodes.length ? ready / review.nodes.length * 100 : 0}%` }} /></div><p className="review-progress-caption">{ready}/{review.nodes.length} thành phần sẵn sàng hoặc giữ nguyên</p></> : null}
-      {stages.length ? <ol className="review-execution-steps" aria-label="Thứ tự phụ thuộc">{stages.map((stage, index) => <li key={index}><span className="review-step-number">{index + 1}</span><div><strong>{stage.map(nodeLabel).join(' · ')}</strong><small>{stage.every(n => n.kind === 'workload') ? 'Theo điều kiện của ứng dụng' : 'Theo điều kiện của tài nguyên'}</small></div></li>)}</ol> : <p className="review-description">Theo dõi điều kiện sẵn sàng trực tiếp trên sơ đồ.</p>}
+    <section className="review-execution"><div className="review-execution-heading"><div><h3>{progress ? t('preview.deploymentReview.deploymentProgress') : t('preview.deploymentReview.whatWillHappen')}</h3><p>{progress ? t('preview.deploymentReview.statusIsReadFromThe') : t('preview.deploymentReview.dependenciesBecomeReadyFirstThen')}</p></div><span>{progress ? t('preview.deploymentReview.runningInProgress', { running }) : t('preview.deploymentReview.notDeployed')}</span></div>
+      {progress ? <><div className="review-progress-track" aria-hidden="true"><span style={{ width: `${review.nodes.length ? ready / review.nodes.length * 100 : 0}%` }} /></div><p className="review-progress-caption">{t('preview.deploymentReview.readyCountComponentsReadyOr', { ready, count: review.nodes.length })}</p></> : null}
+      {stages.length ? <ol className="review-execution-steps" aria-label={t('preview.deploymentReview.dependencyOrder')}>{stages.map((stage, index) => <li key={index}><span className="review-step-number">{index + 1}</span><div><strong>{stage.map(nodeLabel).join(' · ')}</strong><small>{stage.every(n => n.kind === 'workload') ? t('preview.deploymentReview.byApplicationCondition') : t('preview.deploymentReview.byResourceCondition')}</small></div></li>)}</ol> : <p className="review-description">{t('preview.deploymentReview.trackReadinessConditionsDirectlyOn')}</p>}
     </section>
   </section>;
 }

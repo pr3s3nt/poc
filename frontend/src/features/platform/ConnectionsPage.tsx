@@ -4,6 +4,7 @@ import { specificGuidance } from '../../shared/api/errors';
 import { Button } from '../../shared/ui/Button';
 import { AwsConnectionForm } from './AwsConnectionForm';
 import { useCatalogList } from './useCatalogList';
+import { t } from '../../shared/i18n';
 
 type Connection = {
   key: string; name?: string; kind: string; authenticationType?: string; status: string;
@@ -33,31 +34,31 @@ const loadConnections = async () => (await api<{ connections: Connection[] }>('/
 
 // Fixed Vietnamese guidance by operation and HTTP status. Raw backend or
 // provider text never reaches the page; specific guidance comes from stable error codes.
-const listFailure = () => 'Không tải được danh sách kết nối. Kiểm tra kết nối mạng rồi thử lại; dữ liệu trong form được giữ nguyên.';
+const listFailure = () => t('platform.connections.couldNotLoadTheConnection');
 
 function inspectGuidance(reason: unknown): string {
-  if (!(reason instanceof ApiError)) return 'Chưa kiểm tra được kubeconfig vì chưa nhận được phản hồi từ máy chủ. Nhấn “Kiểm tra lại kubeconfig”.';
+  if (!(reason instanceof ApiError)) return t('platform.connections.theKubeconfigWasNotChecked');
   switch (reason.status) {
-    case 400: case 422: return `Không đọc được kubeconfig. ${specificGuidance(reason.code, reason.message) ?? 'Kiểm tra file hợp lệ, có context dùng token hoặc client certificate nhúng sẵn, rồi kiểm tra lại.'}`;
-    case 401: return 'Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi kiểm tra lại kubeconfig.';
-    case 403: return 'Tài khoản không có quyền đọc kubeconfig. Cần vai trò Kỹ sư nền tảng hoặc Quản trị.';
-    case 413: return 'Kubeconfig lớn hơn 1 MiB. Rút gọn nội dung rồi thử lại.';
-    default: return reason.status >= 500 ? 'Máy chủ gặp lỗi khi đọc kubeconfig. Nhấn “Kiểm tra lại kubeconfig”.' : 'Không kiểm tra được kubeconfig. Nhấn “Kiểm tra lại kubeconfig”.';
+    case 400: case 422: return t('platform.connections.couldNotReadTheKubeconfig', { value: specificGuidance(reason.code, reason.message) ?? t('platform.connections.checkThatTheFileIs') });
+    case 401: return t('platform.connections.yourSessionHasExpiredSign');
+    case 403: return t('platform.connections.yourAccountIsNotAllowed');
+    case 413: return t('platform.connections.theKubeconfigIsLargerThan');
+    default: return reason.status >= 500 ? t('platform.connections.theServerFailedWhileReading') : t('platform.connections.couldNotCheckTheKubeconfig');
   }
 }
 
 function registerGuidance(reason: unknown): string {
   // No HTTP status: the request may or may not have reached the backend.
-  if (!(reason instanceof ApiError) || reason.code === 'COMMIT_UNCERTAIN') return 'Chưa nhận được phản hồi từ máy chủ nên chưa biết kết nối đã được lưu hay chưa. Hãy tải lại danh sách để kiểm tra trước khi đăng ký lại; Console không tự gửi lại.';
+  if (!(reason instanceof ApiError) || reason.code === 'COMMIT_UNCERTAIN') return t('platform.connections.noResponseFromTheServer');
   switch (reason.status) {
-    case 400: return `Máy chủ từ chối dữ liệu đăng ký. ${reason.code && reason.code !== 'INVALID_REQUEST' ? specificGuidance(reason.code, reason.message) ?? '' : 'Kiểm tra tên kết nối, kubeconfig và context rồi thử lại.'}`;
-    case 401: return 'Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi thử lại.';
-    case 403: return 'Tài khoản không có quyền đăng ký kết nối. Cần vai trò Kỹ sư nền tảng hoặc Quản trị.';
-    case 409: return 'Không đăng ký được vì tên hoặc khóa kết nối đã tồn tại. Đổi tên kết nối rồi thử lại.';
-    case 413: return 'Dữ liệu đăng ký quá lớn. Rút gọn kubeconfig rồi thử lại.';
-    case 422: return `Không xác minh được cluster nên chưa lưu kết nối. ${reason.code && reason.code !== 'VERIFICATION_FAILED' ? reason.message : 'Kiểm tra endpoint, thông tin xác thực trong kubeconfig và quyền của context, rồi thử lại.'}`;
-    case 503: return 'Kho lưu thông tin xác thực của nền tảng chưa sẵn sàng. Liên hệ quản trị nền tảng rồi thử lại.';
-    default: return reason.status >= 500 ? 'Máy chủ gặp lỗi khi đăng ký. Kết nối có thể chưa được lưu; tải lại danh sách để kiểm tra.' : 'Không đăng ký được kết nối. Kiểm tra dữ liệu rồi thử lại.';
+    case 400: return t('platform.connections.theServerRejectedTheRegistration', { value: reason.code && reason.code !== 'INVALID_REQUEST' ? specificGuidance(reason.code, reason.message) ?? '' : t('platform.connections.checkTheConnectionNameKubeconfig') });
+    case 401: return t('platform.connections.yourSessionHasExpiredSign2');
+    case 403: return t('platform.connections.yourAccountIsNotAllowed2');
+    case 409: return t('platform.connections.couldNotRegisterBecauseThe');
+    case 413: return t('platform.connections.theRegistrationDataIsToo');
+    case 422: return t('platform.connections.couldNotVerifyTheCluster', { value: reason.code && reason.code !== 'VERIFICATION_FAILED' ? reason.message : t('platform.connections.checkTheEndpointTheCredentials') });
+    case 503: return t('platform.connections.thePlatformCredentialStoreIs');
+    default: return reason.status >= 500 ? t('platform.connections.theServerFailedDuringRegistration') : t('platform.connections.couldNotRegisterTheConnection');
   }
 }
 
@@ -111,7 +112,7 @@ export function ConnectionsPage() {
   }
 
   async function inspect(text: string, pending: number) {
-    if (new Blob([text]).size > maxKubeconfigBytes) { setError('Kubeconfig lớn hơn 1 MiB.'); return; }
+    if (new Blob([text]).size > maxKubeconfigBytes) { setError(t('platform.connections.theKubeconfigIsLargerThan2')); return; }
     const id = ++request.current;
     const current = () => pending === revision.current && id === request.current;
     setInspecting(true); setError(''); setCanRetry(false); setNotice('');
@@ -134,11 +135,11 @@ export function ConnectionsPage() {
     replaceDocument('');
     setFileLabel('');
     if (!file) return;
-    if (file.size > maxKubeconfigBytes) { setError('File kubeconfig lớn hơn 1 MiB.'); return; }
+    if (file.size > maxKubeconfigBytes) { setError(t('platform.connections.theKubeconfigFileIsLarger')); return; }
     const pending = revision.current;
     setReading(true);
     let text: string;
-    try { text = await readText(file); } catch { if (pending === revision.current) { setReading(false); setError('Không đọc được file kubeconfig.'); } return; }
+    try { text = await readText(file); } catch { if (pending === revision.current) { setReading(false); setError(t('platform.connections.couldNotReadTheKubeconfig2')); } return; }
     if (pending !== revision.current) return;
     setReading(false); setKubeconfig(text); setFileLabel(file.name);
     void inspect(text, pending);
@@ -157,8 +158,8 @@ export function ConnectionsPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving || inspecting || reading) return;
-    if (!name.trim()) { setError('Nhập tên kết nối.'); return; }
-    if (!chosen) { setError('Tải lên hoặc dán kubeconfig rồi chọn context trước khi kiểm tra và lưu.'); return; }
+    if (!name.trim()) { setError(t('platform.connections.enterAConnectionName')); return; }
+    if (!chosen) { setError(t('platform.connections.uploadOrPasteAKubeconfig')); return; }
     cancelTimer();
     setError(''); setNotice(''); setSaving(true);
     let created: Connection;
@@ -171,7 +172,7 @@ export function ConnectionsPage() {
       return;
     }
     // Committed: report it, clear every credential and the form, then reload.
-    setNotice(`Đã đăng ký kết nối ${created.name ?? name.trim()} (${created.key}).`);
+    setNotice(t('platform.connections.registeredConnectionValueKey', { value: created.name ?? name.trim(), key: created.key }));
     setTypedName(null); setFileLabel(''); setHidden(true);
     if (fileInput.current) fileInput.current.value = '';
     replaceDocument('');
@@ -180,46 +181,46 @@ export function ConnectionsPage() {
   }
 
   const busy = saving || inspecting || reading;
-  return <section className="page"><header className="page-header"><div><p className="eyebrow">Nền tảng</p><h1>Kết nối</h1><p>Đăng ký cluster Kubernetes có sẵn từ kubeconfig hoặc tài khoản AWS bằng access key. Orchestrator lưu thông tin xác thực trong kho thông tin xác thực của nền tảng, không lưu trên máy chủ backend.</p></div></header>
-    <section className="content-panel"><div className="section-header"><h2>Kết nối đã đăng ký</h2></div>{loadError ? <div className="form-error" role="alert" aria-label="Lỗi tải danh sách">{loadError} <Button type="button" onClick={() => void reload()}>Thử lại</Button></div> : loading ? <p>Đang tải danh sách kết nối…</p> : connections.length === 0 ? <p>Chưa có kết nối nào được đăng ký.</p> : <ConnectionTable connections={connections} />}</section>
+  return <section className="page"><header className="page-header"><div><p className="eyebrow">{t('platform.connections.platform')}</p><h1>{t('platform.connections.connections')}</h1><p>{t('platform.connections.registerAnExistingKubernetesCluster')}</p></div></header>
+    <section className="content-panel"><div className="section-header"><h2>{t('platform.connections.registeredConnections')}</h2></div>{loadError ? <div className="form-error" role="alert" aria-label={t('platform.connections.listLoadError')}>{loadError} <Button type="button" onClick={() => void reload()}>{t('platform.connections.retry')}</Button></div> : loading ? <p>{t('platform.connections.loadingConnections')}</p> : connections.length === 0 ? <p>{t('platform.connections.noConnectionsRegisteredYet')}</p> : <ConnectionTable connections={connections} />}</section>
     <section className="content-panel"><div className="connection-register">
-      <div className="source-choices connection-kind" role="radiogroup" aria-label="Loại kết nối">
-        <label className="source-choice"><input type="radio" name="connection-kind" checked={kind === 'kubernetes'} onChange={() => setKind('kubernetes')} /> Cluster Kubernetes</label>
-        <label className="source-choice"><input type="radio" name="connection-kind" checked={kind === 'aws'} onChange={() => setKind('aws')} /> Tài khoản AWS</label>
+      <div className="source-choices connection-kind" role="radiogroup" aria-label={t('platform.connections.connectionType')}>
+        <label className="source-choice"><input type="radio" name="connection-kind" checked={kind === 'kubernetes'} onChange={() => setKind('kubernetes')} /> {' '}{t('platform.connections.kubernetesCluster')}</label>
+        <label className="source-choice"><input type="radio" name="connection-kind" checked={kind === 'aws'} onChange={() => setKind('aws')} /> {' '}{t('platform.connections.aWSAccount')}</label>
       </div>
       {kind === 'aws' ? <>
-        <div className="section-header"><div><h2>Đăng ký tài khoản AWS</h2><p>Nhập access key dài hạn của một người dùng IAM và các vùng được phép. “Kiểm tra và lưu” xác minh danh tính, từng vùng và quyền cấp phát VPC, EKS, ElastiCache, Aurora bằng các lời gọi chỉ đọc; đăng ký không tạo tài nguyên AWS và không tự chọn kết nối cho môi trường nào.</p></div></div>
+        <div className="section-header"><div><h2>{t('platform.connections.registerAWSAccount')}</h2><p>{t('platform.connections.enterTheLongTermAccess')}</p></div></div>
         <AwsConnectionForm onRegistered={async () => { await reload(); }} />
       </> : <>
-      <div className="section-header"><div><h2>Đăng ký cluster Kubernetes</h2><p>Tải lên hoặc dán kubeconfig có token hoặc client certificate nhúng sẵn. Console tự đọc danh sách context; “Kiểm tra và lưu” mới xác minh quyền truy cập API mà không tạo tài nguyên.</p></div></div>
+      <div className="section-header"><div><h2>{t('platform.connections.registerKubernetesCluster')}</h2><p>{t('platform.connections.uploadOrPasteAKubeconfig2')}</p></div></div>
       <form onSubmit={submit}><fieldset className="form-fieldset connection-form" disabled={saving} aria-busy={busy}>
-        <label className="connection-field">Tên kết nối<input value={name} required maxLength={maxNameLength} onChange={(event) => setTypedName(event.target.value)} /></label>
+        <label className="connection-field">{t('platform.connections.connectionName')}<input value={name} required maxLength={maxNameLength} onChange={(event) => setTypedName(event.target.value)} /></label>
         <div className="connection-source">
-          <div className="source-choices" role="radiogroup" aria-label="Nguồn kubeconfig">
-            <label className="source-choice"><input type="radio" name="kubeconfig-source" checked={source === 'upload'} onChange={() => chooseSource('upload')} /> Tải lên file kubeconfig</label>
-            <label className="source-choice"><input type="radio" name="kubeconfig-source" checked={source === 'paste'} onChange={() => chooseSource('paste')} /> Dán nội dung kubeconfig</label>
+          <div className="source-choices" role="radiogroup" aria-label={t('platform.connections.kubeconfigSource')}>
+            <label className="source-choice"><input type="radio" name="kubeconfig-source" checked={source === 'upload'} onChange={() => chooseSource('upload')} /> {' '}{t('platform.connections.uploadKubeconfigFile')}</label>
+            <label className="source-choice"><input type="radio" name="kubeconfig-source" checked={source === 'paste'} onChange={() => chooseSource('paste')} /> {' '}{t('platform.connections.pasteKubeconfigContent')}</label>
           </div>
           {source === 'upload'
-            ? <div className="connection-field"><span id={`${formId}-file`}>File kubeconfig</span><div className="file-picker">
-                <span className="button file-picker-button">Chọn file<input ref={fileInput} type="file" aria-labelledby={`${formId}-file`} aria-describedby={`${formId}-file-name`} onChange={(event) => void chooseFile(event)} /></span>
-                <small id={`${formId}-file-name`} className="file-picker-name">{fileLabel ? `Đã chọn file: ${fileLabel}. Nội dung file không được hiển thị.` : 'Chưa chọn file'}</small>
+            ? <div className="connection-field"><span id={`${formId}-file`}>{t('platform.connections.kubeconfigFile')}</span><div className="file-picker">
+                <span className="button file-picker-button">{t('platform.connections.chooseFile')}<input ref={fileInput} type="file" aria-labelledby={`${formId}-file`} aria-describedby={`${formId}-file-name`} onChange={(event) => void chooseFile(event)} /></span>
+                <small id={`${formId}-file-name`} className="file-picker-name">{fileLabel ? t('platform.connections.fileSelectedFileLabelTheFile', { fileLabel }) : t('platform.connections.noFileSelected')}</small>
               </div></div>
-            : <label className="connection-field">Nội dung kubeconfig<textarea aria-label="Nội dung kubeconfig" className={hidden ? 'masked-text' : undefined} rows={8} spellCheck={false} autoComplete="off" value={kubeconfig} onChange={(event) => pasteDocument(event.target.value)} /></label>}
+            : <label className="connection-field">{t('platform.connections.kubeconfigContent')}<textarea aria-label={t('platform.connections.kubeconfigContent')} className={hidden ? 'masked-text' : undefined} rows={8} spellCheck={false} autoComplete="off" value={kubeconfig} onChange={(event) => pasteDocument(event.target.value)} /></label>}
           <div className="source-actions">
-            {canRetry ? <Button type="button" disabled={busy || !kubeconfig.trim()} onClick={() => void inspect(kubeconfig, revision.current)}>Kiểm tra lại kubeconfig</Button> : null}
-            {source === 'paste' ? <label className="inline-check"><input type="checkbox" checked={!hidden} onChange={(event) => setHidden(!event.target.checked)} /> Hiện nội dung</label> : null}</div>
-          {reading || inspecting ? <p className="muted" role="status" aria-live="polite">{reading ? 'Đang đọc file kubeconfig…' : 'Đang kiểm tra kubeconfig…'}</p> : null}
+            {canRetry ? <Button type="button" disabled={busy || !kubeconfig.trim()} onClick={() => void inspect(kubeconfig, revision.current)}>{t('platform.connections.recheckKubeconfig')}</Button> : null}
+            {source === 'paste' ? <label className="inline-check"><input type="checkbox" checked={!hidden} onChange={(event) => setHidden(!event.target.checked)} /> {' '}{t('platform.connections.showContent')}</label> : null}</div>
+          {reading || inspecting ? <p className="muted" role="status" aria-live="polite">{reading ? t('platform.connections.readingKubeconfigFile') : t('platform.connections.checkingKubeconfig')}</p> : null}
         </div>
         {contexts.length > 0 ? <div className="connection-destination">
-          {contexts.length > 1 ? <label className="connection-field">Context<select value={selected} required onChange={(event) => setSelected(event.target.value)}><option value="">Chọn context</option>{contexts.map((context) => <option key={context.name} value={context.name}>{context.name}</option>)}</select></label> : null}
-          {chosen ? <dl className="destination-summary" aria-label="Đích đã chọn">
+          {contexts.length > 1 ? <label className="connection-field">Context<select value={selected} required onChange={(event) => setSelected(event.target.value)}><option value="">{t('platform.connections.chooseContext')}</option>{contexts.map((context) => <option key={context.name} value={context.name}>{context.name}</option>)}</select></label> : null}
+          {chosen ? <dl className="destination-summary" aria-label={t('platform.connections.selectedTarget')}>
             <div><dt>Context</dt> <dd>{chosen.name}</dd></div>
             <div><dt>Cluster</dt> <dd>{chosen.cluster}</dd></div>
             <div><dt>Endpoint</dt> <dd>{chosen.endpoint}</dd></div>
           </dl> : null}
         </div> : null}
         {error ? <div className="form-error" role="alert">{error}</div> : null}{notice ? <div className="form-success" role="status">{notice}</div> : null}
-        <div className="connection-footer"><Button type="submit" tone="primary" disabled={busy}>{saving ? 'Đang kiểm tra và lưu…' : 'Kiểm tra và lưu'}</Button></div>
+        <div className="connection-footer"><Button type="submit" tone="primary" disabled={busy}>{saving ? t('platform.connections.checkingAndSaving') : t('platform.connections.checkAndSave')}</Button></div>
       </fieldset></form>
       </>}
     </div></section>
@@ -231,7 +232,7 @@ export function ConnectionsPage() {
 function destination(connection: Connection): [string, string][] {
   const config = connection.config ?? {};
   const fields: [string, string | undefined][] = connection.kind === 'AWS'
-    ? [['Vùng', config.allowedRegions?.length ? config.allowedRegions.join(', ') : config.region], ['Tài khoản', config.accountId]]
+    ? [[t('platform.connections.regions'), config.allowedRegions?.length ? config.allowedRegions.join(', ') : config.region], [t('platform.connections.account'), config.accountId]]
     : [['Cluster', config.cluster], ['Endpoint', config.endpoint]];
   return fields.filter((field): field is [string, string] => Boolean(field[1]));
 }
@@ -241,21 +242,21 @@ function destination(connection: Connection): [string, string][] {
 function awsEvidence(connection: Connection): string {
   const v = connection.verification;
   return v?.identity === 'VERIFIED' && v.regionCheck === 'VERIFIED' && v.capabilityCheck === 'VERIFIED'
-    ? 'Đã xác minh khi đăng ký: danh tính, từng vùng và quyền cấp phát (chưa tạo tài nguyên).'
-    : 'Chưa có bằng chứng xác minh quyền cấp phát.';
+    ? t('platform.connections.verifiedAtRegistrationIdentityEach')
+    : t('platform.connections.noEvidenceOfProvisioningPermission');
 }
 
 function ConnectionTable({ connections }: { connections: Connection[] }) {
-  return <table className="connection-table" aria-label="Kết nối đã đăng ký">
-    <thead><tr><th scope="col">Tên</th><th scope="col">Loại</th><th scope="col">Đích</th><th scope="col">Trạng thái</th></tr></thead>
+  return <table className="connection-table" aria-label={t('platform.connections.registeredConnections')}>
+    <thead><tr><th scope="col">{t('platform.connections.name')}</th><th scope="col">{t('platform.connections.type')}</th><th scope="col">{t('platform.connections.target')}</th><th scope="col">{t('platform.connections.status')}</th></tr></thead>
     <tbody>{connections.map((connection) => {
       const label = connection.name || connection.key;
       const fields = destination(connection);
       return <tr key={connection.key}>
-        <td data-label="Tên"><strong>{label}</strong>{label !== connection.key ? <small className="connection-key">{connection.key}</small> : null}</td>
-        <td data-label="Loại">{connection.kind}</td>
-        <td data-label="Đích">{fields.length ? fields.map(([field, value]) => <span className="destination-line" key={field}><span className="muted">{field}</span> {value}</span>) : <span className="muted">—</span>}</td>
-        <td data-label="Trạng thái"><span className={`status-badge${connection.status === 'READY' ? ' status-badge-ready' : ''}`}>{connection.status === 'READY' ? 'Sẵn sàng' : connection.status}</span>{connection.kind === 'AWS' ? <small className="connection-key">{awsEvidence(connection)}</small> : null}</td>
+        <td data-label={t('platform.connections.name')}><strong>{label}</strong>{label !== connection.key ? <small className="connection-key">{connection.key}</small> : null}</td>
+        <td data-label={t('platform.connections.type')}>{connection.kind}</td>
+        <td data-label={t('platform.connections.target')}>{fields.length ? fields.map(([field, value]) => <span className="destination-line" key={field}><span className="muted">{field}</span> {value}</span>) : <span className="muted">—</span>}</td>
+        <td data-label={t('platform.connections.status')}><span className={`status-badge${connection.status === 'READY' ? ' status-badge-ready' : ''}`}>{connection.status === 'READY' ? t('platform.connections.ready') : connection.status}</span>{connection.kind === 'AWS' ? <small className="connection-key">{awsEvidence(connection)}</small> : null}</td>
       </tr>;
     })}</tbody>
   </table>;

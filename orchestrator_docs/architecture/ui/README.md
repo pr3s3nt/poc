@@ -2,7 +2,7 @@
 id: UI-ARCHITECTURE-INDEX
 artifact: shared-ui-design
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # Shared Web Console UI
@@ -109,12 +109,18 @@ are native SVG and always accompanied by the existing resource labels.
 
 ## Ngôn ngữ Console và locator (VI-01)
 
-Web Console dùng nhãn tiếng Việt hard-code, không thêm i18n hoặc bộ chọn ngôn
-ngữ. Nhãn chuẩn nằm trong [glossary](../../GLOSSARY.md#nhãn-web-console-vi-01).
-Text tĩnh, validation frontend, aria-label, trạng thái loading/empty/error,
-notification và trợ giúp của trang được Việt hóa cùng task của trang đó.
-Các trang chưa chuyển đổi giữ locator hiện tại cho tới task tương ứng; đây là
-trình tự triển khai, không phải chế độ tiếng Anh của sản phẩm.
+Web Console hỗ trợ tiếng Việt (mặc định, fallback) và tiếng Anh qua message
+catalog nạp lúc chạy theo [ADR-020](../decisions/ADR-020-console-message-catalogs.md).
+Nhãn chuẩn tiếng Việt nằm trong [glossary](../../GLOSSARY.md#nhãn-web-console-vi-01);
+catalog `vi.json` là nguồn hiển thị của các nhãn đó. Text tĩnh, validation
+frontend, aria-label, trạng thái loading/empty/error, notification và trợ giúp
+dùng key catalog, không viết chuỗi cứng trong component.
+
+Bộ chọn “Ngôn ngữ” nằm ở footer sidebar (ẩn khi sidebar thu gọn) và trang đăng
+nhập; chỉ hiện khi manifest có từ hai ngôn ngữ. Đổi ngôn ngữ lưu lựa chọn rồi tải
+lại trang. Ngày giờ và số định dạng theo ngôn ngữ đang chọn. Thêm ngôn ngữ chỉ
+cần thêm `frontend/public/locales/<code>.json` và một dòng trong `manifest.json`;
+không sửa code.
 
 Giữ nguyên tên do người dùng đặt, technical IDs, enums/payload, `staging`,
 `production`, image, descriptor, module, key, JSON, placeholder và URL. Không

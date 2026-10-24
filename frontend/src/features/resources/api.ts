@@ -1,5 +1,6 @@
 import { ApiError, api } from '../../shared/api/client';
 import type { EnvironmentKey } from '../../shared/types/application';
+import { t } from '../../shared/i18n';
 
 // Scoped, safe resource detail and confirmed deletion (UC-09 RES-01..03, UC-07 DEL-*, OC-19).
 // Every response is read through a strict parser that keeps only the allowlisted fields: a
@@ -7,7 +8,7 @@ import type { EnvironmentKey } from '../../shared/types/application';
 // reasons are replaced by a generic marker, and nothing else the server might send is kept.
 
 export class MalformedResponseError extends Error {
-  constructor() { super('Phản hồi từ máy chủ không đúng định dạng nên không được hiển thị.'); }
+  constructor() { super(t('resources.api.theServerResponseHasAn')); }
 }
 
 export type Consumer = { kind: string; name: string; resourceId?: string; status?: string };

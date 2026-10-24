@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
 import { Button } from '../../../shared/ui/Button';
 import { accountGuidance, inspectKubeconfig, maxKubeconfigBytes, type KubeconfigContext } from './accountsApi';
+import { t } from '../../../shared/i18n';
 
 export type KubeconfigDraft = { kubeconfig: string; context: string; summary?: KubeconfigContext };
 
@@ -76,7 +77,7 @@ export function KubeconfigField({ disabled, resetSignal, onChange, onContexts }:
   }
 
   async function inspect(text: string, pending: number) {
-    if (new Blob([text]).size > maxKubeconfigBytes) { setError('Kubeconfig lớn hơn 1 MiB.'); return; }
+    if (new Blob([text]).size > maxKubeconfigBytes) { setError(t('platform.accounts.kubeconfigField.theKubeconfigIsLargerThan')); return; }
     const requestId = ++request.current;
     const current = () => pending === revision.current && requestId === request.current;
     setInspecting(true); setError(''); setCanRetry(false);
@@ -99,11 +100,11 @@ export function KubeconfigField({ disabled, resetSignal, onChange, onContexts }:
     const file = event.target.files?.[0];
     replaceDocument(''); setFileLabel('');
     if (!file) return;
-    if (file.size > maxKubeconfigBytes) { setError('File kubeconfig lớn hơn 1 MiB.'); return; }
+    if (file.size > maxKubeconfigBytes) { setError(t('platform.accounts.kubeconfigField.theKubeconfigFileIsLarger')); return; }
     const pending = revision.current;
     setReading(true);
     let text: string;
-    try { text = await readText(file); } catch { if (pending === revision.current) { setReading(false); setError('Không đọc được file kubeconfig.'); } return; }
+    try { text = await readText(file); } catch { if (pending === revision.current) { setReading(false); setError(t('platform.accounts.kubeconfigField.couldNotReadTheKubeconfig')); } return; }
     if (pending !== revision.current) return;
     setReading(false); setKubeconfig(text); setFileLabel(file.name);
     publish(text, [], '');
@@ -124,23 +125,23 @@ export function KubeconfigField({ disabled, resetSignal, onChange, onContexts }:
 
   const chosen = contexts.find((context) => context.name === selected);
   return <div className="connection-source">
-    <div className="source-choices" role="radiogroup" aria-label="Nguồn kubeconfig">
-      <label className="source-choice"><input type="radio" name={`${id}-source`} disabled={disabled} checked={source === 'upload'} onChange={() => chooseSource('upload')} /> Tải lên file kubeconfig</label>
-      <label className="source-choice"><input type="radio" name={`${id}-source`} disabled={disabled} checked={source === 'paste'} onChange={() => chooseSource('paste')} /> Dán nội dung kubeconfig</label>
+    <div className="source-choices" role="radiogroup" aria-label={t('platform.accounts.kubeconfigField.kubeconfigSource')}>
+      <label className="source-choice"><input type="radio" name={`${id}-source`} disabled={disabled} checked={source === 'upload'} onChange={() => chooseSource('upload')} /> {' '}{t('platform.accounts.kubeconfigField.uploadKubeconfigFile')}</label>
+      <label className="source-choice"><input type="radio" name={`${id}-source`} disabled={disabled} checked={source === 'paste'} onChange={() => chooseSource('paste')} /> {' '}{t('platform.accounts.kubeconfigField.pasteKubeconfigContent')}</label>
     </div>
     {source === 'upload'
-      ? <div className="connection-field"><span id={`${id}-file`}>File kubeconfig</span><div className="file-picker">
-          <span className="button file-picker-button">Chọn file<input ref={fileInput} type="file" disabled={disabled} aria-labelledby={`${id}-file`} aria-describedby={`${id}-file-name`} onChange={(event) => void chooseFile(event)} /></span>
-          <small id={`${id}-file-name`} className="file-picker-name">{fileLabel ? `Đã chọn file: ${fileLabel}. Nội dung file không được hiển thị.` : 'Chưa chọn file'}</small>
+      ? <div className="connection-field"><span id={`${id}-file`}>{t('platform.accounts.kubeconfigField.kubeconfigFile')}</span><div className="file-picker">
+          <span className="button file-picker-button">{t('platform.accounts.kubeconfigField.chooseFile')}<input ref={fileInput} type="file" disabled={disabled} aria-labelledby={`${id}-file`} aria-describedby={`${id}-file-name`} onChange={(event) => void chooseFile(event)} /></span>
+          <small id={`${id}-file-name`} className="file-picker-name">{fileLabel ? t('platform.accounts.kubeconfigField.fileSelectedFileLabelTheFile', { fileLabel }) : t('platform.accounts.kubeconfigField.noFileSelected')}</small>
         </div></div>
-      : <label className="connection-field">Nội dung kubeconfig<textarea aria-label="Nội dung kubeconfig" className={hidden ? 'masked-text' : undefined} rows={8} spellCheck={false} autoComplete="off" disabled={disabled} value={kubeconfig} onChange={(event) => pasteDocument(event.target.value)} /></label>}
+      : <label className="connection-field">{t('platform.accounts.kubeconfigField.kubeconfigContent')}<textarea aria-label={t('platform.accounts.kubeconfigField.kubeconfigContent')} className={hidden ? 'masked-text' : undefined} rows={8} spellCheck={false} autoComplete="off" disabled={disabled} value={kubeconfig} onChange={(event) => pasteDocument(event.target.value)} /></label>}
     <div className="source-actions">
-      {canRetry ? <Button type="button" disabled={disabled || !kubeconfig.trim()} onClick={() => void inspect(kubeconfig, revision.current)}>Kiểm tra lại kubeconfig</Button> : null}
-      {source === 'paste' ? <label className="inline-check"><input type="checkbox" checked={!hidden} onChange={(event) => setHidden(!event.target.checked)} /> Hiện nội dung</label> : null}
+      {canRetry ? <Button type="button" disabled={disabled || !kubeconfig.trim()} onClick={() => void inspect(kubeconfig, revision.current)}>{t('platform.accounts.kubeconfigField.recheckKubeconfig')}</Button> : null}
+      {source === 'paste' ? <label className="inline-check"><input type="checkbox" checked={!hidden} onChange={(event) => setHidden(!event.target.checked)} /> {' '}{t('platform.accounts.kubeconfigField.showContent')}</label> : null}
     </div>
-    {reading || inspecting ? <p className="muted" role="status" aria-live="polite">{reading ? 'Đang đọc file kubeconfig…' : 'Đang kiểm tra kubeconfig…'}</p> : null}
-    {contexts.length > 1 ? <label className="connection-field">Context<select value={selected} disabled={disabled} required onChange={(event) => chooseContext(event.target.value)}><option value="">Chọn context</option>{contexts.map((context) => <option key={context.name} value={context.name}>{context.name}</option>)}</select></label> : null}
-    {chosen ? <dl className="destination-summary" aria-label="Đích đã chọn">
+    {reading || inspecting ? <p className="muted" role="status" aria-live="polite">{reading ? t('platform.accounts.kubeconfigField.readingKubeconfigFile') : t('platform.accounts.kubeconfigField.checkingKubeconfig')}</p> : null}
+    {contexts.length > 1 ? <label className="connection-field">Context<select value={selected} disabled={disabled} required onChange={(event) => chooseContext(event.target.value)}><option value="">{t('platform.accounts.kubeconfigField.chooseContext')}</option>{contexts.map((context) => <option key={context.name} value={context.name}>{context.name}</option>)}</select></label> : null}
+    {chosen ? <dl className="destination-summary" aria-label={t('platform.accounts.kubeconfigField.selectedTarget')}>
       <div><dt>Context</dt> <dd>{chosen.name}</dd></div>
       <div><dt>Cluster</dt> <dd>{chosen.cluster}</dd></div>
       <div><dt>Endpoint</dt> <dd>{chosen.endpoint}</dd></div>

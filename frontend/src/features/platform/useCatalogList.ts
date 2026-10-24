@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { t } from '../../shared/i18n';
 
 // Loads one Platform catalog list. A load failure is its own state with
 // Retry, never an empty list; reload after a registration is separate from
 // the registration outcome (UC-02/03/04 UI states).
-export function useCatalogList<T>(load: () => Promise<T[]>, describeError: (reason: unknown) => string = () => 'Không tải được danh sách từ máy chủ. Hãy thử lại.', enabled = true) {
+export function useCatalogList<T>(load: () => Promise<T[]>, describeError: (reason: unknown) => string = () => t('platform.useCatalogList.couldNotLoadTheList'), enabled = true) {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(enabled);
   const [loadError, setLoadError] = useState('');

@@ -2,13 +2,14 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # Design-to-code map
 
 | Design concern | Implementation entry point |
 |---|---|
+| ADR-020 Console message catalogs and language selector | `frontend/public/locales/` (`manifest.json`, `vi.json`, `en.json`), `frontend/src/shared/i18n/index.ts` (`t`, locale pick/load, `intlLocale`), `frontend/src/main.tsx` (load before App import), `frontend/src/shared/ui/LanguageSelect.tsx`; tests `frontend/src/shared/i18n/i18n.test.ts`, `frontend/src/test/setup.ts` |
 | ADR-019 safe review and applied baseline | `backend/internal/application/deploymentreview/`; `registry.Service.ReadPinned`; `deployment/snapshot.go`, `deployment/service.go`; `planning.Plan.Review` |
 | Correlated operation, durable review and observed progress | `envops/manager.go`; `adapters/store/ops.go`; `adapters/postgres/operations.go`, `deployment.go`, `baseline.sql`; `deployment/query.go`, `node_progress.go`; HTTP `operations.go`, `pending.go` |
 | Visual graph, source/manifest diff and polling | `frontend/src/features/preview/DeploymentReview.tsx`, `reviewObservation.ts`, `reviewEdges.ts` (deduplicated reason-preserving obstacle routing), `reviewRequestId.ts` (cryptographic UUID fallback for HTTP demo); ApplicationHomePage, ScorePreviewPage and DeploymentDetailsPage; `frontend/test/e2e/deployment-review-local.mjs`; `backend/test/fixtures/deployment-review/` |

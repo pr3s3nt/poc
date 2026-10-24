@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import { maxRegions, parseRegions } from './accountsApi';
+import { t } from '../../../shared/i18n';
 
 export type AwsFields = { accessKeyId: string; secretAccessKey: string; regions: string };
 export const emptyAwsFields: AwsFields = { accessKeyId: '', secretAccessKey: '', regions: '' };
@@ -15,8 +16,8 @@ export function AwsKeyFields({ fields, disabled, onChange, prefix }: { fields: A
   return <>
     <label className="connection-field">Access key ID<input type="password" name={`${prefix}-access-key-id`} value={fields.accessKeyId} disabled={disabled} autoComplete="new-password" spellCheck={false} maxLength={20} aria-describedby={`${id}-keys`} onChange={(event) => onChange({ accessKeyId: event.target.value })} /></label>
     <label className="connection-field">Secret access key<input type="password" name={`${prefix}-secret-access-key`} value={fields.secretAccessKey} disabled={disabled} autoComplete="new-password" spellCheck={false} maxLength={40} aria-describedby={`${id}-keys`} onChange={(event) => onChange({ secretAccessKey: event.target.value })} /></label>
-    <small id={`${id}-keys`} className="muted">Hai ô này luôn được che và không bao giờ được đọc lại. Dùng access key dài hạn (AKIA…) của một người dùng IAM riêng; không dùng tài khoản gốc.</small>
-    <label className="connection-field">Vùng kiểm tra<input name={`${prefix}-verification-regions`} value={fields.regions} disabled={disabled} autoComplete="off" spellCheck={false} placeholder="us-east-1, eu-west-1" aria-describedby={`${id}-regions`} onChange={(event) => onChange({ regions: event.target.value })} /></label>
-    <small id={`${id}-regions`} className="muted">Các vùng dùng để kiểm tra quyền đọc, tối đa {maxRegions} vùng{count > 0 ? ` (đang nhập ${count})` : ''}. Đây chỉ là bằng chứng kiểm tra, không phải phạm vi áp dụng của tài khoản; vùng triển khai sẽ được chọn ở Driver Inputs.</small>
+    <small id={`${id}-keys`} className="muted">{t('platform.accounts.awsKeyFields.theseTwoFieldsAreAlways')}</small>
+    <label className="connection-field">{t('platform.accounts.awsKeyFields.checkRegions')}<input name={`${prefix}-verification-regions`} value={fields.regions} disabled={disabled} autoComplete="off" spellCheck={false} placeholder="us-east-1, eu-west-1" aria-describedby={`${id}-regions`} onChange={(event) => onChange({ regions: event.target.value })} /></label>
+    <small id={`${id}-regions`} className="muted">{t('platform.accounts.awsKeyFields.regionsUsedToCheckRead', { maxRegions, value: count > 0 ? t('platform.accounts.awsKeyFields.countEntered', { count }) : '' })}</small>
   </>;
 }

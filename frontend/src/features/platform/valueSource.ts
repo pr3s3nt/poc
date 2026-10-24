@@ -1,5 +1,6 @@
 import { inputCompatible, type TypeContract } from './moduleMapping';
 import { baseKind, isWholePlaceholder } from './typedVariables';
+import { t } from '../../shared/i18n';
 
 // Value sources of a Driver Input variable or a companion param (UC-03 UI11-02).
 // A source is a view of one placeholder string: the form generates the string
@@ -16,8 +17,8 @@ export type ValueSource =
 
 // Context values the author may pick (BR-25). Any other `${context.*}` placeholder stays an advanced source.
 export const contextChoices = [
-  { path: 'env.namespace', label: 'Namespace của môi trường' },
-  { path: 'infra.resourceName', label: 'Tên tài nguyên hạ tầng' },
+  { path: 'env.namespace', label: t('platform.valueSource.environmentNamespace') },
+  { path: 'infra.resourceName', label: t('platform.valueSource.infrastructureResourceName') },
 ] as const;
 
 export const defaultClass = 'default';
@@ -69,18 +70,18 @@ export const classChoices = (type: TypeContract | undefined, current = ''): stri
 
 export const contextAllowed = (targetType: string) => baseKind(targetType) === 'string' || baseKind(targetType) === 'any';
 
-export const scopeLabel = (scope: ResourceScope): string => (scope.kind === 'environment' ? 'Cùng ứng dụng và môi trường' : scope.kind === 'infra' ? 'Ngữ cảnh hạ tầng' : `Tài nguyên ${scope.id}`);
+export const scopeLabel = (scope: ResourceScope): string => (scope.kind === 'environment' ? t('platform.valueSource.sameApplicationAndEnvironment') : scope.kind === 'infra' ? t('platform.valueSource.infrastructureContext') : t('platform.valueSource.resourceId', { id: scope.id }));
 export const outputLabel = (output: string) => output;
 
 // Human summary of a source for a parameter card.
 export function describeSource(source: ValueSource, types: TypeContract[]): { origin: string; value: string } {
   switch (source.kind) {
-    case 'literal': return { origin: 'Nhập trực tiếp', value: source.text === '' ? 'Chuỗi rỗng' : source.text };
-    case 'context': return { origin: 'Từ ngữ cảnh triển khai', value: contextChoices.find((choice) => choice.path === source.path)?.label ?? source.path };
+    case 'literal': return { origin: t('platform.valueSource.enteredDirectly'), value: source.text === '' ? t('platform.valueSource.emptyString') : source.text };
+    case 'context': return { origin: t('platform.valueSource.fromTheDeploymentContext'), value: contextChoices.find((choice) => choice.path === source.path)?.label ?? source.path };
     case 'resource': {
       const known = types.some((type) => type.key === source.ref.type && type.outputs.some((output) => output.name === source.ref.output));
-      return { origin: known ? 'Từ tài nguyên khác' : 'Từ tài nguyên khác · chưa có trong metadata', value: `${source.ref.type} → ${outputLabel(source.ref.output)} · ${source.ref.class} · ${scopeLabel(source.ref.scope)}` };
+      return { origin: known ? t('platform.valueSource.fromAnotherResource') : t('platform.valueSource.fromAnotherResourceNotIn'), value: `${source.ref.type} → ${outputLabel(source.ref.output)} · ${source.ref.class} · ${scopeLabel(source.ref.scope)}` };
     }
-    default: return { origin: 'Biểu thức nâng cao', value: source.text };
+    default: return { origin: t('platform.valueSource.advancedExpression'), value: source.text };
   }
 }

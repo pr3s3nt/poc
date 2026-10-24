@@ -2,10 +2,21 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # Current project state
+
+## Console Vietnamese/English message catalogs — 2026-10-24
+
+All Console text formerly hard-coded in Vietnamese now comes from runtime JSON
+catalogs (`frontend/public/locales/vi.json`, `en.json`, `manifest.json`) per
+[ADR-020](architecture/decisions/ADR-020-console-message-catalogs.md). Vietnamese
+stays the default and fallback; a “Ngôn ngữ”/“Language” selector sits in the
+sidebar footer and on the sign-in page. Dates and numbers follow the selected
+language. A new language is a catalog file plus a manifest entry, no code change.
+Limitation: strings that were already English in source (none with Vietnamese
+text) are still literal, and backend messages remain code-mapped only (T20).
 
 ## Readable Preview connectors and safe node facts — 2026-10-23
 

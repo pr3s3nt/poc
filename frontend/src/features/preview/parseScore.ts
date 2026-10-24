@@ -1,4 +1,5 @@
 import { parseAllDocuments } from 'yaml';
+import { t } from '../../shared/i18n';
 
 export type ParsedScore = { ok: true; score: Record<string, unknown> } | { ok: false; error: string };
 
@@ -9,18 +10,18 @@ const MAX_ALIASES = 20;
 // accepted; nothing is sent to the server and the text is never rewritten.
 // The result is a plain JSON value, so it can always be serialized.
 export function parseScoreText(text: string): ParsedScore {
-  if (!text.trim()) return { ok: false, error: 'là bắt buộc.' };
+  if (!text.trim()) return { ok: false, error: t('preview.parseScore.isRequired') };
   let documents;
   try { documents = parseAllDocuments(text, { prettyErrors: false }); }
-  catch { return { ok: false, error: 'không phải YAML hoặc JSON hợp lệ.' }; }
-  if (!Array.isArray(documents)) return { ok: false, error: 'không phải YAML hoặc JSON hợp lệ.' };
-  if (documents.length !== 1) return { ok: false, error: 'phải chứa đúng một tài liệu.' };
+  catch { return { ok: false, error: t('preview.parseScore.isNotValidYAMLOr') }; }
+  if (!Array.isArray(documents)) return { ok: false, error: t('preview.parseScore.isNotValidYAMLOr') };
+  if (documents.length !== 1) return { ok: false, error: t('preview.parseScore.mustContainExactlyOneDocument') };
   const [document] = documents;
-  if (!document || document.errors.length) return { ok: false, error: 'không phải YAML hoặc JSON hợp lệ.' };
+  if (!document || document.errors.length) return { ok: false, error: t('preview.parseScore.isNotValidYAMLOr') };
   let value: unknown;
   try { value = document.toJS({ maxAliasCount: MAX_ALIASES }); }
-  catch { return { ok: false, error: `dùng quá nhiều alias YAML hoặc alias đệ quy; hãy viết giá trị ra đầy đủ (tối đa ${MAX_ALIASES} lần dùng alias).` }; }
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return { ok: false, error: 'phải là một đối tượng Score.' };
+  catch { return { ok: false, error: t('preview.parseScore.usesTooManyYAMLAliases', { MAX_ALIASES }) }; }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return { ok: false, error: t('preview.parseScore.mustBeAScoreObject') };
   try { return { ok: true, score: JSON.parse(JSON.stringify(value)) as Record<string, unknown> }; }
-  catch { return { ok: false, error: 'phải là dữ liệu JSON thuần, không tự tham chiếu.' }; }
+  catch { return { ok: false, error: t('preview.parseScore.mustBePlainJSONData') }; }
 }

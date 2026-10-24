@@ -5,6 +5,7 @@ import type { Application, EnvironmentKey, EnvironmentTarget } from '../../share
 import { Button } from '../../shared/ui/Button';
 import { environmentTitle, statusLabel } from './labels';
 import { fetchEnvironment, listStoreChoices, setSecretStore, type StoreChoice } from './api';
+import { t } from '../../shared/i18n';
 
 type State = { status: 'loading' | 'error' } | { status: 'ready'; stores: readonly StoreChoice[] };
 
@@ -67,8 +68,8 @@ export function SecretStoreSelection({ application, environment, configVersion, 
 
   async function retryReload() {
     const current = ++generation.current;
-    if (await reloadLatest(current) && current === generation.current) { setNeedsReload(false); setError(''); setNotice('Đã tải lại lựa chọn mới nhất; xem lại rồi lưu nếu vẫn muốn đổi.'); }
-    else if (current === generation.current) setError('Vẫn chưa tải lại được trạng thái môi trường. Lựa chọn của bạn được giữ nguyên; hãy thử lại.');
+    if (await reloadLatest(current) && current === generation.current) { setNeedsReload(false); setError(''); setNotice(t('environment.secretStoreSelection.theLatestSelectionHasBeen')); }
+    else if (current === generation.current) setError(t('environment.secretStoreSelection.stillCouldNotReloadThe'));
   }
 
   async function save() {
@@ -81,7 +82,7 @@ export function SecretStoreSelection({ application, environment, configVersion, 
       // The confirmed result belongs to the Environment it was saved for; only the refresh is scope-bound.
       onTargetChange(application.id, environment, toTarget(result.environment));
       if (mine === scope.current) onConfigurationChanged();
-      if (current === generation.current) { setPicked(undefined); setNotice(!result.changed ? 'Đã chọn kho này; không sao chép gì thêm.' : `Đã lưu kho bí mật. ${result.copiedSecrets} bí mật đã được sao chép và xác minh. Hãy Xem trước và Triển khai để chuyển các workload đang chạy.`); }
+      if (current === generation.current) { setPicked(undefined); setNotice(!result.changed ? t('environment.secretStoreSelection.thisStoreIsSelectedNothing') : t('environment.secretStoreSelection.secretStoreSavedCopiedSecretsSecrets', { copiedSecrets: result.copiedSecrets })); }
     } catch (err) {
       if (current !== generation.current) return;
       if (isBusy(err)) {
@@ -91,40 +92,40 @@ export function SecretStoreSelection({ application, environment, configVersion, 
         const reloaded = await reloadLatest(current);
         if (current !== generation.current) return;
         setNeedsReload(!reloaded);
-        setError(reloaded ? `${base} Đã tải lại lựa chọn mới nhất; xem lại rồi bấm Lưu kho bí mật nếu vẫn muốn đổi.` : `${base} Chưa tải lại được lựa chọn mới nhất; lựa chọn của bạn được giữ nguyên. Bấm “Tải lại trạng thái” rồi xem lại trước khi lưu.`);
+        setError(reloaded ? t('environment.secretStoreSelection.baseTheLatestSelectionHas', { base }) : t('environment.secretStoreSelection.baseCouldNotReloadThe', { base }));
       } else if (err instanceof ApiError && err.code === 'SECRET_COPY_FAILED') {
-        setError('Không sao chép được các bí mật sang kho mới. Kho cũ vẫn đang được chọn và không có gì thay đổi.');
+        setError(t('environment.secretStoreSelection.couldNotCopyTheSecrets'));
       } else if (err instanceof ApiError && err.status === 422) {
-        setError(err.code === 'SECRET_STORE_UNAVAILABLE' ? 'Kho bí mật đã chọn không còn khả dụng. Hãy chọn kho khác.' : err.message);
+        setError(err.code === 'SECRET_STORE_UNAVAILABLE' ? t('environment.secretStoreSelection.theSelectedSecretStoreIs') : err.message);
         setAttempt((value) => value + 1);
       } else {
         // A network failure does not prove the selection was not saved.
-        setError(err instanceof ApiError ? `Không lưu được kho bí mật. ${err.message}` : 'Không lưu được kho bí mật. Chưa rõ kết quả; hãy tải lại môi trường trước khi thử lại.');
+        setError(err instanceof ApiError ? t('environment.secretStoreSelection.couldNotSaveTheSecret', { message: err.message }) : t('environment.secretStoreSelection.couldNotSaveTheSecret2'));
       }
     } finally {
       if (current === generation.current) setSaving(false);
     }
   }
 
-  return <section className="content-panel secret-store-selection" aria-label="Kho bí mật">
-    <div className="section-header"><div><h2>Kho bí mật</h2><p>{target.secretStoreKey ? `${title} lưu Bí mật trong kho này. Biến vẫn lưu trong Orchestrator.` : `${title} chưa có kho bí mật. Biến dùng được khi chưa có kho; cần chọn kho mới thêm được Bí mật.`}</p></div><span className="pending-pill">{target.secretStoreKey ? (target.secretStoreName || target.secretStoreKey) : 'Chưa chọn'}</span></div>
-    {error ? <div className="form-error" role="alert">{error}{needsReload ? <Button type="button" onClick={() => void retryReload()}>Tải lại trạng thái</Button> : null}</div> : null}
+  return <section className="content-panel secret-store-selection" aria-label={t('environment.secretStoreSelection.secretStore')}>
+    <div className="section-header"><div><h2>{t('environment.secretStoreSelection.secretStore')}</h2><p>{target.secretStoreKey ? t('environment.secretStoreSelection.titleStoresSecretsInThis', { title }) : t('environment.secretStoreSelection.titleHasNoSecretStore', { title })}</p></div><span className="pending-pill">{target.secretStoreKey ? (target.secretStoreName || target.secretStoreKey) : t('environment.secretStoreSelection.notSelected')}</span></div>
+    {error ? <div className="form-error" role="alert">{error}{needsReload ? <Button type="button" onClick={() => void retryReload()}>{t('environment.secretStoreSelection.reloadStatus')}</Button> : null}</div> : null}
     {notice ? <div className="form-success" role="status">{notice}</div> : null}
-    {busy ? <div className="form-info" role="status">Một thao tác đang chạy trên môi trường này. Cài đặt chỉ đọc cho đến khi thao tác kết thúc.</div> : null}
-    {choices.status === 'loading' ? <p role="status" aria-busy="true">Đang tải danh sách kho bí mật…</p> : null}
-    {choices.status === 'error' ? <div className="form-error" role="alert">Không tải được danh sách kho bí mật.<Button type="button" onClick={() => setAttempt((value) => value + 1)}>Thử lại</Button></div> : null}
-    {choices.status === 'ready' && stores.length === 0 ? <div className="form-info" role="status">Chưa có kho bí mật Sẵn sàng (READY) để chọn. Nhờ Kỹ sư nền tảng đăng ký kho rồi bấm Thử lại.<Button type="button" onClick={() => setAttempt((value) => value + 1)}>Thử lại</Button></div> : null}
+    {busy ? <div className="form-info" role="status">{t('environment.secretStoreSelection.anOperationIsRunningOn')}</div> : null}
+    {choices.status === 'loading' ? <p role="status" aria-busy="true">{t('environment.secretStoreSelection.loadingSecretStores')}</p> : null}
+    {choices.status === 'error' ? <div className="form-error" role="alert">{t('environment.secretStoreSelection.couldNotLoadTheSecret')}<Button type="button" onClick={() => setAttempt((value) => value + 1)}>{t('environment.secretStoreSelection.retry')}</Button></div> : null}
+    {choices.status === 'ready' && stores.length === 0 ? <div className="form-info" role="status">{t('environment.secretStoreSelection.noReadyREADYSecretStore')}<Button type="button" onClick={() => setAttempt((value) => value + 1)}>{t('environment.secretStoreSelection.retry')}</Button></div> : null}
     {stores.length > 0 ? <>
-      <label htmlFor="environment-secret-store">Kho bí mật cho {title}</label>
+      <label htmlFor="environment-secret-store">{t('environment.secretStoreSelection.secretStoreForTitle', { title })}</label>
       <select id="environment-secret-store" value={selected} disabled={saving || busy} onChange={(event) => { setPicked(event.target.value); setNotice(''); }}>
-        {!target.secretStoreKey || !selected ? <option value="" disabled>Chọn một kho bí mật</option> : null}
+        {!target.secretStoreKey || !selected ? <option value="" disabled>{t('environment.secretStoreSelection.chooseASecretStore')}</option> : null}
         {stores.map((item) => <option key={item.key} value={item.key}>{item.name} ({item.key}){item.status && item.status !== 'READY' ? ` · ${statusLabel(item.status)}` : ''}</option>)}
       </select>
-      {suggested ? <div className="form-info" role="status">Gợi ý chưa lưu: <strong>{suggestion?.name}</strong> là kho bí mật Sẵn sàng duy nhất. Đây chỉ là lựa chọn nháp, không phải mặc định của tổ chức; môi trường chỉ dùng kho này sau khi bạn bấm Lưu kho bí mật.</div> : null}
-      {lostPick ? <div className="form-info" role="status">Kho bạn chọn trước đó không còn Sẵn sàng. Hãy chọn lại.</div> : null}
-      {!target.secretStoreKey && stores.length > 1 && !selected ? <small>Có nhiều kho Sẵn sàng; hãy tự chọn một kho, hệ thống không chọn thay bạn.</small> : null}
-      <small>Đổi kho sẽ sao chép các Bí mật hiện tại sang kho mới trước và xác minh từng bản sao. Nếu một bản sao lỗi, kho cũ vẫn được giữ. Workload đang chạy giữ giá trị cũ cho đến lần Triển khai tiếp theo.</small>
-      <div className="form-actions"><Button tone="primary" disabled={!selected || saving || busy || needsReload || selected === target.secretStoreKey} onClick={() => void save()}>{saving ? 'Đang sao chép bí mật…' : 'Lưu kho bí mật'}</Button></div>
+      {suggested ? <div className="form-info" role="status">{t('environment.secretStoreSelection.unsavedSuggestion')}{' '} <strong>{suggestion?.name}</strong> {' '}{t('environment.secretStoreSelection.isTheOnlyReadySecret')}</div> : null}
+      {lostPick ? <div className="form-info" role="status">{t('environment.secretStoreSelection.theStoreYouChoseEarlier')}</div> : null}
+      {!target.secretStoreKey && stores.length > 1 && !selected ? <small>{t('environment.secretStoreSelection.severalStoresAreReadyChoose')}</small> : null}
+      <small>{t('environment.secretStoreSelection.changingStoresFirstCopiesThe')}</small>
+      <div className="form-actions"><Button tone="primary" disabled={!selected || saving || busy || needsReload || selected === target.secretStoreKey} onClick={() => void save()}>{saving ? t('environment.secretStoreSelection.copyingSecrets') : t('environment.secretStoreSelection.saveSecretStore')}</Button></div>
     </> : null}
   </section>;
 }

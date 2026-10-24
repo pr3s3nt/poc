@@ -5,6 +5,7 @@ import type { EnvironmentKey } from '../../shared/types/application';
 import { previewDeletion, requestDeletion, responseLost, type Admission, type DeletionPreview } from './api';
 import { consumerKindLabel, refusalLabel, resourceStatusLabel } from './labels';
 import { availability, chosen, initialSelection, tick, untick, validSelection } from './selection';
+import { t } from '../../shared/i18n';
 
 type Phase = 'loading' | 'error' | 'ready' | 'submitting' | 'stale' | 'lost';
 
@@ -39,7 +40,7 @@ export function DeleteResourceDialog({ applicationId, environment, resourceId, o
     }).catch((err: unknown) => {
       if (current !== requestId.current) return;
       setPreview(undefined); setSelected(new Set()); setPhase('error');
-      setMessage(describeError(err, 'Không thể tải phạm vi xóa. Chưa có gì bị xóa.'));
+      setMessage(describeError(err, t('resources.deleteResourceDialog.couldNotLoadTheDeletion')));
     });
   }, [applicationId, environment, resourceId]);
 
@@ -50,7 +51,7 @@ export function DeleteResourceDialog({ applicationId, environment, resourceId, o
   useEffect(() => {
     if (!preview || phase !== 'ready') return;
     const left = Date.parse(preview.expiresAt) - now();
-    const expire = () => { reviewed.current = selected; setPhase('stale'); setMessage('Bản xem trước phạm vi xóa đã hết hạn. Hãy xem lại phạm vi; tên đã nhập không được dùng lại.'); setTyped(''); };
+    const expire = () => { reviewed.current = selected; setPhase('stale'); setMessage(t('resources.deleteResourceDialog.theDeletionScopePreviewHas')); setTyped(''); };
     if (!Number.isFinite(left) || left <= 0) { expire(); return; }
     const timer = setTimeout(expire, Math.min(left, 2 ** 31 - 1));
     return () => clearTimeout(timer);
@@ -67,7 +68,7 @@ export function DeleteResourceDialog({ applicationId, environment, resourceId, o
     const result = untick(plan, selected, id);
     setSelected(result.selected);
     const names = result.removed.map((removedId) => plan.candidates.find((c) => c.id === removedId)?.descriptor).filter((name): name is string => Boolean(name));
-    setExplanation(names.length ? `Đã tự bỏ chọn ${names.join(', ')} vì tài nguyên dùng chúng không còn nằm trong tập xóa. Không có mục nào được tự chọn thêm.` : '');
+    setExplanation(names.length ? t('resources.deleteResourceDialog.automaticallyDeselectedNamesBecauseThe', { names: names.join(', ') }) : '');
   }
 
   async function confirm() {
@@ -84,14 +85,14 @@ export function DeleteResourceDialog({ applicationId, environment, resourceId, o
       if (responseLost(err)) {
         // The request may have been admitted: never send it again. The person reloads the persisted state.
         setPhase('lost');
-        setMessage('Chưa nhận được phản hồi nên chưa rõ yêu cầu xóa đã được nhận hay chưa. Hệ thống không tự gửi lại. Hãy tải lại trạng thái tài nguyên để xem thao tác xóa đã được ghi nhận chưa.');
+        setMessage(t('resources.deleteResourceDialog.noResponseSoItIs'));
         return;
       }
       const apiError = err as ApiError;
       if (apiError.code === 'RESOURCE_CONFIRMATION_MISMATCH') { setPhase('ready'); setMessage(apiError.message); return; }
       if (apiError.status === 409 || apiError.status === 404) {
         reviewed.current = selected; setPhase('stale');
-        setMessage(`${apiError.message} Hãy xem lại phạm vi mới; token và tên cũ không được dùng lại.`);
+        setMessage(t('resources.deleteResourceDialog.messageReviewTheNewScope', { message: apiError.message }));
         return;
       }
       setPhase('ready'); setMessage(apiError.message);
@@ -112,39 +113,39 @@ export function DeleteResourceDialog({ applicationId, environment, resourceId, o
   const picked = plan ? chosen(plan, selected) : [];
   return <div className="dialog-backdrop">
     <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={heading} aria-describedby={warning} tabIndex={-1} ref={dialog} onKeyDown={onKeyDown}>
-      <h2 id={heading}>Xóa tài nguyên</h2>
-      {preview ? <p className="muted">Ứng dụng <strong>{preview.applicationId}</strong> · môi trường <strong>{preview.environment}</strong> · thế hệ đích {preview.generation}</p> : null}
-      <p id={warning} className="warning-text"><strong>Xóa vĩnh viễn dữ liệu, không thể hoàn tác.</strong> Tài nguyên và dữ liệu trong đó sẽ bị hủy trên nhà cung cấp. Lịch sử triển khai được giữ nguyên.</p>
-      {phase === 'loading' ? <p role="status" aria-busy="true">Đang tải phạm vi xóa…</p> : null}
+      <h2 id={heading}>{t('resources.deleteResourceDialog.deleteResource')}</h2>
+      {preview ? <p className="muted">{t('resources.deleteResourceDialog.application')}{' '} <strong>{preview.applicationId}</strong> {' '}{t('resources.deleteResourceDialog.environment')}{' '} <strong>{preview.environment}</strong> {' '}{t('resources.deleteResourceDialog.targetGeneration')}{' '} {preview.generation}</p> : null}
+      <p id={warning} className="warning-text"><strong>{t('resources.deleteResourceDialog.permanentlyDeletesDataCannotBe')}</strong> {' '}{t('resources.deleteResourceDialog.theResourceAndItsData')}</p>
+      {phase === 'loading' ? <p role="status" aria-busy="true">{t('resources.deleteResourceDialog.loadingDeletionScope')}</p> : null}
       {message ? <div className={phase === 'lost' || phase === 'stale' || phase === 'error' || phase === 'ready' ? 'form-error' : 'form-info'} role="alert">{message}</div> : null}
-      {phase === 'error' ? <div className="form-actions"><Button onClick={() => load(new Set())}>Thử lại</Button><Button onClick={onClose}>Đóng</Button></div> : null}
-      {phase === 'stale' ? <div className="form-actions"><Button tone="primary" onClick={() => load(reviewed.current)}>Xem lại phạm vi</Button><Button onClick={onClose}>Đóng</Button></div> : null}
-      {phase === 'lost' ? <div className="form-actions"><Button tone="primary" onClick={onLost}>Tải lại trạng thái tài nguyên</Button><Button onClick={onClose}>Đóng</Button></div> : null}
+      {phase === 'error' ? <div className="form-actions"><Button onClick={() => load(new Set())}>{t('resources.deleteResourceDialog.retry')}</Button><Button onClick={onClose}>{t('resources.deleteResourceDialog.close')}</Button></div> : null}
+      {phase === 'stale' ? <div className="form-actions"><Button tone="primary" onClick={() => load(reviewed.current)}>{t('resources.deleteResourceDialog.reviewScope')}</Button><Button onClick={onClose}>{t('resources.deleteResourceDialog.close')}</Button></div> : null}
+      {phase === 'lost' ? <div className="form-actions"><Button tone="primary" onClick={onLost}>{t('resources.deleteResourceDialog.reloadResourceStatus')}</Button><Button onClick={onClose}>{t('resources.deleteResourceDialog.close')}</Button></div> : null}
       {preview && plan && (phase === 'ready' || phase === 'submitting') ? <>
-        <p>Tên kỹ thuật của tài nguyên: <code data-testid="root-name">{preview.confirmationName}</code></p>
+        <p>{t('resources.deleteResourceDialog.technicalNameOfTheResource')}{' '} <code data-testid="root-name">{preview.confirmationName}</code></p>
         <fieldset className="form-fieldset" disabled={phase === 'submitting'}>
-          <legend>Phạm vi xóa</legend>
+          <legend>{t('resources.deleteResourceDialog.deletionScope')}</legend>
           <ul className="selection-list">
-            <li><label className="checkbox"><input type="checkbox" checked disabled aria-describedby={`${heading}-root`} /><span><code>{plan.root.descriptor}</code> · tài nguyên gốc</span></label><small id={`${heading}-root`}>Luôn nằm trong tập xóa.</small></li>
+            <li><label className="checkbox"><input type="checkbox" checked disabled aria-describedby={`${heading}-root`} /><span><code>{plan.root.descriptor}</code> {' '}{t('resources.deleteResourceDialog.rootResource')}</span></label><small id={`${heading}-root`}>{t('resources.deleteResourceDialog.alwaysInTheDeletionSet')}</small></li>
             {rows.map((candidate) => {
               const state = availability(candidate, selected);
               const isOn = selected.has(candidate.id);
-              const names = state.available ? [] : state.waitingFor.map((id) => (id === plan.root.id ? plan.root : plan.candidates.find((c) => c.id === id))?.descriptor ?? 'tài nguyên khác');
+              const names = state.available ? [] : state.waitingFor.map((id) => (id === plan.root.id ? plan.root : plan.candidates.find((c) => c.id === id))?.descriptor ?? t('resources.deleteResourceDialog.otherResources'));
               const reasonId = `${heading}-${candidate.id}`;
               return <li key={candidate.id}>
                 <label className="checkbox"><input type="checkbox" checked={isOn} disabled={!isOn && !state.available} aria-describedby={isOn ? undefined : reasonId} onChange={(event) => change(candidate.id, event.target.checked)} /><span><code>{candidate.descriptor}</code> · {resourceStatusLabel(candidate.status)}</span></label>
                 {!isOn && !state.available ? <small id={reasonId} className="muted">{candidate.selectable
-                  ? `Chưa chọn được: cần chọn trước ${names.join(', ')} (đang dùng tài nguyên này).`
-                  : `Không thể chọn: ${state.reasons.map(refusalLabel).join(' ')}${candidate.consumers.length ? ` Bên đang dùng: ${candidate.consumers.map((c) => `${consumerKindLabel(c.kind)} ${c.name}`).join(', ')}.` : ''}`}</small> : null}
+                  ? t('resources.deleteResourceDialog.cannotSelectYetSelectNames', { names: names.join(', ') })
+                  : t('resources.deleteResourceDialog.cannotSelectValueValue2', { value: state.reasons.map(refusalLabel).join(' '), value2: candidate.consumers.length ? t('resources.deleteResourceDialog.usedByValue', { value: candidate.consumers.map((c) => `${consumerKindLabel(c.kind)} ${c.name}`).join(', ') }) : '' })}</small> : null}
               </li>;
             })}
           </ul>
-          {rows.length === 0 ? <p className="muted">Tài nguyên này không có dependency nào thuộc cùng môi trường để chọn thêm.</p> : null}
+          {rows.length === 0 ? <p className="muted">{t('resources.deleteResourceDialog.thisResourceHasNoDependencies')}</p> : null}
         </fieldset>
         {explanation ? <div className="form-info" role="status">{explanation}</div> : null}
-        <section aria-label="Các tài nguyên sẽ bị xóa"><h3>Sẽ xóa {picked.length} tài nguyên</h3><ul>{picked.map((c) => <li key={c.id}><code>{c.descriptor}</code></li>)}</ul></section>
-        <label className="field">Nhập lại tên tài nguyên<input value={typed} onChange={(event) => { setTyped(event.target.value); setMessage(''); }} disabled={phase === 'submitting'} autoComplete="off" spellCheck={false} aria-describedby={warning} /></label>
-        <div className="form-actions"><Button tone="danger" disabled={!canConfirm} onClick={() => void confirm()}>{phase === 'submitting' ? 'Đang gửi yêu cầu xóa…' : 'Xác nhận xóa vĩnh viễn'}</Button><Button disabled={phase === 'submitting'} onClick={onClose}>Hủy</Button></div>
+        <section aria-label={t('resources.deleteResourceDialog.resourcesToBeDeleted')}><h3>{t('resources.deleteResourceDialog.pickedCountResourcesWillBeDeleted', { pickedCount: picked.length })}</h3><ul>{picked.map((c) => <li key={c.id}><code>{c.descriptor}</code></li>)}</ul></section>
+        <label className="field">{t('resources.deleteResourceDialog.reEnterTheResourceName')}<input value={typed} onChange={(event) => { setTyped(event.target.value); setMessage(''); }} disabled={phase === 'submitting'} autoComplete="off" spellCheck={false} aria-describedby={warning} /></label>
+        <div className="form-actions"><Button tone="danger" disabled={!canConfirm} onClick={() => void confirm()}>{phase === 'submitting' ? t('resources.deleteResourceDialog.sendingDeletionRequest') : t('resources.deleteResourceDialog.confirmPermanentDeletion')}</Button><Button disabled={phase === 'submitting'} onClick={onClose}>{t('resources.deleteResourceDialog.cancel')}</Button></div>
       </> : null}
     </div>
   </div>;

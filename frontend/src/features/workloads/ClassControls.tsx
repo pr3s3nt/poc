@@ -1,10 +1,11 @@
 import { Button } from '../../shared/ui/Button';
 import type { ResourceType } from './api';
+import { t } from '../../shared/i18n';
 
 // Display names of the classes the catalog serves (UC-16 screens, "Class và metadata
 // dependency"). Any other class is a custom/imported one and is shown as written.
-const classLabels: Record<string, string> = { 'in-cluster': 'Trong cluster (in-cluster)', 'cloud-managed': 'Dịch vụ managed AWS (cloud-managed)' };
-export const classLabel = (name: string) => (Object.hasOwn(classLabels, name) ? classLabels[name] ?? name : `Tùy chỉnh: ${name}`);
+const classLabels: Record<string, string> = { 'in-cluster': 'Trong cluster (in-cluster)', 'cloud-managed': t('workloads.classControls.aWSManagedServiceCloudManaged') };
+export const classLabel = (name: string) => (Object.hasOwn(classLabels, name) ? classLabels[name] ?? name : t('workloads.classControls.customName', { name }));
 
 type Props = {
   index: number;
@@ -24,25 +25,25 @@ type Props = {
 // Terraform module, provider or credential. `default` (empty) keeps its Score
 // meaning: it is never mapped to a class, and an imported/custom class is kept.
 export function ClassControls({ index, alias, type, className, sharedId, metadata, disabled = false, onClass, onSharedId, onReload }: Props) {
-  const name = alias || type?.key || `tài nguyên ${index + 1}`;
+  const name = alias || type?.key || t('workloads.classControls.resourceValue', { value: index + 1 });
   const classes = type?.classes ?? [];
   const known = className === '' || classes.includes(className);
   const locked = disabled || metadata !== 'ready';
   return <div className="class-controls" data-dependency={name}>
     <div className="field-grid">
-      <label>Cách cung cấp / Class
-        <select aria-label={`Cách cung cấp (class) của ${name}`} value={className} disabled={locked || !type} onChange={(event) => onClass(event.target.value)}>
-          <option value="">Mặc định (default)</option>
+      <label>{t('workloads.classControls.provisioningClass')}
+        <select aria-label={t('workloads.classControls.provisioningClassOfName', { name })} value={className} disabled={locked || !type} onChange={(event) => onClass(event.target.value)}>
+          <option value="">{t('workloads.classControls.defaultDefault')}</option>
           {classes.map((item) => <option key={item} value={item}>{classLabel(item)}</option>)}
-          {!known ? <option value={className}>{className} (đã nhập, giữ nguyên)</option> : null}
+          {!known ? <option value={className}>{t('workloads.classControls.classNameEnteredKept', { className })}</option> : null}
         </select></label>
-      <label>ID dùng chung (tùy chọn)
-        <input aria-label={`ID dùng chung của ${name}`} value={sharedId} disabled={disabled} spellCheck={false} placeholder="để trống nếu riêng của Workload" onChange={(event) => onSharedId(event.target.value)} /></label>
+      <label>{t('workloads.classControls.sharedIDOptional')}
+        <input aria-label={t('workloads.classControls.sharedIDOfName', { name })} value={sharedId} disabled={disabled} spellCheck={false} placeholder={t('workloads.classControls.leaveEmptyIfPrivateTo')} onChange={(event) => onSharedId(event.target.value)} /></label>
     </div>
-    {index === 0 && metadata === 'loading' ? <p role="status" className="feature-note">Đang tải metadata class…</p> : null}
-    {index === 0 && metadata === 'error' ? <div className="form-error" role="alert" aria-label="Lỗi tải metadata class">Không tải được metadata class từ máy chủ nên các lựa chọn class đang bị khóa. Giá trị bạn đã nhập được giữ nguyên và chưa lưu được cho đến khi tải lại thành công. <Button type="button" onClick={onReload}>Thử lại tải metadata class</Button></div> : null}
-    {type && classes.length === 0 && metadata === 'ready' ? <p className="feature-note">Danh mục chưa công bố class nào cho loại {type.key}; class mặc định giữ nguyên ý nghĩa default. Hệ thống không tự đổi class.</p> : null}
-    {!known ? <p className="feature-note" role="note">Class "{className}" không nằm trong metadata của loại {type?.key ?? 'này'}. Giá trị được giữ nguyên; việc khớp cấu hình được kiểm tra khi Xem trước.</p> : null}
-    <p className="feature-note">Chỉ chọn cách cung cấp tài nguyên; Developer không chọn module Terraform, provider hay thông tin xác thực. Các Workload dùng cùng ID dùng chung phải thống nhất loại, class và tham số.</p>
+    {index === 0 && metadata === 'loading' ? <p role="status" className="feature-note">{t('workloads.classControls.loadingClassMetadata')}</p> : null}
+    {index === 0 && metadata === 'error' ? <div className="form-error" role="alert" aria-label={t('workloads.classControls.classMetadataLoadError')}>{t('workloads.classControls.couldNotLoadClassMetadata')}{' '} <Button type="button" onClick={onReload}>{t('workloads.classControls.retryLoadingClassMetadata')}</Button></div> : null}
+    {type && classes.length === 0 && metadata === 'ready' ? <p className="feature-note">{t('workloads.classControls.theCatalogHasNotPublished', { key: type.key })}</p> : null}
+    {!known ? <p className="feature-note" role="note">{t('workloads.classControls.classClassNameIsNotIn', { className, value: type?.key ?? t('workloads.classControls.this') })}</p> : null}
+    <p className="feature-note">{t('workloads.classControls.onlyChooseHowTheResource')}</p>
   </div>;
 }

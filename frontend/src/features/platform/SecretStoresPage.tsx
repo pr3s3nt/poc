@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
+import { t } from '../../shared/i18n';
 
 type Store = { key: string; name: string; provider: string; backendAddress: string; workloadAddress: string; mount: string; authMount: string; tlsCustomCa: boolean; status: string; verification?: Record<string, unknown> | null };
 type Form = { name: string; backendAddress: string; workloadAddress: string; sameAddress: boolean; mount: string; authMount: string; tlsCaPem: string; token: string };
@@ -25,8 +26,8 @@ const bytes = (text: string) => new TextEncoder().encode(text).length;
 
 function addressProblem(raw: string, label: string): string {
   const text = raw.trim();
-  if (!text) return `${label} là bắt buộc.`;
-  const fix = `${label} phải là URL http(s):// có host, không chứa thông tin đăng nhập, query, fragment, khoảng trắng, dấu gạch chéo ngược hoặc ký tự điều khiển.`;
+  if (!text) return t('platform.secretStores.labelIsRequired', { label });
+  const fix = t('platform.secretStores.labelMustBeAnHttp', { label });
   // Reject what WHATWG URL would silently normalize (backslashes, control characters) but Go url.Parse refuses.
   if (/\s/.test(text) || /[?#\\]/.test(text) || controlPattern.test(text)) return fix;
   const authority = /^https?:\/\/([^/]*)/i.exec(text)?.[1];
@@ -40,7 +41,7 @@ function addressProblem(raw: string, label: string): string {
 
 function mountProblem(raw: string, label: string): string {
   const text = raw.trim();
-  return text === '' || mountPattern.test(text) ? '' : `${label} chỉ gồm 1–64 ký tự chữ, số, gạch dưới hoặc gạch ngang (ASCII).`;
+  return text === '' || mountPattern.test(text) ? '' : t('platform.secretStores.labelMayContainOnly1', { label });
 }
 
 // Shape check only: CERTIFICATE PEM blocks with base64 bodies and nothing else.
@@ -49,21 +50,21 @@ function mountProblem(raw: string, label: string): string {
 export function caShapeProblem(raw: string): string {
   const text = raw.trim();
   if (!text) return '';
-  if (bytes(text) > MAX_CA_BYTES) return 'CA PEM vượt quá 64 KiB.';
+  if (bytes(text) > MAX_CA_BYTES) return t('platform.secretStores.theCAPEMExceeds64');
   const block = /-----BEGIN CERTIFICATE-----\r?\n([A-Za-z0-9+/=\r\n]+?)\r?\n-----END CERTIFICATE-----/y;
   let index = 0;
   let count = 0;
   while (index < text.length) {
     block.lastIndex = index;
     const match = block.exec(text);
-    if (!match) return 'CA PEM chỉ nhận các khối CERTIFICATE (base64), không có nội dung thừa. Đây mới là kiểm tra hình dạng, chưa xác nhận chứng chỉ hợp lệ hay đáng tin.';
+    if (!match) return t('platform.secretStores.theCAPEMAcceptsOnly');
     const body = (match[1] ?? '').replace(/\s+/g, '');
-    if (body.length % 4 !== 0 || !base64Pattern.test(body)) return 'Nội dung base64 của CA PEM không hợp lệ.';
+    if (body.length % 4 !== 0 || !base64Pattern.test(body)) return t('platform.secretStores.theBase64ContentOfThe');
     count += 1;
     index = block.lastIndex;
     while (index < text.length && /\s/.test(text[index] ?? '')) index += 1;
   }
-  return count > 0 ? '' : 'CA PEM cần ít nhất một khối CERTIFICATE.';
+  return count > 0 ? '' : t('platform.secretStores.theCAPEMNeedsAt');
 }
 
 export function buildPayload(form: Form) {
@@ -76,62 +77,62 @@ export function buildPayload(form: Form) {
 export function validate(form: Form): Problems {
   const problems: Problems = {};
   const name = form.name.trim();
-  if (!name) problems.name = 'Tên kho là bắt buộc.';
-  else if ([...name].length > MAX_NAME_CHARS || controlPattern.test(name)) problems.name = `Tên kho tối đa ${MAX_NAME_CHARS} ký tự và không chứa ký tự điều khiển.`;
-  const backend = addressProblem(form.backendAddress, 'Địa chỉ backend');
+  if (!name) problems.name = t('platform.secretStores.theStoreNameIsRequired');
+  else if ([...name].length > MAX_NAME_CHARS || controlPattern.test(name)) problems.name = t('platform.secretStores.theStoreNameCanHave', { MAX_NAME_CHARS });
+  const backend = addressProblem(form.backendAddress, t('platform.secretStores.backendAddress'));
   if (backend) problems.backendAddress = backend;
   if (!form.sameAddress) {
-    const workload = addressProblem(form.workloadAddress, 'Địa chỉ workload');
+    const workload = addressProblem(form.workloadAddress, t('platform.secretStores.workloadAddress'));
     if (workload) problems.workloadAddress = workload;
   }
-  const mount = mountProblem(form.mount, 'Mount KV v2');
+  const mount = mountProblem(form.mount, t('platform.secretStores.kvV2Mount'));
   if (mount) problems.mount = mount;
-  const authMount = mountProblem(form.authMount, 'Mount xác thực Kubernetes');
+  const authMount = mountProblem(form.authMount, t('platform.secretStores.kubernetesAuthMount'));
   if (authMount) problems.authMount = authMount;
   const ca = caShapeProblem(form.tlsCaPem);
   if (ca) problems.tlsCaPem = ca;
   const token = form.token.trim();
-  if (!token) problems.token = 'Token là bắt buộc.';
-  else if (bytes(token) > MAX_TOKEN_BYTES || controlPattern.test(token)) problems.token = `Token tối đa ${MAX_TOKEN_BYTES} byte UTF-8 và không chứa ký tự điều khiển.`;
-  if (Object.keys(problems).length === 0 && bytes(JSON.stringify(buildPayload(form))) > MAX_ENVELOPE_BYTES) problems.form = 'Dữ liệu gửi đi vượt quá 256 KiB; hãy rút gọn địa chỉ hoặc CA PEM.';
+  if (!token) problems.token = t('platform.secretStores.theTokenIsRequired');
+  else if (bytes(token) > MAX_TOKEN_BYTES || controlPattern.test(token)) problems.token = t('platform.secretStores.theTokenCanHaveAt', { MAX_TOKEN_BYTES });
+  if (Object.keys(problems).length === 0 && bytes(JSON.stringify(buildPayload(form))) > MAX_ENVELOPE_BYTES) problems.form = t('platform.secretStores.theSubmittedDataExceeds256');
   return problems;
 }
 
 // Fixed Vietnamese guidance by stable code or HTTP status. Raw backend text is never shown.
 export function failureGuidance(error: unknown): string {
-  if (!(error instanceof ApiError)) return 'Chưa nhận được phản hồi từ máy chủ nên chưa biết kho đã được lưu hay chưa. Token đã bị xóa. Hãy tải lại danh sách để kiểm tra trước khi đăng ký lại; Console không tự gửi lại.';
+  if (!(error instanceof ApiError)) return t('platform.secretStores.noResponseFromTheServer');
   switch (error.status) {
-    case 400: return 'Máy chủ từ chối dữ liệu đăng ký. Kiểm tra tên, địa chỉ, mount, CA PEM và token rồi nhập lại token.';
-    case 401: return 'Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi nhập lại token.';
-    case 403: return 'Tài khoản không có quyền đăng ký kho bí mật. Cần vai trò Kỹ sư nền tảng hoặc Quản trị.';
-    case 413: return 'Dữ liệu đăng ký quá lớn. Rút gọn CA PEM rồi nhập lại token.';
-    case 422: return 'Không xác minh được kho bí mật nên chưa lưu kho. Kiểm tra địa chỉ backend, mount, CA PEM và quyền của token (đọc/ghi KV v2, quản lý policy và role xác thực Kubernetes), rồi nhập lại token.';
-    case 503: return 'Kho lưu thông tin xác thực của nền tảng chưa sẵn sàng. Liên hệ quản trị nền tảng rồi thử lại.';
-    default: return error.status >= 500 ? 'Máy chủ gặp lỗi khi đăng ký. Kho có thể chưa được lưu; tải lại danh sách để kiểm tra, token đã bị xóa nên cần nhập lại.' : 'Không đăng ký được kho bí mật. Kiểm tra dữ liệu rồi nhập lại token.';
+    case 400: return t('platform.secretStores.theServerRejectedTheRegistration');
+    case 401: return t('platform.secretStores.yourSessionHasExpiredSign');
+    case 403: return t('platform.secretStores.yourAccountIsNotAllowed');
+    case 413: return t('platform.secretStores.theRegistrationDataIsToo');
+    case 422: return t('platform.secretStores.couldNotVerifyTheSecret');
+    case 503: return t('platform.secretStores.thePlatformCredentialStoreIs');
+    default: return error.status >= 500 ? t('platform.secretStores.theServerFailedDuringRegistration') : t('platform.secretStores.couldNotRegisterTheSecret');
   }
 }
 
 export function backendVerification(store: Store): string {
   const verified = store.verification?.verified;
-  if (verified === true) return 'Backend đã xác minh khi đăng ký';
-  if (verified === false) return 'Backend xác minh không đạt';
-  return 'Chưa có kết quả xác minh backend';
+  if (verified === true) return t('platform.secretStores.backendVerifiedAtRegistration');
+  if (verified === false) return t('platform.secretStores.backendVerificationFailed');
+  return t('platform.secretStores.noBackendVerificationResultYet');
 }
 
 export function kubernetesAuth(store: Store): string {
   switch (String(store.verification?.kubernetesAuth ?? '').toUpperCase()) {
-    case 'CONFIGURED': return 'Đã cấu hình';
-    case 'ABSENT': return 'Chưa cấu hình';
-    default: return 'Chưa rõ';
+    case 'CONFIGURED': return t('platform.secretStores.configured');
+    case 'ABSENT': return t('platform.secretStores.notConfigured');
+    default: return t('platform.secretStores.unknown');
   }
 }
 
 export function statusLabel(status: string): string {
   switch (status) {
-    case 'READY': return 'Sẵn sàng';
-    case 'REJECTED': return 'Bị từ chối';
-    case '': return 'Chưa rõ';
-    default: return `Trạng thái chưa nhận diện (${status})`;
+    case 'READY': return t('platform.secretStores.ready');
+    case 'REJECTED': return t('platform.secretStores.rejected');
+    case '': return t('platform.secretStores.unknown');
+    default: return t('platform.secretStores.unrecognizedStatusStatus', { status });
   }
 }
 
@@ -178,7 +179,7 @@ export function SecretStoresPage() {
       return;
     }
     setForm(empty); setAdvanced(false); setProblems({});
-    setSuccess(`Kho bí mật "${created.name}" đã sẵn sàng. Nhà phát triển có thể chọn kho này trong Cài đặt môi trường.`);
+    setSuccess(t('platform.secretStores.secretStoreNameIsReady', { name: created.name }));
     submitting.current = false; setSaving(false);
     await load();
   }
@@ -190,47 +191,47 @@ export function SecretStoresPage() {
   const effectiveAuthMount = form.authMount.trim() || DEFAULT_AUTH_MOUNT;
   const workloadValue = form.sameAddress ? form.backendAddress : form.workloadAddress;
   return <section className="page">
-    <header className="page-header"><div><p className="eyebrow">Nền tảng</p><h1>Kho bí mật</h1><p>Đăng ký kho Vault KV v2 để Nhà phát triển chọn cho từng môi trường. Token chỉ nằm trong kho thông tin xác thực của nền tảng và không bao giờ hiển thị lại.</p></div></header>
+    <header className="page-header"><div><p className="eyebrow">{t('platform.secretStores.platform')}</p><h1>{t('platform.secretStores.secretStores')}</h1><p>{t('platform.secretStores.registerVaultKVV2Stores')}</p></div></header>
     {success ? <div className="form-success" role="status">{success}</div> : null}
-    <section className="content-panel" aria-label="Kho bí mật đã đăng ký">
-      <div className="section-header"><div><h2>Kho đã đăng ký</h2><p>“Sẵn sàng” nghĩa là backend đã được xác minh lúc đăng ký; không đảm bảo ứng dụng đã sẵn sàng triển khai.</p></div></div>
-      {state === 'loading' ? <p role="status" aria-busy="true">Đang tải danh sách kho bí mật…</p> : null}
-      {state === 'error' ? <div className="form-error" role="alert">Không tải được danh sách kho bí mật. Danh sách dưới đây (nếu có) có thể đã cũ; dữ liệu trong form được giữ nguyên.<Button type="button" onClick={() => void load()}>Thử lại</Button></div> : null}
-      {state === 'ready' && stores.length === 0 ? <div className="section-empty">Chưa có kho bí mật nào được đăng ký.</div> : null}
-      {stores.length > 0 ? <div className="settings-table"><div className="settings-table-head"><span>Kho</span><span>Địa chỉ</span><span>Mount và CA</span><span>Trạng thái và xác minh</span></div>
+    <section className="content-panel" aria-label={t('platform.secretStores.registeredSecretStores')}>
+      <div className="section-header"><div><h2>{t('platform.secretStores.registeredStores')}</h2><p>{t('platform.secretStores.readyMeansTheBackendWas')}</p></div></div>
+      {state === 'loading' ? <p role="status" aria-busy="true">{t('platform.secretStores.loadingSecretStores')}</p> : null}
+      {state === 'error' ? <div className="form-error" role="alert">{t('platform.secretStores.couldNotLoadTheSecret')}<Button type="button" onClick={() => void load()}>{t('platform.secretStores.retry')}</Button></div> : null}
+      {state === 'ready' && stores.length === 0 ? <div className="section-empty">{t('platform.secretStores.noSecretStoresRegisteredYet')}</div> : null}
+      {stores.length > 0 ? <div className="settings-table"><div className="settings-table-head"><span>{t('platform.secretStores.store')}</span><span>{t('platform.secretStores.address')}</span><span>{t('platform.secretStores.mountAndCA')}</span><span>{t('platform.secretStores.statusAndVerification')}</span></div>
         {stores.map((store) => <div className="settings-table-row" key={store.key}>
           <strong>{store.name}<small className="muted"> {store.key} · {store.provider}</small></strong>
           <span>Backend: {store.backendAddress}<br />Workload: {store.workloadAddress}</span>
-          <span>KV v2: {store.mount}<br />Xác thực Kubernetes: {store.authMount}<br />CA: {store.tlsCustomCa ? 'tùy chỉnh' : 'mặc định'}</span>
-          <span>Trạng thái: {statusLabel(store.status)}<br />Xác minh backend: {backendVerification(store)}<br />Xác thực Kubernetes: {kubernetesAuth(store)}</span></div>)}</div> : null}
+          <span>KV v2: {store.mount}<br />{t('platform.secretStores.kubernetesAuth')}{' '} {store.authMount}<br />CA: {store.tlsCustomCa ? t('platform.secretStores.custom') : t('platform.secretStores.default')}</span>
+          <span>{t('platform.secretStores.status')}{' '} {statusLabel(store.status)}<br />{t('platform.secretStores.backendVerification')}{' '} {backendVerification(store)}<br />{t('platform.secretStores.kubernetesAuth')}{' '} {kubernetesAuth(store)}</span></div>)}</div> : null}
     </section>
-    <form className="create-form secret-store-form" aria-label="Đăng ký kho bí mật" noValidate onSubmit={(event) => { event.preventDefault(); void register(); }}>
-      <h2>Đăng ký kho Vault KV v2</h2>
+    <form className="create-form secret-store-form" aria-label={t('platform.secretStores.registerSecretStore')} noValidate onSubmit={(event) => { event.preventDefault(); void register(); }}>
+      <h2>{t('platform.secretStores.registerVaultKVV2Store')}</h2>
       {error ? <div className="form-error" role="alert">{error}</div> : null}
       {problems.form ? <div className="form-error" role="alert">{problems.form}</div> : null}
       <fieldset className="form-fieldset" disabled={saving} aria-busy={saving}>
         <div className="editor-grid">
-          <div className="field"><label>Tên kho<input value={form.name} onChange={set('name')} placeholder="Vault của nhóm" {...describe('name')} /></label>{note('name', 'Tối đa 100 ký tự.')}</div>
-          <div className="field"><label>Địa chỉ backend<input value={form.backendAddress} onChange={set('backendAddress')} placeholder="https://vault.example.com:8200" {...describe('backendAddress')} /></label>{note('backendAddress', 'Orchestrator dùng địa chỉ này để đọc và ghi giá trị.')}</div>
-          <label className="checkbox"><input type="checkbox" checked={form.sameAddress} onChange={(event) => setForm((value) => ({ ...value, sameAddress: event.target.checked }))} />Dùng cùng địa chỉ backend</label>
-          <div className="field"><label>Địa chỉ workload<input value={workloadValue} onChange={set('workloadAddress')} readOnly={form.sameAddress} aria-readonly={form.sameAddress} placeholder="http://vault.vault.svc:8200" {...describe('workloadAddress')} /></label>{note('workloadAddress', form.sameAddress ? 'Đang dùng địa chỉ backend. Bỏ chọn để khôi phục địa chỉ workload riêng đã nhập.' : 'Địa chỉ mà Pod workload và Vault Secrets Operator dùng bên trong cluster.')}</div>
-          <div className="field"><label>Token Vault<input type="password" autoComplete="off" value={form.token} onChange={set('token')} {...describe('token')} /></label>{note('token', 'Cần quyền giá trị KV v2 cùng quyền quản lý policy workload và role xác thực Kubernetes. Được xác minh trước khi kho chuyển sang “Sẵn sàng”.')}</div>
+          <div className="field"><label>{t('platform.secretStores.storeName')}<input value={form.name} onChange={set('name')} placeholder={t('platform.secretStores.teamVault')} {...describe('name')} /></label>{note('name', t('platform.secretStores.atMost100Characters'))}</div>
+          <div className="field"><label>{t('platform.secretStores.backendAddress')}<input value={form.backendAddress} onChange={set('backendAddress')} placeholder="https://vault.example.com:8200" {...describe('backendAddress')} /></label>{note('backendAddress', t('platform.secretStores.orchestratorUsesThisAddressTo'))}</div>
+          <label className="checkbox"><input type="checkbox" checked={form.sameAddress} onChange={(event) => setForm((value) => ({ ...value, sameAddress: event.target.checked }))} />{t('platform.secretStores.useTheSameBackendAddress')}</label>
+          <div className="field"><label>{t('platform.secretStores.workloadAddress')}<input value={workloadValue} onChange={set('workloadAddress')} readOnly={form.sameAddress} aria-readonly={form.sameAddress} placeholder="http://vault.vault.svc:8200" {...describe('workloadAddress')} /></label>{note('workloadAddress', form.sameAddress ? t('platform.secretStores.usingTheBackendAddressUncheck') : t('platform.secretStores.theAddressWorkloadPodsAnd'))}</div>
+          <div className="field"><label>{t('platform.secretStores.vaultToken')}<input type="password" autoComplete="off" value={form.token} onChange={set('token')} {...describe('token')} /></label>{note('token', t('platform.secretStores.requiresKVV2ValuePermissions'))}</div>
         </div>
-        <section className="form-info" aria-label="Tóm tắt cấu hình hiệu lực">
-          <strong>Cấu hình hiệu lực</strong>
+        <section className="form-info" aria-label={t('platform.secretStores.effectiveConfigurationSummary')}>
+          <strong>{t('platform.secretStores.effectiveConfiguration')}</strong>
           <ul>
-            <li>Mount KV v2: <code>{effectiveMount}</code>{form.mount.trim() ? '' : ' (mặc định)'}</li>
-            <li>Mount xác thực Kubernetes: <code>{effectiveAuthMount}</code>{form.authMount.trim() ? '' : ' (mặc định)'}</li>
-            <li>CA: {form.tlsCaPem.trim() ? 'tùy chỉnh' : 'mặc định của hệ thống'}. TLS luôn được xác minh.</li>
+            <li>{t('platform.secretStores.kvV2MountLabel')}{' '} <code>{effectiveMount}</code>{form.mount.trim() ? '' : t('platform.secretStores.default2')}</li>
+            <li>{t('platform.secretStores.kubernetesAuthMount2')}{' '} <code>{effectiveAuthMount}</code>{form.authMount.trim() ? '' : t('platform.secretStores.default2')}</li>
+            <li>{t('platform.secretStores.cAValueTLSIsAlways', { value: form.tlsCaPem.trim() ? t('platform.secretStores.custom') : t('platform.secretStores.systemDefault') })}</li>
           </ul>
         </section>
-        <div className="section-header"><div><h3>Nâng cao</h3><p>Mount và CA PEM tùy chọn. Thu gọn không xóa dữ liệu đã nhập.</p></div><Button type="button" aria-expanded={advanced} aria-controls="secret-store-advanced" onClick={() => setAdvanced(!advanced)}>{advanced ? 'Ẩn nâng cao' : 'Hiện nâng cao'}</Button></div>
+        <div className="section-header"><div><h3>{t('platform.secretStores.advanced')}</h3><p>{t('platform.secretStores.optionalMountAndCAPEM')}</p></div><Button type="button" aria-expanded={advanced} aria-controls="secret-store-advanced" onClick={() => setAdvanced(!advanced)}>{advanced ? t('platform.secretStores.hideAdvanced') : t('platform.secretStores.showAdvanced')}</Button></div>
         <div id="secret-store-advanced" hidden={!advanced} className="editor-grid">
-          <div className="field"><label>Mount KV v2<input value={form.mount} onChange={set('mount')} placeholder={DEFAULT_MOUNT} {...describe('mount')} /></label>{note('mount', `Để trống để dùng mặc định ${DEFAULT_MOUNT}.`)}</div>
-          <div className="field"><label>Mount xác thực Kubernetes<input value={form.authMount} onChange={set('authMount')} placeholder={DEFAULT_AUTH_MOUNT} {...describe('authMount')} /></label>{note('authMount', `Để trống để dùng mặc định ${DEFAULT_AUTH_MOUNT}.`)}</div>
-          <div className="field"><label>Chứng chỉ CA tùy chỉnh (PEM, tùy chọn)<textarea value={form.tlsCaPem} onChange={set('tlsCaPem')} rows={4} spellCheck={false} {...describe('tlsCaPem')} /></label>{note('tlsCaPem', 'Console chỉ kiểm hình dạng PEM CERTIFICATE; không chứng minh chứng chỉ hợp lệ, đáng tin hay kết nối được. Backend kiểm tra và xác minh thật. TLS luôn được xác minh.')}</div>
+          <div className="field"><label>{t('platform.secretStores.kvV2Mount')}<input value={form.mount} onChange={set('mount')} placeholder={DEFAULT_MOUNT} {...describe('mount')} /></label>{note('mount', t('platform.secretStores.leaveEmptyToUseThe', { DEFAULT_MOUNT }))}</div>
+          <div className="field"><label>{t('platform.secretStores.kubernetesAuthMount')}<input value={form.authMount} onChange={set('authMount')} placeholder={DEFAULT_AUTH_MOUNT} {...describe('authMount')} /></label>{note('authMount', t('platform.secretStores.leaveEmptyToUseThe2', { DEFAULT_AUTH_MOUNT }))}</div>
+          <div className="field"><label>{t('platform.secretStores.customCACertificatePEMOptional')}<textarea value={form.tlsCaPem} onChange={set('tlsCaPem')} rows={4} spellCheck={false} {...describe('tlsCaPem')} /></label>{note('tlsCaPem', t('platform.secretStores.theConsoleOnlyChecksThe'))}</div>
         </div>
-        <div className="form-actions"><Button tone="primary" type="submit" disabled={saving}>{saving ? 'Đang xác minh…' : 'Xác minh và đăng ký'}</Button></div>
+        <div className="form-actions"><Button tone="primary" type="submit" disabled={saving}>{saving ? t('platform.secretStores.verifying') : t('platform.secretStores.verifyAndRegister')}</Button></div>
       </fieldset>
     </form>
   </section>;

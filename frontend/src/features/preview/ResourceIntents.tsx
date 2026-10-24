@@ -1,9 +1,10 @@
 import type { ResourceIntent } from '../workloads/api';
+import { t } from '../../shared/i18n';
 
-const ownershipLabels: Record<string, string> = { PLATFORM: 'Nền tảng (liên kết hệ thống)', ORCHESTRATOR: 'Orchestrator (theo phạm vi tài nguyên)', PREEXISTING: 'Có sẵn (không bao giờ bị tạo hoặc xóa)' };
+const ownershipLabels: Record<string, string> = { PLATFORM: t('preview.resourceIntents.platformSystemLink'), ORCHESTRATOR: t('preview.resourceIntents.orchestratorByResourceScope'), PREEXISTING: t('preview.resourceIntents.existingNeverCreatedOrDeleted') };
 const intentLabels: Record<string, string> = {
-  CREATE: 'Tạo mới', UPDATE: 'Cập nhật tài nguyên đã có (tham số, cấu hình hoặc module thay đổi)', RETAIN: 'Giữ nguyên (đã xác minh không đổi so với lần triển khai trước)',
-  UNVERIFIED: 'Đã có, chưa xác minh được thay đổi; có thể được cập nhật', BIND: 'Liên kết hệ thống, không tạo',
+  CREATE: t('preview.resourceIntents.create'), UPDATE: t('preview.resourceIntents.updateAnExistingResourceParameters'), RETAIN: t('preview.resourceIntents.unchangedVerifiedIdenticalToThe'),
+  UNVERIFIED: t('preview.resourceIntents.existingChangesNotVerifiedMay'), BIND: t('preview.resourceIntents.systemLinkNotCreated'),
 };
 const label = (table: Record<string, string>, key: string) => (Object.hasOwn(table, key) ? table[key] : key);
 
@@ -11,33 +12,33 @@ const label = (table: Record<string, string>, key: string) => (Object.hasOwn(tab
 // region (AWS), or the cluster another previewed node provides (Kubernetes).
 // Names only: never a credential, endpoint or account override.
 function providerText(provider: NonNullable<ResourceIntent['providers']>[number]): string {
-  if (provider.target === 'resource') return `${provider.name}: cluster do node ${provider.provider ?? 'EKS'} cung cấp${provider.connectionKey ? ` · tài khoản ${provider.connectionKey}` : ''}${provider.region ? ` · vùng ${provider.region}` : ''}`;
-  if (provider.kind === 'aws') return `${provider.name}: tài khoản AWS của cấu hình${provider.connectionKey ? ` ${provider.connectionKey}` : ''}${provider.region ? ` · vùng ${provider.region}` : ''}`;
-  return `${provider.name}: đích provider không được hỗ trợ`;
+  if (provider.target === 'resource') return t('preview.resourceIntents.nameClusterProvidedByNode', { name: provider.name, value: provider.provider ?? 'EKS', value2: provider.connectionKey ? t('preview.resourceIntents.accountConnectionKey', { connectionKey: provider.connectionKey }) : '', value3: provider.region ? t('preview.resourceIntents.regionRegion', { region: provider.region }) : '' });
+  if (provider.kind === 'aws') return t('preview.resourceIntents.nameAWSAccountOfThe', { name: provider.name, value: provider.connectionKey ? ` ${provider.connectionKey}` : '', value2: provider.region ? t('preview.resourceIntents.regionRegion', { region: provider.region }) : '' });
+  return t('preview.resourceIntents.nameUnsupportedProviderTarget', { name: provider.name });
 }
 
 export const rendererText = (rendering: { definitionKey: string; class?: string; driverType: string; bundle: { version: string } } | undefined) =>
-  rendering?.driverType ? `${rendering.driverType} ${rendering.bundle.version} (mẫu ${rendering.definitionKey}${rendering.class ? `, class ${rendering.class}` : ''})` : 'Chưa xác định trình dựng score-k8s (không có renderer mặc định)';
+  rendering?.driverType ? t('preview.resourceIntents.driverTypeVersionTemplateDefinitionKeyValue', { driverType: rendering.driverType, version: rendering.bundle.version, definitionKey: rendering.definitionKey, value: rendering.class ? `, class ${rendering.class}` : '' }) : t('preview.resourceIntents.noScoreK8sRendererDetermined');
 
 // The safe resource projection of a Preview (UC-05 BR-10). It states intent only
 // and does not claim a final Terraform plan or manifest.
-export function ResourceIntents({ intents, label: ariaLabel = 'Tài nguyên hạ tầng sẽ được xử lý' }: { intents: ResourceIntent[] | undefined; label?: string }) {
+export function ResourceIntents({ intents, label: ariaLabel = t('preview.resourceIntents.infrastructureResourcesToBeProcessed') }: { intents: ResourceIntent[] | undefined; label?: string }) {
   // A missing projection is unavailable, never proof that nothing needs creating or binding.
-  if (!intents) return <p className="form-warning" role="note">Chưa có thông tin tài nguyên hạ tầng trong kết quả xem trước này nên chưa thể kết luận có tài nguyên nào cần tạo, cập nhật hay liên kết. Hãy xem trước lại.</p>;
-  if (intents.length === 0) return <p className="feature-note">Không có tài nguyên hạ tầng nào cần tạo, cập nhật hoặc liên kết.</p>;
+  if (!intents) return <p className="form-warning" role="note">{t('preview.resourceIntents.thisPreviewResultHasNo')}</p>;
+  if (intents.length === 0) return <p className="feature-note">{t('preview.resourceIntents.noInfrastructureResourcesNeedTo')}</p>;
   return <div className="resource-intents" aria-label={ariaLabel}>
     <table className="plain-table">
-      <thead><tr><th>Tài nguyên</th><th>Loại / class</th><th>Cấu hình</th><th>Module · revision</th><th>Đích provider</th><th>Quyền sở hữu</th><th>Ý định</th></tr></thead>
+      <thead><tr><th>{t('preview.resourceIntents.resource')}</th><th>{t('preview.resourceIntents.typeClass')}</th><th>{t('preview.resourceIntents.definition')}</th><th>Module · revision</th><th>{t('preview.resourceIntents.providerTarget')}</th><th>{t('preview.resourceIntents.ownership')}</th><th>{t('preview.resourceIntents.intent')}</th></tr></thead>
       <tbody>{intents.map((intent) => <tr key={`${intent.descriptor}|${intent.scope}`}>
         <td>{intent.descriptor}<br /><small>{intent.scope}</small></td>
         <td>{intent.resourceType} / {intent.class || 'default'}</td>
-        <td>{intent.definitionKey}<br /><small>{intent.driverType}{intent.driverAccount ? ` · tài khoản ${intent.driverAccount}${intent.accountVersion ? ` v${intent.accountVersion}` : ''}` : ''}</small></td>
+        <td>{intent.definitionKey}<br /><small>{intent.driverType}{intent.driverAccount ? t('preview.resourceIntents.accountDriverAccountValue', { driverAccount: intent.driverAccount, value: intent.accountVersion ? ` v${intent.accountVersion}` : '' }) : ''}</small></td>
         <td>{intent.module ? <>{intent.module.module} · {intent.module.revision}<br /><small title={intent.module.contentSha256}>sha256:{intent.module.contentSha256.slice(0, 12)}</small></> : '—'}</td>
         <td>{intent.providers?.length ? <ul>{intent.providers.map((provider) => <li key={provider.name}>{providerText(provider)}</li>)}</ul> : '—'}</td>
         <td>{label(ownershipLabels, intent.ownership)}</td>
         <td>{label(intentLabels, intent.intent)}</td>
       </tr>)}</tbody>
     </table>
-    <p><small>Chỉ là ý định đã ghim tại thời điểm xem trước: không phải kế hoạch Terraform hay manifest cuối cùng, và không hiển thị tham số, bí mật, thông tin xác thực hay trạng thái. Thay đổi module, đích hoặc mẫu dựng sẽ làm kết quả này cũ.</small></p>
+    <p><small>{t('preview.resourceIntents.onlyTheIntentPinnedAt')}</small></p>
   </div>;
 }

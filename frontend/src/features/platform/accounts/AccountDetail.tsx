@@ -7,13 +7,14 @@ import {
   accountGuidance, authLabel, getAccount, maxNameLength, outcomeUnknown, parseRegions, renameAccount, replaceCredentials, statusLabel, typeLabel,
   validateAwsKeys, validateName, validateRegions, verifyAccount, type Account, type Operation,
 } from './accountsApi';
+import { intlLocale, t } from '../../../shared/i18n';
 
 const emptyKube: KubeconfigDraft = { kubeconfig: '', context: '' };
 type Busy = null | 'rename' | 'verify' | 'replace';
 
 function when(value?: string): string {
   const date = value ? new Date(value) : undefined;
-  return date && !Number.isNaN(date.getTime()) ? date.toLocaleString('vi-VN') : '';
+  return date && !Number.isNaN(date.getTime()) ? date.toLocaleString(intlLocale()) : '';
 }
 
 /**
@@ -58,9 +59,9 @@ export function AccountDetail({ account, onChanged, onRefreshed }: { account: Ac
       onRefreshed(fresh);
       if (unknown) setReview(true);
       setStale(false); setUnknown(false); setError('');
-      setNotice(`Đã tải lại tài khoản: phiên bản hiện tại ${fresh.version}${fresh.name !== nameDraft ? `, tên đang lưu là “${fresh.name}”` : ''}. Bản nháp của bạn được giữ nguyên; lưu lại tường minh nếu vẫn muốn.`);
+      setNotice(t('platform.accounts.accountDetail.accountReloadedCurrentVersionVersion', { version: fresh.version, value: fresh.name !== nameDraft ? t('platform.accounts.accountDetail.theSavedNameIsName', { name: fresh.name }) : '' }));
     } catch {
-      if (alive.current) setError('Chưa tải lại được tài khoản. Nhấn “Tải lại bản mới nhất” để thử lại.');
+      if (alive.current) setError(t('platform.accounts.accountDetail.couldNotReloadTheAccount'));
     } finally {
       if (alive.current) setReloading(false);
     }
@@ -79,7 +80,7 @@ export function AccountDetail({ account, onChanged, onRefreshed }: { account: Ac
       const fresh = await getAccount(account.key);
       if (!alive.current) return;
       onRefreshed(fresh); setUnknown(false); setReview(true);
-      setNotice(`Đã tải lại tài khoản để kiểm tra kết quả thực tế: phiên bản hiện tại ${fresh.version}, tên “${fresh.name}”.`);
+      setNotice(t('platform.accounts.accountDetail.accountReloadedToCheckThe', { version: fresh.version, name: fresh.name }));
     } catch { /* stays blocked until an explicit reload succeeds */ } finally {
       if (alive.current) setReloading(false);
     }
@@ -96,7 +97,7 @@ export function AccountDetail({ account, onChanged, onRefreshed }: { account: Ac
       const updated = await renameAccount(account.key, { name: nameDraft.trim(), version: account.version });
       if (!alive.current) return;
       setNameDraft(updated.name); setStale(false);
-      setNotice(`Đã đổi tên thành “${updated.name}”; phiên bản ${updated.version}. ID, đích kết nối, credential và kết quả xác minh được giữ nguyên.`);
+      setNotice(t('platform.accounts.accountDetail.renamedToNameVersionVersion', { name: updated.name, version: updated.version }));
       onChanged(updated);
     } catch (reason) {
       if (alive.current) setError(failure('rename', reason));
@@ -118,7 +119,7 @@ export function AccountDetail({ account, onChanged, onRefreshed }: { account: Ac
       const updated = await verifyAccount(account.key, { version: account.version, ...(regions ? { verificationRegions: regions } : {}) });
       if (!alive.current) return;
       setStale(false);
-      setNotice(`Kiểm tra kết nối thành công lúc ${when(updated.verification?.verifiedAt) || 'vừa xong'}; phiên bản ${updated.version}. Kết quả chỉ phản ánh lần kiểm tra này.`);
+      setNotice(t('platform.accounts.accountDetail.connectionCheckSucceededAtValue', { value: when(updated.verification?.verifiedAt) || t('platform.accounts.accountDetail.justNow'), version: updated.version }));
       onChanged(updated);
     } catch (reason) {
       if (!alive.current) return;
@@ -140,7 +141,7 @@ export function AccountDetail({ account, onChanged, onRefreshed }: { account: Ac
     setReplaceNotice(''); setNotice(''); setVerifyFailure('');
     const problem = isAws
       ? validateAwsKeys(aws.accessKeyId, aws.secretAccessKey) || validateRegions(aws.regions)
-      : (!kube.context ? 'Tải lên hoặc dán kubeconfig rồi chọn context trước khi thay credential.' : '');
+      : (!kube.context ? t('platform.accounts.accountDetail.uploadOrPasteAKubeconfig') : '');
     if (problem) { setReplaceError(problem); return; }
     setReplaceError(''); setBusy('replace');
     let body: Record<string, unknown>;
@@ -155,7 +156,7 @@ export function AccountDetail({ account, onChanged, onRefreshed }: { account: Ac
       const updated = await replaceCredentials(account.key, body);
       if (!alive.current) return;
       setStale(false); cancelReplace();
-      setReplaceNotice(`Đã thay credential sau khi xác minh cùng đích; phiên bản ${updated.version}. Credential cũ vẫn được giữ trong kho vì mục tiêu đã triển khai có thể còn tham chiếu.`);
+      setReplaceNotice(t('platform.accounts.accountDetail.credentialReplacedAfterVerifyingThe', { version: updated.version }));
       onChanged(updated);
     } catch (reason) {
       if (alive.current) setReplaceError(failure('replace', reason));
@@ -167,57 +168,57 @@ export function AccountDetail({ account, onChanged, onRefreshed }: { account: Ac
   const config = account.config ?? {};
   const verification = account.verification ?? {};
   const checkedAt = when(verification.verifiedAt);
-  return <section className="content-panel account-detail" aria-label={`Chi tiết tài khoản ${account.name}`} aria-busy={busy !== null}>
-    <div className="section-header"><div><h2>{account.name}</h2><p className="muted"><code>{account.key}</code> · phiên bản {account.version}</p></div></div>
-    <dl className="destination-summary" aria-label="Thông tin tài khoản">
-      <div><dt>Loại hạ tầng</dt> <dd>{typeLabel(account.type)}</dd></div>
-      <div><dt>Phương thức xác thực</dt> <dd>{authLabel(account.authenticationType)}</dd></div>
-      <div><dt>Trạng thái</dt> <dd>{statusLabel(account.status)}</dd></div>
+  return <section className="content-panel account-detail" aria-label={t('platform.accounts.accountDetail.accountDetailsName', { name: account.name })} aria-busy={busy !== null}>
+    <div className="section-header"><div><h2>{account.name}</h2><p className="muted"><code>{account.key}</code> {' '}{t('platform.accounts.accountDetail.version')}{' '} {account.version}</p></div></div>
+    <dl className="destination-summary" aria-label={t('platform.accounts.accountDetail.accountInformation')}>
+      <div><dt>{t('platform.accounts.accountDetail.infrastructureType')}</dt> <dd>{typeLabel(account.type)}</dd></div>
+      <div><dt>{t('platform.accounts.accountDetail.authenticationMethod')}</dt> <dd>{authLabel(account.authenticationType)}</dd></div>
+      <div><dt>{t('platform.accounts.accountDetail.status')}</dt> <dd>{statusLabel(account.status)}</dd></div>
       {isAws ? <>
-        <div><dt>Tài khoản AWS</dt> <dd>{config.accountId ?? '—'}</dd></div>
+        <div><dt>{t('platform.accounts.accountDetail.aWSAccount')}</dt> <dd>{config.accountId ?? '—'}</dd></div>
         {isEc2Role ? <><div><dt>IAM Role ARN</dt> <dd>{config.roleArn ?? '—'}</dd></div><div><dt>Role ID</dt> <dd>{config.roleId ?? '—'}</dd></div></> : null}
         <div><dt>Principal</dt> <dd>{config.principalArn ?? '—'}</dd></div>
-        <div><dt>Vùng kiểm tra</dt> <dd>{(config.verificationRegions ?? []).join(', ') || '—'}</dd></div>
+        <div><dt>{t('platform.accounts.accountDetail.checkRegions')}</dt> <dd>{(config.verificationRegions ?? []).join(', ') || '—'}</dd></div>
       </> : <>
         <div><dt>Cluster</dt> <dd>{config.cluster ?? '—'}</dd></div>
         <div><dt>Context</dt> <dd>{config.kubeContext ?? '—'}</dd></div>
         <div><dt>Endpoint</dt> <dd>{config.endpoint ?? '—'}</dd></div>
-        <div><dt>TLS</dt> <dd>{config.tls?.mode === 'CUSTOM_CA' ? 'CA tùy chỉnh' : config.tls?.mode === 'INSECURE_SKIP_VERIFY' ? 'Bỏ qua xác minh TLS' : config.tls?.mode === 'SYSTEM_ROOTS' ? 'CA hệ thống' : '—'}{config.tls?.serverName ? ` (${config.tls.serverName})` : ''}</dd></div>
+        <div><dt>TLS</dt> <dd>{config.tls?.mode === 'CUSTOM_CA' ? t('platform.accounts.accountDetail.customCA') : config.tls?.mode === 'INSECURE_SKIP_VERIFY' ? t('platform.accounts.accountDetail.skipTLSVerification') : config.tls?.mode === 'SYSTEM_ROOTS' ? t('platform.accounts.accountDetail.systemCA') : '—'}{config.tls?.serverName ? ` (${config.tls.serverName})` : ''}</dd></div>
       </>}
-      <div><dt>Lần kiểm tra thành công gần nhất</dt> <dd>{checkedAt || 'Chưa có'}</dd></div>
+      <div><dt>{t('platform.accounts.accountDetail.lastSuccessfulCheck')}</dt> <dd>{checkedAt || t('platform.accounts.accountDetail.noneYet')}</dd></div>
     </dl>
-    <p className="muted">“Sẵn sàng” chỉ ghi nhận lần kiểm tra thành công gần nhất, không phải tình trạng kết nối hiện tại. Nhấn “Kiểm tra kết nối” để kiểm tra lại. Vùng triển khai sẽ được chọn ở Driver Inputs, không thuộc tài khoản.</p>
+    <p className="muted">{t('platform.accounts.accountDetail.readyOnlyRecordsTheLast')}</p>
 
     {error ? <div className="form-error" role="alert">{error}</div> : null}
-    {review ? <div className="form-error" role="status">Đã tải lại để kiểm tra kết quả của thao tác chưa rõ. Xem phiên bản và dữ liệu hiện tại ở trên rồi mới tiếp tục. <Button type="button" disabled={reloading} onClick={() => setReview(false)}>Đã xem kết quả, cho phép thao tác tiếp</Button></div> : null}
-    {stale || unknown ? <div className="form-error"><Button type="button" disabled={reloading} onClick={() => void reload()}>Tải lại bản mới nhất</Button></div> : null}
+    {review ? <div className="form-error" role="status">{t('platform.accounts.accountDetail.reloadedToCheckTheResult')}{' '} <Button type="button" disabled={reloading} onClick={() => setReview(false)}>{t('platform.accounts.accountDetail.iHaveReviewedTheResult')}</Button></div> : null}
+    {stale || unknown ? <div className="form-error"><Button type="button" disabled={reloading} onClick={() => void reload()}>{t('platform.accounts.accountDetail.reloadLatestVersion')}</Button></div> : null}
     {notice ? <div className="form-success" role="status">{notice}</div> : null}
 
     <form onSubmit={rename} autoComplete="off"><fieldset className="form-fieldset connection-form" disabled={blocked}>
-      <label className="connection-field">Tên tài khoản<input name="rename" value={nameDraft} required maxLength={maxNameLength} onChange={(event) => setNameDraft(event.target.value)} /></label>
-      <div className="connection-footer"><Button type="submit" disabled={blocked}>{busy === 'rename' ? 'Đang lưu…' : 'Lưu tên'}</Button></div>
+      <label className="connection-field">{t('platform.accounts.accountDetail.accountName')}<input name="rename" value={nameDraft} required maxLength={maxNameLength} onChange={(event) => setNameDraft(event.target.value)} /></label>
+      <div className="connection-footer"><Button type="submit" disabled={blocked}>{busy === 'rename' ? t('platform.accounts.accountDetail.saving') : t('platform.accounts.accountDetail.saveName')}</Button></div>
     </fieldset></form>
 
     <fieldset className="form-fieldset connection-form" disabled={blocked}>
-      <legend>Kiểm tra kết nối</legend>
-      {isAws ? <label className="connection-field">Vùng kiểm tra<input name="verify-regions" value={verifyRegions} autoComplete="off" spellCheck={false} onChange={(event) => setVerifyRegions(event.target.value)} /></label> : null}
-      <div className="connection-footer"><Button type="button" disabled={blocked} onClick={() => void verify()}>{busy === 'verify' ? 'Đang kiểm tra…' : 'Kiểm tra kết nối'}</Button></div>
-      {verifyFailure ? <div className="form-error" role="alert" aria-label="Lần kiểm tra vừa thất bại"><strong>Lần kiểm tra vừa thất bại.</strong> {verifyFailure} Trạng thái “{statusLabel(account.status)}” ở trên vẫn là lần kiểm tra thành công gần nhất{checkedAt ? ` (${checkedAt})` : ''}, không phải kết quả lần này.</div> : null}
+      <legend>{t('platform.accounts.accountDetail.checkConnection')}</legend>
+      {isAws ? <label className="connection-field">{t('platform.accounts.accountDetail.checkRegions')}<input name="verify-regions" value={verifyRegions} autoComplete="off" spellCheck={false} onChange={(event) => setVerifyRegions(event.target.value)} /></label> : null}
+      <div className="connection-footer"><Button type="button" disabled={blocked} onClick={() => void verify()}>{busy === 'verify' ? t('platform.accounts.accountDetail.checking') : t('platform.accounts.accountDetail.checkConnection')}</Button></div>
+      {verifyFailure ? <div className="form-error" role="alert" aria-label={t('platform.accounts.accountDetail.theLastCheckFailed')}><strong>{t('platform.accounts.accountDetail.theLastCheckFailed2')}</strong> {verifyFailure} {' '}{t('platform.accounts.accountDetail.theStatus')}{statusLabel(account.status)}{t('platform.accounts.accountDetail.aboveIsStillTheLast')}{checkedAt ? ` (${checkedAt})` : ''}{t('platform.accounts.accountDetail.notTheResultOfThis')}</div> : null}
     </fieldset>
 
-    {isEc2Role ? <p className="muted">Credential tạm thời được lấy từ IAM Role của EC2 và tự làm mới. Không có access key để thay tại đây. Muốn dùng role khác, hãy đăng ký tài khoản mới.</p> : <form onSubmit={replace} autoComplete="off"><fieldset className="form-fieldset connection-form" disabled={blocked} aria-label="Thay credential">
-      <legend>Thay credential</legend>
-      <p className="muted">{isAws
-        ? 'Nhập access key mới của cùng tài khoản AWS. Key mới được xác minh trước khi lưu; khác tài khoản AWS sẽ bị từ chối — hãy đăng ký tài khoản mới.'
-        : 'Cung cấp kubeconfig mới của cùng cluster, context, endpoint và cấu hình TLS. Được xác minh trước khi lưu; khác đích sẽ bị từ chối — hãy đăng ký tài khoản mới.'} Credential hiện tại không bao giờ được hiển thị hay điền sẵn.</p>
+    {isEc2Role ? <p className="muted">{t('platform.accounts.accountDetail.temporaryCredentialsAreTakenFrom')}</p> : <form onSubmit={replace} autoComplete="off"><fieldset className="form-fieldset connection-form" disabled={blocked} aria-label={t('platform.accounts.accountDetail.replaceCredential')}>
+      <legend>{t('platform.accounts.accountDetail.replaceCredential')}</legend>
+      <p className="muted">{t('platform.accounts.accountDetail.valueTheCurrentCredentialIs', { value: isAws
+        ? t('platform.accounts.accountDetail.enterANewAccessKey')
+        : t('platform.accounts.accountDetail.provideANewKubeconfigFor') })}</p>
       {isAws
         ? <AwsKeyFields prefix="replace" fields={aws} disabled={blocked} onChange={(patch) => setAws((current) => ({ ...current, ...patch }))} />
         : <KubeconfigField disabled={blocked} resetSignal={resetSignal} onChange={setKube} />}
       {replaceError ? <div className="form-error" role="alert">{replaceError}</div> : null}
       {replaceNotice ? <div className="form-success" role="status">{replaceNotice}</div> : null}
       <div className="connection-footer">
-        <Button type="submit" tone="primary" disabled={blocked}>{busy === 'replace' ? 'Đang xác minh và thay…' : 'Xác minh và thay credential'}</Button>
-        <Button type="button" disabled={busy !== null} onClick={cancelReplace}>Hủy</Button>
+        <Button type="submit" tone="primary" disabled={blocked}>{busy === 'replace' ? t('platform.accounts.accountDetail.verifyingAndReplacing') : t('platform.accounts.accountDetail.verifyAndReplaceCredential')}</Button>
+        <Button type="button" disabled={busy !== null} onClick={cancelReplace}>{t('platform.accounts.accountDetail.cancel')}</Button>
       </div>
     </fieldset></form>}
   </section>;

@@ -19,7 +19,9 @@ function walk(dir, out = []) {
   return out;
 }
 
+// Console text lives in the Vietnamese message catalog; source files hold only keys.
 const corpus = walk(join(process.cwd(), 'src')).map((f) => readFileSync(f, 'utf8')).join('\n')
+  + '\n' + readFileSync(join(process.cwd(), 'public/locales/vi.json'), 'utf8')
   + '\n' + readFileSync(join(process.cwd(), '../backend/examples/acceptance-app/frontend/main.go'), 'utf8');
 
 const sources = ['terraform-v2-steps.mjs', 'terraform-v2-acceptance.mjs', 'terraform-v2-aws-definitions.mjs', 'full-app-flows.mjs', 'full-app-kit.mjs', 'v04-internal-full.mjs'].map(read).join('\n');
@@ -36,7 +38,7 @@ function labels() {
 
 // Labels the Console composes at runtime (a noun or a variable name is interpolated), checked by their constituents.
 const COMPOSED = {
-  '+ Thêm tham số đầu vào': ['+ Thêm', 'tham số đầu vào'], '+ Thêm tham số đầu ra': ['+ Thêm', 'tham số đầu ra'], '+ Thêm biến': ['+ Thêm', "'biến'"],
+  '+ Thêm tham số đầu vào': ['+ Thêm', 'tham số đầu vào'], '+ Thêm tham số đầu ra': ['+ Thêm', 'tham số đầu ra'], '+ Thêm biến': ['+ Thêm', '"biến"'],
   'Biến của ứng dụng cho main': ['Biến của ứng dụng'], 'Bí mật của ứng dụng cho main': ['Bí mật của ứng dụng'], 'Điều kiện 1 Class': ['Điều kiện'], 'Triển khai thành công': ['Triển khai', 'thành công'], 'Triển khai thất bại': ['Triển khai', 'thất bại'],
 };
 

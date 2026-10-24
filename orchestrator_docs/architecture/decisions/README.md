@@ -2,7 +2,7 @@
 id: ADR-INDEX
 artifact: decision-index
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # Architecture Decision Records
@@ -41,3 +41,5 @@ last_reviewed: 2026-10-23
 - [ADR-018 — Explicit EC2 instance-role Driver Accounts](ADR-018-ec2-role-driver-accounts.md) — IAM User-free Terraform execution, issue #6.
 
 - [ADR-019 — Visual deployment review and persisted progress](ADR-019-visual-deployment-review.md).
+
+- [ADR-020 — Runtime message catalogs for the Web Console](ADR-020-console-message-catalogs.md) — Vietnamese default + English; new languages are catalog files, not code.

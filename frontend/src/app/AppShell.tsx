@@ -1,11 +1,13 @@
 import { useState, type PropsWithChildren, type ReactNode } from 'react';
 import { href, navigate } from './routes';
 import { Button } from '../shared/ui/Button';
+import { LanguageSelect } from '../shared/ui/LanguageSelect';
+import { t } from '../shared/i18n';
 
 function roleLabel(role: string) {
-  if (role === 'ADMIN') return 'Quản trị viên';
-  if (role === 'PLATFORM_ENGINEER') return 'Kỹ sư nền tảng';
-  return 'Nhà phát triển';
+  if (role === 'ADMIN') return t('app.appShell.administrator');
+  if (role === 'PLATFORM_ENGINEER') return t('app.appShell.platformEngineer');
+  return t('app.appShell.developer');
 }
 
 function NavigationIcon({ name }: { name: string }) {
@@ -38,14 +40,14 @@ export function AppShell({ children, onSignOut, username, role, activeRoute }: P
   const activeNav = ['application', 'create-application', 'settings', 'workload', 'score-preview', 'deployments', 'deployment', 'resource'].includes(activeRoute) ? 'applications' : activeRoute;
   const navClass = (name: string) => `nav-item${activeNav === name ? ' nav-item-active' : ''}`;
   const links = [
-    { route: 'applications', label: 'Ứng dụng', tone: 'blue', platform: false },
-    { route: 'resource-types', label: 'Loại tài nguyên', tone: 'teal', platform: true },
-    { route: 'resource-definitions', label: 'Cấu hình tài nguyên', tone: 'violet', platform: true },
-    { route: 'rendering-templates', label: 'Mẫu dựng ứng dụng', tone: 'amber', platform: true },
-    { route: 'driver-accounts', label: 'Tài khoản hạ tầng', tone: 'blue', platform: true },
-    { route: 'connections', label: 'Kết nối', tone: 'teal', platform: true },
-    { route: 'secret-stores', label: 'Kho bí mật', tone: 'rose', platform: true },
-    { route: 'effectiveness', label: 'Hiệu quả platform', tone: 'violet', platform: true },
+    { route: 'applications', label: t('app.appShell.applications'), tone: 'blue', platform: false },
+    { route: 'resource-types', label: t('app.appShell.resourceTypes'), tone: 'teal', platform: true },
+    { route: 'resource-definitions', label: t('app.appShell.resourceDefinitions'), tone: 'violet', platform: true },
+    { route: 'rendering-templates', label: t('app.appShell.renderingTemplates'), tone: 'amber', platform: true },
+    { route: 'driver-accounts', label: t('app.appShell.infrastructureAccounts'), tone: 'blue', platform: true },
+    { route: 'connections', label: t('app.appShell.connections'), tone: 'teal', platform: true },
+    { route: 'secret-stores', label: t('app.appShell.secretStores'), tone: 'rose', platform: true },
+    { route: 'effectiveness', label: t('app.appShell.platformEffectiveness'), tone: 'violet', platform: true },
   ] as const;
   return (
     <div className={`app-shell${collapsed ? ' app-shell-collapsed' : ''}`}>
@@ -53,16 +55,17 @@ export function AppShell({ children, onSignOut, username, role, activeRoute }: P
         <a className="wordmark wordmark-light" aria-label="Orchestrator" title="Orchestrator" href={href({ name: 'applications' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'applications' }); }}>
           <span className="wordmark-mark" aria-hidden="true">◆</span><span className="sidebar-label">Orchestrator</span>
         </a>
-        <button type="button" className="sidebar-toggle" onClick={toggleSidebar} aria-expanded={!collapsed} aria-controls="primary-navigation" aria-label={collapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'} title={collapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'}>
-          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="3" width="16" height="14" rx="2" /><path d="M7 3v14" /><path d={collapsed ? 'm10 7 3 3-3 3' : 'm14 7-3 3 3 3'} /></svg><span className="sidebar-label">Thu gọn thanh bên</span>
+        <button type="button" className="sidebar-toggle" onClick={toggleSidebar} aria-expanded={!collapsed} aria-controls="primary-navigation" aria-label={collapsed ? t('app.appShell.expandNavigation') : t('app.appShell.collapseNavigation')} title={collapsed ? t('app.appShell.expandNavigation') : t('app.appShell.collapseNavigation')}>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="3" width="16" height="14" rx="2" /><path d="M7 3v14" /><path d={collapsed ? 'm10 7 3 3-3 3' : 'm14 7-3 3 3 3'} /></svg><span className="sidebar-label">{t('app.appShell.collapseSidebar')}</span>
         </button>
-        <nav className="nav" id="primary-navigation" aria-label="Điều hướng chính">
+        <nav className="nav" id="primary-navigation" aria-label={t('app.appShell.mainNavigation')}>
           {links.filter((item) => !item.platform || isPlatformEngineer).map((item) => <a key={item.route} className={navClass(item.route)} aria-current={activeNav === item.route ? 'page' : undefined} title={item.label} href={href({ name: item.route })} onClick={(event) => { event.preventDefault(); navigate({ name: item.route }); }}><span className="nav-icon" data-tone={item.tone} aria-hidden="true"><NavigationIcon name={item.route} /></span><span className="sidebar-label">{item.label}</span></a>)}
-          <span className="nav-item nav-item-disabled" aria-disabled="true" aria-label="Lịch sử triển khai — Sắp có" title="Lịch sử triển khai — Sắp có"><span className="nav-icon" aria-hidden="true"><NavigationIcon name="history" /></span><span className="sidebar-label">Lịch sử triển khai</span><small className="sidebar-label">Sắp có</small></span>
+          <span className="nav-item nav-item-disabled" aria-disabled="true" aria-label={t('app.appShell.deploymentHistoryComingSoon')} title={t('app.appShell.deploymentHistoryComingSoon')}><span className="nav-icon" aria-hidden="true"><NavigationIcon name="history" /></span><span className="sidebar-label">{t('app.appShell.deploymentHistory')}</span><small className="sidebar-label">{t('app.appShell.comingSoon')}</small></span>
         </nav>
         <div className="sidebar-footer">
           <div className="user-chip" aria-label={`${username} · ${roleLabel(role)}`} title={`${username} · ${roleLabel(role)}`}><span className="avatar" aria-hidden="true">{username.slice(0, 2).toUpperCase()}</span><span className="sidebar-label"><strong>{username}</strong><small>{roleLabel(role)}</small></span></div>
-          <Button tone="quiet" onClick={onSignOut} aria-label="Đăng xuất" title="Đăng xuất"><svg className="sign-out-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3H3v14h5m4-11 4 4-4 4m-5-4h9" /></svg><span className="sidebar-label">Đăng xuất</span></Button>
+          <Button tone="quiet" onClick={onSignOut} aria-label={t('app.appShell.signOut')} title={t('app.appShell.signOut')}><svg className="sign-out-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3H3v14h5m4-11 4 4-4 4m-5-4h9" /></svg><span className="sidebar-label">{t('app.appShell.signOut')}</span></Button>
+          <LanguageSelect />
         </div>
       </aside>
       <main className="main-content">{children}</main>

@@ -4,6 +4,7 @@ import { Ec2RoleFields } from './Ec2RoleFields';
 import { AwsKeyFields, emptyAwsFields, type AwsFields } from './AwsKeyFields';
 import { KubeconfigField, type KubeconfigDraft } from './KubeconfigField';
 import { accountGuidance, createAws, createEc2Role, validateRoleArn, createInternal, outcomeUnknown, parseRegions, validateAwsKeys, validateName, validateRegions, maxNameLength, type Account } from './accountsApi';
+import { t } from '../../../shared/i18n';
 
 type Kind = 'internal' | 'aws';
 const emptyKube: KubeconfigDraft = { kubeconfig: '', context: '' };
@@ -49,7 +50,7 @@ export function CreateAccountForm({ onCreated, onUnknownOutcome }: { onCreated(a
     if (saving || blocked) return;
     setNotice('');
     const problem = validateName(name)
-      || (kind === 'aws' ? (awsAuth === 'ec2-role' ? validateRoleArn(roleArn) : validateAwsKeys(aws.accessKeyId, aws.secretAccessKey)) || validateRegions(aws.regions) : (!kube.context ? 'Tải lên hoặc dán kubeconfig rồi chọn context trước khi kiểm tra và lưu.' : ''));
+      || (kind === 'aws' ? (awsAuth === 'ec2-role' ? validateRoleArn(roleArn) : validateAwsKeys(aws.accessKeyId, aws.secretAccessKey)) || validateRegions(aws.regions) : (!kube.context ? t('platform.accounts.createAccountForm.uploadOrPasteAKubeconfig') : ''));
     if (problem) { setError(problem); return; }
     setError(''); setSaving(true);
     let created: Account;
@@ -71,32 +72,32 @@ export function CreateAccountForm({ onCreated, onUnknownOutcome }: { onCreated(a
       return;
     }
     if (!alive.current) return;
-    setNotice(`Đã đăng ký tài khoản ${created.name} (${created.key}) ở phiên bản ${created.version}. Tài khoản chưa được gán cho môi trường nào và chưa có tài nguyên nào được tạo.`);
+    setNotice(t('platform.accounts.createAccountForm.registeredAccountNameKeyAt', { name: created.name, key: created.key, version: created.version }));
     setName(''); setRoleArn(''); setAws(emptyAwsFields); setKube(emptyKube); setResetSignal((n) => n + 1); setSaving(false);
     await onCreated(created);
   }
 
-  return <form onSubmit={submit} autoComplete="off"><fieldset className="form-fieldset connection-form" disabled={saving} aria-busy={saving} aria-label="Đăng ký tài khoản mới">
-    <div className="source-choices connection-kind" role="radiogroup" aria-label="Loại hạ tầng">
-      <label className="source-choice"><input type="radio" name="account-type" checked={kind === 'internal'} onChange={() => changeKind('internal')} /> Internal (cluster Kubernetes có sẵn)</label>
+  return <form onSubmit={submit} autoComplete="off"><fieldset className="form-fieldset connection-form" disabled={saving} aria-busy={saving} aria-label={t('platform.accounts.createAccountForm.registerNewAccount')}>
+    <div className="source-choices connection-kind" role="radiogroup" aria-label={t('platform.accounts.createAccountForm.infrastructureType')}>
+      <label className="source-choice"><input type="radio" name="account-type" checked={kind === 'internal'} onChange={() => changeKind('internal')} /> {' '}{t('platform.accounts.createAccountForm.internalExistingKubernetesCluster')}</label>
       <label className="source-choice"><input type="radio" name="account-type" checked={kind === 'aws'} onChange={() => changeKind('aws')} /> AWS</label>
     </div>
     <p className="muted">{kind === 'aws'
-      ? awsAuth === 'ec2-role' ? 'Loại hạ tầng AWS, xác thực bằng IAM Role của EC2. Kiểm tra chỉ đọc, không tạo tài nguyên AWS.' : 'Loại hạ tầng AWS, xác thực bằng access key. “Kiểm tra và lưu” xác minh danh tính, từng vùng kiểm tra và quyền cấp phát bằng lời gọi chỉ đọc; không tạo tài nguyên AWS.'
-      : 'Loại hạ tầng Internal, xác thực bằng kubeconfig (token hoặc client certificate nhúng sẵn). “Kiểm tra và lưu” chỉ kiểm tra API và quyền, không tạo tài nguyên trên cluster.'}</p>
-    {kind === 'aws' ? <label className="connection-field">Phương thức xác thực<select value={awsAuth} disabled={saving || blocked} onChange={(event) => {
+      ? awsAuth === 'ec2-role' ? t('platform.accounts.createAccountForm.aWSInfrastructureTypeAuthenticatedWith') : t('platform.accounts.createAccountForm.aWSInfrastructureTypeAuthenticatedWith2')
+      : t('platform.accounts.createAccountForm.internalInfrastructureTypeAuthenticatedWith')}</p>
+    {kind === 'aws' ? <label className="connection-field">{t('platform.accounts.createAccountForm.authenticationMethod')}<select value={awsAuth} disabled={saving || blocked} onChange={(event) => {
       setAwsAuth(event.target.value as 'access-key' | 'ec2-role'); setAws(emptyAwsFields); setRoleArn(''); setError(''); setNotice('');
-    }}><option value="access-key">Access key</option><option value="ec2-role">IAM Role của EC2</option></select></label> : null}
-    <label className="connection-field">Tên tài khoản<input name="account-name" value={name} required maxLength={maxNameLength} autoComplete="off" onChange={(event) => setName(event.target.value)} /></label>
+    }}><option value="access-key">Access key</option><option value="ec2-role">{t('platform.accounts.createAccountForm.eC2IAMRole')}</option></select></label> : null}
+    <label className="connection-field">{t('platform.accounts.createAccountForm.accountName')}<input name="account-name" value={name} required maxLength={maxNameLength} autoComplete="off" onChange={(event) => setName(event.target.value)} /></label>
     {kind === 'internal'
       ? <KubeconfigField disabled={saving} resetSignal={resetSignal} onChange={setKube} />
       : awsAuth === 'ec2-role' ? <Ec2RoleFields roleArn={roleArn} regions={aws.regions} disabled={saving || blocked} onRoleArn={setRoleArn} onRegions={(regions) => setAws((current) => ({ ...current, regions }))} />
       : <AwsKeyFields prefix="account" fields={aws} disabled={saving} onChange={(patch) => setAws((current) => ({ ...current, ...patch }))} />}
     {error ? <div className="form-error" role="alert">{error}</div> : null}
     {notice ? <div className="form-success" role="status">{notice}</div> : null}
-    {recovery === 'checking' ? <p className="muted" role="status">Đang tải lại danh sách để kiểm tra kết quả…</p> : null}
-    {recovery === 'failed' ? <div className="form-error" role="alert">Chưa tải lại được danh sách nên chưa thể biết tài khoản đã được tạo hay chưa. Đăng ký vẫn bị khóa. <Button type="button" onClick={() => void recover()}>Tải lại danh sách</Button></div> : null}
-    {recovery === 'review' ? <div className="form-error" role="status">Đã tải lại danh sách. Hãy xem danh sách phía trên: nếu tài khoản đã có thì không đăng ký lại. <Button type="button" onClick={() => setRecovery('none')}>Đã xem danh sách, cho phép đăng ký lại</Button></div> : null}
-    <div className="connection-footer"><Button type="submit" tone="primary" disabled={saving || blocked}>{saving ? 'Đang kiểm tra và lưu…' : 'Kiểm tra và lưu'}</Button></div>
+    {recovery === 'checking' ? <p className="muted" role="status">{t('platform.accounts.createAccountForm.reloadingTheListToCheck')}</p> : null}
+    {recovery === 'failed' ? <div className="form-error" role="alert">{t('platform.accounts.createAccountForm.couldNotReloadTheList')}{' '} <Button type="button" onClick={() => void recover()}>{t('platform.accounts.createAccountForm.reloadList')}</Button></div> : null}
+    {recovery === 'review' ? <div className="form-error" role="status">{t('platform.accounts.createAccountForm.theListWasReloadedReview')}{' '} <Button type="button" onClick={() => setRecovery('none')}>{t('platform.accounts.createAccountForm.iHaveReviewedTheList')}</Button></div> : null}
+    <div className="connection-footer"><Button type="submit" tone="primary" disabled={saving || blocked}>{saving ? t('platform.accounts.createAccountForm.checkingAndSaving') : t('platform.accounts.createAccountForm.checkAndSave')}</Button></div>
   </fieldset></form>;
 }

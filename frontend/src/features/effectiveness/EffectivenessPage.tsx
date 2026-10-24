@@ -8,6 +8,7 @@ import { BaselineDialog } from './BaselineDialog';
 import { buildCsv, csvFileName } from './csv';
 import { bandDetailKeys, bandLabels, formatDate, formatDuration, formatNumber, metricName, metricNote, metricValue } from './labels';
 import { DoraHelpDialog, MetricDialog } from './MetricDialog';
+import { t } from '../../shared/i18n';
 
 type Load = { phase: 'loading' } | { phase: 'ready'; report: Report } | { phase: 'error'; message: string; missing: boolean };
 type Open = { kind: 'metric'; id: string } | { kind: 'dora' } | { kind: 'baseline' };
@@ -20,7 +21,7 @@ function MetricCard({ metric, onOpen }: { metric: Metric; onOpen(): void }) {
   const value = metricValue(metric);
   const note = metricNote(metric);
   const muted = metric.status !== 'COLLECTED';
-  return <button className={`eff-metric${muted ? ' eff-metric-muted' : ''}`} onClick={onOpen} aria-label={`${metricName(metric.id)}: ${value}. Xem chi tiết`}>
+  return <button className={`eff-metric${muted ? ' eff-metric-muted' : ''}`} onClick={onOpen} aria-label={t('effectiveness.effectiveness.metricNameValueViewDetails', { metricName: metricName(metric.id), value })}>
     <span className="eff-metric-title">{metricName(metric.id)}<span aria-hidden="true">↗</span></span>
     <strong>{value}</strong>
     <small className={note?.warning ? 'eff-warning' : undefined}>{note?.text ?? ''}</small>
@@ -32,8 +33,8 @@ function TrendChart({ report }: { report: Report }) {
   const max = Math.max(1, ...points.map((point) => point.productionDeployments));
   const total = points.reduce((sum, point) => sum + point.productionDeployments, 0);
   return <section className="content-panel">
-    <div className="section-header"><h2>Triển khai production</h2><span className="muted">{report.trend.bucket === 'DAY' ? 'Theo ngày' : 'Theo tuần'}</span></div>
-    <div className="eff-chart" role="img" aria-label={`Số lần triển khai production ${report.trend.bucket === 'DAY' ? 'theo ngày' : 'theo tuần'}: tổng ${total}`}>
+    <div className="section-header"><h2>{t('effectiveness.effectiveness.productionDeployments')}</h2><span className="muted">{report.trend.bucket === 'DAY' ? t('effectiveness.effectiveness.daily') : t('effectiveness.effectiveness.weekly')}</span></div>
+    <div className="eff-chart" role="img" aria-label={t('effectiveness.effectiveness.productionDeploymentsValueTotalTotal', { value: report.trend.bucket === 'DAY' ? t('effectiveness.effectiveness.daily2') : t('effectiveness.effectiveness.weekly2'), total })}>
       {points.map((point) => <div className="eff-bar-group" key={point.start}>
         <strong>{point.productionDeployments}</strong>
         <div className="eff-bar" style={{ height: `${Math.max(3, (point.productionDeployments / max) * 120)}px` }} />
@@ -48,16 +49,16 @@ function Comparison({ report, onOpen }: { report: Report; onOpen(): void }) {
   const workload = report.scope.level === 'WORKLOAD';
   const d = metric?.details ?? {};
   return <section className="content-panel eff-comparison">
-    <div className="section-header"><h2>Thời gian rút ngắn</h2></div>
+    <div className="section-header"><h2>{t('effectiveness.effectiveness.timeSaved')}</h2></div>
     {metric?.status === 'COLLECTED' && metric.value !== undefined ? <>
       <strong className="eff-comparison-value">{formatDuration(metric.value)}</strong>
-      <p className="muted">{formatDuration(d.baselineSeconds ?? 0)} → {formatDuration(d.currentSeconds ?? 0)} / công việc (trung vị)</p>
-      <small>Thời gian quy trình, không phải giờ công. Mốc phiên bản {report.baseline?.version}.</small>
+      <p className="muted">{t('effectiveness.effectiveness.formatDurationFormatDuration2WorkItemMedian', { formatDuration: formatDuration(d.baselineSeconds ?? 0), formatDuration2: formatDuration(d.currentSeconds ?? 0) })}</p>
+      <small>{t('effectiveness.effectiveness.processTimeNotPersonHours', { version: report.baseline?.version })}</small>
     </> : <>
       <strong className="eff-comparison-value">—</strong>
-      <p className="muted">{workload ? 'Mốc so sánh áp dụng cho tổ chức hoặc ứng dụng' : report.baseline ? 'Chưa có dữ liệu trong kỳ này' : 'Chưa có mốc so sánh'}</p>
+      <p className="muted">{workload ? t('effectiveness.effectiveness.theBaselineAppliesToThe') : report.baseline ? t('effectiveness.effectiveness.noDataInThisPeriod') : t('effectiveness.effectiveness.noBaselineYet')}</p>
     </>}
-    {workload ? null : <Button onClick={onOpen}>{report.baseline ? 'Xem mốc so sánh' : 'Thêm mốc so sánh'}</Button>}
+    {workload ? null : <Button onClick={onOpen}>{report.baseline ? t('effectiveness.effectiveness.viewBaseline') : t('effectiveness.effectiveness.addBaseline')}</Button>}
   </section>;
 }
 
@@ -88,8 +89,8 @@ export function EffectivenessPage({ applications, application, workload, days = 
     }).catch((err: unknown) => {
       if (id !== request.current) return;
       const missing = err instanceof ApiError && err.status === 404;
-      const message = err instanceof ApiError && err.status === 403 ? 'Bạn không có quyền xem báo cáo này.' : describeError(err, 'Không thể tải báo cáo.');
-      setLoad({ phase: 'error', message: missing ? 'Không tìm thấy ứng dụng' : message, missing });
+      const message = err instanceof ApiError && err.status === 403 ? t('effectiveness.effectiveness.youDoNotHavePermission') : describeError(err, t('effectiveness.effectiveness.couldNotLoadTheReport'));
+      setLoad({ phase: 'error', message: missing ? t('effectiveness.effectiveness.applicationNotFound') : message, missing });
     });
   }, [scope, attempt]);
 
@@ -107,9 +108,9 @@ export function EffectivenessPage({ applications, application, workload, days = 
       const link = document.createElement('a');
       link.href = url; link.download = csvFileName(report); link.click();
       URL.revokeObjectURL(url);
-      setNotice('Đã xuất CSV.');
+      setNotice(t('effectiveness.effectiveness.cSVExported'));
     } catch (err) {
-      setNotice(describeError(err, 'Không thể xuất CSV.'));
+      setNotice(describeError(err, t('effectiveness.effectiveness.couldNotExportCSV')));
     } finally {
       setExporting(false);
     }
@@ -124,69 +125,69 @@ export function EffectivenessPage({ applications, application, workload, days = 
 
   return <section className="page eff-page">
     <header className="page-header">
-      <div><h1>Hiệu quả platform</h1>{report?.dataOrigin === 'TEST_INSTALLATION' ? <span className="eff-badge">Dữ liệu kiểm thử</span> : null}</div>
+      <div><h1>{t('effectiveness.effectiveness.platformEffectiveness')}</h1>{report?.dataOrigin === 'TEST_INSTALLATION' ? <span className="eff-badge">{t('effectiveness.effectiveness.testData')}</span> : null}</div>
       <div className="eff-actions">
-        <Button onClick={() => setOpen({ kind: 'baseline' })} disabled={!report}>Mốc so sánh</Button>
-        <Button tone="primary" onClick={() => report && void exportCsv(report)} disabled={!report || exporting}>{exporting ? 'Đang xuất…' : 'Xuất CSV'}</Button>
+        <Button onClick={() => setOpen({ kind: 'baseline' })} disabled={!report}>{t('effectiveness.effectiveness.baseline')}</Button>
+        <Button tone="primary" onClick={() => report && void exportCsv(report)} disabled={!report || exporting}>{exporting ? t('effectiveness.effectiveness.exporting') : t('effectiveness.effectiveness.exportCSV')}</Button>
       </div>
     </header>
     <div className="eff-filters">
-      <nav className="eff-crumbs" aria-label="Phạm vi">
-        {application ? <button className="back-link" onClick={() => go({ days })}>Toàn tổ chức</button> : <strong>Toàn tổ chức</strong>}
+      <nav className="eff-crumbs" aria-label={t('effectiveness.effectiveness.scope')}>
+        {application ? <button className="back-link" onClick={() => go({ days })}>{t('effectiveness.effectiveness.wholeOrganization')}</button> : <strong>{t('effectiveness.effectiveness.wholeOrganization')}</strong>}
         {application ? <><span aria-hidden="true">›</span>{workload ? <button className="back-link" onClick={() => go({ application, days })}>{appName}</button> : <strong>{appName}</strong>}</> : null}
         {workload ? <><span aria-hidden="true">›</span><strong>{workload}</strong></> : null}
       </nav>
-      <label>Ứng dụng<select value={application ?? ''} onChange={(event) => go({ application: event.target.value || undefined, days })}>
-        <option value="">Tất cả ứng dụng</option>
+      <label>{t('effectiveness.effectiveness.application')}<select value={application ?? ''} onChange={(event) => go({ application: event.target.value || undefined, days })}>
+        <option value="">{t('effectiveness.effectiveness.allApplications')}</option>
         {applications.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select></label>
       {application ? <label>Workload<select value={workload ?? ''} onChange={(event) => go({ application, workload: event.target.value || undefined, days })}>
-        <option value="">Tất cả workload</option>
+        <option value="">{t('effectiveness.effectiveness.allWorkloads')}</option>
         {appWorkloads.map((id) => <option key={id} value={id}>{id}</option>)}
       </select></label> : null}
-      <label>Thời gian<select value={days} onChange={(event) => go({ application, workload, days: Number(event.target.value) as EffectivenessDays }, true)}>
-        {effectivenessDays.map((value) => <option key={value} value={value}>{value} ngày</option>)}
+      <label>{t('effectiveness.effectiveness.period')}<select value={days} onChange={(event) => go({ application, workload, days: Number(event.target.value) as EffectivenessDays }, true)}>
+        {effectivenessDays.map((value) => <option key={value} value={value}>{t('effectiveness.effectiveness.valueDays', { value })}</option>)}
       </select></label>
-      <small className="eff-period">{formatDate(scope.from)} — {formatDate(scope.to)} · giờ Việt Nam</small>
+      <small className="eff-period">{t('effectiveness.effectiveness.formatDateFormatDate2VietnamTime', { formatDate: formatDate(scope.from), formatDate2: formatDate(scope.to) })}</small>
     </div>
-    {notice ? <div className="form-info eff-notice" role="status">{notice}<Button tone="quiet" aria-label="Đóng thông báo" onClick={() => setNotice('')}>×</Button></div> : null}
-    {load.phase === 'loading' ? <p role="status" aria-busy="true">Đang tải báo cáo…</p> : null}
+    {notice ? <div className="form-info eff-notice" role="status">{notice}<Button tone="quiet" aria-label={t('effectiveness.effectiveness.dismissNotification')} onClick={() => setNotice('')}>×</Button></div> : null}
+    {load.phase === 'loading' ? <p role="status" aria-busy="true">{t('effectiveness.effectiveness.loadingReport')}</p> : null}
     {load.phase === 'error' ? load.missing
-      ? <div className="empty-state"><h2>Không tìm thấy ứng dụng</h2><Button onClick={() => go({ days })}>Về toàn tổ chức</Button></div>
-      : <div className="form-error" role="alert">{load.message}<Button onClick={reload}>Thử lại</Button></div> : null}
+      ? <div className="empty-state"><h2>{t('effectiveness.effectiveness.applicationNotFound')}</h2><Button onClick={() => go({ days })}>{t('effectiveness.effectiveness.backToWholeOrganization')}</Button></div>
+      : <div className="form-error" role="alert">{load.message}<Button onClick={reload}>{t('effectiveness.effectiveness.retry')}</Button></div> : null}
     {report ? <>
-      <div className="section-header eff-section"><h2>Giao phần mềm (DORA)</h2><Button tone="quiet" onClick={() => setOpen({ kind: 'dora' })}>Cách đọc chỉ số</Button></div>
+      <div className="section-header eff-section"><h2>{t('effectiveness.effectiveness.softwareDeliveryDORA')}</h2><Button tone="quiet" onClick={() => setOpen({ kind: 'dora' })}>{t('effectiveness.effectiveness.howToReadTheMetrics')}</Button></div>
       <div className="eff-metrics">{report.metrics.filter((m) => m.group === 'DORA').map((m) => <MetricCard key={m.id} metric={m} onOpen={() => setOpen({ kind: 'metric', id: m.id })} />)}</div>
-      <div className="section-header eff-section"><h2>Mức sử dụng</h2></div>
+      <div className="section-header eff-section"><h2>{t('effectiveness.effectiveness.usage')}</h2></div>
       <div className="eff-metrics">{usageIds.map((id) => metric(id)).filter((m): m is Metric => !!m).map((m) => <MetricCard key={m.id} metric={m} onOpen={() => setOpen({ kind: 'metric', id: m.id })} />)}</div>
       <div className="eff-two-col"><TrendChart report={report} /><Comparison report={report} onOpen={() => setOpen({ kind: 'baseline' })} /></div>
       {report.breakdown ? <section className="content-panel">
-        <div className="section-header"><h2>{report.breakdown.level === 'APPLICATION' ? 'Theo ứng dụng' : 'Theo workload'}</h2></div>
+        <div className="section-header"><h2>{report.breakdown.level === 'APPLICATION' ? t('effectiveness.effectiveness.byApplication') : 'Theo workload'}</h2></div>
         {report.breakdown.level === 'APPLICATION' && frequency?.details ? <p className="eff-bands">{bands.map((band) => <span key={band}>{bandLabels[band]} <b>{formatNumber(frequency.details?.[bandDetailKeys[band]] ?? 0)}</b></span>)}</p> : null}
         {report.breakdown.rows.length ? <div className="eff-table-wrap"><table className="plain-table eff-breakdown">
-          <thead><tr><th>{report.breakdown.level === 'APPLICATION' ? 'Ứng dụng' : 'Workload'}</th><th>Triển khai production</th><th>Tần suất</th><th>Công việc hoàn thành</th><th>Lượt chạy</th><th>Thời gian thực hiện</th><th>Người dùng</th></tr></thead>
+          <thead><tr><th>{report.breakdown.level === 'APPLICATION' ? t('effectiveness.effectiveness.application') : 'Workload'}</th><th>{t('effectiveness.effectiveness.productionDeployments')}</th><th>{t('effectiveness.effectiveness.frequency')}</th><th>{t('effectiveness.effectiveness.completedWork')}</th><th>{t('effectiveness.effectiveness.runs')}</th><th>{t('effectiveness.effectiveness.leadTime')}</th><th>{t('effectiveness.effectiveness.users')}</th></tr></thead>
           <tbody>{report.breakdown.rows.map((row) => <tr key={row.key}>
             <td><button className="back-link" onClick={() => report.breakdown?.level === 'APPLICATION' ? go({ application: row.key, days }) : go({ application, workload: row.key, days })}>{row.name}</button></td>
             <td>{row.productionDeployments}</td>
             <td>{bandLabels[row.frequencyBand]}</td>
-            <td>{row.completedWork}{row.openWork ? <small>Đang mở: {row.openWork}</small> : null}</td>
-            <td>{row.attempts}{row.failedAttempts ? <small>{row.failedAttempts} thất bại</small> : null}</td>
-            <td>{row.medianDurationSeconds !== null ? formatDuration(row.medianDurationSeconds) : 'Chưa có dữ liệu'}</td>
+            <td>{row.completedWork}{row.openWork ? <small>{t('effectiveness.effectiveness.openOpenWork', { openWork: row.openWork })}</small> : null}</td>
+            <td>{row.attempts}{row.failedAttempts ? <small>{t('effectiveness.effectiveness.failedAttemptsFailed', { failedAttempts: row.failedAttempts })}</small> : null}</td>
+            <td>{row.medianDurationSeconds !== null ? formatDuration(row.medianDurationSeconds) : t('effectiveness.effectiveness.noDataYet')}</td>
             <td>{row.activeUsers}</td>
           </tr>)}</tbody>
-        </table></div> : <p className="muted">Chưa có công việc trong kỳ này.</p>}
+        </table></div> : <p className="muted">{t('effectiveness.effectiveness.noWorkInThisPeriod')}</p>}
       </section> : null}
       <section className="content-panel eff-pending">
-        <h2>Chưa thu thập</h2>
+        <h2>{t('effectiveness.effectiveness.notCollected')}</h2>
         {report.metrics.filter((m) => m.group !== 'DORA' && m.status === 'NOT_COLLECTED' && !shownElsewhere.has(m.id)).map((m) =>
-          <button key={m.id} className="eff-pending-item" onClick={() => setOpen({ kind: 'metric', id: m.id })} aria-label={`${metricName(m.id)}: Chưa thu thập. Xem chi tiết`}>
-            <span>{metricName(m.id)}</span><span className="muted">Chưa thu thập</span>
+          <button key={m.id} className="eff-pending-item" onClick={() => setOpen({ kind: 'metric', id: m.id })} aria-label={t('effectiveness.effectiveness.metricNameNotCollectedViewDetails', { metricName: metricName(m.id) })}>
+            <span>{metricName(m.id)}</span><span className="muted">{t('effectiveness.effectiveness.notCollected')}</span>
           </button>)}
       </section>
     </> : null}
     {report && opened ? <MetricDialog metric={opened} report={report} scope={scope} onClose={() => setOpen(undefined)} /> : null}
     {report && open?.kind === 'dora' ? <DoraHelpDialog report={report} onClose={() => setOpen(undefined)} /> : null}
-    {report && open?.kind === 'baseline' ? <BaselineDialog applicationKey={application} scopeName={application ? appName ?? application : 'Toàn tổ chức'} locked={!!workload}
+    {report && open?.kind === 'baseline' ? <BaselineDialog applicationKey={application} scopeName={application ? appName ?? application : t('effectiveness.effectiveness.wholeOrganization')} locked={!!workload}
       onClose={() => setOpen(undefined)} onSaved={(message) => { setOpen(undefined); setNotice(message); reload(); }} /> : null}
   </section>;
 }

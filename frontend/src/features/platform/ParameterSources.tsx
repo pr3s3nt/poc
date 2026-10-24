@@ -4,6 +4,7 @@ import type { TypeContract } from './moduleMapping';
 import { entryValue, type VariableDraft } from './typedVariables';
 import { describeSource, parseSource } from './valueSource';
 import { ValueSourceDialog, type InheritChoice } from './ValueSourceDialog';
+import { t } from '../../shared/i18n';
 
 // Parameter cards of the verified module (UC-03 UI11-02/03): each card shows where the value comes from and opens the shared
 // source chooser. Only an explicit choice writes an override; omitted variables keep their default or mapped param.
@@ -25,16 +26,16 @@ export function SourceCard({ name, type, required, label, raw, inherited, types,
   const parsed = raw !== undefined ? parseSource(raw) : undefined;
   const needsValue = raw === undefined && inherited.needsValue === true;
   // “Thay đổi” only when some value already applies (an override, a mapped param or a module default).
-  const action = raw === undefined && inherited.applies !== true ? 'Cung cấp giá trị' : 'Thay đổi';
+  const action = raw === undefined && inherited.applies !== true ? t('platform.parameterSources.provideValue') : t('platform.parameterSources.change');
   return <div className={`source-card${needsValue ? ' needs-value' : ''}`} data-variable={name}>
     <div className="source-card-title"><div><strong>{label ?? name}</strong>{label ? <code className="variable-code">{name}</code> : null} <span className="status-pill">{type || 'any'}</span></div>
       <button type="button" className="button button-quiet source-action" aria-label={`${action} ${name}`} disabled={disabled} onClick={() => setOpen(true)}>{action}</button></div>
-    <span className="source-origin">{shown.origin}{required ? ' · Bắt buộc' : ''}</span>
+    <span className="source-origin">{shown.origin}{required ? t('platform.parameterSources.required') : ''}</span>
     <div className="source-value">{shown.value}</div>
     {raw !== undefined && inherited.note ? <small className="muted">{inherited.note}</small> : null}
     {raw === undefined && inherited.note ? <small className="muted">{inherited.note}</small> : null}
     {check.error ? <div className="form-error" role="note">{check.error}</div> : null}
-    {parsed && parsed.kind !== 'literal' ? <details className="source-technical"><summary>Biểu thức kỹ thuật</summary><code>{raw}</code></details> : null}
+    {parsed && parsed.kind !== 'literal' ? <details className="source-technical"><summary>{t('platform.parameterSources.technicalExpression')}</summary><code>{raw}</code></details> : null}
     {open ? <ValueSourceDialog target={{ name, type, label: label ?? name }} raw={raw} types={types} inherit={inherited.choice}
       onCancel={() => setOpen(false)} onApply={(next) => { setOpen(false); onChange(next === null ? undefined : next); }} /> : null}
   </div>;
@@ -44,12 +45,12 @@ const defaultText = (variable: CapabilityVariable) => (typeof variable.default =
 
 function inheritedFor(variable: CapabilityVariable, mappedParam: string | undefined, covered: boolean): SourceCardProps['inherited'] {
   if (mappedParam) {
-    return { origin: 'Tham số ứng dụng cung cấp', value: `${mappedParam} → ${variable.name}`, note: 'Tham số ứng dụng được ưu tiên. Giá trị nhập tại đây chỉ là dự phòng.',
-      choice: { label: `Dùng tham số ${mappedParam} của ứng dụng`, description: 'Không gửi giá trị dự phòng; tham số của ứng dụng cung cấp giá trị.' }, applies: true, needsValue: !covered && variable.required && !variable.hasDefault };
+    return { origin: t('platform.parameterSources.applicationProvidedParameter'), value: `${mappedParam} → ${variable.name}`, note: t('platform.parameterSources.theApplicationParameterTakesPrecedence'),
+      choice: { label: t('platform.parameterSources.useTheApplicationParameterMappedParam', { mappedParam }), description: t('platform.parameterSources.noFallbackValueIsSent') }, applies: true, needsValue: !covered && variable.required && !variable.hasDefault };
   }
-  if (variable.hasDefault) return { origin: 'Mặc định của module', value: defaultText(variable) ?? '', choice: { label: 'Dùng mặc định của module', description: 'Không gửi giá trị; module dùng mặc định của nó.' }, applies: true };
-  if (!variable.required) return { origin: 'Chưa cung cấp', value: 'Tùy chọn: bỏ trống thì không gửi giá trị.', choice: { label: 'Không cung cấp', description: 'Không gửi giá trị cho thông số này.' } };
-  return { origin: 'Chưa cung cấp', value: 'Chọn giá trị hoặc nguồn cung cấp', needsValue: true };
+  if (variable.hasDefault) return { origin: t('platform.parameterSources.moduleDefault'), value: defaultText(variable) ?? '', choice: { label: t('platform.parameterSources.useTheModuleDefault'), description: t('platform.parameterSources.noValueSentTheModule') }, applies: true };
+  if (!variable.required) return { origin: t('platform.parameterSources.notProvided'), value: t('platform.parameterSources.optionalLeaveEmptyToSend'), choice: { label: t('platform.parameterSources.doNotProvide'), description: t('platform.parameterSources.noValueIsSentFor') } };
+  return { origin: t('platform.parameterSources.notProvided'), value: t('platform.parameterSources.chooseAValueOrSource'), needsValue: true };
 }
 
 type Props = {
@@ -73,7 +74,7 @@ export function ParameterSources({ variables, draft, onChange, executorOwned, ty
   };
   const card = (variable: CapabilityVariable) => <SourceCard key={variable.name} name={variable.name} type={variable.type} required={variable.required && !variable.hasDefault && !covered.has(variable.name)}
     raw={rawOf(variable.name)} inherited={inheritedFor(variable, mapped[variable.name], covered.has(variable.name))} types={types} disabled={disabled} onChange={(raw) => set(variable, raw)} />;
-  if (variables.length === 0 && executorOwned.length === 0) return <p className="feature-note">Cách tạo này không có tham số cấu hình để nhập.</p>;
+  if (variables.length === 0 && executorOwned.length === 0) return <p className="feature-note">{t('platform.parameterSources.thisCreationMethodHasNo')}</p>;
   // A required parameter without a default, a mapped one and every override are shown first; the rest stays collapsed.
   const primary = variables.filter((variable) => draft[variable.name]?.on === true || mapped[variable.name] !== undefined || (variable.required && !variable.hasDefault));
   const rest = variables.filter((variable) => !primary.includes(variable));
@@ -81,9 +82,9 @@ export function ParameterSources({ variables, draft, onChange, executorOwned, ty
   const optional = rest.filter((variable) => !variable.hasDefault);
   const unresolved = primary.filter((variable) => rawOf(variable.name) === undefined && inheritedFor(variable, mapped[variable.name], covered.has(variable.name)).needsValue).length;
   return <div className="source-groups">
-    {primary.length > 0 ? <div className="source-group"><p className="source-group-label">Cần cung cấp hoặc đã cấu hình <span className="status-pill">{primary.length}</span>{unresolved > 0 ? <span className="status-pill status-warning">{unresolved} chưa có nguồn</span> : null}</p>{primary.map(card)}</div> : null}
-    {defaults.length > 0 ? <details className="source-collapsed"><summary>Thông số có mặc định <span className="status-pill">{defaults.length}</span></summary><p className="feature-note">Có thể giữ nguyên hoặc thay đổi từng giá trị.</p>{defaults.map(card)}</details> : null}
-    {optional.length > 0 ? <details className="source-collapsed"><summary>Thông số tùy chọn <span className="status-pill">{optional.length}</span></summary><p className="feature-note">Bỏ trống thì hệ thống không gửi giá trị.</p>{optional.map(card)}</details> : null}
-    {executorOwned.length > 0 ? <details className="source-collapsed"><summary>Hệ thống tự cung cấp <span className="status-pill">{executorOwned.length}</span></summary><p className="feature-note">Không có ô nhập: {executorOwned.map((name) => <code key={name}>{name} </code>)}</p></details> : null}
+    {primary.length > 0 ? <div className="source-group"><p className="source-group-label">{t('platform.parameterSources.needsAValueOrIs')}{' '} <span className="status-pill">{primary.length}</span>{unresolved > 0 ? <span className="status-pill status-warning">{t('platform.parameterSources.unresolvedWithoutASource', { unresolved })}</span> : null}</p>{primary.map(card)}</div> : null}
+    {defaults.length > 0 ? <details className="source-collapsed"><summary>{t('platform.parameterSources.settingsWithDefaults')}{' '} <span className="status-pill">{defaults.length}</span></summary><p className="feature-note">{t('platform.parameterSources.youCanKeepOrChange')}</p>{defaults.map(card)}</details> : null}
+    {optional.length > 0 ? <details className="source-collapsed"><summary>{t('platform.parameterSources.optionalSettings')}{' '} <span className="status-pill">{optional.length}</span></summary><p className="feature-note">{t('platform.parameterSources.whenEmptyTheSystemSends')}</p>{optional.map(card)}</details> : null}
+    {executorOwned.length > 0 ? <details className="source-collapsed"><summary>{t('platform.parameterSources.providedByTheSystem')}{' '} <span className="status-pill">{executorOwned.length}</span></summary><p className="feature-note">{t('platform.parameterSources.noInputField')}{' '} {executorOwned.map((name) => <code key={name}>{name} </code>)}</p></details> : null}
   </div>;
 }

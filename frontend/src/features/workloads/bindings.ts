@@ -1,4 +1,5 @@
 import type { ConfigKey } from '../configuration/api';
+import { t } from '../../shared/i18n';
 
 // KEY bindings reference an Application variable/secret by name; the key's kind
 // comes from the loaded catalog, so a binding never stores or copies a value.
@@ -21,14 +22,14 @@ export function bindingProblem(containers: { name: string; bindings: Binding[] }
     const seen = new Set<string>();
     for (const binding of container.bindings) {
       if (binding.source === 'KEY') {
-        if (!available.has(binding.key)) return `${label}: key ứng dụng ${binding.key} không còn tồn tại. Hãy xóa nó hoặc chọn key có sẵn trước khi lưu.`;
-        if (!binding.name.trim()) return `${label}: hãy nhập tên trong Container cho ${binding.key}.`;
+        if (!available.has(binding.key)) return t('workloads.bindings.labelApplicationKeyKeyNo', { label, key: binding.key });
+        if (!binding.name.trim()) return t('workloads.bindings.labelEnterTheNameIn', { label, key: binding.key });
       } else {
-        if (!binding.name.trim()) return `${label}: hãy nhập tên trong Container cho mọi nguồn khác.`;
-        if (binding.source === 'RESOURCE' && (!binding.alias || !binding.output)) return `${label}: hãy chọn tài nguyên và output cho ${binding.name}.`;
-        if (binding.source === 'SERVICE' && (!binding.workload || !binding.port)) return `${label}: hãy chọn Workload và cổng cho ${binding.name}.`;
+        if (!binding.name.trim()) return t('workloads.bindings.labelEnterTheNameIn2', { label });
+        if (binding.source === 'RESOURCE' && (!binding.alias || !binding.output)) return t('workloads.bindings.labelChooseTheResourceAnd', { label, name: binding.name });
+        if (binding.source === 'SERVICE' && (!binding.workload || !binding.port)) return t('workloads.bindings.labelChooseTheWorkloadAnd', { label, name: binding.name });
       }
-      if (seen.has(binding.name)) return `${label}: tên ${binding.name} bị dùng nhiều lần. Hãy đặt tên Container khác cho một trong số đó.`;
+      if (seen.has(binding.name)) return t('workloads.bindings.labelNameNameIsUsed', { label, name: binding.name });
       seen.add(binding.name);
     }
   }

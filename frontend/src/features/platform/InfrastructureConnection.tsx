@@ -2,6 +2,7 @@ import { Button } from '../../shared/ui/Button';
 import type { Capability } from './capabilities';
 import { bindingProviders, type BindingDraft, type MappingDraft, type MappingProblem } from './moduleMapping';
 import { statusLabel, typeLabel, type Account } from './accounts/accountsApi';
+import { t } from '../../shared/i18n';
 
 // “Kết nối hạ tầng” of section 2 (UC-03 UI11-01). The cards come from the provider requirements and binding metadata of
 // the verified module; the account and region live in the pair draft and the cluster source in the mapping draft that the
@@ -35,40 +36,40 @@ export function InfrastructureConnection({ capability, accountRequired, accounts
   const accountName = (key: string) => { const found = accounts.items.find((item) => item.key === key); return found ? accountLabel(found) : key; };
   const typeName = typeLabel(capability.account.type ?? '');
   const providerNote = (list: typeof providers) => list.map((provider) => `${provider.source} ${provider.version}`.trim()).join(' · ');
-  if (!accountRequired && kubernetesProviders.length === 0) return <p className="feature-note" role="note">Module này không cần kết nối hạ tầng: không chọn tài khoản và không có provider cần binding.</p>;
+  if (!accountRequired && kubernetesProviders.length === 0) return <p className="feature-note" role="note">{t('platform.infrastructureConnection.thisModuleNeedsNoInfrastructure')}</p>;
 
-  return <div className="connection-section" aria-label="Kết nối hạ tầng">
-    {accountRequired ? <section className="connection-card" aria-label="Kết nối tài khoản" data-connection="account">
-      <div className="connection-head"><span className="connection-icon" aria-hidden="true">A</span><div><h4>Kết nối {typeName}</h4>{awsProviders.length > 0 ? <p className="muted">Provider {providerNote(awsProviders)}</p> : null}</div></div>
+  return <div className="connection-section" aria-label={t('platform.infrastructureConnection.infrastructureConnection')}>
+    {accountRequired ? <section className="connection-card" aria-label={t('platform.infrastructureConnection.accountConnection')} data-connection="account">
+      <div className="connection-head"><span className="connection-icon" aria-hidden="true">A</span><div><h4>{t('platform.infrastructureConnection.typeNameConnection', { typeName })}</h4>{awsProviders.length > 0 ? <p className="muted">Provider {providerNote(awsProviders)}</p> : null}</div></div>
       <div className="field-grid">
-        <label>Tài khoản {typeName}<select aria-label="Tài khoản hạ tầng" aria-required="true" value={account} disabled={disabled || accounts.loading || accounts.error !== ''} onChange={(event) => onAccount(event.target.value)}>
-          <option value="">{accounts.loading ? 'Đang tải tài khoản…' : accounts.error ? 'Chưa tải được tài khoản' : compatible.length === 0 ? 'Chưa có tài khoản sẵn sàng' : 'Chọn tài khoản'}</option>
-          {selectedMissing ? <option value={account}>{accountName(account)} (không còn tương thích hoặc chưa sẵn sàng)</option> : null}
-          {compatible.map((item) => <option key={item.key} value={item.key}>{accountLabel(item)} · {statusLabel(item.status)} · phiên bản {item.version}</option>)}</select></label>
-        {regionRequired ? <label>Vùng AWS<input aria-label="Vùng AWS" aria-required="true" value={region} disabled={disabled} spellCheck={false} placeholder="ap-southeast-1" aria-describedby="definition-region-hint" onChange={(event) => onRegion(event.target.value)} /></label> : null}</div>
-      {regionRequired ? <p id="definition-region-hint" className="feature-note">Vùng là chuỗi literal (không dùng placeholder), nhập một lần và lưu trong Driver Inputs. Vùng xác minh của tài khoản chỉ là bằng chứng kiểm tra, không phải danh sách vùng được phép.</p> : null}
-      <details className="definition-help"><summary>Về tài khoản và vùng</summary><p className="feature-note">Module này chạy bằng tài khoản {typeName} và vùng ghi ngay trong cấu hình. Cấu hình không lấy tài khoản hay vùng từ Môi trường; mỗi cấu hình có thể dùng tài khoản và vùng khác nhau.</p></details>
-      {accounts.error ? <div className="form-error" role="alert" aria-label="Lỗi tải tài khoản">{accounts.error} Chưa chọn được tài khoản; dữ liệu đã nhập được giữ nguyên. <Button type="button" onClick={accounts.reload}>Thử lại</Button></div> : !accounts.loading && compatible.length === 0 ? <div className="form-warning" role="note" aria-label="Chưa có tài khoản sẵn sàng">Chưa có tài khoản {typeName} ở trạng thái Sẵn sàng trong Tổ chức. Tạo và xác minh tài khoản ở trang Tài khoản hạ tầng trước.</div> : null}
-      {selectedMissing && !accounts.loading ? <div className="form-warning" role="alert">Tài khoản đã chọn ({account}) không còn tương thích hoặc chưa Sẵn sàng. Chọn tài khoản khác; máy chủ cũng kiểm tra lại khi lưu và khi lập kế hoạch.</div> : null}
+        <label>{t('platform.infrastructureConnection.account')}{' '} {typeName}<select aria-label={t('platform.infrastructureConnection.infrastructureAccount')} aria-required="true" value={account} disabled={disabled || accounts.loading || accounts.error !== ''} onChange={(event) => onAccount(event.target.value)}>
+          <option value="">{accounts.loading ? t('platform.infrastructureConnection.loadingAccounts') : accounts.error ? t('platform.infrastructureConnection.couldNotLoadAccounts') : compatible.length === 0 ? t('platform.infrastructureConnection.noReadyAccounts') : t('platform.infrastructureConnection.chooseAnAccount')}</option>
+          {selectedMissing ? <option value={account}>{t('platform.infrastructureConnection.accountNameNoLongerCompatibleOr', { accountName: accountName(account) })}</option> : null}
+          {compatible.map((item) => <option key={item.key} value={item.key}>{t('platform.infrastructureConnection.accountLabelStatusLabelVersionVersion', { accountLabel: accountLabel(item), statusLabel: statusLabel(item.status), version: item.version })}</option>)}</select></label>
+        {regionRequired ? <label>{t('platform.infrastructureConnection.aWSRegion')}<input aria-label={t('platform.infrastructureConnection.aWSRegion')} aria-required="true" value={region} disabled={disabled} spellCheck={false} placeholder="ap-southeast-1" aria-describedby="definition-region-hint" onChange={(event) => onRegion(event.target.value)} /></label> : null}</div>
+      {regionRequired ? <p id="definition-region-hint" className="feature-note">{t('platform.infrastructureConnection.theRegionIsALiteral')}</p> : null}
+      <details className="definition-help"><summary>{t('platform.infrastructureConnection.aboutAccountsAndRegions')}</summary><p className="feature-note">{t('platform.infrastructureConnection.thisModuleRunsWithThe', { typeName })}</p></details>
+      {accounts.error ? <div className="form-error" role="alert" aria-label={t('platform.infrastructureConnection.accountLoadError')}>{accounts.error} {' '}{t('platform.infrastructureConnection.noAccountSelectedYetThe')}{' '} <Button type="button" onClick={accounts.reload}>{t('platform.infrastructureConnection.retry')}</Button></div> : !accounts.loading && compatible.length === 0 ? <div className="form-warning" role="note" aria-label={t('platform.infrastructureConnection.noReadyAccounts')}>{t('platform.infrastructureConnection.thereIsNoReadyTypeName', { typeName })}</div> : null}
+      {selectedMissing && !accounts.loading ? <div className="form-warning" role="alert">{t('platform.infrastructureConnection.theSelectedAccountAccountIs', { account })}</div> : null}
     </section> : null}
     {kubernetesProviders.map((provider) => {
       const binding = mapping.bindings[provider.name] ?? { target: '', clusterClass: '' };
       const problem = problems.find((item) => item.field === `binding:${provider.name}`)?.message;
       const supported = capability.bindings.find((item) => item.provider === provider.name)?.targets.some((item) => item.target === 'resource') ?? false;
-      return <section key={provider.name} className="connection-card" aria-label={`Kết nối Kubernetes ${provider.name}`} data-provider={provider.name}>
-        <div className="connection-head"><span className="connection-icon connection-icon-k8s" aria-hidden="true">⎈</span><div><h4>Kết nối Kubernetes</h4><p className="muted">Provider <code>{provider.name}</code> · {provider.source} {provider.version}</p></div></div>
+      return <section key={provider.name} className="connection-card" aria-label={t('platform.infrastructureConnection.kubernetesConnectionName', { name: provider.name })} data-provider={provider.name}>
+        <div className="connection-head"><span className="connection-icon connection-icon-k8s" aria-hidden="true">⎈</span><div><h4>{t('platform.infrastructureConnection.kubernetesConnection')}</h4><p className="muted">Provider <code>{provider.name}</code> · {provider.source} {provider.version}</p></div></div>
         {supported ? <>
           <div className="field-grid">
-            <label>Nhóm cluster<select aria-label={`Nhóm cluster của provider ${provider.name}`} aria-invalid={problem ? true : undefined} value={binding.clusterClass} disabled={disabled || !mappingEditable} onChange={(event) => onBinding(provider.name, event.target.value === '' ? { target: '', clusterClass: '' } : { target: 'resource', clusterClass: event.target.value })}>
-              <option value="">Chưa chọn</option>
-              {binding.clusterClass && !clusterClasses.includes(binding.clusterClass) ? <option value={binding.clusterClass}>{binding.clusterClass} (không còn trong metadata)</option> : null}
+            <label>{t('platform.infrastructureConnection.clusterClass')}<select aria-label={t('platform.infrastructureConnection.clusterClassOfProviderName', { name: provider.name })} aria-invalid={problem ? true : undefined} value={binding.clusterClass} disabled={disabled || !mappingEditable} onChange={(event) => onBinding(provider.name, event.target.value === '' ? { target: '', clusterClass: '' } : { target: 'resource', clusterClass: event.target.value })}>
+              <option value="">{t('platform.infrastructureConnection.notSelected')}</option>
+              {binding.clusterClass && !clusterClasses.includes(binding.clusterClass) ? <option value={binding.clusterClass}>{t('platform.infrastructureConnection.clusterClassNoLongerInMetadata', { clusterClass: binding.clusterClass })}</option> : null}
               {clusterClasses.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
           </div>
-          <div className="connection-note"><strong>✓ Dùng thông tin truy cập từ cluster</strong><span>Không nhập tài khoản, token hoặc kubeconfig ở đây. Cluster của chính ứng dụng và môi trường này được hệ thống tự xác định khi Preview.</span></div>
-          {clusterClasses.length === 0 ? <p className="feature-note" role="note">Danh mục chưa công bố class nào cho Loại k8s-cluster; chưa chọn được cluster.</p> : null}
-          {!mappingEditable ? <p className="feature-note" role="note">Ánh xạ module đang chỉnh bằng JSON nâng cao; chuyển về Biểu mẫu để chọn nguồn cluster ở đây.</p> : null}
+          <div className="connection-note"><strong>{t('platform.infrastructureConnection.usesAccessInformationFromThe')}</strong><span>{t('platform.infrastructureConnection.doNotEnterAccountsTokens')}</span></div>
+          {clusterClasses.length === 0 ? <p className="feature-note" role="note">{t('platform.infrastructureConnection.theCatalogHasNotPublished')}</p> : null}
+          {!mappingEditable ? <p className="feature-note" role="note">{t('platform.infrastructureConnection.theModuleMappingIsBeing')}</p> : null}
           {problem ? <span className="form-error" role="note">{problem}</span> : null}
-        </> : <p className="feature-note" role="note">Metadata chưa công bố nguồn cluster được hỗ trợ cho provider này.</p>}
+        </> : <p className="feature-note" role="note">{t('platform.infrastructureConnection.metadataHasNotPublishedA')}</p>}
       </section>;
     })}
   </div>;

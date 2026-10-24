@@ -1,5 +1,6 @@
 import type { Capability, CapabilityOutput, CapabilityProvider } from './capabilities';
 import { baseKind, type JsonObject } from './typedVariables';
+import { t } from '../../shared/i18n';
 
 // Typed authoring of the Terraform mappings of a Definition (UC-03 BR-11, module
 // contract "Driver Inputs shape"): input_mapping, output_mapping and
@@ -70,43 +71,43 @@ const isObject = (value: unknown): value is JsonObject => typeof value === 'obje
 // Advanced JSON -> typed. A reason (Vietnamese) means the typed controls cannot
 // hold the object safely and the JSON stays authoritative.
 export function objectToMapping(value: JsonObject, capability: Capability, type: TypeContract | undefined, clusterClasses: string[]): { draft?: MappingDraft; reason?: string } {
-  for (const key of Object.keys(value)) if (!['input_mapping', 'output_mapping', 'provider_bindings'].includes(key)) return { reason: `Trường "${key}" không có control typed. Giữ trong JSON nâng cao.` };
+  for (const key of Object.keys(value)) if (!['input_mapping', 'output_mapping', 'provider_bindings'].includes(key)) return { reason: t('platform.moduleMapping.fieldKeyHasNoTyped', { key }) };
   const draft = emptyMapping();
   const variables = new Set(capability.variables.map((variable) => variable.name));
   const outputs = new Set(capability.outputs.map((output) => output.name));
   const inputMapping = value.input_mapping ?? {};
-  if (!isObject(inputMapping)) return { reason: 'input_mapping không phải JSON object. Giữ trong JSON nâng cao.' };
+  if (!isObject(inputMapping)) return { reason: t('platform.moduleMapping.inputMappingIsNotA') };
   for (const [variable, entry] of Object.entries(inputMapping)) {
     const param = isObject(entry) && Object.keys(entry).length === 1 ? entry.param : undefined;
-    if (typeof param !== 'string' || param === '') return { reason: `input_mapping."${variable}" không có dạng {param: …}. Giữ trong JSON nâng cao.` };
-    if (!variables.has(variable)) return { reason: `Biến "${variable}" không có trong module đã chọn (hoặc do hệ thống sở hữu). Giữ trong JSON nâng cao.` };
-    if (!type?.inputs.some((input) => input.name === param)) return { reason: `Tham số "${param}" không thuộc Loại tài nguyên. Giữ trong JSON nâng cao.` };
-    if (has(draft.inputs, param)) return { reason: `Tham số "${param}" được ánh xạ hai lần. Giữ trong JSON nâng cao.` };
+    if (typeof param !== 'string' || param === '') return { reason: t('platform.moduleMapping.inputMappingVariableDoesNot', { variable }) };
+    if (!variables.has(variable)) return { reason: t('platform.moduleMapping.variableVariableIsNotIn', { variable }) };
+    if (!type?.inputs.some((input) => input.name === param)) return { reason: t('platform.moduleMapping.parameterParamIsNotPart', { param }) };
+    if (has(draft.inputs, param)) return { reason: t('platform.moduleMapping.parameterParamIsMappedTwice', { param }) };
     draft.inputs[param] = variable;
   }
   const outputMapping = value.output_mapping ?? {};
-  if (!isObject(outputMapping)) return { reason: 'output_mapping không phải JSON object. Giữ trong JSON nâng cao.' };
+  if (!isObject(outputMapping)) return { reason: t('platform.moduleMapping.outputMappingIsNotA') };
   for (const [moduleOutput, target] of Object.entries(outputMapping)) {
-    if (typeof target !== 'string' || target === '') return { reason: `output_mapping."${moduleOutput}" phải là tên output của Loại tài nguyên. Giữ trong JSON nâng cao.` };
-    if (!outputs.has(moduleOutput)) return { reason: `Output "${moduleOutput}" không có trong module đã chọn. Giữ trong JSON nâng cao.` };
-    if (!type?.outputs.some((output) => output.name === target)) return { reason: `Output "${target}" không thuộc Loại tài nguyên. Giữ trong JSON nâng cao.` };
-    if (has(draft.outputs, target)) return { reason: `Output "${target}" được ánh xạ hai lần. Giữ trong JSON nâng cao.` };
+    if (typeof target !== 'string' || target === '') return { reason: t('platform.moduleMapping.outputMappingModuleOutputMustBe', { moduleOutput }) };
+    if (!outputs.has(moduleOutput)) return { reason: t('platform.moduleMapping.outputModuleOutputIsNotIn', { moduleOutput }) };
+    if (!type?.outputs.some((output) => output.name === target)) return { reason: t('platform.moduleMapping.outputTargetIsNotPart', { target }) };
+    if (has(draft.outputs, target)) return { reason: t('platform.moduleMapping.outputTargetIsMappedTwice', { target }) };
     draft.outputs[target] = moduleOutput;
   }
   const bindings = value.provider_bindings ?? {};
-  if (!isObject(bindings)) return { reason: 'provider_bindings không phải JSON object. Giữ trong JSON nâng cao.' };
+  if (!isObject(bindings)) return { reason: t('platform.moduleMapping.providerBindingsIsNotA') };
   const providers = new Map(bindingProviders(capability).map((provider) => [provider.name, provider]));
   for (const [name, entry] of Object.entries(bindings)) {
     const provider = providers.get(name);
-    if (!provider) return { reason: `Provider "${name}" không nhận binding trong module đã chọn. Giữ trong JSON nâng cao.` };
-    if (!isObject(entry)) return { reason: `provider_bindings."${name}" không phải JSON object. Giữ trong JSON nâng cao.` };
+    if (!provider) return { reason: t('platform.moduleMapping.providerNameAcceptsNoBinding', { name }) };
+    if (!isObject(entry)) return { reason: t('platform.moduleMapping.providerBindingsNameIsNot', { name }) };
     if (provider.binding === 'aws') {
       if (entry.target === 'account' && Object.keys(entry).length === 1) continue;
-      return { reason: `Binding của "${name}" phải là {target: account} (tài khoản của cấu hình). Giữ trong JSON nâng cao.` };
+      return { reason: t('platform.moduleMapping.theBindingOfNameMust', { name }) };
     }
     const ref = typeof entry.resource_ref === 'string' ? clusterRefPattern.exec(entry.resource_ref) : null;
     if (provider.binding === 'kubernetes' && entry.target === 'resource' && Object.keys(entry).length === 2 && ref?.[1] && clusterClasses.includes(ref[1])) { draft.bindings[name] = { target: 'resource', clusterClass: ref[1] }; continue; }
-    return { reason: `Binding của "${name}" không biểu diễn an toàn bằng control (cluster cần là class đã công bố). Giữ trong JSON nâng cao.` };
+    return { reason: t('platform.moduleMapping.theBindingOfNameCannot', { name }) };
   }
   return { draft };
 }
@@ -120,18 +121,18 @@ export type MappingProblem = { field: string; message: string };
 // Guidance before POST. The server stays authoritative for every rule.
 export function mappingProblems(draft: MappingDraft, capability: Capability, type: TypeContract | undefined): MappingProblem[] {
   const problems: MappingProblem[] = [];
-  if (!type) return [{ field: 'type', message: 'Chưa có hợp đồng của Loại tài nguyên để ánh xạ.' }];
+  if (!type) return [{ field: 'type', message: t('platform.moduleMapping.noResourceTypeContractTo') }];
   for (const input of type.inputs) {
-    if (!draft.inputs[input.name]) problems.push({ field: `input:${input.name}`, message: `Chọn biến module nhận tham số "${input.name}" của Loại tài nguyên.` });
+    if (!draft.inputs[input.name]) problems.push({ field: `input:${input.name}`, message: t('platform.moduleMapping.chooseTheModuleVariableReceiving', { name: input.name }) });
   }
   for (const output of type.outputs) {
-    if (output.required && !platformOutput(capability, output.name) && !draft.outputs[output.name]) problems.push({ field: `output:${output.name}`, message: `Chọn output module cung cấp output bắt buộc "${output.name}".` });
+    if (output.required && !platformOutput(capability, output.name) && !draft.outputs[output.name]) problems.push({ field: `output:${output.name}`, message: t('platform.moduleMapping.chooseTheModuleOutputProviding', { name: output.name }) });
   }
   const clusterNeeded = bindingProviders(capability).filter((provider) => provider.binding === 'kubernetes');
   for (const provider of clusterNeeded) {
     const binding = draft.bindings[provider.name];
-    if (!binding || binding.target === '') problems.push({ field: `binding:${provider.name}`, message: `Chọn nhóm cluster cho provider ${provider.name}.` });
-    else if (binding.target === 'resource' && binding.clusterClass === '') problems.push({ field: `binding:${provider.name}`, message: `Chọn nhóm cluster cho provider ${provider.name}.` });
+    if (!binding || binding.target === '') problems.push({ field: `binding:${provider.name}`, message: t('platform.moduleMapping.chooseTheClusterClassFor', { name: provider.name }) });
+    else if (binding.target === 'resource' && binding.clusterClass === '') problems.push({ field: `binding:${provider.name}`, message: t('platform.moduleMapping.chooseTheClusterClassFor', { name: provider.name }) });
   }
   return problems;
 }

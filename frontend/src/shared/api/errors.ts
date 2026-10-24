@@ -1,54 +1,55 @@
 // Stable public error codes of the backend contract (operation-contracts.md,
 // "Public HTTP error contract — T20"). The Console never reads or translates the
 // backend `error` sentence: it chooses Vietnamese text from the code.
+import { t } from '../i18n';
 
 const messageTable = {
-  INVALID_REQUEST: 'Dữ liệu gửi lên không hợp lệ. Kiểm tra các trường rồi thử lại; nội dung đang nhập được giữ nguyên.',
-  INVALID_ID: 'ID không đúng quy tắc đặt tên. Sửa ID rồi thử lại; Console không tự chuẩn hóa ID.',
-  INVALID_VARIABLE: 'Tên, giá trị hoặc tham chiếu biến không hợp lệ. Kiểm tra lại biến; giá trị đã nhập không được hiển thị lại.',
-  INVALID_SCORE: 'Score hoặc tham số tài nguyên không hợp lệ. Sửa Score rồi thử lại.',
-  PLANNING_REJECTED: 'Không thể lập kế hoạch cho thay đổi này. Chưa có gì được triển khai và không có phương án thay thế tự động.',
-  DUPLICATE: 'Định danh này đã tồn tại trong phạm vi hiện tại. Dùng giá trị khác; dữ liệu cũ không bị ghi đè.',
-  UNAUTHORIZED: 'Phiên đăng nhập đã hết hạn hoặc chưa đăng nhập. Hãy đăng nhập lại.',
-  INVALID_CREDENTIALS: 'Tên đăng nhập hoặc mật khẩu không đúng.',
-  FORBIDDEN: 'Bạn không có quyền thực hiện thao tác này.',
-  NOT_FOUND: 'Không tìm thấy hoặc không truy cập được mục này.',
-  REQUEST_TOO_LARGE: 'Nội dung gửi lên quá lớn. Hãy rút gọn rồi thử lại.',
-  STALE_VERSION: 'Dữ liệu đã thay đổi kể từ lần tải trước. Tải lại và xem lại trước khi lưu.',
-  STALE_PREVIEW: 'Bản xem trước đã cũ. Hãy xem trước lại; chưa có thay đổi nào được áp dụng.',
-  ENVIRONMENT_BUSY: 'Môi trường đang bận với thao tác khác. Hãy chờ hoặc xem trạng thái thao tác; thay đổi đang nhập được giữ nguyên.',
-  CONNECTION_UNAVAILABLE: 'Kết nối không hợp lệ hoặc chưa sẵn sàng (READY) trong phạm vi này. Hãy nhờ kỹ sư nền tảng kiểm tra kết nối.',
-  COMMIT_UNCERTAIN: 'Máy chủ chưa xác nhận được thao tác đã được lưu hay chưa. Credential mới (nếu có) được giữ lại. Hãy tải lại để xem kết quả thực tế; Console không tự gửi lại.',
-  ACCOUNT_TARGET_MISMATCH: 'Credential mới không thuộc cùng đích với tài khoản này (khác tài khoản AWS hoặc khác cluster/context/endpoint/TLS). Credential cũ vẫn được giữ; hãy đăng ký tài khoản mới cho đích khác.',
-  VERIFICATION_FAILED: 'Xác minh không thành công. Kiểm tra thông tin rồi thử lại; Console không hiển thị chi tiết từ nhà cung cấp.',
-  VERIFICATION_CONTEXT_MISSING: 'Xác minh không thành công: context chưa được cấu hình trên máy chủ backend.',
-  VERIFICATION_UNREACHABLE: 'Xác minh không thành công: không kết nối được tới địa chỉ đã chọn. Kiểm tra địa chỉ, mạng và TLS.',
-  VERIFICATION_PERMISSION_DENIED: 'Xác minh không thành công: thiếu quyền cần thiết cho kết nối này.',
-  VERIFICATION_CREDENTIAL_REJECTED: 'Xác minh không thành công: thông tin xác thực bị từ chối. Kiểm tra token hoặc chứng chỉ còn hiệu lực.',
-  VERIFICATION_REGION_UNAVAILABLE: 'Xác minh không thành công: một vùng được phép chưa dùng được với thông tin xác thực này (vùng bị tắt hoặc dịch vụ cần thiết không truy cập được).',
-  VERIFICATION_CAPABILITY_UNVERIFIABLE: 'Xác minh không thành công: chưa chứng minh được quyền cấp phát bằng cách chỉ đọc. Cho phép danh tính IAM đang dùng thực hiện iam:SimulatePrincipalPolicy.',
-  VERIFICATION_PRINCIPAL_UNSUPPORTED: 'Xác minh không thành công: loại thông tin xác thực này chưa được hỗ trợ. Dùng access key dài hạn của một người dùng IAM riêng, không dùng tài khoản gốc hoặc thông tin xác thực tạm thời.',
-  KUBECONFIG_INVALID: 'Tệp kubeconfig không hợp lệ.',
-  KUBECONFIG_NO_VALID_CONTEXT: 'Kubeconfig không có context dùng được. Cần context có cluster và người dùng với token hoặc chứng chỉ nhúng sẵn.',
-  KUBECONFIG_CONTEXT_REQUIRED: 'Hãy chọn một context trong kubeconfig trước khi kiểm tra và lưu.',
-  KUBECONFIG_CONTEXT_NOT_FOUND: 'Context đã chọn không có trong kubeconfig. Kiểm tra lại kubeconfig rồi chọn lại.',
-  KUBECONFIG_UNSUPPORTED_AUTH: 'Context dùng phương thức xác thực chưa được hỗ trợ. Hãy dùng kubeconfig có token hoặc chứng chỉ client nhúng sẵn.',
-  KUBECONFIG_UNSUPPORTED_CLUSTER: 'Cluster dùng thiết lập chưa được hỗ trợ (tệp CA ngoài, proxy hoặc trường lạ). Hãy nhúng sẵn dữ liệu CA.',
-  KUBECONFIG_INVALID_SERVER: 'Địa chỉ máy chủ cluster phải là URL http hoặc https, không chứa thông tin người dùng, query hay fragment.',
-  KUBECONFIG_INVALID_TLS: 'Dữ liệu TLS nhúng trong context không hợp lệ (CA, chứng chỉ client hoặc khóa).',
-  SECRET_STORE_REQUIRED: 'Hãy chọn kho bí mật trong Cài đặt môi trường trước khi thêm bí mật.',
-  SECRET_STORE_UNAVAILABLE: 'Kho bí mật đã chọn không sẵn sàng. Kiểm tra kho hoặc chọn kho khác.',
-  REFERENCE_REWRITE_UNSAFE: 'Không thể tự cập nhật tham chiếu mà vẫn giữ nguyên toàn bộ cấu hình workload. Chưa có gì được lưu; hãy bỏ chọn cập nhật tham chiếu hoặc sửa các workload liên quan tường minh trước khi đổi tên.',
-  SECRET_COPY_FAILED: 'Không sao chép được bí mật sang kho mới. Lựa chọn kho và phiên bản cũ được giữ nguyên.',
-  RECOVERY_CONFIRMATION_REQUIRED: 'Hãy xác nhận thao tác bị gián đoạn đã dừng hẳn trước khi khôi phục.',
-  CLEANUP_REFUSED: 'Không thể xóa tài nguyên khi còn quan hệ sử dụng hoặc trạng thái chưa an toàn. Kiểm tra trạng thái rồi thử lại.',
-  RESOURCE_CONFIRMATION_MISMATCH: 'Tên nhập lại không khớp tên tài nguyên. Nhập chính xác từng ký tự như hiển thị; chưa có gì bị xóa.',
-  NOT_RECOVERABLE: 'Thao tác này hiện không thể khôi phục.',
-  RECOVERY_INCOMPLETE: 'Khôi phục chưa hoàn tất. Môi trường vẫn bị giữ cho tới khi khôi phục thành công; cần can thiệp theo hướng dẫn.',
-  OPERATION_LOST: 'Thao tác đã bị gián đoạn. Xem trạng thái thao tác; Console không tự tiếp quản.',
-  ROUTE_RECONCILE_FAILED: 'Workload đã được áp dụng nhưng chưa cập nhật được route công khai. Hãy xem trước lại để thử lại route.',
-  SERVICE_UNAVAILABLE: 'Dịch vụ cần thiết chưa sẵn sàng. Hãy thử lại sau.',
-  INTERNAL_ERROR: 'Máy chủ gặp lỗi không xác định. Hãy thử lại; nếu lỗi lặp lại, liên hệ quản trị viên.',
+  INVALID_REQUEST: t('shared.errors.theSubmittedDataIsInvalid'),
+  INVALID_ID: t('shared.errors.theIDDoesNotFollow'),
+  INVALID_VARIABLE: t('shared.errors.invalidVariableNameValueOr'),
+  INVALID_SCORE: t('shared.errors.invalidScoreOrResourceParameters'),
+  PLANNING_REJECTED: t('shared.errors.thisChangeCannotBePlanned'),
+  DUPLICATE: t('shared.errors.thisIdentifierAlreadyExistsIn'),
+  UNAUTHORIZED: t('shared.errors.yourSessionHasExpiredOr'),
+  INVALID_CREDENTIALS: t('shared.errors.incorrectUsernameOrPassword'),
+  FORBIDDEN: t('shared.errors.youAreNotAllowedTo'),
+  NOT_FOUND: t('shared.errors.thisItemWasNotFound'),
+  REQUEST_TOO_LARGE: t('shared.errors.theSubmittedContentIsToo'),
+  STALE_VERSION: t('shared.errors.theDataChangedSinceIt'),
+  STALE_PREVIEW: t('shared.errors.thePreviewIsStalePreview'),
+  ENVIRONMENT_BUSY: t('shared.errors.theEnvironmentIsBusyWith'),
+  CONNECTION_UNAVAILABLE: t('shared.errors.theConnectionIsInvalidOr'),
+  COMMIT_UNCERTAIN: t('shared.errors.theServerCouldNotConfirm'),
+  ACCOUNT_TARGET_MISMATCH: t('shared.errors.theNewCredentialDoesNot'),
+  VERIFICATION_FAILED: t('shared.errors.verificationFailedCheckTheInformation'),
+  VERIFICATION_CONTEXT_MISSING: t('shared.errors.verificationFailedTheContextIs'),
+  VERIFICATION_UNREACHABLE: t('shared.errors.verificationFailedCouldNotReach'),
+  VERIFICATION_PERMISSION_DENIED: t('shared.errors.verificationFailedMissingPermissionsRequired'),
+  VERIFICATION_CREDENTIAL_REJECTED: t('shared.errors.verificationFailedTheCredentialsWere'),
+  VERIFICATION_REGION_UNAVAILABLE: t('shared.errors.verificationFailedAnAllowedRegion'),
+  VERIFICATION_CAPABILITY_UNVERIFIABLE: t('shared.errors.verificationFailedProvisioningPermissionsCould'),
+  VERIFICATION_PRINCIPAL_UNSUPPORTED: t('shared.errors.verificationFailedThisCredentialType'),
+  KUBECONFIG_INVALID: t('shared.errors.theKubeconfigFileIsInvalid'),
+  KUBECONFIG_NO_VALID_CONTEXT: t('shared.errors.theKubeconfigHasNoUsable'),
+  KUBECONFIG_CONTEXT_REQUIRED: t('shared.errors.chooseAContextInThe'),
+  KUBECONFIG_CONTEXT_NOT_FOUND: t('shared.errors.theSelectedContextIsNot'),
+  KUBECONFIG_UNSUPPORTED_AUTH: t('shared.errors.theContextUsesAnUnsupported'),
+  KUBECONFIG_UNSUPPORTED_CLUSTER: t('shared.errors.theClusterUsesAnUnsupported'),
+  KUBECONFIG_INVALID_SERVER: t('shared.errors.theClusterServerAddressMust'),
+  KUBECONFIG_INVALID_TLS: t('shared.errors.theTLSDataEmbeddedIn'),
+  SECRET_STORE_REQUIRED: t('shared.errors.chooseASecretStoreIn'),
+  SECRET_STORE_UNAVAILABLE: t('shared.errors.theSelectedSecretStoreIs'),
+  REFERENCE_REWRITE_UNSAFE: t('shared.errors.referencesCannotBeUpdatedAutomatically'),
+  SECRET_COPY_FAILED: t('shared.errors.couldNotCopyTheSecrets'),
+  RECOVERY_CONFIRMATION_REQUIRED: t('shared.errors.confirmThatTheInterruptedOperation'),
+  CLEANUP_REFUSED: t('shared.errors.theResourceCannotBeDeleted'),
+  RESOURCE_CONFIRMATION_MISMATCH: t('shared.errors.theReEnteredNameDoes'),
+  NOT_RECOVERABLE: t('shared.errors.thisOperationCannotBeRecovered'),
+  RECOVERY_INCOMPLETE: t('shared.errors.recoveryIsIncompleteTheEnvironment'),
+  OPERATION_LOST: t('shared.errors.theOperationWasInterruptedCheck'),
+  ROUTE_RECONCILE_FAILED: t('shared.errors.theWorkloadWasAppliedBut'),
+  SERVICE_UNAVAILABLE: t('shared.errors.aRequiredServiceIsNot'),
+  INTERNAL_ERROR: t('shared.errors.theServerHitAnUnknown'),
 } as const;
 export const errorMessages: Readonly<Record<string, string>> & typeof messageTable = Object.freeze(messageTable);
 
@@ -56,11 +57,11 @@ const fallbackByStatus = (status: number): string => {
   if (status === 401) return messageTable.UNAUTHORIZED;
   if (status === 403) return messageTable.FORBIDDEN;
   if (status === 404) return messageTable.NOT_FOUND;
-  if (status === 409) return 'Dữ liệu đang xung đột với trạng thái hiện tại. Tải lại và xem lại trước khi thử lại.';
+  if (status === 409) return t('shared.errors.theDataConflictsWithThe');
   if (status === 413) return messageTable.REQUEST_TOO_LARGE;
   if (status >= 500) return messageTable.INTERNAL_ERROR;
-  if (status >= 400) return 'Máy chủ không chấp nhận yêu cầu này. Kiểm tra dữ liệu rồi thử lại.';
-  return 'Yêu cầu không thành công. Hãy thử lại.';
+  if (status >= 400) return t('shared.errors.theServerDidNotAccept');
+  return t('shared.errors.theRequestFailedPleaseTry');
 };
 
 export const plannerStages = ['score', 'before-state', 'candidate', 'public-routes', 'service-references', 'catalog', 'graph', 'reference', 'contract', 'schedule'] as const;
@@ -71,14 +72,14 @@ export type PlannerReason = (typeof plannerReasons)[number];
 export const cleanupReasons = ['NOT_UNREFERENCED', 'HAS_CONSUMERS', 'PLATFORM_RESOURCE', 'OWNERSHIP_UNVERIFIED', 'ORIGINAL_TARGET_UNAVAILABLE', 'ENVIRONMENT_BUSY', 'INFRASTRUCTURE_UNAVAILABLE', 'METADATA_SYNC_PENDING'] as const;
 export type CleanupReason = (typeof cleanupReasons)[number];
 export const cleanupReasonLabels: Readonly<Record<CleanupReason, string>> = Object.freeze({
-  NOT_UNREFERENCED: 'Tài nguyên chưa ở trạng thái không còn được tham chiếu (UNREFERENCED).',
-  HAS_CONSUMERS: 'Vẫn còn Workload hoặc tài nguyên khác đang dùng tài nguyên này, ngoài tập đã chọn.',
-  PLATFORM_RESOURCE: 'Đây là tài nguyên nền tảng, không thuộc quyền xóa của môi trường.',
-  OWNERSHIP_UNVERIFIED: 'Chưa có bằng chứng bền vững rằng Orchestrator quản lý tài nguyên này.',
-  ORIGINAL_TARGET_UNAVAILABLE: 'Chưa dùng được đích, module hoặc trạng thái gốc của tài nguyên này.',
-  ENVIRONMENT_BUSY: 'Môi trường đang bận với thao tác khác.',
-  METADATA_SYNC_PENDING: 'Việc đồng bộ siêu dữ liệu trạng thái của tài nguyên sau khi gỡ chưa được xác nhận nên chưa thể xóa; cần người vận hành kiểm tra, hệ thống không tự sửa.',
-  INFRASTRUCTURE_UNAVAILABLE: 'Dịch vụ trạng thái, module, thông tin xác thực hoặc thực thi cần để xóa chưa được cấu hình trên máy chủ.',
+  NOT_UNREFERENCED: t('shared.errors.theResourceIsNotYet'),
+  HAS_CONSUMERS: t('shared.errors.workloadsOrOtherResourcesOutside'),
+  PLATFORM_RESOURCE: t('shared.errors.thisIsAPlatformResource'),
+  OWNERSHIP_UNVERIFIED: t('shared.errors.thereIsNoDurableEvidence'),
+  ORIGINAL_TARGET_UNAVAILABLE: t('shared.errors.theOriginalTargetModuleOr'),
+  ENVIRONMENT_BUSY: t('shared.errors.theEnvironmentIsBusyWith2'),
+  METADATA_SYNC_PENDING: t('shared.errors.synchronizationOfTheResourcesState'),
+  INFRASTRUCTURE_UNAVAILABLE: t('shared.errors.theStateServiceModulesCredentials'),
 });
 export interface ErrorParams { stage?: PlannerStage; reason?: PlannerReason; cleanupReason?: CleanupReason; resourceType?: string }
 
@@ -86,27 +87,27 @@ export interface ErrorParams { stage?: PlannerStage; reason?: PlannerReason; cle
 const technicalID = /^[a-z0-9][a-z0-9-]{0,62}$/;
 
 export const stageLabels: Readonly<Record<PlannerStage, string>> = Object.freeze({
-  score: 'Score không khớp hợp đồng của loại tài nguyên đã đăng ký',
-  'before-state': 'Score trước không khớp trạng thái hiện tại của workload',
-  candidate: 'Không dựng được tập triển khai ứng viên từ Score này (ví dụ tài nguyên dùng chung bị xung đột)',
-  'public-routes': 'Route công khai không hợp lệ: trùng đường dẫn hoặc cổng Service chưa khai báo',
-  'service-references': 'Một workload tham chiếu Service hoặc cổng không còn tồn tại; hãy cập nhật hoặc xóa workload dùng nó trong cùng thay đổi',
-  catalog: 'Cấu hình tài nguyên đã đăng ký chưa dùng được để lập kế hoạch; hãy nhờ kỹ sư nền tảng kiểm tra',
-  graph: 'Không dựng hoặc khớp được đồ thị tài nguyên; kiểm tra loại, class và ID so với cấu hình tài nguyên đã đăng ký',
-  reference: 'Không giải quyết được một tham chiếu tài nguyên với cấu hình đã khớp',
-  contract: 'Một cấu hình tài nguyên khớp có hợp đồng Terraform không hợp lệ; hãy nhờ kỹ sư nền tảng kiểm tra',
-  schedule: 'Đồ thị tài nguyên có vòng phụ thuộc',
+  score: t('shared.errors.theScoreDoesNotMatch'),
+  'before-state': t('shared.errors.theBeforeScoreDoesNot'),
+  candidate: t('shared.errors.couldNotBuildACandidate'),
+  'public-routes': t('shared.errors.invalidPublicRouteDuplicatePath'),
+  'service-references': t('shared.errors.aWorkloadReferencesAService'),
+  catalog: t('shared.errors.aRegisteredResourceDefinitionIs'),
+  graph: t('shared.errors.couldNotBuildOrMatch'),
+  reference: t('shared.errors.couldNotResolveAResource'),
+  contract: t('shared.errors.aMatchedResourceDefinitionHas'),
+  schedule: t('shared.errors.theResourceGraphHasA'),
 });
 
 export const reasonLabels: Readonly<Record<PlannerReason, string>> = Object.freeze({
-  'workload-exists': 'Workload đã có trong tập triển khai hiện tại; hãy dùng cập nhật kèm Score trước',
-  'workload-not-current': 'Workload chưa thuộc tập triển khai hiện tại; hãy dùng triển khai mới',
-  'before-mismatch': 'Score trước không khớp bản đang triển khai; hãy lấy lại từ Score đang chạy',
-  'legacy-infrastructure-reference': 'Một cấu hình tài nguyên còn tham chiếu VPC/EKS theo ứng dụng; hãy nhờ kỹ sư nền tảng dùng token @infra',
-  'environment-unconfigured': 'Môi trường chưa có kết nối triển khai; hãy chọn trong Cài đặt môi trường',
-  'renderer-no-match': 'Chưa có Mẫu dựng ứng dụng (score-k8s) khớp Workload này ở phạm vi triển khai của Môi trường; hãy nhờ kỹ sư nền tảng đăng ký đúng một mẫu. Hệ thống không dùng renderer mặc định',
-  'renderer-ambiguous': 'Có nhiều Mẫu dựng ứng dụng khớp Workload này với mức ưu tiên bằng nhau; hãy nhờ kỹ sư nền tảng để lại đúng một mẫu',
-  'renderer-unavailable': 'Mẫu dựng ứng dụng cần bundle score-k8s chưa được cài trên máy chủ; hãy nhờ kỹ sư nền tảng kiểm tra bản phát hành nền tảng',
+  'workload-exists': t('shared.errors.theWorkloadIsAlreadyIn'),
+  'workload-not-current': t('shared.errors.theWorkloadIsNotIn'),
+  'before-mismatch': t('shared.errors.theBeforeScoreDoesNot2'),
+  'legacy-infrastructure-reference': t('shared.errors.aResourceDefinitionStillReferences'),
+  'environment-unconfigured': t('shared.errors.theEnvironmentHasNoDeployment'),
+  'renderer-no-match': t('shared.errors.noRenderingTemplateScoreK8s'),
+  'renderer-ambiguous': t('shared.errors.severalRenderingTemplatesMatchThis'),
+  'renderer-unavailable': t('shared.errors.theRenderingTemplateNeedsA'),
 });
 
 const has = (table: object, key: unknown): key is string => typeof key === 'string' && Object.prototype.hasOwnProperty.call(table, key);
@@ -140,16 +141,16 @@ export function safeParams(params: unknown): ErrorParams | undefined {
 export function messageFor(status: number, code?: string, params?: ErrorParams, field?: string): string {
   const base = (knownCode(code) ? errorMessages[code] : undefined) ?? fallbackByStatus(status);
   if (code === 'INVALID_SCORE' && params?.resourceType) {
-    return `${base} Tham số của tài nguyên thuộc loại ${params.resourceType} chưa đúng: kiểm tra tham số đã khai báo, kiểu giá trị và trường bắt buộc của loại này.`;
+    return t('shared.errors.baseParametersOfTheResourceType', { base, resourceType: params.resourceType });
   }
   if (code === 'INVALID_SCORE' && field === 'service.publicPort') {
-    return `${base} Trường publicPort không còn được hỗ trợ; khai báo đường dẫn công khai bằng publicRoutes. Hệ thống không tự chuyển đổi hay lưu thay đổi.`;
+    return t('shared.errors.baseThePublicPortFieldIs', { base });
   }
   if (code === 'INVALID_SCORE' && field === 'resources') {
-    return `${base} Một tài nguyên trong Score dùng loại chưa được đăng ký; hãy chọn loại tài nguyên đã đăng ký.`;
+    return t('shared.errors.baseAResourceInThe', { base });
   }
   if (code === 'CLEANUP_REFUSED' && params?.cleanupReason) {
-    return `Không thể xóa: ${cleanupReasonLabels[params.cleanupReason]} Chưa có gì bị xóa.`;
+    return t('shared.errors.cannotDeleteValueNothingHas', { value: cleanupReasonLabels[params.cleanupReason] });
   }
   if (code === 'PLANNING_REJECTED' || code === 'INVALID_SCORE') {
     const detail = (params?.reason && reasonLabels[params.reason]) || (params?.stage && stageLabels[params.stage]);
@@ -159,25 +160,25 @@ export function messageFor(status: number, code?: string, params?: ErrorParams, 
 }
 
 const fieldLabels: Readonly<Record<string, string>> = Object.freeze({
-  name: 'Tên', subdomain: 'Subdomain', connectionKey: 'Kết nối', expectedVersion: 'Phiên bản', expectedConfigVersion: 'Phiên bản cấu hình',
-  secretStoreKey: 'Kho bí mật', destinationKey: 'Kết nối đích', acknowledgeDowntime: 'Xác nhận thời gian ngừng', priorExecutionStopped: 'Xác nhận thao tác đã dừng',
-  status: 'Trạng thái', resources: 'Tài nguyên trong Score', scoreBefore: 'Score trước', scoreAfter: 'Score sau', version: 'Phiên bản', token: 'Token', kubeconfig: 'Kubeconfig',
-  'type.key': 'ID loại tài nguyên', 'type.schema': 'Cấu trúc đầu vào/đầu ra của loại tài nguyên', 'definition.schema': 'Cấu hình tài nguyên',
-  'definition.driver': 'Trình điều khiển và tham số của cấu hình', 'definition.references': 'Tham chiếu trong tham số/quy tắc tạo tài nguyên liên quan',
-  'definition.key': 'ID cấu hình', 'definition.resourceType': 'Loại tài nguyên',
-  'definition.driverType': 'Loại trình điều khiển', 'definition.criteria': 'Điều kiện áp dụng', 'definition.connectionKey': 'Kết nối của cấu hình',
-  'definition.driverInputs.values': 'Ánh xạ đầu vào/đầu ra của module', 'definition.driverInputs.values.source': 'Nguồn module đã kiểm chứng (source/revision/digest)',
-  'definition.driverInputs.values.provider_bindings': 'Provider binding của module', 'driverInputs.values.variables': 'Tham số cấu hình',
-  'context.applicationId': 'Ứng dụng mẫu', 'context.environmentId': 'Môi trường mẫu', 'context.resourceId': 'ID tài nguyên mẫu', 'context.class': 'Class mẫu',
-  accessKeyId: 'Access key ID', secretAccessKey: 'Secret access key', allowedRegions: 'Vùng được phép', verificationRegions: 'Vùng kiểm tra',
-  confirmationName: 'Tên nhập lại', selectedResourceIds: 'Tài nguyên đã chọn',
-  from: 'Từ ngày', to: 'Đến ngày', workload: 'Workload', metric: 'Chỉ số', valueSeconds: 'Thời gian thực hiện', source: 'Nguồn đo',
-  effectiveFrom: 'Ngày áp dụng', sampleSize: 'Số mẫu', measuredFrom: 'Kỳ đo', measuredTo: 'Kỳ đo',
+  name: t('shared.errors.name'), subdomain: 'Subdomain', connectionKey: t('shared.errors.connection'), expectedVersion: t('shared.errors.version'), expectedConfigVersion: t('shared.errors.configurationVersion'),
+  secretStoreKey: t('shared.errors.secretStore'), destinationKey: t('shared.errors.targetConnection'), acknowledgeDowntime: t('shared.errors.stopTimeConfirmation'), priorExecutionStopped: t('shared.errors.confirmTheOperationHasStopped'),
+  status: t('shared.errors.status'), resources: t('shared.errors.resourcesInTheScore'), scoreBefore: t('shared.errors.beforeScore'), scoreAfter: 'Score sau', version: t('shared.errors.version'), token: 'Token', kubeconfig: 'Kubeconfig',
+  'type.key': t('shared.errors.resourceTypeID'), 'type.schema': t('shared.errors.inputOutputStructureOfThe'), 'definition.schema': t('shared.errors.resourceDefinition'),
+  'definition.driver': t('shared.errors.driverAndParametersOfThe'), 'definition.references': t('shared.errors.referencesInParametersRelatedResource'),
+  'definition.key': t('shared.errors.definitionID'), 'definition.resourceType': t('shared.errors.resourceType'),
+  'definition.driverType': t('shared.errors.driverType'), 'definition.criteria': t('shared.errors.matchingCriteria'), 'definition.connectionKey': t('shared.errors.connectionOfTheDefinition'),
+  'definition.driverInputs.values': t('shared.errors.moduleInputOutputMapping'), 'definition.driverInputs.values.source': t('shared.errors.verifiedModuleSourceSourceRevision'),
+  'definition.driverInputs.values.provider_bindings': t('shared.errors.moduleProviderBinding'), 'driverInputs.values.variables': t('shared.errors.definitionParameters'),
+  'context.applicationId': t('shared.errors.sampleApplication'), 'context.environmentId': t('shared.errors.sampleEnvironment'), 'context.resourceId': t('shared.errors.sampleResourceID'), 'context.class': t('shared.errors.sampleClass'),
+  accessKeyId: 'Access key ID', secretAccessKey: 'Secret access key', allowedRegions: t('shared.errors.allowedRegions'), verificationRegions: t('shared.errors.checkRegions'),
+  confirmationName: t('shared.errors.reEnteredName'), selectedResourceIds: t('shared.errors.selectedResources'),
+  from: t('shared.errors.fromDate'), to: t('shared.errors.toDate'), workload: 'Workload', metric: t('shared.errors.metric'), valueSeconds: t('shared.errors.leadTime'), source: t('shared.errors.measurementSource'),
+  effectiveFrom: t('shared.errors.effectiveDate'), sampleSize: t('shared.errors.sampleSize'), measuredFrom: t('shared.errors.measurementPeriod'), measuredTo: t('shared.errors.measurementPeriod'),
 });
 
 /** " Trường liên quan: <nhãn>." for a trusted field, otherwise nothing. */
 export function fieldNote(field?: string): string {
-  return field && Object.prototype.hasOwnProperty.call(fieldLabels, field) ? ` Trường liên quan: ${fieldLabels[field]}.` : '';
+  return field && Object.prototype.hasOwnProperty.call(fieldLabels, field) ? t('shared.errors.relatedFieldValue', { value: fieldLabels[field] }) : '';
 }
 
 // Codes whose page-level text stays status-specific (session, permission, size, duplicate, server).
