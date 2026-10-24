@@ -11,6 +11,7 @@ import (
 	"orchestrator/internal/adapters/credentialmemory"
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/bootstrap/bootstraptest"
+	"orchestrator/internal/domain/secretstore"
 	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 	"os"
@@ -24,6 +25,7 @@ func main() {
 	ui := flag.String("ui-dir", "", "built Console directory")
 	cache := flag.String("cache-dir", "", "private disposable module cache outside Git")
 	addrFile := flag.String("addr-file", "", "file for bound loopback URL")
+	readyStore := flag.String("ready-secret-store", "", "key of a synthetic READY Secret Store to register for the seeded Organization (browser checks of the inline Secret Store selection)")
 	flag.Parse()
 	if *ui == "" || *cache == "" || *addrFile == "" {
 		log.Fatal("ui-dir, cache-dir and addr-file are required")
@@ -42,6 +44,13 @@ func main() {
 		log.Fatal(err)
 	}
 	defer app.Close()
+	if *readyStore != "" {
+		store := secretstore.Store{Key: *readyStore, OrganizationKey: opts.OrganizationKey, Name: "Synthetic " + *readyStore, Provider: secretstore.ProviderVaultKV2, Status: secretstore.StatusReady,
+			BackendAddress: "http://vault.example:8200", WorkloadAddress: "http://vault.svc:8200", Mount: "kv", AuthMount: "kubernetes"}
+		if err := app.Store.CreateSecretStore(context.Background(), store); err != nil {
+			log.Fatal(err)
+		}
+	}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		log.Fatal(err)

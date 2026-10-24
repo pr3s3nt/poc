@@ -2,7 +2,7 @@
 id: UC-12-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-24
 related: UC-12
 ---
 
@@ -55,3 +55,12 @@ không báo thành công một phần. STALE_VERSION cần reload/review, ENVIRO
 đợi operation; cả hai không replay. Thành công hiển thị pending và workloads bị
 ảnh hưởng; lỗi GET sau commit không được diễn giải thành rollback. Scope change
 bỏ dialog và invalidate replies. Secret values không xuất hiện trong feedback.
+
+
+## Tạo key từ workload editor — DEVEX-ENV
+
+UC-12 BR-24–28 cho phép nhúng form tạo Variable/Secret trong UC-16; Settings
+vẫn sở hữu sửa/đổi tên/xóa key dùng chung. Layout và trạng thái form con ở
+[UC-16 screens](../../UC-16/ui/screens.md) và [states](../../UC-16/ui/states.md).
+Create-only, CAS, no-readback, kết quả mutation chưa rõ và ranh giới key/workload
+commit theo [OC-12/16](../../../architecture/contracts/operation-contracts.md).

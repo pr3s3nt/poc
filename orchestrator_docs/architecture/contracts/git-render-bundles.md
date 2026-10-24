@@ -8,7 +8,7 @@ last_reviewed: 2026-10-24
 # Git render bundles — version 1 contract
 
 Required design under [ADR-021](../decisions/ADR-021-git-render-bundles.md).
-Implementation status is tracked separately in IMP-034. Infrastructure execution
+Implementation status is tracked separately in IMP-035. Infrastructure execution
 and legacy installed bundles keep their existing contracts. This document owns
 the Git source, render engine and API shapes; use cases own observable behavior.
 

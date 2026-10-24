@@ -55,7 +55,7 @@ Four review rounds completed:
 
 - Frontend typecheck, lint, test and production build: passed; 14 test files,
   107 tests. Regression coverage lives in
-  [WorkloadEditorKeys.test.tsx](../../frontend/src/features/workloads/WorkloadEditorKeys.test.tsx)
+  `WorkloadEditorKeys.test.tsx` (removed 2026-10-24)
   and [WorkloadEditorPage.test.tsx](../../frontend/src/features/workloads/WorkloadEditorPage.test.tsx).
 - Playwright against production Console with an actual local HTTP backend:
   sign in, create Application, create variable/secret through Settings, select

@@ -10,6 +10,20 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: ci-disposable-test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      REQUIRE_POSTGRES: '1'
+      REQUIRE_TERRAFORM: '1'
+      ORCHESTRATOR_POSTGRES_TEST_URL: postgres://postgres:ci-disposable-test@127.0.0.1:5432/postgres?sslmode=disable
     defaults:
       run:
         working-directory: backend
@@ -23,8 +37,17 @@ jobs:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
 
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+
+      - name: Install Redis for integration tests
+        run: sudo apt-get update && sudo apt-get install -y redis-server
+
       - name: Test
-        run: go test -count=1 ./...
+        run: go test -timeout 30m -count=1 ./...
 
       - name: Build
         run: go build ./...

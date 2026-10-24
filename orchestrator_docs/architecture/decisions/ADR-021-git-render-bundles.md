@@ -15,7 +15,7 @@ manifest generation into a versioned Git directory. Include normalization,
 resource defaults, resource-output provisioners and manifest patches, not just
 PE-authored patches. Deliver Console authoring and real-adapter Playwright
 acceptance. This is accepted required design, **not implemented capability**;
-see [IMP-034](../../implementation/deviations.md#imp-034--git-owned-render-bundles).
+see [IMP-035](../../implementation/deviations.md#imp-035--git-owned-render-bundles).
 
 One directory is a self-contained render bundle. The platform accepts credential-free
 HTTPS Git URL + relative directory + ref, resolves it once, inspects and caches

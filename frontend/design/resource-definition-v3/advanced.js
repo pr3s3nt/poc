@@ -1,3 +1,5 @@
+/* global safe */
+/* exported updateInput, updateOutput, setDependency, addDependency, removeDependency, setAdvancedMode */
 // Interactive prototype only: local draft, no API and no persistence.
 const initialMappings = () => ({
   input_mapping: { database_name: { param: 'database' }, admin_username: { param: 'username' } },

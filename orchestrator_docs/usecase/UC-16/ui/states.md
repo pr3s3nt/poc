@@ -2,51 +2,53 @@
 id: UC-16-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-13
-related: UC-16
+last_reviewed: 2026-10-24
+related: UC-16, UC-12
 ---
 
 # UC-16 UI states
 
-| Screen | State | UI behavior |
-|---|---|---|
-| Application home | Loading/empty | Preserve selected Environment; show list skeleton or `No workloads` and Add action. |
-| Application home | Pending | Show added/edited/deleted labels and Preview changes; no runtime-success claim. |
-| Application home | API error | Show retry without replacing data with mock workload rows. |
-| Form | Loading/new/edit | Show Environment, empty form for Add or existing configuration for Edit. |
-| Form | Missing/invalid reference | Identify variable/secret row and source; disable Save until corrected. |
-| Form | Missing UC-12 key | Explain the missing key in this Environment; link to Application Variables & Secrets. |
-| Form | Invalid Service target | Explain missing target, missing Service/port or target pending deletion; retain other form fields. |
-| Form/Preview | Invalid public path | Form requires a valid unique path and declared Service port; Preview rejects duplicate paths across workloads while allowing `/` and `/api`. |
-| Preview | No effective change | A draft matching the current module has no affected workload and Deploy is disabled; changed referenced UC-12 key revision remains an update. |
-| Preview | Route reconciliation failed | Show route-only pending state and enable `Retry public routes`; no workload restart on retry. |
-| Form | Missing/invalid resource input | Identify dependency and required input; retain entered values and prevent invalid save. |
-| Form | Secret source | Show name/output classification only; never echo secret value. |
-| Import | Parsing/invalid | Show file progress or field-level error; direct literal binding is rejected. |
-| Save | Submitting/error/success | Prevent double submit; preserve form on error; return to Application home with pending label on success. |
-| Delete | Confirm/cancel/success | Require confirmation; cancel does nothing; success shows pending deletion and Undo. |
+## Bảng Biến môi trường — DEVEX-ENV
 
-## Resource input errors
-
-Save and Score import reject invalid resource params with safe field paths under
-UC-16 BR-14. Preserve unsaved editor/import content; do not report a saved draft
-or advance displayed draft version after rejection. Backend validation also
-covers imported dependencies unused by container bindings.
-
-## Application-key checklist states
-
-| State | Behavior |
+| State | UI behavior |
 |---|---|
-| New container | All keys unchecked; show Variables and Secrets separately for the selected Environment. |
-| Selected | Same-name binding by default; optional alias input, no value input. |
-| Edited/imported | Restore selected keys and all existing aliases, including multiple names for one key. |
-| Unselected | Remove only that key's mappings from this container; leave other bindings intact. |
-| No keys | Show Settings guidance per group; no automatic selection of future keys. |
-| Missing selected key | Keep unavailable reference/name visible; block Save until removed/corrected. |
-| Loading/catalog error | Loading or safe error + Retry; do not save using an empty replacement catalog. |
-| Duplicate/empty name | Explain container and conflicting name; preserve edits and block Save without submitting. |
-| Saving/stale | Freeze checklist, alias and Other sources controls during Save; retain selection and alias edits on failure/conflict. |
-| Scope changed | Load only destination Application/Environment/workload state; ignore old import/catalog/save/reload responses. Same-scope retry/reload retains local selection and aliases. |
+| New/empty | Không có dòng tự chọn; + Thêm biến tạo dòng Giá trị nhập. |
+| Literal | Chuỗi rỗng hợp lệ; giữ whitespace/escaping; báo NUL/giá trị không hợp lệ mà không echo payload. |
+| Existing/imported | Khôi phục nguồn, tên/alias, nhiều dòng cùng key; giữ advanced fields. |
+| Key/output secret | Chỉ tên và nhãn Bí mật/trạng thái; không reveal/copy value. |
+| Missing source | Giữ target/name cũ, lỗi ngay dòng; sửa hoặc xóa trước lưu. |
+| Catalog loading/error | Phân biệt empty; retry GET giữ edits; khóa source/save cần metadata đó, không bỏ các dòng chưa validate. |
+| Duplicate/invalid name | Lỗi container/dòng trước serialize; không overwrite trong map. |
+| Source changed | Giữ tên, xóa payload source cũ khỏi row; không chuyển secret thành literal; không xóa key/dependency. |
+| Source removed | Xóa mapping dòng đó; giữ key, dependency và các mappings khác. |
+| Save busy/stale/failure | Khóa conflicting submit, giữ draft; reload/review cùng scope không replay mutation. |
+| Scope changed | Bỏ late catalog/import/save/dialog replies; không mang edits hoặc secret input sang app/env/workload khác. |
+| Legacy unavailable | Không mở editor bằng literal chưa được xác minh, không xóa dữ liệu; hiển thị lỗi an toàn. |
+
+## Form con tạo key hoặc tài nguyên
+
+| State | UI behavior |
+|---|---|
+| Open | Giữ parent mounted, app/env rõ; focus field đầu, không lộ secret cũ. |
+| Cancel before submit | Không tạo key/dependency; xóa input secret, về dòng gốc. |
+| Create key success | Dùng response/version mới, chọn key; clear input secret; key đã lưu, workload chưa lưu. |
+| Create key duplicate | Không upsert; giữ form, GET/review rồi chọn key cùng loại hoặc đổi tên. |
+| Missing store | Cho chọn/lưu kho READY ngay form; nếu không có kho, retry/hủy, không block chỉnh sửa các dòng khác. |
+| Store success/key failure | Hiện kho đã lưu; key chưa thành công; không reset selection. |
+| Create key validation/BUSY/stale | Giữ nonsecret edits/input che trong form; hướng dẫn sửa/đợi/reload, không tự retry. |
+| Mutation outcome unknown | GET configuration để review; không báo chưa lưu hoặc replay create. Cùng tên không chứng minh đúng secret value; Dùng key hiện có cần thao tác tường minh. |
+| Key committed/workload save fails or cancels | Key tồn tại trong Settings; giữ draft khi lỗi, không tự delete key. |
+| Add dependency success | Chỉ sửa parent draft, chọn alias; focus output còn trống. |
+| Add dependency invalid | Giữ subform; type/params/alias/class errors hiện theo field; không thêm partial dependency. |
+| Parent row gone/scope changed | Không gắn kết quả vào dòng khác; committed key vẫn thuộc scope gốc, không auto rollback. |
+
+## Các trạng thái hiện hành giữ nguyên
+
+Loading/empty/error Application home; pending add/update/delete và Undo; Service
+không hợp lệ/self/pending delete; Type params bắt buộc; public route trùng/sai
+port; import invalid; no-op Preview; route-only retry; Save success chỉ pending.
+Form và import kiểm mọi dependency, kể cả không dùng ở biến. Không gọi deploy
+khi tạo key/dependency hoặc Save. Thay draft/config làm Preview cũ hết hiệu lực.
 
 ## T08 — Trạng thái nâng cao và cổng công khai
 
@@ -60,8 +62,8 @@ covers imported dependencies unused by container bindings.
 | BUSY/stale/scope | Giữ guards hiện hành và pending edits; không tự gửi lại Save hoặc dùng response của scope cũ. |
 | Key catalog | Không tự chọn keys/secrets mới; thiếu key/loading/error khác empty và không lộ giá trị. |
 
-Tất cả nhãn và validation frontend trên editor/key picker dùng tiếng Việt;
-backend error envelope/mapping theo contract lỗi T20. API/Score semantics không đổi.
+Tất cả nhãn và validation frontend dùng catalog ADR-020 (Việt/Anh);
+backend error envelope/mapping theo contract lỗi T20. Mapping và literal policy theo OC-16 DEVEX-ENV; các guards ngoài phạm vi giữ nguyên.
 
 ## Lỗi theo code — T20
 

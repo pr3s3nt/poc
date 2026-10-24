@@ -2,7 +2,7 @@
 id: UC-12-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-24
 related: UC-12
 ---
 
@@ -83,3 +83,12 @@ Reload/review tường minh làm mới versions trước lần xác nhận kế 
 hoặc mở dialog khác reset opt-in; late reply không chuyển kết quả sang scope mới.
 Thành công hiển thị thay đổi chờ triển khai và đường về Xem trước thay đổi trên
 trang ứng dụng, không báo đã rollout.
+
+
+## Tạo key từ workload editor — DEVEX-ENV
+
+UC-12 BR-24–28 cho phép nhúng form tạo Variable/Secret trong UC-16; Settings
+vẫn sở hữu sửa/đổi tên/xóa key dùng chung. Layout và trạng thái form con ở
+[UC-16 screens](../../UC-16/ui/screens.md) và [states](../../UC-16/ui/states.md).
+Create-only, CAS, no-readback, kết quả mutation chưa rõ và ranh giới key/workload
+commit theo [OC-12/16](../../../architecture/contracts/operation-contracts.md).

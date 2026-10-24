@@ -111,7 +111,7 @@ func (s *Service) List(ctx context.Context, app, env string) (View, error) {
 	items := map[string]Item{}
 	for id, module := range set.Document.Modules {
 		item := Item{ID: id, Ready: true, ServicePorts: portNames(module.Spec.Service)}
-		if reconstructed, err := ReconstructScore(id, module, set.Document); err == nil {
+		if reconstructed, err := ReconstructScoreProven(id, module, set.Document, set.LiteralProofs.ProverFor(id)); err == nil {
 			item.Score = reconstructed
 		}
 		items[id] = item
@@ -302,9 +302,15 @@ func (s *Service) validateBindings(ctx context.Context, app, env string, doc sco
 	}
 	for containerName, container := range doc.Containers {
 		for key, value := range container.Variables {
+			if strings.IndexByte(value, 0) >= 0 {
+				return refine(ErrInvalidVariable, "container %s variable %s must not contain NUL", containerName, key)
+			}
+			if isOrdinaryValue(value) {
+				continue // an ordinary string, escaped $${...} included (UC-16 BR-20)
+			}
 			match := bindingPattern.FindStringSubmatch(value)
 			if match == nil {
-				return refine(ErrInvalidVariable, "container %s variable %s must be one reference", containerName, key)
+				return refine(ErrInvalidVariable, "container %s variable %s must be an ordinary value or one reference", containerName, key)
 			}
 			alias, output := match[1], match[2]
 			resourceSpec, ok := doc.Resources[alias]

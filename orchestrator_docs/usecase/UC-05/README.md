@@ -45,5 +45,6 @@ behavior/collaboration; prototype acceptance is not product implementation proof
 [engine/source contract](../../architecture/contracts/git-render-bundles.md),
 [implementation handoff](../../implementation/git-render-bundles.md) and
 [real acceptance](../../operations/git-render-bundles-acceptance.md).
-Required design is recorded in this use case's RB requirements; IMP-034 tracks
-unimplemented work separately.
+Behavior is recorded in this use case's RB requirements;
+[IMP-035](../../implementation/deviations.md#imp-035--git-owned-render-bundles)
+records implementation and actual acceptance separately.

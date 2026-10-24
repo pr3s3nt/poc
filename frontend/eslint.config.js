@@ -11,6 +11,9 @@ export default tseslint.config(
     files: ['test/e2e/**/*.mjs'],
     languageOptions: { globals: globals.node },
   },
+  { files: ['test/e2e/devex-env-local.mjs', 'test/e2e/ec2-role-real.mjs'], languageOptions: { globals: globals.browser } },
+  { files: ['design/resource-definition-module-forms/*.js', 'design/resource-definition-v3/*.js'], languageOptions: { sourceType: 'script', globals: globals.browser } },
+  { files: ['design/resource-definition-module-forms/*.mjs', 'design/resource-definition-v3/*.mjs'], languageOptions: { globals: globals.node } },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {

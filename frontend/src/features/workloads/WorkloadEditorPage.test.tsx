@@ -26,10 +26,10 @@ it('saves an Application key as a Score reference, not a copied value', async ()
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   await user.type(screen.getByLabelText('Tên Workload'), 'frontend');
   await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/frontend:test');
-  await user.click(within(screen.getByRole('group', { name: 'Biến của ứng dụng cho main' })).getByRole('checkbox', { name: 'API_URL' }));
-  await user.click(screen.getByRole('checkbox', { name: 'Dùng tên Container khác cho API_URL' }));
-  await user.clear(screen.getByLabelText('Tên trong Container cho API_URL'));
-  await user.type(screen.getByLabelText('Tên trong Container cho API_URL'), 'BACKEND_URL');
+  await user.click(screen.getByRole('button', { name: '+ Thêm biến' }));
+  await user.type(screen.getByLabelText('Tên biến, dòng 1'), 'BACKEND_URL');
+  await user.selectOptions(screen.getByLabelText('Lấy giá trị từ, dòng 1'), 'Biến của ứng dụng');
+  await user.selectOptions(screen.getByLabelText('Biến của ứng dụng, dòng 1'), 'API_URL');
   await user.click(screen.getByRole('button', { name: 'Lưu draft Workload' }));
   expect(saved).toBeDefined();
   const score = saved?.score as { containers: { main: { variables: Record<string, string> } }; resources: { env: { type: string } } };
@@ -491,13 +491,13 @@ it('keeps the old route target when its port is renamed, removed or invalid, sho
   expect(puts[0]!.score.service.publicRoutes).toEqual([{ path: '/', port: 'other' }]);
 });
 
-it('does not select keys or secrets on its own and sends no variables for an untouched picker', async () => {
+it('does not add variables, keys or secrets on its own and sends no variables for an untouched table', async () => {
   const { puts } = serve({ keys: [{ name: 'API_URL', kind: 'VARIABLE', configured: true, value: 'x', usedBy: [] }, { name: 'TOKEN', kind: 'SECRET', configured: true, value: 'y', usedBy: [] }] });
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await fillBasic(user);
-  expect(await screen.findByRole('checkbox', { name: 'API_URL' })).not.toBeChecked();
-  expect(screen.getByRole('checkbox', { name: 'TOKEN' })).not.toBeChecked();
+  expect(await screen.findByText('Chưa có biến môi trường')).toBeInTheDocument();
+  expect(screen.queryByLabelText(/^Tên biến, dòng/)).not.toBeInTheDocument();
   await user.click(saveButton());
   expect(puts[0]!.score.containers.main.variables).toBeUndefined();
   expect(puts[0]!.score.resources).toBeUndefined();

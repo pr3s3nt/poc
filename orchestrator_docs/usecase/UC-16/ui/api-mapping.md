@@ -2,7 +2,7 @@
 id: UC-16-UI-API-MAPPING
 artifact: use-case-ui-api-mapping
 status: current
-last_reviewed: 2026-10-14
+last_reviewed: 2026-10-24
 related: UC-12, UC-16, UC-05, UC-07
 ---
 
@@ -43,3 +43,21 @@ hoặc cloud-managed. Custom/imported class được giữ nguyên và matching 
 không tự đổi class/target. Không resource/provider/secret-store/CLI calls hoặc
 writes trong query. POST Type vẫn chỉ nhận contract schema đã định nghĩa,
 không nhận computed `classes`.
+
+
+## Unified sources — DEVEX-ENV
+
+Canonical mappings and create-only payload/errors are in
+[OC-12/OC-16](../../../architecture/contracts/operation-contracts.md).
+Reuse GET configuration, GET resource-types, GET workloads, existing workload
+PUT/parse and UC-01 Secret Store selection endpoints. Add POST configuration/keys
+for create-only; do not call existing upsert PUT from Tạo và chọn.
+
+Source enum is frontend state only. Send ordinary strings or existing references
+in Score; never send secret creation input in workload Save/parse/Preview. Dialog
+success consumes the authoritative Configuration/version, selects its new key,
+and retains parent draft version unless reload shows a real concurrent change.
+Changing config invalidates old Preview even if workload Save has not happened.
+Creation timeout cannot be treated as absence: GET/review before new mutation.
+Scope/request generation and stable row identity prevent late success selecting
+another container/row; clear secret input on cancel/success/scope change.

@@ -583,7 +583,7 @@ zero-value response and unavailable→valid→unavailable transitions. No backen
 admission, data, deployment or lifecycle behavior is changed. See
 [white-screen diagnosis](../verification/2026-10-23-preview-no-change-white-screen.md).
 
-## IMP-034 — Git-owned render bundles
+## IMP-035 — Git-owned render bundles
 
 Accepted design on 2026-10-24: [ADR-021](../architecture/decisions/ADR-021-git-render-bundles.md)
 and UC-03/05/06/07 RB requirements move normalization/defaults/output-only
@@ -610,3 +610,22 @@ Residual differences, kept deliberately:
 - Bundle files cannot contain Terraform-reserved names (`*.tf.json`,
   `override.tf`, `.terraform*`) because the shared hardened Git tree reader
   rejects them; irrelevant to render bundles.
+
+## IMP-034 — Unified workload environment editor
+
+Accepted user direction 2026-10-24 replaces separated Application key checklists
+and resource/Service rows with one per-container source table. UC-16 also accepts
+ordinary values entered directly and embeds creation of missing UC-12 keys or
+workload dependencies. Specifications, UI, realization and OC-12/16 now own the
+new behavior. At source baseline `8f4d66f`, the old checklist/reference-only code
+is still present: `validateBindings` rejects literals, reconstruction hides
+legacy literals, and configuration Put upserts same-kind keys. A frontend-only
+change cannot satisfy the contract. Add create-only handling, safe accepted-value
+provenance/lifecycle and the unified UI with ADR-020 catalogs. No database reset
+or global literal-readback bypass. See [complete coding handoff](workload-environment-editor.md).
+
+Status: resolved 2026-10-24. Create-only configuration, ordinary-value lifecycle
+with private `literalProofs`, the unified table, inline key/store/dependency
+dialogs and Việt/Anh catalogs are implemented; see
+[verification](../verification/2026-10-24-devex-env-implementation.md). No
+deviation remains for this item.

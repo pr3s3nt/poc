@@ -128,7 +128,7 @@ skipped test, nonzero worker/runner or unresolved cleanup is a failed gate.
 Run required code/frontend/docs/shell checks from the
 [implementation handoff](../implementation/git-render-bundles.md). New real
 runner command must appear there and in the implementation report. Update
-CURRENT_STATE/IMP-034/traceability only from actual results. Complete the GitHub
+CURRENT_STATE/IMP-035/traceability only from actual results. Complete the GitHub
 issue only when end-user acceptance and checks pass; otherwise report the exact
 blocker and retained owned resources, never claim a fake/partial run as success.
 

@@ -2,7 +2,7 @@
 id: UC-12-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-24
 related: UC-01, UC-05, UC-06, UC-07, UC-16
 ---
 
@@ -24,7 +24,8 @@ cùng Environment có thể tham chiếu và tái sử dụng.
 
 ## Trigger
 
-**TRG-01:** Developer mở Application Settings → Variables & Secrets.
+**TRG-01:** Developer mở Application Settings → Variables & Secrets hoặc
+form tạo key tại chỗ từ bảng Biến môi trường của UC-16.
 
 ## Main success scenario
 
@@ -154,10 +155,9 @@ provider bộ nhớ. HA, backup và secret lifecycle production chưa thuộc MV
 
 ## Workload reuse
 
-UC-16 MS-04/MS-05 and BR-15–BR-18 own the selection UI: Developer ticks existing
-keys per container, using the key name by default and an optional container
-alias. UC-12 continues owning key/value creation and revision history; workload
-selection never creates a second key or copies its value.
+UC-16 MS-04/MS-05 và BR-15–24 sở hữu bảng chọn nguồn tại container. UC-12
+sở hữu key/value/revision, kể cả khi form tạo key được nhúng trong UC-16.
+Chọn key có sẵn không tạo bản sao giá trị; tạo tại chỗ là thao tác riêng tường minh.
 
 ## Environment secret-store transitions
 
@@ -178,3 +178,29 @@ selection never creates a second key or copies its value.
 **VAR-04 — Change store:** Developer chọn store READY khác trong Settings;
 hiển thị impact; copy/verify/commit, báo progress hoặc safe recovery failure.
 Quy tắc shared: [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).
+
+
+## Tạo key tại workload editor — DEVEX-ENV (2026-10-24)
+
+- **BR-24:** UC-16 được nhúng form tạo Variable/Secret cho đúng app/env đang
+  sửa. Quyền, naming, uniqueness chung hai loại, value validation và Secret
+  Store semantics giống Settings. Không tạo key cho Environment khác.
+- **BR-25:** **Tạo và chọn** là create-only, không được dùng upsert để ghi đè
+  key cùng tên/cùng loại. Check version, no-active-operation và key chưa tồn
+  tại trước commit; concurrent create chỉ có một winner. Khi trùng, cho chọn
+  key có sẵn sau GET/review tường minh nếu đúng loại, hoặc đổi tên. Không tự
+  thay giá trị, không tự đổi loại, không tự gửi lại mutation với version mới.
+- **BR-26:** Success trả safe metadata của configuration mới, không secret
+  value; editor chọn key cho đúng dòng. Key commit độc lập với Save workload.
+  Hủy/xóa dòng sau success giữ key trong Settings và không tự rollback key
+  hoặc Secret Store đã lưu. Failed workload Save giữ key đã tạo và draft.
+- **BR-27:** Secret chỉ tồn tại trong input che và request tạo; không đưa vào
+  Score, bản nháp workload, URL, local/session storage, log hoặc evidence.
+  Xóa input khi success, cancel, đổi scope hoặc đóng form; lỗi còn form giữ
+  input che cho người dùng sửa/retry tường minh. Nếu kết quả mutation chưa rõ,
+  không replay: GET/review metadata, cho **Dùng key hiện có** nếu phù hợp hoặc
+  tạo lại nếu xác minh key chưa tồn tại; không khẳng định giá trị đã lưu đúng
+  chỉ vì thấy cùng tên key. Không đọc secret để đối chiếu.
+- **BR-28:** Variable tạo tại chỗ lưu như UC-12 hiện hành, khác với Giá trị nhập
+  riêng container ở UC-16 BR-20. Khi chưa có Secret Store, form UC-16 hỗ trợ
+  initial selection theo UC-16 BR-24; không khởi chạy copy/migrate tự động.

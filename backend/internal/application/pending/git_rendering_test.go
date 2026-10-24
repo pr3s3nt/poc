@@ -147,7 +147,8 @@ func TestGitBundleOnlyChangeIsPendingUpdateWithoutGitFetch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc := pending.NewService(app.Store, planning.NewService(render.Bundles()), workloadconfig.NewService(app.Store), planning.RegistryInspector{Metadata: app.Modules})
+	workloads := workloadconfig.NewService(app.Store)
+	svc := pending.NewService(app.Store, planning.NewService(render.Bundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
 	svc.SetDeployer(app.Deployments)
 	fetches := git.calls
 
@@ -155,7 +156,19 @@ func TestGitBundleOnlyChangeIsPendingUpdateWithoutGitFetch(t *testing.T) {
 	score := scoreFor("backend", "backend:v1", false)
 	score["containers"].(map[string]any)["main"].(map[string]any)["resources"] = map[string]any{"requests": map[string]any{"cpu": "250m"}}
 	score["containers"].(map[string]any)["side"] = map[string]any{"image": "busybox:1"}
-	deploy(t, app, opts, "backend", score)
+	// The merged DEVEX-ENV path must retain accepted literal provenance while
+	// the same planning snapshot loads verified Git bundle metadata (PR #16).
+	score["containers"].(map[string]any)["main"].(map[string]any)["variables"] = map[string]any{"LOG_LEVEL": "debug"}
+	if _, err := workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "backend", score, 0); err != nil {
+		t.Fatal(err)
+	}
+	initial, err := svc.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report, err := svc.Deploy(ctx, opts.ApplicationKey, opts.EnvironmentKey, "test", initial.Token); err != nil || report.Status != "SUCCEEDED" {
+		t.Fatalf("deploy accepted literal with Git bundle: %+v %v", report, err)
+	}
 	first := appliedDeployment(t, app)
 	labels := first["metadata"].(map[string]any)["labels"].(map[string]any)
 	if labels["example.com/team"] != "payments" || labels["app.kubernetes.io/managed-by"] != "orchestrator" {
@@ -197,6 +210,11 @@ func TestGitBundleOnlyChangeIsPendingUpdateWithoutGitFetch(t *testing.T) {
 	}
 	if report, err := svc.Deploy(ctx, opts.ApplicationKey, opts.EnvironmentKey, "test", toB.Token); err != nil || report.Status != "SUCCEEDED" {
 		t.Fatalf("deploy B: %+v %v", report, err)
+	}
+	// A rendering-only deployment must carry the proof from BaseProofs while
+	// selecting B from Catalog.RenderBundles; losing either merge side breaks it.
+	if got := variablesOf(liveScore(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "backend"))["LOG_LEVEL"]; got != "debug" {
+		t.Fatalf("accepted literal lost after Git bundle update: %v", got)
 	}
 	second := appliedDeployment(t, app)
 	if r := resources(second, "side"); r["cpu"] != "30m" {

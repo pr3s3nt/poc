@@ -186,3 +186,13 @@ selector patterns under [UC-03 screens](../../usecase/UC-03/ui/screens.md#git-re
 Existing shell/routes/criteria stay; shared helper text and full pin details are
 progressive disclosures. New source/inputs/error/provenance labels use VI/EN
 catalogs. This scoped extension does not redesign the existing catalog.
+
+## Inline source creation — DEVEX-ENV (2026-10-24)
+
+The workload editor uses one environment-variable table per container, owned by
+[UC-16 screens](../../usecase/UC-16/ui/screens.md). Reuse shell/card/button/input
+styles; no new visual identity or page navigation is required. Source-specific
+controls appear within a row; create forms open one accessible dialog while
+parent edits remain mounted. Focus returns to the invoking row. Commit boundaries
+are explained at the committing action, not repeated in every row. Shared keys
+remain UC-12 entities; adding a dependency remains local desired workload state.

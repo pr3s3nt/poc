@@ -1,0 +1,28 @@
+application and scoped definitions are ready
+backend deployed with the fake executor
+add-resource dialog adds the dependency to the draft, selects the alias and leaves the output to choose
+secret output carries the Bí mật label
+create-only POST returned 201
+secret input is masked
+secret value is nowhere in the page after creation
+no horizontal overflow at 1512x980 with ten rows
+no horizontal overflow at 1280x900
+no horizontal overflow at 1280x900 with the sidebar collapsed
+Save returned the draft list
+Score projection of the five sources
+no secret value in the saved Score
+Preview lists the workload and Deploy succeeded (fake execution)
+secret value is not in the Preview/Deploy page
+deployed workload reopens with all nine rows
+ordinary values and the secret reference round-trip through Deploy and Edit
+secret value is not in the reopened editor
+duplicate create left REGION unchanged
+keys created in place stay after the workload editor is cancelled
+secret keys never expose a value over the API
+English source labels (1512x980)
+English dialog closes with Escape and returns focus (1512x980)
+no horizontal overflow, English 1512x980
+English source labels (1280x900)
+English dialog closes with Escape and returns focus (1280x900)
+no horizontal overflow, English 1280x900
+no uncaught page errors

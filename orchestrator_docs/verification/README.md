@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # Verification evidence
@@ -14,6 +14,9 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 | Date | Scope | Record |
 |---|---|---|
 | 2026-10-24 | Issue #14 Git-owned manifest rendering; real kind/Compose Playwright RB-E01..E10 A→B→restart→A, UI cleanup, checks | [Git render bundles](2026-10-24-git-render-bundles.md) |
+
+| 2026-10-24 | DEVEX-ENV implementation (issue #13); Go/PostgreSQL, frontend, fake-adapter desktop browser Việt/Anh | [Implementation](2026-10-24-devex-env-implementation.md) |
+| 2026-10-24 | DEVEX-ENV approved docs; current Việt/Anh product UI reference using fixture GETs, no new feature implementation | [Design/reference](2026-10-24-devex-env-design.md) |
 | 2026-10-23 | UC-17 / issue #12 platform effectiveness đợt 1; Go/PostgreSQL restart, frontend, fake-adapter desktop browser | [UC-17 effectiveness](2026-10-23-uc17-platform-effectiveness.md) |
 | 2026-10-21 | Issue #8 v3 visual correction; focused catalog/detail, cards, mapping rows, fixed Save and browser geometry | [V3 visual correction](2026-10-21-resource-definition-v3-visual.md) |
 | 2026-10-21 | Issue #8 Resource Definition v3; focused frontend checks and real HTTP/Git browser/CAS/mobile | [Resource Definition v3](2026-10-21-resource-definition-v3.md) |

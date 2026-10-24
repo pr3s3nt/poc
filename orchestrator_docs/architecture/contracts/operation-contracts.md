@@ -239,21 +239,105 @@ replaced in list/detail projection, without mutating history.
   preview responses hoặc Pod spec/annotations. VSO chỉ đồng bộ sang scoped
   Kubernetes Secret theo ADR-008; Pod dùng secretKeyRef, không literal secret.
 
+### OC-12 create-only — DEVEX-ENV
+
+`POST /api/v1/applications/{id}/environments/{env}/configuration/keys`
+accepts `{name, kind, value, version}`; `kind` is VARIABLE or SECRET, `version`
+is a required nonnegative integer (zero is valid for an empty scope). Missing,
+null, wrong types, unknown fields/trailing JSON are rejected with safe
+INVALID_REQUEST. Name/value validation follows existing UC-12; nonempty value,
+no NUL, unique name across kinds. Do not change PUT update semantics for Settings.
+
+`ConfigurationService.CreateKey` authenticates/scopes like PutKey, validates no
+active operation/config version and absence of name (any kind), writes Secret
+through the selected store only if needed, and commits a new desired revision
+under CAS. Concurrent create has one winner; stale or duplicate never overwrites.
+Use the existing immutable provider write/failed-attempt cleanup discipline;
+no provider calls inside the DB transaction. Precheck plus an unguarded upsert
+is insufficient. Return 201 and the same safe Configuration projection as GET,
+including authoritative version; never return secret value. Errors use existing
+codes: DUPLICATE 409, STALE_VERSION 409, ENVIRONMENT_BUSY 409,
+SECRET_STORE_REQUIRED/UNAVAILABLE 422, INVALID_VARIABLE/INVALID_REQUEST 400,
+and existing authorization/provider error mapping. No automatic client retry.
+
+The client treats configuration creation and workload Save as separate commits.
+A successful key stays if workload Save is canceled/fails. Initial Secret Store
+selection reuses UC-01's existing versioned Environment save and onTargetChange
+projection; not a new create/store transaction. If create response is lost,
+GET/review safe metadata before any subsequent mutation; explicit selection of
+an existing same-kind key does not claim its bytes match the lost request.
+
 ## OC-16 `WorkloadConfigurationService.List` / `Save` / `Delete` / `Undo`
 
 - Use case: UC-16. Persist versioned Environment-scoped desired Score documents
   separately from the current Deployment Set. Save/delete/undo never deploy.
-- UI form and Score import share the same validation. Container bindings may
-  only be UC-12 keys, declared resource outputs or same-Environment Service
-  outputs; direct literals are rejected on this UI/API path.
+- UI form and Score import share the same validation. Container bindings accept
+  ordinary strings under DEVEX-ENV plus UC-12 keys, declared resource outputs
+  or same-Environment Service outputs. Secrets remain whole references.
 - The form reads Resource Type input contracts and writes typed dependency
   values to `resources.<alias>.params`; required inputs must be present.
 - `resources.env` is the built-in virtual resource of type `environment`.
   `${resources.env.KEY}` resolves dynamically from the selected UC-12 revision;
-  it never provisions a resource. Secret keys must occupy the whole binding
-  and can appear only in the Secret section.
+  it never provisions a resource. Secret keys must occupy the whole binding; the unified table derives
+  sensitivity from key/output metadata, never a caller-supplied boolean.
 - Changes advance the Environment draft version; preview pins this version
   together with the UC-12 desired revision and current Deployment Set/version.
+
+### OC-16 unified sources and safe literals — DEVEX-ENV
+
+The unified UI projects onto Score, not a second deployment configuration API:
+
+| UI source | Persisted Score |
+|---|---|
+| Giá trị nhập | `containers.<container>.variables.<name>` ordinary string, Score-escaped when needed |
+| Biến của ứng dụng / Bí mật | `${resources.env.KEY}` with virtual `env: {type: environment}` |
+| Tài nguyên | `${resources.<alias>.<output>}` with the existing dependency/type/class/id/params |
+| Workload khác | Existing virtual `service` resource `{type: service, params: {workload, port}}`, reference its `url` output |
+
+Save PUT and parse POST keep their current paths and request envelopes; no new
+source enum goes into public Score. Ordinary literals are exact strings (empty
+allowed, whitespace preserved, NUL rejected). Form input is text; escape dollar
+syntax with the existing Score parser/renderer so `${...}` typed in Giá trị nhập
+is not evaluated. Import preserves Score semantics: full references and escaped
+literals are accepted; malformed/unknown/mixed references remain invalid, not
+reclassified as ordinary text. All declared Type params still validate before
+write; reserved aliases and per-container duplicate names fail before dictionary
+serialization. Do not broaden other Score endpoints or alter conformance shapes.
+
+Relaxing `validateBindings` alone is insufficient. New ordinary values must
+round-trip draft Save/List, pending Preview, successful Deploy/current-set Edit,
+restart and UC-12 rename-with-reference-update without loss or value conversion.
+**No blanket `allowLiteral=true` on historical reconstruction.** Retain existing
+no-readback for historical/direct-API literals whose source is unknown.
+
+Record server-owned provenance for ordinary bindings explicitly accepted by the
+new UC-16 Save. It is tied to app/env/workload/container/name, the exact accepted
+Score string and draft version. Promote provenance only with the matching
+successful workload/current-set commit; on partial deploy keep it per successful
+workload, never mark unrelated/failed workloads. Keep it across restart and
+remove/invalidate it when the literal/identity changes. A checksum/version may
+identify the value; do not duplicate secret values in metadata. Parse/import
+alone cannot authorize readback of existing state. Client-supplied provenance
+or arbitrary Score annotations are never trusted. If unchanged accepted literal
+is carried through a rename/redeploy, retain provenance with the corresponding
+new revision; if a direct API updates the value, invalidate it. A value mismatch,
+missing provenance or old deployment cannot become readable by matching only
+the key name, image, workload name or a current draft.
+
+The internal persistence representation is an implementation choice, not a user
+product decision. Choose the smallest typed metadata extension; if schema or
+snapshot format changes, update canonical schema/ERD/adapters before code and
+use additive compatibility (missing marker means unknown), never reset/backfill
+old values as safe. Public Score and planner Delta semantics stay unchanged;
+provenance is private metadata and cannot be toggled through the UI. Keep existing
+Preview/log redaction; ordinary editor readback does not authorize exposing raw
+historical values in the visual review or diagnostics.
+
+Inline dependency creation only edits parent form state; it has no resource
+creation HTTP call. Workload Save persists it with existing CAS. Inline key
+creation calls OC-12 CreateKey separately. No composite transaction, auto-Save,
+auto-Preview or auto-Deploy is introduced. UI source selection is explicit and
+does not read secret values or resolve resource outputs.
 
 ## OC-17 `PreviewService.PreviewDesired` / `DeploymentService.DeployPreview`
 

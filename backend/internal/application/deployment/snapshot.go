@@ -66,10 +66,12 @@ func PublicFailure(err error) string {
 // point in time (UC-05 BR-01, OC-06/07). UC-05 Preview and UC-06 Deploy share
 // it so both plan from identical input semantics.
 type PlanningSnapshot struct {
-	App         appdomain.Application
-	Env         environment.Environment
-	BaseSetID   string
-	BaseSet     environment.Document
+	App       appdomain.Application
+	Env       environment.Environment
+	BaseSetID string
+	BaseSet   environment.Document
+	// BaseProofs is the private literal provenance of the base set (UC-16 BR-23).
+	BaseProofs  environment.LiteralProofs
 	Catalog     planning.Catalog
 	Types       map[string]resource.Type
 	Definitions map[string]resource.Definition
@@ -109,12 +111,14 @@ func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 			return err
 		}
 		base := environment.NewDocument()
+		var baseProofs environment.LiteralProofs
 		if env.CurrentDeploymentSetID != "" {
 			set, err := view.GetDeploymentSet(ctx, env.CurrentDeploymentSetID)
 			if err != nil {
 				return err
 			}
 			base = set.Document
+			baseProofs = set.LiteralProofs
 		}
 		typeList, err := view.ListResourceTypes(ctx, organizationKey)
 		if err != nil {
@@ -147,7 +151,7 @@ func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 		}
 		out = PlanningSnapshot{
 			App: app, Env: env,
-			BaseSetID: env.CurrentDeploymentSetID, BaseSet: base,
+			BaseSetID: env.CurrentDeploymentSetID, BaseSet: base, BaseProofs: baseProofs,
 			Catalog: planning.Catalog{Types: types, Definitions: defList, Accounts: accounts, RenderBundles: renderBundles},
 			Types:   types, Definitions: definitions, Active: active,
 		}

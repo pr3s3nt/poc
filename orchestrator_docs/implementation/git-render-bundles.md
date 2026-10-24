@@ -15,7 +15,7 @@ is the original work breakdown.
 This is the executable work breakdown for accepted required design, not completion
 evidence. [ADR-021](../architecture/decisions/ADR-021-git-render-bundles.md) owns
 decisions; [contract](../architecture/contracts/git-render-bundles.md) owns engine/
-source/API shapes; UC specifications own behavior. [IMP-034](deviations.md#imp-034--git-owned-render-bundles)
+source/API shapes; UC specifications own behavior. [IMP-035](deviations.md#imp-035--git-owned-render-bundles)
 tracks the current gap. No roadmap continuation or approval checkpoint is implied.
 
 ## Read in order
