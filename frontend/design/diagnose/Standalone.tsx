@@ -206,4 +206,3 @@ export function Standalone() {
 export function ReferenceApplications() {
   return <AppShell username="platform.demo" role="PLATFORM_ENGINEER" activeRoute="applications" onSignOut={() => undefined}><ApplicationsPage applications={['storefront', 'payments'].map((name) => ({ id: name, name, subdomain: name, environments: { staging: emptyEnvironment, production: emptyEnvironment }, workloads: { staging: [], production: [] } }))} /></AppShell>;
 }
-
