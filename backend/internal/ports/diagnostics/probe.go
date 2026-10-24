@@ -24,20 +24,40 @@ type Check struct {
 	Always bool
 }
 
-// ResourceNeed is one resource of the Environment's desired state matched
-// against the Definition catalog. It carries only identifiers and booleans
-// derived from the configuration, never parameter values.
+// ProviderTarget is one resolved provider target of a planned resource: the
+// safe identity the planner pinned (no credential, endpoint or state).
+type ProviderTarget struct {
+	Kind, Connection, Region string
+}
+
+// StorageNeed says whether a planned resource needs persistent storage and
+// which StorageClass it selects. It is derived from the matched Definition and
+// the verified module contract; an input that is a reference or an expression
+// is Unresolved and is never converted to the default class.
+type StorageNeed struct {
+	Required bool
+	// Class is the explicit StorageClass; empty with Required means the cluster
+	// default class. Meaningful only when Resolved.
+	Class    string
+	Resolved bool
+}
+
+// ResourceNeed is one planned resource, derived from the actual desired state
+// (drafts plus the applied set) through the planning pipeline.
 type ResourceNeed struct {
-	Alias, Type, Class string
-	// Outcome is MATCHED, NO_MATCH or AMBIGUOUS.
-	Outcome       string
-	Definition    string
-	DriverType    string
-	DriverAccount string
-	// NeedsStorage and StorageClass come from the winner's declared
-	// storage variables; an empty class selects the cluster default.
-	NeedsStorage bool
-	StorageClass string
+	Descriptor, Type, Class string
+	Definition              string
+	DriverType              string
+	// Module is the verified module name; Packaged says it ships with the
+	// platform (its capability groups are therefore known).
+	Module   string
+	Packaged bool
+	// Providers are the resolved provider targets; Cluster and Namespace come
+	// from the placement of the resource.
+	Providers []ProviderTarget
+	Cluster   string
+	Namespace string
+	Storage   StorageNeed
 }
 
 // Requirements are the read-only facts resolved from an Application and
@@ -45,16 +65,61 @@ type ResourceNeed struct {
 // images, secrets or routes may be assumed.
 type Requirements struct {
 	ApplicationKey, EnvironmentKey, EnvironmentType, Namespace string
-	// Resolved is true once the Environment's current Deployment Set was
-	// read; until then nothing about resources, routes or workloads is known.
-	Resolved                bool
-	Workloads, PublicRoutes int
-	SecretStoreKey          string
-	SecretStoreReady        bool
-	// SecretDelivery is the platform's configured workload secret delivery
-	// ("vso", "agent" or empty).
+	// Resolved is true when the planning pipeline produced a plan from the
+	// desired drafts and the applied configuration on one snapshot.
+	Resolved bool
+	// PlanStage and PlanReason (planner enums) are set when planning rejected
+	// the desired state; PlanUnavailable when it could not run at all.
+	PlanStage, PlanReason string
+	PlanUnavailable       bool
+	// Workloads is the number of workloads in the desired final state and
+	// PendingChanges the number of workload changes that deploy would apply.
+	Workloads, PendingChanges int
+	PublicRoutes              int
+	PublicHost                string
+	SecretStoreKey            string
+	// SecretDelivery is the platform's workload secret delivery mode.
 	SecretDelivery string
 	Resources      []ResourceNeed
+	// Placements are the distinct workload/resource cluster placements.
+	Placements []PlacementNeed
+}
+
+// PlacementNeed is a planned cluster placement.
+type PlacementNeed struct{ Cluster, Account, Namespace, Provider, Region string }
+
+// StorageClassesNeeded returns the distinct explicit classes the selected
+// capability resources require, whether the default class is needed and
+// whether some requirement could not be resolved.
+func (r *Requirements) StorageClassesNeeded(resources []ResourceNeed) (classes []string, needDefault, unresolved bool) {
+	seen := map[string]bool{}
+	for _, res := range resources {
+		if !res.Storage.Required {
+			continue
+		}
+		switch {
+		case !res.Storage.Resolved:
+			unresolved = true
+		case res.Storage.Class == "":
+			needDefault = true
+		case !seen[res.Storage.Class]:
+			seen[res.Storage.Class] = true
+			classes = append(classes, res.Storage.Class)
+		}
+	}
+	return classes, needDefault, unresolved
+}
+
+// StoreInspector reads real, safe evidence about a scoped workload secret
+// store (TLS trust and expiry, availability, token acceptance). It never
+// reads a workload secret value.
+type StoreInspector interface {
+	Inspect(ctx context.Context, org, storeKey string) domain.Finding
+}
+
+// RouteInspector reads real TLS evidence of a public application host.
+type RouteInspector interface {
+	Inspect(ctx context.Context, host string) domain.Finding
 }
 
 // Recorder persists run-owned resources the moment a probe intends or

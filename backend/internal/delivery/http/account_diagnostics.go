@@ -150,26 +150,85 @@ func limitsOf(sc domain.Scope) []string {
 	return limits
 }
 
-// staleReasons compares the pinned versions with what is current now.
-func (s *Server) staleReasons(ctx context.Context, org string, sc domain.Scope, accountVersion int64) []string {
-	reasons := []string{}
+// staleness compares the versions a report pinned with what is current now.
+// One instance serves one request, so repeated reports share the lookups.
+type staleness struct {
+	s    *Server
+	org  string
+	apps map[string]int64
+	envs map[string]struct{ version, drafts, config int64 }
+	defs map[string]int64
+}
+
+func (s *Server) newStaleness(org string) *staleness {
+	return &staleness{s: s, org: org, apps: map[string]int64{}, envs: map[string]struct{ version, drafts, config int64 }{}}
+}
+
+// reasons lists why a report no longer describes the present state. A pinned
+// object that cannot be read is itself a reason: history is then not current.
+func (c *staleness) reasons(ctx context.Context, sc domain.Scope, accountVersion int64) []string {
+	out := []string{}
 	if accountVersion > 0 && accountVersion != sc.AccountVersion {
-		reasons = append(reasons, "ACCOUNT_CHANGED")
+		out = append(out, "ACCOUNT_CHANGED")
 	}
-	if c := sc.Context; c != nil {
-		if app, err := s.store.GetApplication(ctx, c.ApplicationKey); err == nil && app.OrganizationKey == org && app.Version != c.ApplicationVersion {
-			reasons = append(reasons, "APPLICATION_CHANGED")
+	x := sc.Context
+	if x == nil {
+		return out
+	}
+	if _, ok := c.apps[x.ApplicationKey]; !ok {
+		if app, err := c.s.store.GetApplication(ctx, x.ApplicationKey); err == nil && app.OrganizationKey == c.org {
+			c.apps[x.ApplicationKey] = app.Version
+		} else {
+			c.apps[x.ApplicationKey] = -1
 		}
-		if c.EnvironmentKey != "" {
-			if env, err := s.store.GetEnvironment(ctx, c.ApplicationKey, c.EnvironmentKey); err == nil && env.Version != c.EnvironmentVersion {
-				reasons = append(reasons, "ENVIRONMENT_CHANGED")
+	}
+	if v := c.apps[x.ApplicationKey]; v != x.ApplicationVersion {
+		out = append(out, "APPLICATION_CHANGED")
+	}
+	if x.EnvironmentKey == "" {
+		return out
+	}
+	key := x.ApplicationKey + "/" + x.EnvironmentKey
+	e, ok := c.envs[key]
+	if !ok {
+		e.version = -1
+		if env, err := c.s.store.GetEnvironment(ctx, x.ApplicationKey, x.EnvironmentKey); err == nil {
+			e.version, e.drafts = env.Version, env.DraftVersion
+			if scope, err := c.s.store.GetConfigurationScope(ctx, x.ApplicationKey, x.EnvironmentKey); err == nil {
+				e.config = scope.Version
+			}
+		}
+		c.envs[key] = e
+	}
+	if e.version != x.EnvironmentVersion {
+		out = append(out, "ENVIRONMENT_CHANGED")
+	}
+	if e.version >= 0 && e.drafts != x.DraftVersion {
+		out = append(out, "DRAFTS_CHANGED")
+	}
+	if e.version >= 0 && x.ConfigVersion != 0 && e.config != x.ConfigVersion {
+		out = append(out, "CONFIGURATION_CHANGED")
+	}
+	if len(x.Definitions) > 0 {
+		if c.defs == nil {
+			c.defs = map[string]int64{}
+			if list, err := c.s.store.ListResourceDefinitions(ctx, c.org); err == nil {
+				for _, d := range list {
+					c.defs[d.Key] = d.Version
+				}
+			}
+		}
+		for _, pin := range x.Definitions {
+			if c.defs[pin.Key] != pin.Version {
+				out = append(out, "DEFINITION_CHANGED")
+				break
 			}
 		}
 	}
-	return reasons
+	return out
 }
 
-func (s *Server) diagReportOf(ctx context.Context, org string, r domain.Report, accountVersion int64) diagReportView {
+func (s *Server) diagReportOf(ctx context.Context, c *staleness, r domain.Report, accountVersion int64) diagReportView {
 	findings := make([]diagFindingView, 0, len(r.Findings))
 	for _, f := range r.Findings {
 		facts := map[string]string{}
@@ -183,7 +242,7 @@ func (s *Server) diagReportOf(ctx context.Context, org string, r domain.Report, 
 	for _, p := range r.ProbeResources {
 		resources = append(resources, diagResourceView{Kind: p.Kind, Namespace: p.Namespace, Name: p.Name, UID: p.UID, State: p.State})
 	}
-	reasons := s.staleReasons(ctx, org, r.Scope, accountVersion)
+	reasons := c.reasons(ctx, r.Scope, accountVersion)
 	return diagReportView{
 		ID: r.ID, Scope: diagScopeOf(r.Scope), Status: string(r.Status), Progress: map[string]int{"completed": r.CompletedChecks, "total": r.TotalChecks},
 		Counts: diagCountsOf(r.Counts()), Ready: r.Ready(), Findings: findings, Cleanup: diagCleanupView{Status: string(r.CleanupStatus), Resources: resources},
@@ -191,8 +250,8 @@ func (s *Server) diagReportOf(ctx context.Context, org string, r domain.Report, 
 	}
 }
 
-func (s *Server) diagSummaryOf(ctx context.Context, org string, r domain.Report, accountVersion int64) diagSummaryView {
-	reasons := s.staleReasons(ctx, org, r.Scope, accountVersion)
+func (s *Server) diagSummaryOf(ctx context.Context, c *staleness, r domain.Report, accountVersion int64) diagSummaryView {
+	reasons := c.reasons(ctx, r.Scope, accountVersion)
 	return diagSummaryView{ReportID: r.ID, Scope: diagScopeOf(r.Scope), Status: string(r.Status), Counts: diagCountsOf(r.Counts()), Ready: r.Ready(), CleanupStatus: string(r.CleanupStatus),
 		Stale: len(reasons) > 0, CreatedAt: r.CreatedAt, FinishedAt: r.FinishedAt}
 }
@@ -239,7 +298,7 @@ func (s *Server) handleStartDiagnostic(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusAccepted, s.diagReportOf(r.Context(), actor.OrganizationKey, created, created.AccountVersion))
+	writeJSON(w, http.StatusAccepted, s.diagReportOf(r.Context(), s.newStaleness(actor.OrganizationKey), created, s.currentAccountVersion(r.Context(), actor.OrganizationKey, created.AccountKey)))
 }
 
 func (s *Server) currentAccountVersion(ctx context.Context, org, key string) int64 {
@@ -259,7 +318,7 @@ func (s *Server) handleGetDiagnostic(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.diagReportOf(r.Context(), actor.OrganizationKey, report, s.currentAccountVersion(r.Context(), actor.OrganizationKey, report.AccountKey)))
+	writeJSON(w, http.StatusOK, s.diagReportOf(r.Context(), s.newStaleness(actor.OrganizationKey), report, s.currentAccountVersion(r.Context(), actor.OrganizationKey, report.AccountKey)))
 }
 
 func (s *Server) handleCancelDiagnostic(w http.ResponseWriter, r *http.Request) {
@@ -272,7 +331,7 @@ func (s *Server) handleCancelDiagnostic(w http.ResponseWriter, r *http.Request) 
 		s.writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.diagReportOf(r.Context(), actor.OrganizationKey, report, s.currentAccountVersion(r.Context(), actor.OrganizationKey, report.AccountKey)))
+	writeJSON(w, http.StatusOK, s.diagReportOf(r.Context(), s.newStaleness(actor.OrganizationKey), report, s.currentAccountVersion(r.Context(), actor.OrganizationKey, report.AccountKey)))
 }
 
 func (s *Server) handleListDiagnostics(w http.ResponseWriter, r *http.Request) {
@@ -308,26 +367,30 @@ func (s *Server) handleListDiagnostics(w http.ResponseWriter, r *http.Request) {
 	}
 	version := s.currentAccountVersion(r.Context(), actor.OrganizationKey, key)
 	items := make([]diagSummaryView, 0, len(page.Reports))
+	cache := s.newStaleness(actor.OrganizationKey)
 	for _, report := range page.Reports {
-		items = append(items, s.diagSummaryOf(r.Context(), actor.OrganizationKey, report, version))
+		items = append(items, s.diagSummaryOf(r.Context(), cache, report, version))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"reports": items, "nextCursor": page.NextCursor})
 }
 
-// latestSummaries is the safe projection added to the account list/detail.
-func (s *Server) latestSummaries(ctx context.Context, org string, versions map[string]int64) map[string]diagSummaryView {
+// latestSummaries is the safe projection added to the account list/detail. A
+// repository failure is returned, never turned into an empty map: the caller
+// marks the history unavailable instead of showing "never checked".
+func (s *Server) latestSummaries(ctx context.Context, org string, versions map[string]int64) (map[string]diagSummaryView, error) {
 	out := map[string]diagSummaryView{}
 	if s.diagnostics == nil {
-		return out
+		return out, errors.New("diagnostics unavailable")
 	}
 	latest, err := s.diagnostics.Latest(ctx, org)
 	if err != nil {
-		return out
+		return nil, err
 	}
+	cache := s.newStaleness(org)
 	for key, report := range latest {
-		out[key] = s.diagSummaryOf(ctx, org, report, versions[key])
+		out[key] = s.diagSummaryOf(ctx, cache, report, versions[key])
 	}
-	return out
+	return out, nil
 }
 
 var _ = persistence.ErrNotFound

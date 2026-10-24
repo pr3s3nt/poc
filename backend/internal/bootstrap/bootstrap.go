@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"orchestrator/internal/adapters/tlsprobe"
 	"orchestrator/internal/application/accountdiag"
 	diagprobes "orchestrator/internal/ports/diagnostics"
 	"os"
@@ -589,7 +590,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	if renderRegistry != nil {
 		renderPort = renderRegistry
 	}
-	diagnostics, err := buildDiagnostics(opts, st, connectionCredentials, ec2RoleProvider, vaultDelivery, closers)
+	diagnostics, err := buildDiagnostics(opts, st, connectionCredentials, ec2RoleProvider, vaultDelivery, pendingChanges, closers)
 	if err != nil {
 		return nil, err
 	}
@@ -879,7 +880,7 @@ func (fakeBundleRenderer) ValidateSelection(_ context.Context, selected resource
 // buildDiagnostics wires the account diagnostics service. The probes use only
 // the account's saved scoped credential; a store without the diagnostic
 // repository leaves the feature unavailable (the routes answer 503).
-func buildDiagnostics(opts Options, st persistence.Store, creds credentials.Store, ec2 connection.EC2RoleProvider, secretDelivery string, closers *[]func()) (*accountdiag.Service, error) {
+func buildDiagnostics(opts Options, st persistence.Store, creds credentials.Store, ec2 connection.EC2RoleProvider, secretDelivery string, planner accountdiag.Planner, closers *[]func()) (*accountdiag.Service, error) {
 	repo, ok := st.(diagprobes.Repository)
 	if !ok {
 		return nil, nil
@@ -891,12 +892,14 @@ func buildDiagnostics(opts Options, st persistence.Store, creds credentials.Stor
 			"AWS":      awsaccess.Diagnostics{Client: awsaccess.New(), Credentials: creds, EC2: ec2},
 		}
 	}
-	cfg := accountdiag.Config{SecretDelivery: secretDelivery}
+	cfg := accountdiag.Config{}
 	if opts.DiagnosticConfigOverride != nil {
 		cfg = *opts.DiagnosticConfigOverride
-		cfg.SecretDelivery = secretDelivery
 	}
+	cfg.SecretDelivery, cfg.BaseDomain = secretDelivery, opts.Seed.BaseDomain
 	svc := accountdiag.New(repo, connection.NewService(st), st, providers, cfg)
+	svc.SetPlanner(planner)
+	svc.SetInspectors(vault.StoreInspector{Stores: st, Credentials: creds}, tlsprobe.Routes{})
 	sweepCtx, stop := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {

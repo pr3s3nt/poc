@@ -74,8 +74,8 @@ var factKinds = map[string]factKind{
 	"deniedGroups": kList, "unprovenGroups": kList, "missingCrds": kList, "regions": kList, "services": kList,
 	"installed": kList, "ingressClasses": kList, "requiredClasses": kList, "definitionKeys": kList, "resourceTypes": kList,
 	// flags and enums
-	"insecure": kBool, "default": kBool, "hostMatch": kBool, "required": kBool, "contextProvided": kBool,
-	"tlsMode": kEnum, "principalType": kEnum, "evidence": kEnum, "role": kEnum,
+	"insecure": kBool, "sealed": kBool, "tokenAccepted": kBool, "pending": kCount, "stage": kName, "planReason": kName, "providers": kList, "classesTested": kList, "reclaimPolicy": kEnum, "default": kBool, "hostMatch": kBool, "required": kBool, "contextProvided": kBool,
+	"tlsMode": kEnum, "principalType": kEnum, "evidence": kEnum, "role": kEnum, "groups": kList,
 	// remote identity
 	"host": kHostPort, "endpoint": kHostPort, "accountId": kAccount, "region": kRegion,
 	"principalArn": kARN, "roleArn": kARN, "uid": kUID,
@@ -241,3 +241,12 @@ func ValidIdentity(key, value string) bool {
 	kind, ok := identityKinds[key]
 	return ok && kind(value)
 }
+
+var capabilityTypes = map[string]string{
+	"postgres": "database", "mysql": "database", "mariadb": "database", "mongodb": "database", "database": "database",
+	"redis": "cache", "memcached": "cache", "cache": "cache",
+}
+
+// CapabilityOf says which selectable capability ("database" or "cache") a
+// resource type belongs to, or "" when it belongs to none of them.
+func CapabilityOf(resourceType string) string { return capabilityTypes[resourceType] }

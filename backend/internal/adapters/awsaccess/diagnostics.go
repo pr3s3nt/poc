@@ -29,35 +29,56 @@ type Diagnostics struct {
 
 var _ probes.Provider = Diagnostics{}
 
-// groupsForUse is the provisioning capability each selected use case needs
-// from the AWS account (the module families of capabilityGroups).
-var groupsForUse = map[string][]string{
-	"database": {"Aurora", "VPC"},
-	"cache":    {"ElastiCache", "VPC"},
-}
+// packagedGroup maps the platform's own packaged AWS modules to the IAM
+// capability group derived from their resources. A module that is not
+// packaged has no known group.
+var packagedGroup = map[string]string{"vpc": "VPC", "eks": "EKS", "elasticache": "ElastiCache", "aurora": "Aurora"}
 
-func neededGroups(scope domain.Scope) []string {
+var allGroups = []string{"Aurora", "EKS", "ElastiCache", "VPC"}
+
+// neededGroups derives the capability groups of the selected work from the
+// planned resources placed on this account. A GENERAL check covers every
+// platform-supported family. unresolved means the requirements are unknown;
+// undeclared means a selected resource uses a module with no known groups.
+func neededGroups(scope domain.Scope, req *probes.Requirements) (groups []string, unresolved, undeclared bool) {
 	if scope.Purpose == domain.PurposeGeneral {
-		return []string{"Aurora", "EKS", "ElastiCache", "VPC"}
+		return allGroups, false, false
+	}
+	if req == nil || !req.Resolved {
+		return nil, true, false
+	}
+	selected := map[string]bool{}
+	for _, u := range scope.UseCases {
+		selected[u] = true
 	}
 	set := map[string]bool{}
-	for _, use := range scope.UseCases {
-		for _, g := range groupsForUse[use] {
-			set[g] = true
+	for _, r := range req.Resources {
+		capability := domain.CapabilityOf(r.Type)
+		if !selected[capability] && !(selected["deploy"] && capability == "") {
+			continue
+		}
+		for _, p := range r.Providers {
+			if p.Kind != "aws" || p.Connection != scope.AccountKey {
+				continue
+			}
+			if g, ok := packagedGroup[r.Module]; ok && r.Packaged {
+				set[g] = true
+			} else {
+				undeclared = true
+			}
 		}
 	}
-	out := make([]string, 0, len(set))
 	for g := range set {
-		out = append(out, g)
+		groups = append(groups, g)
 	}
-	sort.Strings(out)
-	return out
+	sort.Strings(groups)
+	return groups, false, undeclared
 }
 
 func checkID(group string) string { return "aws.capability." + strings.ToLower(group) }
 
 // Plan implements probes.Provider.
-func (Diagnostics) Plan(scope domain.Scope, _ *probes.Requirements) []probes.Check {
+func (Diagnostics) Plan(scope domain.Scope, req *probes.Requirements) []probes.Check {
 	affect := scope.Affects
 	all := []string{"deploy", "database", "cache"}
 	checks := []probes.Check{
@@ -65,25 +86,27 @@ func (Diagnostics) Plan(scope domain.Scope, _ *probes.Requirements) []probes.Che
 		{ID: "aws.identity", Group: groupAccess, DependsOn: []string{"aws.credential"}, AffectedUseCases: affect(all...)},
 		{ID: "aws.region", Group: groupAccess, DependsOn: []string{"aws.identity"}, AffectedUseCases: affect(all...)},
 	}
-	groups := neededGroups(scope)
-	if len(groups) == 0 {
+	groups, unresolved, undeclared := neededGroups(scope, req)
+	switch {
+	case unresolved:
+		checks = append(checks, probes.Check{ID: "aws.capability.unresolved", Group: "capability", AffectedUseCases: scope.UseCases})
+	case len(groups) == 0 && !undeclared:
 		checks = append(checks, probes.Check{ID: "aws.usecase.scope", Group: groupAccess, AffectedUseCases: scope.UseCases})
-	} else {
-		checks = append(checks, probes.Check{ID: "aws.services", Group: groupAccess, DependsOn: []string{"aws.region"}, AffectedUseCases: affect("database", "cache")})
+	default:
+		checks = append(checks, probes.Check{ID: "aws.services", Group: groupAccess, DependsOn: []string{"aws.region"}, AffectedUseCases: affect(all...)})
 		for _, g := range groups {
-			checks = append(checks, probes.Check{ID: checkID(g), Group: "capability", DependsOn: []string{"aws.identity", "aws.region"}, AffectedUseCases: affect("database", "cache")})
+			checks = append(checks, probes.Check{ID: checkID(g), Group: "capability", DependsOn: []string{"aws.identity", "aws.region"}, AffectedUseCases: affect(all...)})
 		}
-		checks = append(checks, probes.Check{ID: "aws.quota", Group: "capability", DependsOn: []string{"aws.identity"}, AffectedUseCases: affect("database", "cache")})
+		if undeclared {
+			checks = append(checks, probes.Check{ID: "aws.capability.undeclared", Group: "capability", AffectedUseCases: affect(all...)})
+		}
+		checks = append(checks, probes.Check{ID: "aws.quota", Group: "capability", DependsOn: []string{"aws.identity"}, AffectedUseCases: affect(all...)})
 	}
 	if scope.Mode == domain.ModeExecution {
 		checks = append(checks, probes.Check{ID: "aws.exec.unsupported", Group: "execution", AffectedUseCases: scope.UseCases, Execution: true})
 	}
 	return checks
 }
-
-const groupAccess = "access"
-
-var principalPattern = regexp.MustCompile(`^arn:aws:iam::[0-9]{12}:(user|role|root)(/|$)`)
 
 type awsSession struct {
 	d         Diagnostics
@@ -192,6 +215,10 @@ func (s *awsSession) Run(ctx context.Context, c probes.Check, prior map[string]d
 			kind = "EC2_ROLE"
 		}
 		return finding(domain.VerdictPass, "CREDENTIAL_RESOLVED", "", fact("accountId", s.expected, "role", kind, "region", s.region))
+	case "aws.capability.unresolved":
+		return finding(domain.VerdictUnknown, "REQUIREMENTS_UNRESOLVED", "select-context", fact("evidence", "NONE"))
+	case "aws.capability.undeclared":
+		return finding(domain.VerdictUnknown, "MODULE_CAPABILITIES_UNDECLARED", "", fact("evidence", "NONE"))
 	case "aws.usecase.scope":
 		return finding(domain.VerdictNA, "ACCOUNT_NOT_USED_BY_SELECTION", "", nil)
 	case "aws.exec.unsupported":
@@ -347,3 +374,7 @@ func capabilityError(err error, facts map[string]string) domain.Finding {
 	f.Facts = facts
 	return f
 }
+
+const groupAccess = "access"
+
+var principalPattern = regexp.MustCompile(`^arn:aws:iam::[0-9]{12}:(user|role|root)(/|$)`)

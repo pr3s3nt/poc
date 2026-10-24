@@ -99,7 +99,7 @@ func (s *kubeSession) execNamespace(ctx context.Context, rec probes.Recorder) do
 	return finding(domain.VerdictPass, "NAMESPACE_CREATED", "", fact("namespace", name, "uid", uid))
 }
 
-func (s *kubeSession) podManifest(name, runID, image, claim string) map[string]any {
+func (s *kubeSession) podManifest(name, runID, image string, claims []string) map[string]any {
 	spec := map[string]any{
 		"restartPolicy": "Never", "terminationGracePeriodSeconds": 0, "automountServiceAccountToken": false,
 		"securityContext": map[string]any{"runAsNonRoot": true, "runAsUser": 65532, "seccompProfile": map[string]any{"type": "RuntimeDefault"}},
@@ -109,9 +109,15 @@ func (s *kubeSession) podManifest(name, runID, image, claim string) map[string]a
 			"securityContext": map[string]any{"allowPrivilegeEscalation": false, "readOnlyRootFilesystem": true, "capabilities": map[string]any{"drop": []any{"ALL"}}},
 		}},
 	}
-	if claim != "" {
-		spec["volumes"] = []any{map[string]any{"name": "data", "persistentVolumeClaim": map[string]any{"claimName": claim}}}
-		spec["containers"].([]any)[0].(map[string]any)["volumeMounts"] = []any{map[string]any{"name": "data", "mountPath": "/data"}}
+	if len(claims) > 0 {
+		var volumes, mounts []any
+		for i, claim := range claims {
+			name := "data-" + domain.Itoa(i)
+			volumes = append(volumes, map[string]any{"name": name, "persistentVolumeClaim": map[string]any{"claimName": claim}})
+			mounts = append(mounts, map[string]any{"name": name, "mountPath": "/data/" + name})
+		}
+		spec["volumes"] = volumes
+		spec["containers"].([]any)[0].(map[string]any)["volumeMounts"] = mounts
 	}
 	return map[string]any{"apiVersion": "v1", "kind": "Pod", "metadata": map[string]any{"name": name, "namespace": s.nsName, "labels": s.labels(runID)}, "spec": spec}
 }
@@ -138,17 +144,30 @@ func (s *kubeSession) createOwned(ctx context.Context, rec probes.Recorder, kind
 	return domain.Finding{}, true
 }
 
-// waitPod polls the pod until Ready or a fixed, observed failure.
+// waitPod polls the pod until Ready or a fixed, observed condition. A failed
+// read (authorization, transient API or network error) is never a verdict
+// about the pod: it ends the wait as READ_FORBIDDEN / READ_FAILED so the caller
+// reports UNKNOWN and cleanup still runs.
 func (s *kubeSession) waitPod(ctx context.Context, name string, limit time.Duration) (string, map[string]string) {
 	deadline := time.NewTimer(limit)
 	defer deadline.Stop()
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
 	var unschedulableSince time.Time
-	phase := "Pending"
+	phase, failures := "Pending", 0
 	for {
 		obj, found, err := s.cli.Get(ctx, s.nsName, "pod", name)
-		if err == nil && found {
+		switch {
+		case err != nil && errors.Is(err, ErrForbidden):
+			return "READ_FORBIDDEN", nil
+		case err != nil && ctx.Err() == nil:
+			if failures++; failures >= 3 {
+				return "READ_FAILED", nil
+			}
+		case err == nil && !found:
+			return "POD_DISAPPEARED", fact("podPhase", phase)
+		case err == nil:
+			failures = 0
 			if p := str(obj, "status", "phase"); p != "" {
 				phase = p
 			}
@@ -184,12 +203,26 @@ func (s *kubeSession) waitPod(ctx context.Context, name string, limit time.Durat
 	}
 }
 
+// waitVerdict maps a waitPod outcome to a finding: observed conditions are
+// FAIL, unreadable state or cancellation is UNKNOWN.
+func waitVerdict(reason string, facts map[string]string, remediation string) domain.Finding {
+	switch reason {
+	case "READ_FORBIDDEN":
+		return finding(domain.VerdictUnknown, "READ_FORBIDDEN", "grant-read", nil)
+	case "READ_FAILED":
+		return finding(domain.VerdictUnknown, "READ_FAILED", "rerun", nil)
+	case "CANCELLED":
+		return finding(domain.VerdictUnknown, "CHECK_TIMEOUT", "rerun", nil)
+	}
+	return finding(domain.VerdictFail, reason, remediation, facts)
+}
+
 func (s *kubeSession) execWorkload(ctx context.Context, rec probes.Recorder) domain.Finding {
 	if s.nsName == "" {
 		return finding(domain.VerdictBlocked, "PREREQUISITE_FAILED", "", nil)
 	}
 	name := "probe-" + randomHex(4)
-	if f, ok := s.createOwned(ctx, rec, "pod", name, s.podManifest(name, rec.RunID(), s.probeImage(ctx), "")); !ok {
+	if f, ok := s.createOwned(ctx, rec, "pod", name, s.podManifest(name, rec.RunID(), s.probeImage(ctx), nil)); !ok {
 		return f
 	}
 	started := time.Now()
@@ -198,46 +231,167 @@ func (s *kubeSession) execWorkload(ctx context.Context, rec probes.Recorder) dom
 		facts["latencyMs"] = domain.Itoa(int(time.Since(started).Milliseconds()))
 		return finding(domain.VerdictPass, "WORKLOAD_READY", "", facts)
 	}
-	if reason == "CANCELLED" {
-		return finding(domain.VerdictUnknown, "CHECK_TIMEOUT", "rerun", nil)
-	}
-	return finding(domain.VerdictFail, reason, "check-scheduling", facts)
+	return waitVerdict(reason, facts, "check-scheduling")
 }
 
-func (s *kubeSession) execVolume(ctx context.Context, rec probes.Recorder) domain.Finding {
+// volumeTargets returns the storage classes the selected capability resources
+// really request on this account, in test order. "" is the cluster default.
+func volumeTargets(req *probes.Requirements, scope domain.Scope, account string) (classes []string, needDefault bool, reason string) {
+	if req == nil || !req.Resolved {
+		return nil, false, "STORAGE_REQUIREMENT_UNRESOLVED"
+	}
+	selected := map[string]bool{}
+	for _, u := range scope.UseCases {
+		selected[u] = true
+	}
+	var storage []probes.ResourceNeed
+	undeclared := false
+	for _, r := range req.Resources {
+		if !selected[domain.CapabilityOf(r.Type)] || !placedOn(r, account) {
+			continue
+		}
+		switch {
+		case r.Storage.Required:
+			storage = append(storage, r)
+		case !r.Storage.Resolved:
+			undeclared = true
+		}
+	}
+	if len(storage) == 0 {
+		if undeclared {
+			return nil, false, "STORAGE_REQUIREMENT_UNDECLARED"
+		}
+		return nil, false, "STORAGE_NOT_REQUIRED"
+	}
+	classes, needDefault, unresolved := req.StorageClassesNeeded(storage)
+	if unresolved {
+		return nil, false, "STORAGE_CLASS_UNRESOLVED"
+	}
+	if len(classes)+btoi(needDefault) > 3 {
+		return nil, false, "TOO_MANY_STORAGE_CLASSES"
+	}
+	return classes, needDefault, ""
+}
+
+func btoi(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func placedOn(r probes.ResourceNeed, account string) bool {
+	for _, p := range r.Providers {
+		if p.Kind == "kubernetes" && p.Connection == account {
+			return true
+		}
+	}
+	return r.Cluster == account
+}
+
+// execVolume exercises the exact StorageClass(es) the selected capability
+// resolved to. It creates nothing when the requirement is unresolved,
+// undeclared or the class's reclaim policy would leave backing storage behind.
+func (s *kubeSession) execVolume(ctx context.Context, rec probes.Recorder, req *probes.Requirements) domain.Finding {
+	classes, needDefault, reason := volumeTargets(req, s.scope, s.account)
+	switch reason {
+	case "STORAGE_NOT_REQUIRED":
+		return finding(domain.VerdictNA, reason, "", nil)
+	case "":
+	default:
+		return finding(domain.VerdictUnknown, reason, "use-literal-storage-class", nil)
+	}
 	if s.nsName == "" {
 		return finding(domain.VerdictBlocked, "PREREQUISITE_FAILED", "", nil)
 	}
-	claim, pod := "probe-data-"+randomHex(4), "probe-volume-"+randomHex(4)
-	pvc := map[string]any{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": map[string]any{"name": claim, "namespace": s.nsName, "labels": s.labels(rec.RunID())},
-		"spec": map[string]any{"accessModes": []any{"ReadWriteOnce"}, "resources": map[string]any{"requests": map[string]any{"storage": "1Gi"}}}}
-	if f, ok := s.createOwned(ctx, rec, "persistentvolumeclaim", claim, pvc); !ok {
-		return f
+	inventory, err := s.storageClassList(ctx)
+	if err != nil {
+		return readFailure(err)
 	}
-	if f, ok := s.createOwned(ctx, rec, "pod", pod, s.podManifest(pod, rec.RunID(), s.probeImage(ctx), claim)); !ok {
-		return f
-	}
-	reason, facts := s.waitPod(ctx, pod, 120*time.Second)
-	if reason == "CANCELLED" {
-		return finding(domain.VerdictUnknown, "CHECK_TIMEOUT", "rerun", nil)
-	}
-	obj, found, err := s.cli.Get(ctx, s.nsName, "persistentvolumeclaim", claim)
-	phase := "Unknown"
-	if err == nil && found {
-		phase = str(obj, "status", "phase")
-	}
-	facts = fact("claimPhase", phase)
-	if reason != "READY" || phase != "Bound" {
-		if reason == "READY" || reason == "POD_NOT_READY" || reason == "POD_UNSCHEDULABLE" {
-			reason = "PVC_NOT_BOUND"
-		}
-		return finding(domain.VerdictFail, reason, "repair-provisioner", facts)
-	}
-	if pv := str(obj, "spec", "volumeName"); pv != "" {
-		if pvObj, ok, err := s.cli.Get(ctx, "", "persistentvolume", pv); err == nil && ok {
-			_ = rec.Record(ctx, domain.ProbeResource{Kind: "persistentvolume", Name: pv, UID: str(pvObj, "metadata", "uid"), State: domain.ResourceCreated})
+	byName, defaultName, defaults := map[string]map[string]any{}, "", 0
+	for _, sc := range inventory {
+		byName[str(sc, "metadata", "name")] = sc
+		if isDefaultClass(sc) {
+			defaultName, defaults = str(sc, "metadata", "name"), defaults+1
 		}
 	}
+	type target struct{ requested, name string }
+	var targets []target
+	for _, c := range classes {
+		targets = append(targets, target{requested: c, name: c})
+	}
+	if needDefault {
+		if defaults != 1 {
+			return finding(domain.VerdictFail, map[bool]string{true: "NO_DEFAULT_STORAGE_CLASS", false: "MULTIPLE_DEFAULT_STORAGE_CLASSES"}[defaults == 0], "set-default-storage-class", fact("defaultClasses", domain.Itoa(defaults)))
+		}
+		targets = append(targets, target{requested: "", name: defaultName})
+	}
+	var tested []string
+	for _, t := range targets {
+		sc, ok := byName[t.name]
+		if !ok {
+			return finding(domain.VerdictFail, "STORAGE_CLASS_MISSING", "create-storage-class", fact("requiredClasses", t.name))
+		}
+		if policy := str(sc, "reclaimPolicy"); policy != "Delete" {
+			// Retain would leave the backing volume behind after the probe.
+			return finding(domain.VerdictUnknown, "EXECUTION_UNSAFE_RECLAIM_POLICY", "", fact("reclaimPolicy", strings.ToUpper(policy), "requiredClasses", t.name))
+		}
+		tested = append(tested, t.name)
+	}
+	var claims []string
+	for _, t := range targets {
+		claim := "probe-data-" + randomHex(4)
+		spec := map[string]any{"accessModes": []any{"ReadWriteOnce"}, "resources": map[string]any{"requests": map[string]any{"storage": "1Gi"}}}
+		if t.requested != "" {
+			spec["storageClassName"] = t.requested
+		}
+		pvc := map[string]any{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": map[string]any{"name": claim, "namespace": s.nsName, "labels": s.labels(rec.RunID())}, "spec": spec}
+		if f, ok := s.createOwned(ctx, rec, "persistentvolumeclaim", claim, pvc); !ok {
+			return f
+		}
+		claims = append(claims, claim)
+	}
+	pod := "probe-volume-" + randomHex(4)
+	if f, ok := s.createOwned(ctx, rec, "pod", pod, s.podManifest(pod, rec.RunID(), s.probeImage(ctx), claims)); !ok {
+		return f
+	}
+	reason2, facts := s.waitPod(ctx, pod, 120*time.Second)
+	if reason2 == "READ_FORBIDDEN" || reason2 == "READ_FAILED" || reason2 == "CANCELLED" {
+		return waitVerdict(reason2, nil, "")
+	}
+	facts = fact("classesTested", domain.JoinList(tested))
+	for _, claim := range claims {
+		obj, found, err := s.cli.Get(ctx, s.nsName, "persistentvolumeclaim", claim)
+		if err != nil {
+			return readFailure(err)
+		}
+		phase := ""
+		if found {
+			phase = str(obj, "status", "phase")
+		}
+		if phase != "Bound" {
+			facts["claimPhase"] = "Pending"
+			if reason2 == "READY" || reason2 == "POD_NOT_READY" || reason2 == "POD_UNSCHEDULABLE" {
+				reason2 = "PVC_NOT_BOUND"
+			}
+			return finding(domain.VerdictFail, reason2, "repair-provisioner", facts)
+		}
+		// Record the bound volume identity; if that fails the run stops here and
+		// cleanup finds the volume through the claim's UID.
+		if pv := str(obj, "spec", "volumeName"); pv != "" {
+			pvObj, ok, err := s.cli.Get(ctx, "", "persistentvolume", pv)
+			if err != nil || !ok {
+				return finding(domain.VerdictUnknown, "VOLUME_UNOBSERVED", "run-cleanup-check", facts)
+			}
+			if rec.Record(ctx, domain.ProbeResource{Kind: "persistentvolume", Name: pv, UID: str(pvObj, "metadata", "uid"), State: domain.ResourceCreated}) != nil {
+				return finding(domain.VerdictUnknown, "RECORD_FAILED", "run-cleanup-check", facts)
+			}
+		}
+	}
+	if reason2 != "READY" {
+		return waitVerdict(reason2, facts, "repair-provisioner")
+	}
+	facts["claimPhase"] = "Bound"
 	return finding(domain.VerdictPass, "VOLUME_PROVISIONED", "", facts)
 }
 
@@ -284,7 +438,10 @@ func (s *kubeSession) waitAbsent(ctx context.Context, namespace, kind, name, uid
 
 // Cleanup implements probes.Session. It deletes the run's namespace only after
 // proving ownership and the recorded UID, verifies native absence, and leaves a
-// same-name replacement or foreign object untouched.
+// same-name replacement or foreign object untouched. Backing volumes are found
+// through the claim UIDs (never trusted from a record alone) and are verified
+// absent; a volume the provisioner did not remove is reported UNKNOWN and is
+// never deleted by hand, so physical backing storage is never claimed cleaned.
 func (s *kubeSession) Cleanup(ctx context.Context, resources []domain.ProbeResource, runID string) []domain.ProbeResource {
 	out := append([]domain.ProbeResource(nil), resources...)
 	if s.reason != "" {
@@ -295,47 +452,111 @@ func (s *kubeSession) Cleanup(ctx context.Context, resources []domain.ProbeResou
 		}
 		return out
 	}
-	nsState := ""
-	var nsName string
+	nsState, nsName := "", ""
 	for i := range out {
-		if out[i].Kind != "namespace" || out[i].Settled() {
-			if out[i].Kind == "namespace" {
-				nsState, nsName = out[i].State, out[i].Name
-			}
+		if out[i].Kind != "namespace" {
 			continue
 		}
-		out[i] = s.cleanNamespace(ctx, out[i], runID)
+		if !out[i].Settled() {
+			out[i] = s.cleanNamespace(ctx, out[i], runID)
+		}
 		nsState, nsName = out[i].State, out[i].Name
 	}
-	var pvcUID string
+	claimUIDs := map[string]bool{}
 	for _, r := range out {
-		if r.Kind == "persistentvolumeclaim" {
-			pvcUID = r.UID
+		if r.Kind == "persistentvolumeclaim" && r.UID != "" {
+			claimUIDs[r.UID] = true
 		}
+	}
+	var volumes []map[string]any
+	volumesKnown := len(claimUIDs) == 0
+	if (nsState == domain.ResourceDeleted || nsState == domain.ResourceAbsent) && len(claimUIDs) > 0 {
+		out, volumes, volumesKnown = s.scanVolumes(ctx, out, claimUIDs, nsName)
 	}
 	for i := range out {
 		r := &out[i]
-		if r.Settled() || r.Kind == "namespace" {
+		if r.Settled() || r.Kind == "namespace" || r.Kind == "persistentvolume" {
 			continue
 		}
-		switch r.Kind {
-		case "pod", "persistentvolumeclaim":
-			switch nsState {
-			case domain.ResourceDeleted, domain.ResourceAbsent:
-				r.State = domain.ResourceAbsent
-				if r.UID != "" {
-					r.State = domain.ResourceDeleted
-				}
-			case domain.ResourcePreserved:
-				r.State = domain.ResourcePreserved
-			default:
+		switch nsState {
+		case domain.ResourceDeleted, domain.ResourceAbsent:
+			switch {
+			case r.Kind == "persistentvolumeclaim" && r.UID != "" && !volumesKnown:
 				r.State = domain.ResourceUnknown
+			case r.UID != "":
+				r.State = domain.ResourceDeleted
+			default:
+				r.State = domain.ResourceAbsent
 			}
-		case "persistentvolume":
-			*r = s.cleanVolume(ctx, *r, nsName, nsState, pvcUID)
+		case domain.ResourcePreserved:
+			r.State = domain.ResourcePreserved
+		default:
+			r.State = domain.ResourceUnknown
 		}
 	}
+	_ = volumes
 	return out
+}
+
+// namespaceWait bounds how long cleanup waits for a deleted namespace to
+// disappear.
+var namespaceWait = 120 * time.Second
+
+// volumeWait bounds how long cleanup waits for a provisioner to remove a bound
+// volume (a variable so tests can shorten it).
+var volumeWait = 90 * time.Second
+
+// scanVolumes finds every PersistentVolume bound to one of the run's claims,
+// records it, and waits for the provisioner to remove it.
+func (s *kubeSession) scanVolumes(ctx context.Context, out []domain.ProbeResource, claimUIDs map[string]bool, namespace string) ([]domain.ProbeResource, []map[string]any, bool) {
+	all, err := s.list(ctx, "get", "persistentvolumes")
+	if err != nil {
+		for i := range out {
+			if out[i].Kind == "persistentvolume" && !out[i].Settled() {
+				out[i].State = domain.ResourceUnknown
+			}
+		}
+		return out, nil, false
+	}
+	owned := map[string]map[string]any{}
+	for _, pv := range all.Items {
+		claim := mapAt(mapAt(pv, "spec"), "claimRef")
+		if claimUIDs[str(claim, "uid")] && str(claim, "namespace") == namespace {
+			owned[str(pv, "metadata", "name")] = pv
+		}
+	}
+	// A recorded volume that is no longer listed under its claim is checked by name.
+	byName := map[string]int{}
+	for i := range out {
+		if out[i].Kind == "persistentvolume" {
+			byName[out[i].Name] = i
+		}
+	}
+	for name, pv := range owned {
+		if _, recorded := byName[name]; !recorded && len(out) < domain.MaxProbeItems {
+			out = append(out, domain.ProbeResource{Kind: "persistentvolume", Name: name, UID: str(pv, "metadata", "uid"), State: domain.ResourceCreated})
+			byName[name] = len(out) - 1
+		}
+	}
+	for i := range out {
+		if out[i].Kind != "persistentvolume" || out[i].Settled() {
+			continue
+		}
+		wait, cancel := context.WithTimeout(ctx, volumeWait)
+		state := s.waitAbsent(wait, "", "persistentvolume", out[i].Name, out[i].UID)
+		cancel()
+		switch state {
+		case domain.ResourceDeleted:
+			out[i].State = domain.ResourceDeleted
+		case domain.ResourcePreserved:
+			out[i].State = domain.ResourcePreserved
+		default:
+			// Still present (for example a Retain volume) or unreadable: the
+			// backing storage is not shown to be gone.
+			out[i].State = domain.ResourceUnknown
+		}
+	}
+	return out, nil, true
 }
 
 func (s *kubeSession) cleanNamespace(ctx context.Context, r domain.ProbeResource, runID string) domain.ProbeResource {
@@ -363,44 +584,8 @@ func (s *kubeSession) cleanNamespace(ctx context.Context, r domain.ProbeResource
 		r.State = domain.ResourceUnknown
 		return r
 	}
-	r.State = s.waitAbsent(ctx, "", "namespace", r.Name, uid)
-	return r
-}
-
-func (s *kubeSession) cleanVolume(ctx context.Context, r domain.ProbeResource, namespace, nsState, pvcUID string) domain.ProbeResource {
-	if nsState == domain.ResourcePreserved {
-		r.State = domain.ResourcePreserved
-		return r
-	}
-	if nsState != domain.ResourceDeleted && nsState != domain.ResourceAbsent {
-		r.State = domain.ResourceUnknown
-		return r
-	}
-	wait, cancel := context.WithTimeout(ctx, 60*time.Second)
+	wait, cancel := context.WithTimeout(ctx, namespaceWait)
 	defer cancel()
-	if state := s.waitAbsent(wait, "", "persistentvolume", r.Name, r.UID); state == domain.ResourceDeleted {
-		r.State = state
-		return r
-	}
-	obj, found, err := s.cli.Get(ctx, "", "persistentvolume", r.Name)
-	if err != nil {
-		r.State = domain.ResourceUnknown
-		return r
-	}
-	if !found {
-		r.State = domain.ResourceDeleted
-		return r
-	}
-	uid := str(obj, "metadata", "uid")
-	claim := mapAt(mapAt(obj, "spec"), "claimRef")
-	if uid != r.UID || str(claim, "namespace") != namespace || (pvcUID != "" && str(claim, "uid") != pvcUID) {
-		r.State = domain.ResourcePreserved
-		return r
-	}
-	if err := s.deleteRawUID(ctx, "/api/v1/persistentvolumes/"+r.Name, uid); err != nil {
-		r.State = domain.ResourceUnknown
-		return r
-	}
-	r.State = s.waitAbsent(ctx, "", "persistentvolume", r.Name, uid)
+	r.State = s.waitAbsent(wait, "", "namespace", r.Name, uid)
 	return r
 }

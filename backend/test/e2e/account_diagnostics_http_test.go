@@ -225,6 +225,9 @@ func TestAccountDiagnosticsHTTPContract(t *testing.T) {
 	if got["version"].(float64) != float64(version) || got["status"] != account["status"] {
 		t.Errorf("connection changed by a diagnostic: %s", detail)
 	}
+	if got["diagnosticsUnavailable"] != false {
+		t.Errorf("history was readable: %s", detail)
+	}
 	summary, _ := got["latestDiagnostic"].(map[string]any)
 	if summary == nil || summary["reportId"] != id || summary["ready"] != false || summary["stale"] != false {
 		t.Errorf("latest summary: %s", detail)

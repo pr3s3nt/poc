@@ -26,6 +26,7 @@ func (s Scope) Clone() Scope {
 	}
 	if s.Context != nil {
 		c := *s.Context
+		c.Definitions = append([]DefinitionPin(nil), s.Context.Definitions...)
 		s.Context = &c
 	}
 	return s

@@ -45,6 +45,9 @@ type accountView struct {
 	// LatestDiagnostic is the newest diagnostic report summary, separate from
 	// Verification: it never changes Status or Version.
 	LatestDiagnostic *diagSummaryView `json:"latestDiagnostic"`
+	// DiagnosticsUnavailable is true when the diagnostic history could not be
+	// read, so the absence of LatestDiagnostic is not "never checked".
+	DiagnosticsUnavailable bool `json:"diagnosticsUnavailable"`
 }
 
 func accountType(kind application.ConnectionKind) string {
@@ -104,10 +107,11 @@ func (s *Server) handleListAccounts(w http.ResponseWriter, r *http.Request) {
 	for _, conn := range accounts {
 		versions[conn.Key] = conn.Version
 	}
-	latest := s.latestSummaries(r.Context(), org, versions)
+	latest, latestErr := s.latestSummaries(r.Context(), org, versions)
 	views := make([]accountView, 0, len(accounts))
 	for _, conn := range accounts {
 		view := publicAccount(conn)
+		view.DiagnosticsUnavailable = latestErr != nil
 		if summary, ok := latest[conn.Key]; ok {
 			summary := summary
 			view.LatestDiagnostic = &summary
@@ -128,7 +132,9 @@ func (s *Server) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view := publicAccount(conn)
-	if summary, ok := s.latestSummaries(r.Context(), org, map[string]int64{conn.Key: conn.Version})[conn.Key]; ok {
+	latest, latestErr := s.latestSummaries(r.Context(), org, map[string]int64{conn.Key: conn.Version})
+	view.DiagnosticsUnavailable = latestErr != nil
+	if summary, ok := latest[conn.Key]; ok {
 		view.LatestDiagnostic = &summary
 	}
 	writeJSON(w, http.StatusOK, view)

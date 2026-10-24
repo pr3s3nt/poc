@@ -50,6 +50,7 @@ type worker struct {
 	byID      map[string]domain.Finding
 	lost      bool
 	cancelled bool // a cancellation request was observed
+	failures  int  // consecutive progress write failures
 	stopRun   context.CancelFunc
 	handle    *runHandle
 }
@@ -136,7 +137,11 @@ func (w *worker) RunID() string { return w.report.ID }
 
 // Record implements probes.Recorder: a resource is persisted as intended
 // before the create call and again with its observed UID afterwards.
-func (w *worker) Record(_ context.Context, resource domain.ProbeResource) error {
+func (w *worker) Record(ctx context.Context, resource domain.ProbeResource) error {
+	// Cancellation and lost ownership are observed before anything is created.
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.lost {
@@ -179,9 +184,6 @@ func (w *worker) run(parent context.Context) {
 	w.report = claimed
 	w.mu.Unlock()
 
-	session := w.provider.Open(runCtx, w.acct, w.scope)
-	defer session.Close()
-
 	beat := time.NewTicker(svc.cfg.Heartbeat)
 	defer beat.Stop()
 	done := make(chan struct{})
@@ -203,6 +205,13 @@ func (w *worker) run(parent context.Context) {
 		}
 	}()
 	stopBeats := func() { close(done); beats.Wait() }
+
+	// Credential resolution is bounded and covered by the heartbeat above, so
+	// a slow credential store cannot expire a legitimate run's lease.
+	openCtx, openCancel := context.WithTimeout(runCtx, svc.cfg.CheckTimeout)
+	session := w.provider.Open(openCtx, w.acct, w.scope)
+	openCancel()
+	defer session.Close()
 
 	var always []probes.Check
 	for _, c := range w.plan {
@@ -230,7 +239,17 @@ func (w *worker) run(parent context.Context) {
 			return
 		}
 		w.append(finding)
-		_ = w.write(domain.StatusRunning)
+		if err := w.write(domain.StatusRunning); err != nil && !w.lost {
+			w.failures++
+			if w.failures >= 3 {
+				// Progress cannot be stored: stop before any further external
+				// action; the lease sweep records the interruption.
+				w.lost = true
+				w.stopRun()
+			}
+		} else if err == nil {
+			w.failures = 0
+		}
 		lost := w.lost
 		w.mu.Unlock()
 		if lost {
@@ -337,10 +356,15 @@ func (w *worker) cleanup(ctx context.Context, session probes.Session) {
 func mergeResources(current, observed []domain.ProbeResource) []domain.ProbeResource {
 	out := append([]domain.ProbeResource(nil), current...)
 	for _, o := range observed {
+		found := false
 		for i := range out {
 			if out[i].Kind == o.Kind && out[i].Namespace == o.Namespace && out[i].Name == o.Name {
-				out[i] = o
+				out[i], found = o, true
 			}
+		}
+		if !found && len(out) < domain.MaxProbeItems {
+			// A resource discovered during cleanup (a bound volume) is recorded.
+			out = append(out, o)
 		}
 	}
 	return out
@@ -405,7 +429,14 @@ func (w *worker) evaluate(ctx context.Context, session probes.Session, c probes.
 		}
 	}
 	// A changed account version invalidates the remaining probes.
-	if cur, err := w.svc.accounts.GetAccount(ctx, w.report.OrganizationKey, w.report.AccountKey); err == nil && cur.Version != w.scope.AccountVersion {
+	cur, err := w.svc.accounts.GetAccount(ctx, w.report.OrganizationKey, w.report.AccountKey)
+	switch {
+	case ctx.Err() != nil:
+		return domain.Finding{}, false
+	case err != nil:
+		// The saved identity is no longer confirmed: never keep probing with it.
+		return w.finish(c, domain.Finding{Verdict: domain.VerdictUnknown, Reason: "ACCOUNT_UNAVAILABLE", Remediation: "rerun"}, start, 0), true
+	case cur.Version != w.scope.AccountVersion:
 		return w.finish(c, domain.Finding{Verdict: domain.VerdictUnknown, Reason: "ACCOUNT_CHANGED", Remediation: "rerun"}, start, 0), true
 	}
 	timeout := w.svc.cfg.CheckTimeout
@@ -416,7 +447,7 @@ func (w *worker) evaluate(ctx context.Context, session probes.Session, c probes.
 	defer cancel()
 	var f domain.Finding
 	if strings.HasPrefix(c.ID, "uc.") {
-		f = evalPlatform(c, w.scope, w.acct, w.need, prior)
+		f = w.svc.evalPlatform(cctx, c, w.scope, w.acct, w.need, w.report.OrganizationKey, prior)
 	} else {
 		f = w.runProbe(cctx, session, c, prior)
 	}

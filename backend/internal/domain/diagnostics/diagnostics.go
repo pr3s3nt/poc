@@ -102,6 +102,19 @@ type ContextRef struct {
 	EnvironmentVersion  int64  `json:"environmentVersion,omitempty"`
 	EnvironmentType     string `json:"environmentType,omitempty"`
 	CurrentDeploymentID string `json:"currentDeploymentSetId,omitempty"`
+	// DraftVersion and ConfigVersion pin the desired workload drafts and the
+	// desired configuration revision the requirements were planned from.
+	DraftVersion  int64 `json:"draftVersion,omitempty"`
+	ConfigVersion int64 `json:"configVersion,omitempty"`
+	// Definitions pin the Resource Definitions (matched resources and
+	// renderers) the plan used, so a later change marks the report stale.
+	Definitions []DefinitionPin `json:"definitions,omitempty"`
+}
+
+// DefinitionPin identifies one Resource Definition version used by a plan.
+type DefinitionPin struct {
+	Key     string `json:"key"`
+	Version int64  `json:"version"`
 }
 
 // Scope is the immutable, validated request snapshot of a run. Account identity
@@ -365,6 +378,14 @@ func (s Scope) validate(r Report) error {
 		return ErrInvalidReport
 	}
 	if c := s.Context; c != nil {
+		if len(c.Definitions) > MaxProbeItems {
+			return ErrInvalidReport
+		}
+		for _, d := range c.Definitions {
+			if !keyPattern.MatchString(d.Key) || d.Version < 1 {
+				return ErrInvalidReport
+			}
+		}
 		if !keyPattern.MatchString(c.ApplicationKey) || (c.EnvironmentKey != "" && !keyPattern.MatchString(c.EnvironmentKey)) || len(c.ApplicationName) > 400 ||
 			len(c.EnvironmentType) > 64 || len(c.CurrentDeploymentID) > 64 {
 			return ErrInvalidReport

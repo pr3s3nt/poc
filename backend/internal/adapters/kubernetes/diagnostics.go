@@ -48,39 +48,92 @@ const (
 
 var allUseCases = []string{"preview", "deploy", "database", "cache", "secrets", "https", "lifecycle"}
 
-// Plan implements probes.Provider.
-func (Diagnostics) Plan(scope domain.Scope, _ *probes.Requirements) []probes.Check {
+// Plan implements probes.Provider. A probe is planned only when the selected
+// work needs it (or, for a GENERAL check, as an inventory), and execution
+// probes only for capabilities that can be exercised: nothing is created for
+// an unselected capability.
+func (Diagnostics) Plan(scope domain.Scope, req *probes.Requirements) []probes.Check {
 	affect := scope.Affects
+	general := scope.Purpose == domain.PurposeGeneral
+	selected := map[string]bool{}
+	for _, u := range scope.UseCases {
+		selected[u] = true
+	}
+	any := func(uses ...string) bool {
+		for _, u := range uses {
+			if selected[u] {
+				return true
+			}
+		}
+		return false
+	}
+	storage := any("database", "cache")
+	if req != nil {
+		for _, r := range req.Resources {
+			if r.Storage.Required {
+				storage = storage || any("deploy")
+			}
+		}
+	}
 	checks := []probes.Check{
 		{ID: "k8s.credential", Group: groupAccess, AffectedUseCases: affect(allUseCases...)},
 		{ID: "k8s.reachable", Group: groupAccess, DependsOn: []string{"k8s.credential"}, AffectedUseCases: affect(allUseCases...)},
 		{ID: "k8s.tls", Group: groupAccess, DependsOn: []string{"k8s.reachable"}, AffectedUseCases: affect(allUseCases...)},
 		{ID: "k8s.api", Group: groupAccess, DependsOn: []string{"k8s.credential", "k8s.reachable", "k8s.tls"}, AffectedUseCases: affect(allUseCases...)},
 		{ID: "k8s.auth", Group: groupAccess, DependsOn: []string{"k8s.api"}, AffectedUseCases: affect(allUseCases...)},
-		{ID: "k8s.rbac.platform", Group: groupAccess, DependsOn: []string{"k8s.auth"}, AffectedUseCases: affect("deploy", "database", "cache", "secrets", "https", "lifecycle")},
-		{ID: "k8s.nodes", Group: groupCluster, DependsOn: []string{"k8s.auth"}, AffectedUseCases: affect("deploy", "database", "cache", "lifecycle")},
-		{ID: "k8s.storage.classes", Group: groupStorage, DependsOn: []string{"k8s.auth"}, AffectedUseCases: affect("database", "cache")},
-		{ID: "k8s.storage.provisioner", Group: groupStorage, DependsOn: []string{"k8s.storage.classes"}, AffectedUseCases: affect("database", "cache")},
-		{ID: "k8s.controllers", Group: groupPlatf, DependsOn: []string{"k8s.auth"}, AffectedUseCases: affect("secrets", "https")},
 	}
-	for _, use := range scope.UseCases {
-		switch use {
-		case "lifecycle":
-			checks = append(checks, probes.Check{ID: "k8s.rbac.lifecycle", Group: groupAccess, DependsOn: []string{"k8s.auth"}, AffectedUseCases: []string{use}})
-		case "secrets":
-			checks = append(checks,
-				probes.Check{ID: "k8s.vso.crd", Group: groupPlatf, DependsOn: []string{"k8s.auth"}, AffectedUseCases: []string{use}},
-				probes.Check{ID: "k8s.vso.controller", Group: groupPlatf, DependsOn: []string{"k8s.vso.crd"}, AffectedUseCases: []string{use}})
-		case "https":
-			checks = append(checks, probes.Check{ID: "k8s.route.controller", Group: groupPlatf, DependsOn: []string{"k8s.auth"}, AffectedUseCases: []string{use}})
-		}
+	if general || any("deploy", "database", "cache", "secrets", "https", "lifecycle") {
+		checks = append(checks, probes.Check{ID: "k8s.rbac.platform", Group: groupAccess, DependsOn: []string{"k8s.auth"}, AffectedUseCases: affect("deploy", "database", "cache", "secrets", "https", "lifecycle")})
+	}
+	if general || any("deploy", "database", "cache", "lifecycle") {
+		checks = append(checks, probes.Check{ID: "k8s.nodes", Group: groupCluster, DependsOn: []string{"k8s.auth"}, AffectedUseCases: affect("deploy", "database", "cache", "lifecycle")})
+	}
+	if general || storage {
+		checks = append(checks,
+			probes.Check{ID: "k8s.storage.classes", Group: groupStorage, DependsOn: []string{"k8s.auth"}, AffectedUseCases: affect("database", "cache")},
+			probes.Check{ID: "k8s.storage.provisioner", Group: groupStorage, DependsOn: []string{"k8s.storage.classes"}, AffectedUseCases: affect("database", "cache")})
+	}
+	if general {
+		checks = append(checks, probes.Check{ID: "k8s.controllers", Group: groupPlatf, DependsOn: []string{"k8s.auth"}})
+	}
+	if selected["lifecycle"] {
+		checks = append(checks, probes.Check{ID: "k8s.rbac.lifecycle", Group: groupAccess, DependsOn: []string{"k8s.auth"}, AffectedUseCases: []string{"lifecycle"}})
+	}
+	if selected["secrets"] {
+		checks = append(checks,
+			probes.Check{ID: "k8s.vso.crd", Group: groupPlatf, DependsOn: []string{"k8s.auth"}, AffectedUseCases: []string{"secrets"}},
+			probes.Check{ID: "k8s.vso.controller", Group: groupPlatf, DependsOn: []string{"k8s.vso.crd"}, AffectedUseCases: []string{"secrets"}})
+	}
+	if selected["https"] {
+		checks = append(checks, probes.Check{ID: "k8s.route.controller", Group: groupPlatf, DependsOn: []string{"k8s.auth"}, AffectedUseCases: []string{"https"}})
 	}
 	if scope.Mode == domain.ModeExecution {
-		checks = append(checks,
-			probes.Check{ID: "k8s.exec.namespace", Group: groupExec, DependsOn: []string{"k8s.rbac.platform", "k8s.nodes"}, AffectedUseCases: affect("deploy", "database", "cache", "lifecycle"), Execution: true},
-			probes.Check{ID: "k8s.exec.workload", Group: groupExec, DependsOn: []string{"k8s.exec.namespace"}, AffectedUseCases: affect("deploy", "lifecycle"), Execution: true},
-			probes.Check{ID: "k8s.exec.volume", Group: groupExec, DependsOn: []string{"k8s.exec.workload", "k8s.storage.provisioner"}, AffectedUseCases: affect("database", "cache"), Execution: true},
-			probes.Check{ID: "k8s.exec.cleanup", Group: groupExec, AffectedUseCases: affect("deploy", "database", "cache", "lifecycle"), Always: true})
+		switch {
+		case !any("deploy", "lifecycle", "database", "cache"):
+			// Secrets and HTTPS have no run-owned probe object: say so instead of
+			// creating an unrelated workload and reporting it as proof.
+			checks = append(checks, probes.Check{ID: "k8s.exec.none", Group: groupExec, AffectedUseCases: scope.UseCases})
+		default:
+			// A namespace is created only when something executable will run in
+			// it: a workload for deploy/lifecycle, or a volume whose storage
+			// requirement is resolved. An unresolved storage requirement is
+			// reported UNKNOWN without creating anything.
+			_, _, volumeReason := volumeTargets(req, scope, scope.AccountKey)
+			volume := any("database", "cache")
+			createsVolume := volume && volumeReason == ""
+			if any("deploy", "lifecycle") || createsVolume {
+				checks = append(checks, probes.Check{ID: "k8s.exec.namespace", Group: groupExec, DependsOn: []string{"k8s.rbac.platform", "k8s.nodes"}, AffectedUseCases: affect("deploy", "database", "cache", "lifecycle"), Execution: true})
+			}
+			if any("deploy", "lifecycle") {
+				checks = append(checks, probes.Check{ID: "k8s.exec.workload", Group: groupExec, DependsOn: []string{"k8s.exec.namespace"}, AffectedUseCases: affect("deploy", "lifecycle"), Execution: true})
+			}
+			if volume {
+				checks = append(checks, probes.Check{ID: "k8s.exec.volume", Group: groupExec, DependsOn: []string{"k8s.exec.namespace", "k8s.storage.provisioner"}, AffectedUseCases: affect("database", "cache"), Execution: true})
+			}
+			if any("deploy", "lifecycle") || createsVolume {
+				checks = append(checks, probes.Check{ID: "k8s.exec.cleanup", Group: groupExec, AffectedUseCases: affect("deploy", "database", "cache", "lifecycle"), Always: true})
+			}
+		}
 	}
 	return checks
 }
@@ -243,7 +296,9 @@ func (s *kubeSession) Run(ctx context.Context, c probes.Check, prior map[string]
 	case "k8s.exec.workload":
 		return s.execWorkload(ctx, rec)
 	case "k8s.exec.volume":
-		return s.execVolume(ctx, rec)
+		return s.execVolume(ctx, rec, req)
+	case "k8s.exec.none":
+		return finding(domain.VerdictUnknown, "EXECUTION_NOT_APPLICABLE", "", fact("evidence", "NONE"))
 	}
 	return finding(domain.VerdictUnknown, "PROBE_ERROR", "", nil)
 }
@@ -467,25 +522,26 @@ func (s *kubeSession) storageClasses(ctx context.Context) domain.Finding {
 		}
 	}
 	facts := fact("storageClasses", domain.Itoa(len(items)), "defaultClasses", domain.Itoa(defaults))
-	switch {
-	case len(items) == 0:
-		return finding(domain.VerdictFail, "NO_STORAGE_CLASS", "create-storage-class", facts)
-	case defaults > 1:
+	if len(names) > 0 {
 		facts["classes"] = domain.JoinList(sortedList(names))
-		return finding(domain.VerdictFail, "MULTIPLE_DEFAULT_STORAGE_CLASSES", "set-default-storage-class", facts)
 	}
-	facts["classes"] = domain.JoinList(sortedList(names))
+	// An inventory: zero classes is a valid fact for a stateless account. A
+	// selected path that needs storage turns a missing class into a failure.
 	return finding(domain.VerdictPass, "STORAGE_CLASSES_LISTED", "", facts)
 }
 
-// provisioner checks the provisioner of the default class (or, without one,
-// of every class) against what the cluster really reports: registered CSI
-// drivers on nodes, or the ready local-path controller. Anything it cannot
-// observe stays UNKNOWN; a class listing alone proves inventory only.
-func (s *kubeSession) provisioner(ctx context.Context, prior map[string]domain.Finding) domain.Finding {
+// provisioner reports what the cluster really shows about the provisioner of
+// the default class (or, without one, of every class). A ready local-path
+// controller is observed; a registered CSI node plugin proves node
+// registration only, never controller readiness, so it stays UNKNOWN; any
+// provisioner it cannot observe is UNKNOWN, not broken.
+func (s *kubeSession) provisioner(ctx context.Context, _ map[string]domain.Finding) domain.Finding {
 	items, err := s.storageClassList(ctx)
 	if err != nil {
 		return readFailure(err)
+	}
+	if len(items) == 0 {
+		return finding(domain.VerdictNA, "NO_STORAGE_CLASS", "", fact("storageClasses", "0"))
 	}
 	var scoped []map[string]any
 	for _, sc := range items {
@@ -508,45 +564,49 @@ func (s *kubeSession) provisioner(ctx context.Context, prior map[string]domain.F
 			}
 		}
 	}
-	csiKnown := nerr == nil
-	failed, unknown, ready := map[string]bool{}, map[string]bool{}, map[string]bool{}
+	failed, unobserved, csiOnly, ready, static := map[string]bool{}, map[string]bool{}, map[string]bool{}, map[string]bool{}, map[string]bool{}
 	localChecked, localReady := false, false
 	for _, sc := range scoped {
 		p := str(sc, "provisioner")
 		switch {
 		case p == "kubernetes.io/no-provisioner":
-			ready[p] = true
-		case registered[p]:
-			ready[p] = true
+			static[p] = true
 		case p == "rancher.io/local-path":
 			if !localChecked {
 				localChecked = true
-				ds, err := s.list(ctx, "get", "deployments", "--all-namespaces", "-l", "app=local-path-provisioner")
-				if err != nil {
-					unknown[p] = true
+				// The stock manifest names the controller and carries no label.
+				ds, err := s.list(ctx, "get", "deployments", "--all-namespaces", "--field-selector", "metadata.name=local-path-provisioner")
+				if err != nil || len(ds.Items) == 0 {
+					// Not found by its stock name is not proof it is absent.
+					unobserved[p] = true
+					localChecked = false
 					continue
 				}
 				localReady = anyReady(ds.Items)
 			}
 			if localReady {
 				ready[p] = true
-			} else {
+			} else if localChecked {
 				failed[p] = true
 			}
-		case csiKnown && !strings.HasPrefix(p, "kubernetes.io/"):
-			// A CSI-style provisioner no node has registered cannot provision.
-			failed[p] = true
+		case registered[p]:
+			csiOnly[p] = true
 		default:
-			unknown[p] = true
+			unobserved[p] = true
 		}
 	}
 	facts := fact("storageClasses", domain.Itoa(len(scoped)), "csiDrivers", domain.Itoa(len(registered)))
-	if len(failed) > 0 {
+	switch {
+	case len(failed) > 0:
 		facts["drivers"] = domain.JoinList(sortedSet(failed))
 		return finding(domain.VerdictFail, "PROVISIONER_NOT_READY", "repair-provisioner", facts)
-	}
-	if len(unknown) > 0 {
+	case len(csiOnly) > 0:
+		facts["drivers"] = domain.JoinList(sortedSet(csiOnly))
+		return finding(domain.VerdictUnknown, "CSI_CONTROLLER_UNOBSERVED", "run-execution-check", facts)
+	case len(unobserved) > 0:
 		return finding(domain.VerdictUnknown, "PROVISIONER_UNOBSERVABLE", "run-execution-check", facts)
+	case len(ready) == 0:
+		return finding(domain.VerdictNA, "STATIC_PROVISIONING", "", facts)
 	}
 	facts["drivers"] = domain.JoinList(sortedSet(ready))
 	return finding(domain.VerdictPass, "PROVISIONER_OBSERVED", "", facts)
@@ -637,7 +697,8 @@ func (s *kubeSession) deploymentReady(ctx context.Context, selector, okReason, b
 		return readFailure(err)
 	}
 	if len(ds.Items) == 0 {
-		return finding(domain.VerdictFail, badReason, remediation, fact("found", "0"))
+		// Not found under the chart's standard label is not proof of absence.
+		return finding(domain.VerdictUnknown, "CONTROLLER_UNOBSERVED", remediation, fact("found", "0"))
 	}
 	if !anyReady(ds.Items) {
 		return finding(domain.VerdictFail, badReason, remediation, fact("found", domain.Itoa(len(ds.Items)), "replicasReady", "0"))
