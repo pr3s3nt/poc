@@ -68,4 +68,3 @@ Browser evidence is local at `/tmp/pr15-final-v2/` (screenshots, assertions and
 result); these are synthetic fixture data, not production deployment evidence.
 The final merge gate is the complete backend/frontend/documentation check suite
 on the final PR head, visible in [PR checks](https://github.com/pr3s3nt/poc/pull/15/checks).
-
