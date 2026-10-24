@@ -55,6 +55,7 @@ export function CreateKeyDialog({ application, environment, kind, suggestedName,
   async function review(): Promise<boolean> {
     try {
       const latest = await getConfiguration(application.id, environment);
+      if (!alive.current) return false;
       onConfiguration(latest);
       if (alive.current) setReviewed(true);
       return true;
@@ -69,6 +70,7 @@ export function CreateKeyDialog({ application, environment, kind, suggestedName,
     setBusy(true); setError(''); setUnknown(false); setReviewed(false);
     try {
       const result = await createKey(application.id, environment, name, kind, value, catalog.version);
+      if (!alive.current) return;
       onConfiguration(result);
       onCreated(name);
     } catch (err) {
@@ -88,11 +90,12 @@ export function CreateKeyDialog({ application, environment, kind, suggestedName,
     setBusy(true); setError(''); setStoreNotice('');
     try {
       const result = await setSecretStore(application.id, environment, picked, application.environments[environment].version, catalog.version);
+      if (!alive.current) return;
       onTargetChange?.(application.id, environment, toTarget(result.environment));
       const chosen = ready.find((item) => item.key === picked);
       if (alive.current) setStoreNotice(t('workloads.createKey.storeSaved', { store: chosen?.name ?? picked }));
       const latest = await getConfiguration(application.id, environment);
-      onConfiguration(latest);
+      if (alive.current) onConfiguration(latest);
     } catch (err) {
       if (!alive.current) return;
       setError(err instanceof ApiError ? err.message : t('workloads.createKey.storeUnknown'));

@@ -680,3 +680,6 @@ a { color: inherit; }
 .env-dialog .editor-grid input,.env-dialog .editor-grid select { width:100%; }
 .env-dialog .form-actions { flex-wrap:wrap; }
 @media (max-width:900px) { .env-table th:nth-child(1) { width:30%; }.env-table th:nth-child(2) { width:26%; } }
+
+.env-search-select { flex:1 1 190px; min-width:0; display:grid; gap:4px; }
+.env-value .env-search-select input,.env-value .env-search-select select { width:100%; }

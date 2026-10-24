@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { SearchableSelect } from './SearchableSelect';
 import { Button } from '../../shared/ui/Button';
 import type { KeyKind } from '../configuration/api';
 import type { ResourceType, Workload } from './api';
@@ -64,11 +65,9 @@ export function EnvironmentVariablesTable({ container, bindings, catalog, depend
     // Choosing a key suggests the variable name only while it is still empty.
     const choose = (key: string) => update(row, { key, source, ...(row.name === '' ? { name: key } : {}) });
     return <>
-      <select ref={track(row, 'key')} aria-label={label} value={row.key} disabled={disabled || catalog.status !== 'ready'} onChange={(event) => choose(event.target.value)}>
-        <option value="">{catalog.status === 'loading' ? t('workloads.envTable.keysLoading') : catalog.status === 'error' ? t('workloads.envTable.keysError') : t('workloads.envTable.chooseKey')}</option>
-        {row.key && !known ? <option value={row.key}>{t('workloads.envTable.keyUnavailable', { key: row.key })}</option> : null}
-        {keys.map((key) => <option key={key.name} value={key.name}>{key.name}</option>)}
-      </select>
+      <SearchableSelect selectRef={track(row, 'key')} label={label} value={row.key} disabled={disabled || catalog.status !== 'ready'} onChange={choose}
+        placeholder={catalog.status === 'loading' ? t('workloads.envTable.keysLoading') : catalog.status === 'error' ? t('workloads.envTable.keysError') : t('workloads.envTable.chooseKey')}
+        options={[...(row.key && !known ? [{ value: row.key, label: t('workloads.envTable.keyUnavailable', { key: row.key }) }] : []), ...keys.map((key) => ({ value: key.name, label: key.name }))]} />
       {source === 'SECRET' && chosen ? <small className="muted">{chosen.configured ? t('workloads.envTable.secretConfigured') : t('workloads.envTable.secretNotSet')}</small> : null}
       <Button tone="quiet" disabled={disabled || catalog.status !== 'ready'} onClick={() => onCreateKey(kind, row)}>{source === 'SECRET' ? t('workloads.envTable.createSecret') : t('workloads.envTable.createVariable')}</Button>
     </>;
@@ -83,12 +82,10 @@ export function EnvironmentVariablesTable({ container, bindings, catalog, depend
       const outputs = types.find((type) => type.key === dependency?.type)?.outputs ?? [];
       const known = !row.output || outputs.some((output) => output.name === row.output);
       return <>
-        <select aria-label={t('workloads.envTable.resource', { row: position })} value={row.alias} disabled={disabled} onChange={(event) => update(row, { alias: event.target.value, output: '' })}>
-          <option value="">{t('workloads.envTable.chooseResource')}</option>
-          {row.alias && !dependency ? <option value={row.alias}>{t('workloads.envTable.aliasUnavailable', { alias: row.alias })}</option> : null}
-          {dependencies.filter((item) => item.alias).map((item) => <option key={item.alias} value={item.alias}>{item.alias}</option>)}
-        </select>
-        <select ref={track(row, 'output')} aria-label={t('workloads.envTable.output', { row: position })} value={row.output} disabled={disabled} onChange={(event) => update(row, { output: event.target.value })}>
+        <SearchableSelect label={t('workloads.envTable.resource', { row: position })} value={row.alias} disabled={disabled} onChange={(alias) => update(row, { alias, output: '', resourceChanged: false })}
+          placeholder={t('workloads.envTable.chooseResource')}
+          options={[...(row.alias && !dependency ? [{ value: row.alias, label: t('workloads.envTable.aliasUnavailable', { alias: row.alias }) }] : []), ...dependencies.filter((item) => item.alias).map((item) => ({ value: item.alias, label: item.alias }))]} />
+        <select ref={track(row, 'output')} aria-label={t('workloads.envTable.output', { row: position })} value={row.output} disabled={disabled} onChange={(event) => update(row, { output: event.target.value, resourceChanged: false })}>
           <option value="">{t('workloads.envTable.chooseOutput')}</option>
           {!known ? <option value={row.output}>{t('workloads.envTable.outputUnavailable', { output: row.output })}</option> : null}
           {outputs.map((output) => <option key={output.name} value={output.name}>{output.secret ? t('workloads.envTable.outputSecret', { output: output.name }) : output.name}</option>)}
@@ -98,11 +95,9 @@ export function EnvironmentVariablesTable({ container, bindings, catalog, depend
     }
     const target = candidates.find((item) => item.id === row.workload);
     return <>
-      <select aria-label={t('workloads.envTable.workload', { row: position })} value={row.workload} disabled={disabled} onChange={(event) => update(row, { workload: event.target.value, port: '', alias: '' })}>
-        <option value="">{t('workloads.envTable.chooseWorkload')}</option>
-        {row.workload && !target ? <option value={row.workload}>{t('workloads.envTable.workloadUnavailable', { workload: row.workload })}</option> : null}
-        {candidates.map((item) => <option key={item.id} value={item.id}>{item.id}</option>)}
-      </select>
+      <SearchableSelect label={t('workloads.envTable.workload', { row: position })} value={row.workload} disabled={disabled} onChange={(workload) => update(row, { workload, port: '', alias: '' })}
+        placeholder={t('workloads.envTable.chooseWorkload')}
+        options={[...(row.workload && !target ? [{ value: row.workload, label: t('workloads.envTable.workloadUnavailable', { workload: row.workload }) }] : []), ...candidates.map((item) => ({ value: item.id, label: item.id }))]} />
       <select aria-label={t('workloads.envTable.port', { row: position })} value={row.port} disabled={disabled} onChange={(event) => update(row, { port: event.target.value, alias: '' })}>
         <option value="">{t('workloads.envTable.choosePort')}</option>
         {row.port && !target?.servicePorts?.includes(row.port) ? <option value={row.port}>{t('workloads.envTable.portUnavailable', { port: row.port })}</option> : null}

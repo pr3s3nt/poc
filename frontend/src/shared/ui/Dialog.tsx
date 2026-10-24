@@ -21,13 +21,19 @@ export function Dialog({ label, busy = false, onClose, children }: { label: stri
   latest.current = { busy, onClose };
   useEffect(() => {
     const onDocumentKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Tab' && !event.defaultPrevented && dialog.current && !dialog.current.contains(document.activeElement)) {
+        event.preventDefault();
+        (dialog.current.querySelector<HTMLElement>(FOCUSABLE) ?? dialog.current).focus();
+      }
       if (event.key === 'Escape' && !event.defaultPrevented && !latest.current.busy) { event.preventDefault(); latest.current.onClose(); }
     };
     document.addEventListener('keydown', onDocumentKey);
     return () => document.removeEventListener('keydown', onDocumentKey);
   }, []);
   useEffect(() => {
-    if (busy || !dialog.current || dialog.current.contains(document.activeElement)) return;
+    if (!dialog.current) return;
+    if (busy) { dialog.current.focus(); return; }
+    if (dialog.current.contains(document.activeElement) && document.activeElement !== dialog.current) return;
     const first = dialog.current.querySelector<HTMLElement>('input:not(:disabled), select:not(:disabled), button:not(:disabled)');
     (first ?? dialog.current).focus();
   }, [busy]);

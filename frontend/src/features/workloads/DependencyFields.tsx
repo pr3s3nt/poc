@@ -61,3 +61,15 @@ export function DependencyFields({ index, dependency: dep, types, classMetadata,
     </Advanced>
   </div>;
 }
+
+// Validate all rows before projecting to a dictionary; never silently overwrite an alias.
+export function dependencyAliasesProblem(dependencies: Dependency[], serviceAliases: string[] = []): string | undefined {
+  const seen = new Set<string>();
+  for (const { alias } of dependencies) {
+    if (!/^[A-Za-z0-9_-]+$/.test(alias)) return t('workloads.addResource.aliasInvalid');
+    if (alias === 'env' || serviceAliases.includes(alias)) return t('workloads.addResource.aliasReserved', { alias });
+    if (seen.has(alias)) return t('workloads.addResource.aliasTaken', { alias });
+    seen.add(alias);
+  }
+  return undefined;
+}

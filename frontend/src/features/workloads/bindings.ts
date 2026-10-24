@@ -12,7 +12,7 @@ import { t } from '../../shared/i18n';
 export type Source = 'LITERAL' | 'VARIABLE' | 'SECRET' | 'KEY' | 'RESOURCE' | 'SERVICE';
 // id is a stable row identity: late replies and focus never depend on the row position.
 // value is the literal as the user sees it (not escaped); alias is the Service resource alias kept from an import.
-export type Binding = { id: string; name: string; source: Source; value: string; key: string; alias: string; output: string; workload: string; port: string };
+export type Binding = { id: string; name: string; source: Source; value: string; key: string; alias: string; output: string; workload: string; port: string; resourceChanged?: boolean };
 export type KeyCatalog = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; keys: ConfigKey[]; version: number; secretStoreKey?: string };
 
 let sequence = 0;
@@ -51,6 +51,7 @@ export function readBinding(name: string, raw: unknown, resources: ResourceSpecs
     const output = match[2] ?? '';
     if (alias === 'env') return { ...base, source: 'KEY', key: output };
     const spec = resources[alias];
+    if (spec?.type === 'service' && output !== 'url') return undefined;
     if (spec?.type === 'service') return { ...base, source: 'SERVICE', alias, workload: String(spec.params?.workload ?? ''), port: String(spec.params?.port ?? '') };
     return { ...base, source: 'RESOURCE', alias, output };
   }
@@ -87,6 +88,7 @@ const invalid = (message: string): RowProblem => ({ message, incomplete: false }
 export function rowProblem(binding: Binding, row: number, container: string, bindings: Binding[], context: RowContext): RowProblem | undefined {
   const where = { container, row };
   if (!binding.name.trim()) return incomplete(t('workloads.envTable.problemName', where));
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(binding.name)) return invalid(t('workloads.envTable.problemNameInvalid', where));
   if (bindings.some((other) => other.id !== binding.id && other.name === binding.name)) return invalid(t('workloads.envTable.problemDuplicate', { ...where, name: binding.name }));
   const source = sourceOf(binding, context.catalog);
   switch (source) {
@@ -102,6 +104,7 @@ export function rowProblem(binding: Binding, row: number, container: string, bin
       return undefined;
     }
     case 'RESOURCE': {
+      if (binding.resourceChanged) return invalid(t('workloads.envTable.problemResourceChanged', { ...where, alias: binding.alias }));
       if (!binding.alias || !binding.output) return incomplete(t('workloads.envTable.problemResource', { ...where, name: binding.name }));
       if (!context.dependencies.some((dependency) => dependency.alias === binding.alias)) return invalid(t('workloads.envTable.problemAliasMissing', { ...where, name: binding.name, alias: binding.alias }));
       const outputs = context.outputs(binding.alias);

@@ -2471,5 +2471,9 @@
   "workloads.addResource.cancel": "Cancel",
   "workloads.addResource.aliasInvalid": "An alias uses letters, digits, hyphens and underscores only.",
   "workloads.addResource.aliasReserved": "Alias {alias} is reserved for built-in sources (env, svc_…).",
-  "workloads.addResource.aliasTaken": "The workload already has a resource {alias}."
+  "workloads.addResource.aliasTaken": "The workload already has a resource {alias}.",
+  "workloads.envTable.problemNameInvalid": "Container {container}, row {row}: Use letters, digits and underscores; start with a letter or underscore.",
+  "workloads.envTable.problemResourceChanged": "Resource {alias} changed type. Select its output again.",
+  "workloads.envTable.search": "Search {label}",
+  "workloads.envTable.searchPlaceholder": "Search by name"
 }

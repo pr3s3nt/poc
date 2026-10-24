@@ -619,6 +619,10 @@ it('applies the late reply of a running create to the row that opened the dialog
   await waitFor(() => expect(gates).toHaveLength(1));
   // The dialog cannot be left while the create is running; the reply lands on the original row only.
   expect(within(dialog).getByRole('button', { name: /Đang tạo/ })).toBeDisabled();
+  await user.tab();
+  expect(dialog === document.activeElement || dialog.contains(document.activeElement)).toBe(true);
+  await user.keyboard('{Escape}');
+  expect(dialog).toBeInTheDocument();
   await act(async () => {
     gates[0]!.resolve(Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 2, secretStoreKey: 'vault-a', keys: [...catalogKeys, { name: 'FIRST', kind: 'VARIABLE', configured: true, value: 'v', usedBy: [] }] }, { status: 201 }));
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -642,11 +646,13 @@ it('drops the reply of a create started in the previous Environment: no key, row
   view.rerender(<WorkloadEditorPage application={application} environment="production" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   await addRow(user, 1, 'OTHER', 'Biến của ứng dụng');
+  await user.click(table().getByRole('button', { name: 'Tạo biến' }));
   await act(async () => {
     gates[0]!.resolve(Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 2, keys: [...catalogKeys, { name: 'FIRST', kind: 'VARIABLE', configured: true, value: 'v', usedBy: [] }] }, { status: 201 }));
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.getByRole('dialog', { name: 'Tạo biến' })).toBeInTheDocument();
+  expect(within(screen.getByRole('dialog')).getByLabelText('Tên key')).toHaveValue('OTHER');
   expect(table().getByLabelText('Biến của ứng dụng, dòng 1')).toHaveValue('');
   expect(within(table().getByLabelText('Biến của ứng dụng, dòng 1')).queryByRole('option', { name: 'FIRST' })).not.toBeInTheDocument();
   expect(table().getByLabelText('Tên biến, dòng 1')).toHaveValue('OTHER');
@@ -773,4 +779,39 @@ it('renders the table, source choices and dialog names from the English catalog'
   } finally {
     setCatalogs('vi', read('vi.json'));
   }
+});
+
+it('requires choosing the output again after changing a resource type with the same output name', async () => {
+  const api = serve({ types: [postgres, { ...postgres, key: 'mysql' }] });
+  const user = userEvent.setup();
+  await newWorkload(user);
+  await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
+  await user.type(screen.getByLabelText('Alias tài nguyên'), 'db');
+  await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'postgres');
+  await addRow(user, 1, 'DB_HOST', 'Tài nguyên');
+  await user.selectOptions(table().getByLabelText('Tài nguyên, dòng 1'), 'db');
+  await user.selectOptions(table().getByLabelText('Output, dòng 1'), 'host');
+  await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'mysql');
+  expect(table().getByLabelText('Output, dòng 1')).toHaveValue('host');
+  await user.click(save());
+  expect(api.puts()).toHaveLength(0);
+  expect(screen.getAllByRole('alert').some((alert) => alert.textContent?.includes('đã đổi loại'))).toBe(true);
+  await user.selectOptions(table().getByLabelText('Output, dòng 1'), '');
+  await user.selectOptions(table().getByLabelText('Output, dòng 1'), 'host');
+  await user.click(save());
+  expect(api.puts()).toHaveLength(1);
+});
+
+it('blocks duplicate resource aliases entered in the main resource editor', async () => {
+  const api = serve({ types: [postgres] });
+  const user = userEvent.setup();
+  await newWorkload(user);
+  for (let index = 0; index < 2; index++) {
+    await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
+    await user.type(screen.getAllByLabelText('Alias tài nguyên')[index]!, 'db');
+    await user.selectOptions(screen.getAllByLabelText('Loại tài nguyên')[index]!, 'postgres');
+  }
+  await user.click(save());
+  expect(api.puts()).toHaveLength(0);
+  expect(screen.getByRole('alert')).toHaveTextContent('Workload đã có tài nguyên db.');
 });

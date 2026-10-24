@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { escapeLiteral, hasUnescapedPlaceholder, readBinding, unescapeLiteral } from './bindings';
+import { escapeLiteral, hasUnescapedPlaceholder, readBinding, unescapeLiteral, emptyBinding, rowProblem } from './bindings';
 
 // The backend expands ${...} and turns $${...} into a literal ${...}; the form text must never be evaluated.
 const expand = (value: string): string => value.replace(/\$\$?\{[^}]*\}/g, (match) => (match.startsWith('$$') ? match.slice(1) : '<RESOLVED>'));
@@ -24,4 +24,17 @@ it('classifies Score variables into references, literals and unrepresentable val
   expect(readBinding('G', '${resources.env.}', resources)).toBeUndefined();
   expect(readBinding('H', '${context.env.namespace}', resources)).toBeUndefined();
   expect(readBinding('I', 5, resources)).toBeUndefined();
+});
+
+it('keeps non-url service outputs on the lossless Score path', () => {
+  expect(readBinding('HOST', '${resources.backend.host}', { backend: { type: 'service', params: { workload: 'api', port: 'http' } } })).toBeUndefined();
+});
+
+it('rejects invalid names and changed resource types even when output names still match', () => {
+  const context = { catalog: { status: 'ready' as const, keys: [], version: 1 }, dependencies: [{ alias: 'db', type: 'mysql' }], outputs: () => ['host'], services: [] };
+  const row = { ...emptyBinding(), name: ' BAD' };
+  expect(rowProblem(row, 1, 'main', [row], context)).toBeDefined();
+  const resource = { ...row, name: 'HOST', source: 'RESOURCE' as const, alias: 'db', output: 'host', resourceChanged: true };
+  expect(rowProblem(resource, 1, 'main', [resource], context)).toBeDefined();
+  expect(rowProblem({ ...resource, resourceChanged: false }, 1, 'main', [resource], context)).toBeUndefined();
 });

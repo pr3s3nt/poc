@@ -222,6 +222,14 @@ try {
   const afterCancel = await (await context.request.get(`${base}/api/v1/applications/${app}/environments/staging/configuration`)).json();
   check('keys created in place stay after the workload editor is cancelled', ['REGION', 'API_TOKEN'].every((name) => afterCancel.keys.some((key) => key.name === name)));
   check('secret keys never expose a value over the API', afterCancel.keys.filter((key) => key.kind === 'SECRET').every((key) => key.value === undefined));
+  // A long catalog exercises name filtering without losing the selected reference.
+  const configurationURL = `${base}/api/v1/applications/${app}/environments/staging/configuration`;
+  let searchConfiguration = await (await context.request.get(configurationURL)).json();
+  for (let i = 0; i < 11; i++) {
+    const response = await context.request.post(`${configurationURL}/keys`, { data: { name: `SEARCH_KEY_${i}`, kind: 'VARIABLE', value: 'fixture', version: searchConfiguration.version } });
+    if (!response.ok()) throw Error(`seed search key: HTTP ${response.status()}`);
+    searchConfiguration = await response.json();
+  }
   await vi.context.close();
 
   // ── E12: English at both sizes ─────────────────────────────────────────────
@@ -231,6 +239,12 @@ try {
     await en.page.goto(`${base}/ui/applications/${app}`);
     await en.page.locator('.table-row').filter({ hasText: 'api' }).getByRole('button', { name: /Edit/ }).first().click();
     const region = en.page.getByRole('region', { name: 'Environment variables of container main' });
+    const keySearch = region.getByRole('searchbox', { name: 'Search Application variable, row 3' });
+    await keySearch.fill('SEARCH_KEY_10');
+    const keyChoice = region.getByLabel('Application variable, row 3', { exact: true });
+    await expect(keyChoice).toHaveValue('REGION');
+    await expect(keyChoice.locator('option')).toHaveCount(3);
+    check(`long key catalog filters by name and preserves selection (${label})`, true);
     await expect(region.getByRole('columnheader', { name: 'Get value from' })).toBeVisible();
     await expect(region.getByRole('button', { name: '+ Add variable' })).toBeVisible();
     const options = await region.getByLabel('Get value from, row 1').locator('option').allTextContents();

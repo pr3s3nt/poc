@@ -136,9 +136,11 @@ func TestReconstructDeployedReferenceWorkload(t *testing.T) {
 		t.Fatalf("round trip changed binding: %+v", reconstructed)
 	}
 	legacy := fragment.Module
-	legacy.Spec.Containers["main"] = environment.Container{Image: "frontend:dev", Variables: map[string]string{"PASSWORD": "raw-secret"}}
-	if _, err := ReconstructScore("frontend", legacy, set); err == nil {
-		t.Fatal("legacy literal should not be exposed in the editor")
+	for _, value := range []string{"raw-secret", "", "  "} {
+		legacy.Spec.Containers["main"] = environment.Container{Image: "frontend:dev", Variables: map[string]string{"PASSWORD": value}}
+		if _, err := ReconstructScore("frontend", legacy, set); err == nil {
+			t.Fatalf("legacy literal %q should not be exposed in the editor", value)
+		}
 	}
 }
 

@@ -2471,5 +2471,9 @@
   "workloads.addResource.cancel": "Hủy",
   "workloads.addResource.aliasInvalid": "Alias chỉ gồm chữ, số, dấu gạch ngang và gạch dưới.",
   "workloads.addResource.aliasReserved": "Alias {alias} dành riêng cho nguồn có sẵn (env, svc_…).",
-  "workloads.addResource.aliasTaken": "Workload đã có tài nguyên {alias}."
+  "workloads.addResource.aliasTaken": "Workload đã có tài nguyên {alias}.",
+  "workloads.envTable.problemNameInvalid": "Container {container}, dòng {row}: Tên biến chỉ dùng chữ, số, dấu gạch dưới và không bắt đầu bằng số.",
+  "workloads.envTable.problemResourceChanged": "Tài nguyên {alias} đã đổi loại. Hãy chọn lại đầu ra.",
+  "workloads.envTable.search": "Tìm {label}",
+  "workloads.envTable.searchPlaceholder": "Tìm theo tên"
 }

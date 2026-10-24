@@ -8,7 +8,7 @@ import { getConfiguration, type Configuration, type KeyKind } from '../configura
 import { getResourceTypes, getWorkloads, parseScoreImport, saveWorkload, type ResourceType, type Workload } from './api';
 import { AddResourceDialog } from './AddResourceDialog';
 import { CreateKeyDialog } from './CreateKeyDialog';
-import { DependencyFields, dependencyProblem, emptyDependency, type ClassMetadata, type Dependency } from './DependencyFields';
+import { DependencyFields, dependencyProblem, dependencyAliasesProblem, emptyDependency, type ClassMetadata, type Dependency } from './DependencyFields';
 import { EnvironmentVariablesTable, type FocusRequest } from './EnvironmentVariablesTable';
 import { Advanced } from './Advanced';
 import { bindingProblem, escapeLiteral, isKeySource, readBinding, serviceAlias, type Binding, type KeyCatalog, type ResourceSpecs } from './bindings';
@@ -288,7 +288,12 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
   function closeDialog() { setDialog(undefined); }
   // A configuration reply of the scope the dialog opened in refreshes the catalog; any other scope drops it.
   function acceptConfiguration(at: number) { return (config: Configuration) => { if (at === scope.current) setCatalog(readyCatalog(config)); }; }
-  function updateDependency(index: number, patch: Partial<Dependency>) { updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, ...patch } : item) }); }
+  function updateDependency(index: number, patch: Partial<Dependency>) {
+    const previous = form.dependencies[index];
+    const changed = patch.type !== undefined && patch.type !== previous?.type;
+    updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, ...patch } : item),
+      containers: form.containers.map((container) => ({ ...container, bindings: container.bindings.map((row) => changed && row.source === 'RESOURCE' && row.alias === previous?.alias ? { ...row, resourceChanged: true } : row) })) });
+  }
   function updatePort(index: number, patch: Partial<ServicePort>) { updateForm({ ...form, servicePorts: form.servicePorts.map((item, i) => i === index ? { ...item, ...patch } : item) }); }
   function updateRoute(index: number, patch: Partial<PublicRoute>) { updateForm({ ...form, publicRoutes: form.publicRoutes.map((item, i) => i === index ? { ...item, ...patch } : item) }); }
   // Adding a route never happens on its own. The target is chosen here only when
@@ -324,6 +329,8 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
     if (mode === 'form' || dirty) {
       if (form.workloadClass && !validWorkloadClass(form.workloadClass)) { setError(t('workloads.workloadEditor.invalidWorkloadClassUseOnly')); return; }
       if (classMetadata !== 'ready' && form.dependencies.length > 0) { setError(classMetadata === 'loading' ? t('workloads.workloadEditor.classMetadataIsLoadingWait') : t('workloads.workloadEditor.theResourceClassMetadataIs')); return; }
+      const aliasesIssue = dependencyAliasesProblem(form.dependencies, form.containers.flatMap((container) => container.bindings.filter((row) => row.source === 'SERVICE').map((row) => row.alias || serviceAlias(row.workload, row.port))));
+      if (aliasesIssue) { setError(aliasesIssue); return; }
       for (const dependency of form.dependencies) {
         const dependencyIssue = dependencyProblem(dependency, types);
         if (dependencyIssue) { setError(dependencyIssue); return; }
@@ -387,16 +394,16 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
     {dialog?.type === 'key' && catalog.status === 'ready' ? <CreateKeyDialog application={application} environment={environment} kind={dialog.kind} suggestedName={dialog.suggested} catalog={catalog} onTargetChange={onTargetChange}
       onConfiguration={acceptConfiguration(scope.current)} onClose={closeDialog}
       onCreated={((at, rowId, kind) => (key: string) => {
-        setDialog(undefined);
         if (at !== scope.current) return;
+        setDialog(undefined);
         // Select the key on the row that opened the dialog; a row removed meanwhile is left alone. The name is only suggested while empty.
         changeRow(rowId, (row) => ({ ...row, source: kind, key, ...(row.name === '' ? { name: key } : {}) }));
         setFocusRequest({ rowId, field: 'key' });
       })(scope.current, dialog.rowId, dialog.kind)} /> : null}
     {dialog?.type === 'resource' ? <AddResourceDialog existing={form.dependencies} types={types} classMetadata={classMetadata} onReload={() => void reloadClassMetadata()} onClose={closeDialog}
       onAdd={((at, rowId) => (dependency: Dependency) => {
-        setDialog(undefined);
         if (at !== scope.current) return;
+        setDialog(undefined);
         // Only the draft changes: the dependency is added, the row points to its alias and the output stays to be chosen.
         setForm((prev) => ({ ...prev, dependencies: [...prev.dependencies, dependency] }));
         changeRow(rowId, (row) => ({ ...row, source: 'RESOURCE', alias: dependency.alias, output: '' }));

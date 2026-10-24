@@ -452,7 +452,7 @@ func reconstruct(workload string, module environment.Module, set environment.Doc
 		delete(body, "id")
 		variables := map[string]any{}
 		for key, value := range container.Variables {
-			isReference := setReference.FindString(value) == value || configReference.FindString(value) == value || serviceReference.FindString(value) == value
+			isReference := value != "" && (setReference.FindString(value) == value || configReference.FindString(value) == value || serviceReference.FindString(value) == value)
 			if !literals && !isReference && !(proven != nil && !hasUnescapedPlaceholder(value) && proven(name, key, value)) {
 				return nil, fmt.Errorf("workloadconfig: legacy literal binding cannot be shown in editor")
 			}
