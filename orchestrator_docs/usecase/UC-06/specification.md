@@ -2,7 +2,7 @@
 id: UC-06-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # UC-06 — Deploy Workload
@@ -90,7 +90,7 @@ Triển khai Score workload qua matched Definition và references, chuẩn bị 
   verified registry, pin module/provider/binary digests. Deploy kiểm lại
   artifacts trước provision; runtime outputs được type-check trước từng node.
 - **BR-10:** Deployment Delta dùng shape Humanitec `modules.add/remove/update` và `shared`; module update patch relative với module, shared patch relative với shared object, array diff theo index và `/-`.
-- **BR-11:** `containers.*.resources.requests/limits` chỉ gồm `cpu`/`memory`, phải đi nguyên vẹn qua Score fragment, Candidate Deployment Set và workload renderer; renderer không được thay giá trị đã khai báo bằng giá trị hard-code. Request của từng field (`cpu`, `memory`) được chọn theo thứ tự: request đã khai báo; nếu request thiếu thì limit đã khai báo của cùng field; nếu thiếu cả hai thì platform default `cpu: 10m` hoặc `memory: 32Mi`. Limits chỉ chứa các field được khai báo và không có default. Giá trị suy ra không được ghi ngược vào Score fragment hoặc Candidate Deployment Set.
+- **BR-11:** `containers.*.resources.requests/limits` chỉ gồm `cpu`/`memory`, phải đi nguyên vẹn qua Score fragment, Candidate Deployment Set và workload renderer; renderer không được thay giá trị đã khai báo bằng giá trị hard-code. Request của từng field (`cpu`, `memory`) được chọn theo thứ tự: request đã khai báo; nếu request thiếu thì limit đã khai báo của cùng field; nếu thiếu cả hai thì default của bundle đã pin (legacy installed/reference Git bundle: `cpu: 10m` hoặc `memory: 32Mi`; Git bundle có thể khai báo default khác theo ADR-021). Limits chỉ chứa các field được khai báo và không có default. Giá trị suy ra không được ghi ngược vào Score fragment hoặc Candidate Deployment Set.
 - **BR-12:** Khi parse Resource Reference, token `@app`, `@env`, `@infra` và
   `@connection` trong phần Resource ID được thay bằng key của Application,
   Environment và Connection hiện tại trước khi tạo descriptor. Đây là product
@@ -320,3 +320,26 @@ in PRE-02, MS-05, VAR-01, POST-02/03 and BR-03 as V05 is implemented.
 - **REV-03:** Tiến độ lấy từ persisted resource/attempt/workload records. Không
   tạo nhánh hoặc tăng concurrency chỉ để khớp hình mô phỏng; graph/admission/
   ownership/readiness/current-set guards hiện hành vẫn là nguồn execution.
+
+## Git-owned manifest generation — ADR-021
+
+- **RB-01:** Infrastructure matching, dependencies, Terraform/state/targets and
+  provisioning stay unchanged. Before UC-08, validate cached render pin/engine
+  and typed inputs. After outputs, execute Git-owned defaults/normalization,
+  output-only provisioners and patches; no Git download during deployment.
+- **RB-02:** Git-selected rendering must not call a native renderer to generate
+  an authoritative hidden Deployment/Service or replace author changes. Git files
+  own transformation, missing-value defaults and labels/patch policy. Backend
+  supplies neutral input and validates explicit Score intent, approved references,
+  identity, namespace, ownership and current supported object envelope.
+- **RB-03:** Secret resolution/delivery remains platform-owned; templates only see
+  authorized name/key references and safe delivery metadata. Same explicit Score
+  resource requests/limits, probes, replicas, image, command/args and ports remain
+  protected. BR-11 missing-value fallbacks are bundle-configurable. Original
+  Score/Candidate are not rewritten. Existing Vault Agent/VSO behavior remains.
+- **RB-04:** Render failure blocks Apply with no fallback. Successful validated
+  result is persisted as safe review and passed unchanged to existing delivery,
+  readiness and current-set commit. No new kinds, route owner, resource lifecycle
+  or cleanup scope. Restart and in-flight executions use original immutable pins.
+
+Exact stages and validation: [Git contract](../../architecture/contracts/git-render-bundles.md).

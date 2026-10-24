@@ -2,7 +2,7 @@
 id: UC-05-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # UC-05 context — Validate and preview Score changes
@@ -38,3 +38,12 @@ Specification/realization định nghĩa yêu cầu, không chứng minh impleme
 [implementation handoff](../../implementation/visual-deployment-review.md)
 define the accepted extension. Specification/realization and diagrams here own
 behavior/collaboration; prototype acceptance is not product implementation proof.
+
+## Git-owned manifest rendering
+
+[ADR-021](../../architecture/decisions/ADR-021-git-render-bundles.md),
+[engine/source contract](../../architecture/contracts/git-render-bundles.md),
+[implementation handoff](../../implementation/git-render-bundles.md) and
+[real acceptance](../../operations/git-render-bundles-acceptance.md).
+Required design is recorded in this use case's RB requirements; IMP-034 tracks
+unimplemented work separately.

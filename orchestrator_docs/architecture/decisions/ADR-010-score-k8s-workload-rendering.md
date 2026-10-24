@@ -2,7 +2,7 @@
 id: ADR-010
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-24
 superseded_sections: [Decision-1-renderer-choice, Decision-10-optionality, internal-only-scope]
 related: [ADR-014]
 ---
@@ -76,3 +76,12 @@ hạn required behavior. Exact phiên bản v2 thuộc immutable release manifes
   document post-generation patches; their syntax is distinct from the product Delta JSON Patch.
 - [Humanitec Generic Workload inputs](https://developer.humanitec.com/platform-orchestrator/docs/platform-orchestrator/working-with/workloads/)
   explain the conceptual separation of workload specification and driver execution.
+
+## Git rendering amendment — 2026-10-24
+
+[ADR-021](ADR-021-git-render-bundles.md) supersedes installed-only/Go-owned
+rendering policy and exact-three-workload-variable restrictions for Git bundles.
+Legacy installed pins retain their contract. Terraform provisioning, dependency
+matching, target/state/ownership and cleanup rules in this ADR are unchanged.
+Git behavior, inputs, cache and versioning follow the linked contract; this
+amendment does not claim implementation or authorize retained-data migration.

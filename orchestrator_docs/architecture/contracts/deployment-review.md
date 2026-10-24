@@ -2,7 +2,7 @@
 id: CONTRACT-DEPLOYMENT-REVIEW
 artifact: shared-contract
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # Deployment review artifacts and progress
@@ -236,3 +236,13 @@ on scope/run change/unmount and stop on terminal response. On read errors keep
 last data with stale/error indication; retry GET only. Display independent running
 nodes concurrently only when actual records show concurrency. Do not alter the
 scheduler to mimic the prototype. No pause/reset/failure selector in product UI.
+
+## Git rendering projection — ADR-021
+
+For Git-selected workloads, render from the exact verified cache/pin and effective
+inputs through [RB-C06](git-render-bundles.md#rb-c06--preview-admission-and-history).
+Safe source metadata includes bundle name and short commit. Extend the allowlist
+to supported scheduling/security/rollout fields and non-secret custom annotations
+so user-visible policy changes have a meaningful manifest diff. Unknown and
+redaction provenance remains mandatory; no raw source/template stdout or Secret
+bodies. Applied before-side is immutable and survives backend restart.

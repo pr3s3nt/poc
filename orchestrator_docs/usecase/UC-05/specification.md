@@ -2,7 +2,7 @@
 id: UC-05-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # UC-05 — Validate and Preview Score Changes
@@ -233,3 +233,21 @@ runtime/current set hoặc Environment khác khi lưu.
   đầy đủ hơn ở Tổng quan. Dùng safe projection có nguồn, không suy giá trị bí mật
   hoặc đoán output chưa có. Giãn card/tầng và tách làn đường nối để giữ nội dung
   và dependency dễ đọc; không đổi graph, thứ tự thực thi hoặc runtime state.
+
+## Git rendering intent and Preview — ADR-021
+
+- **RB-01:** Extend BR-09 to pin Git origin/directory/commit/content, engine/binary
+  contract and effective render inputs, using scoped verified metadata only.
+  Same Score with a changed bundle/input is a pending workload update. Neither
+  matching nor pure planning fetches Git or invokes templates/providers.
+- **RB-02:** After closing the read snapshot, VIS-03 uses the same pinned cached
+  pipeline as execution, with symbolic dependencies. Show source/short commit
+  and permitted customization fields in the manifest diff. Preserve unknown and
+  redacted paths; never present fabricated values as exact output. An unavailable
+  artifact remains visibly unavailable. Preview causes no cluster mutation.
+- **RB-03:** Old Preview becomes stale when the selected Definition/bundle/inputs
+  change before admission. Same-pin re-inspection/cache repair does not change
+  intent. Changing Git branch HEAD alone does not change a saved selection.
+  Applied history supplies the before-side across refresh/restart.
+
+Details: [Git contract RB-C06](../../architecture/contracts/git-render-bundles.md#rb-c06--preview-admission-and-history).

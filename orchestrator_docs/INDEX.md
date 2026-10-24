@@ -2,7 +2,7 @@
 id: DOC-INDEX
 artifact: documentation-index
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # Documentation index
@@ -111,3 +111,13 @@ pass + video/estimate + cleanup sạch thì tự chạy AWS; quyết định2026
 bỏ điểm duyệt cuối và yêu cầu sửa/check/chạy lại khi scenario thất bại.
 
 Kết quả và cleanup cuối: [bàn giao M04](verification/2026-10-16-m04-completion.md).
+
+## Git-owned Kubernetes manifest rendering
+
+For the requested change after infrastructure provisioning, start with
+[ADR-021](architecture/decisions/ADR-021-git-render-bundles.md), then
+[Git bundle contract](architecture/contracts/git-render-bundles.md),
+[implementation handoff](implementation/git-render-bundles.md) and
+[real Playwright acceptance](operations/git-render-bundles-acceptance.md).
+UC-03/05/06/07 RB requirements own behavior; IMP-034 records unimplemented status.
+This route does not activate a roadmap iteration.

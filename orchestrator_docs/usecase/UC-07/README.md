@@ -2,7 +2,7 @@
 id: UC-07-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-24
 ---
 
 # UC-07 context — Update or Remove Workload
@@ -30,3 +30,12 @@ Specification/realization định nghĩa yêu cầu, không chứng minh impleme
 
 Luồng Xóa tài nguyên: [sequence](sequence-resource-delete.puml),
 [screens](ui/screens.md), [states](ui/states.md), [API](ui/api-mapping.md).
+
+## Git-owned manifest rendering
+
+[ADR-021](../../architecture/decisions/ADR-021-git-render-bundles.md),
+[engine/source contract](../../architecture/contracts/git-render-bundles.md),
+[implementation handoff](../../implementation/git-render-bundles.md) and
+[real acceptance](../../operations/git-render-bundles-acceptance.md).
+Required design is recorded in this use case's RB requirements; IMP-034 tracks
+unimplemented work separately.

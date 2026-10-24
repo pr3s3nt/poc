@@ -34,7 +34,7 @@ BeforeValidator --> Planner: valid module + shared contribution
 Planner -> Delta: BuildHumanitecDelta(currentSet, workloadID, before, after) [MS-04]
 Delta --> Planner: transient DeploymentDeltaDocument + CandidateSet
 Planner -> Matcher: Select workload Definition/class first [ADR-017]
-Matcher --> Planner: pinned lifecycle bundle + namespace/cluster refs + provision rules
+Matcher --> Planner: pinned render source/engine/effective inputs + namespace/cluster refs + provision rules
 Planner -> Graph: BuildAndExpand(candidate, selected workload references/rules) [MS-05]
 Graph -> Graph: Expand matched references/rules/provider bindings to fixed point; no implicit infrastructure
 Graph -> Matcher: Match resource nodes including existing-cluster
@@ -53,7 +53,7 @@ Preview -> Preview: Close read snapshot; retain immutable baseline/plan inputs
 Preview -> Review: Assemble(captured snapshot, exact plans) [VIS-01..06]
 Review -> Sources: ReadPinned(verified module pin; no fetch)
 Sources --> Review: verified bounded source or unavailable
-Review -> PreviewRenderer: Preview(selected installed bundle, symbolic bindings)
+Review -> PreviewRenderer: Preview(exact installed/Git cache pin, typed inputs, symbolic bindings)
 PreviewRenderer --> Review: manifest projection + unknown provenance or unavailable
 Review -> Redactor: Project source/inputs/manifests; fail closed
 Redactor --> Review: safe artifact sides + redacted paths

@@ -7,6 +7,16 @@ last_reviewed: 2026-10-24
 
 # Current project state
 
+## Git-owned manifest rendering — design prepared, implementation pending
+
+[ADR-021](architecture/decisions/ADR-021-git-render-bundles.md) and UC-03/05/06/07
+now define Git-owned normalization/defaults/provisioners/patches after unchanged
+infrastructure provisioning. Current runtime is still installed-bundle/Go-policy
+rendering. [IMP-034](implementation/deviations.md#imp-034--git-owned-render-bundles)
+and the [handoff](implementation/git-render-bundles.md) track the required registry,
+engine, UI, persistence and real-adapter Playwright delivery. No new feature or
+acceptance completion is claimed.
+
 ## Console Vietnamese/English message catalogs — 2026-10-24
 
 All Console text formerly hard-coded in Vietnamese now comes from runtime JSON

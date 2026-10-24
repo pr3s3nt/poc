@@ -7,6 +7,8 @@ class ResourceDefinitionController <<boundary>> {
   +ListRenderBundles(sessionOrg, role)
   +ListDefinitionCapabilities(sessionOrg, role)
   +InspectTerraformModule(document)
+  +InspectRenderBundle(document)
+  +GetRenderBundle(id)
 }
 class ResourceDefinitionService <<control>> {
   +RegisterResourceDefinition(ctx, cmd): ResourceDefinition
@@ -14,6 +16,7 @@ class ResourceDefinitionService <<control>> {
   +ListRenderBundles(): SafeBundleMetadata[]
   +ListDefinitionCapabilities(ctx, org): CapabilityMetadata[]
   +InspectTerraformModule(ctx, org, request): CapabilityMetadata
+  +InspectRenderBundle(ctx, org, request): RenderBundleMetadata
   +PreviewMatching(ctx, org, query): MatchingPreview
 }
 interface DriverContractInspector {
@@ -59,4 +62,9 @@ ResourceDefinitionService --> ModuleSourcePolicy : legacy policy / direct HTTPS
 ResourceDefinitionService --> ModuleBundleResolver : verify immutable content before insert
 ModuleBundleResolver ..> TerraformModuleBundle
 ResourceDefinition --> TerraformModuleBundle : verified bundle ref
+class RenderBundleRegistry <<adapter>>
+class VerifiedRenderBundle <<entity>>
+ResourceDefinitionService --> RenderBundleRegistry : inspect/cache/read scoped pin
+RenderBundleRegistry --> VerifiedRenderBundle : immutable metadata
+ResourceDefinition --> VerifiedRenderBundle : verified Git ID + inputs
 @enduml

@@ -178,3 +178,11 @@ Sidebar thêm mục “Hiệu quả platform” sau “Kho bí mật”, route
 platform. Developer không thấy mục và không render trang qua deep link. Mục
 “Lịch sử triển khai” vẫn disabled; chi tiết bản ghi mở lịch sử theo Environment
 hiện có. Trang thuộc [UC-17 screens](../../usecase/UC-17/ui/screens.md).
+
+## Git rendering source reuse — ADR-021
+
+Mẫu dựng ứng dụng reuses the current Terraform Git source inspection/verified
+selector patterns under [UC-03 screens](../../usecase/UC-03/ui/screens.md#git-render-bundle-source--adr-021).
+Existing shell/routes/criteria stay; shared helper text and full pin details are
+progressive disclosures. New source/inputs/error/provenance labels use VI/EN
+catalogs. This scoped extension does not redesign the existing catalog.

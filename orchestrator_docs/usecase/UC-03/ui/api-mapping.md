@@ -2,7 +2,7 @@
 id: UC-03-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-10-21
+last_reviewed: 2026-10-24
 related: UC-03
 ---
 
@@ -200,3 +200,19 @@ binding, biến, executor-owned và region variable từ GET
 ## Unified cluster authoring — 2026-10-21
 
 UI3-05: Both methods use the existing GET/POST/PUT resource-definitions endpoints and capability/account metadata. Existing-cluster submits k8s-cluster, driver existing-cluster, its Internal driverAccount and values.variables = {}; no Terraform source, region or credentials. Matching API and expected-version CAS remain unchanged.
+
+## Git render-bundle mapping — ADR-021
+
+[RB-C07](../../../architecture/contracts/git-render-bundles.md#rb-c07--http-operations-and-errors)
+is canonical for exact request/response/error shapes.
+
+| UI action | API |
+|---|---|
+| Kiểm tra bundle | POST `/api/v1/render-bundles/inspect` with url/path/ref |
+| Load source choices | GET `/api/v1/render-bundles` (legacy + same-org Git metadata) |
+| Reopen saved Git source | GET `/api/v1/render-bundles/{id}` |
+| Register/save template | Existing POST/PUT resource-definitions with verified render_bundle and render_inputs; expected version on PUT |
+| Compare/apply policy change | Existing pending Preview/Deploy; no separate render/deploy endpoint |
+
+Changing source/inputs changes draft signature; pin/schema and field state must
+come from the same response. Client cannot provide digest/engine overrides.

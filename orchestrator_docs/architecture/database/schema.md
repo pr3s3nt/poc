@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # Database Schema
@@ -893,3 +893,48 @@ Fresh baseline SQL/digest, serializer validation, grants as necessary and parity
 contracts change together. Do not auto-migrate/reset existing user databases or
 rewrite historical rows; unsupported baseline follows existing explicit setup
 rules. Additive absent artifacts on otherwise compatible rows remain unavailable.
+
+## Git render-bundle persistence — ADR-021
+
+Required design, not a deployed schema. Add `render_bundles`:
+
+| Column | Contract |
+|---|---|
+| `id` | UUID primary key, server-issued |
+| `organization_id` | UUID NOT NULL FK organizations; every read/write scoped |
+| `source_url` | text NOT NULL, credential-free canonical HTTPS origin |
+| `source_path` | text NOT NULL, normalized clean directory or `.` |
+| `source_revision` | text NOT NULL, full 40/64 lowercase hex commit |
+| `content_sha256` | text NOT NULL, 64 lowercase hex digest |
+| `engine_contract` | text NOT NULL, `git-render-v1` |
+| `renderer_version` | text NOT NULL, `0.15.0` |
+| `renderer_binary_sha256` | text NOT NULL, 64 lowercase hex digest |
+| `contract` | jsonb NOT NULL object: validated manifest, input schema/defaults and input-contract version; no raw credentials/file paths |
+| `created_at` | timestamptz NOT NULL |
+
+Unique `(organization_id,source_url,source_path,source_revision,engine_contract)`;
+conflicting digest/contract/binary is rejected, identical registration reuses
+record. Published metadata is immutable; Console role SELECT/INSERT only and
+immutability trigger like terraform_module_bundles; State role needs no grants.
+Availability is computed from metadata/cache/runtime, not a mutable DB status.
+
+Definition `driver_inputs.values.variables.render_bundle` references either a
+legacy installed ID or same-org verified UUID; optional `render_inputs` holds
+supplied non-secret JSON. Existing Create/CAS transaction verifies association
+and scope, updates Definition/criteria/version atomically; no new nullable FK on
+Definitions is needed (legacy and Git use the same JSON field). Repositories must
+enforce existence/scope transactionally. Metadata is insert-only with no delete
+endpoint, so validated pin cannot disappear during that write.
+
+Immutable plan rendering selection holds source pin/engine/binary and effective
+inputs/hash; old selections deserialize unchanged. Workload manifest review stays
+in existing deployment_workloads JSON; no raw Secret data or arbitrary template
+output. Memory/JSON repositories mirror scoped immutable semantics. JSON snapshots
+add optional empty registry for old complete snapshots; preserve old plans.
+
+Content files live in the durable verified cache, not SQL. No GC in v1. Include
+that cache in backup/restore instructions; metadata alone does not restore content.
+Fresh baseline DDL, canonical validation fingerprint, role grants and schema tests
+must add this table. Existing retained DBs are not auto-migrated/reset: use a new
+isolated database for acceptance under T28. Keep Terraform state/owner/roles and
+all resource identity constraints unchanged. [ERD](erd.puml) shows the relation.

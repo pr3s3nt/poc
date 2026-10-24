@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -1098,3 +1098,16 @@ records read-only Preview, metadata/history preservation and secret boundaries.
 | MS-08 | Console CSV | `buildCsv` | none | CSV unit test; browser download |
 | ALT-01, BR-09, BR-10, EX-04 | OC-20 baselines | `AddBaselineVersion`, `Baseline.Validate`, `EffectiveBaseline`, `AppendEffectivenessBaseline` | `effectiveness_baselines` append-only, CAS by version | baseline HTTP test; PostgreSQL restart + 42501; [JSON reload](../../backend/internal/adapters/store/effectiveness_test.go); browser save/reload |
 | Shell gate | UC-17 UI | `AppShell`, `App` | — | [App tests](../../frontend/src/app/App.test.tsx), [route tests](../../frontend/src/app/routes.test.ts) |
+
+## Git rendering bundle — ADR-021 (planned, not passed)
+
+| Requirements | Collaboration / persistence | Required validation |
+|---|---|---|
+| UC-03 RB-01..06; RB-C01..03/07 | UC-03 sequence/VOPC; RenderBundleRegistry; scoped immutable render_bundles; Definition CAS | Source/schema/RBAC/CAS tests; RB-E01/02/06/09 |
+| UC-05 RB-01..03; RB-C06 | UC-05 sequence; plan metadata/effective input pins; safe review | Pure planning, stale/cache/unknown tests; RB-E04/07/08 |
+| UC-06 RB-01..04; RB-C04/05 | UC-06 sequence; neutral input → GitRenderEngine → existing Apply/WaitReady | Stage parity/policy/secret guards; RB-E05/07; no rebuild between A/B |
+| UC-07 RB-01..02 | Pending/applied pins and original target removal; unchanged Terraform state | Restart/reuse/history tests; RB-E08/09/10; unchanged resource/PVC UIDs |
+| UC-03 UI / ADR-020 | Existing rendering route + Git inspect/typed inputs/VI-EN catalogs | Frontend checks, actual browser references and real end-user Playwright |
+
+[Acceptance IDs and evidence requirements](../operations/git-render-bundles-acceptance.md#end-user-flow-and-assertions)
+are required future tests; all rows remain unverified until dated execution evidence.

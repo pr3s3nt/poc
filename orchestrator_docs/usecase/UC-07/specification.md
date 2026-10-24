@@ -2,7 +2,7 @@
 id: UC-07-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # UC-07 — Update or Remove Workload
@@ -207,3 +207,15 @@ runtime/current set hoặc Environment khác khi lưu.
   class/target vẫn giữ replacement guard và không tự chuyển dữ liệu.
 - **REV-02:** Pending execution giữ `review_request_id` và artifact/status capture
   như UC-06 REV-*. Retry cần Preview mới; không replay deploy khi poll lỗi.
+
+## Git bundle updates and removal — ADR-021
+
+- **RB-01:** Updating only a rendering Definition's Git pin or typed inputs produces
+  a workload update without a Score draft. Use the same application/environment,
+  original resource identities and Terraform reuse rules. Re-select an older pin
+  through explicit edit + Preview + Deploy; never rewrite applied history or
+  execute an old mutable Git ref.
+- **RB-02:** Removal continues to use original applied target/identity/ownership,
+  independent of the current Definition or Git reachability. No new object kinds
+  or Terraform cleanup behavior. Cache/history retain prior pins; backend restart
+  must not lose the applied manifest before-side.

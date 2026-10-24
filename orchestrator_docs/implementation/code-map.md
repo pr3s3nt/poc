@@ -624,3 +624,10 @@ Console [feature](../../frontend/src/features/effectiveness/), route/sidebar in
 [routes](../../frontend/src/app/routes.ts) and [AppShell](../../frontend/src/app/AppShell.tsx).
 Adding a metric: a catalog entry in `metrics.go` (Compute + Records) and its
 copy in `labels.ts`; a new external source also needs spec/schema first.
+
+## Git render bundles — required implementation map
+
+The [ADR-021 handoff](git-render-bundles.md#code-map-and-required-work) maps actual
+installed-renderer code to the required new registry/engine/Console/persistence.
+Those new paths are planned deliverables until IMP-034 closes; do not read this
+map as feature completion.

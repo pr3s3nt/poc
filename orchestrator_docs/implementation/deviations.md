@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-DEVIATIONS
 artifact: design-implementation-deviations
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # Known design and implementation deviations
@@ -582,3 +582,20 @@ parent's no-change message and disabled Deploy. Regression tests use the actual
 zero-value response and unavailable→valid→unavailable transitions. No backend,
 admission, data, deployment or lifecycle behavior is changed. See
 [white-screen diagnosis](../verification/2026-10-23-preview-no-change-white-screen.md).
+
+## IMP-034 — Git-owned render bundles
+
+Accepted design on 2026-10-24: [ADR-021](../architecture/decisions/ADR-021-git-render-bundles.md)
+and UC-03/05/06/07 RB requirements move normalization/defaults/output-only
+provisioners/patches into a Git bundle while preserving infrastructure and current
+object lifecycle. Current code embeds renderer.go/provisioners.yaml, normalizes
+and produces policy patches in Go, exposes only the startup bundle map and lacks
+Git inspection, scoped persistent render registry, typed render_inputs and UI.
+
+**Open; documentation prepared only.** [Implementation handoff](git-render-bundles.md)
+and [real acceptance](../operations/git-render-bundles-acceptance.md) specify
+complete work and exit checks. Existing native equality validation must become
+semantic guards on the new Git path; adding a downloader/patch selector alone
+is insufficient. No feature code, DB upgrade, live deployment or acceptance is
+claimed by the documentation commit. Do not resolve until real-adapter end-user
+Playwright A→B→restart→A and product cleanup pass with unchanged infrastructure.

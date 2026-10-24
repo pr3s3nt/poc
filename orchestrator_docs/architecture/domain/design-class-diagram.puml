@@ -328,7 +328,7 @@ class ScoreK8sRenderer <<adapter>> {
   +Render(ctx, request): List<Manifest>
   +Bundles(): Map
 }
-PlanningService ..> RenderBundle : startup catalog
+PlanningService ..> RenderBundle : installed + scoped verified metadata
 ResourceDefinitionService ..> RenderBundle : validation + fingerprint
 RenderingSelection *-- RenderBundle
 DeploymentPlan *-- RenderingSelection : per workload
@@ -448,4 +448,24 @@ safe rendered review in per-deployment workload snapshot.
 Execution request UUID belongs to admitted operation,
 not deterministic planning runId.
 end note
+class VerifiedRenderBundle <<entity>> {
+  +OrganizationID: UUID
+  +SourcePin: ImmutableGitPin
+  +EngineContract: string
+  +InputSchema: JSON
+}
+class RenderBundleRegistry <<adapter>> {
+  +Inspect(ctx, org, source): VerifiedRenderBundle
+  +ReadVerified(ctx, org, id): VerifiedRenderBundle
+}
+class GitRenderEngine <<adapter>> {
+  +Render(ctx, neutralInput, pin): List<Manifest>
+  +ValidateSelection(ctx, pin)
+}
+ResourceDefinitionService --> RenderBundleRegistry
+RenderBundleRegistry --> VerifiedRenderBundle
+PlanningService ..> VerifiedRenderBundle : snapshot only
+RenderingSelection ..> VerifiedRenderBundle : exact source/runtime/input pin
+GitRenderEngine ..|> WorkloadRenderer
+GitRenderEngine ..|> RenderPreflight
 @enduml

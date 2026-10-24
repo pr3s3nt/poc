@@ -2,7 +2,7 @@
 id: ARCHITECTURE-INDEX
 artifact: architecture-index
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # Shared Architecture Baseline
@@ -59,3 +59,13 @@ Definition edits are version CAS; historical execution/cleanup pins remain.
 Actual V02 delivery is tracked in CURRENT_STATE/evidence, not implied by design.
 
 - [Deployment review artifact/progress contract](contracts/deployment-review.md) — ADR-019, UC-05/09 desktop visual review.
+
+## Git-owned manifest policy (accepted design)
+
+- [ADR-021](decisions/ADR-021-git-render-bundles.md).
+- [Git bundle source/engine/API contract](contracts/git-render-bundles.md).
+- [Implementation handoff](../implementation/git-render-bundles.md) and
+  [real acceptance](../operations/git-render-bundles-acceptance.md).
+
+Terraform planning/provisioning and resource lifecycle stay unchanged. The
+installed-only renderer remains current code until IMP-034 is implemented.

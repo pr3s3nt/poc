@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-INDEX
 artifact: implementation-index
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-24
 ---
 
 # Implementation documentation
@@ -28,3 +28,5 @@ Source code và tests sở hữu actual implemented behavior nhưng không tự 
 required product behavior trong specification.
 
 - [Terraform v2 rule reconciliation](v2-rule-reconciliation.md) — ID/canonical destinations và a897d6b/3367f7e history, không code completion.
+
+- [Git render bundles implementation handoff](git-render-bundles.md) — ADR-021 work breakdown and real acceptance gate; not implementation evidence.

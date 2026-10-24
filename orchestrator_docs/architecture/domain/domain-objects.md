@@ -2,7 +2,7 @@
 id: DOMAIN-OBJECTS
 artifact: domain-persistence-classification
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # Domain Objects and Persistence Classification
@@ -230,3 +230,15 @@ admission-bound reviewRequestId for correlation. The planner graph/identity and 
 successful workload/resource associations remain authoritative. See
 [review contract](../contracts/deployment-review.md) and
 [schema](../database/schema.md#visual-review-persistence--adr-019-required-design).
+
+## Git render bundles — ADR-021
+
+`VerifiedRenderBundle` is an Organization-scoped immutable catalog entity with
+source pin, engine/renderer contract and typed input metadata. Definition holds
+its verified ID plus supplied inputs; `RenderingSelection` is an immutable plan
+value containing exact source/runtime pin and effective inputs/hash. It is not a
+resource instance or Terraform state. `RenderBundleRegistry` owns inspection/cache
+materialization; pure planning consumes metadata only. `GitRenderEngine` executes
+normalization/provisioners/patches with neutral input and semantic validation.
+See [contract](../contracts/git-render-bundles.md) and
+[persistence](../database/schema.md#git-render-bundle-persistence--adr-021).

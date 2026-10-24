@@ -2,7 +2,7 @@
 id: ADR-014
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-14
+last_reviewed: 2026-10-24
 related: [UC-03, UC-04, UC-05, UC-06, UC-07, UC-08, UC-09, UC-16]
 ---
 
@@ -235,3 +235,12 @@ Giữ immutable execution/transitive pins, provider release trust, hardened HTTP
 fetch, strict content inspection, private cache và original cleanup artifacts.
 Safe origin URL lưu trong bundle contract JSON; không lưu credential. Private
 Git auth/SSH không được thêm trong đợt này. UC-03 GIT-01..06 sở hữu UX behavior.
+
+## Git rendering amendment — 2026-10-24
+
+[ADR-021](ADR-021-git-render-bundles.md) supersedes installed-only/Go-owned
+rendering policy and exact-three-workload-variable restrictions for Git bundles.
+Legacy installed pins retain their contract. Terraform provisioning, dependency
+matching, target/state/ownership and cleanup rules in this ADR are unchanged.
+Git behavior, inputs, cache and versioning follow the linked contract; this
+amendment does not claim implementation or authorize retained-data migration.

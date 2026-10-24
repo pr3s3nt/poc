@@ -2,7 +2,7 @@
 id: UC-03-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-21
+last_reviewed: 2026-10-24
 related: UC-03
 ---
 
@@ -207,3 +207,21 @@ tường minh. Edit giữ pin đã lưu, không tự chuyển sang Git.
 ## Unified cluster authoring — 2026-10-21
 
 UI3-05: Switching cluster methods retains each driver draft. Existing-cluster shares catalog/detail navigation, criteria validation, metadata/account loading and error/retry states, CAS stale/unknown-outcome holds and explicit reload with Terraform. ID/Type stay fixed during Edit.
+
+## Git bundle states — ADR-021
+
+| State | Required behavior |
+|---|---|
+| New/uninspected | Git fields editable; inspect enabled when valid; Save blocked |
+| Inspecting | Show progress; no duplicate inspect; source edits invalidate request signature |
+| Verified | Pin/name/schema and typed inputs shown; Save only with valid full Definition |
+| Source changed | Previous result stale, retain drafts per pin; discard late response |
+| Invalid source/schema/input | Safe field error, preserve draft; no implicit fallback |
+| Fetch/cache/runtime unavailable | Explicit retry/reinspect; distinguish empty registry from error |
+| Existing verified edit | Saved immutable pin/inputs restored without fetch; legacy still selectable |
+| CAS conflict/uncertain save | Existing reload/review flow, no automatic replay |
+| Saved | Refresh catalog; new create/reset draft defaults to Git |
+
+Developer cannot inspect/edit through UI or deep link; existing session-expired
+behavior applies. Unknown backend errors use localized fallback, no raw template
+or Git stderr. Full error codes follow RB-C07.
