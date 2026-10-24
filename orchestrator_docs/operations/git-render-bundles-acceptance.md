@@ -8,8 +8,8 @@ last_reviewed: 2026-10-24
 # Git rendering — real end-user acceptance
 
 Required execution procedure for [ADR-021](../architecture/decisions/ADR-021-git-render-bundles.md).
-The runner/scenario named here are implementation deliverables, not existing
-verified commands. The user explicitly requires Playwright through the new UI,
+The runner and scenario below exist since 2026-10-24; dated results live under
+[verification](../verification/README.md). The user explicitly requires Playwright through the new UI,
 real adapters and an experience like an end user. A mock, fake adapter, stub CLI,
 intercepted success response or direct API seed cannot establish acceptance.
 
@@ -131,3 +131,25 @@ runner command must appear there and in the implementation report. Update
 CURRENT_STATE/IMP-034/traceability only from actual results. Complete the GitHub
 issue only when end-user acceptance and checks pass; otherwise report the exact
 blocker and retained owned resources, never claim a fake/partial run as success.
+
+## Running the implemented runner
+
+```bash
+cd frontend && npm ci            # Playwright/Chromium and yaml for the scenario
+helm repo add hashicorp https://helm.releases.hashicorp.com   # once; VSO 1.5.1
+bash backend/test/integration/git-render-bundle-kind.sh --evidence /abs/new/dir [--run-id lowercase-id]
+```
+
+Prerequisites: Docker, kind, kubectl, Helm, Go, Node, `xvfb-run`, `jq`, Git push
+permission for the task-owned fixture ref only. The runner writes
+`run-manifest.json` before mutation, creates kind `manifest-bundle-<run-id>` with a
+private kubeconfig (the operator's kubeconfig is not changed), installs VSO and the
+run's workload Vault, builds backend/frontend/acceptance images tagged
+`mb-<run-id>`, pushes fixture commits A/B of `backend/render-bundles/standard` to
+`test/manifest-bundle/<run-id>` and starts Compose project
+`manifest-bundle-<run-id>` with [the run overlay](../../deploy/local/compose.git-render-bundle.yml).
+The browser scenario is [git-render-bundle-kind.mjs](../../frontend/test/e2e/git-render-bundle-kind.mjs)
+(headed Chromium on Xvfb, `vi-VN`). Exit cleanup always removes exactly those
+objects and reports each absence in `cleanup.txt`; private inputs are deleted
+only after a clean exit. A failed run keeps `private/` (credentials of the
+already deleted cluster/Vault) for diagnosis; delete it after review.

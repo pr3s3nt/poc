@@ -155,6 +155,20 @@ describe('Git render bundle authoring (ADR-021)', () => {
     expect(inspections).toEqual([]);
   });
 
+  it('prefills the saved source when an edit switches to Git for a new ref', async () => {
+    const user = userEvent.setup();
+    const stored = { key: 'web-git', name: 'Mẫu Git', version: 1, resourceType: 'workload', driverType: 'score-k8s', criteria: [{}], driverInputs: { values: { variables: { render_bundle: idA, namespace: nsRef, cluster: clusterRef } } } };
+    backend({ bundles: [bundleA], definitions: [stored] });
+    render(<RenderingTemplatesPage />);
+    await screen.findByText('Mẫu Git');
+    await user.click(screen.getByRole('button', { name: 'Sửa mẫu web-git' }));
+    await waitFor(() => expect(screen.getByLabelText('Bundle dựng ứng dụng')).toHaveValue(idA));
+    await user.click(screen.getByRole('button', { name: 'Thêm từ Git' }));
+    expect(screen.getByLabelText('Git HTTPS URL')).toHaveValue(bundleA.source.url);
+    expect(screen.getByLabelText('Thư mục bundle')).toHaveValue(bundleA.source.path);
+    expect(screen.getByLabelText('Tag hoặc commit')).toHaveValue('');
+  });
+
   it('offers re-inspection of an unavailable saved pin with its exact commit', async () => {
     const user = userEvent.setup();
     const unavailable = { ...bundleA, status: 'UNAVAILABLE' };

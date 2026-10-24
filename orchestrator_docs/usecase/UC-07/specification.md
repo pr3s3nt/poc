@@ -219,3 +219,22 @@ runtime/current set hoặc Environment khác khi lưu.
   independent of the current Definition or Git reachability. No new object kinds
   or Terraform cleanup behavior. Cache/history retain prior pins; backend restart
   must not lose the applied manifest before-side.
+
+## Secret delivery objects on workload removal — user decision 2026-10-24
+
+Issue #14 acceptance showed that a removed workload left its VSO delivery
+objects, so the namespace failed confirmed cleanup (unaccounted objects). The
+user chose to extend removal for this case.
+
+- **VSO-01:** Removing a workload (VAR-02) also removes the VSO objects the
+  platform created for that workload: VaultStaticSecrets below the Application
+  Environment's own Vault value prefix whose VaultAuth binds the workload's
+  deterministic delivery ServiceAccount, their destination Secrets and
+  VaultAuths, that ServiceAccount once no remaining VaultAuth uses it, and a
+  VaultConnection no remaining VaultAuth references. Objects of other workloads,
+  Applications or stores are kept. Deletion is by exact name from those
+  references, never by label selector, prefix or bulk delete.
+- **VSO-02:** A failed or unknown delivery-object removal keeps the instance
+  FAILED like a failed workload delete; retry is safe and idempotent. Vault KV
+  bundles, policies and roles are unchanged (out of scope). Legacy Vault Agent
+  delivery keeps its existing behavior.

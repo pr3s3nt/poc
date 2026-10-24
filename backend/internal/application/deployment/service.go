@@ -471,6 +471,15 @@ func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, 
 			_ = s.store.UpsertWorkloadProgress(ctx, instance)
 			return err
 		}
+		// The workload's secret delivery objects go with it (UC-07 VSO-01);
+		// an unverified removal keeps the instance failed for a retry.
+		if remover, ok := s.configSync.(execution.WorkloadSecretRemover); ok {
+			if _, err := remover.RemoveWorkloadSynchronized(ctx, target, planCtx.App.Key, planCtx.Env.Key, workloadID); err != nil {
+				instance.Status = domain.InstanceFailed
+				_ = s.store.UpsertWorkloadProgress(ctx, instance)
+				return err
+			}
+		}
 		instance.Status = domain.InstanceRemoved
 		instance.AppliedConfigRevisionID = ""
 		instance.ObservedAt = s.clock.Now()

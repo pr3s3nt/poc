@@ -149,7 +149,7 @@ chmod 0600 "${PRIVATE}/internal.kubeconfig"
 log "building images ${TAG}"
 docker build --quiet -t "orchestrator-backend:${TAG}" "${REPO}/backend" >/dev/null
 docker build --quiet -t "orchestrator-frontend:${TAG}" "${REPO}/frontend" >/dev/null
-"${ROOT}/test/integration/build-images.sh" "${TAG}" "${PRIVATE}/acceptance-bin" >/dev/null
+(cd "${ROOT}" && ./test/integration/build-images.sh "${TAG}" "${PRIVATE}/acceptance-bin" >/dev/null)
 for workload in frontend backend worker; do kind load docker-image "acceptance-${workload}:${TAG}" --name "${CLUSTER}" >/dev/null; done
 docker image inspect -f '{{.Id}}' "orchestrator-backend:${TAG}" > "${EVIDENCE}/backend-image-id.txt"
 (cd "${ROOT}" && go build -o "${PRIVATE}/v2ctl" ./test/integration/v2ctl)

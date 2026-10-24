@@ -219,6 +219,14 @@ type ConfigSecretRemover interface {
 	RemoveSynchronized(ctx context.Context, target Target, applicationKey, environmentKey string) ([]string, error)
 }
 
+// WorkloadSecretRemover removes the secret delivery objects a
+// ConfigSecretSynchronizer created for ONE workload of one Application
+// Environment when that workload is removed (UC-07 VSO-01), so the namespace
+// keeps no unaccounted delivery objects. It returns the kinds/names removed.
+type WorkloadSecretRemover interface {
+	RemoveWorkloadSynchronized(ctx context.Context, target Target, applicationKey, environmentKey, workloadID string) ([]string, error)
+}
+
 type ConfigBundle struct {
 	StoreKey, Address, Mount, AuthMount, Path, Role, ServiceAccount, SecretName string
 	CAPEM                                                                       string

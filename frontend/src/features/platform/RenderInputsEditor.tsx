@@ -49,7 +49,7 @@ export function RenderInputsEditor({ schema, value, onChange, onRawProblems, dis
   };
 
   if (fields.length === 0 && unknown.length === 0) return <p className="feature-note">{t('platform.renderInputs.noInputs')}</p>;
-  return <fieldset className="catalog-fields" disabled={disabled} aria-label={t('platform.renderInputs.inputs')}>
+  return <fieldset className="typed-variables form-fieldset" disabled={disabled} aria-label={t('platform.renderInputs.inputs')}>
     <legend>{t('platform.renderInputs.inputs')}</legend>
     {fields.map((field) => {
       const explicit = has(value, field.name);
@@ -60,7 +60,7 @@ export function RenderInputsEditor({ schema, value, onChange, onRawProblems, dis
       let control;
       if (field.type === 'boolean') {
         const checked = explicit ? current === true : field.defaultValue === true;
-        control = <label className="checkbox-row"><input type="checkbox" checked={checked} aria-describedby={hintId} onChange={(event) => set(field.name, event.target.checked)} />{field.title}</label>;
+        control = <label className="typed-variable-toggle"><input type="checkbox" checked={checked} aria-describedby={hintId} onChange={(event) => set(field.name, event.target.checked)} />{field.title}</label>;
       } else if (field.enumValues) {
         const options = field.enumValues.map((option) => JSON.stringify(option));
         control = <label>{field.title}<select value={explicit ? JSON.stringify(current) : ''} aria-describedby={hintId} aria-invalid={problem ? true : undefined} onChange={(event) => { if (event.target.value === '') reset(field.name); else set(field.name, JSON.parse(event.target.value) as unknown); }}>
@@ -76,7 +76,7 @@ export function RenderInputsEditor({ schema, value, onChange, onRawProblems, dis
         const text = raw[field.name] ?? (explicit ? JSON.stringify(current, null, 2) : '');
         control = <label>{field.title}<textarea rows={4} spellCheck={false} value={text} placeholder={field.hasDefault ? JSON.stringify(field.defaultValue) : ''} aria-describedby={hintId} aria-invalid={problem ? true : undefined} onChange={(event) => setRawText(field, event.target.value)} /></label>;
       }
-      return <div key={field.name} className="render-input" data-input={field.name}>
+      return <div key={field.name} className="typed-variable" data-input={field.name}>
         {control}
         <p id={hintId} className="feature-note">{explicit ? t('platform.renderInputs.explicitHint') : hint}{field.description ? ` ${field.description}` : ''}</p>
         {explicit ? <Button type="button" tone="quiet" onClick={() => reset(field.name)}>{t('platform.renderInputs.useDefault', { name: field.title })}</Button> : null}

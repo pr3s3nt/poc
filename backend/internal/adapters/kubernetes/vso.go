@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	configport "orchestrator/internal/ports/configuration"
 	"orchestrator/internal/ports/execution"
 )
 
@@ -86,6 +87,25 @@ func (s *VSOSynchronizer) Sync(ctx context.Context, target execution.Target, bun
 // removed by the exact names those objects reference. A cluster without the
 // VSO CRDs has nothing to remove.
 func (s *VSOSynchronizer) RemoveSynchronized(ctx context.Context, target execution.Target, applicationKey, environmentKey string) ([]string, error) {
+	return s.removeSynchronized(ctx, target, applicationKey, environmentKey, "")
+}
+
+// RemoveWorkloadSynchronized deletes the VSO objects of ONE removed workload
+// (UC-07 VSO-01): the VaultStaticSecrets below the Application Environment's
+// own value prefix whose VaultAuth binds this workload's delivery
+// ServiceAccount, their destination Secrets and VaultAuths, the
+// ServiceAccount once no remaining VaultAuth uses it, and a VaultConnection no
+// remaining VaultAuth references. Other workloads' objects are untouched.
+func (s *VSOSynchronizer) RemoveWorkloadSynchronized(ctx context.Context, target execution.Target, applicationKey, environmentKey, workloadID string) ([]string, error) {
+	if workloadID == "" {
+		return nil, fmt.Errorf("vso: workload identity required")
+	}
+	return s.removeSynchronized(ctx, target, applicationKey, environmentKey, configport.WorkloadServiceAccount(applicationKey, environmentKey, workloadID))
+}
+
+// removeSynchronized removes the Application Environment's VSO objects;
+// a non-empty serviceAccount narrows it to the VaultAuths bound to it.
+func (s *VSOSynchronizer) removeSynchronized(ctx context.Context, target execution.Target, applicationKey, environmentKey, serviceAccount string) ([]string, error) {
 	if !target.Explicit() || target.Namespace == "" {
 		return nil, fmt.Errorf("vso: explicit Kubernetes target required")
 	}
@@ -153,6 +173,9 @@ func (s *VSOSynchronizer) RemoveSynchronized(ctx context.Context, target executi
 		if !strings.Contains(text(v, "spec", "path"), marker) {
 			continue
 		}
+		if serviceAccount != "" && text(authByName[text(v, "spec", "vaultAuthRef")], "spec", "kubernetes", "serviceAccount") != serviceAccount {
+			continue
+		}
 		name := text(v, "metadata", "name")
 		authName := text(v, "spec", "vaultAuthRef")
 		if err := drop("vaultstaticsecrets.secrets.hashicorp.com", name); err != nil {
@@ -166,9 +189,11 @@ func (s *VSOSynchronizer) RemoveSynchronized(ctx context.Context, target executi
 		ownedAuth[authName] = true
 	}
 	usedConnections := map[string]bool{}
+	usedAccounts := map[string]bool{}
 	for name, a := range authByName {
 		if !ownedAuth[name] {
 			usedConnections[text(a, "spec", "vaultConnectionRef")] = true
+			usedAccounts[text(a, "spec", "kubernetes", "serviceAccount")] = true
 		}
 	}
 	for name := range ownedAuth {
@@ -197,6 +222,9 @@ func (s *VSOSynchronizer) RemoveSynchronized(ctx context.Context, target executi
 		}
 	}
 	for sa := range serviceAccounts {
+		if usedAccounts[sa] {
+			continue
+		}
 		if err := drop("serviceaccount", sa); err != nil {
 			return removed, err
 		}
@@ -226,4 +254,7 @@ func hasBundleKeys(secret map[string]any, keys map[string]map[string]string) boo
 	return true
 }
 
-var _ execution.ConfigSecretSynchronizer = (*VSOSynchronizer)(nil)
+var (
+	_ execution.ConfigSecretSynchronizer = (*VSOSynchronizer)(nil)
+	_ execution.WorkloadSecretRemover    = (*VSOSynchronizer)(nil)
+)

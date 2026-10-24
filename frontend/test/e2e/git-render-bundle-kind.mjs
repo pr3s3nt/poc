@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import YAML from 'yaml';
+import { createServer } from 'node:net';
 import { createHuman, createApplication } from './human.mjs';
 import { makeKit, technical } from './full-app-kit.mjs';
 import {
@@ -41,8 +42,10 @@ const input = {
   kube: { kubectl: 'kubectl', kubeconfig: env('GRB_HOST_KUBECONFIG'), context: env('GRB_CONTEXT') },
   v2ctl: v2ctlPath,
 };
+// The diagnostic app is reached through a kubectl port-forward on a free loopback port (technical setup).
+input.forwardPort = await new Promise((resolve) => { const server = createServer(); server.listen(0, '127.0.0.1', () => { const { port } = server.address(); server.close(() => resolve(port)); }); });
 const browser = await chromium.launch({ headless: false, args: ['--window-size=1512,1000'] });
-const context = await browser.newContext({ viewport: { width: 1512, height: 960 } });
+const context = await browser.newContext({ viewport: { width: 1512, height: 960 }, locale: 'vi-VN' });
 const page = await context.newPage();
 page.setDefaultTimeout(60_000);
 const browserErrors = [];
@@ -88,7 +91,8 @@ async function workloadPolicy() {
       annotation: podTemplate(d).metadata.annotations?.['example.com/render-policy'] ?? null,
       normalizedBy: podTemplate(d).metadata.annotations?.['example.com/normalized-by'] ?? null,
       team: d.metadata.labels?.['example.com/team'] ?? null,
-      securityContext: podTemplate(d).spec.securityContext ?? null,
+      // The API server reads back an empty Pod securityContext as {}.
+      securityContext: Object.keys(podTemplate(d).spec.securityContext ?? {}).length > 0 ? podTemplate(d).spec.securityContext : null,
       revisionHistoryLimit: d.spec.revisionHistoryLimit,
       replicas: d.spec.replicas,
       resources: Object.fromEntries(podTemplate(d).spec.containers.map((c) => [c.name, c.resources])),
@@ -234,6 +238,23 @@ try {
   await h.click(page.getByRole('button', { name: 'Biểu mẫu', exact: true }));
   await expect(page.getByLabel('Team', { exact: true })).toHaveValue('payments');
   await shot('E02-template-a');
+  // Visual comparison with the product reference (Resource Definitions Git module source) at 1512px and 1280px.
+  for (const width of [1512, 1280]) {
+    await page.setViewportSize({ width, height: 960 });
+    await page.getByRole('region', { name: 'Nguồn bundle dựng ứng dụng' }).screenshot({ path: `${shots}/ui-${width}-template-source.png` });
+    await page.screenshot({ path: `${shots}/ui-${width}-template-page.png`, fullPage: true });
+  }
+  const templateDraft = page.url();
+  const reference = await context.newPage();
+  for (const width of [1512, 1280]) {
+    await reference.setViewportSize({ width, height: 960 });
+    await reference.goto(`${baseURL}/ui/platform/resource-definitions`);
+    await reference.getByRole('button', { name: 'Tạo cấu hình', exact: true }).click();
+    await reference.screenshot({ path: `${shots}/ui-${width}-reference-definition-git.png`, fullPage: true });
+  }
+  await reference.close();
+  await page.setViewportSize({ width: 1512, height: 960 });
+  ui('UI.visual-reference', page.url() === templateDraft, 'screenshots of the edited source section and the Resource Definition Git source at 1512px/1280px');
   const created = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/resource-definitions');
   await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }));
   const createdReply = await created;
@@ -244,7 +265,7 @@ try {
     && !/token|password|kubeconfig/i.test(createdRaw), `template v${template.version} pins ${bundleA.id}`);
   const inspectsBeforeReopen = inspectCalls.length;
   await h.click(page.getByRole('button', { name: 'Sửa mẫu git-workload', exact: true }));
-  await expect(page.getByLabel('Bundle dựng ứng dụng')).toHaveValue(bundleA.id);
+  await expect(kit.form('Bundle dựng ứng dụng')).toHaveValue(bundleA.id);
   await expect(page.getByLabel('Team', { exact: true })).toHaveValue('payments');
   ui('RB-E02.reopen', inspectCalls.length === inspectsBeforeReopen, 'reopened the saved pin and inputs without a new inspection');
   await shot('E02-reopened');
@@ -311,6 +332,8 @@ try {
   await signInAs('platform-engineer');
   await openTemplates();
   await h.click(page.getByRole('button', { name: 'Sửa mẫu git-workload', exact: true }));
+  await expect(kit.form('Bundle dựng ứng dụng')).toHaveValue(bundleA.id);
+  await expect(kit.form('Bundle dựng ứng dụng')).toBeEnabled();
   await h.click(page.getByRole('button', { name: 'Thêm từ Git', exact: true }));
   await expect(page.getByLabel('Git HTTPS URL', { exact: true })).toHaveValue(source.url);
   await expect(page.getByLabel('Thư mục bundle', { exact: true })).toHaveValue(source.path);
@@ -363,13 +386,13 @@ try {
   await signInAs('platform-engineer');
   await openTemplates();
   await h.click(page.getByRole('button', { name: 'Sửa mẫu git-workload', exact: true }));
-  await expect(page.getByLabel('Bundle dựng ứng dụng')).toHaveValue(bundleB.id);
+  await expect(kit.form('Bundle dựng ứng dụng')).toHaveValue(bundleB.id);
   await expect(page.getByLabel('Team', { exact: true })).toHaveValue('payments');
   const listedAfter = (await kit.get('/render-bundles')).renderBundles.filter((b) => b.source);
   ui('RB-E08.cache', inspectCalls.length === inspectsBeforeRestart && listedAfter.length === 2 && listedAfter.every((b) => b.status === 'AVAILABLE'), 'pins A and B available from the durable cache after restart without inspection');
 
   // ---- RB-E09: explicit re-selection of verified A --------------------------------------------
-  await h.choose(page.getByLabel('Bundle dựng ứng dụng'), `standard-workload @ ${source.commitA.slice(0, 12)}`);
+  await h.choose(kit.form('Bundle dựng ứng dụng'), `standard-workload @ ${source.commitA.slice(0, 12)}`);
   await expect(page.getByLabel('Team', { exact: true })).toHaveValue('payments');
   template = await storedTemplate();
   await saveTemplate(template.version + 1);
@@ -396,24 +419,50 @@ try {
     ui('RB-E10.remove-preview', preview.changes.every((c) => c.action === 'REMOVE'), 'three workload removals');
   });
   check('RB-E10.workloads-absent', (await deployments()).items.length === 0, 'no Deployment left in the run namespace');
+  // Resource deletion is a Platform Engineer action (UC-07 DEL-*).
+  await signInAs('platform-engineer');
   const scope = kit.appPath;
-  for (let round = 0; round < 4; round += 1) {
-    const inventory = (await kit.get(`${scope}/resources`)).resources;
-    const root = inventory.find((r) => r.status === 'UNREFERENCED');
-    if (!root) break;
-    await page.goto(`${baseURL}/ui/applications/${input.applicationKey}`);
-    const escaped = root.descriptor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    await h.click(page.getByRole('region', { name: 'Tài nguyên của môi trường' }).getByRole('button', { name: new RegExp(escaped) }).first());
-    await h.click(page.getByRole('button', { name: 'Xóa tài nguyên', exact: true }));
-    const dialog = page.getByRole('dialog', { name: 'Xóa tài nguyên', exact: true });
-    const confirmation = await dialog.getByTestId('root-name').innerText();
-    for (const box of await dialog.getByRole('checkbox').all()) if (!(await box.isChecked()) && await box.isEnabled()) await box.check();
-    await h.type(dialog.getByLabel('Nhập lại tên tài nguyên'), confirmation);
-    await h.click(dialog.getByRole('button', { name: 'Xác nhận xóa vĩnh viễn' }));
-    await expect.poll(async () => (await kit.get(`${scope}/resources`)).resources.find((r) => r.id === root.id)?.status, { timeout: 900_000, intervals: [5000] }).toBe('DESTROYED');
-    await shot(`E10-cleanup-${round}`);
+  // A root with remaining consumers (the namespace before PostgreSQL/Redis) cannot be deleted
+  // yet: the Console disables the action, so the next unreferenced root is opened instead.
+  for (let round = 0; round < 6; round += 1) {
+    const roots = (await kit.get(`${scope}/resources`)).resources.filter((r) => r.status === 'UNREFERENCED')
+      .sort((a, b) => Number(a.type === 'k8s-namespace') - Number(b.type === 'k8s-namespace'));
+    if (roots.length === 0) break;
+    let deleted = null;
+    for (const root of roots) {
+      await page.goto(`${baseURL}/ui/applications/${input.applicationKey}`);
+      const escaped = root.descriptor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      await h.click(page.getByRole('region', { name: 'Tài nguyên của môi trường' }).getByRole('button', { name: new RegExp(escaped) }).first());
+      const action = page.getByRole('button', { name: 'Xóa tài nguyên', exact: true });
+      await expect(action).toBeVisible();
+      if (!(await action.isEnabled())) continue;
+      await h.click(action);
+      const dialog = page.getByRole('dialog', { name: 'Xóa tài nguyên', exact: true });
+      const confirmation = await dialog.getByTestId('root-name').innerText();
+      await h.type(dialog.getByLabel('Nhập lại tên tài nguyên'), confirmation);
+      await h.click(dialog.getByRole('button', { name: 'Xác nhận xóa vĩnh viễn' }));
+      // Wait for the operation to finish; a terminal failure is recorded with safe codes and the
+      // remaining object kinds/names (independent read), never retried by the scenario.
+      const outcome = await expect.poll(async () => {
+        const detail = (await kit.get(`${scope}/resources/${root.id}`)).resource ?? {};
+        if (detail.status === 'DESTROYED') return 'DESTROYED';
+        if (['FAILED', 'SUCCEEDED', 'INTERRUPTED'].includes(detail.cleanup?.status)) return `CLEANUP_${detail.cleanup.status}`;
+        return 'RUNNING';
+      }, { timeout: 900_000, intervals: [5000] }).not.toBe('RUNNING').then(async () => (await kit.get(`${scope}/resources/${root.id}`)).resource);
+      if (outcome.status !== 'DESTROYED') {
+        const objects = await tech.kubectl(['-n', input.namespace, 'get', 'all,secret,serviceaccount,configmap,vaultstaticsecret,vaultauth,vaultconnection', '-o', 'custom-columns=KIND:.kind,NAME:.metadata.name', '--no-headers']);
+        facts.cleanupFailure = { descriptor: root.descriptor, status: outcome.status, cleanup: outcome.cleanup, lastAttempt: outcome.lastAttempt, eligibility: outcome.eligibility, remainingObjects: objects.stdout.split('\n').filter(Boolean) };
+        saveFacts();
+        await shot(`E10-cleanup-${round}-failed`);
+        ui('RB-E10.cleanup', false, `${root.descriptor} cleanup ${outcome.cleanup?.status} ${outcome.lastAttempt?.errorCode ?? ''}`);
+      }
+      await shot(`E10-cleanup-${round}`);
+      deleted = root;
+      break;
+    }
+    if (!deleted) throw new Error('no unreferenced resource could be deleted');
   }
-  const remaining = (await kit.get(`${scope}/resources`)).resources.filter((r) => r.status !== 'DESTROYED' && r.resourceType !== 'k8s-cluster');
+  const remaining = (await kit.get(`${scope}/resources`)).resources.filter((r) => r.status !== 'DESTROYED' && r.type !== 'k8s-cluster');
   ui('RB-E10.resources-destroyed', remaining.length === 0, 'every run resource DESTROYED through the product');
   const nsAfter = await tech.namespaceUid();
   check('RB-E10.namespace-absent', nsAfter === '', 'namespace absence proven by a successful lookup');

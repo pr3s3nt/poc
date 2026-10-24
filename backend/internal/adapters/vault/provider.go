@@ -100,8 +100,7 @@ func (p *Provider) PrepareWorkloadAccess(ctx context.Context, app, env, workload
 	identity := app + "/" + env + "/" + workload + "/" + namespace + "/" + revisionID + "/" + strings.Join(paths, ",")
 	sum := sha256.Sum256([]byte(identity))
 	role := "orch-" + hex.EncodeToString(sum[:10])
-	saHash := sha256.Sum256([]byte(app + "/" + env + "/" + workload))
-	serviceAccount := "orch-" + hex.EncodeToString(saHash[:10])
+	serviceAccount := configport.WorkloadServiceAccount(app, env, workload)
 	var policy strings.Builder
 	for _, path := range paths {
 		policy.WriteString("path \"" + p.mount + "/data/" + path + "\" { capabilities = [\"read\"] }\n")
