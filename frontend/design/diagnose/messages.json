@@ -1,5 +1,7 @@
 {
   "diagnose.title": "Chẩn đoán",
+  "diagnose.general": "Kiểm tra chung",
+  "diagnose.usecase": "Theo use case",
   "diagnose.platform": "Nền tảng",
   "diagnose.subtitle": "Kiểm tra điều kiện trước khi triển khai.",
   "diagnose.configure": "Thiết lập kiểm tra",

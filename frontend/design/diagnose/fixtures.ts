@@ -4,6 +4,8 @@ export type Scenario = 'issues' | 'ready' | 'empty' | 'error';
 export type Verdict = 'PASS' | 'FAIL' | 'BLOCKED' | 'UNKNOWN' | 'NA';
 export type UseCase = 'preview' | 'deploy' | 'database' | 'cache' | 'secrets' | 'https' | 'lifecycle';
 export type Scope = {
+  accountKey?: string;
+  purpose?: 'general' | 'usecase';
   target: Target;
   region: string;
   application: string;
