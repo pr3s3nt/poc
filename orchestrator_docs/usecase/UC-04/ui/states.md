@@ -108,3 +108,22 @@ EC2-05 shares registration saving/error/success/unknown-result recovery with
 access keys. Switching AWS authentication clears credential drafts and role draft.
 Reverification uses the loaded version; no mutation replay. Missing IMDS or role
 mismatch is a safe verification error, never a request for an IAM User key.
+
+## Diagnostic states — DIAG-09..13
+
+Empty: no report exists for this scope, offer explicit run. Loading/error are
+separate and do not fabricate an empty/clean report. Setup preserves drafts on
+validation errors; account target is read-only, General has no Application field,
+and missing use-case selection is invalid. Dialog Escape/cancel returns focus.
+
+Start locks conflicting actions, accepts a persisted run ID and polls actual
+progress. Lost start response triggers GET reconciliation and explicit review,
+not an automatic retry. Stop requests cancellation; pending checks remain pending,
+partial findings remain visible, cleanup outcome is separate. Cancelled/interrupted
+never renders full success. A run may finish with failed findings.
+
+Switching account/purpose/region/context invalidates old request responses without
+changing their persisted run scope. Reload and backend restart preserve completed
+history; lease expiry becomes honest INTERRUPTED/unknown cleanup. Known changed
+versions mark history stale. Report export/filter counts never turn UNKNOWN/NA
+into PASS. Reverification does not reset diagnostics or imply readiness.

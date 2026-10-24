@@ -17,6 +17,8 @@ phải theo [operations index](../operations/README.md).
 
 ## Navigation
 
+- [Account diagnostics implementation and real acceptance](account-diagnostics.md) — authorized 2026-10-25; delivery tracked separately from design.
+
 - [DEVEX-ENV implementation handoff — implemented 2026-10-24](workload-environment-editor.md)
 
 - [Design-to-code map](code-map.md)

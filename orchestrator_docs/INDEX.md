@@ -94,6 +94,10 @@ acceptance scenarios for the unified source table (2026-10-24; not implemented).
 
 ## Major artifact indexes
 
+Account diagnostics: start at [UC-04 DIAG-01..14](usecase/UC-04/specification.md#account-diagnostics--diag-0114),
+then [the contract](architecture/contracts/account-diagnostics.md) and
+[implementation/acceptance handoff](implementation/account-diagnostics.md).
+
 - [Use cases](usecase/README.md)
 - [Architecture](architecture/README.md)
 - [Implementation](implementation/README.md)

@@ -1141,3 +1141,16 @@ Evidence record: [2026-10-24 DEVEX-ENV implementation](../verification/2026-10-2
 | UC-16 BR-22/14/V2-02/03 | Shared dependency subform → local desired state, existing Type validation | [`AddResourceDialog`](../../frontend/src/features/workloads/AddResourceDialog.tsx), [`DependencyFields`](../../frontend/src/features/workloads/DependencyFields.tsx); E06/07 table tests (no HTTP call, output left to choose, Cancel adds nothing) |
 | UC-16 BR-07/10/19; UC-12 BR-09/12 | Existing explicit Save/Preview/Deploy and rename | Unchanged flow; E10/11 lifecycle and rename tests above plus the full backend suite |
 | ADR-020; shared UI | Reused shell/styles, catalog-backed labels and accessible dialog/table | [`Dialog`](../../frontend/src/shared/ui/Dialog.tsx), catalogs `workloads.envTable.*`/`createKey.*`/`addResource.*`; E12 [browser script](../../frontend/test/e2e/devex-env-local.mjs), catalog parity test
+
+## Account diagnostics — DIAG-01..14 (required design, implementation in progress)
+
+| Requirements | Canonical collaboration / state | Required proof |
+|---|---|---|
+| DIAG-01..04 | UC-04 account detail/controller, scoped report aggregate, ADR-022 | DG-E01/02/06/08: role/org isolation, separate connection status and no-app General |
+| DIAG-05..08/12 | Diagnostic contract, scoped identity, actual requirement/probe adapters | DG-E02/03/04/09: actual TLS/RBAC/runtime findings, missing context UNKNOWN, safe remedies |
+| DIAG-09/10 | Diagnostic repository, schema/ERD, lease/CAS and cancellation | DG-E06/07/08: scope/history/export, stale responses, restart and interruption |
+| DIAG-11 | Persisted probe ownership, target/UID guarded cleanup | DG-E05: actual readiness/absence and honest cleanup gaps |
+| DIAG-13/14 | UC-04 UI states/API, existing shell/catalogs, real acceptance handoff | DG-E01..10: user-flow browser acceptance, independent review/merge and post-merge checks |
+
+[Handoff and acceptance IDs](../implementation/account-diagnostics.md#acceptance)
+route required checks; this table is not delivery evidence.
