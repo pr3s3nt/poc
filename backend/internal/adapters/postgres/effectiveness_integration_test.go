@@ -126,3 +126,50 @@ func TestEffectivenessBaselinesPersistAndStayAppendOnly(t *testing.T) {
 		t.Fatalf("persisted run not reported: %+v", attempts)
 	}
 }
+
+// Cleanup operations store the Console username as actor_ref. Resolving it
+// must not abort the report's read transaction: a non-UUID reference is an
+// unknown User Account ID, then looked up by username.
+func TestEffectivenessReportResolvesUsernameActors(t *testing.T) {
+	db := freshDatabase(t)
+	ctx := context.Background()
+	store, err := Open(ctx, db.Console)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	opts := seed.Defaults()
+	if err := seedtest.Apply(ctx, store, opts); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.GetUserAccount(ctx, "platform-engineer"); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("non-UUID account ID = %v, want not found", err)
+	}
+	env, err := store.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	started := time.Now().UTC().Add(-time.Hour)
+	record := deployment.Deployment{ID: ids.New(), EnvironmentID: env.ID, OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey,
+		Action: deployment.ActionDeploy, WorkloadID: "api", ActorRef: "platform-engineer", Status: deployment.StatusPlanning, BaseEnvironmentVersion: env.Version, StartedAt: started}
+	if err := store.SaveDeployment(ctx, record); err != nil {
+		t.Fatal(err)
+	}
+	record.Status, record.FailureReason = deployment.StatusFailed, "planning rejected"
+	done := started.Add(time.Minute)
+	record.FinishedAt = &done
+	if err := store.SaveDeployment(ctx, record); err != nil {
+		t.Fatal(err)
+	}
+	svc := effectivenessapp.New(store, effectivenessapp.OriginOf(opts.Profile))
+	today := effectiveness.DateOf(time.Now())
+	report, err := svc.Report(ctx, effectivenessapp.Query{OrganizationKey: "acme", From: string(today.AddDays(-6)), To: string(today)})
+	if err != nil {
+		t.Fatalf("report with a username actor: %v", err)
+	}
+	for _, m := range report.Metrics {
+		if m.ID == "active_users" && (m.Value == nil || *m.Value != 1) {
+			t.Fatalf("username actor not counted as a person: %+v", m)
+		}
+	}
+}

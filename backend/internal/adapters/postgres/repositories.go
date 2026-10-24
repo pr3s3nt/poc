@@ -41,6 +41,11 @@ func (s *Store) GetUserAccountByUsername(ctx context.Context, username string) (
 	return s.getUser(ctx, "username", username)
 }
 func (s *Store) GetUserAccount(ctx context.Context, id string) (identity.UserAccount, error) {
+	// A non-UUID reference (e.g. a username actor) is unknown, not a cast
+	// error that would abort the caller's transaction.
+	if !validUUID(id) {
+		return identity.UserAccount{}, fmt.Errorf("postgres: get user: %w", persistence.ErrNotFound)
+	}
 	return s.getUser(ctx, "u.id", id)
 }
 func (s *Store) getUser(ctx context.Context, column, value string) (identity.UserAccount, error) {
