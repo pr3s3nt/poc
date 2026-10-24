@@ -7,8 +7,9 @@ All state resets on reload except the existing shell/language preferences.
 
 ## Scope and interactions
 
-- Application home adds a compact Logging & Monitoring panel and workload
-  shortcuts. Open Logs or Metrics while retaining the selected environment.
+- Application home shows Logging & Monitoring immediately below the environment
+  tabs. Error counts, unusual-event counts and CPU/memory peaks have miniature
+  charts and open scoped detail views. Workload shortcuts remain available.
 - staging/production, workload, time range and custom dates change the fixture
   data. Log search and stdout/stderr filters work together; load older rows,
   follow synthetic new logs, inspect a line and copy its message.
@@ -39,7 +40,8 @@ This is a partial Application home proposal; resource/preview/edit flows are
 outside this review mock.
 
 Review captures: [Application home](screenshots/home.png),
-[Logs](screenshots/logs.png), [Metrics](screenshots/metrics.png).
+[Logs](screenshots/logs.png), [Metrics](screenshots/metrics.png),
+[Event drill-down](screenshots/events.png).
 
 The current Application home was opened in Chromium with intercepted synthetic
 API responses before design. The reference capture lives outside Git at
@@ -86,3 +88,35 @@ Console; this task does not introduce a new mobile layout.
 - Full product frontend/backend suites and database/cluster/cloud checks were
   not run: only this isolated UI mock changed. No PlantUML changed; the docs
   checker reports PlantUML unavailable locally.
+
+## Overview revision — 2026-10-25
+
+The user's requested overview adds clickable error and unusual-event counts,
+CPU/memory peak percentages, compact trends and recent noteworthy rows. The
+overview moves above the workload table so these signals are visible on entry.
+Its selected 15m/1h/6h/24h interval carries into detail navigation. Log cards
+open ERROR-filtered logs; individual log events also select the workload. CPU
+and memory cards focus the matching chart/workload. The event card opens the
+complete list behind its count, with another click selecting the relevant series.
+
+All counts and peaks derive from the same synthetic log and metric fixtures as
+the detail views. Peaks use explicit per-workload fixture limits; the current
+percentage and recovered state are separate from the historical maximum.
+Metric time ranges now sample the same absolute-time signal, so changing the
+window does not move an old spike into a new interval. Changing detail filters
+clears the prior drill context rather than leaving a mismatched explanation.
+
+The 80% threshold and ERROR classification are illustrative UI choices shown
+in accessible “Cách đọc” help, not approved runtime detection requirements.
+Each high metric/workload pair counts once, plus the fixture restart event.
+This revision does not implement alert delivery, a rules engine or new backend
+behavior. Missing metrics disable metric cards while logs remain accessible;
+unknown collection results show dashes rather than zero errors.
+
+Focused browser review checked count-to-detail equality, all four summary
+links, individual event links, interval preservation, 15-minute normal state,
+missing/error/waiting data, production scope, VI/EN and 1280px layout/collapse.
+No browser errors or product API calls were observed. Scoped strict TypeScript,
+ESLint, build, documentation and whitespace checks passed. The overview was
+compared visually with the previous mock and the imported Console shell; help
+contains the counting/threshold explanation so the normal view stays concise.
