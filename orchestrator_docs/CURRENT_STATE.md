@@ -26,6 +26,11 @@ Limits: public HTTPS Git only; no bundle garbage collection; legacy Vault Agent
 removal keeps its ServiceAccount behavior; error envelope has no correlation ID
 (see [IMP-035](implementation/deviations.md#imp-035--git-owned-render-bundles)).
 
+Post-merge verification: PR #16 merged into main with both literal provenance and
+Git bundle metadata preserved; independent real-adapter A→B→restart→A plus UI
+cleanup passed 47/47. Runner now fails if teardown cannot be verified. See
+[main integration evidence](verification/2026-10-24-pr16-main-verification.md).
+
 ## Workload environment editor — implemented — 2026-10-24
 
 Each container has one **Biến môi trường** table with five sources (entered
