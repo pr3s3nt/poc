@@ -8,6 +8,9 @@ related: UC-12, UC-16, UC-05, UC-06, ADR-020
 
 # DEVEX-ENV — Bàn giao triển khai bảng biến môi trường workload
 
+Issue triển khai: [GitHub #13](https://github.com/pr3s3nt/poc/issues/13).
+Issue liên kết commit thiết kế `7845786`; đọc HEAD của nhánh để nhận bổ sung mới nhất.
+
 ## Outcome và trạng thái
 
 Developer khai báo biến bằng một bảng Tên biến → Nguồn → Giá trị/tham chiếu
