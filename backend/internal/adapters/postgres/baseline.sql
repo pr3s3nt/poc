@@ -26,7 +26,8 @@ CREATE TABLE user_accounts (
   password_hash text NOT NULL,
   role text NOT NULL CHECK (role IN ('ADMIN','PLATFORM_ENGINEER','DEVELOPER')),
   status text NOT NULL CHECK (status IN ('ACTIVE','DISABLED')),
-  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT user_accounts_id_organization_key UNIQUE (id, organization_id)
 );
 CREATE TABLE sessions (
   id uuid PRIMARY KEY, user_account_id uuid NOT NULL REFERENCES user_accounts(id),
@@ -43,6 +44,7 @@ CREATE TABLE connections (
   config jsonb NOT NULL, secret_ref text NOT NULL, status text NOT NULL,
   verification jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (organization_id, connection_key),
+  CONSTRAINT connections_id_organization_key UNIQUE (id, organization_id),
   CONSTRAINT connections_authentication_type_check CHECK (
     (kind='KUBERNETES' AND authentication_type='KUBECONFIG') OR
     (kind='AWS' AND authentication_type IN ('AWS_ACCESS_KEY','AWS_EC2_ROLE')))
@@ -490,3 +492,50 @@ CREATE TRIGGER terraform_resource_attempts_scope BEFORE INSERT ON terraform_reso
   FOR EACH ROW EXECUTE FUNCTION terraform_operation_scope_guard();
 CREATE TRIGGER terraform_resource_attempts_retained BEFORE DELETE ON terraform_resource_attempts
   FOR EACH ROW EXECUTE FUNCTION terraform_retained();
+
+-- Infrastructure Account diagnostic reports (ADR-022): a separate
+-- Organization/account aggregate. History is never stored in
+-- connections.verification and never changes connections.version. Terminal
+-- scope and findings are immutable (trigger below); the Console updates
+-- lifecycle, ownership and cleanup facts only.
+CREATE TABLE account_diagnostic_reports (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  account_id uuid NOT NULL,
+  created_by uuid NOT NULL,
+  account_version bigint NOT NULL CHECK (account_version >= 1),
+  purpose text NOT NULL CHECK (purpose IN ('GENERAL','USE_CASE')),
+  mode text NOT NULL CHECK (mode IN ('CONDITIONS','EXECUTION')),
+  scope jsonb NOT NULL CHECK (jsonb_typeof(scope) = 'object' AND octet_length(scope::text) <= 8192),
+  status text NOT NULL CHECK (status IN ('QUEUED','RUNNING','CANCELLING','COMPLETED','CANCELLED','INTERRUPTED')),
+  revision bigint NOT NULL CHECK (revision >= 1),
+  owner text CHECK (owner IS NULL OR (owner <> '' AND char_length(owner) <= 128)),
+  lease_expires_at timestamptz, heartbeat_at timestamptz,
+  findings jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(findings) = 'array' AND octet_length(findings::text) <= 262144),
+  completed_checks integer NOT NULL DEFAULT 0 CHECK (completed_checks >= 0),
+  total_checks integer NOT NULL DEFAULT 0 CHECK (total_checks >= completed_checks),
+  probe_resources jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(probe_resources) = 'array' AND octet_length(probe_resources::text) <= 16384),
+  cleanup_status text NOT NULL CHECK (cleanup_status IN ('NOT_REQUIRED','PENDING','VERIFIED','UNKNOWN')),
+  created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL,
+  started_at timestamptz, finished_at timestamptz,
+  CONSTRAINT account_diagnostic_reports_account_fk FOREIGN KEY (account_id, organization_id) REFERENCES connections(id, organization_id),
+  CONSTRAINT account_diagnostic_reports_author_fk FOREIGN KEY (created_by, organization_id) REFERENCES user_accounts(id, organization_id),
+  CONSTRAINT account_diagnostic_reports_general_scope CHECK (purpose <> 'GENERAL' OR (mode = 'CONDITIONS' AND NOT (scope ? 'context') AND NOT (scope ? 'useCases')))
+);
+CREATE INDEX account_diagnostic_reports_history ON account_diagnostic_reports(organization_id, account_id, created_at DESC, id);
+CREATE UNIQUE INDEX account_diagnostic_reports_active ON account_diagnostic_reports(account_id) WHERE status IN ('QUEUED','RUNNING','CANCELLING');
+CREATE FUNCTION account_diagnostic_report_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF (NEW.id, NEW.organization_id, NEW.account_id, NEW.created_by, NEW.account_version, NEW.purpose, NEW.mode, NEW.scope, NEW.created_at)
+     IS DISTINCT FROM (OLD.id, OLD.organization_id, OLD.account_id, OLD.created_by, OLD.account_version, OLD.purpose, OLD.mode, OLD.scope, OLD.created_at) THEN
+    RAISE EXCEPTION 'diagnostic report identity and scope are immutable' USING ERRCODE='23514';
+  END IF;
+  IF OLD.status IN ('COMPLETED','CANCELLED','INTERRUPTED') AND
+     (NEW.status, NEW.findings, NEW.completed_checks, NEW.total_checks, NEW.finished_at, NEW.started_at)
+     IS DISTINCT FROM (OLD.status, OLD.findings, OLD.completed_checks, OLD.total_checks, OLD.finished_at, OLD.started_at) THEN
+    RAISE EXCEPTION 'terminal diagnostic report findings are immutable' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER account_diagnostic_reports_guard BEFORE UPDATE ON account_diagnostic_reports
+  FOR EACH ROW EXECUTE FUNCTION account_diagnostic_report_guard();
