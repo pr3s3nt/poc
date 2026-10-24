@@ -592,10 +592,21 @@ object lifecycle. Current code embeds renderer.go/provisioners.yaml, normalizes
 and produces policy patches in Go, exposes only the startup bundle map and lacks
 Git inspection, scoped persistent render registry, typed render_inputs and UI.
 
-**Open; documentation prepared only.** [Implementation handoff](git-render-bundles.md)
-and [real acceptance](../operations/git-render-bundles-acceptance.md) specify
-complete work and exit checks. Existing native equality validation must become
-semantic guards on the new Git path; adding a downloader/patch selector alone
-is insufficient. No feature code, DB upgrade, live deployment or acceptance is
-claimed by the documentation commit. Do not resolve until real-adapter end-user
-Playwright A→B→restart→A and product cleanup pass with unchanged infrastructure.
+**Resolved 2026-10-24** (issue #14): registry, persistence, engine, semantic
+guards, planner/Preview pins, HTTP, Console, reference bundle and runner are
+implemented; real end-user RB-E01..E10 passed
+([verification](../verification/2026-10-24-git-render-bundles.md)). The cleanup
+gate needed UC-07 VSO-01/02 (user decision 2026-10-24): removed workloads used to
+leave VSO objects that blocked confirmed namespace cleanup.
+
+Residual differences, kept deliberately:
+
+- RB-C07 names `correlationId` in the T20 envelope, but the implemented T20
+  envelope has no correlation ID; Git render errors use the existing
+  `{error, code, field, params}` shape (`params.file` for bundle files).
+- The Git path does not restore an explicit empty plain value through Go; the
+  reference bundle patch restores it and the guard treats an omitted value as
+  the empty string.
+- Bundle files cannot contain Terraform-reserved names (`*.tf.json`,
+  `override.tf`, `.terraform*`) because the shared hardened Git tree reader
+  rejects them; irrelevant to render bundles.

@@ -119,5 +119,6 @@ For the requested change after infrastructure provisioning, start with
 [Git bundle contract](architecture/contracts/git-render-bundles.md),
 [implementation handoff](implementation/git-render-bundles.md) and
 [real Playwright acceptance](operations/git-render-bundles-acceptance.md).
-UC-03/05/06/07 RB requirements own behavior; IMP-034 records unimplemented status.
+UC-03/05/06/07 RB requirements own behavior; implemented and accepted 2026-10-24
+([verification](verification/2026-10-24-git-render-bundles.md)).
 This route does not activate a roadmap iteration.

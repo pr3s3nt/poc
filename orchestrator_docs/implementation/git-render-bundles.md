@@ -7,6 +7,11 @@ last_reviewed: 2026-10-24
 
 # Git render bundles — implementation handoff
 
+**Status 2026-10-24:** implemented and accepted; see
+[code map](code-map.md#git-render-bundles--adr-021) and
+[verification](../verification/2026-10-24-git-render-bundles.md). The text below
+is the original work breakdown.
+
 This is the executable work breakdown for accepted required design, not completion
 evidence. [ADR-021](../architecture/decisions/ADR-021-git-render-bundles.md) owns
 decisions; [contract](../architecture/contracts/git-render-bundles.md) owns engine/

@@ -1099,7 +1099,7 @@ records read-only Preview, metadata/history preservation and secret boundaries.
 | ALT-01, BR-09, BR-10, EX-04 | OC-20 baselines | `AddBaselineVersion`, `Baseline.Validate`, `EffectiveBaseline`, `AppendEffectivenessBaseline` | `effectiveness_baselines` append-only, CAS by version | baseline HTTP test; PostgreSQL restart + 42501; [JSON reload](../../backend/internal/adapters/store/effectiveness_test.go); browser save/reload |
 | Shell gate | UC-17 UI | `AppShell`, `App` | — | [App tests](../../frontend/src/app/App.test.tsx), [route tests](../../frontend/src/app/routes.test.ts) |
 
-## Git rendering bundle — ADR-021 (planned, not passed)
+## Git rendering bundle — ADR-021 (passed 2026-10-24)
 
 | Requirements | Collaboration / persistence | Required validation |
 |---|---|---|
@@ -1109,5 +1109,18 @@ records read-only Preview, metadata/history preservation and secret boundaries.
 | UC-07 RB-01..02 | Pending/applied pins and original target removal; unchanged Terraform state | Restart/reuse/history tests; RB-E08/09/10; unchanged resource/PVC UIDs |
 | UC-03 UI / ADR-020 | Existing rendering route + Git inspect/typed inputs/VI-EN catalogs | Frontend checks, actual browser references and real end-user Playwright |
 
-[Acceptance IDs and evidence requirements](../operations/git-render-bundles-acceptance.md#end-user-flow-and-assertions)
-are required future tests; all rows remain unverified until dated execution evidence.
+Implemented tests: [domain](../../backend/internal/domain/renderbundle/renderbundle_test.go),
+[engine](../../backend/internal/renderengine/renderengine_test.go),
+[registry/cache](../../backend/internal/adapters/renderbundles/registry_test.go),
+[stage parity/guards/priority](../../backend/internal/adapters/scorek8s/git_test.go),
+[patch conformance](../../backend/internal/adapters/scorek8s/patch_conformance_test.go),
+[examples](../../backend/internal/adapters/scorek8s/examples_test.go),
+[PostgreSQL](../../backend/internal/adapters/postgres/renderbundles_integration_test.go),
+[HTTP](../../backend/internal/delivery/http/render_bundle_sources_test.go),
+[planner](../../backend/internal/planning/git_rendering_test.go),
+[pending A→B→A](../../backend/internal/application/pending/git_rendering_test.go),
+[review projection](../../backend/internal/application/deploymentreview/review_test.go),
+[Console](../../frontend/src/features/platform/GitRenderBundle.test.tsx); UC-07
+VSO-01 in [VSO](../../backend/internal/adapters/kubernetes/vso_test.go) and
+[removal](../../backend/internal/application/deployment/remove_delivered_test.go).
+Real RB-E01..E10: [verification](../verification/2026-10-24-git-render-bundles.md).

@@ -896,7 +896,7 @@ rules. Additive absent artifacts on otherwise compatible rows remain unavailable
 
 ## Git render-bundle persistence — ADR-021
 
-Required design, not a deployed schema. Add `render_bundles`:
+Implemented 2026-10-24 in the fresh baseline (`render_bundles`):
 
 | Column | Contract |
 |---|---|

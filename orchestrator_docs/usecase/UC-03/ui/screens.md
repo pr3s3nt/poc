@@ -267,6 +267,9 @@ never erase unrelated draft fields. Save remains explicit and does not deploy.
 Preview/Deployment overview shows source name and short commit; manifest view
 shows permitted rendered defaults/patches with existing before/after/unknown UI.
 
+Implemented 2026-10-24; visual comparison at 1512px/1280px with Resource
+Definitions → Create Git source is recorded in the
+[verification](../../../verification/2026-10-24-git-render-bundles.md#ui-comparison).
 Reference inspected on 2026-10-24: actual Rendering Templates and Resource
 Definitions → Create in Chromium, localhost:13003. Keep source controls compact;
 move repeated explanations and full pins to help/details. Future handoff must

@@ -7,15 +7,24 @@ last_reviewed: 2026-10-24
 
 # Current project state
 
-## Git-owned manifest rendering — design prepared, implementation pending
+## Git-owned manifest rendering — implemented and accepted 2026-10-24
 
-[ADR-021](architecture/decisions/ADR-021-git-render-bundles.md) and UC-03/05/06/07
-now define Git-owned normalization/defaults/provisioners/patches after unchanged
-infrastructure provisioning. Current runtime is still installed-bundle/Go-policy
-rendering. [IMP-034](implementation/deviations.md#imp-034--git-owned-render-bundles)
-and the [handoff](implementation/git-render-bundles.md) track the required registry,
-engine, UI, persistence and real-adapter Playwright delivery. No new feature or
-acceptance completion is claimed.
+[ADR-021](architecture/decisions/ADR-021-git-render-bundles.md) is implemented:
+PE/Admin inspect a credential-free HTTPS Git directory in Mẫu dựng ứng dụng
+(new drafts default to Git), configure typed `render_inputs` and save; the
+verified Organization-scoped pin lives in `render_bundles` and the durable
+render bundle cache. Planning/Preview/Deploy pin source, engine, binary and
+effective inputs and never fetch Git; a bundle- or input-only change is a
+workload UPDATE. Normalization, defaults, output-only score-k8s provisioners and
+ordered patches come from the bundle (killable template worker, sjson patch
+semantics) and are checked by semantic invariants instead of a native render.
+Installed bundles keep their legacy path. Reference bundle:
+`backend/render-bundles/standard`. Workload removal now also deletes that
+workload's VSO delivery objects (UC-07 VSO-01). Real end-user acceptance
+RB-E01..E10 passed: [verification](verification/2026-10-24-git-render-bundles.md).
+Limits: public HTTPS Git only; no bundle garbage collection; legacy Vault Agent
+removal keeps its ServiceAccount behavior; error envelope has no correlation ID
+(see [IMP-034](implementation/deviations.md#imp-034--git-owned-render-bundles)).
 
 ## Console Vietnamese/English message catalogs — 2026-10-24
 
