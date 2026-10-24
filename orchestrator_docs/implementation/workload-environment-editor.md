@@ -16,7 +16,7 @@ Issue liên kết commit thiết kế `7845786`; đọc HEAD của nhánh để 
 Developer khai báo biến bằng một bảng Tên biến → Nguồn → Giá trị/tham chiếu
 ngay trong container; tạo key hoặc dependency còn thiếu tại chỗ. User đã duyệt
 luồng này ngày 2026-10-24 và yêu cầu bàn giao đủ để một coding agent tự thực hiện.
-**Đây là thiết kế được duyệt, chưa có implementation hoặc acceptance mới.**
+**Đã implement và nghiệm thu ngày 2026-10-24** — xem [bản ghi kiểm chứng](../verification/2026-10-24-devex-env-implementation.md). Phần còn lại của tài liệu giữ nguyên làm hợp đồng thiết kế.
 
 Nhánh tài liệu: `features/refactor_dev_ex`, đã cập nhật `main` tới `8f4d66f`
 ngày 2026-10-24. Commit đó bổ sung i18n Việt/Anh; không implement trên base cũ

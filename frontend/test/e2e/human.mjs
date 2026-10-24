@@ -246,13 +246,12 @@ export async function putKeys(h, applicationName, entries, { secretStore = confi
 
 // Enters one workload through the workload form. Spec: name, image,
 // container? (default main), resource?, bindings[], port { name, port,
-// targetPort }, publicPath?. Bindings with source 'Application variable' or
-// 'Application secret' tick the existing key in the container's checklist
-// (name !== key reveals the alias field); every other binding is one
-// "Other sources" row, indexed among those rows only. Returns the Score sent
-// by the successful Save.
+// targetPort }, publicPath?. Every binding is one row of the container's
+// "Biến môi trường" table: 'Entered value' (value), 'Application variable' /
+// 'Application secret' (existing key), 'Resource output' (alias, output) or
+// 'Workload Service' (workload, port). Returns the Score sent by the successful Save.
 // Specs keep the technical English source names; the editor shows Vietnamese options.
-const SOURCE_LABELS = { 'Resource output': 'Output tài nguyên', 'Workload Service': 'Service của Workload' };
+const SOURCE_LABELS = { 'Entered value': 'Giá trị nhập', 'Application variable': 'Biến của ứng dụng', 'Application secret': 'Bí mật', 'Resource output': 'Tài nguyên', 'Workload Service': 'Workload khác' };
 export async function addWorkload(h, spec) {
   const { page } = h;
   const container = spec.container ?? 'main';
@@ -277,32 +276,24 @@ export async function addWorkload(h, spec) {
     }
   }
 
-  const isKey = (binding) => binding.source === 'Application variable' || binding.source === 'Application secret';
-  for (const binding of spec.bindings.filter(isKey)) {
-    const group = page.getByRole('group', { name: `${binding.source === 'Application secret' ? 'Bí mật của ứng dụng' : 'Biến của ứng dụng'} cho ${container}`, exact: true });
-    const box = group.getByRole('checkbox', { name: binding.key, exact: true });
-    await h.click(box);
-    await expect(box).toBeChecked();
-    if (binding.name !== binding.key) {
-      await h.click(group.getByRole('checkbox', { name: `Dùng tên Container khác cho ${binding.key}`, exact: true }));
-      await h.type(group.getByLabel(`Tên trong Container cho ${binding.key}`, { exact: true }), binding.name, { replace: true });
-    }
-  }
-
-  const otherRows = page.locator('.binding-row').filter({ has: page.getByLabel('Tên biến Container', { exact: true }) });
-  for (const [index, binding] of spec.bindings.filter((binding) => !isKey(binding)).entries()) {
-    await h.click(page.getByRole('button', { name: '+ Thêm nguồn khác' }));
-    const row = otherRows.nth(index);
-    await h.type(row.getByLabel('Tên biến Container', { exact: true }), binding.name);
-    // A new row starts as Resource output; only another source is chosen.
-    if (binding.source !== 'Resource output') await h.choose(row.getByLabel('Nguồn tham chiếu', { exact: true }), SOURCE_LABELS[binding.source] ?? binding.source);
+  // Every binding is one row of the container's "Biến môi trường" table (UC-16 DEVEX-ENV).
+  const table = page.getByRole('region', { name: `Biến môi trường của container ${container}`, exact: true });
+  for (const [index, binding] of spec.bindings.entries()) {
+    const row = index + 1;
+    await h.click(table.getByRole('button', { name: '+ Thêm biến', exact: true }));
+    await h.type(table.getByLabel(`Tên biến, dòng ${row}`, { exact: true }), binding.name);
+    const source = SOURCE_LABELS[binding.source] ?? binding.source;
+    if (source !== 'Giá trị nhập') await h.choose(table.getByLabel(`Lấy giá trị từ, dòng ${row}`, { exact: true }), source);
+    if (binding.source === 'Entered value') await h.type(table.getByLabel(`Giá trị nhập, dòng ${row}`, { exact: true }), binding.value, { replace: true });
+    if (binding.source === 'Application variable') await h.choose(table.getByLabel(`Biến của ứng dụng, dòng ${row}`, { exact: true }), binding.key);
+    if (binding.source === 'Application secret') await h.choose(table.getByLabel(`Bí mật, dòng ${row}`, { exact: true }), binding.key);
     if (binding.alias) {
-      await h.choose(row.getByLabel('Tài nguyên được tham chiếu', { exact: true }), binding.alias);
-      await h.choose(row.getByLabel('Output của tài nguyên', { exact: true }), binding.output.replace(/ · secret$/, ' · bí mật'));
+      await h.choose(table.getByLabel(`Tài nguyên, dòng ${row}`, { exact: true }), binding.alias);
+      await h.choose(table.getByLabel(`Output, dòng ${row}`, { exact: true }), binding.output.replace(/ · secret$/, ' · Bí mật'));
     }
     if (binding.workload) {
-      await h.choose(row.getByLabel('Workload cung cấp Service', { exact: true }), binding.workload);
-      await h.choose(row.getByLabel('Cổng của Service', { exact: true }), binding.port);
+      await h.choose(table.getByLabel(`Workload, dòng ${row}`, { exact: true }), binding.workload);
+      await h.choose(table.getByLabel(`Cổng Service, dòng ${row}`, { exact: true }), binding.port);
     }
   }
 

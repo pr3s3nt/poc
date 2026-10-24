@@ -223,7 +223,13 @@ Năm field này cùng trọng số `env_type=1`, `app_id=2`, `env_id=4`, `res_id
 | `document_hash` | text | deterministic fingerprint |
 | `created_at` | timestamptz | NOT NULL |
 
-Deployment Sets are immutable. Canonical shape:
+Deployment Sets are immutable. `document` also carries an optional private
+`literalProofs` member beside `modules` and `shared` (DEVEX-ENV, UC-16 BR-23):
+`{ "<workload>": { "<container>": { "<variable>": "<sha256 of workload, container,
+name and exact value>" } } }`. It records which ordinary string variables a
+successful UC-16 deploy accepted. It is not part of `document_hash`, the planner
+Delta or any Score; no DDL changed. A set without the member (every set written
+before this feature) proves nothing, so its literals stay unreadable. Canonical shape:
 
 ```json
 {

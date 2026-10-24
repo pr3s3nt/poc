@@ -177,7 +177,21 @@ func (s *Service) checkVersion(l loaded, expected int64) error {
 	return nil
 }
 
+// Put writes a key and replaces an existing key of the same kind (Settings
+// upsert). Use CreateKey when an existing key must never be overwritten.
 func (s *Service) Put(ctx context.Context, app, env, name string, kind configuration.Kind, value string, expectedVersion int64) (View, error) {
+	return s.write(ctx, app, env, name, kind, value, expectedVersion, false)
+}
+
+// CreateKey is the create-only write of OC-12 DEVEX-ENV. It rejects a name that
+// already exists as any kind before any provider call, and commits under the
+// same configuration version compare-and-set as every write, so concurrent
+// creations have one winner and a stale or duplicate request never overwrites.
+func (s *Service) CreateKey(ctx context.Context, app, env, name string, kind configuration.Kind, value string, expectedVersion int64) (View, error) {
+	return s.write(ctx, app, env, name, kind, value, expectedVersion, true)
+}
+
+func (s *Service) write(ctx context.Context, app, env, name string, kind configuration.Kind, value string, expectedVersion int64, createOnly bool) (View, error) {
 	if !keyPattern.MatchString(name) || (kind != configuration.Variable && kind != configuration.Secret) || value == "" || strings.IndexByte(value, 0) >= 0 {
 		return View{}, ErrInvalid
 	}
@@ -188,8 +202,13 @@ func (s *Service) Put(ctx context.Context, app, env, name string, kind configura
 	if err := s.checkVersion(l, expectedVersion); err != nil {
 		return View{}, err
 	}
-	if existing, ok := l.revision.Entries[name]; ok && existing.Kind != kind {
-		return View{}, fmt.Errorf("%w: key %q already exists with another type", ErrConflict, name)
+	if existing, ok := l.revision.Entries[name]; ok {
+		if createOnly {
+			return View{}, fmt.Errorf("%w: key %q already exists", ErrConflict, name)
+		}
+		if existing.Kind != kind {
+			return View{}, fmt.Errorf("%w: key %q already exists with another type", ErrConflict, name)
+		}
 	}
 	entries := copyEntries(l.revision.Entries)
 	var written string
@@ -211,7 +230,9 @@ func (s *Service) Put(ctx context.Context, app, env, name string, kind configura
 		entries[name] = configuration.Entry{Kind: configuration.Variable, Value: value}
 	}
 	if err := s.commit(ctx, app, env, l.scope.Version, entries); err != nil {
-		s.discard(ctx, provider, written)
+		if !errors.Is(err, persistence.ErrCommitUncertain) {
+			s.discard(ctx, provider, written)
+		}
 		return View{}, err
 	}
 	return s.List(ctx, app, env)
@@ -379,7 +400,7 @@ func (s *Service) rewriteDrafts(ctx context.Context, app, env string, l loaded, 
 					types[typ.Key] = typ
 				}
 			}
-			raw, err := workloadconfig.ReconstructVerified(id, module, set.Document, types)
+			raw, err := workloadconfig.ReconstructVerifiedProven(id, module, set.Document, types, set.LiteralProofs.ProverFor(id))
 			if err != nil {
 				return nil, ErrReferenceRewriteUnsafe
 			}

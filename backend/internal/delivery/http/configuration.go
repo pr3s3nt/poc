@@ -63,6 +63,46 @@ func (s *Server) handlePutConfigurationKey(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, view)
 }
 
+// createConfigurationKeyRequest is the create-only body of OC-12 DEVEX-ENV.
+// Every field is required; a pointer or raw value distinguishes missing and
+// null from zero values, so neither is read as an empty name, kind or version.
+type createConfigurationKeyRequest struct {
+	Name    *string         `json:"name"`
+	Kind    *string         `json:"kind"`
+	Value   *string         `json:"value"`
+	Version json.RawMessage `json:"version"`
+}
+
+func (s *Server) handleCreateConfigurationKey(w http.ResponseWriter, r *http.Request) {
+	app, env, ok := s.authorizedConfiguration(w, r)
+	if !ok {
+		return
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
+	decoder.DisallowUnknownFields()
+	var req *createConfigurationKeyRequest
+	if err := decoder.Decode(&req); err != nil || req == nil {
+		writeCode(w, codeInvalidRequest, "")
+		return
+	}
+	var extra json.RawMessage
+	if err := decoder.Decode(&extra); err != io.EOF {
+		writeCode(w, codeInvalidRequest, "")
+		return
+	}
+	version, versionOK := strictVersion(req.Version)
+	if req.Name == nil || req.Kind == nil || req.Value == nil || !versionOK {
+		writeCode(w, codeInvalidRequest, "")
+		return
+	}
+	view, err := s.configurations.CreateKey(r.Context(), app, env, *req.Name, configuration.Kind(*req.Kind), *req.Value, version)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, view)
+}
+
 type renameConfigurationKeyRequest struct {
 	NewName            string          `json:"newName"`
 	Version            int64           `json:"version"`

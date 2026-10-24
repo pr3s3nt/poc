@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"orchestrator/internal/domain/environment"
@@ -113,5 +114,30 @@ func TestCatalogIsScopedByOrganization(t *testing.T) {
 	types, err := s.ListResourceTypes(ctx, "unknown")
 	if err != nil || len(types) != 0 {
 		t.Fatalf("unknown organization could read catalog: %#v, %v", types, err)
+	}
+}
+
+// UC-16 BR-23: literal provenance is part of the persisted Deployment Set, so a
+// restart from the snapshot file keeps proven values readable.
+func TestSnapshotKeepsDeploymentSetLiteralProofs(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "state.json")
+	st, err := NewWithSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proofs := environment.LiteralProofs{}
+	proofs.Add("api", "main", "LOG_LEVEL", "debug")
+	set := environment.DeploymentSet{ID: "set-1", EnvironmentKey: "app/staging", Document: environment.NewDocument(), DocumentHash: "h", LiteralProofs: proofs}
+	if err := st.SaveDeploymentSet(ctx, set); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := NewWithSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := reopened.GetDeploymentSet(ctx, "set-1")
+	if err != nil || !got.LiteralProofs.Proves("api", "main", "LOG_LEVEL", "debug") {
+		t.Fatalf("proof lost across reload: %+v %v", got.LiteralProofs, err)
 	}
 }

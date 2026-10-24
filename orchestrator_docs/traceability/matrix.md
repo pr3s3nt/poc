@@ -285,7 +285,7 @@ old execution evidence does not establish the replacement implementation.
 | BR-18 | Unavailable/loading/error states; other sources editor | Missing key retained and blocks Save, empty/error distinction, Retry, resource/Service flows and submitting/stale guards |
 
 Coverage is implemented in
-[`WorkloadEditorKeys.test.tsx`](../../frontend/src/features/workloads/WorkloadEditorKeys.test.tsx):
+`WorkloadEditorKeys.test.tsx` (removed 2026-10-24, replaced by EnvironmentVariablesTable.test.tsx):
 same-name selections, explicit aliases/reset, variable/resource/Service
 collisions, per-container isolation, Edit/import multiple aliases, missing
 keys, catalog loading/error/Retry, stale reload and real-scope resets.
@@ -1104,17 +1104,15 @@ records read-only Preview, metadata/history preservation and secret boundaries.
 | Shell gate | UC-17 UI | `AppShell`, `App` | — | [App tests](../../frontend/src/app/App.test.tsx), [route tests](../../frontend/src/app/routes.test.ts) |
 
 
-## DEVEX-ENV — approved design awaiting implementation
+## DEVEX-ENV — implemented and verified 2026-10-24
 
-| Requirement | Canonical design / collaboration | Required evidence (not yet executed) |
+Evidence record: [2026-10-24 DEVEX-ENV implementation](../verification/2026-10-24-devex-env-implementation.md).
+
+| Requirement | Canonical design / collaboration | Implementation and tests |
 |---|---|---|
-| UC-16 MS-03–05, BR-15–18/25 | Unified [screens](../usecase/UC-16/ui/screens.md), [states](../usecase/UC-16/ui/states.md), sequence/VOPC | E01/03/07/08/09: five sources, mapping/alias retention, invalid sources, per-row/scope guards |
-| UC-16 BR-02/20/23 | OC-16 ordinary literals and private provenance; workload reconstruction/deploy commit | E02/10/11: exact strings, escaping, current-set Edit/restart/rename, partial-success provenance, no legacy secret readback |
-| UC-12 BR-24–28; UC-16 BR-21/24 | OC-12 CreateKey; inline UC-12/UC-01 collaborators | E04/05/09: create-only races/duplicate, initial store selection, independent commit, uncertain outcomes and no-readback |
-| UC-16 BR-22/14/V2-02/03 | Shared dependency subform → local desired state, existing Type validation | E06/07: typed inputs/class/shared IDs, cancel, output selection and no provisioning |
-| UC-16 BR-07/10/19; UC-12 BR-09/12 | Existing explicit Save/Preview/Deploy and rename | E10/11: pending only, stale-preview, no-op, secret redaction and lossless reference rewrite |
-| ADR-020; shared UI | Reused shell/styles, catalog-backed labels and accessible dialog/table | E12: Việt/Anh, catalog parity, keyboard/focus and desktop screenshots |
-
-Scenario IDs, code touch points and commands are in
-[implementation handoff](../implementation/workload-environment-editor.md).
-Replace planned coverage with actual test names/evidence only after execution.
+| UC-16 MS-03–05, BR-15–18/25 | Unified [screens](../usecase/UC-16/ui/screens.md), [states](../usecase/UC-16/ui/states.md), sequence/VOPC | [`EnvironmentVariablesTable`](../../frontend/src/features/workloads/EnvironmentVariablesTable.tsx), [`bindings`](../../frontend/src/features/workloads/bindings.ts); E01/03/07/08/09 in [table tests](../../frontend/src/features/workloads/EnvironmentVariablesTable.test.tsx) and [bindings tests](../../frontend/src/features/workloads/bindings.test.ts) |
+| UC-16 BR-02/20/23 | OC-16 ordinary literals and private provenance | [`literal.go`](../../backend/internal/application/workloadconfig/literal.go), [`literal_proof.go`](../../backend/internal/domain/environment/literal_proof.go); E02/10/11: `TestAcceptedLiteralsRoundTripAndDirectDeployStaysHidden`, `TestLiteralProofIsPerWorkload`, `TestProveLiteralsCarriesOnlyIdenticalValues`, `TestAcceptedLiteralsSurviveRestartOnPostgres`, `TestRenameKeepsProvenLiteralsAndRejectsUnprovenOnes`, `TestLiteralProofsRoundTripRestartAndLegacyRows`, `TestSnapshotKeepsDeploymentSetLiteralProofs` |
+| UC-12 BR-24–28; UC-16 BR-21/24 | OC-12 CreateKey; inline UC-12/UC-01 collaborators | [`CreateKey`](../../backend/internal/application/configuration/service.go), [`handleCreateConfigurationKey`](../../backend/internal/delivery/http/configuration.go), [`CreateKeyDialog`](../../frontend/src/features/workloads/CreateKeyDialog.tsx); E04/05/09: `TestCreateKeyNeverOverwrites`, `TestConcurrentCreateKeyHasOneWinner`, `TestCreateConfigurationKeyHandler`, dialog tests in the table test file |
+| UC-16 BR-22/14/V2-02/03 | Shared dependency subform → local desired state, existing Type validation | [`AddResourceDialog`](../../frontend/src/features/workloads/AddResourceDialog.tsx), [`DependencyFields`](../../frontend/src/features/workloads/DependencyFields.tsx); E06/07 table tests (no HTTP call, output left to choose, Cancel adds nothing) |
+| UC-16 BR-07/10/19; UC-12 BR-09/12 | Existing explicit Save/Preview/Deploy and rename | Unchanged flow; E10/11 lifecycle and rename tests above plus the full backend suite |
+| ADR-020; shared UI | Reused shell/styles, catalog-backed labels and accessible dialog/table | [`Dialog`](../../frontend/src/shared/ui/Dialog.tsx), catalogs `workloads.envTable.*`/`createKey.*`/`addResource.*`; E12 [browser script](../../frontend/test/e2e/devex-env-local.mjs), catalog parity test

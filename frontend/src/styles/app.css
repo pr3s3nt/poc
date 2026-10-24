@@ -658,3 +658,25 @@ a { color: inherit; }
 .sidebar .language-select option { color:var(--ink); }
 .app-shell-collapsed .language-select { display:none; }
 .sign-in-form .language-select { justify-content:center; color:var(--muted); font-weight:400; }
+
+/* DEVEX-ENV: per-container environment variable table and inline create dialogs */
+.env-variables { display:grid; gap:10px; margin-top:6px; }
+.env-variables .section-header { align-items:center; margin-bottom:0; }
+.env-variables h3 { margin:0; font-size:16px; }
+.env-table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:14px; }
+.env-table th { padding:8px 10px; border-bottom:1px solid var(--border); background:#f6f8fa; color:var(--muted); font-size:12px; font-weight:600; text-align:left; }
+.env-table td { padding:8px 10px; border-bottom:1px solid var(--border-muted); vertical-align:top; }
+.env-table th:nth-child(1) { width:23%; }.env-table th:nth-child(2) { width:24%; }.env-table th:nth-child(4) { width:84px; }
+.env-table input,.env-table select { width:100%; min-width:0; border:1px solid var(--border); border-radius:6px; padding:8px 10px; background:var(--surface); color:var(--ink); font:inherit; }
+.env-table input:focus,.env-table select:focus { outline:2px solid var(--blue); outline-offset:-1px; }
+.env-table [aria-invalid=true] { border-color:#ff8182; }
+.env-value { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.env-value input,.env-value select { flex:1 1 190px; width:auto; }
+.env-value small { white-space:nowrap; }
+.env-table .field-error { margin:6px 0 0; }
+.env-dialog { width:min(560px,100%); }
+.env-dialog .field select { width:100%; border:1px solid var(--border); border-radius:6px; padding:8px 10px; font:inherit; background:var(--surface); }
+.env-dialog .editor-grid label { font-weight:600; }
+.env-dialog .editor-grid input,.env-dialog .editor-grid select { width:100%; }
+.env-dialog .form-actions { flex-wrap:wrap; }
+@media (max-width:900px) { .env-table th:nth-child(1) { width:30%; }.env-table th:nth-child(2) { width:26%; } }

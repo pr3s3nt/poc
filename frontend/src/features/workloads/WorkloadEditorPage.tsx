@@ -1,21 +1,21 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { navigate } from '../../app/routes';
 import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
 import { ApiError, describeError, isBusy, isStaleConflict } from '../../shared/api/client';
 import { useEnvironmentBusy } from '../environment/useEnvironmentBusy';
-import { getConfiguration } from '../configuration/api';
+import { getConfiguration, type Configuration, type KeyKind } from '../configuration/api';
 import { getResourceTypes, getWorkloads, parseScoreImport, saveWorkload, type ResourceType, type Workload } from './api';
-import { ApplicationKeyPicker } from './ApplicationKeyPicker';
-import { ClassControls } from './ClassControls';
-import { bindingProblem, emptyBinding, keyBinding, type Binding, type KeyCatalog, type Source } from './bindings';
+import { AddResourceDialog } from './AddResourceDialog';
+import { CreateKeyDialog } from './CreateKeyDialog';
+import { DependencyFields, dependencyProblem, emptyDependency, type ClassMetadata, type Dependency } from './DependencyFields';
+import { EnvironmentVariablesTable, type FocusRequest } from './EnvironmentVariablesTable';
+import { Advanced } from './Advanced';
+import { bindingProblem, escapeLiteral, isKeySource, readBinding, serviceAlias, type Binding, type KeyCatalog, type ResourceSpecs } from './bindings';
+import { buildRowContext } from './rowContext';
 import { t } from '../../shared/i18n';
 
 type ContainerForm = { name: string; image: string; cpuRequest: string; memoryRequest: string; cpuLimit: string; memoryLimit: string; bindings: Binding[] };
-// sharedId is the Score resource `id` (UC-06 shared dependency `<type>.<class>#shared.<id>`); className is the
-// provisioning class. Both are kept exactly as chosen or imported: never defaulted, mapped or switched.
-type Dependency = { alias: string; type: string; className: string; sharedId: string; params: Record<string, string> };
-type ClassMetadata = 'ready' | 'loading' | 'error';
 type ServicePort = { name: string; port: string; targetPort: string };
 type PublicRoute = { path: string; port: string };
 // workloadClass is Score metadata.class (ADR-016): empty means the default class, an explicit value is kept as written.
@@ -46,6 +46,18 @@ function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): 
   })) return true;
   if (Object.values(resources).some((resource) => Object.keys(resource).some((key) => !['type', 'class', 'params', 'id'].includes(key)))) return true;
   if (Object.values(resources).some((resource) => resource.type === 'environment' && Object.keys(resource).length !== 1)) return true;
+  // A variable the table cannot hold unchanged (text mixed with a reference, a malformed reference) or a virtual
+  // resource no variable uses would be rewritten or dropped by the form: keep the advanced Score path.
+  const referenced = new Set<string>();
+  for (const container of Object.values(containers)) {
+    for (const [name, raw] of Object.entries((container.variables ?? {}) as Record<string, unknown>)) {
+      const binding = readBinding(name, raw, resources as ResourceSpecs);
+      if (!binding) return true;
+      if (binding.source === 'KEY') referenced.add('env');
+      if (binding.source === 'SERVICE') referenced.add(binding.alias);
+    }
+  }
+  if (Object.entries(resources).some(([alias, resource]) => (resource.type === 'service' || resource.type === 'environment') && !referenced.has(alias))) return true;
   if (Object.values(resources).some((resource) => resource.type === 'service' && (resource.class != null || Object.keys((resource.params ?? {}) as Record<string, unknown>).some((key) => !['workload', 'port'].includes(key))))) return true;
   if (raw.service && Object.keys(raw.service as Record<string, unknown>).some((key) => key !== 'ports' && key !== 'publicRoutes')) return true;
   const ports = ((raw.service as { ports?: Record<string, Record<string, unknown>> } | undefined)?.ports ?? {});
@@ -54,10 +66,6 @@ function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): 
 
 // Workload class identifier: lowercase, no dot or space, at most 63 characters (backend resource.ValidClass).
 export const validWorkloadClass = (value: string): boolean => /^[a-z0-9][a-z0-9_-]{0,62}$/.test(value);
-
-// Reads a resource input the user set; an unset name such as __proto__ is empty,
-// not an inherited Object member.
-const paramValue = (params: Record<string, string>, name: string): string => (Object.hasOwn(params, name) ? params[name] ?? '' : '');
 
 // Every dictionary keyed by a user-chosen name is collected in a Map and turned
 // into an object with Object.fromEntries, so a name such as __proto__ stays an
@@ -84,10 +92,12 @@ function buildScore(form: Form, types: ResourceType[]): Record<string, unknown> 
       // bindingProblem runs first; this guard only refuses a silent overwrite.
       if (names.has(binding.name)) throw new Error(t('workloads.workloadEditor.containerNameNameName2Is', { name: container.name, name2: binding.name }));
       names.add(binding.name);
+      // Only the payload of the current source is serialized; a changed source left nothing behind.
+      if (binding.source === 'LITERAL') { variables.push([binding.name, escapeLiteral(binding.value)]); continue; }
       let alias = binding.alias;
       let output = binding.output;
-      if (binding.source === 'KEY') { alias = 'env'; output = binding.key; resources.set('env', { type: 'environment' }); }
-      if (binding.source === 'SERVICE') { alias = `svc_${binding.workload}_${binding.port}`.replace(/[^A-Za-z0-9_-]/g, '_'); output = 'url'; resources.set(alias, { type: 'service', params: { workload: binding.workload, port: binding.port } }); }
+      if (isKeySource(binding.source)) { alias = 'env'; output = binding.key; resources.set('env', { type: 'environment' }); }
+      if (binding.source === 'SERVICE') { alias = binding.alias || serviceAlias(binding.workload, binding.port); output = 'url'; resources.set(alias, { type: 'service', params: { workload: binding.workload, port: binding.port } }); }
       variables.push([binding.name, `\${resources.${alias}.${output}}`]);
     }
     const requests: Record<string, string> = {};
@@ -132,17 +142,6 @@ function routeTargetProblem(route: PublicRoute, valid: ReadonlySet<string>): str
   return undefined;
 }
 
-// Closing only hides the inputs; the form state lives in the page, so edited
-// and imported overrides survive. The summary stays visible while closed.
-function Advanced({ label, summary, children }: { label: string; summary: ReactNode; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return <div className="advanced-section">
-    <div role="note" aria-label={t('workloads.workloadEditor.advancedSummaryLabel', { label })} className="muted">{summary}</div>
-    <Button tone="quiet" aria-expanded={open} aria-label={t('workloads.workloadEditor.valueAdvancedLabel', { value: open ? t('workloads.workloadEditor.hide') : t('workloads.workloadEditor.show'), label })} onClick={() => setOpen(!open)}>{open ? t('workloads.workloadEditor.hideAdvanced') : t('workloads.workloadEditor.showAdvanced')}</Button>
-    {open ? children : null}
-  </div>;
-}
-
 function readForm(score: Record<string, unknown>): Form {
   const form = emptyForm();
   form.name = String((score.metadata as { name?: string } | undefined)?.name ?? '');
@@ -150,13 +149,7 @@ function readForm(score: Record<string, unknown>): Form {
   const resources = (score.resources ?? {}) as Record<string, { type?: string; class?: string; id?: unknown; params?: Record<string, unknown> }>;
   form.dependencies = Object.entries(resources).filter(([, spec]) => spec.type !== 'environment' && spec.type !== 'service').map(([alias, spec]) => ({ alias, type: spec.type ?? '', className: spec.class ?? '', sharedId: typeof spec.id === 'string' ? spec.id : '', params: Object.fromEntries(Object.entries(spec.params ?? {}).map(([key, value]) => [key, String(value)])) }));
   const rawContainers = (score.containers ?? {}) as Record<string, { image?: string; variables?: Record<string, string>; resources?: { requests?: { cpu?: string; memory?: string }; limits?: { cpu?: string; memory?: string } } }>;
-  form.containers = Object.entries(rawContainers).map(([name, value]) => ({ name, image: value.image ?? '', cpuRequest: value.resources?.requests?.cpu ?? '', memoryRequest: value.resources?.requests?.memory ?? '', cpuLimit: value.resources?.limits?.cpu ?? '', memoryLimit: value.resources?.limits?.memory ?? '', bindings: Object.entries(value.variables ?? {}).map(([envName, raw]) => {
-    const match = raw.match(/^\$\{resources\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\}$/);
-    const alias = match?.[1] ?? ''; const output = match?.[2] ?? '';
-    if (alias === 'env') return keyBinding(output, envName);
-    if (resources[alias]?.type === 'service') return { ...emptyBinding(), name: envName, source: 'SERVICE' as const, workload: String(resources[alias].params?.workload ?? ''), port: String(resources[alias].params?.port ?? '') };
-    return { ...emptyBinding(), name: envName, source: 'RESOURCE' as const, alias, output };
-  }) }));
+  form.containers = Object.entries(rawContainers).map(([name, value]) => ({ name, image: value.image ?? '', cpuRequest: value.resources?.requests?.cpu ?? '', memoryRequest: value.resources?.requests?.memory ?? '', cpuLimit: value.resources?.limits?.cpu ?? '', memoryLimit: value.resources?.limits?.memory ?? '', bindings: Object.entries(value.variables ?? {}).flatMap(([envName, raw]) => readBinding(envName, raw, resources as ResourceSpecs) ?? []) }));
   if (!form.containers.length) form.containers = [emptyContainer()];
   const ports = ((score.service as { ports?: Record<string, { port: number; targetPort?: number }> } | undefined)?.ports ?? {});
   form.servicePorts = Object.entries(ports).map(([name, port]) => ({ name, port: String(port.port), targetPort: String(port.targetPort ?? port.port) }));
@@ -172,6 +165,8 @@ function hasRemovedPublicPort(score: Record<string, unknown>): boolean {
 }
 
 const removedPublicPortMessage = t('workloads.workloadEditor.theDraftScoreStillDeclares');
+
+const readyCatalog = (config: Configuration): KeyCatalog => ({ status: 'ready', keys: config.keys ?? [], version: config.version, secretStoreKey: config.secretStoreKey });
 
 export function WorkloadEditorPage({ application, environment, workloadId, onTargetChange }: { application: Application; environment: EnvironmentKey; workloadId?: string; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void }) {
   // Environment operations hold draft writes: Save stays disabled, text is kept.
@@ -200,6 +195,11 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
   const [reloading, setReloading] = useState(false);
   const [current, setCurrent] = useState<{ version: number; score?: Record<string, unknown>; state?: string }>();
   const [reloadError, setReloadError] = useState('');
+  // Inline creation (UC-16 BR-21/22): one dialog at a time, bound to the row (stable id) that opened it.
+  const [dialog, setDialog] = useState<{ type: 'key'; kind: KeyKind; rowId: string; suggested: string } | { type: 'resource'; rowId: string }>();
+  const [focusRequest, setFocusRequest] = useState<FocusRequest>();
+  // After a failed Save the table also reports rows that are not filled in yet.
+  const [showIncomplete, setShowIncomplete] = useState(false);
   // Scope/unmount guard for import, Save and reload: a late reply for another
   // scope or after leaving the page is dropped.
   const scope = useRef(0);
@@ -211,7 +211,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
   // over (a pending reload's finally ignores the new scope by design).
   useEffect(() => {
     scope.current += 1;
-    setForm(emptyForm()); setImported(undefined); setDirty(false); setMode('form'); setAdvancedScore(false); setBlocked(false); setSaving(false); setReloading(false); setWorkloads([]);
+    setForm(emptyForm()); setImported(undefined); setDirty(false); setMode('form'); setAdvancedScore(false); setBlocked(false); setSaving(false); setReloading(false); setWorkloads([]); setDialog(undefined); setFocusRequest(undefined); setShowIncomplete(false);
   }, [application.id, environment, workloadId]);
 
   useEffect(() => {
@@ -234,7 +234,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
   useEffect(() => {
     let cancelled = false;
     setCatalog({ status: 'loading' });
-    getConfiguration(application.id, environment).then((config) => { if (!cancelled) setCatalog({ status: 'ready', keys: config.keys ?? [] }); })
+    getConfiguration(application.id, environment).then((config) => { if (!cancelled) setCatalog(readyCatalog(config)); })
       .catch((err: unknown) => { if (!cancelled) setCatalog({ status: 'error', message: describeError(err, t('workloads.workloadEditor.noResponseFromTheServer')) }); });
     return () => { cancelled = true; };
   }, [application.id, environment, loadAttempt, catalogAttempt]);
@@ -248,7 +248,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
       if (at !== scope.current) return;
       const id = workloadId ?? form.name;
       const item = list.workloads.find((entry) => entry.id === id);
-      setCatalog({ status: 'ready', keys: config.keys ?? [] }); setWorkloads(list.workloads); setVersion(list.draftVersion);
+      setCatalog(readyCatalog(config)); setWorkloads(list.workloads); setVersion(list.draftVersion);
       setCurrent({ version: list.draftVersion, score: item?.score, state: item?.state || (item ? 'deployed' : 'absent') });
       setStale(false); setError('');
     } catch (err) {
@@ -275,7 +275,19 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
 
   function updateForm(next: Form) { setForm(next); setDirty(true); }
   function updateContainer(index: number, next: ContainerForm) { const containers = [...form.containers]; containers[index] = next; updateForm({ ...form, containers }); }
-  function updateBinding(containerIndex: number, bindingIndex: number, next: Binding) { const container = form.containers[containerIndex]; if (!container) return; const bindings = [...container.bindings]; bindings[bindingIndex] = next; updateContainer(containerIndex, { ...container, bindings }); }
+  // Applies a change to one row by its stable id, wherever that row now is. A row that is gone changes nothing.
+  const changeRow = useCallback((rowId: string, change: (row: Binding) => Binding) => {
+    setForm((prev) => {
+      if (!prev.containers.some((container) => container.bindings.some((row) => row.id === rowId))) return prev;
+      return { ...prev, containers: prev.containers.map((container) => ({ ...container, bindings: container.bindings.map((row) => (row.id === rowId ? change(row) : row)) })) };
+    });
+    setDirty(true);
+  }, []);
+  const clearFocus = useCallback(() => setFocusRequest(undefined), []);
+  function openKeyDialog(kind: KeyKind, row: Binding) { setDialog({ type: 'key', kind, rowId: row.id, suggested: row.name }); }
+  function closeDialog() { setDialog(undefined); }
+  // A configuration reply of the scope the dialog opened in refreshes the catalog; any other scope drops it.
+  function acceptConfiguration(at: number) { return (config: Configuration) => { if (at === scope.current) setCatalog(readyCatalog(config)); }; }
   function updateDependency(index: number, patch: Partial<Dependency>) { updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, ...patch } : item) }); }
   function updatePort(index: number, patch: Partial<ServicePort>) { updateForm({ ...form, servicePorts: form.servicePorts.map((item, i) => i === index ? { ...item, ...patch } : item) }); }
   function updateRoute(index: number, patch: Partial<PublicRoute>) { updateForm({ ...form, publicRoutes: form.publicRoutes.map((item, i) => i === index ? { ...item, ...patch } : item) }); }
@@ -297,6 +309,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
     }
     catch (err) { if (at === scope.current) setError(describeError(err, t('workloads.workloadEditor.couldNotImportTheScore'))); }
   }
+  const rowContext = buildRowContext(catalog, form.dependencies, types, workloads, form.name);
   async function save() {
     if (environmentBusy) return;
     if (blocked || stale) return;
@@ -312,17 +325,14 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
       if (form.workloadClass && !validWorkloadClass(form.workloadClass)) { setError(t('workloads.workloadEditor.invalidWorkloadClassUseOnly')); return; }
       if (classMetadata !== 'ready' && form.dependencies.length > 0) { setError(classMetadata === 'loading' ? t('workloads.workloadEditor.classMetadataIsLoadingWait') : t('workloads.workloadEditor.theResourceClassMetadataIs')); return; }
       for (const dependency of form.dependencies) {
-        const contract = types.find((item) => item.key === dependency.type);
-        if (!contract) { setError(t('workloads.workloadEditor.chooseAValidResourceType', { value: dependency.alias || t('workloads.workloadEditor.resource') })); return; }
-        for (const input of contract.inputs ?? []) {
-          const value = paramValue(dependency.params, input.name);
-          if (input.required && !value.trim()) { setError(t('workloads.workloadEditor.valueNameIsRequired', { value: dependency.alias || dependency.type, name: input.name })); return; }
-          if (value && input.type === 'number' && !Number.isFinite(Number(value))) { setError(t('workloads.workloadEditor.valueNameMustBeA', { value: dependency.alias || dependency.type, name: input.name })); return; }
-        }
+        const dependencyIssue = dependencyProblem(dependency, types);
+        if (dependencyIssue) { setError(dependencyIssue); return; }
       }
-      if (catalog.status !== 'ready') { setError(catalog.status === 'loading' ? t('workloads.workloadEditor.applicationVariablesAndSecretsAre') : t('workloads.workloadEditor.couldNotLoadApplicationVariables')); return; }
-      const problem = bindingProblem(form.containers, new Set(catalog.keys.map((key) => key.name)));
-      if (problem) { setError(problem); return; }
+      // The key catalog is only needed when a row references an Application key.
+      const usesKeys = form.containers.some((container) => container.bindings.some((row) => isKeySource(row.source)));
+      if (usesKeys && catalog.status !== 'ready') { setError(catalog.status === 'loading' ? t('workloads.workloadEditor.applicationVariablesAndSecretsAre') : t('workloads.workloadEditor.couldNotLoadApplicationVariables')); return; }
+      const problem = bindingProblem(form.containers, rowContext);
+      if (problem) { setError(problem); setShowIncomplete(true); return; }
     }
     const score = mode === 'import' && imported && !dirty ? imported : !dirty && imported ? imported : buildScore(form, types);
     const id = String((score.metadata as { name?: string } | undefined)?.name ?? '');
@@ -338,7 +348,6 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
     }
     finally { if (at === scope.current) setSaving(false); }
   }
-  const candidateServices = workloads.filter((item) => item.id !== form.name && item.state !== 'PENDING_DELETE' && item.servicePorts?.length);
   const validPorts = validPortNames(form.servicePorts);
   const currentState = current?.state === 'absent' ? t('workloads.workloadEditor.none') : current?.state === 'deployed' ? t('workloads.workloadEditor.deployedNoPendingChanges') : current?.state === 'PENDING_DELETE' ? t('workloads.workloadEditor.pendingDeletion') : t('workloads.workloadEditor.hasPendingChanges');
 
@@ -358,19 +367,11 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
           <div className="field-grid field-grid-four"><label>{t('workloads.workloadEditor.cPURequest')}<input value={container.cpuRequest} onChange={(event) => updateContainer(ci, { ...container, cpuRequest: event.target.value })} placeholder="100m" /></label><label>{t('workloads.workloadEditor.memoryRequest')}<input value={container.memoryRequest} onChange={(event) => updateContainer(ci, { ...container, memoryRequest: event.target.value })} placeholder="128Mi" /></label><label>{t('workloads.workloadEditor.cPULimit')}<input value={container.cpuLimit} onChange={(event) => updateContainer(ci, { ...container, cpuLimit: event.target.value })} /></label><label>{t('workloads.workloadEditor.memoryLimit')}<input value={container.memoryLimit} onChange={(event) => updateContainer(ci, { ...container, memoryLimit: event.target.value })} /></label></div>
           <p>{t('workloads.workloadEditor.anEmptyRequestUsesThe', { DEFAULT_CPU_REQUEST, DEFAULT_MEMORY_REQUEST })}</p>
         </Advanced>
-        <h3>{t('workloads.workloadEditor.applicationVariablesSecrets')}</h3><p>{t('workloads.workloadEditor.checkTheKeysAvailableIn', { environment })}</p>
-        <ApplicationKeyPicker container={container.name || `Container ${ci + 1}`} bindings={container.bindings} catalog={catalog} disabled={saving} onChange={(bindings) => updateContainer(ci, { ...container, bindings })} />
-        <h3>{t('workloads.workloadEditor.otherSources')}</h3><p>{t('workloads.workloadEditor.resourceOutputsAndServicesOf', { environment })}</p>
-        {container.bindings.map((binding, bi) => binding.source === 'KEY' ? null : <div className="binding-row" key={bi}><input aria-label={t('workloads.workloadEditor.containerVariableName')} value={binding.name} disabled={saving} placeholder="API_URL" onChange={(event) => updateBinding(ci, bi, { ...binding, name: event.target.value })} /><select aria-label={t('workloads.workloadEditor.referenceSource')} value={binding.source} disabled={saving} onChange={(event) => updateBinding(ci, bi, { ...emptyBinding(), name: binding.name, source: event.target.value as Source })}><option value="RESOURCE">{t('workloads.workloadEditor.resourceOutput')}</option><option value="SERVICE">{t('workloads.workloadEditor.workloadService')}</option></select>
-          {binding.source === 'RESOURCE' ? <><select aria-label={t('workloads.workloadEditor.referencedResource')} value={binding.alias} disabled={saving} onChange={(event) => updateBinding(ci, bi, { ...binding, alias: event.target.value, output: '' })}><option value="">{t('workloads.workloadEditor.chooseAResource')}</option>{form.dependencies.map((dep) => <option key={dep.alias} value={dep.alias}>{dep.alias}</option>)}</select><select aria-label={t('workloads.workloadEditor.resourceOutput2')} value={binding.output} disabled={saving} onChange={(event) => updateBinding(ci, bi, { ...binding, output: event.target.value })}><option value="">{t('workloads.workloadEditor.chooseAnOutput')}</option>{types.find((type) => type.key === form.dependencies.find((dep) => dep.alias === binding.alias)?.type)?.outputs.map((output) => <option key={output.name} value={output.name}>{output.name}{output.secret ? t('workloads.workloadEditor.secret') : ''}</option>)}</select></> : null}
-          {binding.source === 'SERVICE' ? <><select aria-label={t('workloads.workloadEditor.workloadProvidingTheService')} value={binding.workload} disabled={saving} onChange={(event) => updateBinding(ci, bi, { ...binding, workload: event.target.value, port: '' })}><option value="">{t('workloads.workloadEditor.chooseAWorkload')}</option>{candidateServices.map((item) => <option key={item.id} value={item.id}>{item.id}</option>)}</select><select aria-label={t('workloads.workloadEditor.servicePort')} value={binding.port} disabled={saving} onChange={(event) => updateBinding(ci, bi, { ...binding, port: event.target.value })}><option value="">{t('workloads.workloadEditor.chooseAPort')}</option>{candidateServices.find((item) => item.id === binding.workload)?.servicePorts?.map((port) => <option key={port} value={port}>{port}</option>)}</select></> : null}<Button tone="quiet" disabled={saving} onClick={() => updateContainer(ci, { ...container, bindings: container.bindings.filter((_, index) => index !== bi) })}>{t('workloads.workloadEditor.remove')}</Button></div>)}
-        <Button disabled={saving} onClick={() => updateContainer(ci, { ...container, bindings: [...container.bindings, emptyBinding()] })}>{t('workloads.workloadEditor.addOtherSource')}</Button></section>)}
+        <EnvironmentVariablesTable container={container.name || String(ci + 1)} bindings={container.bindings} catalog={catalog} dependencies={form.dependencies} types={types} workloads={workloads} self={form.name} context={rowContext} disabled={saving} showIncomplete={showIncomplete} focus={focusRequest} onFocused={clearFocus}
+          onChange={(bindings) => updateContainer(ci, { ...container, bindings })} onCreateKey={openKeyDialog} onAddResource={(row) => setDialog({ type: 'resource', rowId: row.id })} />
+        </section>)}
       <Button onClick={() => updateForm({ ...form, containers: [...form.containers, { ...emptyContainer(), name: `container-${form.containers.length + 1}` }] })}>{t('workloads.workloadEditor.addContainer')}</Button>
-      <section className="content-panel editor-grid"><div className="section-header"><div><h2>{t('workloads.workloadEditor.workloadResources')}</h2><p>{t('workloads.workloadEditor.chooseAnAvailableResourceType')}</p></div><div className="form-actions"><Button tone="quiet" onClick={() => void reloadClassMetadata()}>{t('workloads.workloadEditor.refreshClassMetadata')}</Button><Button onClick={() => updateForm({ ...form, dependencies: [...form.dependencies, { alias: '', type: '', className: '', sharedId: '', params: {} }] })}>{t('workloads.workloadEditor.addResource')}</Button></div></div>{form.dependencies.map((dep, index) => <div className="editor-grid" key={index}><div className="binding-row"><input aria-label={t('workloads.workloadEditor.resourceAlias')} value={dep.alias} placeholder="db" onChange={(event) => updateDependency(index, { alias: event.target.value })} /><select aria-label={t('workloads.workloadEditor.resourceType')} value={dep.type} onChange={(event) => updateDependency(index, { type: event.target.value, params: {} })}><option value="">{t('workloads.workloadEditor.chooseAType')}</option>{types.map((type) => <option key={type.key} value={type.key}>{type.key}</option>)}</select><Button tone="quiet" onClick={() => updateForm({ ...form, dependencies: form.dependencies.filter((_, i) => i !== index) })}>{t('workloads.workloadEditor.remove')}</Button></div><ClassControls index={index} alias={dep.alias} type={types.find((type) => type.key === dep.type)} className={dep.className} sharedId={dep.sharedId} metadata={classMetadata} disabled={saving} onClass={(value) => updateDependency(index, { className: value })} onSharedId={(value) => updateDependency(index, { sharedId: value })} onReload={() => void reloadClassMetadata()} /><div className="field-grid">{types.find((type) => type.key === dep.type)?.inputs?.map((input) => <label key={input.name}>{dep.alias || dep.type} · {input.name}{input.required ? ' *' : ''}{input.type === 'bool' ? <select aria-label={t('workloads.workloadEditor.parameterName', { name: input.name })} value={paramValue(dep.params, input.name)} onChange={(event) => updateDependency(index, { params: { ...dep.params, [input.name]: event.target.value } })}><option value="">{t('workloads.workloadEditor.choose')}</option><option value="true">{t('workloads.workloadEditor.true')}</option><option value="false">{t('workloads.workloadEditor.false')}</option></select> : <input aria-label={t('workloads.workloadEditor.parameterName', { name: input.name })} type={input.type === 'number' ? 'number' : 'text'} value={paramValue(dep.params, input.name)} onChange={(event) => updateDependency(index, { params: { ...dep.params, [input.name]: event.target.value } })} />}</label>)}</div>
-        <Advanced label={t('workloads.workloadEditor.resourceValue', { value: dep.alias || index + 1 })} summary={t('workloads.workloadEditor.effectiveClassValueValue2', { value: dep.className || 'default', value2: dep.className ? t('workloads.workloadEditor.explicit') : t('workloads.workloadEditor.default') })}>
-          <label>{t('workloads.workloadEditor.resourceClass')}<input aria-label={t('workloads.workloadEditor.resourceClass')} value={dep.className} placeholder="default" onChange={(event) => updateDependency(index, { className: event.target.value })} /></label>
-          <p>{t('workloads.workloadEditor.emptyUsesTheDefaultClass')}</p>
-        </Advanced></div>)}</section>
+      <section className="content-panel editor-grid"><div className="section-header"><div><h2>{t('workloads.workloadEditor.workloadResources')}</h2><p>{t('workloads.workloadEditor.chooseAnAvailableResourceType')}</p></div><div className="form-actions"><Button tone="quiet" onClick={() => void reloadClassMetadata()}>{t('workloads.workloadEditor.refreshClassMetadata')}</Button><Button onClick={() => updateForm({ ...form, dependencies: [...form.dependencies, emptyDependency()] })}>{t('workloads.workloadEditor.addResource')}</Button></div></div>{form.dependencies.map((dep, index) => <DependencyFields key={index} index={index} dependency={dep} types={types} classMetadata={classMetadata} disabled={saving} onChange={(patch) => updateDependency(index, patch)} onReload={() => void reloadClassMetadata()} onRemove={() => updateForm({ ...form, dependencies: form.dependencies.filter((_, i) => i !== index) })} />)}</section>
       <section className="content-panel editor-grid">
         <div className="section-header"><div><h2>{t('workloads.workloadEditor.servicePorts')}</h2><p>{t('workloads.workloadEditor.internalAccessForOtherWorkloads', { environment })}</p></div><Button onClick={() => updateForm({ ...form, servicePorts: [...form.servicePorts, { name: '', port: '', targetPort: '' }] })}>{t('workloads.workloadEditor.addPort')}</Button></div>
         {form.servicePorts.map((port, index) => <div className="editor-grid" key={index}><div className="binding-row"><input aria-label={t('workloads.workloadEditor.servicePortName')} value={port.name} placeholder="http" onChange={(event) => updatePort(index, { name: event.target.value })} /><input aria-label={t('workloads.workloadEditor.servicePorts')} type="number" value={port.port} placeholder="80" onChange={(event) => updatePort(index, { port: event.target.value })} /><Button tone="quiet" onClick={() => updateForm({ ...form, servicePorts: form.servicePorts.filter((_, i) => i !== index) })}>{t('workloads.workloadEditor.remove')}</Button></div>
@@ -383,6 +384,24 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
         <p>{t('workloads.workloadEditor.publicAccessIsAppliedOnly')}</p>
       </section>
     </>}
+    {dialog?.type === 'key' && catalog.status === 'ready' ? <CreateKeyDialog application={application} environment={environment} kind={dialog.kind} suggestedName={dialog.suggested} catalog={catalog} onTargetChange={onTargetChange}
+      onConfiguration={acceptConfiguration(scope.current)} onClose={closeDialog}
+      onCreated={((at, rowId, kind) => (key: string) => {
+        setDialog(undefined);
+        if (at !== scope.current) return;
+        // Select the key on the row that opened the dialog; a row removed meanwhile is left alone. The name is only suggested while empty.
+        changeRow(rowId, (row) => ({ ...row, source: kind, key, ...(row.name === '' ? { name: key } : {}) }));
+        setFocusRequest({ rowId, field: 'key' });
+      })(scope.current, dialog.rowId, dialog.kind)} /> : null}
+    {dialog?.type === 'resource' ? <AddResourceDialog existing={form.dependencies} types={types} classMetadata={classMetadata} onReload={() => void reloadClassMetadata()} onClose={closeDialog}
+      onAdd={((at, rowId) => (dependency: Dependency) => {
+        setDialog(undefined);
+        if (at !== scope.current) return;
+        // Only the draft changes: the dependency is added, the row points to its alias and the output stays to be chosen.
+        setForm((prev) => ({ ...prev, dependencies: [...prev.dependencies, dependency] }));
+        changeRow(rowId, (row) => ({ ...row, source: 'RESOURCE', alias: dependency.alias, output: '' }));
+        setFocusRequest({ rowId, field: 'output' });
+      })(scope.current, dialog.rowId)} /> : null}
     {!loading && environmentBusy ? <div className="form-info" role="status">{t('workloads.workloadEditor.anEnvironmentOperationIsRunning', { environment })}</div> : null}
     {!loading ? <div className="form-actions editor-actions"><Button onClick={() => navigate({ name: 'application', applicationId: application.id })}>{t('workloads.workloadEditor.cancel')}</Button><Button tone="primary" disabled={environmentBusy || blocked || saving || stale || loadFailed || (mode === 'import' && !imported)} onClick={() => void save()}>{t('workloads.workloadEditor.saveWorkloadDraft')}</Button></div> : null}
   </section>;

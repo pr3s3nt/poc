@@ -28,14 +28,21 @@ var ErrReferenceRewriteUnsafe = errors.New("workloadconfig: references cannot be
 // ReconstructScore exposes only reference-based workload configurations to the
 // UC-16 editor. Legacy literals may contain secrets and are never returned.
 func ReconstructScore(workload string, module environment.Module, set environment.Document) (map[string]any, error) {
-	return reconstruct(workload, module, set, false)
+	return reconstruct(workload, module, set, false, nil)
+}
+
+// ReconstructScoreProven is ReconstructScore that also returns ordinary
+// literals the Deployment Set proves (UC-16 BR-23). Every other literal stays
+// hidden: a key name, image or draft never makes an unproven value readable.
+func ReconstructScoreProven(workload string, module environment.Module, set environment.Document, proven environment.Prover) (map[string]any, error) {
+	return reconstruct(workload, module, set, false, proven)
 }
 
 // ReconstructForRedeploy rebuilds a Score for an exact redeploy of an applied
 // module (target transitions). Literal bindings are kept verbatim: they are
 // already what runs, are never shown to an editor and never leave the backend.
 func ReconstructForRedeploy(workload string, module environment.Module, set environment.Document) (map[string]any, error) {
-	return reconstruct(workload, module, set, true)
+	return reconstruct(workload, module, set, true, nil)
 }
 
 // ReconstructVerified rebuilds a reference-based Score and proves it is
@@ -44,7 +51,14 @@ func ReconstructForRedeploy(workload string, module environment.Module, set envi
 // unreferenced (its owner would be unknowable). Anything else fails with
 // ErrReferenceRewriteUnsafe.
 func ReconstructVerified(workload string, module environment.Module, set environment.Document, types map[string]resource.Type) (map[string]any, error) {
-	raw, err := reconstruct(workload, module, set, false)
+	return ReconstructVerifiedProven(workload, module, set, types, nil)
+}
+
+// ReconstructVerifiedProven is ReconstructVerified for a set that proves some
+// ordinary literals, so a rename keeps accepted values and still fails closed
+// on an unproven one.
+func ReconstructVerifiedProven(workload string, module environment.Module, set environment.Document, types map[string]resource.Type, proven environment.Prover) (map[string]any, error) {
+	raw, err := reconstruct(workload, module, set, false, proven)
 	if err != nil {
 		return nil, ErrReferenceRewriteUnsafe
 	}
@@ -392,7 +406,7 @@ func (b *rebuilder) resourceMap(entry environment.ResourceEntry, id string) (map
 	return out, nil
 }
 
-func reconstruct(workload string, module environment.Module, set environment.Document, literals bool) (map[string]any, error) {
+func reconstruct(workload string, module environment.Module, set environment.Document, literals bool, proven environment.Prover) (map[string]any, error) {
 	if module.Profile != environment.ModuleProfile {
 		return nil, fmt.Errorf("workloadconfig: unsupported deployed workload profile")
 	}
@@ -438,7 +452,8 @@ func reconstruct(workload string, module environment.Module, set environment.Doc
 		delete(body, "id")
 		variables := map[string]any{}
 		for key, value := range container.Variables {
-			if !literals && setReference.FindString(value) != value && configReference.FindString(value) != value && serviceReference.FindString(value) != value {
+			isReference := setReference.FindString(value) == value || configReference.FindString(value) == value || serviceReference.FindString(value) == value
+			if !literals && !isReference && !(proven != nil && !hasUnescapedPlaceholder(value) && proven(name, key, value)) {
 				return nil, fmt.Errorf("workloadconfig: legacy literal binding cannot be shown in editor")
 			}
 			mapped, err := b.mapString(value)

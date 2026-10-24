@@ -40,15 +40,24 @@ func testScore(name string, vars map[string]string, resources map[string]any) ma
 	}
 }
 
-func TestWorkloadDraftRejectsLiteralAndStaleVersion(t *testing.T) {
+func TestWorkloadDraftRejectsInvalidBindingsAndStaleVersion(t *testing.T) {
 	ctx := context.Background()
 	svc, st := testWorkloadService(t)
 	if err := st.CommitConfigurationRevision(ctx, 0, configuration.Revision{ID: "config-1", ApplicationKey: "app", EnvironmentKey: "staging", Version: 1, Entries: map[string]configuration.Entry{"API_URL": {Kind: configuration.Variable, Value: "ref"}}}); err != nil {
 		t.Fatal(err)
 	}
 	resources := map[string]any{"env": map[string]any{"type": "environment"}}
-	if _, err := svc.Save(ctx, "app", "staging", "frontend", testScore("frontend", map[string]string{"API_URL": "https://literal.invalid"}, resources), 0); !errors.Is(err, ErrInvalid) {
-		t.Fatalf("literal binding should fail: %v", err)
+	// Ordinary literals are accepted (DEVEX-ENV); mixed text+reference, malformed
+	// references and NUL stay rejected without becoming text.
+	for name, value := range map[string]string{
+		"mixed":     "https://${resources.env.API_URL}/x",
+		"malformed": "${resources.env.}",
+		"unknown":   "${context.env.namespace}",
+		"nul":       "a\x00b",
+	} {
+		if _, err := svc.Save(ctx, "app", "staging", "frontend", testScore("frontend", map[string]string{"API_URL": value}, resources), 0); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("%s binding should fail: %v", name, err)
+		}
 	}
 	if _, err := svc.Save(ctx, "app", "production", "frontend", testScore("frontend", map[string]string{"API_URL": "${resources.env.API_URL}"}, resources), 0); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("cross-environment key should fail: %v", err)

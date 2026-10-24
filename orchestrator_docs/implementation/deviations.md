@@ -12,7 +12,6 @@ roadmap/deferred capability nằm trong [backlog](../backlog/README.md).
 
 | ID | Difference | Required interpretation/action |
 |---|---|---|
-| IMP-034 | DEVEX-ENV unified variable table, inline create and ordinary literals are approved but unimplemented. | Follow [implementation handoff](workload-environment-editor.md); retain safe legacy readback and i18n. |
 | IMP-002 | UC-01 đã hoàn tất. UC-02..04 insert-only registration, safe errors, no-restart catalog và PostgreSQL race/rollback/reopen đã verified local ngày 2026-09-30. AWS registration/credential flow chưa có. Kubernetes kubeconfig credential store và executor resolution đã được review/verified ngày 2026-10-06; upload recording xác minh kind read-only, không phải live deployment. Identifier policy và Driver Inputs shape boundary đã implemented/verified local ngày 2026-10-02; UC-16 parse/draft Save cũng đã validate toàn bộ non-virtual resource params trước mutation. AWS access key + Vault storage đã chốt theo ADR-009 nhưng onboarding chưa có; arbitrary new Type chưa có runtime-supported Definition pair. | Không tuyên bố toàn bộ UC-02..04 complete từ lát cắt local; giữ AWS credential onboarding/execution và arbitrary-Type/runtime-pair limitation tách biệt; validation gaps đã đóng theo evidence ngày 2026-10-02. UC-01 không còn thuộc deviation này; production RBAC ngoài MVP. |
 | IMP-006 | Six rejected challenge fixtures mới chỉ so rejection status, chưa so structured `phase/code/path`. | D02 vẫn deferred; không tuyên bố full rejection-contract conformance. |
 | IMP-007 | Terraform inspector hiểu remote source identity nhưng runtime chỉ execute embedded `vpc`/`eks`/`aurora`. | D03 đã chọn vào v2 theo ADR-014 nhưng implementation chưa có; giữ gap tới khi verified immutable registry/runtime hoàn tất. |
@@ -598,5 +597,8 @@ change cannot satisfy the contract. Add create-only handling, safe accepted-valu
 provenance/lifecycle and the unified UI with ADR-020 catalogs. No database reset
 or global literal-readback bypass. See [complete coding handoff](workload-environment-editor.md).
 
-Status: approved design, implementation pending. The dated browser observation
-is reference for existing product UI, not evidence that this feature works.
+Status: resolved 2026-10-24. Create-only configuration, ordinary-value lifecycle
+with private `literalProofs`, the unified table, inline key/store/dependency
+dialogs and Việt/Anh catalogs are implemented; see
+[verification](../verification/2026-10-24-devex-env-implementation.md). No
+deviation remains for this item.
