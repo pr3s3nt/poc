@@ -12,6 +12,7 @@ import (
 	"orchestrator/internal/application/deploymentreview"
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/provisioning"
+	"orchestrator/internal/application/workloadconfig"
 	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/configuration"
 	domain "orchestrator/internal/domain/deployment"
@@ -46,6 +47,11 @@ type DeployCommand struct {
 	// Environment state Preview validated: routes reconcile after the batch
 	// and this step may plan an intermediate Environment state.
 	DeferPublicRoutes bool
+	// AcceptLiterals is set only by the UC-16 pending batch when ScoreAfter is
+	// a saved, validated draft: its ordinary variable values are then recorded
+	// as proven in the resulting set (UC-16 BR-23). A direct Score deploy never
+	// sets it, so a literal it introduces or changes stays unreadable.
+	AcceptLiterals bool
 }
 
 // DeployResult is returned to the actor at UC-06 MS-13.
@@ -276,6 +282,11 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		Document:              plan.CandidateSet,
 		CreatedAt:             now,
 	}
+	accepted := ""
+	if cmd.AcceptLiterals && after != nil {
+		accepted = workloadID
+	}
+	candidateSet.LiteralProofs = workloadconfig.ProveLiterals(snapshot.BaseProofs, plan.CandidateSet, accepted)
 	candidateSet.DocumentHash, err = canon.Hash(plan.CandidateSet)
 	if err != nil {
 		return nil, s.fail(ctx, record, err)

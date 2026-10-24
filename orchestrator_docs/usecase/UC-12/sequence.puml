@@ -2,19 +2,25 @@
 title UC-12 - Environment store selection and immutable revisions
 autonumber
 actor Developer as Dev
-boundary SettingsUI as UI
+boundary "Settings / UC-16 inline create" as UI
 control ConfigurationService as Config
 database UnitOfWork as DB
 participant OldStore as Old
 participant NewStore as New
 Dev -> UI: Save variable/secret(version)
+opt UC-16 inline CreateKey
+ UI -> Config: Create-only: scope, name absence, version, no active operation
+ note right of Config: Duplicate never becomes an update.
+end
 UI -> Config: Scoped key validation and no active operation
 alt ordinary Variable
- Config -> DB: New revision with ordinary value
+ Config -> DB: CAS new revision with ordinary value
 else Secret
  Config -> New: Write immutable value to selected scoped store
  New --> Config: Opaque store-owned ref
  Config -> DB: CAS desired revision with ref only
+ Config --> UI: Safe metadata; inline dialog selects key
+ note right of UI: Key saved independently; workload remains unsaved.
 end
 Dev -> UI: Rename key, explicit update references checkbox
 UI -> Config: Rename(newName, config/env/draft versions, opt-in)
@@ -37,6 +43,6 @@ DB --> Dev: Pending consumer rollout, safe metadata
 note over Old,New
 Old applied refs/bundles remain valid.
 Failure keeps old selection and cleans attempt-owned objects only.
-No Secret bytes in UI/DB/logs.
+No Secret bytes in read responses/DB/logs.
 end note
 @enduml

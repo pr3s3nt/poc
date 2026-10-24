@@ -137,6 +137,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/operations", s.handleListOperations)
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/operations/{opid}/recover", s.handleRecoverOperation)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/configuration", s.handleGetConfiguration)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/configuration/keys", s.handleCreateConfigurationKey)
 	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/configuration/keys/{key}", s.handlePutConfigurationKey)
 	s.mux.HandleFunc("PATCH /api/v1/applications/{id}/environments/{env}/configuration/keys/{key}", s.handleRenameConfigurationKey)
 	s.mux.HandleFunc("DELETE /api/v1/applications/{id}/environments/{env}/configuration/keys/{key}", s.handleDeleteConfigurationKey)

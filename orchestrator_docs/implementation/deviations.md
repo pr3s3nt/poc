@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-DEVIATIONS
 artifact: design-implementation-deviations
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # Known design and implementation deviations
@@ -582,3 +582,23 @@ parent's no-change message and disabled Deploy. Regression tests use the actual
 zero-value response and unavailable→valid→unavailable transitions. No backend,
 admission, data, deployment or lifecycle behavior is changed. See
 [white-screen diagnosis](../verification/2026-10-23-preview-no-change-white-screen.md).
+
+
+## IMP-034 — Unified workload environment editor
+
+Accepted user direction 2026-10-24 replaces separated Application key checklists
+and resource/Service rows with one per-container source table. UC-16 also accepts
+ordinary values entered directly and embeds creation of missing UC-12 keys or
+workload dependencies. Specifications, UI, realization and OC-12/16 now own the
+new behavior. At source baseline `8f4d66f`, the old checklist/reference-only code
+is still present: `validateBindings` rejects literals, reconstruction hides
+legacy literals, and configuration Put upserts same-kind keys. A frontend-only
+change cannot satisfy the contract. Add create-only handling, safe accepted-value
+provenance/lifecycle and the unified UI with ADR-020 catalogs. No database reset
+or global literal-readback bypass. See [complete coding handoff](workload-environment-editor.md).
+
+Status: resolved 2026-10-24. Create-only configuration, ordinary-value lifecycle
+with private `literalProofs`, the unified table, inline key/store/dependency
+dialogs and Việt/Anh catalogs are implemented; see
+[verification](../verification/2026-10-24-devex-env-implementation.md). No
+deviation remains for this item.

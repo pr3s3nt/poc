@@ -2,7 +2,7 @@
 id: UC-16-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-24
 related: UC-01, UC-05, UC-06, UC-07, UC-12
 ---
 
@@ -33,17 +33,15 @@ của Environment đang chọn.
    Environment đã chọn.
 2. **MS-02:** Developer chọn Add hoặc Edit. Hệ thống mở form cấu hình mặc định;
    Developer cũng có thể nạp một file Score.
-3. **MS-03:** Developer khai báo container, image, Service/cổng, tài nguyên và
-   resource dependencies, shared ID và class cần dùng.
-   Form giữ các nhóm cơ bản, Container, Biến & Bí mật, Nguồn khác, Tài nguyên
-   của Workload, Cổng Service và Đường dẫn công khai.
-4. **MS-04:** Với mỗi container, Developer tick các Application variables đã
-   cấu hình trong UC-12 cho Environment này. Tên biến trong container mặc định
-   bằng tên key; chỉ nhập tên khác khi cần. Output resource không bí mật và
-   Service/cổng của workload khác được thêm ở mục nguồn khác riêng.
-5. **MS-05:** Developer tick Application secrets từ danh sách key cùng
-   Environment; không nhập lại tên hoặc giá trị. Có thể chọn tên khác trong
-   container, hoặc thêm output bí mật của resource dependency ở mục nguồn khác.
+3. **MS-03:** Developer khai báo container/image, Service/cổng và dependencies.
+   Mỗi container có một bảng **Biến môi trường**, không tách checklist và
+   “Nguồn khác”. Dependency có thể thêm ngay trong bước chọn nguồn tài nguyên.
+4. **MS-04:** Developer thêm dòng, đặt tên biến và chọn một nguồn: Giá trị nhập,
+   Biến của ứng dụng, Bí mật, Tài nguyên hoặc Workload khác. Chỉ hiện control
+   cần cho nguồn đang chọn; giữ mọi mapping đã có khi Edit/import.
+5. **MS-05:** Nếu thiếu key, Developer mở form UC-12 tại chỗ, tạo và chọn key
+   trong cùng app/env. Nếu thiếu dependency, thêm vào bản nháp tại chỗ rồi chọn
+   output. Không phải rời workload editor cho các thao tác này.
 6. **MS-06:** Hệ thống kiểm tra cấu hình và tham chiếu. Nếu nạp Score, hệ thống
    hiển thị nội dung đã đọc để Developer kiểm tra trước khi lưu.
 7. **MS-07:** Developer lưu. Hệ thống lưu cấu hình mong muốn cho đúng Environment,
@@ -73,15 +71,15 @@ của Environment đang chọn.
 - **BR-01:** Cấu hình workload thuộc đúng một Environment; thay đổi ở `staging`
   không sửa cấu hình `production`, và ngược lại. Tên workload là duy nhất trong
   Environment.
-- **BR-02:** Biến môi trường và secret của container chỉ được lưu dưới dạng
-  tham chiếu tới các nguồn ở MS-04/MS-05. Form không cho nhập giá trị trực tiếp;
-  file Score nạp qua UC-16 chứa literal ở các binding này bị từ chối với lỗi chỉ
-  rõ trường vi phạm.
+- **BR-02:** Container hỗ trợ giá trị thường nhập trực tiếp và các tham chiếu
+  ở MS-04. Giá trị trực tiếp là string thuộc riêng container/workload/environment,
+  không tự tạo key UC-12. Nó được lưu trong Score, đọc lại được và không dùng
+  để chứa bí mật. Secret phải dùng tham chiếu; không có chế độ secret literal.
 - **BR-03:** Tham chiếu UC-12 phải thuộc đúng Application và được cấu hình cho
   Environment đang chọn. Workload không sao chép giá trị variable/secret đó.
 - **BR-04:** Resource output chỉ được chọn từ dependency khai báo trong workload
-  và phải có trong output contract. Output được phân loại secret chỉ được chọn
-  trong mục Secrets; giá trị secret không hiển thị ở form, lỗi hoặc preview.
+  và phải có trong output contract. Output được phân loại secret hiện nhãn
+  “Bí mật” trong cùng bảng; giá trị secret không hiển thị ở form, lỗi hoặc preview.
 - **BR-05:** Tham chiếu workload-to-workload luôn đi qua Service, không trỏ
   trực tiếp tới Pod. Workload đích phải thuộc cùng Environment, có Service/cổng
   đã khai báo và không đang chờ xóa. Hệ thống tạo địa chỉ nội bộ từ Service/cổng
@@ -96,8 +94,8 @@ của Environment đang chọn.
   được bỏ qua BR-02–BR-05.
 - **BR-09:** Form tạo và import nhận tham chiếu Application key qua resource
   `env` loại `environment` với `${resources.env.KEY}`. Key phải tồn tại trong
-  Environment đã chọn; Secret chỉ được dùng làm toàn bộ một binding Secret,
-  không được ghép với literal hoặc đưa vào mục Variable.
+  Environment đã chọn; Secret phải chiếm toàn bộ một binding, không ghép với
+  literal. Phân loại secret lấy từ metadata UC-12/output contract, không do tên biến hay toggle UI.
 - **BR-10:** Mỗi lần lưu/sửa/xóa tăng version draft của Environment. Preview
   gắn với version draft và revision UC-12; Deploy từ Preview cũ bị từ chối.
 - **BR-11:** Form hiển thị typed Type inputs; required phải hợp lệ trước
@@ -119,7 +117,8 @@ của Environment đang chọn.
 
 ## Ngoài phạm vi
 
-- **OOS-01:** Quản lý variable/secret của Application; thuộc UC-12.
+- **OOS-01:** Quản lý giá trị dùng chung thuộc UC-12; UC-16 nhúng thao tác
+  tạo key tại chỗ theo BR-21. Sửa/đổi tên/xóa key dùng chung vẫn ở Settings.
 - **OOS-02:** Preview, approval hoặc deploy; thuộc UC-05, UC-06 và UC-07.
 - **OOS-03:** DNS/TLS và đường mạng từ ngoài cluster tới Ingress Controller;
   Service reference ở BR-05 vẫn là địa chỉ nội bộ cho giao tiếp giữa workload.
@@ -140,44 +139,72 @@ của Environment đang chọn.
   without including submitted values. Failed validation leaves drafts, draft
   version, current Deployment Set and runtime untouched.
 
-## Select existing Application keys
+## Bảng biến môi trường thống nhất — DEVEX-ENV (2026-10-24)
 
-- **BR-15:** Each container presents existing UC-12 keys for the selected
-  Application/Environment as separate Variables and Secrets checklists. A new
-  container starts with no keys selected. Checking a key creates a reference
-  using the key name as the container variable name. Only selected keys are
-  used; new Settings keys are never automatically selected. Values are neither
-  re-entered nor copied. Secret values are never displayed in this picker.
-- **BR-16:** Each selected key has an optional "Use a different container name"
-  control. For example `DATABASE_PASSWORD` can map to `PGPASSWORD`. Turning
-  off the override restores the key name. Container names must be non-empty
-  and unique among all bindings in that container, including resource and
-  Service sources. A collision or incomplete selected binding blocks form
-  Save with an actionable error; no silent overwrite, suffix or normalization.
-  Names may repeat in different containers.
-- **BR-17:** Unchecking a key removes its Application-key bindings only in
-  that container. Other keys, containers and resource/Service bindings remain.
-  Edit and supported Score import restore the selected keys and original
-  container names. If an imported/existing Score maps one key to multiple
-  container names, preserve all mappings and expose them for review/edit;
-  do not collapse them to a single default name. Unchecking removes those
-  mappings for that container. Complex Score import keeps its existing
-  lossless advanced path.
-- **BR-18:** A selected key that no longer exists remains visible as an
-  unavailable reference with its original container name. The user can remove
-  it or correct it; it must not disappear silently or be replaced with another
-  key. Missing catalog/loading/error states are distinct from an empty key
-  list, and form Save is blocked until selected key references can be checked.
-  Changing Application, Environment or workload starts the destination editor
-  from its own draft/empty state; selections, aliases and imported Score from
-  the previous scope must not carry over. Late responses from the previous
-  scope are ignored. Same-scope stale reload continues preserving local edits.
-  Resource-output and Service bindings remain explicit under a separate
-  "Other sources" section, without Application-variable/secret source rows.
-- Checklist actions only edit desired form state. Persistence continues using
-  `containers.<container>.variables.<name>: ${resources.env.KEY}` with the
-  virtual `resources.env` resource. No API, database schema, provider permission
-  or Preview/Deploy lifecycle change is introduced.
+Thiết kế được duyệt thay thế checklist và chính sách cấm mọi literal cũ.
+[Screens](ui/screens.md) sở hữu bố cục/nhãn; [OC-16](../../architecture/contracts/operation-contracts.md#oc-16-workloadconfigurationservicelist--save--delete--undo)
+sở hữu mapping HTTP/Score. Trạng thái code ở CURRENT_STATE, không suy từ thiết kế.
+
+- **BR-15:** Mỗi container có một bảng; **+ Thêm biến** tạo một dòng trống,
+  nguồn mặc định Giá trị nhập. Không tự thêm key hoặc variable khác. Năm nguồn
+  là Giá trị nhập, Biến của ứng dụng (VARIABLE), Bí mật (SECRET), Tài nguyên,
+  Workload khác. Bí mật và output bí mật chỉ hiển thị tên/trạng thái.
+- **BR-16:** Tên biến bắt buộc, theo identifier hiện hành và duy nhất trong
+  container trên mọi nguồn; không trim/đổi tên/suffix hoặc overwrite âm thầm.
+  Tên được lặp ở container khác. Chọn key UC-12 gợi ý tên key chỉ khi ô tên
+  còn trống; tên đã nhập được giữ. Đổi nguồn giữ tên và bỏ payload nguồn cũ
+  khỏi dòng được serialize; không chuyển giá trị secret sang literal.
+- **BR-17:** Xóa dòng chỉ bỏ mapping đó khỏi container. Không xóa key UC-12,
+  dependency hay mapping khác. Nhiều dòng được tham chiếu cùng key/output.
+  Edit/import giữ tất cả tên, alias, params, class, shared IDs, routes và
+  advanced fields. Không biểu diễn lossless thì giữ đường Score nâng cao hiện có.
+- **BR-18:** Key/output/dependency/Service không còn hợp lệ vẫn hiện với lựa
+  chọn và tên cũ; chặn lưu cho tới khi sửa hoặc bỏ dòng, không tự retarget.
+  Loading/error catalog khác empty; cho retry GET và giữ draft. Scope đổi
+  reset editor theo đích và bỏ late replies; reload cùng scope giữ edits.
+
+## Giá trị trực tiếp và tạo nguồn tại chỗ
+
+- **BR-20:** Giá trị trực tiếp là string, cho phép chuỗi rỗng và giữ nguyên
+  whitespace; từ chối NUL. Ô form không diễn giải placeholder: `${...}` nhập
+  trực tiếp phải được escape bằng cơ chế Score hiện hành và round-trip đúng.
+  File Score tiếp tục dùng cú pháp Score: full reference được phân loại theo
+  nguồn; literal/escaped literal thường được nhận, malformed/unknown reference
+  bị từ chối, không fallback thành text. Ghép literal + reference không thuộc
+  form cơ bản và vẫn bị từ chối trên UC-16; không mở rộng direct Score/CI API.
+  Không tự đoán bí mật theo tên biến. UI nói rõ giá trị thường được lưu cùng
+  cấu hình và hướng tới nguồn Bí mật khi cần.
+- **BR-21:** Từ nguồn Biến của ứng dụng/Bí mật, **Tạo biến**/**Tạo bí mật** mở
+  form UC-12 tại chỗ. Hiện app/env, tên key và giá trị; bí mật nhập che, không
+  readback. **Tạo và chọn** tạo key bằng create-only contract UC-12 BR-24–28,
+  rồi chọn key cho đúng dòng, giữ tên container đã nhập. Đây là commit UC-12
+  riêng; Hủy workload sau đó không xóa key đã tạo. Workload còn chưa lưu phải
+  có thông báo rõ, không tuyên bố hai thao tác là một transaction.
+- **BR-22:** Nguồn Tài nguyên cho chọn dependency đã khai báo và output từ Type
+  contract, hoặc **Thêm tài nguyên** tại chỗ. Form con tái sử dụng alias/type,
+  class, shared ID và typed inputs; không cho chọn provider/module/credential.
+  **Thêm và chọn** chỉ thêm dependency vào draft và chọn alias ở dòng gốc;
+  output vẫn cần chọn tường minh. Hủy form con không sửa draft. Resource mới
+  dùng được ở các container khác trong cùng workload; không tự tạo mapping.
+  Xóa/đổi alias/type có binding giữ các dòng bị ảnh hưởng ở trạng thái lỗi,
+  không tự xóa binding hoặc đổi output. Class/params đổi mà output còn hợp lệ
+  giữ binding và chờ Preview xác minh matching.
+- **BR-23:** Form và Score import cùng hỗ trợ BR-20; Save/import/Preview không
+  resolve hoặc copy secret. Edit sau Deploy, restart và UC-12 rename phải giữ
+  giá trị thường mới cùng các references. Không biến literal lịch sử chưa có
+  bằng chứng là giá trị thường thành dữ liệu có thể đọc. Backend chỉ cho đọc
+  lại literal đã được UC-16 mới chấp nhận tường minh, với provenance gắn đúng
+  workload/container/name/value và version; provenance không có hoặc không
+  khớp thì giữ trạng thái không thể mở an toàn, không trả value. Không xóa/reset
+  dữ liệu cũ để đáp ứng tính năng. Contract chi tiết ở OC-16 DEVEX-ENV.
+- **BR-24:** Secret Store chưa chọn: ngay form Tạo bí mật có selector READY
+  stores và **Lưu kho bí mật** theo UC-01 hiện hành. Không tự chọn/lưu; giữ
+  workload draft, không yêu cầu chuyển trang. Chỉ cho initial selection khi
+  chưa có kho; thay kho đã có vẫn qua Settings/copy flow UC-12. Chọn kho là
+  commit riêng; nếu tạo secret tiếp theo lỗi, kho đã lưu vẫn được giữ và báo rõ.
+- **BR-25:** Binding Workload khác chọn workload khác trong cùng env, Service
+  và port hợp lệ, không tự tham chiếu hay chọn workload chờ xóa. Chỉ gắn vào
+  dòng đang sửa. Lưu chỉ tạo desired draft; explicit Preview → Deploy giữ nguyên.
 
 ## ADR-010 renderer-only pending updates
 

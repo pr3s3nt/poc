@@ -1842,7 +1842,6 @@ export const SCENARIOS = {
     const portNumbers = () => editor('portNumber');
     const routeSelects = () => editor('routePort');
     const invalidRoute = (port) => page.locator('p.form-error').filter({ hasText: `Cổng Service "${port}" không còn hợp lệ` });
-    const groupOf = (title) => page.getByRole('group', { name: `${title} cho main`, exact: true });
 
     // ---- Setup (UI): Kỹ sư nền tảng đăng ký một Loại tài nguyên có input number/bool --------------------------------
     caption('Chuẩn bị: Kỹ sư nền tảng sao chép schema postgres thành loại t08-queue có input kiểu số và bool (qua UI)');
@@ -1890,13 +1889,14 @@ export const SCENARIOS = {
     caption('Bước 2: Nhập tên, image; bộ chọn key không tự chọn biến hay bí mật nào; chọn API_URL và đặt tên Container BACKEND_URL');
     await h.type(editor('name'), 'web');
     await h.type(editor('image'), 'registry.example/t08-web:v1');
-    for (const [title, key] of [['Biến của ứng dụng', 'API_URL'], ['Biến của ứng dụng', 'LOG_LEVEL'], ['Bí mật của ứng dụng', 'API_TOKEN']]) await expect(groupOf(title).getByRole('checkbox', { name: key, exact: true })).not.toBeChecked();
-    check('key picker: API_URL, LOG_LEVEL and API_TOKEN (MOCKED secret entry) are all unticked on load');
-    await h.click(groupOf('Biến của ứng dụng').getByRole('checkbox', { name: 'API_URL', exact: true }));
-    await h.click(page.getByRole('checkbox', { name: 'Dùng tên Container khác cho API_URL', exact: true }));
-    await h.type(page.getByLabel('Tên trong Container cho API_URL', { exact: true }), 'BACKEND_URL', { replace: true });
-    await expect(groupOf('Biến của ứng dụng').getByRole('checkbox', { name: 'LOG_LEVEL', exact: true })).not.toBeChecked();
-    await expect(groupOf('Bí mật của ứng dụng').getByRole('checkbox', { name: 'API_TOKEN', exact: true })).not.toBeChecked();
+    const envTable = page.getByRole('region', { name: 'Biến môi trường của container main', exact: true });
+    await expect(envTable.getByText('Chưa có biến môi trường')).toBeVisible();
+    check('environment table starts empty: no key, variable or secret (API_URL, LOG_LEVEL, API_TOKEN MOCKED secret entry) is selected on load');
+    await h.click(envTable.getByRole('button', { name: '+ Thêm biến', exact: true }));
+    await h.type(envTable.getByLabel('Tên biến, dòng 1', { exact: true }), 'BACKEND_URL');
+    await h.choose(envTable.getByLabel('Lấy giá trị từ, dòng 1', { exact: true }), 'Biến của ứng dụng');
+    await h.choose(envTable.getByLabel('Biến của ứng dụng, dòng 1', { exact: true }), 'API_URL');
+    await expect(envTable.getByLabel(/^Tên biến, dòng/)).toHaveCount(1);
     mark('key-alias');
     await h.read('Chỉ key được chọn mới đi vào Score; secret và biến khác vẫn chưa chọn');
 
@@ -2044,8 +2044,11 @@ export const SCENARIOS = {
     mark('imported');
     await h.read('Backend thật đã phân tích Score; nhập chưa lưu hay triển khai');
     await h.click(editor('formTab'));
-    await expect(page.getByLabel('Tên trong Container cho API_URL (1)', { exact: true })).toHaveValue('PRIMARY_URL');
-    await expect(page.getByLabel('Tên trong Container cho API_URL (2)', { exact: true })).toHaveValue('SECONDARY_URL');
+    const importedTable = page.getByRole('region', { name: 'Biến môi trường của container main', exact: true });
+    await expect(importedTable.getByLabel('Tên biến, dòng 1', { exact: true })).toHaveValue('PRIMARY_URL');
+    await expect(importedTable.getByLabel('Tên biến, dòng 2', { exact: true })).toHaveValue('SECONDARY_URL');
+    await expect(importedTable.getByLabel('Biến của ứng dụng, dòng 1', { exact: true })).toHaveValue('API_URL');
+    await expect(importedTable.getByLabel('Biến của ứng dụng, dòng 2', { exact: true })).toHaveValue('API_URL');
     await expect(note('Tóm tắt nâng cao Container 1')).toContainText('CPU 250m (tường minh) · Bộ nhớ 256Mi (theo limit). Giới hạn: CPU chưa đặt · Bộ nhớ 256Mi.');
     await expect(note('Tóm tắt nâng cao tài nguyên q')).toContainText('Lớp hiệu lực: gold (tường minh)');
     await expect(note('Tóm tắt nâng cao cổng http')).toContainText('Cổng đích hiệu lực: 8080 (ghi đè)');

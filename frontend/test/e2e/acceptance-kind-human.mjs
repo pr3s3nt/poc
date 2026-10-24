@@ -99,17 +99,18 @@ try {
   const workloadRow = (name) => page.locator('.table-row').filter({ has: page.locator('.workload-name', { hasText: new RegExp(`${name}$`) }) });
   await h.click(workloadRow('backend').getByRole('button', { name: 'Edit' }));
   await expect(page.getByRole('heading', { name: 'Sửa backend' })).toBeVisible();
-  const variables = page.getByRole('group', { name: 'Biến của ứng dụng cho main', exact: true });
-  const secrets = page.getByRole('group', { name: 'Bí mật của ứng dụng cho main', exact: true });
-  for (const key of ['ACCEPTANCE_CONFIG', 'ACCEPTANCE_SECRET_SHA256']) await expect(variables.getByRole('checkbox', { name: key, exact: true })).toBeChecked();
-  await expect(secrets.getByRole('checkbox', { name: 'ACCEPTANCE_SECRET', exact: true })).toBeChecked();
-  await expect(page.getByRole('checkbox', { name: /^Dùng tên Container khác/ })).toHaveCount(3);
-  for (const box of await page.getByRole('checkbox', { name: /^Dùng tên Container khác/ }).all()) await expect(box).not.toBeChecked();
-  const otherNames = page.locator('.binding-row').getByLabel('Tên biến Container', { exact: true });
-  await expect(otherNames).toHaveCount(5);
-  // Score variables are a JSON object, so the reopened rows follow the saved
-  // key order rather than the order they were added in.
-  expect((await otherNames.evaluateAll((inputs) => inputs.map((input) => input.value))).sort()).toEqual(['PGDATABASE', 'PGHOST', 'PGPASSWORD', 'PGPORT', 'PGUSER']);
+  // The saved Score restores the same sources in the container's "Biến môi trường" table.
+  const secrets = page.getByRole('region', { name: 'Biến môi trường của container main', exact: true });
+  const sourceOf = (row) => secrets.getByLabel(`Lấy giá trị từ, dòng ${row}`, { exact: true });
+  const names = secrets.getByLabel(/^Tên biến, dòng/);
+  await expect(names).toHaveCount(8);
+  // Score variables are a JSON object, so the reopened rows follow the saved key order, not the order they were added in.
+  const values = await names.evaluateAll((inputs) => inputs.map((input) => input.value));
+  expect(values.sort()).toEqual(['ACCEPTANCE_CONFIG', 'ACCEPTANCE_SECRET', 'ACCEPTANCE_SECRET_SHA256', 'PGDATABASE', 'PGHOST', 'PGPASSWORD', 'PGPORT', 'PGUSER']);
+  for (const [index, name] of (await names.evaluateAll((inputs) => inputs.map((input) => input.value))).entries()) {
+    const expected = name === 'ACCEPTANCE_SECRET' ? 'Bí mật' : name.startsWith('ACCEPTANCE_') ? 'Biến của ứng dụng' : 'Tài nguyên';
+    await expect(sourceOf(index + 1)).toHaveText(new RegExp(expected));
+  }
   await h.moveTo(secrets);
   mark('backend-selections-persisted');
   await h.pause(READ);

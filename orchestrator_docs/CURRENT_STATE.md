@@ -7,6 +7,22 @@ last_reviewed: 2026-10-24
 
 # Current project state
 
+## Workload environment editor — implemented — 2026-10-24
+
+Each container has one **Biến môi trường** table with five sources (entered
+value, Application variable, Secret, Resource, other workload) and inline creation
+of Application keys (create-only `POST .../configuration/keys`), the initial Secret
+Store and workload dependencies, in Vietnamese and English. Ordinary strings
+(empty, whitespace, escaped `$${...}`) round-trip through Save, Preview, Deploy,
+Edit, restart and UC-12 rename; readback of a deployed literal needs a private
+proof stored with the Deployment Set (`literalProofs`), written only by a UC-16
+deploy of a validated draft. Historical and direct-API literals stay unreadable.
+Evidence: [2026-10-24 DEVEX-ENV implementation](verification/2026-10-24-devex-env-implementation.md).
+Limitations: browser acceptance used fake execution adapters; the editor never
+reads secret values; an Application key created in place commits independently of
+the workload Save; a literal accepted by Save is stored with the configuration and
+is not a place for secrets. Design: [handoff](implementation/workload-environment-editor.md).
+
 ## Console Vietnamese/English message catalogs — 2026-10-24
 
 All Console text formerly hard-coded in Vietnamese now comes from runtime JSON

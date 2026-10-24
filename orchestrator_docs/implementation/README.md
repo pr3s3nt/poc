@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-INDEX
 artifact: implementation-index
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-24
 ---
 
 # Implementation documentation
@@ -16,6 +16,8 @@ Go product code nằm trong [`backend/`](../../backend/); Web Console nằm tron
 phải theo [operations index](../operations/README.md).
 
 ## Navigation
+
+- [DEVEX-ENV implementation handoff — implemented 2026-10-24](workload-environment-editor.md)
 
 - [Design-to-code map](code-map.md)
 - [Known design/implementation deviations](deviations.md)

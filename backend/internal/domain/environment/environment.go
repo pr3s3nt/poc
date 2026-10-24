@@ -143,6 +143,10 @@ type DeploymentSet struct {
 	Document              Document  `json:"document"`
 	DocumentHash          string    `json:"documentHash"`
 	CreatedAt             time.Time `json:"createdAt"`
+	// LiteralProofs is private provenance of accepted ordinary variables
+	// (UC-16 BR-23). It is outside Document and DocumentHash, so planning and
+	// Delta semantics are unchanged; absent means every literal is unknown.
+	LiteralProofs LiteralProofs `json:"literalProofs,omitempty"`
 }
 
 // ScopeID is the Environment resource scope identifier of one target

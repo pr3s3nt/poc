@@ -223,7 +223,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		if !changed && unchangedRenderer {
 			continue
 		}
-		raw, err := workloadconfig.ReconstructScore(id, module, set.Document)
+		raw, err := workloadconfig.ReconstructScoreProven(id, module, set.Document, set.LiteralProofs.ProverFor(id))
 		if err != nil {
 			return Preview{}, fmt.Errorf("%w: workload %s cannot be rebuilt: %v", ErrInvalid, id, err)
 		}
@@ -247,7 +247,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		draft := pending[id]
 		var before, after *score.Document
 		if module, exists := base.Modules[id]; exists {
-			raw, err := workloadconfig.ReconstructScore(id, module, base)
+			raw, err := workloadconfig.ReconstructScoreProven(id, module, base, set.LiteralProofs.ProverFor(id))
 			if err != nil {
 				return Preview{}, fmt.Errorf("%w: workload %s cannot be updated: %v", ErrInvalid, id, err)
 			}

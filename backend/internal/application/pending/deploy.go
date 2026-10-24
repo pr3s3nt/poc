@@ -130,7 +130,7 @@ func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, act
 		}
 		var before, after map[string]any
 		if module, exists := set.Document.Modules[change.WorkloadID]; exists {
-			before, err = workloadconfig.ReconstructScore(change.WorkloadID, module, set.Document)
+			before, err = workloadconfig.ReconstructScoreProven(change.WorkloadID, module, set.Document, set.LiteralProofs.ProverFor(change.WorkloadID))
 			if err != nil {
 				return report, err
 			}
@@ -153,6 +153,7 @@ func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, act
 			ExpectedPlanHash:  change.PlanHash,
 			ConfigRevisionID:  preview.ConfigRevisionID,
 			DeferPublicRoutes: true,
+			AcceptLiterals:    draftErr == nil && draft.State == environment.DraftUpsert,
 		})
 		if deployErr != nil {
 			report.Results = append(report.Results, WorkloadResult{WorkloadID: change.WorkloadID, Action: change.Action, Status: "FAILED", Error: publicDeployError(deployErr)})

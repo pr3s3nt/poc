@@ -2,7 +2,7 @@
 id: UC-16-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-14
+last_reviewed: 2026-10-24
 ---
 
 # UC-16 — Use Case Realization
@@ -14,15 +14,15 @@ Application keys use the virtual Score `environment` resource and
 
 ## Responsibilities
 
-- Workload configuration boundary: present per-container UC-12 Variables and
-  Secrets checklists, optional container-name overrides, and a separate
-  resource/Service source editor; never offer a literal value field. Retain
-  binding references as the form model so no new persistence model is needed.
+- Workload configuration boundary: one per-container environment table with
+  literal/Application Variable/Secret/resource/Service sources and inline dialogs.
+  Project rows into Score with lossless source conversion; secret creation input
+  lives only in its UC-12 dialog. Shared dependency editor writes local form state.
 - Reference catalog: list UC-12 keys for the selected Application/Environment,
   declared resource inputs/outputs/classes và shared IDs từ safe metadata,
   cùng same-Environment workload
   Services and ports.
-- Workload configuration control: validate the selected references, save a
+- Workload configuration control: validate ordinary strings and selected references, save a
   desired change or mark a workload pending deletion; do not call deployment.
 - Public access selection: store zero or more `{path, port}` bindings to
   declared Service ports in desired Score. Preview validates the complete
@@ -39,8 +39,8 @@ Application keys use the virtual Score `environment` resource and
 |---|---|
 | MS-01–MS-02 | Read selected Environment's workload list and open the form or Score importer. |
 | MS-03 | Thu thập Workload fields, dependencies/shared IDs, class và typed Type params; giữ advanced/imported class, chặn required/input lỗi trước Save. |
-| MS-04–MS-05 | Load scoped UC-12 key metadata; tick per-container keys with same-name defaults and optional overrides. Restore all existing/imported mappings; keep resource/Service sources separate and secret values hidden. |
-| MS-06 | Validate selected-key availability and per-container name uniqueness before Score serialization; then validate references, output classification and target Service/port using the existing backend contracts. Retain input on failure. |
+| MS-04–MS-05 | Load scoped metadata, edit unified rows and create missing keys via UC-12 or dependencies in the parent draft. Restore mappings; secret values stay hidden. |
+| MS-06 | Validate row source, ordinary string escaping and per-container names before serialization; then server validates Type params/references and establishes trusted literal provenance under OC-16. Retain input on failure. |
 | MS-07 | Save desired configuration, return pending status and a UC-05 Preview affordance. |
 | VAR-01 | Parse one imported Score, run the same validation and show the resulting form before save. |
 | VAR-02 | Confirm deletion, mark desired change pending and permit Undo before deploy. |
@@ -55,17 +55,27 @@ draft version and UC-12 revision.
 
 MS-06 validates all declared resource params against the Organization Resource Type catalog, not only resource outputs used by bindings. Save and ValidateImport share this path before any desired-state write. Failed validation never advances the draft version. See specification BR-14.
 
-## Checklist projection
+## Unified row and inline creation collaboration — DEVEX-ENV
 
-The UI projects the existing `Binding` collection onto scoped key metadata.
-Selection does not store key values or a new API field. Existing mappings,
-including aliases and multiple names referencing the same key, are retained.
-Unavailable referenced keys remain visible until explicitly removed/corrected.
-Validate collisions across Application/resource/Service bindings before
-building the variables map, so serialization cannot overwrite an earlier
-binding. Selection is independent for each container. Lỗi tải keys/class/module capability không được biến thành danh sách rỗng
-hoặc overwrite imported/custom selection. Form không nhận Terraform module
-selector/provider credential; Preview/Deploy kiểm matching riêng.
+The UI row has stable identity, container variable name, source and only the
+active source payload. Source changes retain the name; removing one row does
+not remove its key/dependency. Catalog filters classify UC-12 kinds and resource
+secret outputs; scope/generation guards isolate asynchronous replies.
+
+The inline key boundary invokes ConfigurationService.CreateKey with a known
+configuration version; its CAS/absence check protects existing shared values.
+Return safe metadata, select the key in the initiating row and keep the parent
+form unsaved. Initial store selection delegates to UC-01 first if needed. Each
+commit is separately visible; no compensating key delete on parent Cancel.
+Inline dependency creation shares Type/class/params controls and updates only
+parent form state, then asks for an output. Save calls workload configuration.
+
+New ordinary strings are accepted as non-secret input under OC-16. Workload
+configuration and persistence record provenance; pending deployment carries it
+only into successful per-workload current-state commits. Reconstruction checks
+that provenance against exact values before exposing literals; rename uses the
+same lossless reconstruction and retains safe literals. Legacy unknown literals
+remain unavailable. No generic bypass of reference/secret checks is permitted.
 
 ## T25 — Public routing boundary
 
@@ -73,7 +83,7 @@ Save and ValidateImport accept only `service.publicRoutes`. Reject `publicPort`
 before writing a draft or advancing its version; the UI retains the import/error
 for correction without converting it to `/`. Current-set reconstruction and
 public projection reject the removed field rather than silently dropping it.
-Protected container literal/reference validation remains in force.
+Container literal/reference validation follows OC-16 DEVEX-ENV; secret and legacy readback protection remains.
 
 ## T30 shared reconstruction
 
