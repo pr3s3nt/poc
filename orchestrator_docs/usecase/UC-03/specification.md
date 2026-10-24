@@ -2,7 +2,7 @@
 id: UC-03-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-22
+last_reviewed: 2026-10-24
 ---
 
 # UC-03 — Register Resource Definition and Matching Criteria
@@ -452,3 +452,37 @@ mọi validation và guard khác giữ nguyên.
   switching methods. No separate existing-cluster registration section. Account
   registration remains in Infrastructure Accounts; saving a Definition does not
   create, adopt or destroy the existing cluster. Backend/API/matching unchanged.
+
+## Git rendering bundle authoring — ADR-021
+
+These RB requirements extend BR-15/16, installed discovery BR-18/19 and V03's
+exact-three-variable restriction for Git selections; legacy installed selections
+keep their original contract. Infrastructure Definitions/matching stay unchanged.
+
+- **RB-01:** PE/Admin can register a workload rendering template from credential-free
+  HTTPS Git URL, directory and branch/tag/commit in Mẫu dựng ứng dụng. Inspect
+  resolves/pins the commit, checks the whole bundle and caches it; no Definition,
+  provider or cluster mutation. New drafts default to Git; installed/previously
+  verified bundles remain explicit choices. No backend restart/rebuild to use a
+  valid new Git bundle under the supported engine contract.
+- **RB-02:** A bundle includes normalization, policy defaults, output-only native
+  score-k8s provisioners and ordered final patches. The complete source pin and
+  inputs schema come from inspection, never client-provided digests. Source,
+  formats, engine and limits follow the [Git contract](../../architecture/contracts/git-render-bundles.md).
+- **RB-03:** Schema-driven literal non-secret `render_inputs` support form/JSON
+  round-trip with absent-only defaults and no coercion. Namespace/cluster references,
+  matching and provision rules retain existing semantics. Do not admit unknown,
+  unused or secret inputs. Source changes invalidate inspect results and validate
+  existing inputs visibly; late replies cannot replace a newer draft.
+- **RB-04:** Create and version-CAS edit associate the same-org verified pin and
+  supplied inputs atomically with Definition/criteria. Edit reopens saved metadata
+  without network reinspection. API failure keeps draft; uncertain commit requires
+  reload/review. History/admitted executions retain their immutable pins.
+- **RB-05:** List source name, short commit and availability; full pin in technical
+  details. Missing cache has an explicit re-inspect action using the exact pinned
+  commit; a changed branch is a new version, never an automatic repair/re-pin.
+  Organization/RBAC restrictions match Definition authoring.
+- **RB-06:** Selecting a newer or previously verified older pin is explicit. Saving
+  does not deploy. Existing installed Definitions/plans keep working; no automatic
+  conversion or fallback from Git to installed renderer. Git input/schema/engine
+  errors use safe stable codes and preserve unrelated fields.

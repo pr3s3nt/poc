@@ -43,3 +43,5 @@ last_reviewed: 2026-10-24
 - [ADR-019 — Visual deployment review and persisted progress](ADR-019-visual-deployment-review.md).
 
 - [ADR-020 — Runtime message catalogs for the Web Console](ADR-020-console-message-catalogs.md) — Vietnamese default + English; new languages are catalog files, not code.
+
+- [ADR-021 — Git-owned Kubernetes manifest rendering policy](ADR-021-git-render-bundles.md) — accepted design; normalization/defaults/provisioners/patches in Git, infrastructure unchanged; implementation pending.

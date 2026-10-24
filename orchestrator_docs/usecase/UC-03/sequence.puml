@@ -7,6 +7,7 @@ control ResourceDefinitionService as Service
 entity ResourceDefinition as Validator
 control DriverContractInspector as Inspector
 control ModuleBundleResolver as Modules
+control RenderBundleRegistry as Bundles
 database ResourceTypeRepository as TypeRepo
 database ConnectionRepository as ConnectionRepo
 database ResourceDefinitionRepository as DefinitionRepo
@@ -54,6 +55,16 @@ Service --> API: capability projection
 API --> PE: 200 capability; typed form; technical details collapsed
 end
 
+opt Inspect Git render bundle [RB-01..06, ADR-021]
+PE -> API: POST render-bundles/inspect(url, path, ref)
+API -> Service: InspectRenderBundle(scoped PE/Admin request)
+Service -> Bundles: Resolve/fetch immutable tree; validate schema/templates; cache
+Bundles -> DefinitionRepo: Insert immutable same-org render metadata (no Definition)
+Bundles --> Service: verified pin + typed schema
+Service --> API: safe renderBundle
+API --> PE: 200 source + inputs; no deployment
+end
+
 PE -> API: Create or Update Definition(document, expected version) [MS-01..MS-02]
 API -> Service: RegisterResourceDefinition(ctx, command)
 Service -> Validator: Validate() [MS-03, BR-07]
@@ -74,7 +85,7 @@ ConnectionRepo --> Service: Connection
 end
 Service -> Service: validate Driver Inputs shape/types/placeholders\nand references/provision rules [MS-05, BR-11..BR-14]
 alt score-k8s workload Definition
-  Service -> Service: Validate installed immutable RenderBundle [BR-15/16]
+  Service -> Service: Validate legacy installed or scoped verified Git pin + typed inputs [RB-03/04]
   Service -> Service: Pin server-owned bundle fingerprint
 else infrastructure Definition
   Service -> Modules: Verify prepared Git pin or legacy policy source, immutable content

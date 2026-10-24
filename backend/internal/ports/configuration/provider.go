@@ -3,6 +3,8 @@ package configuration
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 
 	"orchestrator/internal/domain/secretstore"
@@ -27,6 +29,14 @@ type Provider interface {
 type StoreRef struct {
 	StoreKey string
 	ValueRef string
+}
+
+// WorkloadServiceAccount is the Kubernetes ServiceAccount every secret
+// delivery revision of one workload uses. It is deterministic so workload
+// removal can find the delivery objects that belong to exactly this workload.
+func WorkloadServiceAccount(applicationKey, environmentKey, workloadID string) string {
+	sum := sha256.Sum256([]byte(applicationKey + "/" + environmentKey + "/" + workloadID))
+	return "orch-" + hex.EncodeToString(sum[:10])
 }
 
 // WorkloadAccess is the immutable, least-privilege Vault identity for one

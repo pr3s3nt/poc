@@ -2,7 +2,7 @@
 id: UC-07-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # UC-07 — Use Case Realization
@@ -139,3 +139,11 @@ captures redacted rendered manifest before Apply and associates applied baseline
 only after that workload is READY. All writes use existing owner/fence and short
 transactions; no network/renderer subprocess spans a DB transaction. UC-09 reads
 these records; no simulation timer, polling-triggered mutation or new scheduler.
+
+## Git rendering-only changes — ADR-021
+
+Pending comparison includes immutable render pin and effective inputs; update
+uses the existing deployment pipeline and infrastructure reuse. Removal resolves
+original applied target/identity, not current renderer or mutable Git content.
+Persisted review/pins survive restart; explicit re-selection of an old verified
+bundle re-renders with current bindings. No new cleanup participant is introduced.

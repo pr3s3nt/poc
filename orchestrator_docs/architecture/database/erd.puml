@@ -441,4 +441,26 @@ Final V06.08 design: no Environment deployment-binding/transition fields.
 Implementation and acceptance gates tracked separately in CURRENT_STATE.
 Secret-store selection, owner/fence and original per-resource targets remain.
 end note
+entity render_bundles {
+ * id : uuid <<PK>>
+ * organization_id : uuid <<FK>>
+ --
+ source_url : text
+ source_path : text
+ source_revision : text
+ content_sha256 : text
+ engine_contract : text
+ renderer_version : text
+ renderer_binary_sha256 : text
+ contract : jsonb
+ created_at : timestamptz
+}
+organizations ||--o{ render_bundles
+note right of render_bundles
+ADR-021 required design; immutable scoped registry.
+Unique org/origin/path/commit/engine; content drift rejected.
+Definitions reference verified ID and supplied inputs in JSON.
+Plans pin source/runtime and effective inputs; files in durable cache.
+Console SELECT/INSERT only; no State role grant.
+end note
 @enduml

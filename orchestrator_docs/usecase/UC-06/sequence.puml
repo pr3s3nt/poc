@@ -35,7 +35,7 @@ alt planning fails before Delta Snapshot
   Service --> API: Planning error
 else plan succeeded
 group Required score-k8s + module/known-input preflight (BR-09/17)
-  Service -> Renderer: ValidateSelection(pinned Definition/bundle/binary digest) [BR-17]
+  Service -> Renderer: ValidateSelection(Definition/source/cache/engine/binary/typed inputs) [BR-17]
   Renderer --> Service: available (failure stops before provisioning)
 end
 Service -> DeltaSnapshotRepo: Save(immutable snapshot) <<transaction A>>
@@ -47,6 +47,13 @@ Provisioner --> Service: ProvisionResult(typed outputs, per-consumer target pins
 Service -> Resolver: ResolveWorkloadBindings(candidate, outputs) [MS-10]
 Resolver --> Service: Resolved workload
 Service -> Renderer: Render(resolved workload, pinned selection, its resolved target, requests/limits) [MS-11]
+note right of Renderer
+Git path: private secret bridge -> neutral input
+-> Git defaults/normalization -> score-k8s provisioners
+-> ordered Git patches -> semantic validation.
+No hidden native policy render; no Git fetch.
+Legacy installed pins keep their adapter.
+end note
 Renderer --> Service: Manifests
 Service -> WorkloadRepo: Save sanitized rendered manifest review before apply [REV-02]
 Service -> Deployer: Apply(target, unchanged manifests)

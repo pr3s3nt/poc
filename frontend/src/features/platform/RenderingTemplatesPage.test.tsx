@@ -40,7 +40,13 @@ const field = (label: string) => screen.getByLabelText(label);
 const submitName = 'Đăng ký mẫu dựng ứng dụng';
 const submitButton = () => screen.getByRole('button', { name: submitName });
 const bundleSelect = () => screen.getByLabelText('Bundle dựng ứng dụng');
+// New drafts default to Git (ADR-021); installed-bundle tests choose the verified source explicitly.
+async function chooseVerified(user: ReturnType<typeof userEvent.setup>) {
+  const button = screen.getByRole('button', { name: 'Bundle đã xác minh' });
+  if (button.getAttribute('aria-pressed') !== 'true') await user.click(button);
+}
 async function fill(user: ReturnType<typeof userEvent.setup>, id = 'web-tpl', bundle = '', name = 'Mẫu web') {
+  await chooseVerified(user);
   await user.type(field('ID mẫu'), id);
   if (name) await user.type(field('Tên hiển thị'), name);
   if (bundle) await user.selectOptions(bundleSelect(), bundle);
@@ -66,6 +72,9 @@ describe('UC-03 rendering templates page (T03)', () => {
     expect(screen.getByText(/không có bộ lọc profile/)).toBeInTheDocument();
     expect(screen.getByText(/hệ thống không dùng renderer mặc định hay renderer khác/)).toBeInTheDocument();
     expect(screen.queryByText(/dùng renderer mặc định\./)).not.toBeInTheDocument();
+    // Installed-bundle guidance is help of the verified source, not default page text.
+    expect(screen.queryByText(/Một bundle duy nhất được chọn sẵn/)).not.toBeInTheDocument();
+    await chooseVerified(userEvent.setup());
     expect(screen.getByText(/Một bundle duy nhất được chọn sẵn khi tạo mới; nhiều bundle cần chọn tường minh/)).toBeInTheDocument();
   });
 
@@ -74,6 +83,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     const { posted } = backend({ definitionLists: [() => Response.json({ resourceDefinitions: [] }), () => Response.json({ resourceDefinitions: [template] })] });
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await chooseVerified(userEvent.setup());
     await fill(user);
     await user.click(submitButton());
     expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký mẫu dựng ứng dụng web-tpl.');
@@ -83,7 +93,8 @@ describe('UC-03 rendering templates page (T03)', () => {
     expect(await screen.findByText(/Bundle: bundle-web/)).toBeInTheDocument();
     expect(field('ID mẫu')).toHaveValue('');
     expect(field('Tên hiển thị')).toHaveValue('');
-    expect(bundleSelect()).toHaveValue('bundle-web');
+    // A reset draft defaults to Git again (UC-03 RB-01).
+    expect(screen.getByRole('button', { name: 'Thêm từ Git' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('requires a Name and registers with explicit criteria instead of a deployment scope', async () => {
@@ -91,6 +102,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     const { posted } = backend();
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await chooseVerified(userEvent.setup());
     await fill(user, 'web-cloud', '', '');
     await user.click(submitButton());
     expect(await screen.findByRole('alert')).toHaveTextContent('Nhập Tên hiển thị của mẫu.');
@@ -109,6 +121,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     backend();
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await chooseVerified(userEvent.setup());
     for (const label of [/Kết nối/, /Terraform/, /module/i, /Loại tài nguyên/, /Cách tạo/]) expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
     expect(screen.getByRole('radiogroup', { name: 'Chế độ điều kiện áp dụng' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Phạm vi triển khai')).not.toBeInTheDocument();
@@ -120,6 +133,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     const { posted } = backend();
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await chooseVerified(userEvent.setup());
     await user.click(submitButton());
     expect(await screen.findByRole('alert')).toHaveTextContent('Nhập ID mẫu.');
     await user.type(field('ID mẫu'), 'Bad_ID');
@@ -145,6 +159,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     const { posted } = backend({ post: () => Response.json({ error: raw }, { status }) });
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await chooseVerified(userEvent.setup());
     await fill(user);
     await user.click(screen.getByLabelText(/Theo loại môi trường/));
     await user.type(screen.getByLabelText('Loại môi trường'), 'staging');
@@ -176,6 +191,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     }));
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await chooseVerified(userEvent.setup());
     await fill(user);
     await user.click(submitButton());
     expect(field('ID mẫu')).toBeDisabled();
@@ -200,6 +216,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     const { posted, gets } = backend({ definitionLists: [() => Response.json({ resourceDefinitions: [] }), () => Response.json({ error: 'boom' }, { status: 500 }), () => Response.json({ resourceDefinitions: [template] })] });
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await chooseVerified(userEvent.setup());
     await fill(user);
     await user.click(submitButton());
     const alert = await screen.findByRole('alert', { name: 'Lỗi tải danh sách' });
@@ -219,6 +236,8 @@ describe('UC-03 rendering templates page (T03)', () => {
       const { gets } = backend();
       render(<RenderingTemplatesPage />);
       await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+      await chooseVerified(userEvent.setup());
+    await chooseVerified(userEvent.setup());
       expect(gets.some((url) => url.endsWith('/render-bundles'))).toBe(true);
       expect(bundleSelect()).toHaveValue('bundle-web');
       expect(screen.getByRole('option', { name: 'bundle-web (phiên bản 0.15.0)' })).toBeInTheDocument();
@@ -230,6 +249,8 @@ describe('UC-03 rendering templates page (T03)', () => {
       const { posted } = backend({ bundles: [bundleWeb, second] });
       render(<RenderingTemplatesPage />);
       await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+      await chooseVerified(userEvent.setup());
+    await chooseVerified(userEvent.setup());
       expect(bundleSelect()).toHaveValue('');
       await user.type(field('ID mẫu'), 'web-tpl');
       await user.type(field('Tên hiển thị'), 'Mẫu web');
@@ -242,15 +263,17 @@ describe('UC-03 rendering templates page (T03)', () => {
       await user.click(submitButton());
       expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký mẫu dựng ứng dụng web-tpl.');
       expect(posted[0]).toMatchObject({ driverInputs: { values: { variables: { render_bundle: 'bundle-b' } } } });
-      expect(bundleSelect()).toHaveValue('');
+      expect(screen.getByRole('button', { name: 'Thêm từ Git' })).toHaveAttribute('aria-pressed', 'true');
     });
 
-    it('blocks submit and guides in Vietnamese when no bundle is installed', async () => {
+    it('blocks a verified-source submit and points to Git when no bundle is verified', async () => {
       const user = userEvent.setup();
       const { posted } = backend({ bundles: [] });
       render(<RenderingTemplatesPage />);
-      const alert = await screen.findByRole('alert', { name: 'Chưa có bundle' });
-      expect(alert).toHaveTextContent('Hãy liên hệ Kỹ sư nền tảng');
+      await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+      await chooseVerified(user);
+      const alert = await screen.findByRole('status', { name: 'Chưa có bundle' });
+      expect(alert).toHaveTextContent('Dùng Thêm từ Git');
       expect(bundleSelect()).toBeDisabled();
       expect(submitButton()).toBeDisabled();
       await user.type(field('ID mẫu'), 'web-tpl');
@@ -264,6 +287,8 @@ describe('UC-03 rendering templates page (T03)', () => {
       const { posted } = backend({ bundleLists: [() => new Promise<Response>((done) => { release = done; })] });
       render(<RenderingTemplatesPage />);
       await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+      await chooseVerified(userEvent.setup());
+    await chooseVerified(userEvent.setup());
       expect(screen.getByText('Đang tải danh sách bundle đã cài…')).toBeInTheDocument();
       expect(submitButton()).toBeDisabled();
       await user.type(field('ID mẫu'), 'web-tpl');
@@ -286,6 +311,8 @@ describe('UC-03 rendering templates page (T03)', () => {
       backend({ bundles: [bundleWeb, second], bundleLists: [() => Response.json({ renderBundles: [bundleWeb, second] }), () => new Promise<Response>((done) => { release = done; })] });
       render(<RenderingTemplatesPage />);
       await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+      await chooseVerified(userEvent.setup());
+    await chooseVerified(userEvent.setup());
       await user.selectOptions(bundleSelect(), 'bundle-b');
       await user.click(screen.getByRole('button', { name: 'Làm mới danh sách bundle' }));
       release(Response.json({ renderBundles: [bundleWeb, second] }));
@@ -298,6 +325,8 @@ describe('UC-03 rendering templates page (T03)', () => {
       const { posted } = backend({ bundles: [bundleWeb, second], bundleLists: [() => Response.json({ renderBundles: [bundleWeb, second] }), () => Response.json({ renderBundles: [bundleWeb] })] });
       render(<RenderingTemplatesPage />);
       await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+      await chooseVerified(userEvent.setup());
+    await chooseVerified(userEvent.setup());
       await user.selectOptions(bundleSelect(), 'bundle-b');
       await user.type(field('ID mẫu'), 'web-tpl');
       await user.type(field('Tên hiển thị'), 'Mẫu web');
@@ -321,6 +350,8 @@ describe('UC-03 rendering templates page (T03)', () => {
       const { posted } = backend({ bundles: [bundleWeb, second], post: () => Response.json({ error: 'render bundle is unavailable' }, { status: 400 }) });
       render(<RenderingTemplatesPage />);
       await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+      await chooseVerified(userEvent.setup());
+    await chooseVerified(userEvent.setup());
       await fill(user, 'web-tpl', 'bundle-b');
       await user.click(submitButton());
       const alert = await screen.findByRole('alert');
@@ -345,6 +376,8 @@ describe('UC-03 rendering templates page (T03)', () => {
       ] });
       render(<RenderingTemplatesPage />);
       await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+      await chooseVerified(userEvent.setup());
+    await chooseVerified(userEvent.setup());
       await user.selectOptions(bundleSelect(), 'bundle-b');
       await user.type(field('ID mẫu'), 'web-tpl');
       const kept = () => { expect(bundleSelect()).toHaveValue('bundle-b'); expect(screen.getByRole('option', { name: /^bundle-b \(/ })).toBeInTheDocument(); expect(submitButton()).toBeDisabled(); };
@@ -362,7 +395,7 @@ describe('UC-03 rendering templates page (T03)', () => {
       await screen.findByRole('alert', { name: 'Lỗi tải bundle' });
       kept();
       await user.click(screen.getByRole('button', { name: 'Thử lại tải bundle' }));
-      await screen.findByRole('alert', { name: 'Chưa có bundle' });
+      await screen.findByRole('status', { name: 'Chưa có bundle' });
       kept();
       expect(field('ID mẫu')).toHaveValue('web-tpl');
       expect(posted).toHaveLength(0);
@@ -417,6 +450,7 @@ describe('UC-03 V02 rendering template create with an unknown outcome', () => {
     const harness = backend(options);
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await chooseVerified(user);
     await waitFor(() => expect(bundleSelect()).toBeEnabled());
     await fill(user, 'web-tpl', 'bundle-web');
     await user.click(submitButton());
@@ -463,6 +497,7 @@ describe('ADR-016 workload placement and companions', () => {
     const { posted } = backend({ workloadInputs: [{ name: 'backend_url', type: 'string' }] });
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await chooseVerified(userEvent.setup());
     await fill(user);
     expect(screen.queryByLabelText('Đầu vào backend_url')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên đi kèm' }));
@@ -482,6 +517,7 @@ describe('ADR-016 workload placement and companions', () => {
     const { posted } = backend();
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await chooseVerified(userEvent.setup());
     await fill(user);
     await user.clear(screen.getByLabelText('Tham chiếu cluster'));
     await user.click(submitButton());
@@ -499,6 +535,7 @@ describe('ADR-016 workload placement and companions', () => {
     const { posted } = backend();
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await chooseVerified(userEvent.setup());
     await fill(user);
     await user.click(screen.getByRole('button', { name: 'JSON nâng cao' }));
     expect(JSON.parse(jsonField().value)).toEqual({ variables: { render_bundle: 'bundle-web', namespace: nsRef, cluster: clusterRef } });

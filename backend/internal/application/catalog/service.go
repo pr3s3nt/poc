@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 
 	"orchestrator/internal/domain/application"
@@ -16,6 +15,7 @@ import (
 	"orchestrator/internal/planning/placeholder"
 	"orchestrator/internal/ports/moduleregistry"
 	"orchestrator/internal/ports/persistence"
+	"orchestrator/internal/ports/renderregistry"
 )
 
 var ErrInvalid = errors.New("catalog: invalid document")
@@ -59,6 +59,9 @@ type Service struct {
 	// modules is the verified Terraform module registry: registration may
 	// verify (fetch/inspect) a pin; capability reads use metadata only.
 	modules moduleregistry.Registry
+	// renderRegistry inspects Git render bundles and reports availability
+	// (ADR-021); nil means Git bundles cannot be inspected or selected.
+	renderRegistry renderregistry.Registry
 }
 
 // NewService returns the catalog service. Without a module registry,
@@ -145,6 +148,9 @@ func (s *Service) RegisterResourceDefinition(ctx context.Context, organizationKe
 		if err := s.storeBundle(ctx, bundle); err != nil {
 			return err
 		}
+		if err := s.verifyRenderAssociation(ctx, organizationKey, prepared); err != nil {
+			return err
+		}
 		return s.store.CreateResourceDefinition(ctx, organizationKey, prepared)
 	})
 	if errors.Is(err, persistence.ErrDuplicate) {
@@ -190,6 +196,9 @@ func (s *Service) UpdateResourceDefinition(ctx context.Context, organizationKey,
 	var saved resource.Definition
 	err = s.store.Transact(ctx, func(ctx context.Context) error {
 		if err := s.storeBundle(ctx, bundle); err != nil {
+			return err
+		}
+		if err := s.verifyRenderAssociation(ctx, organizationKey, prepared); err != nil {
 			return err
 		}
 		var err error
@@ -280,7 +289,8 @@ func (s *Service) prepareDefinition(ctx context.Context, organizationKey string,
 			return resource.Definition{}, nil, internal.err
 		}
 		var fieldErr *FieldError
-		if errors.As(err, &fieldErr) {
+		var render *RenderError
+		if errors.As(err, &fieldErr) || errors.As(err, &render) {
 			return resource.Definition{}, nil, err
 		}
 		return resource.Definition{}, nil, invalidField("definition.driver", fmt.Errorf("%w: %v", ErrInvalid, err))
@@ -321,11 +331,9 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 		if def.DriverAccount != "" {
 			return nil, invalidField("definition.driverAccount", fmt.Errorf("%w: score-k8s rendering takes no driver account", ErrInvalid))
 		}
-		if err := resource.ValidateRenderDefinition(*def, typ, s.bundles, true); err != nil {
+		if err := s.validateRenderSelection(ctx, org, def, typ); err != nil {
 			return nil, err
 		}
-		bundle := s.bundles[variables["render_bundle"].(string)]
-		def.SourceFingerpr = bundle.Digest
 		return nil, nil
 	case resource.DriverTerraform:
 		bundle, err := s.validateTerraform(ctx, org, def, typ, types)
@@ -403,24 +411,4 @@ func validateReferences(def resource.Definition, types []resource.Type) error {
 
 func (s *Service) SetRenderBundles(bundles map[string]resource.RenderBundle) {
 	s.bundles = resource.CopyRenderBundles(bundles)
-}
-
-// InstalledRenderBundle is the safe, read-only view of an available bundle.
-type InstalledRenderBundle struct {
-	ID      string `json:"id"`
-	Version string `json:"version"`
-	Status  string `json:"status"`
-}
-
-// ListRenderBundles returns metadata of available installed bundles sorted by ID.
-// It reads only the immutable in-process registry.
-func (s *Service) ListRenderBundles() []InstalledRenderBundle {
-	out := []InstalledRenderBundle{}
-	for id, b := range s.bundles {
-		if resource.RenderBundleAvailable(s.bundles, id) {
-			out = append(out, InstalledRenderBundle{ID: b.ID, Version: b.Version, Status: "AVAILABLE"})
-		}
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
-	return out
 }

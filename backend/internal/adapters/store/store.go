@@ -21,6 +21,7 @@ import (
 	"orchestrator/internal/domain/effectiveness"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/identity"
+	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/secretstore"
 	"orchestrator/internal/domain/tfmodule"
@@ -53,6 +54,9 @@ type state struct {
 	ModuleBundles       map[string]tfmodule.Bundle                    `json:"terraformModuleBundles"`
 	// Baselines are the append-only UC-17 versions, keyed by ID.
 	Baselines map[string]effectiveness.Baseline `json:"effectivenessBaselines"`
+	// RenderBundles are the verified Git render bundles (ADR-021), keyed by
+	// ID. The key is optional so older complete snapshots still load.
+	RenderBundles map[string]renderbundle.Bundle `json:"renderBundles,omitempty"`
 }
 
 func newState() *state {
@@ -80,6 +84,7 @@ func newState() *state {
 		Operations:          map[string]environment.Operation{},
 		ModuleBundles:       map[string]tfmodule.Bundle{},
 		Baselines:           map[string]effectiveness.Baseline{},
+		RenderBundles:       map[string]renderbundle.Bundle{},
 	}
 }
 

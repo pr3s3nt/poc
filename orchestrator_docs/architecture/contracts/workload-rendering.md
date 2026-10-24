@@ -2,10 +2,17 @@
 id: WORKLOAD-RENDERING-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # Definition-selected workload rendering — contract
+
+**ADR-021 extension (2026-10-24):** [Git render bundles](git-render-bundles.md)
+own Git-selected source, normalization/defaults/provisioners/patches, inputs and
+cache/persistence. Below, installed-only/startup-registry/native-policy and exact
+three-variable rules describe **legacy installed selections only**. Common
+infrastructure/output/ownership/lifecycle invariants remain current; UC-06 BR-11
+allows Git bundle defaults for missing values. Implementation gap is tracked in IMP-035.
 
 Contract này định nghĩa rendering boundary theo
 [ADR-010](../decisions/ADR-010-score-k8s-workload-rendering.md) và chính sách

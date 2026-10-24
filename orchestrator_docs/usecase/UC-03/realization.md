@@ -2,7 +2,7 @@
 id: UC-03-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-21
+last_reviewed: 2026-10-24
 ---
 
 # UC-03 — Use Case Realization
@@ -156,3 +156,19 @@ UI3-05: ResourceDefinitionsPage also owns existing-cluster drafts and presents
 server-supported cluster methods inside its common editor. The same catalog,
 criteria/matching preview and mutation/reload pipeline serve both drivers.
 Sequence/VOPC participants and backend operations remain unchanged.
+
+## Git render-bundle collaboration — ADR-021
+
+Controller adds InspectRenderBundle and GetRenderBundle with the existing
+session/Organization/PE/Admin gate. RenderBundleRegistry reuses hardened Git
+transport, resolves and validates manifest/schema/templates, materializes cache,
+then inserts immutable same-org metadata outside Definition transactions.
+Catalog snapshot merges installed and scoped Git metadata; planner reads it
+without external calls. Definition validation resolves the verified ID and typed
+inputs before existing Create/CAS transaction. Atomic association is stored in
+validated driver_inputs. Inspect failure never saves a partial Definition.
+
+UI reuses Git source and typed-input patterns from Terraform authoring, retaining
+its existing draft, matching and placement controls. Unknown outcome/reload and
+late-reply guards apply to the whole pin/schema/input draft. Contracts and public
+operations are in [RB-C07](../../architecture/contracts/git-render-bundles.md#rb-c07--http-operations-and-errors).

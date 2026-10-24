@@ -3,6 +3,7 @@
 package planning
 
 import (
+	"orchestrator/internal/domain/renderbundle"
 	"sort"
 
 	"orchestrator/internal/domain/application"
@@ -194,7 +195,7 @@ type Classification struct {
 
 // Plan is the immutable planning artifact persisted with a Deployment.
 type Plan struct {
-	Review any `json:"review,omitempty"`
+	Review      any                                    `json:"review,omitempty"`
 	Rendering   map[string]resource.RenderingSelection `json:"rendering,omitempty"`
 	WorkloadID  string                                 `json:"workloadId"`
 	Action      deployment.Action                      `json:"action"`
@@ -240,6 +241,9 @@ type Catalog struct {
 	// Organization by key. Planning reads only identity, kind, status and
 	// version; never configuration secrets.
 	Accounts map[string]application.Connection
+	// RenderBundles are the Organization's verified Git render bundles by ID
+	// (ADR-021): immutable metadata only, never fetched or rendered here.
+	RenderBundles map[string]renderbundle.Bundle
 }
 
 // ModuleInspector returns the Terraform module contract of a Definition. The

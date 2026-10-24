@@ -7,6 +7,25 @@ last_reviewed: 2026-10-24
 
 # Current project state
 
+## Git-owned manifest rendering — implemented and accepted 2026-10-24
+
+[ADR-021](architecture/decisions/ADR-021-git-render-bundles.md) is implemented:
+PE/Admin inspect a credential-free HTTPS Git directory in Mẫu dựng ứng dụng
+(new drafts default to Git), configure typed `render_inputs` and save; the
+verified Organization-scoped pin lives in `render_bundles` and the durable
+render bundle cache. Planning/Preview/Deploy pin source, engine, binary and
+effective inputs and never fetch Git; a bundle- or input-only change is a
+workload UPDATE. Normalization, defaults, output-only score-k8s provisioners and
+ordered patches come from the bundle (killable template worker, sjson patch
+semantics) and are checked by semantic invariants instead of a native render.
+Installed bundles keep their legacy path. Reference bundle:
+`backend/render-bundles/standard`. Workload removal now also deletes that
+workload's VSO delivery objects (UC-07 VSO-01). Real end-user acceptance
+RB-E01..E10 passed: [verification](verification/2026-10-24-git-render-bundles.md).
+Limits: public HTTPS Git only; no bundle garbage collection; legacy Vault Agent
+removal keeps its ServiceAccount behavior; error envelope has no correlation ID
+(see [IMP-035](implementation/deviations.md#imp-035--git-owned-render-bundles)).
+
 ## Workload environment editor — implemented — 2026-10-24
 
 Each container has one **Biến môi trường** table with five sources (entered

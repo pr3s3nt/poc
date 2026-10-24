@@ -2,7 +2,7 @@
 id: UC-05-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # UC-05 — Use Case Realization
@@ -157,3 +157,13 @@ facts only from sanitized Deployment/Service artifacts and uses public placement
 metadata for legacy/missing summaries. No executor, state or secret resolver is
 introduced. Layout metrics are shared by node rendering and connector routing;
 unique approach/outer lanes preserve the graph and full reason provenance.
+
+## Git render-bundle Preview — ADR-021
+
+Scoped planning snapshot includes immutable Git bundle metadata and effective
+input contract. Selection/pending comparison pins content/engine/binary/inputs.
+After snapshot close, DeploymentReviewAssembler calls the same Git render engine
+with neutral symbolic input, verified local cache and no secret bytes. Safe
+projection extends only to approved customization fields, retaining unknown-path
+provenance. No fetch/provider call enters planning or Preview. Sequence and
+shared classes include RenderBundleRegistry as the immutable source boundary.

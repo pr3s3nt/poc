@@ -16,10 +16,13 @@ import (
 
 	"orchestrator/internal/adapters/postgres"
 	"orchestrator/internal/bootstrap"
+	"orchestrator/internal/renderengine"
 	"orchestrator/internal/seed"
 )
 
 func main() {
+	// A template worker child of this binary runs author templates (ADR-021).
+	renderengine.RunWorkerIfRequested()
 	opts := seed.Defaults()
 	addr := flag.String("addr", "127.0.0.1:8080", "listen address")
 	addrFile := flag.String("addr-file", "", "optional file that receives the resolved listen address")
@@ -50,7 +53,8 @@ func main() {
 	moduleCacheDir := flag.String("terraform-module-cache-dir", os.Getenv("ORCHESTRATOR_TERRAFORM_MODULE_CACHE_DIR"), "durable private absolute directory (0700, outside any Git work tree) caching verified Terraform modules; configure for Git module reuse across restarts")
 	modulePolicyFile := flag.String("terraform-module-policy-file", os.Getenv("ORCHESTRATOR_TERRAFORM_MODULE_POLICY_FILE"), "legacy HTTPS Git module policy and optional repository CA configuration (JSON); direct Git inspection does not require an allowlist")
 	retainedReleases := flag.String("terraform-retained-releases-file", os.Getenv("ORCHESTRATOR_TERRAFORM_RETAINED_RELEASES_FILE"), "JSON list of retained trusted historical platform releases ({release, terraformBinary}) so cleanup can run resources created before a release upgrade; empty retains none")
-	gitPath := flag.String("git", "git", "git binary used to resolve and fetch Terraform module commits")
+	gitPath := flag.String("git", "git", "git binary used to resolve and fetch Terraform module and render bundle commits")
+	renderBundleCacheDir := flag.String("render-bundle-cache-dir", os.Getenv("ORCHESTRATOR_RENDER_BUNDLE_CACHE_DIR"), "durable private absolute directory (0700, outside any Git work tree) caching verified Git render bundles; empty uses a temporary cache lost on exit")
 	vaultDelivery := flag.String("vault-delivery", "auto", "UC-12 Kubernetes delivery: auto, vso or agent")
 	workloadDelivery := flag.String("workload-delivery", "direct", "workload delivery: direct or fleet-gitrepo (kind only)")
 	gitopsRepoDir := flag.String("gitops-repo-dir", "", "writable local clone of the Fleet GitOps repository")
@@ -176,6 +180,7 @@ func main() {
 		TerraformModulePolicyFile:     *modulePolicyFile,
 		TerraformRetainedReleasesFile: *retainedReleases,
 		GitPath:                       *gitPath,
+		RenderBundleCacheDir:          *renderBundleCacheDir,
 		Region:                        *region,
 		Tags:                          tags,
 		VaultDelivery:                 *vaultDelivery,

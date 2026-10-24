@@ -21,6 +21,7 @@ import (
 	"orchestrator/internal/adapters/kubernetes"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/execution"
+	"orchestrator/internal/renderengine"
 )
 
 const BundleID = "score-k8s-internal-v1"
@@ -35,7 +36,14 @@ type Renderer struct {
 	path   string
 	bundle resource.RenderBundle
 	native execution.WorkloadRenderer
+	// git and executor serve Git render bundles (ADR-021); nil git keeps
+	// only the installed bundle.
+	git      BundleStore
+	executor renderengine.Executor
 }
+
+// commandContext is exec.CommandContext; the context kills and reaps score-k8s.
+var commandContext = exec.CommandContext
 
 // New returns the pinned score-k8s renderer. A nil native renderer is the
 // product mode: a Workload without a pinned score-k8s selection is rejected
@@ -99,7 +107,11 @@ func (r *Renderer) ValidateSelection(ctx context.Context, selected resource.Rend
 		}
 		return nil
 	}
-	if selected.DriverType != resource.DriverScoreK8s || selected.Bundle != r.bundle || selected.DefinitionKey == "" || selected.DefinitionHash == "" {
+	if selected.Bundle.Git() {
+		_, err := r.validateGit(ctx, selected)
+		return err
+	}
+	if selected.DriverType != resource.DriverScoreK8s || selected.Bundle != r.bundle || selected.DefinitionKey == "" || selected.DefinitionHash == "" || selected.Inputs != nil || selected.InputsHash != "" {
 		return fmt.Errorf("score-k8s: pinned rendering selection is unavailable")
 	}
 	digest, err := binaryDigest(r.path)
@@ -118,6 +130,9 @@ func (r *Renderer) Render(ctx context.Context, req execution.RenderRequest) ([]e
 			return nil, fmt.Errorf("score-k8s: a pinned rendering selection is required")
 		}
 		return r.native.Render(ctx, req)
+	}
+	if req.Selection.Bundle.Git() {
+		return r.renderGit(ctx, req)
 	}
 	if err := r.ValidateSelection(ctx, req.Selection); err != nil {
 		return nil, err

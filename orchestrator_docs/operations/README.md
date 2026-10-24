@@ -2,7 +2,7 @@
 id: OPERATIONS-INDEX
 artifact: operations-index
 status: current
-last_reviewed: 2026-10-21
+last_reviewed: 2026-10-24
 ---
 
 # Operations index
@@ -47,3 +47,5 @@ ghi đè runbook hoặc evidence cũ.
 - [Terraform v2 acceptance and authorized execution](terraform-v2-acceptance.md) — required live Web Console/app flow, real adapters and ownership cleanup.
 
 - [Terraform module GitHub sources](terraform-module-sources.md): published modules, Definition authoring and isolated verification.
+
+- [Git render-bundle real acceptance](git-render-bundles-acceptance.md) — required new isolated kind/Compose Playwright procedure; runner is an implementation deliverable, no fake-adapter acceptance.

@@ -200,3 +200,49 @@ func TestRemoveDeliveredAlsoRemovesTheApplicationsSecretDeliveryObjects(t *testi
 		t.Fatal("the claim must stay held after an unverified secret object removal")
 	}
 }
+
+// workloadRemovingSync records per-workload secret delivery removals (UC-07 VSO-01).
+type workloadRemovingSync struct {
+	removingSync
+	workloads []string
+	failure   error
+}
+
+func (r *workloadRemovingSync) RemoveWorkloadSynchronized(_ context.Context, _ execution.Target, app, env, workload string) ([]string, error) {
+	r.workloads = append(r.workloads, app+"/"+env+"/"+workload)
+	return []string{"vaultstaticsecrets.secrets.hashicorp.com/orch-x"}, r.failure
+}
+
+func TestWorkloadRemovalAlsoRemovesItsSecretDeliveryObjects(t *testing.T) {
+	for _, fail := range []bool{false, true} {
+		app, opts, _ := uc07App(t)
+		scores := seed.AcceptanceScores(opts)
+		for _, id := range []string{"backend", "worker"} {
+			if _, err := uc07Deploy(t, app, opts, id, nil, scores[id]); err != nil {
+				t.Fatal(err)
+			}
+		}
+		sync := &workloadRemovingSync{}
+		if fail {
+			sync.failure = errors.New("kubectl failed")
+		}
+		app.Deployments.SetConfigSecretSynchronizer(sync)
+		_, err := uc07Deploy(t, app, opts, "backend", scores["backend"], nil)
+		want := opts.ApplicationKey + "/" + opts.EnvironmentKey + "/backend"
+		if len(sync.workloads) != 1 || sync.workloads[0] != want {
+			t.Fatalf("removal must clean exactly the removed workload's delivery objects: %v", sync.workloads)
+		}
+		instances, _ := app.Store.ListWorkloadInstances(context.Background(), opts.ApplicationKey+"/"+opts.EnvironmentKey)
+		status := map[string]domain.InstanceStatus{}
+		for _, w := range instances {
+			status[w.WorkloadID] = w.Status
+		}
+		if fail {
+			if err == nil || status["backend"] != domain.InstanceFailed {
+				t.Fatalf("an unverified delivery cleanup must fail the removal: %v %s", err, status["backend"])
+			}
+		} else if err != nil || status["backend"] != domain.InstanceRemoved || status["worker"] == domain.InstanceRemoved {
+			t.Fatalf("removal: %v %v", err, status)
+		}
+	}
+}

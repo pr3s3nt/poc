@@ -931,3 +931,11 @@ không ghi. Không có update/delete endpoint.
 
 CSV được Console tạo từ report + records của cùng tham số; nó gồm phạm vi, kỳ,
 timezone, `dataOrigin`, nguồn/độ phủ, đơn vị và bản ghi, không tính lại chỉ số.
+
+## Git render-bundle operations — ADR-021
+
+OC-RB-01 `InspectRenderBundle`, OC-RB-02 `GetRenderBundle` and the additive
+OC-04b catalog/OC-04 Definition extensions follow the single canonical
+[RB-C07 HTTP contract](git-render-bundles.md#rb-c07--http-operations-and-errors).
+UC-03 owns authoring, UC-05 pins/reviews and UC-06/07 execute/update/remove.
+Existing Terraform operations and admission/CAS contracts are unchanged.

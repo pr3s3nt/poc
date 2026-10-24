@@ -124,6 +124,7 @@ describe('malformed bundle metadata in the rendering form', () => {
       return Response.json({ resourceDefinitions: [] });
     }));
     render(<RenderingTemplatesPage />);
+    await user.click(await screen.findByRole('button', { name: 'Bundle đã xác minh' }));
     const alert = await screen.findByRole('alert', { name: 'Lỗi tải bundle' });
     expect(alert).toHaveTextContent('Không tải được danh sách bundle đã cài.');
     expect(screen.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng' })).toBeDisabled();

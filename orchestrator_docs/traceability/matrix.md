@@ -1103,6 +1103,31 @@ records read-only Preview, metadata/history preservation and secret boundaries.
 | ALT-01, BR-09, BR-10, EX-04 | OC-20 baselines | `AddBaselineVersion`, `Baseline.Validate`, `EffectiveBaseline`, `AppendEffectivenessBaseline` | `effectiveness_baselines` append-only, CAS by version | baseline HTTP test; PostgreSQL restart + 42501; [JSON reload](../../backend/internal/adapters/store/effectiveness_test.go); browser save/reload |
 | Shell gate | UC-17 UI | `AppShell`, `App` | — | [App tests](../../frontend/src/app/App.test.tsx), [route tests](../../frontend/src/app/routes.test.ts) |
 
+## Git rendering bundle — ADR-021 (passed 2026-10-24)
+
+| Requirements | Collaboration / persistence | Required validation |
+|---|---|---|
+| UC-03 RB-01..06; RB-C01..03/07 | UC-03 sequence/VOPC; RenderBundleRegistry; scoped immutable render_bundles; Definition CAS | Source/schema/RBAC/CAS tests; RB-E01/02/06/09 |
+| UC-05 RB-01..03; RB-C06 | UC-05 sequence; plan metadata/effective input pins; safe review | Pure planning, stale/cache/unknown tests; RB-E04/07/08 |
+| UC-06 RB-01..04; RB-C04/05 | UC-06 sequence; neutral input → GitRenderEngine → existing Apply/WaitReady | Stage parity/policy/secret guards; RB-E05/07; no rebuild between A/B |
+| UC-07 RB-01..02 | Pending/applied pins and original target removal; unchanged Terraform state | Restart/reuse/history tests; RB-E08/09/10; unchanged resource/PVC UIDs |
+| UC-03 UI / ADR-020 | Existing rendering route + Git inspect/typed inputs/VI-EN catalogs | Frontend checks, actual browser references and real end-user Playwright |
+
+Implemented tests: [domain](../../backend/internal/domain/renderbundle/renderbundle_test.go),
+[engine](../../backend/internal/renderengine/renderengine_test.go),
+[registry/cache](../../backend/internal/adapters/renderbundles/registry_test.go),
+[stage parity/guards/priority](../../backend/internal/adapters/scorek8s/git_test.go),
+[patch conformance](../../backend/internal/adapters/scorek8s/patch_conformance_test.go),
+[examples](../../backend/internal/adapters/scorek8s/examples_test.go),
+[PostgreSQL](../../backend/internal/adapters/postgres/renderbundles_integration_test.go),
+[HTTP](../../backend/internal/delivery/http/render_bundle_sources_test.go),
+[planner](../../backend/internal/planning/git_rendering_test.go),
+[pending A→B→A](../../backend/internal/application/pending/git_rendering_test.go),
+[review projection](../../backend/internal/application/deploymentreview/review_test.go),
+[Console](../../frontend/src/features/platform/GitRenderBundle.test.tsx); UC-07
+VSO-01 in [VSO](../../backend/internal/adapters/kubernetes/vso_test.go) and
+[removal](../../backend/internal/application/deployment/remove_delivered_test.go).
+Real RB-E01..E10: [verification](../verification/2026-10-24-git-render-bundles.md).
 
 ## DEVEX-ENV — implemented and verified 2026-10-24
 

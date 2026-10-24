@@ -626,3 +626,21 @@ Console [feature](../../frontend/src/features/effectiveness/), route/sidebar in
 [routes](../../frontend/src/app/routes.ts) and [AppShell](../../frontend/src/app/AppShell.tsx).
 Adding a metric: a catalog entry in `metrics.go` (Compute + Records) and its
 copy in `labels.ts`; a new external source also needs spec/schema first.
+
+## Git render bundles — ADR-021
+
+| Concern | Code |
+|---|---|
+| Bundle manifest, pin record, typed inputs | [`renderbundle`](../../backend/internal/domain/renderbundle/), selection pin in [`rendering.go`](../../backend/internal/domain/resource/rendering.go) |
+| Registry port and errors | [`renderregistry`](../../backend/internal/ports/renderregistry/renderregistry.go), repository [`renderbundles.go`](../../backend/internal/ports/persistence/renderbundles.go) |
+| Inspect, durable cache, loader | [`adapters/renderbundles`](../../backend/internal/adapters/renderbundles/) (Git transport shared via [`shared.go`](../../backend/internal/adapters/terraform/registry/shared.go)) |
+| Persistence | [`render_bundles` DDL](../../backend/internal/adapters/postgres/baseline.sql), [PostgreSQL](../../backend/internal/adapters/postgres/renderbundles.go), [JSON store](../../backend/internal/adapters/store/renderbundles.go), [grants](../../backend/internal/adapters/postgres/grants.go) |
+| Template engine, worker, patches, tree validation | [`renderengine`](../../backend/internal/renderengine/); worker entry in [`main.go`](../../backend/cmd/orchestrator/main.go) |
+| Git render pipeline and invariant guard | [`git.go`](../../backend/internal/adapters/scorek8s/git.go), [`guard.go`](../../backend/internal/adapters/scorek8s/guard.go); secret bridge [`delivery.go`](../../backend/internal/adapters/kubernetes/delivery.go) |
+| Catalog/HTTP | [`catalog/renderbundles.go`](../../backend/internal/application/catalog/renderbundles.go), [`render_bundle_sources.go`](../../backend/internal/delivery/http/render_bundle_sources.go), codes in [`apierror.go`](../../backend/internal/delivery/http/apierror.go) |
+| Planner, snapshot, pending, review | [`planning/rendering.go`](../../backend/internal/planning/rendering.go), [`deployment/snapshot.go`](../../backend/internal/application/deployment/snapshot.go), [`pending/preview.go`](../../backend/internal/application/pending/preview.go), [`deploymentreview/review.go`](../../backend/internal/application/deploymentreview/review.go) |
+| Wiring/runtime | [`bootstrap.go`](../../backend/internal/bootstrap/bootstrap.go), [`Dockerfile`](../../backend/Dockerfile), [`docker-compose.yml`](../../docker-compose.yml) cache volume |
+| Console | [`RenderingTemplatesPage`](../../frontend/src/features/platform/RenderingTemplatesPage.tsx), [`GitBundleSource`](../../frontend/src/features/platform/GitBundleSource.tsx), [`RenderInputsEditor`](../../frontend/src/features/platform/RenderInputsEditor.tsx), [`renderInputs`](../../frontend/src/features/platform/renderInputs.ts), Preview provenance in [`DeploymentReview`](../../frontend/src/features/preview/DeploymentReview.tsx) |
+| Reference bundle | [`backend/render-bundles/standard`](../../backend/render-bundles/standard/README.md) with executable examples |
+| Tests | domain/engine/registry/guard/stage/pending/HTTP/PostgreSQL tests beside each package; UI [`GitRenderBundle.test.tsx`](../../frontend/src/features/platform/GitRenderBundle.test.tsx) |
+| Real acceptance | [`git-render-bundle-kind.sh`](../../backend/test/integration/git-render-bundle-kind.sh), [`git-render-bundle-kind.mjs`](../../frontend/test/e2e/git-render-bundle-kind.mjs), [`compose overlay`](../../deploy/local/compose.git-render-bundle.yml) |

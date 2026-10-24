@@ -2,7 +2,7 @@
 id: ADR-016
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-24
 ---
 
 # ADR-016 — Definition-selected workload lifecycle and Kubernetes targets
@@ -122,3 +122,12 @@ output-before-render; readiness gating; SQL reopen/immutable original targets;
 cleanup owner/UID guards and old deployment-write rejection. Real headed UI
 frontend import/Preview/deploy/update/restart/remove/cleanup on existing cluster,
 with negative permission/account/unready-target checks and reviewed video.
+
+## Git rendering amendment — 2026-10-24
+
+[ADR-021](ADR-021-git-render-bundles.md) supersedes installed-only/Go-owned
+rendering policy and exact-three-workload-variable restrictions for Git bundles.
+Legacy installed pins retain their contract. Terraform provisioning, dependency
+matching, target/state/ownership and cleanup rules in this ADR are unchanged.
+Git behavior, inputs, cache and versioning follow the linked contract; this
+amendment does not claim implementation or authorize retained-data migration.

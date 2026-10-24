@@ -89,3 +89,25 @@ func TestProjectManifestsDropsUnknownNestedFields(t *testing.T) {
 		t.Fatalf("nested projection was unsafe or empty: %#v", got)
 	}
 }
+
+// ADR-021 RB-C06: accepted Git policy fields are reviewable; platform
+// delivery and credential-named annotations stay out of the projection.
+func TestProjectManifestsShowsAcceptedPolicyFields(t *testing.T) {
+	m := execution.Manifest{APIVersion: "apps/v1", Kind: "Deployment", Name: "api", Namespace: "test", Object: map[string]any{
+		"metadata": map[string]any{"labels": map[string]any{"example.com/team": "payments"}},
+		"spec": map[string]any{"replicas": 1, "revisionHistoryLimit": 3, "strategy": map[string]any{"type": "RollingUpdate"}, "template": map[string]any{
+			"metadata": map[string]any{"annotations": map[string]any{"example.com/render-policy": "b", "vault.hashicorp.com/agent-inject-template-app-env": "{{ with secret }}", "example.com/api-token": "tok-sentinel"}},
+			"spec": map[string]any{"securityContext": map[string]any{"seccompProfile": map[string]any{"type": "RuntimeDefault"}}, "nodeSelector": map[string]any{"kubernetes.io/os": "linux"},
+				"containers": []any{map[string]any{"name": "api", "image": "example/api:v1", "securityContext": map[string]any{"allowPrivilegeEscalation": false}}}}}}}}
+	side := ProjectManifests([]execution.Manifest{m})["Deployment/api"]
+	for _, want := range []string{"example.com/team: payments", "example.com/render-policy: b", "RuntimeDefault", "allowPrivilegeEscalation: false", "revisionHistoryLimit: 3", "RollingUpdate", "kubernetes.io/os: linux"} {
+		if !strings.Contains(side.Text, want) {
+			t.Fatalf("projection misses %q:\n%s", want, side.Text)
+		}
+	}
+	for _, leak := range []string{"vault.hashicorp.com", "with secret", "tok-sentinel"} {
+		if strings.Contains(side.Text, leak) {
+			t.Fatalf("projection leaks %q:\n%s", leak, side.Text)
+		}
+	}
+}

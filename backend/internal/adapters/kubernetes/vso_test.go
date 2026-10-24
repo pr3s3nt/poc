@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	configport "orchestrator/internal/ports/configuration"
 	"orchestrator/internal/ports/execution"
 )
 
@@ -81,5 +82,68 @@ func TestRemoveSynchronizedDeletesOnlyTheApplicationsOwnObjectsByExactName(t *te
 				t.Fatalf("a foreign or bulk deletion was issued: %s", line)
 			}
 		}
+	}
+}
+
+// UC-07 VSO-01: removing one workload deletes only the VSO objects bound to
+// that workload's delivery ServiceAccount; another workload of the same
+// Application keeps its objects and the VaultConnection they share.
+func TestRemoveWorkloadSynchronizedDeletesOnlyTheWorkloadsObjects(t *testing.T) {
+	own := configport.WorkloadServiceAccount("acc-r1", "staging", "backend")
+	other := configport.WorkloadServiceAccount("acc-r1", "staging", "worker")
+	stub := `#!/bin/sh
+echo "$*" >> "$STUB_LOG"
+case "$*" in
+  *"get vaultstaticsecrets"*) cat <<'JSON'
+{"items":[
+ {"metadata":{"name":"orch-b1"},"spec":{"path":"orchestrator/apps/acc-r1/envs/staging/values/d1","vaultAuthRef":"orch-b1-auth","destination":{"name":"orch-b1"}}},
+ {"metadata":{"name":"orch-b2"},"spec":{"path":"orchestrator/apps/acc-r1/envs/staging/values/d2","vaultAuthRef":"orch-b2-auth","destination":{"name":"orch-b2"}}},
+ {"metadata":{"name":"orch-w1"},"spec":{"path":"orchestrator/apps/acc-r1/envs/staging/values/d3","vaultAuthRef":"orch-w1-auth","destination":{"name":"orch-w1"}}},
+ {"metadata":{"name":"orch-x1"},"spec":{"path":"orchestrator/apps/other/envs/staging/values/d4","vaultAuthRef":"orch-x1-auth","destination":{"name":"orch-x1"}}}]}
+JSON
+  ;;
+  *"get vaultauths"*) cat <<JSON
+{"items":[
+ {"metadata":{"name":"orch-b1-auth"},"spec":{"vaultConnectionRef":"orch-vault-shared","kubernetes":{"serviceAccount":"OWN"}}},
+ {"metadata":{"name":"orch-b2-auth"},"spec":{"vaultConnectionRef":"orch-vault-shared","kubernetes":{"serviceAccount":"OWN"}}},
+ {"metadata":{"name":"orch-w1-auth"},"spec":{"vaultConnectionRef":"orch-vault-shared","kubernetes":{"serviceAccount":"OTHER"}}},
+ {"metadata":{"name":"orch-x1-auth"},"spec":{"vaultConnectionRef":"orch-vault-x","kubernetes":{"serviceAccount":"OWN"}}}]}
+JSON
+  ;;
+esac
+`
+	stub = strings.ReplaceAll(strings.ReplaceAll(stub, "OWN", own), "OTHER", other)
+	dir := t.TempDir()
+	kubectl := filepath.Join(dir, "kubectl")
+	if err := os.WriteFile(kubectl, []byte(stub), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	logPath := filepath.Join(dir, "log")
+	t.Setenv("STUB_LOG", logPath)
+	kubeconfig := filepath.Join(dir, "kubeconfig")
+	if err := os.WriteFile(kubeconfig, []byte("synthetic"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := &VSOSynchronizer{KubectlPath: kubectl}
+	removed, err := s.RemoveWorkloadSynchronized(context.Background(), execution.Target{Kind: "kubernetes", Namespace: "app-ns", Kubeconfig: kubeconfig, Context: "ctx"}, "acc-r1", "staging", "backend")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The ServiceAccount is still bound by the other Application's VaultAuth
+	// (orch-x1-auth names the same account) and is kept; the shared
+	// VaultConnection is still used by the worker.
+	want := []string{"secret/orch-b1", "secret/orch-b2", "vaultauths.secrets.hashicorp.com/orch-b1-auth", "vaultauths.secrets.hashicorp.com/orch-b2-auth",
+		"vaultstaticsecrets.secrets.hashicorp.com/orch-b1", "vaultstaticsecrets.secrets.hashicorp.com/orch-b2"}
+	if !reflect.DeepEqual(removed, want) {
+		t.Fatalf("removed %v want %v", removed, want)
+	}
+	raw, _ := os.ReadFile(logPath)
+	for _, line := range strings.Split(string(raw), "\n") {
+		if strings.Contains(line, "delete") && (strings.Contains(line, "orch-w1") || strings.Contains(line, "orch-x1") || strings.Contains(line, "orch-vault-shared") || strings.Contains(line, other)) {
+			t.Fatalf("another workload's object was deleted: %s", line)
+		}
+	}
+	if _, err := s.RemoveWorkloadSynchronized(context.Background(), execution.Target{Kind: "kubernetes", Namespace: "app-ns", Kubeconfig: kubeconfig, Context: "ctx"}, "acc-r1", "staging", ""); err == nil {
+		t.Fatal("an empty workload identity must be refused")
 	}
 }

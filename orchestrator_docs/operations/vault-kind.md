@@ -78,9 +78,10 @@ kubectl --context kind-idp-internal -n <workload-namespace> get secret <orch-sec
 ```
 
 Do not print Secret data or Vault bundle values. VSO sync failure prevents
-workload apply after the sync timeout. Failed/retried deployments and old
-revisions currently leave VSO objects, Kubernetes Secrets and Vault bundles;
-cleanup must be planned before production. Ensure Kubernetes Secret encryption
+workload apply after the sync timeout. Removing a workload deletes its own VSO
+objects (UC-07 VSO-01); while a workload stays, its older revisions keep their
+VSO objects and Secrets, and Vault bundles are never deleted. Plan that
+cleanup before production. Ensure Kubernetes Secret encryption
 at rest and tight RBAC before production use. VSO CRs are applied directly by
 the backend before workload delivery, including when Fleet GitRepo mode is used.
 

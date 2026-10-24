@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
 )
 
@@ -144,6 +145,17 @@ func (s *state) validateCurrent() error {
 	for key, bundle := range s.ModuleBundles {
 		if bundle.Validate() != nil || key != bundle.Ref.Pin() {
 			return resetRequired("a Terraform module bundle record is invalid")
+		}
+	}
+	if s.RenderBundles == nil {
+		s.RenderBundles = map[string]renderbundle.Bundle{}
+	}
+	for key, bundle := range s.RenderBundles {
+		if bundle.Validate() != nil || key != bundle.ID {
+			return resetRequired("a render bundle record is invalid")
+		}
+		if _, ok := s.Organizations[bundle.OrganizationKey]; !ok {
+			return resetRequired("a render bundle record has no Organization")
 		}
 	}
 	for id := range s.DeltaSnapshots {

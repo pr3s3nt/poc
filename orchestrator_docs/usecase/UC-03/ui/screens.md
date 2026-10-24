@@ -2,7 +2,7 @@
 id: UC-03-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-22
+last_reviewed: 2026-10-24
 related: UC-03
 ---
 
@@ -238,3 +238,40 @@ thuật” giữ descriptor và params JSON. Không có “Thứ tự thực hi�
 ## Unified cluster authoring — 2026-10-21
 
 UI3-05 replaces the separate existing-cluster section: one catalog and Create/Edit view. k8s-cluster offers server-supported existing-cluster and Terraform methods; existing-cluster shows Internal READY account plus shared identity, criteria tabs and payload review, without module/region/variables. Accounts remain separate.
+
+## Git render-bundle source — ADR-021
+
+Extend Mẫu dựng ứng dụng at the existing route, PE/Admin gate and shell. Reuse
+Resource Definition's Git source/inspect and verified-source patterns, shared
+Button/input/help/technical-details components. Do not redesign navigation,
+criteria, placement or companion-resource controls.
+
+New source section has “Thêm từ Git” (default) and “Bundle đã xác minh”. Git fields:
+“Git HTTPS URL”, “Thư mục bundle” (default `.`), “Tag hoặc commit”, action
+“Kiểm tra bundle”. Explain credential-free HTTPS limitation in help. Successful
+inspection shows name, short commit and “Đã xác minh”, then schema-driven input
+controls. Boolean checkbox, enum select, string/number input; nested object/array
+use validated JSON editor with field errors. Keep advanced JSON lossless. Explicit
+false/0/empty and omitted values stay distinct; show effective default as a hint,
+not a silently saved user value. All labels/errors/help use VI/EN catalog keys.
+
+Verified selector includes legacy installed entries and same-org Git records.
+Edit opens saved source/input/version without reinspection. Full URL/path/commit/
+digest are in “Chi tiết kỹ thuật”; renderer pin is not editable. “Kiểm tra lại”
+on an unavailable saved pin uses its exact full commit. Selecting a new ref is
+an explicit source edit. No registered installed bundle must not block Git authoring.
+
+Source/schema/inputs share draft lifetime with existing matching/provision/target
+fields. Source change blocks Save until verified and shows incompatible inputs;
+never erase unrelated draft fields. Save remains explicit and does not deploy.
+Preview/Deployment overview shows source name and short commit; manifest view
+shows permitted rendered defaults/patches with existing before/after/unknown UI.
+
+Implemented 2026-10-24; visual comparison at 1512px/1280px with Resource
+Definitions → Create Git source is recorded in the
+[verification](../../../verification/2026-10-24-git-render-bundles.md#ui-comparison).
+Reference inspected on 2026-10-24: actual Rendering Templates and Resource
+Definitions → Create in Chromium, localhost:13003. Keep source controls compact;
+move repeated explanations and full pins to help/details. Future handoff must
+record visual comparison at 1512px/1280px; no new product screenshot was made in
+this documentation-only design task.

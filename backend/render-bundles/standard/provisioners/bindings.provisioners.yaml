@@ -1,0 +1,12 @@
+# Output-only bridge: exposes values and Secret references the platform
+# already resolved. It provisions nothing and emits no manifest.
+- uri: template://orchestrator/resolved-bindings
+  type: orchestrator-bindings
+  description: Platform-resolved values and Secret references
+  outputs: |
+    {{- range $container, $entries := .Params }}
+    {{ $container | quote }}:
+    {{- range $name, $entry := $entries }}
+      {{ $name | quote }}: {{ if $entry.secret }}{{ encodeSecretRef $entry.secretName $entry.secretKey | quote }}{{ else }}{{ $entry.value | quote }}{{ end }}
+    {{- end }}
+    {{- end }}

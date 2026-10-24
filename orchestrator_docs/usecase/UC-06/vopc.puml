@@ -146,4 +146,11 @@ note right of ReviewRedactor
 Execution manifest bytes remain unchanged.
 Rendered review becomes applied baseline only after READY.
 end note
+class GitRenderEngine <<adapter>>
+class VerifiedRenderBundle <<entity>>
+class RenderInput <<value>>
+GitRenderEngine ..|> WorkloadRenderer
+GitRenderEngine ..|> RenderPreflight
+GitRenderEngine ..> VerifiedRenderBundle : pinned local cache
+GitRenderEngine ..> RenderInput : neutral non-secret context
 @enduml

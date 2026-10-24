@@ -154,6 +154,7 @@ describe('exact matching preview in the template form (T19)', () => {
     }));
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await user.click(screen.getByRole('button', { name: 'Bundle đã xác minh' }));
     expect(screen.getByText('Nhập ID mẫu hợp lệ để kiểm tra matching chính xác.')).toBeInTheDocument();
     await user.type(screen.getByLabelText('ID mẫu'), 'web-tpl');
     await user.type(screen.getByLabelText('Tên hiển thị'), 'Mẫu web');
@@ -187,6 +188,7 @@ describe('exact matching preview in the template form (T19)', () => {
     }));
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await user.click(screen.getByRole('button', { name: 'Bundle đã xác minh' }));
     await user.type(screen.getByLabelText('ID mẫu'), 'web-tpl');
     await user.type(screen.getByLabelText('Tên hiển thị'), 'Mẫu web');
     await user.selectOptions(screen.getByLabelText('Ứng dụng kiểm tra'), 'shop');

@@ -65,10 +65,16 @@ func (s *Server) handleUpdateResourceDefinition(w http.ResponseWriter, r *http.R
 }
 
 func (s *Server) handleRenderBundles(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.platformActor(w, r); !ok {
+	org, ok := s.platformActor(w, r)
+	if !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"renderBundles": s.catalog.ListRenderBundles()})
+	bundles, err := s.catalog.ListRenderBundles(r.Context(), org)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"renderBundles": bundles})
 }
 
 func (s *Server) handleDefinitionCapabilities(w http.ResponseWriter, r *http.Request) {

@@ -2,7 +2,7 @@
 id: UC-06-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # UC-06 — Use Case Realization
@@ -189,3 +189,16 @@ captures redacted rendered manifest before Apply and associates applied baseline
 only after that workload is READY. All writes use existing owner/fence and short
 transactions; no network/renderer subprocess spans a DB transaction. UC-09 reads
 these records; no simulation timer, polling-triggered mutation or new scheduler.
+
+## Git render pipeline — ADR-021
+
+RenderPreflight verifies local cache/content/runtime/inputs before UC-08.
+Existing provisioning and OutputBindingResolver run unchanged. Separate private
+secret bridge from native policy rendering; the bridge prepares approved Secret
+references/auxiliaries. GitRenderEngine consumes neutral JSON input, runs defaults/
+normalization, pinned score-k8s output-only provisioners, then ordered patches
+and semantic validation. It never builds a hidden Go policy Deployment/Service.
+Existing workload progress, manifest digest, Apply/WaitReady, public routes and
+current-set transactions consume the validated result unchanged. Installed pins
+retain the legacy adapter path. Worker subprocess cancellation and cleanup are
+part of render completion, not deferred background work.

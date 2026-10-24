@@ -52,7 +52,7 @@ component "Native renderer" as Native
 component "score-k8s adapter" as ScoreAdapter
 artifact "Pinned score-k8s CLI" as ScoreCLI
 Deploy --> Rendering : preflight; resolved bindings + selection
-Rendering --> Native : shared platform policy helpers only in v2
+Rendering --> Native : legacy installed selections only
 Rendering --> ScoreAdapter : required immutable bundle, Internal/EKS targets
 ScoreAdapter --> ScoreCLI : private workspace; output-only provisioner
 Rendering --> Workload : validated manifests
@@ -87,4 +87,17 @@ PostgreSQL stores restricted ciphertext.
 Console never receives state or capability.
 D12-D14 full recovery/reconcile/backup deferred.
 end note
+component "Scoped Git Render Bundle Registry" as RenderRegistry
+component "Git Render Engine" as GitRender
+component "Private Secret Bridge / Semantic Guards" as RenderSafety
+artifact "Immutable Git Render Cache" as RenderCache
+Admin --> RenderRegistry : inspect HTTPS source / pin / schema
+RenderRegistry --> Persistence : immutable scoped metadata
+RenderRegistry --> RenderCache : verified bounded files
+Planner --> RenderRegistry : snapshot metadata only
+Rendering --> GitRender : Git-selected source + neutral input
+GitRender --> RenderCache : verified local read, no fetch
+GitRender --> ScoreCLI : normalized Score + output-only provisioners
+GitRender --> RenderSafety : authorized references / final invariants
+GitRender --> Workload : validated manifests, same lifecycle
 @enduml
