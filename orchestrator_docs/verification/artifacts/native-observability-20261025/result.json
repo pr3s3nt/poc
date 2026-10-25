@@ -1,0 +1,40 @@
+{
+  "source": "real local Go HTTP API + explicitly synthetic received-history fixture; no cluster/cloud calls",
+  "checks": [
+    "overview counts",
+    "scoped ERROR drill-down",
+    "log dialog + Escape",
+    "real history charts + keyboard tooltip",
+    "deep-link reload",
+    "Environment isolation",
+    "mobile overflow",
+    "no browser errors"
+  ],
+  "requests": [
+    {
+      "url": "/api/v1/applications/021783a3-1c49-4839-8de0-7e3cbf3d57c7/environments/staging/observability/overview",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/applications/021783a3-1c49-4839-8de0-7e3cbf3d57c7/environments/staging/observability/logs",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/applications/021783a3-1c49-4839-8de0-7e3cbf3d57c7/environments/staging/observability/metrics",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/applications/021783a3-1c49-4839-8de0-7e3cbf3d57c7/environments/staging/observability/metrics",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/applications/021783a3-1c49-4839-8de0-7e3cbf3d57c7/environments/production/observability/metrics",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/applications/021783a3-1c49-4839-8de0-7e3cbf3d57c7/environments/staging/observability/overview",
+      "status": 200
+    }
+  ],
+  "errors": []
+}

@@ -105,3 +105,25 @@ hierarchy, an observed readiness/stage/time card, safe configuration properties,
 provider-grouped dependency reasons and one selected code file. Derive the
 readiness count from persisted facts; dependency levels are not a claim of
 parallel execution. Keep exact run correlation and unknown/error states intact.
+
+## Native telemetry — TEL
+
+Approved reference: [mock](../../../../frontend/design/logging-monitoring/README.md).
+Application home puts the telemetry panel below staging/production tabs, before
+Workloads. Four clickable tiles show ERROR lines, unusual events, CPU peak and
+memory peak, with interval control and compact trends. Notable rows show
+workload/time/recovered versus current state. Counting/threshold details live in
+accessible help. Retain common shell, buttons, cards and message catalogs.
+
+Logs detail retains app/environment, with workload, interval, literal search and
+recognized-level filters, older-page navigation, details/copy and follow/pause.
+Native Kubernetes combines stdout/stderr, so the product uses a level filter
+instead of the mock's stream selector. Metrics shows CPU (mCPU) and RAM (MiB),
+per-workload historical series, null gaps, true peaks and actual latest state.
+Summary clicks preselect the related filters/focus; filter edits clear old
+context. No fixture timestamps, scenario toolbar or synthesized metrics enter
+these product views. Keyboard and mouse can inspect chart points.
+
+Narrow application views wrap the four telemetry summary cards into two columns
+and keep the detail charts in one column. Generated resource descriptors wrap
+inside their rows while retaining visible status; they do not widen the viewport.

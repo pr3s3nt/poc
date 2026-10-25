@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-INDEX
 artifact: implementation-index
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-25
 ---
 
 # Implementation documentation
@@ -16,6 +16,8 @@ Go product code nằm trong [`backend/`](../../backend/); Web Console nằm tron
 phải theo [operations index](../operations/README.md).
 
 ## Navigation
+
+- [Basic application observability — implemented and accepted on real Kubernetes](native-observability.md)
 
 - [Account diagnostics implementation and real acceptance](account-diagnostics.md) — authorized 2026-10-25; delivery tracked separately from design.
 

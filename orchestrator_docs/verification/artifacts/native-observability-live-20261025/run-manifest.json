@@ -1,0 +1,13 @@
+{
+  "runId": "obs1025r7",
+  "cluster": "logging-obs1025r7",
+  "composeProject": "logging-obs1025r7",
+  "commitUnderTest": "88fde4849ac05cfb9330e02d0e84640f6ce0ae44",
+  "ports": {
+    "backend": 46061,
+    "frontend": 40225
+  },
+  "source": "real adapters, empty catalog, user UI mutations; no telemetry fixture",
+  "applicationId": "ca141bd4-6e28-4b97-9f14-a18a101ae7a6",
+  "namespace": "app-ca141bd4-6e28-4b97-9f14-a18a101ae7a6-staging"
+}

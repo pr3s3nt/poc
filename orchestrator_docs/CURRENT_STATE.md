@@ -7,6 +7,25 @@ last_reviewed: 2026-10-25
 
 # Current project state
 
+## Basic application logging/monitoring — real Kubernetes accepted — 2026-10-25
+
+Issue #1 basic slice follows [ADR-023](architecture/decisions/ADR-023-native-observability.md):
+Orchestrator collects owned workload logs/pod state and Metrics Server CPU/RAM
+through existing scoped internal/EKS credentials and stores bounded 7-day logs /
+15-day metrics/events in PostgreSQL. Console has real stored-data overview,
+filtered log details and history charts, using the approved UI. No extra telemetry
+stack or application SDK is installed.
+
+[Handoff](implementation/native-observability.md),
+[runbook](operations/observability.md) and
+[verification](verification/2026-10-25-native-observability.md) record local
+SQL/HTTP checks and [real new-user Kubernetes acceptance](verification/2026-10-25-native-observability-live.md): 48/48 checks, including actual logs/load, container restart, pod update, backend restart, retained history and product UI cleanup. EKS-specific live verification remains separate.
+The schema/snapshot baseline changed; retained DBs and preexisting clusters were
+not changed. The new run-owned kind/Compose runtime was removed after acceptance. A
+data-preserving rollout to an older retained DB needs a separate operator upgrade
+procedure. Issue #1 remains open for provisioning/Definition integration,
+resource-specific exporters, CloudWatch, alerting, tracing and advanced providers.
+
 ## Infrastructure Account diagnostics — implemented and accepted — 2026-10-25
 
 [ADR-022](architecture/decisions/ADR-022-account-diagnostics.md) adds General and

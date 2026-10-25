@@ -5,6 +5,10 @@ import { ApplicationHomePage } from './ApplicationHomePage';
 import type { Application } from '../../shared/types/application';
 import { bothConfigured, configuredTarget } from '../../test/targets';
 
+// Observability has dedicated API/UI and browser coverage. Keep these lifecycle
+// tests' request sequencing focused on workloads and deployment mutations.
+vi.mock('../observability/OverviewPanel', () => ({ OverviewPanel: () => null }));
+
 const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 
 afterEach(() => vi.unstubAllGlobals());

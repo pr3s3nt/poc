@@ -35,12 +35,13 @@ var ErrCredentialTarget = errors.New("kubernetes: the target connection credenti
 // kubectl failure categories. They are derived from kubectl output so callers
 // can branch with errors.Is without parsing remote text.
 var (
-	ErrObjectNotFound  = errors.New("the Kubernetes object was not found")
-	ErrUnauthorized    = errors.New("the cluster rejected the connection credentials")
-	ErrForbidden       = errors.New("the connection credentials are not permitted to perform the operation")
-	ErrUnreachable     = errors.New("the cluster API is not reachable")
-	ErrRequestRejected = errors.New("the cluster rejected the request")
-	ErrKubectlCommand  = errors.New("the kubectl command failed")
+	ErrResourceTypeNotFound = errors.New("the Kubernetes API does not serve the resource type")
+	ErrObjectNotFound       = errors.New("the Kubernetes object was not found")
+	ErrUnauthorized         = errors.New("the cluster rejected the connection credentials")
+	ErrForbidden            = errors.New("the connection credentials are not permitted to perform the operation")
+	ErrUnreachable          = errors.New("the cluster API is not reachable")
+	ErrRequestRejected      = errors.New("the cluster rejected the request")
+	ErrKubectlCommand       = errors.New("the kubectl command failed")
 )
 
 // CommandError is one failed kubectl invocation. For credential-backed targets
@@ -97,6 +98,8 @@ func classify(stderr string) error {
 		return ErrUnauthorized
 	case strings.Contains(msg, "forbidden"):
 		return ErrForbidden
+	case strings.Contains(msg, "doesn't have a resource type"):
+		return ErrResourceTypeNotFound
 	case strings.Contains(msg, "unable to connect to the server") || strings.Contains(msg, "connection refused") ||
 		strings.Contains(msg, "no such host") || strings.Contains(msg, "i/o timeout") ||
 		strings.Contains(msg, "dial tcp") || strings.Contains(msg, "x509:") || strings.Contains(msg, "tls:") ||

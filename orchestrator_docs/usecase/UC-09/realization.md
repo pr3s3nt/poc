@@ -98,3 +98,18 @@ retain proof, transitive blocked consumers, parallel observed branches, missing
 rows/timestamps, deployment scoping/correlation, immutable history and redaction,
 poll race/error/terminal handling. Browser acceptance uses actual HTTP DTO flow;
 fixtures prove UI only, never AWS execution.
+
+## Native telemetry collaboration (TEL-01..07)
+
+A separate `ObservabilityService` discovers current Workload Instances, verifies
+owning Deployments/opaque targets, leases a source and calls `TelemetryReader`
+outside a transaction. The Kubernetes adapter resolves scoped credentials,
+reads bounded pods/logs/Metrics API and emits facts plus safe coverage codes.
+`TelemetryRepository` commits facts/checkpoints under a fence. Cleanup prunes
+expired telemetry only, independently of resource cleanup and Environment claims.
+
+Authenticated `ObservabilityController` queries the same repository through
+`ObservabilityService`, producing interval summaries, exact log pages and bounded
+metric series; it never calls the reader. Console home/detail share source facts
+and keep missing/current/peak values distinct. Collaboration:
+[sequence](telemetry-sequence.puml), [image](telemetry-sequence.png).

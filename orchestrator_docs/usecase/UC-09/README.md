@@ -37,3 +37,10 @@ Specification/realization định nghĩa yêu cầu, không chứng minh impleme
 [implementation handoff](../../implementation/visual-deployment-review.md)
 define the accepted extension. Specification/realization and diagrams here own
 behavior/collaboration; prototype acceptance is not product implementation proof.
+
+## Native application logs and metrics
+
+Read [TEL requirements](specification.md#native-application-observability--tel),
+[ADR-023](../../architecture/decisions/ADR-023-native-observability.md),
+[API/collection contract](../../architecture/contracts/observability.md) and
+[collection/query sequence](telemetry-sequence.puml).

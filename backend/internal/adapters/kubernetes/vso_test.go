@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -145,5 +146,43 @@ esac
 	}
 	if _, err := s.RemoveWorkloadSynchronized(context.Background(), execution.Target{Kind: "kubernetes", Namespace: "app-ns", Kubeconfig: kubeconfig, Context: "ctx"}, "acc-r1", "staging", ""); err == nil {
 		t.Fatal("an empty workload identity must be refused")
+	}
+}
+
+func TestWorkloadCleanupHandlesMissingVSOTypesWithRedactedCredentials(t *testing.T) {
+	for _, tc := range []struct {
+		name, message string
+		want          error
+	}{
+		{"operator absent", `error: the server doesn't have a resource type "vaultstaticsecrets"`, nil},
+		{"forbidden", "Error from server (Forbidden): credential-sentinel", ErrForbidden},
+		{"unauthorized", "Error from server (Unauthorized): credential-sentinel", ErrUnauthorized},
+		{"unreachable", "Unable to connect to the server: connection refused credential-sentinel", ErrUnreachable},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "kubectl")
+			calls := filepath.Join(dir, "calls")
+			script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '" + calls + "'\ncat >&2 <<'MESSAGE'\n" + tc.message + "\nMESSAGE\nexit 1\n"
+			if err := os.WriteFile(path, []byte(script), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			sync := &VSOSynchronizer{KubectlPath: path, Credentials: telemetryCredentials{}}
+			removed, err := sync.RemoveWorkloadSynchronized(context.Background(), execution.Target{Organization: "org", Connection: "account", Namespace: "app-staging", Context: "context"}, "app", "staging", "main")
+			if tc.want == nil {
+				if err != nil || len(removed) != 0 {
+					t.Fatalf("missing operator is not an empty cleanup: %v", err)
+				}
+			} else if !errors.Is(err, tc.want) {
+				t.Fatalf("failed read treated as absence: %v", err)
+			}
+			if err != nil && strings.Contains(err.Error(), "credential-sentinel") {
+				t.Fatal("remote credential diagnostic escaped")
+			}
+			raw, _ := os.ReadFile(calls)
+			if strings.Contains(string(raw), " delete ") {
+				t.Fatal("cleanup deleted without an inventory")
+			}
+		})
 	}
 }

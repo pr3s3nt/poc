@@ -37,7 +37,7 @@ export function AppShell({ children, onSignOut, username, role, activeRoute }: P
     catch { /* Navigation still works when local storage is unavailable. */ }
   }
   const isPlatformEngineer = role === 'PLATFORM_ENGINEER' || role === 'ADMIN';
-  const activeNav = ['application', 'create-application', 'settings', 'workload', 'score-preview', 'deployments', 'deployment', 'resource'].includes(activeRoute) ? 'applications' : activeRoute;
+  const activeNav = ['application', 'create-application', 'settings', 'workload', 'score-preview', 'deployments', 'deployment', 'resource', 'observability'].includes(activeRoute) ? 'applications' : activeRoute;
   const navClass = (name: string) => `nav-item${activeNav === name ? ' nav-item-active' : ''}`;
   const links = [
     { route: 'applications', label: t('app.appShell.applications'), tone: 'blue', platform: false },

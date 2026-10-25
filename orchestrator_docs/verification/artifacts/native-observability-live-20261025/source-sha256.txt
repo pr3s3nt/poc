@@ -1,0 +1,3 @@
+3055e3ac61fbb0a84b4ec8d32bb6de8e9e05ce0dfd6477cbe2edf4b581646cbf  backend/examples/observability-app/main.go
+7fe4f914dcb83a7ba301999d600be4c4ff0e427e26a7ffb99ae8907f3cbfdab9  frontend/test/e2e/observability-kind.mjs
+7a29c18b030fed6f7a191f6f844a9dc421a6018e1e6ece620d5a42f86ac6787b  backend/test/integration/observability-kind.sh

@@ -683,3 +683,7 @@ a { color: inherit; }
 
 .env-search-select { flex:1 1 190px; min-width:0; display:grid; gap:4px; }
 .env-value .env-search-select input,.env-value .env-search-select select { width:100%; }
+
+/* Keep generated resource descriptors readable inside the application page. */
+.application-home .deployment-entry > span:first-child { min-width:0; overflow-wrap:anywhere; }
+.application-home .deployment-entry > .status { flex-shrink:0; }

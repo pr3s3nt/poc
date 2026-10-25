@@ -1,0 +1,23 @@
+@startuml
+title UC-09 TEL - native collection and stored query
+actor Developer
+boundary Console
+control "Telemetry query service" as Query
+control "Background collector" as Worker
+database "Scoped telemetry repository" as Repo
+control "Scoped credential resolver" as Credentials
+participant "Kubernetes / EKS API" as K8s
+Worker -> Repo: acquire source lease and fence
+Worker -> Credentials: restore pinned workload target
+Credentials --> Worker: private invocation credential
+Worker -> K8s: read pods, timestamped logs, Metrics API
+K8s --> Worker: bounded facts / safe partial failure
+Worker -> Repo: commit facts and checkpoints under fence
+note over Worker,Repo: Network calls occur outside transactions.\nHistory survives pod replacement; expiry is explicit.
+Developer -> Console: open overview / logs / metrics
+Console -> Query: scoped GET and interval/filter/cursor
+Query -> Repo: authorize scope; read stored facts
+Repo --> Query: history, aggregates, coverage
+Query --> Console: safe DTO; null and stale remain explicit
+Console --> Developer: summary; click through with same scope
+@enduml

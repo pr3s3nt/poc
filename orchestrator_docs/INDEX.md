@@ -2,7 +2,7 @@
 id: DOC-INDEX
 artifact: documentation-index
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-25
 ---
 
 # Documentation index
@@ -16,6 +16,8 @@ implementation status.
 - [Repository overview](../README.md)
 - [AI agent workflow](../AGENTS.md)
 - [Current project state](CURRENT_STATE.md)
+- [Native application observability implementation](implementation/native-observability.md)
+- [Native observability operations](operations/observability.md)
 - [Project glossary](GLOSSARY.md)
 - [Documentation rules](DOCUMENTATION_RULES.md)
 
@@ -132,3 +134,13 @@ For the requested change after infrastructure provisioning, start with
 UC-03/05/06/07 RB requirements own behavior; implemented and accepted 2026-10-24
 ([verification](verification/2026-10-24-git-render-bundles.md)).
 This route does not activate a roadmap iteration.
+
+## Basic application logging and monitoring
+
+[ADR-023](architecture/decisions/ADR-023-native-observability.md) and
+[UC-09 TEL](usecase/UC-09/specification.md#native-application-observability--tel)
+define the approved native collector slice of issue #1; read the
+[shared contract](architecture/contracts/observability.md) for API/storage.
+The mock is approved UI reference, not evidence of collection or retention.
+[Real new-user acceptance](verification/2026-10-25-native-observability-live.md)
+records the native Kubernetes end-to-end run, including product cleanup.

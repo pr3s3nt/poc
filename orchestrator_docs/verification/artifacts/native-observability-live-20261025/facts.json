@@ -1,0 +1,1544 @@
+{
+  "runId": "obs1025r7",
+  "real": true,
+  "syntheticTelemetry": false,
+  "applicationId": "ca141bd4-6e28-4b97-9f14-a18a101ae7a6",
+  "namespace": "app-ca141bd4-6e28-4b97-9f14-a18a101ae7a6-staging",
+  "originalPod": {
+    "uid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+    "name": "telemetry-app-5749449fdd-cjqnd",
+    "image": "observability-app:obs1025r7",
+    "restartCount": 0
+  },
+  "namespaceUid": "880581eb-57e5-4aab-802a-5fe3366c9aae",
+  "beforeRestart": {
+    "logs": [
+      {
+        "id": "55734700c7124e7e5ca0eca3a923d430609169b3f825e63518ef3cb7675d26c6",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:35.47479Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"heartbeat\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:35.474470199Z\"}"
+      },
+      {
+        "id": "d0456e394a4e1e2c76fed99a87f262fc3ca7748528de6eac2e8abc2be03b96f1",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:30.474806Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"heartbeat\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:30.474530909Z\"}"
+      },
+      {
+        "id": "c8bb34ae3a90804ddddda32d9aa57326eb0e8e43e040b70e7e76b2cf00d4c96d",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:25.474395Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"heartbeat\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:25.474089239Z\"}"
+      },
+      {
+        "id": "40bdce4e21472ae784918d62aa5c84719a9f6b72bd13cb80cacfcff9e4df2d56",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:20.474406Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"heartbeat\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:20.474094509Z\"}"
+      },
+      {
+        "id": "10bbb69f6f5dc1af2785e297f60611a5f2af16145c768a124a61800c60d39b0e",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:11.891764Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"heartbeat\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:11.891362732Z\"}"
+      },
+      {
+        "id": "cd4edb93002e290bafed2b2c89699bdc2bf7053c88ca92acb9e2726ca65e5c52",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605437Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-119\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605315562Z\"}"
+      },
+      {
+        "id": "5ccf2ae07424af6ab9c025458a14968f5807a60c0d3245b0f64d89b2fc5b482a",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605435Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-118\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605312322Z\"}"
+      },
+      {
+        "id": "a20bc25582bcc9e405adc40c3e73865c1dfbaa5f9e5eb62d7e097596661f1b7d",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605434Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-117\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605308812Z\"}"
+      },
+      {
+        "id": "e6b5a30c1d5ff645fff4407f91de10bf552ef09bdb216574387251e798ae0972",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605429Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-116\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605305122Z\"}"
+      },
+      {
+        "id": "bf42c07f019dc523ff713399e3315708f272ccfc6645aa4a05aa24fba11bceda",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605352Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-115\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605295042Z\"}"
+      },
+      {
+        "id": "b44e8b019de91d5ffce86804777d16c273fb9e6e1ad3450229afc9ccc7c0d763",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.60535Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-114\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605291712Z\"}"
+      },
+      {
+        "id": "648964e91279886aef06742286fb903d641e475b34eb2da444ae0945420241ba",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605348Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-113\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605288472Z\"}"
+      },
+      {
+        "id": "2765968f9fd27bfeecf5b097e67cd43c4dfc4dfb18f226e2628af4aefb418a3a",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605346Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-112\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605285232Z\"}"
+      },
+      {
+        "id": "8a3d14d6994b6fab5f85c295f2b25740f79af41b3d07f2f629e61f767085fe57",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605345Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-111\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605282082Z\"}"
+      },
+      {
+        "id": "f5b8c35be60291df6ce3ba7a868d78d423d3e5d556934f60f9e4fc3f12af9cea",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605343Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-110\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605278842Z\"}"
+      },
+      {
+        "id": "819a28ea093cd1857ec933e3168ab6caeb18a8385ef5dfe94a05b6a9ef9ef98d",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605341Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-109\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605275512Z\"}"
+      },
+      {
+        "id": "10dd2f81ed5264380447c89a38d994287a50436f97cf9cbe538fd628d15d5a09",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605339Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-108\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605266152Z\"}"
+      },
+      {
+        "id": "7c1b386a589234f856ec575a7172194bccaac44aa88f904bf2a4597314a511fc",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605335Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-107\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605262282Z\"}"
+      },
+      {
+        "id": "10ec9ac1517a12460d382b8a3b4a19d0f74fa9a7367d87d4af4031d2e20d9892",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605333Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-106\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605258862Z\"}"
+      },
+      {
+        "id": "2df6239bbb9db0863b6b3de8d80c30d8ac980c443fdcf01c9a9cee6f35b1231e",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605331Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-105\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605255262Z\"}"
+      },
+      {
+        "id": "47f593f7cdf97ea6b778054fecf62f01809f5ee7e0af7d88300a628c731af79e",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605329Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-104\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605251662Z\"}"
+      },
+      {
+        "id": "5ee2a3c39b3cf5390592f2e3cb96b071e482df652d1de63aceeaf520d2a193f0",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605327Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-103\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605247972Z\"}"
+      },
+      {
+        "id": "ace09f09ae2fbde7069a17d36ea7655149bc917b5ecdce3d864737ee65607b3f",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605325Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-102\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605244102Z\"}"
+      },
+      {
+        "id": "27af41b6c98666ea2319469ba78bad61d8904a0213700a2f5c58711c62d39318",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605324Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-101\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605239422Z\"}"
+      },
+      {
+        "id": "0ac533caa4e4f83da4c44ba1595078f87f02e3030accbaddf5b8925dba30536b",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.60532Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-100\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605231052Z\"}"
+      },
+      {
+        "id": "a670a69d09bd17ab50b40fb23d7b32488dc42a1091b61c42eb548e2a8281805c",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605318Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-099\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605227452Z\"}"
+      },
+      {
+        "id": "875858409e6e4d8b3fdd0e6abacca473166f8a196de1138c9f022dbea574e61f",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605316Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-098\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605224302Z\"}"
+      },
+      {
+        "id": "e10fe979e29db67572c47fadee0a2fdd2c11d4dc8b945c2b4b7ef06debead226",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605314Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-097\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605220882Z\"}"
+      },
+      {
+        "id": "81d90c83fa76100da350c7b396ca624c4764041fb22496cf846ef8dbfc3a4ceb",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605313Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-096\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605217642Z\"}"
+      },
+      {
+        "id": "fdf6034a1be95a3afbc0a8424f4627a1d66e78a69f1fc2ab025f3c22ac843ec2",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605311Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-095\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605214402Z\"}"
+      },
+      {
+        "id": "f1db16f3987c32d0c6a565ee406e641deff0134e9bd606467113159e472a5d69",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605309Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-094\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605202612Z\"}"
+      },
+      {
+        "id": "86a53ab531978706e1691635dd32133829c2f83fee960a81d1eb89eb5f18461b",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605303Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-093\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605199462Z\"}"
+      },
+      {
+        "id": "d557afa8ab7faf661b121fe1d873b3b137f1eb02c56af546dd5e7e7408a7e5fc",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605301Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-092\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605196312Z\"}"
+      },
+      {
+        "id": "ada69dda8d068dd0b469b94be816db2f6205be66d864d4dc763de09d2c760b74",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605286Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-091\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605192982Z\"}"
+      },
+      {
+        "id": "46125dd52b2f4344214d81420a185febb849c93632e2d6cb26296b0b81a4bf38",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605284Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-090\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605189742Z\"}"
+      },
+      {
+        "id": "df64f38a2460482a5481722cfd06bd956361aac44f3e481e75f0806e59044871",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605282Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-089\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605186412Z\"}"
+      },
+      {
+        "id": "a036dd82171172694a6156a5691ae321b429a72c0d682eda3f983ff941f13c1b",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605281Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-088\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605183172Z\"}"
+      },
+      {
+        "id": "c4e29184d59847803b2851eb4d432db929d4f2cd01030fe58fb802e5c0362242",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605279Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-087\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605179662Z\"}"
+      },
+      {
+        "id": "534b59faa3123eb56dd987f2a7b32be5af9795fac9ed9161c1c91413a2526095",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605277Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-086\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605172282Z\"}"
+      },
+      {
+        "id": "db569e5ed460966d3a013d19fef36c092d02ad3dd9dd10f3354084cf9e3881e7",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605272Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-085\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605138352Z\"}"
+      },
+      {
+        "id": "f3a468f42647aa8a97b5c18b22184966f66f340ad42ee41956801e33d9a1f9d7",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605234Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-084\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605134932Z\"}"
+      },
+      {
+        "id": "c93ef1f65b48af4f25b134a405d37f29258ccfdcd124308670f80957ace7f55a",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605233Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-083\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605131242Z\"}"
+      },
+      {
+        "id": "8238ad90cda7ac074cb84262d5b6f7c1906eaf6c09bdd44c9f53f14570f3dac4",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605231Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-082\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605127732Z\"}"
+      },
+      {
+        "id": "ff1351d13f445a1a8ea7259dd389aae055de1ba304210f9502d8226cd8973c07",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605229Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-081\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605124132Z\"}"
+      },
+      {
+        "id": "c420db6d435e23b796a0523c659a1eaf3e81194742e5296a7c11ffd3ac3d7bd3",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605227Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-080\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605120622Z\"}"
+      },
+      {
+        "id": "c231df27babe0f3a25f1762f5f9386781fb9ea63de89471931756d94a245e8a8",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605226Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-079\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605117202Z\"}"
+      },
+      {
+        "id": "c83331496e1eff07df2d5746b2dbdea155dc5ec537f84c80828ae05c517f9fc3",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605224Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-078\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605113782Z\"}"
+      },
+      {
+        "id": "3a0b6c9fe7764fdf86c2215fc1e6a7fa4d19f02b4ef92e5f7030828acdaf9b55",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605222Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-077\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605110272Z\"}"
+      },
+      {
+        "id": "ca38fc24f8e7dcdc47d3d2865145073db87f1be44db1a30a8b6dedc55ef5e2c0",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.60522Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-076\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605106582Z\"}"
+      },
+      {
+        "id": "daef980e338a138338b31e6bb22b01de953dac4645e09ad8db53f6581248560c",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605215Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-075\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605103252Z\"}"
+      },
+      {
+        "id": "5259d2068c1381beea8ab4027000663f0192e2421847f1e96a9fd8cd998ec5da",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605213Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-074\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605100102Z\"}"
+      },
+      {
+        "id": "7f70b67e72ca7baa0e17f7eeb18aa2b8aac1a25a3be5e35d2d4e58f34470db0c",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605211Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-073\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605094072Z\"}"
+      },
+      {
+        "id": "becaeee8ca6492f0b84e68e869f60f267ce5ebd8b0e0a7cb9940d6d8d4b9b403",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605206Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-072\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605085432Z\"}"
+      },
+      {
+        "id": "219d46b22ec61bf46be3bcbadcbaef8074d28525c61d3290752693b3267e9c6b",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605167Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-071\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605082012Z\"}"
+      },
+      {
+        "id": "b48a6adbad3877e907216f43dc3aa5186dfdd279070d6cc3cbeb83e05a4547c7",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605165Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-070\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605078592Z\"}"
+      },
+      {
+        "id": "6bed24f8df9d08589ecd506a759390213a18555ac0d8a92524223205c8130642",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605163Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-069\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605075082Z\"}"
+      },
+      {
+        "id": "7734579c29b7c15c817f0d28a4e2de8bc8bf27d3d0d113003789fb2a27c9cc6b",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605161Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-068\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605071482Z\"}"
+      },
+      {
+        "id": "fb998f04a3de61272ec620cc5c61363fb7693358a07ddc11befb584d232426ea",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605156Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-067\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605068062Z\"}"
+      },
+      {
+        "id": "8e02d23642ba6786d4202a6ed9acab2ee536f19b68a8b168151c8213e9b6f0f2",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605154Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-066\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605064282Z\"}"
+      },
+      {
+        "id": "14260b8f105175c646a9d85a4155d476b5f252d8cb0b6f761a0ad44ed9780c72",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605152Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-065\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605061042Z\"}"
+      },
+      {
+        "id": "fc14dade53ba2338ed22d5539de29dcdd00a9fdd59eaae16d51d409212e5ac5a",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.60515Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-064\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605057442Z\"}"
+      },
+      {
+        "id": "c7c972d9740d42a56fc6e5db356346b13ca883dca5786d831e7e9f347e6cd4b7",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605149Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-063\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605054112Z\"}"
+      },
+      {
+        "id": "af72b35fc952894e4a63ddb5d43ae00c6b658ba7405060e83cc2c262a683fb3c",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605147Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-062\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605050872Z\"}"
+      },
+      {
+        "id": "c461c508eb29d8ee3e3ad6bf567eb3fad4f49f463cdf59a2a0c015c03b1d61a9",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605145Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-061\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605047542Z\"}"
+      },
+      {
+        "id": "a2f40105582077c3fbfbd6d35d4f9e192e09ece25e946c7b6c7d13902f3d2ff3",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605143Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-060\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605044212Z\"}"
+      },
+      {
+        "id": "926118040c0b3d70e7eec4cb108f6c48a7653a601a710ff93da92e4629d33d3d",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605142Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-059\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605041062Z\"}"
+      },
+      {
+        "id": "00eea22f58fc004afe67811aa77b5dcd13ae513d5a2dfc48d20c0c591caaf083",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.60514Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-058\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605032062Z\"}"
+      },
+      {
+        "id": "8554358dfef0009821689d0f73e7370b0f091bc9298babe65eb7c83369ef18b8",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605138Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-057\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605028732Z\"}"
+      },
+      {
+        "id": "b18178a4ba52fd6b23f8314b39f311c1aa3e83f914dd2f651f2978ac70abbc5c",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605136Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-056\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605025222Z\"}"
+      },
+      {
+        "id": "bab2cf390e97ba71da695d3f1b673f9f7457d6c6f8fd983f77bcdb07488cd92f",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605134Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-055\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605021262Z\"}"
+      },
+      {
+        "id": "2f83ff5f2f878a62174eb69d4adfd5f9674695950904158d6c420861c67054a0",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605133Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-054\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605015052Z\"}"
+      },
+      {
+        "id": "a2b2b8816339979e5c16c91e5b3a2912354dc3f704d5055ef721370e9c86e7f1",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605131Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-053\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605011812Z\"}"
+      },
+      {
+        "id": "79bfc2aefe219af8f9986c0422d2adcf4963f4bb3ffe4ea1514e6b1a98bd9196",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605129Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-052\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605008572Z\"}"
+      },
+      {
+        "id": "7cccee3552cab20b72e277e0b05cb1079dd5e3786fa5f358e7dfcaf6f96d2303",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605127Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-051\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605005062Z\"}"
+      },
+      {
+        "id": "5bed4297cf3badc4317906f403e915636ae6e9ed6b0d70145205f91eeadae5ee",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605121Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-050\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.605001822Z\"}"
+      },
+      {
+        "id": "bb761c2b9a020bcb2c5080aa1fb68c1bc88a1d949cf4ae53225f7f34e89c09f6",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605119Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-049\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604998582Z\"}"
+      },
+      {
+        "id": "e0a76838f4025169a898ee32cc48337917b0e97e87f53cf71c5027b1d05b336d",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605117Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-048\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604995342Z\"}"
+      },
+      {
+        "id": "8a549cce6c0a5bec71cb3000157aca231f919a98e72cc2e96623bcc6cf68036d",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605115Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-047\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604983192Z\"}"
+      },
+      {
+        "id": "7fd0d8147faa1aed57e11049f2ab39a0013dfb368f9897014880ec15ad5ce1b7",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605113Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-046\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604975992Z\"}"
+      },
+      {
+        "id": "cbfc6ad19615c76fc20620327bfcc1f617ceae19994db5d7df9aeb011cc890bd",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605111Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-045\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604945752Z\"}"
+      },
+      {
+        "id": "edd83e109e12a13c27eada6c3e40f9de00f647380a875f7756dc1f43171ac0ac",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605104Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-044\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604934322Z\"}"
+      },
+      {
+        "id": "d00eca70ebc46db73c2a70928306b9a8d4d4c8c7a88a9e66a913fe5fa37530d7",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605093Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-043\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604930812Z\"}"
+      },
+      {
+        "id": "c448347aec324a8b8bc5bb0b91ac8f272b526fb4b01b75e9c586339aa783be46",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605054Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-042\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604927302Z\"}"
+      },
+      {
+        "id": "5c6f208576b18bc1f11db4450de80ec8ecf928cf40fdf38c2290b44fd5bc8ca7",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605053Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-041\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604923882Z\"}"
+      },
+      {
+        "id": "675f2ed8393a32ace9cd5ebf30ca2e35b0b1b8336ab22c777f54174fa746e41b",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605051Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-040\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604920372Z\"}"
+      },
+      {
+        "id": "b060691eb49dbf0968ada4b16b3af33839120443dade0dcd423ef0bcac6859d0",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605049Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-039\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604916862Z\"}"
+      },
+      {
+        "id": "f14f04ac415de7ce5c7e6822424c769312941911d666a4a9e24ffd0bba2fdf90",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605047Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-038\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604913442Z\"}"
+      },
+      {
+        "id": "e7cad5dec7e9d6e4ffc03dc1791344ff4ae4b1092b161c3872cf65f5dccb8f9f",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605045Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-037\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604909662Z\"}"
+      },
+      {
+        "id": "3789e64a3db5a2409ea7dfb05fa5dc85fa416d29e0b204dbb2ed8101afa17af4",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605044Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-036\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604906152Z\"}"
+      },
+      {
+        "id": "f0e19b592bf97f9a54429ea662f442e4c57bb762694ccec5690f7a33e1a7f867",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605042Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-035\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604902552Z\"}"
+      },
+      {
+        "id": "803f68cf1d3fc0e64fb33f8ffa1c6e36e5c03d63b571b73ac2b026e5ca74fe68",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.60504Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-034\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604898952Z\"}"
+      },
+      {
+        "id": "c248fbf187e511e726f2293a946bde7272bd60eeb58ab1e2f333276f3efa3c47",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605038Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-033\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604895532Z\"}"
+      },
+      {
+        "id": "bacaa28e5a096f77a29475baae0f3da68192c8fb5dc0cba2b46cad9db6cffe7e",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605036Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-032\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604891752Z\"}"
+      },
+      {
+        "id": "a846f8d10af8346038e618105d9e0515da7c230222d9af40ee93a02d6f151f4a",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605035Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-031\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604888152Z\"}"
+      },
+      {
+        "id": "3e7faa30791cab3d35d053423d0d15f13562deaa3bb500bff736e8250ed6eaa3",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605033Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-030\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604884912Z\"}"
+      },
+      {
+        "id": "b2cdcca73422de9998a6d7b4cf2c5e832a9b7d63587359343920f450c08dd218",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605031Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-029\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604881672Z\"}"
+      },
+      {
+        "id": "341bfad51e6dfe164f680303a3dc6f180789ae247463ac985b8d9daab8e1f23d",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605029Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-028\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604878252Z\"}"
+      },
+      {
+        "id": "87b7baf42dc6accf3d887a997c2a4f3cc889dbf42520bda05dcaf78004eac0bf",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605028Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-027\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604874742Z\"}"
+      },
+      {
+        "id": "b4d7d77a8d70f5757ae496a74c9006e7d8a45ea22382d104824dbd8c63888fe8",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605026Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-026\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604871322Z\"}"
+      },
+      {
+        "id": "2fb94e78aa8e36f30ae96ccee0f14153be67d1713940d35c7c15c49a8dae3d07",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:10.605024Z",
+        "podUid": "4008d76d-f14f-4742-b6e8-66488f6ee7cc",
+        "podName": "telemetry-app-5749449fdd-cjqnd",
+        "container": "main",
+        "restartIndex": 0,
+        "level": "INFO",
+        "message": "{\"boot\":\"boot-951dc56ba86def9d\",\"level\":\"INFO\",\"message\":\"batch-line-025\",\"revision\":\"v1\",\"time\":\"2026-10-25T01:55:10.604867632Z\"}"
+      }
+    ],
+    "logCount": 129,
+    "errorCount": 1,
+    "histogram": [
+      {
+        "timestamp": "2026-10-25T00:55:41.361604919Z",
+        "count": 0
+      },
+      {
+        "timestamp": "2026-10-25T00:59:26.361604919Z",
+        "count": 0
+      },
+      {
+        "timestamp": "2026-10-25T01:03:11.361604919Z",
+        "count": 0
+      },
+      {
+        "timestamp": "2026-10-25T01:06:56.361604919Z",
+        "count": 0
+      },
+      {
+        "timestamp": "2026-10-25T01:10:41.361604919Z",
+        "count": 0
+      },
+      {
+        "timestamp": "2026-10-25T01:14:26.361604919Z",
+        "count": 0
+      },
+      {
+        "timestamp": "2026-10-25T01:18:11.361604919Z",
+        "count": 0
+      },
+      {
+        "timestamp": "2026-10-25T01:21:56.361604919Z",
+        "count": 0
+      },
+      {
+        "timestamp": "2026-10-25T01:25:41.361604919Z",
+        "count": 0
+      },
+      {
+        "timestamp": "2026-10-25T01:29:26.361604919Z",
+        "count": 0
+      },
+      {
+        "timestamp": "2026-10-25T01:33:11.361604919Z",
+        "count": 0
+      },
+      {
+        "timestamp": "2026-10-25T01:36:56.361604919Z",
+        "count": 0
+      },
+      {
+        "timestamp": "2026-10-25T01:40:41.361604919Z",
+        "count": 0
+      },
+      {
+        "timestamp": "2026-10-25T01:44:26.361604919Z",
+        "count": 0
+      },
+      {
+        "timestamp": "2026-10-25T01:48:11.361604919Z",
+        "count": 0
+      },
+      {
+        "timestamp": "2026-10-25T01:51:56.361604919Z",
+        "count": 1
+      }
+    ],
+    "nextCursor": "eyJ0IjoiMjAyNi0xMC0yNVQwMTo1NToxMC42MDUwMjRaIiwiaSI6IjJmYjk0ZTc4YWE4ZTM2ZjMwYWU5NmNjZWUwZjE0MTUzYmU2N2QxNzEzOTQwZDM1YzdjMTVjNDlhOGRhZTNkMDcifQ",
+    "points": [
+      {
+        "id": "",
+        "sourceKey": "",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:30Z",
+        "metricsAt": "2026-10-25T01:55:30Z",
+        "cpuMilli": 3.890466,
+        "memoryBytes": 1593344,
+        "cpuLimitMilli": null,
+        "memoryLimitBytes": null,
+        "readyPods": 1,
+        "totalPods": 1,
+        "restarts": 0
+      }
+    ],
+    "latest": [
+      {
+        "id": "ee229d3aaadf4742511b276c73f230accaa28428039063266f2b47d75140352e",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:55:30Z",
+        "metricsAt": "2026-10-25T01:55:30Z",
+        "cpuMilli": 3.890466,
+        "memoryBytes": 1593344,
+        "cpuLimitMilli": 250,
+        "memoryLimitBytes": 268435456,
+        "readyPods": 1,
+        "totalPods": 1,
+        "restarts": 0
+      }
+    ],
+    "peaks": [
+      {
+        "workloadId": "telemetry-app",
+        "metric": "cpu",
+        "timestamp": "2026-10-25T01:55:30Z",
+        "value": 3.890466,
+        "limit": 250,
+        "percent": 1.5561864
+      },
+      {
+        "workloadId": "telemetry-app",
+        "metric": "memory",
+        "timestamp": "2026-10-25T01:55:30Z",
+        "value": 1593344,
+        "limit": 268435456,
+        "percent": 0.59356689453125
+      }
+    ],
+    "usagePeaks": [
+      {
+        "workloadId": "telemetry-app",
+        "metric": "cpu",
+        "timestamp": "2026-10-25T01:55:30Z",
+        "value": 3.890466
+      },
+      {
+        "workloadId": "telemetry-app",
+        "metric": "memory",
+        "timestamp": "2026-10-25T01:55:30Z",
+        "value": 1593344
+      }
+    ],
+    "events": [],
+    "eventCount": 0,
+    "sources": [
+      {
+        "workloadId": "telemetry-app",
+        "logsCode": "OK",
+        "metricsCode": "OK",
+        "observedAt": "2026-10-25T01:55:39.323137Z",
+        "lastLogAt": "2026-10-25T01:55:35.47479Z",
+        "lastMetricAt": "2026-10-25T01:55:30Z",
+        "storageLimited": false
+      }
+    ],
+    "state": "RECEIVING",
+    "from": "2026-10-25T00:55:41.361604919Z",
+    "to": "2026-10-25T01:55:41.36160492Z",
+    "generatedAt": "2026-10-25T01:55:41.361604919Z",
+    "stepSeconds": 30,
+    "workloads": [
+      "telemetry-app"
+    ],
+    "signalCount": 0,
+    "logsRetentionDays": 7,
+    "metricsRetentionDays": 15,
+    "hasHistory": true
+  },
+  "high": {
+    "peaks": [
+      {
+        "workloadId": "telemetry-app",
+        "metric": "cpu",
+        "timestamp": "2026-10-25T01:56:37Z",
+        "value": 249.546939,
+        "limit": 250,
+        "percent": 99.8187756
+      },
+      {
+        "workloadId": "telemetry-app",
+        "metric": "memory",
+        "timestamp": "2026-10-25T01:56:37Z",
+        "value": 221220864,
+        "limit": 268435456,
+        "percent": 82.41119384765625
+      }
+    ],
+    "latest": [
+      {
+        "id": "eb084d545464dedbaf3bf7a51f1d43c855222abf3312473c015970556eaa13ae",
+        "sourceKey": "f5df7c472c5903037f4c3ad3abb97394d56f2ca4639c2f8ab8983cc2faf5a2ca",
+        "workloadId": "telemetry-app",
+        "timestamp": "2026-10-25T01:56:37Z",
+        "metricsAt": "2026-10-25T01:56:37Z",
+        "cpuMilli": 249.546939,
+        "memoryBytes": 221220864,
+        "cpuLimitMilli": 250,
+        "memoryLimitBytes": 268435456,
+        "readyPods": 1,
+        "totalPods": 1,
+        "restarts": 0
+      }
+    ],
+    "source": [
+      {
+        "workloadId": "telemetry-app",
+        "logsCode": "OK",
+        "metricsCode": "OK",
+        "observedAt": "2026-10-25T01:56:46.476893Z",
+        "lastLogAt": "2026-10-25T01:56:42.666274Z",
+        "lastMetricAt": "2026-10-25T01:56:37Z",
+        "storageLimited": false
+      }
+    ]
+  },
+  "replacementPod": {
+    "uid": "cc34c4d1-c405-4421-9568-bbb52ce1f9c7",
+    "name": "telemetry-app-5c4c4b4787-5wdwm",
+    "image": "observability-app:obs1025r7",
+    "restartCount": 0
+  },
+  "backendRestart": {
+    "before": "2026-10-25T01:54:31.155439725Z",
+    "after": "2026-10-25T01:58:29.532380724Z"
+  },
+  "completed": true,
+  "mutations": [
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/sign-in"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/driver-accounts/internal/inspect"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/driver-accounts/internal"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/resource-types"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/resource-types"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/resource-types"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/resource-definitions"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/resource-definitions"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/resource-definitions"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/sign-out"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/sign-in"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/applications"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/applications/ca141bd4-6e28-4b97-9f14-a18a101ae7a6/environments/staging/workloads/parse"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/applications/ca141bd4-6e28-4b97-9f14-a18a101ae7a6/environments/staging/workloads/telemetry-app"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/applications/ca141bd4-6e28-4b97-9f14-a18a101ae7a6/environments/staging/preview"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/applications/ca141bd4-6e28-4b97-9f14-a18a101ae7a6/environments/staging/deploy"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/applications/ca141bd4-6e28-4b97-9f14-a18a101ae7a6/environments/staging/workloads/parse"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/applications/ca141bd4-6e28-4b97-9f14-a18a101ae7a6/environments/staging/workloads/telemetry-app"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/applications/ca141bd4-6e28-4b97-9f14-a18a101ae7a6/environments/staging/preview"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/applications/ca141bd4-6e28-4b97-9f14-a18a101ae7a6/environments/staging/deploy"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/applications/ca141bd4-6e28-4b97-9f14-a18a101ae7a6/environments/staging/workloads/telemetry-app"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/applications/ca141bd4-6e28-4b97-9f14-a18a101ae7a6/environments/staging/preview"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/applications/ca141bd4-6e28-4b97-9f14-a18a101ae7a6/environments/staging/deploy"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/sign-out"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/sign-in"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/applications/ca141bd4-6e28-4b97-9f14-a18a101ae7a6/environments/staging/resources/a3dd0d6a-ac2e-45c6-b7b3-3ab2c4721852/deletion-preview"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/applications/ca141bd4-6e28-4b97-9f14-a18a101ae7a6/environments/staging/resources/a3dd0d6a-ac2e-45c6-b7b3-3ab2c4721852/deletions"
+    }
+  ]
+}

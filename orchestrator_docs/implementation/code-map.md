@@ -57,6 +57,9 @@ Canonical behavior: [UC-04 DIAG-01..14](../usecase/UC-04/specification.md#accoun
 
 | Design concern | Implementation entry point |
 |---|---|
+| Real new-user native telemetry acceptance | `backend/test/integration/observability-kind.sh`, `frontend/test/e2e/observability-kind.mjs`, `backend/examples/observability-app/`; [48-check evidence](../verification/2026-10-25-native-observability-live.md) |
+| ADR-023 / UC-09 TEL native collection and history | `backend/internal/domain/telemetry/`, `ports/observability/`, `ports/persistence/telemetry.go`, `adapters/{kubernetes,store,postgres}/telemetry.go`, `application/observability/`, `delivery/http/observability.go`, `bootstrap/bootstrap.go`; [handoff](native-observability.md) |
+| Approved application telemetry UI | `frontend/src/features/observability/`, ApplicationHomePage, App/routes, existing AppShell, `frontend/test/e2e/observability.mjs`; [verification](../verification/2026-10-25-native-observability.md) |
 | ADR-020 Console message catalogs and language selector | `frontend/public/locales/` (`manifest.json`, `vi.json`, `en.json`), `frontend/src/shared/i18n/index.ts` (`t`, locale pick/load, `intlLocale`), `frontend/src/main.tsx` (load before App import), `frontend/src/shared/ui/LanguageSelect.tsx`; tests `frontend/src/shared/i18n/i18n.test.ts`, `frontend/src/test/setup.ts` |
 | ADR-019 safe review and applied baseline | `backend/internal/application/deploymentreview/`; `registry.Service.ReadPinned`; `deployment/snapshot.go`, `deployment/service.go`; `planning.Plan.Review` |
 | Correlated operation, durable review and observed progress | `envops/manager.go`; `adapters/store/ops.go`; `adapters/postgres/operations.go`, `deployment.go`, `baseline.sql`; `deployment/query.go`, `node_progress.go`; HTTP `operations.go`, `pending.go` |

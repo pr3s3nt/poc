@@ -65,3 +65,10 @@ is UNAVAILABLE, never reconstructed from current catalog or mutable instances.
 Before admission, a filtered empty list means no execution records yet. Poll only
 exact returned IDs; do not fall back to latest deployment. Response errors use
 existing safe error handling. No provider refresh or new mutation endpoint.
+
+## Application telemetry
+
+Overview, logs and metrics use the authenticated scoped GET endpoints in
+[the telemetry contract](../../../architecture/contracts/observability.md#read-api).
+Polling reads stored observations, never invokes the collector. Page cursors and
+ISO time bounds are opaque/validated; no client-supplied organization or target.

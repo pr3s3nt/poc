@@ -493,6 +493,56 @@ CREATE TRIGGER terraform_resource_attempts_scope BEFORE INSERT ON terraform_reso
 CREATE TRIGGER terraform_resource_attempts_retained BEFORE DELETE ON terraform_resource_attempts
   FOR EACH ROW EXECUTE FUNCTION terraform_retained();
 
+
+-- ADR-023: received application telemetry is distinct from orchestration state.
+CREATE TABLE telemetry_sources (
+ source_key text PRIMARY KEY CHECK(source_key ~ '^[0-9a-f]{64}$'),
+ environment_id uuid NOT NULL REFERENCES environments(id),
+ target_generation bigint NOT NULL CHECK(target_generation >= 0),
+ workload_id text NOT NULL,
+ target_hash text NOT NULL CHECK(target_hash ~ '^[0-9a-f]{64}$'),
+ checkpoints jsonb NOT NULL DEFAULT '{}' CHECK(jsonb_typeof(checkpoints)='object'),
+ lease_owner text NOT NULL DEFAULT '', fence bigint NOT NULL DEFAULT 0 CHECK(fence >= 0),
+ lease_until timestamptz NOT NULL, logs_code text NOT NULL, metrics_code text NOT NULL,
+ observed_at timestamptz, last_log_at timestamptz, last_metric_at timestamptz,
+ limited boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE(environment_id,target_generation,workload_id,target_hash)
+);
+CREATE TABLE telemetry_logs (
+ id text PRIMARY KEY CHECK(id ~ '^[0-9a-f]{64}$'),
+ source_key text NOT NULL REFERENCES telemetry_sources(source_key),
+ timestamp timestamptz NOT NULL, pod_uid text NOT NULL, pod_name text NOT NULL,
+ container_name text NOT NULL, restart_index bigint NOT NULL CHECK(restart_index >= 0),
+ level text NOT NULL CHECK(level IN ('ERROR','WARN','INFO','DEBUG','UNKNOWN')),
+ message text NOT NULL CHECK(octet_length(message) <= 16384)
+);
+CREATE INDEX telemetry_logs_source_time ON telemetry_logs(source_key,timestamp DESC,id DESC);
+CREATE INDEX telemetry_logs_expiry ON telemetry_logs(timestamp);
+CREATE INDEX telemetry_logs_level_time ON telemetry_logs(source_key,level,timestamp DESC);
+CREATE TABLE telemetry_samples (
+ id text PRIMARY KEY CHECK(id ~ '^[0-9a-f]{64}$'),
+ source_key text NOT NULL REFERENCES telemetry_sources(source_key),
+ observed_at timestamptz NOT NULL, metrics_at timestamptz,
+ cpu_milli double precision CHECK(cpu_milli >= 0 AND cpu_milli < 'Infinity'::float8),
+ memory_bytes double precision CHECK(memory_bytes >= 0 AND memory_bytes < 'Infinity'::float8),
+ cpu_limit_milli double precision CHECK(cpu_limit_milli >= 0 AND cpu_limit_milli < 'Infinity'::float8),
+ memory_limit_bytes double precision CHECK(memory_limit_bytes >= 0 AND memory_limit_bytes < 'Infinity'::float8),
+ ready_pods bigint NOT NULL CHECK(ready_pods >= 0),
+ total_pods bigint NOT NULL CHECK(total_pods >= ready_pods), restarts bigint NOT NULL CHECK(restarts >= 0)
+);
+CREATE INDEX telemetry_samples_source_time ON telemetry_samples(source_key,observed_at DESC);
+CREATE INDEX telemetry_samples_expiry ON telemetry_samples(observed_at);
+CREATE TABLE telemetry_events (
+ id text PRIMARY KEY CHECK(id ~ '^[0-9a-f]{64}$'),
+ source_key text NOT NULL REFERENCES telemetry_sources(source_key),
+ timestamp timestamptz NOT NULL, pod_uid text NOT NULL, pod_name text NOT NULL, container_name text NOT NULL,
+ kind text NOT NULL CHECK(kind IN ('RESTART','WAITING','FAILED')),
+ reason text NOT NULL CHECK(reason IN ('OOMKilled','Error','Completed','CrashLoopBackOff','ImagePullBackOff','ErrImagePull','CreateContainerConfigError','Failed','Unknown')),
+ occurrences bigint NOT NULL CHECK(occurrences > 0)
+);
+CREATE INDEX telemetry_events_source_time ON telemetry_events(source_key,timestamp DESC,id DESC);
+CREATE INDEX telemetry_events_expiry ON telemetry_events(timestamp);
+
 -- Infrastructure Account diagnostic reports (ADR-022): a separate
 -- Organization/account aggregate. History is never stored in
 -- connections.verification and never changes connections.version. Terminal

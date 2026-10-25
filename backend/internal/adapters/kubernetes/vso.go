@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -119,7 +120,7 @@ func (s *VSOSynchronizer) removeSynchronized(ctx context.Context, target executi
 	list := func(kind string) ([]map[string]any, error) {
 		out, err := cli.Run(ctx, nil, "get", kind, "-n", ns, "-o", "json")
 		if err != nil {
-			if strings.Contains(err.Error(), "doesn't have a resource type") || strings.Contains(fmt.Sprint(err), "NotFound") {
+			if errors.Is(err, ErrResourceTypeNotFound) || errors.Is(err, ErrObjectNotFound) {
 				return nil, nil
 			}
 			return nil, err

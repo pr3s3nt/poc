@@ -41,6 +41,7 @@ var productTables = []string{
 	"deployment_resources", "configuration_revisions",
 	"configuration_revision_entries", "workload_drafts", "workload_instances",
 	"deployment_workloads",
+	"telemetry_sources", "telemetry_logs", "telemetry_samples", "telemetry_events",
 }
 
 // consoleInstanceColumns and consoleAttemptColumns are the only instance and

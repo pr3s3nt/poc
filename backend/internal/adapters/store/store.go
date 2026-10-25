@@ -25,12 +25,17 @@ import (
 	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/secretstore"
+	"orchestrator/internal/domain/telemetry"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
 )
 
 type state struct {
+	TelemetrySources    map[string]telemetry.State                    `json:"telemetrySources"`
+	TelemetryLogs       map[string]telemetry.Log                      `json:"telemetryLogs"`
+	TelemetrySamples    map[string]telemetry.Sample                   `json:"telemetrySamples"`
+	TelemetryEvents     map[string]telemetry.Event                    `json:"telemetryEvents"`
 	Organizations       map[string]application.Organization           `json:"organizations"`
 	UserAccounts        map[string]identity.UserAccount               `json:"userAccounts"`
 	Sessions            map[string]identity.Session                   `json:"sessions"`
@@ -65,6 +70,8 @@ type state struct {
 
 func newState() *state {
 	return &state{
+		TelemetrySources: map[string]telemetry.State{}, TelemetryLogs: map[string]telemetry.Log{},
+		TelemetrySamples: map[string]telemetry.Sample{}, TelemetryEvents: map[string]telemetry.Event{},
 		Organizations:       map[string]application.Organization{},
 		UserAccounts:        map[string]identity.UserAccount{},
 		Sessions:            map[string]identity.Session{},
