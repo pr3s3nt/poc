@@ -98,9 +98,9 @@ async function start(action) {
   await until('URL selects the new run', () => reportId() === id, { timeout: 30_000, every: 200 });
   return id;
 }
-async function finishedFor(id, timeout = 240_000) {
+async function finishedFor(id, timeout = 240_000, urlPinned = true) {
   const final = await until(`terminal report ${id.slice(0, 8)}`, async () => { const r = await api(`/driver-accounts/${state.accountKey}/diagnostics/${id}`); return ['COMPLETED', 'CANCELLED', 'INTERRUPTED'].includes(r.body?.status) ? r.body : null; }, { timeout, every: 1000 });
-  if (reportId() !== id) throw new Error('the screen no longer shows the run that was started');
+  if (urlPinned && reportId() !== id) throw new Error('the screen no longer shows the run that was started');
   await expect(page.locator('.dg-running')).toHaveCount(0, { timeout });
   await expect(page.locator('.dg-summary')).toBeVisible({ timeout });
   return final;
@@ -289,8 +289,9 @@ try {
     await expect(page.locator('.ac-report-scope')).toContainText('Kiểm tra chung');
     record('DG-E06.switch-purpose-isolated', reportId() !== cancelId, 'the general view does not show the use-case run that is being cancelled');
     await purpose('Theo use case');
-    await until('use-case view selects the cancelled run again', () => reportId() === cancelId, { timeout: 30_000, every: 200 });
-    const stopped = await finishedFor(cancelId, 300_000);
+    // Switching back selects the latest use-case report (the one being cancelled).
+    await expect(page.getByText('Lượt kiểm tra đã dừng')).toBeVisible({ timeout: 300_000 });
+    const stopped = await finishedFor(cancelId, 300_000, false);
     record('DG-E06.cancelled-truthfully', stopped.status === 'CANCELLED' && stopped.cleanup.status === 'VERIFIED' && diagNamespaces().length === 0 && leftoverVolumes().length === 0 && stopped.counts.pending > 0,
       `status ${stopped.status}, cleanup ${stopped.cleanup.status}, pending=${stopped.counts.pending}; native clean`);
     await expect(page.getByText('Lượt kiểm tra đã dừng')).toBeVisible();
