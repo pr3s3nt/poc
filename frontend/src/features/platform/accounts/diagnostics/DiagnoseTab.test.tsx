@@ -192,11 +192,11 @@ describe('account diagnostics tab', () => {
   });
 
   it('exports only the safe report with its scope, limits and findings', async () => {
-    const r = report('r5', [finding('k8s.api', 'PASS', 'API_ANSWERED')]);
+    const r = report('r5', [finding('k8s.api', 'PASS', 'API_ANSWERED')], { scope: scope({ purpose: 'USE_CASE', useCases: ['database'], context: { applicationKey: 'shop', applicationVersion: 3, environmentKey: 'staging', environmentVersion: 5, draftVersion: 7, configVersion: 2, definitions: [{ key: 'pg', version: 4 }] } }) });
     stubApi(harness([r]).handler);
     let blob: Blob | undefined;
     vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: (b: Blob) => { blob = b; return 'blob:x'; }, revokeObjectURL: () => undefined }));
-    mount();
+    mount({ purpose: 'USE_CASE' });
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
     await user().click(await screen.findByRole('button', { name: 'Xuất JSON' }));
     const text = await new Promise<string>((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.readAsText(blob!); });
@@ -204,6 +204,8 @@ describe('account diagnostics tab', () => {
     expect(body.account).toEqual({ key: 'lab-cluster', name: 'Lab cluster', type: 'INTERNAL' });
     expect(body.report.scope.accountVersion).toBe(3);
     expect(body.report.limits).toEqual(['CONDITIONS_ONLY']);
+    // The exported scope keeps the exact versioned context of the plan.
+    expect(body.report.scope.context).toMatchObject({ applicationVersion: 3, environmentVersion: 5, draftVersion: 7, configVersion: 2, definitions: [{ key: 'pg', version: 4 }] });
     expect(JSON.stringify(body)).not.toMatch(/secret|token|kubeconfig/i);
   });
 

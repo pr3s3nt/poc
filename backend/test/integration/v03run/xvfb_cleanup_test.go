@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 	"testing"
+	"time"
 )
 
 func TestCleanupUsesActualPrivateXvfbLaunchRecord(t *testing.T) {

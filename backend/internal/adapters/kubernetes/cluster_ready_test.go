@@ -87,9 +87,16 @@ func TestClusterReadyReportsEachFailureAsItsOwnFixedCategory(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+			// The first failed attempt is observed, then the wait is cancelled
+			// (the Sleep hook runs only after an attempt that finished): the
+			// category does not depend on how fast a shell stub starts. The
+			// long deadline is only a safety net; the deadline-before-any-
+			// observation case has its own test below.
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
-			err := checker(tc.path, tc.creds).WaitClusterReady(ctx, eksTarget())
+			c := checker(tc.path, tc.creds)
+			c.Sleep = func(context.Context, time.Duration) { cancel() }
+			err := c.WaitClusterReady(ctx, eksTarget())
 			if !errors.Is(err, tc.want) {
 				t.Fatalf("err = %v, want %v", err, tc.want)
 			}
@@ -97,6 +104,17 @@ func TestClusterReadyReportsEachFailureAsItsOwnFixedCategory(t *testing.T) {
 				t.Fatalf("a raw message leaked: %v", err)
 			}
 		})
+	}
+}
+
+// A deadline that passes before any attempt finishes says nothing about the
+// cluster: the result is the generic not-ready category, never a guessed one.
+func TestClusterReadyDeadlineBeforeAnyObservationIsGenericNotReady(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := checker(kubectlStub(t, 0, "yes", `{"items":[]}`), &stubCredentials{}).WaitClusterReady(ctx, eksTarget())
+	if !errors.Is(err, execution.ErrClusterNotReady) || errors.Is(err, execution.ErrClusterNoCapacity) {
+		t.Fatalf("err = %v, want the generic not-ready category", err)
 	}
 }
 

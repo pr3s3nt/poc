@@ -165,6 +165,21 @@ func TestSavedUndeployedDraftIsPlannedIntoExactRequirementsBeforeAnyProbe(t *tes
 	if scope["applicationKey"] != opts.ApplicationKey || scope["environmentKey"] != "staging" {
 		t.Fatalf("context: %v", scope)
 	}
+	// The exact versions the plan used are part of the public report and export.
+	pins, _ := scope["definitions"].([]any)
+	if scope["applicationVersion"].(float64) < 1 || scope["environmentVersion"].(float64) < 1 || scope["draftVersion"].(float64) < 1 || len(pins) == 0 {
+		t.Fatalf("the versioned context is not retained: %v", scope)
+	}
+	foundPG := false
+	for _, p := range pins {
+		pin := p.(map[string]any)
+		if pin["key"] == "pg-fast" && pin["version"].(float64) >= 1 {
+			foundPG = true
+		}
+	}
+	if !foundPG {
+		t.Fatalf("the matched Definition is not pinned: %v", pins)
+	}
 
 	// A draft whose resource no Definition implements is an observed FAIL with planner enums, not an empty context;
 	// a selection that needs no plan is not failed by it.

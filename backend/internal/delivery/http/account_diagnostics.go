@@ -27,11 +27,23 @@ func (s *Server) registerAccountDiagnosticRoutes() {
 	s.mux.HandleFunc("POST /api/v1/driver-accounts/{key}/diagnostics/{id}/cancel", s.handleCancelDiagnostic)
 }
 
+// diagContextView is the Application/Environment a report was planned from,
+// with the exact versions it pinned (so history and export retain the context).
 type diagContextView struct {
-	ApplicationKey  string `json:"applicationKey"`
-	ApplicationName string `json:"applicationName,omitempty"`
-	EnvironmentKey  string `json:"environmentKey,omitempty"`
-	EnvironmentType string `json:"environmentType,omitempty"`
+	ApplicationKey     string              `json:"applicationKey"`
+	ApplicationName    string              `json:"applicationName,omitempty"`
+	ApplicationVersion int64               `json:"applicationVersion"`
+	EnvironmentKey     string              `json:"environmentKey,omitempty"`
+	EnvironmentType    string              `json:"environmentType,omitempty"`
+	EnvironmentVersion int64               `json:"environmentVersion,omitempty"`
+	DraftVersion       int64               `json:"draftVersion,omitempty"`
+	ConfigVersion      int64               `json:"configVersion,omitempty"`
+	Definitions        []diagDefinitionPin `json:"definitions"`
+}
+
+type diagDefinitionPin struct {
+	Key     string `json:"key"`
+	Version int64  `json:"version"`
 }
 
 type diagScopeView struct {
@@ -123,7 +135,12 @@ func diagScopeOf(sc domain.Scope) diagScopeView {
 	v := diagScopeView{Purpose: string(sc.Purpose), Mode: string(sc.Mode), Region: sc.Region, UseCases: orEmpty(sc.UseCases), AccountKey: sc.AccountKey, AccountName: sc.AccountName,
 		AccountType: sc.AccountType, AccountVersion: sc.AccountVersion, Identity: sc.Identity}
 	if c := sc.Context; c != nil {
-		v.Context = &diagContextView{ApplicationKey: c.ApplicationKey, ApplicationName: c.ApplicationName, EnvironmentKey: c.EnvironmentKey, EnvironmentType: c.EnvironmentType}
+		pins := make([]diagDefinitionPin, 0, len(c.Definitions))
+		for _, d := range c.Definitions {
+			pins = append(pins, diagDefinitionPin{Key: d.Key, Version: d.Version})
+		}
+		v.Context = &diagContextView{ApplicationKey: c.ApplicationKey, ApplicationName: c.ApplicationName, ApplicationVersion: c.ApplicationVersion, EnvironmentKey: c.EnvironmentKey,
+			EnvironmentType: c.EnvironmentType, EnvironmentVersion: c.EnvironmentVersion, DraftVersion: c.DraftVersion, ConfigVersion: c.ConfigVersion, Definitions: pins}
 	}
 	return v
 }

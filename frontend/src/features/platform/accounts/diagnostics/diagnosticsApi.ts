@@ -16,7 +16,10 @@ export type UseCase = (typeof useCaseKeys)[number];
 export type Counts = { pass: number; fail: number; blocked: number; unknown: number; na: number; pending: number };
 export type Scope = {
   purpose: Purpose; mode: Mode; region?: string; useCases: string[];
-  context?: { applicationKey: string; applicationName?: string; environmentKey?: string; environmentType?: string };
+  context?: {
+    applicationKey: string; applicationName?: string; applicationVersion?: number; environmentKey?: string; environmentType?: string; environmentVersion?: number;
+    draftVersion?: number; configVersion?: number; definitions?: { key: string; version: number }[];
+  };
   accountKey: string; accountName: string; accountType: 'AWS' | 'INTERNAL'; accountVersion: number; identity?: Record<string, string>;
 };
 export type Finding = {
