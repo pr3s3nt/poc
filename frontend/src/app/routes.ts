@@ -7,7 +7,7 @@ export type Route =
   | { name: 'resource-definitions'; resourceType?: string }
   | { name: 'rendering-templates' }
   | { name: 'connections' }
-  | { name: 'driver-accounts'; account?: string }
+  | { name: 'driver-accounts'; account?: string; tab?: 'diagnose'; purpose?: 'use-case'; report?: string }
   | { name: 'secret-stores' }
   | { name: 'effectiveness'; application?: string; workload?: string; days?: EffectivenessDays }
   | { name: 'create-application' }
@@ -42,8 +42,11 @@ export function parseRoute(path = window.location.pathname): Route {
   if (relative === '/platform/rendering-templates') return { name: 'rendering-templates' };
   if (relative === '/platform/connections') return { name: 'connections' };
   if (relative === '/platform/driver-accounts') {
-    const account = new URLSearchParams(search).get('account');
-    return { name: 'driver-accounts', ...(account ? { account } : {}) };
+    const query = new URLSearchParams(search);
+    const account = query.get('account');
+    const diagnose = !!account && query.get('tab') === 'diagnose';
+    const report = diagnose ? query.get('report') : null;
+    return { name: 'driver-accounts', ...(account ? { account } : {}), ...(diagnose ? { tab: 'diagnose' as const } : {}), ...(diagnose && query.get('purpose') === 'use-case' ? { purpose: 'use-case' as const } : {}), ...(report ? { report } : {}) };
   }
   if (relative === '/platform/secret-stores') return { name: 'secret-stores' };
   if (relative === '/platform/effectiveness') {
@@ -91,7 +94,14 @@ export function href(route: Route): string {
     case 'resource-definitions': return `${base}/platform/resource-definitions${route.resourceType ? `?resourceType=${encodeURIComponent(route.resourceType)}` : ''}`;
     case 'rendering-templates': return `${base}/platform/rendering-templates`;
     case 'connections': return `${base}/platform/connections`;
-    case 'driver-accounts': return `${base}/platform/driver-accounts${route.account ? `?account=${encodeURIComponent(route.account)}` : ''}`;
+    case 'driver-accounts': {
+      if (!route.account) return `${base}/platform/driver-accounts`;
+      const query = new URLSearchParams({ account: route.account });
+      if (route.tab) query.set('tab', route.tab);
+      if (route.tab && route.purpose) query.set('purpose', route.purpose);
+      if (route.tab && route.report) query.set('report', route.report);
+      return `${base}/platform/driver-accounts?${query.toString()}`;
+    }
     case 'secret-stores': return `${base}/platform/secret-stores`;
     case 'effectiveness': {
       const query = new URLSearchParams();

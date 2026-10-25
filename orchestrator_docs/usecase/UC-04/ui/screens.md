@@ -130,3 +130,26 @@ backend/executor must run on EC2 with that role attached, and retains explicit
 “Kiểm tra và lưu”. List/detail show the authentication method and canonical role.
 Role detail offers rename/reverify and explains automatic temporary credentials;
 no access-key replacement form. No pasted metadata token or temporary key.
+
+## Account diagnostics — DIAG-01..14
+
+The Infrastructure Accounts list adds a latest-diagnostic summary with scope,
+region/context when relevant and timestamp, separate from connection verification.
+The account detail has Information and Diagnose tabs, keeping all existing
+management forms/actions in Information. No separate sidebar entry is added.
+
+Diagnose offers **Kiểm tra chung** and **Theo use case**. The account is pinned.
+General requires no Application and only conditions mode; AWS can select a region.
+Use-case setup selects capabilities, optional Application and Environment, and
+conditions/supported execution mode. Missing Application context is explicit;
+Application-specific results are UNKNOWN until the context supplies requirements.
+These controls change only the diagnostic request, never account configuration.
+
+Reuse the approved account-integrated mock layout, actual shared shell/table/tab/
+Button styles and VI/EN catalogs. There is no production mock notice, scenario
+selector, fictional identity or fixture timing. Findings/actions use backend DTOs.
+Default results prioritize FAIL/BLOCKED/UNKNOWN. The adjacent inspector exposes
+observed/expected conditions, affected use cases, remediation and prerequisite
+links; safe technical evidence is an expandable disclosure. Export and history
+retain exact scope and time. A conditions-only result never implies actual
+workload/volume/cleanup readiness. Known stale context is visible.

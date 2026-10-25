@@ -17,7 +17,9 @@ phải theo [operations index](../operations/README.md).
 
 ## Navigation
 
-- [Basic application observability — implemented locally, live rollout pending](native-observability.md)
+- [Basic application observability — implemented and accepted on real Kubernetes](native-observability.md)
+
+- [Account diagnostics implementation and real acceptance](account-diagnostics.md) — authorized 2026-10-25; delivery tracked separately from design.
 
 - [DEVEX-ENV implementation handoff — implemented 2026-10-24](workload-environment-editor.md)
 

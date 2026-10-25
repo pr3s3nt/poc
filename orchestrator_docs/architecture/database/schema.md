@@ -7,7 +7,7 @@ last_reviewed: 2026-10-24
 
 # Database Schema
 
-PostgreSQL là system of record cho logical orchestration state. JSONB dùng cho immutable contract/plan documents và bounded telemetry checkpoints (ADR-022); identity, lifecycle và relations quan trọng được chuẩn hóa thành columns/tables.
+PostgreSQL là system of record cho logical orchestration state. JSONB dùng cho immutable contract/plan documents và bounded telemetry checkpoints (ADR-023); identity, lifecycle và relations quan trọng được chuẩn hóa thành columns/tables.
 
 ## Tables
 
@@ -945,9 +945,9 @@ must add this table. Existing retained DBs are not auto-migrated/reset: use a ne
 isolated database for acceptance under T28. Keep Terraform state/owner/roles and
 all resource identity constraints unchanged. [ERD](erd.puml) shows the relation.
 
-## Native observability — ADR-022
+## Native observability — ADR-023
 
-Required by [ADR-022](../decisions/ADR-022-native-observability.md).
+Required by [ADR-023](../decisions/ADR-023-native-observability.md).
 Telemetry identity and time-series fields are normalized; only bounded stream
 checkpoints (pod UID/container/restart/timestamp) use mutable JSONB. No credential
 or kubeconfig is stored in these tables. Console has CRUD; State has no grant.
@@ -964,5 +964,48 @@ Leases/fences and batches are atomic per source. Retention: logs seven days;
 samples/events fifteen days. Checkpoint advancement follows the corresponding
 successful insert batch; fencing and deterministic IDs tolerate retry/unknown
 commit. Prune only expired telemetry, not provider resources. Per-source quotas
-in ADR-022 reject excess new observations with a visible storage-limit code;
+in ADR-023 reject excess new observations with a visible storage-limit code;
 no automatic early deletion or change to Terraform tables.
+
+## Account diagnostics — ADR-022
+
+`account_diagnostic_reports` is a separate Organization/account aggregate for
+[UC-04 DIAG-01..14](../../usecase/UC-04/specification.md#account-diagnostics--diag-0114).
+It never stores history inside Connection verification or increments account
+configuration version. The protocol owns lifecycle/finding semantics in
+[the diagnostic contract](../contracts/account-diagnostics.md).
+
+| Column | Type | Constraint/meaning |
+|---|---|---|
+| `id` | uuid | PK; backend-generated |
+| `organization_id` | uuid | FK organizations, NOT NULL |
+| `account_id` | uuid | FK connections, NOT NULL; account belongs to organization |
+| `created_by` | uuid | FK user_accounts, NOT NULL; actor belongs to organization |
+| `account_version` | bigint | NOT NULL, positive; immutable config version pin |
+| `purpose` | text | GENERAL or USE_CASE, NOT NULL |
+| `mode` | text | CONDITIONS or EXECUTION; GENERAL requires CONDITIONS |
+| `scope` | jsonb | Immutable validated scope snapshot: safe account identity, region, use cases and optional Application/Environment versions |
+| `status` | text | QUEUED, RUNNING, CANCELLING, COMPLETED, CANCELLED or INTERRUPTED |
+| `revision` | bigint | Positive CAS version for worker/cancel updates |
+| `owner` | text | Nullable current process/worker token, no secrets |
+| `lease_expires_at`, `heartbeat_at` | timestamptz | Nullable bounded ownership facts |
+| `findings` | jsonb | Validated bounded safe finding documents; terminal findings immutable |
+| `completed_checks`, `total_checks` | integer | Nonnegative; completed <= total; no synthetic success |
+| `probe_resources` | jsonb | Safe run-owned names/UIDs, target and ownership records for cleanup; no credentials |
+| `cleanup_status` | text | NOT_REQUIRED, PENDING, VERIFIED or UNKNOWN; native absence required for VERIFIED |
+| `created_at`, `updated_at` | timestamptz | NOT NULL |
+| `started_at`, `finished_at` | timestamptz | Nullable lifecycle timestamps |
+
+Indexes: `(organization_id, account_id, created_at DESC, id)` for scoped paged
+history and a unique partial index on active account rows in QUEUED/RUNNING/
+CANCELLING. Cross-organization account/actor insert is rejected by the repository
+transaction and corresponding constraints/joins; every read/update scopes org,
+account and report ID. Worker writes also guard owner/revision/lease. General
+scope excludes app/environment/use-case fields; safe JSON documents are bounded.
+
+Console runtime gets SELECT/INSERT/UPDATE only, with application-layer terminal
+immutability and CAS. State runtime gets no access. Baseline owner setup/grant
+validation and memory/JSON snapshot counterparts must include the aggregate.
+Fresh-baseline policy stays unchanged: no runtime DDL/automatic migration/reset;
+new acceptance databases use the updated baseline. Retained databases are not
+reset or converted by this task.

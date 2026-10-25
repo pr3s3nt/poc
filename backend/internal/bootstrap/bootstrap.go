@@ -7,6 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"orchestrator/internal/adapters/tlsprobe"
+	"orchestrator/internal/application/accountdiag"
+	diagprobes "orchestrator/internal/ports/diagnostics"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -115,18 +118,26 @@ type Options struct {
 	// runs the product binary itself.
 	RenderWorkerPath string
 	// Region and Tags apply to every cloud resource of one verification run.
-	Region                 string
-	Tags                   map[string]string
-	WorkDir                string
-	Clock                  clock.Clock
-	VaultDelivery          string
-	WorkloadDelivery       string
-	GitOpsRepoDir          string
-	GitOpsBranch           string
-	FleetGitRepoName       string
-	HarborRegistryHost     string
-	HarborDockerConfigFile string
-	HarborPullSecretName   string
+	Region             string
+	Tags               map[string]string
+	WorkDir            string
+	Clock              clock.Clock
+	VaultDelivery      string
+	WorkloadDelivery   string
+	GitOpsRepoDir      string
+	GitOpsBranch       string
+	FleetGitRepoName   string
+	HarborRegistryHost string
+	// DiagnosticProbeImage is the platform-owned image of Kubernetes execution
+	// diagnostics; empty selects the pause image a node already holds.
+	DiagnosticProbeImage string
+	// DiagnosticProvidersOverride replaces the diagnostic probe providers and
+	// DiagnosticConfigOverride their timings (tests only; production always
+	// probes the real account).
+	DiagnosticProvidersOverride map[string]diagprobes.Provider
+	DiagnosticConfigOverride    *accountdiag.Config
+	HarborDockerConfigFile      string
+	HarborPullSecretName        string
 
 	// ConnectionCredentialStore selects the UC-04 Connection credential
 	// store: "" (none; upload registration fails closed with 503), "vault"
@@ -222,6 +233,8 @@ type PlatformVaultBootstrap struct {
 // App holds the built components.
 type App struct {
 	Observability *observabilityapp.Service
+	// Diagnostics is the Infrastructure Account diagnostics service.
+	Diagnostics *accountdiag.Service
 	// RenderRegistry is the Git render bundle registry (ADR-021); nil
 	// without the score-k8s renderer.
 	RenderRegistry *renderbundles.Registry
@@ -580,6 +593,10 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	if renderRegistry != nil {
 		renderPort = renderRegistry
 	}
+	diagnostics, err := buildDiagnostics(opts, st, connectionCredentials, ec2RoleProvider, vaultDelivery, pendingChanges, closers)
+	if err != nil {
+		return nil, err
+	}
 	var telemetryReader obsport.Reader
 	if opts.Adapters == AdapterKubernetes || opts.Adapters == AdapterAWS {
 		telemetryReader = &k8s.TelemetryReader{KubectlPath: opts.KubectlPath, Credentials: kubeconfigSource}
@@ -588,6 +605,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	*closers = append(*closers, telemetryService.Start(ctx))
 	server := deliveryhttp.NewServer(deliveryhttp.Config{
 		Observability:         telemetryService,
+		Diagnostics:           diagnostics,
 		RenderBundles:         bundles,
 		RenderRegistry:        renderPort,
 		Deployments:           deployments,
@@ -613,6 +631,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 
 	return &App{
 		Observability:         telemetryService,
+		Diagnostics:           diagnostics,
 		RenderRegistry:        renderRegistry,
 		ConnectionCredentials: connectionCredentials,
 		Store:                 st,
@@ -867,4 +886,41 @@ func (fakeBundleRenderer) ValidateSelection(_ context.Context, selected resource
 		return errors.New("bootstrap: the fake renderer only serves its own bundle")
 	}
 	return nil
+}
+
+// buildDiagnostics wires the account diagnostics service. The probes use only
+// the account's saved scoped credential; a store without the diagnostic
+// repository leaves the feature unavailable (the routes answer 503).
+func buildDiagnostics(opts Options, st persistence.Store, creds credentials.Store, ec2 connection.EC2RoleProvider, secretDelivery string, planner accountdiag.Planner, closers *[]func()) (*accountdiag.Service, error) {
+	repo, ok := st.(diagprobes.Repository)
+	if !ok {
+		return nil, nil
+	}
+	providers := opts.DiagnosticProvidersOverride
+	if providers == nil {
+		providers = map[string]diagprobes.Provider{
+			"INTERNAL": k8s.Diagnostics{KubectlPath: opts.KubectlPath, Credentials: creds, ProbeImage: opts.DiagnosticProbeImage},
+			"AWS":      awsaccess.Diagnostics{Client: awsaccess.New(), Credentials: creds, EC2: ec2},
+		}
+	}
+	cfg := accountdiag.Config{}
+	if opts.DiagnosticConfigOverride != nil {
+		cfg = *opts.DiagnosticConfigOverride
+	}
+	cfg.SecretDelivery, cfg.BaseDomain = secretDelivery, opts.Seed.BaseDomain
+	svc := accountdiag.New(repo, connection.NewService(st), st, providers, cfg)
+	svc.SetPlanner(planner)
+	svc.SetInspectors(vault.StoreInspector{Stores: st, Credentials: creds}, tlsprobe.Routes{})
+	sweepCtx, stop := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		svc.Run(sweepCtx)
+	}()
+	*closers = append(*closers, func() {
+		stop()
+		<-done
+		svc.Close()
+	})
+	return svc, nil
 }

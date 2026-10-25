@@ -3,7 +3,7 @@ id: VERIFY-20261025-NATIVE-OBSERVABILITY
 artifact: verification-record
 status: evidence
 last_reviewed: 2026-10-25
-related: [ADR-022, UC-09]
+related: [ADR-023, UC-09]
 ---
 
 # Basic native application observability — issue #1
@@ -11,7 +11,7 @@ related: [ADR-022, UC-09]
 ## Scope and evidence boundary
 
 Branch `features/logging&monitoring`, implementation based on approved mock
-`0b1b58b`. Required behavior lives in UC-09 TEL and ADR-022, not this record.
+`0b1b58b`. Required behavior lives in UC-09 TEL and ADR-023, not this record.
 
 Real: Go collector/query/HTTP code, PostgreSQL persistence and runtime roles,
 Console production bundle, Chromium and its HTTP calls. PostgreSQL tests use

@@ -18,6 +18,7 @@ last_reviewed: 2026-10-25
 | Resource Type | `ResourceType` | input/output schema | Contract độc lập implementation. |
 | Resource Definition | `ResourceDefinition` | Name, version, Driver Account, Matching Criteria, driver inputs, provision rules | UC-03 V02: immutable ID/type, CAS edits; five-field matching without profile filter; compatible account/region per Definition. |
 | Connection | `Connection` | name, kind, authentication type, non-secret config, verification metadata | Chỉ secret reference được persist; chỉ `READY` được sử dụng. |
+| Account Diagnostic Report | `DiagnosticReport` | immutable scope/config pins, safe findings, run state, lease and probe ownership | DIAG-01..14: org/account isolated; observations never change Connection readiness; actual evidence and cleanup required. |
 | Deployment | `Deployment` | `DeploymentDeltaSnapshot`, `DeploymentPlan`, deployment-resource progress, deployment-workload snapshots | Delta Snapshot immutable ngay khi persist; Plan immutable khi Deployment rời `PLANNING`; workload snapshot chỉ đổi khi Deployment đang chạy; `SUCCEEDED` chỉ sau workload readiness. |
 | Active Resource | `ActiveResource` | executor state, outputs | Logical identity unique theo Organization + descriptor + scope. |
 | Workload Instance | `WorkloadInstance` | manifest digest/status | Unique theo Environment + workload ID. |
@@ -244,7 +245,7 @@ See [contract](../contracts/git-render-bundles.md) and
 [persistence](../database/schema.md#git-render-bundle-persistence--adr-021).
 
 
-## Native telemetry — ADR-022
+## Native telemetry — ADR-023
 
 `TelemetrySourceState` is an Environment-owned operational aggregate, identified
 by organization/application/environment/generation/workload/pinned-target hash.

@@ -3,12 +3,12 @@ id: OBSERVABILITY-CONTRACT
 artifact: operation-contract
 status: current
 last_reviewed: 2026-10-25
-related: [ADR-022, UC-01, UC-09]
+related: [ADR-023, UC-01, UC-09]
 ---
 
 # Native observability contract
 
-[ADR-022](../decisions/ADR-022-native-observability.md) owns architecture;
+[ADR-023](../decisions/ADR-023-native-observability.md) owns architecture;
 [UC-09 TEL](../../usecase/UC-09/specification.md#native-application-observability--tel) owns behavior.
 
 ## Outbound and storage ports

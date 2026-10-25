@@ -1,12 +1,12 @@
 ---
-id: ADR-022
+id: ADR-023
 artifact: architecture-decision
 status: current
 last_reviewed: 2026-10-25
 related: [UC-01, UC-06, UC-07, UC-09]
 ---
 
-# ADR-022 — Basic observability collected by the platform
+# ADR-023 — Basic observability collected by the platform
 
 Accepted for the basic slice of issue #1: the user chose collection inside
 Orchestrator, accepted Metrics Server, and approved the revised UI mock on

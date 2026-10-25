@@ -3,12 +3,12 @@ id: OPS-NATIVE-OBSERVABILITY
 artifact: operational-runbook
 status: current
 last_reviewed: 2026-10-25
-related: [ADR-022, UC-09]
+related: [ADR-023, UC-09]
 ---
 
 # Native application logging and monitoring
 
-Use [ADR-022](../architecture/decisions/ADR-022-native-observability.md) and the
+Use [ADR-023](../architecture/decisions/ADR-023-native-observability.md) and the
 [contract](../architecture/contracts/observability.md) for design. This runbook
 prepares the basic collector; it does not authorize changing a cluster/database.
 

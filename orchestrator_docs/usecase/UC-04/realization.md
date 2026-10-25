@@ -165,3 +165,23 @@ CredentialResolver resolves EC2 accounts separately from stored keys, rechecking
 identity. ProviderBinder exposes a private authenticated refresh endpoint for the
 Terraform invocation; readiness shares that endpoint and EKS resolves fresh keys.
 See [ADR-018](../../architecture/decisions/ADR-018-ec2-role-driver-accounts.md).
+
+## Account diagnostics — DIAG-01..14
+
+The account controller keeps the existing platform actor gate and projects a
+separate diagnostic service/repository, never writes diagnostic history into
+Connection verification. Start validates scope, account version and Organization,
+then persists a bounded run before asynchronous probes. A worker resolves scoped
+credentials, executes external calls outside transactions, persists safe probe
+boundaries and honors cancellation/ownership. Queries read persisted scope and
+facts. Cleanup uses the original target and run-owned UID records.
+
+The existing Definition matcher/planning pipeline supplies known use-case
+requirements without applying changes. Real Kubernetes/AWS probe adapters return
+safe typed facts. Insufficient context/permissions/implementation remains UNKNOWN;
+optional dependencies are not required universally. Terminal/interrupted state
+and cleanup evidence survive restart through the diagnostic persistence port.
+
+See [diagnostic sequence](diagnostics-sequence.puml),
+[diagnostic participants](diagnostics-vopc.puml) and the
+[shared contract](../../architecture/contracts/account-diagnostics.md).

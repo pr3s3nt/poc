@@ -126,7 +126,7 @@ UC-09 View Deployment Status
 
 ## Native application observability — TEL
 
-Accepted 2026-10-25: [ADR-022](../../architecture/decisions/ADR-022-native-observability.md),
+Accepted 2026-10-25: [ADR-023](../../architecture/decisions/ADR-023-native-observability.md),
 [contract](../../architecture/contracts/observability.md) and the approved
 [UI reference](../../../frontend/design/logging-monitoring/README.md).
 The earlier deployment-snapshot-only BR rules still apply to Deployment detail;

@@ -7,6 +7,8 @@ last_reviewed: 2026-10-24
 
 # Architecture Decision Records
 
+- [ADR-022 — Account-scoped readiness diagnostics](ADR-022-account-diagnostics.md) — user-authorized implementation; real scoped probes, durable observations and explicit owned execution checks.
+
 - [ADR-001 — Historical profile enrichment; retained descriptor/scopes](ADR-001-profile-resource-scopes.md) — enrichment/guard superseded by ADR-016/017.
 - [ADR-002 — External calls outside database transactions](ADR-002-transaction-boundaries.md)
 - [ADR-003 — Separate planner, resource provisioning and workload deployment](ADR-003-planner-execution-separation.md)
@@ -46,4 +48,4 @@ last_reviewed: 2026-10-24
 
 - [ADR-021 — Git-owned Kubernetes manifest rendering policy](ADR-021-git-render-bundles.md) — accepted design; normalization/defaults/provisioners/patches in Git, infrastructure unchanged; implementation pending.
 
-- [ADR-022 — Native basic observability](ADR-022-native-observability.md): platform collection, Metrics Server and durable application history.
+- [ADR-023 — Native basic observability](ADR-023-native-observability.md): platform collection, Metrics Server and durable application history.

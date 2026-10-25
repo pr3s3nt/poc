@@ -9,7 +9,7 @@ last_reviewed: 2026-10-25
 
 ## Basic application logging/monitoring — real Kubernetes accepted — 2026-10-25
 
-Issue #1 basic slice follows [ADR-022](architecture/decisions/ADR-022-native-observability.md):
+Issue #1 basic slice follows [ADR-023](architecture/decisions/ADR-023-native-observability.md):
 Orchestrator collects owned workload logs/pod state and Metrics Server CPU/RAM
 through existing scoped internal/EKS credentials and stores bounded 7-day logs /
 15-day metrics/events in PostgreSQL. Console has real stored-data overview,
@@ -25,6 +25,36 @@ not changed. The new run-owned kind/Compose runtime was removed after acceptance
 data-preserving rollout to an older retained DB needs a separate operator upgrade
 procedure. Issue #1 remains open for provisioning/Definition integration,
 resource-specific exporters, CloudWatch, alerting, tracing and advanced providers.
+
+## Infrastructure Account diagnostics — implemented and accepted — 2026-10-25
+
+[ADR-022](architecture/decisions/ADR-022-account-diagnostics.md) adds General and
+Use-case diagnostics inside Infrastructure Account detail, with a separate latest
+diagnostic column, persisted progress/history, cancel, safe JSON export and VI/EN
+findings/remediation. Connection verification status/version stays independent.
+The worker uses saved scoped credentials, bounded leases and repository revisions;
+Application requirements come from the complete desired state on one planning
+snapshot, including unchanged applied workloads. Kubernetes execution uses a
+unique owned namespace and observed pod/PVC probes with UID-guarded cleanup.
+
+Implementation and checks are mapped in [the delivery handoff](implementation/account-diagnostics.md)
+and [code map](implementation/code-map.md#account-diagnostics--adr-022).
+Independent real Console acceptance passed **37/37 before merge and 37/37 on
+merged main** (`7f3886b`, [PR #17](https://github.com/pr3s3nt/poc/pull/17)).
+Coverage includes actual missing-class repair/rerun, exact-class Bound PVC and
+readypod/cleanup, stop, scope isolation, versioned export, history/restart and
+SIGKILL recovery. Read-only AWS checks also ran against real signed endpoints.
+See [pre-merge evidence](verification/2026-10-25-account-diagnostics.md) and
+[main verification/cleanup](verification/2026-10-25-diagnostics-main.md).
+A [post-merge CI correction](verification/2026-10-25-diagnostics-ci.md) removes
+intermittent fencing/template-test races while preserving runtime guards.
+
+Limits: conditions are observations at the report time; primitive pod/PVC probes
+do not execute an Application image or prove SQL/cache/application behavior.
+Workload-side Vault authentication remains UNKNOWN. AWS policy simulation is
+identified separately from provisioning; quota comparison and paid AWS execution
+are unsupported and remain UNKNOWN. No retained database is migrated or reset;
+the repository's fresh-baseline database policy continues to apply.
 
 ## Git-owned manifest rendering — implemented and accepted 2026-10-24
 
@@ -44,6 +74,11 @@ RB-E01..E10 passed: [verification](verification/2026-10-24-git-render-bundles.md
 Limits: public HTTPS Git only; no bundle garbage collection; legacy Vault Agent
 removal keeps its ServiceAccount behavior; error envelope has no correlation ID
 (see [IMP-035](implementation/deviations.md#imp-035--git-owned-render-bundles)).
+
+Post-merge verification: PR #16 merged into main with both literal provenance and
+Git bundle metadata preserved; independent real-adapter A→B→restart→A plus UI
+cleanup passed 47/47. Runner now fails if teardown cannot be verified. See
+[main integration evidence](verification/2026-10-24-pr16-main-verification.md).
 
 ## Workload environment editor — implemented — 2026-10-24
 

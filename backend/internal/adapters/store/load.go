@@ -8,6 +8,7 @@ import (
 	"io"
 	"strings"
 
+	"orchestrator/internal/domain/diagnostics"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
@@ -158,6 +159,17 @@ func (s *state) validateCurrent() error {
 		}
 		if _, ok := s.Organizations[bundle.OrganizationKey]; !ok {
 			return resetRequired("a render bundle record has no Organization")
+		}
+	}
+	if s.DiagnosticReports == nil {
+		s.DiagnosticReports = map[string]diagnostics.Report{}
+	}
+	for key, report := range s.DiagnosticReports {
+		if report.Validate() != nil || key != report.ID {
+			return resetRequired("a diagnostic report record is invalid")
+		}
+		if _, ok := s.Connections[catalogKey(report.OrganizationKey, report.AccountKey)]; !ok {
+			return resetRequired("a diagnostic report has no account")
 		}
 	}
 	for id := range s.DeltaSnapshots {

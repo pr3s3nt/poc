@@ -1,0 +1,24 @@
+@startuml
+title UC-04 diagnostics participants
+class AccountDiagnosticPage <<boundary>>
+class DiagnosticController <<boundary>>
+class DiagnosticService <<control>>
+class ScopedIdentityResolver <<control>>
+class RequirementResolver <<control>>
+class DiagnosticProbe <<control>>
+class DiagnosticReport <<entity>>
+class DiagnosticScope <<value object>>
+class Finding <<value object>>
+class ProbeOwnership <<value object>>
+class DiagnosticRepository <<port>>
+AccountDiagnosticPage --> DiagnosticController
+DiagnosticController --> DiagnosticService
+DiagnosticService --> ScopedIdentityResolver
+DiagnosticService --> RequirementResolver
+DiagnosticService --> DiagnosticProbe
+DiagnosticService --> DiagnosticRepository
+DiagnosticReport *-- DiagnosticScope
+DiagnosticReport *-- Finding
+DiagnosticReport *-- ProbeOwnership
+DiagnosticRepository --> DiagnosticReport
+@enduml

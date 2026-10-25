@@ -3,13 +3,13 @@ id: IMPLEMENTATION-NATIVE-OBSERVABILITY
 artifact: implementation-handoff
 status: current
 last_reviewed: 2026-10-25
-related: [ADR-022, UC-09]
+related: [ADR-023, UC-09]
 ---
 
 # Basic application logging and monitoring — issue #1
 
 Implemented on `features/logging&monitoring`, from approved mock commit
-`0b1b58b`. [ADR-022](../architecture/decisions/ADR-022-native-observability.md),
+`0b1b58b`. [ADR-023](../architecture/decisions/ADR-023-native-observability.md),
 [UC-09 TEL](../usecase/UC-09/specification.md#native-application-observability--tel)
 and the [contract](../architecture/contracts/observability.md) define this slice.
 

@@ -41,6 +41,6 @@ behavior/collaboration; prototype acceptance is not product implementation proof
 ## Native application logs and metrics
 
 Read [TEL requirements](specification.md#native-application-observability--tel),
-[ADR-022](../../architecture/decisions/ADR-022-native-observability.md),
+[ADR-023](../../architecture/decisions/ADR-023-native-observability.md),
 [API/collection contract](../../architecture/contracts/observability.md) and
 [collection/query sequence](telemetry-sequence.puml).

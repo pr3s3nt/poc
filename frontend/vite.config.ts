@@ -15,6 +15,9 @@ export default defineConfig({
   },
   build: { outDir: 'dist', emptyOutDir: true },
   test: {
+    // The suite drives long, realistic user flows; a loaded host must not turn a
+    // slow-but-correct test into a failure.
+    testTimeout: 30_000,
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],

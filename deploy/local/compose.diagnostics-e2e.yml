@@ -1,0 +1,19 @@
+# Task overlay of backend/test/integration/diagnostics-e2e.sh. It makes the
+# fixture users, the empty catalog and the pinned renderer explicit so the run
+# never depends on a local .env or on image defaults. Use only with a unique
+# Compose project name and --env-file /dev/null.
+services:
+  backend:
+    command:
+      - -profile
+      - local
+      - -seed-catalog
+      - none
+      - -score-k8s
+      - /usr/local/bin/score-k8s
+      - -terraform-root
+      - /var/lib/orchestrator/tfroot
+    networks: [orchestrator-net, kind]
+networks:
+  kind:
+    external: true

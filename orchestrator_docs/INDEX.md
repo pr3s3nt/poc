@@ -96,6 +96,10 @@ acceptance scenarios for the unified source table (2026-10-24; not implemented).
 
 ## Major artifact indexes
 
+Account diagnostics: start at [UC-04 DIAG-01..14](usecase/UC-04/specification.md#account-diagnostics--diag-0114),
+then [the contract](architecture/contracts/account-diagnostics.md) and
+[implementation/acceptance handoff](implementation/account-diagnostics.md).
+
 - [Use cases](usecase/README.md)
 - [Architecture](architecture/README.md)
 - [Implementation](implementation/README.md)
@@ -133,7 +137,7 @@ This route does not activate a roadmap iteration.
 
 ## Basic application logging and monitoring
 
-[ADR-022](architecture/decisions/ADR-022-native-observability.md) and
+[ADR-023](architecture/decisions/ADR-023-native-observability.md) and
 [UC-09 TEL](usecase/UC-09/specification.md#native-application-observability--tel)
 define the approved native collector slice of issue #1; read the
 [shared contract](architecture/contracts/observability.md) for API/storage.

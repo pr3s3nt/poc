@@ -468,7 +468,7 @@ PlanningService ..> VerifiedRenderBundle : snapshot only
 RenderingSelection ..> VerifiedRenderBundle : exact source/runtime/input pin
 GitRenderEngine ..|> WorkloadRenderer
 GitRenderEngine ..|> RenderPreflight
-package "Native application telemetry (ADR-022)" {
+package "Native application telemetry (ADR-023)" {
   class ObservabilityService {
     +Start(ctx): stop
     +Sweep(ctx)

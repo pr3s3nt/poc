@@ -13,8 +13,14 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-25 | PR #19 combined with main diagnostics; conflicts, PostgreSQL, race/frontend and diagram checks | [Integration checks](2026-10-25-observability-main-integration.md) |
 | 2026-10-25 | Native logging/monitoring, real new-user kind/Kubernetes/SQL/browser, 48 checks and UI cleanup | [Live end-to-end](2026-10-25-native-observability-live.md) |
 | 2026-10-25 | Issue #1 basic native telemetry; real disposable SQL, authenticated HTTP, product browser with synthetic received history | [Native observability](2026-10-25-native-observability.md) |
+
+| 2026-10-25 | Post-merge fencing/template deadline fixture races, preserved guards and independent PostgreSQL validation | [CI stabilization](2026-10-25-diagnostics-ci.md) |
+| 2026-10-25 | PR #17 merged main; independent real browser37/37, recovery and verified teardown | [Main acceptance](2026-10-25-diagnostics-main.md) |
+| 2026-10-25 | Account diagnostics: independent real kind/PostgreSQL/Vault Console acceptance37/37, native cleanup and read-only AWS scope | [Pre-merge evidence](2026-10-25-account-diagnostics.md) |
+| 2026-10-24 | PR #16 merge conflicts, main integration, cleanup runner fix and independent real-adapter 47/47 browser acceptance | [Main verification](2026-10-24-pr16-main-verification.md) |
 | 2026-10-24 | Issue #14 Git-owned manifest rendering; real kind/Compose Playwright RB-E01..E10 A→B→restart→A, UI cleanup, checks | [Git render bundles](2026-10-24-git-render-bundles.md) |
 
 | 2026-10-24 | DEVEX-ENV implementation (issue #13); Go/PostgreSQL, frontend, fake-adapter desktop browser Việt/Anh | [Implementation](2026-10-24-devex-env-implementation.md) |

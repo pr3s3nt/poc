@@ -3,7 +3,7 @@ id: VERIFY-20261025-NATIVE-OBSERVABILITY-LIVE
 artifact: verification-record
 status: evidence
 last_reviewed: 2026-10-25
-related: [ADR-022, UC-09]
+related: [ADR-023, UC-09]
 ---
 
 # Native telemetry — real new-user end-to-end acceptance

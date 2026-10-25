@@ -1,0 +1,88 @@
+.ac-page { padding-top:34px; }
+.ac-list-heading { margin:28px 0 26px; }
+.ac-list-heading p:last-child { font-size:14px; }
+.ac-demo-bar { margin-bottom:22px; }
+.ac-account-list { padding:0; margin-top:0; }
+.ac-account-list > .section-header { padding:20px 22px 16px; margin:0; justify-content:flex-start; align-items:center; gap:9px; }
+.ac-account-list > .section-header h2 { font-size:17px; margin:0; }
+.ac-total { font-size:11px; color:var(--muted); padding:2px 7px; border:1px solid var(--border); border-radius:10px; background:#f6f8fa; }
+.ac-account-table-wrap { overflow:auto; }
+.ac-account-table { table-layout:fixed; min-width:970px; }
+.ac-account-table th { font-size:10px; padding:11px 14px; border-top:1px solid var(--border); }
+.ac-account-table td { padding:23px 14px; font-size:12px; vertical-align:top; }
+.ac-account-table tr:last-child td { border-bottom:0; }
+.ac-account-table th:nth-child(1) { width:21%; }.ac-account-table th:nth-child(2) { width:10%; }.ac-account-table th:nth-child(3) { width:12%; }.ac-account-table th:nth-child(4) { width:14%; }.ac-account-table th:nth-child(5) { width:13%; }.ac-account-table th:nth-child(6) { width:21%; }.ac-account-table th:nth-child(7) { width:9%; }
+.ac-account-name { text-align:left; line-height:1.6; font-size:12px; padding:0; border:0; background:none; color:#0969da; }
+.ac-account-name:hover { text-decoration:underline; }
+.ac-account-table .connection-key { margin-top:5px; font-size:10px; }
+.ac-provider { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:500; }
+.ac-provider-kubernetes { color:#0969da; }.ac-provider-aws { color:#9a6700; }
+.ac-account-table code { font-size:11px; overflow-wrap:anywhere; }
+.ac-connection-state { display:inline-flex; gap:4px; color:#116329; font-size:11px; white-space:nowrap; }
+.ac-account-table td > small { display:block; color:var(--muted); font-size:9px; line-height:1.6; margin-top:6px; }
+.ac-account-table .button { font-size:11px; padding:5px 9px; white-space:nowrap; }
+.ac-latest-result { background:none; padding:0; border:0; display:grid; gap:6px; text-align:left; }
+.ac-result-label { width:fit-content; padding:3px 7px; border-radius:4px; font-size:11px; font-weight:600; }
+.ac-latest-result small { color:var(--muted); font-size:10px; line-height:1.5; }
+.ac-not-checked { color:var(--muted); font-size:11px; }
+.ac-latest-running { color:#0969da; font-size:11px; }
+.ac-breadcrumb { display:flex; align-items:center; gap:10px; font-size:12px; color:var(--muted); margin-bottom:22px; }
+.ac-breadcrumb button { border:0; background:none; color:#0969da; padding:0; font:inherit; }
+.ac-account-heading { display:flex; align-items:center; gap:14px; margin-bottom:24px; }
+.ac-account-heading .dg-target-icon { width:48px; height:48px; border-radius:8px; }
+.ac-account-heading h1 { margin:0 0 8px; font-size:28px; letter-spacing:-.5px; }
+.ac-account-heading p { display:flex; align-items:center; gap:10px; font-size:11px; color:var(--muted); margin:0; }
+.ac-account-heading p code { font-size:11px; }
+.ac-connection-badge { display:inline-flex; align-items:center; gap:5px; border:1px solid #aceebb; border-radius:5px; padding:5px 9px; color:#116329; background:#f6fff8; font-size:11px; white-space:nowrap; }
+.ac-account-heading > .ac-connection-badge { margin-left:auto; }
+.ac-account-tabs { margin:0 0 24px; gap:26px; }
+.ac-account-tabs .tab { font-size:13px; padding-bottom:14px; }
+.ac-diagnose-toolbar { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; margin-bottom:20px; }
+.ac-purpose-switch { display:flex; width:fit-content; gap:0; padding:3px; border:1px solid var(--border); border-radius:6px; background:#eaeef2; }
+.ac-purpose-switch button { padding:8px 15px; border:1px solid transparent; border-radius:4px; color:var(--muted); background:none; font-size:12px; font-weight:600; }
+.ac-purpose-switch button[aria-pressed="true"] { background:#fff; border-color:#d0d7de; color:var(--ink); box-shadow:0 1px 2px #1f23280d; }
+.ac-diagnose-toolbar p { margin:10px 0 0; color:var(--muted); font-size:12px; }
+.ac-diagnose-toolbar .dg-actions { margin-top:3px; }
+.ac-diagnose-toolbar .button { font-size:12px; }
+.ac-report-scope { display:flex; align-items:center; flex-wrap:wrap; gap:8px 20px; padding:12px 15px; background:#fff; border:1px solid var(--border); border-radius:5px; margin-bottom:16px; font-size:11px; color:var(--muted); }
+.ac-report-scope > span { display:flex; align-items:center; gap:7px; }
+.ac-report-scope > span:first-child { color:var(--ink); font-weight:600; }
+.ac-report-scope strong { font-weight:500; color:#57606a; }
+.ac-report-time { margin-left:auto; font-size:10px; }
+.ac-summary-unknown .dg-summary-icon { background:#f1e5ff; color:#6639ba; border-color:#e2c5ff; }
+.ac-result-tabs { margin-top:19px; margin-bottom:18px; }
+.ac-result-tabs .tab { font-size:12px; }
+.ac-information { margin-top:0; padding:24px; }
+.ac-information > .section-header { align-items:center; padding-bottom:18px; border-bottom:1px solid var(--border-muted); }
+.ac-information > .section-header h2 { font-size:17px; margin:0; }
+.ac-information .button { font-size:12px; }
+.ac-information .destination-summary { margin:22px 0; }
+.ac-information .destination-summary div { grid-template-columns:215px minmax(0,1fr); padding:7px 0; }
+.ac-information .destination-summary dt { font-weight:500; font-size:12px; color:var(--muted); }
+.ac-information .destination-summary dd { font-size:12px; }
+.ac-information-footer { display:flex; align-items:center; justify-content:space-between; border-top:1px solid var(--border-muted); gap:24px; padding-top:18px; }
+.ac-information-footer p { margin:0; max-width:650px; font-size:12px; color:var(--muted); line-height:1.7; }
+.ac-information-footer .button { white-space:nowrap; }
+.ac-locked-target { display:flex; align-items:center; gap:11px; border:1px solid var(--border); border-radius:5px; background:#f6f8fa; padding:14px; }
+.ac-locked-target > svg { color:#0969da; }
+.ac-locked-target > div { display:grid; gap:5px; }
+.ac-locked-target strong { font-size:12px; }.ac-locked-target small { font-size:10px; color:var(--muted); }
+.ac-locked-target .ac-connection-badge { margin-left:auto; font-size:9px; }
+.ac-region-field { display:grid; gap:8px; margin-top:20px; font-size:12px; font-weight:600; }
+.ac-region-field select { width:100%; border:1px solid var(--border); border-radius:5px; font:inherit; font-weight:400; padding:9px 10px; background:#fff; color:var(--ink); }
+.ac-application-fields { margin-top:24px; }
+.ac-field-help { font-size:11px; color:var(--muted); line-height:1.6; margin:8px 0 0; }
+.ac-general-readonly { padding:12px; margin:18px 0; color:#57606a; background:#f6f8fa; border-radius:5px; font-size:12px; line-height:1.6; }
+.ac-page button:focus-visible { outline:2px solid #0969da; outline-offset:3px; }
+@media (max-width:1250px) { .ac-account-heading h1 { font-size:25px; }.ac-diagnose-toolbar { flex-wrap:wrap; }.ac-diagnose-toolbar .dg-actions { margin-top:0; }.ac-account-table { min-width:1000px; } }
+@media (max-width:760px) {
+  .ac-page { padding-top:24px; }.ac-list-heading { margin-top:24px; }.ac-list-heading h1 { font-size:27px; }
+  .ac-account-heading { flex-wrap:wrap; }.ac-account-heading h1 { font-size:22px; }.ac-account-heading > .ac-connection-badge { margin-left:62px; }.ac-account-heading p { flex-wrap:wrap; gap:6px; line-height:1.5; }
+  .ac-breadcrumb { gap:7px; font-size:10px; }.ac-account-tabs { gap:22px; }.ac-account-tabs .tab { min-width:0; font-size:12px; }
+  .ac-account-list > .section-header { padding:18px; }.ac-account-list > .section-header h2 { font-size:16px; }
+  .ac-account-table { min-width:0; }.ac-account-table th { width:auto !important; }.ac-account-table td { padding:6px 18px; font-size:12px; }.ac-account-table td::before { font-size:10px; margin-bottom:4px; }.ac-account-table tr { padding:12px 0; }.ac-account-table td:last-child { padding-top:12px; padding-bottom:12px; }
+  .ac-account-table .button { padding:7px 10px; }.ac-latest-result { gap:4px; }
+  .ac-report-time { margin-left:0; }.ac-report-scope { gap:12px; }.ac-purpose-switch button { padding:8px 12px; font-size:11px; }.ac-diagnose-toolbar .dg-actions { flex-wrap:wrap; }
+  .ac-information { padding:18px; }.ac-information .section-header { flex-wrap:wrap; }.ac-information .destination-summary div { grid-template-columns:1fr; gap:4px; }.ac-information-footer { flex-wrap:wrap; }
+  .ac-locked-target { flex-wrap:wrap; }.ac-locked-target .ac-connection-badge { margin-left:33px; }.ac-locked-target strong { font-size:11px; }
+}

@@ -82,6 +82,7 @@ cleanup() {
   log "cleanup (exit ${status})"
   {
     echo "run=${RUN_ID} scenario_exit=${status}"
+    if ! docker info >/dev/null 2>&1; then echo "Docker is unavailable; absence cannot be verified"; status=1; fi
     if [[ -f "${PRIVATE}/compose-up" ]]; then
       "${COMPOSE[@]}" down --volumes --remove-orphans >/dev/null 2>&1
       [[ -z "$(docker ps -aq --filter "label=com.docker.compose.project=${PROJECT}")" ]] && echo "compose ${PROJECT}: containers absent" || { echo "compose ${PROJECT}: containers remain"; status=1; }
@@ -99,14 +100,24 @@ cleanup() {
     fi
     if [[ "${FIXTURE_PUSHED}" == 1 ]]; then
       git -C "${REPO}" push --quiet "${ORIGIN_URL}" --delete "refs/heads/${FIXTURE_REF}" >/dev/null 2>&1
-      git -C "${REPO}" ls-remote --exit-code "${ORIGIN_URL}" "refs/heads/${FIXTURE_REF}" >/dev/null 2>&1 && { echo "fixture ref remains"; status=1; } || echo "fixture ref ${FIXTURE_REF}: absent"
+      local remote_refs
+      if remote_refs="$(git -C "${REPO}" ls-remote "${ORIGIN_URL}" "refs/heads/${FIXTURE_REF}" 2>/dev/null)"; then
+        if [[ -z "${remote_refs}" ]]; then echo "fixture ref ${FIXTURE_REF}: absent"; else echo "fixture ref remains"; status=1; fi
+      else echo "fixture ref absence could not be verified"; status=1; fi
     fi
     if [[ -d "${PRIVATE}/fixture" ]]; then git -C "${REPO}" worktree remove --force "${PRIVATE}/fixture" >/dev/null 2>&1; fi
     git -C "${REPO}" worktree prune
-    for image in "orchestrator-backend:${TAG}" "orchestrator-frontend:${TAG}" "acceptance-frontend:${TAG}" "acceptance-backend:${TAG}" "acceptance-worker:${TAG}"; do docker rmi "${image}" >/dev/null 2>&1; done
-    echo "images ${TAG}: removed"
+    local images_removed=1
+    for image in "orchestrator-backend:${TAG}" "orchestrator-frontend:${TAG}" "acceptance-frontend:${TAG}" "acceptance-backend:${TAG}" "acceptance-worker:${TAG}"; do
+      docker rmi "${image}" >/dev/null 2>&1
+      if docker image inspect "${image}" >/dev/null 2>&1; then echo "image ${image}: remains"; status=1; images_removed=0; fi
+    done
+    if [[ "${images_removed}" == 1 ]]; then echo "images ${TAG}: removed"; fi
     echo "final_status=${status}"
-  } | tee "${STATUS_FILE}"
+  } > "${STATUS_FILE}" 2>&1
+  # Keep status in this shell: piping the group through tee would lose failures
+  # in a subshell and let the runner exit successfully after failed teardown.
+  cat "${STATUS_FILE}"
   # Credentials and private inputs never leave the private directory; it is removed after cleanup.
   if grep -q '^final_status=0$' "${STATUS_FILE}"; then rm -rf "${PRIVATE}"; else echo "private inputs retained for recovery: ${PRIVATE}"; fi
   exit "${status}"

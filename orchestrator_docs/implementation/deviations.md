@@ -635,7 +635,7 @@ deviation remains for this item.
 
 The full issue #1 describes an injected provisioning resource, matching and
 external backends. The user subsequently chose basic native collection plus
-Metrics Server and approved its Console. [ADR-022](../architecture/decisions/ADR-022-native-observability.md)
+Metrics Server and approved its Console. [ADR-023](../architecture/decisions/ADR-023-native-observability.md)
 records the architecture for that slice: workload matching still chooses the
 target; this collector adds no unused provisioning node/Definition/driver.
 The broader integration remains deferred in the issue, not implemented by a UI

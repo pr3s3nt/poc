@@ -1,5 +1,6 @@
 import { api, ApiError, isStaleConflict } from '../../../shared/api/client';
 import { t } from '../../../shared/i18n';
+import type { Summary } from './diagnostics/diagnosticsApi';
 
 // V01 infrastructure account (UC-04 AC-01..12). Public DTO only: the server
 // never returns a secret reference, key or kubeconfig, and neither does this file.
@@ -8,6 +9,10 @@ export type Account = {
   id?: string; key: string; name: string; type: AccountType; authenticationType: string;
   status: string; version: number;
   config?: { cluster?: string; kubeContext?: string; endpoint?: string; tls?: { mode?: string; serverName?: string }; accountId?: string; principalArn?: string; roleArn?: string; roleId?: string; verificationRegions?: string[] };
+  /** Newest diagnostic report; never part of the connection status or version. */
+  latestDiagnostic?: Summary | null;
+  /** True when the diagnostic history could not be read: not "never checked". */
+  diagnosticsUnavailable?: boolean;
   verification?: { verified?: boolean; endpoint?: string; serverVersion?: string; accountId?: string; principalArn?: string; identity?: string; regionCheck?: string; capabilityCheck?: string; verifiedAt?: string; regions?: string[]; capabilities?: string[] };
 };
 export type KubeconfigContext = { name: string; cluster: string; endpoint: string };

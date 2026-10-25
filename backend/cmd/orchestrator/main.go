@@ -60,6 +60,7 @@ func main() {
 	gitopsRepoDir := flag.String("gitops-repo-dir", "", "writable local clone of the Fleet GitOps repository")
 	gitopsBranch := flag.String("gitops-branch", "main", "Fleet GitOps branch")
 	fleetGitRepoName := flag.String("fleet-gitrepo-name", "poc-workloads", "Fleet GitRepo resource name in fleet-local")
+	diagnosticProbeImage := flag.String("diagnostic-probe-image", "", "platform-owned image of Kubernetes execution diagnostics (default: the pause image a node already holds)")
 	harborRegistryHost := flag.String("harbor-registry", "", "Harbor registry host:port used in workload image references")
 	harborDockerConfigFile := flag.String("harbor-dockerconfig-file", "", "owner-only Docker config JSON for namespace imagePullSecret")
 	harborPullSecretName := flag.String("harbor-pull-secret", "harbor-pull", "namespace-local imagePullSecret name")
@@ -189,6 +190,7 @@ func main() {
 		GitOpsBranch:                  *gitopsBranch,
 		FleetGitRepoName:              *fleetGitRepoName,
 		HarborRegistryHost:            *harborRegistryHost,
+		DiagnosticProbeImage:          *diagnosticProbeImage,
 		HarborDockerConfigFile:        *harborDockerConfigFile,
 		HarborPullSecretName:          *harborPullSecretName,
 
