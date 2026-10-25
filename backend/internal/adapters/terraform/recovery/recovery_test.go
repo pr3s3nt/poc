@@ -148,3 +148,24 @@ func TestNamespaceCreationBaselineUsesImmutableEncryptedVerificationStore(t *tes
 		t.Fatal("baseline opened under a different instance")
 	}
 }
+
+func TestNamespaceBaselineHandlesSeparateIncarnationsOfOneInstance(t *testing.T) {
+	s, _ := store(t)
+	ctx := context.Background()
+	instance := ids.New()
+	first, second := "baseline-"+instance+"-"+ids.New(), "baseline-"+instance+"-"+ids.New()
+	for handle, payload := range map[string]string{first: "first", second: "second"} {
+		if err := s.SaveVerification(ctx, handle, instance, []byte(payload)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for handle, payload := range map[string]string{first: "first", second: "second"} {
+		got, found, err := s.LoadVerification(ctx, handle, instance)
+		if err != nil || !found || string(got) != payload {
+			t.Fatalf("incarnations collided: found=%v err=%v", found, err)
+		}
+		if _, _, err := s.LoadVerification(ctx, handle, ids.New()); err == nil {
+			t.Fatal("namespace proof opened under another instance")
+		}
+	}
+}

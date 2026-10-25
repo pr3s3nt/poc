@@ -72,6 +72,7 @@ type PlanningSnapshot struct {
 	BaseSet   environment.Document
 	// BaseProofs is the private literal provenance of the base set (UC-16 BR-23).
 	BaseProofs  environment.LiteralProofs
+	BaseAliases environment.ResourceAliases
 	Catalog     planning.Catalog
 	Types       map[string]resource.Type
 	Definitions map[string]resource.Definition
@@ -112,6 +113,7 @@ func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 		}
 		base := environment.NewDocument()
 		var baseProofs environment.LiteralProofs
+		var baseAliases environment.ResourceAliases
 		if env.CurrentDeploymentSetID != "" {
 			set, err := view.GetDeploymentSet(ctx, env.CurrentDeploymentSetID)
 			if err != nil {
@@ -119,6 +121,7 @@ func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 			}
 			base = set.Document
 			baseProofs = set.LiteralProofs
+			baseAliases = set.ResourceAliases
 		}
 		typeList, err := view.ListResourceTypes(ctx, organizationKey)
 		if err != nil {
@@ -151,7 +154,7 @@ func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 		}
 		out = PlanningSnapshot{
 			App: app, Env: env,
-			BaseSetID: env.CurrentDeploymentSetID, BaseSet: base, BaseProofs: baseProofs,
+			BaseSetID: env.CurrentDeploymentSetID, BaseSet: base, BaseProofs: baseProofs, BaseAliases: baseAliases,
 			Catalog: planning.Catalog{Types: types, Definitions: defList, Accounts: accounts, RenderBundles: renderBundles},
 			Types:   types, Definitions: definitions, Active: active,
 		}

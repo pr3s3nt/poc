@@ -11,10 +11,10 @@ import (
 	"orchestrator/internal/seed/seedtest"
 )
 
-// UC-16 BR-23: literal provenance rides in the deployment_sets.document jsonb
+// UC-16 BR-17/23: private metadata rides in deployment_sets.document JSONB
 // without a schema change, survives restart, and a row written before the
 // feature reads as "no proof" (unknown), never as safe.
-func TestLiteralProofsRoundTripRestartAndLegacyRows(t *testing.T) {
+func TestDeploymentSetMetadataRoundTripRestartAndLegacyRows(t *testing.T) {
 	ctx := context.Background()
 	st, url := openFresh(t)
 	opts := seed.Defaults()
@@ -33,8 +33,11 @@ func TestLiteralProofsRoundTripRestartAndLegacyRows(t *testing.T) {
 	proofs.Add("api", "main", "LOG_LEVEL", "debug")
 	proofs.Add("api", "main", "EMPTY", "")
 	withProofs := environment.DeploymentSet{ID: "33333333-3333-3333-3333-333333333333", EnvironmentID: env.ID, EnvironmentKey: opts.ApplicationKey + "/" + opts.EnvironmentKey, Document: doc, DocumentHash: "h1", CreatedAt: time.Now().UTC().Truncate(time.Second), LiteralProofs: proofs}
+	aliases := environment.ResourceAliases{"api": {Shared: map[string]string{"db": "shared-db"}, References: map[string]string{"/containers/main/variables/HOST": "${resources.db.host}"}}}
+	withProofs.ResourceAliases = aliases
 	legacy := withProofs
 	legacy.ID, legacy.DocumentHash, legacy.LiteralProofs = "44444444-4444-4444-4444-444444444444", "h2", nil
+	legacy.ResourceAliases = nil
 	for _, set := range []environment.DeploymentSet{withProofs, legacy} {
 		if err := st.SaveDeploymentSet(ctx, set); err != nil {
 			t.Fatal(err)
@@ -48,14 +51,14 @@ func TestLiteralProofsRoundTripRestartAndLegacyRows(t *testing.T) {
 	}
 	defer reopened.Close()
 	got, err := reopened.GetDeploymentSet(ctx, withProofs.ID)
-	if err != nil || !reflect.DeepEqual(got.Document, doc) || !reflect.DeepEqual(got.LiteralProofs, proofs) {
+	if err != nil || !reflect.DeepEqual(got.Document, doc) || !reflect.DeepEqual(got.LiteralProofs, proofs) || !reflect.DeepEqual(got.ResourceAliases, aliases) {
 		t.Fatalf("proofs or document changed across restart: %+v %v", got, err)
 	}
 	if !got.LiteralProofs.Proves("api", "main", "LOG_LEVEL", "debug") || got.LiteralProofs.Proves("api", "main", "LOG_LEVEL", "info") {
 		t.Fatal("restored proof is not bound to the exact value")
 	}
 	old, err := reopened.GetDeploymentSet(ctx, legacy.ID)
-	if err != nil || old.LiteralProofs != nil || !reflect.DeepEqual(old.Document, doc) {
+	if err != nil || old.LiteralProofs != nil || old.ResourceAliases != nil || !reflect.DeepEqual(old.Document, doc) {
 		t.Fatalf("a set without provenance must read as no proof: %+v %v", old.LiteralProofs, err)
 	}
 }

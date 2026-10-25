@@ -400,7 +400,7 @@ func (s *Service) rewriteDrafts(ctx context.Context, app, env string, l loaded, 
 					types[typ.Key] = typ
 				}
 			}
-			raw, err := workloadconfig.ReconstructVerifiedProven(id, module, set.Document, types, set.LiteralProofs.ProverFor(id))
+			raw, err := workloadconfig.ReconstructVerifiedProven(id, module, set.Document, types, set.LiteralProofs.ProverFor(id), set.ResourceAliases[id])
 			if err != nil {
 				return nil, ErrReferenceRewriteUnsafe
 			}

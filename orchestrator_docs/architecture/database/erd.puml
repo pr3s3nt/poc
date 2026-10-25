@@ -184,6 +184,10 @@ entity deployment_sets {
   document : jsonb
   document_hash : text
 }
+note right of deployment_sets
+  document stores private literalProofs and resourceAliases
+  outside the planned document/hash; absent means legacy.
+end note
 entity deployment_delta_snapshots {
   * id : uuid <<PK>>
   * deployment_id : uuid <<FK,UQ>>

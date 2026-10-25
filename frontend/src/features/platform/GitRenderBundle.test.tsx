@@ -20,7 +20,7 @@ const idB = '22222222-2222-4222-8222-222222222222';
 const bundleA = gitBundle(idA, 'a'.repeat(40));
 const bundleB = gitBundle(idB, 'b'.repeat(40), { inputsSchema: { type: 'object', additionalProperties: false, properties: { tier: { type: 'string', enum: ['gold', 'silver'] } } } });
 
-type Options = { bundles?: Body[]; definitions?: Body[]; inspect?: (body: Body) => Response | Promise<Response>; details?: Record<string, Body> };
+type Options = { bundles?: Body[]; definitions?: Body[]; inspect?: (body: Body) => Response | Promise<Response>; loadBundles?: () => Promise<Response>; details?: Record<string, Body | (() => Promise<Response>)> };
 function backend(options: Options = {}) {
   const posted: Body[] = [];
   const puts: Body[] = [];
@@ -38,9 +38,9 @@ function backend(options: Options = {}) {
       { name: 'render_bundle', type: 'string', required: true, hasDefault: false, resourceParam: false },
       { name: 'namespace', type: 'string', required: true, hasDefault: false, resourceParam: false, preset: nsRef },
       { name: 'cluster', type: 'string', required: true, hasDefault: false, resourceParam: false, preset: clusterRef }], executorOwned: [], account: { required: false }, bindings: [] }] });
-    if (url.endsWith('/render-bundles')) return Response.json({ renderBundles: options.bundles ?? [] });
+    if (url.endsWith('/render-bundles')) return options.loadBundles ? options.loadBundles() : Response.json({ renderBundles: options.bundles ?? [] });
     const detail = Object.entries(options.details ?? {}).find(([id]) => url.endsWith(`/render-bundles/${id}`));
-    if (detail) return Response.json({ renderBundle: detail[1] });
+    if (detail) return typeof detail[1] === 'function' ? detail[1]() : Response.json({ renderBundle: detail[1] });
     return Response.json({ resourceDefinitions: options.definitions ?? [] });
   }));
   return { posted, puts, inspections, gets };
@@ -181,5 +181,43 @@ describe('Git render bundle authoring (ADR-021)', () => {
     expect(screen.getByRole('button', { name: 'Lưu thay đổi' })).toBeDisabled();
     await user.click(within(alert).getByRole('button', { name: 'Kiểm tra lại' }));
     await waitFor(() => expect(inspections).toEqual([{ url: bundleA.source.url, path: bundleA.source.path, ref: 'a'.repeat(40) }]));
+  });
+
+  it.each(['detail', 'catalog'])('initializes a saved Git source from late %s metadata, preserving a typed ref', async (first) => {
+    const user = userEvent.setup();
+    let releaseList!: (response: Response) => void;
+    let releaseDetail!: (response: Response) => void;
+    const stored = { key: 'web-git', name: 'Mẫu Git', version: 1, resourceType: 'workload', driverType: 'score-k8s', criteria: [{}], driverInputs: { values: { variables: { render_bundle: idA } } } };
+    backend({ definitions: [stored], loadBundles: () => new Promise((resolve) => { releaseList = resolve; }), details: { [idA]: () => new Promise((resolve) => { releaseDetail = resolve; }) } });
+    render(<RenderingTemplatesPage />);
+    await user.click(await screen.findByRole('button', { name: 'Sửa mẫu web-git' }));
+    await user.click(screen.getByRole('button', { name: 'Thêm từ Git' }));
+    expect(screen.getByLabelText('Git HTTPS URL')).toHaveValue('');
+    await user.type(screen.getByLabelText('Tag hoặc commit'), 'main');
+    if (first === 'detail') releaseDetail(Response.json({ renderBundle: bundleA }));
+    else releaseList(Response.json({ renderBundles: [bundleA] }));
+    await waitFor(() => expect(screen.getByLabelText('Git HTTPS URL')).toHaveValue(bundleA.source.url));
+    expect(screen.getByLabelText('Thư mục bundle')).toHaveValue(bundleA.source.path);
+    expect(screen.getByLabelText('Tag hoặc commit')).toHaveValue('main');
+    expect(screen.getByLabelText('Tag hoặc commit')).toHaveFocus();
+    if (first === 'detail') releaseList(Response.json({ renderBundles: [bundleA] }));
+    else releaseDetail(Response.json({ renderBundle: bundleA }));
+    await waitFor(() => expect(screen.getByLabelText('Tag hoặc commit')).toHaveValue('main'));
+  });
+
+  it.each(['source edit', 'cancel edit'])('does not replace the Git draft after %s when saved metadata arrives late', async (action) => {
+    const user = userEvent.setup();
+    let releaseDetail!: (response: Response) => void;
+    const stored = { key: 'web-git', name: 'Mẫu Git', version: 1, resourceType: 'workload', driverType: 'score-k8s', criteria: [{}], driverInputs: { values: { variables: { render_bundle: idA } } } };
+    backend({ definitions: [stored], details: { [idA]: () => new Promise((resolve) => { releaseDetail = resolve; }) } });
+    render(<RenderingTemplatesPage />);
+    await user.click(await screen.findByRole('button', { name: 'Sửa mẫu web-git' }));
+    await user.click(screen.getByRole('button', { name: 'Thêm từ Git' }));
+    if (action === 'cancel edit') await user.click(screen.getByRole('button', { name: 'Hủy sửa' }));
+    await user.type(screen.getByLabelText('Git HTTPS URL'), 'https://example.com/new.git');
+    await user.type(screen.getByLabelText('Thư mục bundle'), 'new/path');
+    releaseDetail(Response.json({ renderBundle: bundleA }));
+    await waitFor(() => expect(screen.getByLabelText('Git HTTPS URL')).toHaveValue('https://example.com/new.git'));
+    expect(screen.getByLabelText('Thư mục bundle')).toHaveValue('new/path');
   });
 });

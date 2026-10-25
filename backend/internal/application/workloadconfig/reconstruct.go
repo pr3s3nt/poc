@@ -27,22 +27,22 @@ var ErrReferenceRewriteUnsafe = errors.New("workloadconfig: references cannot be
 
 // ReconstructScore exposes only reference-based workload configurations to the
 // UC-16 editor. Legacy literals may contain secrets and are never returned.
-func ReconstructScore(workload string, module environment.Module, set environment.Document) (map[string]any, error) {
-	return reconstruct(workload, module, set, false, nil)
+func ReconstructScore(workload string, module environment.Module, set environment.Document, aliases ...environment.WorkloadResourceAliases) (map[string]any, error) {
+	return reconstruct(workload, module, set, false, nil, aliases...)
 }
 
 // ReconstructScoreProven is ReconstructScore that also returns ordinary
 // literals the Deployment Set proves (UC-16 BR-23). Every other literal stays
 // hidden: a key name, image or draft never makes an unproven value readable.
-func ReconstructScoreProven(workload string, module environment.Module, set environment.Document, proven environment.Prover) (map[string]any, error) {
-	return reconstruct(workload, module, set, false, proven)
+func ReconstructScoreProven(workload string, module environment.Module, set environment.Document, proven environment.Prover, aliases ...environment.WorkloadResourceAliases) (map[string]any, error) {
+	return reconstruct(workload, module, set, false, proven, aliases...)
 }
 
 // ReconstructForRedeploy rebuilds a Score for an exact redeploy of an applied
 // module (target transitions). Literal bindings are kept verbatim: they are
 // already what runs, are never shown to an editor and never leave the backend.
-func ReconstructForRedeploy(workload string, module environment.Module, set environment.Document) (map[string]any, error) {
-	return reconstruct(workload, module, set, true, nil)
+func ReconstructForRedeploy(workload string, module environment.Module, set environment.Document, aliases ...environment.WorkloadResourceAliases) (map[string]any, error) {
+	return reconstruct(workload, module, set, true, nil, aliases...)
 }
 
 // ReconstructVerified rebuilds a reference-based Score and proves it is
@@ -50,15 +50,15 @@ func ReconstructForRedeploy(workload string, module environment.Module, set envi
 // shared resources it declares, and no shared resource of the set may be
 // unreferenced (its owner would be unknowable). Anything else fails with
 // ErrReferenceRewriteUnsafe.
-func ReconstructVerified(workload string, module environment.Module, set environment.Document, types map[string]resource.Type) (map[string]any, error) {
-	return ReconstructVerifiedProven(workload, module, set, types, nil)
+func ReconstructVerified(workload string, module environment.Module, set environment.Document, types map[string]resource.Type, aliases ...environment.WorkloadResourceAliases) (map[string]any, error) {
+	return ReconstructVerifiedProven(workload, module, set, types, nil, aliases...)
 }
 
 // ReconstructVerifiedProven is ReconstructVerified for a set that proves some
 // ordinary literals, so a rename keeps accepted values and still fails closed
 // on an unproven one.
-func ReconstructVerifiedProven(workload string, module environment.Module, set environment.Document, types map[string]resource.Type, proven environment.Prover) (map[string]any, error) {
-	raw, err := reconstruct(workload, module, set, false, proven)
+func ReconstructVerifiedProven(workload string, module environment.Module, set environment.Document, types map[string]resource.Type, proven environment.Prover, aliases ...environment.WorkloadResourceAliases) (map[string]any, error) {
+	raw, err := reconstruct(workload, module, set, false, proven, aliases...)
 	if err != nil {
 		return nil, ErrReferenceRewriteUnsafe
 	}
@@ -406,11 +406,15 @@ func (b *rebuilder) resourceMap(entry environment.ResourceEntry, id string) (map
 	return out, nil
 }
 
-func reconstruct(workload string, module environment.Module, set environment.Document, literals bool, proven environment.Prover) (map[string]any, error) {
+func reconstruct(workload string, module environment.Module, set environment.Document, literals bool, proven environment.Prover, aliases ...environment.WorkloadResourceAliases) (map[string]any, error) {
 	if module.Profile != environment.ModuleProfile {
 		return nil, fmt.Errorf("workloadconfig: unsupported deployed workload profile")
 	}
 	b := &rebuilder{module: module, set: set, resources: map[string]any{}, sharedAliases: map[string]string{}}
+	var names environment.WorkloadResourceAliases
+	if len(aliases) > 0 {
+		names = aliases[0]
+	}
 	externalAliases := make([]string, 0, len(module.Externals))
 	for alias := range module.Externals {
 		externalAliases = append(externalAliases, alias)
@@ -425,7 +429,7 @@ func reconstruct(workload string, module environment.Module, set environment.Doc
 	for i, id := range sharedIDs {
 		alias := fmt.Sprintf("shared_%d", i+1)
 		for {
-			if _, taken := module.Externals[alias]; !taken {
+			if _, taken := module.Externals[alias]; !taken && (names.Shared[alias] == "" || names.Shared[alias] == id) {
 				break
 			}
 			alias += "_"
@@ -470,6 +474,14 @@ func reconstruct(workload string, module environment.Module, set environment.Doc
 		}
 		containers[name] = body
 	}
+	// Original declarations can include a shared dependency with no binding.
+	for _, id := range names.Shared {
+		if _, exists := set.Shared[id]; exists {
+			if _, err := b.sharedAlias(id); err != nil {
+				return nil, err
+			}
+		}
+	}
 	metadata := map[string]any{"name": workload}
 	if module.Class != "" {
 		metadata["class"] = module.Class // explicit class survives rebuild/export unchanged (ADR-016)
@@ -483,6 +495,9 @@ func reconstruct(workload string, module environment.Module, set environment.Doc
 	}
 	if module.Spec.Replicas != nil {
 		out["replicas"] = *module.Spec.Replicas
+	}
+	if err := restoreResourceAliases(out, names); err != nil {
+		return nil, err
 	}
 	return out, nil
 }

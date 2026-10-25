@@ -29,7 +29,7 @@ type Store struct {
 var (
 	_            terraformexec.RecoveryStore     = (*Store)(nil)
 	_            terraformexec.VerificationStore = (*Store)(nil)
-	verifyHandle                                 = regexp.MustCompile(`^(verify|baseline)-[0-9a-fA-F-]{36}$`)
+	verifyHandle                                 = regexp.MustCompile(`^(verify-[0-9a-fA-F-]{36}|baseline-[0-9a-fA-F-]{36}(-[0-9a-fA-F-]{36})?)$`)
 	idShape                                      = regexp.MustCompile(`^[0-9a-fA-F-]{36}$`)
 )
 

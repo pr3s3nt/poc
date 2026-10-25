@@ -74,6 +74,7 @@ export function RenderingTemplatesPage() {
   const [sourceMode, setSourceMode] = useState<SourceMode>('git');
   const [gitDraft, setGitDraft] = useState<GitSourceDraft>(emptyGitSource);
   const [gitDraftVersion, setGitDraftVersion] = useState(0);
+  const [gitSourceToLoad, setGitSourceToLoad] = useState('');
   const [inspected, setInspected] = useState<RenderBundle | null>(null);
   const [bundle, setBundle] = useState('');
   // A saved Git pin reopened by ID when the list does not (yet) hold it; never re-inspected.
@@ -99,8 +100,19 @@ export function RenderingTemplatesPage() {
 
   const verifiedItems = bundleList.items;
   const selectedId = sourceMode === 'git' ? inspected?.id ?? '' : bundle;
-  const selected: RenderBundle | undefined = sourceMode === 'git' ? inspected ?? undefined : verifiedItems.find((item) => item.id === bundle) ?? (savedDetail?.id === bundle ? savedDetail : undefined);
+  const savedBundle = verifiedItems.find((item) => item.id === bundle) ?? (savedDetail?.id === bundle ? savedDetail : undefined);
+  const selected: RenderBundle | undefined = sourceMode === 'git' ? inspected ?? undefined : savedBundle;
   const git = selected?.source !== undefined;
+
+  // A user may switch to Git before either catalog or detail has arrived.
+  // Resolve the saved source independently of the active mode; source edits,
+  // cancellation and a different template invalidate this initialization.
+  useEffect(() => {
+    if (sourceMode !== 'git' || gitSourceToLoad !== bundle || !savedBundle?.source) return;
+    const source = savedBundle.source;
+    setGitSourceToLoad('');
+    setGitDraft((draft) => ({ ...draft, url: source.url, path: source.path === '.' ? '' : source.path }));
+  }, [sourceMode, gitSourceToLoad, bundle, savedBundle]);
 
   // Inputs are drafted per pin: leaving a pin keeps its draft, returning restores it, and a
   // first visit carries the current inputs over so incompatible fields are shown, never dropped.
@@ -164,16 +176,14 @@ export function RenderingTemplatesPage() {
   function chooseSource(next: SourceMode) {
     if (next === sourceMode) return;
     setBundleError('');
-    if (next === 'git' && selected?.source && !gitDraft.url) {
-      // Editing a saved Git pin: the new ref is an explicit edit of the same source.
-      setGitDraft({ url: selected.source.url, path: selected.source.path === '.' ? '' : selected.source.path, ref: '' });
-      setGitDraftVersion((value) => value + 1);
-    }
+    // The ref stays an explicit user edit; late metadata supplies only URL/path.
+    setGitSourceToLoad(next === 'git' && !gitDraft.url && !gitDraft.path ? bundle : '');
     if (next === 'verified' && inspected) setBundle(inspected.id);
     setSourceMode(next);
   }
 
   function resetForm() {
+    detailRequest.current += 1; setGitSourceToLoad('');
     applyForm(emptyTemplateForm()); setMode('form'); setModeNote(''); setJsonText('{}');
     setKey(''); setName(''); setBundle(''); setSourceMode('git'); setGitDraft(emptyGitSource()); setGitDraftVersion((value) => value + 1); setInspected(null); setSavedDetail(null);
     setInputs({}); setInputDrafts({}); setRawProblems(0); setRepairError(''); pinRef.current = '';
@@ -189,6 +199,7 @@ export function RenderingTemplatesPage() {
     } catch { /* The list remains the source; a missing pin shows as no longer available. */ }
   }
   function startEdit(template: Definition) {
+    detailRequest.current += 1; setGitSourceToLoad('');
     setNotice(''); setError(''); setIdError(''); setNameError(''); setBundleError(''); setReview(null); setRepairError('');
     setKey(template.key); setName(template.name ?? ''); setCriteriaDraft(draftFromCriteria(template.criteria));
     // Edit reopens the saved pin and inputs without re-inspection (UC-03 RB-04).
@@ -330,7 +341,10 @@ export function RenderingTemplatesPage() {
           <div className="definition-card-title"><h4>{t('platform.renderingTemplates.renderingBundle')}</h4>{selected?.source && selected.status === 'AVAILABLE' ? <span className="definition-verified">{t('platform.renderingTemplates.verified')}</span> : null}</div>
           <div className="definition-segmented" role="group" aria-label={t('platform.renderingTemplates.bundleSource')}><Button type="button" aria-pressed={sourceMode === 'git'} onClick={() => chooseSource('git')}>{t('platform.renderingTemplates.addFromGit')}</Button><Button type="button" aria-pressed={sourceMode === 'verified'} onClick={() => chooseSource('verified')}>{t('platform.renderingTemplates.verifiedBundles')}</Button></div>
           {sourceMode === 'git' ? <>
-            <GitBundleSource key={gitDraftVersion} draft={gitDraft} onDraftChange={setGitDraft} disabled={saving} onResult={(result) => { setInspected(result); setBundleError(''); }} />
+            <GitBundleSource key={gitDraftVersion} draft={gitDraft} onDraftChange={(draft) => {
+              if (draft.url !== gitDraft.url || draft.path !== gitDraft.path) setGitSourceToLoad('');
+              setGitDraft(draft);
+            }} disabled={saving} onResult={(result) => { setInspected(result); setBundleError(''); }} />
             {!inspected ? <p className="feature-note">{t('platform.renderingTemplates.checkTheBundleBeforeSaving')}</p> : null}
             {inspected ? <p className="form-success" role="status">{t('platform.renderingTemplates.verifiedBundle', { name: inspected.name ?? '', version: shortCommit(inspected) })}</p> : null}
             {inspected ? technical(inspected) : null}

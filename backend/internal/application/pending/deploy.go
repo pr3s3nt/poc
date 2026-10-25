@@ -130,7 +130,7 @@ func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, act
 		}
 		var before, after map[string]any
 		if module, exists := set.Document.Modules[change.WorkloadID]; exists {
-			before, err = workloadconfig.ReconstructScoreProven(change.WorkloadID, module, set.Document, set.LiteralProofs.ProverFor(change.WorkloadID))
+			before, err = workloadconfig.ReconstructScoreProven(change.WorkloadID, module, set.Document, set.LiteralProofs.ProverFor(change.WorkloadID), set.ResourceAliases[change.WorkloadID])
 			if err != nil {
 				return report, err
 			}

@@ -7,6 +7,26 @@ last_reviewed: 2026-10-25
 
 # Current project state
 
+## F3/F4/F5 corrections — accepted on kind — 2026-10-25
+
+Shared Score aliases are preserved as private Deployment Set metadata, outside
+planner/hash semantics, including multiple aliases for one ID. Historical sets
+without this metadata keep generated names. Saved Git source initialization
+survives metadata arriving after a source-mode switch and preserves user edits.
+Namespace creation baselines are immutable per instance and namespace UID,
+allowing CREATE after DESTROYED without reusing a previous incarnation's proof.
+Existing missing provenance is not inferred from live objects; previously stuck
+namespaces can remain protected by the ownership guard. The existing Claude
+`kiemtra` session verified 85/85 Terraform executor tests on PostgreSQL, repeated
+race checks, and 13 business checks on real kind: shared aliases survive Deploy,
+no-op Save and restart; two same-instance namespace recreation cycles succeed
+on their first attempt; delayed Git metadata preserves source/ref/focus.
+New acceptance resources were removed through the product with namespace/PV
+absence verified. The pre-fix namespace with missing incarnation proof remains
+guarded. See the [verification record](verification/2026-10-25-workload-alias-namespace-git-fixes.md).
+See [deviation record](implementation/deviations.md#imp-036--workload-aliases-and-namespace-recreation-2026-10-25)
+and [code map](implementation/code-map.md#verified-feature-defect-fixes--f3f4f5).
+
 ## Basic application logging/monitoring — real Kubernetes accepted — 2026-10-25
 
 Issue #1 basic slice follows [ADR-023](architecture/decisions/ADR-023-native-observability.md):

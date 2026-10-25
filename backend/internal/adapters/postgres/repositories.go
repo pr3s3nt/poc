@@ -332,7 +332,7 @@ func (s *Store) SaveDeploymentSet(ctx context.Context, v environment.DeploymentS
 }
 
 func (s *Store) fencedSaveDeploymentSet(ctx context.Context, v environment.DeploymentSet) error {
-	doc, err := jsonBytes(storedSet{Document: v.Document, LiteralProofs: v.LiteralProofs})
+	doc, err := jsonBytes(storedSet{Document: v.Document, LiteralProofs: v.LiteralProofs, ResourceAliases: v.ResourceAliases})
 	if err != nil {
 		return err
 	}
@@ -360,21 +360,24 @@ func (s *Store) GetDeploymentSet(ctx context.Context, id string) (environment.De
 		return v, err
 	}
 	var proofs struct {
-		LiteralProofs environment.LiteralProofs `json:"literalProofs"`
+		LiteralProofs   environment.LiteralProofs   `json:"literalProofs"`
+		ResourceAliases environment.ResourceAliases `json:"resourceAliases"`
 	}
 	if err = unmarshalJSON(doc, &proofs); err != nil {
 		return v, err
 	}
 	v.LiteralProofs = proofs.LiteralProofs
+	v.ResourceAliases = proofs.ResourceAliases
 	return v, nil
 }
 
 // storedSet is the deployment_sets.document value: the Document members inline
-// plus the private literalProofs member (UC-16 BR-23). The column and
+// plus private literalProofs and resourceAliases (UC-16 BR-17/23). The column and
 // document_hash are unchanged; a row without the member reads as no proof.
 type storedSet struct {
 	environment.Document
-	LiteralProofs environment.LiteralProofs `json:"literalProofs,omitempty"`
+	LiteralProofs   environment.LiteralProofs   `json:"literalProofs,omitempty"`
+	ResourceAliases environment.ResourceAliases `json:"resourceAliases,omitempty"`
 }
 
 // keep imports used by the remainder of this file's repository sections.

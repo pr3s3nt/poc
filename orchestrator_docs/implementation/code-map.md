@@ -7,6 +7,21 @@ last_reviewed: 2026-10-25
 
 # Design-to-code map
 
+## Verified feature defect fixes — F3/F4/F5
+
+- UC-16 BR-17 shared names: `domain/environment/resource_aliases.go`,
+  `application/workloadconfig/resource_aliases.go`, reconstruction, deployment
+  snapshot/service and PostgreSQL `storedSet`; private metadata does not enter
+  planner documents, hashes or public review.
+- Namespace recreation: `application/tfexec/namespace.go` captures an immutable
+  baseline per instance/namespace UID; `adapters/terraform/recovery` accepts the
+  scoped handle. Historical matching baselines remain readable.
+- Git source initialization: `RenderingTemplatesPage.tsx` resolves the saved
+  bundle independently of the selected source mode and invalidates pending
+  initialization on source edits, reset or another edit.
+
+Regression mapping: [traceability](../traceability/matrix.md#f3f4f5-regressions).
+
 ## Account diagnostics — ADR-022
 
 Canonical behavior: [UC-04 DIAG-01..14](../usecase/UC-04/specification.md#account-diagnostics--diag-0114),

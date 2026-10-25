@@ -2,12 +2,20 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-25
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
 
 Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, class/method, persistence/state và planned test. `OC-nn` tham chiếu `architecture/contracts/operation-contracts.md`.
+
+## F3/F4/F5 regressions
+
+| Requirement | Implementation | Regression coverage |
+|---|---|---|
+| UC-16 BR-17 shared aliases | Private `DeploymentSet.resourceAliases`; Score reconstruction and deploy promotion | `workloadconfig/resource_aliases_test.go`, `pending/resource_aliases_lifecycle_test.go`, PostgreSQL metadata restart/legacy-row and JSON snapshot tests |
+| Terraform state contract: immutable creation identity and safe namespace cleanup | Baseline handle includes instance and namespace UID; exact historical fallback | `tfexec/namespace_internal_test.go`: recreation, replaced ServiceAccount, missing/corrupt proof; `recovery/recovery_test.go`: independent encrypted artifacts |
+| UC-03 RB-04/06 saved Git source and draft lifetime | Pending source initialization from catalog/detail, scoped invalidation | `GitRenderBundle.test.tsx`: delayed catalog/detail, typed ref, source edit and cancellation |
 
 ## UC-00
 

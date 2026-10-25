@@ -51,9 +51,14 @@ type namespaceCreationBaseline struct {
 
 func namespaceBaselineHandle(instanceID string) string { return "baseline-" + instanceID }
 
+func namespaceUIDBaselineHandle(instanceID, namespaceUID string) string {
+	return namespaceBaselineHandle(instanceID) + "-" + namespaceUID
+}
+
 // captureNamespaceBaseline records the default ServiceAccount UID immediately
 // after this run creates and readies its namespace, before dependent workloads
-// are provisioned. The encrypted artifact is immutable for the instance.
+// are provisioned. The encrypted artifact is immutable for this namespace UID,
+// so recreating a DESTROYED instance cannot overwrite or reuse its old proof.
 func (s *Service) captureNamespaceBaseline(ctx context.Context, st *execState, resources []terraformexec.StateResource) error {
 	if st.action != tfresource.ActionCreate || st.bundle.Ref.ModuleID != "k8s-namespace" {
 		return nil
@@ -108,7 +113,26 @@ func (s *Service) captureNamespaceBaseline(ctx context.Context, st *execState, r
 	if err != nil {
 		return fmt.Errorf("%w: namespace creation baseline could not be encoded", ErrExecution)
 	}
-	handle := namespaceBaselineHandle(st.inst.ID)
+	handle := namespaceUIDBaselineHandle(st.inst.ID, namespace.UID)
+	// Keep the old instance-only artifact authoritative for its original UID.
+	// In particular, a replaced default account cannot establish a new proof.
+	if _, found, err := s.deps.Verification.LoadVerification(ctx, handle, st.inst.ID); err != nil {
+		return fmt.Errorf("%w: namespace creation baseline is unreadable", ErrExecution)
+	} else if !found {
+		legacy, legacyFound, legacyErr := s.deps.Verification.LoadVerification(ctx, namespaceBaselineHandle(st.inst.ID), st.inst.ID)
+		if legacyErr != nil {
+			return fmt.Errorf("%w: namespace creation baseline is unreadable", ErrExecution)
+		}
+		if legacyFound {
+			var previous namespaceCreationBaseline
+			if json.Unmarshal(legacy, &previous) != nil || previous.NamespaceUID == "" || previous.DefaultServiceAccountUID == "" {
+				return fmt.Errorf("%w: namespace creation baseline is malformed", ErrExecution)
+			}
+			if previous.NamespaceUID == namespace.UID && string(legacy) != string(baseline) {
+				return fmt.Errorf("%w: namespace creation baseline changed", ErrExecution)
+			}
+		}
+	}
 	existing, found, err := s.deps.Verification.LoadVerification(ctx, handle, st.inst.ID)
 	if err != nil || found && string(existing) != string(baseline) {
 		return fmt.Errorf("%w: namespace creation baseline is unreadable or changed", ErrExecution)
@@ -286,8 +310,12 @@ func (s *Service) inspectNamespaces(ctx context.Context, st *execState, pre []te
 			return fmt.Errorf("%w: the contents of %s could not be read", ErrNamespaceContents, ns.Name)
 		}
 		var baseline *namespaceCreationBaseline
-		if handle := namespaceBaselineHandle(st.inst.ID); st.inst.ID != "" {
-			if raw, found, loadErr := s.deps.Verification.LoadVerification(ctx, handle, st.inst.ID); loadErr != nil {
+		if st.inst.ID != "" {
+			raw, found, loadErr := s.deps.Verification.LoadVerification(ctx, namespaceUIDBaselineHandle(st.inst.ID, ns.UID), st.inst.ID)
+			if loadErr == nil && !found {
+				raw, found, loadErr = s.deps.Verification.LoadVerification(ctx, namespaceBaselineHandle(st.inst.ID), st.inst.ID)
+			}
+			if loadErr != nil {
 				return fmt.Errorf("%w: the namespace creation baseline could not be read", ErrNamespaceContents)
 			} else if found {
 				var value namespaceCreationBaseline

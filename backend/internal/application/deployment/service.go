@@ -287,6 +287,7 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		accepted = workloadID
 	}
 	candidateSet.LiteralProofs = workloadconfig.ProveLiterals(snapshot.BaseProofs, plan.CandidateSet, accepted)
+	candidateSet.ResourceAliases = workloadconfig.KeepResourceAliases(snapshot.BaseAliases, plan.CandidateSet, after)
 	candidateSet.DocumentHash, err = canon.Hash(plan.CandidateSet)
 	if err != nil {
 		return nil, s.fail(ctx, record, err)

@@ -18,6 +18,11 @@ state hoặc Terraform state được refresh. Khi cleanup, namespace/SA UID ph�
 khớp và đối tượng không có custom metadata/refs/automount override. Thiếu/hỏng
 artifact hoặc UID đổi giữ fail-closed; không import/PATCH để nhận ownership.
 Artifact nằm ngoài Git/UI/log công khai, cùng quyền truy cập private state.
+Một instance có thể được CREATE lại sau DESTROYED: mỗi namespace UID mới có
+artifact riêng, không overwrite baseline của vòng đời trước. Cleanup đọc
+baseline theo instance và namespace UID trong state. Handle cũ theo instance
+chỉ là fallback cho namespace/ServiceAccount UID khớp chính xác; không suy ra
+ownership hoặc backfill baseline cho namespace đã chạy từ dữ liệu hiện tại.
 
 Canonical identity tuple: Organization ID, Application/Environment ID, target
 generation, resource descriptor, scope type và scope ID. Backend opaque state ID

@@ -2,10 +2,33 @@
 id: IMPLEMENTATION-DEVIATIONS
 artifact: design-implementation-deviations
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-25
 ---
 
 # Known design and implementation deviations
+
+## IMP-036 — Workload aliases and namespace recreation (2026-10-25)
+
+Verification of `f3dc811` found three defects: deployed shared resource aliases
+are reconstructed as `shared_N` against UC-16 BR-17 (F3); switching a saved
+template to Git before bundle metadata arrives leaves its source blank (F4);
+and a recreated namespace reuses the instance's immutable creation baseline,
+failing CREATE and later namespace cleanup (F5).
+
+Remediation preserves shared alias metadata outside the planned Deployment Set
+document/hash, binds each immutable namespace baseline to instance and namespace
+UID, and completes Git source initialization without replacing user edits.
+Historical absent alias metadata uses the existing reconstruction fallback;
+historical baselines remain immutable and authorize only their exact UIDs.
+Resolved for new deployments/incarnations on 2026-10-25: Claude's real-kind
+acceptance passed 13 business checks, including two namespace recreate cycles,
+deployed alias persistence/no-op/restart and delayed real Git metadata. Private
+metadata roundtrips on PostgreSQL/JSON and ownership guards remain tested.
+Existing lost alias names are not inferred; a pre-fix namespace without its
+incarnation's proof remains guarded. See the
+[verification record](../verification/2026-10-25-workload-alias-namespace-git-fixes.md).
+
+## Existing records
 
 File này ghi khác biệt hiện tại mà AI không được tự suy diễn mất. Hạng mục thuần
 roadmap/deferred capability nằm trong [backlog](../backlog/README.md).

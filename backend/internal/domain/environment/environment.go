@@ -147,6 +147,8 @@ type DeploymentSet struct {
 	// (UC-16 BR-23). It is outside Document and DocumentHash, so planning and
 	// Delta semantics are unchanged; absent means every literal is unknown.
 	LiteralProofs LiteralProofs `json:"literalProofs,omitempty"`
+	// ResourceAliases preserves Score shared names outside planning semantics.
+	ResourceAliases ResourceAliases `json:"resourceAliases,omitempty"`
 }
 
 // ScopeID is the Environment resource scope identifier of one target

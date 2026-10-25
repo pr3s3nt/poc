@@ -2,6 +2,8 @@ package tfexec
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -185,7 +187,7 @@ func TestCaptureNamespaceBaselineIsImmutableAndBoundToCreatedUIDs(t *testing.T) 
 			if tc.wantErr {
 				return
 			}
-			original, found, err := store.LoadVerification(context.Background(), namespaceBaselineHandle(st.inst.ID), st.inst.ID)
+			original, found, err := store.LoadVerification(context.Background(), namespaceUIDBaselineHandle(st.inst.ID, nsUID), st.inst.ID)
 			if err != nil || !found {
 				t.Fatalf("baseline not persisted: found=%v err=%v", found, err)
 			}
@@ -193,7 +195,7 @@ func TestCaptureNamespaceBaselineIsImmutableAndBoundToCreatedUIDs(t *testing.T) 
 			if err := s.captureNamespaceBaseline(context.Background(), st, resources); err == nil {
 				t.Fatal("replacement UID overwrote an established baseline")
 			}
-			after, found, err := store.LoadVerification(context.Background(), namespaceBaselineHandle(st.inst.ID), st.inst.ID)
+			after, found, err := store.LoadVerification(context.Background(), namespaceUIDBaselineHandle(st.inst.ID, nsUID), st.inst.ID)
 			if err != nil || !found {
 				t.Fatalf("baseline not readable: found=%v err=%v", found, err)
 			}
@@ -236,5 +238,57 @@ func TestCaptureNamespaceBaselineStopsWhenReadinessExpires(t *testing.T) {
 	}
 	if len(store.values) != 0 {
 		t.Fatal("baseline was saved without a verified ServiceAccount UID")
+	}
+}
+
+func TestNamespaceRecreationKeepsIndependentBaselinesAndCleanupGuards(t *testing.T) {
+	ctx := context.Background()
+	store := &baselineStore{}
+	st := &execState{action: tfresource.ActionCreate, bundle: tfmodule.Bundle{Ref: tfmodule.SourceRef{ModuleID: "k8s-namespace"}}, inst: tfresource.Instance{ID: "12345678-1234-4234-8234-123456789abc"}}
+	legacy, _ := json.Marshal(namespaceCreationBaseline{NamespaceUID: "old-ns", DefaultServiceAccountUID: "old-sa"})
+	store.SaveVerification(ctx, namespaceBaselineHandle(st.inst.ID), st.inst.ID, legacy)
+	inspector := baselineInspector{inspection: terraformexec.NamespaceInspection{UID: "new-ns", Objects: []terraformexec.NamespaceObject{{Kind: "ServiceAccount", Name: "default", UID: "new-sa"}}}}
+	s := &Service{deps: Deps{Verification: store, Namespaces: inspector}}
+	resources := []terraformexec.StateResource{{Type: "kubernetes_namespace_v1", ID: "orch-ns", UID: "new-ns"}}
+	if err := s.captureNamespaceBaseline(ctx, st, resources); err != nil {
+		t.Fatalf("recreating a destroyed instance reused its old baseline: %v", err)
+	}
+	if err := s.inspectNamespaces(ctx, st, resources); err != nil {
+		t.Fatalf("the recreated namespace cannot be cleaned: %v", err)
+	}
+	old, _, _ := store.LoadVerification(ctx, namespaceBaselineHandle(st.inst.ID), st.inst.ID)
+	if !reflect.DeepEqual(old, legacy) {
+		t.Fatal("recreation overwrote historical provenance")
+	}
+	inspector.inspection.Objects[0].UID = "replacement-sa"
+	s.deps.Namespaces = inspector
+	if err := s.captureNamespaceBaseline(ctx, st, resources); err == nil {
+		t.Fatal("a replaced ServiceAccount overwrote the current baseline")
+	}
+	if err := s.inspectNamespaces(ctx, st, resources); !errors.Is(err, ErrNamespaceContents) {
+		t.Fatalf("a replaced ServiceAccount was allowed through cleanup: %v", err)
+	}
+	// Missing proof for an already-running namespace is not repaired by
+	// inspection or by the old incarnation's proof.
+	delete(store.values, namespaceUIDBaselineHandle(st.inst.ID, "new-ns"))
+	if err := s.inspectNamespaces(ctx, st, resources); !errors.Is(err, ErrNamespaceContents) {
+		t.Fatalf("cleanup inferred ownership without a matching proof: %v", err)
+	}
+}
+
+func TestNamespaceCleanupReadsLegacyBaselineButNeverFallsBackFromCorruption(t *testing.T) {
+	ctx := context.Background()
+	store := &baselineStore{}
+	st := &execState{inst: tfresource.Instance{ID: "12345678-1234-4234-8234-123456789abc"}}
+	legacy, _ := json.Marshal(namespaceCreationBaseline{NamespaceUID: nsUID, DefaultServiceAccountUID: "sa"})
+	store.SaveVerification(ctx, namespaceBaselineHandle(st.inst.ID), st.inst.ID, legacy)
+	s := &Service{deps: Deps{Verification: store, Namespaces: baselineInspector{inspection: terraformexec.NamespaceInspection{UID: nsUID, Objects: []terraformexec.NamespaceObject{{Kind: "ServiceAccount", Name: "default", UID: "sa"}}}}}}
+	resources := []terraformexec.StateResource{{Type: "kubernetes_namespace_v1", ID: "orch-ns", UID: nsUID}}
+	if err := s.inspectNamespaces(ctx, st, resources); err != nil {
+		t.Fatalf("a valid historical baseline stopped working: %v", err)
+	}
+	store.SaveVerification(ctx, namespaceUIDBaselineHandle(st.inst.ID, nsUID), st.inst.ID, []byte("invalid"))
+	if err := s.inspectNamespaces(ctx, st, resources); !errors.Is(err, ErrNamespaceContents) {
+		t.Fatalf("corrupt new proof fell back to a legacy proof: %v", err)
 	}
 }

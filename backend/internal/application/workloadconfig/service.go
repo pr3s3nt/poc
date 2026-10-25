@@ -111,7 +111,7 @@ func (s *Service) List(ctx context.Context, app, env string) (View, error) {
 	items := map[string]Item{}
 	for id, module := range set.Document.Modules {
 		item := Item{ID: id, Ready: true, ServicePorts: portNames(module.Spec.Service)}
-		if reconstructed, err := ReconstructScoreProven(id, module, set.Document, set.LiteralProofs.ProverFor(id)); err == nil {
+		if reconstructed, err := ReconstructScoreProven(id, module, set.Document, set.LiteralProofs.ProverFor(id), set.ResourceAliases[id]); err == nil {
 			item.Score = reconstructed
 		}
 		items[id] = item

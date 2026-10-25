@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"orchestrator/internal/domain/environment"
@@ -129,6 +130,8 @@ func TestSnapshotKeepsDeploymentSetLiteralProofs(t *testing.T) {
 	proofs := environment.LiteralProofs{}
 	proofs.Add("api", "main", "LOG_LEVEL", "debug")
 	set := environment.DeploymentSet{ID: "set-1", EnvironmentKey: "app/staging", Document: environment.NewDocument(), DocumentHash: "h", LiteralProofs: proofs}
+	aliases := environment.ResourceAliases{"api": {Shared: map[string]string{"cache": "shared-cache"}, References: map[string]string{"/containers/main/variables/HOST": "${resources.cache.host}"}}}
+	set.ResourceAliases = aliases
 	if err := st.SaveDeploymentSet(ctx, set); err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +140,7 @@ func TestSnapshotKeepsDeploymentSetLiteralProofs(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := reopened.GetDeploymentSet(ctx, "set-1")
-	if err != nil || !got.LiteralProofs.Proves("api", "main", "LOG_LEVEL", "debug") {
+	if err != nil || !got.LiteralProofs.Proves("api", "main", "LOG_LEVEL", "debug") || !reflect.DeepEqual(got.ResourceAliases, aliases) {
 		t.Fatalf("proof lost across reload: %+v %v", got.LiteralProofs, err)
 	}
 }

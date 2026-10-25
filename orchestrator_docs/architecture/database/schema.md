@@ -229,7 +229,21 @@ Deployment Sets are immutable. `document` also carries an optional private
 name and exact value>" } } }`. It records which ordinary string variables a
 successful UC-16 deploy accepted. It is not part of `document_hash`, the planner
 Delta or any Score; no DDL changed. A set without the member (every set written
-before this feature) proves nothing, so its literals stay unreadable. Canonical shape:
+before this feature) proves nothing, so its literals stay unreadable.
+
+An optional private `resourceAliases` member preserves UC-16 BR-17 shared
+resource names per workload: `{ "<workload>": { "shared": { "<alias>":
+"<shared-id>" }, "references": { "<JSON pointer>": "<Score reference text>" }
+} }`. References retain which alias a binding used when multiple aliases name
+one shared ID. Store only text containing an unescaped shared-resource reference;
+never use this metadata to authorize literal readback. A restored reference must
+resolve to exactly the current reconstructed reference. Metadata is captured
+from validated Score on deploy, carried only for remaining workloads, and lives
+outside Document, DocumentHash and planner/Delta semantics. JSON snapshots and
+PostgreSQL's existing `document` JSONB preserve it; no DDL or reset is needed.
+Absent metadata keeps legacy generated aliases; do not infer historical names.
+
+Canonical shape:
 
 ```json
 {
