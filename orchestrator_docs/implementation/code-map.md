@@ -14,8 +14,9 @@ last_reviewed: 2026-10-25
   `ports/terraformexec/terraformexec.go`. Additional Kubernetes/AWS probes remain
   mandatory for every applicable object in a mixed module.
 - Real Git module: `backend/test/acceptance/terraform-completion/main.tf`.
-  ConfigMap and ServiceAccount outputs feed two shared consumers and one private
-  consumer in the real full-application scenario.
+  ConfigMap, ServiceAccount and `kubernetes_manifest` objects feed two shared
+  consumers and one private consumer in the real full-application scenario;
+  manifest resources exercise provider schemas without an `id` attribute.
 - Acceptance: `workload-manifests-kind.sh --completion-ref <published-commit>`,
   `frontend/test/e2e/terraform-completion-flows.mjs`; see
   [the runbook](../operations/terraform-completion-kind.md).

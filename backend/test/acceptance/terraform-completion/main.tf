@@ -52,11 +52,27 @@ resource "kubernetes_service_account_v1" "runtime" {
     labels    = local.labels
   }
   automount_service_account_token = false
-  wait_for_service_account_token  = false
 }
 
 output "config" {
   value = kubernetes_config_map_v1.runtime.data["config"]
+}
+
+# The manifest provider schema has no conventional `id` attribute. Its actual
+# managed state must still complete and participate in update/cleanup.
+resource "kubernetes_manifest" "runtime" {
+  manifest = {
+    apiVersion = "v1"
+    kind       = "ConfigMap"
+    metadata = {
+      name      = "${local.name}-manifest"
+      namespace = var.namespace
+      labels    = local.labels
+    }
+    data = {
+      revision = var.revision
+    }
+  }
 }
 
 output "revision" {

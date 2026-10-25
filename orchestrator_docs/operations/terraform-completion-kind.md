@@ -37,7 +37,8 @@ transport; no local downloader or artifact injection substitutes for it.
    `backend/test/acceptance/terraform-completion` and registers its Definition.
 2. Developer imports frontend/backend/worker. Backend and worker share one
    `app-config` resource; frontend uses a private instance. Both instances
-   really create ConfigMap and ServiceAccount objects, neither of which has a
+   really create ConfigMap and ServiceAccount objects, plus a ConfigMap through
+   `kubernetes_manifest` (its provider schema has no `id` attribute). None has a
    supplemental readiness probe. Their outputs configure the workloads.
 3. Preview does not mutate the cluster. Deploy produces both READY instances,
    real PostgreSQL/Redis and the application. The existing PostgreSQL module

@@ -221,7 +221,9 @@ type StateResource struct {
 	Address  string
 	Type     string
 	Provider string
-	ID       string
+	// ID is optional: provider schemas such as kubernetes_manifest have no
+	// id attribute. Resource addresses still identify managed entries in state.
+	ID string
 	// UID is the provider-assigned object UID recorded in state (for example
 	// metadata.uid of a Kubernetes object); empty when the type has none.
 	UID string

@@ -138,15 +138,13 @@ func TestProviderCompletionRequiresResourceEvidenceAndLiveDeadline(t *testing.T)
 		t.Fatalf("no resources: %v", err)
 	}
 	object := terraformexec.StateResource{Address: "kubernetes_config_map_v1.app", Type: "kubernetes_config_map_v1", ID: "ns/app"}
-	for _, field := range []string{"address", "type", "id"} {
+	for _, field := range []string{"address", "type"} {
 		incomplete := object
 		switch field {
 		case "address":
 			incomplete.Address = ""
 		case "type":
 			incomplete.Type = " "
-		case "id":
-			incomplete.ID = ""
 		}
 		if err := c.Check(context.Background(), request(nil, incomplete)); !errors.Is(err, ErrUnavailable) {
 			t.Fatalf("missing %s: %v", field, err)
@@ -163,6 +161,19 @@ func TestProviderCompletionRequiresResourceEvidenceAndLiveDeadline(t *testing.T)
 	cancel()
 	if err := c.Check(ctx, request(nil, object)); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("cancelled provider completion: %v", err)
+	}
+}
+
+func TestProviderSchemasWithoutIDStillCompleteButProbesRequireIdentity(t *testing.T) {
+	manifest := terraformexec.StateResource{Address: "kubernetes_manifest.config", Type: "kubernetes_manifest"}
+	if err := (&Checker{}).Check(context.Background(), request(nil, manifest)); err != nil {
+		t.Fatalf("provider-managed schema without an id attribute: %v", err)
+	}
+	for _, typ := range []string{"kubernetes_stateful_set_v1", "aws_vpc"} {
+		object := terraformexec.StateResource{Address: typ + ".app", Type: typ}
+		if err := (&Checker{}).Check(context.Background(), request(nil, object)); !errors.Is(err, ErrUnavailable) {
+			t.Fatalf("%s probe must have its physical identity: %v", typ, err)
+		}
 	}
 }
 

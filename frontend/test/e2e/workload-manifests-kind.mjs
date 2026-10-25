@@ -110,9 +110,14 @@ async function previewDeploy(label, expectedWorkloads, expectations) {
   await expectations(preview);
   await shot(`${label}-preview`);
   const deploy = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(`${kit.appPath}/deploy`), { timeout: 1_200_000 });
-  await kit.deployAndWait(1_200_000);
-  const result = await (await deploy).json();
-  if (result.status !== 'SUCCEEDED') throw new Error(`${label} deploy status ${result.status}`);
+  const [result] = await Promise.all([
+    deploy.then(async (response) => {
+      const report = await response.json();
+      if (report.status !== 'SUCCEEDED') throw new Error(`${label} deploy status ${report.status}`);
+      return report;
+    }),
+    kit.deployAndWait(1_200_000),
+  ]);
   await shot(`${label}-deployed`);
   return { preview, result };
 }

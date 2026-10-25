@@ -45,15 +45,16 @@ export async function completionSnapshot({ kit, tech, sql, check, label, previou
     const expectedRevision = workload === 'frontend' ? revision : 'v1';
     const cm = await tech.json(['-n', ns, 'get', 'configmap', name, '-o', 'json']);
     const sa = await tech.json(['-n', ns, 'get', 'serviceaccount', name, '-o', 'json']);
+    const manifest = await tech.json(['-n', ns, 'get', 'configmap', `${name}-manifest`, '-o', 'json']);
     const boundRevision = await tech.resolvedEnv(deployment, 'RESOURCE_REVISION');
     check(`TC-${label}.${workload}-outputs`, cm.data.config === 'acceptance-config-ok'
-      && cm.data.revision === expectedRevision && boundRevision === expectedRevision,
+      && cm.data.revision === expectedRevision && manifest.data.revision === expectedRevision && boundRevision === expectedRevision,
     `${workload} consumes live Terraform resource output, revision ${expectedRevision}`);
     if (workload !== 'frontend') {
       check(`TC-${label}.${workload}-environment`, await tech.resolvedEnv(deployment, 'ACCEPTANCE_CONFIG') === cm.data.config,
         'the application environment check uses the Terraform ConfigMap output');
     }
-    identities[name] = { configMap: cm.metadata.uid, serviceAccount: sa.metadata.uid };
+    identities[name] = { configMap: cm.metadata.uid, serviceAccount: sa.metadata.uid, manifest: manifest.metadata.uid };
   }
   check(`TC-${label}.scope`, names.backend === names.worker && names.frontend !== names.backend,
     'two consumers share one resource; the private consumer has a distinct resource');

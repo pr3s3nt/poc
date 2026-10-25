@@ -61,7 +61,8 @@ ResourceProvisioningService.Provision(ctx context.Context, req ProvisionRequest)
 ## Transaction boundary
 
 Theo BR-10, Terraform provider completion áp dụng cho mọi loại managed resource
-trong verified module. `ReadinessChecker` kiểm đủ address/type/ID và deadline,
+trong verified module. `ReadinessChecker` kiểm đủ address/type và deadline,
+sử dụng ID provider công bố khi probe cần nó (không giả định mọi schema có ID),
 sau đó chạy mọi probe Kubernetes/AWS hiện có cho các objects tương ứng. Module
 không có object cần probe bổ sung vẫn hoàn tất; module hỗn hợp không được bỏ
 qua probe thất bại. EKS target usability và namespace provenance giữ nguyên.

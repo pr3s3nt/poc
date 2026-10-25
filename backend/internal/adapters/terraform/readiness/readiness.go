@@ -120,7 +120,7 @@ func (c *Checker) Check(ctx context.Context, req terraformexec.ReadinessRequest)
 	}
 	var aws []awsProbe
 	for _, r := range req.Resources {
-		if strings.TrimSpace(r.Address) == "" || strings.TrimSpace(r.Type) == "" || strings.TrimSpace(r.ID) == "" {
+		if strings.TrimSpace(r.Address) == "" || strings.TrimSpace(r.Type) == "" {
 			return ErrUnavailable
 		}
 		label := r.Address + "=" + r.ID

@@ -93,8 +93,10 @@ Provision implicit infrastructure cùng private/shared resources theo dependency
   provider là điều kiện mặc định. Các kiểm tra readiness bổ sung hiện có cho
   Namespace/Deployment/StatefulSet, VPC/EKS/RDS/ElastiCache vẫn bắt buộc cho
   từng resource tương ứng, kể cả module hỗn hợp. Thiếu bộ kiểm tra bổ sung
-  không phải lỗi. State phải có managed resources với address/type/ID đầy đủ;
-  kết quả rỗng, deadline hết hoặc query bổ sung thất bại không được coi là
+  không phải lỗi. State phải có managed resources với address/type đầy đủ;
+  ID bắt buộc khi probe tương ứng cần nó, không bắt buộc cho schema provider
+  không công bố attribute `id` (ví dụ `kubernetes_manifest`). Không tự tạo ID.
+  Kết quả rỗng, deadline hết hoặc query bổ sung thất bại không được coi là
   thành công. Không mở thêm provider, credential hoặc quyền cleanup.
 
 ## Luồng nội bộ
