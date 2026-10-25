@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"orchestrator/internal/application/accountdiag"
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/authentication"
 	"orchestrator/internal/application/catalog"
@@ -52,6 +53,7 @@ type Server struct {
 	previews        *preview.Service
 	resourceCleanup *resourcecleanup.Service
 	effectiveness   *effectivenessapp.Service
+	diagnostics     *accountdiag.Service
 	store           persistence.Store
 	seedOptions     seed.Options
 	uiDir           string
@@ -83,7 +85,10 @@ type Config struct {
 	// ResourceCleanup serves the scoped resource detail, the deletion preview,
 	// the confirmed deletion and its progress (UC-07 DEL-*, UC-09 RES-*).
 	ResourceCleanup *resourcecleanup.Service
-	Store           persistence.Store
+	// Diagnostics serves Infrastructure Account diagnostic reports; nil
+	// answers 503 on the diagnostic routes.
+	Diagnostics *accountdiag.Service
+	Store       persistence.Store
 	// ModuleRegistry is the verified Terraform module registry used by
 	// Definition registration (verify) and capability metadata (read-only).
 	ModuleRegistry moduleregistry.Registry
@@ -108,6 +113,7 @@ func NewServer(cfg Config) *Server {
 		previews:        cfg.Previews,
 		resourceCleanup: cfg.ResourceCleanup,
 		effectiveness:   effectivenessapp.New(cfg.Store, effectivenessapp.OriginOf(cfg.SeedOptions.Profile)),
+		diagnostics:     cfg.Diagnostics,
 		store:           cfg.Store,
 		seedOptions:     cfg.SeedOptions,
 		uiDir:           cfg.UIDir,

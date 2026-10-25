@@ -34,7 +34,7 @@ func cleanupEnv(t *testing.T) (string, string, string) {
 
 func startOwnedHTTPChild(t *testing.T) (*exec.Cmd, string, string, string) {
 	t.Helper()
-	cmd := exec.Command("setsid", "node", "-e", `const s=require('node:net').createServer(c=>c.end('owned'));s.listen(0,'127.0.0.1',()=>console.log(s.address().port));process.on('SIGTERM',()=>s.close(()=>process.exit(0)))`)
+	cmd := exec.Command("setsid", "node", "-e", `const s=require('node:net').createServer(c=>{c.on('error',()=>{});c.end('owned')});s.listen(0,'127.0.0.1',()=>console.log(s.address().port));process.on('SIGTERM',()=>s.close(()=>process.exit(0)))`)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		t.Fatal(err)

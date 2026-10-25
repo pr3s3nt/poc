@@ -26,6 +26,7 @@ func (s *Server) registerDriverAccountRoutes() {
 	s.mux.HandleFunc("PUT /api/v1/driver-accounts/{key}", s.handleRenameAccount)
 	s.mux.HandleFunc("POST /api/v1/driver-accounts/{key}/verify", s.handleVerifyAccount)
 	s.mux.HandleFunc("PUT /api/v1/driver-accounts/{key}/credentials", s.handleReplaceAccountCredentials)
+	s.registerAccountDiagnosticRoutes()
 }
 
 // accountView is the fixed public Account DTO. Everything is copied from an
@@ -41,6 +42,12 @@ type accountView struct {
 	Version            int64          `json:"version"`
 	Config             map[string]any `json:"config"`
 	Verification       map[string]any `json:"verification"`
+	// LatestDiagnostic is the newest diagnostic report summary, separate from
+	// Verification: it never changes Status or Version.
+	LatestDiagnostic *diagSummaryView `json:"latestDiagnostic"`
+	// DiagnosticsUnavailable is true when the diagnostic history could not be
+	// read, so the absence of LatestDiagnostic is not "never checked".
+	DiagnosticsUnavailable bool `json:"diagnosticsUnavailable"`
 }
 
 func accountType(kind application.ConnectionKind) string {
@@ -96,9 +103,20 @@ func (s *Server) handleListAccounts(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, err)
 		return
 	}
+	versions := map[string]int64{}
+	for _, conn := range accounts {
+		versions[conn.Key] = conn.Version
+	}
+	latest, latestErr := s.latestSummaries(r.Context(), org, versions)
 	views := make([]accountView, 0, len(accounts))
 	for _, conn := range accounts {
-		views = append(views, publicAccount(conn))
+		view := publicAccount(conn)
+		view.DiagnosticsUnavailable = latestErr != nil
+		if summary, ok := latest[conn.Key]; ok {
+			summary := summary
+			view.LatestDiagnostic = &summary
+		}
+		views = append(views, view)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"accounts": views})
 }
@@ -113,7 +131,13 @@ func (s *Server) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, publicAccount(conn))
+	view := publicAccount(conn)
+	latest, latestErr := s.latestSummaries(r.Context(), org, map[string]int64{conn.Key: conn.Version})
+	view.DiagnosticsUnavailable = latestErr != nil
+	if summary, ok := latest[conn.Key]; ok {
+		view.LatestDiagnostic = &summary
+	}
+	writeJSON(w, http.StatusOK, view)
 }
 
 func (s *Server) handleCreateInternalAccount(w http.ResponseWriter, r *http.Request) {

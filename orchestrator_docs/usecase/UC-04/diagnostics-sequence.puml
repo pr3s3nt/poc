@@ -1,0 +1,42 @@
+@startuml
+title UC-04 account diagnostics — DIAG-01..14
+actor "Platform Engineer / Admin" as User
+boundary "Account Diagnose UI" as UI
+control "Diagnostic Controller" as API
+control "Diagnostic Service / Worker" as Service
+entity "Report Repository" as Reports
+control "Scoped Identity Resolver" as Identity
+control "Probe Adapters" as Probe
+User -> UI : choose account / purpose / scope
+UI -> API : start(expected account version, safe scope)
+API -> Service : authenticated Organization + actor
+Service -> Reports : validate scope and insert QUEUED
+Reports --> Service : persisted run ID
+API --> UI : 202 run ID / actual state
+Service -> Reports : claim bounded owner / lease
+Service -> Identity : resolve saved account credential
+Identity --> Service : transient scoped identity
+loop applicable checks, bounded and cancellable
+  Service -> Probe : inspect exact target / requirements
+  Probe --> Service : safe typed observation or evidence gap
+  Service -> Reports : persist finding / real completed count
+end
+opt explicit supported Kubernetes execution
+  Service -> Reports : record unique intended probe ownership
+  Service -> Probe : create run-owned namespace and probes
+  Probe --> Service : observed UIDs / readiness
+  Service -> Reports : save owned resource facts
+  Service -> Probe : ownership + UID guarded cleanup
+  Probe --> Service : verified absence or unknown cleanup
+end
+Service -> Reports : terminal state + safe findings / cleanup
+UI -> API : poll / reload / read history
+API -> Reports : Organization + account scoped query
+Reports --> UI : persisted scope/time/progress/findings
+opt user stop or owner interruption
+  UI -> API : request cancel
+  API -> Reports : CAS cancellation request
+  Service -> Probe : stop and bounded cleanup
+  Service -> Reports : CANCELLED / INTERRUPTED with honest cleanup
+end
+@enduml

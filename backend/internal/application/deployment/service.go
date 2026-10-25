@@ -717,7 +717,9 @@ func (s *Service) applyWorkload(
 	return s.store.UpsertWorkloadProgress(ctx, instance)
 }
 
-func publicHost(subdomain, env, baseDomain string) string {
+// PublicHost is the canonical public host of an Environment: staging has its own
+// host, every other Environment uses the Application's.
+func PublicHost(subdomain, env, baseDomain string) string {
 	if env == "staging" {
 		return "staging." + subdomain + "." + baseDomain
 	}
@@ -796,7 +798,7 @@ func (s *Service) routesFor(ctx context.Context, app appdomain.Application, env 
 	if s.publicRoutes == nil {
 		return nil
 	}
-	route := execution.PublicRoute{ApplicationID: app.Key, EnvironmentID: env.Key, Host: publicHost(app.Subdomain, env.Key, s.baseDomain)}
+	route := execution.PublicRoute{ApplicationID: app.Key, EnvironmentID: env.Key, Host: PublicHost(app.Subdomain, env.Key, s.baseDomain)}
 	if !remove {
 		if err := planning.ValidatePublicRoutes(set); err != nil {
 			return err

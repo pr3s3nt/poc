@@ -7,6 +7,11 @@ last_reviewed: 2026-10-17
 
 # UC-04 context — Configure execution connections
 
+Account diagnostics: [DIAG-01..14](specification.md#account-diagnostics--diag-0114),
+[shared contract](../../architecture/contracts/account-diagnostics.md),
+[delivery/acceptance](../../implementation/account-diagnostics.md),
+[sequence](diagnostics-sequence.puml), [participants](diagnostics-vopc.puml).
+
 ## Trạng thái thực hiện
 
 Xem [CURRENT_STATE](../../CURRENT_STATE.md) và

@@ -168,3 +168,17 @@ and deployment region move to the new model in V02–V03, not V01.
 Existing GET/rename/verify use the same role/org/version gates and error mapping.
 `PUT .../{key}/credentials` rejects EC2 role accounts (ACCOUNT_TARGET_MISMATCH).
 No metadata endpoint, account ID, credential or secret reference can be submitted.
+
+## Diagnostic HTTP — DIAG-01..14
+
+Account list/detail use the safe latest-diagnostic projection. Start/list/read/
+cancel use `/api/v1/driver-accounts/{key}/diagnostics` and its report subroutes
+from the [canonical contract](../../../architecture/contracts/account-diagnostics.md#api).
+All operations retain PE/Admin and session Organization boundaries. Scope includes
+account version/purpose/mode/region/use-case/context pins, never credentials or
+network commands. Browser export serializes only the safe report response.
+
+UI polls backend state and persisted progress; no synthetic run timer. Error
+mapping follows the existing safe error envelope and VI/EN catalog patterns.
+Unknown start outcome reconciles GET rather than resubmitting. Account switches
+and stale response guards apply equally to report, history and scope loaders.

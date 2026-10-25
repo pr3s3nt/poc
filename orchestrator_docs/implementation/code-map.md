@@ -7,6 +7,48 @@ last_reviewed: 2026-10-24
 
 # Design-to-code map
 
+## Account diagnostics — ADR-022
+
+Canonical behavior: [UC-04 DIAG-01..14](../usecase/UC-04/specification.md#account-diagnostics--diag-0114),
+[contract](../architecture/contracts/account-diagnostics.md),
+[delivery and acceptance](account-diagnostics.md).
+
+- Aggregate, safe fact registry and owner/lease/revision transitions:
+  [`domain/diagnostics`](../../backend/internal/domain/diagnostics/).
+  Repository/probe ports: [`ports/diagnostics`](../../backend/internal/ports/diagnostics/).
+- Async worker, cancellation, expiry/recovery and requirement resolution:
+  [`application/accountdiag`](../../backend/internal/application/accountdiag/).
+  Full desired-state snapshot: `pending.Service.Desired` in
+  [`pending/preview.go`](../../backend/internal/application/pending/preview.go).
+- Actual saved-credential Kubernetes observations/execution/cleanup:
+  [`diagnostics.go`](../../backend/internal/adapters/kubernetes/diagnostics.go),
+  [`diagnostics_exec.go`](../../backend/internal/adapters/kubernetes/diagnostics_exec.go).
+  AWS signed observations and selected policy families:
+  [`awsaccess/diagnostics.go`](../../backend/internal/adapters/awsaccess/diagnostics.go).
+  Certificate and Vault evidence:
+  [`tlsprobe`](../../backend/internal/adapters/tlsprobe/),
+  [`vault/inspect.go`](../../backend/internal/adapters/vault/inspect.go).
+- Durable reports and shared repository contract:
+  [`postgres/diagnostics.go`](../../backend/internal/adapters/postgres/diagnostics.go),
+  [`store/diagnostics.go`](../../backend/internal/adapters/store/diagnostics.go),
+  [`persistencetest/diagnostics.go`](../../backend/internal/ports/persistence/persistencetest/diagnostics.go).
+  Fresh schema/grants: [`baseline.sql`](../../backend/internal/adapters/postgres/baseline.sql),
+  [`grants.go`](../../backend/internal/adapters/postgres/grants.go).
+- Scoped HTTP routes, safe DTOs, staleness and account summaries:
+  [`account_diagnostics.go`](../../backend/internal/delivery/http/account_diagnostics.go),
+  [`driver_accounts.go`](../../backend/internal/delivery/http/driver_accounts.go).
+  Wiring: [`bootstrap.go`](../../backend/internal/bootstrap/bootstrap.go).
+- Integrated list/detail and real-report UI:
+  [`DriverAccountsPage`](../../frontend/src/features/platform/accounts/DriverAccountsPage.tsx),
+  [`diagnostics`](../../frontend/src/features/platform/accounts/diagnostics/),
+  [`routes`](../../frontend/src/app/routes.ts), VI/EN catalogs and
+  [`diagnostics.css`](../../frontend/src/styles/diagnostics.css).
+- Tests: application/adapter tests beside those sources,
+  [`HTTP end-to-end contracts`](../../backend/test/e2e/account_diagnostics_http_test.go),
+  [`DiagnoseTab tests`](../../frontend/src/features/platform/accounts/diagnostics/DiagnoseTab.test.tsx),
+  [`account integration tests`](../../frontend/src/features/platform/accounts/DriverAccountsDiagnostics.test.tsx).
+  Real Console/runtime acceptance remains tracked by DG-E01..10 in the handoff.
+
 | Design concern | Implementation entry point |
 |---|---|
 | ADR-020 Console message catalogs and language selector | `frontend/public/locales/` (`manifest.json`, `vi.json`, `en.json`), `frontend/src/shared/i18n/index.ts` (`t`, locale pick/load, `intlLocale`), `frontend/src/main.tsx` (load before App import), `frontend/src/shared/ui/LanguageSelect.tsx`; tests `frontend/src/shared/i18n/i18n.test.ts`, `frontend/src/test/setup.ts` |

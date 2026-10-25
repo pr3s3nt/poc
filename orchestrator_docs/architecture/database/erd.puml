@@ -463,4 +463,38 @@ Definitions reference verified ID and supplied inputs in JSON.
 Plans pin source/runtime and effective inputs; files in durable cache.
 Console SELECT/INSERT only; no State role grant.
 end note
+entity account_diagnostic_reports {
+ * id : uuid <<PK>>
+ * organization_id : uuid <<FK>>
+ * account_id : uuid <<FK>>
+ * created_by : uuid <<FK>>
+ --
+ account_version : bigint
+ purpose : text
+ mode : text
+ scope : jsonb
+ status : text
+ revision : bigint
+ owner : text
+ lease_expires_at : timestamptz
+ heartbeat_at : timestamptz
+ findings : jsonb
+ completed_checks : integer
+ total_checks : integer
+ probe_resources : jsonb
+ cleanup_status : text
+ created_at : timestamptz
+ updated_at : timestamptz
+ started_at : timestamptz
+ finished_at : timestamptz
+}
+organizations ||--o{ account_diagnostic_reports
+connections ||--o{ account_diagnostic_reports
+user_accounts ||--o{ account_diagnostic_reports
+note right of account_diagnostic_reports
+ADR-022 / DIAG-01..14 required design.
+One active run per account; lease/CAS guards.
+Safe immutable scope, terminal observations and ownership facts.
+Connection verification unchanged; Console read/insert/update, State no access.
+end note
 @enduml

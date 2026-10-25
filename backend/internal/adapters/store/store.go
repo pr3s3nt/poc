@@ -18,6 +18,7 @@ import (
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/configuration"
 	"orchestrator/internal/domain/deployment"
+	"orchestrator/internal/domain/diagnostics"
 	"orchestrator/internal/domain/effectiveness"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/identity"
@@ -57,6 +58,9 @@ type state struct {
 	// RenderBundles are the verified Git render bundles (ADR-021), keyed by
 	// ID. The key is optional so older complete snapshots still load.
 	RenderBundles map[string]renderbundle.Bundle `json:"renderBundles,omitempty"`
+	// DiagnosticReports are the Infrastructure Account diagnostic reports
+	// (ADR-022), keyed by ID. The key is optional so older snapshots load.
+	DiagnosticReports map[string]diagnostics.Report `json:"diagnosticReports,omitempty"`
 }
 
 func newState() *state {
@@ -85,6 +89,7 @@ func newState() *state {
 		ModuleBundles:       map[string]tfmodule.Bundle{},
 		Baselines:           map[string]effectiveness.Baseline{},
 		RenderBundles:       map[string]renderbundle.Bundle{},
+		DiagnosticReports:   map[string]diagnostics.Report{},
 	}
 }
 

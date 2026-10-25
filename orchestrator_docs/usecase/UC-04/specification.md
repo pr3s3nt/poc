@@ -332,3 +332,66 @@ AC-02/04/07/08 with AWS_EC2_ROLE, alongside AWS_ACCESS_KEY.
 - **EC2-05:** UI distinguishes EC2 role from access key, requests expected Role
   ARN and regions, hides access-key/replacement controls for role accounts and
   preserves AC-10 error/stale/unknown-outcome recovery behavior.
+
+## Account diagnostics — DIAG-01..14
+
+The user authorized implementation of the account-integrated diagnostic mock on
+2026-10-25. This extension adds on-demand diagnostic history to UC-04; it does
+not introduce global auditing or continuous monitoring from historical OOS-05.
+
+- **DIAG-01:** Platform Engineer/Admin starts, reads and cancels diagnostics only
+  for an Infrastructure Account in the session Organization. Developer has no
+  management access; foreign or unknown account/report/context is not disclosed.
+- **DIAG-02:** The account list shows a scoped/time-stamped latest diagnostic
+  summary. Account detail owns Information and Diagnose tabs. Existing account
+  registration, rename, verify, credential replacement and version guards remain.
+- **DIAG-03:** Connection verification and diagnostic readiness are independent.
+  A diagnostic run never changes Connection status/version, credentials, an
+  Environment binding, Application draft/current state or Deployment Set.
+- **DIAG-04:** GENERAL works without Application/Environment and is read-only.
+  USE_CASE selects supported capabilities, explicit AWS region where relevant,
+  optional Application/Environment and CONDITIONS or supported EXECUTION mode.
+  Selecting diagnostic context does not change account applicability or policy.
+- **DIAG-05:** Probes use the saved scoped account credential and platform runtime.
+  TLS trust/expiry/hostname, reachability, authentication and authorization have
+  distinct safe findings when supported by observed evidence. Host fallback and
+  fixture success in production are forbidden.
+- **DIAG-06:** Required checks derive from the selected work and actual known
+  configuration/Definitions. No Application means Application-specific matching,
+  images, secrets and route requirements remain UNKNOWN. Optional components
+  are required only when the selected deployment path needs them.
+- **DIAG-07:** PASS requires actual evidence; FAIL is an observed unmet applicable
+  condition; BLOCKED names a prerequisite; UNKNOWN means insufficient evidence;
+  NA explains genuine non-applicability. Missing permission and unsupported
+  execution never count as PASS. Independent checks may continue after failure.
+- **DIAG-08:** Each finding exposes a safe observation, expected condition,
+  affected use cases, remediation and dependency links. VI/EN catalogs map
+  stable codes. No credential/ref, raw error, kubeconfig, secret value, PEM,
+  Terraform state or arbitrary provider body enters report, log or export.
+- **DIAG-09:** Backend-derived progress and durable Organization/account-scoped
+  reports/history survive reload and process restart. The immutable scope pins
+  account/config versions, purpose, mode, region, selections and context/time.
+  Changes make earlier evidence historical/stale, not present readiness.
+- **DIAG-10:** Runs support explicit stop/cancel and honest partial/interrupted
+  state. A bounded owner/lease prevents concurrent active account probes and
+  stale-worker writes. Cancel/retry/reload never replay an unknown start outcome.
+- **DIAG-11:** CONDITIONS performs no external mutation. Kubernetes EXECUTION
+  creates only bounded unique run-owned probe resources in a new namespace,
+  validates ownership/UID before cleanup and verifies absence. A failed or
+  unconfirmed cleanup is visible and prevents an all-ready claim.
+- **DIAG-12:** Diagnostics never apply to existing Application namespaces or
+  implicitly create/destroy paid cloud infrastructure. Unsupported provider
+  execution proof is UNKNOWN with its limit visible; IAM simulation is identified
+  as policy evidence. AWS identity success alone does not prove provisioning.
+- **DIAG-13:** Filters, details, history and export retain scope and truthful
+  counts. Account/region/context switches discard stale UI responses. Loading,
+  empty, report-load failure, validation, in-flight, cancellation and partial
+  results remain distinct. Export uses safe backend report facts.
+- **DIAG-14:** Acceptance exercises real user flows through Console and compares
+  findings with actual owned runtime facts, including repair/rerun and durable
+  history. Fake UI/adapters cannot prove real account readiness. Merge and
+  post-merge checks follow the user's requested Claude/Codex workflow.
+
+[Protocol and probe semantics](../../architecture/contracts/account-diagnostics.md)
+are shared; [delivery and acceptance](../../implementation/account-diagnostics.md)
+route the implementation without replacing these requirements.

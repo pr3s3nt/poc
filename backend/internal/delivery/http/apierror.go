@@ -8,6 +8,7 @@ import (
 
 	"orchestrator/internal/adapters/configmemory"
 	"orchestrator/internal/adapters/renderbundles"
+	"orchestrator/internal/application/accountdiag"
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/authentication"
 	"orchestrator/internal/application/catalog"
@@ -19,6 +20,7 @@ import (
 	"orchestrator/internal/application/resourcecleanup"
 	"orchestrator/internal/application/secretstores"
 	"orchestrator/internal/application/workloadconfig"
+	diagdomain "orchestrator/internal/domain/diagnostics"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
@@ -80,6 +82,8 @@ const (
 	codeOperationLost             = "OPERATION_LOST"
 	codeRouteReconcileFailed      = "ROUTE_RECONCILE_FAILED"
 	codeServiceUnavailable        = "SERVICE_UNAVAILABLE"
+	codeDiagnosticScope           = "DIAGNOSTIC_SCOPE_INVALID"
+	codeDiagnosticBusy            = "BUSY"
 	codeInternal                  = "INTERNAL_ERROR"
 	// Git render bundles (ADR-021, contract RB-C07).
 	codeRenderSourceInvalid       = "RENDER_SOURCE_INVALID"
@@ -142,6 +146,8 @@ var publicErrors = map[string]publicError{
 	codeOperationLost:             {http.StatusConflict, "the operation was interrupted"},
 	codeRouteReconcileFailed:      {http.StatusBadGateway, "workloads were applied but public routes could not be reconciled"},
 	codeServiceUnavailable:        {http.StatusServiceUnavailable, "a required service is not available"},
+	codeDiagnosticScope:           {http.StatusUnprocessableEntity, "the diagnostic scope is not valid"},
+	codeDiagnosticBusy:            {http.StatusConflict, "this account already has an active diagnostic run"},
 	codeInternal:                  {http.StatusInternalServerError, "the request failed"},
 	codeRenderSourceInvalid:       {http.StatusBadRequest, "the Git source URL, directory or reference is not valid"},
 	codeRenderBundleInvalid:       {http.StatusBadRequest, "the render bundle is not valid"},
@@ -171,6 +177,8 @@ var trustedFields = map[string]bool{
 	// UC-17 effectiveness query and baseline fields.
 	"from": true, "to": true, "workload": true, "metric": true, "statistic": true, "valueSeconds": true, "source": true,
 	"effectiveFrom": true, "sampleSize": true, "measuredFrom": true, "measuredTo": true,
+	// Diagnostic scope fields (ADR-022).
+	"purpose": true, "mode": true, "region": true, "useCases": true, "application": true, "environment": true,
 }
 
 // safeBundleFile bounds a bundle-relative file name echoed as a param.
@@ -315,7 +323,16 @@ func classify(err error) (failure, bool) {
 	var cleanupField *resourcecleanup.FieldError
 	var renderErr *catalog.RenderError
 	var bundleField *renderbundles.BundleInvalidError
+	var diagField *diagdomain.FieldError
 	switch {
+	case errors.As(err, &diagField):
+		return failure{code: codeDiagnosticScope, field: diagField.Field}, true
+	case errors.Is(err, diagdomain.ErrInvalidScope):
+		return failure{code: codeDiagnosticScope}, true
+	case errors.Is(err, diagdomain.ErrBusy):
+		return failure{code: codeDiagnosticBusy}, true
+	case errors.Is(err, accountdiag.ErrUnavailable):
+		return failure{code: codeServiceUnavailable}, true
 	case errors.Is(err, renderregistry.ErrSourceInvalid):
 		return failure{code: codeRenderSourceInvalid}, true
 	case errors.Is(err, renderregistry.ErrContractUnsupported), errors.Is(err, renderbundle.ErrUnsupported):

@@ -7,6 +7,8 @@ last_reviewed: 2026-10-24
 
 # Architecture Decision Records
 
+- [ADR-022 — Account-scoped readiness diagnostics](ADR-022-account-diagnostics.md) — user-authorized implementation; real scoped probes, durable observations and explicit owned execution checks.
+
 - [ADR-001 — Historical profile enrichment; retained descriptor/scopes](ADR-001-profile-resource-scopes.md) — enrichment/guard superseded by ADR-016/017.
 - [ADR-002 — External calls outside database transactions](ADR-002-transaction-boundaries.md)
 - [ADR-003 — Separate planner, resource provisioning and workload deployment](ADR-003-planner-execution-separation.md)

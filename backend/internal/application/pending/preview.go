@@ -13,10 +13,12 @@ import (
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/target"
 	"orchestrator/internal/application/workloadconfig"
+	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/configuration"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/planning/score"
 	"orchestrator/internal/platform/canon"
@@ -45,6 +47,7 @@ type Preview struct {
 	lastPlan       *planning.Plan                         `json:"-"`
 	previous       map[string][]deploymentreview.Artifact `json:"-"`
 	lastIntents    []planning.ResourceIntent              `json:"-"`
+	final          environment.Document                   `json:"-"`
 	Token          string                                 `json:"token"`
 	ApplicationKey string                                 `json:"applicationKey"`
 	EnvironmentKey string                                 `json:"environmentKey"`
@@ -102,7 +105,7 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 	var out Preview
 	err := s.store.ReadSnapshot(ctx, func(ctx context.Context, view persistence.Store) error {
 		var err error
-		out, err = s.previewIn(ctx, view, appKey, envKey)
+		out, err = s.previewIn(ctx, view, appKey, envKey, false)
 		return err
 	})
 	if err != nil {
@@ -130,7 +133,10 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 	return out, nil
 }
 
-func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, envKey string) (Preview, error) {
+// previewIn plans on one view. With all=true every workload of the final
+// desired state is planned, including the unchanged ones (diagnostics need the
+// whole desired state, Preview only the delta).
+func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, envKey string, all bool) (Preview, error) {
 	app, err := st.GetApplication(ctx, appKey)
 	if err != nil {
 		return Preview{}, err
@@ -212,6 +218,14 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		if _, exists := pending[id]; exists {
 			continue
 		}
+		if all {
+			raw, err := workloadconfig.ReconstructScoreProven(id, module, set.Document, set.LiteralProofs.ProverFor(id))
+			if err != nil {
+				return Preview{}, fmt.Errorf("%w: workload %s cannot be rebuilt: %v", ErrInvalid, id, err)
+			}
+			pending[id] = environment.WorkloadDraft{ApplicationKey: appKey, EnvironmentKey: envKey, WorkloadID: id, State: environment.DraftUpsert, Score: raw}
+			continue
+		}
 		changed, err := usesChangedConfiguration(ctx, st, module, desired, instanceByID[id].AppliedConfigRevisionID)
 		if err != nil {
 			return Preview{}, err
@@ -284,7 +298,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		if err != nil {
 			return Preview{}, publicPlanningError(id, err)
 		}
-		if draft.State == environment.DraftUpsert && before != nil {
+		if !all && draft.State == environment.DraftUpsert && before != nil {
 			same, err := equivalentSets(base, plan.CandidateSet)
 			if err != nil {
 				return Preview{}, err
@@ -317,6 +331,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	if err := planning.ValidateServiceReferences(base); err != nil {
 		return Preview{}, publicPlanningError("", &planning.StageError{Stage: planning.StageServiceRefs, Err: err})
 	}
+	preview.final = base
 	if preview.lastPlan != nil {
 		// Keep execution plans/hashes untouched; review compares the final desired set to the original base.
 		final := *preview.lastPlan
@@ -490,4 +505,112 @@ func sameRendering(ctx context.Context, st persistence.Store, deploymentID, work
 // target transition deploys the complete Environment in the same order.
 func OrderDrafts(drafts map[string]environment.WorkloadDraft) ([]string, error) {
 	return orderDrafts(drafts)
+}
+
+// Desired is the complete desired state of one Environment, planned on ONE
+// read-only snapshot together with every record it was planned from, so a
+// diagnostic can never mix versions of the drafts, configuration, catalog or
+// module pins.
+type Desired struct {
+	Preview     Preview
+	Application application.Application
+	Environment environment.Environment
+	// ConfigVersion is the desired configuration scope version (0: none yet).
+	ConfigVersion int64
+	Definitions   []resource.Definition
+	// Final is the final desired Deployment Set document (drafts applied).
+	Final environment.Document
+	// Bundles are the verified module bundles behind the planned resources,
+	// keyed by resource descriptor.
+	Bundles map[string]tfmodule.Bundle
+	// Workloads and PublicRoutes count the final desired state (drafts on top of
+	// the applied set) whether or not planning accepted it.
+	Workloads, PublicRoutes int
+	// PlanErr is the planner's rejection of the desired state, if any; the
+	// remaining fields still describe the same snapshot.
+	PlanErr error
+}
+
+// Desired plans every workload of the final desired state (drafts on top of
+// the applied set, unchanged workloads included) on one snapshot. Nothing is
+// written. A planner rejection is returned in PlanErr; any other failure is an
+// error.
+func (s *Service) Desired(ctx context.Context, appKey, envKey string) (Desired, error) {
+	var out Desired
+	err := s.store.ReadSnapshot(ctx, func(ctx context.Context, view persistence.Store) error {
+		app, err := view.GetApplication(ctx, appKey)
+		if err != nil {
+			return err
+		}
+		env, err := view.GetEnvironment(ctx, appKey, envKey)
+		if err != nil {
+			return err
+		}
+		scope, err := view.GetConfigurationScope(ctx, appKey, envKey)
+		if err != nil {
+			return err
+		}
+		defs, err := view.ListResourceDefinitions(ctx, app.OrganizationKey)
+		if err != nil {
+			return err
+		}
+		out = Desired{Application: app, Environment: env, ConfigVersion: scope.Version, Definitions: defs, Bundles: map[string]tfmodule.Bundle{}}
+		routes := map[string]int{}
+		if applied, err := view.GetDeploymentSet(ctx, env.CurrentDeploymentSetID); err == nil {
+			for id, module := range applied.Document.Modules {
+				routes[id] = 0
+				if module.Spec.Service != nil {
+					routes[id] = len(module.Spec.Service.PublicRoutes)
+				}
+			}
+		} else if !errors.Is(err, persistence.ErrNotFound) {
+			return err
+		}
+		drafts, err := view.ListWorkloadDrafts(ctx, appKey, envKey)
+		if err != nil {
+			return err
+		}
+		for _, d := range drafts {
+			if d.State == environment.DraftDelete {
+				delete(routes, d.WorkloadID)
+				continue
+			}
+			routes[d.WorkloadID] = 0
+			if doc, err := score.FromMap(d.Score); err == nil && doc.Service != nil {
+				routes[d.WorkloadID] = len(doc.Service.PublicRoutes)
+			}
+		}
+		out.Workloads = len(routes)
+		for _, n := range routes {
+			out.PublicRoutes += n
+		}
+		preview, perr := s.previewIn(ctx, view, appKey, envKey, true)
+		if perr != nil {
+			var staged *planning.StageError
+			if errors.As(perr, &staged) || errors.Is(perr, ErrInvalid) {
+				out.PlanErr = perr
+				return nil
+			}
+			return perr
+		}
+		out.Preview, out.Final = preview, preview.final
+		for _, change := range preview.Changes {
+			for _, intent := range change.ResourceIntents {
+				if intent.Module == nil {
+					continue
+				}
+				ref := tfmodule.SourceRef{SourceID: intent.Module.SourceID, ModuleID: intent.Module.Module, Revision: intent.Module.Revision, Subdirectory: intent.Module.Subdirectory, ContentSHA256: intent.Module.ContentSHA256}
+				bundle, err := view.GetModuleBundle(ctx, ref)
+				if err != nil {
+					if errors.Is(err, persistence.ErrNotFound) {
+						continue
+					}
+					return err
+				}
+				out.Bundles[intent.Descriptor] = bundle
+			}
+		}
+		return nil
+	})
+	return out, err
 }
