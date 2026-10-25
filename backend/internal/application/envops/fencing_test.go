@@ -36,24 +36,36 @@ func seedEnvironment(t *testing.T, st persistence.Store) string {
 // runFencing drives two independent managers (two backend processes) over two
 // Store handles: the old owner stalls, recovery takes the claim, and the old
 // owner then tries to write and to release.
-func runFencing(t *testing.T, storeA, storeB persistence.Store) {
+//
+// admissionDelay stalls the second manager before its first Begin, as a slow
+// database would; the run must not depend on how long that takes.
+func runFencing(t *testing.T, storeA, storeB persistence.Store, admissionDelay time.Duration) {
 	ctx := context.Background()
 	appKey := seedEnvironment(t, storeA)
 	oldManager, newManager := envops.NewManager(storeA), envops.NewManager(storeB)
-	// Real default timing: heartbeat 5s, stale 30s. The old owner "stalls" by
-	// never heartbeating (its goroutine is stopped via a tiny heartbeat).
-	oldManager.SetTiming(time.Hour, 50*time.Millisecond)
-	newManager.SetTiming(5*time.Second, 50*time.Millisecond)
+	// Nothing may expire or heartbeat on its own while the test runs: the
+	// background heartbeat never fires (one hour) and the stale threshold is
+	// generous, so Begin's own sweep can never interrupt a claim early on a slow
+	// database. Staleness is driven only by explicit stale() sweeps below, whose
+	// cutoff lies in the future so every held claim reads as stale
+	// deterministically, without sleeping.
+	oldManager.SetTiming(time.Hour, time.Hour)
+	newManager.SetTiming(time.Hour, time.Hour)
+	stale := func(st persistence.Store) *envops.Manager {
+		m := envops.NewManager(st)
+		m.SetTiming(time.Hour, -time.Hour)
+		return m
+	}
 
 	oldLease, err := oldManager.Begin(ctx, envops.Claim{ApplicationKey: appKey, EnvironmentKey: "staging", Kind: environment.OpDeploy})
 	if err != nil {
 		t.Fatal(err)
 	}
+	time.Sleep(admissionDelay)
 	if _, err := newManager.Begin(ctx, envops.Claim{ApplicationKey: appKey, EnvironmentKey: "staging", Kind: environment.OpDeploy}); !errors.Is(err, persistence.ErrEnvironmentBusy) {
 		t.Fatalf("second manager must be busy: %v", err)
 	}
-	time.Sleep(120 * time.Millisecond)
-	if n, err := newManager.Sweep(ctx); err != nil || n != 1 {
+	if n, err := stale(storeB).Sweep(ctx); err != nil || n != 1 {
 		t.Fatalf("sweep: %d %v", n, err)
 	}
 	// Still held after interruption: no TTL release.
@@ -105,10 +117,7 @@ func runFencing(t *testing.T, storeA, storeB persistence.Store) {
 
 	// The recovery owner itself crashes (no heartbeat): the RECOVERING claim is
 	// flagged INTERRUPTED, stays held, and a second recovery takes a higher fence.
-	time.Sleep(120 * time.Millisecond)
-	sweeper := envops.NewManager(storeA)
-	sweeper.SetTiming(time.Hour, 50*time.Millisecond)
-	if n, err := sweeper.Sweep(ctx); err != nil || n != 1 {
+	if n, err := stale(storeA).Sweep(ctx); err != nil || n != 1 {
 		t.Fatalf("stale recovery owner must be interrupted: %d %v", n, err)
 	}
 	if env, _ := storeA.GetEnvironment(ctx, appKey, "staging"); !env.Busy() {
@@ -132,7 +141,14 @@ func runFencing(t *testing.T, storeA, storeB persistence.Store) {
 
 func TestStaleOwnerCannotWriteOrReleaseAfterRecoveryJSON(t *testing.T) {
 	st := store.New()
-	runFencing(t, st, st)
+	runFencing(t, st, st, 0)
+}
+
+// A slow second admission (longer than the old 50ms stale threshold) must not
+// let Begin's own sweep interrupt the claim before the test drives staleness.
+func TestStaleOwnerFencingHoldsWhenBusyAdmissionIsDelayedJSON(t *testing.T) {
+	st := store.New()
+	runFencing(t, st, st, 300*time.Millisecond)
 }
 
 func TestStaleOwnerCannotWriteOrReleaseAfterRecoveryAcrossPostgresPools(t *testing.T) {
@@ -147,7 +163,22 @@ func TestStaleOwnerCannotWriteOrReleaseAfterRecoveryAcrossPostgresPools(t *testi
 		t.Fatal(err)
 	}
 	defer b.Close()
-	runFencing(t, a, b)
+	runFencing(t, a, b, 0)
+}
+
+func TestStaleOwnerFencingHoldsWhenBusyAdmissionIsDelayedAcrossPostgresPools(t *testing.T) {
+	url := postgrestest.Fresh(t).Console
+	a, err := postgres.Open(context.Background(), url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	b, err := postgres.Open(context.Background(), url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	runFencing(t, a, b, 300*time.Millisecond)
 }
 
 func TestLeaseContextEnforcesTheRecordedDeadline(t *testing.T) {

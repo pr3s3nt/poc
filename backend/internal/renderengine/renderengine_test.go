@@ -65,7 +65,8 @@ func TestTemplateFailuresAreSafeAndClassified(t *testing.T) {
 }
 
 // A runaway template is killed and reaped at the deadline; no goroutine is
-// left executing it.
+// left executing it. The loops emit no output on purpose: the test exercises
+// runaway CPU, so the output cap cannot end the run before the deadline.
 func TestWorkerIsKilledAtDeadline(t *testing.T) {
 	items := make([]any, 5000)
 	for i := range items {
@@ -74,7 +75,7 @@ func TestWorkerIsKilledAtDeadline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 	start := time.Now()
-	_, err := Executor{}.Execute(ctx, "loop.tpl", `{{ range .L }}{{ range $.L }}{{ range $.L }}x{{ end }}{{ end }}{{ end }}`, map[string]any{"L": items})
+	_, err := Executor{}.Execute(ctx, "loop.tpl", `{{ range .L }}{{ range $.L }}{{ range $.L }}{{ end }}{{ end }}{{ end }}`, map[string]any{"L": items})
 	var tmpl *TemplateError
 	if !errors.As(err, &tmpl) || tmpl.Code != CodeTemplateTimeout {
 		t.Fatalf("want timeout, got %v", err)
