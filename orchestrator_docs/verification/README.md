@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-10-25
+last_reviewed: 2026-10-26
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-26 | UC-08 BR-10 provider completion, ID-less resource schema, shared/private resources, update/reuse, real kind/Playwright 57/57 and product cleanup | [Terraform resource completion](2026-10-26-terraform-resource-completion.md) |
 | 2026-10-26 | ADR-024 open object set, inventory and Gateway API HTTPRoute; real kind/Envoy Gateway/browser 36/36 and product cleanup | [Open workload objects](2026-10-26-open-workload-objects.md) |
 | 2026-10-25 | PR #19 combined with main diagnostics; conflicts, PostgreSQL, race/frontend and diagram checks | [Integration checks](2026-10-25-observability-main-integration.md) |
 | 2026-10-25 | Native logging/monitoring, real new-user kind/Kubernetes/SQL/browser, 48 checks and UI cleanup | [Live end-to-end](2026-10-25-native-observability-live.md) |

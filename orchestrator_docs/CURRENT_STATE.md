@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-25
+last_reviewed: 2026-10-26
 ---
 
 # Current project state
@@ -14,8 +14,15 @@ and validated outputs as default completion for every resource type accepted
 by the verified provider/module contract. Existing supplemental Kubernetes/AWS
 probes, EKS usability and namespace provenance still gate their objects,
 including mixed modules. No additional provider or cleanup permission is added.
-Local readiness regression checks pass; real full-application kind acceptance
-is pending under the [dedicated runbook](operations/terraform-completion-kind.md).
+Resources whose provider schema has no conventional `id` attribute are also
+supported, including `kubernetes_manifest`. Real headed Playwright acceptance
+passed **57/57** checks (21 completion-specific): shared/private resources,
+actual output consumption, valid in-place update, stable UIDs/state identities,
+PostgreSQL/Redis job flow and product cleanup. Namespace, isolated kind cluster,
+Compose containers/volumes, workload Vault and run image tags were verified
+absent. No AWS execution is claimed. See the
+[verification record](verification/2026-10-26-terraform-resource-completion.md)
+and [runbook](operations/terraform-completion-kind.md).
 
 ## F3/F4/F5 corrections — accepted on kind — 2026-10-25
 

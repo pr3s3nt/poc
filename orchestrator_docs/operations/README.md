@@ -2,7 +2,7 @@
 id: OPERATIONS-INDEX
 artifact: operations-index
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-26
 ---
 
 # Operations index

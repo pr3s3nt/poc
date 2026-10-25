@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-25
+last_reviewed: 2026-10-26
 ---
 
 # Design-to-code map
@@ -19,7 +19,8 @@ last_reviewed: 2026-10-25
   manifest resources exercise provider schemas without an `id` attribute.
 - Acceptance: `workload-manifests-kind.sh --completion-ref <published-commit>`,
   `frontend/test/e2e/terraform-completion-flows.mjs`; see
-  [the runbook](../operations/terraform-completion-kind.md).
+  [the runbook](../operations/terraform-completion-kind.md) and
+  [57-check real acceptance](../verification/2026-10-26-terraform-resource-completion.md).
 
 ## Verified feature defect fixes — F3/F4/F5
 
