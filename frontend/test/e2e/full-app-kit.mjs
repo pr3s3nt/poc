@@ -133,9 +133,12 @@ export function makeKit(ctx) {
     : scope.getByLabel(name, { exact: true }));
   const alertBox = () => page.getByRole('alert').first();
   const optionLabel = async (select, prefix) => {
-    const texts = await select.locator('option').allTextContents();
-    const found = texts.find((text) => text.trim().startsWith(prefix));
-    if (!found) throw new Error(`no option starting with "${prefix}"`);
+    let found = '';
+    await expect.poll(async () => {
+      const texts = await select.locator('option').allTextContents();
+      found = texts.find((text) => text.trim().startsWith(prefix)) ?? '';
+      return found;
+    }, { message: `waiting for option starting with "${prefix}"`, timeout: 30_000 }).not.toBe('');
     return found;
   };
   const choose = async (select, prefix) => h.choose(select, await optionLabel(select, prefix));
