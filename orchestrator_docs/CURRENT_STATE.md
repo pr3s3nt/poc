@@ -27,6 +27,8 @@ readypod/cleanup, stop, scope isolation, versioned export, history/restart and
 SIGKILL recovery. Read-only AWS checks also ran against real signed endpoints.
 See [pre-merge evidence](verification/2026-10-25-account-diagnostics.md) and
 [main verification/cleanup](verification/2026-10-25-diagnostics-main.md).
+A [post-merge CI correction](verification/2026-10-25-diagnostics-ci.md) removes
+intermittent fencing/template-test races while preserving runtime guards.
 
 Limits: conditions are observations at the report time; primitive pod/PVC probes
 do not execute an Application image or prove SQL/cache/application behavior.
