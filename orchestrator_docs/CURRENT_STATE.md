@@ -7,6 +7,16 @@ last_reviewed: 2026-10-25
 
 # Current project state
 
+## Generic Terraform resource completion — 2026-10-26
+
+UC-08 BR-10 uses successful Terraform execution, acknowledged managed state
+and validated outputs as default completion for every resource type accepted
+by the verified provider/module contract. Existing supplemental Kubernetes/AWS
+probes, EKS usability and namespace provenance still gate their objects,
+including mixed modules. No additional provider or cleanup permission is added.
+Local readiness regression checks pass; real full-application kind acceptance
+is pending under the [dedicated runbook](operations/terraform-completion-kind.md).
+
 ## F3/F4/F5 corrections — accepted on kind — 2026-10-25
 
 Shared Score aliases are preserved as private Deployment Set metadata, outside

@@ -1,11 +1,9 @@
 // Package readiness is the real, bounded readiness check of the Terraform v2
-// executor. After Terraform applied and the state was acknowledged it asks the
-// actual Kubernetes API (through kubectl and a private scoped kubeconfig) or
-// the AWS API (signed with the scoped key) whether the provisioned objects are
-// ready. It never reports ready for an object it did not query, never returns
-// credentials or raw responses, and bounds every query by the request
-// deadline. A readiness failure is the deterministic ErrNotReady with safe
-// IDs; an unanswerable query is a different error.
+// executor. After successful Terraform execution, state acknowledgement and
+// output validation, provider completion is sufficient for every managed
+// resource type. Known Kubernetes/AWS objects additionally require their
+// live readiness probes (UC-08 BR-10). Probe failures never fall back to
+// provider completion. Queries are bounded and never expose credentials.
 package readiness
 
 import (
@@ -26,8 +24,8 @@ import (
 	"orchestrator/internal/ports/terraformexec"
 )
 
-// ErrUnavailable means the readiness could not be determined: no query applies
-// to the resources, or the API could not be queried until the deadline.
+// ErrUnavailable means completion evidence is incomplete, the deadline expired,
+// or an applicable readiness query could not complete.
 var ErrUnavailable = errors.New("readiness: the readiness query could not complete")
 
 // Runner runs one external command with an environment and returns stdout.
@@ -108,6 +106,12 @@ var awsReady = map[terraformexec.StatusQuery]string{
 
 // Check implements terraformexec.ReadinessChecker.
 func (c *Checker) Check(ctx context.Context, req terraformexec.ReadinessRequest) error {
+	if len(req.Resources) == 0 || req.Deadline.IsZero() || !c.now().Before(req.Deadline) || ctx.Err() != nil {
+		return ErrUnavailable
+	}
+	ctx, cancel := context.WithDeadline(ctx, req.Deadline)
+	defer cancel()
+
 	var kube []probe
 	type awsProbe struct {
 		label string
@@ -116,6 +120,9 @@ func (c *Checker) Check(ctx context.Context, req terraformexec.ReadinessRequest)
 	}
 	var aws []awsProbe
 	for _, r := range req.Resources {
+		if strings.TrimSpace(r.Address) == "" || strings.TrimSpace(r.Type) == "" || strings.TrimSpace(r.ID) == "" {
+			return ErrUnavailable
+		}
 		label := r.Address + "=" + r.ID
 		if kind, ok := kubernetesKinds[r.Type]; ok {
 			p := probe{label: label, kind: kind, name: r.ID}
@@ -144,16 +151,16 @@ func (c *Checker) Check(ctx context.Context, req terraformexec.ReadinessRequest)
 			aws = append(aws, awsProbe{label: label, query: query, id: id})
 		}
 	}
-	if len(kube)+len(aws) == 0 {
-		// Never vacuously ready: no query applies to these resources.
+	if ctx.Err() != nil {
 		return ErrUnavailable
+	}
+	if len(kube)+len(aws) == 0 {
+		// The caller already proved execution, state acknowledgement and
+		// outputs. Provider completion applies to all other resource types;
+		// an additional readiness probe is not a resource admission allowlist.
+		return nil
 	}
 	deadline := req.Deadline
-	if deadline.IsZero() {
-		return ErrUnavailable
-	}
-	ctx, cancel := context.WithDeadline(ctx, deadline)
-	defer cancel()
 
 	var kubeconfig string
 	if len(kube) > 0 {

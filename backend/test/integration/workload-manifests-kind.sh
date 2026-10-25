@@ -24,13 +24,14 @@ export LC_ALL=C.UTF-8
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO="$(cd "${ROOT}/.." && pwd)"
-usage() { echo "usage: $0 --evidence /absolute/new/dir [--run-id lowercase-id] [--ref branch|tag|commit]" >&2; exit 2; }
-EVIDENCE="" RUN_ID="" BUNDLE_REF="main"
+usage() { echo "usage: $0 --evidence /absolute/new/dir [--run-id lowercase-id] [--ref branch|tag|commit] [--completion-ref published-commit]" >&2; exit 2; }
+EVIDENCE="" RUN_ID="" BUNDLE_REF="main" COMPLETION_REF=""
 while (( $# )); do
   case "$1" in
     --evidence) [[ $# -ge 2 ]] || usage; EVIDENCE="$2"; shift 2 ;;
     --run-id) [[ $# -ge 2 ]] || usage; RUN_ID="$2"; shift 2 ;;
     --ref) [[ $# -ge 2 ]] || usage; BUNDLE_REF="$2"; shift 2 ;;
+    --completion-ref) [[ $# -ge 2 && "$2" =~ ^[0-9a-f]{40}$ ]] || usage; COMPLETION_REF="$2"; shift 2 ;;
     *) usage ;;
   esac
 done
@@ -69,8 +70,8 @@ BACKEND_PORT="$(free_port)"
 FRONTEND_PORT="$(free_port)"
 HEAD_COMMIT="$(git -C "${REPO}" rev-parse HEAD)"
 jq -n --arg run "${RUN_ID}" --arg cluster "${CLUSTER}" --arg project "${PROJECT}" --arg url "${BUNDLE_URL}" --arg path "${BUNDLE_PATH}" --arg commit "${BUNDLE_COMMIT}" --arg vault "${VAULT_NAME}" \
-  --arg tag "${TAG}" --arg head "${HEAD_COMMIT}" --argjson bp "${BACKEND_PORT}" --argjson fp "${FRONTEND_PORT}" --arg gw "${GATEWAY}" --arg domain "${BASE_DOMAIN}" \
-  '{runId:$run, commitUnderTest:$head, kindCluster:$cluster, composeProject:$project, bundle:{url:$url, path:$path, commit:$commit}, gateway:$gw, baseDomain:$domain, workloadVault:{container:$vault, volumes:[($vault+"-data"),($vault+"-bootstrap")]},
+  --arg tag "${TAG}" --arg head "${HEAD_COMMIT}" --arg completion "${COMPLETION_REF}" --argjson bp "${BACKEND_PORT}" --argjson fp "${FRONTEND_PORT}" --arg gw "${GATEWAY}" --arg domain "${BASE_DOMAIN}" \
+  '{runId:$run, commitUnderTest:$head, terraformCompletionRef:$completion, kindCluster:$cluster, composeProject:$project, bundle:{url:$url, path:$path, commit:$commit}, gateway:$gw, baseDomain:$domain, workloadVault:{container:$vault, volumes:[($vault+"-data"),($vault+"-bootstrap")]},
     images:["orchestrator-backend:"+$tag,"orchestrator-frontend:"+$tag,"acceptance-frontend:"+$tag,"acceptance-backend:"+$tag,"acceptance-worker:"+$tag], ports:{backend:$bp, frontend:$fp}}' > "${EVIDENCE}/run-manifest.json"
 chmod 0644 "${EVIDENCE}/run-manifest.json"
 
@@ -207,6 +208,7 @@ curl -fsS "http://127.0.0.1:${FRONTEND_PORT}/ui/" >/dev/null
 log "running the browser scenario"
 set +e
 WM_URL="http://127.0.0.1:${FRONTEND_PORT}" WM_EVIDENCE="${EVIDENCE}" WM_PRIVATE="${PRIVATE}" WM_RUN_ID="${RUN_ID}" \
+  WM_COMPLETION_REF="${COMPLETION_REF}" \
   WM_GIT_URL="${BUNDLE_URL}" WM_GIT_PATH="${BUNDLE_PATH}" WM_GIT_REF="${BUNDLE_REF}" WM_COMMIT="${BUNDLE_COMMIT}" WM_BASE_DOMAIN="${BASE_DOMAIN}" WM_GATEWAY="${GATEWAY}" \
   WM_IMAGE_TAG="${TAG}" WM_V2CTL="${PRIVATE}/v2ctl" WM_DB_QUERY="${PRIVATE}/db-query" \
   WM_INTERNAL_KUBECONFIG="${PRIVATE}/internal.kubeconfig" WM_HOST_KUBECONFIG="${KUBECONFIG_HOST}" WM_CONTEXT="${CONTEXT}" \

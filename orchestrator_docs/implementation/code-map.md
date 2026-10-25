@@ -7,6 +7,19 @@ last_reviewed: 2026-10-25
 
 # Design-to-code map
 
+## Generic Terraform resource completion — UC-08 BR-10
+
+- Completion after successful execution/state/output validation:
+  `application/tfexec/run.go`, `adapters/terraform/readiness/readiness.go`,
+  `ports/terraformexec/terraformexec.go`. Additional Kubernetes/AWS probes remain
+  mandatory for every applicable object in a mixed module.
+- Real Git module: `backend/test/acceptance/terraform-completion/main.tf`.
+  ConfigMap and ServiceAccount outputs feed two shared consumers and one private
+  consumer in the real full-application scenario.
+- Acceptance: `workload-manifests-kind.sh --completion-ref <published-commit>`,
+  `frontend/test/e2e/terraform-completion-flows.mjs`; see
+  [the runbook](../operations/terraform-completion-kind.md).
+
 ## Verified feature defect fixes — F3/F4/F5
 
 - UC-16 BR-17 shared names: `domain/environment/resource_aliases.go`,

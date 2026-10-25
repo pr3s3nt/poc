@@ -297,9 +297,10 @@ type ReadinessRequest struct {
 // error is an unknown readiness result.
 var ErrNotReady = errors.New("terraformexec: the provisioned resource is not ready")
 
-// ReadinessChecker queries the real Kubernetes or AWS API within a bounded
-// deadline after state is acknowledged. It returns ErrNotReady (wrapped with
-// safe IDs only) when not ready; it never fakes readiness.
+// ReadinessChecker completes UC-08 BR-10 after successful Terraform execution,
+// state acknowledgement and output validation. Provider completion covers all
+// managed resource types; applicable supplemental Kubernetes/AWS probes must
+// also pass within the deadline. ErrNotReady contains safe IDs only.
 type ReadinessChecker interface {
 	Check(ctx context.Context, req ReadinessRequest) error
 }

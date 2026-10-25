@@ -122,9 +122,20 @@ export async function registerK8sModuleDefinition(kit, spec) {
   await h.type(form('ID cấu hình (Definition ID)'), spec.id);
   await h.type(form('Tên hiển thị'), spec.name ?? spec.id);
   await choose(form('Loại tài nguyên'), spec.type);
-  await page.getByRole('button', { name: 'Module đã đăng ký', exact: true }).click();
-  const pins = form('Module đã kiểm chứng');
-  if (await pins.isEnabled()) await choose(pins, spec.module);
+  if (spec.git) {
+    await h.click(section.getByRole('button', { name: 'Thêm từ Git', exact: true }));
+    await h.type(section.getByLabel('Git HTTPS URL', { exact: true }), spec.git.url);
+    await h.type(section.getByLabel('Thư mục module', { exact: true }), spec.git.path);
+    await h.type(section.getByLabel('Tag hoặc commit', { exact: true }), spec.git.ref, { replace: true });
+    const inspected = await responseFromAction(page,
+      (r) => new URL(r.url()).pathname === '/api/v1/terraform-modules/inspect',
+      () => h.click(section.getByRole('button', { name: 'Kiểm tra module', exact: true })), { timeout: 180_000 });
+    expect(inspected.status()).toBe(200);
+  } else {
+    await page.getByRole('button', { name: 'Module đã đăng ký', exact: true }).click();
+    const pins = form('Module đã kiểm chứng');
+    if (await pins.isEnabled()) await choose(pins, spec.module);
+  }
   const advanced = section.locator('details.definition-advanced');
   if (await advanced.getAttribute('open') === null) await h.click(advanced.locator('summary').first());
   const inputMapping = section.getByRole('button', { name: 'Ghép đầu vào theo tên trùng', exact: true });
