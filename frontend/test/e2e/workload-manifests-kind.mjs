@@ -99,11 +99,6 @@ async function signInAs(username) {
   await kit.signIn(username);
 }
 
-async function openApp() {
-  await h.click(kit.nav('Ứng dụng'));
-  await kit.openApplication();
-}
-
 async function previewDeploy(label, expectedWorkloads, expectations) {
   const { preview } = await kit.pendingPreview(expectedWorkloads);
   writeFileSync(`${evidenceDir}/${label}-preview.json`, JSON.stringify(sanitizePreview(preview), null, 2));
@@ -274,7 +269,12 @@ try {
   facts.inventory1 = inventory1;
   check('WM-E05.inventory', ['ConfigMap/backend-files', 'CronJob/backend-refresh', 'Deployment/backend', 'HorizontalPodAutoscaler/backend', `Job/backend-migrate-${id1.slice(0, 8)}`, 'PodDisruptionBudget/backend', 'Service/backend'].every((k) => inventory1.includes(k)),
     `persisted inventory ${inventory1.join(', ')}`);
-  const route = await one('httproute', 'orch-public');
+  // The Gateway controller sets the route status asynchronously after the apply.
+  let route = null;
+  await expect.poll(async () => {
+    route = await one('httproute', 'orch-public');
+    return (route?.status?.parents ?? []).some((p) => condition(p, 'Accepted'));
+  }, { timeout: 120_000, intervals: [2000] }).toBe(true).catch(() => {});
   const host = route?.spec.hostnames?.[0] ?? '';
   facts.host = host;
   saveFacts();

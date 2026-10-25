@@ -1111,6 +1111,16 @@ records read-only Preview, metadata/history preservation and secret boundaries.
 | ALT-01, BR-09, BR-10, EX-04 | OC-20 baselines | `AddBaselineVersion`, `Baseline.Validate`, `EffectiveBaseline`, `AppendEffectivenessBaseline` | `effectiveness_baselines` append-only, CAS by version | baseline HTTP test; PostgreSQL restart + 42501; [JSON reload](../../backend/internal/adapters/store/effectiveness_test.go); browser save/reload |
 | Shell gate | UC-17 UI | `AppShell`, `App` | — | [App tests](../../frontend/src/app/App.test.tsx), [route tests](../../frontend/src/app/routes.test.ts) |
 
+## Open workload object set — ADR-024 (2026-10-26)
+
+| Requirements | Collaboration / persistence | Required validation |
+|---|---|---|
+| UC-06 RB-05; RB-C08 | `resources` stage → patches → open-set guard → ownership labels | [guard/stage tests](../../backend/internal/adapters/scorek8s/git_test.go) (`TestOpenObjectSetIsBundlePolicy`, `TestGuardRejectsOverridingExplicitIntent`); [Score annotations](../../backend/internal/planning/score/score.go) |
+| UC-06 RB-06; RB-C09 | Discovery/ownership check, Jobs before rollout, inventory in `workload_instances.target_ref.objects`, UID prune | [inventory/order tests](../../backend/internal/application/deployment/inventory_test.go); [kind lifecycle test](../../backend/internal/adapters/kubernetes/objects_kind_test.go); WM-E04..E06 |
+| UC-06 RB-07 | `PublicRoutes` kind `httproute`, Gateway parent, base domain flags | [route tests](../../backend/internal/adapters/kubernetes/public_routes_test.go); WM-E05 browser through the Gateway |
+| UC-07 RB-03 | Inventory removal before fixed workload removal | WM-E07 objects absent; foreign object kept in the kind lifecycle test |
+| Review projection | Extra kinds with redacted spec/data | [projection test](../../backend/internal/application/deploymentreview/extra_test.go) |
+
 ## Git rendering bundle — ADR-021 (passed 2026-10-24)
 
 | Requirements | Collaboration / persistence | Required validation |
