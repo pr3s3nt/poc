@@ -152,6 +152,8 @@ type WorkloadDeployer struct {
 	Applied []AppliedWorkload
 	Ready   []execution.WorkloadRef
 	Removed []string
+	// RemovedObjects records inventory objects removed (ADR-024) as kind/name.
+	RemovedObjects []string
 }
 
 // NewWorkloadDeployer returns an empty fake deployer.
@@ -191,6 +193,16 @@ func (d *WorkloadDeployer) Remove(_ context.Context, _ execution.Target, workloa
 	return nil
 }
 
+// RemoveObjects records the inventory objects of one workload.
+func (d *WorkloadDeployer) RemoveObjects(_ context.Context, _ execution.Target, _ string, objects []execution.ObjectRef) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, ref := range objects {
+		d.RemovedObjects = append(d.RemovedObjects, ref.Kind+"/"+ref.Name)
+	}
+	return nil
+}
+
 // AppliedNames lists every applied object as kind/name, sorted.
 func (d *WorkloadDeployer) AppliedNames() []string {
 	d.mu.Lock()
@@ -209,6 +221,7 @@ var (
 	_ execution.ResourceExecutor = (*ResourceExecutor)(nil)
 	_ execution.ExecutorRegistry = Registry{}
 	_ execution.WorkloadDeployer = (*WorkloadDeployer)(nil)
+	_ execution.ObjectRemover    = (*WorkloadDeployer)(nil)
 )
 
 // contextInput returns the Connection's kube context when the Definition passes

@@ -49,4 +49,5 @@ ghi đè runbook hoặc evidence cũ.
 
 - [Terraform module GitHub sources](terraform-module-sources.md): published modules, Definition authoring and isolated verification.
 
+- [Public routes: Ingress or Gateway API HTTPRoute](public-routes.md) — ADR-024 runtime flags and staging Gateway setup.
 - [Git render-bundle real acceptance](git-render-bundles-acceptance.md) — required new isolated kind/Compose Playwright procedure; runner is an implementation deliverable, no fake-adapter acceptance.

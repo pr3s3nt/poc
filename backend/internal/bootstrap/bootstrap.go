@@ -138,6 +138,11 @@ type Options struct {
 	DiagnosticConfigOverride    *accountdiag.Config
 	HarborDockerConfigFile      string
 	HarborPullSecretName        string
+	// PublicRouteKind selects the Environment public route object:
+	// "ingress" (default) or "httproute" with PublicGateway (ADR-024).
+	PublicRouteKind    string
+	PublicGateway      string
+	PublicIngressClass string
 
 	// ConnectionCredentialStore selects the UC-04 Connection credential
 	// store: "" (none; upload registration fails closed with 503), "vault"
@@ -475,7 +480,11 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 			}
 			deployments.SetPublicRouteManager(fleet, opts.Seed.BaseDomain)
 		} else {
-			deployments.SetPublicRouteManager(&k8s.PublicRoutes{KubectlPath: opts.KubectlPath, Credentials: kubeconfigSource}, opts.Seed.BaseDomain)
+			routes, err := publicRoutes(opts, kubeconfigSource)
+			if err != nil {
+				return nil, err
+			}
+			deployments.SetPublicRouteManager(routes, opts.Seed.BaseDomain)
 		}
 	}
 	if opts.WorkloadDelivery == "fleet-gitrepo" {
@@ -923,4 +932,22 @@ func buildDiagnostics(opts Options, st persistence.Store, creds credentials.Stor
 		svc.Close()
 	})
 	return svc, nil
+}
+
+// publicRoutes configures the Kubernetes public route manager (ADR-024).
+func publicRoutes(opts Options, credentials execution.KubeconfigSource) (*k8s.PublicRoutes, error) {
+	routes := &k8s.PublicRoutes{KubectlPath: opts.KubectlPath, Credentials: credentials, IngressClass: opts.PublicIngressClass}
+	switch opts.PublicRouteKind {
+	case "", k8s.RouteKindIngress:
+		routes.Kind = k8s.RouteKindIngress
+	case k8s.RouteKindHTTPRoute:
+		gateway, err := k8s.ParseGatewayRef(opts.PublicGateway)
+		if err != nil {
+			return nil, fmt.Errorf("bootstrap: -public-route-kind httproute needs -public-gateway: %w", err)
+		}
+		routes.Kind, routes.Gateway = k8s.RouteKindHTTPRoute, gateway
+	default:
+		return nil, fmt.Errorf("bootstrap: -public-route-kind must be ingress or httproute")
+	}
+	return routes, nil
 }

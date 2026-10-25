@@ -48,4 +48,6 @@ last_reviewed: 2026-10-24
 
 - [ADR-021 — Git-owned Kubernetes manifest rendering policy](ADR-021-git-render-bundles.md) — accepted design; normalization/defaults/provisioners/patches in Git, infrastructure unchanged; implementation pending.
 
+- [ADR-024 — Open workload object set, inventory and Gateway API routes](ADR-024-open-workload-objects.md) — supersedes the ADR-021 object envelope for Git bundles.
+
 - [ADR-023 — Native basic observability](ADR-023-native-observability.md): platform collection, Metrics Server and durable application history.

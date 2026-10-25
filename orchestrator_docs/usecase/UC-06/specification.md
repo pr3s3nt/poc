@@ -341,5 +341,19 @@ in PRE-02, MS-05, VAR-01, POST-02/03 and BR-03 as V05 is implemented.
   result is persisted as safe review and passed unchanged to existing delivery,
   readiness and current-set commit. No new kinds, route owner, resource lifecycle
   or cleanup scope. Restart and in-flight executions use original immutable pins.
+  The "no new kinds/cleanup scope" clause is superseded by RB-05..07 (ADR-024).
+- **RB-05:** A Git bundle may add any namespaced object the cluster serves and
+  any pod/container field (ADR-024). Cluster-scoped objects, Secret and VSO
+  objects stay rejected; explicit Score intent and platform identity, selector
+  and delivery references stay protected. Score `metadata.annotations` reach
+  the bundle as per-workload input.
+- **RB-06:** Before any write, every object is checked against API discovery
+  and ownership (absent or same Application/Environment/workload). Jobs complete
+  before rollout objects are applied; rollout status covers every Deployment,
+  StatefulSet and DaemonSet. The applied object inventory is persisted and
+  objects dropped by a successful update are deleted by UID.
+- **RB-07:** Public routes use the configured kind: Ingress (default) or a
+  platform-owned Gateway API HTTPRoute attached to the configured Gateway, with
+  the configured base domain.
 
 Exact stages and validation: [Git contract](../../architecture/contracts/git-render-bundles.md).

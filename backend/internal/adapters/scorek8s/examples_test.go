@@ -17,6 +17,7 @@ import (
 
 type exampleRequest struct {
 	WorkloadID       string                       `json:"workloadId"`
+	DeploymentID     string                       `json:"deploymentId"`
 	Namespace        string                       `json:"namespace"`
 	Labels           map[string]string            `json:"labels"`
 	Inputs           map[string]any               `json:"inputs"`
@@ -30,10 +31,16 @@ type exampleRequest struct {
 // The reference bundle's examples are executable documentation: each
 // examples/<name>/request.json renders with the real CLI to exactly
 // examples/<name>/expected.yaml (platform Secrets excluded). Regenerate with
-// UPDATE_RENDER_FIXTURES=1 after an intended bundle change.
+// UPDATE_RENDER_FIXTURES=1 after an intended bundle change. RENDER_BUNDLE_DIR
+// runs the same check for another bundle directory (for example a checkout of
+// a separate manifest repository).
 func TestStandardBundleExamples(t *testing.T) {
-	r, selections := gitRenderer(t, map[string]map[string][]byte{"standard": readBundle(t, standardDir)})
-	dirs, _ := filepath.Glob(filepath.Join(standardDir, "examples", "*", "request.json"))
+	bundleDir := standardDir
+	if dir := os.Getenv("RENDER_BUNDLE_DIR"); dir != "" {
+		bundleDir = dir
+	}
+	r, selections := gitRenderer(t, map[string]map[string][]byte{"standard": readBundle(t, bundleDir)})
+	dirs, _ := filepath.Glob(filepath.Join(bundleDir, "examples", "*", "request.json"))
 	if len(dirs) == 0 {
 		t.Fatal("the reference bundle has no examples")
 	}
@@ -49,7 +56,7 @@ func TestStandardBundleExamples(t *testing.T) {
 				t.Fatal(err)
 			}
 			selection := selections["standard"]
-			bundle, err := renderengine.Validate(readBundle(t, standardDir))
+			bundle, err := renderengine.Validate(readBundle(t, bundleDir))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -59,7 +66,7 @@ func TestStandardBundleExamples(t *testing.T) {
 			}
 			selection.InputsHash, _ = renderbundle.InputsHash(selection.Inputs)
 			manifests, err := r.Render(context.Background(), execution.RenderRequest{Selection: selection, WorkloadID: ex.WorkloadID, Namespace: ex.Namespace, Labels: ex.Labels, Module: ex.Module,
-				PlainEnv: ex.PlainEnv, SecretEnv: ex.SecretEnv, ConfigSecretName: ex.ConfigSecretName, ConfigSecretKeys: ex.ConfigSecretKeys, DeploymentID: "example-deployment"})
+				PlainEnv: ex.PlainEnv, SecretEnv: ex.SecretEnv, ConfigSecretName: ex.ConfigSecretName, ConfigSecretKeys: ex.ConfigSecretKeys, DeploymentID: ex.DeploymentID})
 			if err != nil {
 				t.Fatal(err)
 			}

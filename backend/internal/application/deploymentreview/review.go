@@ -390,14 +390,31 @@ func safeLabel(v string) bool {
 }
 func utf8Valid(b []byte) bool { return utf8.Valid(b) && !strings.ContainsRune(string(b), '\x00') }
 
-// ProjectManifests emits only Deployment and Service review data. The
-// execution manifests remain untouched. Platform delivery and credential-named
-// annotations, Secret bodies, container literal environment values and
-// unknown object kinds are excluded; accepted Git policy fields are shown.
+// reviewedKind reports objects with the detailed workload/Service projection.
+func reviewedKind(kind string) bool {
+	return kind == "Deployment" || kind == "StatefulSet" || kind == "Service"
+}
+
+// ProjectManifests emits review data of the rendered objects. The execution
+// manifests remain untouched. Platform delivery objects and credential-named
+// annotations, Secret bodies and container literal environment values are
+// excluded; accepted Git policy fields are shown. Other bundle objects
+// (ADR-024) show metadata and a sanitized spec.
 func ProjectManifests(manifests []execution.Manifest) map[string]Side {
 	out := map[string]Side{}
 	for _, m := range manifests {
-		if m.Kind != "Deployment" && m.Kind != "Service" {
+		if m.Auxiliary || m.Secret || m.Kind == "Secret" {
+			continue
+		}
+		if !reviewedKind(m.Kind) {
+			encoded, err := yaml.Marshal(sanitizeExtra(m))
+			side := Side{Availability: "PARTIAL", Text: string(encoded), RedactedPaths: []string{"metadata.annotations", "**.env[*].value", "data", "binaryData", "stringData"}, UnknownPaths: []string{}}
+			if err != nil {
+				side = unavailable("REDACTION_REQUIRED")
+			} else if len(encoded) > MaxSideBytes {
+				side = unavailable("LIMIT_EXCEEDED")
+			}
+			out[m.Kind+"/"+m.Name] = side
 			continue
 		}
 		obj := sanitizeManifest(m)
@@ -413,6 +430,81 @@ func ProjectManifests(manifests []execution.Manifest) map[string]Side {
 		out[m.Kind+"/"+m.Name] = side
 	}
 	return out
+}
+
+// sanitizeExtra projects a bundle object of any other kind: metadata labels,
+// non-platform annotations and the spec through safeTree, with environment
+// values and data payloads redacted.
+func sanitizeExtra(m execution.Manifest) map[string]any {
+	metadata := map[string]any{"name": m.Name, "namespace": m.Namespace}
+	if source, ok := m.Object["metadata"].(map[string]any); ok {
+		if labels := selectKeyed(source["labels"]); len(labels) > 0 {
+			metadata["labels"] = labels
+		}
+		if annotations := selectAnnotations(source["annotations"]); len(annotations) > 0 {
+			metadata["annotations"] = annotations
+		}
+	}
+	result := map[string]any{"apiVersion": m.APIVersion, "kind": m.Kind, "metadata": metadata}
+	for _, field := range []string{"data", "binaryData", "stringData"} {
+		if values, ok := m.Object[field].(map[string]any); ok {
+			keys := map[string]any{}
+			for key := range values {
+				if safeKey.MatchString(key) || safeLabel(key) {
+					keys[key] = "<redacted>"
+				}
+			}
+			result[field] = keys
+		}
+	}
+	if spec := safeTree(redactEnv(m.Object["spec"], 0), 0); spec != nil {
+		result["spec"] = spec
+	}
+	return result
+}
+
+// redactEnv copies a tree with every env[].value replaced by "<redacted>".
+func redactEnv(v any, depth int) any {
+	if depth > 24 {
+		return nil
+	}
+	switch value := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(value))
+		for key, item := range value {
+			if key == "env" {
+				if entries, ok := item.([]any); ok {
+					safe := make([]any, 0, len(entries))
+					for _, entry := range entries {
+						e, ok := entry.(map[string]any)
+						if !ok {
+							continue
+						}
+						copied := map[string]any{}
+						for k, v := range e {
+							copied[k] = v
+						}
+						if _, plain := copied["value"]; plain {
+							copied["value"] = "<redacted>"
+						}
+						safe = append(safe, copied)
+					}
+					out[key] = safe
+					continue
+				}
+			}
+			out[key] = redactEnv(item, depth+1)
+		}
+		return out
+	case []any:
+		out := make([]any, len(value))
+		for i, item := range value {
+			out[i] = redactEnv(item, depth+1)
+		}
+		return out
+	default:
+		return v
+	}
 }
 
 func sanitizeManifest(m execution.Manifest) map[string]any {
@@ -722,7 +814,7 @@ func (a Assembler) manifests(ctx context.Context, plan *planning.Plan, descripto
 		unknownSet[path] = true
 	}
 	for _, manifest := range manifests {
-		if manifest.Kind != "Deployment" && manifest.Kind != "Service" {
+		if !reviewedKind(manifest.Kind) || manifest.Auxiliary {
 			continue
 		}
 		obj := sanitizeManifest(manifest)

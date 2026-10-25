@@ -89,7 +89,7 @@ func Validate(files map[string][]byte) (Bundle, error) {
 	if err != nil {
 		return Bundle{}, invalid(manifest.Defaults, "the defaults are not one YAML object without duplicate keys")
 	}
-	templates := append([]string{manifest.Normalize}, manifest.Patches...)
+	templates := append(append([]string{manifest.Normalize}, manifest.Resources...), manifest.Patches...)
 	for _, name := range templates {
 		source, err := need(name)
 		if err != nil {

@@ -98,6 +98,12 @@ func (s *Service) RemoveDelivered(ctx context.Context, organizationKey, applicat
 			report.Failed = append(report.Failed, w.WorkloadID)
 			continue
 		}
+		if err := s.removeObjects(lease.Ctx, target, w.WorkloadID, instanceInventory(w)); err != nil {
+			w.Status = domain.InstanceFailed
+			_ = s.store.UpsertWorkloadInstance(lease.Ctx, w)
+			report.Failed = append(report.Failed, w.WorkloadID)
+			continue
+		}
 		if err := s.deployer.Remove(lease.Ctx, target, w.WorkloadID); err != nil {
 			w.Status = domain.InstanceFailed
 			_ = s.store.UpsertWorkloadInstance(lease.Ctx, w)

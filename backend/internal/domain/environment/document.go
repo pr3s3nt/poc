@@ -155,9 +155,12 @@ type Module struct {
 	Profile string `json:"profile"`
 	// Class is the explicit workload class of the Score `metadata.class`
 	// (ADR-016); empty means the default class.
-	Class     string                   `json:"class,omitempty"`
-	Spec      ModuleSpec               `json:"spec"`
-	Externals map[string]ResourceEntry `json:"externals,omitempty"`
+	Class string `json:"class,omitempty"`
+	// Annotations are the Score metadata.annotations of the workload
+	// (ADR-024): input of Git render bundles only.
+	Annotations map[string]string        `json:"annotations,omitempty"`
+	Spec        ModuleSpec               `json:"spec"`
+	Externals   map[string]ResourceEntry `json:"externals,omitempty"`
 }
 
 // WorkloadClass returns the effective workload class: the explicit class, or

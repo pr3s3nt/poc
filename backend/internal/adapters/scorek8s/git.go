@@ -267,11 +267,33 @@ func (r *Renderer) renderGit(ctx context.Context, req execution.RenderRequest) (
 		return nil, err
 	}
 
-	// Step 5: ordered set/delete patches.
 	objects := make([]map[string]any, len(generated))
 	for i, m := range generated {
 		objects[i] = m.Object
 	}
+	// Additional objects (ADR-024), appended in manifest order so patches see them.
+	for _, name := range manifest.Resources {
+		current := make([]any, len(objects))
+		for i, object := range objects {
+			current[i] = renderbundle.DeepCopy(object)
+		}
+		output, err := r.executor.Execute(ctx, name, string(bundle.File(name)), map[string]any{
+			"Input": input, "Inputs": inputs, "Defaults": defaults, "Normalized": renderbundle.DeepCopy(normalized), "Manifests": current,
+		})
+		if err != nil {
+			return nil, stageError("resources", err)
+		}
+		added, err := renderengine.ParseResourceOutput(name, output)
+		if err != nil {
+			return nil, stageError("resources", err)
+		}
+		objects = append(objects, added...)
+		if len(objects) > renderengine.MaxObjects {
+			return nil, &RenderError{Stage: "resources", Code: "TOO_MANY_OBJECTS", File: name}
+		}
+	}
+
+	// Step 5: ordered set/delete patches.
 	for _, name := range manifest.Patches {
 		current := make([]any, len(objects))
 		for i, object := range objects {
@@ -304,7 +326,39 @@ func (r *Renderer) renderGit(ctx context.Context, req execution.RenderRequest) (
 	if err := guard(req, delivery, result); err != nil {
 		return nil, stageError("validate", err)
 	}
-	return append(append([]execution.Manifest{}, delivery.Auxiliaries...), result...), nil
+	for i := range result {
+		own(&result[i], req)
+	}
+	auxiliaries := make([]execution.Manifest, len(delivery.Auxiliaries))
+	for i, m := range delivery.Auxiliaries {
+		m.Auxiliary = true
+		auxiliaries[i] = m
+	}
+	return append(auxiliaries, result...), nil
+}
+
+// own sets the namespace and the platform ownership labels of one rendered
+// object (contract RB-C08); the guard already refused conflicting values.
+func own(m *execution.Manifest, req execution.RenderRequest) {
+	meta, _ := m.Object["metadata"].(map[string]any)
+	if meta == nil {
+		meta = map[string]any{}
+		m.Object["metadata"] = meta
+	}
+	meta["namespace"] = req.Namespace
+	m.Namespace = req.Namespace
+	labels, _ := meta["labels"].(map[string]any)
+	if labels == nil {
+		labels = map[string]any{}
+		meta["labels"] = labels
+	}
+	labels["app.kubernetes.io/managed-by"] = "orchestrator"
+	labels["orchestrator.io/workload"] = req.WorkloadID
+	for _, key := range []string{"orchestrator.io/application", "orchestrator.io/environment", "orchestrator.io/deployment-id"} {
+		if value := req.Labels[key]; value != "" {
+			labels[key] = value
+		}
+	}
 }
 
 // normalizedScore parses the normalization output: exactly one JSON object

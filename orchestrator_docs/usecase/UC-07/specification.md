@@ -218,7 +218,11 @@ runtime/current set hoặc Environment khác khi lưu.
 - **RB-02:** Removal continues to use original applied target/identity/ownership,
   independent of the current Definition or Git reachability. No new object kinds
   or Terraform cleanup behavior. Cache/history retain prior pins; backend restart
-  must not lose the applied manifest before-side.
+  must not lose the applied manifest before-side. "No new object kinds" is
+  superseded by RB-03 (ADR-024).
+- **RB-03:** Removing a workload deletes every object of its persisted
+  inventory (ownership and UID verified), then the fixed workload objects;
+  objects of other workloads or pre-existing objects are never deleted.
 
 ## Secret delivery objects on workload removal — user decision 2026-10-24
 

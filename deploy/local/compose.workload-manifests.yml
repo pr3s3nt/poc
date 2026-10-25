@@ -1,0 +1,10 @@
+# Run-owned Console for the open workload object acceptance (ADR-024). Used only by
+# backend/test/integration/workload-manifests-kind.sh on top of
+# compose.git-render-bundle.yml: public routes are Gateway API HTTPRoutes attached to
+# the run cluster's Gateway, with a run-local base domain.
+services:
+  backend:
+    environment:
+      ORCHESTRATOR_PUBLIC_ROUTE_KIND: httproute
+      ORCHESTRATOR_PUBLIC_GATEWAY: ${PUBLIC_GATEWAY:?gateway namespace/name}
+      ORCHESTRATOR_PUBLIC_BASE_DOMAIN: ${PUBLIC_BASE_DOMAIN:?run base domain}

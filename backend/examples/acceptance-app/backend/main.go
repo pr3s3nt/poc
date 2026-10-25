@@ -40,6 +40,11 @@ func main() {
 		log.Fatalf("backend: %v", err)
 	}
 	log.Print("backend: schema is ready")
+	// "migrate" only prepares the schema and exits: the pre-rollout Job of a
+	// render bundle (ADR-024) runs it before the backend Deployment.
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		return
+	}
 
 	// Redis is required. An invalid or unreachable binding must not stop the
 	// backend: it keeps serving the durable PostgreSQL results while the

@@ -28,6 +28,9 @@ type Metadata struct {
 	// missing class means the default class; an explicit value is kept as
 	// written through import, edit, export and storage.
 	Class string `json:"class,omitempty"`
+	// Annotations are Score-native per-workload extension values (ADR-024),
+	// handed to Git render bundles as input; never copied into manifests.
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // ResourceSpec is one resource dependency declared by a Score workload. A
@@ -114,6 +117,9 @@ func (d Document) Validate() error {
 	if len(d.Containers) == 0 {
 		return fmt.Errorf("score: workload %q declares no container", d.Metadata.Name)
 	}
+	if err := environment.ValidateAnnotations(d.Metadata.Annotations); err != nil {
+		return fmt.Errorf("score: metadata.annotations: %w", err)
+	}
 	for _, name := range sortedKeys(d.Containers) {
 		if d.Containers[name].Image == "" {
 			return fmt.Errorf("score: container %q has no image", name)
@@ -186,8 +192,9 @@ func (d Document) Fragment(types map[string]resource.Type) (*Fragment, error) {
 	}
 
 	module := environment.Module{
-		Profile: environment.ModuleProfile,
-		Class:   d.Metadata.Class,
+		Profile:     environment.ModuleProfile,
+		Class:       d.Metadata.Class,
+		Annotations: cloneAnnotations(d.Metadata.Annotations),
 		Spec: environment.ModuleSpec{
 			Containers: map[string]environment.Container{},
 			Service:    d.Service,
@@ -366,6 +373,17 @@ func (d Document) rewriteTree(v any, types map[string]resource.Type, where strin
 	default:
 		return v, nil
 	}
+}
+
+func cloneAnnotations(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }
 
 func sortedKeys[T any](m map[string]T) []string {

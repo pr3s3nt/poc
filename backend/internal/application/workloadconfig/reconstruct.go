@@ -486,6 +486,13 @@ func reconstruct(workload string, module environment.Module, set environment.Doc
 	if module.Class != "" {
 		metadata["class"] = module.Class // explicit class survives rebuild/export unchanged (ADR-016)
 	}
+	if len(module.Annotations) > 0 {
+		annotations := make(map[string]any, len(module.Annotations))
+		for key, value := range module.Annotations {
+			annotations[key] = value
+		}
+		metadata["annotations"] = annotations
+	}
 	out := map[string]any{"apiVersion": "score.dev/v1b1", "metadata": metadata, "containers": containers}
 	if len(b.resources) > 0 {
 		out["resources"] = b.resources

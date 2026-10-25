@@ -37,7 +37,8 @@ valid bundle change under the supported engine contract.
 - A Git bundle must not call the native Kubernetes renderer to construct a
   hidden policy manifest. Move configurable transformation/defaults/labels into
   files. Keep semantic validation and secret/ownership authorization in platform.
-- Keep the current object/lifecycle envelope: one workload Deployment and its
+- *Superseded for Git bundles by [ADR-024](ADR-024-open-workload-objects.md)
+  (2026-10-25).* Keep the current object/lifecycle envelope: one workload Deployment and its
   optional Service, plus existing platform-owned secret-delivery auxiliaries.
   Ingress remains owned by PublicRouteManager. No new ConfigMap/HPA/PDB/Job/
   StatefulSet/CRD support, resource ownership model or cleanup algorithm is added.

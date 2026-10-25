@@ -95,6 +95,12 @@ func semantic(t *testing.T, manifests []execution.Manifest) map[string]any {
 		raw, _ := json.Marshal(m.Object)
 		var object map[string]any
 		_ = json.Unmarshal(raw, &object)
+		// The Git pipeline adds the ADR-024 inventory label; native renders do not.
+		if meta, ok := object["metadata"].(map[string]any); ok {
+			if labels, ok := meta["labels"].(map[string]any); ok {
+				delete(labels, "orchestrator.io/workload")
+			}
+		}
 		if m.Kind == "Deployment" {
 			spec := object["spec"].(map[string]any)
 			if s, ok := spec["strategy"].(map[string]any); ok && len(s) == 0 {
@@ -294,16 +300,16 @@ func TestGuardRejectsOverridingExplicitIntent(t *testing.T) {
 	override := edit(t, "normalize/score.tpl", `{{- $value := get $declaredRequests $field | default (get $declaredLimits $field) | default (get $d.resources.requests $field) -}}`, `{{- $value := get $d.resources.requests $field -}}`)
 	identity := edit(t, "patches/service.tpl", `value: {{ toJson $in.identity.selector }}`, `value: {"app.kubernetes.io/name": "other"}`)
 	secretRef := edit(t, "provisioners/bindings.provisioners.yaml", `encodeSecretRef $entry.secretName $entry.secretKey`, `encodeSecretRef "foreign-secret" $entry.secretKey`)
-	sidecar := edit(t, "patches/deployment.tpl", `{{- range $ci, $c := $m.spec.template.spec.containers }}`, `
-- op: set
-  path: "{{ $i }}.spec.template.spec.initContainers"
-  value: [{"name": "x", "image": "busybox"}]
-{{- range $ci, $c := $m.spec.template.spec.containers }}`)
+	secretObject := withResources(t, `[{"apiVersion": "v1", "kind": "Secret", "metadata": {"name": "extra"}, "stringData": {"k": "v"}}]`)
+	clusterScoped := withResources(t, `[{"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "ClusterRole", "metadata": {"name": "extra"}}]`)
+	foreignNamespace := withResources(t, `[{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "extra", "namespace": "other"}}]`)
+	reservedLabel := withResources(t, `[{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "extra", "labels": {"orchestrator.io/application": "other"}}}]`)
 	vault := edit(t, "patches/deployment.tpl", `- op: delete
   path: "{{ $i }}.metadata.annotations"`, `- op: set
   path: "{{ $i }}.metadata.annotations"
   value: {"vault.hashicorp.com/role": "admin"}`)
-	r, selections := gitRenderer(t, map[string]map[string][]byte{"override": override, "identity": identity, "secret": secretRef, "sidecar": sidecar, "vault": vault})
+	r, selections := gitRenderer(t, map[string]map[string][]byte{"override": override, "identity": identity, "secret": secretRef, "vault": vault,
+		"secret object": secretObject, "cluster scoped": clusterScoped, "foreign namespace": foreignNamespace, "reserved label": reservedLabel})
 	for name, selection := range selections {
 		req := gitRequest(selection)
 		req.ConfigSecretName, req.ConfigSecretKeys = "", nil
@@ -313,6 +319,63 @@ func TestGuardRejectsOverridingExplicitIntent(t *testing.T) {
 		if _, err := r.Render(context.Background(), req); !errors.Is(err, renderregistry.ErrRenderFailed) {
 			t.Fatalf("%s: want invariant failure, got %v", name, err)
 		}
+	}
+}
+
+// withResources returns the standard bundle with one extra-object template.
+func withResources(t *testing.T, objects string) map[string][]byte {
+	t.Helper()
+	files := readBundle(t, standardDir)
+	files["resources/extra.tpl"] = []byte(objects)
+	files["bundle.yaml"] = []byte(strings.Replace(string(files["bundle.yaml"]), "patches:\n", "resources:\n  - resources/extra.tpl\npatches:\n", 1))
+	return files
+}
+
+// ADR-024: extra namespaced objects, sidecars, init containers and volumes are
+// bundle policy; the platform sets namespace and ownership labels on every object.
+func TestOpenObjectSetIsBundlePolicy(t *testing.T) {
+	extra := withResources(t, `[
+  {"apiVersion": "autoscaling/v2", "kind": "HorizontalPodAutoscaler", "metadata": {"name": "{{ .Input.identity.workload }}", "labels": {"app.kubernetes.io/name": "hpa"}},
+   "spec": {"scaleTargetRef": {"apiVersion": "apps/v1", "kind": "Deployment", "name": "{{ .Input.identity.workload }}"}, "minReplicas": 1, "maxReplicas": {{ get .Input.workload.annotations "example.com/max-replicas" | default "3" }}}},
+  {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "{{ .Input.identity.workload }}-files"}, "data": {"app.yaml": "x: 1"}}
+]`)
+	extra["patches/deployment.tpl"] = []byte(strings.Replace(string(extra["patches/deployment.tpl"]), `{{- range $ci, $c := $m.spec.template.spec.containers }}`, `
+- op: set
+  path: "{{ $i }}.spec.template.spec.initContainers"
+  value: [{"name": "init", "image": "busybox"}]
+- op: set
+  path: "{{ $i }}.spec.template.spec.volumes"
+  value: [{"name": "files", "configMap": {"name": "{{ $in.identity.workload }}-files"}}]
+{{- range $ci, $c := $m.spec.template.spec.containers }}`, 1))
+	r, selections := gitRenderer(t, map[string]map[string][]byte{"extra": extra})
+	req := gitRequest(selections["extra"])
+	req.Module.Annotations = map[string]string{"example.com/max-replicas": "7"}
+	got, err := r.Render(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kinds := map[string]execution.Manifest{}
+	for _, m := range got {
+		kinds[m.Kind] = m
+		if m.Auxiliary != (m.Kind == "Secret") {
+			t.Fatalf("%s/%s: only delivery objects are auxiliary", m.Kind, m.Name)
+		}
+		labels := m.Object["metadata"].(map[string]any)["labels"].(map[string]any)
+		if !m.Auxiliary && (labels["orchestrator.io/workload"] != req.WorkloadID || labels["app.kubernetes.io/managed-by"] != "orchestrator" ||
+			labels["orchestrator.io/application"] != req.Labels["orchestrator.io/application"] || m.Namespace != req.Namespace) {
+			t.Fatalf("%s/%s: ownership labels/namespace not set: %v", m.Kind, m.Name, labels)
+		}
+	}
+	hpa, ok := kinds["HorizontalPodAutoscaler"]
+	if !ok || hpa.Object["spec"].(map[string]any)["maxReplicas"] != 7.0 {
+		t.Fatalf("Score annotations must reach the resources stage: %v", hpa.Object)
+	}
+	if _, ok := kinds["ConfigMap"]; !ok {
+		t.Fatal("ConfigMap missing")
+	}
+	pod := kinds["Deployment"].Object["spec"].(map[string]any)["template"].(map[string]any)["spec"].(map[string]any)
+	if pod["initContainers"] == nil || pod["volumes"] == nil {
+		t.Fatalf("pod fields of the bundle must be kept: %v", pod)
 	}
 }
 

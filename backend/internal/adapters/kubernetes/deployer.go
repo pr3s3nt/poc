@@ -36,6 +36,9 @@ func (d *Deployer) Apply(ctx context.Context, target execution.Target, manifests
 		return err
 	}
 	defer cleanup()
+	if err := checkApply(ctx, newDiscovery(cli), target, manifests); err != nil {
+		return err
+	}
 	return cli.Apply(ctx, objects)
 }
 
@@ -46,10 +49,17 @@ func (d *Deployer) WaitReady(ctx context.Context, target execution.Target, refs 
 		return err
 	}
 	defer cleanup()
+	disc := newDiscovery(cli)
 	for _, ref := range refs {
 		namespace := ref.Namespace
 		if namespace == "" {
 			namespace = target.Namespace
+		}
+		if ref.Kind == "Job" {
+			if err := waitJob(ctx, disc, namespace, ref.Name, d.Timeout); err != nil {
+				return err
+			}
+			continue
 		}
 		kind := "deployment"
 		if ref.Kind != "" {
@@ -141,4 +151,7 @@ func kindArg(kind string) string {
 	}
 }
 
-var _ execution.WorkloadDeployer = (*Deployer)(nil)
+var (
+	_ execution.WorkloadDeployer = (*Deployer)(nil)
+	_ execution.ObjectRemover    = (*Deployer)(nil)
+)

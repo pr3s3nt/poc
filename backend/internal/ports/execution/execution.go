@@ -61,7 +61,12 @@ type PublicRoute struct {
 	Paths                              []PublicPath
 }
 
-type PublicPath struct{ Path, WorkloadID, PortName string }
+// PublicPath is one Score public route; Port is the numeric Service port of
+// PortName (Gateway API backendRefs need a number).
+type PublicPath struct {
+	Path, WorkloadID, PortName string
+	Port                       int
+}
 
 type PublicRouteManager interface {
 	Reconcile(ctx context.Context, target Target, route PublicRoute) error
@@ -159,12 +164,37 @@ type ExecutorRegistry interface {
 
 // Manifest is one rendered Kubernetes object.
 type Manifest struct {
-	APIVersion string         `json:"apiVersion"`
-	Kind       string         `json:"kind"`
-	Name       string         `json:"name"`
-	Namespace  string         `json:"namespace,omitempty"`
-	Secret     bool           `json:"-"`
-	Object     map[string]any `json:"-"`
+	APIVersion string `json:"apiVersion"`
+	Kind       string `json:"kind"`
+	Name       string `json:"name"`
+	Namespace  string `json:"namespace,omitempty"`
+	Secret     bool   `json:"-"`
+	// Auxiliary marks a platform secret-delivery object (workload env Secret,
+	// Vault Agent ServiceAccount): it has its own removal and is never part
+	// of the workload object inventory (ADR-024).
+	Auxiliary bool           `json:"-"`
+	Object    map[string]any `json:"-"`
+}
+
+// ObjectRef is one applied object of a workload's inventory (ADR-024). The
+// namespace is always the workload target namespace. Owners are the
+// deployment IDs whose ownership label the object may carry.
+type ObjectRef struct {
+	APIVersion string   `json:"apiVersion"`
+	Kind       string   `json:"kind"`
+	Name       string   `json:"name"`
+	Owners     []string `json:"owners"`
+}
+
+// Key identifies the object independently of its owners.
+func (r ObjectRef) Key() string { return r.APIVersion + "/" + r.Kind + "/" + r.Name }
+
+// ObjectRemover is implemented by a WorkloadDeployer that deletes inventory
+// objects of one workload: each only after its ownership labels (Application,
+// Environment, workload and one of its owners) and UID are verified. An
+// absent object is success; a foreign or unverifiable one fails.
+type ObjectRemover interface {
+	RemoveObjects(ctx context.Context, target Target, workloadID string, objects []ObjectRef) error
 }
 
 // RenderRequest describes a workload whose bindings are already resolved.

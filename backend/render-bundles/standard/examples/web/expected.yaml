@@ -9,6 +9,7 @@
         orchestrator.io/application: shop
         orchestrator.io/deployment-id: example-deployment
         orchestrator.io/environment: staging
+        orchestrator.io/workload: web
     name: web
     namespace: app-shop-staging
   spec:
@@ -30,6 +31,7 @@
         orchestrator.io/application: shop
         orchestrator.io/deployment-id: example-deployment
         orchestrator.io/environment: staging
+        orchestrator.io/workload: web
     name: web
     namespace: app-shop-staging
   spec:

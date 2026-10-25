@@ -380,6 +380,11 @@ development reset before serving.
 
 Columns: `id uuid PK`, `environment_id FK`, `workload_id text`, `last_deployment_id FK`, `applied_config_revision_id uuid FK configuration_revisions nullable`, `target_ref jsonb`, `manifest_digest text`, `status text`, `observed_at timestamptz`. Unique `(environment_id, workload_id)`.
 
+`target_ref.objects` (ADR-024) is the applied object inventory of a Git-rendered
+workload: an array of `{apiVersion, kind, name, owners[]}` without namespace
+(always the target namespace) or object content. Absent means no inventory
+(native/legacy renders); no column or migration is added.
+
 Per-workload applied revision allows an honest partial-success state when a
 multi-workload configuration rollout fails. The desired Environment pointer
 does not imply every workload has consumed that revision.

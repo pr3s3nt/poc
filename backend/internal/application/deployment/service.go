@@ -478,6 +478,11 @@ func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, 
 		if err := s.store.UpsertWorkloadProgress(ctx, instance); err != nil {
 			return err
 		}
+		if err := s.removeObjects(ctx, target, workloadID, instanceInventory(instance)); err != nil {
+			instance.Status = domain.InstanceFailed
+			_ = s.store.UpsertWorkloadProgress(ctx, instance)
+			return err
+		}
 		if err := s.deployer.Remove(ctx, target, workloadID); err != nil {
 			instance.Status = domain.InstanceFailed
 			_ = s.store.UpsertWorkloadProgress(ctx, instance)
@@ -683,6 +688,14 @@ func (s *Service) applyWorkload(
 	if err != nil {
 		return err
 	}
+	// ADR-024: until the new set is ready the inventory keeps every previous
+	// object too, so a failed or interrupted deploy leaks nothing.
+	previous, _, err := s.previousInstance(ctx, planCtx.App.Key+"/"+planCtx.Env.Key, planCtx.Env.TargetGeneration, workloadID)
+	if err != nil {
+		return err
+	}
+	rendered := renderedInventory(manifests, record.ID)
+	union, stale := mergeInventory(instanceInventory(previous), rendered)
 
 	instance := domain.WorkloadInstance{
 		EnvironmentKey:          planCtx.App.Key + "/" + planCtx.Env.Key,
@@ -690,7 +703,7 @@ func (s *Service) applyWorkload(
 		LastDeploymentID:        record.ID,
 		AppliedConfigRevisionID: configRevisionID,
 		Generation:              planCtx.Env.TargetGeneration,
-		TargetRef:               withWorkloadOwner(withDelivery(withPlacement(targetRef(target), plan.Placements[wd]), secretDelivery), record.ID),
+		TargetRef:               withInventory(withWorkloadOwner(withDelivery(withPlacement(targetRef(target), plan.Placements[wd]), secretDelivery), record.ID), union),
 		ManifestDigest:          digest,
 		Status:                  domain.InstanceApplying,
 		ObservedAt:              s.clock.Now(),
@@ -700,19 +713,21 @@ func (s *Service) applyWorkload(
 		return err
 	}
 
-	if err := s.deployer.Apply(ctx, target, manifests); err != nil {
+	if err := s.applyPhases(ctx, target, workloadID, manifests); err != nil {
 		instance.Status = domain.InstanceFailed
 		instance.ObservedAt = s.clock.Now()
 		_ = s.store.UpsertWorkloadProgress(ctx, instance)
 		return err
 	}
-	refs := []execution.WorkloadRef{{Kind: "Deployment", Name: workloadID, Namespace: target.Namespace}}
-	if err := s.deployer.WaitReady(ctx, target, refs); err != nil {
+	// Objects the new render no longer contains are deleted only after the
+	// new set is ready; the inventory then becomes exactly the new set.
+	if err := s.removeObjects(ctx, target, workloadID, stale); err != nil {
 		instance.Status = domain.InstanceFailed
 		instance.ObservedAt = s.clock.Now()
 		_ = s.store.UpsertWorkloadProgress(ctx, instance)
 		return err
 	}
+	instance.TargetRef = withInventory(instance.TargetRef, rendered)
 	instance.Status = domain.InstanceReady
 	instance.ObservedAt = s.clock.Now()
 	return s.store.UpsertWorkloadProgress(ctx, instance)
@@ -810,7 +825,11 @@ func (s *Service) routesFor(ctx context.Context, app appdomain.Application, env 
 				paths = service.PublicRoutes
 			}
 			for _, path := range paths {
-				route.Paths = append(route.Paths, execution.PublicPath{Path: path.Path, WorkloadID: id, PortName: path.Port})
+				port := 0
+				if service := set.Modules[id].Spec.Service; service != nil {
+					port = service.Ports[path.Port].Port
+				}
+				route.Paths = append(route.Paths, execution.PublicPath{Path: path.Path, WorkloadID: id, PortName: path.Port, Port: port})
 			}
 		}
 	}

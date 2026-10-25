@@ -80,6 +80,9 @@ type Manifest struct {
 	Normalize     string   `yaml:"normalize" json:"normalize"`
 	Provisioners  []string `yaml:"provisioners" json:"provisioners"`
 	Patches       []string `yaml:"patches" json:"patches"`
+	// Resources are optional templates returning additional Kubernetes
+	// objects (ADR-024); omitted means none.
+	Resources []string `yaml:"resources,omitempty" json:"resources,omitempty"`
 }
 
 var namePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
@@ -123,7 +126,7 @@ func ParseManifest(raw []byte) (Manifest, error) {
 			return Manifest{}, invalid(ManifestFile, "%s must be a clean relative file path", field)
 		}
 	}
-	for field, list := range map[string][]string{"provisioners": m.Provisioners, "patches": m.Patches} {
+	for field, list := range map[string][]string{"provisioners": m.Provisioners, "patches": m.Patches, "resources": m.Resources} {
 		seen := map[string]bool{}
 		for _, file := range list {
 			if !ValidFilePath(file) {
@@ -247,6 +250,9 @@ func (b Bundle) Clone() Bundle {
 	out := b
 	out.Contract.Manifest.Provisioners = append([]string{}, b.Contract.Manifest.Provisioners...)
 	out.Contract.Manifest.Patches = append([]string{}, b.Contract.Manifest.Patches...)
+	if b.Contract.Manifest.Resources != nil {
+		out.Contract.Manifest.Resources = append([]string{}, b.Contract.Manifest.Resources...)
+	}
 	out.Contract.InputsSchema, _ = deepCopy(b.Contract.InputsSchema).(map[string]any)
 	out.Contract.Defaults, _ = deepCopy(b.Contract.Defaults).(map[string]any)
 	return out

@@ -273,3 +273,73 @@ existing envelope fields); safe fields only. New codes: `RENDER_SOURCE_INVALID`
 `RENDER_FAILED` (422). Preserve existing auth, size, CAS/stale and COMMIT_UNCERTAIN
 codes. Inspect response never auto-saves; unknown mutation outcome requires read/
 review, not replay. Invalid legacy/Git source combinations are rejected explicitly.
+
+## RB-C08 — Open object set (ADR-024)
+
+[ADR-024](../decisions/ADR-024-open-workload-objects.md) replaces the object and
+field rules of RB-C04 step 5 and RB-C05 for Git bundles. Unchanged: RB-C01..C03,
+the worker/helper/limit rules of RB-C04, Secret handling and RB-C06/C07.
+
+Manifest: optional `resources` array of template paths (same rules as
+`patches`; omitted means empty). Each template sees `.Input`, `.Inputs`,
+`.Defaults`, `.Normalized` and `.Manifests` and returns a YAML/JSON array of
+Kubernetes objects (`[]` is a no-op). Pipeline order: normalize → score-k8s
+generate → `resources` (appended in array order) → `patches` → validate. At most
+128 objects per workload. `.Input.workload.annotations` holds Score
+`metadata.annotations` (string map; at most 64 keys, Kubernetes annotation key
+syntax, 64 KiB total).
+
+Validation after patches:
+
+- **Primary workload** `<workload>`: `apps/v1` Deployment or StatefulSet in the
+  target namespace; platform identity labels on metadata and pod template;
+  `selector.matchLabels` equals the platform selector; each Score container
+  keeps image, command/args, probes, explicit CPU/memory requests/limits
+  (missing request falls back to the same-field limit, then the bundle) and
+  exactly the approved value/Secret reference for every approved variable.
+  Extra containers, environment entries, limits and pod fields are allowed.
+  Explicit Score replicas are kept. Platform image pull Secret is present; when
+  Vault Agent delivery applies, its ServiceAccount and annotations are kept.
+- **Primary Service** `<workload>`: present iff the Score declares ports;
+  platform selector; includes every Score port (name, port, target, protocol).
+- **Other objects**: namespaced name (DNS subdomain), namespace absent or the
+  target namespace (the platform sets it), unique `kind/name`; not `v1 Secret`,
+  `v1 Namespace`, any `secrets.hashicorp.com` kind or a known cluster-scoped kind.
+- **Every object**: reserved labels (`orchestrator.io/*`,
+  `app.kubernetes.io/managed-by`) and annotations (`orchestrator.io/*`,
+  `vault.hashicorp.com/*`) are platform-owned. The platform then sets
+  `app.kubernetes.io/managed-by=orchestrator`, `orchestrator.io/application`,
+  `orchestrator.io/environment`, `orchestrator.io/deployment-id` and
+  `orchestrator.io/workload` on each object's metadata.
+
+## RB-C09 — Inventory, apply order and removal (ADR-024)
+
+- **Discovery check:** before any write the deployer resolves each
+  `apiVersion/kind` through API discovery; unknown or cluster-scoped kinds fail
+  the deploy (`RENDER_FAILED` class at apply, no partial write).
+- **Ownership check:** each non-Secret object must be absent or carry
+  `managed-by=orchestrator`, the same application and environment and the same
+  workload (`orchestrator.io/workload`, or `app.kubernetes.io/name` for objects
+  applied before ADR-024).
+- **Inventory:** `workload_instances.target_ref.objects` is a list of
+  `{apiVersion, kind, name, owners}` (owners = deployment IDs whose labels may be
+  on the object). Platform auxiliaries (`<workload>-env` Secret, VSO objects)
+  are not inventory; they keep their own removal. Before apply the inventory is
+  the union of the previous and new sets; after readiness, objects only in the
+  previous set are deleted (UID precondition, ownership verified) and the
+  inventory becomes the new set.
+- **Order/readiness:** with Jobs, apply non-rollout objects, wait for every Job
+  `Complete` (`Failed` fails), then apply rollout objects (Deployment,
+  StatefulSet, DaemonSet) and wait for rollout status. Without Jobs one apply.
+- **Removal:** delete every inventory object (ownership + UID), then the fixed
+  Deployment/Service/`-env` Secret removal; absent objects are success.
+- **Review:** Deployment/StatefulSet and Services keep the safe projection;
+  other kinds show metadata and a sanitized `spec` with environment values,
+  ConfigMap data and Secret-like fields redacted.
+
+Public routes (`-public-route-kind httproute`): one owned
+`gateway.networking.k8s.io/v1 HTTPRoute orch-public` per Environment namespace,
+`parentRefs` from `-public-gateway namespace/name[/sectionName]`, `hostnames`
+= Environment host, one `PathPrefix` rule per Score public route with the
+Service name and numeric port. An owned object of the other route kind is
+removed when the kind changes. See [public routes](../../operations/public-routes.md).
