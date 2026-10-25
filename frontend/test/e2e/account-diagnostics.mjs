@@ -132,7 +132,7 @@ async function startFromConfigure({ uses, application, environment, mode, unuse 
     await expect(dialog).toBeHidden();
   });
 }
-const VI = async (context) => { await context.addInitScript(() => { try { localStorage.setItem('orchestrator.locale', 'vi'); } catch { /* none */ } }); return context; };
+const VI = async (context) => { await context.addInitScript(() => { try { globalThis.localStorage.setItem('orchestrator.locale', 'vi'); } catch { /* none */ } }); return context; };
 const openContext = (options = {}) => browser.newContext({ locale: 'vi-VN', ...options }).then(VI);
 
 // =============================================================================
