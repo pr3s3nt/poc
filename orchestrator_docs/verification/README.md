@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-26 | ADR-024 open object set, inventory and Gateway API HTTPRoute; real kind/Envoy Gateway/browser 36/36 and product cleanup | [Open workload objects](2026-10-26-open-workload-objects.md) |
 | 2026-10-25 | PR #19 combined with main diagnostics; conflicts, PostgreSQL, race/frontend and diagram checks | [Integration checks](2026-10-25-observability-main-integration.md) |
 | 2026-10-25 | Native logging/monitoring, real new-user kind/Kubernetes/SQL/browser, 48 checks and UI cleanup | [Live end-to-end](2026-10-25-native-observability-live.md) |
 | 2026-10-25 | Issue #1 basic native telemetry; real disposable SQL, authenticated HTTP, product browser with synthetic received history | [Native observability](2026-10-25-native-observability.md) |

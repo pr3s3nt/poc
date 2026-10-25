@@ -7,6 +7,16 @@ last_reviewed: 2026-10-25
 
 # Known design and implementation deviations
 
+## IMP-037 — Open workload object set (2026-10-26)
+
+ADR-024 replaced the ADR-021 one-Deployment/one-Service envelope for Git bundles
+after the user required production applications. Implemented and accepted
+2026-10-26 ([verification](../verification/2026-10-26-open-workload-objects.md)).
+Remaining differences: inventory is recorded only for Git renders (native/legacy
+renders keep the fixed Deployment/Service/`-env` Secret removal); review
+projection of extra kinds truncates deep trees (safeTree depth 6), so CronJob pod
+templates are partly shown; the staging Gateway was not exercised.
+
 ## IMP-036 — Workload aliases and namespace recreation (2026-10-25)
 
 Verification of `f3dc811` found three defects: deployed shared resource aliases

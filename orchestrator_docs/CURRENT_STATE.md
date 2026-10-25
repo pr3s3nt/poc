@@ -76,6 +76,27 @@ identified separately from provisioning; quota comparison and paid AWS execution
 are unsupported and remain UNKNOWN. No retained database is migrated or reset;
 the repository's fresh-baseline database policy continues to apply.
 
+## Open workload object set and Gateway API routes — implemented and accepted 2026-10-26
+
+[ADR-024](architecture/decisions/ADR-024-open-workload-objects.md) is implemented
+for Git render bundles: a new `resources` stage and open guard let a bundle emit
+any namespaced object (HPA, PDB, ConfigMap, PVC, Job, CronJob, StatefulSet,
+NetworkPolicy, HTTPRoute, operator CRs) and any pod/container field; cluster-scoped,
+Secret and VSO objects stay refused and explicit Score intent/identity stay
+protected. Score `metadata.annotations` reach bundles. The deployer checks API
+discovery and ownership before writing, runs Jobs to completion before rollout
+objects, persists the object inventory in `workload_instances.target_ref.objects`,
+prunes dropped objects by UID after a successful update and removes all of them
+with the workload. Public routes can be Gateway API HTTPRoutes
+(`-public-route-kind httproute`, `-public-gateway`, `-public-base-domain`; see
+[runbook](operations/public-routes.md)). Production bundle repository:
+`https://github.com/pr3s3nt/workload-manifests` (`bundles/production`). Real
+kind/Envoy Gateway browser acceptance passed 36/36:
+[verification](verification/2026-10-26-open-workload-objects.md).
+Limits: the staging Gateway, DNS and TLS were not verified (no access from this
+machine); Vault Agent delivery gives bundle Jobs no Agent-injected files; Fleet
+delivery stays unavailable; installed (legacy) bundles keep the ADR-010 envelope.
+
 ## Git-owned manifest rendering — implemented and accepted 2026-10-24
 
 [ADR-021](architecture/decisions/ADR-021-git-render-bundles.md) is implemented:
