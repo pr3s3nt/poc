@@ -87,11 +87,22 @@ async function purpose(label) {
   await page.getByRole('group', { name: 'Phạm vi kiểm tra' }).getByRole('button', { name: label, exact: true }).click();
   await expect(page.getByRole('group', { name: 'Phạm vi kiểm tra' }).getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-pressed', 'true');
 }
-async function finished(timeout = 240_000) {
+// Every start captures the real POST 202 and its returned id BEFORE any result
+// is read, so an older report on screen can never satisfy a new run.
+async function start(action) {
+  const posted = page.waitForResponse((r) => r.request().method() === 'POST' && /\/diagnostics$/.test(new URL(r.url()).pathname));
+  await action();
+  const response = await posted;
+  if (response.status() !== 202) throw new Error(`start returned HTTP ${response.status()}`);
+  const id = (await response.json()).id;
+  await until('URL selects the new run', () => reportId() === id, { timeout: 30_000, every: 200 });
+  return id;
+}
+async function finishedFor(id, timeout = 240_000) {
+  const final = await until(`terminal report ${id.slice(0, 8)}`, async () => { const r = await api(`/driver-accounts/${state.accountKey}/diagnostics/${id}`); return ['COMPLETED', 'CANCELLED', 'INTERRUPTED'].includes(r.body?.status) ? r.body : null; }, { timeout, every: 1000 });
+  if (reportId() !== id) throw new Error('the screen no longer shows the run that was started');
   await expect(page.locator('.dg-running')).toHaveCount(0, { timeout });
   await expect(page.locator('.dg-summary')).toBeVisible({ timeout });
-  const id = reportId();
-  const final = await until('terminal report', async () => { const r = await api(`/driver-accounts/${state.accountKey}/diagnostics/${id}`); return ['COMPLETED', 'CANCELLED', 'INTERRUPTED'].includes(r.body?.status) ? r.body : null; }, { timeout, every: 1000 });
   return final;
 }
 const byId = (report) => Object.fromEntries(report.findings.map((f) => [f.id, f]));
@@ -105,27 +116,29 @@ async function factOf(inspector, label) {
   if (!(await details.getAttribute('open'))) await details.locator('summary').click();
   return (await inspector.locator('dt', { hasText: new RegExp(`^${label}$`) }).locator('xpath=following-sibling::dd[1]').innerText()).trim();
 }
-async function startFromConfigure({ uses, application, environment, mode }) {
-  await page.getByRole('button', { name: 'Thiết lập', exact: true }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog).toBeVisible();
-  for (const use of uses) {
-    const box = dialog.getByLabel(use, { exact: true });
-    if (!(await box.isChecked())) await box.check();
-  }
-  if (application) {
-    await dialog.getByLabel('Ứng dụng (tùy chọn)').selectOption(application);
-    await dialog.getByLabel('Môi trường', { exact: true }).selectOption(environment);
-  }
-  await dialog.getByLabel(mode === 'EXECUTION' ? /Thực thi/ : /Điều kiện/).check();
-  await dialog.getByRole('button', { name: 'Bắt đầu kiểm tra' }).click();
-  await expect(dialog).toBeHidden();
+async function startFromConfigure({ uses, application, environment, mode, unuse = [] }) {
+  return start(async () => {
+    await page.getByRole('button', { name: 'Thiết lập', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    for (const use of unuse) { const box = dialog.getByLabel(use, { exact: true }); if (await box.isChecked()) await box.uncheck(); }
+    for (const use of uses) { const box = dialog.getByLabel(use, { exact: true }); if (!(await box.isChecked())) await box.check(); }
+    if (application) {
+      await dialog.getByLabel('Ứng dụng (tùy chọn)').selectOption(application);
+      await dialog.getByLabel('Môi trường', { exact: true }).selectOption(environment);
+    }
+    await dialog.getByLabel(mode === 'EXECUTION' ? /Thực thi/ : /Điều kiện/).check();
+    await dialog.getByRole('button', { name: 'Bắt đầu kiểm tra' }).click();
+    await expect(dialog).toBeHidden();
+  });
 }
+const VI = async (context) => { await context.addInitScript(() => { try { localStorage.setItem('orchestrator.locale', 'vi'); } catch { /* none */ } }); return context; };
+const openContext = (options = {}) => browser.newContext({ locale: 'vi-VN', ...options }).then(VI);
 
 // =============================================================================
 const browser = await chromium.launch();
 try {
-  page = await (await browser.newContext({ viewport: { width: 1440, height: 1000 } })).newPage();
+  page = await (await openContext({ viewport: { width: 1440, height: 1000 } })).newPage();
   page.setDefaultTimeout(60_000);
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 200)));
@@ -157,8 +170,8 @@ try {
     await table.getByRole('button', { name: /^Xem Owned kind/ }).click();
     await diagTab('Owned kind').click();
     await expect(page.getByText('Chưa có kiểm tra chung nào')).toBeVisible();
-    await page.getByRole('button', { name: 'Chạy kiểm tra' }).first().click();
-    const report = await finished();
+    const generalId = await start(() => page.getByRole('button', { name: 'Chạy kiểm tra' }).first().click());
+    const report = await finishedFor(generalId);
     state.generalReport = report.id; saveState();
     const f = byId(report);
     record('DG-E02.general.counts', report.counts.fail === 0 && report.counts.blocked === 0 && report.counts.unknown === 0 && report.counts.pass >= 9 && report.status === 'COMPLETED' && report.scope.purpose === 'GENERAL' && !report.scope.context,
@@ -205,14 +218,13 @@ try {
     // DG-E03/E04: genuine pre-deploy draft, required StorageClass missing.
     record('DG-E04.class-absent', !JSON.parse(kubectl('get', 'storageclass', '-o', 'json')).items.some((c) => c.metadata.name === 'fast'), 'owned cluster has no StorageClass "fast" (start state)');
     await expect(page.getByText('Chưa có kiểm tra theo use case')).toBeVisible();
-    await page.getByRole('button', { name: 'Chạy kiểm tra' }).first().click();
-    await startFromConfigure({ uses: ['Cơ sở dữ liệu'], application: state.application, environment: state.environment, mode: 'CONDITIONS' });
-    const first = await finished();
+    const firstId = await startFromConfigure({ uses: ['Cơ sở dữ liệu'], application: state.application, environment: state.environment, mode: 'CONDITIONS' });
+    const first = await finishedFor(firstId);
     let f = byId(first);
     record('DG-E03.draft-planned', f['uc.preview.requirements']?.verdict === 'PASS' && f['uc.preview.requirements'].reason === 'PLAN_RESOLVED',
       'a saved, never deployed draft was planned (' + JSON.stringify(f['uc.preview.requirements']?.facts) + ')');
-    record('DG-E04.fault-observed', f['k8s.storage.requirements']?.verdict === 'FAIL' && f['k8s.storage.requirements'].reason === 'STORAGE_CLASS_MISSING' && f['uc.database.requirements']?.verdict === 'FAIL' && f['k8s.storage.requirements'].facts.requiredClasses === 'fast',
-      'FAIL STORAGE_CLASS_MISSING for the exact class fast');
+    record('DG-E04.fault-observed', f['k8s.storage.requirements']?.verdict === 'FAIL' && f['k8s.storage.requirements'].reason === 'STORAGE_CLASS_MISSING' && f['uc.database.requirements']?.verdict === 'BLOCKED' && f['uc.database.requirements'].reason === 'PREREQUISITE_FAILED' && f['k8s.storage.requirements'].facts.requiredClasses === 'fast',
+      'FAIL STORAGE_CLASS_MISSING for the exact class fast; the database requirement is BLOCKED by that failed prerequisite');
     const ctx = first.scope.context;
     record('DG-E03.versions-pinned', ctx.applicationVersion >= 1 && ctx.environmentVersion >= 1 && ctx.draftVersion >= 1 && ctx.definitions?.some((d) => d.key === 'diag-postgres'), `pins app=${ctx.applicationVersion} env=${ctx.environmentVersion} drafts=${ctx.draftVersion} defs=${ctx.definitions?.length}`);
     await expect(page.getByText('Cần sửa trước khi dùng')).toBeVisible();
@@ -225,8 +237,8 @@ try {
 
     // Repair on the owned cluster, rerun through the UI.
     createFastClass();
-    await page.getByRole('button', { name: 'Chạy lại' }).click();
-    const repaired = await finished();
+    const repairedId = await start(() => page.getByRole('button', { name: 'Chạy lại' }).click());
+    const repaired = await finishedFor(repairedId);
     f = byId(repaired);
     record('DG-E04.repair-rerun', repaired.id !== first.id && f['k8s.storage.requirements']?.verdict === 'PASS' && f['uc.database.requirements']?.verdict === 'PASS' && repaired.counts.fail === 0,
       `rerun ${repaired.id.slice(0, 8)} passes after the StorageClass was created`);
@@ -240,8 +252,8 @@ try {
 
     // A genuinely failing provisioner is observed, then repaired.
     provisioner(0);
-    await page.getByRole('button', { name: 'Chạy lại' }).click();
-    const broken = await finished();
+    const brokenId = await start(() => page.getByRole('button', { name: 'Chạy lại' }).click());
+    const broken = await finishedFor(brokenId);
     record('DG-E04.provisioner-fault', byId(broken)['k8s.storage.provisioner']?.verdict === 'FAIL' && byId(broken)['k8s.storage.provisioner'].reason === 'PROVISIONER_NOT_READY', 'FAIL PROVISIONER_NOT_READY with the controller scaled to zero');
     provisioner(1);
 
@@ -249,10 +261,12 @@ try {
     const claimClasses = new Set();
     let watching = true;
     const watcher = (async () => { while (watching) { try { diagClaims().forEach((c) => claimClasses.add(c.spec.storageClassName)); } catch { /* cluster busy */ } await sleep(400); } })();
-    await page.getByRole('button', { name: 'Thiết lập', exact: true }).click();
-    await page.getByRole('dialog').getByLabel(/Thực thi/).check();
-    await page.getByRole('dialog').getByRole('button', { name: 'Bắt đầu kiểm tra' }).click();
-    const executed = await finished(300_000);
+    const executionId = await start(async () => {
+      await page.getByRole('button', { name: 'Thiết lập', exact: true }).click();
+      await page.getByRole('dialog').getByLabel(/Thực thi/).check();
+      await page.getByRole('dialog').getByRole('button', { name: 'Bắt đầu kiểm tra' }).click();
+    });
+    const executed = await finishedFor(executionId, 300_000);
     watching = false; await watcher;
     f = byId(executed);
     record('DG-E05.exact-class-pvc', f['k8s.exec.volume']?.verdict === 'PASS' && f['k8s.exec.volume'].facts.classesTested === 'fast' && claimClasses.has('fast'),
@@ -263,37 +277,37 @@ try {
     await shot('execution-cleanup');
     state.executionReport = executed.id; saveState();
 
-    // DG-E06 cancellation with run-owned objects present, switching while it runs.
-    provisioner(0);
-    await page.getByRole('button', { name: 'Chạy lại' }).click();
-    await until('probe namespace', () => diagNamespaces().length > 0, { timeout: 120_000, every: 300 });
-    const runningId = reportId();
+    // DG-E06 cancellation: healthy provisioner, so the probe objects really exist.
+    // Stop as soon as the run-owned namespace is observed natively, then switch
+    // scope while the cancellation and cleanup are still in flight.
+    const cancelId = await start(() => page.getByRole('button', { name: 'Chạy lại' }).click());
+    await until('probe namespace', () => diagNamespaces().length > 0, { timeout: 120_000, every: 100 });
+    const midRun = (await api(`/driver-accounts/${state.accountKey}/diagnostics/${cancelId}`)).body;
+    record('DG-E06.cancel-boundary', midRun.status === 'RUNNING' || midRun.status === 'CANCELLING', `report ${midRun.status} while the native namespace exists`);
+    await page.getByRole('button', { name: 'Dừng', exact: true }).click();
     await purpose('Kiểm tra chung');
     await expect(page.locator('.ac-report-scope')).toContainText('Kiểm tra chung');
-    record('DG-E06.switch-purpose-isolated', reportId() !== runningId && (await page.locator('.dg-running').count()) === 0, 'the general view shows no progress or result of the running use-case check');
+    record('DG-E06.switch-purpose-isolated', reportId() !== cancelId, 'the general view does not show the use-case run that is being cancelled');
     await purpose('Theo use case');
-    await expect(page.locator('.dg-running')).toBeVisible();
-    await page.getByRole('button', { name: 'Dừng', exact: true }).click();
-    const stopped = await finished(300_000);
+    await until('use-case view selects the cancelled run again', () => reportId() === cancelId, { timeout: 30_000, every: 200 });
+    const stopped = await finishedFor(cancelId, 300_000);
     record('DG-E06.cancelled-truthfully', stopped.status === 'CANCELLED' && stopped.cleanup.status === 'VERIFIED' && diagNamespaces().length === 0 && leftoverVolumes().length === 0 && stopped.counts.pending > 0,
       `status ${stopped.status}, cleanup ${stopped.cleanup.status}, pending=${stopped.counts.pending}; native clean`);
     await expect(page.getByText('Lượt kiểm tra đã dừng')).toBeVisible();
     await shot('cancelled');
-    provisioner(1);
     const prior = await api(`/driver-accounts/${state.accountKey}/diagnostics/${executed.id}`);
     record('DG-E06.previous-report-preserved', prior.body.status === 'COMPLETED' && prior.body.counts.pass === executed.counts.pass, 'the earlier completed report is unchanged by the cancelled run');
 
-    // DG-E08/limits: honest evidence limits for secrets and HTTPS.
-    await page.getByRole('button', { name: 'Thiết lập', exact: true }).click();
-    const d = page.getByRole('dialog');
-    await d.getByLabel('Cơ sở dữ liệu', { exact: true }).uncheck();
-    await d.getByLabel('Bí mật', { exact: true }).check();
-    await d.getByLabel('HTTPS', { exact: true }).check();
-    await d.getByLabel(/Điều kiện/).check();
-    await d.getByRole('button', { name: 'Bắt đầu kiểm tra' }).click();
-    const limits = await finished();
+    // DG-E08/limits: honest evidence limits for secrets and HTTPS (no execution).
+    const limitsId = await startFromConfigure({ uses: ['Bí mật', 'HTTPS'], unuse: ['Cơ sở dữ liệu'], application: state.application, environment: state.environment, mode: 'CONDITIONS' });
+    const limits = await finishedFor(limitsId);
     f = byId(limits);
-    record('DG-E08.workload-auth-never-pass', f['uc.secrets.workload']?.verdict === 'UNKNOWN' && f['uc.secrets.workload'].reason === 'WORKLOAD_AUTH_UNOBSERVABLE', 'workload-side Vault login is reported UNKNOWN, never ready');
+    const store = f['uc.secrets.store']?.verdict; const workload = f['uc.secrets.workload'];
+    // The worker blocks only on FAIL/BLOCKED prerequisites: a failed store blocks
+    // the workload check; an UNKNOWN or PASS store still leaves the workload-side
+    // login honestly UNKNOWN. It is never reported ready.
+    const branch = store === 'FAIL' || store === 'BLOCKED' ? workload?.verdict === 'BLOCKED' : workload?.verdict === 'UNKNOWN' && workload.reason === 'WORKLOAD_AUTH_UNOBSERVABLE';
+    record('DG-E08.workload-auth-never-pass', Boolean(branch), `store ${store}/${f['uc.secrets.store']?.reason}; workload ${workload?.verdict}/${workload?.reason}`);
     record('DG-E08.https-not-faked', f['uc.https.certificate'] && f['uc.https.certificate'].verdict !== 'PASS', `public certificate ${f['uc.https.certificate']?.verdict}/${f['uc.https.certificate']?.reason}`);
     record('DG-E08.no-unrelated-plan', !f['uc.preview.requirements'] && !f['k8s.exec.volume'], 'a secrets/HTTPS selection plans neither the desired state nor any probe object');
     record('DG-E08.limits-visible', (await page.locator('.ac-limits').innerText()).includes('Chế độ điều kiện không chứng minh'), 'report limits are visible');
@@ -311,17 +325,9 @@ try {
     record('DG-E07.restart-keeps-history', JSON.stringify(before) === JSON.stringify(afterIds) && afterIds.length >= 5, `${afterIds.length} reports before and after a backend restart`);
 
     // DG-E07 hard kill during an in-flight execution run: honest INTERRUPTED + recovery.
-    provisioner(0);
     await purpose('Theo use case');
-    await page.getByRole('button', { name: 'Thiết lập', exact: true }).click();
-    const d2 = page.getByRole('dialog');
-    await d2.getByLabel('Bí mật', { exact: true }).uncheck();
-    await d2.getByLabel('HTTPS', { exact: true }).uncheck();
-    await d2.getByLabel('Cơ sở dữ liệu', { exact: true }).check();
-    await d2.getByLabel(/Thực thi/).check();
-    await d2.getByRole('button', { name: 'Bắt đầu kiểm tra' }).click();
-    const killedId = await until('report id', () => reportId(), { timeout: 30_000, every: 200 });
-    await until('probe namespace', () => diagNamespaces().length > 0, { timeout: 120_000, every: 300 });
+    const killedId = await startFromConfigure({ uses: ['Cơ sở dữ liệu'], unuse: ['Bí mật', 'HTTPS'], application: state.application, environment: state.environment, mode: 'EXECUTION' });
+    await until('probe namespace', () => diagNamespaces().length > 0, { timeout: 120_000, every: 100 });
     fixture(`docker kill ${BACKEND_CONTAINER.slice(0, 12)} (SIGKILL during an in-flight execution run)`);
     execFileSync('docker', ['kill', BACKEND_CONTAINER]);
     execFileSync('docker', ['start', BACKEND_CONTAINER]);
@@ -335,7 +341,6 @@ try {
     await page.reload();
     await expect(page.getByText('Lượt kiểm tra bị gián đoạn')).toBeVisible();
     await shot('interrupted-recovered');
-    provisioner(1);
 
     // DG-E06 second account: results never cross accounts.
     await page.goto(`${URL_BASE}/ui/platform/driver-accounts`);
@@ -367,7 +372,7 @@ try {
       'export carries the exact scope, pinned versions, limits and counts, with no credential material');
 
     // DG-E08 roles: a Developer has no access to account diagnostics.
-    const developer = await (await browser.newContext()).newPage();
+    const developer = await (await openContext()).newPage();
     await developer.goto(`${URL_BASE}/ui/sign-in`);
     await developer.getByLabel('Tên đăng nhập').fill('developer');
     await developer.getByLabel('Mật khẩu').fill('test-password');

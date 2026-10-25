@@ -6,9 +6,8 @@
 #   * a Docker Compose project (PostgreSQL with separate owner/Console/State
 #     logins, a real Vault, the backend and the built nginx frontend) built from
 #     the COMMITTED tree (the working tree must be clean);
-#   * a kind cluster named cdiag-<run> (or an already owned preprovisioned
-#     context, see below), reached ONLY through the kubeconfig uploaded in the
-#     Console form;
+#   * a NEW kind cluster named cdiag-<run>, reached ONLY through the kubeconfig
+#     uploaded in the Console form (an existing cluster is never reused);
 #   * a headless Chromium driven like a user (frontend/test/e2e/account-diagnostics.mjs).
 #
 # No product API is mocked or intercepted and no fake diagnostic adapter is
@@ -23,10 +22,6 @@
 #
 #   diagnostics-e2e.sh --evidence NEW_PATH
 #
-# Optional already-owned cluster (no setup cost): ORCH_DIAG_E2E_OWNED_CLUSTER=<name>
-# plus ORCH_DIAG_E2E_OWNED_MANIFEST=<json> naming {"owner":"claude-diagnose","cluster":"<name>"}.
-# The name must start with cdiag-; retained and reviewer clusters are refused;
-# such a cluster is never deleted by this runner (only its run-owned objects).
 #
 # Needs: docker (+compose), kind, kubectl, go, node, the Playwright Chromium.
 # Evidence (NEW_PATH, outside the repository, must not exist): owned.json,
@@ -59,12 +54,12 @@ PRIVATE="${EVIDENCE}/private"
 mkdir -p "${EVIDENCE}/screenshots" "${PRIVATE}"
 chmod 0700 "${EVIDENCE}" "${PRIVATE}"
 CLUSTER="${RUN_ID}"
-OWNED_CLUSTER_MODE=0
+CLUSTER_CREATED=0
 BACKEND_IMAGE="orchestrator-backend:${RUN_ID}"
 FRONTEND_IMAGE="orchestrator-frontend:${RUN_ID}"
 BACKEND_PORT="$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')"
 FRONTEND_PORT="$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')"
-COMPOSE=(docker compose -p "${PROJECT}" -f "${REPO}/docker-compose.yml" -f "${REPO}/deploy/local/compose.kind.yml")
+COMPOSE=(docker compose --env-file /dev/null -p "${PROJECT}" -f "${REPO}/docker-compose.yml" -f "${REPO}/deploy/local/compose.diagnostics-e2e.yml")
 export BACKEND_IMAGE FRONTEND_IMAGE BACKEND_PORT FRONTEND_PORT
 STATUS="NOT-STARTED"
 
@@ -75,21 +70,12 @@ deny_cluster() {
   [[ "$1" == cdiag-* ]] || return 0
   return 1
 }
-
-if [[ -n "${ORCH_DIAG_E2E_OWNED_CLUSTER:-}" ]]; then
-  CLUSTER="${ORCH_DIAG_E2E_OWNED_CLUSTER}"
-  deny_cluster "${CLUSTER}" && { echo "refusing cluster ${CLUSTER}: only cdiag-* clusters owned by this tool are allowed" >&2; exit 2; }
-  [[ -s "${ORCH_DIAG_E2E_OWNED_MANIFEST:-}" ]] || { echo "ORCH_DIAG_E2E_OWNED_MANIFEST is required with an owned cluster" >&2; exit 2; }
-  python3 - "${ORCH_DIAG_E2E_OWNED_MANIFEST}" "${CLUSTER}" <<'PY'
-import json, sys
-m = json.load(open(sys.argv[1]))
-assert m.get("owner") == "claude-diagnose" and m.get("cluster") == sys.argv[2], "ownership manifest does not name this cluster"
-PY
-  OWNED_CLUSTER_MODE=1
-fi
+# The generated name must be new: nothing existing is ever adopted or deleted.
+deny_cluster "${CLUSTER}" && { echo "refusing cluster ${CLUSTER}" >&2; exit 2; }
+kind get clusters 2>/dev/null | grep -qx "${CLUSTER}" && { echo "cluster ${CLUSTER} already exists" >&2; exit 2; }
 
 cat > "${EVIDENCE}/owned.json" <<JSON
-{"runId":"${RUN_ID}","sourceSha":"${SOURCE_SHA}","composeProject":"${PROJECT}","cluster":"${CLUSTER}","clusterPreprovisioned":${OWNED_CLUSTER_MODE},
+{"runId":"${RUN_ID}","sourceSha":"${SOURCE_SHA}","composeProject":"${PROJECT}","cluster":"${CLUSTER}","clusterCreatedByRun":true,
  "images":["${BACKEND_IMAGE}","${FRONTEND_IMAGE}"],"ports":{"backend":${BACKEND_PORT},"frontend":${FRONTEND_PORT}}}
 JSON
 
@@ -104,26 +90,25 @@ cleanup() {
   set +e
   {
     echo "run ${RUN_ID} exit=${code}"
-    "${COMPOSE[@]}" down -v --remove-orphans --timeout 20 2>&1 | tail -3
-    docker rmi -f "${BACKEND_IMAGE}" "${FRONTEND_IMAGE}" >/dev/null 2>&1
-    if [[ "${OWNED_CLUSTER_MODE}" == "0" ]]; then
-      kind delete cluster --name "${CLUSTER}" 2>&1 | tail -1
-    else
-      echo "preprovisioned cluster ${CLUSTER} kept; removing only run-owned objects"
-      kubectl --kubeconfig "${HOST_KUBECONFIG}" delete storageclass fast --ignore-not-found 2>&1 | tail -1
-    fi
-    # Native absence of everything this run owned.
     bad=0
-    [[ -z "$(docker ps -aq --filter "label=com.docker.compose.project=${PROJECT}")" ]] || { echo "ABSENCE-FAILED containers remain"; bad=1; }
-    [[ -z "$(docker volume ls -q --filter "label=com.docker.compose.project=${PROJECT}")" ]] || { echo "ABSENCE-FAILED volumes remain"; bad=1; }
-    [[ -z "$(docker network ls -q --filter "label=com.docker.compose.project=${PROJECT}")" ]] || { echo "ABSENCE-FAILED network remains"; bad=1; }
-    [[ -z "$(docker images -q "${BACKEND_IMAGE}")$(docker images -q "${FRONTEND_IMAGE}")" ]] || { echo "ABSENCE-FAILED images remain"; bad=1; }
-    if [[ "${OWNED_CLUSTER_MODE}" == "0" ]]; then
-      kind get clusters 2>/dev/null | grep -qx "${CLUSTER}" && { echo "ABSENCE-FAILED kind cluster remains"; bad=1; }
+    "${COMPOSE[@]}" down -v --remove-orphans --timeout 20 2>&1 | tail -3
+    [[ "${PIPESTATUS[0]}" == "0" ]] || { echo "ABSENCE-FAILED compose down failed"; bad=1; }
+    docker rmi -f "${BACKEND_IMAGE}" "${FRONTEND_IMAGE}" >/dev/null 2>&1
+    if [[ "${CLUSTER_CREATED}" == "1" ]]; then
+      kind delete cluster --name "${CLUSTER}" 2>&1 | tail -1
     fi
+    # Native absence of everything this run owned; a failed inventory is not "empty".
+    out="$(docker ps -aq --filter "label=com.docker.compose.project=${PROJECT}" 2>&1)" && [[ -z "${out}" ]] || { echo "ABSENCE-FAILED containers: ${out}"; bad=1; }
+    out="$(docker volume ls -q --filter "label=com.docker.compose.project=${PROJECT}" 2>&1)" && [[ -z "${out}" ]] || { echo "ABSENCE-FAILED volumes: ${out}"; bad=1; }
+    out="$(docker network ls -q --filter "label=com.docker.compose.project=${PROJECT}" 2>&1)" && [[ -z "${out}" ]] || { echo "ABSENCE-FAILED network: ${out}"; bad=1; }
+    out="$(docker images -q "${BACKEND_IMAGE}" "${FRONTEND_IMAGE}" 2>&1)" && [[ -z "${out}" ]] || { echo "ABSENCE-FAILED images: ${out}"; bad=1; }
+    clusters="$(kind get clusters 2>&1)"; rc=$?
+    if [[ "${rc}" != "0" ]] || grep -qx "${CLUSTER}" <<<"${clusters}"; then echo "ABSENCE-FAILED kind cluster inventory/remains"; bad=1; fi
+    docker ps -a --format '{{.Names}}' | grep -q "^${CLUSTER}-" && { echo "ABSENCE-FAILED kind node container remains"; bad=1; }
     if [[ "${bad}" == "0" ]]; then echo "CLEANUP-PROVEN"; else echo "CLEANUP-NOT-PROVEN"; fi
   } > "${EVIDENCE}/cleanup.txt" 2>&1
   grep -q CLEANUP-PROVEN "${EVIDENCE}/cleanup.txt" && CLEANUP_OK=1
+  # Credentials stay for recovery when cleanup is not proven.
   if [[ "${CLEANUP_OK}" == "1" ]]; then rm -rf "${PRIVATE}"; fi
   [[ "${code}" == "0" && "${CLEANUP_OK}" == "1" ]] && STATUS="PASS" || STATUS="FAIL"
   echo "${STATUS} run=${RUN_ID} source=${SOURCE_SHA}" | tee "${EVIDENCE}/result.txt"
@@ -133,12 +118,10 @@ trap cleanup EXIT
 
 fixture() { echo "$(date -u +%FT%TZ) $*" >> "${EVIDENCE}/fixture-actions.txt"; }
 
-# 1. Owned kind cluster (or the owned preprovisioned context).
-if [[ "${OWNED_CLUSTER_MODE}" == "0" ]]; then
-  KUBECONFIG="${HOST_KUBECONFIG}" kind create cluster --name "${CLUSTER}" --wait 180s >/dev/null
-else
-  kind get kubeconfig --name "${CLUSTER}" > "${HOST_KUBECONFIG}"
-fi
+# 1. New owned kind cluster. The flag is set before creation so a partial
+# creation is deleted too.
+CLUSTER_CREATED=1
+KUBECONFIG="${HOST_KUBECONFIG}" kind create cluster --name "${CLUSTER}" --wait 180s >/dev/null
 kind get kubeconfig --internal --name "${CLUSTER}" > "${ACCOUNT_KUBECONFIG}"
 chmod 0600 "${HOST_KUBECONFIG}" "${ACCOUNT_KUBECONFIG}"
 CONTEXT="kind-${CLUSTER}"
@@ -149,17 +132,19 @@ import re, sys
 text = open(sys.argv[1]).read()
 assert len(re.findall(r"^- context:", text, re.M)) == 1, "the account kubeconfig must hold one context"
 PY
-# Faults start from a known state: a default class only; the class the
-# acceptance Definition requires ("fast") does not exist yet.
-"${K[@]}" delete storageclass fast --ignore-not-found >/dev/null
-fixture "kubectl delete storageclass fast --ignore-not-found (start state: required class absent)"
+# The class the acceptance Definition requires ("fast") must not exist in a
+# fresh cluster; the real local-path provisioner must be rolled out before
+# the first check.
+"${K[@]}" get storageclass fast >/dev/null 2>&1 && { echo "unexpected StorageClass fast in a fresh cluster" >&2; exit 1; }
+fixture "fresh cluster ${CLUSTER}: StorageClass fast absent (start state)"
+"${K[@]}" -n local-path-storage rollout status deploy/local-path-provisioner --timeout=180s >/dev/null
+fixture "local-path-provisioner rollout complete"
 
 # 2. Real stack built from the committed tree.
 "${COMPOSE[@]}" up -d --build --wait --wait-timeout 600 > "${EVIDENCE}/compose-up.log" 2>&1
 for _ in $(seq 1 60); do curl -fsS "${BACKEND_URL}/api/v1/healthz" >/dev/null 2>&1 && break; sleep 1; done
 curl -fsS "${BACKEND_URL}/api/v1/healthz" >/dev/null
 BACKEND_CONTAINER="$("${COMPOSE[@]}" ps -q backend)"
-docker network connect kind "${BACKEND_CONTAINER}" 2>/dev/null || true   # already attached by the overlay
 
 cat > "${EVIDENCE}/run.json" <<JSON
 {"runId":"${RUN_ID}","sourceSha":"${SOURCE_SHA}","frontend":"${FRONTEND_URL}","backend":"${BACKEND_URL}","context":"${CONTEXT}",
