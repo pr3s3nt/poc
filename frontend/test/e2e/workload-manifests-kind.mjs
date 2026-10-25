@@ -93,6 +93,8 @@ const inventoryOf = (workload) => {
   return JSON.parse(raw || '[]').map((o) => `${o.kind}/${o.name}`).sort();
 };
 const condition = (object, type) => (object?.status?.conditions ?? []).find((c) => c.type === type)?.status === 'True';
+// Gateway API route parents carry their conditions directly (status.parents[].conditions).
+const parentAccepted = (route) => (route?.status?.parents ?? []).some((p) => (p.conditions ?? []).some((c) => c.type === 'Accepted' && c.status === 'True'));
 
 async function signInAs(username) {
   if (await page.getByRole('button', { name: 'Đăng xuất', exact: true }).isVisible().catch(() => false)) await kit.signOut();
@@ -273,13 +275,14 @@ try {
   let route = null;
   await expect.poll(async () => {
     route = await one('httproute', 'orch-public');
-    return (route?.status?.parents ?? []).some((p) => condition(p, 'Accepted'));
+    return parentAccepted(route);
   }, { timeout: 120_000, intervals: [2000] }).toBe(true).catch(() => {});
   const host = route?.spec.hostnames?.[0] ?? '';
   facts.host = host;
+  facts.routeStatus = (route?.status?.parents ?? []).map((p) => (p.conditions ?? []).map((c) => `${c.type}=${c.status}:${c.reason}`));
   saveFacts();
   check('WM-E05.httproute', host === `staging.${subdomain}.${baseDomain}` && route.spec.parentRefs[0].name === gatewayName && route.spec.parentRefs[0].namespace === gatewayNamespace
-    && (route.status?.parents ?? []).some((p) => condition(p, 'Accepted')), `HTTPRoute orch-public ${host} accepted by ${gatewayNamespace}/${gatewayName}`);
+    && parentAccepted(route), `HTTPRoute orch-public ${host} accepted by ${gatewayNamespace}/${gatewayName}`);
   const envoy = (await tech.kubectl(['-n', 'envoy-gateway-system', 'get', 'service', '-l', `gateway.envoyproxy.io/owning-gateway-name=${gatewayName},gateway.envoyproxy.io/owning-gateway-namespace=${gatewayNamespace}`, '-o', 'jsonpath={.items[0].metadata.name}'])).stdout.trim();
   const gatewayForward = startPortForward({ ...input.kube, namespace: 'envoy-gateway-system', service: envoy, remotePort: 80, localPort: gatewayPort });
   forwarders.push(gatewayForward);
