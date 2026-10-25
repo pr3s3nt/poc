@@ -128,8 +128,12 @@ export function makeKit(ctx) {
   const nav = (name) => page.getByRole('link', { name: new RegExp(`(^|\\s)${name}$`) });
   const get = async (path) => requiredJSON(await page.request.get(`${baseURL}/api/v1${path}`), path);
   const wrapped = new Set(['Loại tài nguyên', 'Module đã kiểm chứng', 'Tài khoản hạ tầng', 'Bundle dựng ứng dụng', 'Cách cung cấp cluster', 'Nhóm cluster của provider kubernetes', 'Tài khoản Internal của cluster']);
+  // Match the beginning of a wrapping label, not text inside its <option>s:
+  // a Type awaiting its first module says "chưa có module đã kiểm chứng" and
+  // must not turn the Type selector into the module selector.
   const form = (name, scope = page) => (wrapped.has(name)
-    ? scope.locator(`select[aria-label="${name}"], label:has-text("${name}") > select`).first()
+    ? scope.locator(`select[aria-label="${name}"]`).or(scope.locator('label')
+      .filter({ hasText: new RegExp(`^\\s*${exactTextPattern(name).slice(1, -1)}`) }).locator(':scope > select')).first()
     : scope.getByLabel(name, { exact: true }));
   const alertBox = () => page.getByRole('alert').first();
   const optionLabel = async (select, prefix) => {
