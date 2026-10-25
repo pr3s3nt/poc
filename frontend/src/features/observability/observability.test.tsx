@@ -57,3 +57,25 @@ it('keeps gaps null, uses absolute units without limits and never labels stale v
   data.latest[0]!.metricsAt = at(-300000);
   expect(signalsOf(data)[0]?.state).toBe(text('currentUnavailable'));
 });
+
+it('pauses at the latest followed interval without rewinding received logs', async () => {
+  const original = fixture();
+  const newer = { ...original.logs[0]!, id: 'newer', timestamp: at(30000), message: 'INFO new live record', level: 'INFO' };
+  const now = vi.spyOn(Date, 'now').mockReturnValue(stamp);
+  vi.stubGlobal('fetch', vi.fn(async (input: string) => {
+    const url = new URL(input, 'http://localhost'), from = url.searchParams.get('from')!, to = url.searchParams.get('to')!;
+    const advanced = Date.parse(to) > Date.parse(newer.timestamp);
+    return Response.json({ ...original, from, to, logs: advanced ? [newer, ...original.logs] : original.logs, logCount: advanced ? 2 : 1 });
+  }));
+  const user = userEvent.setup();
+  render(<HistoryPage application={{ id: 'shop', name: 'Shop', subdomain: 'shop', environments: bothConfigured(), workloads: { staging: [], production: [] } }} environment="staging" tab="logs" />);
+  await screen.findByText(original.logs[0]!.message);
+  now.mockReturnValue(stamp + 60000);
+  await user.click(screen.getByRole('button', { name: text('follow') }));
+  await screen.findByText(newer.message);
+  now.mockReturnValue(stamp + 90000);
+  await user.click(screen.getByRole('button', { name: text('pause') }));
+  await waitFor(() => expect(screen.getByRole('button', { name: text('follow') })).toBeVisible());
+  expect(await screen.findByText(newer.message)).toBeInTheDocument();
+  now.mockRestore();
+});

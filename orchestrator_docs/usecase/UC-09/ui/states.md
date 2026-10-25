@@ -102,3 +102,6 @@ retained data while explicitly stale. Missing CPU/RAM/limits are dashes, not
 zero or percentages. Logs can work while metrics are unavailable. Collection
 success is not app readiness. Environment/filter changes cancel or ignore late
 responses; summary/deep links preserve scope and interval.
+
+Pausing log follow pins the most recently displayed interval and retains its
+received rows. It does not rewind to the original overview interval.

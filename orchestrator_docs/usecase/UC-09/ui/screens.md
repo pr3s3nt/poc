@@ -123,3 +123,7 @@ per-workload historical series, null gaps, true peaks and actual latest state.
 Summary clicks preselect the related filters/focus; filter edits clear old
 context. No fixture timestamps, scenario toolbar or synthesized metrics enter
 these product views. Keyboard and mouse can inspect chart points.
+
+Narrow application views wrap the four telemetry summary cards into two columns
+and keep the detail charts in one column. Generated resource descriptors wrap
+inside their rows while retaining visible status; they do not widen the viewport.
