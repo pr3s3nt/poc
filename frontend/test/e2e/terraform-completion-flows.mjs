@@ -2,6 +2,7 @@
 // helpers only author Scores or read live objects/state; all product writes
 // are performed through the Console by workload-manifests-kind.mjs.
 import { expect } from '@playwright/test';
+import { createHash } from 'node:crypto';
 import { registerK8sModuleDefinition } from './full-app-flows.mjs';
 
 export const completionType = {
@@ -59,14 +60,15 @@ export async function completionSnapshot({ kit, tech, sql, check, label, previou
   check(`TC-${label}.scope`, names.backend === names.worker && names.frontend !== names.backend,
     'two consumers share one resource; the private consumer has a distinct resource');
   // Read only identifiers, statuses and serials, never encrypted state contents.
-  const instances = JSON.parse(sql(`SELECT COALESCE(json_agg(json_build_object('id',i.id,'descriptor',i.descriptor,'status',i.status,'stateKey',i.state_key,'serial',s.serial) ORDER BY i.descriptor),'[]')::text FROM terraform_resource_instances i JOIN environments e ON e.id=i.environment_id JOIN applications a ON a.id=e.application_id LEFT JOIN terraform_states s ON s.resource_instance_id=i.id WHERE a.application_key='${app}' AND e.environment_key='staging'`));
+  const instances = JSON.parse(sql(`SELECT COALESCE(json_agg(json_build_object('id',i.id,'descriptor',i.descriptor,'status',i.status,'stateKey',i.state_key,'serial',s.serial) ORDER BY i.descriptor),'[]')::text FROM terraform_resource_instances i JOIN environments e ON e.id=i.environment_id JOIN applications a ON a.id=e.application_id LEFT JOIN terraform_states s ON s.resource_instance_id=i.id WHERE a.application_key='${app}' AND e.environment_key='staging'`))
+    .map(({ stateKey, ...instance }) => ({ ...instance, stateIdentity: createHash('sha256').update(stateKey).digest('hex') }));
   check(`TC-${label}.acknowledged-state`, instances.length >= 5 && instances.every((i) => i.status === 'READY' && Number.isInteger(i.serial)),
     'all resource instances have acknowledged durable state and reached READY');
   const statefulSets = (await tech.statefulsets()).items.map((s) => ({ name: s.metadata.name, uid: s.metadata.uid })).sort((a, b) => a.name.localeCompare(b.name));
   if (previous) {
     check(`TC-${label}.reuse`, JSON.stringify(identities) === JSON.stringify(previous.identities)
       && instances.length === previous.instances.length
-      && instances.every((i) => previous.instances.some((p) => p.id === i.id && p.stateKey === i.stateKey))
+      && instances.every((i) => previous.instances.some((p) => p.id === i.id && p.stateIdentity === i.stateIdentity))
       && JSON.stringify(statefulSets) === JSON.stringify(previous.statefulSets),
     'UPDATE preserves ConfigMap/ServiceAccount UIDs, instance/state identities and database/cache StatefulSets');
   }

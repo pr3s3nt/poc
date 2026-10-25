@@ -49,6 +49,11 @@ Canonical behavior: [UC-08 BR-10](../usecase/UC-08/specification.md),
 Read-only API/Kubernetes/SQL observations supplement the browser mutations.
 Screenshots `E05-domain.png` and `E06-app.png` were visually inspected: the
 application shows every deployment check PASS and both jobs DONE after update.
+Retained state identities in `facts.json` were reduced to SHA-256 digests after
+the run; raw logical state keys are not shared. The helper now performs this
+reduction before returning facts and compares the digests on future runs.
+This evidence-format-only adjustment does not change the passing business
+observations or source commit under test.
 
 ## Validation and earlier attempts
 
