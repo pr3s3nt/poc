@@ -523,6 +523,9 @@ type Desired struct {
 	// Bundles are the verified module bundles behind the planned resources,
 	// keyed by resource descriptor.
 	Bundles map[string]tfmodule.Bundle
+	// Workloads and PublicRoutes count the final desired state (drafts on top of
+	// the applied set) whether or not planning accepted it.
+	Workloads, PublicRoutes int
 	// PlanErr is the planner's rejection of the desired state, if any; the
 	// remaining fields still describe the same snapshot.
 	PlanErr error
@@ -552,6 +555,35 @@ func (s *Service) Desired(ctx context.Context, appKey, envKey string) (Desired, 
 			return err
 		}
 		out = Desired{Application: app, Environment: env, ConfigVersion: scope.Version, Definitions: defs, Bundles: map[string]tfmodule.Bundle{}}
+		routes := map[string]int{}
+		if applied, err := view.GetDeploymentSet(ctx, env.CurrentDeploymentSetID); err == nil {
+			for id, module := range applied.Document.Modules {
+				routes[id] = 0
+				if module.Spec.Service != nil {
+					routes[id] = len(module.Spec.Service.PublicRoutes)
+				}
+			}
+		} else if !errors.Is(err, persistence.ErrNotFound) {
+			return err
+		}
+		drafts, err := view.ListWorkloadDrafts(ctx, appKey, envKey)
+		if err != nil {
+			return err
+		}
+		for _, d := range drafts {
+			if d.State == environment.DraftDelete {
+				delete(routes, d.WorkloadID)
+				continue
+			}
+			routes[d.WorkloadID] = 0
+			if doc, err := score.FromMap(d.Score); err == nil && doc.Service != nil {
+				routes[d.WorkloadID] = len(doc.Service.PublicRoutes)
+			}
+		}
+		out.Workloads = len(routes)
+		for _, n := range routes {
+			out.PublicRoutes += n
+		}
 		preview, perr := s.previewIn(ctx, view, appKey, envKey, true)
 		if perr != nil {
 			var staged *planning.StageError

@@ -191,6 +191,10 @@ func (s *Store) RequestCancel(ctx context.Context, org, accountKey, id string, n
 
 // ExpireLeases implements diagnostics.Repository.
 func (s *Store) ExpireLeases(ctx context.Context, now time.Time) (int, error) {
+	// A sweep that finds nothing must not rewrite the snapshot file.
+	if !s.anyReport(ctx, func(r diagnostics.Report) bool { _, changed := r.ApplyExpire(now); return changed }) {
+		return 0, nil
+	}
 	defer s.lock(ctx)()
 	count := 0
 	for _, r := range s.state.DiagnosticReports {
@@ -204,6 +208,9 @@ func (s *Store) ExpireLeases(ctx context.Context, now time.Time) (int, error) {
 
 // ClaimCleanup implements diagnostics.Repository.
 func (s *Store) ClaimCleanup(ctx context.Context, owner string, lease, now time.Time) (diagnostics.Report, bool, error) {
+	if !s.anyReport(ctx, func(r diagnostics.Report) bool { return r.CleanupEligible(now) }) {
+		return diagnostics.Report{}, false, nil
+	}
 	defer s.lock(ctx)()
 	var pick *diagnostics.Report
 	for _, r := range s.state.DiagnosticReports {
@@ -231,4 +238,16 @@ func (s *Store) UpdateCleanup(ctx context.Context, u diagnostics.CleanupUpdate) 
 		return diagnostics.Report{}, err
 	}
 	return s.put(next), nil
+}
+
+// anyReport reports, under a read lock that persists nothing, whether some
+// report satisfies match.
+func (s *Store) anyReport(ctx context.Context, match func(diagnostics.Report) bool) bool {
+	defer s.rlock(ctx)()
+	for _, r := range s.state.DiagnosticReports {
+		if match(r) {
+			return true
+		}
+	}
+	return false
 }

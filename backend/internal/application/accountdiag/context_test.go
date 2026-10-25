@@ -50,9 +50,9 @@ func plannedDesired(envKey string) pending.Desired {
 	doc.Modules["web"] = environment.Module{Spec: environment.ModuleSpec{Service: &environment.Service{PublicRoutes: []environment.PublicPath{{Path: "/", Port: "http"}}}}}
 	bundle := tfmodule.Bundle{Ref: tfmodule.SourceRef{ContentSHA256: "abc"}, Contract: tfmodule.Contract{SourceKind: tfmodule.SourceKindPackaged, Inputs: map[string]tfmodule.Input{"storage_class": {Type: "string", HasDefault: true, Default: ""}}}}
 	return pending.Desired{
-		Application:   application.Application{Key: "shop", OrganizationKey: "acme", Version: 7},
-		Environment:   environment.Environment{Key: envKey, ApplicationKey: "shop", Type: "development", NamespaceIdentity: "shop-" + envKey, CurrentDeploymentSetID: "set-" + envKey, Version: 5, DraftVersion: 9},
-		ConfigVersion: 4, Final: doc,
+		Application:   application.Application{Key: "shop", OrganizationKey: "acme", Name: "Shop (snapshot)", Subdomain: "snap", Version: 7},
+		Environment:   environment.Environment{Key: envKey, ApplicationKey: "shop", Type: "staging-type", NamespaceIdentity: "shop-" + envKey, CurrentDeploymentSetID: "set-" + envKey, Version: 5, DraftVersion: 9},
+		ConfigVersion: 4, Final: doc, Workloads: 1, PublicRoutes: 1,
 		Definitions: []resource.Definition{{Key: "pg", Name: "pg", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Version: 4}},
 		Bundles:     map[string]tfmodule.Bundle{intent.Descriptor: bundle},
 		Preview:     pending.Preview{Changes: []pending.Change{{ResourceIntents: []planning.ResourceIntent{intent}, Placements: []planning.Placement{{Node: intent.Descriptor, Account: "k8s-a", Namespace: "shop-" + envKey}}}}},
@@ -83,12 +83,14 @@ func TestContextIsPinnedFromTheSinglePlanningSnapshot(t *testing.T) {
 	if r.Cluster != "k8s-a" || !r.Packaged || !r.Storage.Required || !r.Storage.Resolved || r.Storage.Class != "" {
 		t.Fatalf("resource need: %+v", r)
 	}
-	if need.PublicHost != "staging.shop.example.com" {
-		t.Fatalf("staging must not probe the production host: %q", need.PublicHost)
+	// The outer reads (Subdomain "", name "Shop", type "development") were only
+	// used to validate the selection; every reported fact is the snapshot's.
+	if need.PublicHost != "staging.snap.example.com" || ref.ApplicationName != "Shop (snapshot)" || ref.EnvironmentType != "staging-type" || need.EnvironmentType != "staging-type" {
+		t.Fatalf("context facts must come from the planning snapshot: host=%q ref=%+v", need.PublicHost, ref)
 	}
 	prod := contextFixture(t, "production")
 	prod.svc.SetPlanner(&fakePlanner{desired: plannedDesired("production")})
-	if _, prodNeed, err := prod.svc.resolveContext(ctx, "acme", domain.Request{Application: "shop", Environment: "production"}); err != nil || prodNeed.PublicHost != "shop.example.com" {
+	if _, prodNeed, err := prod.svc.resolveContext(ctx, "acme", domain.Request{Application: "shop", Environment: "production"}); err != nil || prodNeed.PublicHost != "snap.example.com" {
 		t.Fatalf("production host: %+v %v", prodNeed, err)
 	}
 }
@@ -154,5 +156,36 @@ func TestCapabilityRequirementsUsePlacementAndTheProviderStorageVerdict(t *testi
 	r := probes.ResourceNeed{Type: "redis", Providers: []probes.ProviderTarget{{Kind: "aws", Connection: "cloud", Region: "eu-west-1"}}}
 	if got := evalCapability("cache", aws, application.Connection{Key: "cloud"}, &probes.Requirements{Resolved: true, Resources: []probes.ResourceNeed{r}}, nil); got.Verdict != domain.VerdictFail || got.Reason != "REGION_MISMATCH" {
 		t.Errorf("region mismatch: %+v", got)
+	}
+}
+
+// A secrets-, HTTPS- or lifecycle-only selection never plans the desired state:
+// an unrelated invalid draft cannot fail it, while public routes are still
+// counted from the drafts and the applied set.
+func TestSelectionWithoutPlanDependentWorkSkipsThePlanCheck(t *testing.T) {
+	ids := func(scope domain.Scope) map[string]bool {
+		out := map[string]bool{}
+		for _, c := range platformChecks(scope, nil) {
+			out[c.ID] = true
+		}
+		return out
+	}
+	only := ids(domain.Scope{Purpose: domain.PurposeUseCase, UseCases: []string{"secrets", "https", "lifecycle"}})
+	if only["uc.preview.requirements"] || !only["uc.secrets.store"] || !only["uc.https.certificate"] {
+		t.Errorf("secrets/https/lifecycle plan %v", only)
+	}
+	for _, use := range []string{"preview", "deploy", "database", "cache"} {
+		if !ids(domain.Scope{Purpose: domain.PurposeUseCase, UseCases: []string{use}})["uc.preview.requirements"] {
+			t.Errorf("%s needs the plan check", use)
+		}
+	}
+	f := contextFixture(t, "staging")
+	rejected := plannedDesired("staging")
+	rejected.PlanErr = &planning.StageError{Stage: planning.StageCatalog, Reason: planning.ReasonResourceNoMatch}
+	rejected.Final = environment.NewDocument() // a rejected plan has no final document
+	f.svc.SetPlanner(&fakePlanner{desired: rejected})
+	_, need, err := f.svc.resolveContext(context.Background(), "acme", domain.Request{Application: "shop", Environment: "staging"})
+	if err != nil || need.Resolved || need.PublicRoutes != 1 || need.Workloads != 1 {
+		t.Fatalf("routes of a rejected plan are still counted from the drafts and applied set: %+v %v", need, err)
 	}
 }

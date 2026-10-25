@@ -64,13 +64,13 @@ func (s *Service) resolveContext(ctx context.Context, org string, req domain.Req
 		}
 		return nil, nil, fmt.Errorf("%w: environment", persistence.ErrNotFound)
 	}
-	need.EnvironmentKey, need.EnvironmentType, need.Namespace, need.SecretStoreKey = env.Key, env.Type, env.Namespace(), env.SecretStoreKey
-	if app.Subdomain != "" && s.cfg.BaseDomain != "" {
-		need.PublicHost = appsvc.PublicHost(app.Subdomain, env.Key, s.cfg.BaseDomain)
-	}
-	ref.EnvironmentKey, ref.EnvironmentVersion, ref.EnvironmentType, ref.CurrentDeploymentID, ref.DraftVersion = env.Key, env.Version, env.Type, env.CurrentDeploymentSetID, env.DraftVersion
+	// Until the planning snapshot answers, only the selection itself is known.
+	need.EnvironmentKey = env.Key
+	ref.EnvironmentKey = env.Key
 	if s.planner == nil {
 		need.PlanUnavailable = true
+		need.EnvironmentType, need.Namespace, need.SecretStoreKey = env.Type, env.Namespace(), env.SecretStoreKey
+		ref.EnvironmentVersion, ref.EnvironmentType, ref.CurrentDeploymentID, ref.DraftVersion = env.Version, env.Type, env.CurrentDeploymentSetID, env.DraftVersion
 		return ref, need, nil
 	}
 	desired, err := s.planner.Desired(ctx, app.Key, env.Key)
@@ -80,11 +80,16 @@ func (s *Service) resolveContext(ctx context.Context, org string, req domain.Req
 		}
 		return nil, nil, fmt.Errorf("%w: %w", ErrContextUnavailable, err)
 	}
-	// Pins come from the same snapshot the plan was made on.
-	ref.ApplicationVersion, ref.EnvironmentVersion, ref.CurrentDeploymentID = desired.Application.Version, desired.Environment.Version, desired.Environment.CurrentDeploymentSetID
+	// Every fact below comes from the one snapshot the plan was made on; the
+	// outer reads above only validated the selection.
+	ref.ApplicationName, ref.ApplicationVersion = desired.Application.Name, desired.Application.Version
+	ref.EnvironmentVersion, ref.EnvironmentType, ref.CurrentDeploymentID = desired.Environment.Version, desired.Environment.Type, desired.Environment.CurrentDeploymentSetID
 	ref.DraftVersion, ref.ConfigVersion = desired.Environment.DraftVersion, desired.ConfigVersion
-	need.Namespace, need.SecretStoreKey = desired.Environment.Namespace(), desired.Environment.SecretStoreKey
-	fillFinal(desired.Final, need)
+	need.EnvironmentType, need.Namespace, need.SecretStoreKey = desired.Environment.Type, desired.Environment.Namespace(), desired.Environment.SecretStoreKey
+	if desired.Application.Subdomain != "" && s.cfg.BaseDomain != "" {
+		need.PublicHost = appsvc.PublicHost(desired.Application.Subdomain, desired.Environment.Key, s.cfg.BaseDomain)
+	}
+	need.Workloads, need.PublicRoutes = desired.Workloads, desired.PublicRoutes
 	if desired.PlanErr != nil {
 		var staged *planning.StageError
 		switch {
@@ -146,16 +151,6 @@ func (s *Service) resolveContext(ctx context.Context, org string, req domain.Req
 	}
 	sort.Slice(ref.Definitions, func(i, j int) bool { return ref.Definitions[i].Key < ref.Definitions[j].Key })
 	return ref, need, nil
-}
-
-// fillFinal counts the workloads and public routes of the final desired state.
-func fillFinal(final environment.Document, need *probes.Requirements) {
-	need.Workloads = len(final.Modules)
-	for _, module := range final.Modules {
-		if module.Spec.Service != nil {
-			need.PublicRoutes += len(module.Spec.Service.PublicRoutes)
-		}
-	}
 }
 
 // needOf derives one planned resource's requirements from its matched

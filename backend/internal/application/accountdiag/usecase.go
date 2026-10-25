@@ -20,9 +20,12 @@ func platformChecks(scope domain.Scope, provider []probes.Check) []probes.Check 
 	for _, c := range provider {
 		has[c.ID] = true
 	}
-	out := []probes.Check{
-		{ID: "uc.context", Group: "usecase", AffectedUseCases: scope.UseCases},
-		{ID: "uc.preview.requirements", Group: "usecase", DependsOn: []string{"uc.context"}, AffectedUseCases: scope.Affects("preview", "deploy", "database", "cache")},
+	out := []probes.Check{{ID: "uc.context", Group: "usecase", AffectedUseCases: scope.UseCases}}
+	// The plan of the desired state is judged only for work that depends on
+	// it: a secrets-, HTTPS- or lifecycle-only selection must not fail on an
+	// unrelated invalid draft.
+	if planned := scope.Affects("preview", "deploy", "database", "cache"); len(planned) > 0 {
+		out = append(out, probes.Check{ID: "uc.preview.requirements", Group: "usecase", DependsOn: []string{"uc.context"}, AffectedUseCases: planned})
 	}
 	for _, use := range scope.UseCases {
 		switch use {

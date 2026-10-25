@@ -117,11 +117,12 @@ type awsSession struct {
 	reason    string
 	principal string // ARN used for policy simulation
 	ec2       bool
+	scope     domain.Scope
 }
 
 // Open implements probes.Provider.
 func (d Diagnostics) Open(ctx context.Context, acct application.Connection, scope domain.Scope) probes.Session {
-	s := &awsSession{d: d, region: scope.Region, expected: acct.ConfigString("accountId")}
+	s := &awsSession{d: d, region: scope.Region, expected: acct.ConfigString("accountId"), scope: scope}
 	if d.Client == nil || acct.Kind != application.ConnectionAWS || s.expected == "" {
 		s.reason = "CREDENTIAL_UNAVAILABLE"
 		return s
@@ -204,7 +205,7 @@ func callFailure(err error) domain.Finding {
 }
 
 // Run implements probes.Session.
-func (s *awsSession) Run(ctx context.Context, c probes.Check, prior map[string]domain.Finding, _ *probes.Requirements, rec probes.Recorder) domain.Finding {
+func (s *awsSession) Run(ctx context.Context, c probes.Check, prior map[string]domain.Finding, req *probes.Requirements, rec probes.Recorder) domain.Finding {
 	switch c.ID {
 	case "aws.credential":
 		if s.reason != "" {
@@ -235,7 +236,7 @@ func (s *awsSession) Run(ctx context.Context, c probes.Check, prior map[string]d
 	case "aws.region":
 		return s.regionCheck(ctx)
 	case "aws.services":
-		return s.services(ctx)
+		return s.services(ctx, req)
 	}
 	for _, g := range []string{"Aurora", "EKS", "ElastiCache", "VPC"} {
 		if c.ID == checkID(g) {
@@ -289,9 +290,36 @@ func (s *awsSession) regionCheck(ctx context.Context) domain.Finding {
 	return finding(domain.VerdictPass, "REGION_USABLE", "", fact("region", s.region))
 }
 
-func (s *awsSession) services(ctx context.Context) domain.Finding {
+// servicesFor lists the service read probes of the selected permission
+// families: the services their IAM actions name (IAM itself is not probed).
+// A GENERAL check inventories every family.
+func servicesFor(scope domain.Scope, req *probes.Requirements) map[string]bool {
+	groups, _, _ := neededGroups(scope, req)
+	set := map[string]bool{}
+	for _, g := range capabilityGroups {
+		for _, want := range groups {
+			if g.Name != want {
+				continue
+			}
+			for _, action := range g.Actions {
+				if prefix, _, ok := strings.Cut(action, ":"); ok && prefix != "iam" {
+					set[prefix] = true
+				}
+			}
+		}
+	}
+	return set
+}
+
+func (s *awsSession) services(ctx context.Context, req *probes.Requirements) domain.Finding {
+	selected := servicesFor(s.scope, req)
 	var denied, unknown []string
+	probed := 0
 	for _, probe := range regionProbes {
+		if !selected[probe.service] {
+			continue
+		}
+		probed++
 		if err := s.d.Client.probeRegion(ctx, s.creds, s.region, probe); err != nil {
 			switch {
 			case errors.Is(err, connection.ErrPermissionDenied):
@@ -303,7 +331,7 @@ func (s *awsSession) services(ctx context.Context) domain.Finding {
 			}
 		}
 	}
-	facts := fact("servicesChecked", domain.Itoa(len(regionProbes)), "region", s.region)
+	facts := fact("servicesChecked", domain.Itoa(probed), "region", s.region)
 	if len(denied) > 0 {
 		sort.Strings(denied)
 		facts["services"] = domain.JoinList(denied)

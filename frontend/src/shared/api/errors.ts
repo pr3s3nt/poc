@@ -50,6 +50,8 @@ const messageTable = {
   ROUTE_RECONCILE_FAILED: t('shared.errors.theWorkloadWasAppliedBut'),
   SERVICE_UNAVAILABLE: t('shared.errors.aRequiredServiceIsNot'),
   INTERNAL_ERROR: t('shared.errors.theServerHitAnUnknown'),
+  DIAGNOSTIC_SCOPE_INVALID: t('shared.errors.diagnosticScopeInvalid'),
+  BUSY: t('shared.errors.diagnosticBusy'),
   RENDER_SOURCE_INVALID: t('shared.errors.renderSourceInvalid'),
   RENDER_BUNDLE_INVALID: t('shared.errors.renderBundleInvalid'),
   RENDER_INPUT_INVALID: t('shared.errors.renderInputInvalid'),
@@ -133,6 +135,7 @@ const knownFields: ReadonlySet<string> = new Set([
   'accessKeyId', 'secretAccessKey', 'allowedRegions', 'verificationRegions', 'confirmationName', 'selectedResourceIds',
   'from', 'to', 'workload', 'metric', 'valueSeconds', 'source', 'effectiveFrom', 'sampleSize', 'measuredFrom', 'measuredTo',
   'definition.driverInputs.values.variables.render_bundle', 'definition.driverInputs.values.variables.render_inputs',
+  'purpose', 'mode', 'region', 'useCases', 'application', 'environment',
 ]);
 
 export function knownCode(code: unknown): code is string { return has(errorMessages, code); }
