@@ -1,0 +1,242 @@
+[
+  {
+    "id": "NEW.empty-driver-accounts",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "NEW.empty-resource-types",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "NEW.empty-resource-definitions",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "NEW.only-untouched-bootstrap-application",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "NEW.bootstrap-app-has-no-telemetry",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "ui.account.ready",
+    "pass": true,
+    "detail": "Internal account kind-obs1025r7 HTTP 201 READY v1; kubeconfig never shown"
+  },
+  {
+    "id": "ui.definition.cluster",
+    "pass": true,
+    "detail": "cluster Definition observability-cluster uses its own Internal account kind-obs1025r7; no Environment connection"
+  },
+  {
+    "id": "NEW.real-installed-renderer",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "NEW.catalog-authored-through-ui",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "NEW.application-created-through-ui",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "NEW.empty-observability",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "DEPLOY.preview-real-plan",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "DEPLOY.preview-is-read-only",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "DEPLOY.no-app-agent-or-sidecar",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "DEPLOY.real-pod-ready",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "APP.http-live",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "LOGS.real-stdout-stderr-received",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "LOGS.source-pod-identity",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "LOGS.overview-drill-down",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "LOGS.pagination-and-detail",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "LOGS.literal-search",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "LOGS.follow-refreshes-and-pause-keeps-position",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "METRICS.real-cpu-ram-high",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "METRICS.high-visible-on-overview",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "METRICS.provider-timestamps-and-limits",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "METRICS.history-charts",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "METRICS.recovers-with-history-retained",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "METRICS.multiple-real-samples",
+    "pass": true,
+    "detail": "load 59 seconds"
+  },
+  {
+    "id": "RESTART.container-restarted",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "RESTART.detected-and-old-log-retained",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "RESTART.previous-stream-deduplicated",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "UPDATE.preview",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "UPDATE.replacement-pod",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "UPDATE.collection-continues",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "UPDATE.old-pod-log-still-queryable",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "PERSIST.backend-ready-again",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "PERSIST.postgres-history-survives",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "PERSIST.actual-backend-restart",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "PERSIST.collector-resumed",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "SCOPE.production-empty",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "UI.mobile-no-overflow",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "CLEANUP.workload-removed-through-ui",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "CLEANUP.received-history-retained",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "CLEANUP.history-still-readable-through-ui",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "CLEANUP.namespace-candidate",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "CLEANUP.namespace-destroyed-through-ui",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "CLEANUP.namespace-absent",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "UI.no-browser-errors",
+    "pass": true,
+    "detail": ""
+  }
+]

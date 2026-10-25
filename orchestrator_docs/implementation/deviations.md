@@ -644,6 +644,4 @@ stdout/stderr; product filtering uses explicit levels instead of unsupported
 stream labels from the mock. UC-09 TEL and API/UI docs reflect that boundary.
 
 Implementation and local SQL/HTTP/browser verification are recorded in the
-[handoff](native-observability.md). Live cluster/EKS verification and a
-non-destructive operator upgrade for older retained platform databases are
-not yet supplied. The fresh baseline must not be used to reset retained data.
+[handoff](native-observability.md). [Real new-user Kubernetes verification](../verification/2026-10-25-native-observability-live.md) now passes 48/48 checks and product cleanup. EKS-specific verification and a non-destructive operator upgrade for older retained platform databases remain separate. The fresh baseline must not be used to reset retained data.

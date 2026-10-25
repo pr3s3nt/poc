@@ -138,3 +138,5 @@ This route does not activate a roadmap iteration.
 define the approved native collector slice of issue #1; read the
 [shared contract](architecture/contracts/observability.md) for API/storage.
 The mock is approved UI reference, not evidence of collection or retention.
+[Real new-user acceptance](verification/2026-10-25-native-observability-live.md)
+records the native Kubernetes end-to-end run, including product cleanup.

@@ -1,0 +1,4 @@
+compose containers absent
+compose volumes absent
+owned kind cluster absent
+final_status=0

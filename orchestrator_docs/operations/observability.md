@@ -116,3 +116,44 @@ writes screenshots/result JSON to `/tmp/poc-observability-browser` (override
 telemetry**, backed by real authenticated Go HTTP endpoints; it proves no live
 cluster/cloud behavior. Live verification requires an explicitly selected
 cluster/environment and authorization for any Metrics Server/RBAC changes.
+
+## Real new-user acceptance on an isolated cluster
+
+User authorization on 2026-10-25 adds real end-to-end cluster verification.
+Use `backend/test/integration/observability-kind.sh`: it creates a new run-owned
+kind cluster, Metrics Server and a fresh Compose platform database/Vault. The
+catalog starts empty; existing clusters, databases and user sessions are not
+reset. No AWS resource is needed for this native Kubernetes slice.
+
+The browser scenario `frontend/test/e2e/observability-kind.mjs` uses real controls
+for PE account upload, Type/Definition/template registration, Developer app and
+Score import, Preview and Deploy. `backend/examples/observability-app` is a Go
+acceptance workload using ordinary stdout/stderr and real CPU/memory allocation;
+it has no observability SDK/agent. User actions emit logs/load, stop load and
+restart its process. Assert live received records, history/peaks/recovery, search,
+pagination/detail, restart/redeploy continuity, PostgreSQL/backend restart,
+Environment isolation and product cleanup. Technical API/kubectl reads verify
+facts; no telemetry response is intercepted or seeded.
+
+The runner writes its manifest before mutation and cleans only its own
+cluster/project/volumes after product UI cleanup. Metrics Server's
+`--kubelet-insecure-tls` is limited to this disposable kind cluster's self-signed
+kubelet certificate, not a product setting. Private uploaded kubeconfig material
+stays outside Git/public screenshots. Current backend/Console code is rebuilt;
+existing pinned local runtime images supply unchanged CLI dependencies.
+
+Run with Docker, kind, kubectl, Go, Node/frontend dependencies and Chromium on
+`DISPLAY=:0` (or a configured display):
+
+```bash
+OBS_RUN_ID=obs1025example OBS_EVIDENCE=/tmp/poc-observability-example \
+  bash backend/test/integration/observability-kind.sh
+```
+
+The evidence directory/run ID must be new. By default the runner builds the
+canonical backend/frontend Dockerfiles. Optional `OBS_BACKEND_RUNTIME_IMAGE` and
+`OBS_FRONTEND_RUNTIME_IMAGE` reuse explicitly selected local dependency images
+while copying freshly built current binaries/assets; base image IDs are recorded.
+The runner verifies non-root execute/read permissions and serves `/ui/sign-in`
+before browser acceptance. Build contexts contain only binaries/static assets,
+not the private uploaded kubeconfig.

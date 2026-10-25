@@ -71,8 +71,7 @@ exporters or CloudWatch. A separate provisioning resource/Definition/driver,
 external telemetry stack and advanced integrations remain in issue #1. Existing
 workload Definition matching still selects the pinned execution target.
 
-No live cluster/EKS, Metrics Server installation, retained DB rollout or paid
-resource creation was part of this execution. Local browser evidence uses real
+The subsequent authorized [real new-user Kubernetes run](../verification/2026-10-25-native-observability-live.md) passed 48/48 checks with a new owned kind cluster, Metrics Server and fresh PostgreSQL. Product UI cleanup and runtime teardown passed. EKS, retained DB rollout and paid resources were not part of that run. Local browser evidence uses real
 product HTTP/Console with synthetic received telemetry; PostgreSQL verification
 uses disposable real databases. See the
 [dated verification](../verification/2026-10-25-native-observability.md).

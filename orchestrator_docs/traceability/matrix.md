@@ -1150,6 +1150,4 @@ Evidence record: [2026-10-24 DEVEX-ENV implementation](../verification/2026-10-2
 | UC-09 TEL-03/04/06 | UC-09 UI; approved Logging & Monitoring mock | `observability.test.tsx`, `observability.mjs`: summary/detail, peaks/current/null gaps, filters, scoped navigation; [browser](../verification/2026-10-25-native-observability.md) |
 | UC-09 TEL-05 | Scoped stored-query API, credential boundary | `application/observability/service_test.go`, `http/observability_test.go`, Kubernetes transport cap/credential guards |
 
-Local SQL/HTTP/browser verification is recorded above. Live internal/EKS telemetry
-verification and retained-database rollout remain pending; no live claim follows
-from synthetic provider fixtures.
+Local SQL/HTTP tests are complemented by [48 real new-user Kubernetes checks](../verification/2026-10-25-native-observability-live.md): native collection, history, UI queries, restart/update/backend persistence and product cleanup. EKS-specific verification and retained-database rollout remain separate; synthetic fixtures do not establish those claims.
