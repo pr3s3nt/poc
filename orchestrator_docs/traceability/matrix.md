@@ -1142,15 +1142,19 @@ Evidence record: [2026-10-24 DEVEX-ENV implementation](../verification/2026-10-2
 | UC-16 BR-07/10/19; UC-12 BR-09/12 | Existing explicit Save/Preview/Deploy and rename | Unchanged flow; E10/11 lifecycle and rename tests above plus the full backend suite |
 | ADR-020; shared UI | Reused shell/styles, catalog-backed labels and accessible dialog/table | [`Dialog`](../../frontend/src/shared/ui/Dialog.tsx), catalogs `workloads.envTable.*`/`createKey.*`/`addResource.*`; E12 [browser script](../../frontend/test/e2e/devex-env-local.mjs), catalog parity test
 
-## Account diagnostics — DIAG-01..14 (required design, implementation in progress)
+## Account diagnostics — DIAG-01..14
 
-| Requirements | Canonical collaboration / state | Required proof |
+| Requirements | Canonical collaboration / state | Implementation and automated checks |
 |---|---|---|
-| DIAG-01..04 | UC-04 account detail/controller, scoped report aggregate, ADR-022 | DG-E01/02/06/08: role/org isolation, separate connection status and no-app General |
-| DIAG-05..08/12 | Diagnostic contract, scoped identity, actual requirement/probe adapters | DG-E02/03/04/09: actual TLS/RBAC/runtime findings, missing context UNKNOWN, safe remedies |
-| DIAG-09/10 | Diagnostic repository, schema/ERD, lease/CAS and cancellation | DG-E06/07/08: scope/history/export, stale responses, restart and interruption |
-| DIAG-11 | Persisted probe ownership, target/UID guarded cleanup | DG-E05: actual readiness/absence and honest cleanup gaps |
-| DIAG-13/14 | UC-04 UI states/API, existing shell/catalogs, real acceptance handoff | DG-E01..10: user-flow browser acceptance, independent review/merge and post-merge checks |
+| DIAG-01..04 | UC-04 account detail/controller, scoped report aggregate, ADR-022 | [`HTTP contracts`](../../backend/test/e2e/account_diagnostics_http_test.go), [`account UI tests`](../../frontend/src/features/platform/accounts/DriverAccountsDiagnostics.test.tsx): role/org isolation, separate connection status, no-app General and preserved management |
+| DIAG-05..08/12 | Diagnostic contract, scoped identity, actual requirement/probe adapters | [`context tests`](../../backend/internal/application/accountdiag/context_test.go), [`Kubernetes tests`](../../backend/internal/adapters/kubernetes/diagnostics_test.go), [`AWS tests`](../../backend/internal/adapters/awsaccess/diagnostics_test.go), [`TLS tests`](../../backend/internal/adapters/tlsprobe/tlsprobe_test.go), [`Vault tests`](../../backend/internal/adapters/vault/inspect_test.go): exact desired snapshot/placement/storage, scoped signing, safe typed failures and evidence limits |
+| DIAG-09/10 | Diagnostic repository, schema/ERD, lease/CAS and cancellation | [`shared repository contract`](../../backend/internal/ports/persistence/persistencetest/diagnostics.go), [`PostgreSQL tests`](../../backend/internal/adapters/postgres/diagnostics_integration_test.go), [`worker tests`](../../backend/internal/application/accountdiag/service_test.go): immutability, active-run exclusion, owner/lease/revision fencing, cancellation, restart/interruption and cleanup recovery |
+| DIAG-11 | Persisted probe ownership, target/UID guarded cleanup | [`Kubernetes execution tests`](../../backend/internal/adapters/kubernetes/diagnostics_test.go): ownership/UID preservation, lost PVC acknowledgement, full inventory, unresolved/exact storage and honest cleanup gaps; [`real kind probes`](../../backend/internal/application/accountdiag/kind_integration_test.go) require an explicit owned cluster |
+| DIAG-13/14 | UC-04 UI states/API, existing shell/catalogs, real acceptance handoff | [`DiagnoseTab tests`](../../frontend/src/features/platform/accounts/diagnostics/DiagnoseTab.test.tsx): persisted progress, purpose/report reply guards, deep links, configuration, safe export, missing history and stale/cleanup states |
 
 [Handoff and acceptance IDs](../implementation/account-diagnostics.md#acceptance)
-route required checks; this table is not delivery evidence.
+route DG-E01..10. [Independent pre-merge evidence](../verification/2026-10-25-account-diagnostics.md)
+records 37/37 real browser assertions, native cleanup and separate read-only AWS
+observations. [Merged main acceptance](../verification/2026-10-25-diagnostics-main.md)
+records DG-E10: another37/37 pass on the exact merge commit and verified teardown.
+Automated adapter fixtures alone do not prove external readiness.

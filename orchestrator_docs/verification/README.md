@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-25
 ---
 
 # Verification evidence
@@ -13,6 +13,8 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-25 | PR #17 merged main; independent real browser37/37, recovery and verified teardown | [Main acceptance](2026-10-25-diagnostics-main.md) |
+| 2026-10-25 | Account diagnostics: independent real kind/PostgreSQL/Vault Console acceptance37/37, native cleanup and read-only AWS scope | [Pre-merge evidence](2026-10-25-account-diagnostics.md) |
 | 2026-10-24 | PR #16 merge conflicts, main integration, cleanup runner fix and independent real-adapter 47/47 browser acceptance | [Main verification](2026-10-24-pr16-main-verification.md) |
 | 2026-10-24 | Issue #14 Git-owned manifest rendering; real kind/Compose Playwright RB-E01..E10 A→B→restart→A, UI cleanup, checks | [Git render bundles](2026-10-24-git-render-bundles.md) |
 

@@ -7,7 +7,7 @@ last_reviewed: 2026-10-25
 
 # Current project state
 
-## Infrastructure Account diagnostics — implemented, acceptance in progress — 2026-10-25
+## Infrastructure Account diagnostics — implemented and accepted — 2026-10-25
 
 [ADR-022](architecture/decisions/ADR-022-account-diagnostics.md) adds General and
 Use-case diagnostics inside Infrastructure Account detail, with a separate latest
@@ -20,11 +20,13 @@ unique owned namespace and observed pod/PVC probes with UID-guarded cleanup.
 
 Implementation and checks are mapped in [the delivery handoff](implementation/account-diagnostics.md)
 and [code map](implementation/code-map.md#account-diagnostics--adr-022).
-Independent early browser checks used actual PostgreSQL, Vault, kind and read-only
-AWS: General, owned provisioner failure/repair/rerun, pod execution/cleanup,
-cancel, export and persisted history. These early checks used a draft frontend;
-final committed-source browser acceptance, PR merge and post-merge checks remain
-in progress and are not claimed complete here.
+Independent real Console acceptance passed **37/37 before merge and 37/37 on
+merged main** (`7f3886b`, [PR #17](https://github.com/pr3s3nt/poc/pull/17)).
+Coverage includes actual missing-class repair/rerun, exact-class Bound PVC and
+readypod/cleanup, stop, scope isolation, versioned export, history/restart and
+SIGKILL recovery. Read-only AWS checks also ran against real signed endpoints.
+See [pre-merge evidence](verification/2026-10-25-account-diagnostics.md) and
+[main verification/cleanup](verification/2026-10-25-diagnostics-main.md).
 
 Limits: conditions are observations at the report time; primitive pod/PVC probes
 do not execute an Application image or prove SQL/cache/application behavior.

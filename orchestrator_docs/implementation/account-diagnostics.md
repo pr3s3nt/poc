@@ -95,3 +95,13 @@ remaining capability limits and cleanup state in a dated verification record.
 Completion requires the PR and merge SHA, post-merge check result and preserved
 evidence. If external identity or tools block a part, continue independent work
 and state the exact remaining gap rather than declaring unsupported checks PASS.
+
+## Delivery record — completed2026-10-25
+
+[PR #17](https://github.com/pr3s3nt/poc/pull/17) merged to main as `7f3886b`.
+[Independent pre-merge verification](../verification/2026-10-25-account-diagnostics.md)
+and [merged-main verification](../verification/2026-10-25-diagnostics-main.md)
+record37/37 real browser assertions each, automated checks, capability limits,
+actual AWS read-only observations and verified teardown. Source navigation is in
+[the code map](code-map.md#account-diagnostics--adr-022). The earlier task/session
+notes above preserve provenance; they are not remaining implementation work.

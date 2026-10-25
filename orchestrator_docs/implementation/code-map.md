@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-25
 ---
 
 # Design-to-code map
@@ -47,7 +47,13 @@ Canonical behavior: [UC-04 DIAG-01..14](../usecase/UC-04/specification.md#accoun
   [`HTTP end-to-end contracts`](../../backend/test/e2e/account_diagnostics_http_test.go),
   [`DiagnoseTab tests`](../../frontend/src/features/platform/accounts/diagnostics/DiagnoseTab.test.tsx),
   [`account integration tests`](../../frontend/src/features/platform/accounts/DriverAccountsDiagnostics.test.tsx).
-  Real Console/runtime acceptance remains tracked by DG-E01..10 in the handoff.
+  Real Console/runtime runner:
+  [`diagnostics-e2e.sh`](../../backend/test/integration/diagnostics-e2e.sh),
+  [`browser scenario`](../../frontend/test/e2e/account-diagnostics.mjs),
+  [`explicit Compose overlay`](../../deploy/local/compose.diagnostics-e2e.yml),
+  [`API fixture setup`](../../backend/test/integration/diagfixture/main.go).
+  [Independent acceptance](../verification/2026-10-25-account-diagnostics.md)
+  records source-bound DG-E01..09 evidence.
 
 | Design concern | Implementation entry point |
 |---|---|
