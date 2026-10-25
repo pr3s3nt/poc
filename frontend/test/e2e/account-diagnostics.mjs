@@ -113,7 +113,7 @@ async function selectFinding(title) {
 }
 async function factOf(inspector, label) {
   const details = inspector.locator('details');
-  if (!(await details.getAttribute('open'))) await details.locator('summary').click();
+  if ((await details.getAttribute('open')) === null) await details.locator('summary').click();
   return (await inspector.locator('dt', { hasText: new RegExp(`^${label}$`) }).locator('xpath=following-sibling::dd[1]').innerText()).trim();
 }
 async function startFromConfigure({ uses, application, environment, mode, unuse = [] }) {

@@ -101,7 +101,9 @@ cleanup() {
     out="$(docker ps -aq --filter "label=com.docker.compose.project=${PROJECT}" 2>&1)" && [[ -z "${out}" ]] || { echo "ABSENCE-FAILED containers: ${out}"; bad=1; }
     out="$(docker volume ls -q --filter "label=com.docker.compose.project=${PROJECT}" 2>&1)" && [[ -z "${out}" ]] || { echo "ABSENCE-FAILED volumes: ${out}"; bad=1; }
     out="$(docker network ls -q --filter "label=com.docker.compose.project=${PROJECT}" 2>&1)" && [[ -z "${out}" ]] || { echo "ABSENCE-FAILED network: ${out}"; bad=1; }
-    out="$(docker images -q "${BACKEND_IMAGE}" "${FRONTEND_IMAGE}" 2>&1)" && [[ -z "${out}" ]] || { echo "ABSENCE-FAILED images: ${out}"; bad=1; }
+    for image in "${BACKEND_IMAGE}" "${FRONTEND_IMAGE}"; do
+      out="$(docker images -q "${image}" 2>&1)" && [[ -z "${out}" ]] || { echo "ABSENCE-FAILED image ${image}: ${out}"; bad=1; }
+    done
     clusters="$(kind get clusters 2>&1)"; rc=$?
     if [[ "${rc}" != "0" ]] || grep -qx "${CLUSTER}" <<<"${clusters}"; then echo "ABSENCE-FAILED kind cluster inventory/remains"; bad=1; fi
     docker ps -a --format '{{.Names}}' | grep -q "^${CLUSTER}-" && { echo "ABSENCE-FAILED kind node container remains"; bad=1; }
