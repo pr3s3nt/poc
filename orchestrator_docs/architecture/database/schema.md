@@ -7,7 +7,7 @@ last_reviewed: 2026-10-24
 
 # Database Schema
 
-PostgreSQL là system of record cho logical orchestration state. JSONB chỉ dùng cho immutable contract/plan documents; identity, lifecycle và relations quan trọng được chuẩn hóa thành columns/tables.
+PostgreSQL là system of record cho logical orchestration state. JSONB dùng cho immutable contract/plan documents và bounded telemetry checkpoints (ADR-022); identity, lifecycle và relations quan trọng được chuẩn hóa thành columns/tables.
 
 ## Tables
 
@@ -944,3 +944,25 @@ Fresh baseline DDL, canonical validation fingerprint, role grants and schema tes
 must add this table. Existing retained DBs are not auto-migrated/reset: use a new
 isolated database for acceptance under T28. Keep Terraform state/owner/roles and
 all resource identity constraints unchanged. [ERD](erd.puml) shows the relation.
+
+## Native observability — ADR-022
+
+Required by [ADR-022](../decisions/ADR-022-native-observability.md).
+Telemetry identity and time-series fields are normalized; only bounded stream
+checkpoints (pod UID/container/restart/timestamp) use mutable JSONB. No credential
+or kubeconfig is stored in these tables. Console has CRUD; State has no grant.
+Owner setup adds them only to a fresh baseline; runtime performs no DDL/reset.
+
+| Table | Required columns and constraints |
+|---|---|
+| `telemetry_sources` | `source_key text PK` (64 hex), `environment_id uuid FK environments`, `target_generation bigint >=0`, `workload_id text`, `target_hash text` (64 hex), UNIQUE(environment_id,generation,workload_id,target_hash); `checkpoints jsonb object`; `lease_owner text`, `fence bigint >=0`, `lease_until timestamptz`; `logs_code text`, `metrics_code text`; `observed_at`, `last_log_at`, `last_metric_at` nullable timestamptz; `created_at timestamptz`. Scope derives through Environment → Application → Organization. |
+| `telemetry_logs` | `id text PK` (64 hex), `source_key FK telemetry_sources`, `timestamp timestamptz`, `pod_uid`, `pod_name`, `container_name text`, `restart_index bigint >=0`, `level text` (ERROR/WARN/INFO/DEBUG/UNKNOWN), `message text` <=16KiB. Index(source_key,timestamp DESC,id DESC), time/level query indexes. IDs distinguish repeated equal lines within a timestamp. |
+| `telemetry_samples` | `id text PK` (64 hex), `source_key FK`, `observed_at timestamptz`, `metrics_at timestamptz nullable`; `cpu_milli`, `memory_bytes`, `cpu_limit_milli`, `memory_limit_bytes double precision nullable/nonnegative`; `ready_pods`, `total_pods`, `restarts bigint nonnegative`; index(source_key,observed_at DESC). Null usage or limit is not zero. |
+| `telemetry_events` | `id text PK` (64 hex), `source_key FK`, `timestamp timestamptz`, `pod_uid`, `pod_name`, `container_name text`, `kind text`, `reason text` (safe code), `occurrences bigint >0`; index(source_key,timestamp DESC,id DESC). Deterministic observed events survive pod removal. |
+
+Leases/fences and batches are atomic per source. Retention: logs seven days;
+samples/events fifteen days. Checkpoint advancement follows the corresponding
+successful insert batch; fencing and deterministic IDs tolerate retry/unknown
+commit. Prune only expired telemetry, not provider resources. Per-source quotas
+in ADR-022 reject excess new observations with a visible storage-limit code;
+no automatic early deletion or change to Terraform tables.

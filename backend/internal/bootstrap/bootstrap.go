@@ -35,6 +35,7 @@ import (
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/deploymentreview"
 	"orchestrator/internal/application/envops"
+	observabilityapp "orchestrator/internal/application/observability"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/preview"
 	"orchestrator/internal/application/provisioning"
@@ -51,6 +52,7 @@ import (
 	configport "orchestrator/internal/ports/configuration"
 	"orchestrator/internal/ports/credentials"
 	"orchestrator/internal/ports/execution"
+	obsport "orchestrator/internal/ports/observability"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/ports/renderregistry"
 	"orchestrator/internal/ports/terraformstate"
@@ -219,6 +221,7 @@ type PlatformVaultBootstrap struct {
 
 // App holds the built components.
 type App struct {
+	Observability *observabilityapp.Service
 	// RenderRegistry is the Git render bundle registry (ADR-021); nil
 	// without the score-k8s renderer.
 	RenderRegistry *renderbundles.Registry
@@ -577,7 +580,14 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	if renderRegistry != nil {
 		renderPort = renderRegistry
 	}
+	var telemetryReader obsport.Reader
+	if opts.Adapters == AdapterKubernetes || opts.Adapters == AdapterAWS {
+		telemetryReader = &k8s.TelemetryReader{KubectlPath: opts.KubectlPath, Credentials: kubeconfigSource}
+	}
+	telemetryService := observabilityapp.New(st, telemetryReader)
+	*closers = append(*closers, telemetryService.Start(ctx))
 	server := deliveryhttp.NewServer(deliveryhttp.Config{
+		Observability:         telemetryService,
 		RenderBundles:         bundles,
 		RenderRegistry:        renderPort,
 		Deployments:           deployments,
@@ -602,6 +612,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	})
 
 	return &App{
+		Observability:         telemetryService,
 		RenderRegistry:        renderRegistry,
 		ConnectionCredentials: connectionCredentials,
 		Store:                 st,

@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	effectivenessapp "orchestrator/internal/application/effectiveness"
+	observabilityapp "orchestrator/internal/application/observability"
 	"orchestrator/internal/ports/renderregistry"
 	"os"
 	"path/filepath"
@@ -38,6 +39,7 @@ import (
 
 // Server wires the HTTP handlers to the application services.
 type Server struct {
+	observability   *observabilityapp.Service
 	deployments     *appsvc.Service
 	queries         *appsvc.QueryService
 	auth            *authentication.Service
@@ -60,6 +62,7 @@ type Server struct {
 
 // Config configures the HTTP server.
 type Config struct {
+	Observability *observabilityapp.Service
 	RenderBundles map[string]resource.RenderBundle
 	// RenderRegistry inspects Git render bundles and reports availability
 	// (ADR-021); nil disables Git bundle inspection.
@@ -94,6 +97,7 @@ type Config struct {
 // NewServer builds the HTTP handler tree.
 func NewServer(cfg Config) *Server {
 	s := &Server{
+		observability:   cfg.Observability,
 		deployments:     cfg.Deployments,
 		queries:         cfg.Queries,
 		auth:            cfg.Authentication,
@@ -131,6 +135,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.mux.Serve
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/healthz", s.handleHealth)
 	s.effectivenessRoutes()
+	s.observabilityRoutes()
 	s.mux.HandleFunc("POST /api/v1/auth/sign-in", s.handleSignIn)
 	s.mux.HandleFunc("GET /api/v1/auth/session", s.handleSession)
 	s.mux.HandleFunc("POST /api/v1/auth/sign-out", s.handleSignOut)

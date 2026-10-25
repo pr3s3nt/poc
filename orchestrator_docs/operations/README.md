@@ -9,6 +9,7 @@ last_reviewed: 2026-10-24
 
 | Environment | Runbook | External mutation |
 |---|---|---|
+| Application telemetry | [Native logging/monitoring](observability.md) | Read-only collector; Metrics Server/RBAC/database preparation is an explicit operator action |
 | Local fake adapters | [Local development](local.md) | No cluster/cloud mutation |
 | Personal-machine containers | [Docker Compose](docker-local.md) | Local Docker volumes; cluster mutation only on explicit deploy |
 | UC-09 review video | [Human-paced local recording](local.md#uc-09-human-paced-review-recording) | Local browser/display only; publish reviewed evidence separately |

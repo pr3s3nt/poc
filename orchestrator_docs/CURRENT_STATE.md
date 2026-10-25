@@ -2,10 +2,28 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-25
 ---
 
 # Current project state
+
+## Basic application logging/monitoring — implemented locally — 2026-10-25
+
+Issue #1 basic slice follows [ADR-022](architecture/decisions/ADR-022-native-observability.md):
+Orchestrator collects owned workload logs/pod state and Metrics Server CPU/RAM
+through existing scoped internal/EKS credentials and stores bounded 7-day logs /
+15-day metrics/events in PostgreSQL. Console has real stored-data overview,
+filtered log details and history charts, using the approved UI. No extra telemetry
+stack or application SDK is installed.
+
+[Handoff](implementation/native-observability.md),
+[runbook](operations/observability.md) and
+[verification](verification/2026-10-25-native-observability.md) distinguish local
+SQL/HTTP/browser evidence from live cluster verification, which remains pending.
+The schema/snapshot baseline changed; no retained DB or cluster was changed. A
+data-preserving rollout to an older retained DB needs a separate operator upgrade
+procedure. Issue #1 remains open for provisioning/Definition integration,
+resource-specific exporters, CloudWatch, alerting, tracing and advanced providers.
 
 ## Git-owned manifest rendering — implemented and accepted 2026-10-24
 

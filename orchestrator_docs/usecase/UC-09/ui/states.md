@@ -93,3 +93,12 @@ not an empty inventory or evidence of Deployment failure. Explain that backend
 data is unavailable and offer an explicit GET retry. Keep unknown errors, 500,
 malformed lists and network failures as load errors with retry. Do not hide or
 rewrite the HTTP 503, synthesize Terraform records or weaken cleanup guards.
+
+## Telemetry states
+
+TEL views distinguish not deployed, waiting for data, missing Metrics Server,
+partial/stale/gaps, storage limit, service unavailable and query failure. Keep
+retained data while explicitly stale. Missing CPU/RAM/limits are dashes, not
+zero or percentages. Logs can work while metrics are unavailable. Collection
+success is not app readiness. Environment/filter changes cancel or ignore late
+responses; summary/deep links preserve scope and interval.

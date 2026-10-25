@@ -2,7 +2,7 @@
 id: DOMAIN-OBJECTS
 artifact: domain-persistence-classification
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-25
 ---
 
 # Domain Objects and Persistence Classification
@@ -242,3 +242,26 @@ materialization; pure planning consumes metadata only. `GitRenderEngine` execute
 normalization/provisioners/patches with neutral input and semantic validation.
 See [contract](../contracts/git-render-bundles.md) and
 [persistence](../database/schema.md#git-render-bundle-persistence--adr-021).
+
+
+## Native telemetry — ADR-022
+
+`TelemetrySourceState` is an Environment-owned operational aggregate, identified
+by organization/application/environment/generation/workload/pinned-target hash.
+It owns bounded stream checkpoints and a short collector lease/fence, separate
+from the Environment operation claim. It is not an Active Resource, provider
+ownership claim or Deployment snapshot.
+
+Received `TelemetryLog`, `TelemetrySample` and `TelemetryEvent` records reference
+that source. Deterministic IDs deduplicate replay; source/workload identity and
+provider timestamps stay immutable. Logs expire after seven days, numeric
+samples and observed pod/container events after fifteen. These rows do not
+inherit a pod's deletion lifecycle. Reader/quota failure preserves committed
+history and rejected-log cursors. CPU/memory/limits are optional numeric values;
+null means unknown and a percentage requires a complete positive limit.
+
+The four relational tables are defined in [schema](../database/schema.md#native-observability--adr-022).
+Read models/queries and port bounds are owned by the
+[telemetry contract](../contracts/observability.md). Credential resolution stays
+outside this aggregate; no credential document/provider diagnostic belongs in
+its persisted state or public DTO.

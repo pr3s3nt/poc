@@ -77,10 +77,10 @@ UC-09 View Deployment Status
 ## Ngoài phạm vi happy path
 
 - **OOS-01:** Streaming hoặc real-time status updates.
-- **OOS-02:** Driver và Kubernetes logs.
+- **OOS-02:** Driver diagnostic logs; application pod logs are covered by TEL below.
 - **OOS-03:** So sánh hai deployments.
 - **OOS-04:** Alerting và notifications.
-- **OOS-05:** Metrics, tracing và audit views.
+- **OOS-05:** Tracing, business metrics and audit views; basic CPU/memory history is covered by TEL.
 - **OOS-06:** Tùy chỉnh quyền xem outputs theo RBAC.
 
 
@@ -123,3 +123,45 @@ UC-09 View Deployment Status
 - **OBS-07:** List hỗ trợ `reviewRequestId` (UUID riêng cho mỗi lần Deploy) cùng scope để theo dõi pending batch từ
   UC-05. Chỉ assoc đã persist khi admission; không lẫn run người khác hoặc
   deployment cùng workload ở lần khác. Batch chưa có record không là success.
+
+## Native application observability — TEL
+
+Accepted 2026-10-25: [ADR-022](../../architecture/decisions/ADR-022-native-observability.md),
+[contract](../../architecture/contracts/observability.md) and the approved
+[UI reference](../../../frontend/design/logging-monitoring/README.md).
+The earlier deployment-snapshot-only BR rules still apply to Deployment detail;
+TEL adds separate application telemetry queries backed by a background collector.
+
+- **TEL-01:** Workloads deployed on internal Kubernetes or EKS are collected
+  automatically from their persisted scoped target. Developer Score and app
+  containers need no observability setup. Metrics Server is a prerequisite for
+  CPU/memory; absence must not block log collection or workload deployment.
+- **TEL-02:** Retain received container logs seven days and samples/events fifteen
+  days independently of pod/redeploy/remove. Namespace/workload/generation and
+  pod UID/container/restart identities prevent mixing or duplication. Report
+  gaps/truncation/staleness explicitly; do not claim unretrieved logs survived.
+- **TEL-03:** Application home displays errors, unusual events, interval peaks
+  and current CPU/memory separately, with notable events and miniature trends.
+  Collection health is separate from app health. The basic high indicator is
+  80% of that sample's complete positive workload limit; without limits display
+  absolute units only. Count each high metric/workload once plus observed
+  abnormal events; exact log error counts and charts use the selected interval.
+- **TEL-04:** Summary and event clicks preserve environment, interval, workload
+  and relevant log level/metric focus. Logs support literal search, recognized
+  level, stable older-page navigation, raw-text details and follow/pause of stored
+  updates. Metrics show CPU/memory history with units, workload series, true
+  timestamps and null gaps. History may include removed pods/workloads.
+- **TEL-05:** All GETs authorize the session organization and app/environment,
+  read persisted telemetry only and enforce range/page/response limits. Resolve
+  collection credentials privately, fail closed on foreign targets and protect
+  platform diagnostics. Native API logs are combined stdout/stderr; do not
+  fabricate stream-specific filtering or infer ERROR from stderr.
+- **TEL-06:** Empty/not-deployed, waiting, missing metrics, stale/gap, storage
+  limit and unavailable/error states remain distinct. No sample is not zero;
+  successful deployment is not proof telemetry was received. Changing scope
+  discards late replies; changing filters clears stale drill context.
+- **TEL-07:** Polling/checkpoints survive process restart; fenced collection and
+  idempotent records prevent duplicate observations across workers. Bounded
+  storage preserves existing history on quota refusal and exposes that limit.
+  Reads never mutate or destroy app/provider resources. No alert notifications,
+  tracing, CloudWatch, business instrumentation or custom rule editor is added.

@@ -11,6 +11,7 @@ import (
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/telemetry"
 )
 
 // ErrResetRequired means the snapshot is not the current complete format. It is
@@ -28,6 +29,7 @@ var requiredSnapshotKeys = []string{
 	"deploymentPlans", "deploymentResources", "activeResources", "workloadInstances", "deploymentWorkloads",
 	"configurationScopes", "configurationRevisions", "workloadDrafts", "secretStores",
 	"environmentOperations", "terraformModuleBundles", "effectivenessBaselines",
+	"telemetrySources", "telemetryLogs", "telemetrySamples", "telemetryEvents",
 }
 
 // loadSnapshot parses the current format only. Missing or null aggregate maps,
@@ -201,7 +203,7 @@ func (s *state) validateCurrent() error {
 			return resetRequired("an Environment operation has no Environment")
 		}
 	}
-	return nil
+	return s.validateTelemetry()
 }
 
 // validEnvironment checks one Environment row: identity, ownership by an
@@ -234,6 +236,39 @@ func (s *state) validEnvironment(key string, env environment.Environment) error 
 		op, ok := s.Operations[env.ActiveOperationID]
 		if !ok || !op.Status.Holds() || envKey(op.ApplicationKey, op.EnvironmentKey) != key {
 			return resetRequired("an Environment claim does not match a holding operation")
+		}
+	}
+	return nil
+}
+
+// Observations loaded from disk obey the same ownership boundary as SQL rows.
+func (s *state) validateTelemetry() error {
+	for key, v := range s.TelemetrySources {
+		app, ok := s.Applications[v.Source.ApplicationKey]
+		if !ok || app.OrganizationKey != v.Source.OrganizationKey || key != v.Source.Key || !v.Source.Valid() || len(v.Checkpoints) > 512 || telemetry.SafeCode(v.LogsCode) != v.LogsCode || telemetry.SafeCode(v.MetricsCode) != v.MetricsCode {
+			return resetRequired("invalid telemetry source")
+		}
+		if _, ok := s.Environments[envKey(v.Source.ApplicationKey, v.Source.EnvironmentKey)]; !ok {
+			return resetRequired("telemetry source has no Environment")
+		}
+	}
+	valid := func(id, source, workload string) bool {
+		v, ok := s.TelemetrySources[source]
+		return ok && len(id) == 64 && v.Source.WorkloadID == workload
+	}
+	for key, v := range s.TelemetryLogs {
+		if key != v.ID || !valid(key, v.SourceKey, v.WorkloadID) || len(v.Message) > telemetry.MaxMessage || v.Timestamp.IsZero() {
+			return resetRequired("invalid telemetry log")
+		}
+	}
+	for key, v := range s.TelemetrySamples {
+		if key != v.ID || !valid(key, v.SourceKey, v.WorkloadID) || !telemetry.ValidNumber(v.CPU) || !telemetry.ValidNumber(v.Memory) || !telemetry.ValidNumber(v.CPULimit) || !telemetry.ValidNumber(v.MemoryLimit) || v.ObservedAt.IsZero() {
+			return resetRequired("invalid telemetry sample")
+		}
+	}
+	for key, v := range s.TelemetryEvents {
+		if key != v.ID || !valid(key, v.SourceKey, v.WorkloadID) || v.Timestamp.IsZero() || v.Occurrences < 1 {
+			return resetRequired("invalid telemetry event")
 		}
 	}
 	return nil

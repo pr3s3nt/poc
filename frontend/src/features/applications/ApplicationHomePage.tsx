@@ -1,3 +1,4 @@
+import { OverviewPanel } from '../observability/OverviewPanel';
 import { useEffect, useRef, useState } from 'react';
 import { navigate } from '../../app/routes';
 import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
@@ -164,6 +165,7 @@ export function ApplicationHomePage({ application, initialEnvironment = 'staging
     <header className="page-header application-header"><div><p className="eyebrow">{t('applications.applicationHome.application')}</p><h1>{application.name}</h1><p>{endpointFor(application, 'production')}</p><ApplicationTarget application={application} environment={environment} /></div><Button disabled={busy === 'deploy'} onClick={() => navigate({ name: 'settings', applicationId: application.id, environment })}>{t('applications.applicationHome.environmentSettings')}</Button></header>
     {created ? <div className="form-success" role="status">{t('applications.applicationHome.applicationCreatedTheDeploymentTarget')}</div> : null}
     <div className="tabs" role="tablist"><button className={environment === 'staging' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => setEnvironment('staging')}>staging<span>{endpointFor(application, 'staging')}</span></button><button className={environment === 'production' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => setEnvironment('production')}>production<span>{endpointFor(application, 'production')}</span></button></div>
+    <OverviewPanel applicationId={application.id} environment={environment} refreshKey={String(reload)} />
     <section className="content-panel"><div className="section-header"><div><h2>Workload</h2><p>{t('applications.applicationHome.configurationOfEnvironmentSavingHere', { environment })}</p></div><span><Button disabled={busy === 'deploy'} onClick={() => navigate({ name: 'score-preview', applicationId: application.id, environment })}>{t('applications.applicationHome.previewScore')}</Button><Button disabled={locked} onClick={() => navigate({ name: 'workload', applicationId: application.id, environment })}>{t('applications.applicationHome.addWorkload')}</Button></span></div>
       {error ? <div className="form-error" role="alert">{error}{!data && !loading ? <> <Button onClick={() => void reloadList(scope.current)}>{t('applications.applicationHome.retry')}</Button></> : null}</div> : null}
       {environmentBusy ? <div className="form-info" role="status">{t('applications.applicationHome.anEnvironmentOperationIsRunning', { environment })}</div> : null}

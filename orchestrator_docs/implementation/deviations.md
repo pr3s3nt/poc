@@ -629,3 +629,21 @@ with private `literalProofs`, the unified table, inline key/store/dependency
 dialogs and Việt/Anh catalogs are implemented; see
 [verification](../verification/2026-10-24-devex-env-implementation.md). No
 deviation remains for this item.
+
+
+## IMP-023 — Native observability scope and rollout (2026-10-25)
+
+The full issue #1 describes an injected provisioning resource, matching and
+external backends. The user subsequently chose basic native collection plus
+Metrics Server and approved its Console. [ADR-022](../architecture/decisions/ADR-022-native-observability.md)
+records the architecture for that slice: workload matching still chooses the
+target; this collector adds no unused provisioning node/Definition/driver.
+The broader integration remains deferred in the issue, not implemented by a UI
+link or a synthetic plan node. Native pod-log responses also combine
+stdout/stderr; product filtering uses explicit levels instead of unsupported
+stream labels from the mock. UC-09 TEL and API/UI docs reflect that boundary.
+
+Implementation and local SQL/HTTP/browser verification are recorded in the
+[handoff](native-observability.md). Live cluster/EKS verification and a
+non-destructive operator upgrade for older retained platform databases are
+not yet supplied. The fresh baseline must not be used to reset retained data.

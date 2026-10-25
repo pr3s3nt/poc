@@ -468,4 +468,51 @@ PlanningService ..> VerifiedRenderBundle : snapshot only
 RenderingSelection ..> VerifiedRenderBundle : exact source/runtime/input pin
 GitRenderEngine ..|> WorkloadRenderer
 GitRenderEngine ..|> RenderPreflight
+package "Native application telemetry (ADR-022)" {
+  class ObservabilityService {
+    +Start(ctx): stop
+    +Sweep(ctx)
+    +Query(ctx, scope, kind, params): TelemetryView
+  }
+  class TelemetrySourceState <<aggregate>> {
+    +scope: OrganizationApplicationEnvironmentGeneration
+    +workload: string
+    +targetHash: string
+    +checkpoints: Map<StreamIdentity, Cursor>
+    +owner: string
+    +fence: int64
+    +leaseUntil: time
+    +logsCode: SafeCode
+    +metricsCode: SafeCode
+  }
+  class TelemetryLog <<received entity>>
+  class TelemetrySample <<received entity>>
+  class TelemetryEvent <<observed entity>>
+  class TelemetryView <<read model>>
+  interface TelemetryRepository {
+    +LeaseTelemetry(scope, owner, now)
+    +CommitTelemetry(batch)
+    +ReadTelemetry(query)
+    +PruneTelemetry(now)
+  }
+  interface TelemetryReader {
+    +Collect(ctx, pinnedTarget, checkpoints): Batch
+  }
+  class NativeKubernetesTelemetryReader <<adapter>>
+}
+Environment "1" o-- "0..*" TelemetrySourceState
+TelemetrySourceState "1" o-- "0..*" TelemetryLog
+TelemetrySourceState "1" o-- "0..*" TelemetrySample
+TelemetrySourceState "1" o-- "0..*" TelemetryEvent
+ObservabilityService --> WorkloadInstanceRepository : current generation
+ObservabilityService --> DeploymentRepository : verify target owner
+ObservabilityService --> TelemetryRepository
+ObservabilityService --> TelemetryReader
+ObservabilityService ..> TelemetryView
+NativeKubernetesTelemetryReader ..|> TelemetryReader
+note bottom of TelemetryRepository
+History, quotas, fencing and retention are separate
+from provisioning and Environment operation claims.
+GET reads stored data; it never calls TelemetryReader.
+end note
 @enduml

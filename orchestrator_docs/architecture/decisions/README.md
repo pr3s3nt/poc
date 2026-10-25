@@ -45,3 +45,5 @@ last_reviewed: 2026-10-24
 - [ADR-020 — Runtime message catalogs for the Web Console](ADR-020-console-message-catalogs.md) — Vietnamese default + English; new languages are catalog files, not code.
 
 - [ADR-021 — Git-owned Kubernetes manifest rendering policy](ADR-021-git-render-bundles.md) — accepted design; normalization/defaults/provisioners/patches in Git, infrastructure unchanged; implementation pending.
+
+- [ADR-022 — Native basic observability](ADR-022-native-observability.md): platform collection, Metrics Server and durable application history.

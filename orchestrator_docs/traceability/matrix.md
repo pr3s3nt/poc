@@ -1141,3 +1141,15 @@ Evidence record: [2026-10-24 DEVEX-ENV implementation](../verification/2026-10-2
 | UC-16 BR-22/14/V2-02/03 | Shared dependency subform → local desired state, existing Type validation | [`AddResourceDialog`](../../frontend/src/features/workloads/AddResourceDialog.tsx), [`DependencyFields`](../../frontend/src/features/workloads/DependencyFields.tsx); E06/07 table tests (no HTTP call, output left to choose, Cancel adds nothing) |
 | UC-16 BR-07/10/19; UC-12 BR-09/12 | Existing explicit Save/Preview/Deploy and rename | Unchanged flow; E10/11 lifecycle and rename tests above plus the full backend suite |
 | ADR-020; shared UI | Reused shell/styles, catalog-backed labels and accessible dialog/table | [`Dialog`](../../frontend/src/shared/ui/Dialog.tsx), catalogs `workloads.envTable.*`/`createKey.*`/`addResource.*`; E12 [browser script](../../frontend/test/e2e/devex-env-local.mjs), catalog parity test
+
+## Native application observability — implemented locally 2026-10-25
+
+| Requirements | Design | Verification evidence |
+|---|---|---|
+| UC-09 TEL-01/02/07 | ADR-022; telemetry contract; source/lease/checkpoint schema | `kubernetes/telemetry_test.go`, adapter-neutral `persistencetest/telemetry.go`, store/SQL telemetry tests; [execution](../verification/2026-10-25-native-observability.md) |
+| UC-09 TEL-03/04/06 | UC-09 UI; approved Logging & Monitoring mock | `observability.test.tsx`, `observability.mjs`: summary/detail, peaks/current/null gaps, filters, scoped navigation; [browser](../verification/2026-10-25-native-observability.md) |
+| UC-09 TEL-05 | Scoped stored-query API, credential boundary | `application/observability/service_test.go`, `http/observability_test.go`, Kubernetes transport cap/credential guards |
+
+Local SQL/HTTP/browser verification is recorded above. Live internal/EKS telemetry
+verification and retained-database rollout remain pending; no live claim follows
+from synthetic provider fixtures.

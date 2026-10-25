@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 
+vi.mock('../features/observability/OverviewPanel', () => ({ OverviewPanel: () => null }));
+
 type Handler = (url: string, init?: RequestInit) => Response | Promise<Response> | undefined;
 
 let authenticated: boolean;

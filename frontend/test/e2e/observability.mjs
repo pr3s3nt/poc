@@ -1,0 +1,60 @@
+import { chromium, expect } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+
+const base = process.env.OBSERVABILITY_BASE_URL;
+if (!base || !process.env.OBSERVABILITY_APP) throw new Error('Run through TestObservabilityConsoleHistory with its local HTTP fixture');
+const output = resolve(process.env.OBSERVABILITY_EVIDENCE_DIR ?? '/tmp/poc-observability-browser');
+await mkdir(output, { recursive: true });
+const browser = await chromium.launch({ executablePath: process.env.OBSERVABILITY_CHROMIUM ?? '/usr/bin/google-chrome', headless: true });
+try {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1100 }, locale: 'vi-VN', timezoneId: 'Asia/Bangkok' });
+  const page = await context.newPage();
+  const errors = [], requests = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('response', response => { if (response.url().includes('/observability/')) requests.push({ url: new URL(response.url()).pathname, status: response.status() }); });
+  await page.goto(`${base}/ui/sign-in`);
+  const signed = await context.request.post(`${base}/api/v1/auth/sign-in`, { data: { username: process.env.OBSERVABILITY_TEST_USERNAME, password: process.env.OBSERVABILITY_TEST_PASSWORD } });
+  expect(signed.status()).toBe(200);
+  const app = encodeURIComponent(process.env.OBSERVABILITY_APP);
+  await page.goto(`${base}/ui/applications/${app}`);
+  const panel = page.locator('.obs-home-card');
+  await expect(panel.locator('.obs-health-grid')).toBeVisible();
+  await expect(panel.locator('.obs-health-danger strong')).toHaveText('2');
+  await expect(panel.locator('.obs-health-warning strong').last()).toHaveText('90%');
+  await page.screenshot({ path: `${output}/home.png`, fullPage: true });
+  await panel.locator('.obs-health-danger').click();
+  await expect(page).toHaveURL(/tab=logs.*level=ERROR/);
+  await expect(page.locator('.obs-log-message')).toHaveCount(2);
+  await page.locator('.obs-log-message').first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('dialog').locator('pre')).toHaveText('ERROR duplicate');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  await page.screenshot({ path: `${output}/logs.png`, fullPage: true });
+  await page.locator('.obs-view-tabs button').last().click();
+  await expect(page.locator('.obs-chart')).toHaveCount(2);
+  await expect(page.locator('.obs-chart svg').first()).toBeVisible();
+  await page.locator('.obs-chart-body').first().focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.locator('.obs-chart-tooltip')).toBeVisible();
+  await page.keyboard.press('Tab');
+  await page.screenshot({ path: `${output}/metrics.png`, fullPage: true });
+  await page.reload();
+  await expect(page.locator('.obs-chart svg').first()).toBeVisible();
+  await page.getByRole('tab', { name: /^production/ }).click();
+  await expect(page.locator('.obs-empty')).toBeVisible();
+  await expect(page.locator('.obs-metric-table tbody tr')).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${base}/ui/applications/${app}`);
+  await expect(page.locator('.obs-health-grid')).toBeVisible();
+  // Browser globals belong to the page's execution context.
+  // eslint-disable-next-line no-undef
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: `${output}/mobile.png`, fullPage: true });
+  expect(errors).toEqual([]);
+  expect(requests.filter(request => request.status !== 200)).toEqual([]);
+  const evidence = { source: 'real local Go HTTP API + explicitly synthetic received-history fixture; no cluster/cloud calls', checks: ['overview counts', 'scoped ERROR drill-down', 'log dialog + Escape', 'real history charts + keyboard tooltip', 'deep-link reload', 'Environment isolation', 'mobile overflow', 'no browser errors'], requests, errors };
+  await writeFile(`${output}/result.json`, JSON.stringify(evidence, null, 2));
+  console.log(JSON.stringify({ passed: evidence.checks.length, output }));
+} finally { await browser.close(); }

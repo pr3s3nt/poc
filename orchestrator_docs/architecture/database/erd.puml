@@ -463,4 +463,72 @@ Definitions reference verified ID and supplied inputs in JSON.
 Plans pin source/runtime and effective inputs; files in durable cache.
 Console SELECT/INSERT only; no State role grant.
 end note
+
+entity telemetry_sources {
+ * source_key : text <<PK,SHA256>>
+ * environment_id : uuid <<FK>>
+ --
+ target_generation : bigint
+ workload_id : text
+ target_hash : text
+ checkpoints : jsonb
+ lease_owner : text
+ fence : bigint
+ lease_until : timestamptz
+ logs_code : text
+ metrics_code : text
+ observed_at : timestamptz
+ last_log_at : timestamptz
+ last_metric_at : timestamptz
+ limited : boolean
+ created_at : timestamptz
+}
+entity telemetry_logs {
+ * id : text <<PK,SHA256>>
+ * source_key : text <<FK>>
+ --
+ timestamp : timestamptz
+ pod_uid : text
+ pod_name : text
+ container_name : text
+ restart_index : bigint
+ level : text
+ message : text
+}
+entity telemetry_samples {
+ * id : text <<PK,SHA256>>
+ * source_key : text <<FK>>
+ --
+ observed_at : timestamptz
+ metrics_at : timestamptz
+ cpu_milli : float8 <<nullable>>
+ memory_bytes : float8 <<nullable>>
+ cpu_limit_milli : float8 <<nullable>>
+ memory_limit_bytes : float8 <<nullable>>
+ ready_pods : bigint
+ total_pods : bigint
+ restarts : bigint
+}
+entity telemetry_events {
+ * id : text <<PK,SHA256>>
+ * source_key : text <<FK>>
+ --
+ timestamp : timestamptz
+ pod_uid : text
+ pod_name : text
+ container_name : text
+ kind : text
+ reason : text
+ occurrences : bigint
+}
+environments ||--o{ telemetry_sources
+telemetry_sources ||--o{ telemetry_logs
+telemetry_sources ||--o{ telemetry_samples
+telemetry_sources ||--o{ telemetry_events
+note bottom of telemetry_sources
+ Native read-only collection; no provider mutation.
+ Fence protects source checkpoint commits.
+ Logs 7 days; metrics/events 15 days.
+ Console access only; no State login grant.
+end note
 @enduml

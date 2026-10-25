@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-25
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-25 | Issue #1 basic native telemetry; real disposable SQL, authenticated HTTP, product browser with synthetic received history | [Native observability](2026-10-25-native-observability.md) |
 | 2026-10-24 | Issue #14 Git-owned manifest rendering; real kind/Compose Playwright RB-E01..E10 A→B→restart→A, UI cleanup, checks | [Git render bundles](2026-10-24-git-render-bundles.md) |
 
 | 2026-10-24 | DEVEX-ENV implementation (issue #13); Go/PostgreSQL, frontend, fake-adapter desktop browser Việt/Anh | [Implementation](2026-10-24-devex-env-implementation.md) |
