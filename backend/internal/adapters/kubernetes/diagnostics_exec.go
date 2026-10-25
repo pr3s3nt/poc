@@ -234,18 +234,26 @@ func (s *kubeSession) execWorkload(ctx context.Context, rec probes.Recorder) dom
 	return waitVerdict(reason, facts, "check-scheduling")
 }
 
-// volumeTargets returns the storage classes the selected capability resources
-// really request on this account, in test order. "" is the cluster default.
-func volumeTargets(req *probes.Requirements, scope domain.Scope, account string) (classes []string, needDefault bool, reason string) {
+// volumeNeed is what the selected capability resources placed on this account
+// request from the cluster's storage.
+type volumeNeed struct {
+	classes                         []string // explicit StorageClasses
+	needDefault                     bool
+	unresolved, undeclared, hasNeed bool
+}
+
+// volumeNeeds derives the storage requirement of the selected capabilities
+// from the resolved requirements. reason is non-empty when nothing can be said.
+func volumeNeeds(req *probes.Requirements, scope domain.Scope, account string) (volumeNeed, string) {
 	if req == nil || !req.Resolved {
-		return nil, false, "STORAGE_REQUIREMENT_UNRESOLVED"
+		return volumeNeed{}, "STORAGE_REQUIREMENT_UNRESOLVED"
 	}
 	selected := map[string]bool{}
 	for _, u := range scope.UseCases {
 		selected[u] = true
 	}
 	var storage []probes.ResourceNeed
-	undeclared := false
+	var need volumeNeed
 	for _, r := range req.Resources {
 		if !selected[domain.CapabilityOf(r.Type)] || !placedOn(r, account) {
 			continue
@@ -254,23 +262,78 @@ func volumeTargets(req *probes.Requirements, scope domain.Scope, account string)
 		case r.Storage.Required:
 			storage = append(storage, r)
 		case !r.Storage.Resolved:
-			undeclared = true
+			need.undeclared = true
 		}
 	}
-	if len(storage) == 0 {
-		if undeclared {
-			return nil, false, "STORAGE_REQUIREMENT_UNDECLARED"
-		}
+	need.hasNeed = len(storage) > 0
+	need.classes, need.needDefault, need.unresolved = req.StorageClassesNeeded(storage)
+	return need, ""
+}
+
+// volumeTargets returns the storage classes an execution probe must exercise,
+// refusing (with a reason) whenever the requirement is not exact.
+func volumeTargets(req *probes.Requirements, scope domain.Scope, account string) (classes []string, needDefault bool, reason string) {
+	need, reason := volumeNeeds(req, scope, account)
+	switch {
+	case reason != "":
+		return nil, false, reason
+	case !need.hasNeed && need.undeclared:
+		return nil, false, "STORAGE_REQUIREMENT_UNDECLARED"
+	case !need.hasNeed:
 		return nil, false, "STORAGE_NOT_REQUIRED"
-	}
-	classes, needDefault, unresolved := req.StorageClassesNeeded(storage)
-	if unresolved {
+	case need.unresolved:
 		return nil, false, "STORAGE_CLASS_UNRESOLVED"
-	}
-	if len(classes)+btoi(needDefault) > 3 {
+	case len(need.classes)+btoi(need.needDefault) > 3:
 		return nil, false, "TOO_MANY_STORAGE_CLASSES"
 	}
-	return classes, needDefault, ""
+	return need.classes, need.needDefault, ""
+}
+
+// storageRequirements compares the exact requirement of the selected work with
+// the FULL StorageClass inventory (never the truncated public list).
+func (s *kubeSession) storageRequirements(ctx context.Context, req *probes.Requirements) domain.Finding {
+	need, reason := volumeNeeds(req, s.scope, s.account)
+	switch {
+	case reason != "":
+		return finding(domain.VerdictUnknown, reason, "select-context", nil)
+	case !need.hasNeed && need.undeclared:
+		return finding(domain.VerdictUnknown, "STORAGE_REQUIREMENT_UNDECLARED", "", nil)
+	case !need.hasNeed:
+		return finding(domain.VerdictNA, "STORAGE_NOT_REQUIRED", "", nil)
+	case need.unresolved:
+		return finding(domain.VerdictUnknown, "STORAGE_CLASS_UNRESOLVED", "use-literal-storage-class", nil)
+	}
+	inventory, err := s.storageClassList(ctx)
+	if err != nil {
+		return readFailure(err)
+	}
+	have, defaults := map[string]bool{}, 0
+	for _, sc := range inventory {
+		have[str(sc, "metadata", "name")] = true
+		if isDefaultClass(sc) {
+			defaults++
+		}
+	}
+	var missing []string
+	for _, c := range need.classes {
+		if !have[c] {
+			missing = append(missing, c)
+		}
+	}
+	facts := fact("storageNeeds", domain.Itoa(len(need.classes)+btoi(need.needDefault)), "defaultClasses", domain.Itoa(defaults))
+	if len(need.classes) > 0 {
+		facts["requiredClasses"] = domain.JoinList(sortedList(need.classes))
+	}
+	switch {
+	case len(missing) > 0:
+		facts["requiredClasses"] = domain.JoinList(sortedList(missing))
+		return finding(domain.VerdictFail, "STORAGE_CLASS_MISSING", "create-storage-class", facts)
+	case need.needDefault && defaults == 0:
+		return finding(domain.VerdictFail, "NO_DEFAULT_STORAGE_CLASS", "set-default-storage-class", facts)
+	case need.needDefault && defaults > 1:
+		return finding(domain.VerdictFail, "MULTIPLE_DEFAULT_STORAGE_CLASSES", "set-default-storage-class", facts)
+	}
+	return finding(domain.VerdictPass, "STORAGE_REQUIREMENTS_MET", "", facts)
 }
 
 func btoi(b bool) int {
@@ -453,25 +516,41 @@ func (s *kubeSession) Cleanup(ctx context.Context, resources []domain.ProbeResou
 		return out
 	}
 	nsState, nsName := "", ""
+	claimsKnown := true
 	for i := range out {
 		if out[i].Kind != "namespace" {
 			continue
 		}
 		if !out[i].Settled() {
-			out[i] = s.cleanNamespace(ctx, out[i], runID)
+			// A claim whose creation or record acknowledgement was lost may still
+			// exist (and may have bound a volume): find the owned claims in the
+			// namespace before it is deleted.
+			name := out[i].Name
+			out[i] = s.cleanNamespace(ctx, out[i], runID, func() {
+				var ok bool
+				out, ok = s.adoptClaims(ctx, out, name, runID)
+				claimsKnown = claimsKnown && ok
+			})
 		}
 		nsState, nsName = out[i].State, out[i].Name
 	}
-	claimUIDs := map[string]bool{}
+	claims := map[string]string{} // claim UID or namespace/name -> namespace
+	hasClaim := false
 	for _, r := range out {
-		if r.Kind == "persistentvolumeclaim" && r.UID != "" {
-			claimUIDs[r.UID] = true
+		if r.Kind != "persistentvolumeclaim" {
+			continue
 		}
+		hasClaim = true
+		if r.UID != "" {
+			claims["uid:"+r.UID] = r.Namespace
+		}
+		claims["name:"+r.Namespace+"/"+r.Name] = r.Namespace
 	}
-	var volumes []map[string]any
-	volumesKnown := len(claimUIDs) == 0
-	if (nsState == domain.ResourceDeleted || nsState == domain.ResourceAbsent) && len(claimUIDs) > 0 {
-		out, volumes, volumesKnown = s.scanVolumes(ctx, out, claimUIDs, nsName)
+	volumesKnown := !hasClaim
+	// Volumes are looked up whenever a claim was ever intended, not only when
+	// its UID was persisted: an empty UID map proves nothing.
+	if (nsState == domain.ResourceDeleted || nsState == domain.ResourceAbsent) && hasClaim {
+		out, volumesKnown = s.scanVolumes(ctx, out, claims, nsName)
 	}
 	for i := range out {
 		r := &out[i]
@@ -481,7 +560,7 @@ func (s *kubeSession) Cleanup(ctx context.Context, resources []domain.ProbeResou
 		switch nsState {
 		case domain.ResourceDeleted, domain.ResourceAbsent:
 			switch {
-			case r.Kind == "persistentvolumeclaim" && r.UID != "" && !volumesKnown:
+			case r.Kind == "persistentvolumeclaim" && (!volumesKnown || !claimsKnown):
 				r.State = domain.ResourceUnknown
 			case r.UID != "":
 				r.State = domain.ResourceDeleted
@@ -494,7 +573,6 @@ func (s *kubeSession) Cleanup(ctx context.Context, resources []domain.ProbeResou
 			r.State = domain.ResourceUnknown
 		}
 	}
-	_ = volumes
 	return out
 }
 
@@ -506,9 +584,41 @@ var namespaceWait = 120 * time.Second
 // volume (a variable so tests can shorten it).
 var volumeWait = 90 * time.Second
 
+// adoptClaims records the run-owned PersistentVolumeClaims actually present in
+// the namespace (with their UIDs), including ones whose creation or record
+// acknowledgement was lost. The bool is false when the claims could not be listed.
+func (s *kubeSession) adoptClaims(ctx context.Context, out []domain.ProbeResource, namespace, runID string) ([]domain.ProbeResource, bool) {
+	list, err := s.list(ctx, "get", "persistentvolumeclaims", "-n", namespace)
+	if err != nil {
+		return out, false
+	}
+	for _, item := range list.Items {
+		if !s.ownedBy(item, runID) {
+			continue
+		}
+		name, uid := str(item, "metadata", "name"), str(item, "metadata", "uid")
+		if name == "" || uid == "" {
+			continue
+		}
+		found := false
+		for i := range out {
+			if out[i].Kind == "persistentvolumeclaim" && out[i].Namespace == namespace && out[i].Name == name {
+				found = true
+				if out[i].UID == "" && !out[i].Settled() {
+					out[i].UID, out[i].State = uid, domain.ResourceCreated
+				}
+			}
+		}
+		if !found && len(out) < domain.MaxProbeItems {
+			out = append(out, domain.ProbeResource{Kind: "persistentvolumeclaim", Namespace: namespace, Name: name, UID: uid, State: domain.ResourceCreated})
+		}
+	}
+	return out, true
+}
+
 // scanVolumes finds every PersistentVolume bound to one of the run's claims,
 // records it, and waits for the provisioner to remove it.
-func (s *kubeSession) scanVolumes(ctx context.Context, out []domain.ProbeResource, claimUIDs map[string]bool, namespace string) ([]domain.ProbeResource, []map[string]any, bool) {
+func (s *kubeSession) scanVolumes(ctx context.Context, out []domain.ProbeResource, claims map[string]string, namespace string) ([]domain.ProbeResource, bool) {
 	all, err := s.list(ctx, "get", "persistentvolumes")
 	if err != nil {
 		for i := range out {
@@ -516,12 +626,12 @@ func (s *kubeSession) scanVolumes(ctx context.Context, out []domain.ProbeResourc
 				out[i].State = domain.ResourceUnknown
 			}
 		}
-		return out, nil, false
+		return out, false
 	}
 	owned := map[string]map[string]any{}
 	for _, pv := range all.Items {
 		claim := mapAt(mapAt(pv, "spec"), "claimRef")
-		if claimUIDs[str(claim, "uid")] && str(claim, "namespace") == namespace {
+		if _, byUID := claims["uid:"+str(claim, "uid")]; (byUID || claims["name:"+str(claim, "namespace")+"/"+str(claim, "name")] != "") && str(claim, "namespace") == namespace {
 			owned[str(pv, "metadata", "name")] = pv
 		}
 	}
@@ -556,10 +666,12 @@ func (s *kubeSession) scanVolumes(ctx context.Context, out []domain.ProbeResourc
 			out[i].State = domain.ResourceUnknown
 		}
 	}
-	return out, nil, true
+	return out, true
 }
 
-func (s *kubeSession) cleanNamespace(ctx context.Context, r domain.ProbeResource, runID string) domain.ProbeResource {
+// cleanNamespace deletes one owned namespace. beforeDelete runs once ownership
+// and UID are proven and the namespace still exists.
+func (s *kubeSession) cleanNamespace(ctx context.Context, r domain.ProbeResource, runID string, beforeDelete func()) domain.ProbeResource {
 	obj, found, err := s.cli.Get(ctx, "", "namespace", r.Name)
 	switch {
 	case err != nil:
@@ -580,6 +692,7 @@ func (s *kubeSession) cleanNamespace(ctx context.Context, r domain.ProbeResource
 	if r.UID == "" {
 		r.UID = uid
 	}
+	beforeDelete()
 	if err := s.deleteRawUID(ctx, "/api/v1/namespaces/"+r.Name, uid); err != nil {
 		r.State = domain.ResourceUnknown
 		return r

@@ -215,6 +215,7 @@ func TestCleanupVerifiesBackingVolumesAndNeverDeletesOneByHand(t *testing.T) {
 		{match: "get namespace orch-diag-aaaaaaaaaaaa", cond: "[ ! -f $DIR/ns-deleted ]", out: ownedNamespace(run)},
 		{match: "get namespace orch-diag-aaaaaaaaaaaa", stderr: `Error from server (NotFound): namespaces "x" not found`, code: 1},
 		{match: "delete --raw /api/v1/namespaces/orch-diag-aaaaaaaaaaaa", touch: "ns-deleted"},
+		{match: "get persistentvolumeclaims", out: `{"items":[]}`},
 		{match: "get persistentvolumes", out: pvJSON("Delete")},
 		{match: "get persistentvolume pvc-" + pvUID, stderr: `Error from server (NotFound): persistentvolumes "x" not found`, code: 1},
 	})
@@ -230,6 +231,7 @@ func TestCleanupVerifiesBackingVolumesAndNeverDeletesOneByHand(t *testing.T) {
 		{match: "get namespace orch-diag-aaaaaaaaaaaa", cond: "[ ! -f $DIR/ns-deleted ]", out: ownedNamespace(run)},
 		{match: "get namespace orch-diag-aaaaaaaaaaaa", stderr: `(NotFound) not found`, code: 1},
 		{match: "delete --raw /api/v1/namespaces/orch-diag-aaaaaaaaaaaa", touch: "ns-deleted"},
+		{match: "get persistentvolumeclaims", out: `{"items":[]}`},
 		{match: "get persistentvolumes", out: pvJSON("Retain")},
 		{match: "get persistentvolume pvc-" + pvUID, out: `{"metadata":{"uid":"` + pvUID + `"}}`},
 	})
@@ -246,6 +248,7 @@ func TestCleanupVerifiesBackingVolumesAndNeverDeletesOneByHand(t *testing.T) {
 		{match: "get namespace orch-diag-aaaaaaaaaaaa", cond: "[ ! -f $DIR/ns-deleted ]", out: ownedNamespace(run)},
 		{match: "get namespace orch-diag-aaaaaaaaaaaa", stderr: `(NotFound) not found`, code: 1},
 		{match: "delete --raw /api/v1/namespaces/orch-diag-aaaaaaaaaaaa", touch: "ns-deleted"},
+		{match: "get persistentvolumeclaims", out: `{"items":[]}`},
 		{match: "get persistentvolumes", stderr: `Error from server (Forbidden): forbidden`, code: 1},
 	})
 	got = blind.session().Cleanup(ctx, resources(), run)
@@ -316,3 +319,95 @@ func (r *recorder) Record(_ context.Context, p domain.ProbeResource) error {
 	return nil
 }
 func (r *recorder) RunID() string { return "run-1" }
+
+func ownedClaim(run string) string {
+	return `{"items":[{"metadata":{"name":"probe-data-1","uid":"` + pvcUID + `","labels":{"app.kubernetes.io/managed-by":"orchestrator-diagnostics","orchestrator.io/diagnostic-run":"` + run + `","orchestrator.io/organization":"acme","orchestrator.io/account":"lab"}}}]}`
+}
+
+// A claim whose creation or record acknowledgement was lost is only INTENDED
+// with no UID. It may still exist and have bound a volume, so cleanup finds it
+// in the owned namespace, adopts its UID and follows its volume; an empty UID
+// map is never proof that no volume exists.
+func TestCleanupFindsAClaimWhoseAcknowledgementWasLost(t *testing.T) {
+	volumeWait = 2 * time.Second
+	defer func() { volumeWait = 90 * time.Second }()
+	lost := []domain.ProbeResource{
+		{Kind: "namespace", Name: "orch-diag-aaaaaaaaaaaa", UID: nsUID, State: domain.ResourceCreated},
+		{Kind: "persistentvolumeclaim", Namespace: "orch-diag-aaaaaaaaaaaa", Name: "probe-data-1", State: domain.ResourceIntended},
+	}
+	rules := func(pvc kubectlRule, volume string) []kubectlRule {
+		return []kubectlRule{
+			{match: "get namespace orch-diag-aaaaaaaaaaaa", cond: "[ ! -f $DIR/ns-deleted ]", out: ownedNamespace("run-1")},
+			{match: "get namespace orch-diag-aaaaaaaaaaaa", stderr: `(NotFound) not found`, code: 1},
+			pvc,
+			{match: "delete --raw /api/v1/namespaces/orch-diag-aaaaaaaaaaaa", touch: "ns-deleted"},
+			{match: "get persistentvolumes", out: volume},
+			{match: "get persistentvolume pvc-" + pvUID, out: `{"metadata":{"uid":"` + pvUID + `"}}`},
+		}
+	}
+	kube := newFakeKube(t, rules(kubectlRule{match: "get persistentvolumeclaims", out: ownedClaim("run-1")}, pvJSON("Retain")))
+	got := kube.session().Cleanup(context.Background(), lost, "run-1")
+	k := byKind(got)
+	if k["persistentvolumeclaim"].UID != pvcUID || k["persistentvolume"].State != domain.ResourceUnknown || domain.AllSettled(got) {
+		t.Fatalf("the lost claim and its retained volume must stay unresolved: %+v", got)
+	}
+
+	// The claim cannot be listed: its volume cannot be excluded, so it is not clean.
+	blind := newFakeKube(t, rules(kubectlRule{match: "get persistentvolumeclaims", stderr: "Error from server (Forbidden): forbidden", code: 1}, `{"items":[]}`))
+	got = blind.session().Cleanup(context.Background(), lost, "run-1")
+	if byKind(got)["persistentvolumeclaim"].State != domain.ResourceUnknown || domain.AllSettled(got) {
+		t.Fatalf("an unlistable claim must keep cleanup unconfirmed: %+v", got)
+	}
+
+	// Recovery after the namespace is already gone: the volume is still found
+	// through the claim's namespace/name even though no UID was ever recorded.
+	gone := newFakeKube(t, []kubectlRule{
+		{match: "get namespace orch-diag-aaaaaaaaaaaa", stderr: `(NotFound) not found`, code: 1},
+		{match: "get persistentvolumes", out: pvJSON("Retain")},
+		{match: "get persistentvolume pvc-" + pvUID, out: `{"metadata":{"uid":"` + pvUID + `"}}`},
+	})
+	afterwards := []domain.ProbeResource{
+		{Kind: "namespace", Name: "orch-diag-aaaaaaaaaaaa", UID: nsUID, State: domain.ResourceCreated},
+		{Kind: "persistentvolumeclaim", Namespace: "orch-diag-aaaaaaaaaaaa", Name: "probe-data-1", State: domain.ResourceIntended},
+	}
+	got = gone.session().Cleanup(context.Background(), afterwards, "run-1")
+	if byKind(got)["persistentvolume"].State != domain.ResourceUnknown || domain.AllSettled(got) {
+		t.Fatalf("a volume of an intended claim was missed after the namespace was removed: %+v", got)
+	}
+}
+
+// The requirement is judged against the whole StorageClass inventory: the
+// public fact list is truncated, a required class beyond it is still present.
+func TestStorageRequirementsUseTheFullInventory(t *testing.T) {
+	var items []string
+	for i := 1; i <= 20; i++ {
+		items = append(items, fmt.Sprintf(`{"metadata":{"name":"class-%02d"}}`, i))
+	}
+	items = append(items, `{"metadata":{"name":"zz-late"}}`)
+	kube := newFakeKube(t, []kubectlRule{{match: "get storageclass", out: `{"items":[` + strings.Join(items, ",") + `]}`}})
+	need := func(class string) *probes.Requirements {
+		return &probes.Requirements{Resolved: true, Resources: []probes.ResourceNeed{{Type: "postgres", Cluster: "lab", Storage: probes.StorageNeed{Required: true, Resolved: true, Class: class}}}}
+	}
+	session := kube.session()
+	if f := session.storageRequirements(context.Background(), need("zz-late")); f.Verdict != domain.VerdictPass || f.Reason != "STORAGE_REQUIREMENTS_MET" {
+		t.Fatalf("a present class beyond the public list was reported missing: %+v", f)
+	}
+	if f := session.storageRequirements(context.Background(), need("absent")); f.Verdict != domain.VerdictFail || f.Reason != "STORAGE_CLASS_MISSING" || f.Facts["requiredClasses"] != "absent" {
+		t.Fatalf("missing class: %+v", f)
+	}
+	listed := session.storageClasses(context.Background())
+	if len(strings.Split(listed.Facts["classes"], ",")) > 16 || listed.Facts["storageClasses"] != "21" {
+		t.Fatalf("the public list stays bounded while the count is exact: %+v", listed.Facts)
+	}
+	// Default-class requirements need exactly one default.
+	none := session.storageRequirements(context.Background(), need(""))
+	if none.Verdict != domain.VerdictFail || none.Reason != "NO_DEFAULT_STORAGE_CLASS" {
+		t.Fatalf("no default: %+v", none)
+	}
+	if f := session.storageRequirements(context.Background(), &probes.Requirements{Resolved: true, Resources: []probes.ResourceNeed{{Type: "postgres", Cluster: "lab", Storage: probes.StorageNeed{Required: true}}}}); f.Verdict != domain.VerdictUnknown || f.Reason != "STORAGE_CLASS_UNRESOLVED" {
+		t.Fatalf("an expression is not the default class: %+v", f)
+	}
+	if f := session.storageRequirements(context.Background(), nil); f.Verdict != domain.VerdictUnknown {
+		t.Fatalf("no context: %+v", f)
+	}
+}

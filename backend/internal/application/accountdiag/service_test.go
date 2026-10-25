@@ -299,8 +299,8 @@ func TestCancelStopsProbesAndVerifiesCleanup(t *testing.T) {
 	if done.CleanupStatus != domain.CleanupVerified || done.ProbeResources[0].State != domain.ResourceDeleted {
 		t.Fatalf("cleanup after cancel: %+v", done)
 	}
-	if done.Ready() || done.CompletedChecks >= done.TotalChecks && done.Counts().Pending != 0 && false {
-		t.Fatal("a cancelled run was ready")
+	if done.Ready() || done.CompletedChecks >= done.TotalChecks {
+		t.Fatalf("a cancelled run was ready or complete: %d of %d", done.CompletedChecks, done.TotalChecks)
 	}
 	byID := map[string]domain.Finding{}
 	for _, fd := range done.Findings {

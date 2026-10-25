@@ -29,9 +29,11 @@ func platformChecks(scope domain.Scope, provider []probes.Check) []probes.Check 
 		case "deploy":
 			out = append(out, probes.Check{ID: "uc.deploy.requirements", Group: "usecase", DependsOn: []string{"uc.preview.requirements", "k8s.nodes"}, AffectedUseCases: []string{use}})
 		case "database", "cache":
-			out = append(out, probes.Check{ID: "uc." + use + ".requirements", Group: "usecase", DependsOn: []string{"uc.preview.requirements", "k8s.storage.classes", "k8s.storage.provisioner"}, AffectedUseCases: []string{use}})
+			out = append(out, probes.Check{ID: "uc." + use + ".requirements", Group: "usecase", DependsOn: []string{"uc.preview.requirements", "k8s.storage.requirements", "k8s.storage.provisioner"}, AffectedUseCases: []string{use}})
 		case "secrets":
-			out = append(out, probes.Check{ID: "uc.secrets.store", Group: "usecase", DependsOn: []string{"uc.context"}, AffectedUseCases: []string{use}})
+			out = append(out,
+				probes.Check{ID: "uc.secrets.store", Group: "usecase", DependsOn: []string{"uc.context"}, AffectedUseCases: []string{use}},
+				probes.Check{ID: "uc.secrets.workload", Group: "usecase", DependsOn: []string{"uc.secrets.store"}, AffectedUseCases: []string{use}})
 		case "https":
 			out = append(out,
 				probes.Check{ID: "uc.https.requirements", Group: "usecase", DependsOn: []string{"uc.context"}, AffectedUseCases: []string{use}},
@@ -116,6 +118,14 @@ func (s *Service) evalPlatform(ctx context.Context, c probes.Check, scope domain
 		}
 		f.Facts["secretStore"] = need.SecretStoreKey
 		return f
+	case "uc.secrets.workload":
+		if gap != "" {
+			return unknownContext(gap)
+		}
+		// What workload pods can reach and whether their login role works is
+		// decided at deploy time inside the cluster: the platform runtime cannot
+		// observe it, so it is never reported as ready.
+		return domain.Finding{Verdict: domain.VerdictUnknown, Reason: "WORKLOAD_AUTH_UNOBSERVABLE", Facts: map[string]string{"evidence": "NONE"}}
 	case "uc.https.requirements":
 		if gap != "" {
 			return unknownContext(gap)
@@ -230,60 +240,15 @@ func evalCapability(use string, scope domain.Scope, acct application.Connection,
 		}
 		return domain.Finding{Verdict: domain.VerdictPass, Reason: "PLACED_ON_ACCOUNT", Facts: facts}
 	}
-	return evalStorage(placed, facts, prior)
-}
-
-// evalStorage compares the resolved storage requirements with the real
-// StorageClass inventory. An undeclared or unresolved requirement is UNKNOWN.
-func evalStorage(placed []probes.ResourceNeed, facts map[string]string, prior map[string]domain.Finding) domain.Finding {
-	var storage []probes.ResourceNeed
-	undeclared := false
-	for _, r := range placed {
-		switch {
-		case r.Storage.Required:
-			storage = append(storage, r)
-		case !r.Storage.Resolved:
-			undeclared = true
-		}
-	}
-	classes, needDefault, unresolved := (&probes.Requirements{}).StorageClassesNeeded(storage)
-	if len(storage) == 0 {
-		if undeclared {
-			return domain.Finding{Verdict: domain.VerdictUnknown, Reason: "STORAGE_REQUIREMENT_UNDECLARED", Facts: facts}
-		}
-		return domain.Finding{Verdict: domain.VerdictNA, Reason: "STORAGE_NOT_REQUIRED", Facts: facts}
-	}
-	facts["storageNeeds"] = domain.Itoa(len(storage))
-	if unresolved {
-		return domain.Finding{Verdict: domain.VerdictUnknown, Reason: "STORAGE_CLASS_UNRESOLVED", Facts: facts, Remediation: "use-literal-storage-class"}
-	}
-	inventory := prior["k8s.storage.classes"]
-	if inventory.Verdict != domain.VerdictPass {
+	// Storage is judged by the provider against the full StorageClass inventory.
+	st, ok := prior["k8s.storage.requirements"]
+	if !ok {
 		return domain.Finding{Verdict: domain.VerdictUnknown, Reason: "STORAGE_EVIDENCE_UNAVAILABLE", Facts: facts}
 	}
-	have := map[string]bool{}
-	for _, name := range splitList(inventory.Facts["classes"]) {
-		have[name] = true
+	for k, v := range st.Facts {
+		facts[k] = v
 	}
-	missing := map[string]bool{}
-	for _, c := range classes {
-		if !have[c] {
-			missing[c] = true
-		}
-	}
-	if len(classes) > 0 {
-		facts["requiredClasses"] = domain.JoinList(classes)
-	}
-	switch {
-	case len(missing) > 0:
-		facts["requiredClasses"] = domain.JoinList(sortedKeys(missing))
-		return domain.Finding{Verdict: domain.VerdictFail, Reason: "STORAGE_CLASS_MISSING", Remediation: "create-storage-class", Facts: facts}
-	case needDefault && inventory.Facts["defaultClasses"] == "0":
-		return domain.Finding{Verdict: domain.VerdictFail, Reason: "NO_DEFAULT_STORAGE_CLASS", Remediation: "set-default-storage-class", Facts: facts}
-	case needDefault && inventory.Facts["defaultClasses"] != "1":
-		return domain.Finding{Verdict: domain.VerdictFail, Reason: "MULTIPLE_DEFAULT_STORAGE_CLASSES", Remediation: "set-default-storage-class", Facts: facts}
-	}
-	return domain.Finding{Verdict: domain.VerdictPass, Reason: "STORAGE_CLASSES_PRESENT", Facts: facts}
+	return domain.Finding{Verdict: st.Verdict, Reason: st.Reason, Remediation: st.Remediation, Facts: facts}
 }
 
 func splitList(v string) []string {

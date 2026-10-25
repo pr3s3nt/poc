@@ -153,3 +153,117 @@ func TestPendingPreviewReadsOneSnapshotOnPostgres(t *testing.T) {
 	app, opts, _, bundles := requiredAppBundlesOn(t, true, postgrestest.Fresh(t).Console)
 	assertPendingPreviewIsOneSnapshot(t, app, opts, bundles)
 }
+
+// Diagnostics plan the WHOLE desired state: a saved draft before any deployment
+// and, after deployment with no drafts left, the applied workloads and their
+// resources, although Preview then has no change to show.
+func TestDesiredPlansDraftsBeforeDeployAndTheUnchangedAppliedState(t *testing.T) {
+	app, opts, _, bundles := requiredAppBundles(t, true)
+	ctx := context.Background()
+	registerRenderer(t, app, bundles, opts, "render", "internal-k8s")
+	if _, err := app.Workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "api", withDatabase("api"), 0); err != nil {
+		t.Fatal(err)
+	}
+	postgres := func(d pending.Desired) bool {
+		for _, change := range d.Preview.Changes {
+			for _, intent := range change.ResourceIntents {
+				if intent.ResourceType == "postgres" {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	before, err := app.Pending.Desired(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil || before.PlanErr != nil {
+		t.Fatalf("desired before deploy: %v %v", before.PlanErr, err)
+	}
+	if _, ok := before.Final.Modules["api"]; !ok || !postgres(before) || before.Environment.DraftVersion == 0 {
+		t.Fatalf("a saved draft was not planned before deployment: %+v", before.Final.Modules)
+	}
+
+	preview, err := app.Pending.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report, err := app.Pending.Deploy(ctx, opts.ApplicationKey, opts.EnvironmentKey, "test", preview.Token); err != nil || report.Status != "SUCCEEDED" {
+		t.Fatalf("deploy: %+v %v", report, err)
+	}
+	delta, err := app.Pending.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(delta.Changes) != 0 {
+		t.Fatalf("nothing is pending after deployment: %d", len(delta.Changes))
+	}
+	after, err := app.Pending.Desired(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil || after.PlanErr != nil {
+		t.Fatalf("desired after deploy: %v %v", after.PlanErr, err)
+	}
+	if _, ok := after.Final.Modules["api"]; !ok || !postgres(after) {
+		t.Fatalf("the applied workload and its database were lost from the diagnosed state: %+v", after.Final.Modules)
+	}
+	if after.Application.Version == 0 || len(after.Definitions) == 0 {
+		t.Fatalf("snapshot records missing: %+v", after.Application)
+	}
+}
+
+// Desired reads the drafts, configuration, Definitions and module bundles
+// through ONE snapshot: writers that commit while it runs cannot mix a newer
+// draft or Definition version into the diagnosed state.
+func TestDesiredReadsOneSnapshotAgainstConcurrentWriters(t *testing.T) {
+	app, opts, _, bundles := requiredAppBundles(t, true)
+	ctx := context.Background()
+	registerRenderer(t, app, bundles, opts, "render", "internal-k8s")
+	if _, err := app.Workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "api", withDatabase("api"), 0); err != nil {
+		t.Fatal(err)
+	}
+	reference, err := app.Pending.Desired(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil || reference.PlanErr != nil {
+		t.Fatalf("reference: %v %v", reference.PlanErr, err)
+	}
+	store := snapshotOnly{real: app.Store, planReads: new(int)}
+	store.afterFirst = func() {
+		env, _ := app.Store.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+		changed := withDatabase("api")
+		changed["containers"].(map[string]any)["main"].(map[string]any)["image"] = "api:v9"
+		if _, err := app.Workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "api", changed, env.DraftVersion); err != nil {
+			t.Error(err)
+		}
+		defs, _ := app.Store.ListResourceDefinitions(ctx, opts.OrganizationKey)
+		for _, d := range defs {
+			d.Version += 10
+			_ = app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, d)
+		}
+	}
+	service := pending.NewService(store, planning.NewRequiredRendererService(bundles), workloadconfig.NewService(app.Store), planning.RegistryInspector{Metadata: app.Modules})
+	var got pending.Desired
+	func() {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				t.Fatalf("a read was issued outside the snapshot view: %v", recovered)
+			}
+		}()
+		got, err = service.Desired(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	}()
+	if err != nil || got.PlanErr != nil {
+		t.Fatalf("desired: %v %v", got.PlanErr, err)
+	}
+	if got.Environment.DraftVersion != reference.Environment.DraftVersion || got.Preview.Token != reference.Preview.Token {
+		t.Fatalf("the draft changed mid-snapshot was visible: %d vs %d", got.Environment.DraftVersion, reference.Environment.DraftVersion)
+	}
+	pins := func(d pending.Desired) map[string]int64 {
+		out := map[string]int64{}
+		for _, def := range d.Definitions {
+			out[def.Key] = def.Version
+		}
+		return out
+	}
+	if !reflect.DeepEqual(pins(got), pins(reference)) {
+		t.Fatalf("a Definition changed mid-snapshot was visible:\n%v\n%v", pins(got), pins(reference))
+	}
+	later, err := app.Pending.Desired(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil || later.Environment.DraftVersion == reference.Environment.DraftVersion {
+		t.Fatalf("a later read must see the committed writers: %v", err)
+	}
+}

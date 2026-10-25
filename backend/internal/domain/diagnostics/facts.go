@@ -74,7 +74,7 @@ var factKinds = map[string]factKind{
 	"deniedGroups": kList, "unprovenGroups": kList, "missingCrds": kList, "regions": kList, "services": kList,
 	"installed": kList, "ingressClasses": kList, "requiredClasses": kList, "definitionKeys": kList, "resourceTypes": kList,
 	// flags and enums
-	"insecure": kBool, "sealed": kBool, "tokenAccepted": kBool, "pending": kCount, "stage": kName, "planReason": kName, "providers": kList, "classesTested": kList, "reclaimPolicy": kEnum, "default": kBool, "hostMatch": kBool, "required": kBool, "contextProvided": kBool,
+	"insecure": kBool, "authConfigured": kBool, "sealed": kBool, "tokenAccepted": kBool, "pending": kCount, "stage": kName, "planReason": kName, "providers": kList, "classesTested": kList, "reclaimPolicy": kEnum, "default": kBool, "hostMatch": kBool, "required": kBool, "contextProvided": kBool,
 	"tlsMode": kEnum, "principalType": kEnum, "evidence": kEnum, "role": kEnum, "groups": kList,
 	// remote identity
 	"host": kHostPort, "endpoint": kHostPort, "accountId": kAccount, "region": kRegion,

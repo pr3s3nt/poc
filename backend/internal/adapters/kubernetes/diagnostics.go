@@ -93,6 +93,9 @@ func (Diagnostics) Plan(scope domain.Scope, req *probes.Requirements) []probes.C
 			probes.Check{ID: "k8s.storage.classes", Group: groupStorage, DependsOn: []string{"k8s.auth"}, AffectedUseCases: affect("database", "cache")},
 			probes.Check{ID: "k8s.storage.provisioner", Group: groupStorage, DependsOn: []string{"k8s.storage.classes"}, AffectedUseCases: affect("database", "cache")})
 	}
+	if storage {
+		checks = append(checks, probes.Check{ID: "k8s.storage.requirements", Group: groupStorage, DependsOn: []string{"k8s.storage.classes"}, AffectedUseCases: affect("database", "cache")})
+	}
 	if general {
 		checks = append(checks, probes.Check{ID: "k8s.controllers", Group: groupPlatf, DependsOn: []string{"k8s.auth"}})
 	}
@@ -283,6 +286,8 @@ func (s *kubeSession) Run(ctx context.Context, c probes.Check, prior map[string]
 		return s.storageClasses(ctx)
 	case "k8s.storage.provisioner":
 		return s.provisioner(ctx, prior)
+	case "k8s.storage.requirements":
+		return s.storageRequirements(ctx, req)
 	case "k8s.controllers":
 		return s.controllers(ctx)
 	case "k8s.vso.crd":
