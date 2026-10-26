@@ -297,7 +297,10 @@ export async function onboardAwsAccount(kit, aws) {
  */
 export async function registerCatalogDefinition(kit, entry, { accountName, region, subs }) {
   const { page, h, choose, get } = kit;
+  const create = page.getByRole('button', { name: 'Tạo cấu hình', exact: true });
+  if (await create.isVisible()) await h.click(create);
   const section = page.getByRole('region', { name: 'Đăng ký cấu hình tài nguyên', exact: true });
+  await h.click(section.getByRole('tab', { name: 'Cấu hình', exact: true }));
   const form = (name) => kit.form(name, section);
   const { decodeCatalogOverride } = await import('./terraform-v2-steps.mjs');
   await h.type(form('ID cấu hình (Definition ID)'), entry.id);
