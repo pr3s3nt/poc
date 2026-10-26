@@ -120,6 +120,35 @@ export function kubernetesNotFound(result) {
   throw new Error('Kubernetes API did not prove resource absence');
 }
 
+export async function registerAwsWorkloadTemplate(kit) {
+  const { page, h, nav } = kit;
+  // ADR-021: inspect and register the same public Git bundle through the current UI.
+  // A packaged renderer ID from the historical AWS fixture is no longer a source.
+  await h.click(nav('Mẫu dựng ứng dụng'));
+  await h.type(page.getByLabel('ID mẫu', { exact: true }), 'render-eks');
+  await h.type(page.getByLabel('Tên hiển thị', { exact: true }), 'AWS production workload');
+  const bundleSource = {
+    url: 'https://github.com/pr3s3nt/workload-manifests.git', path: 'bundles/production',
+    ref: '9d5b31be06f3b0b7d4051296e98f4176514ee5fc',
+  };
+  await h.type(page.getByLabel('Git HTTPS URL', { exact: true }), bundleSource.url);
+  await h.type(page.getByLabel('Thư mục bundle', { exact: true }), bundleSource.path);
+  await h.type(page.getByLabel('Tag hoặc commit', { exact: true }), bundleSource.ref, { replace: true });
+  const inspection = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/v1/render-bundles/inspect', { timeout: 180_000 });
+  await h.click(page.getByRole('button', { name: 'Kiểm tra bundle', exact: true }));
+  const inspected = await inspection;
+  expect(inspected.status()).toBe(200);
+  const bundlePin = (await inspected.json()).renderBundle;
+  expect(bundlePin.source.revision).toBe(bundleSource.ref);
+  await h.type(page.getByLabel('Team', { exact: true }), 'payments');
+  await h.click(page.getByRole('button', { name: 'Dùng gợi ý namespace', exact: true }));
+  await h.type(page.getByLabel('Tham chiếu cluster', { exact: true }), CLUSTER_REF, { replace: true });
+  const templateSaved = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/resource-definitions');
+  await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }));
+  expect((await templateSaved).status()).toBe(201);
+  return { bundleSource, bundlePin };
+}
+
 export async function awsDefinitionScenario(ctx, scenario, { forbidden }) {
   const { page, h, rec, input, phase } = ctx;
   const kit = makeKit(ctx);
@@ -180,30 +209,7 @@ export async function awsDefinitionScenario(ctx, scenario, { forbidden }) {
   const awsDefs = stored.filter((d, i) => entries[i].provider === 'aws');
   const accountsOk = awsDefs.every((d) => d?.driverAccount === accountKey && d.driverInputs?.values?.variables?.region === input.aws.region);
   rec.record('ui.definitions.registered', 'FORM', 'ui', stored.every(Boolean) && pinned && accountsOk, `definitions ${stored.map((d) => d?.key).join(',')} pinned=${pinned}; every AWS Definition names its own Driver Account and the literal region`);
-  // ADR-021: inspect and register the same public Git bundle through the current UI.
-  // A packaged renderer ID from the historical AWS fixture is no longer a source.
-  await h.click(nav('Mẫu dựng ứng dụng'));
-  await h.type(page.getByLabel('ID mẫu', { exact: true }), 'render-eks');
-  await h.type(page.getByLabel('Tên hiển thị', { exact: true }), 'AWS production workload');
-  const bundleSource = {
-    url: 'https://github.com/pr3s3nt/workload-manifests.git', path: 'bundles/production',
-    ref: '9d5b31be06f3b0b7d4051296e98f4176514ee5fc',
-  };
-  await h.type(page.getByLabel('Git HTTPS URL', { exact: true }), bundleSource.url);
-  await h.type(page.getByLabel('Thư mục bundle', { exact: true }), bundleSource.path);
-  await h.type(page.getByLabel('Tag hoặc commit', { exact: true }), bundleSource.ref, { replace: true });
-  const inspection = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/v1/render-bundles/inspect', { timeout: 180_000 });
-  await h.click(page.getByRole('button', { name: 'Kiểm tra bundle', exact: true }));
-  const inspected = await inspection;
-  expect(inspected.status()).toBe(200);
-  const bundlePin = (await inspected.json()).renderBundle;
-  expect(bundlePin.source.revision).toBe(bundleSource.ref);
-  await h.type(page.getByLabel('Team', { exact: true }), 'payments');
-  await h.click(page.getByRole('button', { name: 'Dùng gợi ý namespace', exact: true }));
-  await h.type(page.getByLabel('Tham chiếu cluster', { exact: true }), CLUSTER_REF, { replace: true });
-  const templateSaved = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/resource-definitions');
-  await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }));
-  expect((await templateSaved).status()).toBe(201);
+  const { bundleSource, bundlePin } = await registerAwsWorkloadTemplate(kit);
   await signOut();
 
   // ===================== FORM: Developer =====================
