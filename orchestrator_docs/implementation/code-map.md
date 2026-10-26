@@ -21,6 +21,10 @@ last_reviewed: 2026-10-26
   `frontend/test/e2e/terraform-completion-flows.mjs`; see
   [the runbook](../operations/terraform-completion-kind.md) and
   [57-check real acceptance](../verification/2026-10-26-terraform-resource-completion.md).
+  Subsequent AWS execution and its unresolved node-join gate are recorded in
+  [AWS attempt/cleanup](../verification/2026-10-26-terraform-completion-aws-r5.md).
+  The current AWS fixture uses `terraform-v2-acceptance.sh` and
+  `restart-owned-product.sh` for durable Git cache and actual process restart.
 
 ## Verified feature defect fixes — F3/F4/F5
 

@@ -20,9 +20,15 @@ passed **57/57** checks (21 completion-specific): shared/private resources,
 actual output consumption, valid in-place update, stable UIDs/state identities,
 PostgreSQL/Redis job flow and product cleanup. Namespace, isolated kind cluster,
 Compose containers/volumes, workload Vault and run image tags were verified
-absent. No AWS execution is claimed. See the
+absent. Subsequent real EKS/Aurora/ElastiCache testing has not completed
+acceptance: R4 passed the job/cache/valid-update flow but exposed a runner
+cache/restart configuration error, now corrected; R5 stopped on EKS node join
+after AWS denied creation of its default security-group ingress. Both runs
+were cleaned with independent native proof; no merge is claimed. The
+security-group remediation choice is pending. See the
 [verification record](verification/2026-10-26-terraform-resource-completion.md)
-and [runbook](operations/terraform-completion-kind.md).
+and [AWS attempt/cleanup record](verification/2026-10-26-terraform-completion-aws-r5.md),
+plus [runbook](operations/terraform-completion-kind.md).
 
 ## F3/F4/F5 corrections — accepted on kind — 2026-10-25
 
