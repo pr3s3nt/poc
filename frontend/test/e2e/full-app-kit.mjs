@@ -257,7 +257,8 @@ export function makeKit(ctx) {
   const deployAndWait = async (timeoutMs) => {
     await deploy();
     const result = page.getByLabel('Kết quả triển khai');
-    await expect(result).toContainText('Triển khai thành công', { timeout: timeoutMs });
+    await expect(result).toContainText(/Triển khai (thành công|thất bại)/, { timeout: timeoutMs });
+    await expect(result).toContainText('Triển khai thành công');
     return result;
   };
   /** Opens the newest deployment's detail page and returns the persisted detail JSON of every deployment. */

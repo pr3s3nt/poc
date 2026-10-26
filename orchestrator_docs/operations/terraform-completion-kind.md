@@ -86,3 +86,13 @@ for IAM, subnets, routing, security groups and service configuration alongside
 the supplemental VPC/EKS/RDS/ElastiCache probes. No intentional failure paths
 are introduced. Keep the independent supervisor and original durable encrypted
 state/Vault handles until every native service absence check succeeds.
+
+The AWS fixture passes a durable `-render-bundle-cache-dir` from its first
+startup. Metadata in PostgreSQL alone does not preserve a Git artifact after
+the temporary default cache closes. Its planned restart uses
+`backend/test/integration/restart-owned-product.sh`, preserving the original
+private executable, environment, state/credential handles and API port. The
+browser requires the real restart command and verifies a changed PID plus
+healthy startup; a missing command cannot silently become a no-op. The runner
+tracks the replacement PID for reopen and teardown. A terminal failed deploy
+fails the browser promptly and starts the existing guarded cleanup.

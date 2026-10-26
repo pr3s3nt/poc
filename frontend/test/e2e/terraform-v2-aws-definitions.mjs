@@ -573,7 +573,11 @@ export async function awsDefinitionScenario(ctx, scenario, { forbidden }) {
     `the run-tagged AWS asset set is identical after the update (${afterUpdate.length} assets, one EKS cluster): nothing was duplicated or replaced`);
   await signOut();
   const { execFileSync: run } = await import('node:child_process');
-  run(process.env.ORCH_E2E_RESTART_CMD ?? 'true', { stdio: 'ignore' });
+  if (!process.env.ORCH_E2E_RESTART_CMD) throw new Error('the real product restart command is required');
+  run(process.env.ORCH_E2E_RESTART_CMD, { stdio: 'ignore' });
+  const restarted = JSON.parse(readFileSync(`${input.privateDir}/product-restart.json`, 'utf8'));
+  expect(restarted.beforePid).not.toBe(restarted.afterPid);
+  expect(restarted.healthPassed && restarted.sameOriginalHandles).toBe(true);
   await page.reload();
   await expect(page.getByLabel('Tên đăng nhập', { exact: true }).or(page.getByRole('button', { name: 'Đăng xuất', exact: true }))).toBeVisible({ timeout: 120_000 });
   if (await page.getByRole('button', { name: 'Đăng xuất', exact: true }).isVisible()) await signOut();

@@ -47,7 +47,7 @@ while (( $# )); do
   esac
 done
 [[ -n "${CONFIG}" && ( "${PREPARE_ONLY}" == 1 || "${BROWSER_ONLY}" == 1 || ( "${HEADED}" == 1 && "${CAPTIONS}" == vi ) ) ]] || usage
-REQUIRED_TOOLS=(node go curl)
+REQUIRED_TOOLS=(node go curl jq setsid)
 if [[ "${BROWSER_ONLY}" != 1 ]]; then REQUIRED_TOOLS+=(ffmpeg ffprobe Xvfb xdotool); fi
 if [[ "${PREPARE_ONLY}" == 1 ]]; then REQUIRED_TOOLS=(go); fi
 for tool in "${REQUIRED_TOOLS[@]}"; do command -v "${tool}" >/dev/null || { echo "${tool} is required" >&2; exit 2; }; done
@@ -156,6 +156,7 @@ stop_owned_child() {
 # same verified cleanup. State and recovery evidence stay when it needs attention.
 cleanup() {
   local code=$? pid
+  [[ ! -s "${PRIVATE}/server.pid" ]] || SERVER_PID="$(cat "${PRIVATE}/server.pid")"
   if [[ "${SUPERVISED}" == 1 && "${FINISHED}" == 0 ]]; then
     "${CTL}" supervisor-finish -private "${PRIVATE}" 2>/dev/null || true
     FINISHED=1
@@ -353,6 +354,7 @@ start_product() {
     -adapters "${ADAPTERS}" ${AWS_FLAGS[@]+"${AWS_FLAGS[@]}"} -profile acceptance-v2 -namespace "${NAMESPACE}" -run-id "${RUN_ID}" -owner "${OWNER}" -ttl "${EXEC_SECONDS}s" \
     -score-k8s "${SCORE_K8S}" -terraform "${TERRAFORM}" -kubectl "${KUBECTL}" -git git \
     -terraform-root "${PRIVATE}/tfroot" -terraform-plugin-cache "${PRIVATE}/plugin-cache" -terraform-module-cache-dir "${PRIVATE}/module-cache" \
+    -render-bundle-cache-dir "${PRIVATE}/render-bundle-cache" \
     -terraform-recovery-dir "${PRIVATE}/recovery" -terraform-state-key-file "${PRIVATE}/state.key" -terraform-state-key-id "v2-${RUN_ID}" \
     -terraform-state-database-url-file "${PRIVATE}/state.url" -database-url-file "${PRIVATE}/console.url" \
     -connection-credential-store vault -connection-vault-address "${VAULT_ADDR_LOCAL}" -connection-vault-token-file "${PRIVATE}/connection-vault-token" -connection-vault-mount secret \
@@ -361,6 +363,7 @@ start_product() {
     -workload-delivery direct -vault-delivery "${VAULT_DELIVERY}" -application-key "${APPLICATION_KEY}" \
     > "${log}" 2>&1 &
   SERVER_PID=$!
+  printf '%s\n' "${SERVER_PID}" > "${PRIVATE}/server.pid"
   for _ in $(seq 1 240); do [[ -s "${addr_file}" ]] && break; kill -0 "${SERVER_PID}" 2>/dev/null || break; sleep 0.25; done
   [[ -s "${addr_file}" ]] || { echo "the product did not start; see ${log}" >&2; return 1; }
   API="http://$(<"${addr_file}")"
@@ -457,10 +460,12 @@ if [[ "${BROWSER_ONLY}" != 1 ]]; then
 fi
 RAW="${WORK}/${SCENARIO}-raw.mp4"
 GATE="${PRIVATE}/start-gate"
+printf '#!/usr/bin/env bash\nexec bash %q %q\n' "${ROOT}/test/integration/restart-owned-product.sh" "${PRIVATE}" > "${PRIVATE}/restart-server.sh"
+chmod 0700 "${PRIVATE}/restart-server.sh"
 : > "${WORK}/playwright.log"
 tail -n +1 -f "${WORK}/playwright.log" &
 PIDS+=($!)
-DISPLAY="${VIDEO_DISPLAY}" ORCH_E2E_SCREEN="${SCREEN}" ORCH_E2E_XDOTOOL="${XDOTOOL}" ORCH_E2E_START_GATE="${GATE}" \
+DISPLAY="${VIDEO_DISPLAY}" ORCH_E2E_SCREEN="${SCREEN}" ORCH_E2E_XDOTOOL="${XDOTOOL}" ORCH_E2E_START_GATE="${GATE}" ORCH_E2E_RESTART_CMD="${PRIVATE}/restart-server.sh" \
   ORCH_E2E_URL="${API}" ORCH_E2E_EVIDENCE_DIR="${WORK}" ORCH_E2E_INPUT="${PRIVATE}/scenario-input.json" \
   PATH="${PATH}" setsid node "${E2E}/terraform-v2-acceptance.mjs" --scenario "${SCENARIO}" "${BROWSER_ARGS[@]}" --evidence "${WORK}" \
   > "${WORK}/playwright.log" 2>&1 &
@@ -513,6 +518,7 @@ fi
 "${CTL}" manifest-public -manifest "${MANIFEST}" -out "${WORK}/manifest.public.json"
 
 # SQL reopen: restart the product on the same database and read the catalog back.
+SERVER_PID="$(cat "${PRIVATE}/server.pid")"
 kill -TERM "${SERVER_PID}" 2>/dev/null || true
 for _ in $(seq 1 40); do kill -0 "${SERVER_PID}" 2>/dev/null || break; sleep 0.25; done
 wait "${SERVER_PID}" 2>/dev/null || true
