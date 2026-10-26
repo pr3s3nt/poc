@@ -312,6 +312,8 @@ export async function registerCatalogDefinition(kit, entry, { accountName, regio
     await choose(form('Tài khoản hạ tầng'), accountName);
     await h.type(form('Vùng AWS'), region);
   }
+  const advanced = section.locator('details.definition-advanced');
+  if (await advanced.getAttribute('open') === null) await h.click(advanced.locator('summary').first());
   const inputMapping = section.getByRole('button', { name: 'Ghép đầu vào theo tên trùng', exact: true });
   if (await inputMapping.isVisible()) await h.click(inputMapping);
   await h.click(section.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }));
@@ -320,12 +322,11 @@ export async function registerCatalogDefinition(kit, entry, { accountName, regio
   }
   await applyCatalogSources(kit, entry);
   for (const [name, encoded] of entry.overrides ?? []) await provideSource(kit, name, { literal: decodeCatalogOverride(encoded, subs) });
-  if (entry.klass && entry.klass !== 'default') {
-    await h.click(section.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
+  if (entry.klass) {
+    await h.click(section.getByRole('tab', { name: /Điều kiện áp dụng/ }));
+    await h.click(section.getByRole('button', { name: '+ Thêm điều kiện', exact: true }));
+    await section.getByLabel('Trường hợp 1 thuộc tính 1').selectOption('class');
     await h.type(form('Điều kiện 1 Class'), entry.klass);
-  } else if (entry.klass === 'default') {
-    await h.click(section.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
-    await h.type(form('Điều kiện 1 Class'), 'default');
   }
   await h.pause(SHORT_READ);
   await h.click(section.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên', exact: true }));

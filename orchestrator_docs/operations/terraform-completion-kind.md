@@ -9,7 +9,10 @@ last_reviewed: 2026-10-26
 
 User authorization 2026-10-26: verify complex successful user flows through
 headed Playwright with real backend, Terraform, PostgreSQL, Vault and kind.
-No fake adapters, mock services or intercepted success responses. No AWS calls.
+No fake adapters, mock services or intercepted success responses. The kind
+command below makes no AWS calls. Additional authorization on 2026-10-26
+requests full AWS EKS/Aurora/ElastiCache happy-path acceptance and merge to
+`main` only after successful validation and verified cleanup.
 Canonical behavior: [UC-08 BR-10](../usecase/UC-08/specification.md),
 [completion contract](../architecture/contracts/terraform-modules.md#resource-completion-and-supplemental-readiness).
 
@@ -62,3 +65,24 @@ and supplemental failures; the live run only uses successful user scenarios.
 Screenshots and sanitized assertions remain outside Git; state ciphertext,
 credential files and secret values never enter public evidence. An actual
 execution result belongs in a dated verification record.
+
+## Additional real AWS acceptance
+
+Use `backend/test/integration/terraform-v2-acceptance.sh --config <private-config>
+--browser-only` with scenario `A02`, following [AWS verification](aws.md) and
+the [AWS acceptance safety contract](terraform-v2-acceptance.md). The application
+runs on a newly authored EKS graph with managed Aurora and ElastiCache, rather
+than kind. Reuse the source-bound completed V04 predecessor receipt and retain
+the current completion-specific kind proof alongside it; do not manufacture a
+replacement admission receipt. Recheck account/region, /32 executor access,
+current prices, exact planned counts, provider pins and finite deadlines.
+
+The current AWS browser authors the production Git render bundle at commit
+`9d5b31be06f3b0b7d4051296e98f4176514ee5fc` through inspection and the template
+form (ADR-021), and uses the current Definition tabs. All existing main-flow
+assertions, real jobs/cache/SQL checks, valid update, restart/reuse and guarded
+reverse cleanup stay enabled. Mixed AWS modules exercise provider completion
+for IAM, subnets, routing, security groups and service configuration alongside
+the supplemental VPC/EKS/RDS/ElastiCache probes. No intentional failure paths
+are introduced. Keep the independent supervisor and original durable encrypted
+state/Vault handles until every native service absence check succeeds.
