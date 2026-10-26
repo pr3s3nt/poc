@@ -2,7 +2,7 @@
 id: UC-08-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-26
 ---
 
 # UC-08 — Use Case Realization
@@ -46,7 +46,7 @@ ResourceProvisioningService.Provision(ctx context.Context, req ProvisionRequest)
 | MS-02 | Resolve instance/state theo Organization/Environment/generation/descriptor/ scope; persist physical intent/action/ownership trước call. |
 | MS-03 | Resolve context, resource inputs và outputs từ completed providers. |
 | MS-04–MS-05 | Kiểm module/input digests; `ResourceExecutor.Execute` CREATE hoặc non-destructive UPDATE dưới Environment owner và state lock. |
-| MS-06 | State backend acknowledge; kiểm Type outputs/readiness và store Secret refs. |
+| MS-06 | State backend acknowledge; kiểm Type outputs, provider completion và mọi supplemental readiness áp dụng theo BR-10; store Secret refs. |
 | MS-07 | Persist Active Resource/executor state + deployment-resource status trong transaction ngắn. |
 | MS-08–MS-09 | Thêm outputs vào run context, tiếp tục batch kế tiếp. |
 | MS-10 | Trả `ProvisionResult` map descriptor -> outputs/target. |
@@ -59,6 +59,13 @@ ResourceProvisioningService.Provision(ctx context.Context, req ProvisionRequest)
   Kubernetes modules tạo namespace/Redis/PostgreSQL.
 
 ## Transaction boundary
+
+Theo BR-10, Terraform provider completion áp dụng cho mọi loại managed resource
+trong verified module. `ReadinessChecker` kiểm đủ address/type và deadline,
+sử dụng ID provider công bố khi probe cần nó (không giả định mọi schema có ID),
+sau đó chạy mọi probe Kubernetes/AWS hiện có cho các objects tương ứng. Module
+không có object cần probe bổ sung vẫn hoàn tất; module hỗn hợp không được bỏ
+qua probe thất bại. EKS target usability và namespace provenance giữ nguyên.
 
 Không có distributed transaction. Mỗi external provision call nằm ngoài DB transaction; kết quả của từng node được persist ngay bằng upsert idempotent theo logical identity. Happy path chạy batches tuần tự; concurrency trong batch có thể bổ sung mà không đổi contract.
 

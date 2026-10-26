@@ -9,6 +9,12 @@ export const NAMESPACE_CONTEXT = { context: 'env.namespace' };
 export const NAMESPACE_OUTPUT = { resource: { type: 'k8s-namespace', class: 'default', scope: 'environments.@app.@env', output: 'name' } };
 
 async function openChooser({ page, h }, name) {
+  // Optional/defaulted settings are folded in the current Definition UI.
+  // Open their group with an ordinary click before choosing an override.
+  const groups = page.locator(`.source-card[data-variable=${JSON.stringify(name)}]`).locator('xpath=ancestor::details');
+  for (const group of await groups.all()) {
+    if (await group.getAttribute('open') === null) await h.click(group.locator(':scope > summary'));
+  }
   await h.click(page.getByRole('button', { name: new RegExp(`^(Cung cấp giá trị|Thay đổi) ${escape(name)}$`) }));
   const dialog = page.getByRole('dialog', { name: 'Chọn nguồn giá trị' });
   await expect(dialog).toBeVisible();

@@ -128,14 +128,21 @@ export function makeKit(ctx) {
   const nav = (name) => page.getByRole('link', { name: new RegExp(`(^|\\s)${name}$`) });
   const get = async (path) => requiredJSON(await page.request.get(`${baseURL}/api/v1${path}`), path);
   const wrapped = new Set(['Loại tài nguyên', 'Module đã kiểm chứng', 'Tài khoản hạ tầng', 'Bundle dựng ứng dụng', 'Cách cung cấp cluster', 'Nhóm cluster của provider kubernetes', 'Tài khoản Internal của cluster']);
+  // Match the beginning of a wrapping label, not text inside its <option>s:
+  // a Type awaiting its first module says "chưa có module đã kiểm chứng" and
+  // must not turn the Type selector into the module selector.
   const form = (name, scope = page) => (wrapped.has(name)
-    ? scope.locator(`select[aria-label="${name}"], label:has-text("${name}") > select`).first()
+    ? scope.locator(`select[aria-label="${name}"]`).or(scope.locator('label')
+      .filter({ hasText: new RegExp(`^\\s*${exactTextPattern(name).slice(1, -1)}`) }).locator(':scope > select')).first()
     : scope.getByLabel(name, { exact: true }));
   const alertBox = () => page.getByRole('alert').first();
   const optionLabel = async (select, prefix) => {
-    const texts = await select.locator('option').allTextContents();
-    const found = texts.find((text) => text.trim().startsWith(prefix));
-    if (!found) throw new Error(`no option starting with "${prefix}"`);
+    let found = '';
+    await expect.poll(async () => {
+      const texts = await select.locator('option').allTextContents();
+      found = texts.find((text) => text.trim().startsWith(prefix)) ?? '';
+      return found;
+    }, { message: `waiting for option starting with "${prefix}"`, timeout: 30_000 }).not.toBe('');
     return found;
   };
   const choose = async (select, prefix) => h.choose(select, await optionLabel(select, prefix));
@@ -250,7 +257,8 @@ export function makeKit(ctx) {
   const deployAndWait = async (timeoutMs) => {
     await deploy();
     const result = page.getByLabel('Kết quả triển khai');
-    await expect(result).toContainText('Triển khai thành công', { timeout: timeoutMs });
+    await expect(result).toContainText(/Triển khai (thành công|thất bại)/, { timeout: timeoutMs });
+    await expect(result).toContainText('Triển khai thành công');
     return result;
   };
   /** Opens the newest deployment's detail page and returns the persisted detail JSON of every deployment. */

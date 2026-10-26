@@ -46,7 +46,10 @@ loop Provider-first Terraform nodes
   Terraform --> Service: outputs + observed IDs / safe failure
   alt successful resource and state acknowledgement
     Service -> Results: Persist READINESS stage/timestamps [REV-01]
-    Service -> Validator: Validate Type outputs and readiness
+    Service -> Validator: Validate Type outputs and provider completion [BR-10]
+    opt resource has a supplemental Kubernetes/AWS readiness probe
+      Service -> Validator: Require every applicable probe to pass (also mixed modules)
+    end
     opt cluster producer is EKS [ADR-017]
       Service -> Credentials: Resolve original AWS identity; mint fresh auth privately
       Service -> Validator: Verify API/auth/network/Ready node capacity

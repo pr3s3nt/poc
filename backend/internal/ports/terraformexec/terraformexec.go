@@ -221,7 +221,9 @@ type StateResource struct {
 	Address  string
 	Type     string
 	Provider string
-	ID       string
+	// ID is optional: provider schemas such as kubernetes_manifest have no
+	// id attribute. Resource addresses still identify managed entries in state.
+	ID string
 	// UID is the provider-assigned object UID recorded in state (for example
 	// metadata.uid of a Kubernetes object); empty when the type has none.
 	UID string
@@ -297,9 +299,10 @@ type ReadinessRequest struct {
 // error is an unknown readiness result.
 var ErrNotReady = errors.New("terraformexec: the provisioned resource is not ready")
 
-// ReadinessChecker queries the real Kubernetes or AWS API within a bounded
-// deadline after state is acknowledged. It returns ErrNotReady (wrapped with
-// safe IDs only) when not ready; it never fakes readiness.
+// ReadinessChecker completes UC-08 BR-10 after successful Terraform execution,
+// state acknowledgement and output validation. Provider completion covers all
+// managed resource types; applicable supplemental Kubernetes/AWS probes must
+// also pass within the deadline. ErrNotReady contains safe IDs only.
 type ReadinessChecker interface {
 	Check(ctx context.Context, req ReadinessRequest) error
 }

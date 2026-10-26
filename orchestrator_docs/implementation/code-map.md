@@ -2,10 +2,32 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-25
+last_reviewed: 2026-10-26
 ---
 
 # Design-to-code map
+
+## Generic Terraform resource completion — UC-08 BR-10
+
+- Completion after successful execution/state/output validation:
+  `application/tfexec/run.go`, `adapters/terraform/readiness/readiness.go`,
+  `ports/terraformexec/terraformexec.go`. Additional Kubernetes/AWS probes remain
+  mandatory for every applicable object in a mixed module.
+- Real Git module: `backend/test/acceptance/terraform-completion/main.tf`.
+  ConfigMap, ServiceAccount and `kubernetes_manifest` objects feed two shared
+  consumers and one private consumer in the real full-application scenario;
+  manifest resources exercise provider schemas without an `id` attribute.
+- Acceptance: `workload-manifests-kind.sh --completion-ref <published-commit>`,
+  `frontend/test/e2e/terraform-completion-flows.mjs`; see
+  [the runbook](../operations/terraform-completion-kind.md) and
+  [57-check real acceptance](../verification/2026-10-26-terraform-resource-completion.md).
+  Subsequent AWS execution and its unresolved node-join gate are recorded in
+  [AWS attempt/cleanup](../verification/2026-10-26-terraform-completion-aws-r5.md).
+  [The scope/source review](../verification/2026-10-26-terraform-completion-scope-review.md)
+  maps the completed positive AWS flows reused for this fix and preserves the
+  limits of the failed full historical harness.
+  The current AWS fixture uses `terraform-v2-acceptance.sh` and
+  `restart-owned-product.sh` for durable Git cache and actual process restart.
 
 ## Verified feature defect fixes — F3/F4/F5
 

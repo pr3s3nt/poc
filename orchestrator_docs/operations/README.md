@@ -2,10 +2,14 @@
 id: OPERATIONS-INDEX
 artifact: operations-index
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-26
 ---
 
 # Operations index
+
+[Generic Terraform resource completion on kind](terraform-completion-kind.md)
+verifies UC-08 BR-10 with real Git modules and the full application, including
+shared/private resources, valid updates and product cleanup.
 
 | Environment | Runbook | External mutation |
 |---|---|---|

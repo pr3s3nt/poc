@@ -17,6 +17,7 @@ import {
   FULL_APP_TYPES, onboardInternalAccount, registerTypesUi, registerExistingCluster, registerK8sModuleDefinition,
   configureEnvironment, openFrontend, reconnectFrontend, waitRowsPass, submitJob, CHECK_ROWS,
 } from './full-app-flows.mjs';
+import { completionType, registerCompletionModule, bindCompletion, completionSnapshot } from './terraform-completion-flows.mjs';
 
 const env = (name) => {
   const value = process.env[name];
@@ -27,6 +28,7 @@ const baseURL = env('WM_URL');
 const evidenceDir = env('WM_EVIDENCE');
 const privateDir = env('WM_PRIVATE');
 const runId = env('WM_RUN_ID');
+const completionRef = process.env.WM_COMPLETION_REF ?? '';
 const source = { url: env('WM_GIT_URL'), path: env('WM_GIT_PATH'), ref: env('WM_GIT_REF'), commit: env('WM_COMMIT') };
 const baseDomain = env('WM_BASE_DOMAIN');
 const [gatewayNamespace, gatewayName] = env('WM_GATEWAY').split('/');
@@ -78,6 +80,7 @@ const saveFacts = () => writeFileSync(`${evidenceDir}/facts.json`, JSON.stringif
 let kit;
 let tech;
 let front;
+let completionBefore;
 const owned = async (kinds) => {
   const r = await tech.kubectl(['-n', input.namespace, 'get', kinds, '-l', 'app.kubernetes.io/managed-by=orchestrator', '-o', 'json']);
   if (r.code !== 0) throw new Error(`kubectl get ${kinds} failed`);
@@ -107,9 +110,14 @@ async function previewDeploy(label, expectedWorkloads, expectations) {
   await expectations(preview);
   await shot(`${label}-preview`);
   const deploy = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(`${kit.appPath}/deploy`), { timeout: 1_200_000 });
-  await kit.deployAndWait(1_200_000);
-  const result = await (await deploy).json();
-  if (result.status !== 'SUCCEEDED') throw new Error(`${label} deploy status ${result.status}`);
+  const [result] = await Promise.all([
+    deploy.then(async (response) => {
+      const report = await response.json();
+      if (report.status !== 'SUCCEEDED') throw new Error(`${label} deploy status ${report.status}`);
+      return report;
+    }),
+    kit.deployAndWait(1_200_000),
+  ]);
   await shot(`${label}-deployed`);
   return { preview, result };
 }
@@ -168,7 +176,7 @@ try {
     check(`WM-E01.empty-${path}`, (await kit.get(`/${path}`))[key].length === 0, `${path} starts empty`);
   }
   await onboardInternalAccount(kit);
-  await registerTypesUi(kit, FULL_APP_TYPES);
+  await registerTypesUi(kit, completionRef ? [...FULL_APP_TYPES, completionType] : FULL_APP_TYPES);
   const storeKey = await kit.platform.registerSecretStore({ name: 'Run Workload Vault', backendAddress: env('WM_VAULT_ADDR'), workloadAddress: env('WM_VAULT_ADDR'), mount: 'kv', authMount: 'kubernetes' }, readFileSync(env('WM_WORKLOAD_VAULT_TOKEN_FILE'), 'utf8').trim());
   await registerExistingCluster(kit, { id: 'run-cluster', accountName: input.account.name, appKey: '' });
   for (const spec of [
@@ -178,6 +186,10 @@ try {
   ]) {
     const stored = await registerK8sModuleDefinition(kit, spec);
     ui(`WM-E01.definition-${spec.id}`, stored?.driverType === 'terraform', `${spec.id} verified Terraform module ${spec.module}`);
+  }
+  if (completionRef) {
+    await registerCompletionModule(kit, completionRef);
+    ui('TC-module.git-pin', true, `real HTTPS Git module ${completionRef}`);
   }
 
   // ---- WM-E02: production bundle from the manifest repository --------------------------------
@@ -227,6 +239,9 @@ try {
     const port = Object.keys(doc.service?.ports ?? {})[0];
     doc.service.publicRoutes = [{ path: '/', port }];
   });
+  if (completionRef) {
+    for (const name of ['backend', 'worker', 'frontend']) annotate(name, (doc) => bindCompletion(doc, name !== 'frontend'));
+  }
   input.servicePort = Object.values(frontendScore.service.ports)[0].port;
   const secret = randomBytes(24).toString('hex');
   appendFileSync(`${privateDir}/app-secrets.txt`, `ACCEPTANCE_SECRET=${secret}\n`, { mode: 0o600 });
@@ -288,14 +303,26 @@ try {
   forwarders.push(gatewayForward);
   await openThroughGateway('E05', host);
   await businessFlow('E05');
+  if (completionRef) {
+    completionBefore = await completionSnapshot({ kit, tech, sql, check, label: 'initial', revision: 'v1' });
+    facts.completionInitial = completionBefore;
+    await page.reload();
+    await expect(page.getByRole('heading', { name: input.applicationName, exact: true })).toBeVisible();
+    ui('TC-reload', (await kit.get(`${kit.appPath}/resources`)).resources.filter((r) => r.type === 'app-config' && r.status === 'READY').length === 2,
+      'resource results remain visible after a normal Console reload');
+  }
 
   // ---- WM-E06: update drops the CronJob; a new migration replaces the old one ---------------
   delete backendAnnotations['bundle/cron.refresh'];
   backendAnnotations['bundle/autoscale-max'] = '4';
   annotate('backend', (doc) => { doc.metadata.annotations = backendAnnotations; });
+  if (completionRef) {
+    annotate('frontend', (doc) => bindCompletion(doc, false, 'v2'));
+  }
   await kit.editWorkloadFromScore(`${privateDir}/scores/backend.yaml`, 'backend');
-  await previewDeploy('E06', 1, async (preview) => {
-    ui('WM-E06.update', preview.changes.length === 1 && preview.changes[0].workloadId === 'backend' && preview.changes[0].action === 'UPDATE', 'backend UPDATE from the annotation change');
+  if (completionRef) await kit.editWorkloadFromScore(`${privateDir}/scores/frontend.yaml`, 'frontend');
+  await previewDeploy('E06', completionRef ? 2 : 1, async (preview) => {
+    ui('WM-E06.update', preview.changes.length === (completionRef ? 2 : 1) && preview.changes.some((c) => c.workloadId === 'backend') && preview.changes.every((c) => c.action === 'UPDATE'), 'valid backend UPDATE; completion mode also updates the frontend private resource');
     ui('WM-E06.no-cron', !manifestPaths(preview).includes('CronJob/backend-refresh'), 'the CronJob is no longer rendered');
   });
   const id2 = (await one('deployment', 'backend')).metadata.labels['orchestrator.io/deployment-id'];
@@ -307,6 +334,7 @@ try {
   check('WM-E06.inventory', !inventory2.includes('CronJob/backend-refresh') && inventory2.includes(`Job/backend-migrate-${id2.slice(0, 8)}`) && !inventory2.includes(`Job/backend-migrate-${id1.slice(0, 8)}`), `inventory ${inventory2.join(', ')}`);
   await openThroughGateway('E06', host);
   await businessFlow('E06');
+  if (completionRef) facts.completionUpdate = await completionSnapshot({ kit, tech, sql, check, label: 'update', revision: 'v2', previous: completionBefore });
   saveFacts();
 
   // ---- WM-E07: product removal deletes every inventory object --------------------------------

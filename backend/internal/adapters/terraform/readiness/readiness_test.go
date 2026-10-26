@@ -117,13 +117,85 @@ func TestQueryFailureIsUnavailableNotNotReady(t *testing.T) {
 	}
 }
 
-func TestNeverVacuouslyReady(t *testing.T) {
-	other := terraformexec.StateResource{Address: "aws_iam_role.x", Type: "aws_iam_role", ID: "role"}
-	if err := checker(&fakeKubectl{}, fakeAWS{}).Check(context.Background(), request(nil, other)); !errors.Is(err, ErrUnavailable) {
-		t.Fatalf("no query applies: %v", err)
+func TestProviderCompletionSupportsAllManagedResourceTypes(t *testing.T) {
+	for _, typ := range []string{"aws_s3_bucket", "aws_sqs_queue", "aws_iam_role", "kubernetes_config_map_v1", "kubernetes_service_account_v1", "kubernetes_manifest"} {
+		t.Run(typ, func(t *testing.T) {
+			c := &Checker{Run: func(context.Context, string, []string, []string) ([]byte, error) {
+				t.Fatal("provider-completed resource must not need an unrelated Kubernetes query")
+				return nil, nil
+			}}
+			object := terraformexec.StateResource{Address: typ + ".app", Type: typ, ID: "app"}
+			if err := c.Check(context.Background(), request(nil, object)); err != nil {
+				t.Fatalf("provider-completed %s: %v", typ, err)
+			}
+		})
 	}
+}
+
+func TestProviderCompletionRequiresResourceEvidenceAndLiveDeadline(t *testing.T) {
+	c := &Checker{}
 	if err := checker(&fakeKubectl{}, fakeAWS{}).Check(context.Background(), request(nil)); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("no resources: %v", err)
+	}
+	object := terraformexec.StateResource{Address: "kubernetes_config_map_v1.app", Type: "kubernetes_config_map_v1", ID: "ns/app"}
+	for _, field := range []string{"address", "type"} {
+		incomplete := object
+		switch field {
+		case "address":
+			incomplete.Address = ""
+		case "type":
+			incomplete.Type = " "
+		}
+		if err := c.Check(context.Background(), request(nil, incomplete)); !errors.Is(err, ErrUnavailable) {
+			t.Fatalf("missing %s: %v", field, err)
+		}
+	}
+	for _, deadline := range []time.Time{{}, time.Now().Add(-time.Second)} {
+		req := request(nil, object)
+		req.Deadline = deadline
+		if err := c.Check(context.Background(), req); !errors.Is(err, ErrUnavailable) {
+			t.Fatalf("invalid deadline: %v", err)
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := c.Check(ctx, request(nil, object)); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("cancelled provider completion: %v", err)
+	}
+}
+
+func TestProviderSchemasWithoutIDStillCompleteButProbesRequireIdentity(t *testing.T) {
+	manifest := terraformexec.StateResource{Address: "kubernetes_manifest.config", Type: "kubernetes_manifest"}
+	if err := (&Checker{}).Check(context.Background(), request(nil, manifest)); err != nil {
+		t.Fatalf("provider-managed schema without an id attribute: %v", err)
+	}
+	for _, typ := range []string{"kubernetes_stateful_set_v1", "aws_vpc"} {
+		object := terraformexec.StateResource{Address: typ + ".app", Type: typ}
+		if err := (&Checker{}).Check(context.Background(), request(nil, object)); !errors.Is(err, ErrUnavailable) {
+			t.Fatalf("%s probe must have its physical identity: %v", typ, err)
+		}
+	}
+}
+
+func TestMixedModuleStillRequiresEverySupplementalProbe(t *testing.T) {
+	config := terraformexec.StateResource{Address: "kubernetes_config_map_v1.app", Type: "kubernetes_config_map_v1", ID: "orc-ns/app"}
+	file := t.TempDir() + "/k"
+	if err := os.WriteFile(file, []byte("private kubeconfig"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	env := []string{"KUBE_CONFIG_PATH=" + file}
+	for _, order := range [][]terraformexec.StateResource{{config, statefulSet}, {statefulSet, config}} {
+		ready := &fakeKubectl{out: map[string]string{"statefulset/redis": readySet}}
+		if err := checker(ready, nil).Check(context.Background(), request(env, order...)); err != nil || len(ready.calls) != 1 {
+			t.Fatalf("mixed module ready: calls=%d, error=%v", len(ready.calls), err)
+		}
+		stuck := &fakeKubectl{out: map[string]string{"statefulset/redis": notReadySet}}
+		if err := checker(stuck, nil).Check(context.Background(), request(env, order...)); !errors.Is(err, terraformexec.ErrNotReady) {
+			t.Fatalf("mixed module bypassed not-ready StatefulSet: %v", err)
+		}
+		if err := checker(&fakeKubectl{fail: true}, nil).Check(context.Background(), request(env, order...)); !errors.Is(err, ErrUnavailable) {
+			t.Fatalf("mixed module bypassed unavailable probe: %v", err)
+		}
 	}
 }
 

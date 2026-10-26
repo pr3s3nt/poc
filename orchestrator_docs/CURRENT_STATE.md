@@ -2,10 +2,37 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-25
+last_reviewed: 2026-10-26
 ---
 
 # Current project state
+
+## Generic Terraform resource completion — 2026-10-26
+
+UC-08 BR-10 uses successful Terraform execution, acknowledged managed state
+and validated outputs as default completion for every resource type accepted
+by the verified provider/module contract. Existing supplemental Kubernetes/AWS
+probes, EKS usability and namespace provenance still gate their objects,
+including mixed modules. No additional provider or cleanup permission is added.
+Resources whose provider schema has no conventional `id` attribute are also
+supported, including `kubernetes_manifest`. Real headed Playwright acceptance
+passed **57/57** checks (21 completion-specific): shared/private resources,
+actual output consumption, valid in-place update, stable UIDs/state identities,
+PostgreSQL/Redis job flow and product cleanup. Namespace, isolated kind cluster,
+Compose containers/volumes, workload Vault and run image tags were verified
+absent. Real AWS R4 also passed initial EKS/Aurora/ElastiCache provisioning,
+three-workload readiness, job/cache/data flow and valid update/reuse; its
+original supervisor/native/SQL/local cleanup passed. These source-bound
+positive observations are reused for the requested completion fix. A later
+runner cache/restart correction passed a focused real restart smoke. Full
+historical A02 restart/redeploy is not claimed. R5's AWS service-role denial
+and node-join failure remain recorded as an operational limitation; its
+operator cleanup was verified, and SG/IAM remediation is outside this change.
+No additional cloud rerun is required for scoped integration. See the
+[verification record](verification/2026-10-26-terraform-resource-completion.md)
+and [scope/source review](verification/2026-10-26-terraform-completion-scope-review.md),
+plus [AWS attempt/cleanup record](verification/2026-10-26-terraform-completion-aws-r5.md),
+plus [runbook](operations/terraform-completion-kind.md).
 
 ## F3/F4/F5 corrections — accepted on kind — 2026-10-25
 

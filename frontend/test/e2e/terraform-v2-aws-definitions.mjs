@@ -18,7 +18,7 @@ import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { kubectlRunner, safeError, waitFor } from './terraform-v2-lib.mjs';
 import { SHORT_READ, makeKit, recordAppSecret, technical, v2ctl as ctl } from './full-app-kit.mjs';
 import {
-  cacheKeyOf, onboardAwsAccount, openFrontend, readAppJSON, readCheckRows, registerCatalogDefinition, registerTypesUi, registerWorkloadTemplate, submitJob, waitRowsPass,
+  cacheKeyOf, onboardAwsAccount, openFrontend, readAppJSON, readCheckRows, registerCatalogDefinition, registerTypesUi, submitJob, waitRowsPass,
 } from './full-app-flows.mjs';
 import { assetsFromArns, previewPurityProof, verifyCleanupAWSAbsence } from './terraform-v2-aws.mjs';
 import { expectVisibleCursor } from './human.mjs';
@@ -120,6 +120,35 @@ export function kubernetesNotFound(result) {
   throw new Error('Kubernetes API did not prove resource absence');
 }
 
+export async function registerAwsWorkloadTemplate(kit) {
+  const { page, h, nav } = kit;
+  // ADR-021: inspect and register the same public Git bundle through the current UI.
+  // A packaged renderer ID from the historical AWS fixture is no longer a source.
+  await h.click(nav('Mẫu dựng ứng dụng'));
+  await h.type(page.getByLabel('ID mẫu', { exact: true }), 'render-eks');
+  await h.type(page.getByLabel('Tên hiển thị', { exact: true }), 'AWS production workload');
+  const bundleSource = {
+    url: 'https://github.com/pr3s3nt/workload-manifests.git', path: 'bundles/production',
+    ref: '9d5b31be06f3b0b7d4051296e98f4176514ee5fc',
+  };
+  await h.type(page.getByLabel('Git HTTPS URL', { exact: true }), bundleSource.url);
+  await h.type(page.getByLabel('Thư mục bundle', { exact: true }), bundleSource.path);
+  await h.type(page.getByLabel('Tag hoặc commit', { exact: true }), bundleSource.ref, { replace: true });
+  const inspection = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/v1/render-bundles/inspect', { timeout: 180_000 });
+  await h.click(page.getByRole('button', { name: 'Kiểm tra bundle', exact: true }));
+  const inspected = await inspection;
+  expect(inspected.status()).toBe(200);
+  const bundlePin = (await inspected.json()).renderBundle;
+  expect(bundlePin.source.revision).toBe(bundleSource.ref);
+  await h.type(page.getByLabel('Team', { exact: true }), 'payments');
+  await h.click(page.getByRole('button', { name: 'Dùng gợi ý namespace', exact: true }));
+  await h.type(page.getByLabel('Tham chiếu cluster', { exact: true }), CLUSTER_REF, { replace: true });
+  const templateSaved = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/resource-definitions');
+  await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }));
+  expect((await templateSaved).status()).toBe(201);
+  return { bundleSource, bundlePin };
+}
+
 export async function awsDefinitionScenario(ctx, scenario, { forbidden }) {
   const { page, h, rec, input, phase } = ctx;
   const kit = makeKit(ctx);
@@ -180,7 +209,7 @@ export async function awsDefinitionScenario(ctx, scenario, { forbidden }) {
   const awsDefs = stored.filter((d, i) => entries[i].provider === 'aws');
   const accountsOk = awsDefs.every((d) => d?.driverAccount === accountKey && d.driverInputs?.values?.variables?.region === input.aws.region);
   rec.record('ui.definitions.registered', 'FORM', 'ui', stored.every(Boolean) && pinned && accountsOk, `definitions ${stored.map((d) => d?.key).join(',')} pinned=${pinned}; every AWS Definition names its own Driver Account and the literal region`);
-  await registerWorkloadTemplate(kit, { id: 'render-eks', bundle: 'score-k8s-internal-v1', clusterRef: CLUSTER_REF });
+  const { bundleSource, bundlePin } = await registerAwsWorkloadTemplate(kit);
   await signOut();
 
   // ===================== FORM: Developer =====================
@@ -272,7 +301,7 @@ export async function awsDefinitionScenario(ctx, scenario, { forbidden }) {
   rec.record('preview.graph', 'PREVIEW', 'ui', graphOk && byType('vpc').length === 1 && byType('k8s-cluster').length === 1 && byType('postgres').length === 1 && byType('redis').length === 1 && terraformIntents.every((i) => i.intent === 'CREATE' && i.ownership === 'ORCHESTRATOR'),
     `${[...intents.keys()].length} descriptors; edges: EKS->VPC (reference), namespace->EKS (provider-binding), workload->namespace/cluster (reference); ${inClusterData ? 'PostgreSQL and Redis follow the EKS provider binding' : 'Aurora/cache follow the VPC they reference and have NO EKS edge'}`);
   const bundles = preview.changes.map((c) => c.rendering?.bundle);
-  rec.record('preview.score-k8s-bundle', 'PREVIEW', 'ui', preview.changes.length === 3 && bundles.every((b) => b?.id === 'score-k8s-internal-v1' && b.version === input.scoreVersion), `bundle ${bundles[0]?.id} ${bundles[0]?.version}`);
+  rec.record('preview.score-k8s-bundle', 'PREVIEW', 'ui', preview.changes.length === 3 && bundles.every((b) => b?.source?.revision === bundleSource.ref && b.source.contentSha256 === bundlePin.source.contentSha256), `verified Git bundle ${bundleSource.ref}, score-k8s ${input.scoreVersion}`);
   rec.record('preview.no-environment-target', 'PREVIEW', 'ui', !preview.binding?.connectionKey && !preview.binding?.executionProfile && !preview.accountId, 'the Preview pins no Environment connection, execution profile or account: the Definitions decided every target');
   // Keep the verified transient Preview panel and its Deploy confirmation on this page.
   await h.read('Xem trước chỉ đọc: chưa có tài nguyên AWS nào mang thẻ của lần chạy');
@@ -544,7 +573,11 @@ export async function awsDefinitionScenario(ctx, scenario, { forbidden }) {
     `the run-tagged AWS asset set is identical after the update (${afterUpdate.length} assets, one EKS cluster): nothing was duplicated or replaced`);
   await signOut();
   const { execFileSync: run } = await import('node:child_process');
-  run(process.env.ORCH_E2E_RESTART_CMD ?? 'true', { stdio: 'ignore' });
+  if (!process.env.ORCH_E2E_RESTART_CMD) throw new Error('the real product restart command is required');
+  run(process.env.ORCH_E2E_RESTART_CMD, { stdio: 'ignore' });
+  const restarted = JSON.parse(readFileSync(`${input.privateDir}/product-restart.json`, 'utf8'));
+  expect(restarted.beforePid).not.toBe(restarted.afterPid);
+  expect(restarted.healthPassed && restarted.sameOriginalHandles).toBe(true);
   await page.reload();
   await expect(page.getByLabel('Tên đăng nhập', { exact: true }).or(page.getByRole('button', { name: 'Đăng xuất', exact: true }))).toBeVisible({ timeout: 120_000 });
   if (await page.getByRole('button', { name: 'Đăng xuất', exact: true }).isVisible()) await signOut();

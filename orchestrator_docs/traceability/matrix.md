@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-25
+last_reviewed: 2026-10-26
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -194,6 +194,7 @@ nằm ở UC-04 VAR-02/OC-05 và I04-06, không còn là deferred product scope.
 | MS-07 | same | `ActiveResourceRepository.UpsertReady`, `DeploymentResourceRepository.MarkReady` | short atomic node transaction | OC-10; repository integration test |
 | MS-08, MS-09 | same | update run context and loop batches | next consumer inputs | OC-10; chain/diamond topology tests |
 | MS-10 | same | return `ProvisionResult` | descriptor -> outputs/target | OC-10; result contract test |
+| BR-10 | `UC-08/sequence.puml`; [module completion contract](../architecture/contracts/terraform-modules.md#resource-completion-and-supplemental-readiness) | `readiness.Checker.Check`; `tfexec.Service.publish` | acknowledged managed resource inventory; optional provider IDs; all applicable supplemental probes before READY | `TestProviderCompletionSupportsAllManagedResourceTypes`, `TestProviderCompletionRequiresResourceEvidenceAndLiveDeadline`, `TestProviderSchemasWithoutIDStillCompleteButProbesRequireIdentity`, `TestMixedModuleStillRequiresEverySupplementalProbe`; [real kind acceptance](../operations/terraform-completion-kind.md) |
 
 Container resource requests/limits intentionally do not appear in UC-08 rows:
 they remain workload module data and are consumed by UC-06 MS-11 after UC-08

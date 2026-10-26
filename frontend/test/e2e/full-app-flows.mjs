@@ -122,9 +122,20 @@ export async function registerK8sModuleDefinition(kit, spec) {
   await h.type(form('ID cấu hình (Definition ID)'), spec.id);
   await h.type(form('Tên hiển thị'), spec.name ?? spec.id);
   await choose(form('Loại tài nguyên'), spec.type);
-  await page.getByRole('button', { name: 'Module đã đăng ký', exact: true }).click();
-  const pins = form('Module đã kiểm chứng');
-  if (await pins.isEnabled()) await choose(pins, spec.module);
+  if (spec.git) {
+    await h.click(section.getByRole('button', { name: 'Thêm từ Git', exact: true }));
+    await h.type(section.getByLabel('Git HTTPS URL', { exact: true }), spec.git.url);
+    await h.type(section.getByLabel('Thư mục module', { exact: true }), spec.git.path);
+    await h.type(section.getByLabel('Tag hoặc commit', { exact: true }), spec.git.ref, { replace: true });
+    const inspected = await responseFromAction(page,
+      (r) => new URL(r.url()).pathname === '/api/v1/terraform-modules/inspect',
+      () => h.click(section.getByRole('button', { name: 'Kiểm tra module', exact: true })), { timeout: 180_000 });
+    expect(inspected.status()).toBe(200);
+  } else {
+    await page.getByRole('button', { name: 'Module đã đăng ký', exact: true }).click();
+    const pins = form('Module đã kiểm chứng');
+    if (await pins.isEnabled()) await choose(pins, spec.module);
+  }
   const advanced = section.locator('details.definition-advanced');
   if (await advanced.getAttribute('open') === null) await h.click(advanced.locator('summary').first());
   const inputMapping = section.getByRole('button', { name: 'Ghép đầu vào theo tên trùng', exact: true });
@@ -286,7 +297,10 @@ export async function onboardAwsAccount(kit, aws) {
  */
 export async function registerCatalogDefinition(kit, entry, { accountName, region, subs }) {
   const { page, h, choose, get } = kit;
+  const create = page.getByRole('button', { name: 'Tạo cấu hình', exact: true });
+  if (await create.isVisible()) await h.click(create);
   const section = page.getByRole('region', { name: 'Đăng ký cấu hình tài nguyên', exact: true });
+  await h.click(section.getByRole('tab', { name: 'Cấu hình', exact: true }));
   const form = (name) => kit.form(name, section);
   const { decodeCatalogOverride } = await import('./terraform-v2-steps.mjs');
   await h.type(form('ID cấu hình (Definition ID)'), entry.id);
@@ -301,6 +315,8 @@ export async function registerCatalogDefinition(kit, entry, { accountName, regio
     await choose(form('Tài khoản hạ tầng'), accountName);
     await h.type(form('Vùng AWS'), region);
   }
+  const advanced = section.locator('details.definition-advanced');
+  if (await advanced.getAttribute('open') === null) await h.click(advanced.locator('summary').first());
   const inputMapping = section.getByRole('button', { name: 'Ghép đầu vào theo tên trùng', exact: true });
   if (await inputMapping.isVisible()) await h.click(inputMapping);
   await h.click(section.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }));
@@ -309,12 +325,11 @@ export async function registerCatalogDefinition(kit, entry, { accountName, regio
   }
   await applyCatalogSources(kit, entry);
   for (const [name, encoded] of entry.overrides ?? []) await provideSource(kit, name, { literal: decodeCatalogOverride(encoded, subs) });
-  if (entry.klass && entry.klass !== 'default') {
-    await h.click(section.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
+  if (entry.klass) {
+    await h.click(section.getByRole('tab', { name: /Điều kiện áp dụng/ }));
+    await h.click(section.getByRole('button', { name: '+ Thêm điều kiện', exact: true }));
+    await section.getByLabel('Trường hợp 1 thuộc tính 1').selectOption('class');
     await h.type(form('Điều kiện 1 Class'), entry.klass);
-  } else if (entry.klass === 'default') {
-    await h.click(section.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
-    await h.type(form('Điều kiện 1 Class'), 'default');
   }
   await h.pause(SHORT_READ);
   await h.click(section.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên', exact: true }));

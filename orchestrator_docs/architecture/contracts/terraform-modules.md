@@ -2,7 +2,7 @@
 id: TERRAFORM-MODULE-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-10-21
+last_reviewed: 2026-10-26
 related: [ADR-014, UC-03, UC-05, UC-06, UC-08, UC-16]
 ---
 
@@ -153,6 +153,32 @@ không bí mật (Type schema hiện hành dùng `any`; module kiểm list(strin
 Giữ `subnetIds` cho subnet node EKS và các outputs hiện hành. EKS target là scoped opaque
 identity đủ tái tạo credential, không persist kubeconfig/temp path. Resource
 không Ready hoặc output sai contract thì không render/apply consumer.
+
+## Resource completion and supplemental readiness
+
+UC-08 BR-10 admits every managed resource type of a verified module using the
+platform release's approved providers. A new Terraform resource type does not
+require a Go readiness allowlist entry. Successful execution, acknowledged
+state and validated outputs establish provider completion; this delegates
+type-specific creation/update semantics to the pinned Terraform provider.
+
+The acknowledged resource inventory must be nonempty and every entry must
+have a nonblank address and type. Physical IDs are required by probes that use
+them; schemas without an `id` attribute (including `kubernetes_manifest`) rely
+on their acknowledged provider state. Never invent a physical ID or claim a
+separate API observation for those resources. Deadline/cancellation still
+apply. Existing additional probes for Kubernetes Namespace/Deployment/
+StatefulSet and AWS VPC/EKS/RDS/ElastiCache remain mandatory whenever those
+objects occur. An inventory with no additional probes succeeds from provider
+completion; in a mixed inventory every applicable probe must still succeed.
+Unavailable/auth-failed/not-ready probes never fall back to provider completion.
+
+Provider completion does not claim an independent application-level health or
+connectivity check for other types. Module authors must configure provider
+waiters/timeouts and declare dependencies needed by consumers. Output-only
+modules without managed state, new provider installation, arbitrary readiness
+scripts, ownership/admission, EKS usability, namespace provenance and destroy
+absence verification are unchanged by this rule.
 
 ## Provider bindings và dependency
 

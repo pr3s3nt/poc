@@ -58,7 +58,7 @@ async function main() {
   writeFileSync(`${evidenceDir}/browser-mode.json`, JSON.stringify({ browserOnly: args.browserOnly, headed: args.headed, recording: args.headed && !args.browserOnly, inputPacing: args.browserOnly ? 'Playwright actionability; no presentation pauses' : 'historical human-paced' }, null, 2));
 
   const browser = args.headed ? await launchHeaded({ width, height }) : await (await import('@playwright/test')).chromium.launch(env.ORCH_E2E_BROWSER_EXECUTABLE ? { executablePath: env.ORCH_E2E_BROWSER_EXECUTABLE } : {});
-  const context = await browser.newContext(args.headed ? { viewport: null } : { viewport: { width, height } });
+  const context = await browser.newContext({ locale: 'vi-VN', ...(args.headed ? { viewport: null } : { viewport: { width, height } }) });
   context.setDefaultTimeout(30_000);
   if (!args.browserOnly) await context.addInitScript(installCursor);
   const marks = [];

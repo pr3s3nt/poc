@@ -2,7 +2,7 @@
 id: UC-08-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-26
 ---
 
 # UC-08 — Provision Infrastructure and Application Resources
@@ -87,6 +87,17 @@ Provision implicit infrastructure cùng private/shared resources theo dependency
   Xóa tài nguyên hoặc cleanup riêng đã kiểm ownership/consumers. Classification
   của planner không tự cấp quyền destroy.
 - **BR-06:** Container CPU/memory requests/limits thuộc workload module và được UC-06 Workload Renderer xử lý; chúng không tạo Resource Graph node và không đi qua UC-08 Resource Executor.
+- **BR-10:** Mọi loại managed resource của Terraform module đã được registry
+  chấp nhận đều dùng được, không cần thêm tên resource vào Go. Sau execution
+  thành công, state acknowledgement và output validation, completion của
+  provider là điều kiện mặc định. Các kiểm tra readiness bổ sung hiện có cho
+  Namespace/Deployment/StatefulSet, VPC/EKS/RDS/ElastiCache vẫn bắt buộc cho
+  từng resource tương ứng, kể cả module hỗn hợp. Thiếu bộ kiểm tra bổ sung
+  không phải lỗi. State phải có managed resources với address/type đầy đủ;
+  ID bắt buộc khi probe tương ứng cần nó, không bắt buộc cho schema provider
+  không công bố attribute `id` (ví dụ `kubernetes_manifest`). Không tự tạo ID.
+  Kết quả rỗng, deadline hết hoặc query bổ sung thất bại không được coi là
+  thành công. Không mở thêm provider, credential hoặc quyền cleanup.
 
 ## Luồng nội bộ
 
