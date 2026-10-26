@@ -27,12 +27,14 @@ README này.
 - [Iteration index and active iteration](orchestrator_docs/iterations/README.md)
 - [Backend implementation guide](backend/README.md)
 - [Web Console guide](frontend/README.md)
+- [End-to-end scripts và quy ước lưu kịch bản](e2e/README.md)
 - [Project glossary](orchestrator_docs/GLOSSARY.md)
 
 ## Repository boundaries
 
 - `backend/`: Go product module, tests và acceptance workloads.
 - `frontend/`: Orchestrator Web Console React/TypeScript.
+- `e2e/`: runner E2E mới, setup, fixtures và helpers xuyên các module.
 - `orchestrator_docs/`: current requirements, design, status, operations và
   verification evidence.
 - `orchestrator_reference/`: technical references; read-only đối với product

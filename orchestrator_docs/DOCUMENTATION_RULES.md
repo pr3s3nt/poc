@@ -2,7 +2,7 @@
 id: DOC-RULES
 artifact: documentation-standard
 status: current
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-26
 ---
 
 # Documentation rules
@@ -59,6 +59,16 @@ cải thiện navigation. Ngày review không tự quyết định authority.
 
 Một khái niệm current chỉ có một canonical owner. Artifact khác nên link hoặc
 tóm tắt rõ ràng, không tạo định nghĩa độc lập.
+
+## E2E scripts và tài liệu đi kèm
+
+Script E2E mới lưu tại `e2e/` ở root theo [E2E script guide](../e2e/README.md)
+và root [AGENTS.md](../AGENTS.md). README của scenario/setup ghi cách chạy hoặc
+link tới runbook tương ứng. Procedure hiện hành vẫn thuộc `operations/`, kết
+quả execution thuộc `verification/`, requirement thuộc specification. Không lưu
+executable runner hoặc runtime evidence/credential trong documentation tree.
+Các runner cũ giữ path tới migration/refactor liên quan; cập nhật links và lệnh
+chạy trong cùng change khi di chuyển.
 
 ## Links, IDs and diagrams
 

@@ -4,6 +4,12 @@ React + TypeScript strict + Vite frontend for the orchestrator administrative
 console. This directory is independent from the acceptance application
 frontend under `backend/examples/acceptance-app/frontend/`.
 
+## End-to-end scripts
+
+Script E2E mới đặt tại [`e2e/`](../e2e/README.md) ở root repository. Các runner
+hiện có trong `test/e2e/` giữ path cho tới migration/refactor liên quan;
+unit/component tests vẫn nằm trong frontend.
+
 ## Install and validate
 
 ```bash

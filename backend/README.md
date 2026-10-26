@@ -57,6 +57,10 @@ it does not migrate, reset or regrant them.
 
 ## Real acceptance runs
 
+Runner E2E mới đặt tại [`e2e/`](../e2e/README.md) ở root repository. Các runner
+hiện có trong `test/integration/` giữ path cho tới migration/refactor liên quan;
+Go integration helpers/tests cần module Go tiếp tục nằm trong backend.
+
 The [Terraform acceptance runbook](../orchestrator_docs/operations/terraform-v2-acceptance.md)
 and [AWS runbook](../orchestrator_docs/operations/aws.md) own fixture handles,
 pinned Terraform/score-k8s/kubectl tools, permissions, estimates, finite deadlines,
