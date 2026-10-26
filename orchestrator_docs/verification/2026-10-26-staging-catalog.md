@@ -15,11 +15,14 @@ creates Internal Driver Account `k8s-4f`. No staging deployment or database clea
 
 - `cd backend && go test ./... && go build ./...`: PASS. Integration tests retain
   their existing environment requirements; no live PostgreSQL fixture was provisioned.
-- `cd frontend && npm run typecheck && npm run lint`: PASS.
+- Initial `cd frontend && npm run typecheck && npm run lint`: PASS before
+  the last navigation assertion. This did not cover the final committed tree;
+  see the correction below.
 - `cd frontend && npm test`: final run PASS, 920 tests / 77 files. The initial
   run failed one observability follow-interval test; its isolated rerun passed
   5/5 and the final full run passed without changing observability code/tests.
-- `cd frontend && npm run build`: PASS; existing large-chunk advisory remains.
+- Initial `cd frontend && npm run build`: PASS before that last assertion;
+  the claim did not establish buildability of commit `75f064a`.
 - Focused final App/routes/bootstrap tests: PASS, 46/46.
 - `bash -n backend/deploy/docker-entrypoint.sh`, Node script syntax: PASS.
 - Documentation checker and `git diff --check`: PASS.
@@ -52,3 +55,20 @@ and acceptance Application deployment were not run: external verification is
 outside this task. Existing PVC/database data is preserved; reapplying manifests
 with the same PostgreSQL PVC does not remove old seed records. No preexisting
 user changes were present at task start.
+
+## Correction: role-query options (2026-10-26)
+
+User reported `npm run typecheck` failing on commit `75f064a`. Reproduced
+TS2769 at `App.test.tsx:436`: DOM Testing Library `ByRoleOptions` does not
+accept `exact`. Removed that option; a string `name` already uses exact
+accessible-name matching. Playwright's role locators have different options
+and are unaffected. The initial verification missed typechecking the final
+assertion added after the earlier typecheck/build; the initial build claim
+above is corrected accordingly.
+
+Post-fix checks: typecheck, lint, production build, App tests (36/36), docs
+checker and diff check PASS. Full frontend run: 919/920 PASS; the same unrelated
+observability follow-interval test failed under full-suite execution and its
+isolated rerun passed 5/5. No observability implementation/test was changed;
+this full run is not reported as completely passing. No backend/runtime changes
+were made for this correction, so Go and live cluster checks were not rerun.
