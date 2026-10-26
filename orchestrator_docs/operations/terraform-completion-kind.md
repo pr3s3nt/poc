@@ -68,6 +68,16 @@ execution result belongs in a dated verification record.
 
 ## Additional real AWS acceptance
 
+For the requested generic completion fix, reuse completed source-bound
+deployment/app/job/cache/update observations when product sources, module pins
+and application code are unchanged. A correction confined to harness cache
+configuration can use focused real validation. The user questioned repeated
+successful AWS cases and the added restart gate; do not require another cloud
+creation solely to complete the historical full A02 sequence. Its original
+result and any later infrastructure failure remain recorded. See the
+[scope/source review](../verification/2026-10-26-terraform-completion-scope-review.md).
+This does not disable or change assertions if the full harness is invoked.
+
 Use `backend/test/integration/terraform-v2-acceptance.sh --config <private-config>
 --browser-only` with scenario `A02`, following [AWS verification](aws.md) and
 the [AWS acceptance safety contract](terraform-v2-acceptance.md). The application

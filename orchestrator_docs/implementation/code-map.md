@@ -23,6 +23,9 @@ last_reviewed: 2026-10-26
   [57-check real acceptance](../verification/2026-10-26-terraform-resource-completion.md).
   Subsequent AWS execution and its unresolved node-join gate are recorded in
   [AWS attempt/cleanup](../verification/2026-10-26-terraform-completion-aws-r5.md).
+  [The scope/source review](../verification/2026-10-26-terraform-completion-scope-review.md)
+  maps the completed positive AWS flows reused for this fix and preserves the
+  limits of the failed full historical harness.
   The current AWS fixture uses `terraform-v2-acceptance.sh` and
   `restart-owned-product.sh` for durable Git cache and actual process restart.
 
