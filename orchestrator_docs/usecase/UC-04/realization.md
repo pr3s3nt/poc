@@ -2,7 +2,7 @@
 id: UC-04-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-26
 ---
 
 # UC-04 — Use Case Realization
@@ -185,3 +185,9 @@ and cleanup evidence survive restart through the diagnostic persistence port.
 See [diagnostic sequence](diagnostics-sequence.puml),
 [diagnostic participants](diagnostics-vopc.puml) and the
 [shared contract](../../architecture/contracts/account-diagnostics.md).
+
+## Staging bootstrap (2026-10-26)
+
+Bootstrap gọi seed staging để bổ sung Types còn thiếu và giữ schemas đã tồn
+tại. Account registration qua Driver Accounts giữ verify/Vault/transaction
+hiện hành; màn hình Connections cũ bị gỡ, backing repository không đổi.

@@ -26,6 +26,7 @@ const RenderBundleID = "score-k8s-internal-v1"
 
 // Catalog modes of Options.Catalog.
 const (
+	CatalogStaging      = "staging"
 	CatalogLegacy       = ""
 	CatalogTerraformK8s = "terraform-k8s"
 	CatalogNone         = "none"
@@ -67,7 +68,8 @@ type Options struct {
 	EnvironmentType string
 
 	// Catalog selects which Resource Types and Definitions Apply registers:
-	// CatalogLegacy (default) is the walking-skeleton catalog whose in-cluster
+	// CatalogStaging adds only missing Kubernetes Types, with no account or Application fixtures.
+	// CatalogLegacy (the Defaults fixture; CLI defaults to staging) is the walking-skeleton catalog whose in-cluster
 	// namespace and PostgreSQL use the legacy Kubernetes driver;
 	// CatalogTerraformK8s replaces exactly those with the verified Terraform
 	// namespace/PostgreSQL/Redis modules; CatalogNone registers nothing, so a
@@ -124,7 +126,8 @@ func DefaultCloudConfig() CloudConfig {
 	}
 }
 
-// Defaults fills the values the walking skeleton does not need to override.
+// Defaults supplies local/test fixture options. The product CLI explicitly
+// selects CatalogStaging unless an operator requests another catalog.
 func Defaults() Options {
 	return Options{
 		Profile:            "local",
@@ -170,6 +173,16 @@ func RedisType() resource.Type {
 func ResourceTypesFor(o Options) []resource.Type {
 	if o.CatalogFree() {
 		return nil
+	}
+	if o.Catalog == CatalogStaging {
+		types := resourceTypes()
+		out := make([]resource.Type, 0, 5)
+		for _, typ := range types {
+			if typ.Key != "vpc" {
+				out = append(out, typ)
+			}
+		}
+		return append(out, RedisType())
 	}
 	types := resourceTypes()
 	if o.Catalog == CatalogTerraformK8s {
@@ -287,7 +300,7 @@ func ResourceDefinitions(o Options) []resource.Definition {
 		eksVariables["public_access_cidrs"] = list
 	}
 	modules := o.platformModules()
-	if o.Catalog == CatalogNone {
+	if o.Catalog == CatalogNone || o.Catalog == CatalogStaging {
 		return nil
 	}
 	defs := baseDefinitions(o, cloud, eksVariables, modules)
@@ -507,7 +520,7 @@ func (o Options) CatalogFree() bool { return o.Catalog == CatalogNone }
 // acceptance profile or an unknown catalog mode.
 func (o Options) Validate() error {
 	switch o.Catalog {
-	case CatalogLegacy, CatalogTerraformK8s, CatalogNone:
+	case CatalogLegacy, CatalogTerraformK8s, CatalogNone, CatalogStaging:
 	default:
 		return fmt.Errorf("seed: unknown catalog mode %q", o.Catalog)
 	}
@@ -520,7 +533,8 @@ func (o Options) Validate() error {
 	return nil
 }
 
-// Apply writes the seeded catalog, both Applications and their Environments.
+// Apply writes the selected bootstrap data. Staging adds missing Types only;
+// explicit fixture catalogs additionally create accounts, Definitions and Applications.
 func Apply(ctx context.Context, store persistence.Store, o Options) error {
 	if err := o.Validate(); err != nil {
 		return err
@@ -552,10 +566,27 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 			return err
 		}
 	}
+	// Staging adds only missing contracts. Operator edits survive every restart.
+	existingTypes := map[string]bool{}
+	if o.Catalog == CatalogStaging {
+		types, err := store.ListResourceTypes(ctx, o.OrganizationKey)
+		if err != nil {
+			return err
+		}
+		for _, typ := range types {
+			existingTypes[typ.Key] = true
+		}
+	}
 	for _, t := range ResourceTypesFor(o) {
+		if existingTypes[t.Key] {
+			continue
+		}
 		if err := store.SaveResourceType(ctx, o.OrganizationKey, t); err != nil {
 			return err
 		}
+	}
+	if o.Catalog == CatalogStaging {
+		return nil
 	}
 	if o.CatalogFree() {
 		return applyFixtureApplication(ctx, store, o)

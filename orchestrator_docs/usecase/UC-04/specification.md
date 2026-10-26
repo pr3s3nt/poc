@@ -2,7 +2,7 @@
 id: UC-04-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-26
 ---
 
 # UC-04 — Infrastructure Driver Accounts and Secret Stores
@@ -395,3 +395,16 @@ not introduce global auditing or continuous monitoring from historical OOS-05.
 [Protocol and probe semantics](../../architecture/contracts/account-diagnostics.md)
 are shared; [delivery and acceptance](../../implementation/account-diagnostics.md)
 route the implementation without replacing these requirements.
+
+## Staging bootstrap — quyết định 2026-10-26
+
+Startup mặc định dùng catalog `staging`: tạo Organization, các tài khoản đăng
+nhập theo profile và chỉ năm Resource Types `k8s-cluster`, `k8s-namespace`,
+`postgres`, `redis`, `workload` còn thiếu. Không seed Driver Accounts,
+Applications, Environments, Definitions hoặc Rendering templates. Không ghi đè
+schema đã có; không xóa dữ liệu cũ khi restart. Fixture legacy/terraform-k8s
+và acceptance-v2 tiếp tục là lựa chọn tường minh cho development/tests.
+
+Console chỉ cung cấp Driver Accounts; bỏ màn hình/menu Connections cũ. Backing
+record và credential store nội bộ không đổi. Người vận hành đăng ký Internal
+Driver Account `k8s-4f` bằng kubeconfig thật; startup không tạo account READY giả.

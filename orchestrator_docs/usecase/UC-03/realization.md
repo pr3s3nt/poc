@@ -2,7 +2,7 @@
 id: UC-03-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-26
 ---
 
 # UC-03 — Use Case Realization
@@ -172,3 +172,9 @@ UI reuses Git source and typed-input patterns from Terraform authoring, retainin
 its existing draft, matching and placement controls. Unknown outcome/reload and
 late-reply guards apply to the whole pin/schema/input draft. Contracts and public
 operations are in [RB-C07](../../architecture/contracts/git-render-bundles.md#rb-c07--http-operations-and-errors).
+
+## Operator catalog automation (2026-10-26)
+
+Playwright thực hiện forms Console sau preflight GET account/Type/module/bundle;
+DefinitionService vẫn validate matching, references, provider bindings và pins.
+Rerun so cấu hình đã lưu trước khi bỏ qua; không bypass service bằng API writes.

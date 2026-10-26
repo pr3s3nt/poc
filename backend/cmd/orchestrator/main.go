@@ -31,7 +31,7 @@ func main() {
 	databaseURLFile := flag.String("database-url-file", os.Getenv("ORCHESTRATOR_DATABASE_URL_FILE"), "path to a file containing the PostgreSQL connection URL")
 	adapters := flag.String("adapters", "fake", "executor adapters: fake, kubernetes or aws")
 	profile := flag.String("profile", opts.Profile, "seed profile: local, test, production or acceptance-v2 (isolated real acceptance: fixture accounts, the exact -namespace identity and no catalog)")
-	seedCatalog := flag.String("seed-catalog", "", "seed catalog: empty (legacy), terraform-k8s (verified Terraform namespace/PostgreSQL/Redis) or none (acceptance-v2 only; the catalog is authored through the Console)")
+	seedCatalog := flag.String("seed-catalog", seed.CatalogStaging, "seed catalog: staging (missing Kubernetes Types only), empty (legacy), terraform-k8s (verified Terraform namespace/PostgreSQL/Redis) or none (acceptance-v2 only; the catalog is authored through the Console)")
 	namespace := flag.String("namespace", opts.NamespaceIdentity, "seeded Environment namespace identity for local/test fixtures; product targets come from Resource Definitions and resource references")
 	applicationKey := flag.String("application-key", opts.ApplicationKey, "key of the seeded fixture Application (acceptance-v2 uses a unique key per run so Vault paths never collide with other runs)")
 	kubeContext := flag.String("kube-context", opts.KubeContext, "kubectl context of the registered cluster")
@@ -129,7 +129,7 @@ func main() {
 	opts.ApplicationKey = *applicationKey
 	opts.Profile = *profile
 	opts.Catalog = *seedCatalog
-	if opts.Profile == seed.ProfileAcceptanceV2 && opts.Catalog == "" {
+	if opts.Profile == seed.ProfileAcceptanceV2 && (opts.Catalog == "" || opts.Catalog == seed.CatalogStaging) {
 		opts.Catalog = seed.CatalogNone
 	}
 	opts.KubeContext = *kubeContext

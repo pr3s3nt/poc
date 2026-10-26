@@ -1187,3 +1187,12 @@ records 37/37 real browser assertions, native cleanup and separate read-only AWS
 observations. [Merged main acceptance](../verification/2026-10-25-diagnostics-main.md)
 records DG-E10: another37/37 pass on the exact merge commit and verified teardown.
 Automated adapter fixtures alone do not prove external readiness.
+
+## Staging bootstrap — 2026-10-26
+
+UC-04 staging bootstrap → `seed.CatalogStaging` + CLI default →
+`backend/internal/seed/staging_test.go`; missing-only Types, no infrastructure
+accounts/Application fixtures and schema preservation. UC-03 Kubernetes staging
+catalog bootstrap → `frontend/test/e2e/bootstrap-staging-catalog.mjs` + shared
+UI flows → `bootstrap-staging-catalog.test.mjs` and local Console create/rerun
+verification. Operator procedure: [staging catalog](../operations/staging-catalog.md).

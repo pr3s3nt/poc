@@ -431,8 +431,9 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       override = asRole(role);
       render(<App />);
       await screen.findByRole('navigation', { name: 'Điều hướng chính' });
-      const expected: [RegExp, string][] = [[/Ứng dụng/, '/ui/applications'], [/Loại tài nguyên/, '/ui/platform/resource-types'], [/Cấu hình tài nguyên/, '/ui/platform/resource-definitions'], [/Mẫu dựng ứng dụng/, '/ui/platform/rendering-templates'], [/Tài khoản hạ tầng/, '/ui/platform/driver-accounts'], [/Kết nối/, '/ui/platform/connections'], [/Kho bí mật/, '/ui/platform/secret-stores'], [/Hiệu quả platform/, '/ui/platform/effectiveness']];
+      const expected: [RegExp, string][] = [[/Ứng dụng/, '/ui/applications'], [/Loại tài nguyên/, '/ui/platform/resource-types'], [/Cấu hình tài nguyên/, '/ui/platform/resource-definitions'], [/Mẫu dựng ứng dụng/, '/ui/platform/rendering-templates'], [/Tài khoản hạ tầng/, '/ui/platform/driver-accounts'], [/Kho bí mật/, '/ui/platform/secret-stores'], [/Hiệu quả platform/, '/ui/platform/effectiveness']];
       for (const [name, path] of expected) expect(screen.getByRole('link', { name })).toHaveAttribute('href', path);
+      expect(screen.queryByRole('link', { name: 'Kết nối', exact: true })).not.toBeInTheDocument();
       expect(screen.getByText(label)).toBeInTheDocument();
     });
   });

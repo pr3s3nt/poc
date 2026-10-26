@@ -132,3 +132,5 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [2026-10-23 — Collapsible sidebar and colored Preview](2026-10-23-sidebar-preview-space.md) — persistent desktop rail, 184px graph-width gain, colored SVG/type cards and preserved node/file/input state.
 
 - [2026-10-23 — Node facts and readable connectors](2026-10-23-preview-node-facts.md) — typed safe database/port facts, larger cards, independent tracks/ports, focus control and real browser geometry checks.
+
+- [2026-10-26 staging catalog bootstrap](2026-10-26-staging-catalog.md): missing-only seed, operator Playwright create/rerun and Connections UI retirement; local verification only.

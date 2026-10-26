@@ -2,7 +2,7 @@
 id: UI-ARCHITECTURE-INDEX
 artifact: shared-ui-design
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-26
 ---
 
 # Shared Web Console UI
@@ -196,3 +196,9 @@ controls appear within a row; create forms open one accessible dialog while
 parent edits remain mounted. Focus returns to the invoking row. Commit boundaries
 are explained at the committing action, not repeated in every row. Shared keys
 remain UC-12 entities; adding a dependency remains local desired workload state.
+
+## Connections retirement — 2026-10-26
+
+Bỏ navigation và màn hình Connections. Driver Accounts là entry quản lý danh
+tính hạ tầng; deep link `/ui/platform/connections` chuyển tới Driver Accounts.
+Giữ shell/styles/account forms hiện hành.

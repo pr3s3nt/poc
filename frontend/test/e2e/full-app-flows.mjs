@@ -78,8 +78,24 @@ export async function onboardInternalAccount(kit) {
   return account.key;
 }
 
+/** Optional Environment constraint used by the operator staging bootstrap. */
+async function addEnvironmentCriterion(section, envType) {
+  if (!envType) return;
+  const tab = section.getByRole('tab', { name: /Điều kiện áp dụng/ });
+  if (await tab.count()) await tab.click();
+  if (!await section.getByRole('button', { name: '+ Thêm điều kiện', exact: true }).count()) {
+    await section.getByRole('radio', { name: /^Theo loại môi trường/ }).check();
+    await section.getByLabel('Loại môi trường', { exact: true }).fill(envType);
+    return;
+  }
+  const count = await section.getByLabel(/^Trường hợp 1 thuộc tính /).count();
+  await section.getByRole('button', { name: '+ Thêm điều kiện', exact: true }).click();
+  await section.getByLabel(`Trường hợp 1 thuộc tính ${count + 1}`, { exact: true }).selectOption('env_type');
+  await section.getByLabel('Điều kiện 1 Loại môi trường', { exact: true }).fill(envType);
+}
+
 /** Existing-cluster Definition with its OWN Internal account (ADR-016), authored in the shared Definition form (UI3-05). */
-export async function registerExistingCluster(kit, { id, accountName, appKey, klass = 'internal' }) {
+export async function registerExistingCluster(kit, { id, accountName, appKey, klass = 'internal', envType }) {
   const { page, h, nav, form: scopedForm, choose, get, rec, mark } = kit;
   await h.click(nav('Cấu hình tài nguyên'));
   await expect(page.getByRole('heading', { name: 'Cấu hình tài nguyên', level: 1, exact: true })).toBeVisible();
@@ -101,8 +117,9 @@ export async function registerExistingCluster(kit, { id, accountName, appKey, kl
   await section.getByLabel(`Trường hợp 1 thuộc tính ${appKey ? 2 : 1}`).selectOption('class');
   await h.type(section.getByLabel('Điều kiện 1 Class', { exact: true }), klass);
   await h.pause(SHORT_READ);
+  await addEnvironmentCriterion(section, envType);
   await h.click(section.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên', exact: true }));
-  await expect(section.getByRole('status')).toContainText(`Đã đăng ký cấu hình tài nguyên ${id}.`);
+  await expect(section.getByRole('status').filter({ hasText: `Đã đăng ký cấu hình tài nguyên ${id}.` })).toBeVisible();
   const stored = (await get('/resource-definitions')).resourceDefinitions.find((d) => d.key === id);
   rec.record('ui.definition.cluster', 'FORM', 'ui', stored?.driverType === 'existing-cluster' && Boolean(stored.driverAccount) && stored.version === 1,
     `cluster Definition ${id} uses its own Internal account ${stored?.driverAccount}; no Environment connection`);
@@ -154,19 +171,22 @@ export async function registerK8sModuleDefinition(kit, spec) {
     await h.type(form('Điều kiện 1 Class'), spec.klass);
   }
   await h.pause(SHORT_READ);
+  await addEnvironmentCriterion(section, spec.envType);
   await h.click(section.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên', exact: true }));
   await expect(section.getByRole('status').filter({ hasText: `Đã đăng ký cấu hình tài nguyên ${spec.id}.` })).toBeVisible();
   return (await get('/resource-definitions')).resourceDefinitions.find((d) => d.key === spec.id);
 }
 
 /** Workload rendering template: literal bundle + whole namespace/cluster references (+ optional companion rule). */
-export async function registerWorkloadTemplate(kit, { id, bundle, companion, clusterRef }) {
+export async function registerWorkloadTemplate(kit, { id, bundle, companion, clusterRef, envType }) {
   const { page, h, nav, form, get } = kit;
   await h.click(nav('Mẫu dựng ứng dụng'));
   await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng', level: 1, exact: true })).toBeVisible();
   await h.type(form('ID mẫu'), id);
   await h.type(form('Tên hiển thị'), 'Mẫu dựng ứng dụng đầy đủ (score-k8s)');
-  await expect(form('Bundle dựng ứng dụng')).toHaveValue(bundle);
+  const verified = page.getByRole('button', { name: 'Bundle đã xác minh', exact: true });
+  if (await verified.count()) await h.click(verified);
+  await kit.choose(form('Bundle dựng ứng dụng'), bundle);
   await h.click(page.getByRole('button', { name: 'Dùng gợi ý namespace', exact: true }));
   if (clusterRef) {
     // An EKS cluster the plan itself creates: the author states the reference to the cluster RESOURCE of class eks.
@@ -180,6 +200,7 @@ export async function registerWorkloadTemplate(kit, { id, bundle, companion, clu
     await h.type(page.getByLabel('Params tài nguyên đi kèm 1 (JSON object)', { exact: true }), JSON.stringify(companion.params), { replace: true });
   }
   await h.pause(SHORT_READ);
+  await addEnvironmentCriterion(page, envType);
   await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }));
   await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký mẫu dựng ứng dụng ${id}.` })).toBeVisible();
   return (await get('/resource-definitions')).resourceDefinitions.find((d) => d.key === id);

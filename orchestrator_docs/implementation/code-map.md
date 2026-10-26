@@ -733,3 +733,12 @@ copy in `labels.ts`; a new external source also needs spec/schema first.
 | Reference bundle | [`backend/render-bundles/standard`](../../backend/render-bundles/standard/README.md) with executable examples |
 | Tests | domain/engine/registry/guard/stage/pending/HTTP/PostgreSQL tests beside each package; UI [`GitRenderBundle.test.tsx`](../../frontend/src/features/platform/GitRenderBundle.test.tsx) |
 | Real acceptance | [`git-render-bundle-kind.sh`](../../backend/test/integration/git-render-bundle-kind.sh), [`git-render-bundle-kind.mjs`](../../frontend/test/e2e/git-render-bundle-kind.mjs), [`compose overlay`](../../deploy/local/compose.git-render-bundle.yml) |
+
+## Staging bootstrap (2026-10-26)
+
+- `backend/internal/seed/seed.go`: staging missing-only Type bootstrap; explicit fixtures giữ nguyên.
+- `backend/cmd/orchestrator/main.go`: startup catalog default staging.
+- `backend/deploy/docker-entrypoint.sh`: installed score-k8s path.
+- `frontend/src/app/AppShell.tsx`, `App.tsx`, `routes.ts`: Driver Accounts entry, retire Connections screen.
+- `frontend/test/e2e/bootstrap-staging-catalog.mjs`: operator Playwright registration/preflight/rerun checks.
+- [Runbook](../operations/staging-catalog.md): operator inputs, installed bundle và staging matching.

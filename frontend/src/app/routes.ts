@@ -6,7 +6,6 @@ export type Route =
   | { name: 'resource-types' }
   | { name: 'resource-definitions'; resourceType?: string }
   | { name: 'rendering-templates' }
-  | { name: 'connections' }
   | { name: 'driver-accounts'; account?: string; tab?: 'diagnose'; purpose?: 'use-case'; report?: string }
   | { name: 'secret-stores' }
   | { name: 'effectiveness'; application?: string; workload?: string; days?: EffectivenessDays }
@@ -40,7 +39,7 @@ export function parseRoute(path = window.location.pathname): Route {
     return { name: 'resource-definitions', ...(resourceType ? { resourceType } : {}) };
   }
   if (relative === '/platform/rendering-templates') return { name: 'rendering-templates' };
-  if (relative === '/platform/connections') return { name: 'connections' };
+  if (relative === '/platform/connections') return { name: 'driver-accounts' };
   if (relative === '/platform/driver-accounts') {
     const query = new URLSearchParams(search);
     const account = query.get('account');
@@ -93,7 +92,6 @@ export function href(route: Route): string {
     case 'resource-types': return `${base}/platform/resource-types`;
     case 'resource-definitions': return `${base}/platform/resource-definitions${route.resourceType ? `?resourceType=${encodeURIComponent(route.resourceType)}` : ''}`;
     case 'rendering-templates': return `${base}/platform/rendering-templates`;
-    case 'connections': return `${base}/platform/connections`;
     case 'driver-accounts': {
       if (!route.account) return `${base}/platform/driver-accounts`;
       const query = new URLSearchParams({ account: route.account });

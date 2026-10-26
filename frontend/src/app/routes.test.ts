@@ -36,7 +36,7 @@ describe('console routes', () => {
     expect(parseRoute('/ui/platform/driver-accounts?account=lab-aws')).toEqual({ name: 'driver-accounts', account: 'lab-aws' });
     expect(href({ name: 'driver-accounts' })).toBe('/ui/platform/driver-accounts');
     expect(href({ name: 'driver-accounts', account: 'a/b' })).toBe('/ui/platform/driver-accounts?account=a%2Fb');
-    expect(parseRoute('/ui/platform/connections')).toEqual({ name: 'connections' });
+    expect(parseRoute('/ui/platform/connections')).toEqual({ name: 'driver-accounts' });
   });
 
   it('routes the rendering templates page', () => {

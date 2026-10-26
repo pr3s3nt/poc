@@ -55,3 +55,5 @@ ghi đè runbook hoặc evidence cũ.
 
 - [Public routes: Ingress or Gateway API HTTPRoute](public-routes.md) — ADR-024 runtime flags and staging Gateway setup.
 - [Git render-bundle real acceptance](git-render-bundles-acceptance.md) — required new isolated kind/Compose Playwright procedure; runner is an implementation deliverable, no fake-adapter acceptance.
+
+[Kubernetes staging catalog bootstrap](staging-catalog.md) — Types-only startup và Playwright đăng ký catalog sau Driver Account `k8s-4f`.

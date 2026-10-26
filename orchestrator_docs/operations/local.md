@@ -310,3 +310,10 @@ Harness dùng in-memory catalog thật và task-owned HTTPS Git server với CA 
 fetch/inspect/HTTP/create/edit/reload chạy thật. Không phải bằng chứng Terraform
 apply hoặc PostgreSQL persistence. Tất cả fixture/temp/process được thu hồi khi
 runner kết thúc, kể cả browser lỗi. Không đụng environment/session người dùng.
+
+## Startup catalog default (2026-10-26)
+
+CLI mặc định chỉ seed Types cho Kubernetes staging, không tạo Application hoặc
+account mẫu. Muốn tái sử dụng fixture legacy của các ví dụ local cũ, truyền
+`-seed-catalog ''` tường minh; `-seed-catalog terraform-k8s` chọn fixture
+Terraform Kubernetes. Xem [staging bootstrap](staging-catalog.md) cho flow mới.

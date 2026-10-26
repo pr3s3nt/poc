@@ -7,6 +7,19 @@ last_reviewed: 2026-10-26
 
 # Current project state
 
+## Kubernetes staging bootstrap — 2026-10-26
+
+Startup CLI mặc định `seed-catalog staging`: bổ sung năm Kubernetes Types còn
+thiếu, không seed Driver Accounts/Application/Environment/catalog mẫu và không
+ghi đè Type schema. Fixtures legacy/terraform-k8s vẫn explicit cho tests.
+Connections không còn trong navigation; deep link mở Driver Accounts.
+[Operator runbook](operations/staging-catalog.md) hướng dẫn đăng ký account
+`k8s-4f` rồi chạy Playwright tạo Definitions/template installed score-k8s qua UI,
+không qua Git, không deploy. [Local verification](verification/2026-10-26-staging-catalog.md)
+đã pass create/rerun; chưa chạy trên staging. Giữ dữ liệu cũ/PVC; cập nhật image
+không dọn seed cũ.
+
+
 ## Generic Terraform resource completion — 2026-10-26
 
 UC-08 BR-10 uses successful Terraform execution, acknowledged managed state

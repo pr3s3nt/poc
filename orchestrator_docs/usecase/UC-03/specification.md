@@ -2,7 +2,7 @@
 id: UC-03-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-26
 ---
 
 # UC-03 — Register Resource Definition and Matching Criteria
@@ -486,3 +486,16 @@ keep their original contract. Infrastructure Definitions/matching stay unchanged
   does not deploy. Existing installed Definitions/plans keep working; no automatic
   conversion or fallback from Git to installed renderer. Git input/schema/engine
   errors use safe stable codes and preserve unrelated fields.
+
+## Kubernetes staging catalog bootstrap — 2026-10-26
+
+Sau khi PE đăng ký Internal Driver Account `k8s-4f` READY, script Playwright
+đăng nhập qua Console và tạo cluster `existing-cluster`, namespace, PostgreSQL,
+Redis qua verified Terraform modules và template dùng installed bundle
+`score-k8s-internal-v1`. Không dùng Git rendering, không tạo Application hoặc
+deploy workload. Matching dùng Environment `staging`; cluster class `internal`,
+namespace/workload class `default`, PostgreSQL/Redis class `in-cluster`, không
+ràng buộc Application mẫu. Resource references dùng `environments.@app.@env`.
+Script chỉ đọc metadata qua API; mutations qua UI. Kiểm tra account, Types,
+modules và bundle trước mutation; rerun giữ bản ghi khớp và dừng khi khác cấu
+hình, không update/delete catalog có sẵn. Không lưu password, trace hay video.
