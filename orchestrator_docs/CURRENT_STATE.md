@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 ---
 
 # Current project state
@@ -10,7 +10,7 @@ last_reviewed: 2026-10-27
 ## Application deletion (UC-18) — 2026-10-27
 
 [ADR-025](architecture/decisions/ADR-025-application-deletion.md) is implemented
-on `features/xoa_app`. Any Organization role can delete an Application from
+on `main` (merged from `features/xoa_app`). Any Organization role can delete an Application from
 Cài đặt after a server-computed preview of both Environments and the exact
 typed name. The Application becomes `DELETING` (HTTP mutations answer 409) and
 an in-process run removes every workload through the pending Deploy path,
@@ -21,11 +21,20 @@ are retained; name and subdomain become reusable. Failures keep `DELETING` with
 remaining IDs and an explicit Retry.
 
 Real kind acceptance passed 46/46 with verified teardown
-([record](verification/2026-10-27-application-deletion-kind.md)). AWS A02:
-AWS_RESULT_PENDING. Known gaps (output secrets, delivery policies/roles,
+([record](verification/2026-10-27-application-deletion-kind.md)). AWS A02 failed
+before Application deletion because Spot node capacity could not be fulfilled;
+original-state operator cleanup and all native absence checks passed
+([record](verification/2026-10-28-application-deletion-aws-cleanup.md)).
+Known gaps (output secrets, delivery policies/roles,
 PostgreSQL-only, in-process run): [IMP-038](implementation/deviations.md#imp-038--application-deletion-2026-10-27).
 The baseline changed (`applications.status`, `deletion`, partial unique
 indexes); retained databases are not migrated.
+
+Integrated `main` form-only acceptance on 2026-10-28 passed 15 assertions:
+three-workload deploy, two jobs with proven Redis writes, valid update with
+PostgreSQL/Redis/PVC reuse, Application deletion, native namespace/PV and exact
+Vault value/bundle absence, name reuse and clean teardown
+([record](verification/2026-10-28-application-deletion-form-integration.md)).
 
 ## Offline Terraform providers — 2026-10-27
 

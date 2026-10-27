@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 ---
 
 # Design-to-code map
@@ -744,6 +744,17 @@ copy in `labels.ts`; a new external source also needs spec/schema first.
 - `frontend/test/e2e/bootstrap-staging-catalog.mjs`: operator Playwright registration/preflight/rerun checks.
 - [Runbook](../operations/staging-catalog.md): operator inputs, installed bundle và staging matching.
 
+## Application deletion — UC-18 / ADR-025
+
+| Design | Code / tests |
+|---|---|
+| Lifecycle, progress model | [`domain/application`](../../backend/internal/domain/application/application.go), [`ports/persistence/lifecycle.go`](../../backend/internal/ports/persistence/lifecycle.go), [`postgres/lifecycle.go`](../../backend/internal/adapters/postgres/lifecycle.go), [`store/lifecycle.go`](../../backend/internal/adapters/store/lifecycle.go), baseline `applications` |
+| Preview, admission, staged run, Vault purge | [`application/appdeletion`](../../backend/internal/application/appdeletion/), [`vault.Registry.PurgeValues`](../../backend/internal/adapters/vault/registry.go) |
+| Whole-generation confirmed cleanup | [`resourcecleanup/environment.go`](../../backend/internal/application/resourcecleanup/environment.go) |
+| HTTP routes, lifecycle guard, error codes | [`delivery/http/application_deletion.go`](../../backend/internal/delivery/http/application_deletion.go) |
+| Console | [`features/applications/deletion`](../../frontend/src/features/applications/deletion/), Settings danger zone, Application home banner |
+| Tests | [`test/e2e/application_deletion_test.go`](../../backend/test/e2e/application_deletion_test.go) (real PostgreSQL, labelled fake engine), [`DeleteApplicationDialog.test.tsx`](../../frontend/src/features/applications/deletion/DeleteApplicationDialog.test.tsx), kind WM-E08 and AWS `appdel.*` acceptance |
+| Integrated form-only acceptance | [`e2e/scenarios/application-deletion-form`](../../e2e/scenarios/application-deletion-form/README.md), shared [`delete-application.mjs`](../../e2e/lib/delete-application.mjs), workload form scenario and owned-kind harness `--form-deletion` |
 
 ## ENV-UX — direct workload variable entry (2026-10-27)
 

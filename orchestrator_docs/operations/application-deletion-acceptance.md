@@ -2,7 +2,7 @@
 id: RUNBOOK-APPLICATION-DELETION-ACCEPTANCE
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 related: [UC-18, ADR-025]
 ---
 
@@ -13,6 +13,23 @@ real user, on kind and on AWS. Behavior: [UC-18](../usecase/UC-18/specification.
 Both runs reuse existing owned-run harnesses; nothing in them is faked.
 
 ## kind
+
+To verify the direct workload variable form together with Application deletion,
+use the [integrated form scenario](../../e2e/scenarios/application-deletion-form/README.md):
+
+```bash
+bash backend/test/integration/workload-manifests-kind.sh \
+  --evidence /absolute/new/evidence/directory --run-id uniqueid --form-deletion
+```
+
+It registers the catalog and enters all three workloads through Console form
+controls, including direct values and inline Variable/Secret creation. It uses
+no Score file/import/editor or direct application mutation API. It checks app
+health/jobs, valid update and resource reuse, then confirms whole-Application
+deletion and independently verifies namespace/PV, owned instance and exact
+Vault value/bundle absence. The harness owns and tears down its entire new stack.
+
+The original open-object-set/Score-import scenario remains available below:
 
 ```bash
 bash backend/test/integration/workload-manifests-kind.sh \
