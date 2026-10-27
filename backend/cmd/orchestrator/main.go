@@ -47,6 +47,7 @@ func main() {
 	terraformRoot := flag.String("terraform-root", "", "optional parent directory of the private per-process Terraform work directory (provider credentials, readiness kubeconfig); default is the system temporary directory")
 	terraformRecoveryDir := flag.String("terraform-recovery-dir", os.Getenv("ORCHESTRATOR_TERRAFORM_RECOVERY_DIR"), "private absolute directory (0700, outside any Git work tree) for encrypted recovery artifacts of a Terraform state the backend could not store; required with real adapters and the Terraform state backend")
 	terraformCache := flag.String("terraform-plugin-cache", os.Getenv("TF_PLUGIN_CACHE_DIR"), "Terraform provider cache directory")
+	terraformCLIConfig := flag.String("terraform-cli-config-file", os.Getenv("ORCHESTRATOR_TERRAFORM_CLI_CONFIG_FILE"), "absolute platform-owned Terraform CLI configuration file (provider mirror); never inherited from TF_CLI_CONFIG_FILE")
 	kubectlPath := flag.String("kubectl", "kubectl", "kubectl binary")
 	scorePath := flag.String("score-k8s", "", "path to the pinned score-k8s 0.15.0 renderer; required for Workload deployment (without it every Workload plan fails before resources, there is no native fallback)")
 	terraformPath := flag.String("terraform", "terraform", "terraform binary")
@@ -185,6 +186,7 @@ func main() {
 		TerraformRoot:                 *terraformRoot,
 		TerraformRecoveryDir:          *terraformRecoveryDir,
 		TerraformPluginCache:          *terraformCache,
+		TerraformCLIConfigFile:        *terraformCLIConfig,
 		TerraformModuleCacheDir:       *moduleCacheDir,
 		TerraformModulePolicyFile:     *modulePolicyFile,
 		TerraformRetainedReleasesFile: *retainedReleases,

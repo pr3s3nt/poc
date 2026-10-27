@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-27 | Release-verified provider mirror; production runner init 7/7 with Docker network disabled; focused PostgreSQL 69/69 | [Offline provider image](2026-10-27-offline-terraform-providers.md) |
 | 2026-10-26 | Source-bound reuse of passed kind/AWS deployment/job/cache/update observations; focused cache correction; original failed full A02/R5 results retained, no additional cloud run or SG/IAM scope | [Completion verification scope review](2026-10-26-terraform-completion-scope-review.md) |
 | 2026-10-26 | Real AWS A02 full-app attempt: R4 job/cache/update passed, R5 EKS node join blocked; original-module operator cleanup/native absence verified; acceptance and merge pending | [AWS attempt and cleanup](2026-10-26-terraform-completion-aws-r5.md) |
 | 2026-10-26 | UC-08 BR-10 provider completion, ID-less resource schema, shared/private resources, update/reuse, real kind/Playwright 57/57 and product cleanup | [Terraform resource completion](2026-10-26-terraform-resource-completion.md) |

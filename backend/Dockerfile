@@ -22,7 +22,16 @@ COPY cmd ./cmd
 COPY internal ./internal
 RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/orchestrator ./cmd/orchestrator
 
-FROM mirror.gcr.io/library/alpine:3.22
+# Only image preparation needs Internet. Download every release provider and
+# verify its archive against the embedded release's zh: hashes.
+FROM build AS provider-mirror
+ARG TARGETARCH=amd64
+RUN go run ./cmd/prepare-provider-mirror -dir /out/provider-mirror -platform linux_${TARGETARCH}
+
+FROM build AS offline-check-build
+RUN CGO_ENABLED=0 go test -c -tags offlineprovider -o /out/offline-provider-check ./internal/adapters/terraform/runner
+
+FROM mirror.gcr.io/library/alpine:3.22 AS runtime
 ARG KUBECTL_VERSION=v1.36.1
 ARG TARGETARCH=amd64
 
@@ -40,11 +49,22 @@ RUN wget --no-check-certificate -q -O /tmp/score.tgz "https://github.com/score-s
  && tar -xzf /tmp/score.tgz -C /usr/local/bin score-k8s && chmod 0755 /usr/local/bin/score-k8s && rm /tmp/score.tgz
 COPY --from=hashicorp/terraform:1.9.8 /bin/terraform /usr/local/bin/terraform
 COPY --from=build /out/orchestrator /usr/local/bin/orchestrator
+COPY --from=provider-mirror /out/provider-mirror /usr/local/share/orchestrator/provider-mirror
+COPY deploy/terraform-offline.tfrc /etc/orchestrator/terraform-offline.tfrc
 COPY deploy/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 ENV HOME=/tmp
+ENV ORCHESTRATOR_TERRAFORM_CLI_CONFIG_FILE=/etc/orchestrator/terraform-offline.tfrc
 # Durable verified Git render bundle content (ADR-021); mount its own volume.
 ENV ORCHESTRATOR_RENDER_BUNDLE_CACHE_DIR=/var/lib/orchestrator/render-bundle-cache
 RUN mkdir -p /var/lib/orchestrator/recovery /var/lib/orchestrator/tfroot /var/lib/orchestrator/plugin-cache /var/lib/orchestrator/module-cache /var/lib/orchestrator/render-bundle-cache && chown -R 65532:65532 /var/lib/orchestrator && chmod -R 0700 /var/lib/orchestrator
 USER 65532:65532
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+
+# Run this target with --network none. It uses the production runner, real
+# packaged modules, release locks and image providers, without plan/apply.
+FROM runtime AS offline-provider-check
+COPY --from=offline-check-build /out/offline-provider-check /usr/local/bin/offline-provider-check
+ENTRYPOINT ["/usr/local/bin/offline-provider-check", "-test.run=^TestOfflinePackagedModules$", "-test.v"]
+
+FROM runtime AS final

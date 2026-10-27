@@ -2,7 +2,7 @@
 id: OPERATIONS-INDEX
 artifact: operations-index
 status: current
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-27
 ---
 
 # Operations index
@@ -19,6 +19,7 @@ shared/private resources, valid updates and product cleanup.
 |---|---|---|
 | Application telemetry | [Native logging/monitoring](observability.md) | Read-only collector; Metrics Server/RBAC/database preparation is an explicit operator action |
 | Local fake adapters | [Local development](local.md) | No cluster/cloud mutation |
+| Offline staging providers | [Image check and staging patch](terraform-offline.md) | Local image build/check; staging rollout is a separate operator action |
 | Personal-machine containers | [Docker Compose](docker-local.md) | Local Docker volumes; cluster mutation only on explicit deploy |
 | UC-09 review video | [Human-paced local recording](local.md#uc-09-human-paced-review-recording) | Local browser/display only; publish reviewed evidence separately |
 | Existing kind cluster | [kind verification](kind.md) | Creates a run-specific namespace and workloads |

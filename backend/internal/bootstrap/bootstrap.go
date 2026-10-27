@@ -96,6 +96,10 @@ type Options struct {
 
 	// TerraformPluginCache keeps provider downloads shared between workspaces.
 	TerraformPluginCache string
+	// TerraformCLIConfigFile is an explicit platform-owned installation policy,
+	// e.g. a filesystem mirror without Internet fallback. Empty preserves the
+	// runner's isolated empty CLI configuration.
+	TerraformCLIConfigFile string
 	// TerraformModuleCacheDir is the private, absolute cache of verified
 	// module content, outside any Git work tree. Empty uses a private
 	// temporary directory removed on Close. Configure a durable directory to

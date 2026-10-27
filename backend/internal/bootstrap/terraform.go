@@ -42,6 +42,9 @@ var volatileTags = map[string]bool{"run-id": true, "expires-at": true}
 // recovery store and the internal loopback state backend. It never falls back
 // to a local state, a host credential or an always-ready check.
 func newTerraformExecutor(opts Options, tf *terraformRuntime, resolver *connection.CredentialResolver, secrets execution.SecretStore, modules *moduleregistry.Service, closers *[]func()) (*tfexec.Service, error) {
+	if err := validateTerraformCLIConfig(opts.TerraformCLIConfigFile); err != nil {
+		return nil, err
+	}
 	if opts.TerraformRecoveryDir == "" {
 		return nil, fmt.Errorf("bootstrap: the Terraform executor needs a private -terraform-recovery-dir for encrypted recovery artifacts")
 	}
@@ -81,9 +84,32 @@ func newTerraformExecutor(opts Options, tf *terraformRuntime, resolver *connecti
 	checker := &readiness.Checker{Kubectl: kubectl, AWS: aws, Dir: work}
 	return tfexec.New(tfexec.Config{BackendBase: listener.Address, Tags: tags, CreationTags: creation, InvocationTimeout: opts.TerraformInvocationTimeout, ReadinessTimeout: opts.TerraformReadinessTimeout}, tfexec.Deps{
 		State: tf.repo, Tokens: tf.svc, Modules: modules,
-		Runner:    runner.New(runner.Options{PluginCacheDir: opts.TerraformPluginCache, PassThroughEnv: []string{"HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "no_proxy"}}),
+		Runner:    runner.New(terraformRunnerOptions(opts)),
 		Binder:    &providers.Binder{AWS: resolver, Kube: resolver, API: aws, Dir: filepath.Join(work)},
 		Readiness: checker, Namespaces: checker,
 		Recovery: recoveryStore, Verification: recoveryStore, Secrets: secrets,
 	})
+}
+
+func terraformRunnerOptions(opts Options) runner.Options {
+	return runner.Options{PluginCacheDir: opts.TerraformPluginCache, CLIConfigFile: opts.TerraformCLIConfigFile,
+		PassThroughEnv: []string{"HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "no_proxy"}}
+}
+
+func validateTerraformCLIConfig(path string) error {
+	if path == "" {
+		return nil
+	}
+	if !filepath.IsAbs(path) {
+		return fmt.Errorf("bootstrap: Terraform CLI configuration must be an absolute readable regular file")
+	}
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return fmt.Errorf("bootstrap: Terraform CLI configuration must be an absolute readable regular file")
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("bootstrap: Terraform CLI configuration must be an absolute readable regular file")
+	}
+	return f.Close()
 }

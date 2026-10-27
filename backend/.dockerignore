@@ -4,4 +4,6 @@
 !cmd/
 !internal/
 !deploy/docker-entrypoint.sh
+!deploy/terraform-offline.tfrc
 **/*_test.go
+!internal/adapters/terraform/runner/offline_provider_test.go

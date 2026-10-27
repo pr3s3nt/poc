@@ -2,10 +2,25 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-27
 ---
 
 # Current project state
+
+## Offline Terraform providers — 2026-10-27
+
+Backend image builds a read-only filesystem mirror for all providers pinned in
+the embedded release and verifies archive SHA-256 against release `zh:` hashes.
+The image selects a platform-owned Terraform CLI policy with no direct Internet
+fallback; bootstrap passes the explicit configuration into the isolated runner.
+Plugin cache persistence is optional and does not replace a mirror. Packaged
+modules do not require Internet for provider installation; external Git sources
+and provider APIs keep their separate connectivity requirements. Historical
+cleanup requires retaining the matching old provider versions and release
+artifacts. [Image validation and staging patch](operations/terraform-offline.md) do
+not deploy to staging or prove the reported application's deployment succeeded.
+[Local image verification](verification/2026-10-27-offline-terraform-providers.md)
+passed all seven packaged module init checks with Docker networking disabled.
 
 ## Kubernetes staging bootstrap — 2026-10-26
 

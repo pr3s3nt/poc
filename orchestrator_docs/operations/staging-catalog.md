@@ -2,7 +2,7 @@
 id: RUNBOOK-STAGING-CATALOG
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-27
 ---
 
 # Bootstrap Kubernetes staging catalog
@@ -28,6 +28,9 @@ không đổi login-account policy: profile local vẫn có users fixture hiện
    READY. Script không nhận hoặc tạo kubeconfig/account.
 3. Backend phải có verified packaged modules `k8s-namespace`, `postgres-k8s`,
    `redis-k8s` và installed bundle `score-k8s-internal-v1` AVAILABLE.
+   Nếu staging không có Internet, dùng image có provider mirror offline và
+   [kiểm chứng image/patch staging](terraform-offline.md) trước Deploy.
+   Plugin/module cache không thay thế provider mirror; giữ input namespace `name`.
 4. Chuẩn bị file password đăng nhập ngoài repository, mode 0600 hoặc 0400.
    Không dùng kubeconfig hoặc Vault token làm password của Console.
 

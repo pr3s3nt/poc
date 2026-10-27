@@ -119,6 +119,15 @@ plus private 0700 directories under `/var/lib/orchestrator` (`recovery`,
 start without the Terraform binary, the durable Vault output-secret store and
 the recovery directory (`ORCHESTRATOR_TERRAFORM_RECOVERY_DIR`).
 
+The image also ships a read-only filesystem provider mirror, prepared at build
+time from the embedded release and verified against its archive hashes. The
+image default `ORCHESTRATOR_TERRAFORM_CLI_CONFIG_FILE` selects an installation
+policy without direct Internet fallback. Provider cache volumes remain optional
+and must not shadow the mirror. See the [offline image check and staging
+patch](terraform-offline.md). Build requires Internet; packaged module
+provider installation at runtime does not. External Git sources and provider
+APIs still require their own network access.
+
 The default Compose runs `ORCHESTRATOR_ADAPTERS=kubernetes`. To execute
 Definition-driven AWS resources, add the override on every Compose command:
 

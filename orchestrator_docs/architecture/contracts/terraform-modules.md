@@ -2,7 +2,7 @@
 id: TERRAFORM-MODULE-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-27
 related: [ADR-014, UC-03, UC-05, UC-06, UC-08, UC-16]
 ---
 
@@ -58,6 +58,26 @@ exact version + lockfile hashes, module commit/content digest và score-k8s bund
 digests. Không gọi `init -upgrade`; init dùng readonly provider lockfile. Catalog
 metadata published sau inspect, gồm schemas/defaults và provider requirements.
 Version literals/digests được tạo khi chuẩn bị modules, trước live run.
+
+### Provider installation trong môi trường offline
+
+Backend image chứa filesystem mirror read-only cho toàn bộ providers của
+embedded release. Image build tải archive từ nguồn platform tin cậy và kiểm
+SHA-256 archive với `zh:` hashes trong release manifest trước khi đưa vào mirror.
+Runtime dùng `provider_installation` chỉ có `filesystem_mirror`, không có
+`direct` fallback; thiếu provider/version/platform hoặc sai lock hash thì fail
+closed. Build image cần mạng; chạy Terraform cho packaged modules không cần
+Internet. Git module/render bundle sources vẫn cần kết nối tới Git server.
+
+Admin chọn CLI config bằng `-terraform-cli-config-file` (env
+`ORCHESTRATOR_TERRAFORM_CLI_CONFIG_FILE`); image mặc định trỏ tới cấu hình mirror
+đi kèm. Bootstrap kiểm file tuyệt đối, regular và đọc được trước khi dựng
+executor; không nhận file từ Definition/module hoặc kế thừa `TF_CLI_CONFIG_FILE`
+của host. Chạy binary ngoài image không đặt option giữ hành vi hiện tại.
+Plugin cache chỉ tối ưu cài đặt, không thay mirror; verified module cache là
+artifact riêng. Không mount cache volume đè lên mirror trong image. Khi nâng
+release, giữ provider lịch sử trong mirror platform được cấu hình nếu còn
+resource cần cleanup với release cũ.
 
 Để cleanup dùng đúng release lịch sử, platform giữ manifest, binary và module
 cache của các release còn resource chưa xóa. Cấu hình Admin
