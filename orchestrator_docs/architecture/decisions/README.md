@@ -2,7 +2,7 @@
 id: ADR-INDEX
 artifact: decision-index
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # Architecture Decision Records
@@ -51,3 +51,5 @@ last_reviewed: 2026-10-24
 - [ADR-024 — Open workload object set, inventory and Gateway API routes](ADR-024-open-workload-objects.md) — supersedes the ADR-021 object envelope for Git bundles.
 
 - [ADR-023 — Native basic observability](ADR-023-native-observability.md): platform collection, Metrics Server and durable application history.
+
+ZIP source upload: [ADR-025](ADR-025-zip-source-upload.md).

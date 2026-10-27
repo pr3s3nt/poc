@@ -221,3 +221,41 @@ describe('Git render bundle authoring (ADR-021)', () => {
     expect(screen.getByLabelText('Thư mục bundle')).toHaveValue('new/path');
   });
 });
+
+it('uploads a ZIP bundle, retains its metadata across source selection and saves typed inputs without Git', async () => {
+  const user = userEvent.setup();
+  const zip = gitBundle(idA, 'a'.repeat(64), { source: { kind: 'zip', url: `zip:sha256:${'a'.repeat(64)}`, path: 'bundles/standard', revision: 'a'.repeat(64), contentSha256: 'c'.repeat(64) } });
+  const { posted, inspections } = backend({ bundles: [] });
+  const original = globalThis.fetch;
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    if (String(input).endsWith('/render-bundles/upload')) return Response.json({ renderBundle: zip });
+    return original(input, init);
+  }));
+  render(<RenderingTemplatesPage />);
+  await identity(user);
+  await user.click(screen.getByRole('button', { name: 'Tải ZIP' }));
+  await user.upload(screen.getByLabelText('Tệp ZIP'), new File(['zip'], 'bundle.zip'));
+  await user.type(screen.getByLabelText('Thư mục trong ZIP'), 'bundles/standard');
+  expect(submit()).toBeDisabled();
+  await user.click(screen.getByRole('button', { name: 'Tải lên và kiểm tra' }));
+  await screen.findByText('Đã xác minh ZIP.');
+  await user.type(screen.getByLabelText('Team'), 'payments');
+  await user.click(screen.getByRole('button', { name: 'Bundle đã xác minh' }));
+  expect(screen.getByRole('option', { name: /ZIP · standard-workload/ })).toBeInTheDocument();
+  expect(submit()).toBeEnabled();
+  await user.click(submit());
+  await waitFor(() => expect(posted).toHaveLength(1));
+  expect(posted[0]).toMatchObject({ driverInputs: { values: { variables: { render_bundle: idA, render_inputs: { team: 'payments' } } } } });
+  expect(inspections).toHaveLength(0);
+});
+
+it('asks for ZIP re-upload when its cache is unavailable instead of offering Git inspection', async () => {
+  const user = userEvent.setup();
+  const zip = gitBundle(idA, 'a'.repeat(64), { status: 'UNAVAILABLE', source: { kind: 'zip', url: `zip:sha256:${'a'.repeat(64)}`, path: '.', revision: 'a'.repeat(64), contentSha256: 'c'.repeat(64) } });
+  const { inspections } = backend({ bundles: [zip] });
+  render(<RenderingTemplatesPage />);
+  await user.click(screen.getByRole('button', { name: 'Bundle đã xác minh' }));
+  expect(await screen.findByText('Tải lại ZIP có cùng nội dung và chọn đúng thư mục để khôi phục bundle.')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Kiểm tra lại bundle' })).not.toBeInTheDocument();
+  expect(inspections).toHaveLength(0);
+});

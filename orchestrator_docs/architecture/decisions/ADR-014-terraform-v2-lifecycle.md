@@ -2,7 +2,7 @@
 id: ADR-014
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 related: [UC-03, UC-04, UC-05, UC-06, UC-07, UC-08, UC-09, UC-16]
 ---
 
@@ -244,3 +244,7 @@ Legacy installed pins retain their contract. Terraform provisioning, dependency
 matching, target/state/ownership and cleanup rules in this ADR are unchanged.
 Git behavior, inputs, cache and versioning follow the linked contract; this
 amendment does not claim implementation or authorize retained-data migration.
+
+ZIP source amendment (2026-10-28): [ADR-025](ADR-025-zip-source-upload.md)
+adds uploaded archives to preparation; the verified module contract, providers,
+execution identity and state/cleanup lifecycle stay in effect.

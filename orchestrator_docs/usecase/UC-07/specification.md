@@ -2,7 +2,7 @@
 id: UC-07-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # UC-07 — Update or Remove Workload
@@ -242,3 +242,11 @@ user chose to extend removal for this case.
   FAILED like a failed workload delete; retry is safe and idempotent. Vault KV
   bundles, policies and roles are unchanged (out of scope). Legacy Vault Agent
   delivery keeps its existing behavior.
+
+## Uploaded ZIP source compatibility — ADR-025
+
+The RB requirements also apply to verified ZIP sources prepared by UC-03
+ZIP-01..04. Source preparation/provenance follows
+[ADR-025](../../architecture/decisions/ADR-025-zip-source-upload.md);
+Preview, rendering, update/reuse and cleanup keep their existing pinned-engine
+and cache contracts. No upload or source fetch is introduced into this use case.

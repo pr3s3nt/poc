@@ -2,7 +2,7 @@
 id: UC-03-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 related: UC-03
 ---
 
@@ -225,3 +225,11 @@ UI3-05: Switching cluster methods retains each driver draft. Existing-cluster sh
 Developer cannot inspect/edit through UI or deep link; existing session-expired
 behavior applies. Unknown backend errors use localized fallback, no raw template
 or Git stderr. Full error codes follow RB-C07.
+
+## ZIP states
+
+ZIP-04: empty selection disables inspect/save; upload pending shows status;
+invalid/oversize archives preserve file/path with safe error and explicit retry;
+verified enables existing form; changing file/path/Type/source invalidates the
+pin and pending reply. Missing saved ZIP cache requests explicit same-content
+re-upload. Leaving/resetting drafts never implicitly repeats an upload.

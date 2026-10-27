@@ -3185,5 +3185,19 @@
   "shared.errors.diagnosticScopeInvalid": "Phạm vi chẩn đoán không hợp lệ. Kiểm tra lựa chọn rồi thử lại.",
   "shared.errors.diagnosticBusy": "Tài khoản này đang có một lượt chẩn đoán đang chạy.",
   "platform.diagnostics.reportMismatch": "Báo cáo được yêu cầu thuộc phạm vi khác với tab này nên không được hiển thị.",
-  "platform.diagnostics.openLatestReport": "Mở báo cáo mới nhất"
+  "platform.diagnostics.openLatestReport": "Mở báo cáo mới nhất",
+  "platform.zipSource.uploadZIP": "Tải ZIP",
+  "platform.zipSource.file": "Tệp ZIP",
+  "platform.zipSource.directory": "Thư mục trong ZIP",
+  "platform.zipSource.help": "Cấu trúc và giới hạn",
+  "platform.zipSource.helpText": "Giữ cấu trúc như trên Git. Đường dẫn tính từ gốc ZIP, ví dụ modules/postgres hoặc bundles/standard; để trống để dùng thư mục gốc. Tối đa 32 MiB, 2.000 mục, 1 MiB mỗi tệp.",
+  "platform.zipSource.inspect": "Tải lên và kiểm tra",
+  "platform.zipSource.uploading": "Đang tải và kiểm tra…",
+  "platform.zipSource.verified": "Đã xác minh ZIP.",
+  "platform.zipSource.invalidFile": "Chọn tệp .zip không rỗng, tối đa 32 MiB.",
+  "platform.zipSource.failed": "Không thể kiểm tra ZIP. Kiểm tra cấu trúc, đường dẫn và giới hạn tệp rồi thử lại.",
+  "platform.zipSource.origin": "Nguồn",
+  "platform.zipSource.archiveDigest": "SHA-256 nội dung ZIP",
+  "platform.zipSource.reupload": "Tải lại ZIP có cùng nội dung và chọn đúng thư mục để khôi phục bundle.",
+  "platform.zipSource.renderSource": "ZIP {path} @ {version}"
 }

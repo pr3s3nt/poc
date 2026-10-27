@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # Database Schema
@@ -927,9 +927,10 @@ Implemented 2026-10-24 in the fresh baseline (`render_bundles`):
 |---|---|
 | `id` | UUID primary key, server-issued |
 | `organization_id` | UUID NOT NULL FK organizations; every read/write scoped |
-| `source_url` | text NOT NULL, credential-free canonical HTTPS origin |
+| `source_kind` | text NOT NULL DEFAULT `git`, restricted to `git`/`zip` (ADR-025) |
+| `source_url` | text NOT NULL, credential-free HTTPS origin or `zip:sha256:<archive-tree digest>` (ADR-025) |
 | `source_path` | text NOT NULL, normalized clean directory or `.` |
-| `source_revision` | text NOT NULL, full 40/64 lowercase hex commit |
+| `source_revision` | text NOT NULL, full Git commit or 64 lowercase hex archive-tree digest |
 | `content_sha256` | text NOT NULL, 64 lowercase hex digest |
 | `engine_contract` | text NOT NULL, `git-render-v1` |
 | `renderer_version` | text NOT NULL, `0.15.0` |
@@ -1028,3 +1029,15 @@ validation and memory/JSON snapshot counterparts must include the aggregate.
 Fresh-baseline policy stays unchanged: no runtime DDL/automatic migration/reset;
 new acceptance databases use the updated baseline. Retained databases are not
 reset or converted by this task.
+
+## ZIP source persistence — ADR-025
+
+`render_bundles.source_kind` is text NOT NULL DEFAULT 'git', restricted to
+`git`/`zip`. `source_url` is a safe HTTPS origin for Git or exactly
+`zip:sha256:<64 lowercase hex>` for ZIP, whose suffix equals source_revision.
+The existing unique immutable pin key remains sufficient: locator namespaces
+are disjoint. source_revision is Git commit or full archive-tree SHA-256.
+Module bundles keep ZIP source kind and sourceOrganizationKey (the uploader
+session Organization) in their immutable JSON contract and full
+archive revision in their existing pin columns; no additional table is needed.
+Only fresh baseline setup changes; retained installations are never reset here.

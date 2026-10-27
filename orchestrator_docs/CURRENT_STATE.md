@@ -2,10 +2,25 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 ---
 
 # Current project state
+
+## ZIP module and rendering sources — 2026-10-28
+
+[ADR-025](architecture/decisions/ADR-025-zip-source-upload.md) adds multipart ZIP
+upload beside Git/verified sources on both authoring pages. Archive directory
+layout and selected module/bundle contracts match Git; ZIP sources use immutable
+archive-tree revisions, Organization-scoped upload metadata, existing inspectors
+and durable verified caches. Preview,
+execution and cleanup continue consuming pins; Git remains the new-draft default.
+PostgreSQL render metadata records source kind in the fresh baseline.
+
+Local browser verification used real module/render inspection and cache with fake
+deployment adapters, covering both uploads and rendering-template save/reopen;
+no cloud/Kubernetes deployment was run. [Usage](operations/zip-source-upload.md)
+and [verification](verification/2026-10-28-zip-source-upload.md).
 
 ## Offline Terraform providers — 2026-10-27
 

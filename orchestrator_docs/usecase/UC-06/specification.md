@@ -2,7 +2,7 @@
 id: UC-06-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # UC-06 — Deploy Workload
@@ -357,3 +357,11 @@ in PRE-02, MS-05, VAR-01, POST-02/03 and BR-03 as V05 is implemented.
   the configured base domain.
 
 Exact stages and validation: [Git contract](../../architecture/contracts/git-render-bundles.md).
+
+## Uploaded ZIP source compatibility — ADR-025
+
+The RB requirements also apply to verified ZIP sources prepared by UC-03
+ZIP-01..04. Source preparation/provenance follows
+[ADR-025](../../architecture/decisions/ADR-025-zip-source-upload.md);
+Preview, rendering, update/reuse and cleanup keep their existing pinned-engine
+and cache contracts. No upload or source fetch is introduced into this use case.

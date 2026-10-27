@@ -2,7 +2,7 @@
 id: UC-03-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 related: UC-03
 ---
 
@@ -216,3 +216,9 @@ is canonical for exact request/response/error shapes.
 
 Changing source/inputs changes draft signature; pin/schema and field state must
 come from the same response. Client cannot provide digest/engine overrides.
+
+## ZIP inspection
+
+ZIP-01..04 use `POST /terraform-modules/upload` and `POST /render-bundles/upload`
+with multipart file/path and scoped resourceType for Terraform. Success reuses
+existing inspect projections; Definition Create/CAS payloads are unchanged.

@@ -43,6 +43,24 @@ Service --> API: incomplete or winner/ties/conflict + snapshot marker
 API --> PE: 200 safe snapshot result
 end
 
+opt Inspect uploaded ZIP [ZIP-01..04, ADR-025]
+PE -> API: POST module or render-bundle upload(file, path, Type)
+API -> API: Authenticate before bounded multipart decode
+API -> Service: Scoped upload inspection
+Service -> Service: Validate scoped Type/Organization
+alt Terraform module
+Service -> Modules: Validate ZIP tree and inspect selected module
+else Rendering bundle
+Service -> Bundles: Validate ZIP tree and inspect selected bundle
+end
+note over Modules, Bundles
+Reuse static inspectors, durable digest cache and immutable metadata.
+No Definition, provider or cluster mutation. Revision = archive-tree SHA-256.
+end note
+Service --> API: Existing capability/renderBundle projection with ZIP provenance
+API --> PE: Verified pin; explicit Create/CAS remains separate
+end
+
 opt Inspect Git module [GIT-01..06]
 PE -> API: POST terraform-modules/inspect(Type, HTTPS URL, path, ref)
 API -> API: PE/Admin session + strict bounded body + deadline

@@ -85,3 +85,14 @@ type GitInspection struct {
 type GitInspector interface {
 	InspectGit(ctx context.Context, request GitInspection) (tfmodule.Bundle, error)
 }
+
+// ZIPInspection is a bounded uploaded source, never an execution workspace.
+type ZIPInspection struct {
+	OrganizationKey string
+	ResourceType    string
+	Path            string
+	Data            []byte
+}
+type ZIPInspector interface {
+	InspectZIP(context.Context, ZIPInspection) (tfmodule.Bundle, error)
+}

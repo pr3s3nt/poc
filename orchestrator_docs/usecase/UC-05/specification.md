@@ -2,7 +2,7 @@
 id: UC-05-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # UC-05 — Validate and Preview Score Changes
@@ -251,3 +251,11 @@ runtime/current set hoặc Environment khác khi lưu.
   Applied history supplies the before-side across refresh/restart.
 
 Details: [Git contract RB-C06](../../architecture/contracts/git-render-bundles.md#rb-c06--preview-admission-and-history).
+
+## Uploaded ZIP source compatibility — ADR-025
+
+The RB requirements also apply to verified ZIP sources prepared by UC-03
+ZIP-01..04. Source preparation/provenance follows
+[ADR-025](../../architecture/decisions/ADR-025-zip-source-upload.md);
+Preview, rendering, update/reuse and cleanup keep their existing pinned-engine
+and cache contracts. No upload or source fetch is introduced into this use case.

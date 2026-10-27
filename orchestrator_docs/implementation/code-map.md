@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 ---
 
 # Design-to-code map
@@ -743,3 +743,15 @@ copy in `labels.ts`; a new external source also needs spec/schema first.
 - `frontend/src/app/AppShell.tsx`, `App.tsx`, `routes.ts`: Driver Accounts entry, retire Connections screen.
 - `frontend/test/e2e/bootstrap-staging-catalog.mjs`: operator Playwright registration/preflight/rerun checks.
 - [Runbook](../operations/staging-catalog.md): operator inputs, installed bundle và staging matching.
+
+## ZIP module and render-bundle sources — ADR-025
+
+- `backend/internal/platform/sourcezip/`: bounded, non-extracting archive reader.
+- Registry `zip_inspect.go` adapters reuse HCL/renderer inspection and verified
+  caches; Terraform ZIPSnapshot retains same-archive local module paths.
+- HTTP `source_upload.go` and catalog upload methods: PE/Admin multipart upload,
+  scoped metadata response and immutable pins. PostgreSQL stores render source_kind.
+- Console `ZIPSource.tsx`: shared upload/inspect controls in Resource Definitions
+  and Rendering Templates; existing typed inputs/Create/CAS persist prepared pins.
+- [Browser scenario](../../e2e/scenarios/zip-source-upload/README.md) exercises
+  both upload forms and rendering-template save/reopen with real inspection/cache.

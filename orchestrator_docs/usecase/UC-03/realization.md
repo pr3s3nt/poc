@@ -2,7 +2,7 @@
 id: UC-03-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-28
 ---
 
 # UC-03 — Use Case Realization
@@ -178,3 +178,13 @@ operations are in [RB-C07](../../architecture/contracts/git-render-bundles.md#rb
 Playwright thực hiện forms Console sau preflight GET account/Type/module/bundle;
 DefinitionService vẫn validate matching, references, provider bindings và pins.
 Rerun so cấu hình đã lưu trước khi bỏ qua; không bypass service bằng API writes.
+
+## ZIP source preparation — ADR-025
+
+The existing controllers authenticate PE/Admin before reading multipart content.
+Catalog validates scoped Type/Organization before invoking the ZIP inspector.
+A shared archive reader validates the bounded tree in memory; Terraform's source
+resolver reads it as a snapshot, while the render registry validates its selected
+directory with the existing engine. Cache materialization precedes immutable
+metadata insertion. Registration, planning, execution and cleanup consume the
+same verified pin as Git. See [ADR-025](../../architecture/decisions/ADR-025-zip-source-upload.md).

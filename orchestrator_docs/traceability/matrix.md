@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-28
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -1196,3 +1196,11 @@ accounts/Application fixtures and schema preservation. UC-03 Kubernetes staging
 catalog bootstrap → `frontend/test/e2e/bootstrap-staging-catalog.mjs` + shared
 UI flows → `bootstrap-staging-catalog.test.mjs` and local Console create/rerun
 verification. Operator procedure: [staging catalog](../operations/staging-catalog.md).
+
+## UC-03 ZIP source upload — ADR-025
+
+| Requirement | Operation / collaboration | Persistence and coverage |
+|---|---|---|
+| ZIP-01/02 | `UploadTerraformModule`, `UploadRenderBundle`; UC-03 sequence/VOPC; bounded multipart → shared ZIP reader → existing inspectors | `sourcezip/zip_test.go`; HTTP `source_upload_test.go` uses real inspectors, checks RBAC, scope, strict multipart, slow-upload deadline, Organization-scoped module discovery/registration and no Definition side effects |
+| ZIP-03 | ZIP archive-tree revision + selected-directory digest; cache before immutable insertion; metadata-only downstream reuse | registry `zip_inspect_test.go`: local children, trusted identity, repeat/restart/update, executable artifact verification and tamper; render ZIP test: scope, restart, update and cache repair; PostgreSQL `TestZIPSourceKindsSurvivePostgresReopen` |
+| ZIP-04 | `ZIPSource` on both existing authoring forms; unchanged Create/CAS and typed input editors | `ZIPSource.test.tsx`, ZIP cases in `GitModuleSource.test.tsx` / `GitRenderBundle.test.tsx`; [browser runner](../../e2e/scenarios/zip-source-upload/README.md) |

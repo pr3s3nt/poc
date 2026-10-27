@@ -3185,5 +3185,19 @@
   "shared.errors.diagnosticScopeInvalid": "The diagnostic scope is not valid. Check the selection and try again.",
   "shared.errors.diagnosticBusy": "This account already has a diagnostic running.",
   "platform.diagnostics.reportMismatch": "The requested report belongs to another scope than this tab, so it is not shown.",
-  "platform.diagnostics.openLatestReport": "Open the latest report"
+  "platform.diagnostics.openLatestReport": "Open the latest report",
+  "platform.zipSource.uploadZIP": "Upload ZIP",
+  "platform.zipSource.file": "ZIP file",
+  "platform.zipSource.directory": "Directory in ZIP",
+  "platform.zipSource.help": "Structure and limits",
+  "platform.zipSource.helpText": "Keep the Git layout. Paths start at the ZIP root, e.g. modules/postgres or bundles/standard; leave empty to use the root. Maximum 32 MiB, 2,000 entries, 1 MiB per file.",
+  "platform.zipSource.inspect": "Upload and inspect",
+  "platform.zipSource.uploading": "Uploading and inspecting…",
+  "platform.zipSource.verified": "ZIP verified.",
+  "platform.zipSource.invalidFile": "Choose a nonempty .zip file up to 32 MiB.",
+  "platform.zipSource.failed": "Could not inspect ZIP. Check its structure, directory and file limits, then retry.",
+  "platform.zipSource.origin": "Source",
+  "platform.zipSource.archiveDigest": "ZIP content SHA-256",
+  "platform.zipSource.reupload": "Upload the same ZIP content and select its directory to restore this bundle.",
+  "platform.zipSource.renderSource": "ZIP {path} @ {version}"
 }

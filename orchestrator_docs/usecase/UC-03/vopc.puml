@@ -6,6 +6,8 @@ class ResourceDefinitionController <<boundary>> {
   +RegisterResourceDefinition(document)
   +ListRenderBundles(sessionOrg, role)
   +ListDefinitionCapabilities(sessionOrg, role)
+  +UploadTerraformModule(multipart)
+  +UploadRenderBundle(multipart)
   +InspectTerraformModule(document)
   +InspectRenderBundle(document)
   +GetRenderBundle(id)
@@ -15,6 +17,8 @@ class ResourceDefinitionService <<control>> {
     +UpdateResourceDefinition(ctx, key, expectedVersion, cmd): ResourceDefinition
   +ListRenderBundles(): SafeBundleMetadata[]
   +ListDefinitionCapabilities(ctx, org): CapabilityMetadata[]
+  +UploadTerraformModule(ctx, org, archive): CapabilityMetadata
+  +UploadRenderBundle(ctx, org, archive): RenderBundleMetadata
   +InspectTerraformModule(ctx, org, request): CapabilityMetadata
   +InspectRenderBundle(ctx, org, request): RenderBundleMetadata
   +PreviewMatching(ctx, org, query): MatchingPreview
@@ -66,5 +70,5 @@ class RenderBundleRegistry <<adapter>>
 class VerifiedRenderBundle <<entity>>
 ResourceDefinitionService --> RenderBundleRegistry : inspect/cache/read scoped pin
 RenderBundleRegistry --> VerifiedRenderBundle : immutable metadata
-ResourceDefinition --> VerifiedRenderBundle : verified Git ID + inputs
+ResourceDefinition --> VerifiedRenderBundle : verified Git/ZIP ID + inputs
 @enduml

@@ -71,6 +71,7 @@ type Node struct {
 
 // RenderSource is the safe provenance of a Git render bundle pin.
 type RenderSource struct {
+	Kind       string `json:"kind,omitempty"`
 	URL        string `json:"url"`
 	Path       string `json:"path"`
 	Revision   string `json:"revision"`
@@ -83,7 +84,7 @@ func renderSource(selection resource.RenderingSelection) *RenderSource {
 		return nil
 	}
 	src := selection.Bundle.Source
-	return &RenderSource{URL: src.URL, Path: src.Path, Revision: src.Revision, Version: selection.Bundle.Version, InputsHash: selection.InputsHash}
+	return &RenderSource{Kind: src.Kind, URL: src.URL, Path: src.Path, Revision: src.Revision, Version: selection.Bundle.Version, InputsHash: selection.InputsHash}
 }
 
 // renderProvenance is the manifest artifact provenance of a selection.
