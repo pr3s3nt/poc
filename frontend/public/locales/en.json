@@ -3244,5 +3244,22 @@
   "applications.deletion.zoneDetail": "Deletes workloads, resources and secrets in both environments.",
   "shared.errors.applicationDeleting": "The application is being deleted; changes are not allowed.",
   "shared.errors.applicationDeletionBlocked": "The application cannot be deleted yet; see the blockers.",
-  "shared.errors.applicationConfirmationMismatch": "The typed name does not match the application name."
+  "shared.errors.applicationConfirmationMismatch": "The typed name does not match the application name.",
+  "workloads.envEntry.value": "Value",
+  "workloads.envEntry.choose": "Choose from…",
+  "workloads.envEntry.chooseFor": "Choose source, row {row}",
+  "workloads.envEntry.changeFor": "Change source, row {row}",
+  "workloads.envEntry.applicationKey": "Application / {key}",
+  "workloads.envEntry.secret": "Secret",
+  "workloads.envEntry.secretFor": "Secret, row {row}",
+  "workloads.envEntry.pickerTitle": "Choose an existing value",
+  "workloads.envEntry.search": "Find a variable, resource or Service",
+  "workloads.envEntry.direct": "Enter a value directly",
+  "workloads.envEntry.group.shared": "Shared configuration",
+  "workloads.envEntry.group.resources": "Resource outputs",
+  "workloads.envEntry.group.services": "Workload Services",
+  "workloads.envEntry.noMatches": "No matching sources.",
+  "workloads.envEntry.close": "Close",
+  "workloads.envEntry.help": "Ordinary values and secrets",
+  "workloads.envEntry.secretHelp": "Select Secret to create one in this application and environment. Its value stays in the secret store; the workload keeps a reference."
 }

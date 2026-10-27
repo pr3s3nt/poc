@@ -2,7 +2,7 @@
 id: UC-16-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-27
 related: UC-16, UC-12
 ---
 
@@ -20,39 +20,40 @@ vẫn quản lý key dùng chung. Lưu editor chỉ tạo thay đổi chờ tri�
 Giữ shell, typography, container cards, nút nâng cao và footer Lưu/Hủy của
 sản phẩm. Thay hai checklist “Biến & Bí mật của ứng dụng” và “Nguồn khác” bằng
 một bảng **Biến môi trường** cho mỗi container. Không thêm trang/wizard mới.
-Nhãn chuẩn: **Tên biến**, **Lấy giá trị từ**, **Giá trị / Nguồn**, **Xóa biến**.
+Nhãn chuẩn: **Tên biến**, **Giá trị**, **Chọn từ…**, **Bí mật**, **Xóa**.
 
 ```text
-Container: main
-Biến môi trường                                       [+ Thêm biến]
-Tên biến       Lấy giá trị từ       Giá trị / Nguồn
-LOG_LEVEL      Giá trị nhập         debug                         [Xóa]
-REGION         Biến của ứng dụng    APP_REGION                    [Xóa]
-API_TOKEN      Bí mật              PAYMENT_API_KEY · Đã cấu hình [Xóa]
-DB_HOST        Tài nguyên          db → host                     [Xóa]
-DB_PASSWORD    Tài nguyên          db → password · Bí mật        [Xóa]
-BACKEND_URL    Workload khác        backend → http                [Xóa]
+Tên biến          Giá trị
+LOG_LEVEL         [debug                    ] [Chọn từ…] [ ] Bí mật [Xóa]
+API_TOKEN         [Ứng dụng / PAYMENT_API_KEY           ] [x] Bí mật [Xóa]
+DB_HOST           [db.host                              ] [ ] Bí mật [Xóa]
+[+ Thêm biến]
 ```
 
-Đây là layout contract, không đổi nhận diện sản phẩm. Các giá trị/tên trên là
-ví dụ; outputs lấy từ Type metadata, không hard-code PostgreSQL/Redis fields.
-Tái sử dụng controls/styles hiện hành; bảng dùng được bằng bàn phím. Dropdown
-key/dependency/workload hỗ trợ tìm theo tên khi danh sách dài; output/port
-cũng là lựa chọn có nhãn, không bắt nhập `${...}` hoặc biết cú pháp Score.
+Dòng mới focus Tên biến; giá trị thường nhập ngay, không chọn loại nguồn trước.
+Chuỗi rỗng hợp lệ; giá trị thường lưu cùng cấu hình workload. Trợ giúp bảo mật
+ngắn nằm một lần ngoài bảng. Không tạo Application key cho literal thường.
 
-| Nguồn | Control ở cột Giá trị / Nguồn | Thao tác tại chỗ |
-|---|---|---|
-| Giá trị nhập | Text input giá trị thường; rỗng là giá trị hợp lệ | Một dòng trợ giúp khi chọn: “Giá trị thường được lưu cùng cấu hình. Dùng Bí mật cho dữ liệu nhạy cảm.” |
-| Biến của ứng dụng | Chọn key VARIABLE của app/env; không copy value vào dòng | Tạo biến |
-| Bí mật | Chọn key SECRET cùng scope; tên + Đã cấu hình, không value | Tạo bí mật |
-| Tài nguyên | Chọn alias dependency, rồi output theo Type; output secret có nhãn Bí mật | Thêm tài nguyên |
-| Workload khác | Chọn workload cùng env, rồi cổng Service hợp lệ | Không tạo workload lồng trong editor |
+“Chọn từ…” (hoặc nút nguồn đã chọn) mở một Dialog có ô tìm kiếm và ba nhóm:
+Cấu hình dùng chung, Output tài nguyên, Service workload. Key thường/secret
+chung một nhóm, secret có nhãn. Output đã ghép alias + field; Service đã ghép
+workload + port. Chọn một mục áp dụng ngay cho dòng rồi đóng. Giữ tên đã nhập;
+chỉ key UC-12 gợi ý tên khi còn trống. Không có biến cục bộ trong picker, không
+tham chiếu vòng/dây chuyền giữa biến workload. Không cần cú pháp Score.
 
-**+ Thêm biến** thêm dòng trống, focus Tên biến, nguồn Giá trị nhập. Đổi nguồn
-chỉ hiện control cần dùng, giữ tên; không xóa key/dependency. Chọn key có sẵn
-hoặc vừa tạo chỉ gợi ý tên khi tên biến đang trống. Nhiều dòng được dùng cùng
-key/output; xóa một dòng không ảnh hưởng dòng khác. Empty state chỉ cần “Chưa
-có biến môi trường” và nút thêm. Không thêm explanatory paragraphs cho mỗi hàng.
+Trong Dialog có “Nhập giá trị trực tiếp” để bỏ reference về ô rỗng. Tạo biến,
+tạo bí mật và thêm tài nguyên vẫn dùng các form con hiện hành; đóng picker
+trước khi mở form con, không lồng dialog. Thêm dependency xong quay lại chọn
+output. Loading/error catalog khác empty và có retry GET. Mục thiếu không bị
+đổi hoặc xóa âm thầm; đích cũ vẫn hiện trên dòng cùng lỗi khi metadata sẵn sàng.
+
+Checkbox Bí mật trên dòng literal là entry mở form tạo Secret tại chỗ (UC-12),
+không làm literal thành secret. Form giải thích Secret lưu trong đúng app/env
+và commit riêng. Secret/reference đã chọn hiển thị phân loại read-only. Không
+prefill secret từ literal hoặc value catalog. Hủy form giữ binding trước đó.
+
+Xóa dòng chỉ xóa mapping, không xóa key hoặc dependency. Nhiều dòng được dùng
+cùng key/output. Các giá trị trên là ví dụ; outputs lấy từ Type metadata.
 
 ## Tạo biến hoặc bí mật tại chỗ
 
@@ -196,8 +197,8 @@ Các nhãn tiếng Việt ở đây là wording chuẩn; mọi text mới/đổi
 catalog keys theo [ADR-020](../../../architecture/decisions/ADR-020-console-message-catalogs.md).
 Bổ sung key/placeholder đồng bộ vào `vi.json`, `en.json` và các catalog có trong
 manifest tại thời điểm implement; không hard-code text/aria/error. Không dịch
-tên key, alias, output, image hay Score. Năm nguồn tiếng Anh là **Entered value**,
-**Application variable**, **Secret**, **Resource**, **Other workload**; tiêu đề
+tên key, alias, output, image hay Score. Picker tiếng Anh dùng **Shared configuration**, **Resource outputs**,
+**Workload Services**, action **Choose from…**; tiêu đề
 **Environment variables**, action **Add variable**, **Create and select**,
 **Add and select**. Browser checks phải chạy cả Việt và Anh. Giữ locale reload
 hiện hành, không persist secret để khôi phục sau đổi ngôn ngữ/reload.

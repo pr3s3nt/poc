@@ -2,7 +2,7 @@
 id: UC-16-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-27
 ---
 
 # UC-16 — Use Case Realization
@@ -103,3 +103,13 @@ pins/provider bindings/private inputs. Không thêm persistence field hoặc sys
 admission. UI giữ custom/imported class và metadata request/scope guards;
 server Preview/Deploy remains authoritative. Payload/role/failure contract ở
 [UI mapping](ui/api-mapping.md#metadata-class-và-source--i04-07).
+
+## ENV-UX — direct-entry table (2026-10-27)
+
+The boundary renders Name/Value first. One scoped reference picker projects
+UC-12 keys, declared dependency outputs and valid same-environment Service ports
+into selectable items. It never receives local variable values as source
+candidates. Selection retains row identity/name and clears previous source
+payload through the existing binding conversion. Source labels identify the
+Application key explicitly. Inline creation delegates to the existing UC-12
+create-only/Secret Store boundary; classification and persistence stay unchanged.

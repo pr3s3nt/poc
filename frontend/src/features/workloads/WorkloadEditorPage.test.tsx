@@ -28,8 +28,8 @@ it('saves an Application key as a Score reference, not a copied value', async ()
   await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/frontend:test');
   await user.click(screen.getByRole('button', { name: '+ Thêm biến' }));
   await user.type(screen.getByLabelText('Tên biến, dòng 1'), 'BACKEND_URL');
-  await user.selectOptions(screen.getByLabelText('Lấy giá trị từ, dòng 1'), 'Biến của ứng dụng');
-  await user.selectOptions(screen.getByLabelText('Biến của ứng dụng, dòng 1'), 'API_URL');
+  await user.click(screen.getByRole('button', { name: 'Chọn nguồn, dòng 1' }));
+  await user.click(screen.getByRole('button', { name: 'Ứng dụng / API_URL' }));
   await user.click(screen.getByRole('button', { name: 'Lưu draft Workload' }));
   expect(saved).toBeDefined();
   const score = saved?.score as { containers: { main: { variables: Record<string, string> } }; resources: { env: { type: string } } };

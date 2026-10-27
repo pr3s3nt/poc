@@ -98,3 +98,17 @@ chứng; retry giữ edits, không thay bằng default hay replay mutation. Know
 input/provider/integrity error dùng code/field an toàn. BUSY giữ dữ liệu đang
 sửa; stale yêu cầu review/Preview mới. Progress lấy persisted stage/attempt,
 không raw CLI/state/secret; interruption không được coi là cleanup thành công.
+
+## ENV-UX — direct entry and on-demand source search
+
+A new row is an editable name/value pair. Opening/cancelling search preserves
+the draft and returns focus to the invoking row. Selecting a reference keeps
+the name, clears old payload and returns focus to the row's source button.
+Inline key/resource forms replace the picker; no nested Dialogs. Resource
+creation reopens output search; the user explicitly chooses an output.
+Missing catalog metadata is a loading/error state, with the existing editor
+retry; unrelated literals stay editable. Missing references remain on their
+original rows and block Save; search offers only currently valid candidates.
+The Secret checkbox invokes UC-12 creation without changing the row until
+creation succeeds; Cancel retains its previous ordinary value. References
+show authoritative secret metadata read-only. No local variable reference chain.

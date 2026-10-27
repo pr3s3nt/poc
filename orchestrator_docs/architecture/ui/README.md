@@ -202,3 +202,11 @@ remain UC-12 entities; adding a dependency remains local desired workload state.
 Bỏ navigation và màn hình Connections. Driver Accounts là entry quản lý danh
 tính hạ tầng; deep link `/ui/platform/connections` chuyển tới Driver Accounts.
 Giữ shell/styles/account forms hiện hành.
+
+## Direct-entry workload variables — ENV-UX (2026-10-27)
+
+UC-16 keeps a Name/Value table with direct entry as the default. Source selection
+is an on-demand searchable Dialog, using the existing shared dialog/focus
+pattern. Source kind is metadata, not a mandatory column. Reuse the existing
+UC-12 create-only forms and app/environment Secret scope; no local variable
+reference chaining. See UC-16 BR-26/27 and its screens.

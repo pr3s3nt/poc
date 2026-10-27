@@ -61,3 +61,12 @@ Changing config invalidates old Preview even if workload Save has not happened.
 Creation timeout cannot be treated as absence: GET/review before new mutation.
 Scope/request generation and stable row identity prevent late success selecting
 another container/row; clear secret input on cancel/success/scope change.
+
+## ENV-UX — 2026-10-27
+
+Direct-entry rows and the combined reference picker reuse all existing HTTP
+contracts and Score projections. No new request field, backend enum, persistence
+entity or Secret scope. Literal values stay ordinary workload strings; checkbox
+Secret delegates to UC-12 create-only, then binds the created app/environment
+key. Local row-to-row references are not produced. Clearing/changing sources
+drops inactive payload before Score serialization.

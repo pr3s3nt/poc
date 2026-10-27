@@ -196,6 +196,19 @@ Git bundle metadata preserved; independent real-adapter A→B→restart→A plus
 cleanup passed 47/47. Runner now fails if teardown cannot be verified. See
 [main integration evidence](verification/2026-10-24-pr16-main-verification.md).
 
+## Workload variable entry — ENV-UX — 2026-10-27
+
+The editor now starts with Name/Value inputs and an on-demand combined source
+picker instead of a mandatory source column. Shared keys are labelled
+`Ứng dụng / KEY`; only app/environment keys, declared resource outputs and
+other workload Services are reference candidates. Local variable chaining is
+not supported. The Secret entry reuses UC-12 Application + Environment storage,
+create-only semantics and masked input; no new Secret model or Score field.
+The literal provenance, source validation and explicit Preview/Deploy guards
+remain unchanged. Real kind form-only acceptance passed: three workloads, PostgreSQL/Redis,
+five app checks, job DONE and valid update with retained resource/PVC UIDs.
+[Evidence and video](verification/2026-10-27-workload-env-form.md).
+
 ## Workload environment editor — implemented — 2026-10-24
 
 Each container has one **Biến môi trường** table with five sources (entered

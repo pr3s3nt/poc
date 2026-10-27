@@ -3244,5 +3244,22 @@
   "applications.deletion.zoneDetail": "Xóa workload, tài nguyên và secret ở cả hai môi trường.",
   "shared.errors.applicationDeleting": "Ứng dụng đang bị xóa; không thể thay đổi.",
   "shared.errors.applicationDeletionBlocked": "Chưa thể xóa ứng dụng; xem các lý do chặn.",
-  "shared.errors.applicationConfirmationMismatch": "Tên nhập lại không khớp tên ứng dụng."
+  "shared.errors.applicationConfirmationMismatch": "Tên nhập lại không khớp tên ứng dụng.",
+  "workloads.envEntry.value": "Giá trị",
+  "workloads.envEntry.choose": "Chọn từ…",
+  "workloads.envEntry.chooseFor": "Chọn nguồn, dòng {row}",
+  "workloads.envEntry.changeFor": "Đổi nguồn, dòng {row}",
+  "workloads.envEntry.applicationKey": "Ứng dụng / {key}",
+  "workloads.envEntry.secret": "Bí mật",
+  "workloads.envEntry.secretFor": "Bí mật, dòng {row}",
+  "workloads.envEntry.pickerTitle": "Chọn giá trị có sẵn",
+  "workloads.envEntry.search": "Tìm biến, tài nguyên hoặc Service",
+  "workloads.envEntry.direct": "Nhập giá trị trực tiếp",
+  "workloads.envEntry.group.shared": "Cấu hình dùng chung",
+  "workloads.envEntry.group.resources": "Output tài nguyên",
+  "workloads.envEntry.group.services": "Service workload",
+  "workloads.envEntry.noMatches": "Không có nguồn phù hợp.",
+  "workloads.envEntry.close": "Đóng",
+  "workloads.envEntry.help": "Giá trị thường và bí mật",
+  "workloads.envEntry.secretHelp": "Chọn Bí mật để tạo Secret trong đúng ứng dụng và môi trường. Secret chỉ lưu trong kho, workload giữ tham chiếu."
 }
