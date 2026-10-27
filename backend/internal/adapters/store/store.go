@@ -473,6 +473,11 @@ func (s *Store) ListApplications(ctx context.Context) ([]application.Application
 	defer s.rlock(ctx)()
 	out := make([]application.Application, 0, len(s.state.Applications))
 	for _, a := range s.state.Applications {
+		// A DELETED Application is a tombstone: it is not listed (UC-18 POST-03).
+		if a.Lifecycle() == application.StatusDeleted {
+			continue
+		}
+		a.Deletion = a.Deletion.Clone()
 		out = append(out, a)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
@@ -486,6 +491,7 @@ func (s *Store) GetApplication(ctx context.Context, key string) (application.App
 	if !ok {
 		return application.Application{}, fmt.Errorf("%w: application %q", persistence.ErrNotFound, key)
 	}
+	a.Deletion = a.Deletion.Clone()
 	return a, nil
 }
 
@@ -498,6 +504,7 @@ func (s *Store) SaveApplication(ctx context.Context, app application.Application
 	if app.Version == 0 {
 		app.Version = 1
 	}
+	app.Deletion = app.Deletion.Clone()
 	s.state.Applications[app.Key] = app
 	return nil
 }

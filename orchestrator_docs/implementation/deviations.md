@@ -2,10 +2,31 @@
 id: IMPLEMENTATION-DEVIATIONS
 artifact: design-implementation-deviations
 status: current
-last_reviewed: 2026-10-25
+last_reviewed: 2026-10-27
 ---
 
 # Known design and implementation deviations
+
+## IMP-038 — Application deletion (2026-10-27)
+
+[ADR-025](../architecture/decisions/ADR-025-application-deletion.md) /
+[UC-18](../usecase/UC-18/specification.md) are implemented on `features/xoa_app`
+(2026-10-27). Known gaps, deliberately not hidden:
+
+- Platform output secrets of destroyed resources (`orchestrator/outputs/...`,
+  generated database/cache passwords) stay in the platform Vault. The scoped
+  output-secret token is create/read only; widening it is a separate security
+  decision.
+- Per-workload Vault delivery policies and Kubernetes auth roles (`orch-<hash>`)
+  are not removed; their names are derived and not persisted, and UC-07 VSO-02
+  already leaves them in place on workload removal.
+- Deletion requires the PostgreSQL product store: the JSON/fake store has no
+  Terraform resource reader, so preview answers 503 there, like UC-07 DEL.
+- The run is in-process. A backend restart during a deletion leaves the
+  Application `DELETING` with the run shown `INTERRUPTED`; only an explicit
+  Retry continues (no automatic resume), and the stage that was running relies
+  on the existing operation recovery of DEPLOY/RESOURCE_CLEANUP.
+- Environments run one after the other, not in parallel.
 
 ## IMP-037 — Open workload object set (2026-10-26)
 

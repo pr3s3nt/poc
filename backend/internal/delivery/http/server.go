@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"orchestrator/internal/application/accountdiag"
+	"orchestrator/internal/application/appdeletion"
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/authentication"
 	"orchestrator/internal/application/catalog"
@@ -29,6 +30,7 @@ import (
 	"orchestrator/internal/application/resourcecleanup"
 	"orchestrator/internal/application/secretstores"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
+	appdomain "orchestrator/internal/domain/application"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
@@ -54,6 +56,7 @@ type Server struct {
 	pending         *pending.Service
 	previews        *preview.Service
 	resourceCleanup *resourcecleanup.Service
+	appDeletion     *appdeletion.Service
 	effectiveness   *effectivenessapp.Service
 	diagnostics     *accountdiag.Service
 	store           persistence.Store
@@ -88,6 +91,8 @@ type Config struct {
 	// ResourceCleanup serves the scoped resource detail, the deletion preview,
 	// the confirmed deletion and its progress (UC-07 DEL-*, UC-09 RES-*).
 	ResourceCleanup *resourcecleanup.Service
+	// AppDeletion serves the UC-18 Application deletion; nil answers 503.
+	AppDeletion *appdeletion.Service
 	// Diagnostics serves Infrastructure Account diagnostic reports; nil
 	// answers 503 on the diagnostic routes.
 	Diagnostics *accountdiag.Service
@@ -116,6 +121,7 @@ func NewServer(cfg Config) *Server {
 		pending:         cfg.Pending,
 		previews:        cfg.Previews,
 		resourceCleanup: cfg.ResourceCleanup,
+		appDeletion:     cfg.AppDeletion,
 		effectiveness:   effectivenessapp.New(cfg.Store, effectivenessapp.OriginOf(cfg.SeedOptions.Profile)),
 		diagnostics:     cfg.Diagnostics,
 		store:           cfg.Store,
@@ -136,7 +142,12 @@ func NewServer(cfg Config) *Server {
 }
 
 // ServeHTTP implements http.Handler.
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.mux.ServeHTTP(w, r) }
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if s.lifecycleGuard(w, r) {
+		return
+	}
+	s.mux.ServeHTTP(w, r)
+}
 
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/healthz", s.handleHealth)
@@ -148,6 +159,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/applications", s.handleApplications)
 	s.mux.HandleFunc("POST /api/v1/applications", s.handleCreateApplication)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}", s.handleGetApplication)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/deletion-preview", s.handleApplicationDeletionPreview)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/deletions", s.handleApplicationDeletion)
+	s.mux.HandleFunc("GET /api/v1/applications/{id}/deletions/{operationId}", s.handleGetApplicationDeletion)
 	s.mux.HandleFunc("GET /api/v1/secret-stores", s.handleListSecretStores)
 	s.mux.HandleFunc("POST /api/v1/secret-stores", s.handleRegisterSecretStore)
 	s.mux.HandleFunc("GET /api/v1/secret-store-choices", s.handleSecretStoreChoices)
@@ -232,6 +246,16 @@ type applicationView struct {
 	Name         string            `json:"name"`
 	Subdomain    string            `json:"subdomain"`
 	Environments []environmentView `json:"environments"`
+	// Status is the UC-18 lifecycle; DeletionID names a deletion in progress.
+	Status     string `json:"status"`
+	DeletionID string `json:"deletionOperationId,omitempty"`
+}
+
+func lifecycleOf(view *applicationView, a appdomain.Application) {
+	view.Status = string(a.Lifecycle())
+	if a.Deletion != nil {
+		view.DeletionID = a.Deletion.OperationID
+	}
 }
 
 // environmentViewOf projects surviving Environment metadata; deployment targets are pinned per resource.
@@ -327,6 +351,7 @@ func (s *Server) handleApplications(w http.ResponseWriter, r *http.Request) {
 			Key: a.Key, Name: a.Name, Subdomain: a.Subdomain,
 			Environments: make([]environmentView, 0, len(envs)),
 		}
+		lifecycleOf(&view, a)
 		for _, e := range envs {
 			view.Environments = append(view.Environments, s.environmentViewOf(r.Context(), a.OrganizationKey, e))
 		}
@@ -361,6 +386,7 @@ func (s *Server) handleCreateApplication(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	view := applicationView{Key: result.Application.Key, Name: result.Application.Name, Subdomain: result.Application.Subdomain}
+	lifecycleOf(&view, result.Application)
 	for _, env := range result.Environments {
 		view.Environments = append(view.Environments, s.environmentViewOf(r.Context(), identity.OrganizationKey, env))
 	}
@@ -409,6 +435,7 @@ func (s *Server) handleGetApplication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view := applicationView{Key: app.Key, Name: app.Name, Subdomain: app.Subdomain}
+	lifecycleOf(&view, app)
 	for _, env := range envs {
 		view.Environments = append(view.Environments, s.environmentViewOf(r.Context(), app.OrganizationKey, env))
 	}
@@ -444,6 +471,10 @@ func (s *Server) handleCreateDeployment(w http.ResponseWriter, r *http.Request) 
 	}
 	if req.Score == nil {
 		writeCode(w, codeInvalidRequest, "")
+		return
+	}
+	if !s.activeApplication(r, req.ApplicationKey) {
+		writeCode(w, codeApplicationDeleting, "")
 		return
 	}
 	actor := req.Actor

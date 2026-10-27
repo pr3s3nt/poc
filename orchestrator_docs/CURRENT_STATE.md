@@ -7,6 +7,26 @@ last_reviewed: 2026-10-27
 
 # Current project state
 
+## Application deletion (UC-18) — 2026-10-27
+
+[ADR-025](architecture/decisions/ADR-025-application-deletion.md) is implemented
+on `features/xoa_app`. Any Organization role can delete an Application from
+Cài đặt after a server-computed preview of both Environments and the exact
+typed name. The Application becomes `DELETING` (HTTP mutations answer 409) and
+an in-process run removes every workload through the pending Deploy path,
+admits each target generation's owned instances as one confirmed cleanup,
+verifies absence, purges the Environment's Vault values and delivery bundles by
+exact ref, then marks the Application `DELETED`. The tombstone and all history
+are retained; name and subdomain become reusable. Failures keep `DELETING` with
+remaining IDs and an explicit Retry.
+
+Real kind acceptance passed 46/46 with verified teardown
+([record](verification/2026-10-27-application-deletion-kind.md)). AWS A02:
+AWS_RESULT_PENDING. Known gaps (output secrets, delivery policies/roles,
+PostgreSQL-only, in-process run): [IMP-038](implementation/deviations.md#imp-038--application-deletion-2026-10-27).
+The baseline changed (`applications.status`, `deletion`, partial unique
+indexes); retained databases are not migrated.
+
 ## Offline Terraform providers — 2026-10-27
 
 Backend image builds a read-only filesystem mirror for all providers pinned in

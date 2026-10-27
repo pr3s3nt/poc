@@ -29,6 +29,9 @@ const evidenceDir = env('WM_EVIDENCE');
 const privateDir = env('WM_PRIVATE');
 const runId = env('WM_RUN_ID');
 const completionRef = process.env.WM_COMPLETION_REF ?? '';
+// UC-18: the Developer deletes the whole Application through the Console instead of the
+// WM-E07 workload removal and per-resource deletions.
+const appDeletion = process.env.WM_APP_DELETION === '1';
 const source = { url: env('WM_GIT_URL'), path: env('WM_GIT_PATH'), ref: env('WM_GIT_REF'), commit: env('WM_COMMIT') };
 const baseDomain = env('WM_BASE_DOMAIN');
 const [gatewayNamespace, gatewayName] = env('WM_GATEWAY').split('/');
@@ -337,58 +340,124 @@ try {
   if (completionRef) facts.completionUpdate = await completionSnapshot({ kit, tech, sql, check, label: 'update', revision: 'v2', previous: completionBefore });
   saveFacts();
 
-  // ---- WM-E07: product removal deletes every inventory object --------------------------------
-  for (const name of ['frontend', 'worker', 'backend']) {
-    page.once('dialog', (dialog) => dialog.accept());
-    await h.click(page.locator('.table-row').filter({ has: page.locator('.workload-name', { hasText: new RegExp(`${name}$`) }) }).getByRole('button', { name: 'Xóa', exact: true }));
-    await expect(page.locator('.workload-table')).toContainText('Chờ xóa');
-  }
-  await previewDeploy('E07-remove', 3, async (preview) => {
-    ui('WM-E07.remove-preview', preview.changes.every((c) => c.action === 'REMOVE'), 'three workload removals');
-  });
-  const left = (await owned('deployment,statefulset,service,configmap,job,cronjob,hpa,pdb,pvc')).filter((o) => o.metadata.labels?.['orchestrator.io/workload']);
-  check('WM-E07.objects-absent', left.length === 0, left.map((o) => `${o.kind}/${o.metadata.name}`).join(', ') || 'no workload-owned object left');
-  check('WM-E07.route-absent', (await one('httproute', 'orch-public')) === null, 'HTTPRoute removed with the last public path');
-  await signInAs('platform-engineer');
-  const scope = kit.appPath;
-  for (let round = 0; round < 6; round += 1) {
-    const roots = (await kit.get(`${scope}/resources`)).resources.filter((r) => r.status === 'UNREFERENCED')
-      .sort((a, b) => Number(a.type === 'k8s-namespace') - Number(b.type === 'k8s-namespace'));
-    if (roots.length === 0) break;
-    let deleted = null;
-    for (const root of roots) {
-      await page.goto(`${baseURL}/ui/applications/${input.applicationKey}`);
-      const escaped = root.descriptor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      await h.click(page.getByRole('region', { name: 'Tài nguyên của môi trường' }).getByRole('button', { name: new RegExp(escaped) }).first());
-      const action = page.getByRole('button', { name: 'Xóa tài nguyên', exact: true });
-      await expect(action).toBeVisible();
-      if (!(await action.isEnabled())) continue;
-      await h.click(action);
-      const dialog = page.getByRole('dialog', { name: 'Xóa tài nguyên', exact: true });
-      const confirmation = await dialog.getByTestId('root-name').innerText();
-      await h.type(dialog.getByLabel('Nhập lại tên tài nguyên'), confirmation);
-      await h.click(dialog.getByRole('button', { name: 'Xác nhận xóa vĩnh viễn' }));
-      const outcome = await expect.poll(async () => {
-        const detail = (await kit.get(`${scope}/resources/${root.id}`)).resource ?? {};
-        if (detail.status === 'DESTROYED') return 'DESTROYED';
-        if (['FAILED', 'SUCCEEDED', 'INTERRUPTED'].includes(detail.cleanup?.status)) return `CLEANUP_${detail.cleanup.status}`;
-        return 'RUNNING';
-      }, { timeout: 900_000, intervals: [5000] }).not.toBe('RUNNING').then(async () => (await kit.get(`${scope}/resources/${root.id}`)).resource);
-      if (outcome.status !== 'DESTROYED') {
-        const objects = await tech.kubectl(['-n', input.namespace, 'get', 'all,secret,serviceaccount,configmap,pvc,vaultstaticsecret,vaultauth,vaultconnection', '-o', 'custom-columns=KIND:.kind,NAME:.metadata.name', '--no-headers']);
-        facts.cleanupFailure = { descriptor: root.descriptor, status: outcome.status, cleanup: outcome.cleanup, remainingObjects: objects.stdout.split('\n').filter(Boolean) };
-        saveFacts();
-        await shot(`E07-cleanup-${round}-failed`);
-        ui('WM-E07.cleanup', false, `${root.descriptor} cleanup ${outcome.cleanup?.status}`);
-      }
-      deleted = root;
-      break;
+  if (appDeletion) {
+    // ---- WM-E08: Developer deletes the Application (UC-18) ---------------------------------------
+    const vaultContainer = new URL(env('WM_VAULT_ADDR')).hostname;
+    const vaultToken = readFileSync(env('WM_WORKLOAD_VAULT_TOKEN_FILE'), 'utf8').trim();
+    const valuePath = (envKey) => `orchestrator/apps/${input.applicationKey}/envs/${envKey}/values`;
+    const vaultKeys = (envKey) => {
+      try {
+        const out = execFileSync('docker', ['exec', '-e', `VAULT_TOKEN=${vaultToken}`, '-e', 'VAULT_ADDR=http://127.0.0.1:8200', vaultContainer, 'vault', 'kv', 'list', '-format=json', '-mount=kv', valuePath(envKey)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+        return JSON.parse(out);
+      } catch { return []; }
+    };
+    const valuesBefore = vaultKeys('staging');
+    check('WM-E08.vault-before', valuesBefore.length > 0, `${valuesBefore.length} value objects under the Application's staging path before deletion`);
+    const instancesBefore = Number(sql(`SELECT count(*) FROM terraform_resource_instances i JOIN environments e ON e.id=i.environment_id JOIN applications a ON a.id=e.application_id WHERE a.application_key='${input.applicationKey}' AND i.status<>'DESTROYED' AND i.scope_type<>'APPLICATION' AND i.descriptor NOT LIKE 'k8s-cluster.%' AND i.descriptor NOT LIKE '%#connections.%'`));
+    await page.goto(`${baseURL}/ui/applications/${input.applicationKey}/settings`);
+    const zone = page.getByRole('region', { name: 'Xóa ứng dụng' });
+    await h.click(zone.getByRole('button', { name: 'Xóa ứng dụng', exact: true }));
+    const dialog = page.getByRole('dialog', { name: 'Xóa ứng dụng', exact: true });
+    const stagingScope = dialog.getByRole('region', { name: 'staging' });
+    await expect(stagingScope).toContainText('Workload sẽ bị gỡ: 3');
+    await expect(stagingScope).toContainText(`Tài nguyên sẽ bị xóa: ${instancesBefore}`);
+    await expect(dialog.getByRole('region', { name: 'production' })).toContainText('Tài nguyên sẽ bị xóa: 0');
+    await shot('E08-dialog');
+    ui('WM-E08.scope', true, `dialog lists 3 workloads and ${instancesBefore} owned resources in staging, nothing in production`);
+    const confirm = dialog.getByRole('button', { name: 'Xóa vĩnh viễn ứng dụng', exact: true });
+    await h.type(dialog.getByRole('textbox'), input.applicationName.toLowerCase());
+    ui('WM-E08.exact-name', await confirm.isDisabled(), 'a case-folded name keeps the confirmation disabled');
+    await h.type(dialog.getByRole('textbox'), input.applicationName, { replace: true });
+    const admitted = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === `/api/v1/applications/${input.applicationKey}/deletions`);
+    await h.click(confirm);
+    const admission = await admitted;
+    const operationId = (await admission.json()).deletion?.operationId;
+    ui('WM-E08.admitted', admission.status() === 202 && Boolean(operationId), `deletion ${operationId} admitted`);
+    const frozen = await page.request.put(`${baseURL}/api/v1${kit.appPath}/workloads/backend`, { data: { version: 0, score: {} } });
+    check('WM-E08.frozen', frozen.status() === 409 && (await frozen.json()).code === 'APPLICATION_DELETING', `mutation while deleting = ${frozen.status()}`);
+    await expect(page.getByRole('region', { name: 'Tiến trình xóa ứng dụng' })).toBeVisible();
+    await shot('E08-progress');
+    let progress = null;
+    await expect.poll(async () => {
+      const reply = await page.request.get(`${baseURL}/api/v1/applications/${input.applicationKey}/deletions/${operationId}`);
+      progress = (await reply.json()).deletion;
+      return progress?.running ? 'RUNNING' : progress?.status;
+    }, { timeout: 1_800_000, intervals: [5000] }).not.toBe('RUNNING');
+    facts.deletion = progress;
+    saveFacts();
+    ui('WM-E08.succeeded', progress?.status === 'SUCCEEDED' && progress?.applicationStatus === 'DELETED', `deletion ${progress?.status} (${progress?.failureCode ?? 'no failure'})`);
+    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('status').filter({ hasText: `Đã xóa ứng dụng ${input.applicationName}.` })).toBeVisible();
+    ui('WM-E08.list', !(await page.getByText(input.applicationName, { exact: true }).isVisible()), 'the Application is gone from the list with a notice');
+    await shot('E08-deleted');
+    const notFound = await page.request.get(`${baseURL}/api/v1/applications/${input.applicationKey}`);
+    check('WM-E08.not-found', notFound.status() === 404, 'the deleted Application reads as not found');
+    check('WM-E08.namespace-absent', (await tech.namespaceUid()) === '', 'namespace absence proven by a successful lookup');
+    check('WM-E08.route-absent', (await tech.kubectl(['get', 'httproute', '-A', '-o', 'name'])).stdout.trim() === '', 'no HTTPRoute left in the cluster');
+    const left = Number(sql(`SELECT count(*) FROM terraform_resource_instances i JOIN environments e ON e.id=i.environment_id JOIN applications a ON a.id=e.application_id WHERE a.application_key='${input.applicationKey}' AND i.status<>'DESTROYED' AND i.scope_type<>'APPLICATION' AND i.descriptor NOT LIKE 'k8s-cluster.%' AND i.descriptor NOT LIKE '%#connections.%'`));
+    check('WM-E08.instances-destroyed', left === 0, `${instancesBefore} owned instances DESTROYED, ${left} left`);
+    check('WM-E08.tombstone', sql(`SELECT status FROM applications WHERE application_key='${input.applicationKey}'`) === 'DELETED' && Number(sql(`SELECT count(*) FROM deployments d JOIN environments e ON e.id=d.environment_id JOIN applications a ON a.id=e.application_id WHERE a.application_key='${input.applicationKey}'`)) > 0, 'tombstone row and deployment history retained');
+    const valuesAfter = vaultKeys('staging');
+    check('WM-E08.vault-purged', valuesAfter.length === 0, `${valuesAfter.length} value objects left under the Application's staging path`);
+    const clusterNodes = (await tech.kubectl(['get', 'nodes', '-o', 'name'])).stdout.trim();
+    check('WM-E08.platform-kept', clusterNodes.length > 0, 'the PREEXISTING kind cluster is still serving');
+    // The name and subdomain are free again: a new Application with the same identity is created.
+    const reused = await createApplication(h, input.applicationName, subdomain);
+    ui('WM-E08.name-reused', reused !== input.applicationKey, `same name and subdomain accepted as new Application ${reused}`);
+  } else {
+    // ---- WM-E07: product removal deletes every inventory object --------------------------------
+    for (const name of ['frontend', 'worker', 'backend']) {
+      page.once('dialog', (dialog) => dialog.accept());
+      await h.click(page.locator('.table-row').filter({ has: page.locator('.workload-name', { hasText: new RegExp(`${name}$`) }) }).getByRole('button', { name: 'Xóa', exact: true }));
+      await expect(page.locator('.workload-table')).toContainText('Chờ xóa');
     }
-    if (!deleted) throw new Error('no unreferenced resource could be deleted');
+    await previewDeploy('E07-remove', 3, async (preview) => {
+      ui('WM-E07.remove-preview', preview.changes.every((c) => c.action === 'REMOVE'), 'three workload removals');
+    });
+    const left = (await owned('deployment,statefulset,service,configmap,job,cronjob,hpa,pdb,pvc')).filter((o) => o.metadata.labels?.['orchestrator.io/workload']);
+    check('WM-E07.objects-absent', left.length === 0, left.map((o) => `${o.kind}/${o.metadata.name}`).join(', ') || 'no workload-owned object left');
+    check('WM-E07.route-absent', (await one('httproute', 'orch-public')) === null, 'HTTPRoute removed with the last public path');
+    await signInAs('platform-engineer');
+    const scope = kit.appPath;
+    for (let round = 0; round < 6; round += 1) {
+      const roots = (await kit.get(`${scope}/resources`)).resources.filter((r) => r.status === 'UNREFERENCED')
+        .sort((a, b) => Number(a.type === 'k8s-namespace') - Number(b.type === 'k8s-namespace'));
+      if (roots.length === 0) break;
+      let deleted = null;
+      for (const root of roots) {
+        await page.goto(`${baseURL}/ui/applications/${input.applicationKey}`);
+        const escaped = root.descriptor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        await h.click(page.getByRole('region', { name: 'Tài nguyên của môi trường' }).getByRole('button', { name: new RegExp(escaped) }).first());
+        const action = page.getByRole('button', { name: 'Xóa tài nguyên', exact: true });
+        await expect(action).toBeVisible();
+        if (!(await action.isEnabled())) continue;
+        await h.click(action);
+        const dialog = page.getByRole('dialog', { name: 'Xóa tài nguyên', exact: true });
+        const confirmation = await dialog.getByTestId('root-name').innerText();
+        await h.type(dialog.getByLabel('Nhập lại tên tài nguyên'), confirmation);
+        await h.click(dialog.getByRole('button', { name: 'Xác nhận xóa vĩnh viễn' }));
+        const outcome = await expect.poll(async () => {
+          const detail = (await kit.get(`${scope}/resources/${root.id}`)).resource ?? {};
+          if (detail.status === 'DESTROYED') return 'DESTROYED';
+          if (['FAILED', 'SUCCEEDED', 'INTERRUPTED'].includes(detail.cleanup?.status)) return `CLEANUP_${detail.cleanup.status}`;
+          return 'RUNNING';
+        }, { timeout: 900_000, intervals: [5000] }).not.toBe('RUNNING').then(async () => (await kit.get(`${scope}/resources/${root.id}`)).resource);
+        if (outcome.status !== 'DESTROYED') {
+          const objects = await tech.kubectl(['-n', input.namespace, 'get', 'all,secret,serviceaccount,configmap,pvc,vaultstaticsecret,vaultauth,vaultconnection', '-o', 'custom-columns=KIND:.kind,NAME:.metadata.name', '--no-headers']);
+          facts.cleanupFailure = { descriptor: root.descriptor, status: outcome.status, cleanup: outcome.cleanup, remainingObjects: objects.stdout.split('\n').filter(Boolean) };
+          saveFacts();
+          await shot(`E07-cleanup-${round}-failed`);
+          ui('WM-E07.cleanup', false, `${root.descriptor} cleanup ${outcome.cleanup?.status}`);
+        }
+        deleted = root;
+        break;
+      }
+      if (!deleted) throw new Error('no unreferenced resource could be deleted');
+    }
+    const remaining = (await kit.get(`${scope}/resources`)).resources.filter((r) => r.status !== 'DESTROYED' && r.type !== 'k8s-cluster');
+    ui('WM-E07.resources-destroyed', remaining.length === 0, 'every run resource DESTROYED through the product');
+    check('WM-E07.namespace-absent', (await tech.namespaceUid()) === '', 'namespace absence proven by a successful lookup');
   }
-  const remaining = (await kit.get(`${scope}/resources`)).resources.filter((r) => r.status !== 'DESTROYED' && r.type !== 'k8s-cluster');
-  ui('WM-E07.resources-destroyed', remaining.length === 0, 'every run resource DESTROYED through the product');
-  check('WM-E07.namespace-absent', (await tech.namespaceUid()) === '', 'namespace absence proven by a successful lookup');
   check('WM-E07.no-browser-errors', browserErrors.length === 0, browserErrors.join(' | ').slice(0, 300));
   kit.assertNoViolations();
   facts.outcome = 'PASS';

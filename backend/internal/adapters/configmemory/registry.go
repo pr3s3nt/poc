@@ -239,3 +239,29 @@ var (
 	_ configport.Registry = (*Registry)(nil)
 	_ configport.Verifier = Verifier{}
 )
+
+// PurgeValues is the in-memory counterpart of the Vault registry purge
+// (UC-18): exact refs of one Application Environment only.
+func (r *Registry) PurgeValues(ctx context.Context, org, storeKey, app, env string, refs, deploymentIDs []string) (int, error) {
+	p, _, err := r.provider(ctx, org, storeKey)
+	if err != nil {
+		return 0, err
+	}
+	prefix := "kv2://kv/orchestrator/apps/" + app + "/envs/" + env + "/values/"
+	targets := []string{}
+	for _, ref := range refs {
+		if len(ref) <= len(prefix) || ref[:len(prefix)] != prefix {
+			return 0, fmt.Errorf("configmemory: value reference is outside the Application Environment")
+		}
+		targets = append(targets, ref)
+	}
+	for _, id := range deploymentIDs {
+		targets = append(targets, prefix+id)
+	}
+	for _, ref := range targets {
+		if err := p.DeleteValue(ctx, ref); err != nil {
+			return 0, err
+		}
+	}
+	return len(refs), nil
+}

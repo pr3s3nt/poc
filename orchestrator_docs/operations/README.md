@@ -15,6 +15,9 @@ Các runner hiện có giữ đường dẫn cho tới migration/refactor liên 
 verifies UC-08 BR-10 with real Git modules and the full application, including
 shared/private resources, valid updates and product cleanup.
 
+[Application deletion acceptance](application-deletion-acceptance.md) runs the
+UC-18 Developer deletion at the end of the existing kind and AWS A02 harnesses.
+
 | Environment | Runbook | External mutation |
 |---|---|---|
 | Application telemetry | [Native logging/monitoring](observability.md) | Read-only collector; Metrics Server/RBAC/database preparation is an explicit operator action |

@@ -52,12 +52,16 @@ CREATE TABLE connections (
 
 -- Application is identity and current metadata only; execution and store
 -- binding belong to the Environment.
+-- UC-18/ADR-025: a DELETED Application is a retained tombstone that no longer
+-- reserves its name or subdomain.
 CREATE TABLE applications (
   id uuid PRIMARY KEY, application_key text UNIQUE NOT NULL, organization_id uuid NOT NULL REFERENCES organizations(id),
-  name text NOT NULL, subdomain text NOT NULL UNIQUE, version bigint NOT NULL,
-  UNIQUE (organization_id, name)
+  name text NOT NULL, subdomain text NOT NULL, version bigint NOT NULL,
+  status text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DELETING','DELETED')),
+  deletion jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(deletion)='object')
 );
-CREATE UNIQUE INDEX applications_organization_lower_name_key ON applications(organization_id, lower(name));
+CREATE UNIQUE INDEX applications_organization_lower_name_key ON applications(organization_id, lower(name)) WHERE status <> 'DELETED';
+CREATE UNIQUE INDEX applications_subdomain_key ON applications(subdomain) WHERE status <> 'DELETED';
 
 CREATE TABLE secret_store_connections (
   id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES organizations(id),

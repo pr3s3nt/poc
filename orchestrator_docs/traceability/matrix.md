@@ -1196,3 +1196,18 @@ accounts/Application fixtures and schema preservation. UC-03 Kubernetes staging
 catalog bootstrap → `frontend/test/e2e/bootstrap-staging-catalog.mjs` + shared
 UI flows → `bootstrap-staging-catalog.test.mjs` and local Console create/rerun
 verification. Operator procedure: [staging catalog](../operations/staging-catalog.md).
+
+## Application deletion — UC-18
+
+| Requirements | Canonical collaboration / state | Implementation and automated checks |
+|---|---|---|
+| MS-01..02, BR-01, BR-11 | UC-18 realization (preview), ADR-025 kept set | `appdeletion.Service.Preview`, `resourcecleanup.EnvironmentInventory`; `TestApplicationDeletionPreviewScopeAndRoles` (platform excluded, no private markers, foreign 404) |
+| MS-03..04, BR-02..03 | Typed confirmation, CAS admission | `appdeletion.Service.Delete`; e2e confirmation/forged token/replay tests; `DeleteApplicationDialog.test.tsx` |
+| BR-04 | HTTP lifecycle guard | `lifecycleGuard`; `TestApplicationDeletionDestroysOwnedResourcesAndTombstones` (409 while deleting), kind WM-E08.frozen |
+| MS-05..07, BR-05..06 | Pending Deploy removal, `AdmitEnvironmentCleanup` | e2e destroy/retry tests (fake engine, labelled); kind WM-E08 real destroy and namespace/route absence |
+| MS-08, BR-07 | Exact-ref Vault purge | `vault.Registry.PurgeValues`; kind WM-E08.vault-purged |
+| MS-09, POST-03/04, BR-09 | Tombstone, partial unique indexes | e2e tombstone/recreate test; kind WM-E08.tombstone/name-reused |
+| VAR-02, BR-08 | Retry from persisted stage | `TestApplicationDeletionFailureKeepsDeletingAndRetryCompletes` |
+| BR-10 | Telemetry discovery skips non-ACTIVE | `observability.Service.discover` |
+
+Evidence: [kind](../verification/2026-10-27-application-deletion-kind.md).

@@ -45,6 +45,7 @@ Xây dựng orchestrator nội bộ sử dụng các contract và khái niệm g
 | UC-15 | Audit deployment và configuration changes | Administrator | P2 |
 | [UC-16](UC-16/README.md) | Quản lý cấu hình workload | Developer | Chưa xếp ưu tiên |
 | [UC-17](UC-17/README.md) | Theo dõi và báo cáo hiệu quả platform | Platform Engineer, Administrator | Chưa xếp ưu tiên |
+| [UC-18](UC-18/README.md) | Xóa Application (draft) | Developer, Platform Engineer, Administrator | Chưa xếp ưu tiên |
 
 ## 4. Architecturally significant use cases
 

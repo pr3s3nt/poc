@@ -148,19 +148,30 @@ func (s *Store) SaveApplication(ctx context.Context, v application.Application) 
 	if v.Version == 0 {
 		v.Version = 1
 	}
-	_, err := s.q(ctx).Exec(ctx, `INSERT INTO applications(id,application_key,organization_id,name,subdomain,version) SELECT $1::uuid,$2,o.id,$4,$5,$6 FROM organizations o WHERE o.organization_key=$3 ON CONFLICT(id) DO UPDATE SET application_key=EXCLUDED.application_key,name=EXCLUDED.name,subdomain=EXCLUDED.subdomain,version=EXCLUDED.version`, v.ID, v.Key, v.OrganizationKey, v.Name, v.Subdomain, v.Version)
+	deletion, err := deletionJSON(v.Deletion)
+	if err != nil {
+		return err
+	}
+	_, err = s.q(ctx).Exec(ctx, `INSERT INTO applications(id,application_key,organization_id,name,subdomain,version,status,deletion) SELECT $1::uuid,$2,o.id,$4,$5,$6,$7,$8::jsonb FROM organizations o WHERE o.organization_key=$3 ON CONFLICT(id) DO UPDATE SET application_key=EXCLUDED.application_key,name=EXCLUDED.name,subdomain=EXCLUDED.subdomain,version=EXCLUDED.version,status=EXCLUDED.status,deletion=EXCLUDED.deletion`, v.ID, v.Key, v.OrganizationKey, v.Name, v.Subdomain, v.Version, string(v.Lifecycle()), deletion)
 	if err != nil {
 		return fmt.Errorf("postgres: save application: %w", translate(err))
 	}
 	return nil
 }
 func scanApp(row pgx.Row) (application.Application, error) {
-	var v application.Application
-	err := row.Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Name, &v.Subdomain, &v.Version)
-	return v, err
+	var (
+		v        application.Application
+		status   string
+		deletion []byte
+	)
+	if err := row.Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Name, &v.Subdomain, &v.Version, &status, &deletion); err != nil {
+		return v, err
+	}
+	v.Status = application.LifecycleStatus(status)
+	return v, decodeDeletion(deletion, &v)
 }
 
-const appSelect = `SELECT a.id::text,a.application_key,o.organization_key,a.name,a.subdomain,a.version FROM applications a JOIN organizations o ON o.id=a.organization_id`
+const appSelect = `SELECT a.id::text,a.application_key,o.organization_key,a.name,a.subdomain,a.version,a.status,a.deletion FROM applications a JOIN organizations o ON o.id=a.organization_id`
 
 func (s *Store) GetApplication(ctx context.Context, key string) (application.Application, error) {
 	v, err := scanApp(s.q(ctx).QueryRow(ctx, appSelect+` WHERE a.application_key=$1`, key))
@@ -170,15 +181,16 @@ func (s *Store) GetApplication(ctx context.Context, key string) (application.App
 	return v, nil
 }
 func (s *Store) ListApplications(ctx context.Context) ([]application.Application, error) {
-	rows, err := s.q(ctx).Query(ctx, appSelect+` ORDER BY a.id`)
+	// A DELETED Application is a tombstone: it is not listed (UC-18 POST-03).
+	rows, err := s.q(ctx).Query(ctx, appSelect+` WHERE a.status <> 'DELETED' ORDER BY a.id`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var out []application.Application
 	for rows.Next() {
-		var v application.Application
-		if err = rows.Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Name, &v.Subdomain, &v.Version); err != nil {
+		v, err := scanApp(rows)
+		if err != nil {
 			return nil, err
 		}
 		out = append(out, v)

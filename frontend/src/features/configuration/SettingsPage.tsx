@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { navigate, replaceRoute } from '../../app/routes';
 import { ApiError, isStaleConflict } from '../../shared/api/client';
 import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
@@ -9,6 +9,8 @@ import { OperationBanner } from '../environment/OperationBanner';
 import { SecretStoreSelection } from '../environment/SecretStoreSelection';
 import { deleteKey, getConfiguration, putKey, renameKey, type ConfigKey, type Configuration, type KeyKind } from './api';
 import { t } from '../../shared/i18n';
+import { DeleteApplicationDialog } from '../applications/deletion/DeleteApplicationDialog';
+import { DeletionPanel } from '../applications/deletion/DeletionPanel';
 
 type Form = { kind: KeyKind; name: string; value: string; editing?: string };
 type Action = { kind: 'rename' | 'delete'; key: ConfigKey; newName: string; updateReferences: boolean };
@@ -29,7 +31,11 @@ function describe(err: unknown): string {
   return err.message;
 }
 
-export function SettingsPage({ application, initialEnvironment = 'staging', onTargetChange }: { application: Application; initialEnvironment?: EnvironmentKey; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void }) {
+export function SettingsPage({ application, initialEnvironment = 'staging', onTargetChange, onDeletionStarted, onDeleted }: { application: Application; initialEnvironment?: EnvironmentKey; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void; onDeletionStarted?(applicationId: string, operationId: string): void; onDeleted?(applicationId: string): void }) {
+  const [deleting, setDeleting] = useState(false);
+  const [deletionId, setDeletionId] = useState(application.deletionOperationId);
+  const deletionOperation = application.status === 'DELETING' ? deletionId ?? application.deletionOperationId : deletionId;
+  const deleted = useCallback(() => onDeleted?.(application.id), [onDeleted, application.id]);
   const [environment, setEnvironment] = useState<EnvironmentKey>(initialEnvironment);
   const [data, setData] = useState<Configuration>();
   const [loading, setLoading] = useState(true);
@@ -59,7 +65,8 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
   // operation started elsewhere is noticed. Open editors keep their text and
   // simply cannot submit until the target no longer reports an operation.
   const operationBusy = useEnvironmentBusy(application, environment, onTargetChange);
-  const busy = operationBusy || reloadNeeded;
+  // A deleting Application is read-only (UC-18 BR-04).
+  const busy = operationBusy || reloadNeeded || Boolean(deletionOperation);
 
   // Leaving the page invalidates every pending reply.
   useEffect(() => () => { scope.current += 1; seq.current += 1; }, []);
@@ -185,6 +192,8 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
     {loading ? <p>{t('configuration.settings.loadingConfiguration')}</p> : null}
     {!loading && data ? <>{section('VARIABLE', t('configuration.settings.variables'))}{section('SECRET', t('configuration.settings.secrets'))}</> : null}
     {form ? <div className="content-panel inline-editor"><div className="section-header"><h2>{form.editing ? (form.kind === 'SECRET' ? t('configuration.settings.replaceSecret') : t('configuration.settings.editVariable')) : (form.kind === 'SECRET' ? t('configuration.settings.addSecret') : t('configuration.settings.addVariable'))}</h2></div><label>{t('configuration.settings.keyName')}<input value={form.name} disabled={Boolean(form.editing)} onChange={(event) => updateForm({ ...form, name: event.target.value })} placeholder="API_URL" /></label><label>{form.kind === 'SECRET' ? t('configuration.settings.newSecretValue') : t('configuration.settings.value')}<input type={form.kind === 'SECRET' ? 'password' : 'text'} autoComplete="off" value={form.value} onChange={(event) => updateForm({ ...form, value: event.target.value })} /></label>{form.kind === 'SECRET' ? <p className="form-info">{t('configuration.settings.theValueIsOnlyEntered')}</p> : null}{operationBusy ? <p className="form-info" role="status">{t('configuration.settings.anEnvironmentOperationIsRunning')}</p> : null}<div className="form-actions"><Button onClick={() => updateForm(undefined)}>{t('configuration.settings.cancel')}</Button><Button tone="primary" disabled={busy || saving || !form.name.trim() || !form.value} onClick={saveForm}>{t('configuration.settings.savePendingChange')}</Button></div></div> : null}
+    {deletionOperation ? <DeletionPanel applicationId={application.id} operationId={deletionOperation} onDeleted={deleted} onOperation={(id) => { setDeletionId(id); onDeletionStarted?.(application.id, id); }} /> : <section className="content-panel danger-zone" aria-label={t('applications.deletion.title')}><div className="section-header"><div><h2>{t('applications.deletion.title')}</h2><p>{t('applications.deletion.zoneDetail')}</p></div><Button tone="danger" disabled={operationBusy} onClick={() => setDeleting(true)}>{t('applications.deletion.open')}</Button></div>{operationBusy ? <p className="muted">{t('applications.deletion.busyHint')}</p> : null}</section>}
+    {deleting ? <DeleteApplicationDialog applicationId={application.id} onClose={() => setDeleting(false)} onLost={() => setDeleting(false)} onAccepted={(admission) => { setDeleting(false); setDeletionId(admission.operationId); onDeletionStarted?.(application.id, admission.operationId); }} /> : null}
     {action ? <div className="content-panel inline-editor" role="dialog" aria-label={`${action.kind === 'rename' ? t('configuration.settings.rename') : t('configuration.settings.delete')} ${action.key.name}`}><h2>{action.kind === 'rename' ? t('configuration.settings.rename') : t('configuration.settings.delete')} {action.key.name}?</h2>{consumers.length ? <p className="warning-text">{t('configuration.settings.referencedByConsumersValue', { consumers: consumers.join(', '), value: action.updateReferences ? t('configuration.settings.referencesOfTheseWorkloadsIn') : t('configuration.settings.referencesWillNotBeUpdated') })}</p> : <p>{t('configuration.settings.thisChangeAppliesOnlyTo', { title })}</p>}{action.kind === 'rename' ? <label>{t('configuration.settings.newKeyName')}<input value={action.newName} onChange={(event) => updateAction({ ...action, newName: event.target.value })} /></label> : null}{action.kind === 'rename' ? <label className="checkbox-row"><input type="checkbox" checked={action.updateReferences} onChange={(event) => updateAction({ ...action, updateReferences: event.target.checked })} /> {' '}{t('configuration.settings.renameAndUpdateReferences')}</label> : null}{action.kind === 'rename' && action.updateReferences && !referenceGuards(data!) ? <p className="form-info" role="status">{t('configuration.settings.theEnvironmentVersionAndDraft')}</p> : null}{operationBusy ? <p className="form-info" role="status">{t('configuration.settings.anEnvironmentOperationIsRunning2')}</p> : null}<div className="form-actions"><Button onClick={() => updateAction(undefined)}>{t('configuration.settings.cancel')}</Button><Button tone={action.kind === 'delete' ? 'danger' : 'primary'} disabled={busy || saving || (action.kind === 'rename' && (!action.newName.trim() || (action.updateReferences && !referenceGuards(data!))))} onClick={confirmAction}>{t('configuration.settings.continue')}</Button></div></div> : null}
   </section>;
 }

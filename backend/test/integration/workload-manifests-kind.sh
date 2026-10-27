@@ -24,14 +24,16 @@ export LC_ALL=C.UTF-8
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO="$(cd "${ROOT}/.." && pwd)"
-usage() { echo "usage: $0 --evidence /absolute/new/dir [--run-id lowercase-id] [--ref branch|tag|commit] [--completion-ref published-commit]" >&2; exit 2; }
-EVIDENCE="" RUN_ID="" BUNDLE_REF="main" COMPLETION_REF=""
+usage() { echo "usage: $0 --evidence /absolute/new/dir [--run-id lowercase-id] [--ref branch|tag|commit] [--completion-ref published-commit] [--app-deletion]" >&2; exit 2; }
+EVIDENCE="" RUN_ID="" BUNDLE_REF="main" COMPLETION_REF="" APP_DELETION=0
 while (( $# )); do
   case "$1" in
     --evidence) [[ $# -ge 2 ]] || usage; EVIDENCE="$2"; shift 2 ;;
     --run-id) [[ $# -ge 2 ]] || usage; RUN_ID="$2"; shift 2 ;;
     --ref) [[ $# -ge 2 ]] || usage; BUNDLE_REF="$2"; shift 2 ;;
     --completion-ref) [[ $# -ge 2 && "$2" =~ ^[0-9a-f]{40}$ ]] || usage; COMPLETION_REF="$2"; shift 2 ;;
+    # UC-18: end with the Developer deleting the whole Application instead of WM-E07.
+    --app-deletion) APP_DELETION=1; shift ;;
     *) usage ;;
   esac
 done
@@ -208,7 +210,7 @@ curl -fsS "http://127.0.0.1:${FRONTEND_PORT}/ui/" >/dev/null
 log "running the browser scenario"
 set +e
 WM_URL="http://127.0.0.1:${FRONTEND_PORT}" WM_EVIDENCE="${EVIDENCE}" WM_PRIVATE="${PRIVATE}" WM_RUN_ID="${RUN_ID}" \
-  WM_COMPLETION_REF="${COMPLETION_REF}" \
+  WM_COMPLETION_REF="${COMPLETION_REF}" WM_APP_DELETION="${APP_DELETION}" \
   WM_GIT_URL="${BUNDLE_URL}" WM_GIT_PATH="${BUNDLE_PATH}" WM_GIT_REF="${BUNDLE_REF}" WM_COMMIT="${BUNDLE_COMMIT}" WM_BASE_DOMAIN="${BASE_DOMAIN}" WM_GATEWAY="${GATEWAY}" \
   WM_IMAGE_TAG="${TAG}" WM_V2CTL="${PRIVATE}/v2ctl" WM_DB_QUERY="${PRIVATE}/db-query" \
   WM_INTERNAL_KUBECONFIG="${PRIVATE}/internal.kubeconfig" WM_HOST_KUBECONFIG="${KUBECONFIG_HOST}" WM_CONTEXT="${CONTEXT}" \

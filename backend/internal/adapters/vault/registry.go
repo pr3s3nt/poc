@@ -152,3 +152,35 @@ func (r *Registry) CheckWorkloadAuth(ctx context.Context, org, key string) error
 }
 
 var _ configport.Registry = (*Registry)(nil)
+
+// PurgeValues deletes, by exact reference, the value objects of one
+// Application Environment in one store (UC-18 MS-08): the given Secret value
+// refs and the delivery bundle of each listed Deployment. A ref outside the
+// Environment's own value path is refused; an already absent object counts
+// as deleted. Nothing is listed or deleted by prefix.
+func (r *Registry) PurgeValues(ctx context.Context, org, storeKey, app, env string, refs, deploymentIDs []string) (int, error) {
+	p, _, err := r.provider(ctx, org, storeKey)
+	if err != nil {
+		return 0, err
+	}
+	targets := make([]string, 0, len(refs)+len(deploymentIDs))
+	for _, ref := range refs {
+		if !p.OwnsRef(ref, app, env) {
+			return 0, fmt.Errorf("vault: value reference is outside the Application Environment")
+		}
+		targets = append(targets, ref)
+	}
+	for _, id := range deploymentIDs {
+		ref := "kv2://" + p.mount + "/" + pathPrefix + app + "/envs/" + env + "/values/" + id
+		if !p.OwnsRef(ref, app, env) {
+			continue
+		}
+		targets = append(targets, ref)
+	}
+	for _, ref := range targets {
+		if err := p.DeleteValue(ctx, ref); err != nil {
+			return 0, err
+		}
+	}
+	return len(refs), nil
+}

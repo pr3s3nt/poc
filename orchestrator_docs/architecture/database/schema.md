@@ -1028,3 +1028,24 @@ validation and memory/JSON snapshot counterparts must include the aggregate.
 Fresh-baseline policy stays unchanged: no runtime DDL/automatic migration/reset;
 new acceptance databases use the updated baseline. Retained databases are not
 reset or converted by this task.
+
+## Application lifecycle — ADR-025
+
+Required by [ADR-025](../decisions/ADR-025-application-deletion.md) and
+[UC-18](../../usecase/UC-18/specification.md).
+
+| Column | Type | Constraint/meaning |
+|---|---|---|
+| `applications.status` | text | NOT NULL DEFAULT `ACTIVE`; CHECK `ACTIVE`, `DELETING`, `DELETED` |
+| `applications.deletion` | jsonb | NOT NULL DEFAULT `{}`; object; safe deletion progress: operation ID, request hash, actor, status, attempt, timestamps, per-Environment stage/status/failure code, removed workloads, cleanup operation IDs, per-resource outcome and remaining physical IDs, purged secret count. Never values, targets or provider text. |
+
+The former `UNIQUE (organization_id, name)` and `subdomain UNIQUE` constraints
+are replaced by partial unique indexes `applications_organization_lower_name_key`
+`(organization_id, lower(name)) WHERE status <> 'DELETED'` and
+`applications_subdomain_key (subdomain) WHERE status <> 'DELETED'`: a DELETED
+tombstone no longer reserves its identity. Lifecycle writes are a
+compare-and-set on `version`. The row and every dependent history row
+(Environments, Deployments, Sets, snapshots, Terraform instances, attempts,
+terminal states, cleanup operations) are retained; nothing cascades. The
+product list omits DELETED rows. Fresh-baseline policy applies: a retained
+database created from the previous baseline fails startup and is not migrated.
