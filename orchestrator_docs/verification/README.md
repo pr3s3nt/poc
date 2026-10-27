@@ -134,3 +134,5 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [2026-10-23 — Node facts and readable connectors](2026-10-23-preview-node-facts.md) — typed safe database/port facts, larger cards, independent tracks/ports, focus control and real browser geometry checks.
 
 - [2026-10-26 staging catalog bootstrap](2026-10-26-staging-catalog.md): missing-only seed, operator Playwright create/rerun and Connections UI retirement; local verification only.
+
+- [2026-10-27 root e2e acceptance app through the UI](2026-10-27-e2e-acceptance-app-ui.md): staging-like local stack on kind `k8s-4f`, UI setup scripts and a passing acceptance application deploy; deployment retained.

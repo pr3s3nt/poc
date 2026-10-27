@@ -1,0 +1,28 @@
+apiVersion: score.dev/v1b1
+containers:
+    main:
+        image: @@FRONTEND_IMAGE@@
+        livenessProbe:
+            path: /healthz
+            port: 8080
+        readinessProbe:
+            path: /healthz
+            port: 8080
+        variables:
+            BACKEND_URL: ${resources.backend.url}
+            PORT: ${resources.env.PORT}
+metadata:
+    name: frontend
+resources:
+    backend:
+        params:
+            port: http
+            workload: backend
+        type: service
+    env:
+        type: environment
+service:
+    ports:
+        http:
+            port: 8080
+            targetPort: 8080

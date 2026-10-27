@@ -1,0 +1,41 @@
+apiVersion: score.dev/v1b1
+containers:
+    main:
+        image: @@WORKER_IMAGE@@
+        resources:
+            limits:
+                memory: 128Mi
+            requests:
+                memory: 48Mi
+        variables:
+            ACCEPTANCE_CACHE_APP: ${resources.env.ACCEPTANCE_CACHE_APP}
+            ACCEPTANCE_CACHE_ENV: ${resources.env.ACCEPTANCE_CACHE_ENV}
+            ACCEPTANCE_CACHE_RUN: ${resources.env.ACCEPTANCE_CACHE_RUN}
+            ACCEPTANCE_CACHE_TTL_SECONDS: ${resources.env.ACCEPTANCE_CACHE_TTL_SECONDS}
+            PGDATABASE: ${resources.db.database}
+            PGHOST: ${resources.db.host}
+            PGPASSWORD: ${resources.db.password}
+            PGPORT: ${resources.db.port}
+            PGUSER: ${resources.db.username}
+            POLL_INTERVAL_MS: ${resources.env.POLL_INTERVAL_MS}
+            REDIS_HOST: ${resources.cache.host}
+            REDIS_PASSWORD: ${resources.cache.password}
+            REDIS_PORT: ${resources.cache.port}
+            REDIS_TLS: ${resources.cache.tls}
+            REDIS_USERNAME: ${resources.cache.username}
+metadata:
+    name: worker
+resources:
+    cache:
+        class: in-cluster
+        id: acceptance-cache
+        type: redis
+    db:
+        class: in-cluster
+        id: acceptance-db
+        params:
+            database: acceptance
+            username: app
+        type: postgres
+    env:
+        type: environment

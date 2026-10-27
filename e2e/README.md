@@ -32,6 +32,29 @@ hoặc scenario của chúng. Go helpers/tests cần module Go tiếp tục ở 
 unit/component tests của Web Console tiếp tục trong `frontend/`. Không đưa
 runtime code sản phẩm vào `e2e/` hoặc `orchestrator_docs/`.
 
+## Dependencies và kết nối Console dùng chung
+
+`e2e/package.json` khai báo dependencies cho script trong thư mục này; cài bằng
+`npm ci` và `npx playwright install chromium` từ `e2e/`. Unit tests của helpers
+chạy bằng `npm test`.
+
+Mọi scenario mới thao tác qua Console phải lấy browser đã đăng nhập từ
+[`lib/console.mjs`](lib/console.mjs), không tự viết đăng nhập hoặc ghi cứng địa
+chỉ. Cấu hình chung:
+
+| Biến | Ý nghĩa |
+|---|---|
+| `ORCH_PLATFORM_URL` | Địa chỉ gốc Console, ví dụ `http://localhost:3001` |
+| `ORCH_PLATFORM_USERNAME` | Tài khoản đăng nhập |
+| `ORCH_PLATFORM_PASSWORD_FILE` | File riêng tư (0600/0400) chỉ chứa mật khẩu |
+| `ORCH_HEADLESS=1` | Không hiện cửa sổ trình duyệt |
+
+Helper dùng lại phiên của đúng tài khoản, đăng nhập khi chưa có phiên, dừng khi
+phiên thuộc tài khoản khác hoặc sai vai trò yêu cầu. Ví dụ tối thiểu:
+[console-sign-in](scenarios/console-sign-in/README.md). Chuẩn bị platform:
+[setup](setup/README.md); triển khai ứng dụng mẫu:
+[acceptance-app](scenarios/acceptance-app/README.md).
+
 ## Nội dung bắt buộc cho một scenario
 
 README của scenario phải ghi:

@@ -1,0 +1,57 @@
+apiVersion: score.dev/v1b1
+containers:
+    main:
+        image: @@BACKEND_IMAGE@@
+        livenessProbe:
+            path: /healthz
+            port: 8080
+        readinessProbe:
+            path: /readyz
+            port: 8080
+        resources:
+            limits:
+                cpu: 500m
+                memory: 256Mi
+            requests:
+                cpu: 50m
+                memory: 64Mi
+        variables:
+            ACCEPTANCE_CACHE_APP: ${resources.env.ACCEPTANCE_CACHE_APP}
+            ACCEPTANCE_CACHE_ENV: ${resources.env.ACCEPTANCE_CACHE_ENV}
+            ACCEPTANCE_CACHE_RUN: ${resources.env.ACCEPTANCE_CACHE_RUN}
+            ACCEPTANCE_CACHE_TTL_SECONDS: ${resources.env.ACCEPTANCE_CACHE_TTL_SECONDS}
+            ACCEPTANCE_CONFIG: ${resources.env.ACCEPTANCE_CONFIG}
+            ACCEPTANCE_SECRET: ${resources.env.ACCEPTANCE_SECRET}
+            ACCEPTANCE_SECRET_SHA256: ${resources.env.ACCEPTANCE_SECRET_SHA256}
+            PGDATABASE: ${resources.db.database}
+            PGHOST: ${resources.db.host}
+            PGPASSWORD: ${resources.db.password}
+            PGPORT: ${resources.db.port}
+            PGUSER: ${resources.db.username}
+            PORT: ${resources.env.PORT}
+            REDIS_HOST: ${resources.cache.host}
+            REDIS_PASSWORD: ${resources.cache.password}
+            REDIS_PORT: ${resources.cache.port}
+            REDIS_TLS: ${resources.cache.tls}
+            REDIS_USERNAME: ${resources.cache.username}
+metadata:
+    name: backend
+resources:
+    cache:
+        class: in-cluster
+        id: acceptance-cache
+        type: redis
+    db:
+        class: in-cluster
+        id: acceptance-db
+        params:
+            database: acceptance
+            username: app
+        type: postgres
+    env:
+        type: environment
+service:
+    ports:
+        http:
+            port: 8080
+            targetPort: 8080

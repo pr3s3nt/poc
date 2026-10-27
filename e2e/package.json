@@ -1,0 +1,15 @@
+{
+  "name": "orchestrator-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"lib/**/*.test.mjs\"",
+    "console-sign-in": "node scenarios/console-sign-in/run.mjs",
+    "setup:account": "node setup/register-internal-account/run.mjs",
+    "setup:secret-store": "node setup/register-secret-store/run.mjs",
+    "acceptance-app": "node scenarios/acceptance-app/run.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}
