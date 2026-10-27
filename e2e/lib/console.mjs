@@ -7,7 +7,8 @@
 //   ORCH_HEADLESS=1              run without a visible browser window
 //
 // The password is read from the file only, never from arguments, and is never
-// printed. No browser session, trace, screenshot or video is stored.
+// printed. No browser session or trace is stored. Scenarios may opt into video by passing
+// recordVideo to signInContext; evidence must stay outside Git.
 import { chromium } from '@playwright/test';
 import { readFileSync, statSync } from 'node:fs';
 
@@ -87,9 +88,9 @@ export async function ensureSignedIn(page, config, { role } = {}) {
 }
 
 // Signs one account in, in its own browser context of an already launched browser.
-export async function signInContext(browser, config, { role } = {}) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
-  await context.addInitScript(() => { globalThis.localStorage.setItem('orchestrator.locale', 'vi'); });
+export async function signInContext(browser, config, { role, recordVideo } = {}) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, ...(recordVideo ? { recordVideo } : {}) });
+  await context.addInitScript(() => { if (!globalThis.localStorage.getItem('orchestrator.locale')) globalThis.localStorage.setItem('orchestrator.locale', 'vi'); });
   const page = await context.newPage();
   page.setDefaultTimeout(30_000);
   const user = await ensureSignedIn(page, config, { role });

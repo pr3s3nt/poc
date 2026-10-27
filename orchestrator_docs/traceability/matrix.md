@@ -1196,3 +1196,14 @@ accounts/Application fixtures and schema preservation. UC-03 Kubernetes staging
 catalog bootstrap → `frontend/test/e2e/bootstrap-staging-catalog.mjs` + shared
 UI flows → `bootstrap-staging-catalog.test.mjs` and local Console create/rerun
 verification. Operator procedure: [staging catalog](../operations/staging-catalog.md).
+
+## ENV-UX — direct Name/Value entry (2026-10-27)
+
+| Requirement | Design | Implementation / verification |
+|---|---|---|
+| UC-16 MS-04, BR-15/16 | Direct-entry screens; shared Dialog/focus | EnvironmentVariablesTable, VI/EN catalogs; table tests for focus, empty/escaped literals, name/alias preservation |
+| UC-16 BR-26 | One scoped picker, explicit Application labels; no local chains | Table source candidates; tests exclude local rows/self/pending-delete Services and filter search |
+| UC-16 BR-27; UC-12 BR-24–28 | Existing masked create-only dialog; app/env scope | Secret entry/CreateKeyDialog; duplicate, unknown outcome, store, Cancel and late-scope regressions |
+| UC-16 BR-17/18/22/23/25 | Existing projection/provenance and invalid-source guards | bindings + editor, import/resource-change/lifecycle tests; real [form acceptance](../../e2e/scenarios/workload-env-form/README.md) |
+
+ENV-UX runtime/locale validation and video: [2026-10-27 real kind/UI evidence](../verification/2026-10-27-workload-env-form.md).

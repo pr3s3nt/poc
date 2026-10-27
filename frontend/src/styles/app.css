@@ -687,3 +687,28 @@ a { color: inherit; }
 /* Keep generated resource descriptors readable inside the application page. */
 .application-home .deployment-entry > span:first-child { min-width:0; overflow-wrap:anywhere; }
 .application-home .deployment-entry > .status { flex-shrink:0; }
+
+/* ENV-UX: direct entry first, source selection only on request. */
+.env-table-scroll { overflow-x:auto; }
+.env-entry-table th:nth-child(1) { width:27%; }
+.env-entry-table th:nth-child(2) { width:auto; }
+.env-entry-table th:nth-child(3) { width:154px; }
+.env-entry-value { display:flex; align-items:center; gap:8px; }
+.env-entry-value > input { flex:1; min-width:100px; }
+.env-entry-value > .button { flex-shrink:0; color:var(--blue); font-size:12px; }
+.env-entry-reference { display:flex; align-items:center; gap:8px; width:100%; min-height:38px; border:1px solid #b6e3ff; border-radius:6px; padding:8px 10px; text-align:left; background:#f1f8ff; color:var(--blue-dark); }
+.env-entry-reference code { overflow-wrap:anywhere; }
+.env-entry-reference small { margin-left:auto; white-space:nowrap; }
+.env-entry-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; min-height:38px; }
+.env-entry-actions label { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; font-size:12px; font-weight:400; }
+.env-entry-actions input[type=checkbox] { width:auto; accent-color:var(--blue); }
+.env-entry-options { max-height:340px; overflow-y:auto; }
+.env-entry-options h3 { margin:16px 0 6px; color:var(--muted); font-size:12px; }
+.env-entry-option { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; padding:10px; border:0; border-radius:4px; background:var(--surface); color:var(--ink); text-align:left; }
+.env-entry-option:hover { background:#f1f8ff; }
+.env-entry-option small { color:#8250df; }
+.env-entry-create { display:flex; flex-wrap:wrap; gap:4px; border-top:1px solid var(--border-muted); padding-top:12px; }
+.env-entry-help { color:var(--muted); font-size:12px; }
+.env-entry-help summary { cursor:pointer; }
+.env-entry-help small { display:block; margin-top:8px; max-width:650px; line-height:1.5; }
+.env-entry-option:focus-visible,.env-entry-reference:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }

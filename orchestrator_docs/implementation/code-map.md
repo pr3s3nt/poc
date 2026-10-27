@@ -743,3 +743,15 @@ copy in `labels.ts`; a new external source also needs spec/schema first.
 - `frontend/src/app/AppShell.tsx`, `App.tsx`, `routes.ts`: Driver Accounts entry, retire Connections screen.
 - `frontend/test/e2e/bootstrap-staging-catalog.mjs`: operator Playwright registration/preflight/rerun checks.
 - [Runbook](../operations/staging-catalog.md): operator inputs, installed bundle và staging matching.
+
+## ENV-UX — direct workload variable entry (2026-10-27)
+
+- `EnvironmentVariablesTable.tsx` owns direct Name/Value entry, combined source
+  search, scoped labels and the Secret creation entry.
+- `WorkloadEditorPage.tsx` resets inactive binding payload with `changeSource`
+  on inline key/resource creation; stable row/scope and CAS guards remain.
+- `workloads.envEntry.*` in the VI/EN catalogs owns new visible/accessible copy;
+  `styles/app.css` extends only the table/picker layout.
+- Real UI form acceptance and optional video recording use
+  [`e2e/scenarios/workload-env-form`](../../e2e/scenarios/workload-env-form/README.md)
+  and the shared `signInContext` helper; no Score import in this scenario.

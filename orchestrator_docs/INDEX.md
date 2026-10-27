@@ -93,7 +93,8 @@ chọn nguồn chỉ vì mới hơn, dài hơn hoặc gần code hơn.
 
 [Workload environment editor handoff](implementation/workload-environment-editor.md)
 collects the approved UC-12/16 design, API contracts, implementation order and
-acceptance scenarios for the unified source table (2026-10-24; not implemented).
+acceptance scenarios for the unified table (implemented 2026-10-24), plus the
+Name/Value-first ENV-UX refinement approved 2026-10-27.
 
 ## Major artifact indexes
 

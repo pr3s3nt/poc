@@ -155,3 +155,20 @@ Deliver browser screenshots, assertions, test commands/results and remaining
 limitations in a dated verification record; never raw secrets/state. Agent can
 complete the task without asking the user to choose fixture data, implementation
 structure or confirm these already accepted product decisions.
+
+## ENV-UX — approved refinement 2026-10-27
+
+The user approved the Name/Value-first mock on `features/refactor_nhap_bien`.
+It supersedes the mandatory source column from the 2026-10-24 layout: one
+combined picker opens only when requested. The picker offers app/environment
+shared keys, declared outputs and valid other Services, never local row values.
+Shared references display `Ứng dụng / KEY`. Direct ordinary values stay workload
+strings. The user explicitly retained existing Application + Environment Secret
+storage; the checkbox delegates to the existing create-only UC-12 dialog.
+No backend wire/schema changes are required. Existing literal provenance and
+secret delivery rules remain authoritative. See UC-16 BR-26/27 and updated screens.
+
+Requested acceptance for this refinement is real UI form authoring (no Score
+import) and deployment of the acceptance frontend/backend/worker/PostgreSQL/Redis
+on kind, with recorded video published to GitHub after secret review. Runner:
+[`workload-env-form`](../../e2e/scenarios/workload-env-form/README.md).

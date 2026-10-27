@@ -11,13 +11,14 @@ related: UC-16, UC-01, UC-05, UC-12
 ## UX outcome
 
 Developer thêm/sửa workload trong staging hoặc production. Mỗi container có
-một bảng Biến môi trường: tên → nguồn → giá trị/tham chiếu. Năm nguồn và form
-con tạo key/dependency tại chỗ được quy định trong screens/states. Settings
+một bảng Biến môi trường: Tên biến + Giá trị nhập trực tiếp. “Chọn từ…” mở
+một hộp tìm cấu hình dùng chung/output/Service, không liệt kê biến cục bộ.
+Secret vẫn thuộc Application + Environment; form tạo tại chỗ giữ UC-12. Settings
 UC-12 vẫn quản lý key dùng chung; Save workload chỉ tạo pending change,
 Preview và Deploy vẫn tường minh. Public routes giữ contract hiện hành.
 
 DEVEX-ENV được duyệt 2026-10-24; thay checklist và blanket literal prohibition.
-Thiết kế chưa triển khai: xem [handoff](../../../implementation/workload-environment-editor.md).
+Trạng thái và lịch sử: xem [handoff](../../../implementation/workload-environment-editor.md).
 
 ## Read in this order
 

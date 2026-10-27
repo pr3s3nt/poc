@@ -12,7 +12,12 @@ database "Desired configuration store" as Store
 Dev -> UI: Open Application/Environment workload [MS-01..03]
 UI -> Catalog: Scoped keys, Type inputs/outputs/classes, Services
 Catalog --> UI: Metadata (no Secret values)
-Dev -> UI: Add row: name, source, value/reference [MS-04]
+Dev -> UI: Add row: name + direct value [MS-04]
+opt Choose a reference [BR-26]
+  Dev -> UI: Open Choose from; search shared keys/outputs/Services
+  UI --> Dev: Scoped source names; no local variable candidates
+  Dev -> UI: Select reference for this row
+end
 opt Create Application variable or Secret inline [MS-05, BR-21]
   opt Secret and no selected store [BR-24]
     Dev -> UI: Select READY store and explicitly Save store
@@ -53,4 +58,8 @@ alt Delete workload [VAR-02]
   Config -> Store: Save pending deletion
   Store --> UI: Pending status + Undo
 end
+note over Dev
+ENV-UX: enter name/value directly; open one reference picker only when needed.
+Application keys are scoped to the selected app/environment; local rows are not sources.
+end note
 @enduml

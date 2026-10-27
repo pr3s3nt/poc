@@ -2,7 +2,7 @@
 id: UC-16-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-27
 related: UC-01, UC-05, UC-06, UC-07, UC-12
 ---
 
@@ -36,9 +36,9 @@ của Environment đang chọn.
 3. **MS-03:** Developer khai báo container/image, Service/cổng và dependencies.
    Mỗi container có một bảng **Biến môi trường**, không tách checklist và
    “Nguồn khác”. Dependency có thể thêm ngay trong bước chọn nguồn tài nguyên.
-4. **MS-04:** Developer thêm dòng, đặt tên biến và chọn một nguồn: Giá trị nhập,
-   Biến của ứng dụng, Bí mật, Tài nguyên hoặc Workload khác. Chỉ hiện control
-   cần cho nguồn đang chọn; giữ mọi mapping đã có khi Edit/import.
+4. **MS-04:** Developer thêm dòng và nhập Tên biến + Giá trị trực tiếp. Chỉ khi cần
+   tham chiếu mới mở “Chọn từ…” để chọn cấu hình dùng chung, output tài nguyên
+   hoặc Service workload khác. Giữ mọi mapping đã có khi Edit/import.
 5. **MS-05:** Nếu thiếu key, Developer mở form UC-12 tại chỗ, tạo và chọn key
    trong cùng app/env. Nếu thiếu dependency, thêm vào bản nháp tại chỗ rồi chọn
    output. Không phải rời workload editor cho các thao tác này.
@@ -145,10 +145,11 @@ Thiết kế được duyệt thay thế checklist và chính sách cấm mọi 
 [Screens](ui/screens.md) sở hữu bố cục/nhãn; [OC-16](../../architecture/contracts/operation-contracts.md#oc-16-workloadconfigurationservicelist--save--delete--undo)
 sở hữu mapping HTTP/Score. Trạng thái code ở CURRENT_STATE, không suy từ thiết kế.
 
-- **BR-15:** Mỗi container có một bảng; **+ Thêm biến** tạo một dòng trống,
-  nguồn mặc định Giá trị nhập. Không tự thêm key hoặc variable khác. Năm nguồn
-  là Giá trị nhập, Biến của ứng dụng (VARIABLE), Bí mật (SECRET), Tài nguyên,
-  Workload khác. Bí mật và output bí mật chỉ hiển thị tên/trạng thái.
+- **BR-15:** Mỗi container có một bảng Tên biến + Giá trị; **+ Thêm biến** tạo
+  ngay dòng nhập trực tiếp và focus tên. Không có cột chọn loại nguồn. “Chọn
+  từ…” mở một danh sách tìm kiếm có nhóm Cấu hình dùng chung, Output tài nguyên
+  và Service workload. Các loại binding nội bộ giữ nguyên. Bí mật và output
+  bí mật chỉ hiển thị tên/trạng thái. Không tự thêm key hoặc variable khác.
 - **BR-16:** Tên biến bắt buộc, theo identifier hiện hành và duy nhất trong
   container trên mọi nguồn; không trim/đổi tên/suffix hoặc overwrite âm thầm.
   Tên được lặp ở container khác. Chọn key UC-12 gợi ý tên key chỉ khi ô tên
@@ -236,3 +237,16 @@ as specified above.
   không thành choices rỗng; class imported/custom được giữ để review, không
   rewrite thành default. Các alias, bindings/Secret/Service và advanced fields
   phải round-trip không mất thông tin.
+
+## Nhập biến trực tiếp — ENV-UX (2026-10-27)
+
+- **BR-26:** Picker không liệt kê biến cục bộ của container/workload và không
+  hỗ trợ chuỗi tham chiếu giữa chúng. Cấu hình dùng chung chỉ lấy key UC-12 của
+  đúng Application/Environment; nhãn đã chọn hiển thị `Ứng dụng / KEY`. Output
+  và Service hiển thị đích rõ ràng, không yêu cầu nhập cú pháp Score.
+- **BR-27:** Bí mật vẫn thuộc Application + Environment theo UC-12, không có
+  secret literal hoặc phạm vi lưu mới. Từ dòng nhập, chọn Bí mật mở form tạo
+  secret UC-12 tại chỗ với tên gợi ý; giá trị chỉ nhập che trong form đó. Chỉ
+  “Tạo và chọn” mới commit create-only; Cancel giữ binding trước đó. Secret đã
+  có và output bí mật được phân loại từ metadata, không đổi loại bằng checkbox.
+  Đổi nguồn về giá trị nhập tạo ô rỗng, không sao chép giá trị nguồn.

@@ -3185,5 +3185,22 @@
   "shared.errors.diagnosticScopeInvalid": "Phạm vi chẩn đoán không hợp lệ. Kiểm tra lựa chọn rồi thử lại.",
   "shared.errors.diagnosticBusy": "Tài khoản này đang có một lượt chẩn đoán đang chạy.",
   "platform.diagnostics.reportMismatch": "Báo cáo được yêu cầu thuộc phạm vi khác với tab này nên không được hiển thị.",
-  "platform.diagnostics.openLatestReport": "Mở báo cáo mới nhất"
+  "platform.diagnostics.openLatestReport": "Mở báo cáo mới nhất",
+  "workloads.envEntry.value": "Giá trị",
+  "workloads.envEntry.choose": "Chọn từ…",
+  "workloads.envEntry.chooseFor": "Chọn nguồn, dòng {row}",
+  "workloads.envEntry.changeFor": "Đổi nguồn, dòng {row}",
+  "workloads.envEntry.applicationKey": "Ứng dụng / {key}",
+  "workloads.envEntry.secret": "Bí mật",
+  "workloads.envEntry.secretFor": "Bí mật, dòng {row}",
+  "workloads.envEntry.pickerTitle": "Chọn giá trị có sẵn",
+  "workloads.envEntry.search": "Tìm biến, tài nguyên hoặc Service",
+  "workloads.envEntry.direct": "Nhập giá trị trực tiếp",
+  "workloads.envEntry.group.shared": "Cấu hình dùng chung",
+  "workloads.envEntry.group.resources": "Output tài nguyên",
+  "workloads.envEntry.group.services": "Service workload",
+  "workloads.envEntry.noMatches": "Không có nguồn phù hợp.",
+  "workloads.envEntry.close": "Đóng",
+  "workloads.envEntry.help": "Giá trị thường và bí mật",
+  "workloads.envEntry.secretHelp": "Chọn Bí mật để tạo Secret trong đúng ứng dụng và môi trường. Secret chỉ lưu trong kho, workload giữ tham chiếu."
 }

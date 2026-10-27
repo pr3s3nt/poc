@@ -11,7 +11,7 @@ import { CreateKeyDialog } from './CreateKeyDialog';
 import { DependencyFields, dependencyProblem, dependencyAliasesProblem, emptyDependency, type ClassMetadata, type Dependency } from './DependencyFields';
 import { EnvironmentVariablesTable, type FocusRequest } from './EnvironmentVariablesTable';
 import { Advanced } from './Advanced';
-import { bindingProblem, escapeLiteral, isKeySource, readBinding, serviceAlias, type Binding, type KeyCatalog, type ResourceSpecs } from './bindings';
+import { bindingProblem, changeSource, escapeLiteral, isKeySource, readBinding, serviceAlias, type Binding, type KeyCatalog, type ResourceSpecs } from './bindings';
 import { buildRowContext } from './rowContext';
 import { t } from '../../shared/i18n';
 
@@ -285,7 +285,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
   }, []);
   const clearFocus = useCallback(() => setFocusRequest(undefined), []);
   function openKeyDialog(kind: KeyKind, row: Binding) { setDialog({ type: 'key', kind, rowId: row.id, suggested: row.name }); }
-  function closeDialog() { setDialog(undefined); }
+  function closeDialog() { if (dialog) setFocusRequest({ rowId: dialog.rowId, field: 'key' }); setDialog(undefined); }
   // A configuration reply of the scope the dialog opened in refreshes the catalog; any other scope drops it.
   function acceptConfiguration(at: number) { return (config: Configuration) => { if (at === scope.current) setCatalog(readyCatalog(config)); }; }
   function updateDependency(index: number, patch: Partial<Dependency>) {
@@ -397,7 +397,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
         if (at !== scope.current) return;
         setDialog(undefined);
         // Select the key on the row that opened the dialog; a row removed meanwhile is left alone. The name is only suggested while empty.
-        changeRow(rowId, (row) => ({ ...row, source: kind, key, ...(row.name === '' ? { name: key } : {}) }));
+        changeRow(rowId, (row) => ({ ...changeSource(row, kind), key, ...(row.name === '' ? { name: key } : {}) }));
         setFocusRequest({ rowId, field: 'key' });
       })(scope.current, dialog.rowId, dialog.kind)} /> : null}
     {dialog?.type === 'resource' ? <AddResourceDialog existing={form.dependencies} types={types} classMetadata={classMetadata} onReload={() => void reloadClassMetadata()} onClose={closeDialog}
@@ -406,7 +406,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
         setDialog(undefined);
         // Only the draft changes: the dependency is added, the row points to its alias and the output stays to be chosen.
         setForm((prev) => ({ ...prev, dependencies: [...prev.dependencies, dependency] }));
-        changeRow(rowId, (row) => ({ ...row, source: 'RESOURCE', alias: dependency.alias, output: '' }));
+        changeRow(rowId, (row) => ({ ...changeSource(row, 'RESOURCE'), alias: dependency.alias, output: '' }));
         setFocusRequest({ rowId, field: 'output' });
       })(scope.current, dialog.rowId)} /> : null}
     {!loading && environmentBusy ? <div className="form-info" role="status">{t('workloads.workloadEditor.anEnvironmentOperationIsRunning', { environment })}</div> : null}
