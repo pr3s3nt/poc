@@ -411,6 +411,14 @@ func usesChangedConfiguration(ctx context.Context, store persistence.Store, modu
 		}
 		applied = loaded
 	}
+	if e := module.Spec.Execution; e != nil {
+		for _, file := range e.SecretFiles {
+			key := strings.TrimSuffix(strings.TrimPrefix(file.Ref, "${context.uc12."), "}")
+			if desired.Entries[key] != applied.Entries[key] {
+				return true, nil
+			}
+		}
+	}
 	for _, container := range module.Spec.Containers {
 		for _, value := range container.Variables {
 			if !strings.HasPrefix(value, "${context.uc12.") || !strings.HasSuffix(value, "}") {

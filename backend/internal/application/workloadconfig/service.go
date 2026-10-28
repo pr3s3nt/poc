@@ -11,6 +11,7 @@ import (
 
 	"orchestrator/internal/domain/configuration"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning/score"
 	"orchestrator/internal/platform/canon"
@@ -73,6 +74,9 @@ func refine(kind error, format string, args ...any) error {
 var bindingPattern = regexp.MustCompile(`^\$\{resources\.([A-Za-z0-9_-]+)\.([A-Za-z_][A-Za-z0-9_-]*)\}$`)
 
 type Item struct {
+	Runtime  string                `json:"runtime,omitempty"`
+	Schedule *environment.Schedule `json:"schedule,omitempty"`
+
 	ID           string                 `json:"id"`
 	State        environment.DraftState `json:"state"`
 	Score        map[string]any         `json:"score,omitempty"`
@@ -114,6 +118,12 @@ func (s *Service) List(ctx context.Context, app, env string) (View, error) {
 		if reconstructed, err := ReconstructScoreProven(id, module, set.Document, set.LiteralProofs.ProverFor(id), set.ResourceAliases[id]); err == nil {
 			item.Score = reconstructed
 		}
+		if e := module.Spec.Execution; e != nil {
+			item.Runtime = e.Kind
+			if e.Schedule != nil {
+				item.Schedule = e.Clone().Schedule
+			}
+		}
 		items[id] = item
 	}
 	for _, draft := range drafts {
@@ -130,6 +140,10 @@ func (s *Service) List(ctx context.Context, app, env string) (View, error) {
 			}
 			if err == nil {
 				item.ServicePorts = portNames(parsed.Service)
+				if e := parsed.Execution; e != nil {
+					item.Runtime = e.Kind
+					item.Schedule = e.Clone().Schedule
+				}
 			}
 		}
 		items[draft.WorkloadID] = item
@@ -273,6 +287,25 @@ func (s *Service) Undo(ctx context.Context, app, env, workload string, expectedV
 }
 
 func (s *Service) validateBindings(ctx context.Context, app, env string, doc score.Document) error {
+	if doc.Execution != nil {
+		application, err := s.store.GetApplication(ctx, app)
+		if err != nil {
+			return err
+		}
+		records, err := persistence.RenderBundlesOf(ctx, s.store, application.OrganizationKey)
+		if err != nil {
+			return err
+		}
+		templates, err := renderbundle.TemplateCatalog(records)
+		if err != nil {
+			return fmt.Errorf("%w: template catalog conflict", ErrInvalidRequest)
+		}
+		e := doc.Execution
+		if _, _, err = renderbundle.MatchWorkloadTemplate(templates, e.Template.ID, e.Template.Version, e.Template.SHA256, e.Kind, e.Inputs); err != nil {
+			return fmt.Errorf("%w: workload template unavailable or inputs invalid", ErrInvalidRequest)
+		}
+	}
+
 	scope, err := s.store.GetConfigurationScope(ctx, app, env)
 	if err != nil {
 		return err
@@ -299,6 +332,18 @@ func (s *Service) validateBindings(ctx context.Context, app, env string, doc sco
 	}
 	if err := validateResourceParams(doc, typeMap); err != nil {
 		return err
+	}
+	if doc.Execution != nil {
+		for _, file := range doc.Execution.SecretFiles {
+			match := bindingPattern.FindStringSubmatch(file.Ref)
+			if match == nil {
+				return ErrInvalidVariable
+			}
+			entry, ok := entries[match[2]]
+			if !ok || entry.Kind != configuration.Secret {
+				return ErrInvalidVariable
+			}
+		}
 	}
 	for containerName, container := range doc.Containers {
 		for key, value := range container.Variables {

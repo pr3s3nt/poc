@@ -152,3 +152,51 @@ Hiển thị controller, Service/route/ports, mounts/PVC create/reuse/retain,
 resource dependencies, cron schedule/timezone/concurrency và immutable changes.
 Giữ symbolic outputs khi PVC/DB chưa tạo. Runtime admission kiểm lại pin/target/
 versions; không overwrite drift hoặc catalog mismatch để cố deploy.
+
+## WC-C08 — Concrete Git-owned catalog contract
+
+Template publication reuses verified Git bundle inspection and immutable
+`render_bundles.contract` JSONB. No new mutable template table or browser-only
+registry. `bundle.yaml.workloadTemplates` is optional (legacy means none), at
+most 32 entries; each has id/version/kind/labels/descriptions/inputsSchema/defaults.
+Schemas follow the existing bounded literal render-input schema; defaults are
+validated during inspection. No JavaScript, secret bytes or external schema refs.
+`workloadExecution.inputs` holds effective typed template inputs; common Score
+fields remain independently editable and protected by semantic guards.
+
+GET `/api/v1/applications/{id}/environments/{env}/workload-templates` uses the
+existing app/env authorization and returns `{templates:[...]}`: pin (id/version/
+sha256), kind, localized labels/descriptions, inputsSchema/defaults and bundle ID.
+It reads verified scoped metadata only, no Git/provider I/O. Empty means no
+published template. PE/Admin publishes a new version by inspecting/registering
+its immutable Git bundle and selecting compatible Resource Definitions, reusing
+existing management surfaces. No Developer publish endpoint is introduced.
+A version is immutable by its content hash; equal ID/version with different
+content is a conflict, not an automatic upgrade. Catalog and Save reject ambiguity.
+
+Save validates requested pin against the org registry and effective input schema;
+Preview additionally requires the matched Definition's bundle to advertise the
+same template pin/kind. Selecting a template never selects a Driver Account or
+bypasses Definition criteria. Template availability changes invalidate Preview;
+applied snapshots retain their old pin. Retirement is withdrawal from authoring
+via matching catalog/Definitions; old snapshots remain readable/removable.
+
+CronJob removal safety: explicit Suspend → Preview/Deploy precedes removal.
+The deployer refuses an unsuspended CronJob and refuses any controller-UID-owned
+Job lacking Complete/Failed. This prevents delete from implicitly cancelling a
+running or Pending Job; no automatic suspend mutation is hidden in deletion.
+
+Secret files v1: `workloadExecution.secretFiles[]` has `ref` (full UC-12 env
+resource reference), container, absolute file path, mode (decimal, default 256 =
+0400; only owner/group read bits). No file content. Score conversion rewrites
+refs to scoped UC-12 references; rename/revision tracking traverses these refs.
+VSO bundle delivery uses synthetic per-container keys not emitted as env entries.
+Mounted Secret projection is read-only with subPath; a new revision changes the
+Secret name and rollout/job template. Legacy Agent delivery refuses file intent.
+
+Initial resource source: portable Terraform modules under `backend/terraform-modules/`
+are registered through the existing reviewed Git-source flow with immutable commit
+pins. This does not add or modify the packaged release/provider mirror, nor does
+it require a staging database baseline reset. Persistent-storage outputs define
+claimName/namespace capability; a resource with this capability must be explicitly
+deleted before its namespace can be selected for cascade deletion.

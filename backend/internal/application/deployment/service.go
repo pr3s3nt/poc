@@ -620,6 +620,22 @@ func (s *Service) applyWorkload(
 		}
 	}
 
+	if e := module.Spec.Execution; e != nil && len(e.SecretFiles) > 0 {
+		if s.configSync == nil {
+			return environment.ErrExecutionUnavailable
+		}
+		for i, file := range e.SecretFiles {
+			key := strings.TrimSuffix(strings.TrimPrefix(file.Ref, "${context.uc12."), "}")
+			entry, ok := revision.Entries[key]
+			if !ok || entry.Kind != configuration.Secret {
+				return environment.ErrExecution
+			}
+			if storeRefs[file.Container] == nil {
+				storeRefs[file.Container] = map[string]configport.StoreRef{}
+			}
+			storeRefs[file.Container][fmt.Sprintf("orchestrator-file-%d", i)] = configport.StoreRef{StoreKey: entry.StoreKey, ValueRef: entry.ValueRef}
+		}
+	}
 	var vaultInjection *execution.VaultInjection
 	var configSecretName string
 	var configSecretKeys map[string]map[string]string
@@ -666,7 +682,31 @@ func (s *Service) applyWorkload(
 		}
 	}
 
+	storage := map[string]execution.StorageBinding{}
+	if module.Spec.Execution != nil {
+		for _, mount := range module.Spec.Execution.Mounts {
+			resolver := bindingResolver{ctx: planCtx, bindings: node.Bindings, outputs: provisionResult.Outputs, set: plan.CandidateSet, namespace: target.Namespace}
+			claim, err := resolver.ResolveResource(mount.Resource, "claimName")
+			if err != nil {
+				return err
+			}
+			ns, err := resolver.ResolveResource(mount.Resource, "namespace")
+			if err != nil {
+				return err
+			}
+			claimName, ok := claim.(string)
+			if !ok || claimName == "" {
+				return environment.ErrExecution
+			}
+			namespace, ok := ns.(string)
+			if !ok || namespace != target.Namespace {
+				return environment.ErrExecution
+			}
+			storage[mount.Resource] = execution.StorageBinding{ClaimName: claimName, Namespace: namespace}
+		}
+	}
 	manifests, err := s.renderer.Render(ctx, execution.RenderRequest{
+		Storage:          storage,
 		Selection:        plan.Rendering[workloadID],
 		WorkloadID:       workloadID,
 		Module:           module,

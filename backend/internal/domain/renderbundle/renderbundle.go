@@ -82,7 +82,8 @@ type Manifest struct {
 	Patches       []string `yaml:"patches" json:"patches"`
 	// Resources are optional templates returning additional Kubernetes
 	// objects (ADR-024); omitted means none.
-	Resources []string `yaml:"resources,omitempty" json:"resources,omitempty"`
+	Resources         []string           `yaml:"resources,omitempty" json:"resources,omitempty"`
+	WorkloadTemplates []WorkloadTemplate `yaml:"workloadTemplates,omitempty" json:"workloadTemplates,omitempty"`
 }
 
 var namePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
@@ -137,6 +138,9 @@ func ParseManifest(raw []byte) (Manifest, error) {
 			}
 			seen[file] = true
 		}
+	}
+	if err := validateWorkloadTemplates(m.WorkloadTemplates); err != nil {
+		return Manifest{}, err
 	}
 	if m.Provisioners == nil {
 		m.Provisioners = []string{}
@@ -222,7 +226,7 @@ func (b Bundle) Validate() error {
 	case b.Contract.InputContract != InputContract || b.Contract.InputsSchema == nil || b.Contract.Defaults == nil:
 		return invalid("", "record contract is incomplete")
 	}
-	return nil
+	return validateWorkloadTemplates(b.Contract.Manifest.WorkloadTemplates)
 }
 
 // SameVerifiedContent reports whether other records the identical verified
@@ -248,6 +252,12 @@ func (b Bundle) ShortRevision() string {
 // Clone returns an independent copy.
 func (b Bundle) Clone() Bundle {
 	out := b
+	if b.Contract.Manifest.WorkloadTemplates != nil {
+		out.Contract.Manifest.WorkloadTemplates = make([]WorkloadTemplate, len(b.Contract.Manifest.WorkloadTemplates))
+		for i, t := range b.Contract.Manifest.WorkloadTemplates {
+			out.Contract.Manifest.WorkloadTemplates[i] = t.Clone()
+		}
+	}
 	out.Contract.Manifest.Provisioners = append([]string{}, b.Contract.Manifest.Provisioners...)
 	out.Contract.Manifest.Patches = append([]string{}, b.Contract.Manifest.Patches...)
 	if b.Contract.Manifest.Resources != nil {

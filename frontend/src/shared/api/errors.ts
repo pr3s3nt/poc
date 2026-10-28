@@ -79,9 +79,10 @@ export const plannerReasons = ['workload-exists', 'workload-not-current', 'befor
 export type PlannerStage = (typeof plannerStages)[number];
 export type PlannerReason = (typeof plannerReasons)[number];
 // Allowlisted refusal reasons of a resource deletion (OC-19); the server sends them under `reason`.
-export const cleanupReasons = ['NOT_UNREFERENCED', 'HAS_CONSUMERS', 'PLATFORM_RESOURCE', 'OWNERSHIP_UNVERIFIED', 'ORIGINAL_TARGET_UNAVAILABLE', 'ENVIRONMENT_BUSY', 'INFRASTRUCTURE_UNAVAILABLE', 'METADATA_SYNC_PENDING'] as const;
+export const cleanupReasons = ['RETAINED_DATA', 'NOT_UNREFERENCED', 'HAS_CONSUMERS', 'PLATFORM_RESOURCE', 'OWNERSHIP_UNVERIFIED', 'ORIGINAL_TARGET_UNAVAILABLE', 'ENVIRONMENT_BUSY', 'INFRASTRUCTURE_UNAVAILABLE', 'METADATA_SYNC_PENDING'] as const;
 export type CleanupReason = (typeof cleanupReasons)[number];
 export const cleanupReasonLabels: Readonly<Record<CleanupReason, string>> = Object.freeze({
+ RETAINED_DATA: t('workloads.templates.retainedData'),
   NOT_UNREFERENCED: t('shared.errors.theResourceIsNotYet'),
   HAS_CONSUMERS: t('shared.errors.workloadsOrOtherResourcesOutside'),
   PLATFORM_RESOURCE: t('shared.errors.thisIsAPlatformResource'),

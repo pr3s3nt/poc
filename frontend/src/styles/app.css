@@ -712,3 +712,7 @@ a { color: inherit; }
 .env-entry-help summary { cursor:pointer; }
 .env-entry-help small { display:block; margin-top:8px; max-width:650px; line-height:1.5; }
 .env-entry-option:focus-visible,.env-entry-reference:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+
+.template-picker-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:16px; }
+.template-picker-list .application-card { display:grid; gap:8px; text-align:left; }
+.template-picker-list small { color:var(--muted); }

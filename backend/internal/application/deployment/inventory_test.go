@@ -105,3 +105,16 @@ func TestJobsCompleteBeforeRolloutObjects(t *testing.T) {
 		t.Fatal("a deployer without inventory support must fail closed")
 	}
 }
+
+func TestCronJobDeployDoesNotWaitForImaginaryDeployment(t *testing.T) {
+	recorder := &phaseRecorder{}
+	service := &Service{deployer: recorder}
+	job := owned("CronJob", "backup")
+	job.APIVersion = "batch/v1"
+	if err := service.applyPhases(context.Background(), execution.Target{Namespace: "ns"}, "backup", []execution.Manifest{job}); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(recorder.calls, []string{"apply CronJob"}) {
+		t.Fatalf("schedule apply waited for a nonexistent rollout: %v", recorder.calls)
+	}
+}

@@ -86,6 +86,11 @@ func scanEnvironmentReferences(raw map[string]any, visit func(string, map[string
 			}
 		}
 	}
+	if execution, ok := raw["workloadExecution"].(map[string]any); ok {
+		if files, ok := execution["secretFiles"].([]any); ok {
+			walk(files)
+		}
+	}
 	if resources, ok := raw["resources"].(map[string]any); ok {
 		for _, spec := range resources {
 			if body, ok := spec.(map[string]any); ok && body["params"] != nil {

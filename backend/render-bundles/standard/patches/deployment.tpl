@@ -52,6 +52,17 @@
   value: {{ toJson $podSecurity }}
 {{- end }}
 {{- range $ci, $c := $m.spec.template.spec.containers }}
+{{- $declared := get $in.workload.spec.containers $c.name }}
+{{- if hasKey $declared "workingDir" }}
+- op: set
+  path: "{{ $i }}.spec.template.spec.containers.{{ $ci }}.workingDir"
+  value: {{ toJson $declared.workingDir }}
+{{- end }}
+{{- if hasKey $declared "startupProbe" }}
+- op: set
+  path: "{{ $i }}.spec.template.spec.containers.{{ $ci }}.startupProbe"
+  value: {{ toJson (merge (dict "httpGet" (dict "path" $declared.startupProbe.path "port" $declared.startupProbe.port)) $d.probe) }}
+{{- end }}
 - op: set
   path: "{{ $i }}.spec.template.spec.containers.{{ $ci }}.imagePullPolicy"
   value: {{ toJson $d.imagePullPolicy }}

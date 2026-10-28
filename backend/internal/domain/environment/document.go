@@ -126,6 +126,8 @@ func (r *ContainerResourceRequirements) Clone() *ContainerResourceRequirements {
 // which is the Humanitec module form.
 type Container struct {
 	ID             string                         `json:"id,omitempty"`
+	WorkingDir     string                         `json:"workingDir,omitempty"`
+	StartupProbe   *Probe                         `json:"startupProbe,omitempty"`
 	Image          string                         `json:"image"`
 	Command        []string                       `json:"command,omitempty"`
 	Args           []string                       `json:"args,omitempty"`

@@ -392,7 +392,7 @@ func utf8Valid(b []byte) bool { return utf8.Valid(b) && !strings.ContainsRune(st
 
 // reviewedKind reports objects with the detailed workload/Service projection.
 func reviewedKind(kind string) bool {
-	return kind == "Deployment" || kind == "StatefulSet" || kind == "Service"
+	return kind == "Deployment" || kind == "StatefulSet" || kind == "Service" || kind == "CronJob"
 }
 
 // ProjectManifests emits review data of the rendered objects. The execution
@@ -803,7 +803,27 @@ func (a Assembler) manifests(ctx context.Context, plan *planning.Plan, descripto
 	}
 	deadline, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	manifests, err := a.Renderer.Render(deadline, execution.RenderRequest{Selection: selection, WorkloadID: workloadID, Module: symbolicModule, Namespace: namespace, PlainEnv: plain, SecretEnv: secret, Labels: map[string]string{},
+	storage := map[string]execution.StorageBinding{}
+	if e := module.Spec.Execution; e != nil {
+		for index, mount := range e.Mounts {
+			storage[mount.Resource] = execution.StorageBinding{ClaimName: fmt.Sprintf("preview-claim-%d", index), Namespace: namespace}
+			unknown = append(unknown, "storage."+mount.Resource)
+		}
+	}
+	configKeys := map[string]map[string]string{}
+	if e := module.Spec.Execution; e != nil {
+		for i, file := range e.SecretFiles {
+			if configKeys[file.Container] == nil {
+				configKeys[file.Container] = map[string]string{}
+			}
+			configKeys[file.Container][fmt.Sprintf("orchestrator-file-%d", i)] = fmt.Sprintf("file-%d", i)
+		}
+	}
+	configName := ""
+	if len(configKeys) > 0 {
+		configName = "preview-file-secret"
+	}
+	manifests, err := a.Renderer.Render(deadline, execution.RenderRequest{ConfigSecretName: configName, ConfigSecretKeys: configKeys, Storage: storage, Selection: selection, WorkloadID: workloadID, Module: symbolicModule, Namespace: namespace, PlainEnv: plain, SecretEnv: secret, Labels: map[string]string{},
 		Services: execution.ServicePortsOf(plan.CandidateSet.Modules), UnknownPaths: unknown})
 	if err != nil {
 		return []Artifact{{ID: descriptor + ":manifest", NodeID: descriptor, Kind: "kubernetes-manifest", Path: "Deployment/" + workloadID, Language: "yaml", Before: beforeFor(old, "kubernetes-manifest", "Deployment/"+workloadID, !existed), After: unavailable("RENDER_UNAVAILABLE")}}

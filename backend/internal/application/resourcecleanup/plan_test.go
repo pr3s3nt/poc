@@ -309,3 +309,27 @@ func toString(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
 }
+
+func TestNamespaceCannotCascadeDestroyRetainedStorage(t *testing.T) {
+	ns := rec("ns", "k8s-namespace.default#environments.a.ns", resource.ScopeEnvironment, un)
+	data := rec("data", "persistent-storage.default#shared.data", resource.ScopeShared, un)
+	snapshot := snap([]tfresource.ResourceRecord{ns, data}, edge("data", "ns", un))
+	snapshot.types["persistent-storage"] = resource.Type{Key: "persistent-storage", Outputs: []resource.OutputField{{Name: "claimName", Type: "string"}, {Name: "namespace", Type: "string"}}}
+	reasons := snapshot.staticReasons(ns, nil, false)
+	found := false
+	for _, reason := range reasons {
+		found = found || reason == ReasonRetainedData
+	}
+	if !found {
+		t.Fatalf("retained storage not protected: %v", reasons)
+	}
+	if reasons = snapshot.staticReasons(data, nil, false); len(reasons) != 0 {
+		t.Fatalf("explicit data deletion must remain possible: %v", reasons)
+	}
+	snapshot.records["data"] = rec("data", data.Instance.Identity.Descriptor, resource.ScopeShared, tfresource.InstanceDestroyed)
+	for _, reason := range snapshot.staticReasons(ns, nil, false) {
+		if reason == ReasonRetainedData {
+			t.Fatal("destroyed storage still blocks namespace")
+		}
+	}
+}

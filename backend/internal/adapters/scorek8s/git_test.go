@@ -327,7 +327,7 @@ func withResources(t *testing.T, objects string) map[string][]byte {
 	t.Helper()
 	files := readBundle(t, standardDir)
 	files["resources/extra.tpl"] = []byte(objects)
-	files["bundle.yaml"] = []byte(strings.Replace(string(files["bundle.yaml"]), "patches:\n", "resources:\n  - resources/extra.tpl\npatches:\n", 1))
+	files["bundle.yaml"] = []byte(strings.Replace(string(files["bundle.yaml"]), "resources:\n", "resources:\n  - resources/extra.tpl\n", 1))
 	return files
 }
 

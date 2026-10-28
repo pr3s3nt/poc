@@ -11,6 +11,65 @@ defaults: defaults.yaml
 normalize: normalize/score.tpl
 provisioners:
   - provisioners/bindings.provisioners.yaml
+resources:
+  - resources/identity.tpl
 patches:
   - patches/deployment.tpl
   - patches/service.tpl
+  - patches/execution.tpl
+workloadTemplates:
+  - id: frontend
+    version: 1.0.0
+    kind: Deployment
+    labels:
+      vi: Frontend web
+      en: Frontend web
+    inputsSchema:
+      type: object
+      additionalProperties: false
+      properties: {}
+    defaults: {}
+  - id: backend
+    version: 1.0.0
+    kind: Deployment
+    labels:
+      vi: Backend API
+      en: Backend API
+    inputsSchema:
+      type: object
+      additionalProperties: false
+      properties: {}
+    defaults: {}
+  - id: worker
+    version: 1.0.0
+    kind: Deployment
+    labels:
+      vi: Xử lý nền
+      en: Background worker
+    inputsSchema:
+      type: object
+      additionalProperties: false
+      properties: {}
+    defaults: {}
+  - id: stateful
+    version: 1.0.0
+    kind: StatefulSet
+    labels:
+      vi: Ứng dụng có dữ liệu
+      en: Stateful application
+    inputsSchema:
+      type: object
+      additionalProperties: false
+      properties: {}
+    defaults: {}
+  - id: scheduled
+    version: 1.0.0
+    kind: CronJob
+    labels:
+      vi: Tác vụ theo lịch
+      en: Scheduled job
+    inputsSchema:
+      type: object
+      additionalProperties: false
+      properties: {}
+    defaults: {}

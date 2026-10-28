@@ -19,6 +19,8 @@ import (
 // SupportedAPIVersion is the only Score API version accepted by the MVP.
 const SupportedAPIVersion = "score.dev/v1b1"
 
+var bindingPatternForFile = regexp.MustCompile(`^\$\{resources\.([A-Za-z0-9_-]+)\.([A-Za-z_][A-Za-z0-9_-]*)\}$`)
+
 var publicPathPattern = regexp.MustCompile(`^/(?:[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*)?$`)
 
 // Metadata names the single workload described by a Score document.
@@ -142,6 +144,14 @@ func (d Document) Validate() error {
 	if err := d.Execution.Validate(d.Containers, replicas, d.Service != nil && len(d.Service.Ports) > 0, resources); err != nil {
 		return err
 	}
+	if d.Execution != nil {
+		for _, file := range d.Execution.SecretFiles {
+			match := bindingPatternForFile.FindStringSubmatch(file.Ref)
+			if match == nil || d.Resources[match[1]].Type != "environment" {
+				return environment.ErrExecution
+			}
+		}
+	}
 	if d.Service != nil {
 		seen := map[string]bool{}
 		for _, route := range d.Service.PublicRoutes {
@@ -212,6 +222,19 @@ func (d Document) Fragment(types map[string]resource.Type) (*Fragment, error) {
 			Containers: map[string]environment.Container{},
 			Service:    d.Service,
 		},
+	}
+	if module.Spec.Execution != nil {
+		for i, file := range module.Spec.Execution.SecretFiles {
+			ref, err := d.rewrite(file.Ref, types, "secret file")
+			if err != nil {
+				return nil, err
+			}
+			module.Spec.Execution.SecretFiles[i].Ref = ref
+		}
+		for i, mount := range module.Spec.Execution.Mounts {
+			spec := d.Resources[mount.Resource]
+			module.Spec.Execution.Mounts[i].Resource = spec.binding(mount.Resource)
+		}
 	}
 	if d.Replicas > 0 {
 		replicas := d.Replicas

@@ -50,3 +50,35 @@ func TestExecutionRoundTripThroughAppliedSet(t *testing.T) {
 		})
 	}
 }
+
+func TestExecutionMountAliasSurvivesSharedResourceRoundTrip(t *testing.T) {
+	execution := &environment.WorkloadExecution{Version: 1, Kind: "StatefulSet", Template: environment.TemplatePin{ID: "stateful", Version: "1.0.0", SHA256: strings.Repeat("a", 64)}, Mounts: []environment.StorageMount{{Resource: "photos", Container: "main", Path: "/data"}}}
+	doc := score.Document{APIVersion: score.SupportedAPIVersion, Metadata: score.Metadata{Name: "web"}, Containers: map[string]environment.Container{"main": {Image: "web:v1"}}, Execution: execution, Resources: map[string]score.ResourceSpec{"photos": {Type: "storage", ID: "shared-photos"}}}
+	types := map[string]resource.Type{"storage": {Key: "storage", Outputs: []resource.OutputField{{Name: "claimName", Type: "string"}, {Name: "namespace", Type: "string"}}}}
+	fragment, err := doc.Fragment(types)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fragment.Module.Spec.Execution.Mounts[0].Resource != "shared.shared-photos" {
+		t.Fatal("shared binding not normalized")
+	}
+	raw, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tree map[string]any
+	_ = json.Unmarshal(raw, &tree)
+	aliases := KeepResourceAliases(nil, environment.Document{Modules: map[string]environment.Module{"web": fragment.Module}}, &doc)["web"]
+	set := environment.Document{Modules: map[string]environment.Module{"web": fragment.Module}, Shared: fragment.Shared}
+	restored, err := ReconstructScore("web", fragment.Module, set, aliases)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := score.FromMap(restored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.Execution.Mounts[0].Resource != "photos" {
+		t.Fatalf("alias lost: %v", parsed.Execution.Mounts)
+	}
+}

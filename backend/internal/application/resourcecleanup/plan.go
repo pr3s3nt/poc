@@ -116,6 +116,40 @@ func platformResource(rec tfresource.ResourceRecord) bool {
 // else is selected), in a stable order.
 func (s *snapshot) staticReasons(rec tfresource.ResourceRecord, consumers []ConsumerView, external bool) []string {
 	reasons := []string{}
+	if d, err := resource.ParseDescriptor(rec.Instance.Identity.Descriptor); err == nil && d.Type == "k8s-namespace" {
+		// Retained data is removed by its own explicit resource deletion first;
+		// selecting namespace cascade must not implicitly authorize data destruction.
+		reachable := map[string]bool{rec.Instance.ID: true}
+		for changed := true; changed; {
+			changed = false
+			for _, edge := range s.edges {
+				if edge.Holds() && reachable[edge.ProviderID] && !reachable[edge.ConsumerID] {
+					reachable[edge.ConsumerID] = true
+					changed = true
+				}
+			}
+		}
+		for id, other := range s.records {
+			if !reachable[id] || other.Instance.Status == tfresource.InstanceDestroyed {
+				continue
+			}
+			descriptor, err := resource.ParseDescriptor(other.Instance.Identity.Descriptor)
+			if err != nil {
+				continue
+			}
+			typ := s.types[descriptor.Type]
+			outputs := map[string]bool{}
+			for _, output := range typ.Outputs {
+				if !output.Secret && output.Type == "string" {
+					outputs[output.Name] = true
+				}
+			}
+			if outputs["claimName"] && outputs["namespace"] {
+				reasons = append(reasons, ReasonRetainedData)
+				break
+			}
+		}
+	}
 	if platformResource(rec) {
 		reasons = append(reasons, ReasonPlatformResource)
 	}

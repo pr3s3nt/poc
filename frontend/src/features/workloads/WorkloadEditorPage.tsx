@@ -10,27 +10,30 @@ import { AddResourceDialog } from './AddResourceDialog';
 import { CreateKeyDialog } from './CreateKeyDialog';
 import { DependencyFields, dependencyProblem, dependencyAliasesProblem, emptyDependency, type ClassMetadata, type Dependency } from './DependencyFields';
 import { EnvironmentVariablesTable, type FocusRequest } from './EnvironmentVariablesTable';
+import { ExecutionFields } from './ExecutionFields';
+import { getWorkloadTemplates, templateKey, type Execution, type WorkloadTemplate } from './templates';
 import { Advanced } from './Advanced';
 import { bindingProblem, changeSource, escapeLiteral, isKeySource, readBinding, serviceAlias, type Binding, type KeyCatalog, type ResourceSpecs } from './bindings';
 import { buildRowContext } from './rowContext';
 import { t } from '../../shared/i18n';
 
-type ContainerForm = { name: string; image: string; cpuRequest: string; memoryRequest: string; cpuLimit: string; memoryLimit: string; bindings: Binding[] };
+type Probe = { path: string; port: number };
+type ContainerForm = { workingDir?: string; readinessProbe?: Probe; livenessProbe?: Probe; startupProbe?: Probe; command: string[]; args: string[]; name: string; image: string; cpuRequest: string; memoryRequest: string; cpuLimit: string; memoryLimit: string; bindings: Binding[] };
 type ServicePort = { name: string; port: string; targetPort: string };
 type PublicRoute = { path: string; port: string };
 // workloadClass is Score metadata.class (ADR-016): empty means the default class, an explicit value is kept as written.
-type Form = { name: string; workloadClass: string; containers: ContainerForm[]; dependencies: Dependency[]; servicePorts: ServicePort[]; publicRoutes: PublicRoute[] };
+type Form = { execution?: Execution; replicas?: number; name: string; workloadClass: string; containers: ContainerForm[]; dependencies: Dependency[]; servicePorts: ServicePort[]; publicRoutes: PublicRoute[] };
 
-const emptyContainer = (): ContainerForm => ({ name: 'main', image: '', cpuRequest: '', memoryRequest: '', cpuLimit: '', memoryLimit: '', bindings: [] });
+const emptyContainer = (): ContainerForm => ({ command: [], args: [], name: 'main', image: '', cpuRequest: '', memoryRequest: '', cpuLimit: '', memoryLimit: '', bindings: [] });
 const emptyForm = (): Form => ({ name: '', workloadClass: '', containers: [emptyContainer()], dependencies: [], servicePorts: [], publicRoutes: [] });
 
 function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): boolean {
-  if (Object.keys(raw).some((key) => !['apiVersion', 'metadata', 'containers', 'resources', 'service'].includes(key))) return true;
+  if (Object.keys(raw).some((key) => !['apiVersion', 'metadata', 'containers', 'resources', 'service', 'workloadExecution', 'replicas'].includes(key))) return true;
   if (Object.keys((raw.metadata ?? {}) as Record<string, unknown>).some((key) => key !== 'name' && key !== 'class')) return true;
   const declaredClass = (raw.metadata as { class?: unknown } | undefined)?.class;
   if (declaredClass !== undefined && (typeof declaredClass !== 'string' || !validWorkloadClass(declaredClass))) return true;
   const containers = (raw.containers ?? {}) as Record<string, Record<string, unknown>>;
-  if (Object.values(containers).some((container) => Object.keys(container).some((key) => !['image', 'variables', 'resources'].includes(key)))) return true;
+  if (Object.values(containers).some((container) => Object.keys(container).some((key) => !['image', 'variables', 'resources', 'command', 'args', 'workingDir', 'readinessProbe', 'livenessProbe', 'startupProbe'].includes(key)))) return true;
   if (Object.values(containers).some((container) => Object.keys((container.resources ?? {}) as Record<string, unknown>).some((key) => !['requests', 'limits'].includes(key)))) return true;
   if (Object.values(containers).some((container) => Object.values((container.resources ?? {}) as Record<string, Record<string, unknown>>).some((quantity) => Object.keys(quantity).some((key) => !['cpu', 'memory'].includes(key))))) return true;
   const resources = (raw.resources ?? {}) as Record<string, Record<string, unknown>>;
@@ -49,6 +52,7 @@ function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): 
   // A variable the table cannot hold unchanged (text mixed with a reference, a malformed reference) or a virtual
   // resource no variable uses would be rewritten or dropped by the form: keep the advanced Score path.
   const referenced = new Set<string>();
+ if ((raw.workloadExecution as Execution | undefined)?.secretFiles?.length) referenced.add('env');
   for (const container of Object.values(containers)) {
     for (const [name, raw] of Object.entries((container.variables ?? {}) as Record<string, unknown>)) {
       const binding = readBinding(name, raw, resources as ResourceSpecs);
@@ -106,11 +110,12 @@ function buildScore(form: Form, types: ResourceType[]): Record<string, unknown> 
     if (container.memoryRequest) requests.memory = container.memoryRequest;
     if (container.cpuLimit) limits.cpu = container.cpuLimit;
     if (container.memoryLimit) limits.memory = container.memoryLimit;
-    containers.set(container.name, { image: container.image, ...(variables.length ? { variables: Object.fromEntries(variables) } : {}), ...(Object.keys(requests).length || Object.keys(limits).length ? { resources: { ...(Object.keys(requests).length ? { requests } : {}), ...(Object.keys(limits).length ? { limits } : {}) } } : {}) });
+    containers.set(container.name, { ...(container.workingDir ? { workingDir: container.workingDir } : {}), ...(container.readinessProbe ? { readinessProbe: container.readinessProbe } : {}), ...(container.livenessProbe ? { livenessProbe: container.livenessProbe } : {}), ...(container.startupProbe ? { startupProbe: container.startupProbe } : {}), ...(container.command.length ? { command: container.command } : {}), ...(container.args.length ? { args: container.args } : {}), image: container.image, ...(variables.length ? { variables: Object.fromEntries(variables) } : {}), ...(Object.keys(requests).length || Object.keys(limits).length ? { resources: { ...(Object.keys(requests).length ? { requests } : {}), ...(Object.keys(limits).length ? { limits } : {}) } } : {}) });
   }
+  if (form.execution?.secretFiles?.length) resources.set('env', { type: 'environment' });
   const ports = new Map<string, unknown>();
   for (const port of form.servicePorts) if (port.name && Number(port.port) > 0) ports.set(port.name, { port: Number(port.port), targetPort: Number(port.targetPort || port.port) });
-  return { apiVersion: 'score.dev/v1b1', metadata: { name: form.name, ...(form.workloadClass ? { class: form.workloadClass } : {}) }, containers: Object.fromEntries(containers), ...(ports.size ? { service: { ports: Object.fromEntries(ports), ...(form.publicRoutes.length ? { publicRoutes: form.publicRoutes } : {}) } } : {}), ...(resources.size ? { resources: Object.fromEntries(resources) } : {}) };
+  return { ...(form.execution ? { workloadExecution: form.execution } : {}), ...(form.replicas !== undefined ? { replicas: form.replicas } : {}), apiVersion: 'score.dev/v1b1', metadata: { name: form.name, ...(form.workloadClass ? { class: form.workloadClass } : {}) }, containers: Object.fromEntries(containers), ...(ports.size ? { service: { ports: Object.fromEntries(ports), ...(form.publicRoutes.length ? { publicRoutes: form.publicRoutes } : {}) } } : {}), ...(resources.size ? { resources: Object.fromEntries(resources) } : {}) };
 }
 
 const DEFAULT_CPU_REQUEST = '10m';
@@ -144,12 +149,14 @@ function routeTargetProblem(route: PublicRoute, valid: ReadonlySet<string>): str
 
 function readForm(score: Record<string, unknown>): Form {
   const form = emptyForm();
+  form.execution = score.workloadExecution as Execution | undefined;
+  form.replicas = score.replicas as number | undefined;
   form.name = String((score.metadata as { name?: string } | undefined)?.name ?? '');
   form.workloadClass = String((score.metadata as { class?: string } | undefined)?.class ?? '');
   const resources = (score.resources ?? {}) as Record<string, { type?: string; class?: string; id?: unknown; params?: Record<string, unknown> }>;
   form.dependencies = Object.entries(resources).filter(([, spec]) => spec.type !== 'environment' && spec.type !== 'service').map(([alias, spec]) => ({ alias, type: spec.type ?? '', className: spec.class ?? '', sharedId: typeof spec.id === 'string' ? spec.id : '', params: Object.fromEntries(Object.entries(spec.params ?? {}).map(([key, value]) => [key, String(value)])) }));
-  const rawContainers = (score.containers ?? {}) as Record<string, { image?: string; variables?: Record<string, string>; resources?: { requests?: { cpu?: string; memory?: string }; limits?: { cpu?: string; memory?: string } } }>;
-  form.containers = Object.entries(rawContainers).map(([name, value]) => ({ name, image: value.image ?? '', cpuRequest: value.resources?.requests?.cpu ?? '', memoryRequest: value.resources?.requests?.memory ?? '', cpuLimit: value.resources?.limits?.cpu ?? '', memoryLimit: value.resources?.limits?.memory ?? '', bindings: Object.entries(value.variables ?? {}).flatMap(([envName, raw]) => readBinding(envName, raw, resources as ResourceSpecs) ?? []) }));
+  const rawContainers = (score.containers ?? {}) as Record<string, { workingDir?: string; readinessProbe?: Probe; livenessProbe?: Probe; startupProbe?: Probe; command?: string[]; args?: string[]; image?: string; variables?: Record<string, string>; resources?: { requests?: { cpu?: string; memory?: string }; limits?: { cpu?: string; memory?: string } } }>;
+  form.containers = Object.entries(rawContainers).map(([name, value]) => ({ workingDir: value.workingDir, readinessProbe: value.readinessProbe, livenessProbe: value.livenessProbe, startupProbe: value.startupProbe, command: value.command ?? [], args: value.args ?? [], name, image: value.image ?? '', cpuRequest: value.resources?.requests?.cpu ?? '', memoryRequest: value.resources?.requests?.memory ?? '', cpuLimit: value.resources?.limits?.cpu ?? '', memoryLimit: value.resources?.limits?.memory ?? '', bindings: Object.entries(value.variables ?? {}).flatMap(([envName, raw]) => readBinding(envName, raw, resources as ResourceSpecs) ?? []) }));
   if (!form.containers.length) form.containers = [emptyContainer()];
   const ports = ((score.service as { ports?: Record<string, { port: number; targetPort?: number }> } | undefined)?.ports ?? {});
   form.servicePorts = Object.entries(ports).map(([name, port]) => ({ name, port: String(port.port), targetPort: String(port.targetPort ?? port.port) }));
@@ -168,9 +175,11 @@ const removedPublicPortMessage = t('workloads.workloadEditor.theDraftScoreStillD
 
 const readyCatalog = (config: Configuration): KeyCatalog => ({ status: 'ready', keys: config.keys ?? [], version: config.version, secretStoreKey: config.secretStoreKey });
 
-export function WorkloadEditorPage({ application, environment, workloadId, onTargetChange }: { application: Application; environment: EnvironmentKey; workloadId?: string; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void }) {
+export function WorkloadEditorPage({ application, environment, workloadId, selectedTemplate, onTargetChange }: { application: Application; environment: EnvironmentKey; workloadId?: string; selectedTemplate?: string; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void }) {
   // Environment operations hold draft writes: Save stays disabled, text is kept.
   const environmentBusy = useEnvironmentBusy(application, environment, onTargetChange);
+  const [templateMetadata, setTemplateMetadata] = useState<WorkloadTemplate>();
+  const [templateInputProblems, setTemplateInputProblems] = useState(0);
   const [form, setForm] = useState<Form>(emptyForm);
   const [catalog, setCatalog] = useState<KeyCatalog>({ status: 'loading' });
   const [catalogAttempt, setCatalogAttempt] = useState(0);
@@ -211,23 +220,30 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
   // over (a pending reload's finally ignores the new scope by design).
   useEffect(() => {
     scope.current += 1;
-    setForm(emptyForm()); setImported(undefined); setDirty(false); setMode('form'); setAdvancedScore(false); setBlocked(false); setSaving(false); setReloading(false); setWorkloads([]); setDialog(undefined); setFocusRequest(undefined); setShowIncomplete(false);
-  }, [application.id, environment, workloadId]);
+    setTemplateMetadata(undefined); setTemplateInputProblems(0); setForm(emptyForm()); setImported(undefined); setDirty(false); setMode('form'); setAdvancedScore(false); setBlocked(false); setSaving(false); setReloading(false); setWorkloads([]); setDialog(undefined); setFocusRequest(undefined); setShowIncomplete(false);
+  }, [application.id, environment, workloadId, selectedTemplate]);
 
   useEffect(() => {
     let cancelled = false;
     setStale(false); setCurrent(undefined); setReloadError('');
     setLoading(true); setLoadFailed(false); setError('');
-    Promise.all([getWorkloads(application.id, environment), getResourceTypes()]).then(([list, catalog]) => {
+    Promise.all([getWorkloads(application.id, environment), getResourceTypes()]).then(async ([list, catalog]) => {
       if (cancelled) return;
       setWorkloads(list.workloads); setTypes(catalog.resourceTypes.filter((type) => type.key !== 'workload')); setClassMetadata('ready'); setVersion(list.draftVersion);
       const existing = list.workloads.find((item) => item.id === workloadId);
       if (existing?.score && hasRemovedPublicPort(existing.score)) { setForm({ ...emptyForm(), name: workloadId ?? '' }); setBlocked(true); setError(removedPublicPortMessage); }
       else if (existing?.score) { setForm(readForm(existing.score)); setImported(existing.score); setBlocked(false); const advanced = needsScoreEditor(existing.score, catalog.resourceTypes); setAdvancedScore(advanced); if (advanced) setMode('import'); }
+      else if (selectedTemplate) {
+        const templates = await getWorkloadTemplates(application.id, environment); if (cancelled) return;
+        const chosen = templates.find(item => templateKey(item) === selectedTemplate);
+        if (!chosen) { setBlocked(true); setError(t('workloads.templates.templateMissing')); return; }
+        setTemplateMetadata(chosen);
+        setForm({ ...emptyForm(), ...(chosen.kind !== 'CronJob' ? { replicas: 1 } : {}), execution: { version: 1, kind: chosen.kind, template: { id: chosen.id, version: chosen.version, sha256: chosen.sha256 }, inputs: chosen.defaults, ...(chosen.kind === 'CronJob' ? { schedule: { expression: '0 0 * * *', timeZone: 'UTC', concurrencyPolicy: 'Forbid', suspend: false } } : {}) } });
+      }
       else if (workloadId) { setForm({ ...emptyForm(), name: workloadId }); setBlocked(true); setError(existing ? t('workloads.workloadEditor.thisDeployedWorkloadHasNo') : t('workloads.workloadEditor.workloadNotFoundInThis')); }
     }).catch((err: unknown) => { if (!cancelled) { setError(describeError(err, t('workloads.workloadEditor.couldNotLoadTheWorkload'))); setLoadFailed(true); setClassMetadata('error'); } }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [application.id, environment, workloadId, loadAttempt]);
+  }, [application.id, environment, workloadId, selectedTemplate, loadAttempt]);
 
   // The Application key catalog loads on its own so a failure is shown as a
   // retryable state in the picker, never as an empty key list.
@@ -317,7 +333,8 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
   const rowContext = buildRowContext(catalog, form.dependencies, types, workloads, form.name);
   async function save() {
     if (environmentBusy) return;
-    if (blocked || stale) return;
+    if (blocked || stale || templateInputProblems > 0) return;
+    if (form.execution?.mounts?.some(mount => !form.dependencies.some(dep => dep.alias === mount.resource) || !form.containers.some(c => c.name === mount.container) || !mount.path.startsWith('/'))) { setError(t('workloads.templates.mountInvalid')); return; }
     const seenPaths = new Set<string>();
     const validPorts = validPortNames(form.servicePorts);
     for (const route of form.publicRoutes) {
@@ -368,10 +385,15 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
     {current ? <div className="form-info" role="status">{t('workloads.workloadEditor.reloadedDraftVersion')}{' '} {current.version}{t('workloads.workloadEditor.currentStateOfThisWorkload')}{' '} {currentState}{t('workloads.workloadEditor.theEditsBelowAreUnchanged')}{current.score ? <details><summary>{t('workloads.workloadEditor.currentScore')}</summary><pre className="score-preview">{JSON.stringify(current.score, null, 2)}</pre></details> : null}</div> : null}
     {loading ? <p>{t('workloads.workloadEditor.loadingWorkloadOptions')}</p> : mode === 'import' ? <section className="content-panel"><h2>{t('workloads.workloadEditor.importAScoreFile')}</h2><p>{t('workloads.workloadEditor.yAMLOrJSONTheSame')}</p><input aria-label={t('workloads.workloadEditor.scoreFile')} type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} />{imported ? <><p>{t('workloads.workloadEditor.parsedWorkload')}{' '} <strong>{String((imported.metadata as { name?: string } | undefined)?.name ?? '')}</strong></p><pre className="score-preview">{JSON.stringify(imported, null, 2)}</pre></> : null}</section> : <>
       <section className="content-panel editor-grid"><h2>{t('workloads.workloadEditor.basicInformation')}</h2><label>{t('workloads.workloadEditor.workloadName')}<input value={form.name} disabled={Boolean(workloadId)} onChange={(event) => updateForm({ ...form, name: event.target.value })} placeholder="frontend" /></label><label>{t('workloads.workloadEditor.workloadClassMetadataClass')}<input aria-label={t('workloads.workloadEditor.workloadClass')} value={form.workloadClass} onChange={(event) => updateForm({ ...form, workloadClass: event.target.value })} placeholder="default" /></label>{form.workloadClass && !validWorkloadClass(form.workloadClass) ? <small role="note">{t('workloads.workloadEditor.classUsesOnlyLowercaseLetters')}</small> : <small className="muted">{t('workloads.workloadEditor.emptyMeansDefaultTheClass')}</small>}</section>
+      {form.execution && form.execution.kind !== 'CronJob' ? <section className="content-panel editor-grid"><label>{t('workloads.templates.replicas')}<input type="number" min="1" max={form.execution.kind === 'StatefulSet' ? 1 : undefined} value={form.replicas ?? 1} onChange={e => updateForm({ ...form, replicas: Number(e.target.value) })} /></label></section> : null}
+      {form.execution ? <ExecutionFields value={form.execution} onChange={execution => updateForm({ ...form, execution })} containers={form.containers.map(c => c.name)} storage={form.dependencies.filter(dep => { const fields = types.find(type => type.key === dep.type)?.outputs ?? []; return fields.some(field => field.name === 'claimName' && !field.secret) && fields.some(field => field.name === 'namespace' && !field.secret); }).map(dep => dep.alias)} metadata={templateMetadata} secrets={catalog.status === 'ready' ? catalog.keys.filter(key => key.kind === 'SECRET').map(key => key.name) : []} disabled={saving} onRawProblems={setTemplateInputProblems} /> : null}
       {catalog.status === 'error' ? <div className="form-error" role="alert">{t('workloads.workloadEditor.couldNotLoadApplicationVariables2')}{' '} {catalog.message} {' '}{t('workloads.workloadEditor.yourSelectionsAreKept')}{' '} <Button onClick={() => setCatalogAttempt((value) => value + 1)}>{t('workloads.workloadEditor.retryLoadingKeys')}</Button></div> : null}
       {form.containers.map((container, ci) => <section className="content-panel editor-grid" key={ci}><div className="section-header"><h2>Container {ci + 1}</h2>{form.containers.length > 1 ? <Button tone="danger" onClick={() => updateForm({ ...form, containers: form.containers.filter((_, index) => index !== ci) })}>{t('workloads.workloadEditor.remove')}</Button> : null}</div><div className="field-grid"><label>{t('workloads.workloadEditor.containerName')}<input value={container.name} onChange={(event) => updateContainer(ci, { ...container, name: event.target.value })} /></label><label>{t('workloads.workloadEditor.containerImage')}<input value={container.image} onChange={(event) => updateContainer(ci, { ...container, image: event.target.value })} placeholder="registry.example/app:tag" /></label></div>
         <Advanced label={`Container ${ci + 1}`} summary={t('workloads.workloadEditor.effectiveRequestsCPUEffectiveRequestMemory', { effectiveRequest: effectiveRequest(container.cpuRequest, container.cpuLimit, DEFAULT_CPU_REQUEST), effectiveRequest2: effectiveRequest(container.memoryRequest, container.memoryLimit, DEFAULT_MEMORY_REQUEST), value: container.cpuLimit || t('workloads.workloadEditor.notSet'), value2: container.memoryLimit || t('workloads.workloadEditor.notSet') })}>
           <div className="field-grid field-grid-four"><label>{t('workloads.workloadEditor.cPURequest')}<input value={container.cpuRequest} onChange={(event) => updateContainer(ci, { ...container, cpuRequest: event.target.value })} placeholder="100m" /></label><label>{t('workloads.workloadEditor.memoryRequest')}<input value={container.memoryRequest} onChange={(event) => updateContainer(ci, { ...container, memoryRequest: event.target.value })} placeholder="128Mi" /></label><label>{t('workloads.workloadEditor.cPULimit')}<input value={container.cpuLimit} onChange={(event) => updateContainer(ci, { ...container, cpuLimit: event.target.value })} /></label><label>{t('workloads.workloadEditor.memoryLimit')}<input value={container.memoryLimit} onChange={(event) => updateContainer(ci, { ...container, memoryLimit: event.target.value })} /></label></div>
+          <div className="field-grid"><label>{t('workloads.templates.command')}<textarea value={container.command.join('\n')} onChange={e => updateContainer(ci, { ...container, command: e.target.value === '' ? [] : e.target.value.split('\n') })} /></label><label>{t('workloads.templates.args')}<textarea value={container.args.join('\n')} onChange={e => updateContainer(ci, { ...container, args: e.target.value === '' ? [] : e.target.value.split('\n') })} /></label></div>
+          <label>{t('workloads.templates.workingDir')}<input value={container.workingDir ?? ''} onChange={e => updateContainer(ci, { ...container, workingDir: e.target.value })} /></label>
+          {(['readinessProbe', 'livenessProbe', 'startupProbe'] as const).map(probe => <div className="field-grid" key={probe}><label>{t(`workloads.templates.${probe}`)}<input placeholder="/health" value={container[probe]?.path ?? ''} onChange={e => updateContainer(ci, { ...container, [probe]: e.target.value === '' ? undefined : { path: e.target.value, port: container[probe]?.port ?? 8080 } })} /></label>{container[probe] ? <label>{t('workloads.templates.probePort')}<input type="number" min="1" max="65535" value={container[probe]?.port} onChange={e => updateContainer(ci, { ...container, [probe]: { ...container[probe]!, port: Number(e.target.value) } })} /></label> : null}</div>)}
           <p>{t('workloads.workloadEditor.anEmptyRequestUsesThe', { DEFAULT_CPU_REQUEST, DEFAULT_MEMORY_REQUEST })}</p>
         </Advanced>
         <EnvironmentVariablesTable container={container.name || String(ci + 1)} bindings={container.bindings} catalog={catalog} dependencies={form.dependencies} types={types} workloads={workloads} self={form.name} context={rowContext} disabled={saving} showIncomplete={showIncomplete} focus={focusRequest} onFocused={clearFocus}
@@ -380,6 +402,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
       <Button onClick={() => updateForm({ ...form, containers: [...form.containers, { ...emptyContainer(), name: `container-${form.containers.length + 1}` }] })}>{t('workloads.workloadEditor.addContainer')}</Button>
       <section className="content-panel editor-grid"><div className="section-header"><div><h2>{t('workloads.workloadEditor.workloadResources')}</h2><p>{t('workloads.workloadEditor.chooseAnAvailableResourceType')}</p></div><div className="form-actions"><Button tone="quiet" onClick={() => void reloadClassMetadata()}>{t('workloads.workloadEditor.refreshClassMetadata')}</Button><Button onClick={() => updateForm({ ...form, dependencies: [...form.dependencies, emptyDependency()] })}>{t('workloads.workloadEditor.addResource')}</Button></div></div>{form.dependencies.map((dep, index) => <DependencyFields key={index} index={index} dependency={dep} types={types} classMetadata={classMetadata} disabled={saving} onChange={(patch) => updateDependency(index, patch)} onReload={() => void reloadClassMetadata()} onRemove={() => updateForm({ ...form, dependencies: form.dependencies.filter((_, i) => i !== index) })} />)}</section>
       <section className="content-panel editor-grid">
+        {form.execution && form.servicePorts.length ? <label className="checkbox-row"><input type="checkbox" checked={form.execution.headless ?? false} onChange={e => updateForm({ ...form, execution: { ...form.execution!, headless: e.target.checked } })} />{t('workloads.templates.headless')}</label> : null}
         <div className="section-header"><div><h2>{t('workloads.workloadEditor.servicePorts')}</h2><p>{t('workloads.workloadEditor.internalAccessForOtherWorkloads', { environment })}</p></div><Button onClick={() => updateForm({ ...form, servicePorts: [...form.servicePorts, { name: '', port: '', targetPort: '' }] })}>{t('workloads.workloadEditor.addPort')}</Button></div>
         {form.servicePorts.map((port, index) => <div className="editor-grid" key={index}><div className="binding-row"><input aria-label={t('workloads.workloadEditor.servicePortName')} value={port.name} placeholder="http" onChange={(event) => updatePort(index, { name: event.target.value })} /><input aria-label={t('workloads.workloadEditor.servicePorts')} type="number" value={port.port} placeholder="80" onChange={(event) => updatePort(index, { port: event.target.value })} /><Button tone="quiet" onClick={() => updateForm({ ...form, servicePorts: form.servicePorts.filter((_, i) => i !== index) })}>{t('workloads.workloadEditor.remove')}</Button></div>
           <Advanced label={t('workloads.workloadEditor.portValue', { value: port.name || index + 1 })} summary={t('workloads.workloadEditor.effectiveTargetPortValueValue2', { value: port.targetPort || port.port || t('workloads.workloadEditor.none2'), value2: port.targetPort ? t('workloads.workloadEditor.override') : t('workloads.workloadEditor.fromServicePort') })}>

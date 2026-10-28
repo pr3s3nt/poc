@@ -83,3 +83,26 @@ func TestCronGrammarAndClone(t *testing.T) {
 		t.Fatal("clone aliases mutable source")
 	}
 }
+
+func TestSecretFilesRejectUnsafeProjection(t *testing.T) {
+	base := func() *WorkloadExecution {
+		return &WorkloadExecution{Version: 1, Kind: "Deployment", Template: TemplatePin{ID: "backend", Version: "1.0.0", SHA256: strings.Repeat("a", 64)}, SecretFiles: []SecretFile{{Container: "main", Ref: "${resources.env.KEY}", Path: "/keys/private", Mode: 0400}}}
+	}
+	for _, tc := range []struct {
+		name   string
+		change func(*WorkloadExecution)
+	}{
+		{"writable", func(e *WorkloadExecution) { e.SecretFiles[0].Mode = 0600 }},
+		{"relative", func(e *WorkloadExecution) { e.SecretFiles[0].Path = "keys/private" }},
+		{"protected", func(e *WorkloadExecution) { e.SecretFiles[0].Path = "/var/run/secrets/token" }},
+		{"duplicate", func(e *WorkloadExecution) { e.SecretFiles = append(e.SecretFiles, e.SecretFiles[0]) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := base()
+			tc.change(e)
+			if e.Validate(map[string]Container{"main": {}}, 1, false, nil) == nil {
+				t.Fatal("unsafe projection accepted")
+			}
+		})
+	}
+}

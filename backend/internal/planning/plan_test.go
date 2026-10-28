@@ -654,7 +654,7 @@ func TestPlan_CoProvisionDependentCycleIsRejected(t *testing.T) {
 func TestExecutionCannotProvisionThroughLegacyRenderer(t *testing.T) {
 	req := testRequest(t, "internal-k8s", "backend")
 	req.After.Execution = &environment.WorkloadExecution{Version: 1, Kind: "StatefulSet", Template: environment.TemplatePin{ID: "stateful", Version: "1.0.0", SHA256: strings.Repeat("a", 64)}}
-	plan, err := NewService().Plan(req)
+	plan, err := NewService(testBundles()).Plan(req)
 	if plan != nil || !errors.Is(err, environment.ErrExecutionUnavailable) {
 		t.Fatalf("execution was not rejected before provisioning: plan=%v err=%v", plan, err)
 	}

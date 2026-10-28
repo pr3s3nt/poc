@@ -159,6 +159,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/configuration/keys/{key}", s.handlePutConfigurationKey)
 	s.mux.HandleFunc("PATCH /api/v1/applications/{id}/environments/{env}/configuration/keys/{key}", s.handleRenameConfigurationKey)
 	s.mux.HandleFunc("DELETE /api/v1/applications/{id}/environments/{env}/configuration/keys/{key}", s.handleDeleteConfigurationKey)
+	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/workload-templates", s.handleWorkloadTemplates)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/workloads", s.handleListWorkloadDrafts)
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/workloads/parse", s.handleParseWorkloadScore)
 	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/workloads/{workload}", s.handleSaveWorkloadDraft)

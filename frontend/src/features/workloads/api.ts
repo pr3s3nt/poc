@@ -2,7 +2,7 @@ import { api } from '../../shared/api/client';
 import type { EnvironmentKey } from '../../shared/types/application';
 import type { DeploymentReviewData } from '../preview/DeploymentReview';
 
-export type Workload = { id: string; state?: 'PENDING_UPSERT' | 'PENDING_DELETE'; score?: Record<string, unknown>; ready: boolean; servicePorts?: string[] };
+export type Workload = { runtime?: string; schedule?: { expression: string; timeZone: string; suspend: boolean }; id: string; state?: 'PENDING_UPSERT' | 'PENDING_DELETE'; score?: Record<string, unknown>; ready: boolean; servicePorts?: string[] };
 export type WorkloadList = { applicationKey: string; environmentKey: EnvironmentKey; draftVersion: number; workloads: Workload[] };
 
 const base = (app: string, env: EnvironmentKey) => `/applications/${encodeURIComponent(app)}/environments/${env}/workloads`;

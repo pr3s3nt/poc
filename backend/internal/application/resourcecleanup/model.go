@@ -32,6 +32,7 @@ type Actor struct {
 // Allowlisted refusal reasons (OC-19) and the extra busy reason of the
 // eligibility projection. Public responses never carry any other text.
 const (
+	ReasonRetainedData      = "RETAINED_DATA"
 	ReasonNotUnreferenced   = "NOT_UNREFERENCED"
 	ReasonHasConsumers      = "HAS_CONSUMERS"
 	ReasonPlatformResource  = "PLATFORM_RESOURCE"
@@ -49,7 +50,7 @@ const (
 )
 
 var refusalReasons = map[string]bool{
-	ReasonNotUnreferenced: true, ReasonHasConsumers: true, ReasonPlatformResource: true,
+	ReasonRetainedData: true, ReasonNotUnreferenced: true, ReasonHasConsumers: true, ReasonPlatformResource: true,
 	ReasonOwnershipUnproven: true, ReasonTargetUnavailable: true, ReasonEnvironmentBusy: true, ReasonMetadataSyncPending: true,
 }
 

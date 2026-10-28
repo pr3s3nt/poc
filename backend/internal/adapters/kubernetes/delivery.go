@@ -22,7 +22,17 @@ type EnvBinding struct {
 // environment bindings per container, Vault Agent metadata and the
 // platform-owned auxiliary objects (the workload env Secret and the Agent
 // ServiceAccount). It never renders a Deployment or Service.
+type FileBinding struct {
+	Container  string `json:"container"`
+	SecretName string `json:"secretName"`
+	SecretKey  string `json:"secretKey"`
+	Path       string `json:"path"`
+	Mode       int    `json:"mode"`
+}
+
 type Delivery struct {
+	Files []FileBinding
+
 	Labels          map[string]string
 	Selector        map[string]string
 	Env             map[string][]EnvBinding
@@ -93,6 +103,24 @@ func PrepareDelivery(_ context.Context, req execution.RenderRequest) (Delivery, 
 			},
 		})
 	}
+	fileKeys := map[string]map[string]bool{}
+	if e := req.Module.Spec.Execution; e != nil {
+		for i, file := range e.SecretFiles {
+			if req.Vault != nil {
+				return Delivery{}, fmt.Errorf("kubernetes: secret files require revisioned Secret delivery")
+			}
+			key := fmt.Sprintf("orchestrator-file-%d", i)
+			secretKey := req.ConfigSecretKeys[file.Container][key]
+			if req.ConfigSecretName == "" || secretKey == "" {
+				return Delivery{}, fmt.Errorf("kubernetes: secret file reference is unavailable")
+			}
+			if fileKeys[file.Container] == nil {
+				fileKeys[file.Container] = map[string]bool{}
+			}
+			fileKeys[file.Container][key] = true
+			d.Files = append(d.Files, FileBinding{Container: file.Container, SecretName: req.ConfigSecretName, SecretKey: secretKey, Path: file.Path, Mode: file.Mode})
+		}
+	}
 	for name := range req.Module.Spec.Containers {
 		env := []EnvBinding{}
 		for _, key := range sortedStringKeys(req.PlainEnv[name]) {
@@ -102,6 +130,9 @@ func PrepareDelivery(_ context.Context, req execution.RenderRequest) (Delivery, 
 			env = append(env, EnvBinding{Name: key, Secret: true, SecretRef: secretName, SecretKey: secretKey(name, key)})
 		}
 		for _, key := range sortedStringKeys(req.ConfigSecretKeys[name]) {
+			if fileKeys[name][key] {
+				continue
+			}
 			if req.ConfigSecretName == "" || req.ConfigSecretKeys[name][key] == "" {
 				return Delivery{}, fmt.Errorf("kubernetes: incomplete VSO Secret reference")
 			}

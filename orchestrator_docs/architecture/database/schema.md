@@ -1038,3 +1038,7 @@ và document hash, không private metadata; omission giữ workload legacy.
 Chỉ lưu refs không secret bytes. Existing JSONB columns không đổi DDL/ERD ở
 checkpoint domain này; template publication tables sẽ được định nghĩa trước
 checkpoint catalog persistence. Không reset database để nhận JSONB member mới.
+
+ADR-025 template registry reuses `render_bundles.contract.manifest.workloadTemplates`
+with immutable verified source content. Typed template inputs and content pin live
+in the execution JSONB extension. No dedicated template DDL or staging reset.

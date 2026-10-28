@@ -1,7 +1,9 @@
 package environment
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"path"
 	"regexp"
 	"strconv"
@@ -12,12 +14,14 @@ import (
 // WorkloadExecution is the versioned platform extension carried by desired and
 // applied workload snapshots. It never contains secret bytes or host paths.
 type WorkloadExecution struct {
-	Version  int            `json:"version"`
-	Kind     string         `json:"kind"`
-	Template TemplatePin    `json:"template"`
-	Schedule *Schedule      `json:"schedule,omitempty"`
-	Mounts   []StorageMount `json:"mounts,omitempty"`
-	Headless bool           `json:"headless,omitempty"`
+	Version     int            `json:"version"`
+	Kind        string         `json:"kind"`
+	Template    TemplatePin    `json:"template"`
+	Schedule    *Schedule      `json:"schedule,omitempty"`
+	SecretFiles []SecretFile   `json:"secretFiles,omitempty"`
+	Mounts      []StorageMount `json:"mounts,omitempty"`
+	Inputs      map[string]any `json:"inputs,omitempty"`
+	Headless    bool           `json:"headless,omitempty"`
 }
 
 type TemplatePin struct {
@@ -40,6 +44,13 @@ type Schedule struct {
 
 // Resource is a desired resource alias, not a PVC name. Planning resolves it
 // against the workload's dependency graph on the same target and namespace.
+type SecretFile struct {
+	Ref       string `json:"ref"`
+	Container string `json:"container"`
+	Path      string `json:"path"`
+	Mode      int    `json:"mode"`
+}
+
 type StorageMount struct {
 	Resource  string `json:"resource"`
 	Container string `json:"container"`
@@ -107,6 +118,29 @@ func (e *WorkloadExecution) Validate(containers map[string]Container, replicas i
 		}
 		seen[mount.Container] = append(seen[mount.Container], mount.Path)
 	}
+	for i, file := range e.SecretFiles {
+		if _, ok := containers[file.Container]; !ok {
+			return ErrExecution
+		}
+		if file.Mode != 0400 && file.Mode != 0440 {
+			return ErrExecution
+		}
+		if !strings.HasPrefix(file.Path, "/") || file.Path == "/" || path.Clean(file.Path) != file.Path || strings.ContainsAny(file.Path, "\x00\r\n") {
+			return ErrExecution
+		}
+		if strings.HasPrefix(file.Path, "/vault/") || strings.HasPrefix(file.Path, "/var/run/secrets/") {
+			return ErrExecution
+		}
+		for _, previous := range seen[file.Container] {
+			if previous == file.Path || strings.HasPrefix(previous, file.Path+"/") || strings.HasPrefix(file.Path, previous+"/") {
+				return ErrExecution
+			}
+		}
+		seen[file.Container] = append(seen[file.Container], file.Path)
+		if _, exists := containers[file.Container].Variables[fmt.Sprintf("orchestrator-file-%d", i)]; exists {
+			return ErrExecution
+		}
+	}
 	return nil
 }
 
@@ -139,6 +173,12 @@ func (e *WorkloadExecution) Clone() *WorkloadExecution {
 		return nil
 	}
 	out := *e
+	if e.Inputs != nil {
+		b, _ := json.Marshal(e.Inputs)
+		out.Inputs = nil
+		_ = json.Unmarshal(b, &out.Inputs)
+	}
+	out.SecretFiles = append([]SecretFile(nil), e.SecretFiles...)
 	out.Mounts = append([]StorageMount(nil), e.Mounts...)
 	if e.Schedule != nil {
 		schedule := *e.Schedule

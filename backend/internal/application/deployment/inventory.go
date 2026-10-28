@@ -127,8 +127,12 @@ var rolloutKinds = map[string]bool{"Deployment": true, "StatefulSet": true, "Dae
 func (s *Service) applyPhases(ctx context.Context, target execution.Target, workloadID string, manifests []execution.Manifest) error {
 	var before, rollout []execution.Manifest
 	var jobs, ready []execution.WorkloadRef
+	scheduled := false
 	for _, m := range manifests {
 		switch {
+		case m.Kind == "CronJob" && m.APIVersion == "batch/v1":
+			scheduled = true
+			before = append(before, m)
 		case m.Kind == "Job" && m.APIVersion == "batch/v1":
 			jobs = append(jobs, execution.WorkloadRef{Kind: "Job", Name: m.Name, Namespace: target.Namespace})
 			before = append(before, m)
@@ -139,13 +143,16 @@ func (s *Service) applyPhases(ctx context.Context, target execution.Target, work
 			before = append(before, m)
 		}
 	}
-	if len(ready) == 0 {
+	if len(ready) == 0 && !scheduled {
 		// A render without labelled rollout objects (legacy) waits on the workload Deployment.
 		ready = []execution.WorkloadRef{{Kind: "Deployment", Name: workloadID, Namespace: target.Namespace}}
 	}
 	if len(jobs) == 0 {
 		if err := s.deployer.Apply(ctx, target, manifests); err != nil {
 			return err
+		}
+		if len(ready) == 0 {
+			return nil
 		}
 		return s.deployer.WaitReady(ctx, target, ready)
 	}
@@ -159,6 +166,9 @@ func (s *Service) applyPhases(ctx context.Context, target execution.Target, work
 		if err := s.deployer.Apply(ctx, target, rollout); err != nil {
 			return err
 		}
+	}
+	if len(ready) == 0 {
+		return nil
 	}
 	return s.deployer.WaitReady(ctx, target, ready)
 }
