@@ -1207,3 +1207,10 @@ verification. Operator procedure: [staging catalog](../operations/staging-catalo
 | UC-16 BR-17/18/22/23/25 | Existing projection/provenance and invalid-source guards | bindings + editor, import/resource-change/lifecycle tests; real [form acceptance](../../e2e/scenarios/workload-env-form/README.md) |
 
 ENV-UX runtime/locale validation and video: [2026-10-27 real kind/UI evidence](../verification/2026-10-27-workload-env-form.md).
+
+## Workload catalog — planned coverage, issue #24
+
+[Spec extension](../usecase/UC-16/workload-catalog-specification.md) sở hữu WC IDs;
+[planned traceability/tests](../implementation/workload-catalog.md#planned-traceabilitytests)
+map tới gates. Chưa đánh dấu implemented/verified; mock không chứng minh runtime.
+Schema/ERD/ADR và sequence/VOPC updates chờ closure các quyết định trong handoff.

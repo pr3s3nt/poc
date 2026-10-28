@@ -36,3 +36,5 @@ required product behavior trong specification.
 - [Terraform v2 rule reconciliation](v2-rule-reconciliation.md) — ID/canonical destinations và a897d6b/3367f7e history, không code completion.
 
 - [Git render bundles implementation handoff](git-render-bundles.md) — ADR-021 work breakdown and real acceptance gate; not implementation evidence.
+
+- [Workload catalog — issue #24, design review và implementation gates](workload-catalog.md).

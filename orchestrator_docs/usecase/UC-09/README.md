@@ -44,3 +44,10 @@ Read [TEL requirements](specification.md#native-application-observability--tel),
 [ADR-023](../../architecture/decisions/ADR-023-native-observability.md),
 [API/collection contract](../../architecture/contracts/observability.md) and
 [collection/query sequence](telemetry-sequence.puml).
+
+## Workload catalog — issue #24 (design review)
+
+[Specification extension](../UC-16/workload-catalog-specification.md),
+[shared contract](../../architecture/contracts/workload-catalog.md) và
+[implementation handoff](../../implementation/workload-catalog.md) mô tả phần
+mở rộng đang review; chưa thay thế current behavior hoặc chứng minh implementation.

@@ -33,3 +33,10 @@ Specification/realization định nghĩa yêu cầu, không chứng minh impleme
 Separate cleanup [sequence](sequence-cleanup.puml) and
 [state contract](../../architecture/contracts/terraform-state.md) define owned
 reverse-dependency destroy/verification. Workload removal does not call cleanup.
+
+## Workload catalog — issue #24 (design review)
+
+[Specification extension](../UC-16/workload-catalog-specification.md),
+[shared contract](../../architecture/contracts/workload-catalog.md) và
+[implementation handoff](../../implementation/workload-catalog.md) mô tả phần
+mở rộng đang review; chưa thay thế current behavior hoặc chứng minh implementation.

@@ -146,3 +146,12 @@ define the approved native collector slice of issue #1; read the
 The mock is approved UI reference, not evidence of collection or retention.
 [Real new-user acceptance](verification/2026-10-25-native-observability-live.md)
 records the native Kubernetes end-to-end run, including product cleanup.
+
+## Workload catalog, stateful storage và scheduled jobs — issue #24
+
+Bắt đầu từ [implementation entry](implementation/workload-catalog.md), rồi
+[spec extension](usecase/UC-16/workload-catalog-specification.md),
+[contract draft](architecture/contracts/workload-catalog.md),
+[UI](usecase/UC-16/ui/workload-catalog.md) và
+[Passbolt deployment preparation](operations/passbolt-catalog.md).
+Feature chưa implement; route này không kích hoạt iteration hoặc quyền runtime.

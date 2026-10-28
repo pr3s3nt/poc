@@ -7,6 +7,13 @@ last_reviewed: 2026-10-27
 
 # Current project state
 
+## Workload catalog — documentation preparation — 2026-10-28
+
+Issue #24 có isolated mock và bộ [design-review documents](implementation/workload-catalog.md).
+Người dùng chốt original home → Thêm Workload → picker, retain storage và S3 backup.
+Chưa implement generic template catalog, primary CronJob hoặc secret file/resource
+binding; chưa deploy Passbolt. Runbook chỉ là preparation, không runtime evidence.
+
 ## Offline Terraform providers — 2026-10-27
 
 Backend image builds a read-only filesystem mirror for all providers pinned in

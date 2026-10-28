@@ -51,3 +51,5 @@ last_reviewed: 2026-10-24
 - [ADR-024 — Open workload object set, inventory and Gateway API routes](ADR-024-open-workload-objects.md) — supersedes the ADR-021 object envelope for Git bundles.
 
 - [ADR-023 — Native basic observability](ADR-023-native-observability.md): platform collection, Metrics Server and durable application history.
+
+- [ADR-025 — Workload catalog, CronJob và persistent storage](ADR-025-workload-catalog.md).

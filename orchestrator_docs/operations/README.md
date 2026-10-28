@@ -62,3 +62,5 @@ ghi đè runbook hoặc evidence cũ.
 - [Git render-bundle real acceptance](git-render-bundles-acceptance.md) — required new isolated kind/Compose Playwright procedure; runner is an implementation deliverable, no fake-adapter acceptance.
 
 [Kubernetes staging catalog bootstrap](staging-catalog.md) — Types-only startup và Playwright đăng ký catalog sau Driver Account `k8s-4f`.
+
+- [Passbolt qua workload catalog — preparation, chưa executable trước feature gates](passbolt-catalog.md).

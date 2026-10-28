@@ -570,4 +570,11 @@ One active run per account; lease/CAS guards.
 Safe immutable scope, terminal observations and ownership facts.
 Connection verification unchanged; Console read/insert/update, State no access.
 end note
+note as ExecutionExtension
+ADR-025: workloadExecution v1 in existing JSONB
+workload_drafts.score_document and deployment_sets.document module spec.
+No new column or database reset at domain checkpoint.
+end note
+ExecutionExtension .. workload_drafts
+ExecutionExtension .. deployment_sets
 @enduml

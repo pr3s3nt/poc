@@ -41,3 +41,5 @@ T25 chỉ nhận `publicRoutes`, từ chối import/draft `publicPort` mà khôn
 đổi; T30 sở hữu rename references.
 
 [T30 HTTP mapping](api-mapping.md) dẫn tới shared OC-12 contract.
+
+- [Workload catalog — original home → picker → editor, design review](workload-catalog.md).

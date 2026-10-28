@@ -1028,3 +1028,13 @@ validation and memory/JSON snapshot counterparts must include the aggregate.
 Fresh-baseline policy stays unchanged: no runtime DDL/automatic migration/reset;
 new acceptance databases use the updated baseline. Retained databases are not
 reset or converted by this task.
+
+## Workload execution extension — ADR-025
+
+`workload_drafts.score_document.workloadExecution` và
+`deployment_sets.document.modules.<id>.spec.workloadExecution` chứa typed v1
+execution policy/template pin. Extension là phần của normalized desired intent
+và document hash, không private metadata; omission giữ workload legacy.
+Chỉ lưu refs không secret bytes. Existing JSONB columns không đổi DDL/ERD ở
+checkpoint domain này; template publication tables sẽ được định nghĩa trước
+checkpoint catalog persistence. Không reset database để nhận JSONB member mới.
