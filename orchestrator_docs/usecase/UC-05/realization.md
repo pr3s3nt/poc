@@ -2,7 +2,7 @@
 id: UC-05-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # UC-05 — Use Case Realization
@@ -167,3 +167,13 @@ with neutral symbolic input, verified local cache and no secret bytes. Safe
 projection extends only to approved customization fields, retaining unknown-path
 provenance. No fetch/provider call enters planning or Preview. Sequence and
 shared classes include RenderBundleRegistry as the immutable source boundary.
+
+## ADR-027 collaboration extension
+
+Snapshot loader includes desired/applied binding, capability digest, policy and inventory pins. Planner returns selection-only/transition actions without external calls; admission checks the same pins.
+
+Canonical shared collaboration: [delivery sequence](../../architecture/components/delivery-reconciliation-sequence.puml),
+[participants](../../architecture/components/delivery-reconciliation-vopc.puml),
+[infrastructure sequence](../../architecture/components/infrastructure-drift-sequence.puml).
+These supplement the existing direct-path diagrams for this new design slice;
+[CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.

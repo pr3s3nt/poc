@@ -1,0 +1,135 @@
+@startuml
+title ADR-027 — Delivery and drift schema extension (required, unimplemented)
+hide circle
+skinparam linetype ortho
+entity environments {
+ * id : uuid <<PK>>
+ --
+ desired_delivery : jsonb
+ applied_delivery : jsonb
+ delivery_config_revision : bigint
+ delivery_epoch : bigint
+}
+entity delivery_bindings {
+ * id : uuid <<PK>>
+ * version : bigint <<PK>>
+ --
+ organization_id : uuid <<FK>>
+ management_account_id : uuid <<FK>>
+ provider_kind : text
+ capabilities : jsonb
+ config : jsonb
+}
+entity delivery_units {
+ * id : uuid <<PK>>
+ --
+ environment_id : uuid <<FK>>
+ binding_id_version : pair <<FK>>
+ target_generation : bigint
+ delivery_epoch : bigint
+ unit_key : text
+ pending_revision_id : uuid <<FK>>
+ successful_revision_id : uuid <<FK>>
+}
+entity reconciliation_private_artifacts {
+ * id : uuid <<PK>>
+ --
+ organization_id : uuid <<FK>>
+ owner_id : uuid
+ purpose : text
+ ciphertext : bytea
+ key_id_nonce_aad : private_metadata
+}
+entity delivery_revisions {
+ * id : uuid <<PK>>
+ --
+ unit_id : uuid <<FK>>
+ operation_id : uuid <<FK>>
+ artifact_ref : private_handle
+ payload_digest : text
+ inventory : jsonb
+}
+entity delivery_intents {
+ * id : uuid <<PK>>
+ --
+ revision_id : uuid <<FK>>
+ operation_id : uuid <<FK>>
+ owner_fence : pair
+ checkpoints : jsonb
+ provider_handle : jsonb
+}
+entity delivery_observations {
+ * id : uuid <<PK>>
+ --
+ unit_id : uuid <<FK>>
+ revision_id : uuid <<FK>>
+ sync_health_drift : text
+ observed_at : timestamptz
+}
+entity delivery_poll_leases {
+ * unit_id : uuid <<PK,FK>>
+ --
+ owner_fence : pair
+ next_poll_at : timestamptz
+}
+entity git_publication_leases {
+ * destination_digest : text <<PK>>
+ --
+ owner_fence : pair
+ lease_until : timestamptz
+}
+entity environment_operations {
+ * id : uuid <<PK>>
+ --
+ kind : text
+ owner_fence : pair
+ status : text
+}
+entity terraform_resource_instances {
+ * id : uuid <<PK>>
+}
+entity terraform_execution_baselines {
+ * id : uuid <<PK>>
+ --
+ resource_instance_id : uuid <<FK>>
+ private_artifact_ref : private_handle
+ lineage_serial : pair
+}
+entity drift_scans {
+ * id : uuid <<PK>>
+ --
+ environment_id : uuid <<FK>>
+ operation_id : uuid <<FK>>
+ scope : baseline_pins
+ findings : safe_jsonb
+}
+entity drift_repair_reviews {
+ * id : uuid <<PK>>
+ --
+ scan_id : uuid <<FK>>
+ consumed_operation_id : uuid <<FK>>
+ plan_artifact_refs : private_handles
+ expires_at : timestamptz
+}
+reconciliation_private_artifacts ||--o{ delivery_revisions
+reconciliation_private_artifacts ||--o{ terraform_execution_baselines
+reconciliation_private_artifacts ||--o{ drift_repair_reviews
+environments ||--o{ delivery_units
+delivery_bindings |o--o{ delivery_units
+delivery_units ||--o{ delivery_revisions
+delivery_revisions ||--o{ delivery_intents
+delivery_units ||--o{ delivery_observations
+delivery_units ||--o| delivery_poll_leases
+environment_operations ||--o{ delivery_intents
+environments ||--o{ environment_operations
+environments ||--o{ drift_scans
+terraform_resource_instances ||--o{ terraform_execution_baselines
+drift_scans ||--o{ drift_repair_reviews
+environment_operations |o--o{ drift_repair_reviews
+note bottom of delivery_bindings
+All cross-references are scope checked.
+No plaintext secrets in ordinary rows.
+Current operations/schema remain authoritative;
+this diagram adds the ADR-027 slice only.
+end note
+@enduml

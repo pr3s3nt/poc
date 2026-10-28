@@ -55,3 +55,5 @@ last_reviewed: 2026-10-28
 - [ADR-025 — Application deletion as one confirmed cascade operation](ADR-025-application-deletion.md) — draft; UC-18 design, not implemented.
 
 ZIP source upload: [ADR-026](ADR-026-zip-source-upload.md).
+
+- [ADR-027 — Optional CD providers and infrastructure reconciliation](ADR-027-delivery-reconciliation.md) — required design, not yet implemented.

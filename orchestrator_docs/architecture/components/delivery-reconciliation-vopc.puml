@@ -1,0 +1,49 @@
+@startuml
+title ADR-027 — Provider-neutral participants
+skinparam componentStyle rectangle
+class "DeliverySettingsController" <<boundary>>
+class "ReconciliationController" <<boundary>>
+class "Pending / Deployment service" <<control>>
+class "DeliveryCoordinator" <<control>>
+class "ObservationWorker" <<control>>
+class "InfrastructureDriftService" <<control>>
+interface "DeliveryProvider" as Provider
+interface "OwnershipTransfer" as Transfer
+interface "GitPublisher" as Publisher
+interface "OwnedObjectRemover" as Remover
+class "DirectAdapter" <<adapter>>
+class "FleetAdapter" <<adapter>>
+class "Future CD adapter" <<adapter>>
+class "BindingVersion" <<entity>>
+class "DeliveryUnit" <<entity>>
+class "DeliveryRevision / Intent" <<entity>>
+class "Observation" <<entity>>
+class "TerraformBaseline / Scan / RepairReview" <<entity>>
+class "EnvironmentOperation" <<entity>>
+"DeliverySettingsController" --> "BindingVersion"
+"ReconciliationController" --> "DeliveryCoordinator"
+"ReconciliationController" --> "InfrastructureDriftService"
+"Pending / Deployment service" --> "DeliveryCoordinator"
+"DeliveryCoordinator" --> Provider
+"DeliveryCoordinator" --> Transfer
+"DeliveryCoordinator" --> Remover
+"DeliveryCoordinator" --> "EnvironmentOperation"
+"DeliveryCoordinator" --> "DeliveryUnit"
+"DeliveryUnit" --> "DeliveryRevision / Intent"
+"DeliveryUnit" --> "BindingVersion"
+"ObservationWorker" --> Provider
+"ObservationWorker" --> "Observation"
+"InfrastructureDriftService" --> "TerraformBaseline / Scan / RepairReview"
+"InfrastructureDriftService" --> "EnvironmentOperation"
+"DirectAdapter" ..|> Provider
+"FleetAdapter" ..|> Provider
+"Future CD adapter" ..|> Provider
+"DirectAdapter" ..|> Transfer
+"FleetAdapter" ..|> Transfer
+"FleetAdapter" --> Publisher
+note bottom of Provider
+Fleet/Argo/Flux types remain adapter-private.
+Registry/bootstrap owns provider dispatch.
+Capabilities are explicit, not inferred from method names.
+end note
+@enduml

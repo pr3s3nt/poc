@@ -2,7 +2,7 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # Operation Contracts
@@ -939,3 +939,11 @@ OC-04b catalog/OC-04 Definition extensions follow the single canonical
 [RB-C07 HTTP contract](git-render-bundles.md#rb-c07--http-operations-and-errors).
 UC-03 owns authoring, UC-05 pins/reviews and UC-06/07 execute/update/remove.
 Existing Terraform operations and admission/CAS contracts are unchanged.
+
+## ADR-027 delivery and infrastructure drift extensions
+
+[CDR-08](delivery-reconciliation.md#cdr-08--public-api) defines new binding,
+Environment selection, observation and reconciliation APIs and extensions to
+existing Preview/Deploy. [INF-C04](infrastructure-drift.md#inf-c04--http-and-rbac)
+defines scan and separate reviewed repair APIs. These are required, unimplemented
+contracts; existing pure Score Preview never calls Terraform or CD providers.

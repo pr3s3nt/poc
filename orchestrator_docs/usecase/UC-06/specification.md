@@ -365,3 +365,31 @@ ZIP-01..04. Source preparation/provenance follows
 [ADR-026](../../architecture/decisions/ADR-026-zip-source-upload.md);
 Preview, rendering, update/reuse and cleanup keep their existing pinned-engine
 and cache contracts. No upload or source fetch is introduced into this use case.
+
+## Optional CD delivery and reconciliation — ADR-027
+
+These requirements supersede OOS-05 for the bounded workload reconciliation
+slice and replace VAR-03's fixed-kind assumption. Required design; actual
+availability is recorded in CURRENT_STATE.
+
+- **CD-01:** Resolve a provider-neutral delivery adapter from the Environment's
+  admitted selection; DIRECT remains default. Provisioning/rendering/secret
+  preparation keep their existing owners and precede dependent delivery phases.
+- **CD-02:** Persist immutable artifact/intent before publish; submission receipt
+  and revision survive restart. Only admitted revisions may be delivered/healed,
+  never drafts or newer templates. Git commit visibility alone cannot mean READY.
+- **CD-03:** Preserve non-rollout → Job completion → rollout readiness → route
+  order. Jobs must not rerun on drift polling, retry acknowledgement or policy
+  change; CronJob children stay controller-owned. Unsupported semantics are
+  rejected before provision when known, and before publish otherwise.
+- **CD-04:** Self-heal acts only on approved continuous objects/fields. HPA,
+  Secret delivery and Terraform ownership remain distinct; force recreation,
+  destructive auto-repair and controller fallback are forbidden.
+- **CD-05:** Exact provider revision, live readiness and complete inventory gate
+  successful workload commit. Pending failed revisions stay visible and fenced;
+  background reconciliation never implicitly rolls back or rewrites history.
+- **CD-06:** Direct ↔ Fleet changes on an occupied Environment execute the
+  explicit CDR-07 transition. Preserve data/target identity and Job completion;
+  prove release before adoption, retain checkpoints/hold on unknown outcomes.
+- **CD-07:** Public routes use the selected delivery manager and independent
+  revision receipt, preserving route-only retry and the complete Candidate Set.

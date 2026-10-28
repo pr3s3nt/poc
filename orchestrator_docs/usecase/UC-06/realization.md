@@ -2,7 +2,7 @@
 id: UC-06-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # UC-06 — Use Case Realization
@@ -202,3 +202,13 @@ Existing workload progress, manifest digest, Apply/WaitReady, public routes and
 current-set transactions consume the validated result unchanged. Installed pins
 retain the legacy adapter path. Worker subprocess cancellation and cleanup are
 part of render completion, not deferred background work.
+
+## ADR-027 collaboration extension
+
+DeploymentService delegates to DeliveryCoordinator after dependency/render/secret preparation. Coordinator persists artifacts/intents, invokes phase-ordered Submit/Observe and commits only verified receipts. Ownership transfer uses Release/Adopt checkpoints, never implicit fallback.
+
+Canonical shared collaboration: [delivery sequence](../../architecture/components/delivery-reconciliation-sequence.puml),
+[participants](../../architecture/components/delivery-reconciliation-vopc.puml),
+[infrastructure sequence](../../architecture/components/infrastructure-drift-sequence.puml).
+These supplement the existing direct-path diagrams for this new design slice;
+[CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.

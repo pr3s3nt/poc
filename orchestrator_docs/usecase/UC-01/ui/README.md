@@ -2,7 +2,7 @@
 id: UC-01-UI
 artifact: use-case-ui-design
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-28
 related: UC-01, UC-05, UC-07, UC-09, UC-16
 ---
 
@@ -28,3 +28,8 @@ respective flows are implemented.
 3. [API mapping](api-mapping.md)
 4. [Wireframe](wireframe.puml)
 5. [Shared shell](../../../architecture/ui/README.md)
+
+## Optional CD / reconciliation — ADR-027
+
+[Interaction design](delivery-reconciliation.md) defines the Environment opt-in, transition review
+and independent sync/health/drift presentation. Required design, not implemented UI.

@@ -2,7 +2,7 @@
 id: UC-04-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-28
 ---
 
 # UC-04 context — Configure execution connections
@@ -54,3 +54,9 @@ UC-04 EC2-01..05 extend the account catalog with
 [ADR-018](../../architecture/decisions/ADR-018-ec2-role-driver-accounts.md).
 See [issue #6 verification](../../verification/2026-10-20-issue6-ec2-role.md) for
 local checks, live EC2/Console/Terraform scope and native cleanup evidence.
+
+## Optional CD and reconciliation — ADR-027
+
+Read this use case's CD/INF/REC specification extension, then the
+[design and implementation route](../../implementation/delivery-reconciliation.md).
+Required design only; current runtime availability is tracked separately.

@@ -150,3 +150,11 @@ records the native Kubernetes end-to-end run, including product cleanup.
 
 ZIP module/render sources: [ADR-026](architecture/decisions/ADR-026-zip-source-upload.md), [UC-03](usecase/UC-03/README.md).
 ZIP upload usage: [runbook](operations/zip-source-upload.md).
+
+## Optional Environment CD and reconciliation
+
+Start with [ADR-027](architecture/decisions/ADR-027-delivery-reconciliation.md),
+then [implementation route](implementation/delivery-reconciliation.md) for the
+owning use-case specs, contracts, diagrams, schema, UI and acceptance gates.
+Fleet is opt-in independently per Environment; current runtime is still direct.
+This requested design does not activate another roadmap iteration.

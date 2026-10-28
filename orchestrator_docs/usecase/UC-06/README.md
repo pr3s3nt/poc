@@ -2,7 +2,7 @@
 id: UC-06-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # UC-06 context — Deploy Workload
@@ -38,3 +38,9 @@ Specification/realization định nghĩa yêu cầu, không chứng minh impleme
 Behavior is recorded in this use case's RB requirements;
 [IMP-035](../../implementation/deviations.md#imp-035--git-owned-render-bundles)
 records implementation and actual acceptance separately.
+
+## Optional CD and reconciliation — ADR-027
+
+Read this use case's CD/INF/REC specification extension, then the
+[design and implementation route](../../implementation/delivery-reconciliation.md).
+Required design only; current runtime availability is tracked separately.

@@ -1,0 +1,69 @@
+@startuml
+title ADR-027 — Approved delivery, observation and guarded removal
+autonumber
+actor User
+boundary API
+control "Pending / Deployment service" as Deploy
+database "Scoped repositories / outbox" as DB
+control "UC-08 + renderer + secret bridge" as Prepare
+boundary "DeliveryProvider" as Provider
+boundary "GitPublisher (when required)" as Git
+participant "CD controller / target" as Cluster
+control "Observation worker" as Observe
+control "OwnedObjectRemover" as Remove
+User -> API: Save desired delivery (optional, Environment scoped)
+API -> DB: CAS selection/version; no runtime effect
+User -> API: Preview
+API -> Deploy: Plan stored selection, capabilities, baseline
+Deploy -> DB: Read snapshot; no provider call
+Deploy --> User: Actions + immutable token; transition if manager changed
+User -> API: Deploy(token)
+API -> Deploy: Admit Environment owner/fence
+Deploy -> DB: Claim operation and persist pins
+alt ownership transition
+  Deploy -> Provider: Release old owner retaining objects
+  Provider -> Cluster: Withdraw / verify no writer; retain objects
+  Provider --> Deploy: Durable withdrawal proof
+  Deploy -> DB: Save per-unit handoff checkpoint
+  Deploy -> Provider: Adopt exact artifacts / UID-guarded metadata
+  Provider -> Cluster: Register new owner without rerunning Jobs
+else ordinary delivery
+  Deploy -> Prepare: Dependencies, render, secret readiness
+  Prepare --> Deploy: Validated non-secret artifacts and phase graph
+  Deploy -> DB: Persist immutable artifacts + pending intents
+  loop prerequisite, Job, rollout, route (dependency order)
+    Deploy -> Provider: Prepare / Submit(intent, expected revision, fence)
+    opt provider requires Git
+      Provider -> Git: Publish owned path idempotently
+      Git --> Provider: Exact tree / commit receipt
+    end
+    Provider -> Cluster: Submit pinned revision on exact target
+    Provider --> Deploy: Receipt
+    Deploy -> DB: Persist receipt / union inventory
+    Deploy -> Provider: Observe exact revision and readiness
+    Provider -> Cluster: Read controller + owned live objects
+    Provider --> Deploy: Complete observation or unknown
+  end
+end
+Deploy -> DB: Commit applied selection / successful state only after proof
+loop background observation (read-only)
+  Observe -> DB: Lease next unit; use persisted admitted revision
+  Observe -> Provider: Observe
+  Provider -> Cluster: Scoped read
+  Provider --> Observe: Sync / health / drift / timestamp / coverage
+  Observe -> DB: Append observation under fence
+end
+note over Provider, Cluster
+Optional autonomous self-heal belongs to CD controller.
+No competing direct apply; drafts never submitted.
+end note
+User -> API: Confirm workload/application removal
+API -> Deploy: Admit original applied owner/inventory
+Deploy -> Provider: Withdraw(retain)
+Provider -> Cluster: Stop management and retire owned control metadata
+Provider --> Deploy: Proven withdrawal (otherwise hold)
+Deploy -> Remove: Confirmed inventory + original target + UID proofs
+Remove -> Cluster: GET ownership; DELETE with UID preconditions
+Remove --> Deploy: Absence proof or remaining objects
+Deploy -> DB: Persist cleanup; only then permit provider/namespace cleanup
+@enduml

@@ -2,7 +2,7 @@
 id: UC-08-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-28
 ---
 
 # UC-08 context — Provision resources
@@ -33,3 +33,9 @@ Specification/realization định nghĩa yêu cầu, không chứng minh impleme
 Separate cleanup [sequence](sequence-cleanup.puml) and
 [state contract](../../architecture/contracts/terraform-state.md) define owned
 reverse-dependency destroy/verification. Workload removal does not call cleanup.
+
+## Optional CD and reconciliation — ADR-027
+
+Read this use case's CD/INF/REC specification extension, then the
+[design and implementation route](../../implementation/delivery-reconciliation.md).
+Required design only; current runtime availability is tracked separately.

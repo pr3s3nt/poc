@@ -2,7 +2,7 @@
 id: UC-01-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-28
 ---
 
 # UC-01 — Use Case Realization
@@ -53,3 +53,13 @@ no network call is held inside a database transaction. Reopen retains supported
 metadata and immutable target provenance, never reconstructs a retired binding.
 See ADR-017 and the updated sequence/VOPC for this final collaboration; delivery
 status remains in CURRENT_STATE rather than inferred from these diagrams.
+
+## ADR-027 collaboration extension
+
+Settings controller saves desired delivery under Environment CAS; applied selection changes only after the admitted delivery/transition finishes.
+
+Canonical shared collaboration: [delivery sequence](../../architecture/components/delivery-reconciliation-sequence.puml),
+[participants](../../architecture/components/delivery-reconciliation-vopc.puml),
+[infrastructure sequence](../../architecture/components/infrastructure-drift-sequence.puml).
+These supplement the existing direct-path diagrams for this new design slice;
+[CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.

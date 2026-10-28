@@ -2,7 +2,7 @@
 id: ARCHITECTURE-INDEX
 artifact: architecture-index
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # Shared Architecture Baseline
@@ -69,3 +69,11 @@ Actual V02 delivery is tracked in CURRENT_STATE/evidence, not implied by design.
 
 Terraform planning/provisioning and resource lifecycle stay unchanged. The
 installed-only renderer remains current code until IMP-034 is implemented.
+
+## Optional CD and reconciliation
+
+[ADR-027](decisions/ADR-027-delivery-reconciliation.md),
+[delivery contract](contracts/delivery-reconciliation.md),
+[infrastructure drift](contracts/infrastructure-drift.md),
+[implementation route](../implementation/delivery-reconciliation.md).
+Environment opt-in, provider-neutral lifecycle, Fleet first; design only.

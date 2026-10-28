@@ -2,10 +2,25 @@
 id: IMPLEMENTATION-DEVIATIONS
 artifact: design-implementation-deviations
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 ---
 
 # Known design and implementation deviations
+
+## IMP-039 — Delivery reconciliation design (2026-10-28)
+
+[ADR-027](../architecture/decisions/ADR-027-delivery-reconciliation.md) is the
+required successor design; [plan](delivery-reconciliation.md) maps delivery gates.
+Current `WorkloadDeployer` has Apply/WaitReady/Remove only. The Fleet adapter
+rejects every target, assumes a single Deployment/host context and keeps revisions
+in memory; bootstrap delivery selection is global. No new Environment selection,
+durable delivery/outbox, ownership handoff, continuous drift observer, Terraform
+input baseline or reviewed repair is implemented. The cleanup runner's
+refresh-only/delete drift parsing is not a general drift scanner.
+
+All ADR-027 APIs/tables/diagrams describe required work, not installed behavior.
+Guarded retained withdrawal on exact Fleet/Helm versions is a release gate;
+unknown controller/Job/prune semantics must not weaken existing ownership guards.
 
 ## IMP-038 — Application deletion (2026-10-27)
 

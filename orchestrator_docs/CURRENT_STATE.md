@@ -7,6 +7,16 @@ last_reviewed: 2026-10-28
 
 # Current project state
 
+## Optional Environment CD/reconciliation design — 2026-10-28
+
+[ADR-027](architecture/decisions/ADR-027-delivery-reconciliation.md) and the
+[implementation plan](implementation/delivery-reconciliation.md) define optional
+CD per Environment, Fleet-first provider-neutral delivery, direct↔Fleet handoff,
+separate self-heal policy and Terraform scan/reviewed repair. **Design only**:
+no runtime/API/schema implementation or live Fleet acceptance in this change.
+Current direct delivery remains; the old Fleet adapter still rejects all targets.
+See [IMP-039](implementation/deviations.md#imp-039--delivery-reconciliation-design-2026-10-28).
+
 ## Application deletion (UC-18) — 2026-10-27
 
 [ADR-025](architecture/decisions/ADR-025-application-deletion.md) is implemented

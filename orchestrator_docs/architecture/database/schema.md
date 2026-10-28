@@ -1061,4 +1061,60 @@ are disjoint. source_revision is Git commit or full archive-tree SHA-256.
 Module bundles keep ZIP source kind and sourceOrganizationKey (the uploader
 session Organization) in their immutable JSON contract and full
 archive revision in their existing pin columns; no additional table is needed.
+
+## Delivery and drift — ADR-027 required design
+
+This section is the required new baseline, **not implemented tables**. Do not
+change/reset a retained database during design or silently migrate an existing
+deployment. Implementation must update fresh SQL baseline/fingerprint and all
+repository adapters together. A separate reviewed upgrade procedure is required
+for retained installations. [Supplemental ERD](delivery-reconciliation-erd.puml)
+([PNG](delivery-reconciliation-erd.png)) extends the existing ERD.
+
+All identifiers below are UUID unless stated; all times are timestamptz. Every
+cross-reference must share Organization/Environment where applicable (composite
+FK or transaction-validated invariant). Records are not cascade-deleted with
+Application removal; terminal metadata/ownership evidence stays for audit.
+
+| Table / additions | Fields and constraints |
+|---|---|
+| `delivery_bindings` | `(id,version bigint>=1)` PK; organization_id FK, name text, provider_kind text, contract_version text, capabilities jsonb object, capability_digest text, management_account_id FK connections, management_account_version bigint, config jsonb object (safe provider configuration only), writer_credential_ref text private, status UNVERIFIED/READY/REJECTED/DISABLED, verified_at nullable, verification jsonb safe, created_at. Immutable config/version; verification updates CAS. Provider kinds are registry identifiers, not hard-coded SQL Fleet enums. |
+| `environments` additions | desired_delivery jsonb NOT NULL default DIRECT/off; applied_delivery jsonb NOT NULL default DIRECT/off; delivery_config_revision bigint>=0; delivery_epoch bigint>=0. Selection includes binding ID/version or null for DIRECT. Update with Environment version CAS and operation guard. No change to target_generation. |
+| `delivery_units` | id PK, environment_id FK, target_generation bigint, delivery_epoch bigint, unit_key text, workload_id text nullable for routes, phase PREREQUISITE/JOB/ROLLOUT/ROUTE, binding_id/version nullable paired FK, target_ref jsonb opaque, pending_revision_id and successful_revision_id nullable FKs, lifecycle text per CDR-04, version bigint, created_at/updated_at. UNIQUE(environment_id,target_generation,delivery_epoch,unit_key); one active owner per logical object across nonterminal epochs. |
+| `delivery_revisions` | id PK, unit_id FK, deployment_id nullable FK, operation_id FK, intent_key text UNIQUE, artifact_ref text private, payload_digest text, policy jsonb, dependencies jsonb unit/revision IDs, inventory jsonb object identities + UIDs + ownership/creation receipts, created_at. Payload/policy/dependencies immutable; append incarnation/cleanup receipts separately in operation checkpoints, never overwrite original proof. Artifact refs point to restricted encrypted storage, not redacted review JSON. |
+| `delivery_intents` | id PK, revision_id FK, environment_operation_id FK, action SUBMIT/RECONCILE/WITHDRAW/ADOPT, status PENDING/RUNNING/ACKNOWLEDGED/FAILED/OUTCOME_UNKNOWN, request_id text, request_digest text, owner text, fence bigint, lease_until, attempt integer, publication jsonb safe base/commit/tree/marker metadata, provider_handle jsonb safe identities/UIDs, checkpoints jsonb, reason_code text, created_at/updated_at. UNIQUE(environment_operation_id,revision_id,action,request_id); reused request ID with different body rejected. |
+| `delivery_observations` | id PK, unit_id FK, revision_id FK, sequence bigint, sync/health/drift text per CDR-04, observed_revision text nullable, complete boolean, reason_code text, safe_details jsonb bounded, observed_at, stored_at. UNIQUE(unit_id,sequence); immutable. Never change Deployment.status. |
+| `delivery_poll_leases` | unit_id PK/FK, owner text, fence bigint, lease_until, next_poll_at, last_sequence bigint. CAS writes compare owner/fence; expired read-only observer can be replaced, not an unknown mutating intent. |
+| `git_publication_leases` | publication_destination_digest text PK (canonical safe repo/branch identity), owner text, fence bigint, lease_until. Serializes publication; remote fast-forward update remains the final write guard. Credentials are not part of digest. |
+| `terraform_execution_baselines` | id PK, resource_instance_id FK, execution_attempt_id FK, module_bundle_id FK, instance_version bigint, lineage text, serial bigint, private_artifact_ref text, dependencies jsonb safe instance/version IDs, created_at. Immutable; UNIQUE(resource_instance_id,execution_attempt_id). No raw inputs in this table. |
+| `drift_scans` | id PK, environment_id FK, operation_id nullable FK until queued scan admitted, request_id text, status/result text per INF-C02, scope jsonb instance/baseline versions, findings jsonb safe address/action/path/coverage, owner text, fence bigint, started_at/finished_at/created_at, reason_code text. Partial unique one active QUEUED/RUNNING per Environment; UNIQUE(environment_id,request_id). |
+| `drift_repair_reviews` | id PK, environment_id FK, scan_id FK, actor_id FK, status PREPARING/READY/BLOCKED/EXPIRED/CONSUMED/FAILED, baseline_pins jsonb, plan_artifact_refs jsonb private handles, safe_actions jsonb, private_change_digest text restricted, token_hash text, expires_at, consumed_operation_id nullable FK, created_at. Token/plan references not public listing fields; one-time CAS consumption, request idempotency under operation. |
+
+`reconciliation_private_artifacts` is a restricted blob table: `id uuid PK`,
+`organization_id uuid FK`, `owner_id uuid`, `purpose text` constrained to
+DELIVERY_PAYLOAD/TERRAFORM_BASELINE/TERRAFORM_REVIEW, `key_id text`, `nonce bytea`,
+`ciphertext bytea`, `aad_version bigint`, `created_at timestamptz`, `expires_at
+nullable timestamptz`. AAD binds purpose/org/owner/id/version. Ciphertext is immutable;
+opaque refs resolve only under a purpose-scoped capability. Use existing encryption
+primitives/key custody, not a second cryptographic scheme. Purpose-specific roles
+allow the delivery worker only DELIVERY_PAYLOAD; State runtime alone decrypts
+Terraform input/plan artifacts. Public Console repositories cannot select private
+values/digests. Validate owner references and Organization in the inserting
+transaction; artifacts precede referencing revisions under the same transaction.
+Artifacts referenced by active deliveries, cleanup or unknown outcomes cannot be
+garbage-collected. Safe observation history retains 30 days; current summaries
+and operation-linked evidence are retained.
+
+`environment_operations.kind` adds DELIVERY_TRANSITION, DELIVERY_RECONCILE,
+DRIFT_SCAN and DRIFT_REPAIR; its existing owner/fence/status/hold semantics stay.
+Transition pins/checkpoints contain source/destination epoch/selection, exact unit
+inventory, release/adoption proofs and pending provider actions. Policy-only change
+uses DELIVERY_RECONCILE; ordinary deployment keeps DEPLOY. Recovery never releases
+an unknown provider operation merely because a lease expired.
+
+Indexes: observations(unit_id,observed_at DESC), units(environment_id,lifecycle),
+intents(status,lease_until), poll_leases(next_poll_at), scans(environment_id,created_at
+DESC), reviews(expires_at). Repository contract tests must prove scoped composite
+references, default DIRECT, immutable revisions, original credential pins,
+publication deduplication, observer fencing and restart checkpoint integrity.
 Only fresh baseline setup changes; retained installations are never reset here.

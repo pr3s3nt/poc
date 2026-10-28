@@ -2,7 +2,7 @@
 id: UC-07-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # UC-07 — Use Case Realization
@@ -147,3 +147,13 @@ uses the existing deployment pipeline and infrastructure reuse. Removal resolves
 original applied target/identity, not current renderer or mutable Git content.
 Persisted review/pins survive restart; explicit re-selection of an old verified
 bundle re-renders with current bindings. No new cleanup participant is introduced.
+
+## ADR-027 collaboration extension
+
+Removal restores applied receipts, withdraws the provider retaining objects, then invokes shared UID-precondition removal. Update retains union inventory until acknowledged prune; failures retain original targets/checkpoints.
+
+Canonical shared collaboration: [delivery sequence](../../architecture/components/delivery-reconciliation-sequence.puml),
+[participants](../../architecture/components/delivery-reconciliation-vopc.puml),
+[infrastructure sequence](../../architecture/components/infrastructure-drift-sequence.puml).
+These supplement the existing direct-path diagrams for this new design slice;
+[CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.

@@ -2,7 +2,7 @@
 id: UC-01-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-28
 ---
 
 # UC-01 context — Create Application
@@ -58,3 +58,9 @@ Current design: [specification](specification.md#v04v06--final-settings-and-crea
 [ADR-017](../../architecture/decisions/ADR-017-definition-dependency-execution.md),
 and updated sequence/VOPC/UI. Deployment Connection/profile/transition flows
 above are historical staged behavior; final delivery status remains CURRENT_STATE.
+
+## Optional CD and reconciliation — ADR-027
+
+Read this use case's CD/INF/REC specification extension, then the
+[design and implementation route](../../implementation/delivery-reconciliation.md).
+Required design only; current runtime availability is tracked separately.

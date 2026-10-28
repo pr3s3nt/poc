@@ -2,7 +2,7 @@
 id: UC-09-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-28
 ---
 
 # UC-09 — View Deployment Status and Resource Graph
@@ -165,3 +165,20 @@ TEL adds separate application telemetry queries backed by a background collector
   storage preserves existing history on quota refusal and exposes that limit.
   Reads never mutate or destroy app/provider resources. No alert notifications,
   tracing, CloudWatch, business instrumentation or custom rule editor is added.
+
+## Reconciliation observations — ADR-027
+
+- **REC-01:** Environment status exposes applied/desired delivery, separate sync,
+  health and drift dimensions, exact revision, last observed time, freshness and
+  safe reason. Historical Deployment status remains immutable; telemetry is
+  independent of configuration equivalence.
+- **REC-02:** Disconnected, unsupported, not yet observed and partial data remain
+  explicit. Ready Pods or a Git commit alone cannot show IN_SYNC. GETs read stored
+  observations and never trigger provider calls or mutations.
+- **REC-03:** Authorized users can request observation/reconcile of the admitted
+  workload revision; PE/Admin can request infrastructure scans and reviewed
+  repair. Show persisted operation progress and unknown-outcome recovery, not
+  optimistic success. Scope changes discard stale browser replies.
+- **REC-04:** Reports redact values and raw provider diagnostics; show bounded
+  field paths/actions and coverage. Infrastructure cadence is independent of the
+  Environment CD checkbox. No alerting/notification service is introduced.

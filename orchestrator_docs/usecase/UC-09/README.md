@@ -2,7 +2,7 @@
 id: UC-09-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-28
 ---
 
 # UC-09 context — Observe deployment
@@ -44,3 +44,9 @@ Read [TEL requirements](specification.md#native-application-observability--tel),
 [ADR-023](../../architecture/decisions/ADR-023-native-observability.md),
 [API/collection contract](../../architecture/contracts/observability.md) and
 [collection/query sequence](telemetry-sequence.puml).
+
+## Optional CD and reconciliation — ADR-027
+
+Read this use case's CD/INF/REC specification extension, then the
+[design and implementation route](../../implementation/delivery-reconciliation.md).
+Required design only; current runtime availability is tracked separately.

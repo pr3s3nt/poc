@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-INDEX
 artifact: implementation-index
 status: current
-last_reviewed: 2026-10-25
+last_reviewed: 2026-10-28
 ---
 
 # Implementation documentation
@@ -36,3 +36,9 @@ required product behavior trong specification.
 - [Terraform v2 rule reconciliation](v2-rule-reconciliation.md) — ID/canonical destinations và a897d6b/3367f7e history, không code completion.
 
 - [Git render bundles implementation handoff](git-render-bundles.md) — ADR-021 work breakdown and real acceptance gate; not implementation evidence.
+
+## Optional CD and reconciliation
+
+[Design and implementation plan](delivery-reconciliation.md): Environment opt-in,
+Fleet first through common ports, independent Terraform drift scans and reviewed
+repair. Planned implementation; see IMP-039 before making availability claims.

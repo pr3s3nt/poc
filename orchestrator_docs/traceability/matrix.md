@@ -1238,3 +1238,17 @@ ENV-UX runtime/locale validation and video: [2026-10-27 real kind/UI evidence](.
 | ZIP-01/02 | `UploadTerraformModule`, `UploadRenderBundle`; UC-03 sequence/VOPC; bounded multipart → shared ZIP reader → existing inspectors | `sourcezip/zip_test.go`; HTTP `source_upload_test.go` uses real inspectors, checks RBAC, scope, strict multipart, slow-upload deadline, Organization-scoped module discovery/registration and no Definition side effects |
 | ZIP-03 | ZIP archive-tree revision + selected-directory digest; cache before immutable insertion; metadata-only downstream reuse | registry `zip_inspect_test.go`: local children, trusted identity, repeat/restart/update, executable artifact verification and tamper; render ZIP test: scope, restart, update and cache repair; PostgreSQL `TestZIPSourceKindsSurvivePostgresReopen` |
 | ZIP-04 | `ZIPSource` on both existing authoring forms; unchanged Create/CAS and typed input editors | `ZIPSource.test.tsx`, ZIP cases in `GitModuleSource.test.tsx` / `GitRenderBundle.test.tsx`; [browser runner](../../e2e/scenarios/zip-source-upload/README.md) |
+
+## Optional CD and infrastructure reconciliation — ADR-027 (design only)
+
+| Requirements | Canonical collaboration/storage | Planned validation |
+|---|---|---|
+| UC-01 CD-01..03; UC-04 CD-01..03; UC-05 CD-01..03 | Binding versions, desired/applied Environment selection; CDR-01/08, schema | R01/R05, E01/E06; CAS/role/scope and pure Preview tests |
+| UC-06 CD-01..07 | DeliveryCoordinator, provider/publisher ports, immutable revisions/intents; shared delivery sequence | R02–R05, E02–E06/E08; second-provider conformance, phase/revision/restart tests |
+| UC-07 CD-01..04; UC-18 CD-01..03 | Withdraw → UID remover → namespace cleanup; original receipts/union inventory | E07 and ownership/unknown-outcome tests |
+| UC-08 INF-01..04 | InfrastructureDriftService, private baseline/scan/repair reviews; infrastructure sequence | R06/R07, E09/E10; no-write scans and stale private-plan tests |
+| UC-09 REC-01..04 | Leased observer → immutable observations → stored query; independent dimensions | E04/E05; freshness, completeness, secret-redaction and scope tests |
+
+All R/E IDs are defined in the [implementation plan](../implementation/delivery-reconciliation.md).
+No tests or live acceptance for ADR-027 have run yet; documentation checks and
+existing-UI reference inspection do not establish runtime conformance.
