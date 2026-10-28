@@ -30,6 +30,19 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check migration versions and immutable history
+        env:
+          MIGRATION_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          base="$MIGRATION_BASE"
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            base=$(git rev-parse HEAD^)
+          fi
+          python3 ../scripts/check_migrations.py --base "$base"
+          python3 ../scripts/test_migrations.py
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -47,6 +60,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y redis-server
 
       - name: Test
+        env:
+          ORCHESTRATOR_POSTGRES_TEST_CONTAINER: ${{ job.services.postgres.id }}
         run: go test -timeout 30m -count=1 ./...
 
       - name: Build
