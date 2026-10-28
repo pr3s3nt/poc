@@ -263,3 +263,15 @@ Với change/build, Codex commit/push thay đổi thuộc task sau review/valida
 thành công, trừ chỉ dẫn riêng. Review/explanation không phát sinh commit.
 Lưu bàn giao nếu bị chặn/hủy; không đóng phiên tmux của người dùng. Quy trình
 cloud và recording tại [runbook Claude](orchestrator_docs/operations/claude-tmux.md).
+
+## PostgreSQL schema upgrades — issue #23
+
+Follow [ADR-027](orchestrator_docs/architecture/decisions/ADR-027-postgres-upgrades.md)
+for every PostgreSQL schema change. Add a new versioned migration
+and complete frozen schema reference; never edit a released migration/reference.
+Keep the active baseline, schema documentation/ERD, grants and version registry
+consistent. Include real PostgreSQL integration tests upgrading a populated prior
+version, preserving installation/domain/state identities, repeated execution,
+rollback and runtime privilege isolation. Run the migration CI guard. Do not use
+reset or manual marker/checksum changes as an upgrade. Deploy runs owner setup
+before runtime; runtime must never acquire owner credentials or perform DDL.

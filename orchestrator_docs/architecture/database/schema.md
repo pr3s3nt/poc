@@ -458,15 +458,19 @@ per-workload plan hashes. Logical resource and workload identities are unchanged
 
 ## Fresh persistence baseline (T28 / LEG-08)
 
-Only an empty PostgreSQL schema can be initialized. Owner setup creates the
-complete current schema and a baseline identity atomically under a database
-advisory transaction lock. A second boot validates that identity and the required
-schema (tables, column types/nullability, keys, indexes and integrity triggers)
-before serving, without DDL repair or row conversion. A pre-baseline ledger,
-unmarked nonempty schema, incompatible marker or damaged current schema fails
-closed with a safe development-reset-required error. Deleting an old migration
-ledger does not make its schema empty. No old versioned migrations are replayed.
-The identity is technical adapter metadata, not an upgrade path.
+PostgreSQL upgrade policy is now governed by [ADR-027](../decisions/ADR-027-postgres-upgrades.md),
+superseding fresh-only/no-migration statements in this document and older ADRs.
+Empty schemas are initialized; recognized retained schemas are upgraded by owner
+setup in one locked transaction. Runtime performs validation only. Unknown or
+damaged schemas fail without reset. JSON policy below remains unchanged.
+
+`schema_upgrade_history` is adapter metadata: `version bigint PRIMARY KEY`,
+`migration_sha256 text NOT NULL`, `source_sha256 text NOT NULL`,
+`applied_at timestamptz NOT NULL DEFAULT now()`. Checksums are 64 lowercase hex.
+Owner writes history; Console/State have SELECT only. Version 1 records the
+transition from either supported legacy baseline or fresh installation. Baseline
+identity/digest pins the frozen version reference, not mutable SQL formatting.
+Installation identity and original marker creation time are preserved.
 
 Fresh schema includes UUID account/session IDs, case-insensitive Organization
 Application-name uniqueness, explicit kind-compatible Connection authentication,

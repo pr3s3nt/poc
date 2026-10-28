@@ -207,13 +207,12 @@ to execute live runners or proof that their historical scenarios still pass.
 
 ## T28 fresh baseline and isolated PostgreSQL verification
 
-Current builds initialize only an empty PostgreSQL schema. Reboot validates the
-current baseline; historical migration ledgers, unmarked tables or incompatible
-schema fail before serving with a development-reset-required error. Removing a
-ledger or restarting does not upgrade old data. Current complete JSON snapshots
-reopen without backfill; missing required data is rejected. See
-[canonical baseline](../architecture/database/schema.md#fresh-persistence-baseline-t28--leg-08).
-The retained stack must wait for the [T29 backup/reset gate](k8s4f-dev.md#t29-backupreset-gate).
+PostgreSQL now supports recognized retained-schema upgrades per
+[ADR-027](../architecture/decisions/ADR-027-postgres-upgrades.md).
+Use the [upgrade runbook](postgres-upgrades.md) and wrapper to stop writers,
+back up and automatically run owner setup before new runtime startup.
+Do not reset retained databases. Unknown/damaged sources require diagnosis.
+The T28 runner below remains a disposable verification tool, not an upgrade.
 
 T28's disposable test runner is prepared at
 `backend/test/integration/postgres-baseline-local.sh`. After explicit approval:

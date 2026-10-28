@@ -7,6 +7,10 @@ last_reviewed: 2026-10-28
 
 # Current project state
 
+## PostgreSQL upgrades — issue #23
+
+Owner setup now upgrades the exact `1516dec` staging and `2a111db` preview baselines to schema version 1 without reset. Installation identities and retained rows are preserved; runtime remains read-only for schema/history. This supersedes older PostgreSQL no-migration statements below. See [ADR-027](architecture/decisions/ADR-027-postgres-upgrades.md) and [upgrade runbook](operations/postgres-upgrades.md). Other historical baselines and JSON conversion are unsupported. Verification: [issue #23](verification/2026-10-28-postgres-upgrades.md). Retained installations have only been inspected read-only, not upgraded by this task.
+
 ## Application deletion (UC-18) — 2026-10-27
 
 [ADR-025](architecture/decisions/ADR-025-application-deletion.md) is implemented

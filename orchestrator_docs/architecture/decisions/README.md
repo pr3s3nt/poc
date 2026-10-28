@@ -55,3 +55,5 @@ last_reviewed: 2026-10-28
 - [ADR-025 — Application deletion as one confirmed cascade operation](ADR-025-application-deletion.md) — draft; UC-18 design, not implemented.
 
 ZIP source upload: [ADR-026](ADR-026-zip-source-upload.md).
+
+- [ADR-027 — PostgreSQL upgrades preserving data](ADR-027-postgres-upgrades.md) — supersedes PostgreSQL fresh-only/reset policy.

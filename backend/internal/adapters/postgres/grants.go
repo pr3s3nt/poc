@@ -68,7 +68,7 @@ var (
 // Verified Git render bundles (ADR-021) are insert-only like module bundles.
 func consoleGrants() []grant {
 	var out []grant
-	out = append(out, grant{table: "schema_baseline", privilege: "SELECT"})
+	out = append(out, grant{table: "schema_baseline", privilege: "SELECT"}, grant{table: "schema_upgrade_history", privilege: "SELECT"})
 	for _, table := range productTables {
 		for _, privilege := range []string{"SELECT", "INSERT", "UPDATE", "DELETE"} {
 			out = append(out, grant{table: table, privilege: privilege})
@@ -103,6 +103,7 @@ func consoleGrants() []grant {
 func stateGrants() []grant {
 	return []grant{
 		{table: "schema_baseline", privilege: "SELECT"},
+		{table: "schema_upgrade_history", privilege: "SELECT"},
 		{table: "applications", privilege: "SELECT", columns: []string{"id", "organization_id"}},
 		{table: "environments", privilege: "SELECT", columns: []string{"id", "application_id", "active_operation_id", "generation_high"}},
 		{table: "active_resources", privilege: "SELECT", columns: []string{"id", "organization_id"}},

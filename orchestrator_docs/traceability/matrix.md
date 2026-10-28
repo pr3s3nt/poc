@@ -9,6 +9,10 @@ last_reviewed: 2026-10-28
 
 Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, class/method, persistence/state và planned test. `OC-nn` tham chiếu `architecture/contracts/operation-contracts.md`.
 
+## Issue #23 — PostgreSQL upgrades
+
+ADR-027 source recognition, preservation, serialization, rollback, version/history validation and runtime isolation map to `postgres/upgrade.go`, `baseline.go`, `grants.go` and `upgrade_integration_test.go`. Active/frozen schema structural equivalence is enforced by `TestActiveBaselineMatchesFrozenVersion`; immutable release artifacts/version additions by `scripts/check_migrations.py` in Product CI. The deployment wrapper stops writers, backs up and gates startup on owner setup success.
+
 ## F3/F4/F5 regressions
 
 | Requirement | Implementation | Regression coverage |

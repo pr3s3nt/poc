@@ -1,8 +1,4 @@
--- Current complete PostgreSQL baseline (T28). Applied only to an empty schema
--- by the owner setup inside one transaction; there is no upgrade path from any
--- earlier layout. Runtime logins only validate it (option A, ADR-014).
--- The marker records digests of this baseline and of the created catalog, the
--- installation ID shared by the Console and State connections and the schema.
+-- Current schema; owner setup initializes or upgrades per ADR-027.
 CREATE TABLE schema_baseline (
   singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
   baseline text NOT NULL,
@@ -595,3 +591,10 @@ BEGIN
 END $$;
 CREATE TRIGGER account_diagnostic_reports_guard BEFORE UPDATE ON account_diagnostic_reports
   FOR EACH ROW EXECUTE FUNCTION account_diagnostic_report_guard();
+
+CREATE TABLE schema_upgrade_history (
+  version bigint PRIMARY KEY,
+  migration_sha256 text NOT NULL CHECK (migration_sha256 ~ '^[0-9a-f]{64}$'),
+  source_sha256 text NOT NULL CHECK (source_sha256 ~ '^[0-9a-f]{64}$'),
+  applied_at timestamptz NOT NULL DEFAULT now()
+);

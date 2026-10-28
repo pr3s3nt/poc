@@ -7,6 +7,10 @@ last_reviewed: 2026-10-28
 
 # Design-to-code map
 
+## PostgreSQL versioned upgrades
+
+[ADR-027](../architecture/decisions/ADR-027-postgres-upgrades.md): `backend/internal/adapters/postgres/upgrade.go`, frozen `migrations/` SQL, owner `Setup` and runtime marker/history validation. Tests: `upgrade_integration_test.go`; guard: `scripts/check_migrations.py`; Compose orchestration: `deploy/local/upgrade-database.sh`. Procedure: [runbook](../operations/postgres-upgrades.md).
+
 ## Generic Terraform resource completion — UC-08 BR-10
 
 - Completion after successful execution/state/output validation:

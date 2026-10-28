@@ -34,8 +34,8 @@ func TestResetRequiredErrorIsSafe(t *testing.T) {
 			t.Errorf("error leaks %q: %s", leak, text)
 		}
 	}
-	if !strings.Contains(text, "reset the development database") {
-		t.Errorf("no reset guidance: %s", text)
+	if !strings.Contains(text, "preserve the database") {
+		t.Errorf("no preservation guidance: %s", text)
 	}
 }
 

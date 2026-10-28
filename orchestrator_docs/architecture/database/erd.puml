@@ -14,9 +14,21 @@ entity schema_baseline {
   created_at : timestamptz
 }
 note right of schema_baseline
-  Technical baseline identity; no migration ledger.
-  Owner setup on empty schema only.
+  Version reference and installation identity.
+  Owner setup initializes or upgrades supported sources.
   Runtime validation without DDL; separate Console/State logins.
+end note
+
+entity schema_upgrade_history {
+  * version : bigint <<PK>>
+  --
+  migration_sha256 : text
+  source_sha256 : text
+  applied_at : timestamptz
+}
+note right of schema_upgrade_history
+  Owner writes in upgrade transaction.
+  Console/State SELECT only.
 end note
 
 entity organizations {
