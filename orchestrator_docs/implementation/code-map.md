@@ -779,3 +779,15 @@ copy in `labels.ts`; a new external source also needs spec/schema first.
   and Rendering Templates; existing typed inputs/Create/CAS persist prepared pins.
 - [Browser scenario](../../e2e/scenarios/zip-source-upload/README.md) exercises
   both upload forms and rendering-template save/reopen with real inspection/cache.
+
+
+## Delivery reconciliation foundation — ADR-027
+
+- Domain selection/capabilities/revision observations and mutation-state guards:
+  [delivery domain](../../backend/internal/domain/delivery/delivery.go),
+  [mutation lifecycle](../../backend/internal/domain/delivery/intent.go).
+- Provider/ownership contracts and explicit registry:
+  [delivery port](../../backend/internal/ports/delivery/delivery.go),
+  [registry](../../backend/internal/ports/delivery/registry.go).
+- These packages are not wired into runtime. Persistence, controller integration
+  and acceptance gates remain in the [implementation plan](delivery-reconciliation.md).

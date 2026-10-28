@@ -11,7 +11,8 @@ last_reviewed: 2026-10-28
 
 [ADR-027](../architecture/decisions/ADR-027-delivery-reconciliation.md) is the
 required successor design; [plan](delivery-reconciliation.md) maps delivery gates.
-Current `WorkloadDeployer` has Apply/WaitReady/Remove only. The Fleet adapter
+The initial delivery domain/ports/registry are implemented with focused tests,
+but are not wired into runtime. Current `WorkloadDeployer` has Apply/WaitReady/Remove only. The Fleet adapter
 rejects every target, assumes a single Deployment/host context and keeps revisions
 in memory; bootstrap delivery selection is global. No new Environment selection,
 durable delivery/outbox, ownership handoff, continuous drift observer, Terraform

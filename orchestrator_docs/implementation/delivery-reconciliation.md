@@ -8,6 +8,16 @@ related: [ADR-027, UC-01, UC-04, UC-05, UC-06, UC-07, UC-08, UC-09, UC-18]
 
 # Delivery reconciliation — implementation handoff
 
+## Implementation progress — 2026-10-28
+
+Design commit `d9297ed` is pushed. R01 has started: `domain/delivery` implements
+DIRECT/CD selection validation, capability requirements, scoped revisions,
+sync/health/drift/freshness gates, transfer detection and a mutation state machine
+that refuses unknown-outcome replay. `ports/delivery` defines provider/ownership
+contracts, scoped intent validation and a registry without provider fallback.
+Focused race tests and product build pass. These are unwired foundation packages;
+R01 storage and R02–R08 remain. No new live E2E result or merge is claimed.
+
 **Design complete is not runtime delivery.** This plan implements the user's
 Environment opt-in decision: DIRECT by default, optional Fleet now, future CD
 adapters through common ports. No product code or external deployment is supplied
