@@ -9,6 +9,14 @@ last_reviewed: 2026-10-28
 
 Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, class/method, persistence/state và planned test. `OC-nn` tham chiếu `architecture/contracts/operation-contracts.md`.
 
+## MCP agent integration — ADR-028
+
+| Requirement | Implementation | Regression coverage |
+|---|---|---|
+| Existing UC-01/05/06/09/16/18 API authorization and operation semantics | `mcpbridge` maps 15 tools to `/api/v1/`; session cookie stays in the process | `server_test.go` uses the real MCP HTTP client; full backend API tests |
+| Mutation dry-run and environment allowlist | `confirm` gate, parse/deletion preview, allowlist before API calls | Dry-run create/save makes no mutation; disallowed deploy makes no API request |
+| Session recovery, single-use deletion token and safe audit | One 401 re-sign-in/retry; preview token extraction; metadata-only JSONL | Refresh/retry, confirmed deletion and secret/token non-disclosure tests |
+
 ## Issue #23 — PostgreSQL upgrades
 
 ADR-027 source recognition, preservation, serialization, rollback, version/history validation and runtime isolation map to `postgres/upgrade.go`, `baseline.go`, `grants.go` and `upgrade_integration_test.go`. Active/frozen schema structural equivalence is enforced by `TestActiveBaselineMatchesFrozenVersion`; immutable release artifacts/version additions by `scripts/check_migrations.py` in Product CI. The deployment wrapper stops writers, backs up and gates startup on owner setup success.

@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-28 | MCP streamable HTTP tools, dry-run/allowlist/session/audit safeguards and full backend suite; fake API only | [MCP integration](2026-10-28-mcp-integration.md) |
 | 2026-10-28 | Integrated Application deletion + direct workload form: real kind, UI-only business actions, jobs/cache/update/reuse, native absence and teardown, 15 assertions | [Integrated form/deletion](2026-10-28-application-deletion-form-integration.md) |
 | 2026-10-28 | UC-18 A02 Spot-capacity failure; original-state operator recovery and six native absence checks, local teardown verified | [AWS attempt and cleanup](2026-10-28-application-deletion-aws-cleanup.md) |
 | 2026-10-27 | UC-18 Developer Application deletion on real kind: full app, then deletion through the Console, 46/46 and verified teardown | [Application deletion on kind](2026-10-27-application-deletion-kind.md) |

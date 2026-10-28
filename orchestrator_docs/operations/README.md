@@ -11,6 +11,10 @@ Trước khi thêm runner E2E/setup mới, dùng [quy ước thư mục E2E](../
 Scripts nằm dưới `e2e/`; procedure vẫn ở index này và evidence ở `verification/`.
 Các runner hiện có giữ đường dẫn cho tới migration/refactor liên quan.
 
+[Claude Code through MCP](mcp.md) configures the separate API-only MCP process,
+its mutation gates/audit and the Preview → confirmed Deploy workflow. It does
+not authorize cluster/cloud execution by itself.
+
 [Generic Terraform resource completion on kind](terraform-completion-kind.md)
 verifies UC-08 BR-10 with real Git modules and the full application, including
 shared/private resources, valid updates and product cleanup.

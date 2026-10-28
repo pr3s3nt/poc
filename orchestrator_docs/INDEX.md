@@ -152,3 +152,8 @@ ZIP module/render sources: [ADR-026](architecture/decisions/ADR-026-zip-source-u
 ZIP upload usage: [runbook](operations/zip-source-upload.md).
 
 PostgreSQL versioned upgrades: [runbook](operations/postgres-upgrades.md).
+
+MCP agent integration: [ADR-028](architecture/decisions/ADR-028-mcp-integration.md),
+[MCP tool contract](architecture/contracts/mcp.md) and
+[Claude Code runbook](operations/mcp.md); `backend/cmd/mcp-server` on
+`features/mcp`.

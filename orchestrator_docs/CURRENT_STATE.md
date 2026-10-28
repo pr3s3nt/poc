@@ -7,6 +7,19 @@ last_reviewed: 2026-10-28
 
 # Current project state
 
+## MCP agent integration — 2026-10-28
+
+[ADR-028](architecture/decisions/ADR-028-mcp-integration.md) is implemented on
+`features/mcp`: a separate Go MCP streamable HTTP process exposes 10 read and
+five mutation tools through the existing authenticated `/api/v1/` API. It has
+no database, cluster or cloud credentials. Mutations require `confirm: true`;
+save/delete previews stay read-only, an optional environment allowlist applies,
+and JSONL audit excludes Score bodies, credentials and tokens. See the
+[tool contract](architecture/contracts/mcp.md) and [Claude Code runbook](operations/mcp.md).
+Five tests exercise real MCP HTTP traffic against a fake API; the full backend
+test/build suite passes. No live orchestrator, Kubernetes or AWS deployment was
+run for this integration. No Web Console UI changed.
+
 ## PostgreSQL upgrades — issue #23
 
 Owner setup now upgrades the exact `1516dec` staging and `2a111db` preview baselines to schema version 1 without reset. Installation identities and retained rows are preserved; runtime remains read-only for schema/history. This supersedes older PostgreSQL no-migration statements below. See [ADR-027](architecture/decisions/ADR-027-postgres-upgrades.md) and [upgrade runbook](operations/postgres-upgrades.md). Other historical baselines and JSON conversion are unsupported. Verification: [issue #23](verification/2026-10-28-postgres-upgrades.md). Retained installations have only been inspected read-only, not upgraded by this task.

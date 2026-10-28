@@ -2,7 +2,7 @@
 id: ARCHITECTURE-INDEX
 artifact: architecture-index
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # Shared Architecture Baseline
@@ -17,6 +17,8 @@ Shared design này hợp nhất UC-00 đến UC-09 sau realization.
 - [Database schema](database/schema.md) và [ERD](database/erd.puml)
 - [Connection credentials and execution identity](connection-credentials.md)
 - [Operation contracts](contracts/operation-contracts.md)
+- [MCP tool contract](contracts/mcp.md) — agent-facing MCP tool catalog and
+  gating (ADR-028); tools map one-to-one onto `/api/v1/` operations.
 - [Workload rendering contract](contracts/workload-rendering.md) — Definition-selected
   score-k8s rendering for internal-k8s.
 - [Shared Web Console UI](ui/README.md)

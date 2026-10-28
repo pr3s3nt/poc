@@ -7,6 +7,22 @@ last_reviewed: 2026-10-28
 
 # Design-to-code map
 
+## MCP agent integration — ADR-028
+
+- Process/configuration: [`backend/cmd/mcp-server`](../../backend/cmd/mcp-server/);
+  streamable HTTP registration and tool dispatch:
+  [`internal/mcpbridge/server.go`](../../backend/internal/mcpbridge/server.go).
+- Authenticated API session, one 401 refresh/retry and safe public errors:
+  [`client.go`](../../backend/internal/mcpbridge/client.go). Tool/API mappings:
+  [`tools_read.go`](../../backend/internal/mcpbridge/tools_read.go) and
+  [`tools_write.go`](../../backend/internal/mcpbridge/tools_write.go).
+- Redacted JSONL audit: [`audit.go`](../../backend/internal/mcpbridge/audit.go).
+  Real MCP-client/fake-API tests:
+  [`server_test.go`](../../backend/internal/mcpbridge/server_test.go).
+- Sources: [ADR-028](../architecture/decisions/ADR-028-mcp-integration.md),
+  [tool contract](../architecture/contracts/mcp.md),
+  [operator runbook](../operations/mcp.md).
+
 ## PostgreSQL versioned upgrades
 
 [ADR-027](../architecture/decisions/ADR-027-postgres-upgrades.md): `backend/internal/adapters/postgres/upgrade.go`, frozen `migrations/` SQL, owner `Setup` and runtime marker/history validation. Tests: `upgrade_integration_test.go`; guard: `scripts/check_migrations.py`; Compose orchestration: `deploy/local/upgrade-database.sh`. Procedure: [runbook](../operations/postgres-upgrades.md).

@@ -57,3 +57,5 @@ last_reviewed: 2026-10-28
 ZIP source upload: [ADR-026](ADR-026-zip-source-upload.md).
 
 - [ADR-027 — PostgreSQL upgrades preserving data](ADR-027-postgres-upgrades.md) — supersedes PostgreSQL fresh-only/reset policy.
+
+- [ADR-028 — MCP adapter for agent-driven deployment operations](ADR-028-mcp-integration.md) — separate Go process, API-first tool catalog, gated mutations; [MCP tool contract](../contracts/mcp.md).
