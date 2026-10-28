@@ -235,3 +235,22 @@ func (s *Service) verifyRenderAssociation(ctx context.Context, organizationKey s
 	}
 	return nil
 }
+
+// UploadRenderBundle validates uploaded content for this Organization.
+func (s *Service) UploadRenderBundle(ctx context.Context, org string, req renderregistry.ZIPInspection) (RenderBundleView, error) {
+	inspector, ok := s.renderRegistry.(renderregistry.ZIPInspector)
+	if !ok {
+		return RenderBundleView{}, renderError("", renderregistry.ErrBundleUnavailable)
+	}
+	if _, err := s.store.GetOrganization(ctx, org); err != nil {
+		return RenderBundleView{}, err
+	}
+	record, err := inspector.InspectZIP(ctx, org, req)
+	if err != nil {
+		if isRenderClass(err) {
+			return RenderBundleView{}, renderError("", err)
+		}
+		return RenderBundleView{}, err
+	}
+	return s.gitView(ctx, record), nil
+}

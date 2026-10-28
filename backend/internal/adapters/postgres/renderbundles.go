@@ -17,7 +17,7 @@ import (
 // Organization scoped and insert-only; the baseline trigger refuses UPDATE and
 // DELETE and the pin constraint admits one record per Organization pin.
 
-const renderBundleColumns = `b.id::text,o.organization_key,b.source_url,b.source_path,b.source_revision,b.content_sha256,b.engine_contract,b.renderer_version,b.renderer_binary_sha256,b.contract,b.created_at`
+const renderBundleColumns = `b.id::text,o.organization_key,b.source_kind,b.source_url,b.source_path,b.source_revision,b.content_sha256,b.engine_contract,b.renderer_version,b.renderer_binary_sha256,b.contract,b.created_at`
 
 // InsertRenderBundle implements persistence.RenderBundleRepository.
 func (s *Store) InsertRenderBundle(ctx context.Context, b renderbundle.Bundle) (renderbundle.Bundle, error) {
@@ -34,11 +34,11 @@ func (s *Store) InsertRenderBundle(ctx context.Context, b renderbundle.Bundle) (
 	}
 	var stored renderbundle.Bundle
 	err = s.Transact(ctx, func(ctx context.Context) error {
-		tag, err := s.q(ctx).Exec(ctx, `INSERT INTO render_bundles(id,organization_id,source_url,source_path,source_revision,content_sha256,engine_contract,renderer_version,renderer_binary_sha256,contract,created_at)
-SELECT $1::uuid,o.id,$3,$4,$5,$6,$7,$8,$9,$10,$11 FROM organizations o WHERE o.organization_key=$2
+		tag, err := s.q(ctx).Exec(ctx, `INSERT INTO render_bundles(id,organization_id,source_url,source_path,source_revision,content_sha256,engine_contract,renderer_version,renderer_binary_sha256,contract,created_at,source_kind)
+SELECT $1::uuid,o.id,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12 FROM organizations o WHERE o.organization_key=$2
 ON CONFLICT (organization_id,source_url,source_path,source_revision,engine_contract) DO NOTHING`,
 			b.ID, b.OrganizationKey, b.Source.URL, b.Source.Path, b.Source.Revision, b.Source.ContentSHA256,
-			b.EngineContract, b.RendererVersion, b.RendererBinary, contract, created)
+			b.EngineContract, b.RendererVersion, b.RendererBinary, contract, created, b.Source.Kind)
 		if err != nil {
 			return fmt.Errorf("postgres: insert render bundle (%s)", sqlState(err))
 		}
@@ -96,8 +96,7 @@ WHERE o.organization_key=$1 ORDER BY b.created_at,b.id`, organizationKey)
 func scanRenderBundle(row pgx.Row) (renderbundle.Bundle, error) {
 	var b renderbundle.Bundle
 	var contract []byte
-	b.Source.Kind = renderbundle.SourceKindGit
-	if err := row.Scan(&b.ID, &b.OrganizationKey, &b.Source.URL, &b.Source.Path, &b.Source.Revision, &b.Source.ContentSHA256,
+	if err := row.Scan(&b.ID, &b.OrganizationKey, &b.Source.Kind, &b.Source.URL, &b.Source.Path, &b.Source.Revision, &b.Source.ContentSHA256,
 		&b.EngineContract, &b.RendererVersion, &b.RendererBinary, &contract, &b.CreatedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return renderbundle.Bundle{}, err

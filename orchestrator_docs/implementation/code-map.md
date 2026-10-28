@@ -767,3 +767,15 @@ copy in `labels.ts`; a new external source also needs spec/schema first.
 - Real UI form acceptance and optional video recording use
   [`e2e/scenarios/workload-env-form`](../../e2e/scenarios/workload-env-form/README.md)
   and the shared `signInContext` helper; no Score import in this scenario.
+
+## ZIP module and render-bundle sources — ADR-026
+
+- `backend/internal/platform/sourcezip/`: bounded, non-extracting archive reader.
+- Registry `zip_inspect.go` adapters reuse HCL/renderer inspection and verified
+  caches; Terraform ZIPSnapshot retains same-archive local module paths.
+- HTTP `source_upload.go` and catalog upload methods: PE/Admin multipart upload,
+  scoped metadata response and immutable pins. PostgreSQL stores render source_kind.
+- Console `ZIPSource.tsx`: shared upload/inspect controls in Resource Definitions
+  and Rendering Templates; existing typed inputs/Create/CAS persist prepared pins.
+- [Browser scenario](../../e2e/scenarios/zip-source-upload/README.md) exercises
+  both upload forms and rendering-template save/reopen with real inspection/cache.

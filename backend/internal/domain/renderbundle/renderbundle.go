@@ -25,6 +25,7 @@ const (
 	RendererType    = "score-k8s"
 	RendererVersion = "0.15.0"
 	SourceKindGit   = "git"
+	SourceKindZIP   = "zip"
 	ManifestFile    = "bundle.yaml"
 )
 
@@ -213,8 +214,10 @@ func (b Bundle) Validate() error {
 	switch {
 	case !ValidID(b.ID), b.OrganizationKey == "":
 		return invalid("", "record identity is incomplete")
-	case b.Source.Kind != SourceKindGit || b.Source.URL == "" || !ValidDirectory(b.Source.Path):
+	case (b.Source.Kind != SourceKindGit && b.Source.Kind != SourceKindZIP) || b.Source.URL == "" || !ValidDirectory(b.Source.Path):
 		return invalid("", "record source is incomplete")
+	case b.Source.Kind == SourceKindZIP && (!digestPattern.MatchString(b.Source.Revision) || b.Source.URL != "zip:sha256:"+b.Source.Revision):
+		return invalid("", "ZIP source identity is invalid")
 	case !commitPattern.MatchString(b.Source.Revision) || !digestPattern.MatchString(b.Source.ContentSHA256):
 		return invalid("", "record pin is incomplete")
 	case b.EngineContract != EngineContract || b.RendererVersion != RendererVersion || !digestPattern.MatchString(b.RendererBinary):

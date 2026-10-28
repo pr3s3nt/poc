@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # Database Schema
@@ -927,9 +927,10 @@ Implemented 2026-10-24 in the fresh baseline (`render_bundles`):
 |---|---|
 | `id` | UUID primary key, server-issued |
 | `organization_id` | UUID NOT NULL FK organizations; every read/write scoped |
-| `source_url` | text NOT NULL, credential-free canonical HTTPS origin |
+| `source_kind` | text NOT NULL DEFAULT `git`, restricted to `git`/`zip` (ADR-026) |
+| `source_url` | text NOT NULL, credential-free HTTPS origin or `zip:sha256:<archive-tree digest>` (ADR-026) |
 | `source_path` | text NOT NULL, normalized clean directory or `.` |
-| `source_revision` | text NOT NULL, full 40/64 lowercase hex commit |
+| `source_revision` | text NOT NULL, full Git commit or 64 lowercase hex archive-tree digest |
 | `content_sha256` | text NOT NULL, 64 lowercase hex digest |
 | `engine_contract` | text NOT NULL, `git-render-v1` |
 | `renderer_version` | text NOT NULL, `0.15.0` |
@@ -1049,3 +1050,15 @@ compare-and-set on `version`. The row and every dependent history row
 terminal states, cleanup operations) are retained; nothing cascades. The
 product list omits DELETED rows. Fresh-baseline policy applies: a retained
 database created from the previous baseline fails startup and is not migrated.
+
+## ZIP source persistence — ADR-026
+
+`render_bundles.source_kind` is text NOT NULL DEFAULT 'git', restricted to
+`git`/`zip`. `source_url` is a safe HTTPS origin for Git or exactly
+`zip:sha256:<64 lowercase hex>` for ZIP, whose suffix equals source_revision.
+The existing unique immutable pin key remains sufficient: locator namespaces
+are disjoint. source_revision is Git commit or full archive-tree SHA-256.
+Module bundles keep ZIP source kind and sourceOrganizationKey (the uploader
+session Organization) in their immutable JSON contract and full
+archive revision in their existing pin columns; no additional table is needed.
+Only fresh baseline setup changes; retained installations are never reset here.

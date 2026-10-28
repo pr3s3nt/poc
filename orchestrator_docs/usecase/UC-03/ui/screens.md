@@ -2,7 +2,7 @@
 id: UC-03-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 related: UC-03
 ---
 
@@ -275,3 +275,12 @@ Definitions → Create in Chromium, localhost:13003. Keep source controls compac
 move repeated explanations and full pins to help/details. Future handoff must
 record visual comparison at 1512px/1280px; no new product screenshot was made in
 this documentation-only design task.
+
+## ZIP source selection — ADR-026
+
+Both source selectors add “Tải ZIP” / “Upload ZIP” alongside Git and verified
+sources. Reuse current cards, buttons, input and error/status styles. Show file
+picker (.zip), directory, and one “Tải lên và kiểm tra” action. ZIP help discloses
+root/path semantics and limits; no Git ref field. Verified results use the current
+metadata/input editors; technical details distinguish ZIP digest from Git commit.
+Git remains default. Never send a ZIP source through Git re-inspection.

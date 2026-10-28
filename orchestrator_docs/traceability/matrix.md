@@ -1230,3 +1230,11 @@ followed by UI health and recorded Redis write-through checks before cleanup.
 | UC-16 BR-17/18/22/23/25 | Existing projection/provenance and invalid-source guards | bindings + editor, import/resource-change/lifecycle tests; real [form acceptance](../../e2e/scenarios/workload-env-form/README.md) |
 
 ENV-UX runtime/locale validation and video: [2026-10-27 real kind/UI evidence](../verification/2026-10-27-workload-env-form.md).
+
+## UC-03 ZIP source upload — ADR-026
+
+| Requirement | Operation / collaboration | Persistence and coverage |
+|---|---|---|
+| ZIP-01/02 | `UploadTerraformModule`, `UploadRenderBundle`; UC-03 sequence/VOPC; bounded multipart → shared ZIP reader → existing inspectors | `sourcezip/zip_test.go`; HTTP `source_upload_test.go` uses real inspectors, checks RBAC, scope, strict multipart, slow-upload deadline, Organization-scoped module discovery/registration and no Definition side effects |
+| ZIP-03 | ZIP archive-tree revision + selected-directory digest; cache before immutable insertion; metadata-only downstream reuse | registry `zip_inspect_test.go`: local children, trusted identity, repeat/restart/update, executable artifact verification and tamper; render ZIP test: scope, restart, update and cache repair; PostgreSQL `TestZIPSourceKindsSurvivePostgresReopen` |
+| ZIP-04 | `ZIPSource` on both existing authoring forms; unchanged Create/CAS and typed input editors | `ZIPSource.test.tsx`, ZIP cases in `GitModuleSource.test.tsx` / `GitRenderBundle.test.tsx`; [browser runner](../../e2e/scenarios/zip-source-upload/README.md) |

@@ -1,3 +1,4 @@
+import { ZIPSource } from './ZIPSource';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { specificGuidance } from '../../shared/api/errors';
 import { parseRenderBundle, parseRenderBundles, type RenderBundle } from './metadata';
@@ -21,7 +22,7 @@ type APIApplication = { key: string; name?: string; environments?: ApiEnvironmen
 type Definition = { key: string; name?: string; version?: number; resourceType: string; driverType: string; driverInputs?: { values?: { variables?: Record<string, unknown> } }; provision?: Record<string, unknown>; criteria?: Partial<Criterion>[] };
 type Editing = { key: string; version: number };
 // New drafts default to Git (UC-03 RB-01); verified covers installed and previously verified Git bundles.
-type SourceMode = 'git' | 'verified';
+type SourceMode = 'git' | 'zip' | 'verified';
 
 const idShape = /^[a-z0-9-]+$/;
 const uuidShape = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -53,7 +54,7 @@ const bundleOf = (definition: Definition) => {
   return typeof bundle === 'string' && bundle !== '' ? bundle : '';
 };
 const shortCommit = (bundle: RenderBundle) => bundle.source?.revision.slice(0, 12) ?? bundle.version;
-const bundleLabel = (bundle: RenderBundle) => bundle.source ? t('platform.renderingTemplates.gitBundleLabel', { name: bundle.name ?? '', version: shortCommit(bundle) }) : t('platform.renderingTemplates.idVersionVersion', { id: bundle.id, version: bundle.version });
+const bundleLabel = (bundle: RenderBundle) => bundle.source ? t('platform.renderingTemplates.gitBundleLabel', { name: `${bundle.source.kind === 'zip' ? 'ZIP · ' : ''}${bundle.name ?? ''}`, version: shortCommit(bundle) }) : t('platform.renderingTemplates.idVersionVersion', { id: bundle.id, version: bundle.version });
 
 export function RenderingTemplatesPage() {
   const definitionList = useCatalogList(loadDefinitions, listFailure);
@@ -99,16 +100,16 @@ export function RenderingTemplatesPage() {
   const detailRequest = useRef(0);
 
   const verifiedItems = bundleList.items;
-  const selectedId = sourceMode === 'git' ? inspected?.id ?? '' : bundle;
+  const selectedId = sourceMode !== 'verified' ? inspected?.id ?? '' : bundle;
   const savedBundle = verifiedItems.find((item) => item.id === bundle) ?? (savedDetail?.id === bundle ? savedDetail : undefined);
-  const selected: RenderBundle | undefined = sourceMode === 'git' ? inspected ?? undefined : savedBundle;
+  const selected: RenderBundle | undefined = sourceMode !== 'verified' ? inspected ?? undefined : savedBundle;
   const git = selected?.source !== undefined;
 
   // A user may switch to Git before either catalog or detail has arrived.
   // Resolve the saved source independently of the active mode; source edits,
   // cancellation and a different template invalidate this initialization.
   useEffect(() => {
-    if (sourceMode !== 'git' || gitSourceToLoad !== bundle || !savedBundle?.source) return;
+    if (sourceMode !== 'git' || gitSourceToLoad !== bundle || !savedBundle?.source || savedBundle.source.kind !== 'git') return;
     const source = savedBundle.source;
     setGitSourceToLoad('');
     setGitDraft((draft) => ({ ...draft, url: source.url, path: source.path === '.' ? '' : source.path }));
@@ -178,7 +179,8 @@ export function RenderingTemplatesPage() {
     setBundleError('');
     // The ref stays an explicit user edit; late metadata supplies only URL/path.
     setGitSourceToLoad(next === 'git' && !gitDraft.url && !gitDraft.path ? bundle : '');
-    if (next === 'verified' && inspected) setBundle(inspected.id);
+    if (next === 'verified' && inspected) { setBundle(inspected.id); setSavedDetail(inspected); }
+    setInspected(null);
     setSourceMode(next);
   }
 
@@ -218,7 +220,7 @@ export function RenderingTemplatesPage() {
   }
   // Re-inspection of an unavailable saved pin uses its exact full commit; a changed branch is a new version.
   async function repairSaved() {
-    if (!selected?.source) return;
+    if (!selected?.source || selected.source.kind !== 'git') return;
     setRepairing(true); setRepairError('');
     try {
       await api('/render-bundles/inspect', { method: 'POST', body: JSON.stringify({ url: selected.source.url, path: selected.source.path, ref: selected.source.revision }) });
@@ -257,7 +259,7 @@ export function RenderingTemplatesPage() {
     if (!idShape.test(key)) { setIdError(t('platform.renderingTemplates.theIDMayContainOnly')); return; }
     if (name.trim() === '') { setNameError(t('platform.renderingTemplates.enterTheDisplayNameOf')); return; }
     if ([...name].length > maxNameLength) { setNameError(t('platform.renderingTemplates.theNameCanHaveAt', { maxNameLength })); return; }
-    if (sourceMode === 'git' && !inspected) { setBundleError(t('platform.renderingTemplates.checkTheBundleBeforeSaving')); return; }
+    if (sourceMode !== 'verified' && !inspected) { setBundleError(t('platform.renderingTemplates.checkTheBundleBeforeSaving')); return; }
     if (sourceMode === 'verified') {
       if (listBlocked && !selected) { setBundleError(t('platform.renderingTemplates.noBundleListIsAvailable')); return; }
       if (bundle === '') { setBundleError(t('platform.renderingTemplates.chooseARenderingBundle')); return; }
@@ -284,7 +286,7 @@ export function RenderingTemplatesPage() {
         return;
       }
       setEditing({ key: saved.key, version: saved.version ?? editing.version + 1 });
-      if (sourceMode === 'git' && inspected) { setSourceMode('verified'); setBundle(inspected.id); setSavedDetail(inspected); }
+      if (sourceMode !== 'verified' && inspected) { setSourceMode('verified'); setBundle(inspected.id); setSavedDetail(inspected); }
       setNotice(t('platform.renderingTemplates.savedRenderingTemplateKeyVersion', { key: saved.key, value: saved.version ?? editing.version + 1 }));
       setSaving(false);
       await Promise.all([definitionList.reload(), bundleList.reload()]);
@@ -320,12 +322,12 @@ export function RenderingTemplatesPage() {
     return `${bundleLabel(known)}${known.status === 'AVAILABLE' ? '' : ` (${t('platform.renderingTemplates.unavailableStatus')})`}`;
   };
   const technical = (item: RenderBundle) => item.source ? <details><summary>{t('platform.renderingTemplates.technicalDetails')}</summary><dl className="pin-panel" aria-label={t('platform.renderingTemplates.bundlePin')}>
-    <div><dt>Git URL</dt><dd><code>{item.source.url}</code></dd></div><div><dt>{t('platform.renderingTemplates.bundleDirectory')}</dt><dd><code>{item.source.path}</code></dd></div>
-    <div><dt>Commit</dt><dd><code>{item.source.revision}</code></dd></div><div><dt>Content SHA-256</dt><dd><code>{item.source.contentSha256}</code></dd></div>
+    <div><dt>{t('platform.zipSource.origin')}</dt><dd><code>{item.source.url}</code></dd></div><div><dt>{t('platform.renderingTemplates.bundleDirectory')}</dt><dd><code>{item.source.path}</code></dd></div>
+    <div><dt>{item.source.kind === 'zip' ? t('platform.zipSource.archiveDigest') : 'Commit'}</dt><dd><code>{item.source.revision}</code></dd></div><div><dt>Content SHA-256</dt><dd><code>{item.source.contentSha256}</code></dd></div>
     <div><dt>Engine</dt><dd><code>{item.engineContract}</code> · <code>{item.renderer?.type} {item.renderer?.version}</code></dd></div></dl></details> : null;
 
   const listError = definitionList.loadError;
-  const saveBlocked = saving || review !== null || (sourceMode === 'git' ? !inspected : (listBlocked && !selected) || selectedMissing || unavailable) || inputsInvalid;
+  const saveBlocked = saving || review !== null || (sourceMode !== 'verified' ? !inspected : (listBlocked && !selected) || selectedMissing || unavailable) || inputsInvalid;
   return <section className="page"><header className="page-header"><div><p className="eyebrow">{t('platform.renderingTemplates.platform')}</p><h1>{t('platform.renderingTemplates.renderingTemplates')}</h1><p>{t('platform.renderingTemplates.everyWorkloadNeedsExactlyOne')}</p></div></header>
     <section className="content-panel" aria-label={t('platform.renderingTemplates.registeredRenderingTemplates')}><div className="section-header"><h2>{t('platform.renderingTemplates.registeredTemplates')}</h2></div>{listError ? <div className="form-error" role="alert" aria-label={t('platform.renderingTemplates.listLoadError')}>{listError} <Button type="button" onClick={() => { void definitionList.reload(); }}>{t('platform.renderingTemplates.retry')}</Button></div> : definitionList.loading && definitionList.items.length === 0 ? <p role="status">{t('platform.renderingTemplates.loadingRenderingTemplates')}</p> : templates.length === 0 ? <p>{t('platform.renderingTemplates.noRenderingTemplatesYet')}</p> : <div className="catalog-list">{templates.map((template) => <div key={template.key} className="catalog-entry" data-definition={template.key}><strong>{template.name || template.key}</strong><span>ID <code>{template.key}</code> · Bundle: {templateBundle(template)} {' '}{t('platform.renderingTemplates.version')}{' '} {template.version ?? '?'} · {template.criteria?.length ?? 0} {' '}{t('platform.renderingTemplates.matchingCriteria')}</span><Button type="button" aria-label={t('platform.renderingTemplates.editTemplateKey', { key: template.key })} disabled={saving} onClick={() => startEdit(template)}>{t('platform.renderingTemplates.edit')}</Button></div>)}</div>}</section>
     <section className="content-panel"><div className="section-header"><div><h2>{editing ? t('platform.renderingTemplates.editRenderingTemplateKey', { key: editing.key }) : t('platform.renderingTemplates.registerRenderingTemplate')}</h2><p>{t('platform.renderingTemplates.theResourceTypeAndDriver')}</p></div>{editing ? <Button type="button" onClick={resetForm} disabled={saving}>{t('platform.renderingTemplates.cancelEditing')}</Button> : null}</div>
@@ -339,8 +341,16 @@ export function RenderingTemplatesPage() {
         {nameError ? <div className="form-error" role="alert">{nameError}</div> : null}
         <section className="catalog-fields" aria-label={t('platform.renderingTemplates.bundleSection')}>
           <div className="definition-card-title"><h4>{t('platform.renderingTemplates.renderingBundle')}</h4>{selected?.source && selected.status === 'AVAILABLE' ? <span className="definition-verified">{t('platform.renderingTemplates.verified')}</span> : null}</div>
-          <div className="definition-segmented" role="group" aria-label={t('platform.renderingTemplates.bundleSource')}><Button type="button" aria-pressed={sourceMode === 'git'} onClick={() => chooseSource('git')}>{t('platform.renderingTemplates.addFromGit')}</Button><Button type="button" aria-pressed={sourceMode === 'verified'} onClick={() => chooseSource('verified')}>{t('platform.renderingTemplates.verifiedBundles')}</Button></div>
-          {sourceMode === 'git' ? <>
+          <div className="definition-segmented" role="group" aria-label={t('platform.renderingTemplates.bundleSource')}><Button type="button" aria-pressed={sourceMode === 'git'} onClick={() => chooseSource('git')}>{t('platform.renderingTemplates.addFromGit')}</Button><Button type="button" aria-pressed={sourceMode === 'zip'} onClick={() => chooseSource('zip')}>{t('platform.zipSource.uploadZIP')}</Button><Button type="button" aria-pressed={sourceMode === 'verified'} onClick={() => chooseSource('verified')}>{t('platform.renderingTemplates.verifiedBundles')}</Button></div>
+          {sourceMode === 'zip' ? <>
+            <ZIPSource key={gitDraftVersion} endpoint="/render-bundles/upload" disabled={saving} parseResult={(response) => {
+              if (typeof response !== 'object' || response === null || !('renderBundle' in response)) throw new Error('invalid metadata');
+              const result = parseRenderBundle(response.renderBundle);
+              if (result.source?.kind !== 'zip') throw new Error('invalid metadata');
+              return result;
+            }} onResult={setInspected} />
+            {selected ? technical(selected) : null}
+          </> : sourceMode === 'git' ? <>
             <GitBundleSource key={gitDraftVersion} draft={gitDraft} onDraftChange={(draft) => {
               if (draft.url !== gitDraft.url || draft.path !== gitDraft.path) setGitSourceToLoad('');
               setGitDraft(draft);
@@ -358,7 +368,8 @@ export function RenderingTemplatesPage() {
             <details className="feature-note" id="template-bundle-hint"><summary>{t('platform.renderingTemplates.help')}</summary><p>{t('platform.renderingTemplates.chooseABundleInstalledOn')}</p></details>
             {bundleList.loadError ? <div className="form-error" role="alert" aria-label={t('platform.renderingTemplates.bundleLoadError')}>{bundleList.loadError} {' '}{t('platform.renderingTemplates.theEnteredDataIsKept')}{' '} <Button type="button" onClick={() => { void bundleList.reload(); }}>{t('platform.renderingTemplates.retryLoadingBundles')}</Button></div> : bundleList.loading ? <p role="status">{t('platform.renderingTemplates.loadingInstalledBundles')}</p> : verifiedItems.length === 0 ? <div className="form-warning" role="status" aria-label={t('platform.renderingTemplates.noBundles')}>{t('platform.renderingTemplates.noVerifiedBundleYet')}{' '} <Button type="button" onClick={() => { void bundleList.reload(); }}>{t('platform.renderingTemplates.refreshBundleList')}</Button></div> : <p><Button type="button" onClick={() => { void bundleList.reload(); }}>{t('platform.renderingTemplates.refreshBundleList')}</Button></p>}
             {bundleStale ? <div className="form-error" role="alert" aria-label={t('platform.renderingTemplates.bundleNoLongerAvailable')}>{t('platform.renderingTemplates.theSelectedBundleBundleIs', { bundle })}</div> : null}
-            {unavailable && selected?.source ? <div className="form-warning" role="alert" aria-label={t('platform.renderingTemplates.bundleUnavailable')}><p>{t('platform.renderingTemplates.theSavedBundleIsUnavailable')}</p><Button type="button" disabled={repairing} onClick={() => { void repairSaved(); }}>{repairing ? t('platform.gitBundleSource.checking') : t('platform.renderingTemplates.reinspect')}</Button>{repairError ? <p className="form-error">{repairError}</p> : null}</div> : null}
+            {unavailable && selected?.source?.kind === 'zip' ? <p role="alert" className="form-warning">{t('platform.zipSource.reupload')}</p> : null}
+            {unavailable && selected?.source?.kind === 'git' ? <div className="form-warning" role="alert" aria-label={t('platform.renderingTemplates.bundleUnavailable')}><p>{t('platform.renderingTemplates.theSavedBundleIsUnavailable')}</p><Button type="button" disabled={repairing} onClick={() => { void repairSaved(); }}>{repairing ? t('platform.gitBundleSource.checking') : t('platform.renderingTemplates.reinspect')}</Button>{repairError ? <p className="form-error">{repairError}</p> : null}</div> : null}
             {selected ? technical(selected) : null}
           </>}
           {bundleError ? <div id="template-bundle-error" className="form-error" role="alert">{bundleError}</div> : null}

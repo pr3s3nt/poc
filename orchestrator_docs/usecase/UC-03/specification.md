@@ -2,7 +2,7 @@
 id: UC-03-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-28
 ---
 
 # UC-03 — Register Resource Definition and Matching Criteria
@@ -499,3 +499,24 @@ ràng buộc Application mẫu. Resource references dùng `environments.@app.@en
 Script chỉ đọc metadata qua API; mutations qua UI. Kiểm tra account, Types,
 modules và bundle trước mutation; rerun giữ bản ghi khớp và dừng khi khác cấu
 hình, không update/delete catalog có sẵn. Không lưu password, trace hay video.
+
+## ZIP source upload — ADR-026
+
+- **ZIP-01:** PE/Admin can upload a ZIP containing Terraform modules or a render
+  bundle with the same directory/file contracts as Git. Select a relative path
+  from the archive root; no automatic flattening. Upload alone saves no Definition.
+- **ZIP-02:** Inspection validates bounded safe archive content, then reuses the
+  Terraform/provider or render-engine contract inspector. Reject unsafe/invalid
+  files without running archive code or mutating cloud/Kubernetes resources.
+- **ZIP-03:** ZIP metadata and registration are scoped to the uploading session
+  Organization, including Terraform capability discovery. Persist immutable source kind, full archive-tree digest revision,
+  directory and selected content digest. Repeat content inspection is idempotent;
+  restart, Preview, execution and cleanup use verified cached pins without upload
+  or Git fetch. Historical pins remain unchanged when newer ZIPs are uploaded.
+- **ZIP-04:** Console offers ZIP alongside Git and verified sources on both
+  authoring pages. File/path/Type/mode edits invalidate inspection; late replies
+  cannot replace the active draft. Create/CAS and typed inputs keep existing rules.
+  Saved ZIP sources display ZIP provenance and require explicit re-upload for
+  cache restoration. Errors keep the draft, never display raw file content.
+
+Limits, transport and identity follow [ADR-026](../../architecture/decisions/ADR-026-zip-source-upload.md).

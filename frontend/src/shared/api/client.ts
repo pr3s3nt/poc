@@ -29,7 +29,9 @@ export class ApiError extends Error {
 export const sessionExpiredEvent = 'orchestrator:session-expired';
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api/v1${path}`, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...init?.headers }, ...init });
+  const headers = new Headers(init?.headers);
+  if (!(init?.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  const response = await fetch(`/api/v1${path}`, { credentials: 'same-origin', ...init, headers });
   if (!response.ok) {
     const body = await response.json().catch(() => ({})) as { code?: unknown; field?: unknown; params?: unknown } | null;
     if (response.status === 401 && !path.startsWith('/auth/')) window.dispatchEvent(new Event(sessionExpiredEvent));

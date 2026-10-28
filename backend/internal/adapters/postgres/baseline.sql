@@ -259,7 +259,9 @@ CREATE UNIQUE INDEX effectiveness_baselines_scope_version ON effectiveness_basel
 CREATE TABLE render_bundles (
   id uuid PRIMARY KEY,
   organization_id uuid NOT NULL REFERENCES organizations(id),
-  source_url text NOT NULL CHECK (source_url ~ '^https://' AND length(source_url) <= 2048),
+  source_kind text NOT NULL DEFAULT 'git' CHECK (source_kind IN ('git','zip')),
+  source_url text NOT NULL CHECK (length(source_url) <= 2048),
+  CHECK ((source_kind='git' AND source_url ~ '^https://') OR (source_kind='zip' AND source_url='zip:sha256:' || source_revision AND source_revision ~ '^[0-9a-f]{64}$')),
   source_path text NOT NULL CHECK (source_path = '.' OR (source_path !~ '(^|/)\.\.?(/|$)' AND source_path !~ '^/' AND length(source_path) <= 512)),
   source_revision text NOT NULL CHECK (source_revision ~ '^([0-9a-f]{40}|[0-9a-f]{64})$'),
   content_sha256 text NOT NULL CHECK (content_sha256 ~ '^[0-9a-f]{64}$'),

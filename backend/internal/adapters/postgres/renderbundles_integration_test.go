@@ -91,3 +91,48 @@ func TestRenderBundlesAreScopedImmutableAndDurable(t *testing.T) {
 		t.Fatalf("get = %+v, %v", got, err)
 	}
 }
+
+func TestZIPSourceKindsSurvivePostgresReopen(t *testing.T) {
+	ctx := context.Background()
+	st, console := openFresh(t)
+	if err := st.SaveOrganization(ctx, application.Organization{ID: ids.New(), Key: "zip-org", Name: "ZIP"}); err != nil {
+		t.Fatal(err)
+	}
+	render := renderRecord("zip-org", strings.Repeat("a", 64))
+	render.Source.Kind = renderbundle.SourceKindZIP
+	render.Source.URL = "zip:sha256:" + render.Source.Revision
+	first, err := st.InsertRenderBundle(ctx, render)
+	if err != nil {
+		t.Fatal(err)
+	}
+	module := testBundle(strings.Repeat("d", 64))
+	module.Contract.SourceKind = "zip"
+	module.Contract.SourceOrganizationKey = "zip-org"
+	module.Ref.Revision = strings.Repeat("b", 64)
+	module.Ref.SourceID = "zip-" + module.Ref.Revision[:56]
+	savedModule, err := st.InsertModuleBundle(ctx, module)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+	reopened, err := Open(ctx, console)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	got, err := reopened.GetRenderBundle(ctx, "zip-org", first.ID)
+	if err != nil || got.Source.Kind != "zip" || !got.SameVerifiedContent(first) {
+		t.Fatalf("render source lost on restart: %v", err)
+	}
+	again, err := reopened.InsertRenderBundle(ctx, render)
+	if err != nil || again.ID != first.ID {
+		t.Fatalf("duplicate ZIP pin: %v", err)
+	}
+	loaded, err := reopened.GetModuleBundle(ctx, module.Ref)
+	if err != nil || loaded.Contract.SourceKind != "zip" || !loaded.SameVerifiedContent(savedModule) {
+		t.Fatalf("module source lost on restart: %v", err)
+	}
+	if _, err := reopened.GetRenderBundle(ctx, "other", first.ID); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("cross-org ZIP access: %v", err)
+	}
+}

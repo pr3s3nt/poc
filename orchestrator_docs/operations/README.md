@@ -2,7 +2,7 @@
 id: OPERATIONS-INDEX
 artifact: operations-index
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 ---
 
 # Operations index
@@ -65,3 +65,5 @@ ghi đè runbook hoặc evidence cũ.
 - [Git render-bundle real acceptance](git-render-bundles-acceptance.md) — required new isolated kind/Compose Playwright procedure; runner is an implementation deliverable, no fake-adapter acceptance.
 
 [Kubernetes staging catalog bootstrap](staging-catalog.md) — Types-only startup và Playwright đăng ký catalog sau Driver Account `k8s-4f`.
+
+ZIP source preparation: [module and render-bundle upload](zip-source-upload.md).

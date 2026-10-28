@@ -71,3 +71,35 @@ it('discards a late inspection after edits, preserves source text on errors and 
   view.rerender(<GitModuleSource {...props} active={false} />);
   expect(result).toHaveBeenLastCalledWith(null);
 });
+
+it('registers a ZIP module using the inspected pin and existing typed Definition form', async () => {
+  const user = userEvent.setup();
+  const { posted } = backend();
+  const original = globalThis.fetch;
+  const pin = capability();
+  pin.source = { ...pin.source, sourceId: `zip-${'a'.repeat(56)}`, revision: 'a'.repeat(64), repositoryUrl: '' };
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    if (String(input).endsWith('/terraform-modules/upload')) {
+      expect((init?.body as FormData).get('resourceType')).toBe('vpc');
+      return Response.json({ capability: { ...pin, source: { ...pin.source, repositoryUrl: undefined } } });
+    }
+    return original(input, init);
+  }));
+  renderDefinition(<ResourceDefinitionsPage />);
+  await screen.findByRole('option', { name: 'vpc' });
+  await user.type(field('ID cấu hình (Definition ID)'), 'zip-vpc');
+  await user.type(field('Tên hiển thị'), 'ZIP VPC');
+  await user.selectOptions(field('Loại tài nguyên'), 'vpc');
+  await user.click(screen.getByRole('button', { name: 'Tải ZIP' }));
+  await user.upload(field('Tệp ZIP'), new File(['zip'], 'vpc.zip'));
+  await user.click(screen.getByRole('button', { name: 'Tải lên và kiểm tra' }));
+  await screen.findByText('Đã xác minh ZIP.');
+  await user.selectOptions(field('Tài khoản hạ tầng'), 'aws-account');
+  await user.type(field('Vùng AWS'), 'us-east-1');
+  await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));
+  await provideSource(user, 'name', '${context.infra.resourceName}');
+  await submitDefinition(user);
+  await screen.findByText('Đã đăng ký cấu hình tài nguyên zip-vpc.');
+  expect(posted).toHaveLength(1);
+  expect(posted[0]).toMatchObject({ driverInputs: { values: { source: { source_id: pin.source.sourceId, revision: pin.source.revision, content_sha256: pin.source.contentSha256 } } } });
+});

@@ -46,3 +46,12 @@ type Registry interface {
 	// verified cache with its engine and binary. It never fetches Git.
 	Available(ctx context.Context, b renderbundle.Bundle) error
 }
+
+// ZIPInspection uses the same on-disk bundle format as Git.
+type ZIPInspection struct {
+	Path string
+	Data []byte
+}
+type ZIPInspector interface {
+	InspectZIP(context.Context, string, ZIPInspection) (renderbundle.Bundle, error)
+}

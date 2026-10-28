@@ -2,7 +2,7 @@
 id: TERRAFORM-MODULE-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 related: [ADR-014, UC-03, UC-05, UC-06, UC-08, UC-16]
 ---
 
@@ -384,3 +384,15 @@ forbidden. Unmatched Git modules keep their generated IDs and inspected
 outputs. This preserves EKS target recognition and namespace creation baseline
 for unchanged published modules without granting arbitrary Git code platform
 module semantics.
+
+## ZIP upload — ADR-026
+
+`POST /api/v1/terraform-modules/upload` accepts multipart `file` (exactly one ZIP),
+`path` (optional, default `.`), `resourceType` (required scoped Type).
+Unknown or repeated fields are rejected. Return `200 {capability: ...}` using
+existing metadata projection; source identity and archive bounds follow
+[ADR-026](../decisions/ADR-026-zip-source-upload.md). Malformed requests return
+INVALID_REQUEST, oversized requests REQUEST_TOO_LARGE (413); invalid content
+uses existing module/RENDER_BUNDLE_INVALID classifications. ZIP uses the same
+verified cache, inspector, input schema and execution guards as Git. No mutable
+ref or Git URL is required. Rendering engine `git-render-v1` is unchanged for ZIP.

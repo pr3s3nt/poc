@@ -110,7 +110,7 @@ func (s *Service) Prepare(ctx context.Context) error {
 	for _, module := range release.Packaged.Modules {
 		ref := release.Ref(module)
 		sources := s.resolver(ctx, ref, packagedSnapshot{fsys: s.cfg.Packaged})
-		bundle, trees, err := s.build(sources, ref, tfmodule.SourceKindPackaged, module.ResourceTypes, module.ExecutorOutputs)
+		bundle, trees, err := s.build(sources, ref, tfmodule.SourceKindPackaged, module.ResourceTypes, module.ExecutorOutputs, "")
 		sources.close()
 		if err != nil {
 			return fmt.Errorf("registry: packaged module %q: %w", module.ID, err)
@@ -206,7 +206,7 @@ func (r *resolver) close() {
 
 // build reads the root tree, checks its digest against the pin, inspects the
 // whole call tree and assembles the bundle.
-func (s *Service) build(sources *resolver, ref tfmodule.SourceRef, kind string, resourceTypes, executorOutputs []string) (tfmodule.Bundle, map[moduleDir]Tree, error) {
+func (s *Service) build(sources *resolver, ref tfmodule.SourceRef, kind string, resourceTypes, executorOutputs []string, organizationKey string) (tfmodule.Bundle, map[moduleDir]Tree, error) {
 	root, err := sources.tree(rootDir(ref))
 	if err != nil {
 		return tfmodule.Bundle{}, nil, err
@@ -218,6 +218,7 @@ func (s *Service) build(sources *resolver, ref tfmodule.SourceRef, kind string, 
 	if err != nil {
 		return tfmodule.Bundle{}, nil, err
 	}
+	result.contract.SourceOrganizationKey = organizationKey
 	bundle := tfmodule.Bundle{
 		ID:                    ids.New(),
 		Ref:                   ref,
@@ -272,8 +273,25 @@ func (s *Service) Verify(ctx context.Context, ref tfmodule.SourceRef) (tfmodule.
 	if err := ref.Validate(); err != nil {
 		return tfmodule.Bundle{}, moduleregistry.ErrNotAllowed
 	}
-	// Direct pins must already have been inspected by the authenticated service.
 	_, legacySource := s.cfg.Policy.source(ref.SourceID)
+	// Uploaded pins can only be reused from verified metadata and cache.
+	if !legacySource && strings.HasPrefix(ref.SourceID, "zip-") {
+		existing, err := s.cfg.Store.GetModuleBundle(ctx, ref)
+		if err != nil {
+			return tfmodule.Bundle{}, moduleregistry.ErrNotVerified
+		}
+		if existing.Ref != ref || existing.Contract.SourceKind != tfmodule.SourceKindZIP || !tfmodule.ValidDigest(ref.Revision) || existing.Contract.SourceOrganizationKey == "" || ref.SourceID != zipSourceID(existing.Contract.SourceOrganizationKey, ref.Revision) {
+			return tfmodule.Bundle{}, moduleregistry.ErrDrift
+		}
+		if err := s.releaseMatches(existing); err != nil {
+			return tfmodule.Bundle{}, err
+		}
+		if _, err := s.cfg.Cache.verify(ref, existing.Contract); err != nil {
+			return tfmodule.Bundle{}, err
+		}
+		return existing, nil
+	}
+	// Direct pins must already have been inspected by the authenticated service.
 	if !legacySource && strings.HasPrefix(ref.SourceID, "git-") {
 		existing, err := s.cfg.Store.GetModuleBundle(ctx, ref)
 		if err != nil {
@@ -331,7 +349,7 @@ func (s *Service) Verify(ctx context.Context, ref tfmodule.SourceRef) (tfmodule.
 	}
 	sources := s.resolver(ctx, ref, snapshot)
 	defer sources.close()
-	bundle, trees, err := s.build(sources, ref, kind, module.ResourceTypes, nil)
+	bundle, trees, err := s.build(sources, ref, kind, module.ResourceTypes, nil, "")
 	if err != nil {
 		return tfmodule.Bundle{}, err
 	}

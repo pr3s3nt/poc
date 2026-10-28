@@ -190,6 +190,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/resource-definitions/matching-preview", s.handleMatchingPreview)
 	s.mux.HandleFunc("GET /api/v1/resource-definition-capabilities", s.handleDefinitionCapabilities)
 	s.mux.HandleFunc("POST /api/v1/terraform-modules/inspect", s.handleInspectTerraformModule)
+	s.mux.HandleFunc("POST /api/v1/terraform-modules/upload", s.handleUploadTerraformModule)
+	s.mux.HandleFunc("POST /api/v1/render-bundles/upload", s.handleUploadRenderBundle)
 	s.mux.HandleFunc("GET /api/v1/render-bundles", s.handleRenderBundles)
 	s.mux.HandleFunc("POST /api/v1/render-bundles/inspect", s.handleInspectRenderBundle)
 	s.mux.HandleFunc("GET /api/v1/render-bundles/{id}", s.handleGetRenderBundle)

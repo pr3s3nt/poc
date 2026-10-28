@@ -43,6 +43,9 @@ func (s *Service) validateTerraform(ctx context.Context, org string, def *resour
 	if err != nil {
 		return tfmodule.Bundle{}, registryError(err)
 	}
+	if bundle.Contract.SourceKind == tfmodule.SourceKindZIP && bundle.Contract.SourceOrganizationKey != org {
+		return tfmodule.Bundle{}, invalidField(sourcePath, fmt.Errorf("%w: module is not available in this Organization", ErrInvalid))
+	}
 	if !bundle.ServesType(def.ResourceTypeKey) {
 		return tfmodule.Bundle{}, invalidField("definition.resourceType", fmt.Errorf("%w: module %q is not registered for this Resource Type", ErrInvalid, inputs.Source.ModuleID))
 	}

@@ -449,6 +449,7 @@ entity render_bundles {
  * id : uuid <<PK>>
  * organization_id : uuid <<FK>>
  --
+ source_kind : text (git | zip)
  source_url : text
  source_path : text
  source_revision : text
@@ -461,8 +462,8 @@ entity render_bundles {
 }
 organizations ||--o{ render_bundles
 note right of render_bundles
-ADR-021 required design; immutable scoped registry.
-Unique org/origin/path/commit/engine; content drift rejected.
+ADR-021 / ADR-026; immutable scoped Git or ZIP registry.
+Unique org/locator/path/revision/engine; content drift rejected.
 Definitions reference verified ID and supplied inputs in JSON.
 Plans pin source/runtime and effective inputs; files in durable cache.
 Console SELECT/INSERT only; no State role grant.

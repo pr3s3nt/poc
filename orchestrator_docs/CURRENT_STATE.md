@@ -36,6 +36,21 @@ PostgreSQL/Redis/PVC reuse, Application deletion, native namespace/PV and exact
 Vault value/bundle absence, name reuse and clean teardown
 ([record](verification/2026-10-28-application-deletion-form-integration.md)).
 
+## ZIP module and rendering sources — 2026-10-28
+
+[ADR-026](architecture/decisions/ADR-026-zip-source-upload.md) adds multipart ZIP
+upload beside Git/verified sources on both authoring pages. Archive directory
+layout and selected module/bundle contracts match Git; ZIP sources use immutable
+archive-tree revisions, Organization-scoped upload metadata, existing inspectors
+and durable verified caches. Preview,
+execution and cleanup continue consuming pins; Git remains the new-draft default.
+PostgreSQL render metadata records source kind in the fresh baseline.
+
+Local browser verification used real module/render inspection and cache with fake
+deployment adapters, covering both uploads and rendering-template save/reopen;
+no cloud/Kubernetes deployment was run. [Usage](operations/zip-source-upload.md)
+and [verification](verification/2026-10-28-zip-source-upload.md).
+
 ## Offline Terraform providers — 2026-10-27
 
 Backend image builds a read-only filesystem mirror for all providers pinned in
