@@ -62,6 +62,11 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		ReferenceCluster: req.ReferenceCluster,
 	}
 
+	// Until a catalog capability is verified, an execution extension must not
+	// fall back to legacy Deployment rendering after provisioning resources.
+	if req.After != nil && req.After.Execution != nil {
+		return nil, &StageError{Stage: StageCatalog, Reason: ReasonRendererUnavailable, Err: environment.ErrExecutionUnavailable}
+	}
 	base := normalize(req.BaseSet)
 
 	var beforeFragment, afterFragment *score.Fragment

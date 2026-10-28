@@ -137,6 +137,7 @@ type Container struct {
 
 // ModuleSpec is the workload body of a module.
 type ModuleSpec struct {
+	Execution  *WorkloadExecution   `json:"workloadExecution,omitempty"`
 	Containers map[string]Container `json:"containers"`
 	Service    *Service             `json:"service,omitempty"`
 	Replicas   *int                 `json:"replicas,omitempty"`

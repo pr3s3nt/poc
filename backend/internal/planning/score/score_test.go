@@ -3,6 +3,7 @@ package score
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"orchestrator/internal/domain/environment"
@@ -257,5 +258,20 @@ func TestScoreRejectsUnknownServiceKeysAtEveryDepth(t *testing.T) {
 		if _, err := FromMap(doc); !errors.Is(err, ErrInvalid) {
 			t.Errorf("%s: want ErrInvalid, got %v", name, err)
 		}
+	}
+}
+
+func TestExecutionRejectsUnknownFieldsAndInvalidSchedule(t *testing.T) {
+	raw := `{"apiVersion":"score.dev/v1b1","metadata":{"name":"job"},"containers":{"main":{"image":"example:v1"}},"workloadExecution":{"version":1,"kind":"CronJob","template":{"id":"job","version":"1.0.0","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"schedule":{"expression":"99 0 * * *","timeZone":"UTC","concurrencyPolicy":"Forbid"}}}`
+	if _, err := Parse([]byte(raw)); err == nil {
+		t.Fatal("accepted invalid schedule")
+	}
+	raw = strings.Replace(raw, "99 0 * * *", "0 0 * * *", 1)
+	if _, err := Parse([]byte(raw)); err != nil {
+		t.Fatal(err)
+	}
+	raw = strings.Replace(raw, `"concurrencyPolicy":"Forbid"`, `"concurrencyPolicy":"Forbid","token":"do-not-accept"`, 1)
+	if _, err := Parse([]byte(raw)); err == nil {
+		t.Fatal("accepted unknown field")
 	}
 }

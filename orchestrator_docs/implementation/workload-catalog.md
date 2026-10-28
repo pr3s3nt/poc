@@ -112,3 +112,9 @@ identity chưa cấu hình; không tự chọn tên/email tác giả.
   template capability, desired validation và renderer/delivery integration pass.
 - Chưa mutate cluster, chưa deploy Passbolt, chưa merge main. Template API,
   storage resolver, job lifecycle, UI và real E2E vẫn là công việc tiếp theo.
+
+Checkpoint checks: `cd backend && go test ./... && go build ./...` pass.
+Các Postgres integration tests chưa có dedicated REQUIRE_POSTGRES environment
+trong lượt này, nên không dùng full command làm bằng chứng SQL zero-skip.
+Focused environment/score/workloadconfig/planning/Kubernetes/score-k8s pass.
+Docs checker và PlantUML pass. Chưa có real E2E; chưa đủ điều kiện merge main.

@@ -44,6 +44,7 @@ type ResourceSpec struct {
 
 // Document is a Score document describing exactly one workload.
 type Document struct {
+	Execution  *environment.WorkloadExecution   `json:"workloadExecution,omitempty"`
 	APIVersion string                           `json:"apiVersion"`
 	Metadata   Metadata                         `json:"metadata"`
 	Containers map[string]environment.Container `json:"containers"`
@@ -130,6 +131,17 @@ func (d Document) Validate() error {
 			return fmt.Errorf("score: resource %q has no type", alias)
 		}
 	}
+	resources := map[string]bool{}
+	for alias := range d.Resources {
+		resources[alias] = true
+	}
+	replicas := d.Replicas
+	if replicas == 0 {
+		replicas = 1
+	}
+	if err := d.Execution.Validate(d.Containers, replicas, d.Service != nil && len(d.Service.Ports) > 0, resources); err != nil {
+		return err
+	}
 	if d.Service != nil {
 		seen := map[string]bool{}
 		for _, route := range d.Service.PublicRoutes {
@@ -196,6 +208,7 @@ func (d Document) Fragment(types map[string]resource.Type) (*Fragment, error) {
 		Class:       d.Metadata.Class,
 		Annotations: cloneAnnotations(d.Metadata.Annotations),
 		Spec: environment.ModuleSpec{
+			Execution:  d.Execution.Clone(),
 			Containers: map[string]environment.Container{},
 			Service:    d.Service,
 		},

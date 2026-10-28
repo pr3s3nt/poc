@@ -500,6 +500,9 @@ func reconstruct(workload string, module environment.Module, set environment.Doc
 	if module.Spec.Service != nil {
 		out["service"] = module.Spec.Service
 	}
+	if module.Spec.Execution != nil {
+		out["workloadExecution"] = module.Spec.Execution.Clone()
+	}
 	if module.Spec.Replicas != nil {
 		out["replicas"] = *module.Spec.Replicas
 	}
