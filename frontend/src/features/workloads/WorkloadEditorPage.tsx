@@ -14,6 +14,7 @@ import { Advanced } from './Advanced';
 import { bindingProblem, changeSource, escapeLiteral, isKeySource, readBinding, serviceAlias, type Binding, type KeyCatalog, type ResourceSpecs } from './bindings';
 import { buildRowContext } from './rowContext';
 import { t } from '../../shared/i18n';
+import { sharedResources, sharedSelectionProblem } from './sharedResources';
 
 type ContainerForm = { name: string; image: string; cpuRequest: string; memoryRequest: string; cpuLimit: string; memoryLimit: string; bindings: Binding[] };
 type ServicePort = { name: string; port: string; targetPort: string };
@@ -147,7 +148,7 @@ function readForm(score: Record<string, unknown>): Form {
   form.name = String((score.metadata as { name?: string } | undefined)?.name ?? '');
   form.workloadClass = String((score.metadata as { class?: string } | undefined)?.class ?? '');
   const resources = (score.resources ?? {}) as Record<string, { type?: string; class?: string; id?: unknown; params?: Record<string, unknown> }>;
-  form.dependencies = Object.entries(resources).filter(([, spec]) => spec.type !== 'environment' && spec.type !== 'service').map(([alias, spec]) => ({ alias, type: spec.type ?? '', className: spec.class ?? '', sharedId: typeof spec.id === 'string' ? spec.id : '', params: Object.fromEntries(Object.entries(spec.params ?? {}).map(([key, value]) => [key, String(value)])) }));
+  form.dependencies = Object.entries(resources).filter(([, spec]) => spec.type !== 'environment' && spec.type !== 'service').map(([alias, spec]) => ({ existing: true, alias, type: spec.type ?? '', className: spec.class ?? '', sharedId: typeof spec.id === 'string' ? spec.id : '', params: Object.fromEntries(Object.entries(spec.params ?? {}).map(([key, value]) => [key, String(value)])) }));
   const rawContainers = (score.containers ?? {}) as Record<string, { image?: string; variables?: Record<string, string>; resources?: { requests?: { cpu?: string; memory?: string }; limits?: { cpu?: string; memory?: string } } }>;
   form.containers = Object.entries(rawContainers).map(([name, value]) => ({ name, image: value.image ?? '', cpuRequest: value.resources?.requests?.cpu ?? '', memoryRequest: value.resources?.requests?.memory ?? '', cpuLimit: value.resources?.limits?.cpu ?? '', memoryLimit: value.resources?.limits?.memory ?? '', bindings: Object.entries(value.variables ?? {}).flatMap(([envName, raw]) => readBinding(envName, raw, resources as ResourceSpecs) ?? []) }));
   if (!form.containers.length) form.containers = [emptyContainer()];
@@ -314,6 +315,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
     }
     catch (err) { if (at === scope.current) setError(describeError(err, t('workloads.workloadEditor.couldNotImportTheScore'))); }
   }
+  const resourceChoices = sharedResources(workloads, types);
   const rowContext = buildRowContext(catalog, form.dependencies, types, workloads, form.name);
   async function save() {
     if (environmentBusy) return;
@@ -332,7 +334,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
       const aliasesIssue = dependencyAliasesProblem(form.dependencies, form.containers.flatMap((container) => container.bindings.filter((row) => row.source === 'SERVICE').map((row) => row.alias || serviceAlias(row.workload, row.port))));
       if (aliasesIssue) { setError(aliasesIssue); return; }
       for (const dependency of form.dependencies) {
-        const dependencyIssue = dependencyProblem(dependency, types);
+        const dependencyIssue = sharedSelectionProblem(dependency, resourceChoices) || dependencyProblem(dependency, types);
         if (dependencyIssue) { setError(dependencyIssue); return; }
       }
       // The key catalog is only needed when a row references an Application key.
@@ -378,7 +380,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
           onChange={(bindings) => updateContainer(ci, { ...container, bindings })} onCreateKey={openKeyDialog} onAddResource={(row) => setDialog({ type: 'resource', rowId: row.id })} />
         </section>)}
       <Button onClick={() => updateForm({ ...form, containers: [...form.containers, { ...emptyContainer(), name: `container-${form.containers.length + 1}` }] })}>{t('workloads.workloadEditor.addContainer')}</Button>
-      <section className="content-panel editor-grid"><div className="section-header"><div><h2>{t('workloads.workloadEditor.workloadResources')}</h2><p>{t('workloads.workloadEditor.chooseAnAvailableResourceType')}</p></div><div className="form-actions"><Button tone="quiet" onClick={() => void reloadClassMetadata()}>{t('workloads.workloadEditor.refreshClassMetadata')}</Button><Button onClick={() => updateForm({ ...form, dependencies: [...form.dependencies, emptyDependency()] })}>{t('workloads.workloadEditor.addResource')}</Button></div></div>{form.dependencies.map((dep, index) => <DependencyFields key={index} index={index} dependency={dep} types={types} classMetadata={classMetadata} disabled={saving} onChange={(patch) => updateDependency(index, patch)} onReload={() => void reloadClassMetadata()} onRemove={() => updateForm({ ...form, dependencies: form.dependencies.filter((_, i) => i !== index) })} />)}</section>
+      <section className="content-panel editor-grid"><div className="section-header"><div><h2>{t('workloads.workloadEditor.workloadResources')}</h2><p>{t('workloads.workloadEditor.chooseAnAvailableResourceType')}</p></div><div className="form-actions"><Button tone="quiet" onClick={() => void reloadClassMetadata()}>{t('workloads.workloadEditor.refreshClassMetadata')}</Button><Button onClick={() => updateForm({ ...form, dependencies: [...form.dependencies, emptyDependency()] })}>{t('workloads.workloadEditor.addResource')}</Button></div></div>{form.dependencies.map((dep, index) => <DependencyFields key={index} index={index} dependency={dep} types={types} choices={resourceChoices} classMetadata={classMetadata} disabled={saving} onChange={(patch) => updateDependency(index, patch)} onReload={() => void reloadClassMetadata()} onRemove={() => updateForm({ ...form, dependencies: form.dependencies.filter((_, i) => i !== index) })} />)}</section>
       <section className="content-panel editor-grid">
         <div className="section-header"><div><h2>{t('workloads.workloadEditor.servicePorts')}</h2><p>{t('workloads.workloadEditor.internalAccessForOtherWorkloads', { environment })}</p></div><Button onClick={() => updateForm({ ...form, servicePorts: [...form.servicePorts, { name: '', port: '', targetPort: '' }] })}>{t('workloads.workloadEditor.addPort')}</Button></div>
         {form.servicePorts.map((port, index) => <div className="editor-grid" key={index}><div className="binding-row"><input aria-label={t('workloads.workloadEditor.servicePortName')} value={port.name} placeholder="http" onChange={(event) => updatePort(index, { name: event.target.value })} /><input aria-label={t('workloads.workloadEditor.servicePorts')} type="number" value={port.port} placeholder="80" onChange={(event) => updatePort(index, { port: event.target.value })} /><Button tone="quiet" onClick={() => updateForm({ ...form, servicePorts: form.servicePorts.filter((_, i) => i !== index) })}>{t('workloads.workloadEditor.remove')}</Button></div>
@@ -400,7 +402,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
         changeRow(rowId, (row) => ({ ...changeSource(row, kind), key, ...(row.name === '' ? { name: key } : {}) }));
         setFocusRequest({ rowId, field: 'key' });
       })(scope.current, dialog.rowId, dialog.kind)} /> : null}
-    {dialog?.type === 'resource' ? <AddResourceDialog existing={form.dependencies} types={types} classMetadata={classMetadata} onReload={() => void reloadClassMetadata()} onClose={closeDialog}
+    {dialog?.type === 'resource' ? <AddResourceDialog existing={form.dependencies} types={types} choices={resourceChoices} classMetadata={classMetadata} onReload={() => void reloadClassMetadata()} onClose={closeDialog}
       onAdd={((at, rowId) => (dependency: Dependency) => {
         if (at !== scope.current) return;
         setDialog(undefined);

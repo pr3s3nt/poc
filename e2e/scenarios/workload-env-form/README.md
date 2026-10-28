@@ -36,7 +36,8 @@ node e2e/scenarios/workload-env-form/run.mjs
 `ORCH_ENV_RUN` must be unique. Secret store `k8s-4f-vault` is explicitly selected
 on initial inline Secret creation; it is never auto-selected by product code.
 The scenario expects Vietnamese Console. It creates its own application and
-run-specific shared PostgreSQL/Redis IDs. It never changes an older application.
+automatically generated shared PostgreSQL/Redis IDs; the worker selects the
+backend resources through the existing-resource picker. It never changes an older application.
 
 `ORCH_SECRET_STORE_KEY` optionally selects another explicitly configured store
 (default `k8s-4f-vault`). The disposable [Application deletion wrapper](../application-deletion-form/README.md)

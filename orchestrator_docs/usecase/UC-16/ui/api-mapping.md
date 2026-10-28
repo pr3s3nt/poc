@@ -2,7 +2,7 @@
 id: UC-16-UI-API-MAPPING
 artifact: use-case-ui-api-mapping
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 related: UC-12, UC-16, UC-05, UC-07
 ---
 
@@ -70,3 +70,13 @@ entity or Secret scope. Literal values stay ordinary workload strings; checkbox
 Secret delegates to UC-12 create-only, then binds the created app/environment
 key. Local row-to-row references are not produced. Clearing/changing sources
 drops inactive payload before Score serialization.
+
+
+## Default shared resources — BR-28–30
+
+No API/schema change. GET workloads already returns the selected app/environment
+safe desired Score projection. UI uses non-virtual resources with string `id`
+for reuse, preserving scalar Type params and excluding unsafe projections.
+New form resources receive a generated Score `resources.<alias>.id`; explicit
+private omits it. Import/direct Score retain existing semantics. No endpoint,
+output, password or cross-application lookup is introduced.

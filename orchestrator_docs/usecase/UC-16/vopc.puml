@@ -13,6 +13,7 @@ interface "Desired configuration store" as Store
 UI --> Catalog : scoped safe source metadata
 UI --> Keys : explicit create-only key
 UI --> Env : explicit initial Secret Store save
+UI --> UI : new shared ID / existing scoped selection
 UI --> UI : dependency added to local draft
 UI --> Config : validate/save/delete workload
 Keys --> Store : CAS configuration revision

@@ -526,6 +526,7 @@ it('adds a dependency inline, explicitly selects its output and uses it from ano
   await user.type(screen.getAllByLabelText('Ảnh Container')[1]!, 'i');
   await addRow(user, 1, 'HOST', 'Giá trị nhập', 'container-2'); await reference(user, 1, 'db.host', 'container-2');
   await user.click(save()); expect(api.puts()[0]!.score.containers['container-2']?.variables).toEqual({ HOST: '${resources.db.host}' });
+  expect(api.puts()[0]!.score.resources?.db).toMatchObject({ id: expect.stringMatching(/^resource-/) });
 });
 
 it('requires explicitly reselecting an output after changing dependency type', async () => {
@@ -571,4 +572,25 @@ it('does not leak a late catalog response from staging into production source se
   expect(dialog.getByRole('button', { name: 'Ứng dụng / PROD_ONLY' })).toBeInTheDocument();
   await act(async () => { gates[0]!.resolve(Response.json({ version: 1, keys: catalogKeys })); await new Promise((resolve) => setTimeout(resolve, 0)); });
   expect(dialog.queryByRole('button', { name: 'Ứng dụng / API_URL' })).not.toBeInTheDocument();
+});
+
+
+it('selects an existing shared resource inline without copying outputs or creating it', async () => {
+  const spec = { type: 'postgres', id: 'app-db', params: { name: 'shared' } };
+  const api = serve({ types: [postgres], workloads: [{ id: 'backend', ready: true, score: { resources: { db: spec } } }] });
+  const user = userEvent.setup();
+  await newWorkload(user);
+  await addRow(user, 1, 'DB_HOST');
+  const search = await picker(user);
+  await user.click(search.getByRole('button', { name: 'Thêm tài nguyên' }));
+  const dialog = within(screen.getByRole('dialog', { name: 'Thêm tài nguyên' }));
+  await user.selectOptions(dialog.getByLabelText('Nguồn tài nguyên'), 'shared:app-db');
+  expect(dialog.getByLabelText('Tham số name')).toBeDisabled();
+  await user.click(dialog.getByRole('button', { name: 'Thêm và chọn' }));
+  const outputs = within(screen.getByRole('dialog', { name: 'Chọn giá trị có sẵn' }));
+  await user.click(outputs.getByRole('button', { name: 'db.host' }));
+  await user.click(save());
+  expect(api.puts()[0]!.score.resources?.db).toEqual(spec);
+  expect(api.puts()[0]!.score.containers.main?.variables).toEqual({ DB_HOST: '${resources.db.host}' });
+  expect(api.calls.filter(call => call.method === 'POST')).toEqual([]);
 });

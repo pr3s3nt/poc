@@ -55,25 +55,25 @@ describe('UC-16 dependency class from authoritative metadata (I04-07)', () => {
     const select = screen.getByLabelText('Cách cung cấp (class) của db');
     expect(select).toHaveValue('');
     expect(within(select).getAllByRole('option').map((option) => option.textContent)).toEqual(['Mặc định (default)', 'Dịch vụ managed AWS (cloud-managed)', 'Trong cluster (in-cluster)']);
-    expect(screen.getByText(/Developer không chọn module Terraform, provider hay thông tin xác thực/)).toBeInTheDocument();
     for (const label of [/module/i, /provider/i, /credential|xác thực/i]) expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
     await fillPostgres(user);
     await user.click(save());
     expect(puts).toHaveLength(1);
     // default stays default: no class is written, none is chosen for the user.
-    expect(resourcesOf(puts[0])?.db).toEqual({ type: 'postgres', params: { database: 'appdb', username: 'appuser' } });
+    expect(resourcesOf(puts[0])?.db).toEqual({ type: 'postgres', id: expect.stringMatching(/^resource-/), params: { database: 'appdb', username: 'appuser' } });
   });
 
-  it('serializes the chosen class and an optional shared ID, and reads both back when the draft is edited', async () => {
+  it('serializes the chosen class and an automatically generated shared ID, and reads both back when the draft is edited', async () => {
     const user = userEvent.setup();
     const { puts } = serve();
     await newWorkload(user);
     await addDependency(user, 'db', 'postgres');
     await user.selectOptions(screen.getByLabelText('Cách cung cấp (class) của db'), 'cloud-managed');
-    await user.type(screen.getByLabelText('ID dùng chung của db'), 'orders-db');
     await fillPostgres(user);
     await user.click(save());
-    expect(resourcesOf(puts[0])?.db).toEqual({ type: 'postgres', class: 'cloud-managed', id: 'orders-db', params: { database: 'appdb', username: 'appuser' } });
+    const sharedId = resourcesOf(puts[0])?.db?.id;
+    expect(sharedId).toEqual(expect.stringMatching(/^resource-/));
+    expect(resourcesOf(puts[0])?.db).toEqual({ type: 'postgres', class: 'cloud-managed', id: sharedId, params: { database: 'appdb', username: 'appuser' } });
     // Opening the saved draft restores class, shared ID and params exactly.
     const score = puts[0]?.score as Record<string, unknown>;
     cleanup();
@@ -81,12 +81,12 @@ describe('UC-16 dependency class from authoritative metadata (I04-07)', () => {
     const second = serve({ workloads: [{ id: 'api', ready: true, score }] });
     render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
     expect(await screen.findByLabelText('Cách cung cấp (class) của db')).toHaveValue('cloud-managed');
-    expect(screen.getByLabelText('ID dùng chung của db')).toHaveValue('orders-db');
+    expect(screen.queryByLabelText(/ID dùng chung/)).not.toBeInTheDocument();
     expect(screen.getByLabelText('Tham số database')).toHaveValue('appdb');
     await user.clear(screen.getByLabelText('Ảnh Container'));
     await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/api:v2');
     await user.click(save());
-    expect(resourcesOf(second.puts[0])?.db).toEqual({ type: 'postgres', class: 'cloud-managed', id: 'orders-db', params: { database: 'appdb', username: 'appuser' } });
+    expect(resourcesOf(second.puts[0])?.db).toEqual({ type: 'postgres', class: 'cloud-managed', id: sharedId, params: { database: 'appdb', username: 'appuser' } });
   });
 
   it('keeps a custom or imported class and a shared ID untouched, offering it as typed and never switching it', async () => {
@@ -173,7 +173,7 @@ describe('UC-16 dependency class from authoritative metadata (I04-07)', () => {
     expect(within(screen.getByLabelText('Cách cung cấp (class) của db')).getAllByRole('option')).toHaveLength(1);
     expect(screen.getByText(/Danh mục chưa công bố class nào cho loại postgres/)).toBeInTheDocument();
     await user.click(save());
-    expect(resourcesOf(puts[0])?.db).toEqual({ type: 'postgres' });
+    expect(resourcesOf(puts[0])?.db).toEqual({ type: 'postgres', id: expect.stringMatching(/^resource-/) });
   });
 
   // Absent or malformed metadata is unavailable, never a fake-empty class list.
@@ -270,4 +270,77 @@ describe('ADR-016 workload class (Score metadata.class)', () => {
     expect((await screen.findAllByText(/Nhập một file Score|Đã phân tích Workload/)).length).toBeGreaterThan(0);
     expect(screen.queryByLabelText('Class Workload')).not.toBeInTheDocument();
   });
+});
+
+it('reuses an existing shared database with a local alias and locks its configuration', async () => {
+  const user = userEvent.setup();
+  const spec = { type: 'postgres', class: 'in-cluster', id: 'existing-db', params: { database: 'appdb', username: 'appuser' } };
+  const { puts } = serve({ workloads: [{ id: 'backend', ready: true, score: { resources: { db: spec } } }] });
+  await newWorkload(user);
+  await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
+  await user.type(screen.getByLabelText('Alias tài nguyên'), 'store');
+  await user.selectOptions(screen.getByLabelText('Nguồn tài nguyên'), 'shared:existing-db');
+  expect(screen.getByLabelText('Alias tài nguyên')).toHaveValue('store');
+  expect(screen.getByLabelText('Loại tài nguyên')).toBeDisabled();
+  expect(screen.getByLabelText('Tham số database')).toHaveValue('appdb');
+  expect(screen.getByLabelText('Tham số database')).toBeDisabled();
+  await user.click(save());
+  expect(resourcesOf(puts[0])?.store).toEqual(spec);
+});
+
+it('supports explicit private scope in advanced controls and keeps it private on edit', async () => {
+  const user = userEvent.setup();
+  const { puts } = serve();
+  await newWorkload(user);
+  await addDependency(user, 'db', 'postgres');
+  await fillPostgres(user);
+  await user.click(screen.getByRole('button', { name: 'Hiện nâng cao tài nguyên db' }));
+  await user.click(screen.getByLabelText('Chỉ dùng cho workload này'));
+  await user.click(save());
+  expect(resourcesOf(puts[0])?.db).not.toHaveProperty('id');
+  const score = puts[0]!.score;
+  cleanup();
+  const second = serve({ workloads: [{ id: 'api', ready: true, score }] });
+  render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+  await screen.findByLabelText('Ảnh Container');
+  await user.type(screen.getByLabelText('Ảnh Container'), '-updated');
+  await user.click(save());
+  expect(resourcesOf(second.puts[0])?.db).not.toHaveProperty('id');
+});
+
+it('keeps separate generated identities for same-type resources and after validation failures', async () => {
+  const user = userEvent.setup();
+  const { puts } = serve();
+  await newWorkload(user);
+  await addDependency(user, 'first', 'redis');
+  await addDependency(user, 'second', 'redis');
+  await user.clear(screen.getByLabelText('Tên Workload'));
+  await user.click(save());
+  expect(puts).toHaveLength(0);
+  await user.type(screen.getByLabelText('Tên Workload'), 'api');
+  await user.click(save());
+  const resources = resourcesOf(puts[0]);
+  expect(resources.first?.id).toEqual(expect.stringMatching(/^resource-/));
+  expect(resources.second?.id).not.toEqual(resources.first?.id);
+});
+
+it('retries a failed Save with the same generated resource identity', async () => {
+  const user = userEvent.setup();
+  const { puts } = serve();
+  const fallback = vi.mocked(fetch).getMockImplementation()!;
+  let failed: Record<string, unknown> | undefined;
+  vi.mocked(fetch).mockImplementation(async (input, init) => {
+    if (init?.method === 'PUT' && !failed) {
+      failed = JSON.parse(String(init.body)) as Record<string, unknown>;
+      return Response.json({ code: 'INTERNAL_ERROR' }, { status: 500 });
+    }
+    return fallback(input, init);
+  });
+  await newWorkload(user);
+  await addDependency(user, 'cache', 'redis');
+  await user.click(save());
+  expect(await screen.findByRole('alert')).toBeInTheDocument();
+  await user.click(save());
+  expect(puts).toHaveLength(1);
+  expect(puts[0]?.score.resources).toEqual((failed?.score as Record<string, unknown>).resources);
 });
