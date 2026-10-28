@@ -17,8 +17,11 @@ save/delete previews stay read-only, an optional environment allowlist applies,
 and JSONL audit excludes Score bodies, credentials and tokens. See the
 [tool contract](architecture/contracts/mcp.md) and [Claude Code runbook](operations/mcp.md).
 Five tests exercise real MCP HTTP traffic against a fake API; the full backend
-test/build suite passes. No live orchestrator, Kubernetes or AWS deployment was
-run for this integration. No Web Console UI changed.
+test/build suite passes. A subsequent Kimi Code 2.4.0 smoke against a real local
+fake-adapter orchestrator passed list, dry-run create, confirmed create and
+read-back with matching audit ([record](verification/2026-10-28-mcp-kimi-code.md)).
+No Kubernetes/AWS execution or real workload deployment was run. No Web Console
+UI changed.
 
 ## PostgreSQL upgrades — issue #23
 
