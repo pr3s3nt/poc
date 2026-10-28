@@ -2,17 +2,15 @@
 id: RUNBOOK-TERRAFORM-OFFLINE
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 ---
 
 # Offline Terraform provider installation
 
-[The staging patch](../../deploy/k8s_4f/backend.yaml) is a **strategic merge patch**,
-not the base staging Deployment. The base manifest mentioned in the staging incident is not present
-in this checkout. Keep the cluster's image, secrets, service account, security
-context, recovery storage and existing volumes in its deployment configuration.
-The patch assumes Deployment/container `backend` in namespace `orchestrator`;
-adapt those identifiers to the actual deployment before applying.
+The staging Deployment is managed through its staging-owned configuration;
+its base manifest is not present in this checkout. The former repository-specific
+patch has been retired. Keep the cluster's image, secrets, service account,
+security context, recovery storage and existing volumes in that configuration.
 
 Build the backend from `backend/Dockerfile` on a connected build host and import
 the resulting image into the registry reachable by staging. Providers are
@@ -33,22 +31,15 @@ release provider locks, as the non-root image user, with no network. It runs onl
 `init`, never plan/apply, and checks that the lock file remains unchanged. This
 does not claim a successful application deployment or access to staging.
 
-After the normal image delivery process has selected the tested image, merge
-[`backend.yaml`](../../deploy/k8s_4f/backend.yaml) into the staging-owned deployment
-configuration. For an explicit one-off patch in an authorized context (this triggers a rollout):
-
-```bash
-kubectl --context <staging-context> -n orchestrator patch deployment backend \
-  --type strategic --patch-file deploy/k8s_4f/backend.yaml
-```
-
-The image already defaults the same environment variable; the patch records it
-explicitly for staging configuration. If the Deployment runs the binary directly
-or overrides arguments, retain the environment variable or pass
+When a rollout is authorized, select the tested image through the normal image
+delivery process and staging-owned deployment configuration. The image defaults
+`ORCHESTRATOR_TERRAFORM_CLI_CONFIG_FILE` to
+`/etc/orchestrator/terraform-offline.tfrc`. If the Deployment runs the binary
+directly or overrides arguments, retain that environment variable or pass
 `-terraform-cli-config-file /etc/orchestrator/terraform-offline.tfrc`.
 
-No module/plugin cache PVC is added by this patch. A private durable verified
-module cache remains useful for Git modules across restarts, but does not solve
+The provider mirror does not require a module/plugin cache PVC. A private durable
+verified module cache remains useful for Git modules across restarts, but does not solve
 provider installation. Git module/render bundle sources must be reachable from
 staging separately. Keep old providers and historical Terraform binaries/releases
 available for cleanup before replacing a release; the shipped mirror contains
