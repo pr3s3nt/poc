@@ -3,12 +3,162 @@
     {
       "key": "persistent-storage",
       "inputs": [
-        { "name": "storage", "type": "string", "required": false }
+        {
+          "name": "storage",
+          "type": "string",
+          "required": false
+        }
       ],
       "outputs": [
-        { "name": "claimName", "type": "string", "required": true, "secret": false },
-        { "name": "namespace", "type": "string", "required": true, "secret": false }
+        {
+          "name": "claimName",
+          "type": "string",
+          "required": true,
+          "secret": false
+        },
+        {
+          "name": "namespace",
+          "type": "string",
+          "required": true,
+          "secret": false
+        }
       ]
+    },
+    {
+      "key": "k8s-cluster",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "secret": false
+        },
+        {
+          "name": "endpoint",
+          "type": "string",
+          "required": false,
+          "secret": false
+        },
+        {
+          "name": "kubeContext",
+          "type": "string",
+          "required": true,
+          "secret": false
+        },
+        {
+          "name": "kubeconfig",
+          "type": "string",
+          "required": false,
+          "secret": false
+        },
+        {
+          "name": "cluster",
+          "type": "any",
+          "required": false,
+          "secret": false
+        }
+      ]
+    },
+    {
+      "key": "k8s-namespace",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "secret": false
+        }
+      ]
+    },
+    {
+      "key": "postgres",
+      "inputs": [
+        {
+          "name": "database",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "outputs": [
+        {
+          "name": "host",
+          "type": "string",
+          "required": true,
+          "secret": false
+        },
+        {
+          "name": "port",
+          "type": "number",
+          "required": true,
+          "secret": false
+        },
+        {
+          "name": "database",
+          "type": "string",
+          "required": true,
+          "secret": false
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "required": true,
+          "secret": false
+        },
+        {
+          "name": "password",
+          "type": "string",
+          "required": true,
+          "secret": true
+        }
+      ]
+    },
+    {
+      "key": "redis",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "host",
+          "type": "string",
+          "required": true,
+          "secret": false
+        },
+        {
+          "name": "port",
+          "type": "number",
+          "required": true,
+          "secret": false
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "required": true,
+          "secret": false
+        },
+        {
+          "name": "password",
+          "type": "string",
+          "required": true,
+          "secret": true
+        },
+        {
+          "name": "tls",
+          "type": "bool",
+          "required": true,
+          "secret": false
+        }
+      ]
+    },
+    {
+      "key": "workload",
+      "inputs": [],
+      "outputs": []
     }
   ],
   "bundles": [
@@ -26,13 +176,30 @@
       },
       "renderInputs": {},
       "provision": {},
-      "criteria": [{}],
+      "criteria": [
+        {}
+      ],
       "expectedTemplates": [
-        { "id": "frontend", "version": "1.0.0" },
-        { "id": "backend", "version": "1.0.0" },
-        { "id": "worker", "version": "1.0.0" },
-        { "id": "stateful", "version": "1.0.0" },
-        { "id": "scheduled", "version": "1.0.0" }
+        {
+          "id": "frontend",
+          "version": "1.0.0"
+        },
+        {
+          "id": "backend",
+          "version": "1.0.0"
+        },
+        {
+          "id": "worker",
+          "version": "1.0.0"
+        },
+        {
+          "id": "stateful",
+          "version": "1.0.0"
+        },
+        {
+          "id": "scheduled",
+          "version": "1.0.0"
+        }
       ]
     }
   ],
@@ -43,5 +210,151 @@
       "templateVersion": "1.0.0",
       "resourceType": "persistent-storage"
     }
-  }
+  },
+  "account": {
+    "name": "k8s-4f",
+    "context": "kind-k8s-4f",
+    "endpoint": "https://k8s-4f-control-plane:6443"
+  },
+  "resourceDefinitions": [
+    {
+      "key": "k8s4f-cluster",
+      "name": "K8S-4F cluster",
+      "resourceType": "k8s-cluster",
+      "driverType": "existing-cluster",
+      "accountName": "k8s-4f",
+      "criteria": [
+        {
+          "class": "internal"
+        }
+      ]
+    },
+    {
+      "key": "k8s4f-namespace",
+      "name": "K8S-4F namespace",
+      "resourceType": "k8s-namespace",
+      "driverType": "terraform",
+      "module": "k8s-namespace",
+      "clusterClass": "internal",
+      "inputMapping": {},
+      "outputMapping": {
+        "name": "name"
+      },
+      "variables": {
+        "name": {
+          "context": "env.namespace"
+        }
+      },
+      "criteria": [
+        {
+          "class": "default"
+        }
+      ]
+    },
+    {
+      "key": "k8s4f-storage",
+      "name": "K8S-4F persistent storage",
+      "resourceType": "persistent-storage",
+      "driverType": "terraform",
+      "source": {
+        "url": "https://github.com/pr3s3nt/poc.git",
+        "path": "backend/terraform-modules/persistent-storage",
+        "ref": "a0fe3a4a1e3c7ed22ad3dc18fa19744de040ce01"
+      },
+      "clusterClass": "internal",
+      "inputMapping": {
+        "storage": "storage"
+      },
+      "outputMapping": {
+        "claimName": "claimName",
+        "namespace": "namespace"
+      },
+      "variables": {
+        "namespace": {
+          "resource": {
+            "type": "k8s-namespace",
+            "class": "default",
+            "scope": "environments.@app.@env",
+            "output": "name"
+          }
+        }
+      },
+      "criteria": [
+        {
+          "class": "default"
+        }
+      ]
+    },
+    {
+      "key": "k8s4f-postgres",
+      "name": "K8S-4F PostgreSQL",
+      "resourceType": "postgres",
+      "driverType": "terraform",
+      "module": "postgres-k8s",
+      "clusterClass": "internal",
+      "inputMapping": {
+        "database": "database",
+        "username": "username"
+      },
+      "outputMapping": {
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "password": "password"
+      },
+      "variables": {
+        "namespace": {
+          "resource": {
+            "type": "k8s-namespace",
+            "class": "default",
+            "scope": "environments.@app.@env",
+            "output": "name"
+          }
+        }
+      },
+      "criteria": [
+        {
+          "class": "default"
+        },
+        {
+          "class": "in-cluster"
+        }
+      ]
+    },
+    {
+      "key": "k8s4f-redis",
+      "name": "K8S-4F Redis",
+      "resourceType": "redis",
+      "driverType": "terraform",
+      "module": "redis-k8s",
+      "clusterClass": "internal",
+      "inputMapping": {},
+      "outputMapping": {
+        "host": "host",
+        "port": "port",
+        "username": "username",
+        "password": "password",
+        "tls": "tls"
+      },
+      "variables": {
+        "namespace": {
+          "resource": {
+            "type": "k8s-namespace",
+            "class": "default",
+            "scope": "environments.@app.@env",
+            "output": "name"
+          }
+        }
+      },
+      "criteria": [
+        {
+          "class": "default"
+        },
+        {
+          "class": "in-cluster"
+        }
+      ]
+    }
+  ]
 }

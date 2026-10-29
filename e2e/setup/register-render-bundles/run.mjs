@@ -3,27 +3,32 @@ import { parseArgs } from 'node:util';
 import { expect } from '@playwright/test';
 import { closeConsole, openConsole, readConsoleConfig } from '../../lib/console.mjs';
 import { assertSameDefinition, assertSameResourceType, desiredDefinition, parseBundleConfig } from '../../lib/render-bundle-config.mjs';
+import { readSetupPacing } from '../../lib/infrastructure-config.mjs';
+import { ensureInfrastructureAccount, ensureResourceDefinitions } from '../../lib/infrastructure-ui.mjs';
 
-const { values } = parseArgs({ options: { config: { type: 'string' }, help: { type: 'boolean' } } });
+const { values } = parseArgs({ options: { config: { type: 'string' }, help: { type: 'boolean' }, ...Object.fromEntries(['step', 'account', 'type', 'definition', 'bundle'].map(phase => [`${phase}-delay-ms`, { type: 'string' }])) } });
 if (values.help) {
-  console.log('node e2e/setup/register-render-bundles/run.mjs --config /path/catalog.json\nConsole: ORCH_PLATFORM_URL, ORCH_PLATFORM_USERNAME, ORCH_PLATFORM_PASSWORD_FILE, ORCH_HEADLESS=1');
+  console.log('node e2e/setup/register-render-bundles/run.mjs --config /path/catalog.json [--step-delay-ms 800] [--type-delay-ms 1000] [--definition-delay-ms 1500] [--account-delay-ms 800] [--bundle-delay-ms 800]\nConsole: ORCH_PLATFORM_URL, ORCH_PLATFORM_USERNAME, ORCH_PLATFORM_PASSWORD_FILE, ORCH_HEADLESS=0\nKubeconfig (chỉ cần khi account chưa có): ORCH_KUBECONFIG_FILE');
   process.exit(0);
 }
 
-let session, consoleConfig;
+let session, consoleConfig, lastAction = '';
 try {
   if (!values.config) throw new Error('Thiếu --config; xem config.example.json cạnh script');
   const config = parseBundleConfig(JSON.parse(readFileSync(values.config, 'utf8')));
-  const stepDelay = Number(process.env.ORCH_STEP_DELAY_MS ?? '800');
-  if (!Number.isInteger(stepDelay) || stepDelay < 0 || stepDelay > 10000) throw new Error('ORCH_STEP_DELAY_MS phải là số nguyên 0..10000');
+  const pacing = readSetupPacing(values);
+  let phase = 'account';
   consoleConfig = readConsoleConfig();
   console.log(`Console: ${consoleConfig.baseURL}`);
   session = await openConsole(consoleConfig);
   if (!['PLATFORM_ENGINEER', 'ADMIN'].includes(session.user.role)) throw new Error('Cần tài khoản Platform Engineer hoặc Admin');
   const { page } = session;
   const act = async (locator, method, ...args) => {
-    await locator.scrollIntoViewIfNeeded();
-    await locator.hover();
+    lastAction = `${phase}: ${method} ${locator.toString()}`;
+    const stepDelay = pacing[phase];
+    const visible = method === 'setInputFiles' ? locator.locator('..') : locator;
+    await visible.scrollIntoViewIfNeeded();
+    await visible.hover();
     await page.waitForTimeout(stepDelay);
     if (method === 'fill') {
       await locator.fill('');
@@ -48,6 +53,9 @@ try {
     const existing = existingTypes.find(item => item.key === type.key);
     if (existing) assertSameResourceType(existing, type);
   }
+  const ui = { page, baseURL: consoleConfig.baseURL, act, get, responseFor };
+  await ensureInfrastructureAccount({ ...ui, account: config.account, kubeconfigFile: process.env.ORCH_KUBECONFIG_FILE });
+  phase = 'type';
   for (const type of config.resourceTypes) {
     if (existingTypes.some(item => item.key === type.key)) {
       console.log(`PASS: dùng lại Resource Type ${type.key}, schema khớp`);
@@ -77,6 +85,9 @@ try {
     await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký loại tài nguyên ${type.key}.` })).toBeVisible();
     console.log(`PASS: đăng ký Resource Type ${type.key}, inputs/outputs/flags khớp`);
   }
+  phase = 'definition';
+  await ensureResourceDefinitions({ ...ui, definitions: config.resourceDefinitions });
+  phase = 'bundle';
   const checkedBundleIds = new Set();
   for (const item of config.bundles) {
     console.log(`UI: mở và kiểm tra Git bundle ${item.key}`);
@@ -185,6 +196,7 @@ try {
 } catch (error) {
   // Raw Playwright errors can include filled values; do not log them.
   console.error(`FAIL: ${error.name === 'Error' ? error.message.split('\n')[0] : 'Browser assertion/timeout thất bại; kiểm tra Console và cấu hình'}`);
+  if (lastAction) console.error(`UI action: ${lastAction}`);
   process.exitCode = 1;
 } finally {
   if (session) await closeConsole(session, consoleConfig);

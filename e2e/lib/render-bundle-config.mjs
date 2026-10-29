@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
+import { parseInfrastructure } from './infrastructure-config.mjs';
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const requireValue = (ok, message) => { if (!ok) throw new Error(message); };
@@ -6,7 +7,8 @@ const fields = ['env_type', 'app_id', 'env_id', 'res_id', 'class'];
 const only = (value, keys, path) => requireValue(object(value) && Object.keys(value).every(key => keys.includes(key)), `${path}: trường không được hỗ trợ`);
 
 export function parseBundleConfig(raw) {
-  only(raw, ['bundles', 'resourceTypes', 'verify'], 'config');
+  only(raw, ['bundles', 'resourceTypes', 'verify', 'account', 'resourceDefinitions'], 'config');
+  const infrastructure = parseInfrastructure(raw);
   const resourceTypes = parseResourceTypes(raw.resourceTypes ?? []);
   requireValue(Array.isArray(raw.bundles) && raw.bundles.length > 0, 'bundles phải là danh sách không rỗng');
   const ids = new Set();
@@ -44,7 +46,8 @@ export function parseBundleConfig(raw) {
     only(verify.volumeMount, ['templateId', 'templateVersion', 'resourceType'], 'verify.volumeMount');
     for (const field of ['templateId', 'templateVersion', 'resourceType']) requireValue(typeof verify.volumeMount[field] === 'string' && verify.volumeMount[field].trim(), `Thiếu verify.volumeMount.${field}`);
   }
-  return { bundles, resourceTypes, verify: { ...verify, environment: verify.environment ?? 'staging' } };
+  requireValue(infrastructure.resourceDefinitions.every(item => !ids.has(item.key)), 'Definition key trùng bundle key');
+  return { bundles, resourceTypes, ...infrastructure, verify: { ...verify, environment: verify.environment ?? 'staging' } };
 }
 
 function parseResourceTypes(items) {
@@ -88,7 +91,7 @@ export function desiredDefinition(item, bundleId) {
 
 export function assertSameDefinition(actual, desired) {
   const criteria = rows => rows.map(row => Object.fromEntries(fields.filter(key => row[key] !== undefined).map(key => [key, row[key]]))).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
-  for (const field of ['key', 'name', 'resourceType', 'driverType', 'driverInputs', 'provision', 'criteria']) {
+  for (const field of ['key', 'name', 'resourceType', 'driverType', 'driverAccount', 'driverInputs', 'provision', 'criteria']) {
     let left = actual[field], right = desired[field];
     if (field === 'provision') { left ??= {}; right ??= {}; }
     if (field === 'criteria') { left = criteria(left ?? []); right = criteria(right ?? []); }

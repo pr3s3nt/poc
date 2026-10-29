@@ -102,5 +102,6 @@ test('rejects invalid Resource Types and configurations requiring JSON UI before
 
 test('existing bundle-only configuration stays valid', () => {
   const raw = example(); delete raw.resourceTypes; delete raw.verify.volumeMount;
+  delete raw.account; delete raw.resourceDefinitions;
   assert.deepEqual(parseBundleConfig(raw).resourceTypes, []);
 });
