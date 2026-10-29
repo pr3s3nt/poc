@@ -12,8 +12,11 @@ Chạy từ thư mục `e2e`, theo thứ tự:
 | 1 | `setup/register-internal-account/run.mjs` | Infrastructure account Internal từ kubeconfig |
 | 2 | [`bootstrap-staging-catalog.mjs`](../../frontend/test/e2e/bootstrap-staging-catalog.mjs) | Năm Definitions `staging-k8s-4f-*`; [runbook](../../orchestrator_docs/operations/staging-catalog.md) |
 | 3 | `setup/register-secret-store/run.mjs` | Secret Store Vault cho workload |
+| 4 | [`setup/register-render-bundles/run.mjs`](register-render-bundles/README.md) | Git render bundles và mẫu trong Thêm Workload; JSON cấu hình dùng lại trên máy khác |
 
-Mỗi script dùng lại mục cùng tên đã Sẵn sàng; mục có cùng tên nhưng khác trạng
+Script render bundles ghi qua UI và dùng API GET để xác minh pin/cấu hình;
+chạy lại chỉ reuse khi toàn bộ cấu hình khớp, không tự sửa Definition.
+Các script account/Secret Store dùng lại mục cùng tên đã Sẵn sàng; mục có cùng tên nhưng khác trạng
 thái thì dừng. Không script nào sửa hoặc xóa mục đã có. Fail giữa chừng có thể
 để lại mục đã tạo; xem trên Console rồi chạy lại.
 

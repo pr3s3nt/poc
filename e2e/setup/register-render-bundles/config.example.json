@@ -1,0 +1,28 @@
+{
+  "bundles": [
+    {
+      "key": "standard-workload",
+      "name": "Standard workload",
+      "source": {
+        "url": "https://github.com/pr3s3nt/poc.git",
+        "path": "backend/render-bundles/standard",
+        "ref": "a0fe3a4a1e3c7ed22ad3dc18fa19744de040ce01"
+      },
+      "placement": {
+        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+        "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"
+      },
+      "renderInputs": {},
+      "provision": {},
+      "criteria": [{}],
+      "expectedTemplates": [
+        { "id": "frontend", "version": "1.0.0" },
+        { "id": "backend", "version": "1.0.0" },
+        { "id": "worker", "version": "1.0.0" },
+        { "id": "stateful", "version": "1.0.0" },
+        { "id": "scheduled", "version": "1.0.0" }
+      ]
+    }
+  ],
+  "verify": { "environment": "staging" }
+}
