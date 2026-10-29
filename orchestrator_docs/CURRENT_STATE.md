@@ -2,12 +2,12 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-10-29
 ---
 
 # Current project state
 
-## MCP agent integration — 2026-10-28
+## MCP agent integration — 2026-10-29
 
 [ADR-028](architecture/decisions/ADR-028-mcp-integration.md) is implemented on
 `features/mcp`: a separate Go MCP streamable HTTP process exposes 10 read and
@@ -20,8 +20,12 @@ Five tests exercise real MCP HTTP traffic against a fake API; the full backend
 test/build suite passes. A subsequent Kimi Code 2.4.0 smoke against a real local
 fake-adapter orchestrator passed list, dry-run create, confirmed create and
 read-back with matching audit ([record](verification/2026-10-28-mcp-kimi-code.md)).
-No Kubernetes/AWS execution or real workload deployment was run. No Web Console
-UI changed.
+An interactive Vietnamese Kimi session then created and deployed three real
+workloads on disposable kind through MCP; all deployment reports and independent
+application checks passed, followed by verified run cleanup
+([record](verification/2026-10-29-mcp-kimi-acceptance-kind.md)). Catalog and
+Environment configuration remain outside the V1 MCP tool surface. No AWS or Web
+Console UI changed.
 
 ## PostgreSQL upgrades — issue #23
 

@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-10-29
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-29 | Kimi Code interactive Vietnamese MCP deployment on disposable kind: three workloads, Preview/Deploy, real app checks and teardown | [Kimi acceptance on kind](2026-10-29-mcp-kimi-acceptance-kind.md) |
 | 2026-10-28 | Kimi Code 2.4.0 real MCP client against local fake orchestrator: list, dry-run/confirmed create and read-back | [Kimi Code smoke](2026-10-28-mcp-kimi-code.md) |
 | 2026-10-28 | MCP streamable HTTP tools, dry-run/allowlist/session/audit safeguards and full backend suite; fake API only | [MCP integration](2026-10-28-mcp-integration.md) |
 | 2026-10-28 | Integrated Application deletion + direct workload form: real kind, UI-only business actions, jobs/cache/update/reuse, native absence and teardown, 15 assertions | [Integrated form/deletion](2026-10-28-application-deletion-form-integration.md) |
