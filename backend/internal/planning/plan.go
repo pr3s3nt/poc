@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
@@ -424,6 +425,15 @@ func sharedReferences(module environment.Module) ([]string, error) {
 		return nil, err
 	}
 	found := map[string]bool{}
+	// Mount bindings are typed resource references, not output placeholders.
+	// They must retain shared entries while another workload still mounts them.
+	if execution := module.Spec.Execution; execution != nil {
+		for _, mount := range execution.Mounts {
+			if id, shared := strings.CutPrefix(mount.Resource, placeholder.ScopeShared+"."); shared && id != "" {
+				found[id] = true
+			}
+		}
+	}
 	err = placeholder.WalkStrings(tree, "", func(_, value string) error {
 		refs, err := placeholder.Refs(value)
 		if err != nil {

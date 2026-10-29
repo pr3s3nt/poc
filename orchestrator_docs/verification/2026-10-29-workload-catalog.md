@@ -114,3 +114,16 @@ Portable source modules `persistent-storage` and `mysql` were revalidated using
 real Terraform init/validate and the backend image's offline provider policy;
 both passed (`module-validation.log`). This is syntax/provider validation, not
 MySQL workload or Passbolt acceptance.
+
+## Shared mount-only reference regression
+
+Final review found that candidate shared-resource pruning counted output
+placeholders but missed typed volume mounts. Adding an unrelated workload or
+removing one of two consumers could drop another workload's shared mount from
+the candidate. `sharedReferences` now counts these mounts as well as placeholders.
+The delta regression test covers unrelated addition, remaining consumer and last
+reference removal; planner, pending, deployment and workloadconfig checks pass.
+This fixes a planning refusal, not a claim of observed data loss. The existing
+runner now supports `WC_STORAGE_SCOPE=shared`; PR #25 records the additional
+live shared variant and final CI result. Its binary/source-diff hashes and run
+scope remain in the private persistent evidence directory.

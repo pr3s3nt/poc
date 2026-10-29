@@ -14,6 +14,7 @@ const required=name=>{if(!process.env[name])throw new Error(`${name} required`);
 const config=readConsoleConfig();
 const runId=required('WC_RUN_ID');const evidence=required('WC_EVIDENCE');mkdirSync(evidence,{recursive:true,mode:0o700});
 const source={url:'https://github.com/pr3s3nt/poc.git',ref:required('WC_SOURCE_REF')};
+const storageScope=process.env.WC_STORAGE_SCOPE??'private';if(!['private','shared'].includes(storageScope))throw new Error('WC_STORAGE_SCOPE must be private or shared');
 const input={runId,privateDir:required('WC_PRIVATE_DIR'),applicationName:`Catalog ${runId}`,account:{name:`catalog-${runId}`,kubeconfigFile:required('WC_KUBECONFIG_FILE')},kube:{kubectl:'kubectl',kubeconfig:process.env.WC_HOST_KUBECONFIG??`${process.env.HOME}/.kube/config`,context:required('WC_CONTEXT')}};
 const previousScope=existsSync(`${evidence}/scope.json`)?JSON.parse(readFileSync(`${evidence}/scope.json`,'utf8')):undefined;
 const results=[];const record=(id,pass)=>{results.push({id,pass:!!pass});writeFileSync(`${evidence}/assertions.json`,JSON.stringify(results,null,2));if(!pass)throw new Error(`assertion ${id} failed`);console.log(`PASS ${id}`);};
@@ -55,6 +56,7 @@ try{
  // The shared dependency controls use explicit labels; no API fixture creates the PVC.
  await page.getByLabel('Alias tài nguyên', {exact:true}).fill('data');
  await page.getByLabel('Loại tài nguyên', {exact:true}).last().selectOption('persistent-storage');
+ if(storageScope==='shared')await page.getByLabel('ID dùng chung của data',{exact:true}).fill(`images-${runId}`);
  await page.getByRole('button',{name:'Thêm volume mount',exact:true}).click();
  await page.getByLabel('Mount path',{exact:true}).fill('/data');
  await page.getByRole('button',{name:'+ Thêm cổng',exact:true}).click();
@@ -77,6 +79,7 @@ try{
  if((await get(`${appPath}/workloads`)).workloads.some(w=>w.state))await deploy();
  const stateful=JSON.parse(kubectl(['get','statefulset','stateful','-o','json']));record('primary-statefulset',stateful.spec.replicas===1);
  const pvcList=JSON.parse(kubectl(['get','pvc','-o','json'])).items;record('terraform-pvc-bound',pvcList.length===1&&pvcList[0].status.phase==='Bound');const pvcUID=pvcList[0].metadata.uid;
+ if(storageScope==='shared')record('explicit-shared-storage-binding',(await get(`${appPath}/resources`)).resources.some(resource=>resource.descriptor===`persistent-storage.default#shared.images-${runId}`));
  record('stateful-data-written',kubectl(['exec','stateful-0','--','cat','/data/proof'])===`retained-${runId}`);
  const pod=JSON.parse(kubectl(['get','pod','stateful-0','-o','json']));
  record('restart-target-owned',pod.metadata.labels['orchestrator.io/application']===input.applicationKey&&pod.metadata.ownerReferences?.some(owner=>owner.uid===stateful.metadata.uid&&owner.controller));

@@ -101,3 +101,9 @@ Integrated Go/build, frontend 934 tests and real PostgreSQL adapter/Application
 deletion checks pass. Fresh generic r3 passes 25/25 including collected logs and
 full product cleanup. The [PR #25](https://github.com/pr3s3nt/poc/pull/25) CI gate controls generic main
 release; private Passbolt acceptance remains separately open. See verification.
+
+Shared mount-only references are counted both by graph binding and candidate
+shared-entry pruning. `workload_storage_graph_test.go` exercises unrelated
+workload addition, removal with another mount consumer and last-reference release.
+The shared scope variant uses the same real browser runner (`WC_STORAGE_SCOPE=shared`);
+latest acceptance/CI status is recorded in PR #25.

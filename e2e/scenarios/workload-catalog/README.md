@@ -59,3 +59,8 @@ With the integrated UC-18 application deletion surface, the runner also deletes
 its own Application after resource cleanup, using the typed-name dialog and
 persisted terminal status. Git module pins may intentionally remain at an older
 compatible commit while WC_BUILD_REF records the newer integrated product build.
+
+Set `WC_STORAGE_SCOPE=shared` to author an explicit shared storage ID instead of
+a private dependency. The same assertions then verify that adding/removing the
+unrelated scheduled workload cannot prune a shared claim referenced only by a
+volume mount. Default is `private`; both scope variants use the same runner.
