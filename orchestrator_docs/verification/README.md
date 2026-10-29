@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-10-29
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-29 | Current-main Console upgrade, paced headless acceptance app deploy, five checks and job DONE, published video | [Headless acceptance recording](2026-10-29-acceptance-headless-recording.md) |
 | 2026-10-29 | Acceptance volume file, one-shot scheduled receipts, real local SQL/Redis and browser process-restart observations; no Kubernetes run | [Acceptance PVC/CronJob local](2026-10-29-acceptance-pvc-cron-local.md) |
 | 2026-10-29 | Direct Backend volume-mount dialog, scoped storage selection, VI/EN browser checks and frontend refresh; no deployment | [Inline volume mount](2026-10-29-inline-volume-mount.md) |
 | 2026-10-29 | K8S-4F kubeconfig account, six Types, five infrastructure Definitions, phase pacing and exact-config rerun through UI; no deployment | [K8S-4F catalog setup](2026-10-29-k8s4f-catalog-setup.md) |

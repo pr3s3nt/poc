@@ -10,9 +10,9 @@
 import { expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 import { ConsoleError, readConsoleConfig, readSecondAccount, signInContext, signOutContext } from '../../lib/console.mjs';
@@ -33,7 +33,16 @@ function settings() {
   const appName = (env.ORCH_APP_NAME ?? `acceptance-${stamp}`).trim();
   if (!/^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$/.test(appName)) throw new ConsoleError('ORCH_APP_NAME chỉ gồm chữ thường, số và dấu gạch ngang');
   const secretStore = (env.ORCH_SECRET_STORE_NAME ?? 'K8S-4F Vault').trim();
-  return { developer, prefix, tag, appName, secretStore, kubeContext: (env.ORCH_KUBE_CONTEXT ?? '').trim() };
+  const delayMs = Number(env.ORCH_WORKLOAD_DELAY_MS ?? '2000');
+  if (!Number.isInteger(delayMs) || delayMs < 0 || delayMs > 10000) throw new ConsoleError('ORCH_WORKLOAD_DELAY_MS phải là số nguyên 0..10000');
+  const evidenceDir = env.ORCH_EVIDENCE_DIR ? resolve(env.ORCH_EVIDENCE_DIR) : '';
+  if (evidenceDir) {
+    mkdirSync(evidenceDir, { recursive: true, mode: 0o700 });
+    const pathFromRepo = relative(realpathSync(resolve(here, '../../..')), realpathSync(evidenceDir));
+    if (!pathFromRepo.startsWith('..' + '/') && pathFromRepo !== '..') throw new ConsoleError('ORCH_EVIDENCE_DIR phải nằm ngoài repository');
+    if (readdirSync(evidenceDir).length) throw new ConsoleError('ORCH_EVIDENCE_DIR phải rỗng để không ghi đè evidence cũ');
+  }
+  return { developer, prefix, tag, appName, secretStore, delayMs, evidenceDir, kubeContext: (env.ORCH_KUBE_CONTEXT ?? '').trim() };
 }
 
 function writeScores(dir, { prefix, tag }) {
@@ -44,7 +53,8 @@ function writeScores(dir, { prefix, tag }) {
   }
 }
 
-const step = (text) => console.log(`- ${text}`);
+let lastStep = 'Khởi tạo';
+const step = (text) => { lastStep = text; console.log(`- ${text}`); };
 
 async function createApplication(page, name) {
   await page.getByRole('button', { name: '+ Tạo ứng dụng' }).first().click();
@@ -77,33 +87,83 @@ async function saveKey(page, kind, name, value) {
   const section = page.locator(`section[aria-label="${kind === 'secret' ? 'Bí mật' : 'Biến'}"]`);
   await section.getByRole('button', { name: kind === 'secret' ? '+ Thêm bí mật' : '+ Thêm biến' }).click();
   await page.getByLabel('Tên key').fill(name);
-  await page.getByLabel(kind === 'secret' ? 'Giá trị bí mật mới' : 'Giá trị').fill(value);
-  await page.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }).click();
+  const input = page.getByLabel(kind === 'secret' ? 'Giá trị bí mật mới' : 'Giá trị');
+  if (kind === 'secret') await expect(input).toHaveAttribute('type', 'password');
+  await input.fill(value);
+  const [saved] = await Promise.all([
+    page.waitForResponse(r => r.request().method() === 'PUT' && /\/configuration\/keys\//.test(new URL(r.url()).pathname), { timeout: 120_000 }),
+    page.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }).click(),
+  ]);
+  if (!saved.ok()) throw new ConsoleError(`Không lưu được key ${name}: HTTP ${saved.status()}`);
   await expect(page.getByLabel('Tên key')).toHaveCount(0);
   const row = section.locator('.settings-table-row').filter({ has: page.locator('strong').getByText(name, { exact: true }) });
   await expect(row).toContainText(kind === 'secret' ? 'Đã cấu hình' : value);
 }
 
-async function importScore(page, file, name) {
-  await page.getByRole('button', { name: '+ Thêm Workload', exact: true }).click();
-  await page.getByRole('button', { name: 'Nhập Score', exact: true }).click();
+// Show each imported workload and its form at a readable pace. Import uses
+// the same product validation as form authoring; no direct draft/API writes.
+async function importScore(page, file, name, delayMs) {
+  const act = async (locator, method, ...args) => {
+    step(`Workload ${name}: ${method} ${locator.toString()}`);
+    await locator.scrollIntoViewIfNeeded();
+    await locator.hover();
+    await page.waitForTimeout(delayMs);
+    await locator[method](...args);
+    await page.waitForTimeout(delayMs);
+  };
+  await act(page.getByRole('button', { name: '+ Thêm Workload', exact: true }), 'click');
+  const custom = page.getByRole('button', { name: /Tự cấu hình \/ nhập Score/ });
+  if (await custom.count()) await act(custom, 'click');
+  await act(page.getByRole('button', { name: 'Nhập Score', exact: true }), 'click');
   await page.getByLabel('File Score', { exact: true }).setInputFiles(file);
   await expect(page.getByText(`Đã phân tích Workload: ${name}`, { exact: false })).toBeVisible();
-  await page.getByRole('button', { name: 'Lưu draft Workload', exact: true }).click();
+  await page.waitForTimeout(delayMs * 2);
+  // Return to the product form to show the imported image, variables and dependencies.
+  const form = page.getByRole('button', { name: /Nhập trên form|Nhập bằng form/ });
+  if (await form.count() && await form.isEnabled()) {
+    await act(form, 'click');
+    await expect(page.getByLabel('Tên Workload', { exact: true })).toHaveValue(name);
+    const image = page.getByLabel('Ảnh Container', { exact: true });
+    await image.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(delayMs * 2);
+    const table = page.getByRole('table').first();
+    if (await table.count()) { await table.scrollIntoViewIfNeeded(); await page.waitForTimeout(delayMs * 2); }
+  } else {
+    // Older Consoles keep advanced Score fields in import mode. Read the actual
+    // parsed Score instead of forcing a lossy form conversion.
+    const score = page.locator('pre');
+    if (await score.count()) {
+      await score.scrollIntoViewIfNeeded();
+      await score.evaluate(node => { node.scrollTop = 0; });
+      await page.waitForTimeout(delayMs * 2);
+      await score.evaluate(node => { node.scrollTop = node.scrollHeight / 2; });
+      await page.waitForTimeout(delayMs * 2);
+      await score.evaluate(node => { node.scrollTop = node.scrollHeight; });
+      await page.waitForTimeout(delayMs * 2);
+    }
+  }
+  await act(page.getByRole('button', { name: 'Lưu draft Workload', exact: true }), 'click');
   await expect(page.getByRole('heading', { name: 'Workload', exact: true })).toBeVisible();
 }
 
 // Local port-forward to the deployed frontend Service; returns { url, stop }.
 async function forwardFrontend(context, namespace) {
   const child = spawn('kubectl', ['--context', context, '-n', namespace, 'port-forward', 'svc/frontend', ':8080'], { stdio: ['ignore', 'pipe', 'pipe'] });
-  const port = await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new ConsoleError('kubectl port-forward không sẵn sàng sau 30 giây')), 30_000);
-    child.stdout.on('data', (chunk) => {
-      const match = String(chunk).match(/127\.0\.0\.1:(\d+)/);
-      if (match) { clearTimeout(timer); resolve(match[1]); }
+  let port;
+  try {
+    port = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new ConsoleError('kubectl port-forward không sẵn sàng sau 30 giây')), 30_000);
+      child.stdout.on('data', (chunk) => {
+        const match = String(chunk).match(/127\.0\.0\.1:(\d+)/);
+        if (match) { clearTimeout(timer); resolve(match[1]); }
+      });
+      child.on('exit', () => { clearTimeout(timer); reject(new ConsoleError('kubectl port-forward dừng; kiểm tra ORCH_KUBE_CONTEXT')); });
+      child.on('error', () => { clearTimeout(timer); reject(new ConsoleError('Không chạy được kubectl port-forward')); });
     });
-    child.on('exit', () => { clearTimeout(timer); reject(new ConsoleError('kubectl port-forward dừng; kiểm tra ORCH_KUBE_CONTEXT')); });
-  });
+  } catch (error) {
+    child.kill();
+    throw error;
+  }
   return { url: `http://127.0.0.1:${port}`, stop: () => child.kill() };
 }
 
@@ -125,11 +185,13 @@ async function main() {
   const browser = await chromium.launch({ headless: cfg.developer.headless });
   let session;
   let forward;
+  let appPage;
+  const resultSummary = { appName: cfg.appName, imageTag: cfg.tag, status: 'FAIL', assertions: [] };
   try {
     writeScores(scoreDir, cfg);
     console.log(`Console: ${cfg.developer.baseURL}`);
     console.log(`Ứng dụng: ${cfg.appName}; image ${cfg.prefix}acceptance-*:${cfg.tag}`);
-    session = await signInContext(browser, cfg.developer, { role: 'DEVELOPER' });
+    session = await signInContext(browser, cfg.developer, { role: 'DEVELOPER', ...(cfg.evidenceDir ? { recordVideo: { dir: join(cfg.evidenceDir, 'raw'), size: { width: 1440, height: 1000 } } } : {}) });
     const { page } = session;
     page.setDefaultTimeout(60_000);
     step(`Đăng nhập ${session.user.username}`);
@@ -138,6 +200,8 @@ async function main() {
       throw new ConsoleError(`Ứng dụng ${cfg.appName} đã có; đặt ORCH_APP_NAME khác (script không sửa ứng dụng cũ)`);
     }
     const appId = await createApplication(page, cfg.appName);
+    resultSummary.appId = appId;
+    resultSummary.url = page.url();
     step(`Tạo ứng dụng ${cfg.appName} (ID ${appId})`);
 
     const secret = randomBytes(24).toString('hex');
@@ -157,7 +221,7 @@ async function main() {
     await expect(page.getByRole('heading', { name: cfg.appName })).toBeVisible();
 
     for (const name of WORKLOADS) {
-      await importScore(page, join(scoreDir, `${name}.yaml`), name);
+      await importScore(page, join(scoreDir, `${name}.yaml`), name, cfg.delayMs);
       step(`Nhập Score ${name}`);
     }
 
@@ -175,6 +239,7 @@ async function main() {
     }
     for (const name of WORKLOADS) await expect(result.locator('li').filter({ hasText: new RegExp(`^${name} · [^:]+: thành công`) })).toHaveCount(1);
     step('Triển khai thành công: backend, worker, frontend');
+    resultSummary.assertions.push('Preview: 3 workloads', 'Deployment succeeded: backend, worker, frontend');
 
     if (!cfg.kubeContext) {
       console.log('Bỏ qua mở trang ứng dụng: chưa đặt ORCH_KUBE_CONTEXT');
@@ -182,9 +247,11 @@ async function main() {
       const namespace = env.ORCH_APP_NAMESPACE ?? `app-${appId}-staging`;
       forward = await forwardFrontend(cfg.kubeContext, namespace);
       const app = await session.context.newPage();
+      appPage = app;
       await app.goto(`${forward.url}/`);
       await expect(app.getByRole('heading', { name: 'Acceptance application' })).toBeVisible();
       const rows = await waitForChecks(app);
+      resultSummary.assertions.push(...CHECKS.map(name => `${name}: PASS`));
       step(`Trang ứng dụng: ${rows.map(([n, s]) => `${n} ${s}`).join(', ')}`);
       const payload = `hello ${cfg.appName}`;
       await app.locator('input[name="payload"]').fill(payload);
@@ -196,18 +263,36 @@ async function main() {
         await app.waitForTimeout(1500);
         await app.reload();
       }
+      resultSummary.assertions.push('Job: DONE');
+      if (cfg.evidenceDir) await app.screenshot({ path: join(cfg.evidenceDir, 'application.png'), fullPage: true });
+      await app.waitForTimeout(cfg.delayMs * 3);
       step(`Gửi job "${payload}": DONE (worker xử lý, ghi PostgreSQL và Redis)`);
     }
+    resultSummary.status = 'PASS';
     console.log(`PASS: acceptance app ${cfg.appName} đã chạy trên ${cfg.developer.baseURL}/ui/applications/${appId}`);
-    if (!cfg.developer.headless) {
-      console.log('Đóng cửa sổ trình duyệt để kết thúc.');
-      await new Promise((resolve) => browser.once('disconnected', resolve));
-    }
+
+  } catch (error) {
+    resultSummary.error = String(error?.message ?? error).split('\n')[0];
+    throw error;
   } finally {
+    resultSummary.lastStep = lastStep;
     forward?.stop();
     rmSync(scoreDir, { recursive: true, force: true });
-    if (session && browser.isConnected()) await signOutContext(session.context, cfg.developer);
-    await browser.close().catch(() => {});
+    try {
+      if (cfg.evidenceDir) writeFileSync(join(cfg.evidenceDir, 'result.json'), JSON.stringify(resultSummary, null, 2));
+      if (session && browser.isConnected()) {
+        if (cfg.evidenceDir) await session.page.screenshot({ path: join(cfg.evidenceDir, 'console.png'), fullPage: true }).catch(() => {});
+        await signOutContext(session.context, cfg.developer);
+        const consoleVideo = session.page.video();
+        const appVideo = appPage?.video();
+        await session.context.close(); // flush and export before closing browser
+        if (cfg.evidenceDir) {
+          await consoleVideo?.saveAs(join(cfg.evidenceDir, 'console.webm'));
+          await appVideo?.saveAs(join(cfg.evidenceDir, 'application.webm'));
+          console.log(`Evidence: ${cfg.evidenceDir}`);
+        }
+      }
+    } finally { await browser.close().catch(() => {}); }
   }
 }
 

@@ -57,6 +57,8 @@ npm run acceptance-app
 | `ORCH_SECRET_STORE_NAME` | `K8S-4F Vault` | Kho bí mật chọn cho staging |
 | `ORCH_KUBE_CONTEXT` | rỗng | Có giá trị thì mở trang ứng dụng qua port-forward để kiểm tra |
 | `ORCH_APP_NAMESPACE` | `app-<application-id>-staging` | Namespace của frontend khi port-forward |
+| `ORCH_WORKLOAD_DELAY_MS` | `2000` | Dừng trước/sau mỗi thao tác tạo workload; 0..10000 ms. Sau import, xem form nếu giữ được đầy đủ Score; nếu form khóa thì đọc cấu hình import |
+| `ORCH_EVIDENCE_DIR` | rỗng | Thư mục rỗng ngoài repository để lưu video Console/app, ảnh cuối và result.json; giữ cả khi FAIL |
 | `ORCH_HEADLESS=1` | không | Chạy không hiện cửa sổ trình duyệt |
 
 ## Steps and assertions
@@ -84,5 +86,32 @@ Application dở dang: xem trên Console, gỡ workload và tài nguyên qua Con
 
 ## Evidence
 
-Chỉ có output terminal. Không lưu session, trace, screenshot, video; không in
-mật khẩu, token hay giá trị bí mật. Port-forward chỉ tồn tại trong lượt chạy.
+Mặc định chỉ output terminal. Đặt `ORCH_EVIDENCE_DIR` để ghi toàn bộ Console
+và trang acceptance app thành `console.webm`, `application.webm` (1440×1000),
+ảnh cuối và `result.json` chứa Application ID, URL, tag và assertions. Browser
+tự đóng sau PASS/FAIL để chốt clip. Video trong `raw/`
+là bản gốc; tất cả evidence nằm ngoài Git. Mật khẩu và secret chỉ nhập trong ô
+password; không bật show password, trace hay log response chứa secret.
+
+Ví dụ chạy chậm và quay video từ root repo:
+
+```bash
+ORCH_PLATFORM_URL=http://localhost:3001 \
+ORCH_PLATFORM_USERNAME=platform-engineer \
+ORCH_PLATFORM_PASSWORD_FILE=~/.orch/local-password \
+ORCH_ACCEPTANCE_IMAGE_TAG=<tag> ORCH_KUBE_CONTEXT=kind-k8s-4f \
+ORCH_HEADLESS=1 ORCH_WORKLOAD_DELAY_MS=2500 \
+ORCH_EVIDENCE_DIR="$HOME/.local/state/orch-acceptance/<run-id>" \
+node e2e/scenarios/acceptance-app/run.mjs
+```
+
+Port-forward chỉ tồn tại trong lượt chạy. Không có context thì chỉ chứng minh
+Console deploy; không coi đó là PASS các kiểm tra trên ứng dụng. Import đi qua
+UI và validation chuẩn; không dùng API để ghi draft hoặc deploy. Kịch bản không
+tự sửa code/retry khi lỗi: agent/operator chẩn đoán, sửa, kiểm tra rồi chạy tên
+Application mới; giữ lại Application lỗi để kiểm tra, không đụng resource cũ.
+
+Khi người dùng đã yêu cầu upload, chuyển clip sang MP4 và kiểm tra bằng ffmpeg,
+xem các frame để xác nhận không lộ bí mật, rồi upload asset có tên run riêng lên
+GitHub release `acceptance-recordings`. Không commit video vào Git, không upload
+credential/session/log. Không dùng `--clobber` để ghi đè clip của lượt khác.
