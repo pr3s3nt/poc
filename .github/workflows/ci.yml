@@ -62,7 +62,9 @@ jobs:
       - name: Test
         env:
           ORCHESTRATOR_POSTGRES_TEST_CONTAINER: ${{ job.services.postgres.id }}
-        run: go test -timeout 30m -count=1 ./...
+        # SQL fixtures open independent owner/Console/State pools. Serialize package
+        # processes so the disposable PostgreSQL connection budget is deterministic.
+        run: go test -p 1 -timeout 30m -count=1 ./...
 
       - name: Build
         run: go build ./...
@@ -71,7 +73,7 @@ jobs:
         run: go vet ./...
 
       - name: Race-test critical packages
-        run: go test -race ./internal/planning ./test/e2e ./test/conformance
+        run: go test -p 1 -race ./internal/planning ./test/e2e ./test/conformance
 
   frontend:
     runs-on: ubuntu-latest

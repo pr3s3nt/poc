@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { openConsole, closeConsole, readConsoleConfig } from '../../lib/console.mjs';
 import { registerHooks } from 'node:module';
 // Legacy helpers live under frontend/, which has a separate node_modules.
@@ -14,7 +14,8 @@ const required=name=>{if(!process.env[name])throw new Error(`${name} required`);
 const config=readConsoleConfig();
 const runId=required('WC_RUN_ID');const evidence=required('WC_EVIDENCE');mkdirSync(evidence,{recursive:true,mode:0o700});
 const source={url:'https://github.com/pr3s3nt/poc.git',ref:required('WC_SOURCE_REF')};
-const input={runId,privateDir:process.env.WC_PRIVATE_DIR??'/tmp/workload-catalog-24/private',applicationName:`Catalog ${runId}`,account:{name:`catalog-${runId}`,kubeconfigFile:required('WC_KUBECONFIG_FILE')},kube:{kubectl:'kubectl',kubeconfig:process.env.WC_HOST_KUBECONFIG??`${process.env.HOME}/.kube/config`,context:required('WC_CONTEXT')}};
+const input={runId,privateDir:required('WC_PRIVATE_DIR'),applicationName:`Catalog ${runId}`,account:{name:`catalog-${runId}`,kubeconfigFile:required('WC_KUBECONFIG_FILE')},kube:{kubectl:'kubectl',kubeconfig:process.env.WC_HOST_KUBECONFIG??`${process.env.HOME}/.kube/config`,context:required('WC_CONTEXT')}};
+const previousScope=existsSync(`${evidence}/scope.json`)?JSON.parse(readFileSync(`${evidence}/scope.json`,'utf8')):undefined;
 const results=[];const record=(id,pass)=>{results.push({id,pass:!!pass});writeFileSync(`${evidence}/assertions.json`,JSON.stringify(results,null,2));if(!pass)throw new Error(`assertion ${id} failed`);console.log(`PASS ${id}`);};
 let session;
 try{
@@ -41,11 +42,11 @@ try{
   await page.getByRole('button',{name:'Dùng gợi ý namespace',exact:true}).click();await page.getByRole('button',{name:'Dùng gợi ý cluster',exact:true}).click();await page.getByRole('button',{name:'Đăng ký mẫu dựng ứng dụng',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Đã đăng ký mẫu dựng ứng dụng catalog-renderer.'})).toBeVisible();
   }
  }
- await page.getByRole('link',{name:/(^|\s)Ứng dụng$/}).click();const existing=(await get('/applications')).applications.find(item=>item.name===input.applicationName);input.applicationKey=existing?.key??await createApplication(h,input.applicationName,`catalog-${runId}`);await page.goto(`${config.baseURL}/ui/applications/${input.applicationKey}`);
+ await page.getByRole('link',{name:/(^|\s)Ứng dụng$/}).click();const existing=(await get('/applications')).applications.find(item=>item.name===input.applicationName);if(existing&&previousScope?.applicationKey!==existing.key)throw new Error('Refusing to reuse an application without this run evidence/ownership record');input.applicationKey=existing?.key??await createApplication(h,input.applicationName,`catalog-${runId}`);await page.goto(`${config.baseURL}/ui/applications/${input.applicationKey}`);
  kit=makeKit({page,context,h,input,baseURL:config.baseURL,evidenceDir:evidence,rec,caption(){},phase(){},forwarders:[]});
  const appPath=`/applications/${input.applicationKey}/environments/staging`;const home=()=>page.goto(`${config.baseURL}/ui/applications/${input.applicationKey}`);
  const apps=(await get('/applications')).applications;const app=apps.find(a=>a.key===input.applicationKey);input.namespace=app.environments.find(e=>e.key==='staging').namespaceIdentity ?? `app-${input.applicationKey}-staging`;
- writeFileSync(`${evidence}/scope.json`,JSON.stringify({runId,applicationKey:input.applicationKey,namespace:input.namespace,context:input.kube.context},null,2));
+ writeFileSync(`${evidence}/scope.json`,JSON.stringify({runId,applicationKey:input.applicationKey,namespace:input.namespace,context:input.kube.context,buildRef:process.env.WC_BUILD_REF,gitSourceRef:source.ref},null,2));
  async function createStateful(){
  await page.getByRole('button',{name:'+ Thêm Workload',exact:true}).click();await expect(page.getByRole('dialog',{name:'Chọn loại workload'})).toBeVisible();await page.screenshot({path:`${evidence}/picker.png`});
  await page.getByRole('button',{name:/Ứng dụng có dữ liệu/}).click();await page.getByLabel('Tên Workload',{exact:true}).fill('stateful');await page.getByLabel('Ảnh Container',{exact:true}).fill(process.env.WC_IMAGE??'busybox:1.37');
@@ -77,7 +78,10 @@ try{
  const stateful=JSON.parse(kubectl(['get','statefulset','stateful','-o','json']));record('primary-statefulset',stateful.spec.replicas===1);
  const pvcList=JSON.parse(kubectl(['get','pvc','-o','json'])).items;record('terraform-pvc-bound',pvcList.length===1&&pvcList[0].status.phase==='Bound');const pvcUID=pvcList[0].metadata.uid;
  record('stateful-data-written',kubectl(['exec','stateful-0','--','cat','/data/proof'])===`retained-${runId}`);
- kubectl(['delete','pod','stateful-0','--wait=true']);kubectl(['rollout','status','statefulset/stateful','--timeout=180s']);
+ const pod=JSON.parse(kubectl(['get','pod','stateful-0','-o','json']));
+ record('restart-target-owned',pod.metadata.labels['orchestrator.io/application']===input.applicationKey&&pod.metadata.ownerReferences?.some(owner=>owner.uid===stateful.metadata.uid&&owner.controller));
+ execFileSync('kubectl',['--context',input.kube.context,'delete','--raw',`/api/v1/namespaces/${input.namespace}/pods/stateful-0`,'-f','-'],{encoding:'utf8',timeout:30000,input:JSON.stringify({apiVersion:'v1',kind:'DeleteOptions',preconditions:{uid:pod.metadata.uid}})});
+ await expect.poll(()=>{const raw=kubectl(['get','pod','stateful-0','--ignore-not-found','-o','json']);return !raw||JSON.parse(raw).metadata.uid!==pod.metadata.uid;},{timeout:180000,intervals:[1000]}).toBe(true);kubectl(['rollout','status','statefulset/stateful','--timeout=180s']);
  record('data-retained-after-pod-recreation',kubectl(['exec','stateful-0','--','cat','/data/proof'])===`retained-${runId}`);
  record('same-pvc-identity',JSON.parse(kubectl(['get','pvc',pvcList[0].metadata.name,'-o','json'])).metadata.uid===pvcUID);
  await page.screenshot({path:`${evidence}/stateful-deployed.png`,fullPage:true});
@@ -150,6 +154,17 @@ try{
  record('explicit-data-deletion',kubectl(['get','pvc',pvcList[0].metadata.name,'--ignore-not-found','-o','name'])==='');
  await deleteResource(namespaceResource);
  record('owned-namespace-cleaned',kubectl(['get','namespace',input.namespace,'--ignore-not-found','-o','name'])==='');
+
+ await page.goto(`${config.baseURL}/ui/applications/${input.applicationKey}/settings?environment=staging`);
+ await page.getByRole('button',{name:'Xóa ứng dụng',exact:true}).click();
+ const deletionDialog=page.getByRole('dialog',{name:'Xóa ứng dụng',exact:true});
+ await deletionDialog.getByLabel(`Nhập tên ứng dụng (${input.applicationName})`,{exact:true}).fill(input.applicationName);
+ const deleted=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith(`/applications/${input.applicationKey}/deletions`));
+ await deletionDialog.getByRole('button',{name:'Xóa vĩnh viễn ứng dụng',exact:true}).click();
+ const deletionResponse=await deleted;if(!deletionResponse.ok())throw new Error(`application deletion admission ${deletionResponse.status()}`);
+ const {deletion:applicationAdmission}=await deletionResponse.json();
+ await expect.poll(async()=>{const {deletion}=await get(`/applications/${input.applicationKey}/deletions/${applicationAdmission.operationId}`);if(deletion.status==='FAILED')throw new Error(`application deletion ${deletion.failureCode}`);return deletion.applicationStatus;},{timeout:120000,intervals:[1500]}).toBe('DELETED');
+ record('owned-application-cleaned',!(await get('/applications')).applications.some(app=>app.key===input.applicationKey));
  console.log(`PASS generic acceptance app=${input.applicationKey} namespace=${input.namespace}; owned storage and namespace cleaned`);
 }catch(error){if(session)await session.page.screenshot({path:`${evidence}/failure.png`,fullPage:true}).catch(()=>{});throw error;}
 finally{if(session)await closeConsole(session,config);}

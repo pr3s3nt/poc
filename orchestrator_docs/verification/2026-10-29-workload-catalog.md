@@ -69,6 +69,41 @@ suite had one existing live-log timing failure; focused 5/5 and the bounded full
 retry passed without weakening assertions. Latest secret-file preflight, domain,
 planner and HTTP tests pass. Documentation checker/PlantUML/diff check pass.
 Real PostgreSQL adapter (including runtime reopen), pending and deployment pass;
-Terraform executor SQL harness is still running, and is not yet counted as pass.
+Terraform executor SQL harness was still running at this checkpoint; its later
+completion and integrated-main run are recorded below.
 No Passbolt, MySQL live secret prerequisites, S3 backup/cleanup or restore success
 is claimed. Those acceptance inputs/gaps remain in the implementation handoff.
+
+## Integrated main run r3 — 81f65ac
+
+Main 6004792 was integrated on the task branch, preserving UC-18/ZIP/migrations.
+ADR numbering is now ADR-028 (main owns ADR-025/026/027). The task-owned Console
+was quiesced and backed up privately; new owner setup upgraded its retained
+platform database successfully, without reset. Existing catalog/accounts/apps
+remained usable for the next real run.
+
+Expanded r3: **25/25** assertions pass, including actual scheduled log collection,
+live Job history, stateful update/reuse, separate persisted allVerified PVC and
+namespace cleanup, and confirmed Application deletion/tombstone. App
+`1009fb8c-0f93-4bf5-b6c1-5d2babbf4774`; namespace
+`app-1009fb8c-0f93-4bf5-b6c1-5d2babbf4774-staging` is absent. Screenshot
+`e2e-r3/job-history.png` was visually inspected: selected Vietnamese locale is
+used for dates and the original shell/dialog remain. Public Git module/render
+pins remain fc05bfb; running product build is integrated 81f65ac.
+
+Integrated source: Go test/build pass; frontend typecheck/lint/build and
+**934/934** tests (81 files) pass. Real PostgreSQL adapter tests, including
+preserving upgrades/backup-restore and execution JSONB reopen, pass (368.409s).
+Application deletion SQL/HTTP tests pass (20.892s). Additional pre-integration
+Terraform executor SQL harness completed successfully (920.352s); its earlier
+restart-interrupted run is not counted. Documentation/PlantUML/migration checks
+pass. CI initially hit PostgreSQL SQLSTATE 53300 (connection slots) in a role
+identity test while packages ran concurrently. CI now schedules SQL package
+processes with `-p 1`, preserving all tests/assertions and mandatory integration
+flags; final CI is required before merge.
+
+Runner hardening after r3 requires private input directory and matching recorded
+Application ID before resuming a failed run. Pod restart verifies owner and uses
+UID delete preconditions. The actual raw kubectl UID-precondition operation was
+verified against a separate task-owned kind fixture; Pod and namespace cleanup
+both passed (`uid-delete.log`). No shared namespace or cluster was removed.

@@ -44,3 +44,18 @@ re-creation using the same resource descriptor to reuse retained storage,
 CronJob completion in the live Job dialog, suspension/removal, namespace retained
 data refusal, separate confirmed PVC deletion and verified namespace cleanup.
 Successful completion prints PASS only after all assertions and product cleanup.
+
+`WC_PRIVATE_DIR` is required; add it to the command above, for example
+`WC_PRIVATE_DIR=/private/workload-catalog-inputs`. Use a unique WC_RUN_ID. A retry
+may reuse an Application only when its exact ID matches the run's existing
+scope.json in WC_EVIDENCE; a matching display name alone is insufficient.
+Pod recreation verifies the StatefulSet owner UID and application label, then
+uses a UID delete precondition. Cleanup follows persisted allVerified results
+and removes the run Application through the confirmed UI after resources are gone.
+Optional WC_BUILD_REF records the running product build separately from the
+immutable module/render WC_SOURCE_REF. No existing Application is adopted.
+
+With the integrated UC-18 application deletion surface, the runner also deletes
+its own Application after resource cleanup, using the typed-name dialog and
+persisted terminal status. Git module pins may intentionally remain at an older
+compatible commit while WC_BUILD_REF records the newer integrated product build.

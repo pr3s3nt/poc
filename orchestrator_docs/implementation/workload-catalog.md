@@ -75,7 +75,7 @@ Both generic runs passed and deleted their own PVC/namespace via the product.
 Expanded r2 proves update/reuse and the Job dialog; scoped reads prove collected
 logs and persisted cleanup success. This is not Passbolt acceptance. See [verification](../verification/2026-10-29-workload-catalog.md).
 
-Remaining: final validation/docs, Terraform SQL harness and real MySQL/Passbolt/S3/secret delivery acceptance. The MySQL
+Remaining: final CI gate and real MySQL/Passbolt/S3/secret delivery acceptance. The MySQL
 module accepts existing platform-managed Secret refs; automatic resource-scoped
 secret prerequisite delivery is not implemented. Do not claim a resource secret
 name is equivalent to creating/synchronizing that Secret. The broader probe
@@ -97,4 +97,6 @@ UC-18 Preview now blocks unsuspended **applied** CronJobs before freezing edits;
 a pending suspend draft is insufficient. Full typed-name Application deletion
 explicitly includes owned data; claim-before-namespace cleanup coexists with the
 ordinary namespace retained-data guard. No implicit Job cancellation is added.
-Integrated tests/build and fresh generic E2E on the merged source are required.
+Integrated Go/build, frontend 934 tests and real PostgreSQL adapter/Application
+deletion checks pass. Fresh generic r3 passes 25/25 including collected logs and
+full product cleanup. Final CI gate remains before main merge. See verification.
