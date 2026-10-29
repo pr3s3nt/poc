@@ -66,6 +66,8 @@ ghi đè runbook hoặc evidence cũ.
 
 [Kubernetes staging catalog bootstrap](staging-catalog.md) — Types-only startup và Playwright đăng ký catalog sau Driver Account `k8s-4f`.
 
+- [Passbolt qua workload catalog — preparation, chưa executable trước feature gates](passbolt-catalog.md).
+
 ZIP source preparation: [module and render-bundle upload](zip-source-upload.md).
 
 PostgreSQL versioned upgrades: [runbook](postgres-upgrades.md).

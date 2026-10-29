@@ -13,7 +13,7 @@ export type Route =
   | { name: 'application'; applicationId: string; environment?: 'staging' | 'production' }
   | { name: 'observability'; applicationId: string; environment: 'staging' | 'production'; tab: 'logs' | 'metrics'; query?: TelemetryRouteQuery }
   | { name: 'settings'; applicationId: string; environment?: 'staging' | 'production' }
-  | { name: 'workload'; applicationId: string; environment: 'staging' | 'production'; workloadId?: string }
+  | { name: 'workload'; applicationId: string; environment: 'staging' | 'production'; workloadId?: string; template?: string }
   | { name: 'score-preview'; applicationId: string; environment: 'staging' | 'production' }
   | { name: 'deployments'; applicationId: string; environment: 'staging' | 'production' }
   | { name: 'deployment'; applicationId: string; environment: 'staging' | 'production'; deploymentId: string }
@@ -70,7 +70,7 @@ export function parseRoute(path = window.location.pathname): Route {
     return { name: 'observability', applicationId: decodeURIComponent(telemetry[1]), environment: telemetry[2] as 'staging' | 'production', tab: params.get('tab') === 'metrics' ? 'metrics' : 'logs', query };
   }
   const workload = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/workloads\/(new|[^/]+)$/);
-  if (workload?.[1] && workload[2] && workload[3]) return { name: 'workload', applicationId: decodeURIComponent(workload[1]), environment: workload[2] as 'staging' | 'production', workloadId: workload[3] === 'new' ? undefined : decodeURIComponent(workload[3]) };
+  if (workload?.[1] && workload[2] && workload[3]) return { name: 'workload', applicationId: decodeURIComponent(workload[1]), environment: workload[2] as 'staging' | 'production', workloadId: workload[3] === 'new' ? undefined : decodeURIComponent(workload[3]), ...(workload[3] === 'new' && new URLSearchParams(search).get('template') ? {template: new URLSearchParams(search).get('template')!} : {}) };
   const deployment = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/deployments\/([^/]+)$/);
   if (deployment?.[1] && deployment[2] && deployment[3]) return { name: 'deployment', applicationId: decodeURIComponent(deployment[1]), environment: deployment[2] as 'staging' | 'production', deploymentId: decodeURIComponent(deployment[3]) };
   const resource = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/resources\/([^/]+)$/);
@@ -117,7 +117,7 @@ export function href(route: Route): string {
       return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/observability?${query}`;
     }
     case 'settings': return `${base}/applications/${encodeURIComponent(route.applicationId)}/settings${route.environment ? `?environment=${route.environment}` : ''}`;
-    case 'workload': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/workloads/${route.workloadId ? encodeURIComponent(route.workloadId) : 'new'}`;
+    case 'workload': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/workloads/${route.workloadId ? encodeURIComponent(route.workloadId) : 'new'}${route.template && !route.workloadId ? `?template=${encodeURIComponent(route.template)}` : ''}`;
     case 'score-preview': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/preview`;
     case 'deployments': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/deployments`;
     case 'resource': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/resources/${encodeURIComponent(route.resourceId)}`;

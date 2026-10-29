@@ -48,3 +48,10 @@ behavior/collaboration; prototype acceptance is not product implementation proof
 Behavior is recorded in this use case's RB requirements;
 [IMP-035](../../implementation/deviations.md#imp-035--git-owned-render-bundles)
 records implementation and actual acceptance separately.
+
+## Workload catalog — issue #24 (design review)
+
+[Specification extension](../UC-16/workload-catalog-specification.md),
+[shared contract](../../architecture/contracts/workload-catalog.md) và
+[implementation handoff](../../implementation/workload-catalog.md) mô tả phần
+mở rộng đang review; chưa thay thế current behavior hoặc chứng minh implementation.

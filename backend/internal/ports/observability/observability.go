@@ -9,7 +9,8 @@ import (
 
 type Source struct {
 	telemetry.Source
-	Target execution.Target
+	Target     execution.Target
+	Controller *execution.ObjectRef
 }
 
 type Reader interface {

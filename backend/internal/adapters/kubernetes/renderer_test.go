@@ -180,3 +180,11 @@ func TestRenderVSOUsesSecretKeyRefWithoutAgentOrValues(t *testing.T) {
 		t.Fatal("accepted missing Secret name")
 	}
 }
+
+func TestNativeRendererNeverDropsExecutionIntent(t *testing.T) {
+	req := execution.RenderRequest{Namespace: "demo", WorkloadID: "example", Module: environment.Module{Spec: environment.ModuleSpec{Execution: &environment.WorkloadExecution{Version: 1, Kind: "CronJob"}}}}
+	manifests, err := NewRenderer().Render(context.Background(), req)
+	if err != environment.ErrExecutionUnavailable || len(manifests) != 0 {
+		t.Fatalf("silently rendered unsupported execution: %v %v", manifests, err)
+	}
+}

@@ -15,6 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"orchestrator/internal/adapters/kubernetes"
+	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/execution"
@@ -194,10 +195,12 @@ func neutralInput(req execution.RenderRequest, delivery kubernetes.Delivery) (ma
 		unknowns = append(unknowns, map[string]any{"path": path, "provenance": "unresolved"})
 	}
 	input := map[string]any{
-		"apiVersion": renderbundle.InputContract,
-		"workload":   workload,
-		"bindings":   bindings,
-		"target":     map[string]any{"namespace": req.Namespace},
+		"apiVersion":  renderbundle.InputContract,
+		"workload":    workload,
+		"bindings":    bindings,
+		"storage":     req.Storage,
+		"secretFiles": delivery.Files,
+		"target":      map[string]any{"namespace": req.Namespace},
 		"identity": map[string]any{
 			"workload":    req.WorkloadID,
 			"application": req.Labels["orchestrator.io/application"],
@@ -239,6 +242,14 @@ func (r *Renderer) renderGit(ctx context.Context, req execution.RenderRequest) (
 	delivery, err := kubernetes.PrepareDelivery(ctx, req)
 	if err != nil {
 		return nil, err
+	}
+	if e := req.Module.Spec.Execution; e != nil {
+		_, inputs, err := renderbundle.MatchWorkloadTemplate(bundle.Contract.Manifest.WorkloadTemplates, e.Template.ID, e.Template.Version, e.Template.SHA256, e.Kind, e.Inputs)
+		if err != nil {
+			return nil, environment.ErrExecutionUnavailable
+		}
+		req.Module.Spec.Execution = e.Clone()
+		req.Module.Spec.Execution.Inputs = inputs
 	}
 	input, err := neutralInput(req, delivery)
 	if err != nil {

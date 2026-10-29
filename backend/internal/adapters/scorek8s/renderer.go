@@ -19,6 +19,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 	"orchestrator/internal/adapters/kubernetes"
+	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/renderengine"
@@ -125,6 +126,9 @@ func (r *Renderer) ValidateSelection(ctx context.Context, selected resource.Rend
 }
 
 func (r *Renderer) Render(ctx context.Context, req execution.RenderRequest) ([]execution.Manifest, error) {
+	if req.Module.Spec.Execution != nil && !req.Selection.Bundle.Git() {
+		return nil, environment.ErrExecutionUnavailable
+	}
 	if req.Selection.DriverType == "" {
 		if r.native == nil {
 			return nil, fmt.Errorf("score-k8s: a pinned rendering selection is required")

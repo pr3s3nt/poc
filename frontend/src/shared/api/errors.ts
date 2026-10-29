@@ -78,13 +78,14 @@ const fallbackByStatus = (status: number): string => {
 };
 
 export const plannerStages = ['score', 'before-state', 'candidate', 'public-routes', 'service-references', 'catalog', 'graph', 'reference', 'contract', 'schedule'] as const;
-export const plannerReasons = ['workload-exists', 'workload-not-current', 'before-mismatch', 'legacy-infrastructure-reference', 'environment-unconfigured', 'renderer-no-match', 'renderer-ambiguous', 'renderer-unavailable'] as const;
+export const plannerReasons = ['workload-exists', 'workload-not-current', 'before-mismatch', 'legacy-infrastructure-reference', 'environment-unconfigured', 'renderer-no-match', 'renderer-ambiguous', 'renderer-unavailable', 'storage-immutable'] as const;
 export type PlannerStage = (typeof plannerStages)[number];
 export type PlannerReason = (typeof plannerReasons)[number];
 // Allowlisted refusal reasons of a resource deletion (OC-19); the server sends them under `reason`.
-export const cleanupReasons = ['NOT_UNREFERENCED', 'HAS_CONSUMERS', 'PLATFORM_RESOURCE', 'OWNERSHIP_UNVERIFIED', 'ORIGINAL_TARGET_UNAVAILABLE', 'ENVIRONMENT_BUSY', 'INFRASTRUCTURE_UNAVAILABLE', 'METADATA_SYNC_PENDING'] as const;
+export const cleanupReasons = ['RETAINED_DATA', 'NOT_UNREFERENCED', 'HAS_CONSUMERS', 'PLATFORM_RESOURCE', 'OWNERSHIP_UNVERIFIED', 'ORIGINAL_TARGET_UNAVAILABLE', 'ENVIRONMENT_BUSY', 'INFRASTRUCTURE_UNAVAILABLE', 'METADATA_SYNC_PENDING'] as const;
 export type CleanupReason = (typeof cleanupReasons)[number];
 export const cleanupReasonLabels: Readonly<Record<CleanupReason, string>> = Object.freeze({
+ RETAINED_DATA: t('workloads.templates.retainedData'),
   NOT_UNREFERENCED: t('shared.errors.theResourceIsNotYet'),
   HAS_CONSUMERS: t('shared.errors.workloadsOrOtherResourcesOutside'),
   PLATFORM_RESOURCE: t('shared.errors.thisIsAPlatformResource'),
@@ -123,6 +124,7 @@ export const reasonLabels: Readonly<Record<PlannerReason, string>> = Object.free
   'environment-unconfigured': t('shared.errors.theEnvironmentHasNoDeployment'),
   'renderer-no-match': t('shared.errors.noRenderingTemplateScoreK8s'),
   'renderer-ambiguous': t('shared.errors.severalRenderingTemplatesMatchThis'),
+  'storage-immutable': t('shared.errors.storageImmutable'),
   'renderer-unavailable': t('shared.errors.theRenderingTemplateNeedsA'),
 });
 

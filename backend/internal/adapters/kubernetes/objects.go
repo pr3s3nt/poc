@@ -248,6 +248,19 @@ func (d *Deployer) RemoveObjects(ctx context.Context, target execution.Target, w
 		if uid == "" {
 			return fmt.Errorf("kubernetes: refusing to remove %s/%s without a verified UID", ref.Kind, ref.Name)
 		}
+		if ref.Kind == "CronJob" && ref.APIVersion == "batch/v1" {
+			spec, _ := object["spec"].(map[string]any)
+			if suspended, _ := spec["suspend"].(bool); !suspended {
+				return fmt.Errorf("kubernetes: suspend the scheduled workload before removing it")
+			}
+			out, err := cli.Run(ctx, nil, "get", "jobs", "-n", target.Namespace, "-o", "json")
+			if err != nil {
+				return err
+			}
+			if err = ensureCronJobIdle(out, uid); err != nil {
+				return err
+			}
+		}
 		remove = append(remove, found{ref: ref, uid: uid})
 	}
 	for _, item := range remove {
@@ -291,4 +304,45 @@ func waitJob(ctx context.Context, d *discovery, namespace, name string, timeout 
 		case <-ticker.C:
 		}
 	}
+}
+
+// An owned Job without a terminal condition is active, including Pending Jobs.
+// Ownership is established by controller UID, never by names or labels alone.
+func ensureCronJobIdle(raw []byte, uid string) error {
+	var jobs struct {
+		Items []struct {
+			Metadata struct {
+				OwnerReferences []struct {
+					UID        string `json:"uid"`
+					Controller bool   `json:"controller"`
+				} `json:"ownerReferences"`
+			} `json:"metadata"`
+			Status struct {
+				Conditions []struct {
+					Type   string `json:"type"`
+					Status string `json:"status"`
+				} `json:"conditions"`
+			} `json:"status"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(raw, &jobs); err != nil {
+		return fmt.Errorf("kubernetes: cannot verify scheduled workload Jobs")
+	}
+	for _, job := range jobs.Items {
+		owned := false
+		for _, owner := range job.Metadata.OwnerReferences {
+			owned = owned || owner.UID == uid && owner.Controller
+		}
+		if !owned {
+			continue
+		}
+		terminal := false
+		for _, condition := range job.Status.Conditions {
+			terminal = terminal || condition.Status == "True" && (condition.Type == "Complete" || condition.Type == "Failed")
+		}
+		if !terminal {
+			return fmt.Errorf("kubernetes: scheduled workload has an active Job")
+		}
+	}
+	return nil
 }

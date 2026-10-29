@@ -89,6 +89,9 @@ func guard(req execution.RenderRequest, delivery kubernetes.Delivery, objects []
 			return violated("cluster-scoped objects are not allowed")
 		}
 		primaryWorkload := m.APIVersion == "apps/v1" && (m.Kind == "Deployment" || m.Kind == "StatefulSet")
+		if req.Module.Spec.Execution != nil && m.APIVersion == "batch/v1" && m.Kind == "CronJob" {
+			primaryWorkload = true
+		}
 		primary := m.Name == req.WorkloadID && (primaryWorkload || m.APIVersion == "v1" && m.Kind == "Service")
 		if err := guardOwnedMetadata(object(m.Object["metadata"]), delivery, primary); err != nil {
 			return err
@@ -105,6 +108,9 @@ func guard(req execution.RenderRequest, delivery kubernetes.Delivery, objects []
 		case m.APIVersion == "v1" && m.Kind == "Service":
 			service = m.Object
 		}
+	}
+	if e := req.Module.Spec.Execution; e != nil && workloadKind != e.Kind {
+		return violated("primary runtime differs from execution intent")
 	}
 	if workload == nil {
 		return violated("the primary Deployment or StatefulSet is missing")
@@ -187,18 +193,56 @@ func sameStringMap(actual any, want map[string]string) bool {
 // pod and container fields are bundle policy (ADR-024).
 func guardWorkload(req execution.RenderRequest, delivery kubernetes.Delivery, kind string, d map[string]any) error {
 	spec := object(d["spec"])
-	if req.Module.Spec.Replicas != nil {
-		if replicas, ok := spec["replicas"].(float64); !ok || int(replicas) != req.Module.Spec.ReplicaCount() {
-			return violated("explicit Score replicas must be kept")
+	if kind == "CronJob" {
+		e := req.Module.Spec.Execution
+		if e == nil || e.Schedule == nil {
+			return violated("CronJob requires execution policy")
 		}
-	} else if raw, present := spec["replicas"]; present {
-		if replicas, ok := raw.(float64); !ok || replicas < 0 || replicas != float64(int(replicas)) {
-			return violated("replicas must be a non-negative integer")
+		schedule := e.Schedule
+		if spec["schedule"] != schedule.Expression || spec["timeZone"] != schedule.TimeZone || spec["suspend"] != schedule.Suspend || spec["concurrencyPolicy"] != schedule.ConcurrencyPolicy {
+			return violated("explicit schedule policy must be kept")
 		}
-	}
-	selector := object(spec["selector"])
-	if !sameStringMap(selector["matchLabels"], delivery.Selector) {
-		return violated("the %s selector must be the platform selector", kind)
+		job := object(spec["jobTemplate"])
+		jobSpec := object(job["spec"])
+		policies := []struct {
+			value any
+			want  *int64
+		}{{spec["startingDeadlineSeconds"], schedule.StartingDeadlineSeconds}, {jobSpec["activeDeadlineSeconds"], schedule.ActiveDeadlineSeconds}}
+		for _, policy := range policies {
+			if policy.want != nil {
+				number, ok := policy.value.(float64)
+				if !ok || number != float64(*policy.want) {
+					return violated("explicit deadline must be kept")
+				}
+			}
+		}
+		ints := []struct {
+			value any
+			want  *int32
+		}{{jobSpec["backoffLimit"], schedule.BackoffLimit}, {spec["successfulJobsHistoryLimit"], schedule.SuccessfulJobsHistoryLimit}, {spec["failedJobsHistoryLimit"], schedule.FailedJobsHistoryLimit}}
+		for _, policy := range ints {
+			if policy.want != nil {
+				number, ok := policy.value.(float64)
+				if !ok || number != float64(*policy.want) {
+					return violated("explicit job policy must be kept")
+				}
+			}
+		}
+		spec = jobSpec
+	} else {
+		if req.Module.Spec.Replicas != nil {
+			if replicas, ok := spec["replicas"].(float64); !ok || int(replicas) != req.Module.Spec.ReplicaCount() {
+				return violated("explicit Score replicas must be kept")
+			}
+		} else if raw, present := spec["replicas"]; present {
+			if replicas, ok := raw.(float64); !ok || replicas < 0 || replicas != float64(int(replicas)) {
+				return violated("replicas must be a non-negative integer")
+			}
+		}
+		selector := object(spec["selector"])
+		if !sameStringMap(selector["matchLabels"], delivery.Selector) {
+			return violated("the %s selector must be the platform selector", kind)
+		}
 	}
 	template := object(spec["template"])
 	templateMeta := object(template["metadata"])
@@ -238,6 +282,76 @@ func guardWorkload(req execution.RenderRequest, delivery kubernetes.Delivery, ki
 	}
 	if delivery.ServiceAccount != "" && pod["serviceAccountName"] != delivery.ServiceAccount {
 		return violated("the delivery ServiceAccount is platform-owned")
+	}
+	if e := req.Module.Spec.Execution; e != nil {
+		if kind == "CronJob" && pod["restartPolicy"] != "Never" && pod["restartPolicy"] != "OnFailure" {
+			return violated("scheduled workload restart policy is invalid")
+		}
+		claims := map[string]string{}
+		for _, raw := range list(pod["volumes"]) {
+			v := object(raw)
+			pvc := object(v["persistentVolumeClaim"])
+			if name, ok := v["name"].(string); ok {
+				if claim, ok := pvc["claimName"].(string); ok {
+					claims[name] = claim
+				}
+			}
+		}
+		for _, mount := range e.Mounts {
+			binding, ok := req.Storage[mount.Resource]
+			if !ok || binding.Namespace != req.Namespace || binding.ClaimName == "" {
+				return violated("storage binding unavailable")
+			}
+			found := false
+			for _, raw := range list(pod["containers"]) {
+				c := object(raw)
+				if c["name"] != mount.Container {
+					continue
+				}
+				for _, rawMount := range list(c["volumeMounts"]) {
+					v := object(rawMount)
+					name, _ := v["name"].(string)
+					readOnly, _ := v["readOnly"].(bool)
+					if v["mountPath"] == mount.Path && claims[name] == binding.ClaimName && readOnly == mount.ReadOnly {
+						found = true
+					}
+				}
+			}
+			if !found {
+				return violated("approved storage mount must be kept")
+			}
+		}
+	}
+	for _, file := range delivery.Files {
+		found := false
+		for _, rawVolume := range list(pod["volumes"]) {
+			volume := object(rawVolume)
+			secret := object(volume["secret"])
+			if secret["secretName"] != file.SecretName || toNumber(secret["defaultMode"]) != float64(file.Mode) {
+				continue
+			}
+			for _, rawItem := range list(secret["items"]) {
+				item := object(rawItem)
+				if item["key"] != file.SecretKey {
+					continue
+				}
+				for _, rawContainer := range list(pod["containers"]) {
+					container := object(rawContainer)
+					if container["name"] != file.Container {
+						continue
+					}
+					for _, rawMount := range list(container["volumeMounts"]) {
+						mount := object(rawMount)
+						if mount["name"] == volume["name"] && mount["mountPath"] == file.Path && mount["subPath"] == item["path"] && mount["readOnly"] == true {
+							found = true
+						}
+					}
+				}
+			}
+		}
+		if !found {
+			return violated("approved secret file projection must be kept")
+		}
 	}
 	containers := map[string]map[string]any{}
 	for _, raw := range list(pod["containers"]) {
@@ -295,6 +409,9 @@ func guardContainer(c map[string]any, declared environment.Container, bindings [
 	if c["image"] != declared.Image {
 		return violated("the Score image must be kept")
 	}
+	if declared.WorkingDir != "" && c["workingDir"] != declared.WorkingDir {
+		return violated("explicit working directory must be kept")
+	}
 	command, ok := stringList(c["command"])
 	if !ok || !equalStrings(command, declared.Command) {
 		return violated("the Score command must be kept")
@@ -303,7 +420,7 @@ func guardContainer(c map[string]any, declared environment.Container, bindings [
 	if !ok || !equalStrings(args, declared.Args) {
 		return violated("the Score args must be kept")
 	}
-	for probe, want := range map[string]*environment.Probe{"readinessProbe": declared.ReadinessProbe, "livenessProbe": declared.LivenessProbe} {
+	for probe, want := range map[string]*environment.Probe{"readinessProbe": declared.ReadinessProbe, "livenessProbe": declared.LivenessProbe, "startupProbe": declared.StartupProbe} {
 		if want == nil {
 			continue
 		}

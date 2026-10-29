@@ -1034,6 +1034,20 @@ Fresh-baseline policy stays unchanged: no runtime DDL/automatic migration/reset;
 new acceptance databases use the updated baseline. Retained databases are not
 reset or converted by this task.
 
+## Workload execution extension — ADR-028
+
+`workload_drafts.score_document.workloadExecution` và
+`deployment_sets.document.modules.<id>.spec.workloadExecution` chứa typed v1
+execution policy/template pin. Extension là phần của normalized desired intent
+và document hash, không private metadata; omission giữ workload legacy.
+Chỉ lưu refs không secret bytes. Existing JSONB columns không đổi DDL/ERD ở
+checkpoint domain này; template publication tables sẽ được định nghĩa trước
+checkpoint catalog persistence. Không reset database để nhận JSONB member mới.
+
+ADR-028 template registry reuses `render_bundles.contract.manifest.workloadTemplates`
+with immutable verified source content. Typed template inputs and content pin live
+in the execution JSONB extension. No dedicated template DDL or staging reset.
+
 ## Application lifecycle — ADR-025
 
 Required by [ADR-025](../decisions/ADR-025-application-deletion.md) and

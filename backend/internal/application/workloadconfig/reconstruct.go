@@ -500,6 +500,37 @@ func reconstruct(workload string, module environment.Module, set environment.Doc
 	if module.Spec.Service != nil {
 		out["service"] = module.Spec.Service
 	}
+	if module.Spec.Execution != nil {
+		execution := module.Spec.Execution.Clone()
+		for i, file := range execution.SecretFiles {
+			ref, err := b.mapString(file.Ref)
+			if err != nil {
+				return nil, err
+			}
+			execution.SecretFiles[i].Ref = ref
+		}
+		for i, mount := range execution.Mounts {
+			ref, err := b.mapReference(strings.Split(mount.Resource, "."), "", true)
+			if err != nil {
+				return nil, err
+			}
+			execution.Mounts[i].Resource = strings.TrimSuffix(strings.TrimPrefix(ref, "${resources."), "}")
+			if strings.HasPrefix(mount.Resource, "shared.") {
+				id := strings.TrimPrefix(mount.Resource, "shared.")
+				candidates := []string{}
+				for alias, sharedID := range names.Shared {
+					if sharedID == id {
+						candidates = append(candidates, alias)
+					}
+				}
+				sort.Strings(candidates)
+				if len(candidates) > 0 {
+					execution.Mounts[i].Resource = candidates[0]
+				}
+			}
+		}
+		out["workloadExecution"] = execution
+	}
 	if module.Spec.Replicas != nil {
 		out["replicas"] = *module.Spec.Replicas
 	}

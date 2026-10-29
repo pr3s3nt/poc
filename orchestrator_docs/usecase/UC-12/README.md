@@ -38,3 +38,10 @@ the observed VSO path and its limitations.
 supersedes permanent target lock/Application provider selection. Specifications
 now include editable per-Environment destinations and Vault stores/transitions;
 implementation status is tracked in CURRENT_STATE, not inferred from old evidence.
+
+## Workload catalog — issue #24 (design review)
+
+[Specification extension](../UC-16/workload-catalog-specification.md),
+[shared contract](../../architecture/contracts/workload-catalog.md) và
+[implementation handoff](../../implementation/workload-catalog.md) mô tả phần
+mở rộng đang review; chưa thay thế current behavior hoặc chứng minh implementation.

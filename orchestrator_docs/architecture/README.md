@@ -69,3 +69,5 @@ Actual V02 delivery is tracked in CURRENT_STATE/evidence, not implied by design.
 
 Terraform planning/provisioning and resource lifecycle stay unchanged. The
 installed-only renderer remains current code until IMP-034 is implemented.
+
+- [Workload catalog contract — proposed, issue #24](contracts/workload-catalog.md).

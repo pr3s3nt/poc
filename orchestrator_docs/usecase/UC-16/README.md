@@ -32,3 +32,10 @@ running workload until an explicit Preview → Deploy.
 Bảng biến môi trường thống nhất và tạo nguồn tại chỗ thay checklist cũ.
 Đọc [handoff coding agent](../../implementation/workload-environment-editor.md)
 sau specification/UI/contract; đây là yêu cầu chưa implement, không phải runtime evidence.
+
+## Workload catalog — issue #24 (design review)
+
+[Specification extension](../UC-16/workload-catalog-specification.md),
+[shared contract](../../architecture/contracts/workload-catalog.md) và
+[implementation handoff](../../implementation/workload-catalog.md) mô tả phần
+mở rộng đang review; chưa thay thế current behavior hoặc chứng minh implementation.

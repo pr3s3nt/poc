@@ -52,6 +52,8 @@ last_reviewed: 2026-10-28
 
 - [ADR-023 — Native basic observability](ADR-023-native-observability.md): platform collection, Metrics Server and durable application history.
 
+- [ADR-028 — Workload catalog, CronJob và persistent storage](ADR-028-workload-catalog.md).
+
 - [ADR-025 — Application deletion as one confirmed cascade operation](ADR-025-application-deletion.md) — draft; UC-18 design, not implemented.
 
 ZIP source upload: [ADR-026](ADR-026-zip-source-upload.md).

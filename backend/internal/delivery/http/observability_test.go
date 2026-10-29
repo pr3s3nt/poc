@@ -52,6 +52,19 @@ func TestObservabilityAuthenticatedStoredHistory(t *testing.T) {
 	if status, _ := read(foreign, base+"logs"); status != 404 {
 		t.Fatalf("foreign: %d", status)
 	}
+	jobs := strings.TrimSuffix(base, "observability/") + "workloads/backup/jobs"
+	if status, _ := read(http.DefaultClient, jobs); status != 401 {
+		t.Fatalf("unauthenticated jobs: %d", status)
+	}
+	if status, _ := read(foreign, jobs); status != 404 {
+		t.Fatalf("foreign jobs: %d", status)
+	}
+	if status, _ := read(user, jobs); status != 503 {
+		t.Fatalf("jobs without reader must be unavailable, not empty success: %d", status)
+	}
+	if status, _ := read(user, jobs+"?namespace=foreign"); status != 400 {
+		t.Fatalf("jobs target override: %d", status)
+	}
 	for _, kind := range []string{"overview", "logs", "metrics"} {
 		status, raw := read(user, base+kind)
 		if status != 200 {

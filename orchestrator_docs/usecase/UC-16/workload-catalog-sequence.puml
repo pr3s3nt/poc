@@ -1,0 +1,39 @@
+@startuml
+title UC-16 workload catalog — ADR-028 (implementation in progress)
+autonumber
+actor Developer
+boundary "Application home" as Home
+boundary "Template Dialog / editor" as UI
+control "Template catalog" as Catalog
+control "Workload configuration" as Config
+database "Draft / deployment set JSONB" as Store
+control "Planner / renderer" as Runtime
+Developer -> Home: Add Workload
+Home -> UI: Open picker
+UI -> Catalog: Scoped immutable template versions
+Catalog --> UI: Schema/defaults/capabilities
+Developer -> UI: Select template; configure
+UI -> Config: Save desired Score + workloadExecution v1
+Config -> Config: Validate immutable catalog pin, runtime, schedule, mount refs
+Config -> Store: CAS draft
+Store --> Home: Pending
+Developer -> Home: Preview
+Home -> Runtime: Pin desired/template/renderer/dependencies
+alt Capability not implemented/verified
+ Runtime --> Home: Renderer unavailable before provisioning
+else Capability supported
+ Runtime -> Runtime: Plan dependencies / safe manifest review
+ Runtime --> Home: Review token
+ Developer -> Home: Deploy
+ Home -> Runtime: Admit exact token and execute
+ Runtime -> Store: Applied snapshot + immutable extension
+end
+Developer -> Home: Edit
+Home -> Config: Reconstruct applied Score
+Config -> Store: Read module spec execution
+Config --> UI: Lossless execution pin/policy
+Developer -> Home: Job history
+Home -> Runtime: Scoped applied inventory read
+Runtime -> Runtime: Verify deployment owner + CronJob UID -> Jobs
+Runtime --> Home: Bounded observed outcomes
+@enduml

@@ -7,6 +7,19 @@ last_reviewed: 2026-10-28
 
 # Current project state
 
+## Generic workload catalog — 2026-10-29
+
+Issue #24 is implemented on `features/24-workload-catalog`: Git-owned template
+picker, typed runtime/round-trip, primary StatefulSet/CronJob, Service/storage
+bindings, retained-data namespace guard and VSO secret-file projection. Live Job
+inspection, storage-update guards and expanded real kind acceptance pass: scheduled
+execution/history/logs and PVC restart/update/reuse/retention/explicit cleanup.
+This does not certify Passbolt.
+MySQL resource secret prerequisites and private Passbolt/S3 runtime inputs remain
+open. Generic release/CI status is tracked in [PR #25](https://github.com/pr3s3nt/poc/pull/25).
+[Implementation/gaps](implementation/workload-catalog.md),
+[evidence](verification/2026-10-29-workload-catalog.md).
+
 ## PostgreSQL upgrades — issue #23
 
 Owner setup now upgrades the exact `1516dec` staging and `2a111db` preview baselines to schema version 1 without reset. Installation identities and retained rows are preserved; runtime remains read-only for schema/history. This supersedes older PostgreSQL no-migration statements below. See [ADR-027](architecture/decisions/ADR-027-postgres-upgrades.md) and [upgrade runbook](operations/postgres-upgrades.md). Other historical baselines and JSON conversion are unsupported. Verification: [issue #23](verification/2026-10-28-postgres-upgrades.md). Retained installations have only been inspected read-only, not upgraded by this task.

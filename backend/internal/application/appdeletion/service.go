@@ -160,6 +160,13 @@ func (s *Service) load(ctx context.Context, org, appKey string) (*snapshot, erro
 	running := s.isRunning(app.Key)
 	for _, env := range envs {
 		ep := EnvironmentPreview{Key: env.Key, Workloads: []string{}, PendingDrafts: []string{}, Resources: []resourcecleanup.InventoryItem{}, Blockers: []Blocker{}}
+		if env.CurrentDeploymentSetID != "" {
+			applied, err := s.store.GetDeploymentSet(ctx, env.CurrentDeploymentSetID)
+			if err != nil {
+				return nil, err
+			}
+			ep.Blockers = append(ep.Blockers, scheduledDeletionBlockers(applied.Document)...)
+		}
 		pin := tokenEnvironent{Key: env.Key, ID: env.ID, Version: env.Version, DraftVersion: env.DraftVersion, SetID: env.CurrentDeploymentSetID, Operation: env.ActiveOperationID, Workloads: []string{}, Resources: []string{}}
 		list, err := s.workloads.List(ctx, appKey, env.Key)
 		if err != nil {
@@ -761,5 +768,18 @@ func mergeSorted(a, b []string) []string {
 		}
 	}
 	sort.Strings(out)
+	return out
+}
+
+// A pending Suspend draft is insufficient: only the applied schedule can make
+// removal safe. Reject before freezing the Application's workload editor.
+func scheduledDeletionBlockers(doc environment.Document) []Blocker {
+	out := []Blocker{}
+	for _, id := range doc.ModuleIDs() {
+		e := doc.Modules[id].Spec.Execution
+		if e != nil && e.Kind == "CronJob" && (e.Schedule == nil || !e.Schedule.Suspend) {
+			out = append(out, Blocker{Code: BlockerScheduleNotSuspended, Descriptor: id})
+		}
+	}
 	return out
 }

@@ -148,6 +148,16 @@ The mock is approved UI reference, not evidence of collection or retention.
 [Real new-user acceptance](verification/2026-10-25-native-observability-live.md)
 records the native Kubernetes end-to-end run, including product cleanup.
 
+## Workload catalog, stateful storage và scheduled jobs — issue #24
+
+Bắt đầu từ [implementation entry](implementation/workload-catalog.md), rồi
+[spec extension](usecase/UC-16/workload-catalog-specification.md),
+[contract draft](architecture/contracts/workload-catalog.md),
+[UI](usecase/UC-16/ui/workload-catalog.md) và
+[Passbolt deployment preparation](operations/passbolt-catalog.md).
+Implementation đang nghiệm thu trên task branch; xem handoff để biết checks/gaps.
+Route này không tự kích hoạt iteration hoặc cấp thêm quyền runtime.
+
 ZIP module/render sources: [ADR-026](architecture/decisions/ADR-026-zip-source-upload.md), [UC-03](usecase/UC-03/README.md).
 ZIP upload usage: [runbook](operations/zip-source-upload.md).
 

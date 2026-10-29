@@ -23,10 +23,11 @@ const PreviewTTL = 15 * time.Minute
 
 // Blocker codes. Public responses carry no other text.
 const (
-	BlockerEnvironmentBusy = "ENVIRONMENT_BUSY"
-	BlockerDeletionRunning = "DELETION_RUNNING"
-	BlockerResourceHeld    = resourcecleanup.ReasonInstanceHeld
-	BlockerOwnership       = resourcecleanup.ReasonOwnershipUnproven
+	BlockerEnvironmentBusy      = "ENVIRONMENT_BUSY"
+	BlockerScheduleNotSuspended = "SCHEDULE_NOT_SUSPENDED"
+	BlockerDeletionRunning      = "DELETION_RUNNING"
+	BlockerResourceHeld         = resourcecleanup.ReasonInstanceHeld
+	BlockerOwnership            = resourcecleanup.ReasonOwnershipUnproven
 )
 
 // Failure codes of a stage.

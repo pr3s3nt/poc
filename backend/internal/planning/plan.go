@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
@@ -174,10 +175,16 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		Target:         req.Env.Binding(),
 		Placements:     placements,
 	}
+	if err := validateStorageIntent(base, candidate, req.Catalog); err != nil {
+		return nil, err
+	}
 	plan.IntentEvidence = intentEvidence(matches, matcher)
 	plan.Rendering, err = s.selectRendering(ctx, graph, matcher, req.Catalog)
 	if err != nil {
 		return nil, stageErr(StageCatalog, err)
+	}
+	if err := validateExecution(plan, req.Catalog); err != nil {
+		return nil, &StageError{Stage: StageCatalog, Reason: ReasonRendererUnavailable, Err: err}
 	}
 	plan.UnreferencedResources = unreferencedResources(ctx, graph, req.Active)
 	if req.Before != nil {
@@ -418,6 +425,15 @@ func sharedReferences(module environment.Module) ([]string, error) {
 		return nil, err
 	}
 	found := map[string]bool{}
+	// Mount bindings are typed resource references, not output placeholders.
+	// They must retain shared entries while another workload still mounts them.
+	if execution := module.Spec.Execution; execution != nil {
+		for _, mount := range execution.Mounts {
+			if id, shared := strings.CutPrefix(mount.Resource, placeholder.ScopeShared+"."); shared && id != "" {
+				found[id] = true
+			}
+		}
+	}
 	err = placeholder.WalkStrings(tree, "", func(_, value string) error {
 		refs, err := placeholder.Refs(value)
 		if err != nil {

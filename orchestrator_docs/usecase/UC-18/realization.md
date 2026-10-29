@@ -94,3 +94,9 @@ without secret values.
   progress stays readable by operation ID to the actor's Organization.
 - The HTTP lifecycle guard answers 409 `APPLICATION_DELETING` to every mutation
   under the Application while `DELETING`; reads continue.
+
+ADR-028 integration: `appdeletion.load` reads each current Deployment Set and
+reports unsuspended applied CronJobs before Application admission/freeze. The
+existing removal adapter checks live UID-owned Jobs during execution. Full owned
+resource cleanup remains reverse graph order (claim before namespace); ordinary
+UC-07 namespace cleanup retains its separate data guard.

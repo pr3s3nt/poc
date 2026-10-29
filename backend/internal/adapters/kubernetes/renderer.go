@@ -31,6 +31,9 @@ func NewRenderer() *Renderer { return &Renderer{} }
 
 // Render implements execution.WorkloadRenderer (UC-06 MS-11).
 func (r *Renderer) Render(ctx context.Context, req execution.RenderRequest) ([]execution.Manifest, error) {
+	if req.Module.Spec.Execution != nil {
+		return nil, environment.ErrExecutionUnavailable
+	}
 	delivery, err := PrepareDelivery(ctx, req)
 	if err != nil {
 		return nil, err
@@ -93,6 +96,12 @@ func (r *Renderer) Render(ctx context.Context, req execution.RenderRequest) ([]e
 		}
 		if len(ports) > 0 && name == containerNames[0] {
 			container["ports"] = ports
+		}
+		if c.WorkingDir != "" {
+			container["workingDir"] = c.WorkingDir
+		}
+		if c.StartupProbe != nil {
+			container["startupProbe"] = httpProbe(*c.StartupProbe)
 		}
 		if c.ReadinessProbe != nil {
 			container["readinessProbe"] = httpProbe(*c.ReadinessProbe)

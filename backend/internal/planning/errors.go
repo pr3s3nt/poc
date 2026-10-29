@@ -49,6 +49,7 @@ const (
 	ReasonPlacement         = "placement"
 	// ReasonResourceConflict: two authored sources give one scoped resource different params.
 	ReasonResourceConflict = "resource-conflict"
+	ReasonStorageImmutable = "storage-immutable"
 	ReasonMultiCluster     = "multi-cluster-unsupported"
 	// ReasonTargetChanged: an applied workload would move to another target.
 	ReasonTargetChanged = "target-changed"
@@ -95,6 +96,7 @@ var (
 		ReasonUnconfigured:        "a workload or resource placement cannot be resolved from Resource Definitions; ask a platform engineer to check the Definitions",
 		ReasonRendererNoMatch:     "no workload rendering template (score-k8s Definition) matches this workload for the Application and Environment; ask a platform engineer to register one",
 		ReasonRendererAmbiguous:   "several workload rendering templates (score-k8s Definitions) match this workload equally; ask a platform engineer to leave exactly one",
+		ReasonStorageImmutable:    "storage parameters cannot change without an explicit migration or verified expansion capability",
 		ReasonRendererUnavailable: "the workload rendering template needs a score-k8s bundle that is not installed; ask a platform engineer to check the platform release",
 		ReasonResourceNoMatch:     "a resource of this Score, or a resource it needs such as the Kubernetes cluster, matches no Resource Definition for this Application and Environment; ask a platform engineer to register one",
 		ReasonResourceAmbiguous:   "several Resource Definitions match a resource of this Score equally, so none was chosen; ask a platform engineer to leave exactly one most specific Definition",

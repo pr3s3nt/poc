@@ -1235,6 +1235,14 @@ followed by UI health and recorded Redis write-through checks before cleanup.
 
 ENV-UX runtime/locale validation and video: [2026-10-27 real kind/UI evidence](../verification/2026-10-27-workload-env-form.md).
 
+## Workload catalog — implementation/acceptance, issue #24
+
+[Spec extension](../usecase/UC-16/workload-catalog-specification.md) owns WC IDs.
+[Traceability/checks](../implementation/workload-catalog.md#planned-traceabilitytests)
+maps them to code and tests, distinguishing automated/current-build/Passbolt gaps.
+[Evidence](../verification/2026-10-29-workload-catalog.md) records real execution;
+no complete-feature or main-merge claim follows from the prototype.
+
 ## UC-03 ZIP source upload — ADR-026
 
 | Requirement | Operation / collaboration | Persistence and coverage |

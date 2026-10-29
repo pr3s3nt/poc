@@ -11,6 +11,7 @@ const stages: Record<string, string> = {
 
 const codes: Record<string, string> = {
   ENVIRONMENT_BUSY: 'applications.deletion.codeEnvironmentBusy',
+ SCHEDULE_NOT_SUSPENDED: 'applications.deletion.codeScheduleNotSuspended',
   DELETION_RUNNING: 'applications.deletion.codeDeletionRunning',
   RESOURCE_HELD: 'applications.deletion.codeResourceHeld',
   OWNERSHIP_UNVERIFIED: 'applications.deletion.codeOwnershipUnverified',

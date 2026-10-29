@@ -198,7 +198,14 @@ type ObjectRemover interface {
 }
 
 // RenderRequest describes a workload whose bindings are already resolved.
+type StorageBinding struct {
+	ClaimName string `json:"claimName"`
+	Namespace string `json:"namespace"`
+}
+
 type RenderRequest struct {
+	Storage map[string]StorageBinding
+
 	Selection        resource.RenderingSelection
 	WorkloadID       string
 	Module           environment.Module

@@ -77,6 +77,7 @@ type telemetryMeta struct {
 	UID       string            `json:"uid"`
 	Creation  time.Time         `json:"creationTimestamp"`
 	Labels    map[string]string `json:"labels"`
+	Owners    []jobOwner        `json:"ownerReferences"`
 }
 type termination struct {
 	Reason   string    `json:"reason"`
@@ -226,11 +227,34 @@ func (r *TelemetryReader) Collect(ctx context.Context, source obs.Source, prior 
 		b.State.LogsCode = telemetry.Truncated
 		b.State.MetricsCode = telemetry.Truncated
 	}
+	jobUIDs := map[string]bool{}
+	if source.Controller != nil {
+		history := r.InspectJobs(ctx, source, *source.Controller)
+		if history.Code != "OK" || history.Truncated {
+			b.State.LogsCode, b.State.MetricsCode = telemetry.SafeCode(telemetry.Code(history.Code)), telemetry.Waiting
+			if history.Truncated {
+				b.State.LogsCode = telemetry.Truncated
+			}
+			return b, nil
+		}
+		for _, job := range history.Jobs {
+			jobUIDs[job.UID] = true
+		}
+	}
 	pods := []telemetryPod{}
 	for _, p := range list.Items {
 		labels := p.Metadata.Labels
 		if p.Metadata.Namespace != source.Target.Namespace || p.Metadata.UID == "" || !telemetryPodName.MatchString(p.Metadata.Name) || labels["app.kubernetes.io/name"] != source.WorkloadID || labels["app.kubernetes.io/managed-by"] != "orchestrator" || labels["orchestrator.io/application"] != source.ApplicationKey || labels["orchestrator.io/environment"] != source.EnvironmentKey {
 			continue
+		}
+		if source.Controller != nil {
+			owned := false
+			for _, owner := range p.Metadata.Owners {
+				owned = owned || owner.Controller && owner.Kind == "Job" && jobUIDs[owner.UID]
+			}
+			if !owned {
+				continue
+			}
 		}
 		pods = append(pods, p)
 	}

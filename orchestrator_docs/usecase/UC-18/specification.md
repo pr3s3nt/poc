@@ -126,3 +126,20 @@ Cài đặt Application.
 
 Implemented; trạng thái và evidence ở [CURRENT_STATE](../../CURRENT_STATE.md).
 Giới hạn còn lại ở [IMP-038](../../implementation/deviations.md#imp-038--application-deletion-2026-10-27).
+
+## Scheduled workloads — integration with ADR-028
+
+- BR-13: Before Application deletion admission, every applied CronJob must already
+  be explicitly suspended through Save → Preview → Deploy. Deletion preview uses
+  the applied Deployment Set, never a pending suspend draft; it reports
+  `SCHEDULE_NOT_SUSPENDED` without a token. Otherwise the Application freeze would
+  prevent the user from satisfying the CronJob removal precondition afterward.
+- BR-14: Application deletion is an explicit confirmed data-deletion operation:
+  its preview includes all owned storage and its permanent-data warning. Ordinary
+  workload removal still retains storage and ordinary namespace deletion still
+  refuses retained data. Full Application cleanup destroys owned claims before
+  their namespace using the original dependency/UID/state guards; it does not
+  bypass ownership or remove foreign storage.
+- BR-15: Suspension does not cancel active Jobs. UID-owned active Jobs still block
+  runtime removal; the deletion stays incomplete and can be retried after they
+  finish. No implicit cancellation or manual Job trigger is added.

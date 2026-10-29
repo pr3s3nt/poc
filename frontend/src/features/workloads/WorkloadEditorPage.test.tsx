@@ -557,3 +557,22 @@ it('does not open a draft that still declares publicPort and does not drop its r
   expect(screen.getByRole('button', { name: 'Lưu draft Workload' })).toBeDisabled();
   expect(puts).toHaveLength(0);
 });
+
+it('saves a selected scheduled template with Service omitted and explicit scheduling policies', async () => {
+ const digest = 'a'.repeat(64);let saved: Record<string, unknown> | undefined;
+ vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+  const url = String(input);
+  if (url.endsWith('/configuration')) return Response.json({ version: 1, keys: [] });
+  if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
+  if (url.endsWith('/workload-templates')) return Response.json({ templates: [{ id: 'scheduled', version: '1.0.0', sha256: digest, kind: 'CronJob', labels: { vi: 'Theo lịch' }, inputsSchema: { type: 'object', properties: {}, additionalProperties: false }, defaults: {} }] });
+  if (init?.method === 'PUT') { saved = JSON.parse(String(init.body)); return Response.json({ workloads: [], draftVersion: 1 }); }
+  return Response.json({ workloads: [], draftVersion: 0 });
+ }));
+ const user = userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging" selectedTemplate={`scheduled@1.0.0:${digest}`} />);
+ await screen.findByRole('heading',{name:'Kiểu thực thi'});
+ await user.type(screen.getByLabelText('Tên Workload'),'backup');await user.type(screen.getByLabelText('Ảnh Container'),'registry.example/backup:v1');
+ await user.clear(screen.getByLabelText('Lịch cron'));await user.type(screen.getByLabelText('Lịch cron'),'0 1 * * *');
+ await user.click(screen.getByLabelText('Tạm dừng lịch'));await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));
+ const score = saved?.score as { workloadExecution: { kind: string; template: { sha256: string }; schedule: { expression: string; suspend: boolean } }; service?: unknown };
+ expect(score.workloadExecution.kind).toBe('CronJob');expect(score.workloadExecution.template.sha256).toBe(digest);expect(score.workloadExecution.schedule).toMatchObject({expression:'0 1 * * *',suspend:true});expect(score.service).toBeUndefined();
+});
