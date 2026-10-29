@@ -99,4 +99,5 @@ explicitly includes owned data; claim-before-namespace cleanup coexists with the
 ordinary namespace retained-data guard. No implicit Job cancellation is added.
 Integrated Go/build, frontend 934 tests and real PostgreSQL adapter/Application
 deletion checks pass. Fresh generic r3 passes 25/25 including collected logs and
-full product cleanup. Final CI gate remains before main merge. See verification.
+full product cleanup. The [PR #25](https://github.com/pr3s3nt/poc/pull/25) CI gate controls generic main
+release; private Passbolt acceptance remains separately open. See verification.

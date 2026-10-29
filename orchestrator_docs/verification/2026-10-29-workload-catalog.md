@@ -7,7 +7,8 @@ last_reviewed: 2026-10-29
 
 # Workload catalog — acceptance in progress
 
-Task branch `features/24-workload-catalog`; no main merge yet. Existing kind
+Tested branch `features/24-workload-catalog`; [PR #25](https://github.com/pr3s3nt/poc/pull/25)
+tracks release/CI status. Existing kind
 `kind-idp-internal`, isolated Console Docker project `catalog24`. User authorized
 new owned namespaces; original Passbolt is not adopted, migrated or modified.
 
@@ -107,3 +108,9 @@ Application ID before resuming a failed run. Pod restart verifies owner and uses
 UID delete preconditions. The actual raw kubectl UID-precondition operation was
 verified against a separate task-owned kind fixture; Pod and namespace cleanup
 both passed (`uid-delete.log`). No shared namespace or cluster was removed.
+
+
+Portable source modules `persistent-storage` and `mysql` were revalidated using
+real Terraform init/validate and the backend image's offline provider policy;
+both passed (`module-validation.log`). This is syntax/provider validation, not
+MySQL workload or Passbolt acceptance.

@@ -7,7 +7,7 @@ last_reviewed: 2026-10-28
 
 # Current project state
 
-## Workload catalog — implementation/acceptance in progress — 2026-10-29
+## Generic workload catalog — 2026-10-29
 
 Issue #24 is implemented on `features/24-workload-catalog`: Git-owned template
 picker, typed runtime/round-trip, primary StatefulSet/CronJob, Service/storage
@@ -16,7 +16,8 @@ inspection, storage-update guards and expanded real kind acceptance pass: schedu
 execution/history/logs and PVC restart/update/reuse/retention/explicit cleanup.
 This does not certify Passbolt.
 MySQL resource secret prerequisites and private Passbolt/S3 runtime inputs remain
-open; no main merge. [Implementation/gaps](implementation/workload-catalog.md),
+open. Generic release/CI status is tracked in [PR #25](https://github.com/pr3s3nt/poc/pull/25).
+[Implementation/gaps](implementation/workload-catalog.md),
 [evidence](verification/2026-10-29-workload-catalog.md).
 
 ## PostgreSQL upgrades — issue #23
