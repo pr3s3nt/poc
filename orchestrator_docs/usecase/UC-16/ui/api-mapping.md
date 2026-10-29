@@ -70,3 +70,13 @@ entity or Secret scope. Literal values stay ordinary workload strings; checkbox
 Secret delegates to UC-12 create-only, then binds the created app/environment
 key. Local row-to-row references are not produced. Clearing/changing sources
 drops inactive payload before Score serialization.
+
+
+## Workload catalog / scheduled Jobs — ADR-025
+
+Scoped GET workload-templates and existing workload Save carry the immutable
+execution pin/typed intent per [WC-C08](../../../architecture/contracts/workload-catalog.md#wc-c08--concrete-git-owned-catalog-contract).
+Live GET workloads/{workload}/jobs uses applied inventory/target and returns safe,
+bounded Job rows per [WC-C09](../../../architecture/contracts/workload-catalog.md#wc-c09--live-job-inspection).
+Missing session/scope uses existing 401/404 policy; runtime unavailable/forbidden
+is explicit and never successful empty history. No deploy/Job mutation on GET.

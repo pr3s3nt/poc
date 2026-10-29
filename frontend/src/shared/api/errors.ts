@@ -75,7 +75,7 @@ const fallbackByStatus = (status: number): string => {
 };
 
 export const plannerStages = ['score', 'before-state', 'candidate', 'public-routes', 'service-references', 'catalog', 'graph', 'reference', 'contract', 'schedule'] as const;
-export const plannerReasons = ['workload-exists', 'workload-not-current', 'before-mismatch', 'legacy-infrastructure-reference', 'environment-unconfigured', 'renderer-no-match', 'renderer-ambiguous', 'renderer-unavailable'] as const;
+export const plannerReasons = ['workload-exists', 'workload-not-current', 'before-mismatch', 'legacy-infrastructure-reference', 'environment-unconfigured', 'renderer-no-match', 'renderer-ambiguous', 'renderer-unavailable', 'storage-immutable'] as const;
 export type PlannerStage = (typeof plannerStages)[number];
 export type PlannerReason = (typeof plannerReasons)[number];
 // Allowlisted refusal reasons of a resource deletion (OC-19); the server sends them under `reason`.
@@ -121,6 +121,7 @@ export const reasonLabels: Readonly<Record<PlannerReason, string>> = Object.free
   'environment-unconfigured': t('shared.errors.theEnvironmentHasNoDeployment'),
   'renderer-no-match': t('shared.errors.noRenderingTemplateScoreK8s'),
   'renderer-ambiguous': t('shared.errors.severalRenderingTemplatesMatchThis'),
+  'storage-immutable': t('shared.errors.storageImmutable'),
   'renderer-unavailable': t('shared.errors.theRenderingTemplateNeedsA'),
 });
 

@@ -679,12 +679,12 @@ stream labels from the mock. UC-09 TEL and API/UI docs reflect that boundary.
 Implementation and local SQL/HTTP/browser verification are recorded in the
 [handoff](native-observability.md). [Real new-user Kubernetes verification](../verification/2026-10-25-native-observability-live.md) now passes 48/48 checks and product cleanup. EKS-specific verification and a non-destructive operator upgrade for older retained platform databases remain separate. The fresh baseline must not be used to reset retained data.
 
-## IMP-036 — Workload catalog execution — implementation in progress
+## IMP-038 — Workload catalog execution — acceptance in progress
 
-ADR-025 và [catalog specification](../usecase/UC-16/workload-catalog-specification.md)
-được chấp nhận cho issue #24. Hiện có isolated UI mock và domain execution v1
-validation/round-trip; chưa có product catalog publication, runtime capability
-verification, primary CronJob delivery, retained storage hoặc Passbolt E2E.
-Trong checkpoint nền tảng, planner và renderer chặn execution extension trước
-provisioning để legacy renderer không âm thầm tạo Deployment bỏ qua intent.
-Không coi domain tests là nghiệm thu feature; không merge main trước real E2E.
+ADR-025/specification are accepted. The task branch implements catalog/runtime/
+storage/file projection and live Job inspection. Expanded generic kind acceptance
+passes (restart/update/reuse/history/logs/confirmed cleanup); Passbolt remains open.
+Resource-scoped secret prerequisite automation, broader probe union and volumeMode
+still differ from the full design; MySQL currently takes existing approved Secret
+refs. See [handoff](workload-catalog.md) and
+[verification](../verification/2026-10-29-workload-catalog.md). Main merge is gated.

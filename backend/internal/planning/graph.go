@@ -281,6 +281,18 @@ func (b *graphBuilder) buildFromSet(set environment.Document, namespace *Node) e
 	for _, id := range set.ModuleIDs() {
 		module := set.Modules[id]
 		workload := workloadNodes[id]
+		if execution := module.Spec.Execution; execution != nil {
+			for _, mount := range execution.Mounts {
+				if strings.HasPrefix(mount.Resource, placeholder.ScopeShared+".") {
+					provider := sharedNodes[strings.TrimPrefix(mount.Resource, placeholder.ScopeShared+".")]
+					if provider == nil {
+						return environment.ErrExecution
+					}
+					b.bind(workload, mount.Resource, provider.Descriptor)
+					b.addEdge(workload.Descriptor, provider.Descriptor, ReasonWorkloadPlace, pointer("modules", id, "spec", "workloadExecution", "mounts"))
+				}
+			}
+		}
 		spec, err := canon.Map(module.Spec)
 		if err != nil {
 			return err

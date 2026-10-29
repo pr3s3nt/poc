@@ -755,3 +755,19 @@ copy in `labels.ts`; a new external source also needs spec/schema first.
 - Real UI form acceptance and optional video recording use
   [`e2e/scenarios/workload-env-form`](../../e2e/scenarios/workload-env-form/README.md)
   and the shared `signInContext` helper; no Score import in this scenario.
+
+
+## Workload catalog — issue #24
+
+`domain/environment/execution.go`, Score conversion/reconstruction and
+`adapters/postgres/workload_execution_integration_test.go` carry the typed
+execution intent. `domain/renderbundle/workload_templates.go`, registry metadata,
+workload catalog HTTP and `planning/workload_execution.go` validate immutable
+pins. `planning/graph.go` and `storage_intent.go` cover storage dependencies and
+parameter changes. Standard Git `patches/execution.tpl` and score-k8s guards
+render the primary controller; Kubernetes objects enforce safe CronJob removal.
+`application/observability/jobs.go`, `adapters/kubernetes/jobs.go` and HTTP
+observability routes expose UID-owned live Job history; `JobHistoryDialog.tsx`
+uses the current home row. Terraform source modules are in
+`backend/terraform-modules/`. Generic E2E lives in
+`e2e/scenarios/workload-catalog/`; [handoff](workload-catalog.md) owns gaps.

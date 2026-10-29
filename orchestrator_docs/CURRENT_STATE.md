@@ -7,12 +7,17 @@ last_reviewed: 2026-10-27
 
 # Current project state
 
-## Workload catalog — documentation preparation — 2026-10-28
+## Workload catalog — implementation/acceptance in progress — 2026-10-29
 
-Issue #24 có isolated mock và bộ [design-review documents](implementation/workload-catalog.md).
-Người dùng chốt original home → Thêm Workload → picker, retain storage và S3 backup.
-Chưa implement generic template catalog, primary CronJob hoặc secret file/resource
-binding; chưa deploy Passbolt. Runbook chỉ là preparation, không runtime evidence.
+Issue #24 is implemented on `features/24-workload-catalog`: Git-owned template
+picker, typed runtime/round-trip, primary StatefulSet/CronJob, Service/storage
+bindings, retained-data namespace guard and VSO secret-file projection. Live Job
+inspection, storage-update guards and expanded real kind acceptance pass: scheduled
+execution/history/logs and PVC restart/update/reuse/retention/explicit cleanup.
+This does not certify Passbolt.
+MySQL resource secret prerequisites and private Passbolt/S3 runtime inputs remain
+open; no main merge. [Implementation/gaps](implementation/workload-catalog.md),
+[evidence](verification/2026-10-29-workload-catalog.md).
 
 ## Offline Terraform providers — 2026-10-27
 

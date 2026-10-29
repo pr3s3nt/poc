@@ -128,8 +128,10 @@ func (e *WorkloadExecution) Validate(containers map[string]Container, replicas i
 		if !strings.HasPrefix(file.Path, "/") || file.Path == "/" || path.Clean(file.Path) != file.Path || strings.ContainsAny(file.Path, "\x00\r\n") {
 			return ErrExecution
 		}
-		if strings.HasPrefix(file.Path, "/vault/") || strings.HasPrefix(file.Path, "/var/run/secrets/") {
-			return ErrExecution
+		for _, prefix := range []string{"/vault", "/var/run/secrets"} {
+			if file.Path == prefix || strings.HasPrefix(file.Path, prefix+"/") || strings.HasPrefix(prefix, file.Path+"/") {
+				return ErrExecution
+			}
 		}
 		for _, previous := range seen[file.Container] {
 			if previous == file.Path || strings.HasPrefix(previous, file.Path+"/") || strings.HasPrefix(file.Path, previous+"/") {
@@ -234,6 +236,11 @@ func validCron(expression string) bool {
 				return false
 			}
 			if len(parts) == 2 {
+				for _, c := range parts[1] {
+					if c < '0' || c > '9' {
+						return false
+					}
+				}
 				step, err := strconv.Atoi(parts[1])
 				if err != nil || step < 1 || step > max-min+1 {
 					return false

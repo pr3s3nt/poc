@@ -14,14 +14,14 @@ UI -> Catalog: Scoped immutable template versions
 Catalog --> UI: Schema/defaults/capabilities
 Developer -> UI: Select template; configure
 UI -> Config: Save desired Score + workloadExecution v1
-Config -> Config: Validate pin shape, runtime, schedule, mount refs
+Config -> Config: Validate immutable catalog pin, runtime, schedule, mount refs
 Config -> Store: CAS draft
 Store --> Home: Pending
 Developer -> Home: Preview
 Home -> Runtime: Pin desired/template/renderer/dependencies
 alt Capability not implemented/verified
  Runtime --> Home: Renderer unavailable before provisioning
-else Capability supported (planned)
+else Capability supported
  Runtime -> Runtime: Plan dependencies / safe manifest review
  Runtime --> Home: Review token
  Developer -> Home: Deploy
@@ -32,4 +32,8 @@ Developer -> Home: Edit
 Home -> Config: Reconstruct applied Score
 Config -> Store: Read module spec execution
 Config --> UI: Lossless execution pin/policy
+Developer -> Home: Job history
+Home -> Runtime: Scoped applied inventory read
+Runtime -> Runtime: Verify deployment owner + CronJob UID -> Jobs
+Runtime --> Home: Bounded observed outcomes
 @enduml

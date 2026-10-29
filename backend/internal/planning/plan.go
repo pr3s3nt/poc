@@ -174,6 +174,9 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		Target:         req.Env.Binding(),
 		Placements:     placements,
 	}
+	if err := validateStorageIntent(base, candidate, req.Catalog); err != nil {
+		return nil, err
+	}
 	plan.IntentEvidence = intentEvidence(matches, matcher)
 	plan.Rendering, err = s.selectRendering(ctx, graph, matcher, req.Catalog)
 	if err != nil {

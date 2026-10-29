@@ -1,5 +1,5 @@
 // Package observability collects from pinned workload targets and serves stored
-// telemetry. GET handlers never call a cluster reader.
+// telemetry. Stored telemetry GET handlers never call a cluster reader.
 package observability
 
 import (
@@ -107,7 +107,19 @@ func (s *Service) discover(ctx context.Context) ([]obs.Source, error) {
 				hash := telemetry.Hash(string(pin))
 				scope := telemetry.Scope{OrganizationKey: app.OrganizationKey, ApplicationKey: app.Key, EnvironmentKey: env.Key, Generation: env.TargetGeneration}
 				key := telemetry.Hash(app.OrganizationKey, app.Key, env.Key, strconv.FormatInt(env.TargetGeneration, 10), instance.WorkloadID, hash)
-				out = append(out, obs.Source{Source: telemetry.Source{Scope: scope, Key: key, WorkloadID: instance.WorkloadID, TargetHash: hash}, Target: target})
+				source := obs.Source{Source: telemetry.Source{Scope: scope, Key: key, WorkloadID: instance.WorkloadID, TargetHash: hash}, Target: target}
+				var objects []execution.ObjectRef
+				raw, marshalErr := json.Marshal(instance.TargetRef["objects"])
+				if marshalErr == nil && json.Unmarshal(raw, &objects) == nil {
+					for _, ref := range objects {
+						if ref.APIVersion == "batch/v1" && ref.Kind == "CronJob" && ref.Name == instance.WorkloadID {
+							pin := ref
+							source.Controller = &pin
+							break
+						}
+					}
+				}
+				out = append(out, source)
 			}
 		}
 	}

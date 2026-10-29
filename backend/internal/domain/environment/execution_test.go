@@ -64,7 +64,7 @@ func TestSchedulePolicyRoundTrip(t *testing.T) {
 }
 
 func TestCronGrammarAndClone(t *testing.T) {
-	for _, expression := range []string{"99 0 * * *", "*/0 * * * *", "* * * *", "* * * * * *", "0 0 * * 7", "0 0 31-1 * *", "@daily", "TZ=UTC 0 0 * * *", "0 0 * * MON"} {
+	for _, expression := range []string{"99 0 * * *", "*/0 * * * *", "*/+1 * * * *", "* * * *", "* * * * * *", "0 0 * * 7", "0 0 31-1 * *", "@daily", "TZ=UTC 0 0 * * *", "0 0 * * MON"} {
 		if validCron(expression) {
 			t.Fatalf("accepted invalid/unsupported cron %q", expression)
 		}
@@ -95,6 +95,8 @@ func TestSecretFilesRejectUnsafeProjection(t *testing.T) {
 		{"writable", func(e *WorkloadExecution) { e.SecretFiles[0].Mode = 0600 }},
 		{"relative", func(e *WorkloadExecution) { e.SecretFiles[0].Path = "keys/private" }},
 		{"protected", func(e *WorkloadExecution) { e.SecretFiles[0].Path = "/var/run/secrets/token" }},
+		{"protected root", func(e *WorkloadExecution) { e.SecretFiles[0].Path = "/vault" }},
+		{"protected parent", func(e *WorkloadExecution) { e.SecretFiles[0].Path = "/var/run" }},
 		{"duplicate", func(e *WorkloadExecution) { e.SecretFiles = append(e.SecretFiles, e.SecretFiles[0]) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

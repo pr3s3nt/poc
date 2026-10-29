@@ -1208,9 +1208,10 @@ verification. Operator procedure: [staging catalog](../operations/staging-catalo
 
 ENV-UX runtime/locale validation and video: [2026-10-27 real kind/UI evidence](../verification/2026-10-27-workload-env-form.md).
 
-## Workload catalog — planned coverage, issue #24
+## Workload catalog — implementation/acceptance, issue #24
 
-[Spec extension](../usecase/UC-16/workload-catalog-specification.md) sở hữu WC IDs;
-[planned traceability/tests](../implementation/workload-catalog.md#planned-traceabilitytests)
-map tới gates. Chưa đánh dấu implemented/verified; mock không chứng minh runtime.
-Schema/ERD/ADR và sequence/VOPC updates chờ closure các quyết định trong handoff.
+[Spec extension](../usecase/UC-16/workload-catalog-specification.md) owns WC IDs.
+[Traceability/checks](../implementation/workload-catalog.md#planned-traceabilitytests)
+maps them to code and tests, distinguishing automated/current-build/Passbolt gaps.
+[Evidence](../verification/2026-10-29-workload-catalog.md) records real execution;
+no complete-feature or main-merge claim follows from the prototype.

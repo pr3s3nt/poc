@@ -31,3 +31,9 @@ not a claim that diagrams/migrations were finalized. Exact API/state decisions
 are listed in the [handoff](../../implementation/workload-catalog.md).
 
 Sequence: [source](workload-catalog-sequence.puml), [render](workload-catalog-sequence.png).
+
+Live Job inspection: home row -> scoped HTTP handler -> observability application
+service -> applied WorkloadInstance/current generation + inventoried CronJob ->
+credential-bound Kubernetes reader. Reader verifies scope and deployment owner,
+then joins Job controller owner UID to the verified CronJob. Safe bounded rows
+return to the existing Dialog; log navigation reuses UC-09 stored history.

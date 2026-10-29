@@ -200,3 +200,27 @@ pins. This does not add or modify the packaged release/provider mirror, nor does
 it require a staging database baseline reset. Persistent-storage outputs define
 claimName/namespace capability; a resource with this capability must be explicitly
 deleted before its namespace can be selected for cascade deletion.
+
+## WC-C09 — Live Job inspection
+
+GET `/api/v1/applications/{id}/environments/{env}/workloads/{workload}/jobs`
+returns a bounded live projection `{generatedAt, code, jobs, truncated}`. It uses
+only the applied target generation and inventoried CronJob name/deployment owner;
+no desired draft or host kubeconfig selects a target. Verify the current
+CronJob's scope/deployment labels, then follow controller owner UID from Job to
+CronJob. Rows expose name, UID, creation/start/completion timestamps and
+Pending/Running/Succeeded/Failed state, never provider diagnostics or Job spec.
+Limit 100 Jobs; disclose truncation and unavailable/forbidden rather than empty
+success. History follows Kubernetes history limits, not a durable job archive.
+This explicitly live inspection is separate from the stored telemetry GETs in
+ADR-023; it never provisions or mutates cluster objects. Existing log collection
+for scheduled workloads must also follow Job UID -> Pod UID ownership, and log
+navigation uses the existing scoped workload log history. No manual Job trigger,
+cancel or guessed next-run is introduced.
+
+Storage update v1: absent a published verified expansion capability, Preview
+rejects changes to persisted storage size/class/access/volume mode/namespace
+parameters for the same resource descriptor (`storage-immutable`). This includes
+expansion: a provider accepting larger quantities does not prove StorageClass
+support. Other database configuration fields are independent; Terraform's
+replacement/ownership guards remain authoritative for provider-level changes.

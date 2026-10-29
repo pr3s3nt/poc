@@ -54,3 +54,12 @@ actual persistence. Không dùng mock làm bằng chứng các phần đó đã 
 Nguồn visual: AppShell, ApplicationHomePage, WorkloadEditorPage, shared Dialog,
 Button và styles. Tiếp tục đối chiếu browser mỗi khi sửa UI; giữ nội dung ngắn,
 trợ giúp kỹ thuật nằm trong disclosure. Nhãn VI/EN từ message catalogs.
+
+### Live Job history
+
+An applied scheduled workload has a `Lịch sử Job` action on its existing home
+row. Reuse Dialog/table/buttons and existing scoped log navigation. The dialog
+shows loading/error/retry, bounded Kubernetes Job history and observation time;
+Pending/Running are observations, not rollout readiness. Empty history means no
+retained Job, not a successful run. Disclose history-limit/truncation semantics.
+Closing restores focus; changing app/environment drops late responses.

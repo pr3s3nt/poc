@@ -985,11 +985,17 @@ func withWorkloadOwner(ref map[string]any, deploymentID string) map[string]any {
 // before any provisioning side effect: a store must be selected and its
 // workload Kubernetes auth must verify.
 func (s *Service) preflightSecretDelivery(ctx context.Context, cmd DeployCommand, env environment.Environment, plan *planning.Plan, workloadID string, applying bool) error {
-	if !applying || cmd.ConfigRevisionID == "" {
+	if !applying {
 		return nil
 	}
 	module, ok := plan.CandidateSet.Modules[workloadID]
 	if !ok {
+		return nil
+	}
+	if cmd.ConfigRevisionID == "" {
+		if module.Spec.Execution != nil && len(module.Spec.Execution.SecretFiles) > 0 {
+			return configport.ErrNoStore
+		}
 		return nil
 	}
 	revision, err := s.store.GetConfigurationRevision(ctx, cmd.ConfigRevisionID)
@@ -997,6 +1003,18 @@ func (s *Service) preflightSecretDelivery(ctx context.Context, cmd DeployCommand
 		return err
 	}
 	needs := false
+	if module.Spec.Execution != nil && len(module.Spec.Execution.SecretFiles) > 0 {
+		if s.configSync == nil {
+			return environment.ErrExecutionUnavailable
+		}
+		needs = true
+		for _, file := range module.Spec.Execution.SecretFiles {
+			key := strings.TrimSuffix(strings.TrimPrefix(file.Ref, "${context.uc12."), "}")
+			if revision.Entries[key].Kind != configuration.Secret {
+				return configport.ErrNoStore
+			}
+		}
+	}
 	for _, containerName := range module.ContainerNames() {
 		for _, raw := range module.Spec.Containers[containerName].Variables {
 			if strings.HasPrefix(raw, "${context.uc12.") && strings.HasSuffix(raw, "}") {

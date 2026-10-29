@@ -42,3 +42,8 @@ Implementation gates và phần còn phải thiết kế:
 [handoff](../../implementation/workload-catalog.md). Quyết định này không xác nhận
 code đã implement hoặc E2E pass. Publish API/schema chi tiết phải được ghi trước
 khi implement mutation tương ứng. Không reset database staging để đổi schema.
+
+Job history uses explicit bounded live inspection of the applied CronJob and
+its UID-owned Jobs. It is distinct from ADR-023 stored log/metric queries; history
+retention is the Kubernetes history policy, with unavailable/truncated states
+reported. This avoids adding a second durable scheduler/job database in v1.

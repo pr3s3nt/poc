@@ -154,4 +154,5 @@ Bắt đầu từ [implementation entry](implementation/workload-catalog.md), r�
 [contract draft](architecture/contracts/workload-catalog.md),
 [UI](usecase/UC-16/ui/workload-catalog.md) và
 [Passbolt deployment preparation](operations/passbolt-catalog.md).
-Feature chưa implement; route này không kích hoạt iteration hoặc quyền runtime.
+Implementation đang nghiệm thu trên task branch; xem handoff để biết checks/gaps.
+Route này không tự kích hoạt iteration hoặc cấp thêm quyền runtime.
