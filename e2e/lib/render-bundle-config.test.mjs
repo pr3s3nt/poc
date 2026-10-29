@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { assertSameDefinition, desiredDefinition, parseBundleConfig } from './render-bundle-config.mjs';
+import { assertSameDefinition, assertSameResourceType, desiredDefinition, parseBundleConfig } from './render-bundle-config.mjs';
 
 const example = () => JSON.parse(readFileSync(new URL('../setup/register-render-bundles/config.example.json', import.meta.url), 'utf8'));
 
@@ -59,4 +59,48 @@ test('reruns refuse changes to source pin, render inputs, placement, name and sc
     const actual = structuredClone(desired); mutate(actual);
     assert.throws(() => assertSameDefinition(actual, desired), /không ghi đè/);
   }
+});
+
+test('Resource Type config preserves typed schema and normalizes absent flags', () => {
+  const raw = example();
+  raw.resourceTypes[0].inputs = [{ name: 'count', type: 'number', required: true }, { name: 'enabled', type: 'bool' }, { name: 'labels', type: 'any' }];
+  raw.resourceTypes[0].outputs.push({ name: 'password', type: 'string', secret: true });
+  const { resourceTypes } = parseBundleConfig(raw);
+  assert.equal(resourceTypes[0].inputs[1].required, false);
+  assert.equal(resourceTypes[0].outputs[2].secret, true);
+  assert.doesNotThrow(() => assertSameResourceType({ ...raw.resourceTypes[0], classes: ['default'], outputs: [...raw.resourceTypes[0].outputs].reverse() }, resourceTypes[0]));
+});
+
+test('Resource Type reruns reject a changed type, required/secret flag or missing output', () => {
+  const { resourceTypes: [desired] } = parseBundleConfig(example());
+  for (const mutate of [
+    actual => { actual.outputs[0].secret = true; },
+    actual => { actual.outputs[0].required = false; },
+    actual => { actual.outputs[0].type = 'any'; },
+    actual => { actual.outputs.pop(); },
+  ]) {
+    const actual = structuredClone(desired); mutate(actual);
+    assert.throws(() => assertSameResourceType(actual, desired), /không ghi đè/);
+  }
+});
+
+test('rejects invalid Resource Types and configurations requiring JSON UI before mutations', () => {
+  for (const mutate of [
+    raw => raw.resourceTypes.push(structuredClone(raw.resourceTypes[0])),
+    raw => { raw.resourceTypes[0].key = 'environment'; },
+    raw => { raw.resourceTypes[0].inputs.push({ name: 'storage', type: 'string' }); },
+    raw => { raw.resourceTypes[0].outputs[0].type = 'boolean'; },
+    raw => { raw.resourceTypes[0].outputs[0].secret = 'false'; },
+    raw => { raw.bundles[0].provision = { child: { params: { count: 1 } } }; },
+    raw => { raw.bundles[0].renderInputs = { nested: {} }; },
+    raw => { raw.verify.volumeMount.resourceType = ''; },
+  ]) {
+    const raw = example(); mutate(raw);
+    assert.throws(() => parseBundleConfig(raw));
+  }
+});
+
+test('existing bundle-only configuration stays valid', () => {
+  const raw = example(); delete raw.resourceTypes; delete raw.verify.volumeMount;
+  assert.deepEqual(parseBundleConfig(raw).resourceTypes, []);
 });

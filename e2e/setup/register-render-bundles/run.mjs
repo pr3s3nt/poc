@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { expect } from '@playwright/test';
 import { closeConsole, openConsole, readConsoleConfig } from '../../lib/console.mjs';
-import { assertSameDefinition, desiredDefinition, parseBundleConfig } from '../../lib/render-bundle-config.mjs';
+import { assertSameDefinition, assertSameResourceType, desiredDefinition, parseBundleConfig } from '../../lib/render-bundle-config.mjs';
 
 const { values } = parseArgs({ options: { config: { type: 'string' }, help: { type: 'boolean' } } });
 if (values.help) {
@@ -14,28 +14,81 @@ let session, consoleConfig;
 try {
   if (!values.config) throw new Error('Thiếu --config; xem config.example.json cạnh script');
   const config = parseBundleConfig(JSON.parse(readFileSync(values.config, 'utf8')));
+  const stepDelay = Number(process.env.ORCH_STEP_DELAY_MS ?? '800');
+  if (!Number.isInteger(stepDelay) || stepDelay < 0 || stepDelay > 10000) throw new Error('ORCH_STEP_DELAY_MS phải là số nguyên 0..10000');
   consoleConfig = readConsoleConfig();
   console.log(`Console: ${consoleConfig.baseURL}`);
   session = await openConsole(consoleConfig);
   if (!['PLATFORM_ENGINEER', 'ADMIN'].includes(session.user.role)) throw new Error('Cần tài khoản Platform Engineer hoặc Admin');
   const { page } = session;
+  const act = async (locator, method, ...args) => {
+    await locator.scrollIntoViewIfNeeded();
+    await locator.hover();
+    await page.waitForTimeout(stepDelay);
+    if (method === 'fill') {
+      await locator.fill('');
+      await locator.pressSequentially(args[0], { delay: Math.min(45, Math.floor(stepDelay / 20)) });
+    } else await locator[method](...args);
+    await page.waitForTimeout(stepDelay);
+  };
   const get = async path => {
     const reply = await page.request.get(`${consoleConfig.baseURL}/api/v1${path}`);
     if (!reply.ok()) throw new Error(`GET ${path}: HTTP ${reply.status()}`);
     return reply.json();
   };
   const responseFor = (path, method) => page.waitForResponse(reply => reply.request().method() === method && new URL(reply.url()).pathname === `/api/v1${path}`, { timeout: 180_000 });
+  const readTypes = async () => {
+    const { resourceTypes } = await get('/resource-types');
+    if (!Array.isArray(resourceTypes)) throw new Error('Danh sách Resource Types không hợp lệ');
+    return resourceTypes;
+  };
+  // Check existing schemas before any create, including before bundle inspection.
+  const existingTypes = await readTypes();
+  for (const type of config.resourceTypes) {
+    const existing = existingTypes.find(item => item.key === type.key);
+    if (existing) assertSameResourceType(existing, type);
+  }
+  for (const type of config.resourceTypes) {
+    if (existingTypes.some(item => item.key === type.key)) {
+      console.log(`PASS: dùng lại Resource Type ${type.key}, schema khớp`);
+      continue;
+    }
+    console.log(`UI: đăng ký Resource Type ${type.key}`);
+    await page.goto(`${consoleConfig.baseURL}/ui/platform/resource-types`);
+    const form = page.locator('form').filter({ has: page.getByLabel('ID loại tài nguyên', { exact: true }) });
+    await act(form.getByLabel('ID loại tài nguyên', { exact: true }), 'fill', type.key);
+    for (const [kind, label, noun] of [['inputs', 'Đầu vào', 'tham số đầu vào'], ['outputs', 'Đầu ra', 'tham số đầu ra']]) {
+      for (const [index, field] of type[kind].entries()) {
+        await act(form.getByRole('button', { name: `+ Thêm ${noun}`, exact: true }), 'click');
+        const prefix = `${label} ${index + 1}`;
+        await act(form.getByLabel(`${prefix} tên`, { exact: true }), 'fill', field.name);
+        await act(form.getByLabel(`${prefix} kiểu`, { exact: true }), 'selectOption', field.type);
+        await act(form.getByLabel(`${prefix} bắt buộc`, { exact: true }), 'setChecked', field.required);
+        if (kind === 'outputs') await act(form.getByLabel(`${prefix} bí mật`, { exact: true }), 'setChecked', field.secret);
+      }
+    }
+    const reply = responseFor('/resource-types', 'POST');
+    await act(form.getByRole('button', { name: 'Đăng ký loại tài nguyên', exact: true }), 'click');
+    const saved = await reply;
+    if (!saved.ok()) throw new Error(`${type.key}: đăng ký Resource Type thất bại HTTP ${saved.status()}; kiểm tra Console trước khi chạy lại`);
+    const persisted = (await readTypes()).find(item => item.key === type.key);
+    if (!persisted) throw new Error(`${type.key}: không tìm thấy Resource Type sau đăng ký`);
+    assertSameResourceType(persisted, type);
+    await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký loại tài nguyên ${type.key}.` })).toBeVisible();
+    console.log(`PASS: đăng ký Resource Type ${type.key}, inputs/outputs/flags khớp`);
+  }
   const checkedBundleIds = new Set();
   for (const item of config.bundles) {
+    console.log(`UI: mở và kiểm tra Git bundle ${item.key}`);
     await page.goto(`${consoleConfig.baseURL}/ui/platform/rendering-templates`);
     const form = page.getByRole('form', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true });
-    await form.getByLabel('ID mẫu', { exact: true }).fill(item.key);
-    await form.getByLabel('Tên hiển thị', { exact: true }).fill(item.name);
-    await form.getByLabel('Git HTTPS URL', { exact: true }).fill(item.source.url);
-    await form.getByLabel('Thư mục bundle', { exact: true }).fill(item.source.path);
-    await form.getByLabel('Tag hoặc commit', { exact: true }).fill(item.source.ref);
+    await act(form.getByLabel('ID mẫu', { exact: true }), 'fill', item.key);
+    await act(form.getByLabel('Tên hiển thị', { exact: true }), 'fill', item.name);
+    await act(form.getByLabel('Git HTTPS URL', { exact: true }), 'fill', item.source.url);
+    await act(form.getByLabel('Thư mục bundle', { exact: true }), 'fill', item.source.path);
+    await act(form.getByLabel('Tag hoặc commit', { exact: true }), 'fill', item.source.ref);
     const inspectedReply = responseFor('/render-bundles/inspect', 'POST');
-    await form.getByRole('button', { name: 'Kiểm tra bundle', exact: true }).click();
+    await act(form.getByRole('button', { name: 'Kiểm tra bundle', exact: true }), 'click');
     const inspected = await inspectedReply;
     if (!inspected.ok()) throw new Error(`${item.key}: inspect thất bại HTTP ${inspected.status()}; xem lỗi trên Console`);
     const { renderBundle } = await inspected.json();
@@ -51,17 +104,32 @@ try {
       console.log(`PASS: dùng lại ${item.key}, cấu hình và Git pin khớp`);
       continue;
     }
-    await form.getByRole('button', { name: 'JSON nâng cao', exact: true }).click();
-    await form.getByLabel('JSON nâng cao của mẫu dựng ứng dụng', { exact: true }).fill(JSON.stringify({ variables: desired.driverInputs.values.variables, provision: item.provision }, null, 2));
+    await act(form.getByLabel('Tham chiếu namespace', { exact: true }), 'fill', item.placement.namespace);
+    await act(form.getByLabel('Tham chiếu cluster', { exact: true }), 'fill', item.placement.cluster);
+    for (const [key, value] of Object.entries(item.renderInputs)) {
+      const schema = renderBundle.inputsSchema?.properties?.[key];
+      if (!schema) throw new Error(`${item.key}: render input ${key} không có trong schema`);
+      const control = form.locator('[data-input]').filter({ has: page.getByLabel(schema.title || key, { exact: true }) }).getByLabel(schema.title || key, { exact: true });
+      if (Array.isArray(schema.enum)) await act(control, 'selectOption', JSON.stringify(value));
+      else if (schema.type === 'boolean') {
+        // A false default still needs an explicit user change so the authored
+        // false is preserved in the saved Definition.
+        await act(control, 'setChecked', !value);
+        await act(control, 'setChecked', value);
+      } else {
+        if (value === '') await act(control, 'fill', ' ');
+        await act(control, 'fill', String(value));
+      }
+    }
     // Advanced criteria retain all five supported fields and OR rows.
-    await form.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }).check();
+    await act(form.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }), 'check');
     const labels = { env_type: 'Loại môi trường', app_id: 'ID ứng dụng', env_id: 'ID môi trường', res_id: 'ID tài nguyên', class: 'Class' };
     for (const [index, row] of item.criteria.entries()) {
-      if (index > 0) await form.getByRole('button', { name: '+ Thêm điều kiện', exact: true }).click();
-      for (const [key, value] of Object.entries(row)) await form.getByLabel(`Điều kiện ${index + 1} ${labels[key]}`, { exact: true }).fill(value);
+      if (index > 0) await act(form.getByRole('button', { name: '+ Thêm điều kiện', exact: true }), 'click');
+      for (const [key, value] of Object.entries(row)) await act(form.getByLabel(`Điều kiện ${index + 1} ${labels[key]}`, { exact: true }), 'fill', value);
     }
     const savedReply = responseFor('/resource-definitions', 'POST');
-    await form.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }).click();
+    await act(form.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }), 'click');
     const saved = await savedReply;
     if (!saved.ok()) throw new Error(`${item.key}: đăng ký thất bại HTTP ${saved.status()}; không tự retry POST, chạy lại để kiểm tra kết quả`);
     const persisted = (await get('/resource-definitions')).resourceDefinitions.find(definition => definition.key === item.key);
@@ -87,7 +155,7 @@ try {
   }
   if (templates.length === 0) throw new Error('Catalog rỗng: bundle phải khai báo workloadTemplates trong bundle.yaml');
   await page.goto(`${consoleConfig.baseURL}/ui/applications/${encodeURIComponent(app.key)}?environment=${env}`);
-  await page.getByRole('button', { name: '+ Thêm Workload', exact: true }).click();
+  await act(page.getByRole('button', { name: '+ Thêm Workload', exact: true }), 'click');
   const dialog = page.getByRole('dialog', { name: 'Chọn loại workload', exact: true });
   await expect(dialog).toBeVisible();
   for (const pin of expected) {
@@ -97,6 +165,23 @@ try {
   }
   await expect(dialog.locator('.application-card')).toHaveCount(templates.length);
   console.log(`PASS: Thêm Workload hiển thị ${templates.length} mẫu; không tạo workload hoặc deploy`);
+  if (config.verify.volumeMount) {
+    const check = config.verify.volumeMount;
+    const template = templates.find(item => item.id === check.templateId && item.version === check.templateVersion);
+    if (!template) throw new Error('Không tìm thấy template để kiểm tra volume mount');
+    const type = (await readTypes()).find(item => item.key === check.resourceType);
+    if (!type || !['claimName', 'namespace'].every(name => type.outputs?.some(field => field.name === name && field.type === 'string' && !field.secret))) throw new Error(`${check.resourceType}: thiếu storage outputs claimName/namespace dạng string công khai`);
+    await act(dialog.getByRole('button').filter({ hasText: template.labels.vi ?? template.labels.en ?? template.id }).filter({ hasText: template.version }), 'click');
+    const addMount = page.getByRole('button', { name: 'Thêm volume mount', exact: true });
+    await expect(addMount).toBeDisabled();
+    await act(page.getByRole('button', { name: '+ Thêm tài nguyên', exact: true }), 'click');
+    await act(page.getByLabel('Alias tài nguyên', { exact: true }), 'fill', 'data');
+    await act(page.getByLabel('Loại tài nguyên', { exact: true }), 'selectOption', check.resourceType);
+    await expect(addMount).toBeEnabled();
+    await act(addMount, 'click');
+    await expect(page.getByLabel('Mount path', { exact: true })).toHaveValue('/data');
+    console.log(`PASS: ${check.templateId} thêm volume mount từ ${check.resourceType}; chỉ sửa form local, không lưu draft`);
+  }
 } catch (error) {
   // Raw Playwright errors can include filled values; do not log them.
   console.error(`FAIL: ${error.name === 'Error' ? error.message.split('\n')[0] : 'Browser assertion/timeout thất bại; kiểm tra Console và cấu hình'}`);

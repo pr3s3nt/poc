@@ -1,4 +1,16 @@
 {
+  "resourceTypes": [
+    {
+      "key": "persistent-storage",
+      "inputs": [
+        { "name": "storage", "type": "string", "required": false }
+      ],
+      "outputs": [
+        { "name": "claimName", "type": "string", "required": true, "secret": false },
+        { "name": "namespace", "type": "string", "required": true, "secret": false }
+      ]
+    }
+  ],
   "bundles": [
     {
       "key": "standard-workload",
@@ -24,5 +36,12 @@
       ]
     }
   ],
-  "verify": { "environment": "staging" }
+  "verify": {
+    "environment": "staging",
+    "volumeMount": {
+      "templateId": "backend",
+      "templateVersion": "1.0.0",
+      "resourceType": "persistent-storage"
+    }
+  }
 }

@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-29 | Paced UI Resource Type registration, form-only bundle inputs, rerun and Backend mount controls; no deployment | [Resource Type form setup](2026-10-29-resource-type-form-setup.md) |
 | 2026-10-29 | Portable Playwright Git bundle setup, exact-config rerun and five real picker templates; no deployment | [Git bundle setup](2026-10-29-render-bundle-setup.md) |
 | 2026-10-28 | Integrated Application deletion + direct workload form: real kind, UI-only business actions, jobs/cache/update/reuse, native absence and teardown, 15 assertions | [Integrated form/deletion](2026-10-28-application-deletion-form-integration.md) |
 | 2026-10-28 | UC-18 A02 Spot-capacity failure; original-state operator recovery and six native absence checks, local teardown verified | [AWS attempt and cleanup](2026-10-28-application-deletion-aws-cleanup.md) |
