@@ -14,9 +14,21 @@ entity schema_baseline {
   created_at : timestamptz
 }
 note right of schema_baseline
-  Technical baseline identity; no migration ledger.
-  Owner setup on empty schema only.
+  Version reference and installation identity.
+  Owner setup initializes or upgrades supported sources.
   Runtime validation without DDL; separate Console/State logins.
+end note
+
+entity schema_upgrade_history {
+  * version : bigint <<PK>>
+  --
+  migration_sha256 : text
+  source_sha256 : text
+  applied_at : timestamptz
+}
+note right of schema_upgrade_history
+  Owner writes in upgrade transaction.
+  Console/State SELECT only.
 end note
 
 entity organizations {
@@ -449,6 +461,7 @@ entity render_bundles {
  * id : uuid <<PK>>
  * organization_id : uuid <<FK>>
  --
+ source_kind : text (git | zip)
  source_url : text
  source_path : text
  source_revision : text
@@ -461,8 +474,8 @@ entity render_bundles {
 }
 organizations ||--o{ render_bundles
 note right of render_bundles
-ADR-021 required design; immutable scoped registry.
-Unique org/origin/path/commit/engine; content drift rejected.
+ADR-021 / ADR-026; immutable scoped Git or ZIP registry.
+Unique org/locator/path/revision/engine; content drift rejected.
 Definitions reference verified ID and supplied inputs in JSON.
 Plans pin source/runtime and effective inputs; files in durable cache.
 Console SELECT/INSERT only; no State role grant.

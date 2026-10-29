@@ -633,6 +633,53 @@ export async function awsDefinitionScenario(ctx, scenario, { forbidden }) {
   }
 
 
+  // ===================== APPLICATION DELETION (UC-18, opt-in) =====================
+  // The Developer deletes the whole Application through the Console. The product removes every workload, destroys every owned
+  // AWS/Kubernetes resource in reverse dependency order and purges the Application's Vault values; native AWS queries then prove
+  // each layer absent. The independent supervisor below stays armed and must find nothing left.
+  if (process.env.ORCH_E2E_APP_DELETION === '1') {
+    phase('APP_DELETION', 'Xóa ứng dụng: Nhà phát triển xóa cả ứng dụng trong Cài đặt; hệ thống gỡ workload, hủy Aurora, ElastiCache, namespace, EKS và VPC theo thứ tự ngược rồi xóa secret');
+    await signIn('developer');
+    await kit.openApplication();
+    await kit.openSettings();
+    const zone = page.getByRole('region', { name: 'Xóa ứng dụng' });
+    await h.click(zone.getByRole('button', { name: 'Xóa ứng dụng', exact: true }));
+    const dialog = page.getByRole('dialog', { name: 'Xóa ứng dụng', exact: true });
+    const stagingScope = dialog.getByRole('region', { name: 'staging' });
+    await expect(stagingScope).toContainText('Workload sẽ bị gỡ: 3', { timeout: 60_000 });
+    const listed = Number((await stagingScope.innerText()).match(/Tài nguyên sẽ bị xóa: (\d+)/)?.[1] ?? '0');
+    rec.record('appdel.scope', 'APP_DELETION', 'ui', listed >= 5, `the dialog lists 3 workloads and ${listed} owned resources (VPC, EKS, namespace, Aurora, ElastiCache) in staging`);
+    const confirm = dialog.getByRole('button', { name: 'Xóa vĩnh viễn ứng dụng', exact: true });
+    await h.type(dialog.getByRole('textbox'), input.applicationName);
+    const admitted = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/deletions'));
+    await h.click(confirm);
+    const admission = await admitted;
+    const operationId = (await admission.json()).deletion?.operationId;
+    rec.record('appdel.admitted', 'APP_DELETION', 'ui', admission.status() === 202 && Boolean(operationId), `deletion ${operationId} admitted after the exact typed name`);
+    writeFileSync(`${ctx.evidenceDir}/app-deletion.json`, JSON.stringify({ operationId, applicationKey: input.applicationKey }, null, 2));
+    await expect(page.getByRole('region', { name: 'Tiến trình xóa ứng dụng' })).toBeVisible();
+    const addVariable = page.getByRole('button', { name: '+ Thêm biến', exact: true });
+    rec.record('appdel.frozen', 'APP_DELETION', 'ui', await addVariable.isDisabled(), 'while deleting, the Settings editing controls are locked (the server also refuses writes with 409)');
+    let progress = null;
+    await waitFor(async () => {
+      progress = (await get(`/applications/${input.applicationKey}/deletions/${operationId}`)).deletion;
+      return progress && !progress.running;
+    }, { timeoutMs: input.cleanupWaitMs ?? 7_200_000, intervalMs: 15_000, what: 'the Application deletion to finish' });
+    writeFileSync(`${ctx.evidenceDir}/app-deletion.json`, JSON.stringify({ operationId, applicationKey: input.applicationKey, progress }, null, 2));
+    const staging = progress.environments.find((e) => e.key === 'staging');
+    rec.record('appdel.succeeded', 'APP_DELETION', 'ui', progress.status === 'SUCCEEDED' && progress.applicationStatus === 'DELETED' && staging?.resources.length >= 5 && staging.resources.every((r) => r.outcome === 'DESTROYED'),
+      `deletion ${progress.status}; ${staging?.resources.map((r) => `${r.descriptor.split('#')[0]}=${r.outcome}`).join(', ')}`);
+    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible({ timeout: 120_000 });
+    const gone = (await get('/applications')).applications.every((a) => a.key !== input.applicationKey);
+    rec.record('appdel.list', 'APP_DELETION', 'ui', gone, 'the Application is gone from the list after the deletion');
+    for (const layer of ['app-resources', 'eks', 'vpc']) {
+      let proof = '';
+      try { proof = ctl(input, 'aws-verify', '-config', input.configFile, '-manifest', input.manifestFile, '-layer', layer); } catch (error) { proof = safeError(error); }
+      rec.record(`appdel.aws-${layer}-absent`, 'APP_DELETION', 'private-read', proof === `layer ${layer} verified absent\n`, `native AWS queries after the product deletion: ${proof.trim()}`);
+    }
+    await signOut();
+  }
+
   // ===================== CLEANUP (independent supervisor) =====================
   phase('CLEANUP', 'Dọn dẹp: lưới an toàn độc lập hủy theo thứ tự ngược bằng module và đích ban đầu, rồi truy vấn từng ID vật lý và thẻ của lần chạy qua API dịch vụ');
   ctl(input, 'supervisor-finish', '-private', input.privateDir);

@@ -1,12 +1,12 @@
 ---
-id: ADR-025
+id: ADR-028
 artifact: architecture-decision
 status: current
 last_reviewed: 2026-10-28
 related: [ADR-021, ADR-024]
 ---
 
-# ADR-025 — Versioned workload templates, runtime và persistent storage
+# ADR-028 — Versioned workload templates, runtime và persistent storage
 
 Người dùng chấp nhận hướng thiết kế và yêu cầu implementation/E2E/merge main
 ngày 2026-10-28. Bổ sung ADR-024 cho catalog workload, primary CronJob và storage.

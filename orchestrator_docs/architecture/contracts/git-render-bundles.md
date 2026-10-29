@@ -2,7 +2,7 @@
 id: GIT-RENDER-BUNDLE-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # Git render bundles — version 1 contract
@@ -343,3 +343,15 @@ Public routes (`-public-route-kind httproute`): one owned
 = Environment host, one `PathPrefix` rule per Score public route with the
 Service name and numeric port. An owned object of the other route kind is
 removed when the kind changes. See [public routes](../../operations/public-routes.md).
+
+## ZIP upload — ADR-026
+
+`POST /api/v1/render-bundles/upload` accepts multipart `file` (exactly one ZIP),
+`path` (optional, default `.`).
+Unknown or repeated fields are rejected. Return `200 {renderBundle: ...}` using
+existing metadata projection; source identity and archive bounds follow
+[ADR-026](../decisions/ADR-026-zip-source-upload.md). Malformed requests return
+INVALID_REQUEST, oversized requests REQUEST_TOO_LARGE (413); invalid content
+uses existing module/RENDER_BUNDLE_INVALID classifications. ZIP uses the same
+verified cache, inspector, input schema and execution guards as Git. No mutable
+ref or Git URL is required. Rendering engine `git-render-v1` is unchanged for ZIP.

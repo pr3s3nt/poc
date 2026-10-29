@@ -1,8 +1,4 @@
--- Current complete PostgreSQL baseline (T28). Applied only to an empty schema
--- by the owner setup inside one transaction; there is no upgrade path from any
--- earlier layout. Runtime logins only validate it (option A, ADR-014).
--- The marker records digests of this baseline and of the created catalog, the
--- installation ID shared by the Console and State connections and the schema.
+-- Current schema; owner setup initializes or upgrades per ADR-027.
 CREATE TABLE schema_baseline (
   singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
   baseline text NOT NULL,
@@ -52,12 +48,16 @@ CREATE TABLE connections (
 
 -- Application is identity and current metadata only; execution and store
 -- binding belong to the Environment.
+-- UC-18/ADR-025: a DELETED Application is a retained tombstone that no longer
+-- reserves its name or subdomain.
 CREATE TABLE applications (
   id uuid PRIMARY KEY, application_key text UNIQUE NOT NULL, organization_id uuid NOT NULL REFERENCES organizations(id),
-  name text NOT NULL, subdomain text NOT NULL UNIQUE, version bigint NOT NULL,
-  UNIQUE (organization_id, name)
+  name text NOT NULL, subdomain text NOT NULL, version bigint NOT NULL,
+  status text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DELETING','DELETED')),
+  deletion jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(deletion)='object')
 );
-CREATE UNIQUE INDEX applications_organization_lower_name_key ON applications(organization_id, lower(name));
+CREATE UNIQUE INDEX applications_organization_lower_name_key ON applications(organization_id, lower(name)) WHERE status <> 'DELETED';
+CREATE UNIQUE INDEX applications_subdomain_key ON applications(subdomain) WHERE status <> 'DELETED';
 
 CREATE TABLE secret_store_connections (
   id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES organizations(id),
@@ -255,7 +255,9 @@ CREATE UNIQUE INDEX effectiveness_baselines_scope_version ON effectiveness_basel
 CREATE TABLE render_bundles (
   id uuid PRIMARY KEY,
   organization_id uuid NOT NULL REFERENCES organizations(id),
-  source_url text NOT NULL CHECK (source_url ~ '^https://' AND length(source_url) <= 2048),
+  source_kind text NOT NULL DEFAULT 'git' CHECK (source_kind IN ('git','zip')),
+  source_url text NOT NULL CHECK (length(source_url) <= 2048),
+  CHECK ((source_kind='git' AND source_url ~ '^https://') OR (source_kind='zip' AND source_url='zip:sha256:' || source_revision AND source_revision ~ '^[0-9a-f]{64}$')),
   source_path text NOT NULL CHECK (source_path = '.' OR (source_path !~ '(^|/)\.\.?(/|$)' AND source_path !~ '^/' AND length(source_path) <= 512)),
   source_revision text NOT NULL CHECK (source_revision ~ '^([0-9a-f]{40}|[0-9a-f]{64})$'),
   content_sha256 text NOT NULL CHECK (content_sha256 ~ '^[0-9a-f]{64}$'),
@@ -589,3 +591,10 @@ BEGIN
 END $$;
 CREATE TRIGGER account_diagnostic_reports_guard BEFORE UPDATE ON account_diagnostic_reports
   FOR EACH ROW EXECUTE FUNCTION account_diagnostic_report_guard();
+
+CREATE TABLE schema_upgrade_history (
+  version bigint PRIMARY KEY,
+  migration_sha256 text NOT NULL CHECK (migration_sha256 ~ '^[0-9a-f]{64}$'),
+  source_sha256 text NOT NULL CHECK (source_sha256 ~ '^[0-9a-f]{64}$'),
+  applied_at timestamptz NOT NULL DEFAULT now()
+);

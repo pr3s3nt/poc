@@ -107,6 +107,9 @@ func (s *Service) ListDefinitionCapabilities(ctx context.Context, organizationKe
 	}
 	out := []Capability{}
 	for _, bundle := range bundles {
+		if bundle.Contract.SourceKind == tfmodule.SourceKindZIP && bundle.Contract.SourceOrganizationKey != organizationKey {
+			continue
+		}
 		for _, resourceType := range bundle.Contract.ResourceTypes {
 			capability, err := terraformCapability(bundle, byKey[resourceType], resourceType)
 			if err != nil {

@@ -41,9 +41,9 @@ services:
     restart: unless-stopped
     networks: [orchestrator-net]
 
-  # Explicit owner step: creates the baseline in the fresh empty database and
-  # grants the Console and State logins; on an initialized database it only
-  # verifies. Only this service sees the owner credential.
+  # Owner step: initializes fresh schemas or upgrades recognized older versions.
+  # Failure blocks the new backend; only this service sees owner credentials.
+  # Stop old writers and take a verified backup before upgrading retained data.
   db-setup:
     image: ${BACKEND_IMAGE:-orchestrator-backend:local}
     pull_policy: build

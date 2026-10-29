@@ -333,3 +333,19 @@ func TestNamespaceCannotCascadeDestroyRetainedStorage(t *testing.T) {
 		}
 	}
 }
+
+func TestConfirmedApplicationCleanupSelectsOwnedClaimBeforeNamespace(t *testing.T) {
+	ns := rec("ns", "k8s-namespace.default#environments.a.ns", resource.ScopeEnvironment, un)
+	data := rec("data", "persistent-storage.default#shared.data", resource.ScopeShared, un)
+	snapshot := snap([]tfresource.ResourceRecord{ns, data}, edge("data", "ns", un))
+	snapshot.types["persistent-storage"] = resource.Type{Key: "persistent-storage", Outputs: []resource.OutputField{{Name: "claimName", Type: "string"}, {Name: "namespace", Type: "string"}}}
+	// Full Application deletion has a separate typed permanent-data confirmation;
+	// ordinary namespace deletion remains blocked by TestNamespaceCannotCascade….
+	selection, err := selectGeneration(snapshot, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selection.root != "data" || len(selection.selected) != 2 {
+		t.Fatalf("full owned selection: %+v", selection)
+	}
+}

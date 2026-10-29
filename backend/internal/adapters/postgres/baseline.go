@@ -18,15 +18,15 @@ import (
 	"orchestrator/internal/platform/ids"
 )
 
-// baselineSQL is the complete current schema (T28). It is applied only to an
-// empty schema by the owner setup; no earlier layout is upgraded or repaired.
+// baselineSQL is the complete current schema for empty installations.
+// Retained supported schemas use frozen transitions in upgrade.go.
 //
 //go:embed baseline.sql
 var baselineSQL string
 
 // baselineIdentity is the technical marker stored by a fresh initialization.
-// It identifies the baseline; it is not a migration ledger and drives no upgrade.
-const baselineIdentity = "orchestrator-fresh-baseline-v02"
+// It identifies the frozen current schema version; history is recorded separately.
+const baselineIdentity = "orchestrator-schema-v1"
 
 // baselineLockKey serializes initialization and validation across instances.
 const baselineLockKey = 1862274311
@@ -35,9 +35,9 @@ const baselineLockKey = 1862274311
 var markerColumns = []string{"singleton", "baseline", "baseline_sha256", "catalog_sha256", "installation_id", "schema_name", "created_at"}
 
 // ErrResetRequired means the database is not an empty schema and does not hold
-// the exact current baseline. Nothing is converted or repaired; the development
-// database must be reset. The text carries no row values, SQL or driver detail.
-var ErrResetRequired = errors.New("postgres: the database does not hold the current development baseline; reset the development database (schema conversion is unsupported)")
+// a supported schema. The legacy exported name is retained for callers; errors
+// now require preservation/diagnosis, never deletion. No row values are exposed.
+var ErrResetRequired = errors.New("postgres: database schema is unsupported or damaged; preserve the database and consult the PostgreSQL upgrade runbook")
 
 // ErrNotInitialized means a runtime login found an empty schema. Runtime
 // logins never create the baseline; the owner setup must run first.
@@ -75,9 +75,9 @@ type Roles struct {
 // PUBLIC access to the database, schema and functions and grants the Console
 // and State logins exactly their privilege sets, all in one transaction under
 // an advisory lock. On a schema that already holds the baseline it changes
-// nothing: it verifies the baseline and that both logins hold exactly their
+// nothing when current: it verifies the baseline and both logins hold their
 // grants (no regrant) and reports initialized=false. Any other schema is
-// refused with ErrResetRequired.
+// upgraded transactionally when recognized; unknown/damaged sources are refused.
 func Setup(ctx context.Context, ownerURL string, roles Roles) (initialized bool, err error) {
 	pool, err := connect(ctx, ownerURL)
 	if err != nil {
@@ -122,6 +122,10 @@ func Setup(ctx context.Context, ownerURL string, roles Roles) (initialized bool,
 		return false, err
 	}
 	if objects != 0 {
+		upgraded, upgradeErr := upgradeDatabase(ctx, tx, schema, roles)
+		if upgradeErr != nil {
+			return false, upgradeErr
+		}
 		if err = verifyBaseline(ctx, tx, schema); err != nil {
 			return false, err
 		}
@@ -130,7 +134,10 @@ func Setup(ctx context.Context, ownerURL string, roles Roles) (initialized bool,
 				return false, setupRefused("existing grants of the " + string(role) + " role differ and are not changed: " + err.Error())
 			}
 		}
-		return false, nil
+		if err = tx.Commit(ctx); err != nil {
+			return false, fmt.Errorf("postgres: commit upgrade (%s)", sqlState(err))
+		}
+		return upgraded, nil
 	}
 	if _, err = tx.Exec(ctx, baselineSQL); err != nil {
 		return false, fmt.Errorf("postgres: create baseline: %w", err)
@@ -140,8 +147,11 @@ func Setup(ctx context.Context, ownerURL string, roles Roles) (initialized bool,
 		return false, err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO schema_baseline(baseline,baseline_sha256,catalog_sha256,installation_id,schema_name) VALUES($1,$2,$3,$4::uuid,$5)`,
-		baselineIdentity, digest(baselineSQL), digest(strings.Join(catalog, "\n")), ids.New(), schema); err != nil {
+		baselineIdentity, digest(versionSQL), digest(strings.Join(catalog, "\n")), ids.New(), schema); err != nil {
 		return false, fmt.Errorf("postgres: record baseline: %w", err)
+	}
+	if err = recordUpgrade(ctx, tx, digest(versionSQL)); err != nil {
+		return false, err
 	}
 	database := pgx.Identifier{currentDatabase(ctx, tx)}.Sanitize()
 	nsp := pgx.Identifier{schema}.Sanitize()
@@ -385,8 +395,14 @@ func verifyMarker(ctx context.Context, tx pgx.Tx, schema string) (baselineMarker
 		}
 		return m, fmt.Errorf("postgres: read baseline marker: %w", err)
 	}
-	if rows != 1 || identity != baselineIdentity || baselineSum != digest(baselineSQL) || schemaName != schema {
+	if rows == 1 && identity == "orchestrator-fresh-baseline-v02" && supportedSource(baselineSum) != "" {
+		return m, ErrUpgradeRequired
+	}
+	if rows != 1 || identity != baselineIdentity || baselineSum != digest(versionSQL) || schemaName != schema {
 		return m, resetRequired("baseline marker does not match")
+	}
+	if err := verifyUpgradeHistory(ctx, tx); err != nil {
+		return m, err
 	}
 	return m, nil
 }

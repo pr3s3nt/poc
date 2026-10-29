@@ -24,6 +24,8 @@ func TestApplicationIdentityOnlyFreshAndReopen(t *testing.T) {
 	if err := st.SaveApplication(ctx, fresh); err != nil {
 		t.Fatal(err)
 	}
+	// A new Application has the explicit UC-18 lifecycle default after persistence.
+	fresh.Status = application.StatusActive
 	for _, key := range []string{"staging", "production"} {
 		if err := st.SaveEnvironment(ctx, environment.Environment{Key: key, ApplicationID: fresh.ID, ApplicationKey: fresh.Key, Name: key, Type: key, NamespaceIdentity: "app-fresh-" + key, Version: 1}); err != nil {
 			t.Fatal(err)

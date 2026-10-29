@@ -2,7 +2,7 @@
 id: ADR-021
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # ADR-021 — Git-owned Kubernetes manifest rendering policy
@@ -88,3 +88,7 @@ All choices above are decided for implementation. Routine implementation details
 belong to the coding agent; no design-approval checkpoint is required. Missing
 credentials or unavailable external services must be reported honestly, never
 replaced by fake execution or weakened assertions.
+
+ZIP source amendment (2026-10-28): [ADR-026](ADR-026-zip-source-upload.md)
+adds uploaded archive preparation and ZIP provenance to this same verified engine
+and cache. Existing Git and installed source selections retain their behavior.

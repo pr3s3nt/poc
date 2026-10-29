@@ -89,7 +89,7 @@ func main() {
 	terraformStateKeyFile := flag.String("terraform-state-key-file", os.Getenv("ORCHESTRATOR_TERRAFORM_STATE_KEY_FILE"), "owner-only file holding the 32-byte AES-256-GCM Terraform state key (hex or base64); enables the durable state backend (PostgreSQL only)")
 	terraformStateKeyID := flag.String("terraform-state-key-id", os.Getenv("ORCHESTRATOR_TERRAFORM_STATE_KEY_ID"), "identifier of the Terraform state key recorded with every encrypted state")
 	terraformStateDatabaseURLFile := flag.String("terraform-state-database-url-file", os.Getenv("ORCHESTRATOR_TERRAFORM_STATE_DATABASE_URL_FILE"), "owner-only file holding the PostgreSQL URL of the State runtime login (separate from the Console login of -database-url-file, same database)")
-	setupDatabase := flag.Bool("setup-database", false, "explicit owner step: create the baseline in a fresh empty database and grant the Console and State runtime roles, then exit (an initialized database is only verified)")
+	setupDatabase := flag.Bool("setup-database", false, "owner step: initialize or upgrade a supported database, validate schema and runtime grants, then exit")
 	ownerURLFile := flag.String("database-owner-url-file", os.Getenv("ORCHESTRATOR_DATABASE_OWNER_URL_FILE"), "owner-only file holding the PostgreSQL URL of the owner role (used only with -setup-database)")
 	consoleRole := flag.String("console-database-role", os.Getenv("ORCHESTRATOR_CONSOLE_DATABASE_ROLE"), "Console runtime login role granted by -setup-database")
 	stateRole := flag.String("state-database-role", os.Getenv("ORCHESTRATOR_STATE_DATABASE_ROLE"), "State runtime login role granted by -setup-database")
@@ -278,7 +278,7 @@ func runDatabaseSetup(ownerURLFile, consoleRole, stateRole string) int {
 		return 1
 	}
 	if initialized {
-		fmt.Println("orchestrator: database baseline created and runtime roles granted")
+		fmt.Println("orchestrator: database baseline created or upgraded and runtime roles granted")
 	} else {
 		fmt.Println("orchestrator: database already holds the baseline and the runtime grants; nothing changed")
 	}

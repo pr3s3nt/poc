@@ -25,6 +25,7 @@ const StatusVerified = "VERIFIED"
 const (
 	SourceKindPackaged = "packaged"
 	SourceKindGit      = "git"
+	SourceKindZIP      = "zip"
 )
 
 // Provider binding kinds a release provider declares (module contract
@@ -204,17 +205,18 @@ type ModuleCall struct {
 
 // Contract is the inspected, server-written bundle contract.
 type Contract struct {
-	SchemaVersion   int                `json:"schemaVersion"`
-	SourceKind      string             `json:"sourceKind"`
-	SourceURL       string             `json:"sourceUrl,omitempty"`
-	ResourceTypes   []string           `json:"resourceTypes"`
-	RequiredVersion string             `json:"requiredVersion,omitempty"`
-	Inputs          map[string]Input   `json:"inputs"`
-	Outputs         map[string]Output  `json:"outputs"`
-	ExecutorOwned   []string           `json:"executorOwned"`
-	ExecutorOutputs []string           `json:"executorOutputs"`
-	Transitive      []TransitiveModule `json:"transitive"`
-	ModuleCalls     []ModuleCall       `json:"moduleCalls"`
+	SchemaVersion         int                `json:"schemaVersion"`
+	SourceKind            string             `json:"sourceKind"`
+	SourceURL             string             `json:"sourceUrl,omitempty"`
+	SourceOrganizationKey string             `json:"sourceOrganizationKey,omitempty"`
+	ResourceTypes         []string           `json:"resourceTypes"`
+	RequiredVersion       string             `json:"requiredVersion,omitempty"`
+	Inputs                map[string]Input   `json:"inputs"`
+	Outputs               map[string]Output  `json:"outputs"`
+	ExecutorOwned         []string           `json:"executorOwned"`
+	ExecutorOutputs       []string           `json:"executorOutputs"`
+	Transitive            []TransitiveModule `json:"transitive"`
+	ModuleCalls           []ModuleCall       `json:"moduleCalls"`
 }
 
 // ContractSchemaVersion is the current Contract layout.
@@ -248,8 +250,10 @@ func (b Bundle) Validate() error {
 		return errors.New("bundle status must be VERIFIED")
 	case b.Contract.SchemaVersion != ContractSchemaVersion:
 		return errors.New("bundle contract schema is not current")
-	case b.Contract.SourceKind != SourceKindPackaged && b.Contract.SourceKind != SourceKindGit:
+	case b.Contract.SourceKind != SourceKindPackaged && b.Contract.SourceKind != SourceKindGit && b.Contract.SourceKind != SourceKindZIP:
 		return errors.New("bundle source kind is unknown")
+	case b.Contract.SourceKind == SourceKindZIP && b.Contract.SourceOrganizationKey == "":
+		return errors.New("ZIP bundle organization is required")
 	case b.Contract.Inputs == nil || b.Contract.Outputs == nil || b.Providers == nil:
 		return errors.New("bundle contract is incomplete")
 	}

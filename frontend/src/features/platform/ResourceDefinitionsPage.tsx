@@ -1,3 +1,4 @@
+import { ZIPSource } from './ZIPSource';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { specificGuidance, fieldNote } from '../../shared/api/errors';
 import { api, ApiError, isStaleConflict } from '../../shared/api/client';
@@ -7,7 +8,7 @@ import { CriteriaEditor, draftFromCriteria, draftToCriteria, emptyDraft, type Ap
 import type { MatchingCandidateInput } from './MatchingPreviewPanel';
 import { useCatalogList } from './useCatalogList';
 import { own } from './resourceSupport';
-import { capabilitiesForType, capabilityKey, isVerifiedPin, loadCapabilities, type Capability } from './capabilities';
+import { parseCapabilities, capabilitiesForType, capabilityKey, isVerifiedPin, loadCapabilities, type Capability } from './capabilities';
 import { ParameterSources } from './ParameterSources';
 import { InfrastructureConnection } from './InfrastructureConnection';
 import { CompanionResources } from './CompanionResources';
@@ -103,7 +104,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   const [resourceType, setResourceType] = useState('');
   const [clusterMethod, setClusterMethod] = useState<'terraform' | 'existing-cluster'>('terraform');
   const [pinChoice, setPinChoice] = useState('');
-  const [sourceMode, setSourceMode] = useState<'installed' | 'git'>('git');
+  const [sourceMode, setSourceMode] = useState<'installed' | 'git' | 'zip'>('git');
   const [gitPin, setGitPin] = useState<Capability | null>(null);
   const [gitDraftVersion, setGitDraftVersion] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, PairDraft>>({});
@@ -134,7 +135,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   }, [typeList.loading, typeList.loadError, typeList.items, capabilityList.loading, capabilityList.loadError, capabilityList.items, initialResourceType]);
 
   // One verified pin is chosen for the user; several need an explicit choice.
-  const pin: Capability | undefined = existingCluster ? existingCapability : sourceMode === 'git' ? (gitPin?.resourceType === resourceType ? gitPin : undefined) : typePins.length === 1 && !sourceLost ? typePins[0] : typePins.find((candidate) => capabilityKey(candidate) === pinChoice);
+  const pin: Capability | undefined = existingCluster ? existingCapability : sourceMode !== 'installed' ? (gitPin?.resourceType === resourceType ? gitPin : undefined) : typePins.length === 1 && !sourceLost ? typePins[0] : typePins.find((candidate) => capabilityKey(candidate) === pinChoice);
   const draftKey = pin ? capabilityKey(pin) : '';
   const draft = drafts[draftKey] ?? initialDraft();
   const patchDraft = (change: Partial<PairDraft>) => { if (draftKey) setDrafts((current) => ({ ...current, [draftKey]: { ...initialDraft(), ...current[draftKey], ...change } })); };
@@ -427,7 +428,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   const reviewCriteria = draftToCriteria(criteriaDraft);
   const reviewProblem = reviewInputs.problem || reviewCriteria.problem;
   const reviewDocument = reviewProblem ? null : { key, name, resourceType, driverType: pin?.driverType ?? 'terraform', ...(accountRequired ? { driverAccount: chosenAccount } : {}), driverInputs: { values: reviewInputs.values }, provision: reviewInputs.provision, criteria: reviewCriteria.criteria, ...(editing ? { version: editing.version } : {}) };
-  const saveDisabled = saving || types.length === 0 || !metadataReady || review !== null || (!existingCluster && sourceMode === 'git' && !gitPin);
+  const saveDisabled = saving || types.length === 0 || !metadataReady || review !== null || (!existingCluster && sourceMode !== 'installed' && !gitPin);
 
   const identityFields = <>
 <div className={`field-grid definition-identity-fields${editing ? ' definition-edit-identity' : ''}`}><label>{t('platform.resourceDefinitions.definitionID')}<input value={key} tabIndex={editing ? -1 : undefined} readOnly={editing !== null} aria-readonly={editing !== null ? true : undefined} aria-required="true" aria-invalid={idError ? true : undefined} aria-describedby={idError ? 'definition-id-hint definition-id-error' : 'definition-id-hint'} onChange={(event) => { setKey(event.target.value); setIdError(''); }} /></label>
@@ -472,16 +473,22 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
         {resourceType === clusterType ? <section className="definition-card"><label>{t('platform.resourceDefinitions.clusterProvisioning')}<select value={clusterMethod} onChange={(event) => setClusterMethod(event.target.value as 'terraform' | 'existing-cluster')}><option value="terraform">{t('platform.resourceDefinitions.createAClusterWithTerraform')}</option><option value="existing-cluster" disabled={!existingCapability}>{t('platform.resourceDefinitions.useAnExistingCluster')}</option></select></label></section> : null}
         {existingCluster ? <section className="definition-card"><h3>{t('platform.resourceDefinitions.existingCluster')}</h3><p>{t('platform.resourceDefinitions.chooseAnInternalAccountRegistered')}</p></section> : null}
         <section hidden={existingCluster} className="definition-card definition-module" aria-label={t('platform.resourceDefinitions.terraformModule')}><div className="definition-card-title"><span className="definition-step">1</span><h3>{t('platform.resourceDefinitions.terraformModule')}</h3>{pin ? <span className="definition-verified">{t('platform.resourceDefinitions.verified')}</span> : null}</div>
-        <div className="definition-segmented" role="group" aria-label={t('platform.resourceDefinitions.terraformModuleSource')}><Button type="button" aria-pressed={sourceMode === 'git'} onClick={() => setSourceMode('git')}>{t('platform.resourceDefinitions.addFromGit')}</Button><Button type="button" aria-pressed={sourceMode === 'installed'} onClick={() => setSourceMode('installed')}>{t('platform.resourceDefinitions.registeredModules')}</Button></div>
+        <div className="definition-segmented" role="group" aria-label={t('platform.resourceDefinitions.terraformModuleSource')}><Button type="button" aria-pressed={sourceMode === 'git'} onClick={() => setSourceMode('git')}>{t('platform.resourceDefinitions.addFromGit')}</Button><Button type="button" aria-pressed={sourceMode === 'zip'} onClick={() => { if (sourceMode !== 'zip') { setGitPin(null); setSourceMode('zip'); } }}>{t('platform.zipSource.uploadZIP')}</Button><Button type="button" aria-pressed={sourceMode === 'installed'} onClick={() => setSourceMode('installed')}>{t('platform.resourceDefinitions.registeredModules')}</Button></div>
         <GitModuleSource key={gitDraftVersion} resourceType={resourceType} active={sourceMode === 'git'} disabled={saving || !typesReady || !metadataReady} onResult={setGitPin} />
-        <div className="field-grid"><label hidden={sourceMode === 'git'}>{t('platform.resourceDefinitions.verifiedModules')}<select value={pin ? capabilityKey(pin) : ''} aria-required="true" disabled={typePins.length <= 1 && !sourceLost} onChange={(event) => setPinChoice(event.target.value)}>
+        {sourceMode === 'zip' ? <ZIPSource key={`${gitDraftVersion}-${resourceType}`} endpoint="/terraform-modules/upload" resourceType={resourceType} disabled={saving || !typesReady || !metadataReady} parseResult={(response) => {
+          if (typeof response !== 'object' || response === null || !('capability' in response)) throw new Error('invalid metadata');
+          const capability = parseCapabilities({ capabilities: [response.capability] })[0];
+          if (!capability?.source || capability.resourceType !== resourceType || capability.driverType !== 'terraform') throw new Error('invalid metadata');
+          return capability;
+        }} onResult={setGitPin} /> : null}
+        <div className="field-grid"><label hidden={sourceMode !== 'installed'}>{t('platform.resourceDefinitions.verifiedModules')}<select value={pin ? capabilityKey(pin) : ''} aria-required="true" disabled={typePins.length <= 1 && !sourceLost} onChange={(event) => setPinChoice(event.target.value)}>
             {typePins.length === 0 ? <option value="">{t('platform.resourceDefinitions.notSelectedChooseAType')}</option> : typePins.length > 1 || sourceLost ? <option value="">{t('platform.resourceDefinitions.chooseAModuleAndVersion')}</option> : null}
             {typePins.map((candidate) => <option key={capabilityKey(candidate)} value={capabilityKey(candidate)}>{pinLabel(candidate)}</option>)}</select></label>
           <label className="definition-sr-only">Driver Type<input aria-label="Driver Type" tabIndex={-1} readOnly value={pin ? own(driverLabels, pin.driverType) ?? pin.driverType : ''} placeholder={t('platform.resourceDefinitions.followsTheSelectedModule')} aria-describedby="driver-type-hint" /></label></div>
         <p id="driver-type-hint" className="definition-sr-only">{t('platform.resourceDefinitions.theDriverTypeComesFrom')}</p>
         {pin?.source ? <details><summary>{t('platform.resourceDefinitions.moduleTechnicalDetails')}</summary><dl className="pin-panel" aria-label={t('platform.resourceDefinitions.verifiedModulePin')}>
           <div><dt>Module</dt><dd><code>{pin.source.moduleId}</code></dd></div><div><dt>{t('platform.resourceDefinitions.source')}</dt><dd><code>{pin.source.sourceId}</code></dd></div>
-          <div><dt>Git URL</dt><dd>{pin.source.repositoryUrl ?? t('platform.resourceDefinitions.platformModule')}</dd></div><div><dt>Revision</dt><dd><code>{pin.source.revision}</code></dd></div><div><dt>{t('platform.resourceDefinitions.subdirectory')}</dt><dd><code>{pin.source.subdirectory}</code></dd></div>
+          <div><dt>{t('platform.zipSource.origin')}</dt><dd>{pin.source.sourceId.startsWith('zip-') ? 'ZIP' : pin.source.repositoryUrl ?? t('platform.resourceDefinitions.platformModule')}</dd></div><div><dt>Revision</dt><dd><code>{pin.source.revision}</code></dd></div><div><dt>{t('platform.resourceDefinitions.subdirectory')}</dt><dd><code>{pin.source.subdirectory}</code></dd></div>
           <div><dt>{t('platform.resourceDefinitions.contentSHA256')}</dt><dd><code>{pin.source.contentSha256}</code></dd></div>
           <div><dt>Terraform</dt><dd>{pin.terraformVersion ?? t('platform.resourceDefinitions.unknown')}</dd></div>
           <div><dt>Provider</dt><dd>{pin.providerRequirements.map((provider) => `${provider.name} ${provider.version}`).join(', ') || t('platform.resourceDefinitions.none')}</dd></div></dl></details> : null}

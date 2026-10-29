@@ -29,7 +29,7 @@ export const EXPECTED_RESOURCES = {
 export const expectedAPIResources = (scenario) => EXPECTED_RESOURCES[scenario].filter(([type]) => type !== 'k8s-cluster');
 export const expectedDefinitionKeys = (scenario) => [...catalog.definitions.common, ...catalog.definitions[scenario]].map((d) => d.id).concat(['render-eks']);
 
-export async function verifyDefinitionReopen({ base, scenario, applicationKey, accountKey, persistedInstances, fetchImpl = fetch }) {
+export async function verifyDefinitionReopen({ base, scenario, applicationKey, accountKey, persistedInstances, deletion, fetchImpl = fetch }) {
   if (!Object.hasOwn(EXPECTED_RESOURCES, scenario) || !applicationKey || !accountKey) throw new Error('scenario scope is incomplete');
   const instances = array(persistedInstances, 'technical SQL resource history').map((r) => ({ ...r, type: r?.descriptor?.split('.')[0] }));
   if (instances.length !== EXPECTED_RESOURCES[scenario].length) throw new Error(`${scenario} full SQL resource history count does not match its owned plan`);
@@ -62,6 +62,16 @@ export async function verifyDefinitionReopen({ base, scenario, applicationKey, a
   const account = array((await get('/driver-accounts')).accounts, 'accounts').find((a) => a?.key === accountKey);
   if (!account || account.type !== 'AWS' || account.status !== 'READY') throw new Error('the AWS account is not READY after reopen');
   const apps = array((await get('/applications')).applications, 'applications');
+  if (deletion) {
+    // UC-18: the Developer deleted the Application. Its tombstone stays out of the list, reads as not found and keeps a
+    // readable SUCCEEDED deletion record; the SQL history above still holds every owned instance as DESTROYED.
+    if (apps.some((a) => a?.key === applicationKey)) throw new Error('the deleted Application is listed after reopen');
+    const read = await fetchImpl(`${origin}/api/v1/applications/${encodeURIComponent(applicationKey)}`, { headers: { cookie } });
+    if (read.status !== 404) throw new Error(`the deleted Application reads ${read.status} after reopen`);
+    const record = (await get(`/applications/${encodeURIComponent(applicationKey)}/deletions/${encodeURIComponent(deletion.operationId)}`)).deletion;
+    if (record?.status !== 'SUCCEEDED' || record.applicationStatus !== 'DELETED') throw new Error('the deletion record is not SUCCEEDED/DELETED after reopen');
+    return { scenario, types: types.length, definitions: definitions.length, resources: instances.length, apiResources: 0, deployments: 0, deleted: true };
+  }
   const environment = apps.find((a) => a?.key === applicationKey)?.environments?.find((e) => e?.key === 'staging');
   if (!environment || environment.connectionKey || environment.executionProfile) throw new Error('the Environment gained a deployment Connection or execution profile');
   const scope = `/applications/${encodeURIComponent(applicationKey)}/environments/staging`;
@@ -84,8 +94,12 @@ if (process.argv[1] && import.meta.url.startsWith('file:') && fileURLToPath(impo
   const [base, scenario, applicationKey, accountKey, inventoryPath] = process.argv.slice(2);
   try {
     const persistedInstances = JSON.parse(readFileSync(inventoryPath, 'utf8'));
-    const result = await verifyDefinitionReopen({ base, scenario, applicationKey, accountKey, persistedInstances });
-    console.log(`sql-reopen ok: ${result.scenario}, ${result.types} types, ${result.definitions} definitions, ${result.resources} SQL resources DESTROYED (${result.apiResources} public API rows) and ${result.deployments} deployments served after restart`);
+    const deletionFile = resolve(inventoryPath, '..', 'app-deletion.json');
+    const deletion = process.env.ORCH_E2E_APP_DELETION === '1' ? JSON.parse(readFileSync(deletionFile, 'utf8')) : undefined;
+    const result = await verifyDefinitionReopen({ base, scenario, applicationKey, accountKey, persistedInstances, deletion });
+    console.log(result.deleted
+      ? `sql-reopen ok: ${result.scenario}, ${result.types} types, ${result.definitions} definitions, ${result.resources} SQL resources DESTROYED; the deleted Application stays a tombstone with a SUCCEEDED deletion record after restart`
+      : `sql-reopen ok: ${result.scenario}, ${result.types} types, ${result.definitions} definitions, ${result.resources} SQL resources DESTROYED (${result.apiResources} public API rows) and ${result.deployments} deployments served after restart`);
   } catch (error) {
     console.error(String(error.message ?? error));
     process.exit(1);

@@ -2,10 +2,11 @@
 // direct deploy API or kubectl workload apply. Only technical verification and a
 // port-forward use kubectl. Run-owned app remains for review, never touches older apps.
 import { chromium, expect } from '@playwright/test';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { createHash, randomBytes } from 'node:crypto';
 import { spawn, execFileSync } from 'node:child_process';
 import { readConsoleConfig, signInContext, signOutContext } from '../../lib/console.mjs';
+import { deleteApplicationViaUI } from '../../lib/delete-application.mjs';
 
 const config = readConsoleConfig();
 const run = process.env.ORCH_ENV_RUN ?? `env-form-${Date.now()}`;
@@ -43,7 +44,7 @@ async function shared(name, value, secret = false) {
   await expect(dialog.getByLabel('Tên key', { exact: true })).toHaveValue(name);
   if (secret) {
     await expect(dialog.getByRole('combobox')).toBeVisible();
-    await dialog.getByRole('combobox').selectOption('k8s-4f-vault');
+    await dialog.getByRole('combobox').selectOption(process.env.ORCH_SECRET_STORE_KEY ?? 'k8s-4f-vault');
     await dialog.getByRole('button', { name: 'Lưu kho bí mật', exact: true }).click();
     await expect(dialog.getByRole('combobox')).toHaveCount(0);
   }
@@ -110,6 +111,27 @@ async function portForward(namespace) {
   });
   return { child, url: `http://127.0.0.1:${port}` };
 }
+async function verifyApplication(minimumWrites) {
+  // DONE commits before the worker records its Redis write-through outcome.
+  // Wait for both business completion and every cache marker, rather than
+  // accepting the pre-job health check (which has no completed writes yet).
+  await expect.poll(async()=>{await appPage.reload();return appPage.locator('#checks tr[data-check]').evaluateAll(rows=>rows.filter(r=>r.children[1].textContent.trim()==='PASS').length);},
+    {timeout:120_000,intervals:[1500]}).toBe(5);
+  const response=await appPage.request.get(`${forward.url}/api/checks`);
+  expect(response.ok()).toBe(true);
+  const {checks,cache}=await response.json();
+  await writeFile(`${evidence}/checks-after-${minimumWrites}-jobs.json`,JSON.stringify({checks,cache},null,2));
+  expect(Object.values(checks).every(value=>value===true)).toBe(true);
+  expect(cache.workerWrites.ok).toBeGreaterThanOrEqual(minimumWrites);
+  expect(cache.workerWrites.failed).toBe(0);
+  expect(cache.workerWrites.unverified).toBe(0);
+  expect(cache.workerWrites.unknown??false).toBe(false);
+  expect(cache.configured&&cache.reachable).toBe(true);
+  expect(cache.unrecoveredFailures??[]).toHaveLength(0);
+  expect(cache.failuresOverflow).toBe(false);
+  await appPage.screenshot({path:`${evidence}/application-after-${minimumWrites}-jobs.png`,fullPage:true});
+  check(`All application checks PASS after ${minimumWrites} jobs; Redis worker writes confirmed, none failed/unverified`);
+}
 try {
   await click('+ Tạo ứng dụng');
   await page.getByLabel('Tên ứng dụng', { exact: true }).fill(run);
@@ -120,6 +142,7 @@ try {
   await writeFile(`${evidence}/run.json`, JSON.stringify({run, appId, kube, imageTag:tag, baseURL:config.baseURL},null,2));
   await mark('Created isolated application');
   const secret = randomBytes(24).toString('hex');
+  if (process.env.ORCH_SECRET_SCAN_FILE) await appendFile(process.env.ORCH_SECRET_SCAN_FILE, `ACCEPTANCE_SECRET=${secret}\n`, { mode: 0o600 });
   await begin('backend');
   await shared('ACCEPTANCE_CONFIG', 'acceptance-config-ok');
   await shared('ACCEPTANCE_SECRET', secret, true);
@@ -140,11 +163,13 @@ try {
   check('Real kind objects exist: app deployments, PostgreSQL, Redis and PVC');
   forward = await portForward(namespace);
   appPage = await context.newPage(); appVideo = appPage.video();
+  appPage.on('pageerror', error => errors.push(error.message));
   await appPage.goto(forward.url);
   await expect(appPage.getByRole('heading',{name:'Acceptance application'})).toBeVisible();
   await expect.poll(async()=>{await appPage.reload(); return appPage.locator('#checks tr[data-check]').evaluateAll(rows=>rows.filter(r=>r.children[1].textContent.trim()==='PASS').length);},{timeout:300_000,intervals:[2000]}).toBe(5);
   await appPage.locator('input[name="payload"]').fill(`hello ${run}`);await appPage.getByRole('button',{name:'Submit job'}).click();
   await expect.poll(async()=>{await appPage.reload();return appPage.locator('#jobs tr.job').filter({hasText:`hello ${run}`}).first().innerText();},{timeout:120_000,intervals:[1500]}).toContain('DONE');
+  await verifyApplication(1);
   await appPage.screenshot({path:`${evidence}/acceptance-app.png`,fullPage:true});check('Acceptance UI: five PASS checks and job DONE through worker/PostgreSQL/Redis');
   // Reopen the deployed workload through UI and prove direct values/references survived.
   const backend = page.locator('.workload-table .table-row').filter({hasText:'backend'});
@@ -153,10 +178,29 @@ try {
   const portRow = rows().filter({has:page.locator('input[value="PORT"]')});await expect(portRow.getByRole('textbox').nth(1)).toHaveValue('8080');
   await literal('ENV_UI_UPDATED','true');await save('backend update');await deploy(1);
   const after=JSON.parse(kubectl(['-n',namespace,'get','statefulsets,persistentvolumeclaims','-o','json']));
+  expect(after.items).toHaveLength(identity.filter(object=>['StatefulSet','PersistentVolumeClaim'].includes(object.kind)).length);
   for(const object of after.items){const before=identity.find(x=>x.kind===object.kind&&x.name===object.metadata.name);expect(object.metadata.uid).toBe(before?.uid);}
   check('Valid UI update deployed; PostgreSQL/Redis/PVC UIDs retained');
+  const liveBackend = JSON.parse(kubectl(['-n',namespace,'get','deployment','backend','-o','json']));
+  expect(liveBackend.spec.template.spec.containers[0].env.find(entry => entry.name === 'ENV_UI_UPDATED')?.value).toBe('true');
+  await expect.poll(async()=>{await appPage.reload();return appPage.locator('#jobs tr.job').filter({hasText:`hello ${run}`}).first().innerText();},{timeout:120_000,intervals:[1500]}).toContain('DONE');
+  await appPage.locator('input[name="payload"]').fill(`updated ${run}`);await appPage.getByRole('button',{name:'Submit job'}).click();
+  await expect.poll(async()=>{await appPage.reload();return appPage.locator('#jobs tr.job').filter({hasText:`updated ${run}`}).first().innerText();},{timeout:120_000,intervals:[1500]}).toContain('DONE');
+  await verifyApplication(2);
+  check('Updated value is live; existing job persisted and a new UI-submitted job completed');
+  if (process.env.ORCH_DELETE_APPLICATION === '1') {
+    await appPage.close();
+    forward.child.kill();forward=undefined;
+    await deleteApplicationViaUI({page,baseURL:config.baseURL,appId,name:run,namespace,kube,evidence,check});
+  }
   expect(errors).toEqual([]);outcome='PASS';
 } catch(error) {
+  if(forward&&appPage&&!appPage.isClosed()) {
+    try {
+      const response=await appPage.request.get(`${forward.url}/api/checks`);
+      if(response.ok()) {const {checks,cache}=await response.json();await writeFile(`${evidence}/checks-on-failure.json`,JSON.stringify({checks,cache},null,2));}
+    } catch { /* Preserve the original failure if the runtime cannot be read. */ }
+  }
   console.error(`FAIL ${error.message}`);await page.screenshot({path:`${evidence}/failure.png`,fullPage:true}).catch(()=>{});process.exitCode=1;
 } finally {
   forward?.child.kill();

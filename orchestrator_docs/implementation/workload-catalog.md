@@ -21,7 +21,7 @@ namespace deletion is refused while retained data remains. Explicit confirmed
 resource deletion is separate. Passbolt backups target S3-compatible storage.
 
 Read [specification](../usecase/UC-16/workload-catalog-specification.md),
-[ADR-025](../architecture/decisions/ADR-025-workload-catalog.md),
+[ADR-028](../architecture/decisions/ADR-028-workload-catalog.md),
 [contract](../architecture/contracts/workload-catalog.md),
 [UI](../usecase/UC-16/ui/workload-catalog.md),
 [realization](../usecase/UC-16/workload-catalog-realization.md) and
@@ -86,3 +86,15 @@ Passbolt inputs requested from user: sanitized manifests/image/entrypoint path,
 registry binding, URL/mail/GPG initialization and S3 settings/credential refs.
 Do not request or store secret bytes in issue/Git/evidence. Missing inputs block
 Passbolt configuration/runtime only; independent generic work continues.
+
+## Integration with current main — 2026-10-29
+
+Main advanced to 6004792 (Application deletion, ZIP sources, PostgreSQL upgrades).
+Merged into the task branch before main handoff. ADR numbering reconciles this
+catalog decision to ADR-028; existing main ADR-025/026/027 and IMP-038 are retained.
+Catalog gap record is IMP-039. Both sets of schema/ERD/API/UI/docs remain present.
+UC-18 Preview now blocks unsuspended **applied** CronJobs before freezing edits;
+a pending suspend draft is insufficient. Full typed-name Application deletion
+explicitly includes owned data; claim-before-namespace cleanup coexists with the
+ordinary namespace retained-data guard. No implicit Job cancellation is added.
+Integrated tests/build and fresh generic E2E on the merged source are required.

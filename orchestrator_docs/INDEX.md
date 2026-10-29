@@ -2,7 +2,7 @@
 id: DOC-INDEX
 artifact: documentation-index
 status: current
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-28
 ---
 
 # Documentation index
@@ -42,6 +42,7 @@ implementation status.
 | Thay đổi UC-12 | [UC-12 context](usecase/UC-12/README.md) |
 | Thay đổi UC-16 | [UC-16 context](usecase/UC-16/README.md) |
 | Thay đổi UC-17 | [UC-17 context](usecase/UC-17/README.md) |
+| Thay đổi UC-18 | [UC-18 context](usecase/UC-18/README.md) |
 | Thay đổi shared architecture/domain | [Architecture index](architecture/README.md) |
 | Thay đổi schema/constraint | [Database schema](architecture/database/schema.md) |
 | Hiểu rationale của quyết định | [ADR index](architecture/decisions/README.md) |
@@ -156,3 +157,8 @@ Bắt đầu từ [implementation entry](implementation/workload-catalog.md), r�
 [Passbolt deployment preparation](operations/passbolt-catalog.md).
 Implementation đang nghiệm thu trên task branch; xem handoff để biết checks/gaps.
 Route này không tự kích hoạt iteration hoặc cấp thêm quyền runtime.
+
+ZIP module/render sources: [ADR-026](architecture/decisions/ADR-026-zip-source-upload.md), [UC-03](usecase/UC-03/README.md).
+ZIP upload usage: [runbook](operations/zip-source-upload.md).
+
+PostgreSQL versioned upgrades: [runbook](operations/postgres-upgrades.md).

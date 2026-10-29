@@ -1,0 +1,54 @@
+@startuml
+title UC-18 - Xoa Application (MS-01..09)
+autonumber
+actor "Developer / PE / Admin" as User
+boundary "Settings - vung nguy hiem" as UI
+boundary ApplicationDeletionController as API
+control ApplicationDeletionPlanner as Planner
+control ApplicationDeletionService as Service
+database "Application / Environments / instances / refs" as Records
+control WorkloadRemoval as Workloads
+control ResourceCleanupService as Cleanup
+control SecretPurger as Secrets
+User -> UI: Xoa ung dung
+UI -> API: POST deletion-preview
+API -> API: Session Organization + role
+API -> Planner: Prepare(application)
+Planner -> Records: One snapshot: versions, Sets, drafts, instances (all generations), inventories, Vault refs
+Planner -> Planner: Classify delete / keep / blockers [MS-01]
+Planner --> UI: token, scope per Environment, kept items, blockers [MS-02]
+UI -> User: Permanent data-loss warning; type Application name [MS-03]
+User -> UI: Confirm
+UI -> API: POST deletions(token, confirmationName)
+API -> Service: Delete
+Service -> Records: Reload scope; check token/name/versions/blockers [MS-04]
+alt stale / busy / blocker / wrong name
+  Service --> UI: 409 safe error; no side effects
+else admitted
+  Service -> Records: CAS Application version -> DELETING + progress
+  Service --> UI: 202 operationId
+  loop each Environment in key order, each stage under its own owner/fence
+    Service -> Workloads: Empty candidate Set, DEPLOY claim (UC-07 VAR-02) [MS-05]
+    Workloads --> Service: objects removed / REMOVE Deployment
+    Service -> Cleanup: Admit whole generation, RESOURCE_CLEANUP claim, reverse graph [MS-06]
+    Cleanup --> Service: per-instance result
+    Service -> Cleanup: Verify absence [MS-07]
+    Cleanup --> Service: DESTROYED or remaining IDs
+    Service -> Secrets: Delete exact Vault refs [MS-08]
+    Secrets --> Service: deleted / store error
+    Service -> Records: Persist stage + results
+  end
+  UI -> API: Poll operation
+  API -> Records: Read persisted stages (no provider call)
+  alt both Environments SUCCEEDED
+    Service -> Records: CAS Application -> DELETED [MS-09]
+    Records --> UI: Deleted; return to Applications list
+  else any stage FAILED or INTERRUPTED
+    Records --> UI: DELETING; stage + remaining IDs; Retry
+  end
+end
+note over User, Secrets
+No rollback or undo. PREEXISTING clusters, Connections,
+Secret Stores and catalog are never deleted.
+end note
+@enduml

@@ -38,6 +38,14 @@ on initial inline Secret creation; it is never auto-selected by product code.
 The scenario expects Vietnamese Console. It creates its own application and
 run-specific shared PostgreSQL/Redis IDs. It never changes an older application.
 
+`ORCH_SECRET_STORE_KEY` optionally selects another explicitly configured store
+(default `k8s-4f-vault`). The disposable [Application deletion wrapper](../application-deletion-form/README.md)
+sets `ORCH_DELETE_APPLICATION=1` and its private `WM_*` verification handles to
+delete the new Application through Settings after update. This mode verifies
+native namespace/PV and exact Vault value/bundle absence. It does not retain
+the application. `ORCH_SECRET_SCAN_FILE`, when supplied by that wrapper, records
+the generated secret only in its private scanner input, never public evidence.
+
 ## Assertions
 
 - Create backend/worker/frontend using the form, direct values, shared Variable,
@@ -45,8 +53,12 @@ run-specific shared PostgreSQL/Redis IDs. It never changes an older application.
 - Explicit Preview and Deploy report three successful workloads.
 - Actual kind deployments/StatefulSets/PVCs exist.
 - Acceptance application reports five PASS checks; submitting a job reaches DONE.
+- After each submitted job, all five checks pass again and the read-only cache
+  evidence confirms the worker's Redis write (none failed or unverified).
 - Reopen deployed backend on the form; direct values survive. Add an ordinary
   value and deploy a valid update; PostgreSQL/Redis/PVC UIDs remain unchanged.
+- Verify the new value on the live Deployment, the original job remains DONE,
+  and a new job submitted through the application UI also completes.
 - Browser JavaScript has no errors. Secret input is password type and its raw
   value never appears in page text. No browser session/trace is persisted.
 

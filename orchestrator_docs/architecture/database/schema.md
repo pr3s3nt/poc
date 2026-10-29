@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # Database Schema
@@ -458,15 +458,19 @@ per-workload plan hashes. Logical resource and workload identities are unchanged
 
 ## Fresh persistence baseline (T28 / LEG-08)
 
-Only an empty PostgreSQL schema can be initialized. Owner setup creates the
-complete current schema and a baseline identity atomically under a database
-advisory transaction lock. A second boot validates that identity and the required
-schema (tables, column types/nullability, keys, indexes and integrity triggers)
-before serving, without DDL repair or row conversion. A pre-baseline ledger,
-unmarked nonempty schema, incompatible marker or damaged current schema fails
-closed with a safe development-reset-required error. Deleting an old migration
-ledger does not make its schema empty. No old versioned migrations are replayed.
-The identity is technical adapter metadata, not an upgrade path.
+PostgreSQL upgrade policy is now governed by [ADR-027](../decisions/ADR-027-postgres-upgrades.md),
+superseding fresh-only/no-migration statements in this document and older ADRs.
+Empty schemas are initialized; recognized retained schemas are upgraded by owner
+setup in one locked transaction. Runtime performs validation only. Unknown or
+damaged schemas fail without reset. JSON policy below remains unchanged.
+
+`schema_upgrade_history` is adapter metadata: `version bigint PRIMARY KEY`,
+`migration_sha256 text NOT NULL`, `source_sha256 text NOT NULL`,
+`applied_at timestamptz NOT NULL DEFAULT now()`. Checksums are 64 lowercase hex.
+Owner writes history; Console/State have SELECT only. Version 1 records the
+transition from either supported legacy baseline or fresh installation. Baseline
+identity/digest pins the frozen version reference, not mutable SQL formatting.
+Installation identity and original marker creation time are preserved.
 
 Fresh schema includes UUID account/session IDs, case-insensitive Organization
 Application-name uniqueness, explicit kind-compatible Connection authentication,
@@ -927,9 +931,10 @@ Implemented 2026-10-24 in the fresh baseline (`render_bundles`):
 |---|---|
 | `id` | UUID primary key, server-issued |
 | `organization_id` | UUID NOT NULL FK organizations; every read/write scoped |
-| `source_url` | text NOT NULL, credential-free canonical HTTPS origin |
+| `source_kind` | text NOT NULL DEFAULT `git`, restricted to `git`/`zip` (ADR-026) |
+| `source_url` | text NOT NULL, credential-free HTTPS origin or `zip:sha256:<archive-tree digest>` (ADR-026) |
 | `source_path` | text NOT NULL, normalized clean directory or `.` |
-| `source_revision` | text NOT NULL, full 40/64 lowercase hex commit |
+| `source_revision` | text NOT NULL, full Git commit or 64 lowercase hex archive-tree digest |
 | `content_sha256` | text NOT NULL, 64 lowercase hex digest |
 | `engine_contract` | text NOT NULL, `git-render-v1` |
 | `renderer_version` | text NOT NULL, `0.15.0` |
@@ -1029,7 +1034,7 @@ Fresh-baseline policy stays unchanged: no runtime DDL/automatic migration/reset;
 new acceptance databases use the updated baseline. Retained databases are not
 reset or converted by this task.
 
-## Workload execution extension — ADR-025
+## Workload execution extension — ADR-028
 
 `workload_drafts.score_document.workloadExecution` và
 `deployment_sets.document.modules.<id>.spec.workloadExecution` chứa typed v1
@@ -1039,6 +1044,39 @@ Chỉ lưu refs không secret bytes. Existing JSONB columns không đổi DDL/ER
 checkpoint domain này; template publication tables sẽ được định nghĩa trước
 checkpoint catalog persistence. Không reset database để nhận JSONB member mới.
 
-ADR-025 template registry reuses `render_bundles.contract.manifest.workloadTemplates`
+ADR-028 template registry reuses `render_bundles.contract.manifest.workloadTemplates`
 with immutable verified source content. Typed template inputs and content pin live
 in the execution JSONB extension. No dedicated template DDL or staging reset.
+
+## Application lifecycle — ADR-025
+
+Required by [ADR-025](../decisions/ADR-025-application-deletion.md) and
+[UC-18](../../usecase/UC-18/specification.md).
+
+| Column | Type | Constraint/meaning |
+|---|---|---|
+| `applications.status` | text | NOT NULL DEFAULT `ACTIVE`; CHECK `ACTIVE`, `DELETING`, `DELETED` |
+| `applications.deletion` | jsonb | NOT NULL DEFAULT `{}`; object; safe deletion progress: operation ID, request hash, actor, status, attempt, timestamps, per-Environment stage/status/failure code, removed workloads, cleanup operation IDs, per-resource outcome and remaining physical IDs, purged secret count. Never values, targets or provider text. |
+
+The former `UNIQUE (organization_id, name)` and `subdomain UNIQUE` constraints
+are replaced by partial unique indexes `applications_organization_lower_name_key`
+`(organization_id, lower(name)) WHERE status <> 'DELETED'` and
+`applications_subdomain_key (subdomain) WHERE status <> 'DELETED'`: a DELETED
+tombstone no longer reserves its identity. Lifecycle writes are a
+compare-and-set on `version`. The row and every dependent history row
+(Environments, Deployments, Sets, snapshots, Terraform instances, attempts,
+terminal states, cleanup operations) are retained; nothing cascades. The
+product list omits DELETED rows. Fresh-baseline policy applies: a retained
+database created from the previous baseline fails startup and is not migrated.
+
+## ZIP source persistence — ADR-026
+
+`render_bundles.source_kind` is text NOT NULL DEFAULT 'git', restricted to
+`git`/`zip`. `source_url` is a safe HTTPS origin for Git or exactly
+`zip:sha256:<64 lowercase hex>` for ZIP, whose suffix equals source_revision.
+The existing unique immutable pin key remains sufficient: locator namespaces
+are disjoint. source_revision is Git commit or full archive-tree SHA-256.
+Module bundles keep ZIP source kind and sourceOrganizationKey (the uploader
+session Organization) in their immutable JSON contract and full
+archive revision in their existing pin columns; no additional table is needed.
+Only fresh baseline setup changes; retained installations are never reset here.

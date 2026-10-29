@@ -1,5 +1,5 @@
 @startuml
-title UC-16 workload catalog — ADR-025 (implementation in progress)
+title UC-16 workload catalog — ADR-028 (implementation in progress)
 autonumber
 actor Developer
 boundary "Application home" as Home

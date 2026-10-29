@@ -2,7 +2,7 @@
 id: ADR-INDEX
 artifact: decision-index
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # Architecture Decision Records
@@ -52,4 +52,10 @@ last_reviewed: 2026-10-24
 
 - [ADR-023 — Native basic observability](ADR-023-native-observability.md): platform collection, Metrics Server and durable application history.
 
-- [ADR-025 — Workload catalog, CronJob và persistent storage](ADR-025-workload-catalog.md).
+- [ADR-028 — Workload catalog, CronJob và persistent storage](ADR-028-workload-catalog.md).
+
+- [ADR-025 — Application deletion as one confirmed cascade operation](ADR-025-application-deletion.md) — draft; UC-18 design, not implemented.
+
+ZIP source upload: [ADR-026](ADR-026-zip-source-upload.md).
+
+- [ADR-027 — PostgreSQL upgrades preserving data](ADR-027-postgres-upgrades.md) — supersedes PostgreSQL fresh-only/reset policy.

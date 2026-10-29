@@ -350,6 +350,8 @@ end note
 
 ResourceDefinitionService ..> DefinitionMatcher : five-field ranking + winner account guard
 class TerraformModuleBundle <<entity>> {
+  +SourceKind: packaged | git | zip
+  +SourceOrganizationKey: ZIP owner
   +Revision: immutable
   +ContentSHA256: string
   +ProviderPins: object
@@ -450,12 +452,13 @@ not deterministic planning runId.
 end note
 class VerifiedRenderBundle <<entity>> {
   +OrganizationID: UUID
-  +SourcePin: ImmutableGitPin
+  +SourcePin: ImmutableGitOrZIPPin
   +EngineContract: string
   +InputSchema: JSON
 }
 class RenderBundleRegistry <<adapter>> {
   +Inspect(ctx, org, source): VerifiedRenderBundle
+  +InspectZIP(ctx, org, archive): VerifiedRenderBundle
   +ReadVerified(ctx, org, id): VerifiedRenderBundle
 }
 class GitRenderEngine <<adapter>> {

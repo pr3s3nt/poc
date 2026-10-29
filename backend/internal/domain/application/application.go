@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"time"
 )
 
 var keyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,40}$`)
@@ -26,6 +27,108 @@ type Application struct {
 	Name            string `json:"name"`
 	Subdomain       string `json:"subdomain"`
 	Version         int64  `json:"version"`
+	// Status is the UC-18 lifecycle; empty reads as ACTIVE.
+	Status LifecycleStatus `json:"status,omitempty"`
+	// Deletion is the persisted progress of an admitted deletion (UC-18).
+	Deletion *Deletion `json:"deletion,omitempty"`
+}
+
+// LifecycleStatus is the UC-18 Application lifecycle (ADR-025).
+type LifecycleStatus string
+
+// Application lifecycle states.
+const (
+	StatusActive   LifecycleStatus = "ACTIVE"
+	StatusDeleting LifecycleStatus = "DELETING"
+	StatusDeleted  LifecycleStatus = "DELETED"
+)
+
+// Lifecycle returns the effective lifecycle status.
+func (a Application) Lifecycle() LifecycleStatus {
+	switch a.Status {
+	case StatusDeleting, StatusDeleted:
+		return a.Status
+	}
+	return StatusActive
+}
+
+// Deletion run states.
+const (
+	DeletionRunning   = "RUNNING"
+	DeletionFailed    = "FAILED"
+	DeletionSucceeded = "SUCCEEDED"
+)
+
+// Deletion stages of one Environment (UC-18 MS-05..08).
+const (
+	StageRequested        = "REQUESTED"
+	StageRemovingWorkload = "REMOVING_WORKLOADS"
+	StageDestroying       = "DESTROYING_RESOURCES"
+	StageVerifying        = "VERIFYING"
+	StagePurgingSecrets   = "PURGING_SECRETS"
+	StageDone             = "DONE"
+)
+
+// Deletion is the safe persisted progress of one Application deletion. It
+// holds identities, stages and allowlisted codes only; never values,
+// targets or provider text.
+type Deletion struct {
+	OperationID  string                `json:"operationId"`
+	RequestHash  string                `json:"requestHash"`
+	Actor        string                `json:"actor"`
+	Status       string                `json:"status"`
+	FailureCode  string                `json:"failureCode,omitempty"`
+	Attempt      int                   `json:"attempt"`
+	RequestedAt  time.Time             `json:"requestedAt"`
+	UpdatedAt    time.Time             `json:"updatedAt"`
+	FinishedAt   *time.Time            `json:"finishedAt,omitempty"`
+	Environments []DeletionEnvironment `json:"environments"`
+}
+
+// DeletionEnvironment is the progress of one Environment.
+type DeletionEnvironment struct {
+	Key              string             `json:"key"`
+	Stage            string             `json:"stage"`
+	Status           string             `json:"status"`
+	FailureCode      string             `json:"failureCode,omitempty"`
+	RemovedWorkloads []string           `json:"removedWorkloads"`
+	DeploymentID     string             `json:"deploymentId,omitempty"`
+	CleanupIDs       []string           `json:"cleanupOperationIds"`
+	Resources        []DeletionResource `json:"resources"`
+	SecretsPurged    int                `json:"secretsPurged"`
+}
+
+// DeletionResource is the result of one owned resource instance.
+type DeletionResource struct {
+	ID         string   `json:"id"`
+	Descriptor string   `json:"descriptor"`
+	Outcome    string   `json:"outcome"`
+	Remaining  []string `json:"remaining,omitempty"`
+}
+
+// Clone returns a deep copy of the deletion progress.
+func (d *Deletion) Clone() *Deletion {
+	if d == nil {
+		return nil
+	}
+	out := *d
+	if d.FinishedAt != nil {
+		t := *d.FinishedAt
+		out.FinishedAt = &t
+	}
+	out.Environments = make([]DeletionEnvironment, len(d.Environments))
+	for i, e := range d.Environments {
+		e.RemovedWorkloads = append([]string{}, e.RemovedWorkloads...)
+		e.CleanupIDs = append([]string{}, e.CleanupIDs...)
+		resources := make([]DeletionResource, len(e.Resources))
+		for j, r := range e.Resources {
+			r.Remaining = append([]string(nil), r.Remaining...)
+			resources[j] = r
+		}
+		e.Resources = resources
+		out.Environments[i] = e
+	}
+	return &out
 }
 
 // Validate reports whether the Application satisfies UC-01 business rules.

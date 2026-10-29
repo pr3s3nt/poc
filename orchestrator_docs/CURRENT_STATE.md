@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 ---
 
 # Current project state
@@ -18,6 +18,54 @@ This does not certify Passbolt.
 MySQL resource secret prerequisites and private Passbolt/S3 runtime inputs remain
 open; no main merge. [Implementation/gaps](implementation/workload-catalog.md),
 [evidence](verification/2026-10-29-workload-catalog.md).
+
+## PostgreSQL upgrades — issue #23
+
+Owner setup now upgrades the exact `1516dec` staging and `2a111db` preview baselines to schema version 1 without reset. Installation identities and retained rows are preserved; runtime remains read-only for schema/history. This supersedes older PostgreSQL no-migration statements below. See [ADR-027](architecture/decisions/ADR-027-postgres-upgrades.md) and [upgrade runbook](operations/postgres-upgrades.md). Other historical baselines and JSON conversion are unsupported. Verification: [issue #23](verification/2026-10-28-postgres-upgrades.md). Retained installations have only been inspected read-only, not upgraded by this task.
+
+## Application deletion (UC-18) — 2026-10-27
+
+[ADR-025](architecture/decisions/ADR-025-application-deletion.md) is implemented
+on `main` (merged from `features/xoa_app`). Any Organization role can delete an Application from
+Cài đặt after a server-computed preview of both Environments and the exact
+typed name. The Application becomes `DELETING` (HTTP mutations answer 409) and
+an in-process run removes every workload through the pending Deploy path,
+admits each target generation's owned instances as one confirmed cleanup,
+verifies absence, purges the Environment's Vault values and delivery bundles by
+exact ref, then marks the Application `DELETED`. The tombstone and all history
+are retained; name and subdomain become reusable. Failures keep `DELETING` with
+remaining IDs and an explicit Retry.
+
+Real kind acceptance passed 46/46 with verified teardown
+([record](verification/2026-10-27-application-deletion-kind.md)). AWS A02 failed
+before Application deletion because Spot node capacity could not be fulfilled;
+original-state operator cleanup and all native absence checks passed
+([record](verification/2026-10-28-application-deletion-aws-cleanup.md)).
+Known gaps (output secrets, delivery policies/roles,
+PostgreSQL-only, in-process run): [IMP-038](implementation/deviations.md#imp-038--application-deletion-2026-10-27).
+The baseline changed (`applications.status`, `deletion`, partial unique
+indexes); retained databases are not migrated.
+
+Integrated `main` form-only acceptance on 2026-10-28 passed 15 assertions:
+three-workload deploy, two jobs with proven Redis writes, valid update with
+PostgreSQL/Redis/PVC reuse, Application deletion, native namespace/PV and exact
+Vault value/bundle absence, name reuse and clean teardown
+([record](verification/2026-10-28-application-deletion-form-integration.md)).
+
+## ZIP module and rendering sources — 2026-10-28
+
+[ADR-026](architecture/decisions/ADR-026-zip-source-upload.md) adds multipart ZIP
+upload beside Git/verified sources on both authoring pages. Archive directory
+layout and selected module/bundle contracts match Git; ZIP sources use immutable
+archive-tree revisions, Organization-scoped upload metadata, existing inspectors
+and durable verified caches. Preview,
+execution and cleanup continue consuming pins; Git remains the new-draft default.
+PostgreSQL render metadata records source kind in the fresh baseline.
+
+Local browser verification used real module/render inspection and cache with fake
+deployment adapters, covering both uploads and rendering-template save/reopen;
+no cloud/Kubernetes deployment was run. [Usage](operations/zip-source-upload.md)
+and [verification](verification/2026-10-28-zip-source-upload.md).
 
 ## Offline Terraform providers — 2026-10-27
 

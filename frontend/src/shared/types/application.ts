@@ -39,6 +39,10 @@ export interface Application {
   /** Exact keys advertised by the API; absent only for older callers. */
   availableEnvironments?: readonly string[];
   workloads: Record<EnvironmentKey, readonly Workload[]>;
+  /** UC-18 lifecycle; absent reads as ACTIVE. */
+  status?: 'ACTIVE' | 'DELETING' | string;
+  /** The deletion operation of a DELETING Application. */
+  deletionOperationId?: string;
 }
 
 export const platformDomain = 'example.com';

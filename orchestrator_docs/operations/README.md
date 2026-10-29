@@ -2,7 +2,7 @@
 id: OPERATIONS-INDEX
 artifact: operations-index
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 ---
 
 # Operations index
@@ -15,11 +15,14 @@ Các runner hiện có giữ đường dẫn cho tới migration/refactor liên 
 verifies UC-08 BR-10 with real Git modules and the full application, including
 shared/private resources, valid updates and product cleanup.
 
+[Application deletion acceptance](application-deletion-acceptance.md) runs the
+UC-18 Developer deletion at the end of the existing kind and AWS A02 harnesses.
+
 | Environment | Runbook | External mutation |
 |---|---|---|
 | Application telemetry | [Native logging/monitoring](observability.md) | Read-only collector; Metrics Server/RBAC/database preparation is an explicit operator action |
 | Local fake adapters | [Local development](local.md) | No cluster/cloud mutation |
-| Offline staging providers | [Image check and staging patch](terraform-offline.md) | Local image build/check; staging rollout is a separate operator action |
+| Offline staging providers | [Image check and staging configuration](terraform-offline.md) | Local image build/check; staging rollout is a separate operator action |
 | Personal-machine containers | [Docker Compose](docker-local.md) | Local Docker volumes; cluster mutation only on explicit deploy |
 | UC-09 review video | [Human-paced local recording](local.md#uc-09-human-paced-review-recording) | Local browser/display only; publish reviewed evidence separately |
 | Existing kind cluster | [kind verification](kind.md) | Creates a run-specific namespace and workloads |
@@ -64,3 +67,7 @@ ghi đè runbook hoặc evidence cũ.
 [Kubernetes staging catalog bootstrap](staging-catalog.md) — Types-only startup và Playwright đăng ký catalog sau Driver Account `k8s-4f`.
 
 - [Passbolt qua workload catalog — preparation, chưa executable trước feature gates](passbolt-catalog.md).
+
+ZIP source preparation: [module and render-bundle upload](zip-source-upload.md).
+
+PostgreSQL versioned upgrades: [runbook](postgres-upgrades.md).

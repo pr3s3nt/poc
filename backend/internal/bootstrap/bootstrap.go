@@ -31,6 +31,7 @@ import (
 	"orchestrator/internal/adapters/store"
 	moduleregistry "orchestrator/internal/adapters/terraform/registry"
 	"orchestrator/internal/adapters/vault"
+	"orchestrator/internal/application/appdeletion"
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/authentication"
 	appconfig "orchestrator/internal/application/configuration"
@@ -257,8 +258,10 @@ type App struct {
 	Previews              *preview.Service
 	// ResourceCleanup is the scoped resource detail and confirmed deletion service.
 	ResourceCleanup *resourcecleanup.Service
-	FakeExec        *fake.ResourceExecutor
-	FakeDeploy      *fake.WorkloadDeployer
+	// AppDeletion is the UC-18 Application deletion (ADR-025).
+	AppDeletion *appdeletion.Service
+	FakeExec    *fake.ResourceExecutor
+	FakeDeploy  *fake.WorkloadDeployer
 	// Configurations and Pending are the UC-12 and UC-05/06 services.
 	Configurations *appconfig.Service
 	Pending        *pending.Service
@@ -601,6 +604,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	if opts.CleanupEngineOverride != nil {
 		resourceCleanup.SetEngine(opts.CleanupEngineOverride)
 	}
+	appDeletion := appdeletion.New(st, workloads, pendingChanges, resourceCleanup, storeRegistry)
 
 	var renderPort renderregistry.Registry
 	if renderRegistry != nil {
@@ -636,6 +640,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		Pending:               pendingChanges,
 		Previews:              previews,
 		ResourceCleanup:       resourceCleanup,
+		AppDeletion:           appDeletion,
 		Store:                 st,
 		ModuleRegistry:        modules,
 		SeedOptions:           opts.Seed,
@@ -654,6 +659,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		Queries:               queries,
 		Previews:              previews,
 		ResourceCleanup:       resourceCleanup,
+		AppDeletion:           appDeletion,
 		FakeExec:              fakeExec,
 		FakeDeploy:            fakeDep,
 		Operations:            operations,

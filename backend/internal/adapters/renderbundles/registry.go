@@ -81,6 +81,10 @@ func (r *Registry) Inspect(ctx context.Context, organizationKey string, req rend
 		}
 		return renderbundle.Bundle{}, renderregistry.ErrSourceUnavailable
 	}
+	return r.prepare(ctx, organizationKey, renderbundle.Source{Kind: renderbundle.SourceKindGit, URL: url, Path: path, Revision: commit}, tree)
+}
+
+func (r *Registry) prepare(ctx context.Context, organizationKey string, source renderbundle.Source, tree registry.Tree) (renderbundle.Bundle, error) {
 	files := map[string][]byte(tree)
 	bundle, err := renderengine.Validate(files)
 	if err != nil {
@@ -95,9 +99,10 @@ func (r *Registry) Inspect(ctx context.Context, organizationKey string, req rend
 	if r.Now != nil {
 		now = r.Now
 	}
+	source.ContentSHA256 = digest
 	record := renderbundle.Bundle{
 		ID: ids.New(), OrganizationKey: organizationKey,
-		Source:          renderbundle.Source{Kind: renderbundle.SourceKindGit, URL: url, Path: path, Revision: commit, ContentSHA256: digest},
+		Source:          source,
 		EngineContract:  renderbundle.EngineContract,
 		RendererVersion: renderbundle.RendererVersion,
 		RendererBinary:  r.Runtime.BinaryDigest(),

@@ -75,7 +75,7 @@ func (s *Service) InspectGit(ctx context.Context, request moduleregistry.GitInsp
 			break
 		}
 	}
-	bundle, trees, err := s.build(sources, ref, tfmodule.SourceKindGit, []string{request.ResourceType}, executorOutputs)
+	bundle, trees, err := s.build(sources, ref, tfmodule.SourceKindGit, []string{request.ResourceType}, executorOutputs, "")
 	if err != nil {
 		return tfmodule.Bundle{}, err
 	}

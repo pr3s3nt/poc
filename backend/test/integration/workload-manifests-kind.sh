@@ -24,14 +24,17 @@ export LC_ALL=C.UTF-8
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO="$(cd "${ROOT}/.." && pwd)"
-usage() { echo "usage: $0 --evidence /absolute/new/dir [--run-id lowercase-id] [--ref branch|tag|commit] [--completion-ref published-commit]" >&2; exit 2; }
-EVIDENCE="" RUN_ID="" BUNDLE_REF="main" COMPLETION_REF=""
+usage() { echo "usage: $0 --evidence /absolute/new/dir [--run-id lowercase-id] [--ref branch|tag|commit] [--completion-ref published-commit] [--app-deletion|--form-deletion]" >&2; exit 2; }
+EVIDENCE="" RUN_ID="" BUNDLE_REF="main" COMPLETION_REF="" APP_DELETION=0 FORM_DELETION=0
 while (( $# )); do
   case "$1" in
     --evidence) [[ $# -ge 2 ]] || usage; EVIDENCE="$2"; shift 2 ;;
     --run-id) [[ $# -ge 2 ]] || usage; RUN_ID="$2"; shift 2 ;;
     --ref) [[ $# -ge 2 ]] || usage; BUNDLE_REF="$2"; shift 2 ;;
     --completion-ref) [[ $# -ge 2 && "$2" =~ ^[0-9a-f]{40}$ ]] || usage; COMPLETION_REF="$2"; shift 2 ;;
+    # UC-18: end with the Developer deleting the whole Application instead of WM-E07.
+    --app-deletion) APP_DELETION=1; shift ;;
+    --form-deletion) FORM_DELETION=1; shift ;;
     *) usage ;;
   esac
 done
@@ -54,6 +57,10 @@ PRIVATE="${EVIDENCE}/private"
 LOG="${EVIDENCE}/runner.log"
 for tool in docker kind kubectl helm node go git curl jq xvfb-run; do command -v "${tool}" >/dev/null || { echo "${tool} is required" >&2; exit 2; }; done
 [[ -d "${REPO}/frontend/node_modules/@playwright/test" ]] || { echo "install frontend dependencies first" >&2; exit 2; }
+if [[ "${FORM_DELETION}" == 1 ]]; then
+  [[ -z "${COMPLETION_REF}" && "${APP_DELETION}" == 0 ]] || usage
+  [[ -d "${REPO}/e2e/node_modules/@playwright/test" ]] || { echo "install e2e dependencies first" >&2; exit 2; }
+fi
 docker info >/dev/null
 docker network inspect kind >/dev/null 2>&1 || true
 ! kind get clusters 2>/dev/null | grep -qx "${CLUSTER}" || { echo "cluster ${CLUSTER} already exists; run IDs are single-use" >&2; exit 2; }
@@ -206,14 +213,23 @@ curl -fsS "http://127.0.0.1:${FRONTEND_PORT}/ui/" >/dev/null
 
 # ---- 5. Browser scenario ---------------------------------------------------------------------
 log "running the browser scenario"
+SCENARIO_PATH="${REPO}/frontend/test/e2e/workload-manifests-kind.mjs"
+if [[ "${FORM_DELETION}" == 1 ]]; then
+  SCENARIO_PATH="${REPO}/e2e/scenarios/application-deletion-form/run.mjs"
+  # Fixed synthetic accounts of this new disposable platform; never use a
+  # retained installation's login or write a password into public evidence.
+  printf '%s' 'test-password' > "${PRIVATE}/console-password"
+  export ORCH_PLATFORM_URL="http://127.0.0.1:${FRONTEND_PORT}" ORCH_PLATFORM_USERNAME=platform-engineer
+  export ORCH_PLATFORM_PASSWORD_FILE="${PRIVATE}/console-password" ORCH_HEADLESS=1
+fi
 set +e
 WM_URL="http://127.0.0.1:${FRONTEND_PORT}" WM_EVIDENCE="${EVIDENCE}" WM_PRIVATE="${PRIVATE}" WM_RUN_ID="${RUN_ID}" \
-  WM_COMPLETION_REF="${COMPLETION_REF}" \
+  WM_COMPLETION_REF="${COMPLETION_REF}" WM_APP_DELETION="${APP_DELETION}" \
   WM_GIT_URL="${BUNDLE_URL}" WM_GIT_PATH="${BUNDLE_PATH}" WM_GIT_REF="${BUNDLE_REF}" WM_COMMIT="${BUNDLE_COMMIT}" WM_BASE_DOMAIN="${BASE_DOMAIN}" WM_GATEWAY="${GATEWAY}" \
   WM_IMAGE_TAG="${TAG}" WM_V2CTL="${PRIVATE}/v2ctl" WM_DB_QUERY="${PRIVATE}/db-query" \
   WM_INTERNAL_KUBECONFIG="${PRIVATE}/internal.kubeconfig" WM_HOST_KUBECONFIG="${KUBECONFIG_HOST}" WM_CONTEXT="${CONTEXT}" \
   WM_VAULT_ADDR="http://${VAULT_NAME}:8200" WM_WORKLOAD_VAULT_TOKEN_FILE="${PRIVATE}/workload-vault/token" \
-  xvfb-run -a -s "-screen 0 1600x1100x24" node "${REPO}/frontend/test/e2e/workload-manifests-kind.mjs"
+  xvfb-run -a -s "-screen 0 1600x1100x24" node "${SCENARIO_PATH}"
 SCENARIO=$?
 set -e
 "${COMPOSE[@]}" logs --no-color backend > "${PRIVATE}/backend.log" 2>&1 || true

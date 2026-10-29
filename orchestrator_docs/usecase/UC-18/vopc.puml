@@ -1,0 +1,81 @@
+@startuml
+title UC-18 - VOPC Xoa Application
+skinparam classAttributeIconSize 0
+class ApplicationDeletionController <<boundary>> {
+  +preview(applicationId)
+  +delete(applicationId, token, confirmationName)
+  +operation(applicationId, operationId)
+}
+class ApplicationDeletionPlanner <<control>> {
+  +prepare(applicationId): DeletionPreview
+}
+class ApplicationDeletionService <<control>> {
+  +admit(request): OperationId
+  +runEnvironment(operation)
+  +retry(request): OperationId
+  +finalize(applicationId)
+}
+class EnvironmentOperationManager <<control>> {
+  +begin(claim): Lease
+  +end(lease)
+}
+class WorkloadRemoval <<control>> {
+  +removeAll(environment): Deployment
+}
+class ResourceCleanupService <<control>> {
+  +destroy(scope, mode)
+  +verifyAbsence(scope)
+}
+class SecretPurger <<control>> {
+  +purge(refs)
+}
+class Application <<entity>> {
+  id
+  name
+  subdomain
+  status
+  deletedAt
+  deletionOperationId
+  version
+}
+class Environment <<entity>> {
+  id
+  environmentKey
+  activeOperationId
+  version
+}
+class EnvironmentOperation <<entity>> {
+  id
+  kind
+  stage
+  status
+  owner
+  fencingGeneration
+}
+class Deletion <<entity>> {
+  operationId
+  status
+  attempt
+  environmentStages
+  resourceOutcomes
+}
+class DeletionPreview <<entity>> {
+  token
+  deleteItems
+  keptItems
+  blockers
+}
+ApplicationDeletionController --> ApplicationDeletionPlanner
+ApplicationDeletionController --> ApplicationDeletionService
+ApplicationDeletionPlanner ..> DeletionPreview
+WorkloadRemoval --> EnvironmentOperationManager
+ResourceCleanupService --> EnvironmentOperationManager
+ApplicationDeletionService --> WorkloadRemoval
+ApplicationDeletionService --> ResourceCleanupService
+ApplicationDeletionService --> SecretPurger
+ApplicationDeletionService --> Application
+EnvironmentOperationManager --> EnvironmentOperation
+Application "1" *-- "2" Environment
+Application "1" *-- "0..1" Deletion
+Environment "1" o-- "0..*" EnvironmentOperation
+@enduml

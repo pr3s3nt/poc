@@ -2,10 +2,14 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 ---
 
 # Design-to-code map
+
+## PostgreSQL versioned upgrades
+
+[ADR-027](../architecture/decisions/ADR-027-postgres-upgrades.md): `backend/internal/adapters/postgres/upgrade.go`, frozen `migrations/` SQL, owner `Setup` and runtime marker/history validation. Tests: `upgrade_integration_test.go`; guard: `scripts/check_migrations.py`; Compose orchestration: `deploy/local/upgrade-database.sh`. Procedure: [runbook](../operations/postgres-upgrades.md).
 
 ## Generic Terraform resource completion — UC-08 BR-10
 
@@ -199,7 +203,7 @@ Canonical behavior: [UC-04 DIAG-01..14](../usecase/UC-04/specification.md#accoun
 | Acceptance workloads | [`backend/examples/acceptance-app`](../../backend/examples/acceptance-app/) |
 | Local Compose Vault bootstrap and explicit platform store seed | [`docker-compose.yml`](../../docker-compose.yml), [`start-vault.sh`](../../deploy/local/start-vault.sh), [`application policy`](../../deploy/local/applications-policy.hcl), [`connection policy`](../../deploy/local/connections-policy.hcl) and [`normal-store bootstrap`](../../backend/internal/bootstrap/platformvault.go), [`shared managed registration`](../../backend/internal/application/secretstores/bootstrap.go) and [`scoped runtime registry`](../../backend/internal/adapters/vault/registry.go) |
 | Orchestrator container images (API with kubectl, Web Console on nginx) | [`backend/Dockerfile`](../../backend/Dockerfile), [`backend/deploy/docker-entrypoint.sh`](../../backend/deploy/docker-entrypoint.sh), [`frontend/Dockerfile`](../../frontend/Dockerfile) and [`frontend/deploy/nginx.conf.template`](../../frontend/deploy/nginx.conf.template) |
-| Offline Terraform provider installation | [`release-verified mirror builder`](../../backend/cmd/prepare-provider-mirror/main.go), [`image CLI policy`](../../backend/deploy/terraform-offline.tfrc), [`bootstrap configuration`](../../backend/internal/bootstrap/terraform.go), [`network-isolated image test`](../../backend/internal/adapters/terraform/runner/offline_provider_test.go), [`staging patch/runbook`](../../deploy/k8s_4f/README.md) |
+| Offline Terraform provider installation | [`release-verified mirror builder`](../../backend/cmd/prepare-provider-mirror/main.go), [`image CLI policy`](../../backend/deploy/terraform-offline.tfrc), [`bootstrap configuration`](../../backend/internal/bootstrap/terraform.go), [`network-isolated image test`](../../backend/internal/adapters/terraform/runner/offline_provider_test.go), [`offline provider runbook`](../operations/terraform-offline.md) |
 | HTTP end-to-end tests | [`backend/test/e2e`](../../backend/test/e2e/) |
 | Planner challenge conformance | [`backend/test/conformance`](../../backend/test/conformance/) |
 | kind/AWS verification | [`backend/test/integration`](../../backend/test/integration/) |
@@ -744,6 +748,18 @@ copy in `labels.ts`; a new external source also needs spec/schema first.
 - `frontend/test/e2e/bootstrap-staging-catalog.mjs`: operator Playwright registration/preflight/rerun checks.
 - [Runbook](../operations/staging-catalog.md): operator inputs, installed bundle và staging matching.
 
+## Application deletion — UC-18 / ADR-025
+
+| Design | Code / tests |
+|---|---|
+| Lifecycle, progress model | [`domain/application`](../../backend/internal/domain/application/application.go), [`ports/persistence/lifecycle.go`](../../backend/internal/ports/persistence/lifecycle.go), [`postgres/lifecycle.go`](../../backend/internal/adapters/postgres/lifecycle.go), [`store/lifecycle.go`](../../backend/internal/adapters/store/lifecycle.go), baseline `applications` |
+| Preview, admission, staged run, Vault purge | [`application/appdeletion`](../../backend/internal/application/appdeletion/), [`vault.Registry.PurgeValues`](../../backend/internal/adapters/vault/registry.go) |
+| Whole-generation confirmed cleanup | [`resourcecleanup/environment.go`](../../backend/internal/application/resourcecleanup/environment.go) |
+| HTTP routes, lifecycle guard, error codes | [`delivery/http/application_deletion.go`](../../backend/internal/delivery/http/application_deletion.go) |
+| Console | [`features/applications/deletion`](../../frontend/src/features/applications/deletion/), Settings danger zone, Application home banner |
+| Tests | [`test/e2e/application_deletion_test.go`](../../backend/test/e2e/application_deletion_test.go) (real PostgreSQL, labelled fake engine), [`DeleteApplicationDialog.test.tsx`](../../frontend/src/features/applications/deletion/DeleteApplicationDialog.test.tsx), kind WM-E08 and AWS `appdel.*` acceptance |
+| Integrated form-only acceptance | [`e2e/scenarios/application-deletion-form`](../../e2e/scenarios/application-deletion-form/README.md), shared [`delete-application.mjs`](../../e2e/lib/delete-application.mjs), workload form scenario and owned-kind harness `--form-deletion` |
+
 ## ENV-UX — direct workload variable entry (2026-10-27)
 
 - `EnvironmentVariablesTable.tsx` owns direct Name/Value entry, combined source
@@ -771,3 +787,15 @@ observability routes expose UID-owned live Job history; `JobHistoryDialog.tsx`
 uses the current home row. Terraform source modules are in
 `backend/terraform-modules/`. Generic E2E lives in
 `e2e/scenarios/workload-catalog/`; [handoff](workload-catalog.md) owns gaps.
+
+## ZIP module and render-bundle sources — ADR-026
+
+- `backend/internal/platform/sourcezip/`: bounded, non-extracting archive reader.
+- Registry `zip_inspect.go` adapters reuse HCL/renderer inspection and verified
+  caches; Terraform ZIPSnapshot retains same-archive local module paths.
+- HTTP `source_upload.go` and catalog upload methods: PE/Admin multipart upload,
+  scoped metadata response and immutable pins. PostgreSQL stores render source_kind.
+- Console `ZIPSource.tsx`: shared upload/inspect controls in Resource Definitions
+  and Rendering Templates; existing typed inputs/Create/CAS persist prepared pins.
+- [Browser scenario](../../e2e/scenarios/zip-source-upload/README.md) exercises
+  both upload forms and rendering-template save/reopen with real inspection/cache.

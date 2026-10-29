@@ -17,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	deployapp "orchestrator/internal/application/deployment"
+	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/telemetry"
 	"orchestrator/internal/platform/ids"
@@ -81,6 +82,10 @@ func (s *Service) discover(ctx context.Context) ([]obs.Source, error) {
 	}
 	out := []obs.Source{}
 	for _, app := range apps {
+		// Collection stops when an Application deletion is admitted (UC-18 BR-10).
+		if app.Lifecycle() != appdomain.StatusActive {
+			continue
+		}
 		envs, err := s.store.ListEnvironments(ctx, app.Key)
 		if err != nil {
 			return nil, err

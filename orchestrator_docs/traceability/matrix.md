@@ -2,12 +2,16 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-28
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
 
 Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, class/method, persistence/state và planned test. `OC-nn` tham chiếu `architecture/contracts/operation-contracts.md`.
+
+## Issue #23 — PostgreSQL upgrades
+
+ADR-027 source recognition, preservation, serialization, rollback, version/history validation and runtime isolation map to `postgres/upgrade.go`, `baseline.go`, `grants.go` and `upgrade_integration_test.go`. Active/frozen schema structural equivalence is enforced by `TestActiveBaselineMatchesFrozenVersion`; immutable release artifacts/version additions by `scripts/check_migrations.py` in Product CI. The deployment wrapper stops writers, backs up and gates startup on owner setup success.
 
 ## F3/F4/F5 regressions
 
@@ -1197,6 +1201,29 @@ catalog bootstrap → `frontend/test/e2e/bootstrap-staging-catalog.mjs` + shared
 UI flows → `bootstrap-staging-catalog.test.mjs` and local Console create/rerun
 verification. Operator procedure: [staging catalog](../operations/staging-catalog.md).
 
+## Application deletion — UC-18
+
+| Requirements | Canonical collaboration / state | Implementation and automated checks |
+|---|---|---|
+| MS-01..02, BR-01, BR-11 | UC-18 realization (preview), ADR-025 kept set | `appdeletion.Service.Preview`, `resourcecleanup.EnvironmentInventory`; `TestApplicationDeletionPreviewScopeAndRoles` (platform excluded, no private markers, foreign 404) |
+| MS-03..04, BR-02..03 | Typed confirmation, CAS admission | `appdeletion.Service.Delete`; e2e confirmation/forged token/replay tests; `DeleteApplicationDialog.test.tsx` |
+| BR-04 | HTTP lifecycle guard | `lifecycleGuard`; `TestApplicationDeletionDestroysOwnedResourcesAndTombstones` (409 while deleting), kind WM-E08.frozen |
+| MS-05..07, BR-05..06 | Pending Deploy removal, `AdmitEnvironmentCleanup` | e2e destroy/retry tests (fake engine, labelled); kind WM-E08 real destroy and namespace/route absence |
+| MS-08, BR-07 | Exact-ref Vault purge | `vault.Registry.PurgeValues`; kind WM-E08.vault-purged |
+| MS-09, POST-03/04, BR-09 | Tombstone, partial unique indexes | e2e tombstone/recreate test; kind WM-E08.tombstone/name-reused |
+| VAR-02, BR-08 | Retry from persisted stage | `TestApplicationDeletionFailureKeepsDeletingAndRetryCompletes` |
+| BR-10 | Telemetry discovery skips non-ACTIVE | `observability.Service.discover` |
+
+Evidence: [kind](../verification/2026-10-27-application-deletion-kind.md).
+
+Integrated UC-16 form + UC-18 main-flow scenario:
+[`application-deletion-form`](../../e2e/scenarios/application-deletion-form/README.md)
+reuses the owned-kind setup and workload form runner, then
+`e2e/lib/delete-application.mjs` verifies exact-name confirmation, UI freeze,
+terminal progress, retained history, owned-instance/namespace/PV absence,
+exact Vault Secret/bundle 404s and name/subdomain reuse. Job completion is
+followed by UI health and recorded Redis write-through checks before cleanup.
+
 ## ENV-UX — direct Name/Value entry (2026-10-27)
 
 | Requirement | Design | Implementation / verification |
@@ -1215,3 +1242,11 @@ ENV-UX runtime/locale validation and video: [2026-10-27 real kind/UI evidence](.
 maps them to code and tests, distinguishing automated/current-build/Passbolt gaps.
 [Evidence](../verification/2026-10-29-workload-catalog.md) records real execution;
 no complete-feature or main-merge claim follows from the prototype.
+
+## UC-03 ZIP source upload — ADR-026
+
+| Requirement | Operation / collaboration | Persistence and coverage |
+|---|---|---|
+| ZIP-01/02 | `UploadTerraformModule`, `UploadRenderBundle`; UC-03 sequence/VOPC; bounded multipart → shared ZIP reader → existing inspectors | `sourcezip/zip_test.go`; HTTP `source_upload_test.go` uses real inspectors, checks RBAC, scope, strict multipart, slow-upload deadline, Organization-scoped module discovery/registration and no Definition side effects |
+| ZIP-03 | ZIP archive-tree revision + selected-directory digest; cache before immutable insertion; metadata-only downstream reuse | registry `zip_inspect_test.go`: local children, trusted identity, repeat/restart/update, executable artifact verification and tamper; render ZIP test: scope, restart, update and cache repair; PostgreSQL `TestZIPSourceKindsSurvivePostgresReopen` |
+| ZIP-04 | `ZIPSource` on both existing authoring forms; unchanged Create/CAS and typed input editors | `ZIPSource.test.tsx`, ZIP cases in `GitModuleSource.test.tsx` / `GitRenderBundle.test.tsx`; [browser runner](../../e2e/scenarios/zip-source-upload/README.md) |

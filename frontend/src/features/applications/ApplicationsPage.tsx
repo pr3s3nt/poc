@@ -7,8 +7,9 @@ import { t } from '../../shared/i18n';
 
 export type ApplicationsLoadState = 'loading' | 'ready' | 'error';
 
-export function ApplicationsPage({ applications, state = 'ready', onRetry }: { applications: readonly Application[]; state?: ApplicationsLoadState; onRetry?(): void }) {
+export function ApplicationsPage({ applications, state = 'ready', onRetry, notice }: { applications: readonly Application[]; state?: ApplicationsLoadState; onRetry?(): void; notice?: string }) {
   return <section className="page">
+    {notice ? <div className="form-info" role="status">{notice}</div> : null}
     <header className="page-header"><div><p className="eyebrow">{t('applications.applications.workspace')}</p><h1>{t('applications.applications.yourApplications')}</h1><p>{t('applications.applications.createAnApplicationThenDeploy')}</p></div><Button tone="primary" onClick={() => navigate({ name: 'create-application' })}>{t('applications.applications.createApplication')}</Button></header>
     {state === 'loading' ? <div className="application-grid" role="status" aria-busy="true" aria-label={t('applications.applications.loadingApplications')}><div className="application-card-skeleton" /><div className="application-card-skeleton" /></div> :
       state === 'error' ? <div className="form-error" role="alert">{t('applications.applications.couldNotLoadTheApplication')}<Button onClick={onRetry}>{t('applications.applications.retry')}</Button></div> :
