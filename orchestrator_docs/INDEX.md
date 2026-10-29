@@ -158,6 +158,9 @@ Bắt đầu từ [implementation entry](implementation/workload-catalog.md), r�
 Implementation đang nghiệm thu trên task branch; xem handoff để biết checks/gaps.
 Route này không tự kích hoạt iteration hoặc cấp thêm quyền runtime.
 
+Acceptance workload PVC/CronJob: [runbook](operations/acceptance-storage-schedule.md),
+[browser observations](../e2e/scenarios/acceptance-storage-schedule/README.md).
+
 ZIP module/render sources: [ADR-026](architecture/decisions/ADR-026-zip-source-upload.md), [UC-03](usecase/UC-03/README.md).
 ZIP upload usage: [runbook](operations/zip-source-upload.md).
 

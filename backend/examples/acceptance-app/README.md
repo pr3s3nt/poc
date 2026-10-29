@@ -1,6 +1,6 @@
 # Acceptance application
 
-Three independent Go workloads the orchestrator deploys to verify UC-06 and UC-08
+Four independent Go workloads the orchestrator deploys to verify UC-06 and UC-08
 end to end:
 
 | Workload | Role |
@@ -8,6 +8,7 @@ end to end:
 | `frontend` | Serves the sample page, proxies `/api` to the backend Service. |
 | `backend` | Owns the `jobs` schema, submits and reads jobs. |
 | `worker` | Claims pending jobs, writes results back. |
+| `scheduled` | Runs once, reads the backend volume hash, commits a PostgreSQL receipt and exits. |
 
 `backend` and `worker` bind to the same shared Score resource
 (`postgres.default#acceptance-db`), so the happy path proves:
@@ -76,6 +77,40 @@ kiểm chứng trong I04-10..12, không suy unit/CLI thành live proof.
 
 Build the images with `test/integration/build-images.sh <tag>`; it produces a
 static binary per workload and wraps it in the shared `Dockerfile`.
+
+## PVC and CronJob acceptance
+
+Use the [storage/schedule runbook](../../../orchestrator_docs/operations/acceptance-storage-schedule.md)
+and [browser observations](../../../e2e/scenarios/acceptance-storage-schedule/README.md).
+The existing job/cache flow is unchanged. Backend opts into storage with
+`ACCEPTANCE_STORAGE_DIR=/data`; mount managed storage at that path. No directory
+is auto-created: missing/unwritable mounts report an error. The frontend provides
+Write to volume, stored value/hash, backend process identity and scheduled receipts.
+Only public test values belong in this fixed file, never secret bytes.
+
+Set unique `ACCEPTANCE_SCHEDULE_RUN` on backend and scheduled. The scheduled
+image also requires `BACKEND_URL`, PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD;
+Kubernetes supplies HOSTNAME as the invocation identity. Bind the same shared
+PostgreSQL resource, with password through Secret; scheduled does not need Redis.
+Deploy backend/schema first, write the test value, then deploy CronJob. Each run
+exits 0 only after reading the actual value, checking its SHA-256 and committing
+the receipt. Same run/invocation/hash retries are idempotent; conflicts fail.
+Receipts are separate from worker jobs and never affect Redis job counters.
+
+Backend's existing workload-local migration adds only `acceptance_scheduled_runs`
+(run_id, invocation, value_sha256, completed_at; composite key run_id/invocation).
+This is **not an Orchestrator database migration**. Old jobs/receipts are preserved
+on repeated startup. GET `/api/scheduled-runs` returns up to 20 rows for backend's
+configured run. Disabled checks are explicit; unavailable DB/filesystem is not
+empty success. POST `/api/storage` accepts a bounded value, no path parameter.
+
+Validate with real disposable PostgreSQL and Redis: set
+`ORCHESTRATOR_POSTGRES_TEST_URL` to a task-owned test server, then
+`cd backend && REQUIRE_POSTGRES=1 REQUIRE_REDIS=1 go test ./examples/acceptance-app/...`.
+Full native helper: `backend/test/integration/acceptance-redis-local.sh` creates
+its own PostgreSQL when native binaries are installed. Neither command proves
+PVC retention: real acceptance must compare PVC UID/file data across Pod
+recreation, update/reuse, and separate confirmed storage deletion.
 
 For a browser-driven deployment and these four basic checks on the existing
 `kind-idp-internal` cluster, build the Web Console and run

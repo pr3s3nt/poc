@@ -19,6 +19,7 @@ import (
 
 	"orchestrator/examples/acceptance-app/internal/jobcache"
 	"orchestrator/examples/acceptance-app/internal/jobstore"
+	"orchestrator/examples/acceptance-app/internal/volume"
 )
 
 func main() {
@@ -62,6 +63,7 @@ func main() {
 	resolver := jobcache.NewResolver(cache, store, evidence)
 
 	mux := newMux(store, cfg, cache, redisCfg, resolver, evidence)
+	registerStorage(mux, volume.New(os.Getenv("ACCEPTANCE_STORAGE_DIR"), jobstore.EnvOr("HOSTNAME", "backend")), store, os.Getenv("ACCEPTANCE_SCHEDULE_RUN"))
 
 	addr := ":" + jobstore.EnvOr("PORT", "8080")
 	server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}

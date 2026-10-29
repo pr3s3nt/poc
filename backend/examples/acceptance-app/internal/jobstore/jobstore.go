@@ -163,6 +163,11 @@ CREATE TABLE IF NOT EXISTS jobs (
 	if _, err := tx.Exec(ctx, `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS cache_write text`); err != nil {
 		return fmt.Errorf("jobstore: migrate: %w", err)
 	}
+	if _, err := tx.Exec(ctx, `CREATE TABLE IF NOT EXISTS acceptance_scheduled_runs (
+run_id text NOT NULL, invocation text NOT NULL, value_sha256 text NOT NULL,
+completed_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (run_id, invocation))`); err != nil {
+		return errors.New("jobstore: scheduled receipt migration failed")
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("jobstore: migrate: %w", err)
 	}

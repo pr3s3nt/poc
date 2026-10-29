@@ -18,6 +18,10 @@ shared/private resources, valid updates and product cleanup.
 [Application deletion acceptance](application-deletion-acceptance.md) runs the
 UC-18 Developer deletion at the end of the existing kind and AWS A02 harnesses.
 
+[Acceptance app PVC/CronJob](acceptance-storage-schedule.md) describes the
+opt-in volume test file and scheduled PostgreSQL receipts, with browser
+observations separate from authorized Kubernetes lifecycle verification.
+
 | Environment | Runbook | External mutation |
 |---|---|---|
 | Application telemetry | [Native logging/monitoring](observability.md) | Read-only collector; Metrics Server/RBAC/database preparation is an explicit operator action |

@@ -7,6 +7,18 @@ last_reviewed: 2026-10-29
 
 # Current project state
 
+## Acceptance app PVC/CronJob support — 2026-10-29
+
+The Go acceptance workload includes opt-in volume file write/read and a fourth
+one-shot `scheduled` binary. It reads the backend file hash and commits scoped
+idempotent receipts to the shared workload PostgreSQL database. The acceptance
+page shows stored data/hash and recent invocations alongside the existing
+PostgreSQL/Redis/worker checks. Build script produces four images; a browser
+observation scenario checks a real new receipt without triggering a Job.
+Local real-service/process-restart checks do not certify Kubernetes PVC UID
+retention or CronJob ownership/lifecycle. See the
+[procedure](operations/acceptance-storage-schedule.md).
+
 ## Generic workload catalog — 2026-10-29
 
 Issue #24 is implemented on `features/24-workload-catalog`: Git-owned template

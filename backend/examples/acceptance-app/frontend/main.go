@@ -30,6 +30,7 @@ type job struct {
 }
 
 type pageData struct {
+	Lifecycle  lifecycleView
 	BackendURL string
 	Jobs       []job
 	Error      string
@@ -43,7 +44,7 @@ type check struct {
 
 var page = template.Must(template.New("page").Parse(`<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Acceptance application</title><style>body{font:16px system-ui;max-width:760px;margin:3rem auto;padding:0 1rem;color:#24292f}table{border-collapse:collapse;width:100%}td,th{padding:.6rem;border-bottom:1px solid #d0d7de;text-align:left}.pass{color:#1a7f37}.fail{color:#cf222e}</style></head>
+<head><meta charset="utf-8"><title>Acceptance application</title><style>body{font:16px system-ui;max-width:760px;margin:3rem auto;padding:0 1rem;color:#24292f}table{border-collapse:collapse;width:100%}td,th{padding:.6rem;border-bottom:1px solid #d0d7de;text-align:left}.pass{color:#1a7f37}.fail{color:#cf222e}#scheduled-runs{table-layout:fixed}#scheduled-runs td,code{overflow-wrap:anywhere}</style></head>
 <body>
 <h1>Acceptance application</h1>
 <h2>Deployment checks</h2>
@@ -60,6 +61,17 @@ var page = template.Must(template.New("page").Parse(`<!doctype html>
 {{range .Jobs}}<tr class="job" data-id="{{.ID}}"><td>{{.ID}}</td><td>{{.Payload}}</td><td>{{.Status}}</td><td>{{.Result}}</td><td>{{.ProcessedBy}}</td></tr>
 {{end}}
 </table>
+<h2>Persistent storage</h2>
+{{if .Lifecycle.StorageError}}<p role="alert">Storage unavailable</p>{{else if not .Lifecycle.Storage.Configured}}<p>Storage check is not configured.</p>{{else}}
+<form id="storage-form" method="post" action="/storage"><label>Test value <input name="value" maxlength="4096" required /></label><button type="submit">Write to volume</button></form>
+{{if .Lifecycle.Storage.Present}}<p>Stored value: <code id="storage-value">{{.Lifecycle.Storage.Value}}</code></p><p>SHA-256: <code id="storage-hash">{{.Lifecycle.Storage.SHA256}}</code></p>{{else}}<p id="storage-empty">No value written yet.</p>{{end}}
+<p>Backend process: <code id="storage-process">{{.Lifecycle.Storage.Process}}</code></p>{{end}}
+<h2>Scheduled runs</h2>
+{{if .Lifecycle.ScheduleError}}<p role="alert">Scheduled run history unavailable</p>{{else if not .Lifecycle.ScheduleConfigured}}<p>Scheduled check is not configured.</p>{{else}}
+<p>Run: <code id="schedule-run">{{.Lifecycle.ScheduleRun}}</code></p>
+<table id="scheduled-runs"><tr><th>Invocation</th><th>Value SHA-256</th><th>Completed (UTC)</th></tr>{{range .Lifecycle.Runs}}<tr data-invocation="{{.Invocation}}"><td>{{.Invocation}}</td><td>{{.ValueSHA256}}</td><td>{{.CompletedAt.UTC.Format "2006-01-02 15:04:05"}}</td></tr>{{end}}</table>
+{{if not .Lifecycle.Runs}}<p>No scheduled receipt yet.</p>{{end}}{{end}}
+<p><a href="/">Refresh observations</a></p>
 </body>
 </html>`))
 
@@ -92,6 +104,7 @@ func main() {
 	})
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		data := pageData{BackendURL: backendURL, Checks: newChecks()}
+		data.Lifecycle = readLifecycle(r.Context(), client, backendURL)
 		checksResp, checksErr := client.Get(backendURL + "/api/checks")
 		if checksErr == nil {
 			var body struct {
@@ -121,6 +134,31 @@ func main() {
 		if err := page.Execute(w, data); err != nil {
 			log.Printf("frontend: render: %v", err)
 		}
+	})
+	mux.HandleFunc("POST /storage", func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 32<<10)
+		if r.ParseForm() != nil {
+			http.Error(w, "invalid form", 400)
+			return
+		}
+		payload, _ := json.Marshal(map[string]string{"value": r.FormValue("value")})
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, backendURL+"/api/storage", bytes.NewReader(payload))
+		if err != nil {
+			http.Error(w, "backend unavailable", 502)
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			http.Error(w, "backend unavailable", 502)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			http.Error(w, "could not store test value", 502)
+			return
+		}
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 	})
 	mux.HandleFunc("POST /submit", func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {

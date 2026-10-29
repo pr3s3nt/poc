@@ -1249,6 +1249,12 @@ capability creates a local dependency and mount from Add volume mount. Coverage:
 scoped reuse, non-conflicting alias, unavailable/invalid capability), plus the
 setup runner's direct-button browser assertion. No provisioning boundary changes.
 
+WC-11/12 acceptance workload support: the fixed volume test file, scheduled
+PostgreSQL receipt binary and app UI are described in
+[acceptance-storage-schedule](../operations/acceptance-storage-schedule.md).
+Unit/real SQL tests and local browser observations are distinct from actual
+Kubernetes PVC UID retention and CronJob owner/completion acceptance.
+
 ## UC-03 ZIP source upload — ADR-026
 
 | Requirement | Operation / collaboration | Persistence and coverage |

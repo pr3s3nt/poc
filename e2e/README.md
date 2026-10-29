@@ -94,4 +94,8 @@ Ví dụ setup hiện tại vẫn chạy ở đường dẫn cũ:
 - [bootstrap-staging-catalog.mjs](../frontend/test/e2e/bootstrap-staging-catalog.mjs)
 - [Hướng dẫn đăng ký catalog staging](../orchestrator_docs/operations/staging-catalog.md)
 
+Acceptance workload PVC/CronJob observations:
+[acceptance-storage-schedule](scenarios/acceptance-storage-schedule/README.md).
+Scenario này quan sát app đã deploy, không tự tạo cluster hoặc trigger Job.
+
 Khi được di chuyển, script này thuộc `e2e/setup/`.
