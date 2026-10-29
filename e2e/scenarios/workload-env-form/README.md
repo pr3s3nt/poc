@@ -1,9 +1,10 @@
 # Workload environment form on kind
 
-Verify [UC-16](../../../orchestrator_docs/usecase/UC-16/specification.md) BR-15–27,
+Verify [UC-16](../../../orchestrator_docs/usecase/UC-16/specification.md) BR-15–30,
 [UC-12](../../../orchestrator_docs/usecase/UC-12/specification.md) and
 [acceptance app deployment](../../../orchestrator_docs/operations/acceptance-app-manual-k8s4f.md).
-All application creation, variable/Secret creation, resource declarations,
+The catalog picker uses **Tự cấu hình / nhập Score**, then the form; no Score
+file or editor is used. All application creation, variable/Secret creation, resource declarations,
 workload configuration, Preview, Deploy and update use Console controls. No
 Score file/import, direct mutation API or kubectl apply is used. Read-only
 kubectl inventory and a port-forward verify the real runtime.
@@ -36,7 +37,8 @@ node e2e/scenarios/workload-env-form/run.mjs
 `ORCH_ENV_RUN` must be unique. Secret store `k8s-4f-vault` is explicitly selected
 on initial inline Secret creation; it is never auto-selected by product code.
 The scenario expects Vietnamese Console. It creates its own application and
-run-specific shared PostgreSQL/Redis IDs. It never changes an older application.
+automatically generated shared PostgreSQL/Redis IDs; the worker selects the
+backend resources through the existing-resource picker. It never changes an older application.
 
 `ORCH_SECRET_STORE_KEY` optionally selects another explicitly configured store
 (default `k8s-4f-vault`). The disposable [Application deletion wrapper](../application-deletion-form/README.md)
@@ -50,6 +52,8 @@ the generated secret only in its private scanner input, never public evidence.
 
 - Create backend/worker/frontend using the form, direct values, shared Variable,
   inline masked Secret, resource outputs and workload Service references.
+- Backend creates automatically shared PostgreSQL/Redis; worker must explicitly
+  select both existing backend resources. Desired IDs/class/typed params match.
 - Explicit Preview and Deploy report three successful workloads.
 - Actual kind deployments/StatefulSets/PVCs exist.
 - Acceptance application reports five PASS checks; submitting a job reaches DONE.

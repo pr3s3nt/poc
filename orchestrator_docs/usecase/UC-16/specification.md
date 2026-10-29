@@ -2,7 +2,7 @@
 id: UC-16-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 related: UC-01, UC-05, UC-06, UC-07, UC-12
 ---
 
@@ -183,7 +183,7 @@ sở hữu mapping HTTP/Score. Trạng thái code ở CURRENT_STATE, không suy 
   có thông báo rõ, không tuyên bố hai thao tác là một transaction.
 - **BR-22:** Nguồn Tài nguyên cho chọn dependency đã khai báo và output từ Type
   contract, hoặc **Thêm tài nguyên** tại chỗ. Form con tái sử dụng alias/type,
-  class, shared ID và typed inputs; không cho chọn provider/module/credential.
+  class và typed inputs theo BR-28–30; không cho chọn provider/module/credential.
   **Thêm và chọn** chỉ thêm dependency vào draft và chọn alias ở dòng gốc;
   output vẫn cần chọn tường minh. Hủy form con không sửa draft. Resource mới
   dùng được ở các container khác trong cùng workload; không tự tạo mapping.
@@ -250,3 +250,26 @@ as specified above.
   “Tạo và chọn” mới commit create-only; Cancel giữ binding trước đó. Secret đã
   có và output bí mật được phân loại từ metadata, không đổi loại bằng checkbox.
   Đổi nguồn về giá trị nhập tạo ô rỗng, không sao chép giá trị nguồn.
+
+
+## Resource dùng chung mặc định — 2026-10-28
+
+- **BR-28:** Resource mới tạo bằng form, kể cả dialog tại dòng biến, mặc định
+  dùng chung trong đúng Application/Environment. Hệ thống tự sinh Score `id`
+  duy nhất khi tạo draft resource và giữ ổn định khi đổi alias/type/params,
+  mở/đóng nâng cao hoặc Save lỗi. Không có ô nhập Shared ID. Cùng loại/tên
+  không tự gộp resource. Không cấp phạm vi cluster hoặc xuyên Application.
+- **BR-29:** Khi thêm dependency, Developer chọn **Tạo resource mới** hoặc
+  **Dùng resource có sẵn**. Danh sách có sẵn lấy từ desired workloads của đúng
+  app/env (draft ưu tiên current, loại pending delete), chỉ resource có shared
+  ID. Hiển thị alias/type/workload để phân biệt. Chọn resource giữ alias cục bộ
+  đã nhập, sao chép nguyên shared ID/class/typed params và khóa cấu hình resource
+  trong lựa chọn đó; không copy outputs, endpoint hay credentials. Cấu hình
+  không biểu diễn lossless, chứa tham chiếu phụ thuộc workload hoặc xung đột
+  cùng ID phải hiện unavailable và không được chọn. Metadata lỗi không thành
+  empty; giữ scope/stale guards và Preview kiểm conflict như hiện hành.
+- **BR-30:** **Chỉ dùng cho workload này** nằm trong nâng cao, chỉ áp dụng
+  resource tự cấu hình, bỏ Score `id` khi chọn. Edit/import resource private
+  hoặc shared cũ giữ nguyên scope/ID/class/params; không tự chuyển resource đã
+  tồn tại sang shared và không đổi direct Score/CI API. Chuyển scope là thao
+  tác tường minh, không chuyển dữ liệu runtime; vẫn cần Save → Preview → Deploy.

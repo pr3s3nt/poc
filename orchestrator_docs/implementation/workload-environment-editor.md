@@ -106,7 +106,7 @@ missing historical provenance means unknown, never inferred safe or reset.
 | E03 | Existing Variable/Secret keys, container aliases and two rows for one key survive Edit/import; no implicit select on catalog refresh; same name across containers allowed, duplicate within container blocks Save |
 | E04 | Create Variable and Secret without leaving editor; duplicate same kind and concurrent create do not overwrite; explicit select-existing; key remains after workload Cancel/failed Save; known/unknown response handling |
 | E05 | Missing store can select/save READY store inline, then create Secret; no stores gives actionable state; store saved/key failure distinction; no secret in Score/readback/Preview/evidence |
-| E06 | Add PostgreSQL or another registered Type inline with typed params/class/shared ID; choose host and secret output on separate rows; second container reuses dependency; Cancel adds nothing; no provisioning before Deploy |
+| E06 | Add PostgreSQL or another registered Type inline with typed params/class and generated shared ID (UC-16 BR-28–30); choose host and secret output on separate rows; second container reuses dependency; Cancel adds nothing; no provisioning before Deploy |
 | E07 | Resource alias/type/output removed, key renamed/deleted, Service port removed or target pending delete: retained invalid rows and explicit correction; no retarget or silent row loss |
 | E08 | Service source same env only; exclude self/pending delete; select valid port; preserve resource/Service mappings through UC-12 rename |
 | E09 | Validation/catalog/network errors, BUSY/stale, committed-key/reload failure; late replies after row removal/scope switch cannot mutate other row/scope; no automatic POST/PUT replay |

@@ -56,14 +56,22 @@ async function shared(name, value, secret = false) {
   await expect(entry.getByRole('button', { name: /Đổi nguồn/ })).toContainText(`Ứng dụng / ${name}`);
   if (secret) { await expect(page.locator('body')).not.toContainText(value); check('Secret entered masked, stored as app/environment reference, never read back'); }
 }
-async function resource(alias, type, sharedId) {
+async function resource(alias, type, reuse) {
   await click('+ Thêm tài nguyên');
   const aliases = page.getByLabel('Alias tài nguyên', { exact: true });
   const i = await aliases.count() - 1;
   await aliases.nth(i).fill(alias);
+  const source = page.getByLabel('Nguồn tài nguyên', { exact: true }).nth(i);
+  const available = source.locator('optgroup option').filter({ hasText: `${alias} · ${type} · backend` });
+  if (reuse) {
+    await expect(available).toHaveCount(1);
+    await source.selectOption(await available.first().getAttribute('value'));
+    await expect(page.getByLabel('Loại tài nguyên', { exact: true }).nth(i)).toBeDisabled();
+    check(`Worker explicitly selected backend ${type}; configuration locked`);
+    return;
+  }
   await page.getByLabel('Loại tài nguyên', { exact: true }).nth(i).selectOption(type);
   await page.getByLabel(`Cách cung cấp (class) của ${alias}`, { exact: true }).selectOption('in-cluster');
-  await page.getByLabel(`ID dùng chung của ${alias}`, { exact: true }).fill(sharedId);
   if (type === 'postgres') {
     await page.getByLabel('Tham số database', { exact: true }).fill('acceptance');
     await page.getByLabel('Tham số username', { exact: true }).fill('app');
@@ -76,6 +84,7 @@ async function service() {
 }
 async function begin(name) {
   await click('+ Thêm Workload');
+  await page.getByRole('dialog', { name: 'Chọn loại workload', exact: true }).getByRole('button', { name: 'Tự cấu hình / nhập Score', exact: true }).click();
   await page.getByLabel('Tên Workload', { exact: true }).fill(name);
   await page.getByLabel('Ảnh Container', { exact: true }).fill(`acceptance-${name}:${tag}`);
   check(`${name}: form entry, no Score import`);
@@ -85,8 +94,8 @@ async function save(name) {
   await click('Lưu draft Workload');
   await expect(page.getByRole('heading', { name: 'Workload', exact: true })).toBeVisible();
 }
-async function databaseAndCache() {
-  await resource('db', 'postgres', `${run}-db`); await resource('cache', 'redis', `${run}-cache`);
+async function databaseAndCache(reuse = false) {
+  await resource('db', 'postgres', reuse); await resource('cache', 'redis', reuse);
   for (const [name, output] of [['PGHOST','host'],['PGPORT','port'],['PGDATABASE','database'],['PGUSER','username'],['PGPASSWORD','password']]) await reference(name, `db.${output}${output === 'password' ? ' Bí mật' : ''}`);
   for (const [name, output] of [['REDIS_HOST','host'],['REDIS_PORT','port'],['REDIS_USERNAME','username'],['REDIS_PASSWORD','password'],['REDIS_TLS','tls']]) await reference(name, `cache.${output}${output === 'password' ? ' Bí mật' : ''}`);
 }
@@ -150,7 +159,21 @@ try {
   await databaseAndCache(); await service(); await save('backend');
   await begin('worker');
   for(const [key,value] of Object.entries({POLL_INTERVAL_MS:'500',ACCEPTANCE_CACHE_APP:appId,ACCEPTANCE_CACHE_ENV:'staging',ACCEPTANCE_CACHE_RUN:run,ACCEPTANCE_CACHE_TTL_SECONDS:'30'})) await literal(key,value);
-  await databaseAndCache(); await save('worker');
+  await databaseAndCache(true); await save('worker');
+  const desiredReply = await page.request.get(`${config.baseURL}/api/v1/applications/${appId}/environments/staging/workloads`);
+  expect(desiredReply.status()).toBe(200);
+  const desired = (await desiredReply.json()).workloads;
+  const apiResources = desired.find(item => item.id === 'backend').score.resources;
+  const workerResources = desired.find(item => item.id === 'worker').score.resources;
+  for (const alias of ['db', 'cache']) {
+    expect(apiResources[alias].id).toMatch(/^resource-[a-f0-9]{32}$/);
+    expect(workerResources[alias]).toEqual(apiResources[alias]);
+  }
+  await writeFile(`${evidence}/shared-resource-identities.json`, JSON.stringify({
+    application: appId, environment: 'staging', consumers: ['backend', 'worker'],
+    postgres: apiResources.db.id, redis: apiResources.cache.id,
+  }, null, 2));
+  check('Backend and worker desired resources have identical generated IDs, class and typed params');
   await begin('frontend'); await literal('PORT','8080'); await reference('BACKEND_URL','backend / http'); await service(); await save('frontend');
   await deploy(3);
   const namespace = `app-${appId}-staging`;

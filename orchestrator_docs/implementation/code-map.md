@@ -799,3 +799,15 @@ uses the current home row. Terraform source modules are in
   and Rendering Templates; existing typed inputs/Create/CAS persist prepared pins.
 - [Browser scenario](../../e2e/scenarios/zip-source-upload/README.md) exercises
   both upload forms and rendering-template save/reopen with real inspection/cache.
+
+
+## Default shared workload resources — UC-16 BR-28–30
+
+- [sharedResources](../../frontend/src/features/workloads/sharedResources.ts):
+  generated IDs, deduplicated safe desired projections and stale selection checks.
+- [DependencyFields](../../frontend/src/features/workloads/DependencyFields.tsx):
+  new/existing selector and advanced private scope, reused by AddResourceDialog.
+- [shared resource tests](../../frontend/src/features/workloads/sharedResources.test.ts),
+  WorkloadClassMetadata and EnvironmentVariablesTable cover projection, scope,
+  identity preservation and both entry points. Browser runner:
+  [workload-shared-resources](../../e2e/scenarios/workload-shared-resources/README.md).

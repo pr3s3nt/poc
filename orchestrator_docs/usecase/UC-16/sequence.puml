@@ -37,7 +37,9 @@ opt Create Application variable or Secret inline [MS-05, BR-21]
   end note
 end
 opt Add resource inline [BR-22]
-  Dev -> UI: Alias/type/class/shared ID/typed params
+  Dev -> UI: Choose new shared resource or existing app/env resource [BR-28..30]
+  UI -> UI: Generate stable ID for new resource; preserve selected ID/class/params
+  Dev -> UI: Local alias and typed inputs; optional advanced private scope
   UI -> UI: Validate and add dependency to local draft only
   Dev -> UI: Select output explicitly
 end

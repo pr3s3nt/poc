@@ -2,7 +2,7 @@
 id: UI-ARCHITECTURE-INDEX
 artifact: shared-ui-design
 status: current
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-28
 ---
 
 # Shared Web Console UI
@@ -210,3 +210,11 @@ is an on-demand searchable Dialog, using the existing shared dialog/focus
 pattern. Source kind is metadata, not a mandatory column. Reuse the existing
 UC-12 create-only forms and app/environment Secret scope; no local variable
 reference chaining. See UC-16 BR-26/27 and its screens.
+
+
+## Resource selection — UC-16 BR-28–30 (2026-10-28)
+
+Reuse dependency controls and Advanced disclosure. New resources default to
+shared within the current app/environment; generated IDs stay out of basic
+controls. Existing-resource choices show alias, Type and source workload.
+Private scope is advanced. No shell/navigation or cross-Application scope change.

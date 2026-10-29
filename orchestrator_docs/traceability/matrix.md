@@ -1250,3 +1250,14 @@ no complete-feature or main-merge claim follows from the prototype.
 | ZIP-01/02 | `UploadTerraformModule`, `UploadRenderBundle`; UC-03 sequence/VOPC; bounded multipart → shared ZIP reader → existing inspectors | `sourcezip/zip_test.go`; HTTP `source_upload_test.go` uses real inspectors, checks RBAC, scope, strict multipart, slow-upload deadline, Organization-scoped module discovery/registration and no Definition side effects |
 | ZIP-03 | ZIP archive-tree revision + selected-directory digest; cache before immutable insertion; metadata-only downstream reuse | registry `zip_inspect_test.go`: local children, trusted identity, repeat/restart/update, executable artifact verification and tamper; render ZIP test: scope, restart, update and cache repair; PostgreSQL `TestZIPSourceKindsSurvivePostgresReopen` |
 | ZIP-04 | `ZIPSource` on both existing authoring forms; unchanged Create/CAS and typed input editors | `ZIPSource.test.tsx`, ZIP cases in `GitModuleSource.test.tsx` / `GitRenderBundle.test.tsx`; [browser runner](../../e2e/scenarios/zip-source-upload/README.md) |
+
+
+## UC-16 default shared resources — 2026-10-28
+
+| Requirement | Design / contract | Implementation / verification |
+|---|---|---|
+| BR-28 | UC-16 realization/sequence, OC-16 default shared selection | DependencyFields/emptyDependency, sharedResources/newSharedId; generated/distinct IDs and saved edit regression tests |
+| BR-29 | UC-16 screens/states, existing scoped Workload API | sharedResources projection/conflict/stale guards; WorkloadClassMetadata reuse/lock test, EnvironmentVariablesTable inline reuse; [browser scenario](../../e2e/scenarios/workload-shared-resources/README.md) checks app/env isolation |
+| BR-30 | Advanced private choice, unchanged Score semantics | WorkloadClassMetadata private preservation and imported shared/custom-class tests; browser private choice |
+
+Evidence: [default shared resources](../verification/2026-10-28-workload-shared-resources.md), including real kind API/worker shared PostgreSQL/Redis, two DONE jobs, retained UIDs and verified product/stack cleanup on 2026-10-29.

@@ -283,6 +283,16 @@ an existing same-kind key does not claim its bytes match the lost request.
 - Changes advance the Environment draft version; preview pins this version
   together with the UC-12 desired revision and current Deployment Set/version.
 
+### OC-16 default shared resource selection — UC-16 BR-28–30
+
+The form generates a stable `resources.<alias>.id` for new non-virtual resources.
+Existing-resource selection uses only safe desired Score from the current
+Application/Environment Workload list; copy the ID/Type/class/scalar params,
+retain a local alias, and do not resolve outputs or secrets. Unsafe/conflicting
+projections are unavailable. Explicit private omits `id`. Existing/imported
+Score is unchanged, including private resources. No new HTTP endpoint, persisted
+field, runtime effect, planner identity or cross-Application scope is introduced.
+
 ### OC-16 unified sources and safe literals — DEVEX-ENV
 
 The unified UI projects onto Score, not a second deployment configuration API:

@@ -158,7 +158,7 @@ it('requires PostgreSQL inputs and saves them as Score resource params', async (
   await user.click(screen.getByRole('button', { name: 'Lưu draft Workload' }));
   expect(saved).toBeDefined();
   const score = saved?.score as { resources: { db: { type: string; params: Record<string, string> } } };
-  expect(score.resources.db).toEqual({ type: 'postgres', params: { database: 'catalog', username: 'app' } });
+  expect(score.resources.db).toEqual({ type: 'postgres', id: expect.stringMatching(/^resource-/), params: { database: 'catalog', username: 'app' } });
 });
 
 it('preserves PostgreSQL params when editing a workload on the form', async () => {
@@ -305,7 +305,7 @@ it('keeps resources, class and target port in closed advanced sections with effe
   await user.click(saveButton());
   const score = puts[0]!.score;
   expect(score.containers.main).toEqual({ image: 'example.invalid/web:v1' });
-  expect(score.resources.cache).toEqual({ type: 'redis' });
+  expect(score.resources.cache).toEqual({ type: 'redis', id: expect.stringMatching(/^resource-/) });
   expect(score.service).toEqual({ ports: { http: { port: 8080, targetPort: 8080 } } });
 });
 
@@ -363,7 +363,7 @@ it('omits an empty class and writes a class only while it is set', async () => {
   await user.clear(screen.getByLabelText('Lớp tài nguyên'));
   expect(note('Tóm tắt nâng cao tài nguyên cache')).toHaveTextContent('Lớp hiệu lực: default (mặc định)');
   await user.click(saveButton());
-  expect(puts[0]!.score.resources.cache).toEqual({ type: 'redis' });
+  expect(puts[0]!.score.resources.cache).toEqual({ type: 'redis', id: expect.stringMatching(/^resource-/) });
 });
 
 it('uses a per-Service target port override as a number and falls back to the Service port', async () => {

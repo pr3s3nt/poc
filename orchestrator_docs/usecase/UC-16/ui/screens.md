@@ -2,7 +2,7 @@
 id: UC-16-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 related: UC-16, UC-12
 ---
 
@@ -81,7 +81,9 @@ workload áp dụng sau Lưu → Xem trước → Triển khai.” Thay staging 
 ## Thêm tài nguyên ngay từ dòng biến
 
 **Thêm tài nguyên** mở dialog, dùng chung dependency form với “Tài nguyên của
-Workload”: Alias, Loại, Cách cung cấp/Class, shared ID và typed inputs hiện có.
+Workload”: chọn Tạo resource mới / Dùng resource có sẵn, Alias, Loại, Cách cung cấp/Class
+và typed inputs. Resource mới mặc định dùng chung trong app/environment; ID tự
+sinh và không nhập thủ công. Chỉ dùng cho workload này nằm trong nâng cao.
 Nhãn action **Thêm và chọn**; validation alias duy nhất, không đụng alias ảo đã
 được dùng (`env`/Service aliases), type/required params/class như UC-16 hiện hành.
 
@@ -186,7 +188,7 @@ alias/type/typed params using authoritative metadata: “Trong cluster”
 these v2 choices solely under generic advanced class text. Redis in-cluster
 on EKS is valid. Developer never chooses Terraform module or provider credential.
 Keep advanced/custom/imported class lossless; do not silently rewrite default.
-Shared ID control keeps existing semantics for backend/worker dependencies.
+Existing resource selection preserves shared identity for backend/worker dependencies.
 Show target incompatibility or missing metadata/Definition as actionable error,
 not automatic class switch. Secret outputs remain bindings only; no values.
 
@@ -202,3 +204,16 @@ tên key, alias, output, image hay Score. Picker tiếng Anh dùng **Shared conf
 **Environment variables**, action **Add variable**, **Create and select**,
 **Add and select**. Browser checks phải chạy cả Việt và Anh. Giữ locale reload
 hiện hành, không persist secret để khôi phục sau đổi ngôn ngữ/reload.
+
+
+## Chọn resource — BR-28–30
+
+Mỗi dependency có selector **Nguồn tài nguyên**; Edit/import hiển thị
+**Resource hiện tại** để giữ cấu hình cũ. Có **Tạo resource mới** và
+các resource có sẵn, nhóm **Dùng resource có sẵn**; mỗi mục ghi alias, loại và
+workload nguồn. Alias cục bộ vẫn sửa được. Chọn có sẵn khóa type/class/params;
+muốn cấu hình khác phải chọn tạo mới. Không nhập Shared ID. Khi không có
+resource shared, hiện trạng thái rỗng ngắn. Resource không thể sao chép an toàn
+hiện unavailable. Trong nâng cao, **Chỉ dùng cho workload này** chỉ hiện cho
+resource tự cấu hình; tóm tắt scope vẫn hiện khi đóng. Edit/import giữ nguyên
+private/shared, không tự migrate. Dialog thêm resource dùng đúng controls này.

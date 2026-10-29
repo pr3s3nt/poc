@@ -2,7 +2,7 @@
 id: UC-16-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 ---
 
 # UC-16 — Use Case Realization
@@ -17,7 +17,8 @@ Application keys use the virtual Score `environment` resource and
 - Workload configuration boundary: one per-container environment table with
   literal/Application Variable/Secret/resource/Service sources and inline dialogs.
   Project rows into Score with lossless source conversion; secret creation input
-  lives only in its UC-12 dialog. Shared dependency editor writes local form state.
+  lives only in its UC-12 dialog. Shared dependency editor writes local form state, generates a stable resource ID
+  for new shared resources, and offers scoped existing resources without ID entry.
 - Reference catalog: list UC-12 keys for the selected Application/Environment,
   declared resource inputs/outputs/classes và shared IDs từ safe metadata,
   cùng same-Environment workload
@@ -38,7 +39,7 @@ Application keys use the virtual Score `environment` resource and
 | Step | Collaboration |
 |---|---|
 | MS-01–MS-02 | Read selected Environment's workload list and open the form or Score importer. |
-| MS-03 | Thu thập Workload fields, dependencies/shared IDs, class và typed Type params; giữ advanced/imported class, chặn required/input lỗi trước Save. |
+| MS-03 | Thu thập Workload fields, dependencies via new/existing resource choice, class và typed Type params; giữ advanced/imported class, chặn required/input lỗi trước Save. |
 | MS-04–MS-05 | Load scoped metadata, edit unified rows and create missing keys via UC-12 or dependencies in the parent draft. Restore mappings; secret values stay hidden. |
 | MS-06 | Validate row source, ordinary string escaping and per-container names before serialization; then server validates Type params/references and establishes trusted literal provenance under OC-16. Retain input on failure. |
 | MS-07 | Save desired configuration, return pending status and a UC-05 Preview affordance. |
@@ -113,3 +114,12 @@ candidates. Selection retains row identity/name and clears previous source
 payload through the existing binding conversion. Source labels identify the
 Application key explicitly. Inline creation delegates to the existing UC-12
 create-only/Secret Store boundary; classification and persistence stay unchanged.
+
+
+## Default shared resource collaboration — BR-28–30
+
+The boundary derives existing shared choices from the already scoped Workload
+list, deduplicates IDs and rejects conflicting or non-lossless projections.
+Selection copies authored Type/class/params/ID only; local alias and references
+remain local. Private is an advanced explicit choice. Current/imported Score
+keeps its identity. HTTP, planner scopes and persistence schema are unchanged.

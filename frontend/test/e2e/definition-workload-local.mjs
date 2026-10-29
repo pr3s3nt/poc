@@ -233,13 +233,14 @@ export const SCENARIOS = {
     await signOut();
 
     // ---- Developer ---------------------------------------------------------
-    caption('Bước 11: Nhà phát triển đăng nhập và tạo ứng dụng; Workload chỉ chọn loại, tham số, class và ID dùng chung, không chọn module hay thông tin xác thực');
+    caption('Bước 11: Nhà phát triển đăng nhập và tạo ứng dụng; Workload chỉ chọn loại, tham số và class; ID dùng chung được tạo tự động, không chọn module hay thông tin xác thực');
     await signIn('developer');
     const applicationName = `Class Demo ${Date.now().toString(36).slice(-4)}`;
     const subdomain = `i0407-${Date.now().toString(36).slice(-6)}`;
     const applicationId = await createApplication(h, applicationName, subdomain);
     mark('application-created');
     await h.click(page.getByRole('button', { name: '+ Thêm Workload', exact: true }));
+    await h.click(page.getByRole('dialog', { name: 'Chọn loại workload', exact: true }).getByRole('button', { name: 'Tự cấu hình / nhập Score', exact: true }));
     await expect(page.getByRole('button', { name: 'Nhập bằng form' })).toBeVisible();
     await h.type(form('Tên Workload'), 'api');
     await h.type(form('Ảnh Container'), 'example.invalid/api:v1');
@@ -253,9 +254,9 @@ export const SCENARIOS = {
     check('redis dependency: class defaults to empty (default) and offers only the published class');
     await choose(cacheClass, 'Trong cluster');
     await expect(cacheClass).toHaveValue('in-cluster');
-    await h.type(form('ID dùng chung của cache'), 'shared-cache');
+    await expect(page.getByLabel(/ID dùng chung|Shared ID/)).toHaveCount(0);
     mark('redis-class-chosen');
-    await h.read('Redis: in-cluster, ID dùng chung shared-cache');
+    await h.read('Redis: in-cluster, mặc định dùng chung trong ứng dụng/môi trường');
     await h.click(page.getByRole('button', { name: '+ Thêm tài nguyên', exact: true }));
     const aliases = page.getByLabel('Alias tài nguyên', { exact: true });
     await h.type(aliases.nth(1), 'db');
@@ -266,7 +267,7 @@ export const SCENARIOS = {
     await h.type(form('Tham số database'), 'shop');
     await h.type(form('Tham số username'), 'shop');
     await expect(page.getByLabel(/module|provider|credential|xác thực/i)).toHaveCount(0);
-    check('developer editor: no Terraform module, provider or credential control; class and shared ID only');
+    check('developer editor: no Terraform module, provider or credential control; class and generated shared identity');
     mark('db-class-chosen');
     await h.pause(SHORT_READ);
     caption('Bước 13: Lưu draft; việc lưu không xem trước và không triển khai');

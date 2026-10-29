@@ -2,7 +2,7 @@
 id: UC-16-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 related: UC-16, UC-12
 ---
 
@@ -112,3 +112,14 @@ original rows and block Save; search offers only currently valid candidates.
 The Secret checkbox invokes UC-12 creation without changing the row until
 creation succeeds; Cancel retains its previous ordinary value. References
 show authoritative secret metadata read-only. No local variable reference chain.
+
+
+## Resource mới/có sẵn — BR-28–30
+
+- New: shared ID generated once; alias/type/params edits and Save errors keep it.
+- Existing selected: local alias editable; resource configuration locked. Missing
+  or changed selection after reload blocks Save until explicitly reviewed.
+- No shared choices: explicit empty hint; private and pending-delete resources
+  never offered. Unsafe/conflicting shared entries remain disabled choices.
+- Imported/edited private/shared: preserve identity and params without migration.
+- Cancel inline resource: parent unchanged; no persistence or provision.

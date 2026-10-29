@@ -20,6 +20,21 @@ open. Generic release/CI status is tracked in [PR #25](https://github.com/pr3s3n
 [Implementation/gaps](implementation/workload-catalog.md),
 [evidence](verification/2026-10-29-workload-catalog.md).
 
+## Workload resource selection — 2026-10-28
+
+UC-16 BR-28–30 is implemented: new form resources default to shared within the
+selected Application/Environment, with stable generated IDs and no Shared ID
+input. Both dependency entry points offer existing shared resources from the
+scoped desired Workload list, preserving local aliases and locking selected
+configuration. Conflicting or non-lossless projections are unavailable. Private
+is advanced; existing/imported private/shared identities remain unchanged.
+HTTP/schema/planner contracts keep their existing scope. Initial local UI tests
+were followed by real kind acceptance on 2026-10-29: API/worker share generated
+PostgreSQL/Redis IDs, two database-backed jobs reach DONE, Redis worker writes
+are confirmed, valid update retains database/cache/PVC UIDs, and product deletion
+plus owned-stack cleanup pass. An earlier interrupted attempt was cleaned up
+before retry. [Results](verification/2026-10-28-workload-shared-resources.md).
+
 ## PostgreSQL upgrades — issue #23
 
 Owner setup now upgrades the exact `1516dec` staging and `2a111db` preview baselines to schema version 1 without reset. Installation identities and retained rows are preserved; runtime remains read-only for schema/history. This supersedes older PostgreSQL no-migration statements below. See [ADR-027](architecture/decisions/ADR-027-postgres-upgrades.md) and [upgrade runbook](operations/postgres-upgrades.md). Other historical baselines and JSON conversion are unsupported. Verification: [issue #23](verification/2026-10-28-postgres-upgrades.md). Retained installations have only been inspected read-only, not upgraded by this task.
