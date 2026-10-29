@@ -3214,6 +3214,8 @@
   "workloads.templates.suspend": "Tạm dừng lịch",
   "workloads.templates.mounts": "Storage",
   "workloads.templates.addMount": "Thêm volume mount",
+  "workloads.templates.addStorage": "Thêm tài nguyên lưu trữ",
+  "workloads.templates.storageUnavailable": "Chưa có loại tài nguyên lưu trữ. Liên hệ quản trị nền tảng để đăng ký.",
   "workloads.templates.resource": "Tài nguyên storage",
   "workloads.templates.container": "Container",
   "workloads.templates.mountPath": "Mount path",

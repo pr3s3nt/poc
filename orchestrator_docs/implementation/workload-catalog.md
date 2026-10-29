@@ -57,7 +57,7 @@ Read [specification](../usecase/UC-16/workload-catalog-specification.md),
 | Requirement | Source/check | Current evidence |
 |---|---|---|
 | WC-01..03, WC-CAT | Template registry/schema, API and picker tests | Automated + real original-home picker r1 |
-| WC-04..10 | environment/score/workloadconfig/planning/Postgres tests | Round-trip, explicit values and real SQL reopen pass |
+| WC-04..10 | environment/score/workloadconfig/planning/Postgres tests; `WorkloadStorageMount.test.tsx` | Round-trip, explicit values and real SQL reopen pass; inline mount entry, cancel/focus, scoped reuse and alias preservation |
 | WC-11, WC-LIFE | planner storage/dependency tests, resourcecleanup tests, browser runner | r2 Pod restart/update/reuse/retention/explicit deletion pass |
 | WC-12, WC-DEP | renderer/guard/Kubernetes tests, browser runner | r1 scheduled Job complete and Suspend/remove pass |
 | WC-13 | Service/route renderer tests and browser Service | r1 ClusterIP + identity Service pass |

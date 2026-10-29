@@ -2,7 +2,7 @@
 id: UC-16-WORKLOAD-CATALOG-SPEC
 artifact: use-case-specification
 status: draft
-last_reviewed: 2026-10-28
+last_reviewed: 2026-10-29
 ---
 
 # Catalog workload — mở rộng specification cho issue #24
@@ -22,6 +22,10 @@ behavior hiện hành cho tới khi contracts và implementation được nghi�
    resources. Scheduled job có lịch/timezone/policy thay cho replica/rollout UI.
 5. WC-05: Chọn resource mới hoặc reuse binding hợp lệ; MySQL không tự thêm backup.
    Resource creation ở bước này chỉ là desired dependency, chưa chạy Terraform.
+   Khi chưa có dependency lưu trữ, Thêm volume mount mở chọn/tạo resource lưu
+   trữ tại chỗ; xác nhận thêm dependency và mount vào form cùng lúc. Hủy không
+   thay đổi form. Nếu catalog chưa có loại storage hợp lệ, nêu rõ lý do thay vì
+   chỉ khóa nút không hướng dẫn.
 6. WC-06: Dùng Name/Value và source picker hiện hành; secret create riêng qua UC-12;
    không nhập cú pháp nội bộ hoặc secret plaintext trong template/Score.
 7. WC-07: Validate/schema/CAS rồi Save draft; quay về ứng dụng có pending change.

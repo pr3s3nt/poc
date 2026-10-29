@@ -6,15 +6,16 @@ import { DependencyFields, dependencyProblem, emptyDependency, reservedAlias, ty
 import { t } from '../../shared/i18n';
 import { sharedSelectionProblem, type SharedResource } from './sharedResources';
 
-// Adds one dependency to the workload draft from an environment-variable row (UC-16 BR-22).
+// Adds one dependency from an environment-variable row or the storage entry.
 // It edits form state only: no HTTP call, no provisioning, no output chosen for the user.
-export function AddResourceDialog({ existing, types, choices = [], classMetadata, onReload, onAdd, onClose }: {
+export function AddResourceDialog({ existing, types, choices = [], classMetadata, initialDependency, label, onReload, onAdd, onClose }: {
   existing: Dependency[]; types: ResourceType[]; choices?: SharedResource[]; classMetadata: ClassMetadata;
+  initialDependency?: Dependency; label?: string;
   onReload(): void;
   onAdd(dependency: Dependency): void;
   onClose(): void;
 }) {
-  const [draft, setDraft] = useState<Dependency>(emptyDependency);
+  const [draft, setDraft] = useState<Dependency>(() => initialDependency ?? emptyDependency());
   const [error, setError] = useState('');
 
   function submit() {
@@ -27,8 +28,8 @@ export function AddResourceDialog({ existing, types, choices = [], classMetadata
     onAdd(draft);
   }
 
-  return <Dialog label={t('workloads.addResource.title')} onClose={onClose}>
-    <h2>{t('workloads.addResource.title')}</h2>
+  return <Dialog label={label ?? t('workloads.addResource.title')} onClose={onClose}>
+    <h2>{label ?? t('workloads.addResource.title')}</h2>
     <DependencyFields index={0} dependency={draft} types={types} choices={choices} classMetadata={classMetadata} onChange={(patch) => { setDraft({ ...draft, ...patch }); setError(''); }} onReload={onReload} />
     {error ? <div className="form-error" role="alert">{error}</div> : null}
     <div className="form-actions"><Button type="button" onClick={onClose}>{t('workloads.addResource.cancel')}</Button><Button tone="primary" type="button" onClick={submit}>{t('workloads.addResource.submit')}</Button></div>

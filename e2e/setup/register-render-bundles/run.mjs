@@ -184,12 +184,12 @@ try {
     if (!type || !['claimName', 'namespace'].every(name => type.outputs?.some(field => field.name === name && field.type === 'string' && !field.secret))) throw new Error(`${check.resourceType}: thiếu storage outputs claimName/namespace dạng string công khai`);
     await act(dialog.getByRole('button').filter({ hasText: template.labels.vi ?? template.labels.en ?? template.id }).filter({ hasText: template.version }), 'click');
     const addMount = page.getByRole('button', { name: 'Thêm volume mount', exact: true });
-    await expect(addMount).toBeDisabled();
-    await act(page.getByRole('button', { name: '+ Thêm tài nguyên', exact: true }), 'click');
-    await act(page.getByLabel('Alias tài nguyên', { exact: true }), 'fill', 'data');
-    await act(page.getByLabel('Loại tài nguyên', { exact: true }), 'selectOption', check.resourceType);
     await expect(addMount).toBeEnabled();
     await act(addMount, 'click');
+    const storageDialog = page.getByRole('dialog', { name: 'Thêm tài nguyên lưu trữ', exact: true });
+    await act(storageDialog.getByLabel('Alias tài nguyên', { exact: true }), 'fill', 'data');
+    await act(storageDialog.getByLabel('Loại tài nguyên', { exact: true }), 'selectOption', check.resourceType);
+    await act(storageDialog.getByRole('button', { name: 'Thêm và chọn', exact: true }), 'click');
     await expect(page.getByLabel('Mount path', { exact: true })).toHaveValue('/data');
     console.log(`PASS: ${check.templateId} thêm volume mount từ ${check.resourceType}; chỉ sửa form local, không lưu draft`);
   }

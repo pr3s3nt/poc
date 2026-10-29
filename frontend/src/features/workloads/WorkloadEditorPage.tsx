@@ -206,7 +206,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   const [current, setCurrent] = useState<{ version: number; score?: Record<string, unknown>; state?: string }>();
   const [reloadError, setReloadError] = useState('');
   // Inline creation (UC-16 BR-21/22): one dialog at a time, bound to the row (stable id) that opened it.
-  const [dialog, setDialog] = useState<{ type: 'key'; kind: KeyKind; rowId: string; suggested: string } | { type: 'resource'; rowId: string }>();
+  const [dialog, setDialog] = useState<{ type: 'key'; kind: KeyKind; rowId: string; suggested: string } | { type: 'resource'; rowId: string } | { type: 'storage'; initial: Dependency }>();
   const [focusRequest, setFocusRequest] = useState<FocusRequest>();
   // After a failed Save the table also reports rows that are not filled in yet.
   const [showIncomplete, setShowIncomplete] = useState(false);
@@ -302,7 +302,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   }, []);
   const clearFocus = useCallback(() => setFocusRequest(undefined), []);
   function openKeyDialog(kind: KeyKind, row: Binding) { setDialog({ type: 'key', kind, rowId: row.id, suggested: row.name }); }
-  function closeDialog() { if (dialog) setFocusRequest({ rowId: dialog.rowId, field: 'key' }); setDialog(undefined); }
+  function closeDialog() { if (dialog && dialog.type !== 'storage') setFocusRequest({ rowId: dialog.rowId, field: 'key' }); setDialog(undefined); }
   // A configuration reply of the scope the dialog opened in refreshes the catalog; any other scope drops it.
   function acceptConfiguration(at: number) { return (config: Configuration) => { if (at === scope.current) setCatalog(readyCatalog(config)); }; }
   function updateDependency(index: number, patch: Partial<Dependency>) {
@@ -332,6 +332,13 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     catch (err) { if (at === scope.current) setError(describeError(err, t('workloads.workloadEditor.couldNotImportTheScore'))); }
   }
   const resourceChoices = sharedResources(workloads, types);
+  const storageTypes = types.filter(type => ['claimName', 'namespace'].every(name => (type.outputs ?? []).some(field => field.name === name && field.type === 'string' && !field.secret)));
+  const storageKeys = new Set(storageTypes.map(type => type.key));
+  function openStorageResource() {
+    let alias = 'data';
+    for (let suffix = 2; form.dependencies.some(dependency => dependency.alias === alias); suffix += 1) alias = `data-${suffix}`;
+    setDialog({ type: 'storage', initial: { ...emptyDependency(), alias, type: storageTypes.length === 1 ? storageTypes[0]!.key : '' } });
+  }
   const rowContext = buildRowContext(catalog, form.dependencies, types, workloads, form.name);
   async function save() {
     if (environmentBusy) return;
@@ -388,7 +395,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     {loading ? <p>{t('workloads.workloadEditor.loadingWorkloadOptions')}</p> : mode === 'import' ? <section className="content-panel"><h2>{t('workloads.workloadEditor.importAScoreFile')}</h2><p>{t('workloads.workloadEditor.yAMLOrJSONTheSame')}</p><input aria-label={t('workloads.workloadEditor.scoreFile')} type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} />{imported ? <><p>{t('workloads.workloadEditor.parsedWorkload')}{' '} <strong>{String((imported.metadata as { name?: string } | undefined)?.name ?? '')}</strong></p><pre className="score-preview">{JSON.stringify(imported, null, 2)}</pre></> : null}</section> : <>
       <section className="content-panel editor-grid"><h2>{t('workloads.workloadEditor.basicInformation')}</h2><label>{t('workloads.workloadEditor.workloadName')}<input value={form.name} disabled={Boolean(workloadId)} onChange={(event) => updateForm({ ...form, name: event.target.value })} placeholder="frontend" /></label><label>{t('workloads.workloadEditor.workloadClassMetadataClass')}<input aria-label={t('workloads.workloadEditor.workloadClass')} value={form.workloadClass} onChange={(event) => updateForm({ ...form, workloadClass: event.target.value })} placeholder="default" /></label>{form.workloadClass && !validWorkloadClass(form.workloadClass) ? <small role="note">{t('workloads.workloadEditor.classUsesOnlyLowercaseLetters')}</small> : <small className="muted">{t('workloads.workloadEditor.emptyMeansDefaultTheClass')}</small>}</section>
       {form.execution && form.execution.kind !== 'CronJob' ? <section className="content-panel editor-grid"><label>{t('workloads.templates.replicas')}<input type="number" min="1" max={form.execution.kind === 'StatefulSet' ? 1 : undefined} value={form.replicas ?? 1} onChange={e => updateForm({ ...form, replicas: Number(e.target.value) })} /></label></section> : null}
-      {form.execution ? <ExecutionFields value={form.execution} onChange={execution => updateForm({ ...form, execution })} containers={form.containers.map(c => c.name)} storage={form.dependencies.filter(dep => { const fields = types.find(type => type.key === dep.type)?.outputs ?? []; return fields.some(field => field.name === 'claimName' && !field.secret) && fields.some(field => field.name === 'namespace' && !field.secret); }).map(dep => dep.alias)} metadata={templateMetadata} secrets={catalog.status === 'ready' ? catalog.keys.filter(key => key.kind === 'SECRET').map(key => key.name) : []} disabled={saving} onRawProblems={setTemplateInputProblems} /> : null}
+      {form.execution ? <ExecutionFields value={form.execution} onChange={execution => updateForm({ ...form, execution })} containers={form.containers.map(c => c.name)} storage={form.dependencies.filter(dep => storageKeys.has(dep.type)).map(dep => dep.alias)} onAddStorage={storageTypes.length ? openStorageResource : undefined} catalogReady={!loadFailed && classMetadata === 'ready'} metadata={templateMetadata} secrets={catalog.status === 'ready' ? catalog.keys.filter(key => key.kind === 'SECRET').map(key => key.name) : []} disabled={saving} onRawProblems={setTemplateInputProblems} /> : null}
       {catalog.status === 'error' ? <div className="form-error" role="alert">{t('workloads.workloadEditor.couldNotLoadApplicationVariables2')}{' '} {catalog.message} {' '}{t('workloads.workloadEditor.yourSelectionsAreKept')}{' '} <Button onClick={() => setCatalogAttempt((value) => value + 1)}>{t('workloads.workloadEditor.retryLoadingKeys')}</Button></div> : null}
       {form.containers.map((container, ci) => <section className="content-panel editor-grid" key={ci}><div className="section-header"><h2>Container {ci + 1}</h2>{form.containers.length > 1 ? <Button tone="danger" onClick={() => updateForm({ ...form, containers: form.containers.filter((_, index) => index !== ci) })}>{t('workloads.workloadEditor.remove')}</Button> : null}</div><div className="field-grid"><label>{t('workloads.workloadEditor.containerName')}<input value={container.name} onChange={(event) => updateContainer(ci, { ...container, name: event.target.value })} /></label><label>{t('workloads.workloadEditor.containerImage')}<input value={container.image} onChange={(event) => updateContainer(ci, { ...container, image: event.target.value })} placeholder="registry.example/app:tag" /></label></div>
         <Advanced label={`Container ${ci + 1}`} summary={t('workloads.workloadEditor.effectiveRequestsCPUEffectiveRequestMemory', { effectiveRequest: effectiveRequest(container.cpuRequest, container.cpuLimit, DEFAULT_CPU_REQUEST), effectiveRequest2: effectiveRequest(container.memoryRequest, container.memoryLimit, DEFAULT_MEMORY_REQUEST), value: container.cpuLimit || t('workloads.workloadEditor.notSet'), value2: container.memoryLimit || t('workloads.workloadEditor.notSet') })}>
@@ -425,6 +432,13 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
         changeRow(rowId, (row) => ({ ...changeSource(row, kind), key, ...(row.name === '' ? { name: key } : {}) }));
         setFocusRequest({ rowId, field: 'key' });
       })(scope.current, dialog.rowId, dialog.kind)} /> : null}
+    {dialog?.type === 'storage' ? <AddResourceDialog label={t('workloads.templates.addStorage')} initialDependency={dialog.initial} existing={form.dependencies} types={storageTypes} choices={resourceChoices.filter(choice => choice.dependency && storageKeys.has(choice.dependency.type))} classMetadata={classMetadata} onReload={() => void reloadClassMetadata()} onClose={closeDialog}
+      onAdd={((at) => (dependency: Dependency) => {
+        if (at !== scope.current) return;
+        setDialog(undefined);
+        setForm(prev => ({ ...prev, dependencies: [...prev.dependencies, dependency], execution: prev.execution ? { ...prev.execution, mounts: [...(prev.execution.mounts ?? []), { resource: dependency.alias, container: prev.containers[0]?.name ?? '', path: '/data', readOnly: false }] } : undefined }));
+        setDirty(true);
+      })(scope.current)} /> : null}
     {dialog?.type === 'resource' ? <AddResourceDialog existing={form.dependencies} types={types} choices={resourceChoices} classMetadata={classMetadata} onReload={() => void reloadClassMetadata()} onClose={closeDialog}
       onAdd={((at, rowId) => (dependency: Dependency) => {
         if (at !== scope.current) return;

@@ -3214,6 +3214,8 @@
   "workloads.templates.suspend": "Suspend schedule",
   "workloads.templates.mounts": "Storage",
   "workloads.templates.addMount": "Add volume mount",
+  "workloads.templates.addStorage": "Add storage resource",
+  "workloads.templates.storageUnavailable": "No storage resource type is available. Ask your platform administrator to register one.",
   "workloads.templates.resource": "Storage resource",
   "workloads.templates.container": "Container",
   "workloads.templates.mountPath": "Mount path",

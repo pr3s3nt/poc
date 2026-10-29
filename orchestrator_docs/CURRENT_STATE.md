@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-10-29
 ---
 
 # Current project state
@@ -19,6 +19,11 @@ MySQL resource secret prerequisites and private Passbolt/S3 runtime inputs remai
 open. Generic release/CI status is tracked in [PR #25](https://github.com/pr3s3nt/poc/pull/25).
 [Implementation/gaps](implementation/workload-catalog.md),
 [evidence](verification/2026-10-29-workload-catalog.md).
+
+The volume-mount entry now opens the existing resource dialog when no storage
+dependency is selected. Compatible new/reused storage and its mount are added
+to the local editor together; Cancel preserves the form. This does not provision
+storage or change the Preview/Deploy boundary.
 
 ## Workload resource selection — 2026-10-28
 

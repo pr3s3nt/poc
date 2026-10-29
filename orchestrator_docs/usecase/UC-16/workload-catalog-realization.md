@@ -2,7 +2,7 @@
 id: UC-16-WORKLOAD-CATALOG-REALIZATION
 artifact: use-case-realization
 status: draft
-last_reviewed: 2026-10-28
+last_reviewed: 2026-10-29
 ---
 
 # Catalog workload collaboration (proposed)
@@ -13,6 +13,7 @@ last_reviewed: 2026-10-28
 | Phase | Collaboration | Durable boundary |
 |---|---|---|
 | Select | ApplicationHome → catalog read → Dialog → editor schema/defaults | No desired write |
+| Add storage mount | Editor → shared resource dialog filtered to public string claimName/namespace capability → local dependency + mount | No API write/provisioning; Cancel preserves form |
 | Save | Editor → workload config service → template/refs validator → draft repository | CAS desired version + pin/extension atomically |
 | Preview | Snapshot loader → planner → matching/render capabilities → safe review | Immutable plan/draft/config/targets/template/bundle pins |
 | Provision | Deployment service → secret prerequisites + resource graph → Terraform executor | Original state/UID/instance ownership; outputs |

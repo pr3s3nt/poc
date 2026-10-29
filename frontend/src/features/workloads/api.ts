@@ -34,7 +34,7 @@ export const deployChanges = (app: string, env: EnvironmentKey, token: string, r
 // registration field. A valid `classes: []` means "none published"; an absent or
 // malformed list, or a malformed body, is unavailable metadata and throws, so
 // nothing becomes a fake-empty or guessed choice.
-export type ResourceType = { key: string; inputs: { name: string; type: string; required?: boolean }[]; outputs: { name: string; secret?: boolean }[]; classes?: string[] };
+export type ResourceType = { key: string; inputs: { name: string; type: string; required?: boolean }[]; outputs: { name: string; type?: string; secret?: boolean }[]; classes?: string[] };
 export class MetadataError extends Error {}
 const isArray = (value: unknown): value is unknown[] => Array.isArray(value);
 export function parseResourceTypes(body: unknown): { resourceTypes: ResourceType[] } {

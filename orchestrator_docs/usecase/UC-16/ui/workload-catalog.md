@@ -2,7 +2,7 @@
 id: UC-16-UI-WORKLOAD-CATALOG
 artifact: use-case-ui-design
 status: draft
-last_reviewed: 2026-10-28
+last_reviewed: 2026-10-29
 ---
 
 # Workload catalog UI
@@ -33,6 +33,15 @@ Defaults do template; không giả sử /health phù hợp mọi image. Không b
 có public route hoặc backend có DB; hiển thị theo capability. Cấu hình không được
 support phải hiện rõ/giữ advanced, không biến mất. Retain/delete hậu quả ở nơi
 quyết định. Không bắt người dùng nhập state/provider/token/UID trong form.
+
+Thêm volume mount vẫn bấm được khi chưa có dependency nếu catalog có loại
+storage hợp lệ. Mở shared resource Dialog, chỉ hiện loại có outputs string công
+khai `claimName`/`namespace` và reuse phù hợp; một loại duy nhất được chọn sẵn,
+alias mới không trùng. Thêm và chọn đưa dependency cùng mount `/data` của
+container đầu tiên vào local form; người dùng sửa path/container trước Save.
+Hủy/Escape không thay đổi form và trả focus về nút. Khi đã có dependency storage,
+nút thêm dòng mount như hiện hành. Nếu không có loại storage hợp lệ thì khóa nút
+kèm thông báo ngắn yêu cầu quản trị nền tảng đăng ký loại lưu trữ.
 
 ## Trạng thái và detail
 

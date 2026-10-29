@@ -118,7 +118,7 @@ nâng cao, không dán JSON vào UI và không dùng API để tạo/sửa dữ 
 | `expectedTemplates` | Các `{id, version}` phải xuất hiện trong catalog/picker sau đăng ký; mặc định `[]` chỉ kiểm tra catalog không rỗng |
 | `verify.applicationKey` | Application để mở picker; nếu bỏ, chọn Application đầu tiên có Environment được yêu cầu |
 | `verify.environment` | `staging` (mặc định) hoặc `production` |
-| `verify.volumeMount` | Tùy chọn `{templateId,templateVersion,resourceType}`: chọn mẫu, thêm dependency và mount `/data` trên form local, không Save |
+| `verify.volumeMount` | Tùy chọn `{templateId,templateVersion,resourceType}`: chọn mẫu → Thêm volume mount → dialog storage → thêm dependency và mount `/data` trên form local, không Save |
 
 Ví dụ hiện có sáu Types và năm Infrastructure Definitions: cluster có sẵn,
 namespace, persistent-storage, PostgreSQL và Redis. Cluster chọn account có tên
@@ -175,8 +175,8 @@ class khác `internal`, sửa cluster criteria, mọi Terraform `clusterClass` v
 Các mutation đi qua từng trường UI thật; API GET chỉ đọc kỹ thuật để so sánh schema,
 pin, toàn bộ Definition, availability và templates. PASS khi schema/pin/cấu hình
 đã lưu khớp file cấu hình, mọi expected template có trên API và hộp chọn hiển thị đúng số mẫu.
-Nếu có `verify.volumeMount`, script xác minh nút bị khóa trước khi thêm dependency,
-bật sau khi chọn storage type và thêm được mount path `/data`.
+Nếu có `verify.volumeMount`, script xác minh nút bấm được khi chưa có dependency,
+mở dialog storage tại chỗ, xác nhận dependency và thêm được mount path `/data`.
 Không tạo workload/draft, Preview, Deploy, sửa database schema hoặc mutate cluster/cloud.
 
 Chạy lại cùng cấu hình sẽ kiểm tra Git source và reuse Definition cùng ID nếu

@@ -1243,6 +1243,12 @@ maps them to code and tests, distinguishing automated/current-build/Passbolt gap
 [Evidence](../verification/2026-10-29-workload-catalog.md) records real execution;
 no complete-feature or main-merge claim follows from the prototype.
 
+WC-04/05 inline storage entry: existing AddResourceDialog filtered by storage
+capability creates a local dependency and mount from Add volume mount. Coverage:
+`frontend/src/features/workloads/WorkloadStorageMount.test.tsx` (cancel/focus,
+scoped reuse, non-conflicting alias, unavailable/invalid capability), plus the
+setup runner's direct-button browser assertion. No provisioning boundary changes.
+
 ## UC-03 ZIP source upload — ADR-026
 
 | Requirement | Operation / collaboration | Persistence and coverage |
