@@ -15,10 +15,12 @@ input. Both dependency entry points offer existing shared resources from the
 scoped desired Workload list, preserving local aliases and locking selected
 configuration. Conflicting or non-lossless projections are unavailable. Private
 is advanced; existing/imported private/shared identities remain unchanged.
-HTTP/schema/planner contracts keep their existing scope. Verification uses the
-[disposable browser scenario](../e2e/scenarios/workload-shared-resources/README.md),
-not a new live Kubernetes/AWS provisioning run.
-[Results](verification/2026-10-28-workload-shared-resources.md).
+HTTP/schema/planner contracts keep their existing scope. Initial local UI tests
+were followed by real kind acceptance on 2026-10-29: API/worker share generated
+PostgreSQL/Redis IDs, two database-backed jobs reach DONE, Redis worker writes
+are confirmed, valid update retains database/cache/PVC UIDs, and product deletion
+plus owned-stack cleanup pass. An earlier interrupted attempt was cleaned up
+before retry. [Results](verification/2026-10-28-workload-shared-resources.md).
 
 ## PostgreSQL upgrades — issue #23
 

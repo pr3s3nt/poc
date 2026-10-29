@@ -1,6 +1,6 @@
 # Workload environment form on kind
 
-Verify [UC-16](../../../orchestrator_docs/usecase/UC-16/specification.md) BR-15–27,
+Verify [UC-16](../../../orchestrator_docs/usecase/UC-16/specification.md) BR-15–30,
 [UC-12](../../../orchestrator_docs/usecase/UC-12/specification.md) and
 [acceptance app deployment](../../../orchestrator_docs/operations/acceptance-app-manual-k8s4f.md).
 All application creation, variable/Secret creation, resource declarations,
@@ -51,6 +51,8 @@ the generated secret only in its private scanner input, never public evidence.
 
 - Create backend/worker/frontend using the form, direct values, shared Variable,
   inline masked Secret, resource outputs and workload Service references.
+- Backend creates automatically shared PostgreSQL/Redis; worker must explicitly
+  select both existing backend resources. Desired IDs/class/typed params match.
 - Explicit Preview and Deploy report three successful workloads.
 - Actual kind deployments/StatefulSets/PVCs exist.
 - Acceptance application reports five PASS checks; submitting a job reaches DONE.

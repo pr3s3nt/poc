@@ -1252,4 +1252,4 @@ ENV-UX runtime/locale validation and video: [2026-10-27 real kind/UI evidence](.
 | BR-29 | UC-16 screens/states, existing scoped Workload API | sharedResources projection/conflict/stale guards; WorkloadClassMetadata reuse/lock test, EnvironmentVariablesTable inline reuse; [browser scenario](../../e2e/scenarios/workload-shared-resources/README.md) checks app/env isolation |
 | BR-30 | Advanced private choice, unchanged Score semantics | WorkloadClassMetadata private preservation and imported shared/custom-class tests; browser private choice |
 
-Evidence: [default shared resources](../verification/2026-10-28-workload-shared-resources.md).
+Evidence: [default shared resources](../verification/2026-10-28-workload-shared-resources.md), including real kind API/worker shared PostgreSQL/Redis, two DONE jobs, retained UIDs and verified product/stack cleanup on 2026-10-29.
