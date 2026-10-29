@@ -99,3 +99,6 @@ Acceptance workload PVC/CronJob observations:
 Scenario này quan sát app đã deploy, không tự tạo cluster hoặc trigger Job.
 
 Khi được di chuyển, script này thuộc `e2e/setup/`.
+
+Focused update of an existing acceptance backend (catalog → PVC mount → file
+retention after verified Pod recreation): [acceptance-pvc](scenarios/acceptance-pvc/README.md).

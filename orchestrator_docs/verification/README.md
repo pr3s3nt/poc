@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-29 | Fast headless catalog/workload/PVC only: backend-only Preview, real file persistence after UID-guarded Pod recreation, 8 assertions | [Focused PVC acceptance](2026-10-29-acceptance-pvc-focused.md) |
 | 2026-10-29 | Current-main Console upgrade, paced headless acceptance app deploy, five checks and job DONE, published video | [Headless acceptance recording](2026-10-29-acceptance-headless-recording.md) |
 | 2026-10-29 | Acceptance volume file, one-shot scheduled receipts, real local SQL/Redis and browser process-restart observations; no Kubernetes run | [Acceptance PVC/CronJob local](2026-10-29-acceptance-pvc-cron-local.md) |
 | 2026-10-29 | Direct Backend volume-mount dialog, scoped storage selection, VI/EN browser checks and frontend refresh; no deployment | [Inline volume mount](2026-10-29-inline-volume-mount.md) |
