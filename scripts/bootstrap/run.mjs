@@ -1,3 +1,5 @@
+import { parseGitAccess } from './lib/git-access-config.mjs';
+import { ensureGitAccess } from './lib/git-access-ui.mjs';
 import { parseArgs } from 'node:util';
 import { expect } from '@playwright/test';
 import { closeConsole, openConsole, readConsoleConfig } from './lib/console.mjs';
@@ -8,9 +10,9 @@ import { loadTarget } from './lib/target-config.mjs';
 import { readSetupPacing } from './lib/infrastructure-config.mjs';
 import { ensureInfrastructureAccount, ensureResourceDefinitions } from './lib/infrastructure-ui.mjs';
 
-const { values } = parseArgs({ options: { config: { type: 'string' }, target: { type: 'string' }, url: { type: 'string' }, 'git-url': { type: 'string' }, 'git-ref': { type: 'string' }, 'update-existing': { type: 'boolean' }, kubeconfig: { type: 'string' }, help: { type: 'boolean' }, ...Object.fromEntries(['step', 'account', 'type', 'definition', 'bundle'].map(phase => [`${phase}-delay-ms`, { type: 'string' }])) } });
+const { values } = parseArgs({ options: { config: { type: 'string' }, target: { type: 'string' }, url: { type: 'string' }, 'git-url': { type: 'string' }, 'git-ref': { type: 'string' }, 'update-existing': { type: 'boolean' }, 'update-git-access': { type: 'boolean' }, kubeconfig: { type: 'string' }, help: { type: 'boolean' }, ...Object.fromEntries(['step', 'account', 'type', 'definition', 'bundle'].map(phase => [`${phase}-delay-ms`, { type: 'string' }])) } });
 if (values.help) {
-  console.log('node scripts/bootstrap/run.mjs --target dev|staging [--url https://console.example] [--kubeconfig /private/kubeconfig] [--git-url https://git.company/catalog.git --git-ref FULL_COMMIT] [--update-existing] OR --config /path/catalog.json [--step-delay-ms 800] [--type-delay-ms 1000] [--definition-delay-ms 1500] [--account-delay-ms 800] [--bundle-delay-ms 800]\nConsole: ORCH_PLATFORM_URL, ORCH_PLATFORM_USERNAME, ORCH_PLATFORM_PASSWORD_FILE; presets mặc định ORCH_HEADLESS=1\nKubeconfig (chỉ cần khi account chưa có): ORCH_KUBECONFIG_FILE');
+  console.log('node scripts/bootstrap/run.mjs --target dev|staging [--url https://console.example] [--kubeconfig /private/kubeconfig] [--git-url https://git.company/catalog.git --git-ref FULL_COMMIT] [--update-existing] [--update-git-access] OR --config /path/catalog.json [--step-delay-ms 800] [--type-delay-ms 1000] [--definition-delay-ms 1500] [--account-delay-ms 800] [--bundle-delay-ms 800]\nConsole: ORCH_PLATFORM_URL, ORCH_PLATFORM_USERNAME, ORCH_PLATFORM_PASSWORD_FILE; presets mặc định ORCH_HEADLESS=1\nKubeconfig (chỉ cần khi account chưa có): ORCH_KUBECONFIG_FILE');
   process.exit(0);
 }
 
@@ -18,6 +20,9 @@ let session, consoleConfig, lastAction = '';
 try {
   const target = loadTarget(values);
   const config = parseBundleConfig(target.raw);
+  const gitAccess = parseGitAccess(target.raw, values);
+  if (values['update-git-access'] && !gitAccess) throw new Error('--update-git-access cần gitAccess đang bật trong cấu hình');
+  if (gitAccess && (process.env.DEBUG || process.env.NODE_DEBUG || process.env.PWDEBUG && process.env.PWDEBUG !== '0')) throw new Error('Git access: tắt DEBUG, NODE_DEBUG và PWDEBUG trước khi nhập token');
   const pacing = readSetupPacing(values, target.env);
   let phase = 'account';
   consoleConfig = readConsoleConfig(target.env, { defaultPassword: target.defaultPassword });
@@ -56,6 +61,7 @@ try {
     if (existing) assertSameResourceType(existing, type);
   }
   const ui = { page, baseURL: consoleConfig.baseURL, act, get, responseFor, updateExisting: values['update-existing'] === true };
+  await ensureGitAccess({ ...ui, desired: gitAccess, update: values['update-git-access'] === true });
   await ensureInfrastructureAccount({ ...ui, account: config.account, kubeconfigFile: target.env.ORCH_KUBECONFIG_FILE });
   phase = 'type';
   for (const type of config.resourceTypes) {

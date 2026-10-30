@@ -1,4 +1,9 @@
 {
+  "gitAccess": {
+    "enabled": false,
+    "username": "github-reader",
+    "tokenFile": "~/.orch/bootstrap/staging/git-token"
+  },
   "resourceTypes": [
     {
       "key": "persistent-storage",

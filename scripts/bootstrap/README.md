@@ -15,6 +15,58 @@ và vị trí code để đối chiếu khi sửa script.
 Bản Terraform modules và render bundle để copy sang Git công ty:
 [platform-catalog](../../platform-catalog/README.md).
 
+## Tự cấu hình Truy cập Git nội bộ
+
+Bootstrap thực hiện qua UI: đăng nhập → preflight schema → **Truy cập Git**
+→ Infrastructure Account → Types → Definitions → render bundle. Cấu hình Git
+được kiểm tra/lưu trước mọi mutation catalog/account. Không tự tạo PAT trên
+GitHub, cài Vault, sửa DNS/firewall hoặc chạy deployment.
+
+Trong `targets/staging.json`, sửa `seed.gitAccess` (dev sửa preset dev; với
+`--config`, đặt `gitAccess` ở gốc JSON):
+
+```json
+"gitAccess": {
+  "enabled": true,
+  "username": "your-github-username",
+  "tokenFile": "~/.orch/bootstrap/staging/git-token"
+}
+```
+
+Presets để sẵn block `enabled:false` và username mẫu `github-reader`; thay bằng
+username thật rồi bật `true`. Khi bỏ block hoặc tắt, giữ nguyên luồng Git public.
+`tokenFile` chứa PAT đọc repo, quyền 0600/0400; không đặt token vào JSON hoặc URL.
+Script chỉ đọc file này khi tạo mới hoặc có `--update-git-access`, không đọc khi
+reuse. CA tùy chọn: thêm `caPemFile` trỏ tới file PEM, tối đa 64 KiB.
+
+- `--git-url` mặc định làm URL/phạm vi và repo kiểm tra; `--git-ref` làm ref kiểm tra.
+- Nếu không truyền hai cờ, tự lấy khi các sources có cùng URL/ref rõ ràng.
+- Muốn scope theo nhóm/host, thêm `gitAccess.url`; có thể chỉ định
+  `repositoryUrl` và `ref` riêng cho kiểm tra. Các catalog sources phải thuộc scope.
+- Đường dẫn `~/` được mở rộng theo home; đường dẫn tương đối tính từ working directory.
+
+```bash
+node scripts/bootstrap/run.mjs --target staging \
+  --url https://platform.company.local \
+  --kubeconfig /private/staging.kubeconfig \
+  --git-url https://github.company.local/platform/platform-catalog.git \
+  --git-ref <full-commit-SHA40>
+```
+
+Chưa có setting: điền form → Kiểm tra kết nối → Lưu → đọc lại metadata/version.
+Setting đã khớp và có token: kiểm tra token đang lưu, không PUT, không thay token.
+Khác metadata/thiếu token hoặc muốn rotate: thêm **`--update-git-access`**, độc lập
+với `--update-existing` (chỉ đổi Definition source/pin). Cờ update Git luôn đọc
+file token mới, kể cả metadata không đổi. Mỗi POST/PUT từ UI được guard payload
+và version trước khi forward; stale/unknown outcome dừng, không tự retry.
+
+Backend phải được cấu hình credential store bền vững để Lưu (ví dụ Vault).
+Test dùng draft có thể thành công dù Lưu không thành công; script chỉ tiếp tục
+sau khi kiểm tra lưu/reuse đầy đủ. HTTP503 khi Lưu: kiểm tra credential store.
+Tắt DEBUG, NODE_DEBUG và PWDEBUG với bước nhập token. Runner không lưu trace,
+ảnh, video, browser session; lỗi Git access được rút gọn, không log filled values.
+Nếu seed lỗi sau khi Git đã lưu, cấu hình Git vẫn được giữ để lần sau reuse.
+
 ## Dùng Git công ty và chuyển nguồn Definition
 
 Copy nội dung `platform-catalog/` làm gốc repo công ty rồi push. Lấy full commit

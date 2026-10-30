@@ -70,3 +70,20 @@ heading/form and GET settings HTTP 200, then signed out. Screenshot stays outsid
 Git in the private runtime directory. This process keeps fake adapters and its
 existing unconfigured credential-store mode; token persistence needs a durable
 credential store such as the platform Vault before it can be used.
+
+## Bootstrap Git access — 2026-10-30
+
+[Bootstrap guide](../../scripts/bootstrap/README.md#tự-cấu-hình-truy-cập-git-nội-bộ)
+and [execution flow](../../scripts/bootstrap/EXECUTION_FLOW.md) describe the
+optional Git setup phase after schema preflight, before account/catalog mutations.
+`gitAccess` in per-target config defaults off; enabled mode derives repo/scope/ref
+from source overrides and reads the private token file only for create or explicit
+`--update-git-access`. Reuse tests stored credentials without reading that file
+or sending PUT. UI requests are guarded against draft/version mismatch; errors
+stop without replay. The backend settings API/behavior remains unchanged.
+
+29 focused Node tests passed (Git access config/UI harness, source overrides,
+target presets and bundle config); docs checker and whitespace check passed.
+UI helper tests model product form payloads and route interception; no company
+Git, staging, Kubernetes, Vault setup or real settings mutation was executed.
+This is platform setup automation, not deployment acceptance.

@@ -7,7 +7,7 @@ const fields = ['env_type', 'app_id', 'env_id', 'res_id', 'class'];
 const only = (value, keys, path) => requireValue(object(value) && Object.keys(value).every(key => keys.includes(key)), `${path}: trường không được hỗ trợ`);
 
 export function parseBundleConfig(raw) {
-  only(raw, ['bundles', 'resourceTypes', 'verify', 'account', 'resourceDefinitions'], 'config');
+  only(raw, ['bundles', 'resourceTypes', 'verify', 'account', 'resourceDefinitions', 'gitAccess'], 'config');
   const infrastructure = parseInfrastructure(raw);
   const resourceTypes = parseResourceTypes(raw.resourceTypes ?? []);
   requireValue(Array.isArray(raw.bundles) && raw.bundles.length > 0, 'bundles phải là danh sách không rỗng');

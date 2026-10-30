@@ -36,6 +36,7 @@ node scripts/bootstrap/run.mjs \
  → 02 Validate cấu hình
  → 03 Đăng nhập và kiểm tra role
  → 04 Preflight schema Resource Types đã có
+ → 04b Thiết lập Truy cập Git (nếu bật)
  → 05 Kiểm tra/đăng ký Infrastructure Account
  → 06 Tạo Resource Types còn thiếu
  → 07 Kiểm tra/đăng ký Infrastructure Definitions
@@ -102,6 +103,32 @@ Code: `readTypes` và vòng lặp `existingTypes` trong [run.mjs](run.mjs),
 
 Thứ tự fields không quan trọng. Flags false bị API lược bỏ, empty schema
 null/omitted và metadata classes không tạo mismatch giả.
+
+## 04b — Thiết lập Truy cập Git (tùy chọn)
+
+Code: [git-access-config.mjs](lib/git-access-config.mjs),
+[git-access-ui.mjs](lib/git-access-ui.mjs). API/behavior:
+[GA-01–06](../../orchestrator_docs/usecase/UC-03/git-access.md).
+
+1. Trước browser: validate block `gitAccess`, URL/ref/scope, file CA và đường dẫn
+   token. `enabled:false` hoặc không có block thì bỏ qua. Token chưa đọc ở đây.
+2. Sau role/schema preflight, GET settings hiện tại của Organization.
+3. Version0: tạo. Có metadata/token khớp: reuse, không đọc token file. Khác:
+   dừng nếu chưa có `--update-git-access`. Cờ này luôn dùng token file mới.
+4. Chỉ create/update mới đọc file token riêng tư 0600/0400, tối đa4096 byte;
+   giữ token trong bộ nhớ, không log/trace/video/screenshot.
+5. Mở trang settings, điền URL/auth/username/token, CA và repo/ref kiểm tra.
+   Form luôn giữ token đã lưu là chuỗi rỗng khi reuse.
+6. Guard POST Test và PUT Save phải đúng desired payload và expectedVersion từ
+   GET ban đầu. Page đã tải version khác thì chặn trước khi forward. Reuse cấm PUT.
+7. Bấm Kiểm tra kết nối; failure dừng trước Save/account/catalog mutations.
+8. Create/update bấm Lưu; reuse không lưu. GET lại xác minh metadata/tokenConfigured
+   và version: reuse không tăng; Save tăng đúng1. Không replay mutation khi lỗi.
+9. Xóa token khỏi input sau thao tác; tiếp tục account/types/Definitions như cũ.
+
+Không cài Vault/credential store, không tạo GitHub token hay sửa network.
+Save503/409, timeout hoặc readback không xác minh được thì dừng an toàn;
+Git setting đã commit không tự rollback khi phase sau thất bại.
 
 ## 05 — Kiểm tra/đăng ký Infrastructure Account
 
