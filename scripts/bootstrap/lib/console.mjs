@@ -6,15 +6,15 @@
 //   ORCH_PLATFORM_PASSWORD_FILE  private file (0600/0400) holding only the password
 //   ORCH_HEADLESS=1              run without a visible browser window
 //
-// The password is read from the file only, never from arguments, and is never
-// printed. No browser session or trace is stored. Scenarios may opt into video by passing
+// Custom passwords are read from a private file, never CLI arguments. Bootstrap
+// presets may supply the known product seed password as a fallback. Neither is printed. No browser session or trace is stored. Scenarios may opt into video by passing
 // recordVideo to signInContext; evidence must stay outside Git.
 import { chromium } from '@playwright/test';
 import { readFileSync, statSync } from 'node:fs';
 
 export class ConsoleError extends Error {}
 
-export function readConsoleConfig(env = process.env) {
+export function readConsoleConfig(env = process.env, { defaultPassword } = {}) {
   const raw = (env.ORCH_PLATFORM_URL ?? '').trim();
   if (!raw) throw new ConsoleError('Thiếu ORCH_PLATFORM_URL, ví dụ http://localhost:3001');
   let url;
@@ -26,8 +26,8 @@ export function readConsoleConfig(env = process.env) {
   const username = (env.ORCH_PLATFORM_USERNAME ?? '').trim();
   if (!username) throw new ConsoleError('Thiếu ORCH_PLATFORM_USERNAME, ví dụ platform-engineer');
   const passwordFile = (env.ORCH_PLATFORM_PASSWORD_FILE ?? '').trim();
-  if (!passwordFile) throw new ConsoleError('Thiếu ORCH_PLATFORM_PASSWORD_FILE: đường dẫn file chỉ chứa mật khẩu');
-  return { baseURL: url.origin, username, password: readPrivateFile(passwordFile, 'mật khẩu'), headless: env.ORCH_HEADLESS === '1' };
+  if (!passwordFile && !defaultPassword) throw new ConsoleError('Thiếu ORCH_PLATFORM_PASSWORD_FILE: đường dẫn file chỉ chứa mật khẩu');
+  return { baseURL: url.origin, username, password: passwordFile ? readPrivateFile(passwordFile, 'mật khẩu') : defaultPassword, headless: env.ORCH_HEADLESS === '1' };
 }
 
 // A second account of the same Console (for example the developer next to the

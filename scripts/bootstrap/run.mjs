@@ -18,7 +18,7 @@ try {
   const config = parseBundleConfig(target.raw);
   const pacing = readSetupPacing(values, target.env);
   let phase = 'account';
-  consoleConfig = readConsoleConfig(target.env);
+  consoleConfig = readConsoleConfig(target.env, { defaultPassword: target.defaultPassword });
   console.log(`Console: ${consoleConfig.baseURL}`);
   session = await openConsole(consoleConfig);
   if (!['PLATFORM_ENGINEER', 'ADMIN'].includes(session.user.role)) throw new Error('Cần tài khoản Platform Engineer hoặc Admin');

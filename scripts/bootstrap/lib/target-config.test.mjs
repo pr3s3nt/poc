@@ -1,15 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { readConsoleConfig } from './console.mjs';
 import { loadTarget } from './target-config.mjs';
 import { parseBundleConfig } from './render-bundle-config.mjs';
 import { discoverAccountTarget } from './infrastructure-config.mjs';
 import { ensureInfrastructureAccount } from './infrastructure-ui.mjs';
 
-test('staging preset preloads Console, private auth path, Ceph and PVC-only rendering', () => {
+test('staging preset preloads Console, seed login, Ceph and PVC-only rendering', () => {
   const target = loadTarget({ target: 'staging', kubeconfig: '/private/cluster' }, {}, '/private/home');
   assert.equal(target.env.ORCH_PLATFORM_URL, 'https://devportal.stg.exampledevops.com');
   assert.equal(target.env.ORCH_PLATFORM_USERNAME, 'platform-engineer');
-  assert.equal(target.env.ORCH_PLATFORM_PASSWORD_FILE, '/private/home/.orch/bootstrap/staging/password');
+  assert.equal(target.env.ORCH_PLATFORM_PASSWORD_FILE, undefined);
+  assert.equal(readConsoleConfig(target.env, { defaultPassword: target.defaultPassword }).password, 'test-password');
   assert.equal(target.env.ORCH_KUBECONFIG_FILE, '/private/cluster');
   assert.equal(target.env.ORCH_HEADLESS, '1');
   const config = parseBundleConfig(target.raw);
@@ -40,4 +45,15 @@ test('discover preset reuses an existing READY account without reading kubeconfi
   const input = { account: { name: 'k8s-4f', discover: true }, get: async () => ({ accounts: [account] }), kubeconfigFile: '/must-not-be-read', act: () => { throw Error('must not mutate'); } };
   assert.equal(await ensureInfrastructureAccount(input), account);
   await assert.rejects(() => ensureInfrastructureAccount({ ...input, get: async () => ({ accounts: [{ ...account, status: 'FAILED' }] }) }));
+});
+
+test('explicit password file wins over seed default; invalid override never falls back silently', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'orch-bootstrap-auth-'));
+  const passwordFile = join(dir, 'password');
+  writeFileSync(passwordFile, 'changed-login-password', { mode: 0o600 });
+  const target = loadTarget({ target: 'staging' }, { ORCH_PLATFORM_PASSWORD_FILE: passwordFile });
+  assert.equal(readConsoleConfig(target.env, { defaultPassword: target.defaultPassword }).password, 'changed-login-password');
+  assert.throws(() => readConsoleConfig({ ...target.env, ORCH_PLATFORM_PASSWORD_FILE: join(dir, 'missing') }, { defaultPassword: target.defaultPassword }));
+  const custom = loadTarget({ config: new URL('../config.example.json', import.meta.url) }, { ORCH_PLATFORM_URL: 'http://localhost:3001', ORCH_PLATFORM_USERNAME: 'platform-engineer' });
+  assert.throws(() => readConsoleConfig(custom.env, { defaultPassword: custom.defaultPassword }), /ORCH_PLATFORM_PASSWORD_FILE/);
 });

@@ -28,12 +28,11 @@ script inspect file qua UI, yêu cầu đúng một context rồi lấy context/
 kết quả inspect; không tự suy endpoint hoặc chọn một trong nhiều cluster. Preset
 dev kiểm đúng context `kind-k8s-4f` và endpoint Docker `k8s-4f-control-plane:6443`.
 
-Đã chuẩn bị file mật khẩu riêng trên máy dev tại
-`~/.orch/bootstrap/dev/password` và `~/.orch/bootstrap/staging/password`, reuse
-mật khẩu hiện có theo xác nhận người dùng. Không có password trong preset/Git.
-Khi chuyển sang máy staging, chép **file riêng staging/password** sang cùng vị trí
-với quyền0600 (thư mục0700); script không thể lấy password trên máy dev từ xa.
-Nếu đã có file password tại vị trí khác, dùng ORCH_PLATFORM_PASSWORD_FILE.
+Presets dùng sẵn login seed `platform-engineer` / `test-password`, giống tài
+khoản mặc định của sản phẩm. Không cần tạo/chép file mật khẩu. Khi đã đổi mật
+khẩu, đặt `ORCH_PLATFORM_PASSWORD_FILE` để ghi đè; file được chỉ định mà lỗi thì
+script dừng, không âm thầm quay về mật khẩu seed. Chế độ `--config` vẫn yêu cầu
+file password như trước. Không ghi password vào log.
 Chỉ kubeconfig là dữ liệu cluster bạn cần cung cấp mới:
 
 ```bash

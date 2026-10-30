@@ -24,8 +24,8 @@ không đổi login-account policy: profile local vẫn có users fixture hiện
 [bootstrap tool](../../scripts/bootstrap/README.md):
 `node scripts/bootstrap/run.mjs --target staging --kubeconfig /private/staging.kubeconfig`.
 Preset staging có sẵn URL/user, Ceph class `rook-ceph-block`, Type/Definitions và
-standard Git bundle với policy Recreate; password nằm ở file riêng ngoài Git,
-phải chép tới máy chạy script. Account `k8s-4f` READY được reuse, chỉ inspect
+standard Git bundle với policy Recreate; dùng sẵn login seed mặc định, không
+cần chép file password. ORCH_PLATFORM_PASSWORD_FILE chỉ dùng khi đổi mật khẩu. Account `k8s-4f` READY được reuse, chỉ inspect
 kubeconfig một context khi chưa có account. Renderer mới scoped class `pvc`,
 không thay default renderer/workload đang chạy. Chưa có app vẫn seed được;
 không tạo app/deploy để kiểm tra. Phần bên dưới mô tả runner legacy chỉ đăng ký

@@ -849,3 +849,15 @@ broad Go/React suites were run. The staging URL/shared credentials/StorageClass
 were supplied or confirmed by the user; staging account creation remains unrun.
 Private dev/staging password files were prepared without overwriting existing
 files; copying the staging password file to the execution host is still required.
+
+Bootstrap seed-login default (2026-10-30 user correction): dev/staging presets
+now include the existing product fixture login, so --target needs no password
+file. readConsoleConfig accepts a preset-only fallback password; explicit file
+overrides take priority and failures do not fall back. Legacy --config/E2E flows
+still require private password files. No secret values are printed. Previously
+prepared private files are left untouched and no longer required by presets.
+
+Validation of seed-login correction: bootstrap20/20 and shared Console6/6 tests,
+CLI help, documentation and whitespace checks pass. Real headless dev sign-in
+with an empty environment/default seed login and no password file passed;
+no seed/deployment/cluster mutations or staging access were performed.

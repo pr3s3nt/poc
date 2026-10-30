@@ -1,7 +1,8 @@
 {
   "console": {
     "url": "https://devportal.stg.exampledevops.com",
-    "username": "platform-engineer"
+    "username": "platform-engineer",
+    "password": "test-password"
   },
   "seed": {
     "resourceTypes": [
