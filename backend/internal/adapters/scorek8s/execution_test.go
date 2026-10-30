@@ -47,6 +47,14 @@ func TestExecutionRendersPrimaryControllersAndApprovedMounts(t *testing.T) {
 				}
 				found = true
 				spec := object(m.Object["spec"])
+				if e.Kind == "Deployment" {
+					strategy := object(spec["strategy"])
+					if strategy["type"] != "Recreate" || len(strategy) != 1 {
+						t.Fatalf("PVC Deployment must use Recreate without rollingUpdate: %v", strategy)
+					}
+				} else if _, ok := spec["strategy"]; ok {
+					t.Fatalf("Deployment strategy leaked into %s", e.Kind)
+				}
 				if id == "scheduled" {
 					if spec["successfulJobsHistoryLimit"] != float64(0) {
 						t.Fatal("explicit zero policy lost")
@@ -65,6 +73,48 @@ func TestExecutionRendersPrimaryControllersAndApprovedMounts(t *testing.T) {
 			req.Storage = nil
 			if _, err = renderer.Render(context.Background(), req); err == nil {
 				t.Fatal("render accepted missing approved storage binding")
+			}
+		})
+	}
+}
+
+func TestDeploymentWithoutPersistentMountKeepsRolloutPolicy(t *testing.T) {
+	files := readBundle(t, standardDir)
+	bundle, err := renderengine.Validate(files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	renderer, selections := gitRenderer(t, map[string]map[string][]byte{"standard": files})
+	for _, mode := range []string{"legacy", "stateless", "secret-file-only"} {
+		t.Run(mode, func(t *testing.T) {
+			req := gitRequest(selections["standard"])
+			if mode != "legacy" {
+				for _, template := range bundle.Contract.Manifest.WorkloadTemplates {
+					if template.ID == "backend" {
+						req.Module.Spec.Execution = &environment.WorkloadExecution{Version: 1, Kind: template.Kind, Template: environment.TemplatePin{ID: template.ID, Version: template.Version, SHA256: template.SHA256()}}
+					}
+				}
+				if mode == "secret-file-only" {
+					req.Module.Spec.Execution.SecretFiles = []environment.SecretFile{{Ref: "${context.uc12.GPG_KEY}", Container: "main", Path: "/keys/server.asc", Mode: 0400}}
+					req.ConfigSecretName = "revision-specific"
+					req.ConfigSecretKeys = map[string]map[string]string{"main": {"orchestrator-file-0": "gpg-key"}}
+				}
+			}
+			manifests, err := renderer.Render(context.Background(), req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			found := false
+			for _, m := range manifests {
+				if m.Kind == "Deployment" {
+					found = true
+					if strategy := object(object(m.Object["spec"])["strategy"]); len(strategy) != 0 {
+						t.Fatalf("unexpected rollout policy without PVC mount: %v", strategy)
+					}
+				}
+			}
+			if !found {
+				t.Fatal("Deployment missing")
 			}
 		})
 	}

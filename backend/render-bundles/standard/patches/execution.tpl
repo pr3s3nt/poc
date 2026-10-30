@@ -49,6 +49,11 @@
   path: "{{ $i }}.spec"
   value: {{ toJson $spec }}
 {{- else }}
+{{- if gt (len (get $e "mounts" | default (list))) 0 }}
+- op: set
+  path: "{{ $i }}.spec.strategy"
+  value: {type: Recreate}
+{{- end }}
 - op: set
   path: "{{ $i }}.spec.template"
   value: {{ toJson $pod }}

@@ -107,3 +107,21 @@ shared-entry pruning. `workload_storage_graph_test.go` exercises unrelated
 workload addition, removal with another mount consumer and last-reference release.
 The shared scope variant uses the same real browser runner (`WC_STORAGE_SCOPE=shared`);
 latest acceptance/CI status is recorded in PR #25.
+
+## PVC Deployment update policy — 2026-10-30
+
+User-approved update downtime is implemented by the standard bundle's
+`patches/execution.tpl`: Deployment + nonempty persistent mounts emits the
+complete strategy `{type: Recreate}`, without `rollingUpdate`. Legacy/stateless
+and secret-file-only Deployments preserve rollout defaults; StatefulSet/CronJob
+are unchanged. No provider-name detection, public field or schema change.
+Real score-k8s rendering tests in `execution_test.go` assert the controller and
+strategy boundaries. Existing runtime bundle pins need explicit reinspection,
+selection and Preview/Deploy; no installation is mutated by this source change.
+
+Validation: focused primary/mount/legacy/stateless/secret-file and example tests
+passed using the real installed score-k8s CLI. Complete scorek8s adapter and
+renderengine package tests, `go build ./...`, documentation checker and whitespace
+checks passed. No frontend or unrelated backend full suite was rerun for this
+bundle-only behavior change. No Kubernetes/cloud mutation or Ceph live rollout
+was performed; installed immutable Git pins remain on their existing revision.

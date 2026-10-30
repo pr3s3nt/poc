@@ -2,7 +2,7 @@
 id: UC-16-WORKLOAD-CATALOG-SPEC
 artifact: use-case-specification
 status: draft
-last_reviewed: 2026-10-29
+last_reviewed: 2026-10-30
 ---
 
 # Catalog workload — mở rộng specification cho issue #24
@@ -39,6 +39,11 @@ behavior hiện hành cho tới khi contracts và implementation được nghi�
   advanced view hoặc báo lỗi, không drop field.
 - WC-11: Stateful mount identity giữ qua restart/update/redeploy. Remove giữ dữ
   liệu, Environment delete bị chặn khi còn retained storage; resource delete riêng.
+  Với bundle standard của platform, Deployment có persistent volume mount dùng
+  `Recreate` khi cập nhật: dừng Pod cũ trước khi tạo Pod mới, chấp nhận gián đoạn
+  để tránh rollout chờ volume RWO đang gắn ở node khác. Quy tắc dựa trên mount,
+  không dựa tên template/ứng dụng hay nhà cung cấp storage. Deployment không có
+  persistent mount và workload chỉ gắn secret file giữ policy hiện tại.
 - WC-12: CronJob là workload độc lập; MySQL có thể chạy không backup hoặc cleanup.
 - WC-13: Bật/tắt Service độc lập category; public route cần Service port hợp lệ;
   worker/job không bị ép public endpoint.

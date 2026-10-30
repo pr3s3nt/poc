@@ -2,7 +2,7 @@
 id: WORKLOAD-CATALOG-CONTRACT
 artifact: operation-contract
 status: draft
-last_reviewed: 2026-10-28
+last_reviewed: 2026-10-30
 ---
 
 # Workload catalog — contract đề xuất cho issue #24
@@ -98,6 +98,16 @@ Pod path cho CronJob là spec.jobTemplate.spec.template; inject ownership,
 registry/env/secret references, security/probes/resources vào đúng path.
 Score-generated Deployment nếu là intermediate phải được bundle chuyển đổi và
 loại khỏi output cuối; guard kiểm một primary controller đúng loại đã pin.
+
+Standard Git render bundle sets the complete Deployment `spec.strategy` to
+`{type: Recreate}` when `workloadExecution.mounts` is nonempty. No
+`rollingUpdate` member remains. This policy accepts update downtime and avoids
+old/new Pods on different nodes competing for the same RWO volume. It applies
+to all persistent mounts, including read-only mounts, because render input does
+not expose PVC access modes. It does not change StatefulSet/CronJob strategies,
+stateless Deployments or secret-file-only Deployments. The policy belongs to
+the versioned bundle; no schema or public Score field is added. Existing pins
+remain unchanged until explicit bundle selection and Preview/Deploy.
 
 Service named workload được tạo khi desired Service enabled; headless governing
 Service có identity ổn định riêng nếu ứng dụng cần ClusterIP Service khác. Preview

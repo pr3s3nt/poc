@@ -1273,3 +1273,10 @@ Kubernetes PVC UID retention and CronJob owner/completion acceptance.
 | BR-30 | Advanced private choice, unchanged Score semantics | WorkloadClassMetadata private preservation and imported shared/custom-class tests; browser private choice |
 
 Evidence: [default shared resources](../verification/2026-10-28-workload-shared-resources.md), including real kind API/worker shared PostgreSQL/Redis, two DONE jobs, retained UIDs and verified product/stack cleanup on 2026-10-29.
+
+WC-11 PVC Deployment rollout (2026-10-30): standard bundle
+[`execution.tpl`](../../backend/render-bundles/standard/patches/execution.tpl)
+replaces strategy with Recreate for persistent mounts, accepting update downtime.
+[`execution_test.go`](../../backend/internal/adapters/scorek8s/execution_test.go)
+checks Recreate without rollingUpdate, stateless/legacy/secret-only preservation
+and no Deployment strategy on StatefulSet/CronJob through real score-k8s rendering.

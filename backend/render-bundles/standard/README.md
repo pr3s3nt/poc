@@ -92,3 +92,20 @@ Change `defaults.yaml` (for example `resources.requests.cpu`, `podAnnotations`
 or `podSecurityContext`) to change policy without a platform release. Run
 `UPDATE_RENDER_FIXTURES=1 go test ./internal/adapters/scorek8s -run Examples`
 from `backend/` to refresh `examples/*/expected.yaml` after an intended change.
+
+## PVC Deployment rollout
+
+A Deployment with one or more `workloadExecution.mounts` uses
+`spec.strategy: {type: Recreate}`. The patch replaces the whole strategy object,
+so `rollingUpdate` settings are absent. Old Pods stop before new Pods start on
+updates; downtime is accepted to avoid waiting for an RWO claim attached to a
+different node. This is provider-independent and applies to read-only persistent
+mounts too; the bundle does not receive claim access-mode metadata.
+
+Deployments without persistent mounts (including secret-file-only mounts) keep
+the existing rollout policy. StatefulSet and CronJob retain their own controller
+semantics. No application source or Score schema change is required.
+
+Publish/select a new verified Git bundle revision and Preview/Deploy explicitly
+to apply this policy to a running workload. Editing this checkout or restarting
+the backend does not change already pinned/cached bundle revisions.
