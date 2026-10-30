@@ -9,6 +9,8 @@ Definition → mở Thêm Workload và xác minh catalog/volume mount.
 
 Entrypoint: `scripts/bootstrap/run.mjs`, có package/config/helpers riêng.
 `npm test` kiểm tra config/reuse/pacing và presets.
+[Luồng thực thi từng bước](EXECUTION_FLOW.md) ghi điều kiện reuse/create/fail
+và vị trí code để đối chiếu khi sửa script.
 
 ## Presets dev và staging
 
