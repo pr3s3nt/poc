@@ -357,6 +357,17 @@ func (s *Store) GetUserAccount(ctx context.Context, id string) (identity.UserAcc
 	}
 	return a, nil
 }
+func (s *Store) ListUserAccounts(ctx context.Context, organizationKey string) ([]identity.UserAccount, error) {
+	defer s.rlock(ctx)()
+	out := make([]identity.UserAccount, 0, len(s.state.UserAccounts))
+	for _, a := range s.state.UserAccounts {
+		if a.OrganizationKey == organizationKey {
+			out = append(out, a)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Username < out[j].Username })
+	return out, nil
+}
 func (s *Store) SaveUserAccount(ctx context.Context, account identity.UserAccount) error {
 	defer s.lock(ctx)()
 	s.state.UserAccounts[account.ID] = account
@@ -375,6 +386,16 @@ func (s *Store) GetSessionByTokenHash(ctx context.Context, tokenHash string) (id
 		}
 	}
 	return identity.Session{}, fmt.Errorf("%w: session", persistence.ErrNotFound)
+}
+func (s *Store) RevokeSessionsForUser(ctx context.Context, userAccountID string, revokedAt time.Time) error {
+	defer s.lock(ctx)()
+	for id, session := range s.state.Sessions {
+		if session.UserAccountID == userAccountID && session.RevokedAt == nil {
+			session.RevokedAt = &revokedAt
+			s.state.Sessions[id] = session
+		}
+	}
+	return nil
 }
 
 // inTx reports whether ctx belongs to a Transact already holding s.mu. The

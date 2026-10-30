@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
 import { LanguageSelect } from '../../shared/ui/LanguageSelect';
+import { PasswordInput } from '../../shared/ui/PasswordInput';
 import { t } from '../../shared/i18n';
 
 type FieldErrors = { username?: string; password?: string };
@@ -44,7 +45,7 @@ export function SignInPage({ onSuccess, notice }: { onSuccess(username: string, 
         {notice && !error ? <div className="form-info" role="status">{notice}</div> : null}
         {error ? <div className="form-error" role="alert">{error}</div> : null}
         <label>{t('auth.signIn.username')}<input autoComplete="username" value={username} disabled={submitting} aria-invalid={Boolean(fieldErrors.username)} onChange={(event) => setUsername(event.target.value)} />{fieldErrors.username ? <span className="field-error">{fieldErrors.username}</span> : null}</label>
-        <label>{t('auth.signIn.password')}<input type="password" autoComplete="current-password" value={password} disabled={submitting} aria-invalid={Boolean(fieldErrors.password)} onChange={(event) => setPassword(event.target.value)} />{fieldErrors.password ? <span className="field-error">{fieldErrors.password}</span> : null}</label>
+        <label>{t('auth.signIn.password')}<PasswordInput autoComplete="current-password" value={password} disabled={submitting} aria-invalid={Boolean(fieldErrors.password)} onChange={(event) => setPassword(event.target.value)} />{fieldErrors.password ? <span className="field-error">{fieldErrors.password}</span> : null}</label>
         <Button tone="primary" type="submit" disabled={submitting}>{submitting ? t('auth.signIn.signingIn') : t('auth.signIn.signIn')}</Button>
         <small>{t('auth.signIn.useYourLocalTestAccount')}</small>
         <LanguageSelect />

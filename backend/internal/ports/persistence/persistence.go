@@ -172,9 +172,14 @@ type ApplicationRepository interface {
 type IdentityRepository interface {
 	GetUserAccountByUsername(ctx context.Context, username string) (identity.UserAccount, error)
 	GetUserAccount(ctx context.Context, id string) (identity.UserAccount, error)
+	// ListUserAccounts returns every account of the Organization, ordered by username.
+	ListUserAccounts(ctx context.Context, organizationKey string) ([]identity.UserAccount, error)
 	SaveUserAccount(ctx context.Context, account identity.UserAccount) error
 	SaveSession(ctx context.Context, session identity.Session) error
 	GetSessionByTokenHash(ctx context.Context, tokenHash string) (identity.Session, error)
+	// RevokeSessionsForUser marks every unrevoked session of the account revoked
+	// at revokedAt (UC-00 BR-08 password change).
+	RevokeSessionsForUser(ctx context.Context, userAccountID string, revokedAt time.Time) error
 }
 
 // EnvironmentRepository owns Environment records and immutable Deployment Sets.

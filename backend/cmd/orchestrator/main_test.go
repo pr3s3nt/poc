@@ -150,3 +150,61 @@ func TestDatabaseSetupAndRuntimeLoginsThroughTheCLI(t *testing.T) {
 		}
 	}
 }
+
+// UC-00 BR-10: the first ADMIN is created through the CLI with the password
+// only from an owner-only file; no default password exists, the account lands
+// in the durable store, duplicates are refused and no output leaks the password.
+func TestBootstrapAdminThroughTheCLI(t *testing.T) {
+	dir := t.TempDir()
+	state := filepath.Join(dir, "state.json")
+	pw := privateFile(t, dir, "admin-password", "bootstrap-secret-1", 0o600)
+	run := func(label string, wantOK bool, args ...string) string {
+		t.Helper()
+		out, err := command(args...).CombinedOutput()
+		if (err == nil) != wantOK {
+			t.Fatalf("%s: exit error %v\n%s", label, err, out)
+		}
+		if bytes.Contains(out, []byte("bootstrap-secret-1")) {
+			t.Fatalf("%s: output contains a password", label)
+		}
+		return string(out)
+	}
+
+	run("missing password file", false, "-bootstrap-admin", "-state", state)
+	run("ephemeral store refused", false, "-bootstrap-admin", "-bootstrap-admin-password-file", pw)
+	if out := run("create", true, "-bootstrap-admin", "-bootstrap-admin-password-file", pw, "-state", state); !strings.Contains(out, `ADMIN account "admin" created`) {
+		t.Fatalf("create output: %s", out)
+	}
+	run("duplicate refused", false, "-bootstrap-admin", "-bootstrap-admin-password-file", pw, "-state", state)
+
+	// The bootstrapped ADMIN signs in and reaches the Admin-only user API.
+	addrFile := filepath.Join(dir, "addr")
+	cmd := command("-state", state, "-addr", "127.0.0.1:0", "-addr-file", addrFile, "-ui-dir", "")
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer cmd.Process.Kill()
+	deadline := time.Now().Add(60 * time.Second)
+	var addr []byte
+	for time.Now().Before(deadline) {
+		if b, err := os.ReadFile(addrFile); err == nil && len(b) > 0 {
+			addr = b
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if addr == nil {
+		t.Fatalf("server did not start:\n%s", out.String())
+	}
+	base := "http://" + string(addr)
+	resp, err := http.Post(base+"/api/v1/auth/sign-in", "application/json", strings.NewReader(`{"username":"admin","password":"bootstrap-secret-1"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("admin sign-in = %d", resp.StatusCode)
+	}
+}

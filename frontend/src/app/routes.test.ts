@@ -39,6 +39,15 @@ describe('console routes', () => {
     expect(parseRoute('/ui/platform/connections')).toEqual({ name: 'driver-accounts' });
   });
 
+  it('routes the Admin user management and the account page (UC-00)', () => {
+    expect(parseRoute('/ui/platform/users')).toEqual({ name: 'users' });
+    expect(href({ name: 'users' })).toBe('/ui/platform/users');
+    expect(parseRoute(href({ name: 'users' }))).toEqual({ name: 'users' });
+    expect(parseRoute('/ui/account')).toEqual({ name: 'account' });
+    expect(href({ name: 'account' })).toBe('/ui/account');
+    expect(parseRoute(href({ name: 'account' }))).toEqual({ name: 'account' });
+  });
+
   it('routes the rendering templates page', () => {
     expect(parseRoute('/ui/platform/rendering-templates')).toEqual({ name: 'rendering-templates' });
     expect(href({ name: 'rendering-templates' })).toBe('/ui/platform/rendering-templates');

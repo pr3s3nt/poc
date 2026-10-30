@@ -57,6 +57,36 @@ func (s *Store) getUser(ctx context.Context, column, value string) (identity.Use
 	}
 	return v, nil
 }
+func (s *Store) ListUserAccounts(ctx context.Context, organizationKey string) ([]identity.UserAccount, error) {
+	rows, err := s.q(ctx).Query(ctx, `SELECT u.id,o.organization_key,u.username,u.password_hash,u.role,u.status FROM user_accounts u JOIN organizations o ON o.id=u.organization_id WHERE o.organization_key=$1 ORDER BY u.username`, organizationKey)
+	if err != nil {
+		return nil, fmt.Errorf("postgres: list users: %w", translate(err))
+	}
+	defer rows.Close()
+	out := []identity.UserAccount{}
+	for rows.Next() {
+		var v identity.UserAccount
+		if err := rows.Scan(&v.ID, &v.OrganizationKey, &v.Username, &v.PasswordHash, &v.Role, &v.Status); err != nil {
+			return nil, fmt.Errorf("postgres: list users: %w", translate(err))
+		}
+		out = append(out, v)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("postgres: list users: %w", translate(err))
+	}
+	return out, nil
+}
+func (s *Store) RevokeSessionsForUser(ctx context.Context, userAccountID string, revokedAt time.Time) error {
+	// A non-UUID reference cannot own a stored session; same guard as GetUserAccount.
+	if !validUUID(userAccountID) {
+		return fmt.Errorf("postgres: revoke sessions: %w", persistence.ErrNotFound)
+	}
+	_, err := s.q(ctx).Exec(ctx, `UPDATE sessions SET revoked_at=$2 WHERE user_account_id=$1 AND revoked_at IS NULL`, userAccountID, revokedAt)
+	if err != nil {
+		return fmt.Errorf("postgres: revoke sessions: %w", translate(err))
+	}
+	return nil
+}
 func (s *Store) SaveUserAccount(ctx context.Context, v identity.UserAccount) error {
 	_, err := s.q(ctx).Exec(ctx, `INSERT INTO user_accounts(id,organization_id,username,password_hash,role,status) SELECT $1,o.id,$3,$4,$5,$6 FROM organizations o WHERE o.organization_key=$2 ON CONFLICT(id) DO UPDATE SET username=EXCLUDED.username,password_hash=EXCLUDED.password_hash,role=EXCLUDED.role,status=EXCLUDED.status,updated_at=now()`, v.ID, v.OrganizationKey, v.Username, v.PasswordHash, v.Role, v.Status)
 	if err != nil {

@@ -172,6 +172,7 @@ var trustedFields = map[string]bool{
 	"name": true, "subdomain": true, "connectionKey": true, "expectedVersion": true, "expectedConfigVersion": true,
 	"secretStoreKey": true, "destinationKey": true, "acknowledgeDowntime": true, "priorExecutionStopped": true,
 	"resources": true, "status": true, "scoreBefore": true, "scoreAfter": true, "version": true, "token": true, "kubeconfig": true,
+	"username": true, "role": true, "password": true, "currentPassword": true, "newPassword": true, "confirmPassword": true,
 	"type.key": true, "type.schema": true, "definition.schema": true, "definition.driver": true, "definition.references": true,
 	"definition.key": true, "definition.name": true, "definition.resourceType": true, "definition.version": true,
 	"definition.driverType": true, "definition.criteria": true, "definition.driverAccount": true,

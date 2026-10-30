@@ -8,6 +8,8 @@ export type Route =
   | { name: 'rendering-templates' }
   | { name: 'driver-accounts'; account?: string; tab?: 'diagnose'; purpose?: 'use-case'; report?: string }
   | { name: 'secret-stores' }
+  | { name: 'users' }
+  | { name: 'account' }
   | { name: 'effectiveness'; application?: string; workload?: string; days?: EffectivenessDays }
   | { name: 'create-application' }
   | { name: 'application'; applicationId: string; environment?: 'staging' | 'production' }
@@ -48,6 +50,8 @@ export function parseRoute(path = window.location.pathname): Route {
     return { name: 'driver-accounts', ...(account ? { account } : {}), ...(diagnose ? { tab: 'diagnose' as const } : {}), ...(diagnose && query.get('purpose') === 'use-case' ? { purpose: 'use-case' as const } : {}), ...(report ? { report } : {}) };
   }
   if (relative === '/platform/secret-stores') return { name: 'secret-stores' };
+  if (relative === '/platform/users') return { name: 'users' };
+  if (relative === '/account') return { name: 'account' };
   if (relative === '/platform/effectiveness') {
     const query = new URLSearchParams(search);
     const application = query.get('application') ?? undefined;
@@ -101,6 +105,8 @@ export function href(route: Route): string {
       return `${base}/platform/driver-accounts?${query.toString()}`;
     }
     case 'secret-stores': return `${base}/platform/secret-stores`;
+    case 'users': return `${base}/platform/users`;
+    case 'account': return `${base}/account`;
     case 'effectiveness': {
       const query = new URLSearchParams();
       if (route.application) query.set('application', route.application);

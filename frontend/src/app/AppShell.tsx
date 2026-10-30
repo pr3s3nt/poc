@@ -18,6 +18,7 @@ function NavigationIcon({ name }: { name: string }) {
     'rendering-templates': <><rect x="3" y="2" width="14" height="16" rx="2" /><path d="M3 6h14m-9 4-2 2 2 2m4-4 2 2-2 2" /></>,
     'driver-accounts': <><path d="m10 2 7 3v5c0 4-4 7-7 8-3-1-7-4-7-8V5l7-3Z" /><circle cx="10" cy="8" r="2" /><path d="M6 14c1-4 7-4 8 0" /></>,
     'secret-stores': <><rect x="4" y="8" width="12" height="10" rx="2" /><path d="M6 8V6a4 4 0 0 1 8 0v2m-4 4v2" /></>,
+    users: <><circle cx="7" cy="6" r="2.5" /><circle cx="14" cy="7" r="2" /><path d="M2 16c1-4 9-4 10 0" /><path d="M11 15c.8-3 6.6-3 7.4 0" /></>,
     effectiveness: <><path d="M3 17h14M5 14V9m4 5V5m4 9v-3m4 3V7" /></>,
     history: <><circle cx="10" cy="10" r="7" /><path d="M10 6v4l3 2" /></>,
   };
@@ -36,16 +37,18 @@ export function AppShell({ children, onSignOut, username, role, activeRoute }: P
     catch { /* Navigation still works when local storage is unavailable. */ }
   }
   const isPlatformEngineer = role === 'PLATFORM_ENGINEER' || role === 'ADMIN';
+  const isAdmin = role === 'ADMIN';
   const activeNav = ['application', 'create-application', 'settings', 'workload', 'score-preview', 'deployments', 'deployment', 'resource', 'observability'].includes(activeRoute) ? 'applications' : activeRoute;
   const navClass = (name: string) => `nav-item${activeNav === name ? ' nav-item-active' : ''}`;
   const links = [
-    { route: 'applications', label: t('app.appShell.applications'), tone: 'blue', platform: false },
-    { route: 'resource-types', label: t('app.appShell.resourceTypes'), tone: 'teal', platform: true },
-    { route: 'resource-definitions', label: t('app.appShell.resourceDefinitions'), tone: 'violet', platform: true },
-    { route: 'rendering-templates', label: t('app.appShell.renderingTemplates'), tone: 'amber', platform: true },
-    { route: 'driver-accounts', label: t('app.appShell.infrastructureAccounts'), tone: 'blue', platform: true },
-    { route: 'secret-stores', label: t('app.appShell.secretStores'), tone: 'rose', platform: true },
-    { route: 'effectiveness', label: t('app.appShell.platformEffectiveness'), tone: 'violet', platform: true },
+    { route: 'applications', label: t('app.appShell.applications'), tone: 'blue', platform: false, admin: false },
+    { route: 'resource-types', label: t('app.appShell.resourceTypes'), tone: 'teal', platform: true, admin: false },
+    { route: 'resource-definitions', label: t('app.appShell.resourceDefinitions'), tone: 'violet', platform: true, admin: false },
+    { route: 'rendering-templates', label: t('app.appShell.renderingTemplates'), tone: 'amber', platform: true, admin: false },
+    { route: 'driver-accounts', label: t('app.appShell.infrastructureAccounts'), tone: 'blue', platform: true, admin: false },
+    { route: 'secret-stores', label: t('app.appShell.secretStores'), tone: 'rose', platform: true, admin: false },
+    { route: 'effectiveness', label: t('app.appShell.platformEffectiveness'), tone: 'violet', platform: true, admin: false },
+    { route: 'users', label: t('app.appShell.users'), tone: 'teal', platform: false, admin: true },
   ] as const;
   return (
     <div className={`app-shell${collapsed ? ' app-shell-collapsed' : ''}`}>
@@ -57,11 +60,12 @@ export function AppShell({ children, onSignOut, username, role, activeRoute }: P
           <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="3" width="16" height="14" rx="2" /><path d="M7 3v14" /><path d={collapsed ? 'm10 7 3 3-3 3' : 'm14 7-3 3 3 3'} /></svg><span className="sidebar-label">{t('app.appShell.collapseSidebar')}</span>
         </button>
         <nav className="nav" id="primary-navigation" aria-label={t('app.appShell.mainNavigation')}>
-          {links.filter((item) => !item.platform || isPlatformEngineer).map((item) => <a key={item.route} className={navClass(item.route)} aria-current={activeNav === item.route ? 'page' : undefined} title={item.label} href={href({ name: item.route })} onClick={(event) => { event.preventDefault(); navigate({ name: item.route }); }}><span className="nav-icon" data-tone={item.tone} aria-hidden="true"><NavigationIcon name={item.route} /></span><span className="sidebar-label">{item.label}</span></a>)}
+          {links.filter((item) => (!item.platform || isPlatformEngineer) && (!item.admin || isAdmin)).map((item) => <a key={item.route} className={navClass(item.route)} aria-current={activeNav === item.route ? 'page' : undefined} title={item.label} href={href({ name: item.route })} onClick={(event) => { event.preventDefault(); navigate({ name: item.route }); }}><span className="nav-icon" data-tone={item.tone} aria-hidden="true"><NavigationIcon name={item.route} /></span><span className="sidebar-label">{item.label}</span></a>)}
           <span className="nav-item nav-item-disabled" aria-disabled="true" aria-label={t('app.appShell.deploymentHistoryComingSoon')} title={t('app.appShell.deploymentHistoryComingSoon')}><span className="nav-icon" aria-hidden="true"><NavigationIcon name="history" /></span><span className="sidebar-label">{t('app.appShell.deploymentHistory')}</span><small className="sidebar-label">{t('app.appShell.comingSoon')}</small></span>
         </nav>
         <div className="sidebar-footer">
           <div className="user-chip" aria-label={`${username} · ${roleLabel(role)}`} title={`${username} · ${roleLabel(role)}`}><span className="avatar" aria-hidden="true">{username.slice(0, 2).toUpperCase()}</span><span className="sidebar-label"><strong>{username}</strong><small>{roleLabel(role)}</small></span></div>
+          <Button tone="quiet" onClick={() => navigate({ name: 'account' })} aria-label={t('app.appShell.changePassword')} title={t('app.appShell.changePassword')}><svg className="sign-out-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="7" cy="10" r="3" /><path d="M10 10h8m-3-2.5v5m-3-5v3" /></svg><span className="sidebar-label">{t('app.appShell.changePassword')}</span></Button>
           <Button tone="quiet" onClick={onSignOut} aria-label={t('app.appShell.signOut')} title={t('app.appShell.signOut')}><svg className="sign-out-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3H3v14h5m4-11 4 4-4 4m-5-4h9" /></svg><span className="sidebar-label">{t('app.appShell.signOut')}</span></Button>
           <LanguageSelect />
         </div>

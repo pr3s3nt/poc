@@ -716,3 +716,8 @@ a { color: inherit; }
 .template-picker-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:16px; }
 .template-picker-list .application-card { display:grid; gap:8px; text-align:left; }
 .template-picker-list small { color:var(--muted); }
+.password-input { position:relative; display:block; }
+.password-input input { padding-right:60px; }
+.password-toggle { position:absolute; top:50%; right:4px; transform:translateY(-50%); border:0; border-radius:6px; background:transparent; color:#0969da; cursor:pointer; font-size:12px; font-weight:600; padding:4px 8px; }
+.password-toggle:hover { background:#ddf4ff; }
+.password-toggle:focus-visible { outline:2px solid #0969da; outline-offset:-1px; }

@@ -29,6 +29,10 @@ ADR-027 source recognition, preservation, serialization, rollback, version/histo
 | MS-03 | same | session identity builder | User ID, Organization key, role | OC-00; Organization/role and cross-Organization HTTP tests |
 | MS-04 | same | random-token generator, `SaveSession` | token-hash-only `sessions` record | OC-00; raw-token persistence and response-leak tests |
 | MS-05 | authentication middleware | session lookup and context injection | authenticated request context | OC-00; protected-route, expiry, revocation, production-profile and Playwright tests |
+| BR-08 | `ChangePassword`; `POST /api/v1/auth/change-password` | `authentication.Service.ChangePassword` (verify current, hash new, revoke all sessions in one transaction) | `user_accounts` hash update; `sessions.revoked_at` for every session of the account | `authentication/service_test.go`, `delivery/http/users_test.go`, `e2e/scenarios/user-management/run.sh` |
+| BR-09 | `ListUsers`, `CreateUser`; `GET/POST /api/v1/users` | `authentication.Service.ListUsers/CreateUser` with session-role Admin check; username uniqueness and input validation | `ListUserAccounts` scoped by Organization; insert `user_accounts` (hash only) | `authentication/service_test.go`, `delivery/http/users_test.go`, `e2e/scenarios/user-management/run.sh` |
+| BR-10 | `-bootstrap-admin` CLI | `authentication.Service.BootstrapAdmin`; password only from an owner-only file, never in code | first ADMIN insert into the durable store; ephemeral store refused | `cmd/orchestrator/main_test.go`, `e2e/scenarios/user-management/run.sh` |
+| BR-11 | `ResetUserPassword`; `POST /api/v1/users/{id}/reset-password` | `authentication.Service.ResetUserPassword` (session-role Admin check, same-Organization target, hash new, revoke all sessions of the target in one transaction) | `user_accounts` hash update; `sessions.revoked_at` for every session of the target | `authentication/service_test.go`, `delivery/http/users_test.go`, `e2e/scenarios/user-management/run.sh` |
 
 ## UC-01
 
