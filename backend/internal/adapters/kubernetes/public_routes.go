@@ -208,3 +208,24 @@ func PublicHTTPRoute(namespace string, route execution.PublicRoute, gateway Gate
 }
 
 var _ execution.PublicRouteManager = (*PublicRoutes)(nil)
+
+func (r *PublicRoutes) RenderRoute(target execution.Target, route execution.PublicRoute) ([]execution.Manifest, error) {
+	if target.Namespace == "" || route.ApplicationID == "" || route.EnvironmentID == "" {
+		return nil, fmt.Errorf("kubernetes: invalid route identity")
+	}
+	if len(route.Paths) == 0 {
+		return nil, nil
+	}
+	var object map[string]any
+	var err error
+	if r.Kind == RouteKindHTTPRoute {
+		object, err = PublicHTTPRoute(target.Namespace, route, r.Gateway)
+	} else {
+		object, err = publicIngress(target.Namespace, route, r.IngressClass)
+	}
+	if err != nil {
+		return nil, err
+	}
+	current, _ := r.kinds()
+	return []execution.Manifest{{APIVersion: current.apiVersion, Kind: current.kind, Name: publicRouteName, Namespace: target.Namespace, Object: object}}, nil
+}

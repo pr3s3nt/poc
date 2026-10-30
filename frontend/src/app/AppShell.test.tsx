@@ -45,3 +45,12 @@ it('keeps toggling usable when browser storage is blocked', async () => {
   await user.click(screen.getByRole('button', { name: 'Thu gọn thanh điều hướng' }));
   expect(screen.getByRole('button', { name: 'Mở rộng thanh điều hướng' })).toBeVisible();
 });
+
+it('keeps CD, platform Git and user administration navigation together after integration', () => {
+  render(<AppShell {...props} role="ADMIN" activeRoute="cd-providers">Content</AppShell>);
+  expect(screen.getByRole('link', { name: 'Cấu hình CD', exact: true })).toHaveAttribute('href', '/ui/platform/cd-providers');
+  expect(screen.getByRole('link', { name: 'Cấu hình CD', exact: true })).toHaveAttribute('aria-current', 'page');
+  expect(screen.getByRole('link', { name: 'Cài đặt nền tảng', exact: true })).toHaveAttribute('href', '/ui/platform/settings');
+  expect(screen.getByRole('link', { name: 'Người dùng', exact: true })).toHaveAttribute('href', '/ui/platform/users');
+  expect(screen.getByRole('button', { name: 'Đổi mật khẩu', exact: true })).toBeVisible();
+});

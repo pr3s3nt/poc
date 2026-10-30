@@ -536,6 +536,9 @@ func (s *Service) publish(ctx context.Context, st *execState, prev tfresource.In
 	if err := s.setInstance(ctx, st, tfresource.InstanceReady); err != nil {
 		return Result{}, holdOn(ctx, "the instance status could not be recorded")
 	}
+	if err := s.recordBaseline(ctx, st, out); err != nil {
+		return Result{}, holdOn(ctx, "the acknowledged execution baseline could not be recorded")
+	}
 	if len(st.req.ProviderIDs) == 0 {
 		// Nothing to retire.
 	}

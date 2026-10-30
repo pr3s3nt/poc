@@ -2,7 +2,7 @@
 id: UC-08-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-28
 ---
 
 # UC-08 context — Provision resources
@@ -40,3 +40,9 @@ reverse-dependency destroy/verification. Workload removal does not call cleanup.
 [shared contract](../../architecture/contracts/workload-catalog.md) và
 [implementation handoff](../../implementation/workload-catalog.md) mô tả phần
 mở rộng đang review; chưa thay thế current behavior hoặc chứng minh implementation.
+
+## Optional CD and reconciliation — ADR-030
+
+Read this use case's CD/INF/REC specification extension, then the
+[design and implementation route](../../implementation/delivery-reconciliation.md).
+Required design only; current runtime availability is tracked separately.

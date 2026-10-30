@@ -259,3 +259,17 @@ ZIP-01..04. Source preparation/provenance follows
 [ADR-026](../../architecture/decisions/ADR-026-zip-source-upload.md);
 Preview, rendering, update/reuse and cleanup keep their existing pinned-engine
 and cache contracts. No upload or source fetch is introduced into this use case.
+
+## Delivery selection preview — ADR-030
+
+- **CD-01:** Preview pins desired/applied delivery selections, binding versions,
+  capabilities, policy, configuration revision and current inventory baseline.
+  It remains pure: no Fleet/Git/provider call or Terraform plan. Previously
+  verified metadata is read under the same planning snapshot.
+- **CD-02:** A delivery-only change produces a Preview action. If ownership must
+  move, show every affected workload and Environment route, retained infrastructure,
+  source/destination managers and baseline/capability blockers. Do not mix this
+  transition with pending workload/config/resource changes.
+- **CD-03:** Deploy rechecks those pins plus runtime target identity. Unsupported
+  lifecycle kinds or absent credentials cannot silently fall back to direct.
+  Drift repair uses the separate UC-08 review, not pure Score Preview.

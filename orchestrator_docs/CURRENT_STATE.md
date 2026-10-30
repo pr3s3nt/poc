@@ -2,10 +2,29 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-29
+last_reviewed: 2026-10-30
 ---
 
 # Current project state
+
+## Reconciliation integration into main — 2026-10-30
+
+The `features/reconciliation` implementation at `d3e9383` is integrated with
+current account administration, workload catalog and platform Git settings.
+Reconciliation is [ADR-030](architecture/decisions/ADR-030-delivery-reconciliation.md);
+ADR-027 continues to own PostgreSQL upgrades. Schema version 3 adds optional
+delivery/drift tables via immutable `003-reconciliation.sql` and a frozen complete
+reference. Existing Environments remain DIRECT/self-heal off and prior Terraform
+executions without acknowledged input baselines remain BASELINE_UNAVAILABLE.
+Owner setup supports retained version 2 and the earlier registered sources; no
+retained installation is upgraded by this merge.
+
+The runtime remains opt-in: workload self-heal requires CD configuration and policy;
+infrastructure repair still requires explicit plan review/confirmation and permits
+only admitted in-place updates. This merge adds no automatic infrastructure repair
+policy, missing-resource recreation or orphan adoption. The evidence below from
+the feature branch does not certify the combined revision on a live cluster.
+Integration checks and limits: [merge verification](verification/2026-10-30-reconciliation-merge.md).
 
 ## Acceptance app PVC/CronJob support — 2026-10-29
 
@@ -55,6 +74,62 @@ before retry. [Results](verification/2026-10-28-workload-shared-resources.md).
 ## PostgreSQL upgrades — issue #23
 
 Owner setup now upgrades the exact `1516dec` staging and `2a111db` preview baselines to schema version 1 without reset. Installation identities and retained rows are preserved; runtime remains read-only for schema/history. This supersedes older PostgreSQL no-migration statements below. See [ADR-027](architecture/decisions/ADR-027-postgres-upgrades.md) and [upgrade runbook](operations/postgres-upgrades.md). Other historical baselines and JSON conversion are unsupported. Verification: [issue #23](verification/2026-10-28-postgres-upgrades.md). Retained installations have only been inspected read-only, not upgraded by this task.
+
+## Optional Environment CD/reconciliation design — 2026-10-28
+
+[ADR-030](architecture/decisions/ADR-030-delivery-reconciliation.md) and the
+[implementation plan](implementation/delivery-reconciliation.md) define optional
+CD per Environment, Fleet-first provider-neutral delivery, direct↔Fleet handoff,
+separate self-heal policy and Terraform scan/reviewed repair. Implementation from `features/reconciliation` is integrated as described above. PostgreSQL/JSON
+persist immutable binding versions, desired/applied selections, encrypted private
+artifacts, execution intents, receipts, UID inventory and durable Git publication
+leases. The optional runtime (`-delivery-git-root`) wires a provider-neutral
+coordinator, Fleet adapter and direct artifact capture; default runtime remains
+direct. Authenticated binding/verification and Environment selection APIs and a
+VI/EN Settings panel are implemented. Preview pins selection and verification
+metadata; a pending batch acknowledges selection only after routes complete.
+
+Fleet v0.15.2 HTTPS GitRepo publish/observe/retained withdrawal conformance passed
+on an owned kind Kubernetes 1.35 cluster. Release storage is isolated from the
+Terraform application namespace. This is adapter evidence, not product browser
+E2E. Jobs reject TTL and immutable edits; acknowledged unchanged executions are
+reused. Missing phases use retained withdrawal plus UID cleanup.
+
+Direct↔Fleet handoff and explicit forward recovery are implemented. Real ordinary
+UI forms proved deployment with PostgreSQL/Redis, five application checks and a
+queued job DONE, configuration update, repeated handoffs with unchanged UIDs/Pod
+templates, and transfer to a preexisting GitRepo while retaining parent/sibling
+identity. See [execution progress](verification/2026-10-29-delivery-ui-progress.md).
+New stored observations use independent read-only leases/fences and a compact
+Console panel. Current-image UI proved off-policy drift separately from health,
+opt-in self-heal and a subsequent autonomous correction. Receipted Submit recovery
+and post-handoff policy recovery preserve completed Jobs/UIDs without resubmission;
+missing receipts remain held. The renderer auxiliary cleanup fix passed original
+application deletion; current-image cleanup also passed after the
+controller/Helm-release withdrawal timing fix. Explicit UID-proof removal
+recovery is implemented and passed through UI. Terraform encrypted input baseline
+capture and private-copy plan inspection passed real PostgreSQL/Terraform tests;
+scan queue, bounded scheduler, stored API and Console panel are implemented with
+platform opt-in (`-infrastructure-drift`, default off). Reviewed repair now has
+encrypted private plans, actor-bound single-use confirmation, private semantic
+comparison, stable-output/physical-inventory checks and a separate Console dialog.
+Real PostgreSQL review/fencing and real Terraform stale-private-value refusal
+checks pass. Actual UI E09/E10 passed on a fresh task-owned Compose database:
+controlled namespace drift, read-only scan, reviewed repair, full dependent scan,
+application business checks and UI cleanup with namespace/PV absence. Stable
+provider outputs are compared through exact historical encrypted baselines,
+without replacing consumer inputs. Owner-only retention has real PostgreSQL
+checks and a separate maintenance command; runtime privileges remain restricted.
+The remaining live semantic gates passed through ordinary Console forms:
+SQL migration Job completion survives update and both provider handoffs; CronJob
+children complete outside Git inventory; healthy HPA retains replica authority
+with self-heal; a template update prunes the retired object without rerunning the
+migration; public route UID survives handoff. Subsequent workload/Application UI
+cleanup verified namespace/PV absence and retained parent/sibling identity.
+R01–R08 acceptance is complete for the verified same-cluster Fleet v0.15.2 scope;
+separate management topology, Job TTL and Argo CD remain unsupported. There is
+no direct fallback while Fleet owns objects. Changes remain on
+`features/reconciliation`; the user explicitly requested no merge to main. See [IMP-039](implementation/deviations.md#imp-039--delivery-reconciliation-design-2026-10-28).
 
 ## Application deletion (UC-18) — 2026-10-27
 

@@ -2,7 +2,7 @@
 id: UC-08-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-28
 ---
 
 # UC-08 — Use Case Realization
@@ -171,3 +171,13 @@ captures redacted rendered manifest before Apply and associates applied baseline
 only after that workload is READY. All writes use existing owner/fence and short
 transactions; no network/renderer subprocess spans a DB transaction. UC-09 reads
 these records; no simulation timer, polling-triggered mutation or new scheduler.
+
+## ADR-030 collaboration extension
+
+InfrastructureDriftService loads private immutable execution baselines, claims Environment then State lock, runs read-only copied-state plan and stores safe findings. Reviewed repair separately admits fresh equivalent plans through tfexec.
+
+Canonical shared collaboration: [delivery sequence](../../architecture/components/delivery-reconciliation-sequence.puml),
+[participants](../../architecture/components/delivery-reconciliation-vopc.puml),
+[infrastructure sequence](../../architecture/components/infrastructure-drift-sequence.puml).
+These supplement the existing direct-path diagrams for this new design slice;
+[CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.

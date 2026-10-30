@@ -1294,3 +1294,35 @@ registry Git transport, PostgreSQL version 2. Assertions are defined in
 `gitcli_test.go`, PostgreSQL `upgrade_integration_test.go` and Console
 `PlatformSettingsPage.test.tsx`. Tests were added/updated but not executed at
 the user's request; fixture visual review is not runtime acceptance.
+
+## Optional CD and infrastructure reconciliation — ADR-030
+
+| Requirements | Canonical collaboration/storage | Validation |
+|---|---|---|
+| UC-01 CD-01..03; UC-04 CD-01..03; UC-05 CD-01..03 | Binding versions, desired/applied Environment selection; CDR-01/08, schema | R01/R05, E01/E06; CAS/role/scope and pure Preview tests |
+| UC-06 CD-01..07 | DeliveryCoordinator, provider/publisher ports, immutable revisions/intents; shared delivery sequence | R02–R05, E02–E06/E08; second-provider conformance, phase/revision/restart tests |
+| UC-07 CD-01..04; UC-18 CD-01..03 | Withdraw → UID remover → namespace cleanup; original receipts/union inventory | E07 and ownership/unknown-outcome tests |
+| UC-08 INF-01..04 | InfrastructureDriftService, private baseline/scan/repair reviews; infrastructure sequence | R06/R07, E09/E10; no-write scans and stale private-plan tests |
+| UC-09 REC-01..04 | Leased observer → immutable observations → stored query; independent dimensions | E04/E05; freshness, completeness, secret-redaction and scope tests |
+
+All R/E IDs are defined in the [implementation plan](../implementation/delivery-reconciliation.md).
+Implementation and execution evidence now exist in the
+[delivery UI record](../verification/2026-10-29-delivery-ui-progress.md).
+Domain/adapter/application/HTTP/component tests cover the mapped contracts;
+PostgreSQL role/fence/immutability and real Terraform checks cover encrypted
+baselines, complete no-write scans, stale private values, consumer-output changes
+and owner-only retention. E01/E03/E06/E07 and core E04/E05 have owned UI evidence;
+E09/E10 passed ordinary UI with subsequent native cleanup. E02 extra
+Job/CronJob/HPA/public-route semantics, template retirement and subsequent
+UI/native cleanup also passed. Evidence remains limited to the verified
+same-cluster Fleet v0.15.2 capability set.
+
+## Reconciliation merge compatibility — 2026-10-30
+
+ADR-027/ADR-030 → schema version 3, frozen `version-003.sql`,
+`003-reconciliation.sql`, `postgres/upgrade.go`. Populated frozen v2→v3 tests
+verify preserved Git settings and domain/state identities, DIRECT/off Environment
+defaults, concurrent/repeated execution, atomic rollback and runtime isolation.
+AppShell integration test preserves CD, platform Git and Admin navigation together.
+[Merge validation](../verification/2026-10-30-reconciliation-merge.md) owns results
+and explicitly separates fixture browser checks from live-provider acceptance.

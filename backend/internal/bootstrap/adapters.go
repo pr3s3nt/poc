@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"orchestrator/internal/adapters/awsaccess"
-	"orchestrator/internal/adapters/gitops"
 	k8s "orchestrator/internal/adapters/kubernetes"
 	moduleregistry "orchestrator/internal/adapters/terraform/registry"
 	"orchestrator/internal/application/connection"
@@ -74,23 +73,8 @@ func realAdapters(opts Options, credentials *connection.CredentialResolver, kube
 	}
 	direct := k8s.NewDeployer(opts.KubectlPath)
 	direct.Credentials = kubeconfig
-	deployer := execution.WorkloadDeployer(direct)
-	if opts.WorkloadDelivery == "fleet-gitrepo" {
-		if opts.Adapters != AdapterKubernetes {
-			return nil, nil, nil, fmt.Errorf("bootstrap: Fleet GitRepo delivery is only supported on internal Kubernetes")
-		}
-		fleetDeployer, err := gitops.New(gitops.Options{
-			RepoDir: opts.GitOpsRepoDir, Branch: opts.GitOpsBranch,
-			GitRepoName: opts.FleetGitRepoName, KubeContext: opts.Seed.KubeContext,
-			KubectlPath: opts.KubectlPath, RegistryHost: opts.HarborRegistryHost,
-			DockerConfigFile: opts.HarborDockerConfigFile, PullSecretName: opts.HarborPullSecretName,
-		})
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		deployer = fleetDeployer
-	} else if opts.WorkloadDelivery != "" && opts.WorkloadDelivery != "direct" {
+	if opts.WorkloadDelivery != "" && opts.WorkloadDelivery != "direct" {
 		return nil, nil, nil, fmt.Errorf("bootstrap: unknown workload delivery %q", opts.WorkloadDelivery)
 	}
-	return registry{executors: executors}, k8s.NewRenderer(), deployer, nil
+	return registry{executors: executors}, k8s.NewRenderer(), direct, nil
 }

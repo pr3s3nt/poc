@@ -2,7 +2,7 @@
 id: UC-01-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-28
 ---
 
 # UC-01 UI screens
@@ -102,3 +102,8 @@ replacement PASS. Application home explains that Definitions/references determin
 each workload/resource target; no Environment deployment prerequisite is shown.
 Per-resource Preview/progress remains in UC-05/06, and account onboarding in UC-04.
 The earlier target/transition screen descriptions are historical staged design.
+
+## Optional CD / reconciliation — ADR-030
+
+[Interaction design](delivery-reconciliation.md) defines the Environment opt-in, transition review
+and independent sync/health/drift presentation. Required design, not implemented UI.

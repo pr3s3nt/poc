@@ -2,7 +2,7 @@
 id: TERRAFORM-STATE-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-28
 related: [ADR-014, UC-06, UC-07, UC-08]
 ---
 
@@ -178,3 +178,10 @@ unknown state, update preserves identity/data, destructive update rejected,
 destroy ownership/consumer/dependency checks, retry timeout/cancellation và failed
 cleanup retained metadata. Acceptance giữ hai exceptions đã chốt, thêm bước user deletion trong V2-A01.
 Các tests khác không mở thêm live update/delete matrix hoặc disaster recovery.
+
+## ADR-030 scan and repair extension
+
+[Infrastructure drift contract](infrastructure-drift.md) adds copied-state,
+read-only scans under the existing lock protocol, encrypted immutable input
+baselines and explicit in-place repair reviews. Scan does not acknowledge state;
+repair uses its own admitted write capability. D12–D14 remain deferred.

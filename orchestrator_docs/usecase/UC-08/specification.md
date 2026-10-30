@@ -2,7 +2,7 @@
 id: UC-08-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-28
 ---
 
 # UC-08 — Provision Infrastructure and Application Resources
@@ -225,3 +225,25 @@ Environment policy.
 - **REV-03:** Internal/cloud cùng contract; VPC/EKS chỉ có nếu authored dependency
   yêu cầu. AWS managed resources có placement ngoài Kubernetes; không tự thêm
   EKS cho managed-only graph hoặc tạo public managed-only execution flow mới.
+
+## Infrastructure drift — ADR-030
+
+INF requirements replace OOS-06 only for acknowledged managed Terraform
+instances. Orphan import/recovery D12–D14 remain deferred.
+
+- **INF-01:** Scheduled/on-demand scans compare real provider state with the
+  last acknowledged pinned module/inputs/state baseline. No current Definition,
+  uncommitted draft or mutable latest secret substitution. Missing baseline is
+  unavailable, never clean; failed/partial queries are UNKNOWN.
+- **INF-02:** Scans are read-only to infrastructure and canonical state, fenced
+  against deployment/cleanup, bounded and restart-observable. Detect attribute
+  updates as well as missing resources; separate external drift from repair plan.
+- **INF-03:** No unattended Terraform apply. PE/Admin may review and confirm
+  exact in-place repair with fresh state/baseline guards. Changed scope/actions,
+  replacement/deletion/import, unknown consumer outputs or missing ownership
+  block repair; use an appropriate normal deployment/cleanup workflow instead.
+- **INF-04:** Successful repair acknowledges state/output contracts under existing
+  locks but does not rewrite deployment history or desired drafts. Unknown process
+  outcomes retain v2 holds. Secret/state/plan values never appear in reports.
+
+Algorithm and API: [infrastructure drift contract](../../architecture/contracts/infrastructure-drift.md).

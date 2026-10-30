@@ -224,3 +224,10 @@ Private scope is advanced. No shell/navigation or cross-Application scope change
 Sidebar adds “Cài đặt nền tảng” at `/ui/platform/settings`, in the platform
 group with PLATFORM_ENGINEER/ADMIN gating. Reuse the existing Secret Stores
 form and shell. [UC-03](../../usecase/UC-03/git-access.md) owns fields/states.
+
+## CD provider configuration — 2026-10-29
+
+PE/Admin navigation adds **Cấu hình CD**, `/ui/platform/cd-providers`, next to
+Driver Accounts/Secret Stores. Reuse platform list/form/card/status patterns and
+VI/EN catalogs. Developer has no authoring navigation or deep-link access. See
+[UC-04 CD configuration](../../usecase/UC-04/ui/cd-providers.md).

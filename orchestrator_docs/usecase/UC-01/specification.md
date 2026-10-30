@@ -2,7 +2,7 @@
 id: UC-01-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-28
 ---
 
 # UC-01 — Create Application and configure Environment destinations
@@ -137,3 +137,17 @@ The final removal also drops the unused Organization default-choice marker and
 its seed/SQL update path. Historical choice/default passages above do not define
 a surviving public entry. An account registration must preserve Organization
 metadata; it cannot select a target for a new or existing Environment.
+
+## Optional Environment delivery — ADR-030
+
+- **CD-01:** Each Environment defaults to DIRECT. In Settings, PE/Admin may
+  explicitly enable a verified CD provider, independently for staging/production.
+  Fleet is the first provider. No process-wide flag silently changes existing
+  Environments. Cluster placement remains Definition-selected.
+- **CD-02:** Save persists desired delivery only; current applied delivery stays
+  visible until Preview → Deploy succeeds. A selection-only change is deployable
+  even with no Score changes. Changing manager on deployed workloads requires
+  the ownership transition in [CDR-07](../../architecture/contracts/delivery-reconciliation.md#cdr-07--delivery-transition).
+- **CD-03:** Self-heal is a separate explicit capability-gated option, initially
+  off; enabling CD does not implicitly enable repair. Infrastructure behavior is
+  independent. Busy, stale, unsupported and unknown-outcome states are explicit.

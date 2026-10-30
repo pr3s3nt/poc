@@ -2,7 +2,7 @@
 id: UC-04-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-28
 ---
 
 # UC-04 — Use Case Realization
@@ -191,3 +191,22 @@ See [diagnostic sequence](diagnostics-sequence.puml),
 Bootstrap gọi seed staging để bổ sung Types còn thiếu và giữ schemas đã tồn
 tại. Account registration qua Driver Accounts giữ verify/Vault/transaction
 hiện hành; màn hình Connections cũ bị gỡ, backing repository không đổi.
+
+## ADR-030 collaboration extension
+
+Binding controller validates a versioned provider schema, resolves scoped private identities and invokes read-only Verify; capability/target facts are persisted independently of deployment.
+
+Canonical shared collaboration: [delivery sequence](../../architecture/components/delivery-reconciliation-sequence.puml),
+[participants](../../architecture/components/delivery-reconciliation-vopc.puml),
+[infrastructure sequence](../../architecture/components/infrastructure-drift-sequence.puml).
+These supplement the existing direct-path diagrams for this new design slice;
+[CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.
+
+## CD configuration page — 2026-10-29
+
+Platform page consumes provider descriptors with typed fields and read-only
+configuration discovery. Binding service validates Organization/account version,
+creates immutable versions with scoped credential retain/replace, and supplies
+safe details/Environment usage. Fleet discovery reads Cluster/GitRepo metadata
+from the selected management account; it returns no Secret contents. Lifecycle
+coordinator remains independent of MANAGED/EXISTING publication topology.

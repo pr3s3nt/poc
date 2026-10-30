@@ -99,6 +99,24 @@ it('polls an active operation and clears the banner when it ends', async () => {
   await waitFor(() => expect(screen.queryByRole('region', { name: 'Thao tác trên môi trường' })).not.toBeInTheDocument());
 });
 
+it('refreshes stale recovery ownership before showing the Settings recovery action', async () => {
+  let interrupted = false;
+  const operation = { id: 'op1', kind: 'DEPLOY', status: 'RECOVERING', stage: 'DELIVERY_POLICY', startedAt: '', updatedAt: '', heartbeatAt: '', recoverable: false };
+  const active = configuredTarget({ activeOperation: operation });
+  stub((url) => {
+    if (url.endsWith('/environments/staging/operations')) { interrupted = true; return Response.json({ operations: [] }); }
+    if (url.endsWith('/applications/catalog')) return Response.json({ application: { environments: [envJson(configuredTarget({ activeOperation: { ...operation, status: interrupted ? 'INTERRUPTED' : 'RECOVERING', recoverable: interrupted } }))] } });
+  });
+  function Host() {
+    const [application, setApplication] = useState(app(active));
+    return <OperationBanner application={application} environment="staging" pollMs={20} onTargetChange={(_i, env, target) => setApplication((current) => ({ ...current, environments: { ...current.environments, [env]: target } }))} />;
+  }
+  render(<Host />);
+  expect(await screen.findByRole('checkbox', { name: 'Tôi xác nhận thao tác bị gián đoạn đã dừng hẳn' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Khôi phục môi trường' })).toBeDisabled();
+  expect(vi.mocked(fetch).mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true);
+});
+
 
 
 it('learns about a started and a released operation by polling when the page was opened earlier', async () => {

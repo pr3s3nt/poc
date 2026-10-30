@@ -2,7 +2,7 @@
 id: UC-04-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-28
 ---
 
 # UC-04 — Infrastructure Driver Accounts and Secret Stores
@@ -408,3 +408,37 @@ và acceptance-v2 tiếp tục là lựa chọn tường minh cho development/te
 Console chỉ cung cấp Driver Accounts; bỏ màn hình/menu Connections cũ. Backing
 record và credential store nội bộ không đổi. Người vận hành đăng ký Internal
 Driver Account `k8s-4f` bằng kubeconfig thật; startup không tạo account READY giả.
+
+## CD provider bindings — ADR-030
+
+- **CD-01:** PE/Admin can register/version/verify an Organization-scoped delivery
+  binding. Management identity, Git writer identity, controller read identity and
+  actual workload target are distinct. Verification checks target registration
+  and capabilities read-only; it neither installs Fleet nor enrolls a cluster.
+- **CD-02:** Verification is not deployment success. Missing/unready/foreign or
+  incompatible bindings fail before delivery side effects; no host credentials,
+  wildcard target or default controller namespace is inferred. Original versions
+  remain usable for observation/cleanup while their credentials remain valid.
+- **CD-03:** Credential inputs are write-only and use private storage. Developers
+  see eligible names/capabilities but cannot alter credentials or controller
+  topology. No Git credential, raw provider config or secret enters review/logs.
+
+- **CD-04 (user decision 2026-10-29):** PE/Admin manage CD bindings through
+  **Cấu hình CD** at `/ui/platform/cd-providers`: list, create, view, create a new
+  immutable configuration version, verify and inspect Environment usage. Ordinary
+  forms are sufficient; no JSON/Score editor is required for this workflow.
+- **CD-05:** Fleet bindings explicitly choose **MANAGED** (Orchestrator creates
+  scoped GitRepos) or **EXISTING** (use a named preexisting GitRepo). Existing
+  registration/controller/reader credentials remain platform-owned. Verification
+  discovers and pins its UID, repository, branch, root, target and agent namespace;
+  ambiguous/multiple-target or overlapping publication scope is rejected. Changes
+  to existing configuration invalidate verification. Orchestrator must never
+  replace/delete the preexisting GitRepo or publish outside its assigned subtree.
+- **CD-06:** Controller namespace and agent namespace are separate configuration
+  identities. Environment Settings links to this platform page when no provider
+  is ready; it selects a verified version, never edits controller/Git credentials.
+- **CD-07:** Browser acceptance performs happy paths through ordinary forms for
+  CD setup, Environment selection, application/workload/dependency configuration,
+  Preview/Deploy/update/manager transfer/removal. No pasted JSON, Score/YAML or
+  mutation API shortcuts substitute for UI actions. Technical read-only assertions
+  may verify real Git revisions, resource ownership, data, readiness and cleanup.

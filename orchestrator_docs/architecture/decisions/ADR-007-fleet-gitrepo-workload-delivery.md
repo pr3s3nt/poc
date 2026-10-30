@@ -2,7 +2,7 @@
 id: ADR-007
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-28
 ---
 
 # ADR-007 — Fleet GitRepo workload delivery on internal kind
@@ -81,3 +81,10 @@ added by T22; the historical proof below does not establish current availability
 - [Fleet GitRepo resource](https://fleet.rancher.io/reference/ref-gitrepo)
 - [Fleet repository paths](https://fleet.rancher.io/explanations/gitrepo-content)
 - [Fleet private repository authentication](https://fleet.rancher.io/how-tos-for-users/gitrepo-add)
+
+## ADR-030 successor design
+
+[ADR-030](ADR-030-delivery-reconciliation.md) supersedes the fixed-kind/global
+mode for the planned optional Environment delivery path. It adds scoped binding,
+durable revision tracking and guarded retained withdrawal. Existing code remains
+unavailable until that successor is implemented and accepted.

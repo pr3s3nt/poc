@@ -2,7 +2,7 @@
 id: UC-18-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 related: [UC-18-SPEC, ADR-025]
 ---
 
@@ -100,3 +100,13 @@ reports unsuspended applied CronJobs before Application admission/freeze. The
 existing removal adapter checks live UID-owned Jobs during execution. Full owned
 resource cleanup remains reverse graph order (claim before namespace); ordinary
 UC-07 namespace cleanup retains its separate data guard.
+
+## ADR-030 collaboration extension
+
+ApplicationDeletionService invokes original applied delivery withdrawal and guarded workload/control-metadata cleanup before Terraform namespace removal. Unknown publication/transition/withdrawal outcomes block downstream cleanup.
+
+Canonical shared collaboration: [delivery sequence](../../architecture/components/delivery-reconciliation-sequence.puml),
+[participants](../../architecture/components/delivery-reconciliation-vopc.puml),
+[infrastructure sequence](../../architecture/components/infrastructure-drift-sequence.puml).
+These supplement the existing direct-path diagrams for this new design slice;
+[CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.

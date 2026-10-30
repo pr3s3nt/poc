@@ -2,6 +2,7 @@ package runner_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net"
 	"os"
@@ -381,5 +382,56 @@ func TestFakeCLIEscapedPipeHolderIsBoundedAndUnconfirmed(t *testing.T) {
 	works, _ := filepath.Glob(filepath.Join(art.Root, "work-*"))
 	if len(works) == 0 {
 		t.Fatal("the private workspace was removed while a process may still hold it")
+	}
+}
+
+// Actual local-only Terraform plan inspection; no cloud/cluster or canonical
+// backend state mutation. Safe findings and private review bytes stay distinct.
+func TestActualPrivateDriftPlanInspectionPreservesLocalBaseline(t *testing.T) {
+	ctx := context.Background()
+	r := runner.New(runner.Options{})
+	first := open(t, r, []byte{}, vars("1", "approved", "stable"))
+	if err := first.Init(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := first.Plan(ctx, terraformexec.PlanApply); err != nil {
+		t.Fatal(err)
+	}
+	if err := first.Apply(ctx); err != nil {
+		t.Fatal(err)
+	}
+	state, err := first.PullState(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second := open(t, r, state, vars("1", "reviewed-update", "stable"))
+	if err := second.Init(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := second.Plan(ctx, terraformexec.PlanApply); err != nil {
+		t.Fatal(err)
+	}
+	inspector, ok := second.(terraformexec.DriftPlanSession)
+	if !ok {
+		t.Fatal("private plan inspection unavailable")
+	}
+	report, err := inspector.InspectDrift(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !report.InPlaceOnly() || len(report.External) != 0 || len(report.Proposed) != 1 || report.Proposed[0].Address != "terraform_data.t" {
+		t.Fatalf("local update review gate: applyable=%v complete=%v external=%d proposed=%d outputs=%d unknownOutputs=%v", report.Applyable, report.Complete, len(report.External),len(report.Proposed),len(report.OutputNames),report.OutputsUnknown)
+	}
+	raw, err := inspector.ReadSavedPlan(ctx)
+	if err != nil || len(raw) == 0 {
+		t.Fatal("private saved plan unavailable", err)
+	}
+	after, err := second.PullState(ctx)
+	if err != nil || string(state) != string(after) {
+		t.Fatal("inspection mutated the copied state", err)
+	}
+	public, err := json.Marshal(report)
+	if err != nil || strings.Contains(string(public), "s3cret-value") || strings.Contains(string(public), report.PrivateChangeDigest) || strings.Contains(string(public), "reviewed-update") {
+		t.Fatal("private plan data leaked")
 	}
 }

@@ -250,3 +250,19 @@ ZIP-01..04. Source preparation/provenance follows
 [ADR-026](../../architecture/decisions/ADR-026-zip-source-upload.md);
 Preview, rendering, update/reuse and cleanup keep their existing pinned-engine
 and cache contracts. No upload or source fetch is introduced into this use case.
+
+## Provider-neutral update and removal — ADR-030
+
+- **CD-01:** Update/remove use original applied binding, target, artifacts and
+  inventory even if desired selection/catalog has changed. Pending changes do
+  not grant ownership to a different manager.
+- **CD-02:** Provider withdrawal must be acknowledged before guarded deletion.
+  Delete/prune use UID-precondition checks for the whole owned inventory, including
+  extra kinds and provider release metadata. Provider-native broad prune cannot
+  weaken RB-03 ownership. Shared/preexisting objects and UC-08 resources remain.
+- **CD-03:** Keep union inventory on partial update/removal and block cleanup
+  dependencies until absence is proven. Retry reads durable checkpoints; a failed
+  Git push or disconnected controller is not successful removal.
+- **CD-04:** Disabling CD changes desired selection, not live ownership. Removal
+  during a pending toggle uses applied manager; admitted transitions hold the
+  Environment until completed or explicitly recovered.

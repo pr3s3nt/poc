@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-INDEX
 artifact: implementation-index
 status: current
-last_reviewed: 2026-10-25
+last_reviewed: 2026-10-28
 ---
 
 # Implementation documentation
@@ -38,3 +38,9 @@ required product behavior trong specification.
 - [Git render bundles implementation handoff](git-render-bundles.md) — ADR-021 work breakdown and real acceptance gate; not implementation evidence.
 
 - [Workload catalog — issue #24, design review và implementation gates](workload-catalog.md).
+
+## Optional CD and reconciliation
+
+[Design and implementation plan](delivery-reconciliation.md): Environment opt-in,
+Fleet first through common ports, independent Terraform drift scans and reviewed
+repair. Planned implementation; see IMP-039 before making availability claims.

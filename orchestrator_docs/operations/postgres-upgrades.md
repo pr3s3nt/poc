@@ -83,7 +83,7 @@ local `/tmp` is a crowded tmpfs, set `TMPDIR` to a new task-owned directory on a
 disk with enough space: Terraform executor fixtures copy multiple real binaries.
 Do not clear another session's temporary files to make tests pass.
 
-## Current version: 2 — platform Git settings
+## Version 2 — platform Git settings
 
 The current runtime also accepts the frozen version-1 schema as an upgrade
 source (marker `orchestrator-schema-v1`). Owner setup validates its history and
@@ -91,3 +91,13 @@ catalog, applies `002-git-settings.sql`, grants the new table to Console only,
 and records version 2 atomically. Original migrations/references remain frozen.
 Legacy supported sources first transition through version 1. Run the same
 backup/quiesce/owner-setup procedure above; do not reset existing data.
+
+## Current version: 3 — optional CD and infrastructure reconciliation
+
+Owner setup upgrades frozen version 2 with `003-reconciliation.sql` and records
+version 3 atomically with the new grants. Existing Environments stay DIRECT with
+self-heal disabled; no provider is enabled and no old Terraform baseline is
+inferred. Existing platform Git settings and all domain/state identities remain.
+Earlier supported versions first traverse the unchanged version 1/2 migrations.
+Follow the backup/quiesce procedure above; this code merge does not authorize
+upgrading or deploying to a retained environment.

@@ -9,6 +9,9 @@ function pins(node: ReviewNode) {
     node.module?.contentSha256, node.renderer, node.rendererDigest]);
 }
 export function correlateReviewProgress(review: DeploymentReviewData, details: DeploymentDetail[], operationStatus?: string): ReviewProgress[] {
+  // A delivery-only transfer has no infrastructure/workload execution graph.
+  // Keep its persisted operation visible without inventing node observations.
+  if (review.version !== 1 || !Array.isArray(review.nodes)) return [];
   return review.nodes.map(node => {
     const unknown:ReviewProgress = { nodeId:node.id, state:'UNKNOWN', blockingProviderIds:[], observedAt:'' };
     const observations = details.flatMap(detail => {

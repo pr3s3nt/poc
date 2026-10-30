@@ -2,7 +2,7 @@
 id: UC-18-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 related: [ADR-025, UC-01, UC-07, UC-08, UC-12]
 ---
 
@@ -143,3 +143,15 @@ Giới hạn còn lại ở [IMP-038](../../implementation/deviations.md#imp-038
 - BR-15: Suspension does not cancel active Jobs. UID-owned active Jobs still block
   runtime removal; the deletion stays incomplete and can be retried after they
   finish. No implicit cancellation or manual Job trigger is added.
+
+## CD-aware Application deletion — ADR-030
+
+- **CD-01:** Preview includes applied delivery bindings/units, retained infrastructure
+  and owned provider metadata. Desired toggle does not replace applied authority.
+- **CD-02:** REMOVING_WORKLOADS withdraws the actual CD controller and verifies
+  UID-safe workload/route/control-metadata absence before Terraform namespace
+  cleanup. Interrupted transition/publish/withdrawal is a blocker, not a reason
+  to bypass guards. Preinstalled Fleet/registered clusters/credentials are kept.
+- **CD-03:** Retry restores original receipts and checkpoints; provider unavailable
+  leaves DELETING with remaining IDs. Do not destroy namespace while Fleet can
+  recreate objects, or mark application deleted on Git path removal alone.

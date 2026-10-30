@@ -1,0 +1,57 @@
+@startuml
+title ADR-030 — Infrastructure scan and explicitly reviewed repair
+autonumber
+actor "PE / Admin" as User
+control "Scheduler / API" as Trigger
+control "InfrastructureDriftService" as Service
+database "Repository / private artifacts" as DB
+control "Environment operation + State lock" as Lock
+boundary "Pinned Terraform runner" as TF
+participant "Provider" as Provider
+control "State service (UPDATE capability)" as State
+Trigger -> Service: Scan acknowledged baseline
+Service -> DB: Read original baseline/pins (missing => unavailable)
+Service -> Lock: Claim Environment, then instance state lock
+Service -> TF: Plan with refresh, private copied state and pinned inputs
+TF -> Provider: Read actual infrastructure
+TF --> Service: Complete private plan / drift / safe error
+Service -> DB: Store safe findings; canonical state unchanged
+Service -> Lock: Release only after process exit confirmed
+User -> Trigger: Prepare repair(selected instances, scan)
+Trigger -> Service: Generate exact repair review
+Service -> Lock: Claim plan preparation
+Service -> TF: Plan baseline; validate stable consumer outputs
+TF --> Service: Saved plan, action set, private change digest
+Service -> DB: Encrypted plan + expiring review token
+Service -> Lock: Release after process stopped
+Service --> User: Safe actions / blockers / expiry
+User -> Trigger: Confirm review(token, requestId)
+Trigger -> Service: Admit exact reviewed scope
+Service -> Lock: Fresh owner + state locks
+Service -> DB: Recheck baseline/state/dependency versions
+note right of DB
+Stable-output dependency acknowledgements use
+exact original and latest encrypted baselines.
+No consumer input/draft substitution.
+end note
+Service -> TF: Re-plan and compare full private changes
+alt stale / destructive / unknown consumer impact
+  Service --> User: Require new review / normal deploy; no apply
+else equivalent in-place plan
+  Service -> TF: Apply verified saved plan
+  TF -> Provider: In-place update
+  TF --> Service: Pulled state + validated stable outputs/inventory
+  Service -> State: Acknowledge with original lock/fence, attempt and capability
+  State -> DB: Persist encrypted state and successful baseline
+  Service -> DB: Persist execution result; retain deployment history
+end
+Service -> Lock: Release only on confirmed terminal outcome
+note over Service, Lock
+Unknown process outcomes hold existing v2 locks.
+No auto apply, orphan import or state refresh acceptance.
+end note
+note over DB
+Owner-only bounded retention: scans 30d, private plans 24h.
+Referenced audit and unresolved recovery evidence retained.
+end note
+@enduml

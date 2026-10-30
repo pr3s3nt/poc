@@ -2,7 +2,7 @@
 id: UC-09-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-28
 related: UC-09
 ---
 
@@ -127,3 +127,8 @@ these product views. Keyboard and mouse can inspect chart points.
 Narrow application views wrap the four telemetry summary cards into two columns
 and keep the detail charts in one column. Generated resource descriptors wrap
 inside their rows while retaining visible status; they do not widen the viewport.
+
+## Optional CD / reconciliation — ADR-030
+
+[Interaction design](../../UC-01/ui/delivery-reconciliation.md) defines the Environment opt-in, transition review
+and independent sync/health/drift presentation. Required design, not implemented UI.

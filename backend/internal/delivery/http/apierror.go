@@ -14,12 +14,14 @@ import (
 	"orchestrator/internal/application/catalog"
 	appconfig "orchestrator/internal/application/configuration"
 	connectionapp "orchestrator/internal/application/connection"
+	deliveryapp "orchestrator/internal/application/delivery"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/preview"
 	"orchestrator/internal/application/resourcecleanup"
 	"orchestrator/internal/application/secretstores"
 	"orchestrator/internal/application/workloadconfig"
+	deliverydomain "orchestrator/internal/domain/delivery"
 	diagdomain "orchestrator/internal/domain/diagnostics"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/renderbundle"
@@ -38,6 +40,11 @@ import (
 // err.Error(): cause text can quote submitted values, credentials, provider
 // output or catalog content. Clients choose their own wording from the code.
 const (
+	codeDeliveryBaselineRequired  = "DELIVERY_BASELINE_REQUIRED"
+	codeDeliveryUnsupported       = "DELIVERY_UNSUPPORTED_CAPABILITY"
+	codeDriftBaselineUnavailable  = "DRIFT_BASELINE_UNAVAILABLE"
+	codeDriftRepairBlocked        = "DRIFT_REPAIR_BLOCKED"
+	codeDriftRepairStale          = "DRIFT_REPAIR_STALE"
 	codeInvalidRequest            = "INVALID_REQUEST"
 	codeInvalidID                 = "INVALID_ID"
 	codeInvalidVariable           = "INVALID_VARIABLE"
@@ -106,6 +113,11 @@ type publicError struct {
 }
 
 var publicErrors = map[string]publicError{
+	codeDeliveryBaselineRequired:        {http.StatusConflict, "the applied delivery artifact and incarnation baseline is required"},
+	codeDeliveryUnsupported:             {http.StatusUnprocessableEntity, "the selected delivery capability is not supported"},
+	codeDriftBaselineUnavailable:        {http.StatusUnprocessableEntity, "an acknowledged execution baseline is required"},
+	codeDriftRepairBlocked:              {http.StatusUnprocessableEntity, "this repair requires a normal deployment review"},
+	codeDriftRepairStale:                {http.StatusConflict, "the infrastructure repair review is stale"},
 	codeInvalidRequest:                  {http.StatusBadRequest, "the request is not valid"},
 	codeInvalidID:                       {http.StatusBadRequest, "the id does not follow the id rules"},
 	codeInvalidVariable:                 {http.StatusBadRequest, "a variable name, value or reference is not valid"},
@@ -333,6 +345,16 @@ func classify(err error) (failure, bool) {
 	var bundleField *renderbundles.BundleInvalidError
 	var diagField *diagdomain.FieldError
 	switch {
+	case errors.Is(err, deliveryapp.ErrBaselineRequired):
+		return failure{code: codeDeliveryBaselineRequired}, true
+	case errors.Is(err, deliverydomain.ErrUnsupported):
+		return failure{code: codeDeliveryUnsupported}, true
+	case errors.Is(err, deliverydomain.ErrOutcomeUnknown):
+		return failure{code: codeRecoveryIncomplete}, true
+	case errors.Is(err, deliverydomain.ErrStale):
+		return failure{code: codeStalePreview}, true
+	case errors.Is(err, deliveryapp.ErrUnavailable):
+		return failure{code: codeServiceUnavailable}, true
 	case errors.As(err, &diagField):
 		return failure{code: codeDiagnosticScope, field: diagField.Field}, true
 	case errors.Is(err, diagdomain.ErrInvalidScope):

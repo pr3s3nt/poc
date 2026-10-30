@@ -37,6 +37,11 @@ type ModuleSource interface {
 
 // Deps are the ports of the service.
 type Deps struct {
+	StateWriter interface {
+		Write(context.Context, string, string, string, []byte) error
+	}
+	Baselines terraformstate.BaselineRepository
+	Cipher    terraformstate.Cipher
 	State     terraformstate.Repository
 	Tokens    CapabilityIssuer
 	Modules   ModuleSource
@@ -89,6 +94,8 @@ type Service struct {
 // readiness check.
 func New(cfg Config, deps Deps) (*Service, error) {
 	switch {
+	case (deps.Baselines == nil) != (deps.Cipher == nil):
+		return nil, errors.New("tfexec: baseline persistence and its State cipher must be configured together")
 	case deps.State == nil || deps.Tokens == nil || deps.Modules == nil || deps.Runner == nil || deps.Binder == nil ||
 		deps.Readiness == nil || deps.Recovery == nil || deps.Verification == nil || deps.Secrets == nil:
 		return nil, errors.New("tfexec: state, capability, module, runner, binder, readiness, recovery and secret ports are all required")

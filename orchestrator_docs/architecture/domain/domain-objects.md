@@ -2,7 +2,7 @@
 id: DOMAIN-OBJECTS
 artifact: domain-persistence-classification
 status: current
-last_reviewed: 2026-10-25
+last_reviewed: 2026-10-28
 ---
 
 # Domain Objects and Persistence Classification
@@ -266,3 +266,18 @@ Read models/queries and port bounds are owned by the
 [telemetry contract](../contracts/observability.md). Credential resolution stays
 outside this aggregate; no credential document/provider diagnostic belongs in
 its persisted state or public DTO.
+
+## ADR-030 delivery and drift aggregates (required design)
+
+`BindingVersion` owns immutable provider configuration/capabilities;
+`DeliveryUnit` owns scoped lifecycle and pending/successful revision pointers;
+`DeliveryRevision` is immutable approved payload/phase/policy;
+`DeliveryIntent` records fenced side effects/checkpoints;
+`Observation` records sync/health/drift independently from historical Deployment.
+Environment owns desired/applied selection and delivery epoch, not placement.
+Terraform execution baselines, scans and repair reviews are distinct from Active
+Resource health. Private input/plan values stay in encrypted artifact storage.
+
+These are new required aggregates, not implemented entities. Storage constraints:
+[schema](../database/schema.md#delivery-and-drift--adr-027-required-design);
+relationships/participants: [supplemental class diagram](../components/delivery-reconciliation-vopc.puml).

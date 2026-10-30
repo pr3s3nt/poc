@@ -61,3 +61,5 @@ ZIP source upload: [ADR-026](ADR-026-zip-source-upload.md).
 - [ADR-027 — PostgreSQL upgrades preserving data](ADR-027-postgres-upgrades.md) — supersedes PostgreSQL fresh-only/reset policy.
 
 - [ADR-029 — Platform Git access](ADR-029-platform-git-access.md).
+
+- [ADR-030 — Optional CD providers and infrastructure reconciliation](ADR-030-delivery-reconciliation.md) — required design, not yet implemented.

@@ -21,6 +21,8 @@ export interface EnvironmentOperation {
 
 /** Identity, secret-store selection, draft version and operation only. */
 export interface EnvironmentTarget {
+	 reconciliationEnabled?: boolean;
+	 infrastructureDriftEnabled?: boolean;
   version: number;
   secretStoreKey: string;
   secretStoreName?: string;

@@ -2,7 +2,7 @@
 id: UC-09-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-28
 ---
 
 # UC-09 context — Observe deployment
@@ -51,3 +51,9 @@ Read [TEL requirements](specification.md#native-application-observability--tel),
 [shared contract](../../architecture/contracts/workload-catalog.md) và
 [implementation handoff](../../implementation/workload-catalog.md) mô tả phần
 mở rộng đang review; chưa thay thế current behavior hoặc chứng minh implementation.
+
+## Optional CD and reconciliation — ADR-030
+
+Read this use case's CD/INF/REC specification extension, then the
+[design and implementation route](../../implementation/delivery-reconciliation.md).
+Required design only; current runtime availability is tracked separately.

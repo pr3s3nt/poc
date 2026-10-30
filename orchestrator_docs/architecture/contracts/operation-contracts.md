@@ -2,7 +2,7 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-10-28
 ---
 
 # Operation Contracts
@@ -541,6 +541,8 @@ HTTP status, org/app/env scoping, CAS, fencing và transaction semantics giữ n
 | `TRANSITION_SAME_DESTINATION` / `DESTINATION_UNAVAILABLE` | 422 | Chọn đích khác/hợp lệ; không suy fallback. |
 | `NO_RUNTIME` | 409 | Không có runtime để chuyển. |
 | `DOWNTIME_ACK_REQUIRED` / `RECOVERY_CONFIRMATION_REQUIRED` | 422 | Cần xác nhận theo flow hiện hành. |
+| `DELIVERY_BASELINE_REQUIRED` | 409 | Thiếu applied artifact/UID để bàn giao; cần redeploy bằng manager hiện tại trước. |
+| `DELIVERY_UNSUPPORTED_CAPABILITY` | 422 | Provider không hỗ trợ capability/thao tác được yêu cầu; không fallback direct. |
 | `CLEANUP_REFUSED` / `NOT_RECOVERABLE` / `RECOVERY_INCOMPLETE` | 409 | Cleanup/recovery không được phép hoặc chưa hoàn tất; giữ hướng dẫn can thiệp. |
 | `OPERATION_LOST` | 409 | Operation đã gián đoạn/mất ownership; không tự takeover. |
 | `ROUTE_RECONCILE_FAILED` | 502 | Workload đã được áp dụng; Preview lại để retry route, không tự restart. |
@@ -949,3 +951,11 @@ OC-04b catalog/OC-04 Definition extensions follow the single canonical
 [RB-C07 HTTP contract](git-render-bundles.md#rb-c07--http-operations-and-errors).
 UC-03 owns authoring, UC-05 pins/reviews and UC-06/07 execute/update/remove.
 Existing Terraform operations and admission/CAS contracts are unchanged.
+
+## ADR-030 delivery and infrastructure drift extensions
+
+[CDR-08](delivery-reconciliation.md#cdr-08--public-api) defines new binding,
+Environment selection, observation and reconciliation APIs and extensions to
+existing Preview/Deploy. [INF-C04](infrastructure-drift.md#inf-c04--http-and-rbac)
+defines scan and separate reviewed repair APIs. These are required, unimplemented
+contracts; existing pure Score Preview never calls Terraform or CD providers.

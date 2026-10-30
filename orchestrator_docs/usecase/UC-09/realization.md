@@ -2,7 +2,7 @@
 id: UC-09-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-28
 ---
 
 # UC-09 — Use Case Realization
@@ -113,3 +113,13 @@ Authenticated `ObservabilityController` queries the same repository through
 metric series; it never calls the reader. Console home/detail share source facts
 and keep missing/current/peak values distinct. Collaboration:
 [sequence](telemetry-sequence.puml), [image](telemetry-sequence.png).
+
+## ADR-030 collaboration extension
+
+ObservationWorker reads persisted admitted revisions under per-unit leases and maps provider observations to sync/health/drift. QueryController serves stored summaries; historical Deployment state remains unchanged.
+
+Canonical shared collaboration: [delivery sequence](../../architecture/components/delivery-reconciliation-sequence.puml),
+[participants](../../architecture/components/delivery-reconciliation-vopc.puml),
+[infrastructure sequence](../../architecture/components/infrastructure-drift-sequence.puml).
+These supplement the existing direct-path diagrams for this new design slice;
+[CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.

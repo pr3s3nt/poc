@@ -83,7 +83,9 @@ func newTerraformExecutor(opts Options, tf *terraformRuntime, resolver *connecti
 	}
 	checker := &readiness.Checker{Kubectl: kubectl, AWS: aws, Dir: work}
 	return tfexec.New(tfexec.Config{BackendBase: listener.Address, Tags: tags, CreationTags: creation, InvocationTimeout: opts.TerraformInvocationTimeout, ReadinessTimeout: opts.TerraformReadinessTimeout}, tfexec.Deps{
-		State: tf.repo, Tokens: tf.svc, Modules: modules,
+		Baselines: tf.repo, Cipher: tf.cipher,
+		StateWriter: tf.svc,
+		State:       tf.repo, Tokens: tf.svc, Modules: modules,
 		Runner:    runner.New(terraformRunnerOptions(opts)),
 		Binder:    &providers.Binder{AWS: resolver, Kube: resolver, API: aws, Dir: filepath.Join(work)},
 		Readiness: checker, Namespaces: checker,

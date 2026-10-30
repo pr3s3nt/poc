@@ -915,3 +915,55 @@ Go/React suites were not repeated for this operator-script change.
 - [Repository](../../backend/internal/ports/persistence/gitsettings.go),
   PostgreSQL `gitsettings.go`, JSON `store/gitsettings.go`; immutable migration
   `002-git-settings.sql` and frozen `version-002.sql`.
+
+## Delivery reconciliation foundation — ADR-030
+
+- Domain selection/capabilities/revision observations and mutation-state guards:
+  [delivery domain](../../backend/internal/domain/delivery/delivery.go),
+  [mutation lifecycle](../../backend/internal/domain/delivery/intent.go).
+- Provider/ownership contracts and explicit registry:
+  [delivery port](../../backend/internal/ports/delivery/delivery.go),
+  [registry](../../backend/internal/ports/delivery/registry.go).
+- Optional runtime wiring lives in [bootstrap](../../backend/internal/bootstrap/delivery.go)
+  and the [coordinator](../../backend/internal/application/delivery/coordinator.go).
+  Remaining acceptance gates are in the [implementation plan](delivery-reconciliation.md).
+
+
+ADR-030 storage and publication additions:
+[PostgreSQL binding/selection repository](../../backend/internal/adapters/postgres/delivery.go),
+[JSON/store repository](../../backend/internal/adapters/store/delivery.go),
+[shared persistence contract](../../backend/internal/ports/persistence/persistencetest/delivery.go),
+[Git publisher](../../backend/internal/adapters/gitpublication/git.go),
+[Fleet packaging](../../backend/internal/adapters/delivery/fleet/package.go),
+[controller management](../../backend/internal/adapters/delivery/fleet/manager.go).
+
+
+Stored delivery observations: [worker/service](../../backend/internal/application/delivery/observations.go),
+[repository contract](../../backend/internal/ports/persistence/delivery_observation.go),
+[PostgreSQL leases](../../backend/internal/adapters/postgres/delivery_observation.go),
+[HTTP read](../../backend/internal/delivery/http/reconciliation.go) and
+[Console panel](../../frontend/src/features/delivery/ReconciliationPanel.tsx).
+Retired direct auxiliary cleanup: [deployment hook](../../backend/internal/application/deployment/retired_auxiliary.go)
+before Application namespace destruction. Terraform drift's separate private-plan
+parser is [domain/drift](../../backend/internal/domain/drift/plan.go);
+[encrypted baseline capture](../../backend/internal/application/tfexec/baseline.go),
+[private-copy inspection](../../backend/internal/application/tfexec/drift.go) and
+[private PostgreSQL pins](../../backend/internal/adapters/postgres/drift_baselines.go)
+are implemented. [Scan worker](../../backend/internal/application/drift/service.go),
+[scan API](../../backend/internal/delivery/http/drift.go),
+[reviewed repair](../../backend/internal/application/drift/repair.go),
+[private repair executor](../../backend/internal/application/tfexec/drift_repair.go),
+[review persistence](../../backend/internal/adapters/postgres/drift_repair_reviews.go),
+[scan panel](../../frontend/src/features/delivery/InfrastructureDriftPanel.tsx) and
+[repair dialog](../../frontend/src/features/delivery/InfrastructureRepairDialog.tsx)
+are in runtime acceptance. The parser preserves the existing cleanup parser's
+delete-only drift contract and never serializes private comparison digests.
+
+Explicit recovery: [receipted Submit](../../backend/internal/application/delivery/submission_recovery.go),
+[handoff](../../backend/internal/application/delivery/transfer_recovery.go),
+[UID-proof removal](../../backend/internal/application/delivery/removal_recovery.go).
+Fleet-specific [policy field ownership](../../backend/internal/adapters/delivery/fleet/policy_fields.go)
+and [downstream release retirement](../../backend/internal/adapters/delivery/fleet/withdraw_wait.go)
+stay behind the provider port.
+
+ADR-030 retention: [owner maintenance](../../backend/internal/adapters/postgres/drift_retention.go) is invoked by `-prune-drift-history`; exact catalog/role checks and schema triggers preserve active/recovery evidence without runtime DELETE privileges. [Historical dependency comparison](../../backend/internal/application/tfexec/drift_dependencies.go) retains original consumer inputs across stable-output acknowledgements.

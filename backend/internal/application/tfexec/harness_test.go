@@ -22,6 +22,7 @@ import (
 	"orchestrator/internal/application/tfexec"
 	deliveryhttp "orchestrator/internal/delivery/http"
 	"orchestrator/internal/domain/application"
+	"orchestrator/internal/domain/drift"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
@@ -276,6 +277,9 @@ type countingRunner struct {
 	onResources func([]terraformexec.StateResource) []terraformexec.StateResource
 	// onPlan, if set, post-processes a real plan.
 	onPlan func(plan terraformexec.Plan, mode terraformexec.PlanMode) (terraformexec.Plan, error)
+	// onDrift is an explicit FAKE private-plan observation used only to prove
+	// repair admission refuses changed values/actions before any Apply call.
+	onDrift func(drift.Report) (drift.Report, error)
 }
 
 func (c *countingRunner) Open(ctx context.Context, req terraformexec.SessionRequest) (terraformexec.Session, error) {
@@ -293,6 +297,17 @@ func (c *countingRunner) Open(ctx context.Context, req terraformexec.SessionRequ
 type hookSession struct {
 	terraformexec.Session
 	runner *countingRunner
+}
+
+func (s *hookSession) InspectDrift(ctx context.Context) (drift.Report, error) {
+	report, err := s.Session.(terraformexec.DriftPlanSession).InspectDrift(ctx)
+	if err != nil || s.runner.onDrift == nil {
+		return report, err
+	}
+	return s.runner.onDrift(report)
+}
+func (s *hookSession) ReadSavedPlan(ctx context.Context) ([]byte, error) {
+	return s.Session.(terraformexec.DriftPlanSession).ReadSavedPlan(ctx)
 }
 
 func (s *hookSession) Apply(ctx context.Context) error {
@@ -430,7 +445,7 @@ func (h *harness) newService(mods *fixtureModules) *tfexec.Service {
 		mods = &fixtureModules{h: h, bundles: map[string]module{h.mod.bundle.ID: h.mod}}
 	}
 	svc, err := tfexec.New(tfexec.Config{BackendBase: h.base, Tags: map[string]string{"platform": "poc"}, InvocationTimeout: 2 * time.Minute, ReadinessTimeout: time.Minute, RetryBackoff: time.Millisecond, AbsencePolls: 2, AbsenceInterval: time.Millisecond},
-		tfexec.Deps{State: h.stateRepo, Tokens: h.backend, Modules: mods, Runner: h.runner, Binder: h.binder, Readiness: h.ready, Namespaces: h.inspector, Recovery: h.recover, Verification: h.recover, Secrets: h.secrets})
+		tfexec.Deps{StateWriter: h.backend, Baselines: h.state, Cipher: h.cipher, State: h.stateRepo, Tokens: h.backend, Modules: mods, Runner: h.runner, Binder: h.binder, Readiness: h.ready, Namespaces: h.inspector, Recovery: h.recover, Verification: h.recover, Secrets: h.secrets})
 	if err != nil {
 		h.t.Fatal(err)
 	}

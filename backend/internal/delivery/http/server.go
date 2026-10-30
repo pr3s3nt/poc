@@ -23,7 +23,9 @@ import (
 	"orchestrator/internal/application/catalog"
 	appconfig "orchestrator/internal/application/configuration"
 	connectionapp "orchestrator/internal/application/connection"
+	deliveryapp "orchestrator/internal/application/delivery"
 	appsvc "orchestrator/internal/application/deployment"
+	driftapp "orchestrator/internal/application/drift"
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/gitaccess"
 	"orchestrator/internal/application/pending"
@@ -45,6 +47,9 @@ import (
 type Server struct {
 	gitAccess       *gitaccess.Service
 	gitTester       GitTester
+	drift           *driftapp.Service
+	reconciliation  *deliveryapp.Coordinator
+	delivery        *deliveryapp.Bindings
 	observability   *observabilityapp.Service
 	deployments     *appsvc.Service
 	queries         *appsvc.QueryService
@@ -70,10 +75,13 @@ type Server struct {
 
 // Config configures the HTTP server.
 type Config struct {
-	GitAccess     *gitaccess.Service
-	GitTester     GitTester
-	Observability *observabilityapp.Service
-	RenderBundles map[string]resource.RenderBundle
+	GitAccess      *gitaccess.Service
+	GitTester      GitTester
+	Drift          *driftapp.Service
+	Reconciliation *deliveryapp.Coordinator
+	Delivery       *deliveryapp.Bindings
+	Observability  *observabilityapp.Service
+	RenderBundles  map[string]resource.RenderBundle
 	// RenderRegistry inspects Git render bundles and reports availability
 	// (ADR-021); nil disables Git bundle inspection.
 	RenderRegistry renderregistry.Registry
@@ -113,6 +121,9 @@ type Config struct {
 func NewServer(cfg Config) *Server {
 	s := &Server{
 		gitAccess: cfg.GitAccess, gitTester: cfg.GitTester,
+		reconciliation:  cfg.Reconciliation,
+		drift:           cfg.Drift,
+		delivery:        cfg.Delivery,
 		observability:   cfg.Observability,
 		deployments:     cfg.Deployments,
 		queries:         cfg.Queries,
@@ -159,6 +170,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/platform/settings/git", s.handleGetGitSettings)
 	s.mux.HandleFunc("PUT /api/v1/platform/settings/git", s.handleSaveGitSettings)
 	s.mux.HandleFunc("POST /api/v1/platform/settings/git/test", s.handleTestGitSettings)
+	s.registerDeliveryRoutes()
 	s.mux.HandleFunc("GET /api/v1/healthz", s.handleHealth)
 	s.effectivenessRoutes()
 	s.observabilityRoutes()
@@ -240,12 +252,14 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 
 // environmentView is the Deploy page selector payload.
 type environmentView struct {
-	Key                    string `json:"key"`
-	Name                   string `json:"name"`
-	Type                   string `json:"environmentType"`
-	NamespaceIdentity      string `json:"namespaceIdentity"`
-	CurrentDeploymentSetID string `json:"currentDeploymentSetId"`
-	Version                int64  `json:"version"`
+	ReconciliationEnabled      bool   `json:"reconciliationEnabled"`
+	InfrastructureDriftEnabled bool   `json:"infrastructureDriftEnabled"`
+	Key                        string `json:"key"`
+	Name                       string `json:"name"`
+	Type                       string `json:"environmentType"`
+	NamespaceIdentity          string `json:"namespaceIdentity"`
+	CurrentDeploymentSetID     string `json:"currentDeploymentSetId"`
+	Version                    int64  `json:"version"`
 	// An Environment carries no deployment Connection, execution profile or region (ADR-017).
 	InfrastructureScope string `json:"infrastructureScope"`
 	// ADR-012: independent secret-store selection, target generation and the
@@ -277,7 +291,9 @@ func lifecycleOf(view *applicationView, a appdomain.Application) {
 // environmentViewOf projects surviving Environment metadata; deployment targets are pinned per resource.
 func (s *Server) environmentViewOf(ctx context.Context, organizationKey string, e environment.Environment) environmentView {
 	v := environmentView{
-		Key: e.Key, Name: e.Name, Type: e.Type, NamespaceIdentity: e.NamespaceIdentity,
+		ReconciliationEnabled:      s.reconciliation != nil,
+		InfrastructureDriftEnabled: s.drift != nil,
+		Key:                        e.Key, Name: e.Name, Type: e.Type, NamespaceIdentity: e.NamespaceIdentity,
 		CurrentDeploymentSetID: e.CurrentDeploymentSetID, Version: e.Version,
 		InfrastructureScope: string(e.Scope()),
 		SecretStoreKey:      e.SecretStoreKey, TargetGeneration: e.TargetGeneration, DraftVersion: e.DraftVersion,

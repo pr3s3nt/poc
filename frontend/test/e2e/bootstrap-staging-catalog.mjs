@@ -51,15 +51,15 @@ export function assertMatches(actual, expected, id) {
   if (!isDeepStrictEqual(sorted(projected), sorted(expected))) throw new OperatorError(`Conflicting configuration: ${id}; review in Console (nothing overwritten)`);
 }
 
-export async function bootstrapCatalog(page, baseURL) {
+export async function bootstrapCatalog(page, baseURL, { accountKey = 'k8s-4f' } = {}) {
   const get = async path => {
     const response = await page.request.get(`${baseURL}/api/v1${path}`);
     if (!response.ok()) throw new OperatorError(`GET ${path} returned HTTP ${response.status()}`);
     return response.json();
   };
   const accounts = (await get('/driver-accounts')).accounts;
-  const account = accounts?.find(a => a.key === 'k8s-4f');
-  if (!account || account.type !== 'INTERNAL' || account.status !== 'READY') throw new OperatorError('Register Internal Driver Account k8s-4f and verify it to READY first');
+  const account = accounts?.find(a => a.key === accountKey);
+  if (!account || account.type !== 'INTERNAL' || account.status !== 'READY') throw new OperatorError(`Register Internal Driver Account ${accountKey} and verify it to READY first`);
   const types = (await get('/resource-types')).resourceTypes;
   for (const spec of specs) {
     const type = types?.find(t => t.key === spec.type);
@@ -133,7 +133,7 @@ async function main() {
     await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
     await expect(page.getByRole('link', { name: 'Tài khoản hạ tầng', exact: true })).toBeVisible();
-    await bootstrapCatalog(page, baseURL);
+    await bootstrapCatalog(page, baseURL, { accountKey: process.env.ORCH_ACCOUNT_KEY ?? 'k8s-4f' });
     console.log('Staging catalog ready. No Application or workload was deployed.');
   } finally { await browser.close(); }
 }

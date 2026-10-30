@@ -2,7 +2,7 @@
 id: UC-18-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 ---
 
 # UC-18 context — Xóa Application
@@ -37,3 +37,9 @@ thái và evidence ở [CURRENT_STATE](../../CURRENT_STATE.md), runbook nghiệm
 - [`delivery/http/application_deletion.go`](../../../backend/internal/delivery/http/application_deletion.go)
 - [`frontend/src/features/applications/deletion`](../../../frontend/src/features/applications/deletion/)
 - [`test/e2e/application_deletion_test.go`](../../../backend/test/e2e/application_deletion_test.go)
+
+## Optional CD and reconciliation — ADR-030
+
+Read this use case's CD/INF/REC specification extension, then the
+[design and implementation route](../../implementation/delivery-reconciliation.md).
+Required design only; current runtime availability is tracked separately.

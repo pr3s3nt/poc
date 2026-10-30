@@ -168,3 +168,14 @@ ZIP upload usage: [runbook](operations/zip-source-upload.md).
 PostgreSQL versioned upgrades: [runbook](operations/postgres-upgrades.md).
 
 Platform Git access: [UC-03 specification/contract](usecase/UC-03/git-access.md).
+
+## Optional Environment CD and reconciliation
+
+Start with [ADR-030](architecture/decisions/ADR-030-delivery-reconciliation.md),
+then [implementation route](implementation/delivery-reconciliation.md) and
+[operator runbook](operations/delivery-reconciliation.md) for the
+owning use-case specs, contracts, diagrams, schema, UI and acceptance gates.
+Fleet is opt-in independently per Environment behind optional runtime wiring;
+direct remains the default. Implementation is integrated into main; see Current state and
+the merge verification for validation limits. This requested change
+does not activate another roadmap iteration.

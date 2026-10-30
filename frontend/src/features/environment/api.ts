@@ -14,4 +14,11 @@ export const fetchEnvironment = async (app: string, key: EnvironmentKey): Promis
   const item = response.application.environments?.find((e) => e.key === key);
   return item ? toTarget(item) : undefined;
 };
+// The operations query classifies stale heartbeats without releasing the claim.
+// Refresh it before the banner projection so a restarted worker can be recovered
+// directly from Settings, without first visiting deployment history.
+export const fetchOperationEnvironment = async (app: string, key: EnvironmentKey): Promise<EnvironmentTarget | undefined> => {
+  await api(`${env(app, key)}/operations`);
+  return fetchEnvironment(app, key);
+};
 export const recoverOperation = (app: string, key: EnvironmentKey, operationId: string) => post(`${env(app, key)}/operations/${encodeURIComponent(operationId)}/recover`, { priorExecutionStopped: true }) as unknown as Promise<{ recovery: RecoveryResult }>;

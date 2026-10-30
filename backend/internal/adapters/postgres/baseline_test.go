@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -11,12 +12,19 @@ import (
 // correctness itself is proven against a real server by the integration tests.)
 func TestBaselineSQLHasNoLegacyMachinery(t *testing.T) {
 	for _, forbidden := range []string{
-		"schema_migrations", "ALTER COLUMN", "DROP COLUMN", "DROP TABLE", "\nUPDATE ", "\nINSERT INTO", "\nDELETE ", "IF NOT EXISTS", "DO $$",
+		"schema_migrations", "ALTER COLUMN", "DROP COLUMN", "DROP TABLE", "\nUPDATE ", "\nINSERT INTO", "\nDELETE ", "DO $$",
 		"environments_binding_immutable", "LEGACY_APPLICATION", "legacy", "HOST_CONTEXT", "configuration_provider",
 	} {
 		if strings.Contains(baselineSQL, forbidden) {
 			t.Errorf("baseline.sql contains %q", forbidden)
 		}
+	}
+
+	// IF NOT EXISTS is legitimate inside a trigger's validation condition. Only
+	// conditional DDL would turn a fresh baseline into an implicit upgrade.
+	conditionalDDL := regexp.MustCompile(`(?i)\b(?:CREATE\s+(?:UNIQUE\s+)?(?:TABLE|INDEX|SCHEMA|EXTENSION)|ADD\s+COLUMN)\s+IF\s+NOT\s+EXISTS\b`)
+	if conditionalDDL.MatchString(baselineSQL) {
+		t.Error("baseline.sql contains conditional upgrade DDL")
 	}
 	if !strings.Contains(baselineSQL, "CREATE TABLE schema_baseline") {
 		t.Error("baseline.sql does not create its identity marker")
