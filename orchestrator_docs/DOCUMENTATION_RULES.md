@@ -67,7 +67,9 @@ và root [AGENTS.md](../AGENTS.md). README của scenario/setup ghi cách chạy
 link tới runbook tương ứng. Procedure hiện hành vẫn thuộc `operations/`, kết
 quả execution thuộc `verification/`, requirement thuộc specification. Không lưu
 executable runner hoặc runtime evidence/credential trong documentation tree.
-Các runner cũ giữ path tới migration/refactor liên quan; cập nhật links và lệnh
+Công cụ bootstrap/seed platform dùng thực tế ở
+[`scripts/bootstrap/`](../scripts/bootstrap/README.md), có package/config riêng;
+không coi setup thành nghiệm thu deploy. Các runner cũ giữ path tới migration/refactor liên quan; cập nhật links và lệnh
 chạy trong cùng change khi di chuyển.
 
 ## Links, IDs and diagrams

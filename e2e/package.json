@@ -7,7 +7,6 @@
     "console-sign-in": "node scenarios/console-sign-in/run.mjs",
     "setup:account": "node setup/register-internal-account/run.mjs",
     "setup:secret-store": "node setup/register-secret-store/run.mjs",
-    "setup:render-bundles": "node setup/register-render-bundles/run.mjs",
     "acceptance-app": "node scenarios/acceptance-app/run.mjs"
   },
   "devDependencies": {

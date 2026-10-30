@@ -1,4 +1,4 @@
-# Đăng ký account, Resource Types, Definitions và Git bundles bằng Playwright
+# Bootstrap platform bằng Playwright
 
 Đăng nhập Console → kiểm tra/đăng ký Internal account bằng upload kubeconfig
 → Loại tài nguyên → nhập schema từng trường → Cấu hình tài nguyên
@@ -7,12 +7,18 @@
 Definition → mở Thêm Workload và xác minh catalog/volume mount.
 Đây là **platform setup**, không phải nghiệm thu deploy ứng dụng.
 
-Nguồn chuẩn: [UC-04 Infrastructure Account](../../../orchestrator_docs/usecase/UC-04/specification.md),
-[UC-02 Resource Type](../../../orchestrator_docs/usecase/UC-02/specification.md),
-[UC-03 RB-01..06](../../../orchestrator_docs/usecase/UC-03/specification.md#git-rendering-bundle-authoring--adr-021),
-[Git bundle contract](../../../orchestrator_docs/architecture/contracts/git-render-bundles.md),
-[workload catalog](../../../orchestrator_docs/architecture/contracts/workload-catalog.md#wc-c08--concrete-git-owned-catalog-contract),
-[hướng dẫn E2E](../../README.md).
+Entrypoint hiện tại: `scripts/bootstrap/run.mjs`, đã chuyển khỏi E2E cùng
+config, helpers và dependencies riêng. Chạy `npm test` tại đây để kiểm tra
+config/reuse/pacing. Tham số hiện có vẫn là `--config`; preset `--target dev|staging`
+chưa được thêm trong thay đổi di chuyển này. Ví dụ JSON vẫn dùng kind local;
+phải sửa target/mappings/criteria trước khi dùng cho staging.
+
+Nguồn chuẩn: [UC-04 Infrastructure Account](../../orchestrator_docs/usecase/UC-04/specification.md),
+[UC-02 Resource Type](../../orchestrator_docs/usecase/UC-02/specification.md),
+[UC-03 RB-01..06](../../orchestrator_docs/usecase/UC-03/specification.md#git-rendering-bundle-authoring--adr-021),
+[Git bundle contract](../../orchestrator_docs/architecture/contracts/git-render-bundles.md),
+[workload catalog](../../orchestrator_docs/architecture/contracts/workload-catalog.md#wc-c08--concrete-git-owned-catalog-contract),
+[hướng dẫn E2E](../../e2e/README.md).
 
 ## Chạy trên máy khác
 
@@ -25,12 +31,12 @@ backend truy cập được. Nếu account đã có và khớp, không cần fil
 Không cần Docker/kubectl trên máy chạy script nếu file đã được chuẩn bị. Cài từ root repository:
 
 ```bash
-cd e2e
+cd scripts/bootstrap
 npm ci
 npx playwright install chromium
-cd ..
+cd ../..
 mkdir -p ~/.orch
-cp e2e/setup/register-render-bundles/config.example.json ~/.orch/catalog.json
+cp scripts/bootstrap/config.example.json ~/.orch/catalog.json
 ```
 
 Sửa `~/.orch/catalog.json`. Đặt mật khẩu vào file riêng `~/.orch/password`, chỉ
@@ -38,12 +44,12 @@ chứa mật khẩu, rồi `chmod 600 ~/.orch/password`. Không đưa credential
 Git URL hoặc command line. Chạy từ root repository:
 
 ```bash
-ORCH_PLATFORM_URL=http://100.77.224.24:18596 \
+ORCH_PLATFORM_URL=http://localhost:3001 \
 ORCH_PLATFORM_USERNAME=platform-engineer \
 ORCH_PLATFORM_PASSWORD_FILE="$HOME/.orch/password" \
 ORCH_KUBECONFIG_FILE="$HOME/.orch/k8s-4f.kubeconfig" \
-ORCH_HEADLESS=0 \
-node e2e/setup/register-render-bundles/run.mjs --config "$HOME/.orch/catalog.json" \
+ORCH_HEADLESS=1 \
+node scripts/bootstrap/run.mjs --config "$HOME/.orch/catalog.json" \
   --type-delay-ms 1000 --definition-delay-ms 1500 --bundle-delay-ms 1000
 ```
 
@@ -52,7 +58,7 @@ desktop/display), nghỉ 800 ms trước/sau mỗi thao tác và nhập lần l�
 `ORCH_STEP_DELAY_MS` nhận 0..10000; tăng lên 2000 nếu muốn xem chậm hơn. Dùng
 `ORCH_HEADLESS=1` khi chạy automation không có display. Script dùng helper đăng nhập chung, đặt locale tiếng Việt
 trong browser context riêng; không phụ thuộc ngôn ngữ bạn đang chọn trên Console.
-Có thể chạy từ `e2e/` bằng `npm run setup:render-bundles -- --config /path/catalog.json`.
+Có thể chạy từ `scripts/bootstrap/` bằng `npm run bootstrap -- --config /path/catalog.json`.
 Đường dẫn JSON được tính từ working directory; helper/import không phụ thuộc cwd.
 
 ### Chọn tốc độ riêng từng phần
@@ -90,7 +96,7 @@ kubectl --kubeconfig ~/.orch/k8s-4f.kubeconfig config set-cluster kind-k8s-4f \
 ```
 
 Chỉ file riêng được đổi endpoint; kubeconfig/context mặc định được giữ nguyên.
-Backend Docker phải nằm trong network `kind` theo [runbook](../../../orchestrator_docs/operations/docker-local.md).
+Backend Docker phải nằm trong network `kind` theo [runbook](../../orchestrator_docs/operations/docker-local.md).
 Script không tự sửa network/kubeconfig hoặc tạo cluster. Xác minh account có
 Kubernetes API reads; đăng ký metadata này không cho phép script Deploy/PVC.
 

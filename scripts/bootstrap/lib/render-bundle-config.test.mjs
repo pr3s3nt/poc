@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { assertSameDefinition, assertSameResourceType, desiredDefinition, parseBundleConfig } from './render-bundle-config.mjs';
 
-const example = () => JSON.parse(readFileSync(new URL('../setup/register-render-bundles/config.example.json', import.meta.url), 'utf8'));
+const example = () => JSON.parse(readFileSync(new URL('../config.example.json', import.meta.url), 'utf8'));
 
 test('example pins five templates and preserves customized placement, inputs and scope', () => {
   const raw = example();

@@ -1,0 +1,15 @@
+{
+  "name": "orchestrator-bootstrap",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.15.0"
+  },
+  "scripts": {
+    "bootstrap": "node run.mjs",
+    "test": "node --test \"lib/**/*.test.mjs\""
+  },
+  "dependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

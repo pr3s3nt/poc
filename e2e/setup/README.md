@@ -5,14 +5,15 @@ màn hình Web Console bằng tài khoản Platform Engineer, với cấu hình 
 [e2e/README.md](../README.md#dependencies-và-kết-nối-console-dùng-chung). Setup
 không chứng minh ứng dụng deploy thành công.
 
-Chạy từ thư mục `e2e`, theo thứ tự:
+Các setup account/Secret Store bên dưới chạy từ `e2e/`. Bootstrap tổng hợp đã
+chuyển sang `scripts/bootstrap/`, có package và hướng dẫn cài riêng:
 
 | Bước | Script | Kết quả |
 |---|---|---|
 | 1 | `setup/register-internal-account/run.mjs` | Infrastructure account Internal từ kubeconfig |
 | 2 | [`bootstrap-staging-catalog.mjs`](../../frontend/test/e2e/bootstrap-staging-catalog.mjs) | Năm Definitions `staging-k8s-4f-*`; [runbook](../../orchestrator_docs/operations/staging-catalog.md) |
 | 3 | `setup/register-secret-store/run.mjs` | Secret Store Vault cho workload |
-| 4 | [`setup/register-render-bundles/run.mjs`](register-render-bundles/README.md) | Luồng đầy đủ account/kubeconfig → Resource Types → Resource Definitions → Git render bundles; nhập UI từng trường, chọn tốc độ riêng từng phần |
+| 4 | [`scripts/bootstrap/run.mjs`](../../scripts/bootstrap/README.md) | Luồng đầy đủ account/kubeconfig → Resource Types → Resource Definitions → Git render bundles; nhập UI từng trường, chọn tốc độ riêng từng phần |
 
 Script render bundles ghi qua UI và dùng API GET để xác minh pin/cấu hình;
 chạy lại chỉ reuse khi toàn bộ cấu hình khớp, không tự sửa Definition.

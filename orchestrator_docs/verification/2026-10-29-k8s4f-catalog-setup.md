@@ -8,7 +8,7 @@ last_reviewed: 2026-10-29
 # K8S-4F account, Types and Definitions through paced UI
 
 User authorized registering the existing K8S-4F cluster and completing the
-[configurable setup runner](../../e2e/setup/register-render-bundles/README.md):
+[configurable setup runner](../../scripts/bootstrap/README.md):
 reuse an existing matching account without re-uploading kubeconfig, register
 Resource Types and Definitions, and choose pacing independently for those steps.
 Product contracts: [UC-04](../usecase/UC-04/specification.md),

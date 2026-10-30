@@ -22,7 +22,7 @@ Use only an Application/cluster explicitly authorized for this check.
 No fixture server or synthetic storage response is used.
 
 Register `persistent-storage` Type, its Terraform Definition and the standard
-Git render bundle using [existing setup](../../setup/register-render-bundles/README.md).
+Git render bundle using [existing setup](../../../scripts/bootstrap/README.md).
 Start from that setup's `config.example.json`, keeping only the storage Type and
 storage Definition; reuse the already configured namespace/cluster/database.
 Set `verify.applicationKey` to the target Application. The renderer Definition's

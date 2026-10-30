@@ -79,6 +79,8 @@ thay đổi, sửa nguồn chuẩn trước rồi mới sửa dependent artifact
   đọc [hướng dẫn E2E](e2e/README.md) trước khi thêm kịch bản. Dùng `setup/`,
   `scenarios/<scenario-name>/`, `fixtures/`, `lib/` theo mục đích. Unit/component
   tests và Go integration helpers vẫn nằm trong module tương ứng.
+- `scripts/bootstrap/` chứa công cụ seed/setup platform để sử dụng (quyết định
+  người dùng 2026-10-30), package/config/helpers riêng; không phải scenario E2E.
 - `backend/examples/acceptance-app/` là workload kiểm chứng, không phải
   Web Console.
 - `orchestrator_docs/` chứa documentation; không chứa runtime product code.
@@ -94,8 +96,9 @@ thay đổi, sửa nguồn chuẩn trước rồi mới sửa dependent artifact
 Kịch bản E2E mới phải đặt trong `e2e/`, không tiếp tục rải runner mới vào
 `frontend/test/e2e/` hoặc `backend/test/integration/`. Mỗi scenario có README
 ghi mục tiêu, prerequisites, cách chạy, assertions, side effects và cleanup;
-link tới specification/runbook chuẩn. Setup chỉ chuẩn bị platform phải nằm
-trong `e2e/setup/`, không được báo là đã nghiệm thu deploy ứng dụng.
+link tới specification/runbook chuẩn. Setup phục vụ riêng scenario nằm trong
+`e2e/setup/`; công cụ bootstrap platform dùng thực tế nằm trong
+`scripts/bootstrap/`. Setup/bootstrap không được báo là đã nghiệm thu deploy ứng dụng.
 
 Runner cũ giữ nguyên path cho tới task di chuyển riêng hoặc refactor liên quan;
 không tự migrate hàng loạt, không copy thành hai bản. Khi di chuyển phải cập

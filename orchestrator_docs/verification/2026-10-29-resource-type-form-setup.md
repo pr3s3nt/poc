@@ -7,7 +7,7 @@ last_reviewed: 2026-10-29
 
 # Resource Type and render bundle setup through paced forms
 
-User requested extending the [portable setup runner](../../e2e/setup/register-render-bundles/README.md)
+User requested extending the [portable setup runner](../../scripts/bootstrap/README.md)
 to register Resource Types, then required visible paced UI interactions with no
 Score import or JSON entry in the Console. Requirements remain
 [UC-02](../usecase/UC-02/specification.md) and

@@ -23,7 +23,7 @@ The deployed Console had current code but its only registered render bundle was
 `score-k8s-internal-v1`, without workload templates. Its actual authenticated
 `workload-templates` response was empty; rebuilding UI alone could not populate it.
 
-Reused the existing [registration script](../../e2e/setup/register-render-bundles/README.md)
+Reused the existing [registration script](../../scripts/bootstrap/README.md)
 in headless mode with zero pacing: registered the `persistent-storage` Type,
 Terraform Definition `acceptance-pvc-storage` and Git bundle/renderer Definition
 `acceptance-pvc-catalog`, pinned to

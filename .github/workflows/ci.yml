@@ -105,3 +105,26 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            scripts/bootstrap/package-lock.json
+            e2e/package-lock.json
+      - name: Install bootstrap and E2E helper dependencies
+        run: |
+          npm ci --prefix scripts/bootstrap
+          npm ci --prefix e2e
+      - name: Check bootstrap entrypoint and shared helpers
+        run: |
+          node scripts/bootstrap/run.mjs --help
+          npm test --prefix scripts/bootstrap
+          npm test --prefix e2e

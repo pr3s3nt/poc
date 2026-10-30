@@ -5,7 +5,7 @@ import { assertAccountTarget, desiredInfrastructureDefinition, parseInfrastructu
 import { ensureInfrastructureAccount } from './infrastructure-ui.mjs';
 import { assertSameDefinition, parseBundleConfig } from './render-bundle-config.mjs';
 
-const example = () => JSON.parse(readFileSync(new URL('../setup/register-render-bundles/config.example.json', import.meta.url), 'utf8'));
+const example = () => JSON.parse(readFileSync(new URL('../config.example.json', import.meta.url), 'utf8'));
 const ready = { key: 'opaque-account-key', name: 'k8s-4f', type: 'INTERNAL', authenticationType: 'KUBECONFIG', status: 'READY', config: { endpoint: 'https://k8s-4f-control-plane:6443', kubeContext: 'kind-k8s-4f' } };
 
 test('independent phase speeds override global speed and reject invalid values before opening browser', () => {

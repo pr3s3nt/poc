@@ -1,14 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { expect } from '@playwright/test';
-import { closeConsole, openConsole, readConsoleConfig } from '../../lib/console.mjs';
-import { assertSameDefinition, assertSameResourceType, desiredDefinition, parseBundleConfig } from '../../lib/render-bundle-config.mjs';
-import { readSetupPacing } from '../../lib/infrastructure-config.mjs';
-import { ensureInfrastructureAccount, ensureResourceDefinitions } from '../../lib/infrastructure-ui.mjs';
+import { closeConsole, openConsole, readConsoleConfig } from './lib/console.mjs';
+import { assertSameDefinition, assertSameResourceType, desiredDefinition, parseBundleConfig } from './lib/render-bundle-config.mjs';
+import { readSetupPacing } from './lib/infrastructure-config.mjs';
+import { ensureInfrastructureAccount, ensureResourceDefinitions } from './lib/infrastructure-ui.mjs';
 
 const { values } = parseArgs({ options: { config: { type: 'string' }, help: { type: 'boolean' }, ...Object.fromEntries(['step', 'account', 'type', 'definition', 'bundle'].map(phase => [`${phase}-delay-ms`, { type: 'string' }])) } });
 if (values.help) {
-  console.log('node e2e/setup/register-render-bundles/run.mjs --config /path/catalog.json [--step-delay-ms 800] [--type-delay-ms 1000] [--definition-delay-ms 1500] [--account-delay-ms 800] [--bundle-delay-ms 800]\nConsole: ORCH_PLATFORM_URL, ORCH_PLATFORM_USERNAME, ORCH_PLATFORM_PASSWORD_FILE, ORCH_HEADLESS=0\nKubeconfig (chỉ cần khi account chưa có): ORCH_KUBECONFIG_FILE');
+  console.log('node scripts/bootstrap/run.mjs --config /path/catalog.json [--step-delay-ms 800] [--type-delay-ms 1000] [--definition-delay-ms 1500] [--account-delay-ms 800] [--bundle-delay-ms 800]\nConsole: ORCH_PLATFORM_URL, ORCH_PLATFORM_USERNAME, ORCH_PLATFORM_PASSWORD_FILE, ORCH_HEADLESS=0\nKubeconfig (chỉ cần khi account chưa có): ORCH_KUBECONFIG_FILE');
   process.exit(0);
 }
 

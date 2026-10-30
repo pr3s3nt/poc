@@ -813,3 +813,21 @@ uses the current home row. Terraform source modules are in
   WorkloadClassMetadata and EnvironmentVariablesTable cover projection, scope,
   identity preservation and both entry points. Browser runner:
   [workload-shared-resources](../../e2e/scenarios/workload-shared-resources/README.md).
+
+## Operator bootstrap — 2026-10-30 path migration
+
+[`scripts/bootstrap/run.mjs`](../../scripts/bootstrap/run.mjs) replaces the former
+E2E register-render-bundles setup entrypoint. Its config, infrastructure/render
+helpers and config tests live alongside its own package/lockfile. Shared Console
+access is implemented in `scripts/bootstrap/lib/console.mjs`; E2E keeps a re-export
+at `e2e/lib/console.mjs`. See [installation/usage](../../scripts/bootstrap/README.md).
+This is a behavior-preserving move; target presets are not yet implemented.
+
+Migration validation: bootstrap config/reuse tests15/15 and shared Console tests6/6
+passed; new entrypoint help works from repository root and an unrelated working
+directory. Read-only headless sign-in and catalog GET via the migrated helper
+passed; E2E re-export points to the exact same implementation. No setup/seed,
+cluster/cloud mutation or deployment was rerun. Product Go/React suites were
+not run for this path-only migration. CI now installs both packages and checks
+bootstrap help plus the two helper suites. Documentation/link and whitespace
+checks passed.

@@ -22,7 +22,7 @@ e2e/
 
 | Path | Nội dung |
 |---|---|
-| `setup/` | Chuẩn bị platform/catalog trước khi chạy scenario; không coi setup là bằng chứng deploy thành công. |
+| `setup/` | Setup phục vụ scenario; bootstrap dùng thực tế ở `scripts/bootstrap/`; không coi setup là bằng chứng deploy thành công. |
 | `scenarios/<scenario-name>/` | Một luồng nghiệp vụ và entrypoint có tên rõ ràng; dùng tên lowercase có hyphen, ví dụ `acceptance-app`. |
 | `fixtures/` | Score YAML, cấu hình mẫu và dữ liệu kiểm thử không chứa credential. Fixture chỉ dùng cho một scenario có thể đặt cạnh scenario đó. |
 | `lib/` | Helpers dùng chung: đăng nhập, thao tác Console, chờ trạng thái và kiểm tra cleanup. |
@@ -36,7 +36,10 @@ runtime code sản phẩm vào `e2e/` hoặc `orchestrator_docs/`.
 
 `e2e/package.json` khai báo dependencies cho script trong thư mục này; cài bằng
 `npm ci` và `npx playwright install chromium` từ `e2e/`. Unit tests của helpers
-chạy bằng `npm test`.
+chạy bằng `npm test`. Helper đăng nhập dùng chung với bootstrap: trước khi chạy
+E2E, cài dependencies của cả hai package bằng `npm ci --prefix scripts/bootstrap`
+và `npm ci --prefix e2e` từ root. Chỉ bootstrap có implementation của helper;
+`e2e/lib/console.mjs` là entrypoint re-export để giữ imports hiện có.
 
 Mọi scenario mới thao tác qua Console phải lấy browser đã đăng nhập từ
 [`lib/console.mjs`](lib/console.mjs), không tự viết đăng nhập hoặc ghi cứng địa
@@ -52,7 +55,8 @@ chỉ. Cấu hình chung:
 Helper dùng lại phiên của đúng tài khoản, đăng nhập khi chưa có phiên, dừng khi
 phiên thuộc tài khoản khác hoặc sai vai trò yêu cầu. Ví dụ tối thiểu:
 [console-sign-in](scenarios/console-sign-in/README.md). Chuẩn bị platform:
-[setup](setup/README.md); triển khai ứng dụng mẫu:
+[bootstrap platform](../scripts/bootstrap/README.md),
+[setup scenario](setup/README.md); triển khai ứng dụng mẫu:
 [acceptance-app](scenarios/acceptance-app/README.md).
 
 ## Nội dung bắt buộc cho một scenario

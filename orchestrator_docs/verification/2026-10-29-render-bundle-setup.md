@@ -9,7 +9,7 @@ last_reviewed: 2026-10-29
 
 User requested a portable Playwright registration script and explicitly asked
 to execute it on the retained Tailscale preview before manual testing.
-Runner: [register-render-bundles](../../e2e/setup/register-render-bundles/README.md).
+Runner: [register-render-bundles](../../scripts/bootstrap/README.md).
 Requirements: [UC-03 RB](../usecase/UC-03/specification.md#git-rendering-bundle-authoring--adr-021).
 
 ## Runtime and observations

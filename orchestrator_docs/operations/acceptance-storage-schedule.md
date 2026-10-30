@@ -39,7 +39,7 @@ CronJob ownership/completion. No guessed next-run or synthetic success.
 ## Runtime procedure
 
 Build acceptance images with the existing build script; scheduled is the fourth
-binary. Register platform through [setup](../../e2e/setup/register-render-bundles/README.md).
+binary. Register platform through [setup](../../scripts/bootstrap/README.md).
 For example, from the repository root:
 
 ```bash
