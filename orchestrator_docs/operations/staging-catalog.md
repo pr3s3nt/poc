@@ -2,7 +2,7 @@
 id: RUNBOOK-STAGING-CATALOG
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-30
 ---
 
 # Bootstrap Kubernetes staging catalog
@@ -17,6 +17,19 @@ hoặc cleanup tự động trong thay đổi này.
 Fixture tests/development có thể chọn tường minh `-seed-catalog ''` (legacy),
 `terraform-k8s`, hoặc profile `acceptance-v2` (catalog none). Chế độ staging
 không đổi login-account policy: profile local vẫn có users fixture hiện hành.
+
+## Bootstrap preset hiện hành
+
+Để seed cả storage và workload catalog, dùng
+[bootstrap tool](../../scripts/bootstrap/README.md):
+`node scripts/bootstrap/run.mjs --target staging --kubeconfig /private/staging.kubeconfig`.
+Preset staging có sẵn URL/user, Ceph class `rook-ceph-block`, Type/Definitions và
+standard Git bundle với policy Recreate; password nằm ở file riêng ngoài Git,
+phải chép tới máy chạy script. Account `k8s-4f` READY được reuse, chỉ inspect
+kubeconfig một context khi chưa có account. Renderer mới scoped class `pvc`,
+không thay default renderer/workload đang chạy. Chưa có app vẫn seed được;
+không tạo app/deploy để kiểm tra. Phần bên dưới mô tả runner legacy chỉ đăng ký
+installed catalog, không có storage/templates mới.
 
 ## Prepare
 

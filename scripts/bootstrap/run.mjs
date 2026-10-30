@@ -1,24 +1,24 @@
-import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { expect } from '@playwright/test';
 import { closeConsole, openConsole, readConsoleConfig } from './lib/console.mjs';
 import { assertSameDefinition, assertSameResourceType, desiredDefinition, parseBundleConfig } from './lib/render-bundle-config.mjs';
+import { loadTarget } from './lib/target-config.mjs';
 import { readSetupPacing } from './lib/infrastructure-config.mjs';
 import { ensureInfrastructureAccount, ensureResourceDefinitions } from './lib/infrastructure-ui.mjs';
 
-const { values } = parseArgs({ options: { config: { type: 'string' }, help: { type: 'boolean' }, ...Object.fromEntries(['step', 'account', 'type', 'definition', 'bundle'].map(phase => [`${phase}-delay-ms`, { type: 'string' }])) } });
+const { values } = parseArgs({ options: { config: { type: 'string' }, target: { type: 'string' }, kubeconfig: { type: 'string' }, help: { type: 'boolean' }, ...Object.fromEntries(['step', 'account', 'type', 'definition', 'bundle'].map(phase => [`${phase}-delay-ms`, { type: 'string' }])) } });
 if (values.help) {
-  console.log('node scripts/bootstrap/run.mjs --config /path/catalog.json [--step-delay-ms 800] [--type-delay-ms 1000] [--definition-delay-ms 1500] [--account-delay-ms 800] [--bundle-delay-ms 800]\nConsole: ORCH_PLATFORM_URL, ORCH_PLATFORM_USERNAME, ORCH_PLATFORM_PASSWORD_FILE, ORCH_HEADLESS=0\nKubeconfig (chỉ cần khi account chưa có): ORCH_KUBECONFIG_FILE');
+  console.log('node scripts/bootstrap/run.mjs --target dev|staging [--kubeconfig /private/kubeconfig] OR --config /path/catalog.json [--step-delay-ms 800] [--type-delay-ms 1000] [--definition-delay-ms 1500] [--account-delay-ms 800] [--bundle-delay-ms 800]\nConsole: ORCH_PLATFORM_URL, ORCH_PLATFORM_USERNAME, ORCH_PLATFORM_PASSWORD_FILE; presets mặc định ORCH_HEADLESS=1\nKubeconfig (chỉ cần khi account chưa có): ORCH_KUBECONFIG_FILE');
   process.exit(0);
 }
 
 let session, consoleConfig, lastAction = '';
 try {
-  if (!values.config) throw new Error('Thiếu --config; xem config.example.json cạnh script');
-  const config = parseBundleConfig(JSON.parse(readFileSync(values.config, 'utf8')));
-  const pacing = readSetupPacing(values);
+  const target = loadTarget(values);
+  const config = parseBundleConfig(target.raw);
+  const pacing = readSetupPacing(values, target.env);
   let phase = 'account';
-  consoleConfig = readConsoleConfig();
+  consoleConfig = readConsoleConfig(target.env);
   console.log(`Console: ${consoleConfig.baseURL}`);
   session = await openConsole(consoleConfig);
   if (!['PLATFORM_ENGINEER', 'ADMIN'].includes(session.user.role)) throw new Error('Cần tài khoản Platform Engineer hoặc Admin');
@@ -54,7 +54,7 @@ try {
     if (existing) assertSameResourceType(existing, type);
   }
   const ui = { page, baseURL: consoleConfig.baseURL, act, get, responseFor };
-  await ensureInfrastructureAccount({ ...ui, account: config.account, kubeconfigFile: process.env.ORCH_KUBECONFIG_FILE });
+  await ensureInfrastructureAccount({ ...ui, account: config.account, kubeconfigFile: target.env.ORCH_KUBECONFIG_FILE });
   phase = 'type';
   for (const type of config.resourceTypes) {
     if (existingTypes.some(item => item.key === type.key)) {
@@ -153,45 +153,48 @@ try {
   const apps = (await get('/applications')).applications;
   if (!Array.isArray(apps)) throw new Error('Danh sách Applications không hợp lệ');
   const app = config.verify.applicationKey ? apps.find(app => app.key === config.verify.applicationKey) : apps.find(app => app.environments?.some(env => env.key === config.verify.environment));
-  if (!app) throw new Error('Bundle đã đăng ký; chưa có Application để kiểm tra picker. Tạo Application, đặt verify.applicationKey rồi chạy lại.');
-  const env = config.verify.environment;
-  const { templates } = await get(`/applications/${encodeURIComponent(app.key)}/environments/${env}/workload-templates`);
-  if (!Array.isArray(templates)) throw new Error('Danh sách workload templates không hợp lệ');
-  const expected = config.bundles.flatMap(item => item.expectedTemplates);
-  for (const pin of expected) if (!templates.some(template => template.id === pin.id && template.version === pin.version)) throw new Error(`Catalog thiếu ${pin.id}@${pin.version}`);
-  // Cache availability is distinct from successful metadata registration.
-  for (const id of checkedBundleIds) {
-    const { renderBundle } = await get(`/render-bundles/${encodeURIComponent(id)}`);
-    if (!renderBundle || renderBundle.status !== 'AVAILABLE') throw new Error('Bundle đã lưu nhưng không AVAILABLE');
-  }
-  if (templates.length === 0) throw new Error('Catalog rỗng: bundle phải khai báo workloadTemplates trong bundle.yaml');
-  await page.goto(`${consoleConfig.baseURL}/ui/applications/${encodeURIComponent(app.key)}?environment=${env}`);
-  await act(page.getByRole('button', { name: '+ Thêm Workload', exact: true }), 'click');
-  const dialog = page.getByRole('dialog', { name: 'Chọn loại workload', exact: true });
-  await expect(dialog).toBeVisible();
-  for (const pin of expected) {
-    const template = templates.find(template => template.id === pin.id && template.version === pin.version);
-    const label = template.labels.vi ?? template.labels.en ?? template.id;
-    await expect(dialog.getByRole('button').filter({ hasText: label }).filter({ hasText: template.version })).toHaveCount(1);
-  }
-  await expect(dialog.locator('.application-card')).toHaveCount(templates.length);
-  console.log(`PASS: Thêm Workload hiển thị ${templates.length} mẫu; không tạo workload hoặc deploy`);
-  if (config.verify.volumeMount) {
-    const check = config.verify.volumeMount;
-    const template = templates.find(item => item.id === check.templateId && item.version === check.templateVersion);
-    if (!template) throw new Error('Không tìm thấy template để kiểm tra volume mount');
-    const type = (await readTypes()).find(item => item.key === check.resourceType);
-    if (!type || !['claimName', 'namespace'].every(name => type.outputs?.some(field => field.name === name && field.type === 'string' && !field.secret))) throw new Error(`${check.resourceType}: thiếu storage outputs claimName/namespace dạng string công khai`);
-    await act(dialog.getByRole('button').filter({ hasText: template.labels.vi ?? template.labels.en ?? template.id }).filter({ hasText: template.version }), 'click');
-    const addMount = page.getByRole('button', { name: 'Thêm volume mount', exact: true });
-    await expect(addMount).toBeEnabled();
-    await act(addMount, 'click');
-    const storageDialog = page.getByRole('dialog', { name: 'Thêm tài nguyên lưu trữ', exact: true });
-    await act(storageDialog.getByLabel('Alias tài nguyên', { exact: true }), 'fill', 'data');
-    await act(storageDialog.getByLabel('Loại tài nguyên', { exact: true }), 'selectOption', check.resourceType);
-    await act(storageDialog.getByRole('button', { name: 'Thêm và chọn', exact: true }), 'click');
-    await expect(page.getByLabel('Mount path', { exact: true })).toHaveValue('/data');
-    console.log(`PASS: ${check.templateId} thêm volume mount từ ${check.resourceType}; chỉ sửa form local, không lưu draft`);
+  if (!app && config.verify.applicationKey) throw new Error('Không tìm thấy Application kiểm tra đã chỉ định');
+  if (!app) console.log('PASS: seed đã lưu; chưa có Application nên bỏ kiểm tra picker/volume mount, không tự tạo app');
+  else {
+    const env = config.verify.environment;
+    const { templates } = await get(`/applications/${encodeURIComponent(app.key)}/environments/${env}/workload-templates`);
+    if (!Array.isArray(templates)) throw new Error('Danh sách workload templates không hợp lệ');
+    const expected = config.bundles.flatMap(item => item.expectedTemplates);
+    for (const pin of expected) if (!templates.some(template => template.id === pin.id && template.version === pin.version)) throw new Error(`Catalog thiếu ${pin.id}@${pin.version}`);
+    // Cache availability is distinct from successful metadata registration.
+    for (const id of checkedBundleIds) {
+      const { renderBundle } = await get(`/render-bundles/${encodeURIComponent(id)}`);
+      if (!renderBundle || renderBundle.status !== 'AVAILABLE') throw new Error('Bundle đã lưu nhưng không AVAILABLE');
+    }
+    if (templates.length === 0) throw new Error('Catalog rỗng: bundle phải khai báo workloadTemplates trong bundle.yaml');
+    await page.goto(`${consoleConfig.baseURL}/ui/applications/${encodeURIComponent(app.key)}?environment=${env}`);
+    await act(page.getByRole('button', { name: '+ Thêm Workload', exact: true }), 'click');
+    const dialog = page.getByRole('dialog', { name: 'Chọn loại workload', exact: true });
+    await expect(dialog).toBeVisible();
+    for (const pin of expected) {
+      const template = templates.find(template => template.id === pin.id && template.version === pin.version);
+      const label = template.labels.vi ?? template.labels.en ?? template.id;
+      await expect(dialog.getByRole('button').filter({ hasText: label }).filter({ hasText: template.version })).toHaveCount(1);
+    }
+    await expect(dialog.locator('.application-card')).toHaveCount(templates.length);
+    console.log(`PASS: Thêm Workload hiển thị ${templates.length} mẫu; không tạo workload hoặc deploy`);
+    if (config.verify.volumeMount) {
+      const check = config.verify.volumeMount;
+      const template = templates.find(item => item.id === check.templateId && item.version === check.templateVersion);
+      if (!template) throw new Error('Không tìm thấy template để kiểm tra volume mount');
+      const type = (await readTypes()).find(item => item.key === check.resourceType);
+      if (!type || !['claimName', 'namespace'].every(name => type.outputs?.some(field => field.name === name && field.type === 'string' && !field.secret))) throw new Error(`${check.resourceType}: thiếu storage outputs claimName/namespace dạng string công khai`);
+      await act(dialog.getByRole('button').filter({ hasText: template.labels.vi ?? template.labels.en ?? template.id }).filter({ hasText: template.version }), 'click');
+      const addMount = page.getByRole('button', { name: 'Thêm volume mount', exact: true });
+      await expect(addMount).toBeEnabled();
+      await act(addMount, 'click');
+      const storageDialog = page.getByRole('dialog', { name: 'Thêm tài nguyên lưu trữ', exact: true });
+      await act(storageDialog.getByLabel('Alias tài nguyên', { exact: true }), 'fill', 'data');
+      await act(storageDialog.getByLabel('Loại tài nguyên', { exact: true }), 'selectOption', check.resourceType);
+      await act(storageDialog.getByRole('button', { name: 'Thêm và chọn', exact: true }), 'click');
+      await expect(page.getByLabel('Mount path', { exact: true })).toHaveValue('/data');
+      console.log(`PASS: ${check.templateId} thêm volume mount từ ${check.resourceType}; chỉ sửa form local, không lưu draft`);
+    }
   }
 } catch (error) {
   // Raw Playwright errors can include filled values; do not log them.

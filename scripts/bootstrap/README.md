@@ -7,11 +7,58 @@
 Definition → mở Thêm Workload và xác minh catalog/volume mount.
 Đây là **platform setup**, không phải nghiệm thu deploy ứng dụng.
 
-Entrypoint hiện tại: `scripts/bootstrap/run.mjs`, đã chuyển khỏi E2E cùng
-config, helpers và dependencies riêng. Chạy `npm test` tại đây để kiểm tra
-config/reuse/pacing. Tham số hiện có vẫn là `--config`; preset `--target dev|staging`
-chưa được thêm trong thay đổi di chuyển này. Ví dụ JSON vẫn dùng kind local;
-phải sửa target/mappings/criteria trước khi dùng cho staging.
+Entrypoint: `scripts/bootstrap/run.mjs`, có package/config/helpers riêng.
+`npm test` kiểm tra config/reuse/pacing và presets.
+
+## Presets dev và staging
+
+Cấu hình đã điền trong `targets/dev.json` và `targets/staging.json`:
+
+| Target | Console | Login | Storage |
+|---|---|---|---|
+| dev | `http://localhost:3001` | `platform-engineer` | StorageClass mặc định của kind |
+| staging | `https://devportal.stg.exampledevops.com` | `platform-engineer` | `rook-ceph-block` |
+
+Hai target là hai installation platform, khác environment staging/production bên
+trong Application. Presets seed cho Application environment staging. Chạy headless,
+không delay mặc định. Có thể override bằng các biến ORCH_PLATFORM_* và pacing.
+Account name `k8s-4f` giữ theo runbook staging hiện có; preset staging reuse account
+READY đã đăng ký theo tên này, không đọc file kubeconfig. Khi account chưa có,
+script inspect file qua UI, yêu cầu đúng một context rồi lấy context/endpoint từ
+kết quả inspect; không tự suy endpoint hoặc chọn một trong nhiều cluster. Preset
+dev kiểm đúng context `kind-k8s-4f` và endpoint Docker `k8s-4f-control-plane:6443`.
+
+Đã chuẩn bị file mật khẩu riêng trên máy dev tại
+`~/.orch/bootstrap/dev/password` và `~/.orch/bootstrap/staging/password`, reuse
+mật khẩu hiện có theo xác nhận người dùng. Không có password trong preset/Git.
+Khi chuyển sang máy staging, chép **file riêng staging/password** sang cùng vị trí
+với quyền0600 (thư mục0700); script không thể lấy password trên máy dev từ xa.
+Nếu đã có file password tại vị trí khác, dùng ORCH_PLATFORM_PASSWORD_FILE.
+Chỉ kubeconfig là dữ liệu cluster bạn cần cung cấp mới:
+
+```bash
+npm ci --prefix scripts/bootstrap
+(cd scripts/bootstrap && npx playwright install chromium)
+node scripts/bootstrap/run.mjs --target staging --kubeconfig /private/staging.kubeconfig
+# Dev dùng account hiện có, không cần kubeconfig:
+node scripts/bootstrap/run.mjs --target dev
+```
+
+Nếu bỏ `--kubeconfig`, đường dẫn mặc định là
+`~/.orch/bootstrap/<target>/kubeconfig`. File phải riêng tư0600/0400, một context,
+endpoint backend platform truy cập được; không tự dùng current context máy host.
+Không truyền `--config` cùng `--target`. Chế độ `--config` cũ vẫn được giữ.
+
+Preset đăng ký sáu Types, các infrastructure Definitions và standard Git bundle
+pin `1182cb5ff275451ebfa8b711bc07effd1e120fcf` có policy PVC Recreate.
+Renderer Definition mới chỉ match `env_type=staging, class=pvc`, để không thay
+renderer mặc định của các workload đã chạy. Workload mới dùng template catalog
+và class `pvc` để chọn bundle này; workload cũ cần thêm execution pin nếu chưa có.
+Không tự sửa/di chuyển workload hoặc đổi renderer đang pin. Account/Definitions
+cùng ID nhưng cấu hình khác thì dừng; không tự tạo ID khác để né conflict.
+Nếu chưa có Application, seed hoàn tất và ghi rõ bỏ kiểm tra picker; không tạo
+Application chỉ để kiểm tra. Nếu config chỉ định verify.applicationKey mà không
+có Application tương ứng, script báo lỗi.
 
 Nguồn chuẩn: [UC-04 Infrastructure Account](../../orchestrator_docs/usecase/UC-04/specification.md),
 [UC-02 Resource Type](../../orchestrator_docs/usecase/UC-02/specification.md),

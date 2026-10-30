@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import { readPrivateFile } from './console.mjs';
-import { assertAccountTarget, desiredInfrastructureDefinition } from './infrastructure-config.mjs';
+import { assertAccountTarget, desiredInfrastructureDefinition, discoverAccountTarget } from './infrastructure-config.mjs';
 import { assertSameDefinition } from './render-bundle-config.mjs';
 
 export async function ensureInfrastructureAccount({ page, baseURL, account, act, get, responseFor, kubeconfigFile }) {
@@ -10,6 +10,8 @@ export async function ensureInfrastructureAccount({ page, baseURL, account, act,
   const matches = accounts.filter(item => item.name === account.name);
   if (matches.length > 1) throw new Error('Có nhiều account cùng tên; cần kiểm tra Console');
   if (matches.length) {
+    if (account.discover) account = discoverAccountTarget(account.name, [{ name: matches[0].config?.kubeContext, endpoint: matches[0].config?.endpoint }]);
+    if (!account.context || !account.endpoint) throw new Error('Account thiếu context/endpoint');
     assertAccountTarget(matches[0], account);
     console.log(`PASS: account ${account.name} READY và đúng target; không đọc/upload kubeconfig`);
     return matches[0];
@@ -28,6 +30,7 @@ export async function ensureInfrastructureAccount({ page, baseURL, account, act,
   const inspected = await inspectReply;
   if (!inspected.ok()) throw new Error(`Kubeconfig inspect HTTP ${inspected.status()}`);
   const { contexts } = await inspected.json();
+  if (account.discover) account = discoverAccountTarget(account.name, contexts);
   if (!Array.isArray(contexts) || !contexts.some(context => context.name === account.context && context.endpoint === account.endpoint)) throw new Error('Kubeconfig không có đúng context/endpoint đã cấu hình; không đăng ký');
   if (contexts.length > 1) await act(form.getByLabel('Context', { exact: true }), 'selectOption', account.context);
   await expect(form.getByLabel('Đích đã chọn', { exact: true })).toContainText(account.endpoint);

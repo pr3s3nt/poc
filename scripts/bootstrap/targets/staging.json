@@ -1,0 +1,369 @@
+{
+  "console": {
+    "url": "https://devportal.stg.exampledevops.com",
+    "username": "platform-engineer"
+  },
+  "seed": {
+    "resourceTypes": [
+      {
+        "key": "persistent-storage",
+        "inputs": [
+          {
+            "name": "storage",
+            "type": "string",
+            "required": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "claimName",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "namespace",
+            "type": "string",
+            "required": true,
+            "secret": false
+          }
+        ]
+      },
+      {
+        "key": "k8s-cluster",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "name",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "endpoint",
+            "type": "string",
+            "required": false,
+            "secret": false
+          },
+          {
+            "name": "kubeContext",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "kubeconfig",
+            "type": "string",
+            "required": false,
+            "secret": false
+          },
+          {
+            "name": "cluster",
+            "type": "any",
+            "required": false,
+            "secret": false
+          }
+        ]
+      },
+      {
+        "key": "k8s-namespace",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "name",
+            "type": "string",
+            "required": true,
+            "secret": false
+          }
+        ]
+      },
+      {
+        "key": "postgres",
+        "inputs": [
+          {
+            "name": "database",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "host",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "port",
+            "type": "number",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "database",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "password",
+            "type": "string",
+            "required": true,
+            "secret": true
+          }
+        ]
+      },
+      {
+        "key": "redis",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "host",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "port",
+            "type": "number",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "password",
+            "type": "string",
+            "required": true,
+            "secret": true
+          },
+          {
+            "name": "tls",
+            "type": "bool",
+            "required": true,
+            "secret": false
+          }
+        ]
+      },
+      {
+        "key": "workload",
+        "inputs": [],
+        "outputs": []
+      }
+    ],
+    "bundles": [
+      {
+        "key": "bootstrap-standard-workload",
+        "name": "Standard workload",
+        "source": {
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "path": "backend/render-bundles/standard",
+          "ref": "1182cb5ff275451ebfa8b711bc07effd1e120fcf"
+        },
+        "placement": {
+          "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+          "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"
+        },
+        "renderInputs": {},
+        "provision": {},
+        "criteria": [
+          {
+            "env_type": "staging",
+            "class": "pvc"
+          }
+        ],
+        "expectedTemplates": [
+          {
+            "id": "frontend",
+            "version": "1.0.0"
+          },
+          {
+            "id": "backend",
+            "version": "1.0.0"
+          },
+          {
+            "id": "worker",
+            "version": "1.0.0"
+          },
+          {
+            "id": "stateful",
+            "version": "1.0.0"
+          },
+          {
+            "id": "scheduled",
+            "version": "1.0.0"
+          }
+        ]
+      }
+    ],
+    "verify": {
+      "environment": "staging",
+      "volumeMount": {
+        "templateId": "backend",
+        "templateVersion": "1.0.0",
+        "resourceType": "persistent-storage"
+      }
+    },
+    "account": {
+      "name": "k8s-4f",
+      "discover": true
+    },
+    "resourceDefinitions": [
+      {
+        "key": "staging-k8s-4f-cluster",
+        "name": "Cluster k8s-4f (c\u00f3 s\u1eb5n)",
+        "resourceType": "k8s-cluster",
+        "driverType": "existing-cluster",
+        "accountName": "k8s-4f",
+        "criteria": [
+          {
+            "env_type": "staging",
+            "class": "internal"
+          }
+        ]
+      },
+      {
+        "key": "staging-k8s-4f-namespace",
+        "name": "Namespace Kubernetes staging",
+        "resourceType": "k8s-namespace",
+        "driverType": "terraform",
+        "module": "k8s-namespace",
+        "clusterClass": "internal",
+        "inputMapping": {},
+        "outputMapping": {
+          "name": "name"
+        },
+        "variables": {
+          "name": {
+            "context": "env.namespace"
+          }
+        },
+        "criteria": [
+          {
+            "env_type": "staging"
+          }
+        ]
+      },
+      {
+        "key": "staging-k8s-4f-storage",
+        "name": "K8S-4F persistent storage",
+        "resourceType": "persistent-storage",
+        "driverType": "terraform",
+        "source": {
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "path": "backend/terraform-modules/persistent-storage",
+          "ref": "1182cb5ff275451ebfa8b711bc07effd1e120fcf"
+        },
+        "clusterClass": "internal",
+        "inputMapping": {
+          "storage": "storage"
+        },
+        "outputMapping": {
+          "claimName": "claimName",
+          "namespace": "namespace"
+        },
+        "variables": {
+          "namespace": {
+            "resource": {
+              "type": "k8s-namespace",
+              "class": "default",
+              "scope": "environments.@app.@env",
+              "output": "name"
+            }
+          },
+          "storage_class": {
+            "literal": "rook-ceph-block"
+          }
+        },
+        "criteria": [
+          {
+            "env_type": "staging",
+            "class": "default"
+          }
+        ]
+      },
+      {
+        "key": "staging-k8s-4f-postgres",
+        "name": "PostgreSQL Kubernetes staging",
+        "resourceType": "postgres",
+        "driverType": "terraform",
+        "module": "postgres-k8s",
+        "clusterClass": "internal",
+        "inputMapping": {
+          "database": "database",
+          "username": "username"
+        },
+        "outputMapping": {
+          "host": "host",
+          "port": "port",
+          "database": "database",
+          "username": "username",
+          "password": "password"
+        },
+        "variables": {
+          "namespace": {
+            "resource": {
+              "type": "k8s-namespace",
+              "class": "default",
+              "scope": "environments.@app.@env",
+              "output": "name"
+            }
+          }
+        },
+        "criteria": [
+          {
+            "env_type": "staging",
+            "class": "in-cluster"
+          }
+        ]
+      },
+      {
+        "key": "staging-k8s-4f-redis",
+        "name": "Redis Kubernetes staging",
+        "resourceType": "redis",
+        "driverType": "terraform",
+        "module": "redis-k8s",
+        "clusterClass": "internal",
+        "inputMapping": {},
+        "outputMapping": {
+          "host": "host",
+          "port": "port",
+          "username": "username",
+          "password": "password",
+          "tls": "tls"
+        },
+        "variables": {
+          "namespace": {
+            "resource": {
+              "type": "k8s-namespace",
+              "class": "default",
+              "scope": "environments.@app.@env",
+              "output": "name"
+            }
+          }
+        },
+        "criteria": [
+          {
+            "env_type": "staging",
+            "class": "in-cluster"
+          }
+        ]
+      }
+    ]
+  }
+}

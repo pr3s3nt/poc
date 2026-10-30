@@ -831,3 +831,21 @@ cluster/cloud mutation or deployment was rerun. Product Go/React suites were
 not run for this path-only migration. CI now installs both packages and checks
 bootstrap help plus the two helper suites. Documentation/link and whitespace
 checks passed.
+
+Bootstrap presets (2026-10-30): `scripts/bootstrap/targets/dev.json` and
+`staging.json` seed local and confirmed staging URL/user/Ceph configuration.
+`lib/target-config.mjs` resolves --target/--kubeconfig, private credential paths
+and headless/zero-pacing defaults; --config remains supported. Account discovery
+uses existing READY account metadata or a single UI-inspected kubeconfig context;
+ambiguous contexts and unhealthy accounts fail. New renderer criteria class pvc
+avoid mutating default workload selection. Seed succeeds without Application;
+explicit missing verify.applicationKey still fails. No password enters Git.
+
+Preset validation: bootstrap tests19/19 and shared Console tests6/6 pass. Read-only
+headless dev authentication with preset defaults reuses the exact existing kind
+account without kubeconfig reads or mutation. CLI syntax/help, documentation and
+whitespace checks pass. No staging access, seed writes, cluster deployment or
+broad Go/React suites were run. The staging URL/shared credentials/StorageClass
+were supplied or confirmed by the user; staging account creation remains unrun.
+Private dev/staging password files were prepared without overwriting existing
+files; copying the staging password file to the execution host is still required.
