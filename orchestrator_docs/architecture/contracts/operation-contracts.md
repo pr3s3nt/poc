@@ -531,6 +531,8 @@ HTTP status, org/app/env scoping, CAS, fencing và transaction semantics giữ n
 | `TRANSITION_SAME_DESTINATION` / `DESTINATION_UNAVAILABLE` | 422 | Chọn đích khác/hợp lệ; không suy fallback. |
 | `NO_RUNTIME` | 409 | Không có runtime để chuyển. |
 | `DOWNTIME_ACK_REQUIRED` / `RECOVERY_CONFIRMATION_REQUIRED` | 422 | Cần xác nhận theo flow hiện hành. |
+| `DELIVERY_BASELINE_REQUIRED` | 409 | Thiếu applied artifact/UID để bàn giao; cần redeploy bằng manager hiện tại trước. |
+| `DELIVERY_UNSUPPORTED_CAPABILITY` | 422 | Provider không hỗ trợ capability/thao tác được yêu cầu; không fallback direct. |
 | `CLEANUP_REFUSED` / `NOT_RECOVERABLE` / `RECOVERY_INCOMPLETE` | 409 | Cleanup/recovery không được phép hoặc chưa hoàn tất; giữ hướng dẫn can thiệp. |
 | `OPERATION_LOST` | 409 | Operation đã gián đoạn/mất ownership; không tự takeover. |
 | `ROUTE_RECONCILE_FAILED` | 502 | Workload đã được áp dụng; Preview lại để retry route, không tự restart. |

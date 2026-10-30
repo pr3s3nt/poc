@@ -14,6 +14,8 @@ const (
 	OpCleanup     OperationKind = "CLEANUP"
 	OpRecovery    OperationKind = "RECOVERY"
 	OpCredentials OperationKind = "CREDENTIALS"
+	OpDriftScan   OperationKind = "DRIFT_SCAN"
+	OpDriftRepair OperationKind = "DRIFT_REPAIR"
 	// OpResourceCleanup destroys an explicitly confirmed set of Terraform
 	// resource instances (ADR-014). It is claimed only together with its
 	// persisted authorization and selected set.

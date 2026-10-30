@@ -1239,9 +1239,9 @@ ENV-UX runtime/locale validation and video: [2026-10-27 real kind/UI evidence](.
 | ZIP-03 | ZIP archive-tree revision + selected-directory digest; cache before immutable insertion; metadata-only downstream reuse | registry `zip_inspect_test.go`: local children, trusted identity, repeat/restart/update, executable artifact verification and tamper; render ZIP test: scope, restart, update and cache repair; PostgreSQL `TestZIPSourceKindsSurvivePostgresReopen` |
 | ZIP-04 | `ZIPSource` on both existing authoring forms; unchanged Create/CAS and typed input editors | `ZIPSource.test.tsx`, ZIP cases in `GitModuleSource.test.tsx` / `GitRenderBundle.test.tsx`; [browser runner](../../e2e/scenarios/zip-source-upload/README.md) |
 
-## Optional CD and infrastructure reconciliation — ADR-027 (design only)
+## Optional CD and infrastructure reconciliation — ADR-027
 
-| Requirements | Canonical collaboration/storage | Planned validation |
+| Requirements | Canonical collaboration/storage | Validation |
 |---|---|---|
 | UC-01 CD-01..03; UC-04 CD-01..03; UC-05 CD-01..03 | Binding versions, desired/applied Environment selection; CDR-01/08, schema | R01/R05, E01/E06; CAS/role/scope and pure Preview tests |
 | UC-06 CD-01..07 | DeliveryCoordinator, provider/publisher ports, immutable revisions/intents; shared delivery sequence | R02–R05, E02–E06/E08; second-provider conformance, phase/revision/restart tests |
@@ -1250,5 +1250,13 @@ ENV-UX runtime/locale validation and video: [2026-10-27 real kind/UI evidence](.
 | UC-09 REC-01..04 | Leased observer → immutable observations → stored query; independent dimensions | E04/E05; freshness, completeness, secret-redaction and scope tests |
 
 All R/E IDs are defined in the [implementation plan](../implementation/delivery-reconciliation.md).
-No tests or live acceptance for ADR-027 have run yet; documentation checks and
-existing-UI reference inspection do not establish runtime conformance.
+Implementation and execution evidence now exist in the
+[delivery UI record](../verification/2026-10-29-delivery-ui-progress.md).
+Domain/adapter/application/HTTP/component tests cover the mapped contracts;
+PostgreSQL role/fence/immutability and real Terraform checks cover encrypted
+baselines, complete no-write scans, stale private values, consumer-output changes
+and owner-only retention. E01/E03/E06/E07 and core E04/E05 have owned UI evidence;
+E09/E10 passed ordinary UI with subsequent native cleanup. E02 extra
+Job/CronJob/HPA/public-route semantics, template retirement and subsequent
+UI/native cleanup also passed. Evidence remains limited to the verified
+same-cluster Fleet v0.15.2 capability set.

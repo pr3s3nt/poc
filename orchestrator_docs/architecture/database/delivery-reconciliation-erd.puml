@@ -93,6 +93,10 @@ entity terraform_execution_baselines {
  --
  resource_instance_id : uuid <<FK>>
  private_artifact_ref : private_handle
+ module_bundle_id : uuid
+ instance_version : bigint
+ state_version : bigint
+ dependencies : private_pins
  lineage_serial : pair
 }
 entity drift_scans {
@@ -108,7 +112,10 @@ entity drift_repair_reviews {
  --
  scan_id : uuid <<FK>>
  consumed_operation_id : uuid <<FK>>
- plan_artifact_refs : private_handles
+ private_refs : private_handles
+ token_cipher : encrypted_random_token
+ actor_id : uuid
+ environment_version : bigint
  expires_at : timestamptz
 }
 reconciliation_private_artifacts ||--o{ delivery_revisions

@@ -45,18 +45,25 @@ type Cleanup interface {
 
 // Service implements UC-18.
 type Service struct {
-	store     persistence.Store
-	life      persistence.ApplicationLifecycleRepository
-	workloads Workloads
-	pending   Pending
-	cleanup   Cleanup
-	secrets   configport.Registry
-	now       func() time.Time
-	poll      time.Duration
+	retiredAuxiliary func(context.Context, string, string) error
+	store            persistence.Store
+	life             persistence.ApplicationLifecycleRepository
+	workloads        Workloads
+	pending          Pending
+	cleanup          Cleanup
+	secrets          configport.Registry
+	now              func() time.Time
+	poll             time.Duration
 
 	mu      sync.Mutex
 	running map[string]bool
 	wg      sync.WaitGroup
+}
+
+// SetRetiredAuxiliary removes directly managed auxiliary delivery artifacts
+// before the Terraform namespace guard runs, also on a cleanup retry.
+func (s *Service) SetRetiredAuxiliary(clean func(context.Context, string, string) error) {
+	s.retiredAuxiliary = clean
 }
 
 // New builds the service. Without a lifecycle repository, workload, pending
@@ -650,6 +657,11 @@ func (r *runner) removeWorkloads(ctx context.Context, i int, env string) string 
 
 // destroy admits one cleanup per remaining generation and waits for it.
 func (r *runner) destroy(ctx context.Context, i int, env string) string {
+	if r.s.retiredAuxiliary != nil {
+		if err := r.s.retiredAuxiliary(ctx, r.appKey, env); err != nil {
+			return FailWorkloadRemoval
+		}
+	}
 	sc := r.scope(env)
 	actor := resourcecleanup.Actor{Username: r.actor, MayDelete: true}
 	for round := 0; round < 16; round++ {

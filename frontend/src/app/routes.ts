@@ -8,6 +8,7 @@ export type Route =
   | { name: 'rendering-templates' }
   | { name: 'driver-accounts'; account?: string; tab?: 'diagnose'; purpose?: 'use-case'; report?: string }
   | { name: 'secret-stores' }
+  | { name: 'cd-providers' }
   | { name: 'effectiveness'; application?: string; workload?: string; days?: EffectivenessDays }
   | { name: 'create-application' }
   | { name: 'application'; applicationId: string; environment?: 'staging' | 'production' }
@@ -47,6 +48,7 @@ export function parseRoute(path = window.location.pathname): Route {
     const report = diagnose ? query.get('report') : null;
     return { name: 'driver-accounts', ...(account ? { account } : {}), ...(diagnose ? { tab: 'diagnose' as const } : {}), ...(diagnose && query.get('purpose') === 'use-case' ? { purpose: 'use-case' as const } : {}), ...(report ? { report } : {}) };
   }
+  if (relative === '/platform/cd-providers') return { name: 'cd-providers' };
   if (relative === '/platform/secret-stores') return { name: 'secret-stores' };
   if (relative === '/platform/effectiveness') {
     const query = new URLSearchParams(search);
@@ -100,6 +102,7 @@ export function href(route: Route): string {
       if (route.tab && route.report) query.set('report', route.report);
       return `${base}/platform/driver-accounts?${query.toString()}`;
     }
+    case 'cd-providers': return `${base}/platform/cd-providers`;
     case 'secret-stores': return `${base}/platform/secret-stores`;
     case 'effectiveness': {
       const query = new URLSearchParams();

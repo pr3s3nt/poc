@@ -20,6 +20,8 @@ function stub(onPatch: (patch: Patch) => Response | Promise<Response>, gets: () 
   const patches: Patch[] = [];
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/delivery-bindings')) return Response.json({ bindings: [] });
+    if (url.endsWith('/delivery')) return Response.json({ desired: { mode: 'DIRECT', selfHeal: false }, applied: { mode: 'DIRECT', selfHeal: false }, pending: false, environmentVersion: 1, configurationRevision: 0 });
     if (init?.method === 'PATCH') { const patch = { url, body: JSON.parse(String(init.body)) as Record<string, unknown> }; patches.push(patch); return onPatch(patch); }
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [] });
     if (url.endsWith('/application-connections')) return Response.json({ connections: [] });

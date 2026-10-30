@@ -2,6 +2,7 @@ package delivery
 
 import (
 	"errors"
+	"sort"
 	"sync"
 )
 
@@ -38,4 +39,16 @@ func (r *Registry) Resolve(kind string) (Provider, error) {
 		return nil, ErrProviderUnavailable
 	}
 	return provider, nil
+}
+
+// Kinds returns only adapters installed in this runtime, in stable order.
+func (r *Registry) Kinds() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]string, 0, len(r.providers))
+	for kind := range r.providers {
+		out = append(out, kind)
+	}
+	sort.Strings(out)
+	return out
 }

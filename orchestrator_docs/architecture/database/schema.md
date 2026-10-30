@@ -1064,7 +1064,13 @@ archive revision in their existing pin columns; no additional table is needed.
 
 ## Delivery and drift — ADR-027 required design
 
-This section is the required new baseline, **not implemented tables**. Do not
+Implemented: `delivery_bindings`, Environment desired/applied/epoch columns,
+`delivery_units`, immutable `delivery_revisions`, `delivery_intents`, encrypted
+private artifacts and publication leases. Observation tables are now implemented behind optional CD runtime wiring;
+Terraform baseline, scan and repair-review tables are implemented in the fresh
+baseline; runtime/UI acceptance is still in progress. Binding verification persists an independent positive CAS
+`revision`, nullable `verified_at` and safe `reason_code`; configuration remains
+immutable. Do not
 change/reset a retained database during design or silently migrate an existing
 deployment. Implementation must update fresh SQL baseline/fingerprint and all
 repository adapters together. A separate reviewed upgrade procedure is required
@@ -1083,12 +1089,12 @@ Application removal; terminal metadata/ownership evidence stays for audit.
 | `delivery_units` | id PK, environment_id FK, target_generation bigint, delivery_epoch bigint, unit_key text, workload_id text nullable for routes, phase PREREQUISITE/JOB/ROLLOUT/ROUTE, binding_id/version nullable paired FK, target_ref jsonb opaque, pending_revision_id and successful_revision_id nullable FKs, lifecycle text per CDR-04, version bigint, created_at/updated_at. UNIQUE(environment_id,target_generation,delivery_epoch,unit_key); one active owner per logical object across nonterminal epochs. |
 | `delivery_revisions` | id PK, unit_id FK, deployment_id nullable FK, operation_id FK, intent_key text UNIQUE, artifact_ref text private, payload_digest text, policy jsonb, dependencies jsonb unit/revision IDs, inventory jsonb object identities + UIDs + ownership/creation receipts, created_at. Payload/policy/dependencies immutable; append incarnation/cleanup receipts separately in operation checkpoints, never overwrite original proof. Artifact refs point to restricted encrypted storage, not redacted review JSON. |
 | `delivery_intents` | id PK, revision_id FK, environment_operation_id FK, action SUBMIT/RECONCILE/WITHDRAW/ADOPT, status PENDING/RUNNING/ACKNOWLEDGED/FAILED/OUTCOME_UNKNOWN, request_id text, request_digest text, owner text, fence bigint, lease_until, attempt integer, publication jsonb safe base/commit/tree/marker metadata, provider_handle jsonb safe identities/UIDs, checkpoints jsonb, reason_code text, created_at/updated_at. UNIQUE(environment_operation_id,revision_id,action,request_id); reused request ID with different body rejected. |
-| `delivery_observations` | id PK, unit_id FK, revision_id FK, sequence bigint, sync/health/drift text per CDR-04, observed_revision text nullable, complete boolean, reason_code text, safe_details jsonb bounded, observed_at, stored_at. UNIQUE(unit_id,sequence); immutable. Never change Deployment.status. |
-| `delivery_poll_leases` | unit_id PK/FK, owner text, fence bigint, lease_until, next_poll_at, last_sequence bigint. CAS writes compare owner/fence; expired read-only observer can be replaced, not an unknown mutating intent. |
+| `delivery_observations` | id PK, unit_id FK, revision_id FK, sequence bigint, observation jsonb containing sync/health/drift, intended/observed revision, completeness and safe object identities per CDR-04; reason_code text, observed_at, stored_at. UNIQUE(unit_id,sequence); immutable. Never change Deployment.status. |
+| `delivery_poll_leases` | unit_id PK/FK, intent_id FK pins the acknowledged admission, owner text, fence bigint, lease_until, next_poll_at, last_sequence bigint. CAS writes compare owner/fence; expired read-only observer can be replaced, not an unknown mutating intent. |
 | `git_publication_leases` | publication_destination_digest text PK (canonical safe repo/branch identity), owner text, fence bigint, lease_until. Serializes publication; remote fast-forward update remains the final write guard. Credentials are not part of digest. |
-| `terraform_execution_baselines` | id PK, resource_instance_id FK, execution_attempt_id FK, module_bundle_id FK, instance_version bigint, lineage text, serial bigint, private_artifact_ref text, dependencies jsonb safe instance/version IDs, created_at. Immutable; UNIQUE(resource_instance_id,execution_attempt_id). No raw inputs in this table. |
-| `drift_scans` | id PK, environment_id FK, operation_id nullable FK until queued scan admitted, request_id text, status/result text per INF-C02, scope jsonb instance/baseline versions, findings jsonb safe address/action/path/coverage, owner text, fence bigint, started_at/finished_at/created_at, reason_code text. Partial unique one active QUEUED/RUNNING per Environment; UNIQUE(environment_id,request_id). |
-| `drift_repair_reviews` | id PK, environment_id FK, scan_id FK, actor_id FK, status PREPARING/READY/BLOCKED/EXPIRED/CONSUMED/FAILED, baseline_pins jsonb, plan_artifact_refs jsonb private handles, safe_actions jsonb, private_change_digest text restricted, token_hash text, expires_at, consumed_operation_id nullable FK, created_at. Token/plan references not public listing fields; one-time CAS consumption, request idempotency under operation. |
+| `terraform_execution_baselines` | id PK, organization_id/environment_id scoped FKs, resource_instance_id FK, execution_attempt_id FK, module_bundle_id FK, instance_version bigint, state_version bigint, lineage text, serial bigint, private_artifact_ref FK, dependencies jsonb safe instance/version/state-version IDs, created_at. Immutable; UNIQUE(resource_instance_id,execution_attempt_id). No raw inputs in this table. State runtime alone reads/writes these private pins; public scans project safe scope separately. |
+| `drift_scans` | id PK, organization_id/environment_id scoped FKs, operation_id nullable FK until queued scan admitted, request_id uuid, request_digest text private, environment_version/version bigint, status/result text per INF-C02, scope jsonb instance/baseline versions, findings jsonb safe address/action/path/coverage, owner text, fence bigint, started_at/finished_at/created_at, reason_code text. Partial unique one active QUEUED/RUNNING per Environment; UNIQUE(environment_id,request_id). Terminal findings immutable; private change digests are never in this Console table. |
+| `drift_repair_reviews` | id PK, organization_id/environment_id, scan_id scoped FK, actor_id scoped FK, request_id uuid/request_digest private, operation_id FK, status PREPARING/READY/BLOCKED/EXPIRED/CONSUMED/FAILED, safe_review jsonb containing selected instance/baseline/version pins and safe actions/blockers, private_refs jsonb opaque per-instance plan handles, token_hash text, token_cipher jsonb AEAD envelope, environment_version/version bigint, expires_at, consumed_operation_id nullable FK, confirmation_request_id nullable uuid, created_at. Entire table is State-only; public service returns safe review and same-actor READY token after decrypting it, never plan refs/ciphertext/digests. One-time READY→CONSUMED CAS under the matching claim/actor/token/expiry/version; immutable pins and consumed history. |
 
 `reconciliation_private_artifacts` is a restricted blob table: `id uuid PK`,
 `organization_id uuid FK`, `owner_id uuid`, `purpose text` constrained to
@@ -1118,3 +1124,34 @@ DESC), reviews(expires_at). Repository contract tests must prove scoped composit
 references, default DIRECT, immutable revisions, original credential pins,
 publication deduplication, observer fencing and restart checkpoint integrity.
 Only fresh baseline setup changes; retained installations are never reset here.
+
+### Delivery transfer persistence implementation
+
+Transfer destinations are immutable ADOPT revisions/intents in the next delivery
+epoch. Their encrypted artifact envelope stores the original source intent ID,
+revision/receipt/UID inventory and prepared destination payload. WITHDRAW intents
+checkpoint source release separately; all ADOPT records precede external release.
+Environment operation stage/detail contains only transfer flag, unit count/epoch.
+Activation atomically compares expected epoch/selection revision, commits the next
+epoch/applied selection and updates only live workload `target_ref.deliveryMode`;
+immutable Deployment history, spec/template, Terraform generation and state stay.
+Explicit BeginRecovery fences the prior owner. Only transfer ADOPT/WITHDRAW records
+of that same operation can be rebound to its new owner/fence and safely resumed
+using incarnation-aware methods. Unknown ordinary Submit is not reset by generic
+recovery. Publication lease recovery requires the same operation/Organization;
+expiry alone never grants another writer permission.
+
+### Drift retention maintenance
+
+An explicit database-owner maintenance command enforces the INF-C02/C04 retention
+windows without adding runtime DELETE, DDL or function privileges. It validates
+the exact installed baseline and catalog before bounded transactional batches.
+Terminal safe scans older than 30 days can be deleted only when no repair review
+references them and their Environment has no active operation. Repair plans older
+than 24 hours can be deleted only for settled instances/Environments with no state
+lock or unresolved attempt/review operation. Reviews and their safe audit metadata
+remain immutable; expired plan references are historical opaque IDs. Delivery
+payloads and execution baselines remain append-only. A dedicated artifact trigger
+permits only these old repair-plan deletions by the actual schema owner; all
+updates and other deletes remain prohibited. The operator schedules this owner
+command daily; the API process never receives the owner credential.

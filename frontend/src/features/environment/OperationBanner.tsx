@@ -3,7 +3,7 @@ import { ApiError } from '../../shared/api/client';
 import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
 import { statusLabel } from './labels';
-import { fetchEnvironment, recoverOperation, type RecoveryResult } from './api';
+import { fetchEnvironment, fetchOperationEnvironment, recoverOperation, type RecoveryResult } from './api';
 import { t } from '../../shared/i18n';
 
 // Shows the operation that owns the Environment, keeps it fresh while it runs
@@ -27,7 +27,7 @@ export function OperationBanner({ application, environment, onTargetChange, poll
     if (!operation) return;
     const current = scope.current;
     const timer = window.setInterval(() => {
-      fetchEnvironment(application.id, environment).then((latest) => { if (latest && current === scope.current) onTargetChange(application.id, environment, latest); }).catch(() => undefined);
+      fetchOperationEnvironment(application.id, environment).then((latest) => { if (latest && current === scope.current) onTargetChange(application.id, environment, latest); }).catch(() => undefined);
     }, pollMs);
     return () => window.clearInterval(timer);
   }, [operation?.id, application.id, environment, pollMs]); // eslint-disable-line react-hooks/exhaustive-deps

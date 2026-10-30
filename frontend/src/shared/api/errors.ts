@@ -4,6 +4,11 @@
 import { t } from '../i18n';
 
 const messageTable = {
+	DRIFT_BASELINE_UNAVAILABLE:t('infrastructureDrift.reason.BASELINE_UNAVAILABLE'),
+	DRIFT_REPAIR_BLOCKED:t('infrastructureDrift.blocker.IN_PLACE_STABLE_OUTPUTS_REQUIRED'),
+	DRIFT_REPAIR_STALE:t('infrastructureDrift.repairStale'),
+	DELIVERY_BASELINE_REQUIRED: t('delivery.baselineRequired'),
+	DELIVERY_UNSUPPORTED_CAPABILITY: t('delivery.unsupported'),
   INVALID_REQUEST: t('shared.errors.theSubmittedDataIsInvalid'),
   INVALID_ID: t('shared.errors.theIDDoesNotFollow'),
   INVALID_VARIABLE: t('shared.errors.invalidVariableNameValueOr'),

@@ -27,6 +27,13 @@ provider/target identities, dependency instance/output revisions, output mapping
 and state lineage/serial. Full input values are encrypted using the State runtime
 boundary. Do not expose hashes of secret values or copy raw input into public
 plan JSON. Resolve the same secret version, never a mutable latest value.
+If a dependency's lifecycle/state version advances, resolve its original
+acknowledged baseline by the exact captured versions. The newer acknowledgement
+is compatible only when private outputs (including type/sensitivity), identity,
+module, output mapping and provider/target pins remain equal and state lineage
+is unchanged. Compare immutable encrypted baselines; never substitute today's
+Definition, variables or live values into a consumer scan. Changed outputs or
+missing historical proof produce `BASELINE_UNAVAILABLE`.
 An old instance without this baseline is `BASELINE_UNAVAILABLE`; establish it on
 the next authorized successful execution. Do not reconstruct it from today's
 Definition, uncommitted draft or live resources.
@@ -110,8 +117,29 @@ Use Environment prefix and error conventions from
 | GET `E/drift-repairs/{reviewId}` | PE/Admin, safe plan summary, blockers, expiry and review token when ready |
 | POST `E/drift-repairs` | PE/Admin, reviewId/token + requestId; fresh admission; 202 operationId |
 
+Safe error codes: `DRIFT_BASELINE_UNAVAILABLE` (422), `DRIFT_REPAIR_BLOCKED`
+(422), `DRIFT_REPAIR_STALE` (409). Unknown process/state acknowledgement uses the
+existing recovery hold and `RECOVERY_INCOMPLETE`; no provider diagnostics or
+private plan comparison digest is returned. Repeat confirmation with the same
+requestId returns the original consumed operation, never applies again.
+
+Repair uses the freshly verified saved plan in a private local-state workspace
+under the original product state lock. State acknowledgement goes through the
+existing State service's scoped UPDATE capability, running attempt, lineage,
+serial and fence checks; the scan's PLAN capability cannot acknowledge state.
+A failed apply/output/inventory/readiness/acknowledgement keeps private recovery
+artifacts and the Environment hold. Compare stable root outputs and original
+physical inventory before acknowledging; no Deployment Set/history rewrite.
+
 Background scan capability authorizes provider reads only; it cannot be used to
 submit apply/destroy or write Terraform state. A repair gets its own scoped
 execution capability under the existing State service. No plaintext saved plan,
 state, secret ref or provider output is returned to Console. Discard expired
 private plans after 24 hours; preserve unresolved recovery artifacts per ADR-014.
+
+Retention runs as an explicitly scheduled database-owner maintenance command,
+separate from the Console/State processes. It validates the installed baseline
+and catalog, processes bounded batches, and preserves active locks, unresolved
+attempts/operations and audit-referenced scans. Runtime roles gain no DELETE,
+DDL or function privileges. Private expired plan IDs in retained safe reviews
+are historical references; confirmation already refuses them after ten minutes.

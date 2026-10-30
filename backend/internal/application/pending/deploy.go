@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	deliveryapp "orchestrator/internal/application/delivery"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/workloadconfig"
@@ -90,6 +91,29 @@ func (s *Service) DeployWithReview(ctx context.Context, appKey, envKey, actor, t
 func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, actor string, preview Preview) (DeployReport, error) {
 	ctx := lease.Ctx
 	report := DeployReport{Status: "SUCCEEDED", Results: []WorkloadResult{}}
+	env, err := s.store.GetEnvironment(ctx, appKey, envKey)
+	if err != nil {
+		return report, err
+	}
+	pin, err := deliveryapp.PinForPreview(ctx, s.store, orgKey, env)
+	if err != nil {
+		return report, err
+	}
+	if pin != preview.DeliveryBindingPin || env.DeliveryConfigRevision != preview.DeliveryConfigurationRevision || env.DesiredDelivery.Effective() != preview.DesiredDelivery || env.AppliedDelivery.Effective() != preview.AppliedDelivery {
+		return report, ErrStalePreview
+	}
+	if preview.DeliveryTransfer {
+		if err := s.deployer.TransferDelivery(ctx, orgKey, env, lease.Stage); err != nil {
+			return report, err
+		}
+		return report, nil
+	}
+	if preview.DeliveryPolicyOnly {
+		if err := s.deployer.UpdateDeliveryPolicy(ctx, orgKey, env, lease.Stage); err != nil {
+			return report, err
+		}
+		return report, nil
+	}
 	if len(preview.Changes) > 0 {
 		if err := s.store.SetPublicRoutesPending(ctx, appKey, envKey, true); err != nil {
 			return report, err
@@ -193,12 +217,17 @@ func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, act
 		}
 		report.Results = append(report.Results, WorkloadResult{WorkloadID: change.WorkloadID, Action: change.Action, Status: "SUCCEEDED", DeploymentID: result.DeploymentID})
 	}
-	if len(preview.Changes) > 0 || preview.RoutePending {
+	if len(preview.Changes) > 0 || preview.RoutePending || preview.DeliveryPending {
 		if err := s.deployer.ReconcilePublicRoutes(ctx, appKey, envKey); err != nil {
 			report.Status = "PARTIAL"
 			return report, ErrRouteReconcile
 		}
 		if err := s.store.SetPublicRoutesPending(ctx, appKey, envKey, false); err != nil {
+			return report, err
+		}
+	}
+	if preview.DeliveryPending {
+		if err := s.deployer.ActivateDelivery(ctx, appKey, envKey); err != nil {
 			return report, err
 		}
 	}

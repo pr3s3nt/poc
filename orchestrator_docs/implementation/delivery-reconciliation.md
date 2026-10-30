@@ -10,19 +10,35 @@ related: [ADR-027, UC-01, UC-04, UC-05, UC-06, UC-07, UC-08, UC-09, UC-18]
 
 ## Implementation progress — 2026-10-28
 
-Design commit `d9297ed` is pushed. R01 has started: `domain/delivery` implements
-DIRECT/CD selection validation, capability requirements, scoped revisions,
-sync/health/drift/freshness gates, transfer detection and a mutation state machine
-that refuses unknown-outcome replay. `ports/delivery` defines provider/ownership
-contracts, scoped intent validation and a registry without provider fallback.
-Focused race tests and product build pass. These are unwired foundation packages;
-R01 storage and R02–R08 remain. No new live E2E result or merge is claimed.
+Design commit `d9297ed` and domain/port commit `83bb9f3` are pushed. Runtime
+implementation is in progress on `features/reconciliation`, not merged. See
+[Current state](../CURRENT_STATE.md) and [IMP-039](deviations.md#imp-039--delivery-reconciliation-design-2026-10-28)
+for implemented seams and remaining gaps. R01 storage and R03 publication/Fleet adapter are implemented; R02/R04/R05
+integration and browser lifecycle/cleanup passed on the owned target, with
+additional object semantics and native cleanup now passed. R06 scan and R07 reviewed repair
+passed real PostgreSQL/Terraform checks and Console E09/E10, including subsequent
+consumer scans and native cleanup. Stored read-only observations are implemented with independent
+leases/fences and a compact UI; actual Console observation reads passed.
+Policy-only changes now reuse admitted private artifacts without Terraform or
+template rendering, preserving Job receipts and delivery epoch. Current-image
+policy/self-heal browser verification passed, including autonomous correction
+after explicit UI recovery with stable UIDs/Pod templates.
+[UI execution progress](../verification/2026-10-29-delivery-ui-progress.md)
+records actual deploy, business flow, updates and handoffs, plus the cleanup
+defects found and actual recovery/retry results. Passing provider conformance is not product browser E2E.
 
-**Design complete is not runtime delivery.** This plan implements the user's
-Environment opt-in decision: DIRECT by default, optional Fleet now, future CD
-adapters through common ports. No product code or external deployment is supplied
-by the design task. [IMP-039](deviations.md#imp-039--delivery-reconciliation-design-2026-10-28)
-tracks the gap. This is the requested feature's work breakdown, not a new roadmap.
+Recent verification: PostgreSQL persistence checks with REQUIRE_POSTGRES=1;
+real Fleet v0.15.2 HTTPS adapter conformance on owned kind; backend focused
+application/adapter tests including direct↔Fleet round-trip and forward recovery
+(no UID changes or repeated Job Submit); frontend 944 tests verified (943 in the full run plus the corrected observation
+assertion in its passing focused rerun), typecheck,
+lint and build. New CD page component tests cover typed creation/discovery/verify,
+credential clearing and immutable version/usage forms. Product page visual review
+uses real AppShell/Secret Stores reference and fixture API data; actual UI setup
+on the owned real platform registered a Kubernetes account, created CD binding
+and verified Fleet/Git successfully. This is CD setup evidence, not application
+acceptance. Application/dependency lifecycle E2E passed with normal forms and no Score/JSON
+input, including real migration Job, CronJob, HPA, route and template retirement. No merge is claimed.
 
 ## Read in order
 
@@ -92,7 +108,7 @@ HPA delegation or ownership guarantees cannot be implemented, keep the relevant
 capability unavailable and revise the design with the user; do not weaken guards
 or present a partial adapter as the promised usable release.
 
-## Acceptance matrix (planned, not executed)
+## Acceptance matrix (execution evidence linked above)
 
 | ID | Scenario and assertions |
 |---|---|
@@ -112,9 +128,9 @@ failure detours in the main business E2E. Controlled drift in E04/E09 is the cor
 feature assertion and requires explicit permission for those owned targets.
 New scripts go under `e2e/scenarios/delivery-reconciliation/` and
 `e2e/scenarios/infrastructure-drift/`, platform setup under `e2e/setup/`; those
-paths are planned and no runner exists yet. Read [E2E guide](../../e2e/README.md).
+paths now contain the implementation and per-scenario instructions. Read [E2E guide](../../e2e/README.md).
 
-## Deployment prerequisites and operator procedure to implement
+## Deployment prerequisites and operator procedure
 
 1. Use the updated fresh database baseline or an independently reviewed retained
    database upgrade. Keep current data; no implicit reset/backfill of old UID proof.
@@ -132,9 +148,8 @@ paths are planned and no runner exists yet. Read [E2E guide](../../e2e/README.md
 6. Enable the independent Terraform scanner only after encrypted baseline support
    is configured. Use read-only scan then explicit repair review when required.
 
-These are the target procedure, not runnable current commands. Implementation
-must supply the exact flags, request examples and E2E entrypoints in an operations
-runbook once they exist. For AWS verification follow the existing
+Exact implemented flags, prerequisites, Console steps, retention and recovery
+boundaries are in the [operator runbook](../operations/delivery-reconciliation.md). For AWS verification follow the existing
 [AWS runbook](../operations/aws.md) with authorized target/run ID/cost estimate/
 cleanup supervisor and native absence proof. This design task grants no such run.
 

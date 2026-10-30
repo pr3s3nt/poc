@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	deliveryapp "orchestrator/internal/application/delivery"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/deploymentreview"
 	"orchestrator/internal/application/envops"
@@ -15,6 +16,7 @@ import (
 	"orchestrator/internal/application/workloadconfig"
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/configuration"
+	deliverydomain "orchestrator/internal/domain/delivery"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
@@ -43,17 +45,25 @@ type Change struct {
 }
 
 type Preview struct {
-	Review         deploymentreview.Review                `json:"review"`
-	lastPlan       *planning.Plan                         `json:"-"`
-	previous       map[string][]deploymentreview.Artifact `json:"-"`
-	lastIntents    []planning.ResourceIntent              `json:"-"`
-	final          environment.Document                   `json:"-"`
-	Token          string                                 `json:"token"`
-	ApplicationKey string                                 `json:"applicationKey"`
-	EnvironmentKey string                                 `json:"environmentKey"`
-	BaseSetID      string                                 `json:"baseDeploymentSetId"`
-	BaseVersion    int64                                  `json:"baseVersion"`
-	DraftVersion   int64                                  `json:"draftVersion"`
+	DeliveryPolicyOnly            bool                                   `json:"deliveryPolicyOnly"`
+	DeliveryUnits                 []deliveryapp.TransferUnit             `json:"deliveryUnits,omitempty"`
+	DeliveryTransfer              bool                                   `json:"deliveryTransfer"`
+	DeliveryPending               bool                                   `json:"deliveryPending"`
+	DeliveryBindingPin            deliveryapp.PreviewPin                 `json:"deliveryBindingPin"`
+	DesiredDelivery               deliverydomain.Selection               `json:"desiredDelivery"`
+	AppliedDelivery               deliverydomain.Selection               `json:"appliedDelivery"`
+	DeliveryConfigurationRevision int64                                  `json:"deliveryConfigurationRevision"`
+	Review                        deploymentreview.Review                `json:"review"`
+	lastPlan                      *planning.Plan                         `json:"-"`
+	previous                      map[string][]deploymentreview.Artifact `json:"-"`
+	lastIntents                   []planning.ResourceIntent              `json:"-"`
+	final                         environment.Document                   `json:"-"`
+	Token                         string                                 `json:"token"`
+	ApplicationKey                string                                 `json:"applicationKey"`
+	EnvironmentKey                string                                 `json:"environmentKey"`
+	BaseSetID                     string                                 `json:"baseDeploymentSetId"`
+	BaseVersion                   int64                                  `json:"baseVersion"`
+	DraftVersion                  int64                                  `json:"draftVersion"`
 	// ConfigVersion, Binding and SecretStoreKey pin the rest of the snapshot
 	// (ADR-012): any Settings, configuration or draft change invalidates the token.
 	ConfigVersion    int64               `json:"configVersion"`
@@ -145,11 +155,21 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	if err != nil {
 		return Preview{}, err
 	}
+	deliveryPin, err := deliveryapp.PinForPreview(ctx, st, app.OrganizationKey, env)
+	if err != nil {
+		return Preview{}, err
+	}
+	deliveryPending := env.DesiredDelivery.Effective() != env.AppliedDelivery.Effective()
 
 	set, err := st.GetDeploymentSet(ctx, env.CurrentDeploymentSetID)
 	if err != nil {
 		return Preview{}, err
 	}
+	transferRequired, err := deliverydomain.RequiresTransfer(env.AppliedDelivery, env.DesiredDelivery, len(set.Document.Modules) > 0)
+	if err != nil {
+		return Preview{}, err
+	}
+	policyOnly := deliveryPending && !transferRequired && len(set.Document.Modules) > 0
 	scope, err := st.GetConfigurationScope(ctx, appKey, envKey)
 	if err != nil {
 		return Preview{}, err
@@ -230,6 +250,9 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		if err != nil {
 			return Preview{}, err
 		}
+		if policyOnly && !changed {
+			continue
+		}
 		selected, err := s.planner.SelectWorkloadRendering(app, env, id, module.WorkloadClass(), catalog)
 		if err != nil {
 			return Preview{}, publicPlanningError(id, err)
@@ -238,7 +261,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		if err != nil {
 			return Preview{}, err
 		}
-		if !changed && unchangedRenderer {
+		if !changed && unchangedRenderer && (!deliveryPending || transferRequired || policyOnly) {
 			continue
 		}
 		raw, err := workloadconfig.ReconstructScoreProven(id, module, set.Document, set.LiteralProofs.ProverFor(id), set.ResourceAliases[id])
@@ -247,12 +270,35 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		}
 		pending[id] = environment.WorkloadDraft{ApplicationKey: appKey, EnvironmentKey: envKey, WorkloadID: id, State: environment.DraftUpsert, Score: raw}
 	}
+	// Complete removal uses the applied manager's retained receipts even if a
+	// different manager was saved as draft. It does not adopt workloads only to
+	// delete them, and must not block Application deletion on that draft.
+	allDeleting := len(pending) > 0 && len(pending) == len(set.Document.Modules)
+	for id, draft := range pending {
+		if _, exists := set.Document.Modules[id]; !exists || draft.State != environment.DraftDelete {
+			allDeleting = false
+		}
+	}
+	if allDeleting {
+		transferRequired = false
+		policyOnly = false
+	}
+	if (transferRequired || policyOnly) && len(pending) > 0 && !all {
+		return Preview{}, fmt.Errorf("%w: apply or discard workload changes before changing delivery manager", ErrInvalid)
+	}
 	ordered, err := orderDrafts(pending)
 	if err != nil {
 		return Preview{}, err
 	}
-	preview := Preview{ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, RoutePending: env.PublicRoutesPending, ConfigRevisionID: scope.DesiredRevisionID,
-		ConfigVersion: scope.Version, Binding: env.Binding(), SecretStoreKey: env.SecretStoreKey, Changes: []Change{}, previous: reviewBaselines}
+	preview := Preview{DeliveryTransfer: transferRequired, DeliveryPending: deliveryPending, DeliveryBindingPin: deliveryPin, ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, RoutePending: env.PublicRoutesPending, ConfigRevisionID: scope.DesiredRevisionID,
+		DesiredDelivery: env.DesiredDelivery.Effective(), AppliedDelivery: env.AppliedDelivery.Effective(), DeliveryConfigurationRevision: env.DeliveryConfigRevision, ConfigVersion: scope.Version, Binding: env.Binding(), SecretStoreKey: env.SecretStoreKey, Changes: []Change{}, previous: reviewBaselines}
+	preview.DeliveryPolicyOnly = policyOnly
+	if transferRequired || policyOnly {
+		preview.DeliveryUnits, err = deliveryapp.TransferPreview(ctx, st, app.OrganizationKey, env, set.Document.ModuleIDs())
+		if err != nil {
+			return Preview{}, err
+		}
+	}
 	// Keep the execution identity stable across revisions of one environment.
 	// The preview token separately pins the mutable base/draft/configuration state.
 	pinHash, err := canon.Hash([]string{appKey, envKey})

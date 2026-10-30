@@ -143,3 +143,5 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [2026-10-26 staging catalog bootstrap](2026-10-26-staging-catalog.md): missing-only seed, operator Playwright create/rerun and Connections UI retirement; local verification only.
 
 - [2026-10-27 root e2e acceptance app through the UI](2026-10-27-e2e-acceptance-app-ui.md): staging-like local stack on kind `k8s-4f`, UI setup scripts and a passing acceptance application deploy; deployment retained.
+
+- [2026-10-29/30 optional CD and infrastructure reconciliation](2026-10-29-delivery-ui-progress.md): real Fleet v0.15.2 ordinary-form UI lifecycle, handoff/recovery, self-heal/HPA, migration Job/CronJob, reviewed Terraform repair, validation and owned cleanup evidence.

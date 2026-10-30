@@ -11,17 +11,43 @@ last_reviewed: 2026-10-28
 
 [ADR-027](../architecture/decisions/ADR-027-delivery-reconciliation.md) is the
 required successor design; [plan](delivery-reconciliation.md) maps delivery gates.
-The initial delivery domain/ports/registry are implemented with focused tests,
-but are not wired into runtime. Current `WorkloadDeployer` has Apply/WaitReady/Remove only. The Fleet adapter
-rejects every target, assumes a single Deployment/host context and keeps revisions
-in memory; bootstrap delivery selection is global. No new Environment selection,
-durable delivery/outbox, ownership handoff, continuous drift observer, Terraform
-input baseline or reviewed repair is implemented. The cleanup runner's
-refresh-only/delete drift parsing is not a general drift scanner.
+Binding/selection and unit/revision/intent storage, private encrypted artifacts,
+publication leases, Git publisher, Fleet packaging/control/readiness/UID cleanup,
+optional bootstrap integration, HTTP APIs and Settings panel are now implemented.
+Direct delivery artifact capture uses the same coordinator when optional CD is
+configured. PostgreSQL persistence and focused adapter/application checks pass;
+real Fleet v0.15.2 HTTPS publication and retained withdrawal passed on an owned
+kind cluster. These do not satisfy product browser acceptance.
 
-All ADR-027 APIs/tables/diagrams describe required work, not installed behavior.
-Guarded retained withdrawal on exact Fleet/Helm versions is a release gate;
-unknown controller/Job/prune semantics must not weaken existing ownership guards.
+Ownership handoff and explicit forward recovery now exist. Real form-only UI
+verification passed new deployment/business flow, update, Direct↔Fleet handoff
+and preexisting-GitRepo transfer with retained parent/sibling identities. Stored
+observation persistence/scheduler and UI are implemented with independent
+read-only leases and stale-worker fences; current-image UI observation and
+self-heal checks passed. Receipted Submit recovery, post-handoff policy recovery
+and original UID-proof removal recovery are implemented without Submit/Job replay.
+Missing receipts remain held. Original application cleanup passed after the
+renderer Secret fix; current-image and semantic application cleanup also passed
+after delayed downstream release retirement was corrected. See [execution progress](../verification/2026-10-29-delivery-ui-progress.md).
+
+Terraform encrypted input baseline capture and private-copy inspection passed real
+PostgreSQL/Terraform checks. Scan queue/scheduler/API/UI and reviewed repair are
+implemented, with PostgreSQL single-use actor/token/CAS checks and a stale private
+plan refusal test using real Terraform planning plus explicitly fake drift facts.
+Real infrastructure UI scan/review/repair, subsequent consumer scan/business flow
+and native cleanup passed. The extra Job/CronJob/HPA/public-route lifecycle,
+template retirement and its UI cleanup also passed. Binding
+supports Fleet's verified local registration only; separate management topology
+is rejected. Jobs reject TTL until absence/completion tracking is supported.
+HPA delegation and full scoped workload lifecycle conformance passed on the
+owned target; unsupported capabilities remain rejected.
+Legacy global Fleet runtime wiring has been retired; non-direct compatibility
+flags are rejected. CD platform authoring/discovery/immutable versions and
+existing-GitRepo publication now have real UI happy-path verification.
+
+All ADR-027 artifacts describe the required end state. The feature remains in
+progress and must not be presented as deployable acceptance or merged before
+R01–R08 and applicable live gates pass.
 
 ## IMP-038 — Application deletion (2026-10-27)
 

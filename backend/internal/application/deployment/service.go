@@ -9,12 +9,14 @@ import (
 	"sort"
 	"strings"
 
+	deliveryapp "orchestrator/internal/application/delivery"
 	"orchestrator/internal/application/deploymentreview"
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/provisioning"
 	"orchestrator/internal/application/workloadconfig"
 	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/configuration"
+	deliverydomain "orchestrator/internal/domain/delivery"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
@@ -64,6 +66,7 @@ type DeployResult struct {
 
 // Service orchestrates plan, provision, render, apply and commit.
 type Service struct {
+	delivery        *deliveryapp.Coordinator
 	store           persistence.Store
 	planner         *planning.Service
 	provisioning    *provisioning.Service
@@ -79,6 +82,49 @@ type Service struct {
 	baseDomain      string
 	instanceMarker  InstanceMarker
 	reviewer        deploymentreview.Assembler
+}
+
+func (s *Service) SetDelivery(c *deliveryapp.Coordinator) { s.delivery = c }
+func (s *Service) UpdateDeliveryPolicy(ctx context.Context, orgKey string, env environment.Environment, stage func(string, map[string]any) error) error {
+	if s.delivery == nil {
+		return deliveryapp.ErrUnavailable
+	}
+	return s.delivery.UpdatePolicy(ctx, orgKey, env, stage)
+}
+func (s *Service) ResumeDeliveryPolicy(ctx context.Context, orgKey string, env environment.Environment, stage func(string, map[string]any) error) error {
+	if s.delivery == nil {
+		return deliveryapp.ErrUnavailable
+	}
+	if err := s.delivery.RecoverSubmissions(ctx, orgKey, env); err != nil {
+		return err
+	}
+	return s.delivery.UpdatePolicy(ctx, orgKey, env, stage)
+}
+func (s *Service) TransferDelivery(ctx context.Context, orgKey string, env environment.Environment, stage func(string, map[string]any) error) error {
+	if s.delivery == nil {
+		return deliveryapp.ErrUnavailable
+	}
+	return s.delivery.Transfer(ctx, orgKey, env, stage)
+}
+
+func (s *Service) ResumeDeliveryTransfer(ctx context.Context, orgKey string, env environment.Environment, stage func(string, map[string]any) error) error {
+	if s.delivery == nil {
+		return deliveryapp.ErrUnavailable
+	}
+	return s.delivery.ResumeTransfer(ctx, orgKey, env, stage)
+}
+
+// ActivateDelivery is called by the pending batch only after routes and every
+// workload completed; a partially successful batch retains the applied manager.
+func (s *Service) ActivateDelivery(ctx context.Context, appKey, envKey string) error {
+	env, err := s.store.GetEnvironment(ctx, appKey, envKey)
+	if err != nil {
+		return err
+	}
+	if s.delivery == nil {
+		return deliveryapp.ErrUnavailable
+	}
+	return s.delivery.Activate(ctx, appKey, env)
 }
 
 func (s *Service) SetReviewer(reviewer deploymentreview.Assembler) { s.reviewer = reviewer }
@@ -338,6 +384,32 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		return nil, s.fail(ctx, record, err)
 	}
 
+	if after != nil && env.DesiredDelivery.Effective().Mode == deliverydomain.CD {
+		if s.delivery == nil {
+			return nil, s.fail(ctx, record, deliveryapp.ErrUnavailable)
+		}
+		if err := s.delivery.CheckAvailable(ctx, cmd.OrganizationKey, env); err != nil {
+			return nil, s.fail(ctx, record, err)
+		}
+		instances, err := s.store.ListWorkloadInstancesFor(ctx, app.Key+"/"+env.Key, env.TargetGeneration)
+		if err != nil {
+			return nil, s.fail(ctx, record, err)
+		}
+		for _, instance := range instances {
+			if instance.Status != domain.InstanceRemoved && instance.TargetRef["deliveryMode"] != "CD" {
+				return nil, s.fail(ctx, record, deliverydomain.ErrUnsupported)
+			}
+		}
+	}
+	// An applied CD controller retains authority until an explicit handoff has
+	// stopped every source unit. A desired toggle never authorizes direct writes
+	// or a different binding against those objects.
+	if after != nil && env.AppliedDelivery.Effective().Mode == deliverydomain.CD {
+		requiresTransfer, err := deliverydomain.RequiresTransfer(env.AppliedDelivery, env.DesiredDelivery, true)
+		if err != nil || requiresTransfer {
+			return nil, s.fail(ctx, record, deliverydomain.ErrUnsupported)
+		}
+	}
 	// MS-09: UC-08 provisions resource-only batches.
 	// UC-06 owns the combined lifecycle order: resources that depend on a workload
 	// (plan.AfterWorkloads) run after that workload is applied and Ready.
@@ -383,6 +455,11 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	if err := s.store.Transact(ctx, func(ctx context.Context) error {
 		if err := s.store.CompareVersionAndSetCurrent(ctx, app.Key, env.Key, record.BaseEnvironmentVersion, candidateSet.ID); err != nil {
 			return err
+		}
+		if env.DesiredDelivery.Effective().Mode == deliverydomain.CD && !cmd.DeferPublicRoutes {
+			if err := s.delivery.Activate(ctx, app.Key, env); err != nil {
+				return err
+			}
 		}
 		if err := s.markUnreferenced(ctx, cmd.OrganizationKey, record.ID, plan.UnreferencedResources); err != nil {
 			return err
@@ -478,16 +555,31 @@ func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, 
 		if err := s.store.UpsertWorkloadProgress(ctx, instance); err != nil {
 			return err
 		}
-		if err := s.removeObjects(ctx, target, workloadID, instanceInventory(instance)); err != nil {
-			instance.Status = domain.InstanceFailed
-			_ = s.store.UpsertWorkloadProgress(ctx, instance)
-			return err
+		if instance.TargetRef["deliveryMode"] == "CD" || instance.TargetRef["deliveryMode"] == "DIRECT" {
+			if s.delivery == nil {
+				return deliveryapp.ErrUnavailable
+			}
+			if err := s.delivery.RemoveWorkload(ctx, planCtx.OrganizationKey, planCtx.Env.ID, workloadID); err != nil {
+				return err
+			}
+			// Auxiliary renderer Secrets are applied directly and excluded from
+			// Git. Retire them only after the workload controller is stopped.
+			if err := s.deployer.Remove(ctx, target, workloadID); err != nil {
+				return err
+			}
+		} else {
+			if err := s.removeObjects(ctx, target, workloadID, instanceInventory(instance)); err != nil {
+				instance.Status = domain.InstanceFailed
+				_ = s.store.UpsertWorkloadProgress(ctx, instance)
+				return err
+			}
+			if err := s.deployer.Remove(ctx, target, workloadID); err != nil {
+				instance.Status = domain.InstanceFailed
+				_ = s.store.UpsertWorkloadProgress(ctx, instance)
+				return err
+			}
 		}
-		if err := s.deployer.Remove(ctx, target, workloadID); err != nil {
-			instance.Status = domain.InstanceFailed
-			_ = s.store.UpsertWorkloadProgress(ctx, instance)
-			return err
-		}
+
 		// The workload's secret delivery objects go with it (UC-07 VSO-01);
 		// an unverified removal keeps the instance failed for a retry.
 		if remover, ok := s.configSync.(execution.WorkloadSecretRemover); ok {
@@ -709,24 +801,50 @@ func (s *Service) applyWorkload(
 		ObservedAt:              s.clock.Now(),
 		ManifestReview:          deploymentreview.RenderedSnapshot(plan, workloadID, manifests),
 	}
+	if s.delivery != nil {
+		instance.TargetRef["deliveryMode"] = string(planCtx.Env.DesiredDelivery.Effective().Mode)
+	}
 	if err := s.store.UpsertWorkloadProgress(ctx, instance); err != nil {
 		return err
 	}
 
-	if err := s.applyPhases(ctx, target, workloadID, manifests); err != nil {
-		instance.Status = domain.InstanceFailed
-		instance.ObservedAt = s.clock.Now()
-		_ = s.store.UpsertWorkloadProgress(ctx, instance)
-		return err
+	if planCtx.Env.DesiredDelivery.Effective().Mode == deliverydomain.CD || s.delivery != nil {
+		if s.delivery == nil {
+			return deliveryapp.ErrUnavailable
+		}
+		auxiliary := []execution.Manifest{}
+		for _, m := range manifests {
+			if m.Auxiliary || m.Secret {
+				auxiliary = append(auxiliary, m)
+			}
+		}
+		if len(auxiliary) > 0 {
+			if err := s.deployer.Apply(ctx, target, auxiliary); err != nil {
+				return err
+			}
+		}
+		if err := s.delivery.Deploy(ctx, deliveryapp.DeployRequest{OrganizationKey: planCtx.OrganizationKey, ApplicationKey: planCtx.App.Key, Environment: planCtx.Env, WorkloadID: workloadID, DeploymentID: record.ID, Target: target, Manifests: manifests}); err != nil {
+			instance.Status = domain.InstanceFailed
+			_ = s.store.UpsertWorkloadProgress(ctx, instance)
+			return err
+		}
+	} else {
+		if err := s.applyPhases(ctx, target, workloadID, manifests); err != nil {
+			instance.Status = domain.InstanceFailed
+			instance.ObservedAt = s.clock.Now()
+			_ = s.store.UpsertWorkloadProgress(ctx, instance)
+			return err
+		}
+		// Objects the new render no longer contains are deleted only after the
+		// new set is ready; the inventory then becomes exactly the new set.
+		if err := s.removeObjects(ctx, target, workloadID, stale); err != nil {
+			instance.Status = domain.InstanceFailed
+			instance.ObservedAt = s.clock.Now()
+			_ = s.store.UpsertWorkloadProgress(ctx, instance)
+			return err
+		}
 	}
-	// Objects the new render no longer contains are deleted only after the
-	// new set is ready; the inventory then becomes exactly the new set.
-	if err := s.removeObjects(ctx, target, workloadID, stale); err != nil {
-		instance.Status = domain.InstanceFailed
-		instance.ObservedAt = s.clock.Now()
-		_ = s.store.UpsertWorkloadProgress(ctx, instance)
-		return err
-	}
+
 	instance.TargetRef = withInventory(instance.TargetRef, rendered)
 	instance.Status = domain.InstanceReady
 	instance.ObservedAt = s.clock.Now()
@@ -852,6 +970,23 @@ func (s *Service) routesFor(ctx context.Context, app appdomain.Application, env 
 		if candidate.Explicit() {
 			break
 		}
+	}
+	if env.DesiredDelivery.Effective().Mode == deliverydomain.CD || s.delivery != nil {
+		if s.delivery == nil {
+			return deliveryapp.ErrUnavailable
+		}
+		renderer, ok := s.publicRoutes.(execution.PublicRouteRenderer)
+		if !ok {
+			return deliverydomain.ErrUnsupported
+		}
+		manifests, err := renderer.RenderRoute(target, route)
+		if err != nil {
+			return err
+		}
+		if len(manifests) == 0 {
+			return s.delivery.RemoveWorkload(ctx, app.OrganizationKey, env.ID, "_routes")
+		}
+		return s.delivery.Deploy(ctx, deliveryapp.DeployRequest{OrganizationKey: app.OrganizationKey, ApplicationKey: app.Key, Environment: env, WorkloadID: "_routes", DeploymentID: persistence.OperationFrom(ctx), Target: target, Manifests: manifests})
 	}
 	return s.publicRoutes.Reconcile(ctx, target, route)
 }

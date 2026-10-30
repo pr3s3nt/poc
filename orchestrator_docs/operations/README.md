@@ -67,3 +67,5 @@ ghi đè runbook hoặc evidence cũ.
 [Kubernetes staging catalog bootstrap](staging-catalog.md) — Types-only startup và Playwright đăng ký catalog sau Driver Account `k8s-4f`.
 
 ZIP source preparation: [module and render-bundle upload](zip-source-upload.md).
+
+[Optional CD and drift reconciliation](delivery-reconciliation.md) — runtime flags, verified binding/Environment flow, reviewed repair, owner-only retention and recovery boundaries.

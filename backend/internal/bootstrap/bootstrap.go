@@ -21,7 +21,6 @@ import (
 	"orchestrator/internal/adapters/configmemory"
 	"orchestrator/internal/adapters/credentialmemory"
 	"orchestrator/internal/adapters/fake"
-	"orchestrator/internal/adapters/gitops"
 	k8s "orchestrator/internal/adapters/kubernetes"
 	pgstore "orchestrator/internal/adapters/postgres"
 	"orchestrator/internal/adapters/renderbundles"
@@ -38,6 +37,7 @@ import (
 	"orchestrator/internal/application/connection"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/deploymentreview"
+	driftapp "orchestrator/internal/application/drift"
 	"orchestrator/internal/application/envops"
 	observabilityapp "orchestrator/internal/application/observability"
 	"orchestrator/internal/application/pending"
@@ -130,6 +130,7 @@ type Options struct {
 	VaultDelivery      string
 	WorkloadDelivery   string
 	GitOpsRepoDir      string
+	DeliveryGitRoot    string
 	GitOpsBranch       string
 	FleetGitRepoName   string
 	HarborRegistryHost string
@@ -181,8 +182,10 @@ type Options struct {
 	// DeployDeadline is the finite hold time of one whole Deploy (all sequential
 	// Terraform nodes and the delivery). Zero keeps the default; it is bounded
 	// by envops.MaxDeadline.
-	DeployDeadline            time.Duration
-	TerraformReadinessTimeout time.Duration
+	DeployDeadline              time.Duration
+	TerraformReadinessTimeout   time.Duration
+	InfrastructureDrift         bool
+	InfrastructureDriftInterval time.Duration
 
 	// TerraformStateKeyFile enables the Terraform v2 durable state backend: an
 	// owner-only file holding the 32-byte AES-256-GCM state key (hex or
@@ -323,8 +326,8 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	if err := validateRealProfile(opts); err != nil {
 		return nil, err
 	}
-	if opts.WorkloadDelivery == "fleet-gitrepo" && opts.Adapters != AdapterKubernetes {
-		return nil, fmt.Errorf("bootstrap: Fleet GitRepo delivery requires Kubernetes adapters")
+	if opts.WorkloadDelivery != "" && opts.WorkloadDelivery != "direct" {
+		return nil, fmt.Errorf("bootstrap: process-wide workload delivery is retired; configure an optional Environment delivery binding")
 	}
 	var (
 		st  persistence.Store
@@ -480,23 +483,21 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	deployments := appsvc.NewService(st, planner, prov, renderer, deployer, inspector, c)
 	deployments.SetReviewer(reviewer)
 	if opts.Adapters == AdapterKubernetes {
-		if opts.WorkloadDelivery == "fleet-gitrepo" {
-			fleet, ok := deployer.(*gitops.Deployer)
-			if !ok {
-				return nil, fmt.Errorf("bootstrap: Fleet route delivery requires GitOps deployer")
-			}
-			deployments.SetPublicRouteManager(fleet, opts.Seed.BaseDomain)
-		} else {
-			routes, err := publicRoutes(opts, kubeconfigSource)
-			if err != nil {
-				return nil, err
-			}
-			deployments.SetPublicRouteManager(routes, opts.Seed.BaseDomain)
+		routes, err := publicRoutes(opts, kubeconfigSource)
+		if err != nil {
+			return nil, err
 		}
+		deployments.SetPublicRouteManager(routes, opts.Seed.BaseDomain)
 	}
-	if opts.WorkloadDelivery == "fleet-gitrepo" {
+	if opts.DeliveryGitRoot != "" && opts.HarborPullSecretName != "" {
 		deployments.SetImagePullSecret(opts.HarborPullSecretName)
 	}
+
+	deliveryBindings, deliveryCoordinator, err := setupDelivery(opts, st, kubeconfigSource, connectionCredentials, terraformRuntime)
+	if err != nil {
+		return nil, err
+	}
+	deployments.SetDelivery(deliveryCoordinator)
 	queries := appsvc.NewQueryService(st)
 	var rejectedAccountIDs []string
 	if !seed.AllowsFixedTestAccounts(opts.Seed.Profile) {
@@ -561,9 +562,6 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	workloads := workloadconfig.NewService(st)
 	pendingChanges := pending.NewService(st, planner, workloads, inspector)
 	pendingChanges.SetReviewer(reviewer)
-	if opts.WorkloadDelivery == "fleet-gitrepo" {
-		pendingChanges.SetImageRegistryHost(opts.HarborRegistryHost)
-	}
 	pendingChanges.SetDeployer(deployments)
 	pendingChanges.SetOperations(operations)
 	previews := preview.NewService(st, planner, inspector)
@@ -605,6 +603,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		resourceCleanup.SetEngine(opts.CleanupEngineOverride)
 	}
 	appDeletion := appdeletion.New(st, workloads, pendingChanges, resourceCleanup, storeRegistry)
+	appDeletion.SetRetiredAuxiliary(deployments.RemoveRetiredAuxiliary)
 
 	var renderPort renderregistry.Registry
 	if renderRegistry != nil {
@@ -620,7 +619,28 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	}
 	telemetryService := observabilityapp.New(st, telemetryReader)
 	*closers = append(*closers, telemetryService.Start(ctx))
+	if deliveryCoordinator != nil {
+		*closers = append(*closers, deliveryCoordinator.StartObservations(ctx))
+	}
+	var driftService *driftapp.Service
+	if opts.InfrastructureDrift {
+		if terraformRuntime == nil || terraformRuntime.repo == nil || terraformRuntime.executor == nil {
+			return nil, fmt.Errorf("bootstrap: infrastructure drift requires durable encrypted Terraform execution")
+		}
+		repo, ok := st.(driftapp.Store)
+		if !ok {
+			return nil, fmt.Errorf("bootstrap: infrastructure drift persistence unavailable")
+		}
+		if opts.InfrastructureDriftInterval != 0 && opts.InfrastructureDriftInterval < time.Minute {
+			return nil, fmt.Errorf("bootstrap: infrastructure drift cadence must be at least one minute")
+		}
+		driftService = &driftapp.Service{Store: repo, Instances: terraformRuntime.repo, Inspector: terraformRuntime.executor, Operations: operations, Interval: opts.InfrastructureDriftInterval}
+		*closers = append(*closers, driftService.Start(ctx))
+	}
 	server := deliveryhttp.NewServer(deliveryhttp.Config{
+		Drift:                 driftService,
+		Reconciliation:        deliveryCoordinator,
+		Delivery:              deliveryBindings,
 		Observability:         telemetryService,
 		Diagnostics:           diagnostics,
 		RenderBundles:         bundles,

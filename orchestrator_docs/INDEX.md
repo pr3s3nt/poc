@@ -154,7 +154,10 @@ ZIP upload usage: [runbook](operations/zip-source-upload.md).
 ## Optional Environment CD and reconciliation
 
 Start with [ADR-027](architecture/decisions/ADR-027-delivery-reconciliation.md),
-then [implementation route](implementation/delivery-reconciliation.md) for the
+then [implementation route](implementation/delivery-reconciliation.md) and
+[operator runbook](operations/delivery-reconciliation.md) for the
 owning use-case specs, contracts, diagrams, schema, UI and acceptance gates.
-Fleet is opt-in independently per Environment; current runtime is still direct.
-This requested design does not activate another roadmap iteration.
+Fleet is opt-in independently per Environment behind optional runtime wiring;
+direct remains the default. Implementation and acceptance are in progress on
+`features/reconciliation`; see Current state for limits. This requested change
+does not activate another roadmap iteration.

@@ -7,10 +7,13 @@ import { environmentTitle } from '../environment/labels';
 import { useEnvironmentBusy } from '../environment/useEnvironmentBusy';
 import { OperationBanner } from '../environment/OperationBanner';
 import { SecretStoreSelection } from '../environment/SecretStoreSelection';
+import { fetchEnvironment } from '../environment/api';
 import { deleteKey, getConfiguration, putKey, renameKey, type ConfigKey, type Configuration, type KeyKind } from './api';
 import { t } from '../../shared/i18n';
 import { DeleteApplicationDialog } from '../applications/deletion/DeleteApplicationDialog';
 import { DeletionPanel } from '../applications/deletion/DeletionPanel';
+import { DeliverySelectionPanel } from '../delivery/DeliverySelectionPanel';
+import { Dialog } from '../../shared/ui/Dialog';
 
 type Form = { kind: KeyKind; name: string; value: string; editing?: string };
 type Action = { kind: 'rename' | 'delete'; key: ConfigKey; newName: string; updateReferences: boolean };
@@ -31,12 +34,23 @@ function describe(err: unknown): string {
   return err.message;
 }
 
-export function SettingsPage({ application, initialEnvironment = 'staging', onTargetChange, onDeletionStarted, onDeleted }: { application: Application; initialEnvironment?: EnvironmentKey; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void; onDeletionStarted?(applicationId: string, operationId: string): void; onDeleted?(applicationId: string): void }) {
+export function SettingsPage({ application, initialEnvironment = 'staging', canEditDelivery = false, onTargetChange, onDeletionStarted, onDeleted }: { application: Application; initialEnvironment?: EnvironmentKey; canEditDelivery?: boolean; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void; onDeletionStarted?(applicationId: string, operationId: string): void; onDeleted?(applicationId: string): void }) {
   const [deleting, setDeleting] = useState(false);
   const [deletionId, setDeletionId] = useState(application.deletionOperationId);
   const deletionOperation = application.status === 'DELETING' ? deletionId ?? application.deletionOperationId : deletionId;
   const deleted = useCallback(() => onDeleted?.(application.id), [onDeleted, application.id]);
   const [environment, setEnvironment] = useState<EnvironmentKey>(initialEnvironment);
+  const [deliveryDirty, setDeliveryDirty] = useState(false);
+  const [switchEnvironment, setSwitchEnvironment] = useState<EnvironmentKey>();
+  function changeEnvironment(next: EnvironmentKey) {
+    if (next === environment) return;
+    if (deliveryDirty) { setSwitchEnvironment(next); return; }
+    setEnvironment(next); replaceRoute({ name: 'settings', applicationId: application.id, environment: next });
+  }
+  const deliverySaved = useCallback(() => {
+    setReloadCount(value => value + 1);
+    void fetchEnvironment(application.id, environment).then(target => { if (target) onTargetChange?.(application.id, environment, target); }).catch(() => undefined);
+  }, [application.id, environment, onTargetChange]);
   const [data, setData] = useState<Configuration>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -183,8 +197,10 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
   return <section className="page settings-page">
     <button className="back-link" onClick={() => navigate({ name: 'application', applicationId: application.id })}>← {application.name}</button>
     <header className="page-header application-header"><div><p className="eyebrow">{t('configuration.settings.applicationSettings')}</p><h1>{t('configuration.settings.environmentSettings')}</h1><p>{t('configuration.settings.chooseTheSecretStoreOf')}</p></div>{data && data.version > 0 ? <span className="pending-pill">{t('configuration.settings.configurationVersionVVersion', { version: data.version })}</span> : null}</header>
-    <div className="tabs" role="tablist" aria-label={t('configuration.settings.environment')}>{(['staging', 'production'] as const).map((env) => <button key={env} role="tab" aria-selected={env === environment} className={env === environment ? 'tab tab-active' : 'tab'} onClick={() => { setEnvironment(env); replaceRoute({ name: 'settings', applicationId: application.id, environment: env }); }}>{environmentTitle(env)}</button>)}</div>
+    <div className="tabs" role="tablist" aria-label={t('configuration.settings.environment')}>{(['staging', 'production'] as const).map((env) => <button key={env} role="tab" aria-selected={env === environment} className={env === environment ? 'tab tab-active' : 'tab'} onClick={() => changeEnvironment(env)}>{environmentTitle(env)}</button>)}</div>
     <OperationBanner application={application} environment={environment} onTargetChange={change} />
+    <DeliverySelectionPanel key={`${application.id}:${environment}`} applicationId={application.id} environment={environment} canEdit={canEditDelivery} busy={busy} onDirtyChange={setDeliveryDirty} onSaved={deliverySaved} />
+    {switchEnvironment ? <Dialog label={t('delivery.discardTitle')} onClose={() => setSwitchEnvironment(undefined)}><h2>{t('delivery.discardTitle')}</h2><div className="form-actions"><Button onClick={() => setSwitchEnvironment(undefined)}>{t('delivery.keepEditing')}</Button><Button onClick={() => { const next = switchEnvironment; setSwitchEnvironment(undefined); setDeliveryDirty(false); setEnvironment(next); replaceRoute({ name: 'settings', applicationId: application.id, environment: next }); }}>{t('delivery.discard')}</Button></div></Dialog> : null}
     <SecretStoreSelection application={application} environment={environment} configVersion={data?.version ?? 0} onTargetChange={change} onConfigurationChanged={() => setReloadCount((value) => value + 1)} />
     {needStore && !hasStore ? <div className="form-info" role="status">{t('configuration.settings.chooseASecretStoreAbove')}</div> : null}
     {error ? <div className="form-error" role="alert">{error}{reloadNeeded ? <Button type="button" onClick={() => void retryReload()}>{t('configuration.settings.reloadConfiguration')}</Button> : null}{!data && !loading ? <Button type="button" onClick={() => { setError(''); setLoading(true); setReloadCount((value) => value + 1); }}>{t('configuration.settings.retry')}</Button> : null}</div> : null}

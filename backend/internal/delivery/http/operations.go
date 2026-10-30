@@ -8,6 +8,7 @@ import (
 	"time"
 
 	appsvc "orchestrator/internal/application/deployment"
+	deliverydomain "orchestrator/internal/domain/delivery"
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/platform/ids"
@@ -82,10 +83,55 @@ func (s *Server) handleRecoverOperation(w http.ResponseWriter, r *http.Request) 
 		s.writeError(w, persistence.ErrVersionConflict)
 		return
 	}
+	policyRecovery, _ := op.Detail["deliveryPolicyOnly"].(bool)
+	// Stage is retained for attempts admitted before the explicit detail flag.
+	policyRecovery = policyRecovery || op.Stage == "DELIVERY_POLICY"
+	if op.Kind == environment.OpDriftScan {
+		if _, ok := s.platformActor(w, r); !ok {
+			return
+		}
+	}
+	if transfer, _ := op.Detail["deliveryTransfer"].(bool); transfer || policyRecovery {
+		if _, ok := s.platformActor(w, r); !ok {
+			return
+		}
+	}
 	app, err := s.store.GetApplication(r.Context(), appKey)
 	if err != nil || app.OrganizationKey != identity.OrganizationKey {
 		s.writeError(w, persistence.ErrNotFound)
 		return
+	}
+	// Generic workload recovery cannot release an unresolved CD mutation. A
+	// transfer uses its dedicated forward protocol below; ordinary submissions
+	// remain held until exact provider outcome recovery is implemented.
+	if transfer, _ := op.Detail["deliveryTransfer"].(bool); !transfer && !policyRecovery {
+		if repo, ok := s.store.(persistence.DeliveryExecutionRepository); ok {
+			organization, lookupErr := s.store.GetOrganization(r.Context(), app.OrganizationKey)
+			if lookupErr != nil {
+				s.writeError(w, lookupErr)
+				return
+			}
+			currentEnv, lookupErr := s.store.GetEnvironment(r.Context(), appKey, envKey)
+			if lookupErr != nil {
+				s.writeError(w, lookupErr)
+				return
+			}
+			records, lookupErr := repo.ListDeliveryExecutions(r.Context(), organization.ID, currentEnv.ID)
+			if lookupErr != nil {
+				s.writeError(w, lookupErr)
+				return
+			}
+			for _, record := range records {
+				if record.Mutation.OperationID == op.ID && (record.Mutation.Status == deliverydomain.IntentRunning || record.Mutation.Status == deliverydomain.IntentUnknown) {
+					submission := record.Mutation.Action == deliverydomain.Submit && record.Receipt.IntentID == record.Mutation.ID
+					removal := record.Mutation.Action == deliverydomain.Withdraw && record.Receipt.IntentID != "" && len(record.Inventory) > 0
+					if !submission && !removal {
+						writeCode(w, codeRecoveryIncomplete, "")
+						return
+					}
+				}
+			}
+		}
 	}
 	_, _ = s.operations.Sweep(r.Context())
 	op, err = s.store.BeginRecovery(r.Context(), op.ID, s.operations.InstanceID()+"-recovery-"+ids.New()[:8], strings.TrimSpace(identity.Username))
@@ -95,11 +141,79 @@ func (s *Server) handleRecoverOperation(w http.ResponseWriter, r *http.Request) 
 	}
 	lease := s.operations.Adopt(r.Context(), op)
 	result := map[string]any{"operationId": op.ID, "kind": string(op.Kind)}
+	if op.Kind == environment.OpDriftScan {
+		scanID, _ := op.Detail["driftScanId"].(string)
+		if s.drift == nil || scanID == "" {
+			_ = lease.Suspend("drift scan recovery unavailable")
+			writeCode(w, codeRecoveryIncomplete, "")
+			return
+		}
+		if err := s.drift.RecoverStoppedScan(lease.Ctx, app.OrganizationKey, appKey, envKey, scanID); err != nil {
+			_ = lease.Suspend("drift scan outcome requires further recovery")
+			writeCode(w, codeRecoveryIncomplete, "")
+			return
+		}
+		if err := lease.End(environment.OpRecovered, "interrupted scan remains UNKNOWN; request a fresh scan"); err != nil {
+			s.writeError(w, err)
+			return
+		}
+		result["outcome"] = "RECOVERED"
+		writeJSON(w, http.StatusOK, map[string]any{"recovery": result})
+		return
+	}
 	if op.Kind != environment.OpDeploy && op.Kind != environment.OpRemove && op.Kind != environment.OpRoutes {
 		reason := "recovery cannot prove cleanup state; the Environment remains held"
 		_ = lease.Suspend(reason)
 		writeFailure(w, failure{code: codeRecoveryIncomplete, extra: map[string]any{"recovery": map[string]any{"operationId": op.ID, "outcome": reason}}})
 		return
+	}
+	if policyRecovery {
+		env, err := s.store.GetEnvironment(lease.Ctx, appKey, envKey)
+		if err == nil {
+			err = s.deployments.ResumeDeliveryPolicy(lease.Ctx, app.OrganizationKey, env, lease.Stage)
+		}
+		if err != nil {
+			_ = lease.Suspend("delivery policy requires further recovery")
+			writeCode(w, codeRecoveryIncomplete, "")
+			return
+		}
+		if err := lease.End(environment.OpRecovered, ""); err != nil {
+			s.writeError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"recovery": map[string]any{"operationId": op.ID, "kind": string(op.Kind), "outcome": "RECOVERED"}})
+		return
+	}
+	if transfer, _ := op.Detail["deliveryTransfer"].(bool); transfer {
+		env, err := s.store.GetEnvironment(lease.Ctx, appKey, envKey)
+		if err == nil {
+			err = s.deployments.ResumeDeliveryTransfer(lease.Ctx, app.OrganizationKey, env, lease.Stage)
+		}
+		if err != nil {
+			_ = lease.Suspend("delivery transfer requires further recovery")
+			writeCode(w, codeRecoveryIncomplete, "")
+			return
+		}
+		if err := lease.End(environment.OpRecovered, ""); err != nil {
+			s.writeError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"recovery": map[string]any{"operationId": op.ID, "kind": string(op.Kind), "outcome": "RECOVERED"}})
+		return
+	}
+	if s.reconciliation != nil {
+		env, err := s.store.GetEnvironment(lease.Ctx, appKey, envKey)
+		if err == nil {
+			err = s.reconciliation.RecoverRemovals(lease.Ctx, app.OrganizationKey, env)
+		}
+		if err == nil {
+			err = s.reconciliation.RecoverSubmissions(lease.Ctx, app.OrganizationKey, env)
+		}
+		if err != nil {
+			_ = lease.Suspend("delivery submission requires further recovery")
+			writeCode(w, codeRecoveryIncomplete, "")
+			return
+		}
 	}
 	list, err := s.store.ListDeployments(lease.Ctx, app.Key, envKey)
 	if err == nil {

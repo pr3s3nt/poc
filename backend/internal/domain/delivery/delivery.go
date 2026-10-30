@@ -169,16 +169,25 @@ const (
 	DriftUnsupported Drift  = "NOT_SUPPORTED"
 )
 
+type ObjectObservation struct {
+	APIVersion string `json:"apiVersion"`
+	Kind       string `json:"kind"`
+	Name       string `json:"name"`
+	Namespace  string `json:"namespace"`
+	UID        string `json:"uid"`
+}
+
 type Observation struct {
-	Scope            Scope     `json:"scope"`
-	IntendedRevision string    `json:"intendedRevision"`
-	ObservedRevision string    `json:"observedRevision,omitempty"`
-	PayloadDigest    string    `json:"payloadDigest,omitempty"`
-	Sync             Sync      `json:"sync"`
-	Health           Health    `json:"health"`
-	Drift            Drift     `json:"drift"`
-	Complete         bool      `json:"complete"`
-	ObservedAt       time.Time `json:"observedAt"`
+	Objects          []ObjectObservation `json:"objects,omitempty"`
+	Scope            Scope               `json:"scope"`
+	IntendedRevision string              `json:"intendedRevision"`
+	ObservedRevision string              `json:"observedRevision,omitempty"`
+	PayloadDigest    string              `json:"payloadDigest,omitempty"`
+	Sync             Sync                `json:"sync"`
+	Health           Health              `json:"health"`
+	Drift            Drift               `json:"drift"`
+	Complete         bool                `json:"complete"`
+	ObservedAt       time.Time           `json:"observedAt"`
 }
 
 // Validate rejects a provider's clean result without complete, exact revision evidence.
@@ -224,7 +233,8 @@ func (o Observation) Effective(now time.Time, interval time.Duration) Observatio
 // Ready gates execution commit; health alone is never revision acknowledgement.
 func (o Observation) Ready(r Revision, now time.Time, interval time.Duration) bool {
 	o = o.Effective(now, interval)
-	return r.Validate() == nil && o.Validate(r) == nil && o.Sync == InSync && o.Health == Healthy && o.Drift == NoDrift
+	driftAccepted := o.Drift == NoDrift || (r.Selection.Effective().Mode == Direct && o.Drift == DriftUnsupported)
+	return r.Validate() == nil && o.Validate(r) == nil && o.Sync == InSync && o.Health == Healthy && driftAccepted
 }
 
 // RequiresTransfer includes disabling CD, changing bindings and crossing binding versions.

@@ -301,3 +301,9 @@ type SecretStore interface {
 type RenderPreflight interface {
 	ValidateSelection(context.Context, resource.RenderingSelection) error
 }
+
+// PublicRouteRenderer emits the Environment route without applying it; optional
+// CD delivery publishes this artifact through the selected delivery adapter.
+type PublicRouteRenderer interface {
+	RenderRoute(target Target, route PublicRoute) ([]Manifest, error)
+}

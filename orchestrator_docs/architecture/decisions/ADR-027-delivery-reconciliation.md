@@ -16,6 +16,13 @@ enabled explicitly for each Environment, independently for staging/production.
 This record specifies the implementation target. It does not claim delivery,
 authorize cluster changes, or activate an unrelated roadmap iteration.
 
+Fleet version is pinned to **v0.15.2**, per the subsequent user decision.
+Terraform retains all infrastructure/dependency ownership, including Kubernetes
+StatefulSets for PostgreSQL/Redis created by its modules. Only workload manifests
+and Environment public routes are published to Fleet GitRepos. Task-owned E2E
+setup installs Fleet v0.15.2 in its isolated cluster; product deployment requires
+an explicitly installed/verified controller and target registration.
+
 ## Context
 
 Current `execution.WorkloadDeployer` offers Apply/WaitReady/Remove. The old
@@ -72,6 +79,16 @@ not desired/live configuration equivalence.
    status and never rewrite state/outputs/current Set. Reviewed remediation uses
    saved plans with fresh state guards, dependency validation and existing
    destructive-update restrictions. D12/D13/D14 remain deferred.
+
+## Platform CD configuration — user decision 2026-10-29
+
+PE/Admin author bindings in a dedicated platform page, including verification,
+immutable versions and Environment usage. Fleet supports explicit managed GitRepos
+or a preexisting GitRepo with a dedicated generated subtree. Existing controllers,
+registrations, GitRepo and reader Secrets are retained. Provider topology includes
+separate controller and agent namespaces. UI and adapter schemas remain provider
+specific behind the generic binding/lifecycle boundary. Environment opt-in and
+Terraform ownership decisions above remain unchanged.
 
 ## Alternatives and consequences
 

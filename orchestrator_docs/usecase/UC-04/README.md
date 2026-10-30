@@ -60,3 +60,5 @@ local checks, live EC2/Console/Terraform scope and native cleanup evidence.
 Read this use case's CD/INF/REC specification extension, then the
 [design and implementation route](../../implementation/delivery-reconciliation.md).
 Required design only; current runtime availability is tracked separately.
+
+CD platform authoring: [Cấu hình CD](ui/cd-providers.md).

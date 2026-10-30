@@ -57,7 +57,8 @@ func main() {
 	gitPath := flag.String("git", "git", "git binary used to resolve and fetch Terraform module and render bundle commits")
 	renderBundleCacheDir := flag.String("render-bundle-cache-dir", os.Getenv("ORCHESTRATOR_RENDER_BUNDLE_CACHE_DIR"), "durable private absolute directory (0700, outside any Git work tree) caching verified Git render bundles; empty uses a temporary cache lost on exit")
 	vaultDelivery := flag.String("vault-delivery", "auto", "UC-12 Kubernetes delivery: auto, vso or agent")
-	workloadDelivery := flag.String("workload-delivery", "direct", "workload delivery: direct or fleet-gitrepo (kind only)")
+	deliveryGitRoot := flag.String("delivery-git-root", os.Getenv("ORCHESTRATOR_DELIVERY_GIT_ROOT"), "private absolute directory outside Git for optional Environment CD publication; empty disables CD bindings")
+	workloadDelivery := flag.String("workload-delivery", "direct", "deprecated process-wide workload delivery; only direct is accepted (CD is selected per Environment)")
 	gitopsRepoDir := flag.String("gitops-repo-dir", "", "writable local clone of the Fleet GitOps repository")
 	gitopsBranch := flag.String("gitops-branch", "main", "Fleet GitOps branch")
 	fleetGitRepoName := flag.String("fleet-gitrepo-name", "poc-workloads", "Fleet GitRepo resource name in fleet-local")
@@ -80,6 +81,8 @@ func main() {
 	deployDeadline := flag.Duration("deploy-deadline", 0, "finite hold time of one whole Deploy claim (default 45m, at most 4h); an AWS acceptance run sets it to cover the sequential VPC -> EKS -> database chain inside its recorded overall deadline")
 	terraformInvocationTimeout := flag.Duration("terraform-invocation-timeout", 0, "bound of one Terraform session (default 45m); acceptance runs set a finite smaller value")
 	terraformReadinessTimeout := flag.Duration("terraform-readiness-timeout", 0, "bound of the readiness query after an apply (default 5m)")
+	infrastructureDrift := flag.Bool("infrastructure-drift", envBool("ORCHESTRATOR_INFRASTRUCTURE_DRIFT"), "enable independent read-only Terraform drift scans with encrypted acknowledged baselines")
+	infrastructureDriftInterval := flag.Duration("infrastructure-drift-interval", 15*time.Minute, "jittered infrastructure drift scan cadence (minimum 1m)")
 	platformVaultBootstrap := flag.Bool("platform-vault-bootstrap", envBool("ORCHESTRATOR_PLATFORM_VAULT_BOOTSTRAP"), "explicit opt-in: register the bundled Compose Vault as the ordinary verified store platform-vault at startup")
 	platformVaultAddress := flag.String("platform-vault-address", os.Getenv("ORCHESTRATOR_PLATFORM_VAULT_ADDR"), "Vault API address of the platform-vault bootstrap")
 	platformVaultWorkloadAddress := flag.String("platform-vault-workload-address", os.Getenv("ORCHESTRATOR_PLATFORM_VAULT_WORKLOAD_ADDR"), "Vault address used by workload Pods (default: the API address)")
@@ -93,7 +96,15 @@ func main() {
 	ownerURLFile := flag.String("database-owner-url-file", os.Getenv("ORCHESTRATOR_DATABASE_OWNER_URL_FILE"), "owner-only file holding the PostgreSQL URL of the owner role (used only with -setup-database)")
 	consoleRole := flag.String("console-database-role", os.Getenv("ORCHESTRATOR_CONSOLE_DATABASE_ROLE"), "Console runtime login role granted by -setup-database")
 	stateRole := flag.String("state-database-role", os.Getenv("ORCHESTRATOR_STATE_DATABASE_ROLE"), "State runtime login role granted by -setup-database")
+	pruneDrift := flag.Bool("prune-drift-history", false, "explicit owner-only retention: bounded expiry of settled repair plans after 24h and unreferenced scans after 30d, then exit")
 	flag.Parse()
+	if *pruneDrift {
+		if *setupDatabase {
+			log.Print("orchestrator: choose setup or retention separately")
+			os.Exit(1)
+		}
+		os.Exit(runDriftRetention(*ownerURLFile))
+	}
 	if *setupDatabase {
 		os.Exit(runDatabaseSetup(*ownerURLFile, *consoleRole, *stateRole))
 	}
@@ -197,6 +208,7 @@ func main() {
 		VaultDelivery:                 *vaultDelivery,
 		WorkloadDelivery:              *workloadDelivery,
 		GitOpsRepoDir:                 *gitopsRepoDir,
+		DeliveryGitRoot:               *deliveryGitRoot,
 		GitOpsBranch:                  *gitopsBranch,
 		FleetGitRepoName:              *fleetGitRepoName,
 		HarborRegistryHost:            *harborRegistryHost,
@@ -207,6 +219,7 @@ func main() {
 		PlatformVault: platformVault,
 
 		DeployDeadline: *deployDeadline, TerraformInvocationTimeout: *terraformInvocationTimeout, TerraformReadinessTimeout: *terraformReadinessTimeout,
+		InfrastructureDrift: *infrastructureDrift, InfrastructureDriftInterval: *infrastructureDriftInterval,
 
 		OutputSecretStore: *outputSecretStore, OutputSecretVaultAddress: *outputSecretAddress,
 		OutputSecretVaultTokenFile: *outputSecretTokenFile, OutputSecretVaultMount: *outputSecretMount,
@@ -297,4 +310,21 @@ func envOr(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func runDriftRetention(ownerURLFile string) int {
+	ownerURL, err := bootstrap.ReadCredentialFile("database owner URL", ownerURLFile)
+	if err != nil {
+		log.Printf("orchestrator: %v", err)
+		return 1
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	scans, plans, err := postgres.PruneDriftHistory(ctx, ownerURL)
+	if err != nil {
+		log.Printf("orchestrator: retention failed: %v", err)
+		return 1
+	}
+	fmt.Printf("orchestrator: expired %d safe scans and %d private repair plans\n", scans, plans)
+	return 0
 }

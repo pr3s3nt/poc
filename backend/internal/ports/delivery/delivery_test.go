@@ -11,7 +11,7 @@ import (
 
 func TestIntentRejectsUnscopedOrForeignExecution(t *testing.T) {
 	revision := domain.Revision{ID: "revision", Scope: domain.Scope{OrganizationID: "org", EnvironmentID: "env", UnitKey: "rollout"}, Phase: domain.Rollout, ArtifactRef: "private", PayloadDigest: strings.Repeat("a", 64), Selection: domain.Selection{Mode: domain.CD, BindingID: "binding", BindingVersion: 1}}
-	i := Intent{ID: "intent", Owner: Owner{OperationID: "op", Instance: "worker", Fence: 1}, Revision: revision, Target: execution.Target{Organization: "org", Connection: "account"}, Binding: BindingVersion{ID: "binding", Version: 1, OrganizationID: "org", Capabilities: domain.Capabilities{ContractVersion: "v1", ExactRevision: true, PhasedDelivery: true, RetainOnWithdraw: true, GuardedPrune: true}}}
+	i := Intent{ID: "intent", OrganizationKey: "org", Owner: Owner{OperationID: "op", Instance: "worker", Fence: 1}, Revision: revision, Target: execution.Target{Organization: "org", Connection: "account"}, Binding: BindingVersion{ID: "binding", Version: 1, OrganizationID: "org", Capabilities: domain.Capabilities{ContractVersion: "v1", ExactRevision: true, PhasedDelivery: true, RetainOnWithdraw: true, GuardedPrune: true}}}
 	if err := i.Validate(); err != nil {
 		t.Fatal(err)
 	}

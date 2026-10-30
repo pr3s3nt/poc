@@ -563,3 +563,24 @@ it('never shows an existing identity as unchanged without proof, and treats a mi
   expect(panel).toHaveTextContent('Chưa có thông tin tài nguyên hạ tầng trong kết quả xem trước này nên chưa thể kết luận');
   expect(panel).toHaveTextContent('Không có tài nguyên hạ tầng nào cần tạo, cập nhật hoặc liên kết.');
 });
+
+it('tracks a delivery-only transfer with no workload graph without losing the result', async () => {
+  let requestId = ''; let submits = 0;
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname.endsWith('/workloads')) return Response.json({ draftVersion: 1, workloads: [{ id: 'api', ready: true, score: {} }] });
+    if (url.pathname.endsWith('/preview')) return Response.json({ token: 'transfer', changes: [], deliveryPending: true, deliveryTransfer: true, deliveryUnits: [{ workloadId: 'api', phase: 'ROLLOUT', objects: 2, revision: 'admitted' }], appliedDelivery: { mode: 'CD' }, desiredDelivery: { mode: 'DIRECT' }, review: { version: 0, nodes: null, edges: null, batches: null, artifacts: null } });
+    if (url.pathname.endsWith('/deploy') && init?.method === 'POST') { submits++; requestId = (JSON.parse(String(init.body)) as { reviewRequestId: string }).reviewRequestId; return Response.json({ status: 'SUCCEEDED', results: [] }); }
+    if (url.pathname.endsWith('/deployments')) return Response.json({ deployments: [] });
+    if (url.pathname.endsWith('/operations')) return Response.json({ operations: requestId ? [{ id: 'transfer-op', reviewRequestId: requestId, status: 'SUCCEEDED', stage: 'COMPLETED' }] : [] });
+    if (url.pathname.endsWith('/resources')) return Response.json({ resources: [] });
+    return Response.json({}, { status: 404 });
+  }));
+  const user = userEvent.setup(); render(<ApplicationHomePage application={application} />);
+  await screen.findByText('api'); await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  expect(await screen.findByText('Không đổi cluster hoặc dữ liệu')).toBeInTheDocument();
+  expect(screen.getByText(/api · Ứng dụng · 2 tài nguyên/)).toBeInTheDocument();
+  await user.click(await screen.findByRole('button', { name: 'Triển khai các thay đổi này' }));
+  expect(await screen.findByRole('heading', { name: 'Triển khai thành công' })).toBeInTheDocument();
+  expect(await screen.findByText('SUCCEEDED · COMPLETED')).toBeInTheDocument(); expect(submits).toBe(1);
+});

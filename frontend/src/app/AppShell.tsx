@@ -17,6 +17,7 @@ function NavigationIcon({ name }: { name: string }) {
     'resource-definitions': <><path d="m2 6 8-4 8 4-8 4-8-4Zm0 4 8 4 8-4M2 14l8 4 8-4" /></>,
     'rendering-templates': <><rect x="3" y="2" width="14" height="16" rx="2" /><path d="M3 6h14m-9 4-2 2 2 2m4-4 2 2-2 2" /></>,
     'driver-accounts': <><path d="m10 2 7 3v5c0 4-4 7-7 8-3-1-7-4-7-8V5l7-3Z" /><circle cx="10" cy="8" r="2" /><path d="M6 14c1-4 7-4 8 0" /></>,
+    'cd-providers': <><path d="M4 5h12v10H4zM7 2v3m6-3v3M7 15v3m6-3v3" /><path d="m8 8 4 2-4 2Z" /></>,
     'secret-stores': <><rect x="4" y="8" width="12" height="10" rx="2" /><path d="M6 8V6a4 4 0 0 1 8 0v2m-4 4v2" /></>,
     effectiveness: <><path d="M3 17h14M5 14V9m4 5V5m4 9v-3m4 3V7" /></>,
     history: <><circle cx="10" cy="10" r="7" /><path d="M10 6v4l3 2" /></>,
@@ -44,6 +45,7 @@ export function AppShell({ children, onSignOut, username, role, activeRoute }: P
     { route: 'resource-definitions', label: t('app.appShell.resourceDefinitions'), tone: 'violet', platform: true },
     { route: 'rendering-templates', label: t('app.appShell.renderingTemplates'), tone: 'amber', platform: true },
     { route: 'driver-accounts', label: t('app.appShell.infrastructureAccounts'), tone: 'blue', platform: true },
+    { route: 'cd-providers', label: t('cd.title'), tone: 'teal', platform: true },
     { route: 'secret-stores', label: t('app.appShell.secretStores'), tone: 'rose', platform: true },
     { route: 'effectiveness', label: t('app.appShell.platformEffectiveness'), tone: 'violet', platform: true },
   ] as const;

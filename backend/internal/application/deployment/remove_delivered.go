@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	deliveryapp "orchestrator/internal/application/delivery"
 	"sort"
 
 	"orchestrator/internal/application/envops"
@@ -98,7 +99,17 @@ func (s *Service) RemoveDelivered(ctx context.Context, organizationKey, applicat
 			report.Failed = append(report.Failed, w.WorkloadID)
 			continue
 		}
-		if err := s.removeObjects(lease.Ctx, target, w.WorkloadID, instanceInventory(w)); err != nil {
+		var removeErr error
+		if w.TargetRef["deliveryMode"] == "CD" || w.TargetRef["deliveryMode"] == "DIRECT" {
+			if s.delivery == nil {
+				removeErr = deliveryapp.ErrUnavailable
+			} else {
+				removeErr = s.delivery.RemoveWorkload(lease.Ctx, organizationKey, env.ID, w.WorkloadID)
+			}
+		} else {
+			removeErr = s.removeObjects(lease.Ctx, target, w.WorkloadID, instanceInventory(w))
+		}
+		if removeErr != nil {
 			w.Status = domain.InstanceFailed
 			_ = s.store.UpsertWorkloadInstance(lease.Ctx, w)
 			report.Failed = append(report.Failed, w.WorkloadID)

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/configuration"
+	"orchestrator/internal/domain/delivery"
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/identity"
@@ -222,11 +224,20 @@ func (s *Store) fencedSaveEnvironment(ctx context.Context, v environment.Environ
 	return nil
 }
 
-const envSelect = `SELECT e.id::text,e.environment_key,a.id::text,a.application_key,e.name,e.environment_type,e.namespace_identity,COALESCE(e.current_deployment_set_id::text,''),e.version,e.draft_version,e.public_routes_pending,e.infrastructure_scope,e.target_generation,COALESCE(ss.store_key,''),COALESCE(e.active_operation_id::text,'') FROM environments e JOIN applications a ON a.id=e.application_id LEFT JOIN secret_store_connections ss ON ss.id=e.secret_store_id`
+const envSelect = `SELECT e.id::text,e.environment_key,a.id::text,a.application_key,e.name,e.environment_type,e.namespace_identity,COALESCE(e.current_deployment_set_id::text,''),e.version,e.draft_version,e.public_routes_pending,e.infrastructure_scope,e.target_generation,COALESCE(ss.store_key,''),COALESCE(e.active_operation_id::text,''),e.desired_delivery,e.applied_delivery,e.delivery_config_revision,e.delivery_epoch FROM environments e JOIN applications a ON a.id=e.application_id LEFT JOIN secret_store_connections ss ON ss.id=e.secret_store_id`
 
 func scanEnv(row pgx.Row) (environment.Environment, error) {
 	var v environment.Environment
-	err := row.Scan(&v.ID, &v.Key, &v.ApplicationID, &v.ApplicationKey, &v.Name, &v.Type, &v.NamespaceIdentity, &v.CurrentDeploymentSetID, &v.Version, &v.DraftVersion, &v.PublicRoutesPending, &v.InfrastructureScope, &v.TargetGeneration, &v.SecretStoreKey, &v.ActiveOperationID)
+	var desired, applied []byte
+	err := row.Scan(&v.ID, &v.Key, &v.ApplicationID, &v.ApplicationKey, &v.Name, &v.Type, &v.NamespaceIdentity, &v.CurrentDeploymentSetID, &v.Version, &v.DraftVersion, &v.PublicRoutesPending, &v.InfrastructureScope, &v.TargetGeneration, &v.SecretStoreKey, &v.ActiveOperationID, &desired, &applied, &v.DeliveryConfigRevision, &v.DeliveryEpoch)
+	if err == nil {
+		if json.Unmarshal(desired, &v.DesiredDelivery) != nil || json.Unmarshal(applied, &v.AppliedDelivery) != nil {
+			return v, delivery.ErrInvalid
+		}
+		if v.DesiredDelivery.Validate() != nil || v.AppliedDelivery.Validate() != nil {
+			return v, delivery.ErrInvalid
+		}
+	}
 	return v, err
 }
 func (s *Store) GetEnvironment(ctx context.Context, app, key string) (environment.Environment, error) {

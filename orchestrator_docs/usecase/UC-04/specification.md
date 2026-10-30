@@ -422,3 +422,23 @@ Driver Account `k8s-4f` bằng kubeconfig thật; startup không tạo account R
 - **CD-03:** Credential inputs are write-only and use private storage. Developers
   see eligible names/capabilities but cannot alter credentials or controller
   topology. No Git credential, raw provider config or secret enters review/logs.
+
+- **CD-04 (user decision 2026-10-29):** PE/Admin manage CD bindings through
+  **Cấu hình CD** at `/ui/platform/cd-providers`: list, create, view, create a new
+  immutable configuration version, verify and inspect Environment usage. Ordinary
+  forms are sufficient; no JSON/Score editor is required for this workflow.
+- **CD-05:** Fleet bindings explicitly choose **MANAGED** (Orchestrator creates
+  scoped GitRepos) or **EXISTING** (use a named preexisting GitRepo). Existing
+  registration/controller/reader credentials remain platform-owned. Verification
+  discovers and pins its UID, repository, branch, root, target and agent namespace;
+  ambiguous/multiple-target or overlapping publication scope is rejected. Changes
+  to existing configuration invalidate verification. Orchestrator must never
+  replace/delete the preexisting GitRepo or publish outside its assigned subtree.
+- **CD-06:** Controller namespace and agent namespace are separate configuration
+  identities. Environment Settings links to this platform page when no provider
+  is ready; it selects a verified version, never edits controller/Git credentials.
+- **CD-07:** Browser acceptance performs happy paths through ordinary forms for
+  CD setup, Environment selection, application/workload/dependency configuration,
+  Preview/Deploy/update/manager transfer/removal. No pasted JSON, Score/YAML or
+  mutation API shortcuts substitute for UI actions. Technical read-only assertions
+  may verify real Git revisions, resource ownership, data, readiness and cleanup.

@@ -201,3 +201,12 @@ Canonical shared collaboration: [delivery sequence](../../architecture/component
 [infrastructure sequence](../../architecture/components/infrastructure-drift-sequence.puml).
 These supplement the existing direct-path diagrams for this new design slice;
 [CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.
+
+## CD configuration page — 2026-10-29
+
+Platform page consumes provider descriptors with typed fields and read-only
+configuration discovery. Binding service validates Organization/account version,
+creates immutable versions with scoped credential retain/replace, and supplies
+safe details/Environment usage. Fleet discovery reads Cluster/GitRepo metadata
+from the selected management account; it returns no Secret contents. Lifecycle
+coordinator remains independent of MANAGED/EXISTING publication topology.

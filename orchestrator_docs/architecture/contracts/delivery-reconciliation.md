@@ -195,7 +195,7 @@ protected, never overwrite the previous proof with a fresh GET.
 
 ## CDR-06 — Fleet adapter v1
 
-Target compatibility baseline: Fleet 0.16 API, with exact controller, agent and
+Target compatibility baseline: Fleet v0.15.2 (user decision 2026-10-28), with exact controller, agent and
 embedded Helm patch versions/digests recorded by verification and acceptance.
 Documentation is a capability reference, not proof of installed behavior.
 
@@ -203,15 +203,67 @@ Binding config: scoped management Kubernetes account, workspace namespace,
 registered Cluster name **and UID**, exact destination identity verified via the
 target account, Git repository/branch/root, opaque writer credential ref,
 preinstalled Fleet read-credential Secret name, deployment service account and
-timeouts. Internal Kubernetes and already registered EKS are supported targets;
+release namespace and timeouts. Internal Kubernetes and already registered EKS are supported targets;
 the same namespace name or context name does not prove cluster equivalence.
 
 The platform operator preinstalls Fleet/agent, scoped credentials and service
-account/RBAC. The adapter creates only owned unit GitRepos in the configured
+account/RBAC. Controller namespace and agent namespace are explicit separate
+values; the deployment ServiceAccount is verified in the agent namespace. In
+MANAGED mode the adapter creates only owned unit GitRepos in the configured
 workspace. Each selects exactly the verified Cluster, pins a commit and path,
-uses a stable unique Helm release name and an explicit target namespace.
+uses a stable unique Helm release name and explicit workload object namespaces.
+Fleet v0.15.2 unconditionally enables Helm namespace creation/metadata handling.
+Therefore `defaultNamespace` points to a preinstalled **Fleet-owned release
+namespace**, distinct from Terraform's application namespace; do not set Fleet's
+forced `namespace` option. Every workload manifest has its explicit application
+namespace and passes API-discovery namespaced-object checks before publication.
+The deployment SA receives workload object permissions only in the application
+namespace, and release Secret/namespace permissions only in the Fleet-owned
+release namespace. It receives no permission to patch/create/delete the Terraform
+application namespace. Release namespace/name are persisted in provider receipts.
+See the pinned [Fleet install source](https://github.com/rancher/fleet/blob/v0.15.2/internal/helmdeployer/install.go).
 Read credentials and writer credentials are separate. No host context/helper,
 Harbor-only restriction, default fleet-local assumption or wildcard target.
+
+Fleet/Helm owns `app.kubernetes.io/managed-by=Helm`. Generated manifests retain
+platform authority in `orchestrator.io/managed-by=orchestrator` alongside the
+existing Application/Environment/workload/deployment labels. Guarded Fleet cleanup
+must require this platform marker **and** the exact persisted Helm release/UID
+receipt; accepting the Helm label alone is forbidden. Direct cleanup continues
+requiring its original manager label. Handoff patches only top-level manager/
+release metadata, never Pod template labels, and restores the original label
+when returning to direct. This is an explicit adapter ownership translation.
+
+Explicit stopped-worker recovery may validate a persisted publication/controller
+receipt and rebind its SUBMIT fence without resetting the intent to PENDING.
+It never calls Submit again. After relinquishing only handoff-owned platform
+metadata fields, it may annotate the exact pending BundleDeployment to wake
+Fleet's reconciliation watch. Validate the parent receipt, target Cluster UID,
+unique unit release and BundleDeployment UID/resourceVersion/deploymentID first;
+skip an already applied deployment. This changes no Git publication, manifest,
+options, forceSyncGeneration or Job completion receipt. Fleet's own desired/applied
+comparison remains authoritative. Missing receipts or ambiguous incarnations
+retain the Environment hold. The annotation watch is explicit in
+[Fleet v0.15.2's reconciler](https://github.com/rancher/fleet/blob/v0.15.2/internal/cmd/agent/controller/bundledeployment_controller.go).
+
+An interrupted removal may resume only its original retained WITHDRAW after the
+stopped-worker confirmation and fence change. Prove the exact acknowledged source
+receipt/inventory and stable removal intent ID; do not reinterpret a release-only
+handoff as deletion. Re-observe controller/BundleDeployment/Helm-release absence,
+then use original UID preconditions; already missing objects are idempotent.
+Unknown Submit is still never reset or replayed by withdrawal recovery.
+
+Enabling self-heal on an already drifted unit may require relinquishing manual
+Update field ownership before Fleet's SSA upgrade. Under the confirmed policy
+intent, the adapter may relinquish only `kubectl-*` Update fields present in the
+exact admitted continuous manifest, with UID/resourceVersion and release checks.
+It never changes business values itself, removes another Apply manager, clears
+all managedFields or uses force replacement. Status, undeclared fields and HPA
+replicas stay delegated; a live HPA targeting an explicitly declared replicas
+field blocks this transition. Jobs are excluded. This exception applies only to
+the explicit self-heal policy, not ordinary handoff or read-only observation.
+After activation Fleet's native client-side drift correction restores manual
+edits; see its pinned [rollback implementation](https://github.com/rancher/fleet/blob/v0.15.2/internal/helmdeployer/rollback.go).
 
 Generated controls: `helm.takeOwnership=false`, `helm.force=false`,
 `helm.atomic=false`, `correctDrift.force=false`, `deleteNamespace=false`;
@@ -295,7 +347,9 @@ Foreign IDs return 404. Mutations use strict JSON, CSRF/session rules, role gate
 
 | Method/path | Request / result |
 |---|---|
-| GET `/delivery-providers` | Safe installed provider descriptors/capabilities; no unimplemented Argo/Flux choices |
+| GET `/delivery-providers` | Safe installed provider descriptors/capabilities and typed configuration fields; no unimplemented Argo/Flux choices |
+| POST `/delivery-providers/{provider}/inspect` | PE/Admin management account/version and partial config; read-only registered cluster/GitRepo options, no Secret bytes |
+| GET `/delivery-bindings/{id}?version=N` | PE/Admin safe versioned configuration, management account, credential-configured boolean and desired/applied Environment usage; no private refs |
 | POST `/delivery-bindings` | PE/Admin config plus private credential inputs; stores immutable version, returns safe metadata, initially UNVERIFIED |
 | POST `/delivery-bindings/{id}/verify` | PE/Admin expectedVersion; read-only verify, safe facts, READY/REJECTED and time |
 | GET `/delivery-bindings` | PE/Admin full safe metadata; Developer choices only eligible ID/name/provider/version/capabilities |
@@ -307,6 +361,17 @@ Foreign IDs return 404. Mutations use strict JSON, CSRF/session rules, role gate
 | POST `E/delivery/reconcile` | Existing app deploy role; expected revision, unit IDs, requestId; 202 operation, current approved payload only |
 | POST `E/delivery/transitions/{operationId}/retry` | PE/Admin expected revision/requestId, source outcome proven; 202 forward recovery |
 
+Fleet `gitRepoMode` is MANAGED (default for old bindings) or EXISTING. EXISTING
+pins a named preexisting GitRepo UID and its repo/branch/read-Secret/target identity.
+Its assigned generated root must be covered by the GitRepo's watched paths. The
+adapter writes only unit subtrees, never edits/deletes/labels the parent GitRepo.
+Observe selects the unit Bundle by exact stable release name and verifies the
+unit tree at the controller-reported Git commit; a newer unrelated-path commit
+is not false drift. Withdrawal removes only that unit's Git subtree under the
+publication lease, waits for its Bundle/release retirement and applies the same
+retained-object UID cleanup. Preexisting sibling bundles/controllers remain.
+Registration, discovery and verification do not publish a revision.
+
 Secret writer inputs are write-only and stored via the existing secret-store
 boundary, never returned by GET, diff or operation history. Binding changes do
 not repoint applied records. Deletion of a referenced version is refused; logical
@@ -315,8 +380,8 @@ disable stops new selections but retains original refs for cleanup.
 Successful PUT returns 200 with authoritative revisions; async commands return
 202 `{operationId,status}`. Repeated requestId/same body returns the same result;
 different body 409. 400 invalid config, 401 unauthenticated, 403 wrong role,
-404 foreign/missing, 409 BUSY/STALE/OWNERSHIP_CONFLICT/BASELINE_REQUIRED,
-422 UNSUPPORTED_CAPABILITY/TARGET_MISMATCH, 503 PROVIDER_UNAVAILABLE.
+404 foreign/missing, 409 BUSY/STALE/OWNERSHIP_CONFLICT/DELIVERY_BASELINE_REQUIRED,
+422 DELIVERY_UNSUPPORTED_CAPABILITY/TARGET_MISMATCH, 503 PROVIDER_UNAVAILABLE.
 Safe codes distinguish Git publish conflict, controller disconnected, pending
 revision, ownership conflict and unknown outcome. Never return provider stderr.
 

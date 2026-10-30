@@ -13,6 +13,7 @@ import (
 	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/telemetry"
+	"orchestrator/internal/ports/persistence"
 )
 
 // ErrResetRequired means the snapshot is not the current complete format. It is
@@ -159,6 +160,35 @@ func (s *state) validateCurrent() error {
 		}
 		if _, ok := s.Organizations[bundle.OrganizationKey]; !ok {
 			return resetRequired("a render bundle record has no Organization")
+		}
+	}
+	if s.PublicationLeases == nil {
+		s.PublicationLeases = map[string]persistence.GitPublicationLease{}
+	}
+	if s.DeliveryExecutions == nil {
+		s.DeliveryExecutions = map[string]deliveryExecutionRecord{}
+	}
+	if s.DeliveryArtifacts == nil {
+		s.DeliveryArtifacts = map[string]persistence.CipherArtifact{}
+	}
+	if s.DeliveryBindings == nil {
+		s.DeliveryBindings = map[string]deliveryBindingRecord{}
+	}
+	for key, record := range s.DeliveryBindings {
+		b := record.Binding
+		if b.Validate() != nil || key != deliveryBindingKey(b.OrganizationID, b.ID, b.Version) {
+			return resetRequired("invalid delivery binding")
+		}
+		accountFound := false
+		for _, account := range s.Connections {
+			for _, org := range s.Organizations {
+				if account.ID == b.ManagementAccountID && org.ID == b.OrganizationID && account.OrganizationKey == org.Key {
+					accountFound = true
+				}
+			}
+		}
+		if !accountFound {
+			return resetRequired("invalid delivery binding account scope")
 		}
 	}
 	if s.DiagnosticReports == nil {

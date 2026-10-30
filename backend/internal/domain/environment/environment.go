@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"orchestrator/internal/domain/delivery"
 	"regexp"
 	"strings"
 	"time"
@@ -35,17 +36,21 @@ func (s InfrastructureScope) Valid() bool { return s == ScopeEnvironment }
 // Environment's resources. SecretStoreKey is the independent workload
 // secret-store selection.
 type Environment struct {
-	ID                     string `json:"id"`
-	Key                    string `json:"key"`
-	ApplicationID          string `json:"applicationId"`
-	ApplicationKey         string `json:"applicationKey"`
-	Name                   string `json:"name"`
-	Type                   string `json:"environmentType"`
-	NamespaceIdentity      string `json:"namespaceIdentity"`
-	CurrentDeploymentSetID string `json:"currentDeploymentSetId"`
-	Version                int64  `json:"version"`
-	DraftVersion           int64  `json:"draftVersion,omitempty"`
-	PublicRoutesPending    bool   `json:"publicRoutesPending,omitempty"`
+	ID                     string             `json:"id"`
+	Key                    string             `json:"key"`
+	ApplicationID          string             `json:"applicationId"`
+	ApplicationKey         string             `json:"applicationKey"`
+	Name                   string             `json:"name"`
+	Type                   string             `json:"environmentType"`
+	NamespaceIdentity      string             `json:"namespaceIdentity"`
+	CurrentDeploymentSetID string             `json:"currentDeploymentSetId"`
+	Version                int64              `json:"version"`
+	DraftVersion           int64              `json:"draftVersion,omitempty"`
+	PublicRoutesPending    bool               `json:"publicRoutesPending,omitempty"`
+	DesiredDelivery        delivery.Selection `json:"desiredDelivery"`
+	AppliedDelivery        delivery.Selection `json:"appliedDelivery"`
+	DeliveryConfigRevision int64              `json:"deliveryConfigRevision"`
+	DeliveryEpoch          int64              `json:"deliveryEpoch"`
 
 	InfrastructureScope InfrastructureScope `json:"infrastructureScope,omitempty"`
 
@@ -127,6 +132,9 @@ func (e Environment) Validate() error {
 	}
 	if !e.InfrastructureScopeValid() {
 		return ErrInvalidInfrastructureScope
+	}
+	if e.DesiredDelivery.Validate() != nil || e.AppliedDelivery.Validate() != nil || e.DeliveryConfigRevision < 0 || e.DeliveryEpoch < 0 {
+		return delivery.ErrInvalid
 	}
 	if !namespacePattern.MatchString(e.NamespaceIdentity) {
 		return fmt.Errorf("environment: namespace identity %q is not a valid DNS-1123 label", e.NamespaceIdentity)

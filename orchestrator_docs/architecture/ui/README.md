@@ -210,3 +210,10 @@ is an on-demand searchable Dialog, using the existing shared dialog/focus
 pattern. Source kind is metadata, not a mandatory column. Reuse the existing
 UC-12 create-only forms and app/environment Secret scope; no local variable
 reference chaining. See UC-16 BR-26/27 and its screens.
+
+## CD provider configuration — 2026-10-29
+
+PE/Admin navigation adds **Cấu hình CD**, `/ui/platform/cd-providers`, next to
+Driver Accounts/Secret Stores. Reuse platform list/form/card/status patterns and
+VI/EN catalogs. Developer has no authoring navigation or deep-link access. See
+[UC-04 CD configuration](../../usecase/UC-04/ui/cd-providers.md).
