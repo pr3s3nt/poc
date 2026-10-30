@@ -865,3 +865,16 @@ no seed/deployment/cluster mutations or staging access were performed.
 Bootstrap Console URL override: --url works with --target or --config and wins
 over ORCH_PLATFORM_URL/preset, preserving origin validation before browser launch.
 Only URL and kubeconfig need operator input for the default seed-login presets.
+
+Portable catalog snapshot: [`platform-catalog/`](../../platform-catalog/README.md)
+contains the nine current Terraform modules and standard render bundle for
+copying into a separate company Git repository. Source code remains in the
+original backend directories; SOURCE_MAP.json records source revision, paths
+and exported hashes. Exported runtime files are byte-identical; the bundle
+README link is made standalone. Runtime does not load this distribution copy.
+
+Snapshot validation: exported file hashes and source/runtime byte parity pass,
+all nine module trees parse with Terraform fmt (no writes), and real score-k8s
+primary/mount plus standard-example tests pass on the identical canonical files.
+Docs/whitespace checks pass. No Terraform init/apply/destroy, cluster mutation,
+provider download or unrelated full suite was run for this distribution copy.

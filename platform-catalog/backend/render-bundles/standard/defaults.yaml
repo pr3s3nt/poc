@@ -1,0 +1,18 @@
+# Non-secret policy constants read by the templates. They are not merged into
+# the submitted Score.
+resources:
+  # Fallback requests of a field whose Score declares neither a request nor a
+  # limit (UC-06 BR-11). Limits are never invented.
+  requests:
+    cpu: 10m
+    memory: 32Mi
+imagePullPolicy: IfNotPresent
+probe:
+  initialDelaySeconds: 2
+  periodSeconds: 3
+  failureThreshold: 30
+# Extra non-reserved labels/annotations and security settings.
+labels: {}
+podAnnotations: {}
+podSecurityContext: {}
+containerSecurityContext: {}

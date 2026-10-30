@@ -12,6 +12,9 @@ Entrypoint: `scripts/bootstrap/run.mjs`, có package/config/helpers riêng.
 [Luồng thực thi từng bước](EXECUTION_FLOW.md) ghi điều kiện reuse/create/fail
 và vị trí code để đối chiếu khi sửa script.
 
+Bản Terraform modules và render bundle để copy sang Git công ty:
+[platform-catalog](../../platform-catalog/README.md).
+
 ## Presets dev và staging
 
 Cấu hình đã điền trong `targets/dev.json` và `targets/staging.json`:

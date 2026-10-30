@@ -1,0 +1,123 @@
+{
+  "sourceRepository": "https://github.com/pr3s3nt/poc.git",
+  "sourceRevision": "155ccf46afbb3739ce6dd07497bf9e47dbe62e83",
+  "files": [
+    {
+      "source": "backend/internal/adapters/terraform/modules/aurora/main.tf",
+      "destination": "backend/terraform-modules/aurora/main.tf",
+      "sha256": "d4623055ef168a7ed2cdb1b5b3d322b1948b27009742d68f8e1f8713148125fa"
+    },
+    {
+      "source": "backend/internal/adapters/terraform/modules/eks/main.tf",
+      "destination": "backend/terraform-modules/eks/main.tf",
+      "sha256": "8143b7990b66b1e1482db11c2dcae03eabff22958661b560147aeee1364e30d9"
+    },
+    {
+      "source": "backend/internal/adapters/terraform/modules/elasticache/main.tf",
+      "destination": "backend/terraform-modules/elasticache/main.tf",
+      "sha256": "edf21a610a83bd24ed69d60f434014c075cb02a50b7b33872cabd6e2f4326bee"
+    },
+    {
+      "source": "backend/internal/adapters/terraform/modules/k8s-namespace/main.tf",
+      "destination": "backend/terraform-modules/k8s-namespace/main.tf",
+      "sha256": "6db14611f8456843313541a45eb8dfa1673c6ac945689f0559ccf741862c04b8"
+    },
+    {
+      "source": "backend/internal/adapters/terraform/modules/postgres-k8s/main.tf",
+      "destination": "backend/terraform-modules/postgres-k8s/main.tf",
+      "sha256": "30c7f987ca10438670d657d517a8fe0663b00e8961ec1da02d2e2bc34c251794"
+    },
+    {
+      "source": "backend/internal/adapters/terraform/modules/redis-k8s/main.tf",
+      "destination": "backend/terraform-modules/redis-k8s/main.tf",
+      "sha256": "ad61a77b6103f1a279e07300df5e051f4d963818f1df1a646488cae3398a41ea"
+    },
+    {
+      "source": "backend/internal/adapters/terraform/modules/vpc/main.tf",
+      "destination": "backend/terraform-modules/vpc/main.tf",
+      "sha256": "e7e5b183c8ac4a608ce1e850b98c6fda9eb099339b979916b70d55a47bdf7556"
+    },
+    {
+      "source": "backend/terraform-modules/mysql/main.tf",
+      "destination": "backend/terraform-modules/mysql/main.tf",
+      "sha256": "d680421bcc0c92784163d153db30708b9e786a9a2c667c85fdc743e1584a9cac"
+    },
+    {
+      "source": "backend/terraform-modules/persistent-storage/main.tf",
+      "destination": "backend/terraform-modules/persistent-storage/main.tf",
+      "sha256": "332ba6966955032b69284b926701afad6864cc0a8df2eb98321f31c3c5561ef3"
+    },
+    {
+      "source": "backend/render-bundles/standard/README.md",
+      "destination": "backend/render-bundles/standard/README.md",
+      "sha256": "3bd679d4ad6fffff5888a4d2ba04706783cead98c0d8a44fcab85fbd6dcbf12f",
+      "documentationLinkAdjusted": true
+    },
+    {
+      "source": "backend/render-bundles/standard/bundle.yaml",
+      "destination": "backend/render-bundles/standard/bundle.yaml",
+      "sha256": "a735dbbcb859bcf8e9b5b90c14c47b31cb5dfaac34486241d1b5a2cb720e5739",
+      "documentationLinkAdjusted": false
+    },
+    {
+      "source": "backend/render-bundles/standard/defaults.yaml",
+      "destination": "backend/render-bundles/standard/defaults.yaml",
+      "sha256": "f0ef2ce7e90670d74209e6be145087e18a6c880e22cd1af0cf871ffd51f9cddd",
+      "documentationLinkAdjusted": false
+    },
+    {
+      "source": "backend/render-bundles/standard/examples/web/expected.yaml",
+      "destination": "backend/render-bundles/standard/examples/web/expected.yaml",
+      "sha256": "211788fac7c5561ff024218a5e05de14d281aa3d91035903cf32376f95db2cae",
+      "documentationLinkAdjusted": false
+    },
+    {
+      "source": "backend/render-bundles/standard/examples/web/request.json",
+      "destination": "backend/render-bundles/standard/examples/web/request.json",
+      "sha256": "7ae7cc880242e46b13f4a5f6adf31f64bdbdf92777800010bc9aa52af102247e",
+      "documentationLinkAdjusted": false
+    },
+    {
+      "source": "backend/render-bundles/standard/inputs.schema.json",
+      "destination": "backend/render-bundles/standard/inputs.schema.json",
+      "sha256": "fa937cbc67b35680744feac769a4ea898458fdbeecfc4e0aeadf13b736987832",
+      "documentationLinkAdjusted": false
+    },
+    {
+      "source": "backend/render-bundles/standard/normalize/score.tpl",
+      "destination": "backend/render-bundles/standard/normalize/score.tpl",
+      "sha256": "ea2e6a86ad16f7b8b4b9c8bcb6036afb78a1894acb4b42f91331ffdd711c3a2e",
+      "documentationLinkAdjusted": false
+    },
+    {
+      "source": "backend/render-bundles/standard/patches/deployment.tpl",
+      "destination": "backend/render-bundles/standard/patches/deployment.tpl",
+      "sha256": "c34a6a113748468155c3aed29c13a2fc49721b624f570a146cca2d3c3d9f39a7",
+      "documentationLinkAdjusted": false
+    },
+    {
+      "source": "backend/render-bundles/standard/patches/execution.tpl",
+      "destination": "backend/render-bundles/standard/patches/execution.tpl",
+      "sha256": "a3547d7ee9ae002b3b214d6f314fd50ae14890d994d53fca2b2c3f15ae5b45f2",
+      "documentationLinkAdjusted": false
+    },
+    {
+      "source": "backend/render-bundles/standard/patches/service.tpl",
+      "destination": "backend/render-bundles/standard/patches/service.tpl",
+      "sha256": "3f929d26ee64dcbb3ab6abe1476db2b425a07e5cbd191617ecb775668d2020b6",
+      "documentationLinkAdjusted": false
+    },
+    {
+      "source": "backend/render-bundles/standard/provisioners/bindings.provisioners.yaml",
+      "destination": "backend/render-bundles/standard/provisioners/bindings.provisioners.yaml",
+      "sha256": "db27dddfb8dce537da793607816c7b07673653d069bf9741b9a0992e94c416c4",
+      "documentationLinkAdjusted": false
+    },
+    {
+      "source": "backend/render-bundles/standard/resources/identity.tpl",
+      "destination": "backend/render-bundles/standard/resources/identity.tpl",
+      "sha256": "733f3831cb1287ca4b7e365cdbed01638119311ffcfb96fb7fd8fcb4542f43ec",
+      "documentationLinkAdjusted": false
+    }
+  ]
+}

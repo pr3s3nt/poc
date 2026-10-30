@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "team": {
+      "type": "string",
+      "title": "Team",
+      "description": "Added as the example.com/team label of the Deployment, its Pods and the Service.",
+      "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+    },
+    "defaultReplicas": {
+      "type": "integer",
+      "title": "Default replicas",
+      "description": "Replicas of a workload whose Score declares none.",
+      "minimum": 1,
+      "maximum": 20,
+      "default": 1
+    },
+    "runAsNonRoot": {
+      "type": "boolean",
+      "title": "Run as non-root",
+      "description": "Sets the Pod securityContext runAsNonRoot field.",
+      "default": false
+    }
+  }
+}
