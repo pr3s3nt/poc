@@ -57,3 +57,13 @@ test('explicit password file wins over seed default; invalid override never fall
   const custom = loadTarget({ config: new URL('../config.example.json', import.meta.url) }, { ORCH_PLATFORM_URL: 'http://localhost:3001', ORCH_PLATFORM_USERNAME: 'platform-engineer' });
   assert.throws(() => readConsoleConfig(custom.env, { defaultPassword: custom.defaultPassword }), /ORCH_PLATFORM_PASSWORD_FILE/);
 });
+
+test('CLI URL overrides environment/preset for both target and config; invalid URL stops before browser', () => {
+  for (const options of [{ target: 'staging' }, { config: new URL('../config.example.json', import.meta.url) }]) {
+    const target = loadTarget({ ...options, url: 'https://chosen.example/ui/' }, { ORCH_PLATFORM_URL: 'https://other.example', ORCH_PLATFORM_USERNAME: 'platform-engineer' });
+    assert.equal(target.env.ORCH_PLATFORM_URL, 'https://chosen.example/ui/');
+    assert.equal(readConsoleConfig(target.env, { defaultPassword: 'test-password' }).baseURL, 'https://chosen.example');
+    const invalid = loadTarget({ ...options, url: 'https://user:credential@chosen.example' }, {});
+    assert.throws(() => readConsoleConfig(invalid.env, { defaultPassword: 'test-password' }));
+  }
+});

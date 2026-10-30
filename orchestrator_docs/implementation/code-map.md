@@ -861,3 +861,7 @@ Validation of seed-login correction: bootstrap20/20 and shared Console6/6 tests,
 CLI help, documentation and whitespace checks pass. Real headless dev sign-in
 with an empty environment/default seed login and no password file passed;
 no seed/deployment/cluster mutations or staging access were performed.
+
+Bootstrap Console URL override: --url works with --target or --config and wins
+over ORCH_PLATFORM_URL/preset, preserving origin validation before browser launch.
+Only URL and kubeconfig need operator input for the default seed-login presets.

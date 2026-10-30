@@ -33,15 +33,19 @@ khoản mặc định của sản phẩm. Không cần tạo/chép file mật kh
 khẩu, đặt `ORCH_PLATFORM_PASSWORD_FILE` để ghi đè; file được chỉ định mà lỗi thì
 script dừng, không âm thầm quay về mật khẩu seed. Chế độ `--config` vẫn yêu cầu
 file password như trước. Không ghi password vào log.
-Chỉ kubeconfig là dữ liệu cluster bạn cần cung cấp mới:
+Bạn có thể tự nhập URL Console bằng `--url` cùng kubeconfig:
 
 ```bash
 npm ci --prefix scripts/bootstrap
 (cd scripts/bootstrap && npx playwright install chromium)
-node scripts/bootstrap/run.mjs --target staging --kubeconfig /private/staging.kubeconfig
+node scripts/bootstrap/run.mjs --target staging --url https://console-staging.example --kubeconfig /private/staging.kubeconfig
 # Dev dùng account hiện có, không cần kubeconfig:
 node scripts/bootstrap/run.mjs --target dev
 ```
+
+`--url` ưu tiên hơn ORCH_PLATFORM_URL và URL preset; nếu bỏ thì dùng cấu hình
+mặc định. Áp dụng cả chế độ --target và --config. URL phải là origin Console
+(http/https, có thể kèm /ui), không chứa credential/query/hash.
 
 Nếu bỏ `--kubeconfig`, đường dẫn mặc định là
 `~/.orch/bootstrap/<target>/kubeconfig`. File phải riêng tư0600/0400, một context,

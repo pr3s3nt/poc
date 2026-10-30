@@ -6,9 +6,9 @@ import { loadTarget } from './lib/target-config.mjs';
 import { readSetupPacing } from './lib/infrastructure-config.mjs';
 import { ensureInfrastructureAccount, ensureResourceDefinitions } from './lib/infrastructure-ui.mjs';
 
-const { values } = parseArgs({ options: { config: { type: 'string' }, target: { type: 'string' }, kubeconfig: { type: 'string' }, help: { type: 'boolean' }, ...Object.fromEntries(['step', 'account', 'type', 'definition', 'bundle'].map(phase => [`${phase}-delay-ms`, { type: 'string' }])) } });
+const { values } = parseArgs({ options: { config: { type: 'string' }, target: { type: 'string' }, url: { type: 'string' }, kubeconfig: { type: 'string' }, help: { type: 'boolean' }, ...Object.fromEntries(['step', 'account', 'type', 'definition', 'bundle'].map(phase => [`${phase}-delay-ms`, { type: 'string' }])) } });
 if (values.help) {
-  console.log('node scripts/bootstrap/run.mjs --target dev|staging [--kubeconfig /private/kubeconfig] OR --config /path/catalog.json [--step-delay-ms 800] [--type-delay-ms 1000] [--definition-delay-ms 1500] [--account-delay-ms 800] [--bundle-delay-ms 800]\nConsole: ORCH_PLATFORM_URL, ORCH_PLATFORM_USERNAME, ORCH_PLATFORM_PASSWORD_FILE; presets mặc định ORCH_HEADLESS=1\nKubeconfig (chỉ cần khi account chưa có): ORCH_KUBECONFIG_FILE');
+  console.log('node scripts/bootstrap/run.mjs --target dev|staging [--url https://console.example] [--kubeconfig /private/kubeconfig] OR --config /path/catalog.json [--step-delay-ms 800] [--type-delay-ms 1000] [--definition-delay-ms 1500] [--account-delay-ms 800] [--bundle-delay-ms 800]\nConsole: ORCH_PLATFORM_URL, ORCH_PLATFORM_USERNAME, ORCH_PLATFORM_PASSWORD_FILE; presets mặc định ORCH_HEADLESS=1\nKubeconfig (chỉ cần khi account chưa có): ORCH_KUBECONFIG_FILE');
   process.exit(0);
 }
 

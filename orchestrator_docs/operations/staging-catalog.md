@@ -22,7 +22,7 @@ không đổi login-account policy: profile local vẫn có users fixture hiện
 
 Để seed cả storage và workload catalog, dùng
 [bootstrap tool](../../scripts/bootstrap/README.md):
-`node scripts/bootstrap/run.mjs --target staging --kubeconfig /private/staging.kubeconfig`.
+`node scripts/bootstrap/run.mjs --target staging --url https://console-staging.example --kubeconfig /private/staging.kubeconfig`.
 Preset staging có sẵn URL/user, Ceph class `rook-ceph-block`, Type/Definitions và
 standard Git bundle với policy Recreate; dùng sẵn login seed mặc định, không
 cần chép file password. ORCH_PLATFORM_PASSWORD_FILE chỉ dùng khi đổi mật khẩu. Account `k8s-4f` READY được reuse, chỉ inspect
