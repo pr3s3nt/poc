@@ -2,7 +2,7 @@
 id: UC-00-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-29
 related: UC-00
 ---
 
@@ -32,3 +32,39 @@ an toàn, không hiển thị/parse raw `error`, submitted values hoặc provide
 Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
 BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
 không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.
+
+## Đổi mật khẩu (BR-08)
+
+| State | UI behavior |
+|---|---|
+| Initial | Ba input rỗng; primary action enabled. |
+| Client validation | Inline field error (bắt buộc, tối thiểu 8 ký tự, xác nhận khớp); no API request. |
+| Submitting | Fieldset disabled; button reads `Đang đổi mật khẩu…`. |
+| Wrong current password | `401` `INVALID_CREDENTIALS` → inline `Mật khẩu hiện tại không đúng.`; form mở lại để sửa. |
+| Network/API error | Form-level `Không thể đổi mật khẩu. Kiểm tra kết nối và thử lại.`; không hiện raw backend error. |
+| Success | Local session kết thúc; Sign in hiện `Mật khẩu đã thay đổi. Đăng nhập lại bằng mật khẩu mới.` |
+
+## Người dùng (BR-09)
+
+| State | UI behavior |
+|---|---|
+| Loading | `Đang tải người dùng…` với `aria-busy`. |
+| Load error | `Không tải được danh sách người dùng.` + nút `Thử lại`; retry chỉ GET lại. |
+| Client validation | Inline field error cho username/password; no API request. |
+| Duplicate username | `409` `DUPLICATE` → inline `Tên đăng nhập đã tồn tại.`; giữ draft username/role, xóa mật khẩu. |
+| Network/API error | Form-level `Không thể tạo tài khoản. Kiểm tra kết nối và thử lại.`; không tự replay mutation. |
+| Success | `Đã tạo tài khoản {username}.` ở `role="status"`; form reset, danh sách refresh. |
+
+## Đặt lại mật khẩu (BR-11)
+
+| State | UI behavior |
+|---|---|
+| Initial | Hai input rỗng; primary action enabled; focus vào input đầu. |
+| Client validation | Inline field error (bắt buộc, tối thiểu 8 ký tự, xác nhận khớp); no API request. |
+| Submitting | Fieldset disabled; button reads `Đang đặt lại…`; dialog không đóng giữa mutation. |
+| Account gone | `404` → đóng dialog, refresh danh sách, thông báo account không còn tồn tại. |
+| Network/API error | Form-level `Không thể đặt lại mật khẩu. Kiểm tra kết nối và thử lại.`; không hiện raw backend error. |
+| Success | Dialog đóng; `Đã đặt lại mật khẩu của {username}.` ở `role="status"`; mọi session của account đó đã bị backend thu hồi. |
+
+Nút hiện/ẩn mật khẩu chỉ đổi `type` của input trong phiên hiển thị, không phải
+state nghiệp vụ và không gửi thêm request.

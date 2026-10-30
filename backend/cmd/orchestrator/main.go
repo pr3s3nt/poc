@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"orchestrator/internal/adapters/postgres"
+	"orchestrator/internal/application/authentication"
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/renderengine"
 	"orchestrator/internal/seed"
@@ -93,6 +94,9 @@ func main() {
 	ownerURLFile := flag.String("database-owner-url-file", os.Getenv("ORCHESTRATOR_DATABASE_OWNER_URL_FILE"), "owner-only file holding the PostgreSQL URL of the owner role (used only with -setup-database)")
 	consoleRole := flag.String("console-database-role", os.Getenv("ORCHESTRATOR_CONSOLE_DATABASE_ROLE"), "Console runtime login role granted by -setup-database")
 	stateRole := flag.String("state-database-role", os.Getenv("ORCHESTRATOR_STATE_DATABASE_ROLE"), "State runtime login role granted by -setup-database")
+	bootstrapAdmin := flag.Bool("bootstrap-admin", false, "owner step: create the first ADMIN account (UC-00 BR-10) and exit; the password comes only from -bootstrap-admin-password-file, there is no default Admin password")
+	bootstrapAdminUsername := flag.String("bootstrap-admin-username", "admin", "username of the bootstrapped ADMIN account")
+	bootstrapAdminPasswordFile := flag.String("bootstrap-admin-password-file", os.Getenv("ORCHESTRATOR_BOOTSTRAP_ADMIN_PASSWORD_FILE"), "owner-only file holding the password of the bootstrapped ADMIN account")
 	flag.Parse()
 	if *setupDatabase {
 		os.Exit(runDatabaseSetup(*ownerURLFile, *consoleRole, *stateRole))
@@ -121,7 +125,7 @@ func main() {
 		}
 		stateDatabaseURL = value
 	}
-	if err := bootstrap.DistinctFiles(map[string]string{"database URL": *databaseURLFile, "State database URL": *terraformStateDatabaseURLFile, "Terraform state key": *terraformStateKeyFile, "output secret token": *outputSecretTokenFile, "connection Vault token": *connectionVaultTokenFile}); err != nil {
+	if err := bootstrap.DistinctFiles(map[string]string{"database URL": *databaseURLFile, "State database URL": *terraformStateDatabaseURLFile, "Terraform state key": *terraformStateKeyFile, "output secret token": *outputSecretTokenFile, "connection Vault token": *connectionVaultTokenFile, "bootstrap Admin password": *bootstrapAdminPasswordFile}); err != nil {
 		log.Printf("orchestrator: %v", err)
 		os.Exit(1)
 	}
@@ -224,7 +228,35 @@ func main() {
 		os.Exit(1)
 	}
 
+	if *bootstrapAdmin {
+		os.Exit(runAdminBootstrap(app, opts.OrganizationKey, *bootstrapAdminUsername, *bootstrapAdminPasswordFile, *statePath == "" && databaseURL == ""))
+	}
+
 	os.Exit(serve(app, *addr, *addrFile))
+}
+
+// runAdminBootstrap creates the first ADMIN account and returns the exit code.
+// The password comes only from an owner-only file; nothing secret is logged.
+// An ephemeral store (no snapshot, no database) would lose the account at
+// exit, so the command refuses it.
+func runAdminBootstrap(app *bootstrap.App, organizationKey, username, passwordFile string, ephemeral bool) int {
+	defer app.Close()
+	if ephemeral {
+		log.Print("orchestrator: -bootstrap-admin needs a durable store (-state or -database-url-file); the in-memory store would lose the account at exit")
+		return 1
+	}
+	rawPassword, err := bootstrap.ReadCredentialFile("bootstrap Admin password", passwordFile)
+	if err != nil {
+		log.Printf("orchestrator: %v", err)
+		return 1
+	}
+	account, err := authentication.NewService(app.Store).BootstrapAdmin(context.Background(), organizationKey, username, rawPassword)
+	if err != nil {
+		log.Printf("orchestrator: bootstrap Admin failed: %v", err)
+		return 1
+	}
+	fmt.Printf("orchestrator: ADMIN account %q created in organization %q; sign in and change the password\n", account.Username, account.OrganizationKey)
+	return 0
 }
 
 // serve runs the API until it fails or SIGINT/SIGTERM arrives, then shuts

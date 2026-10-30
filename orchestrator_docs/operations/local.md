@@ -2,7 +2,7 @@
 id: RUNBOOK-LOCAL
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-29
 ---
 
 # Local development with fake adapters
@@ -29,6 +29,29 @@ Runner sign in, tạo Application chỉ từ Name/Subdomain, kiểm tra đúng
 Application vẫn còn. Runner không dùng Docker, Kubernetes hoặc cloud và tự dọn
 process/file tạm khi thành công; đặt `ORCH_KEEP_EVIDENCE=1` để giữ log khi cần
 điều tra.
+
+## Khởi tạo Admin đầu tiên (UC-00 BR-10)
+
+Không có account ADMIN mặc định; Admin đầu tiên được tạo bằng owner step với
+mật khẩu chỉ đọc từ file riêng tư (0600/0400), không đặt sẵn trong code:
+
+```bash
+cd backend
+orchestrator -bootstrap-admin -bootstrap-admin-username admin \
+  -bootstrap-admin-password-file /path/to/admin-password \
+  -state /path/to/state.json          # hoặc -database-url-file với PostgreSQL
+```
+
+Lệnh cần durable store (`-state` hoặc `-database-url-file`) và từ chối khi
+username đã tồn tại; output không chứa mật khẩu. Sau đó Admin đăng nhập Console,
+tạo account và đặt lại mật khẩu account qua mục `Người dùng` (đặt lại thu hồi
+mọi session của account đó), hoặc tự đổi mật khẩu của mình qua `Đổi mật khẩu`
+(mọi session bị thu hồi, phải đăng nhập lại). Kiểm chứng đầy đủ các luồng này
+ở mức API:
+
+```bash
+bash e2e/scenarios/user-management/run.sh
+```
 
 ## UC-09 human-paced review recording
 
