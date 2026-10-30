@@ -990,9 +990,9 @@ substituted for those live runs.
 
 | Requirements | Implementation | Focused verification |
 |---|---|---|
-| GIT-01/02/05/06; OC-04e | `registry.InspectGit`, `GitCLI.Resolve`, catalog inspection, POST terraform-modules/inspect | `registry/git_inspect_test.go`, `delivery/http/terraform_modules_test.go`: immutable pins, TLS Git, transitive modules, restart/cache, role/scope/no Definition mutation |
-| GIT-03 default source; release-equivalent module contract | New/reset drafts use Git, edit preserves pin; registry retains lifecycle identity only for exact release content + Type | `ResourceDefinitionsPage.test.tsx`, `git_inspect_test.go`, default Git create/edit/reset browser and `published-modules-local.mjs` all seven public modules |
-| GIT-03/04/05 | `GitModuleSource`, `ResourceDefinitionsPage`, capability projection | `GitModuleSource.test.tsx`, affected Definition/metadata tests; `gitmodulebrowser` + `git-module-local.mjs` real HTTPS Git create/edit/reload main flow |
+| GA-01/02/05/06; OC-04e | `registry.InspectGit`, `GitCLI.Resolve`, catalog inspection, POST terraform-modules/inspect | `registry/git_inspect_test.go`, `delivery/http/terraform_modules_test.go`: immutable pins, TLS Git, transitive modules, restart/cache, role/scope/no Definition mutation |
+| GA-03 default source; release-equivalent module contract | New/reset drafts use Git, edit preserves pin; registry retains lifecycle identity only for exact release content + Type | `ResourceDefinitionsPage.test.tsx`, `git_inspect_test.go`, default Git create/edit/reset browser and `published-modules-local.mjs` all seven public modules |
+| GA-03/04/05 | `GitModuleSource`, `ResourceDefinitionsPage`, capability projection | `GitModuleSource.test.tsx`, affected Definition/metadata tests; `gitmodulebrowser` + `git-module-local.mjs` real HTTPS Git create/edit/reload main flow |
 
 ## Resource Definition v3 — issue #8
 
@@ -1005,7 +1005,7 @@ backend operation contracts, transactions and sequence stay unchanged.
 | UI3-02 advanced/mappings/provider/provision/review | Existing MappingEditor/ProvisionEditor/typed converters; disclosure and full draft review | TypedDefinitionForm.test.tsx, moduleMapping.test.ts, typedConversion.test.ts, DefinitionV3.test.tsx; browser unequal Type/module names, flags/params round-trip |
 | UI3-03 rule criteria/wildcard/empty/incomplete | CriteriaRules and draftToCriteria; parent-owned selected fields | ResourceDefinitionsPage.test.tsx rule flows; DefinitionV3.test.tsx five-field copy and wildcard; existing CriteriaEditor.test.tsx for renderer projection |
 | UI3-04 copy/matching/help/hidden invalidation | CriteriaEditor native disclosures; mounted MatchingPreviewPanel signature/session/late reply guards | DefinitionV3.test.tsx hidden in-flight/session invalidation; MatchingPreviewPanel.test.tsx context/catalog metadata; RenderingTemplatesPage.test.tsx shared consumers; real matching/copy browser |
-| Existing GIT-01..06 | GitModuleSource and source/pin selection retained | GitModuleSource.test.tsx, real HTTPS Git inspect/create/reload browser |
+| Existing GA-01..06 | GitModuleSource and source/pin selection retained | GitModuleSource.test.tsx, real HTTPS Git inspect/create/reload browser |
 
 ### V3 visual correction
 
@@ -1284,3 +1284,13 @@ replaces strategy with Recreate for persistent mounts, accepting update downtime
 [`execution_test.go`](../../backend/internal/adapters/scorek8s/execution_test.go)
 checks Recreate without rollingUpdate, stateless/legacy/secret-only preservation
 and no Deployment strategy on StatefulSet/CronJob through real score-k8s rendering.
+
+## Platform Git access (UC-03 GA-01–06)
+
+[Specification/realization/API/UI](../usecase/UC-03/git-access.md) →
+`application/gitaccess`, HTTP `gitsettings`, Console `PlatformSettingsPage`,
+registry Git transport, PostgreSQL version 2. Assertions are defined in
+`gitaccess/service_test.go`, HTTP `gitsettings_test.go`, registry
+`gitcli_test.go`, PostgreSQL `upgrade_integration_test.go` and Console
+`PlatformSettingsPage.test.tsx`. Tests were added/updated but not executed at
+the user's request; fixture visual review is not runtime acceptance.

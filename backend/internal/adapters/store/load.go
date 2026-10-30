@@ -13,6 +13,7 @@ import (
 	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/telemetry"
+	"orchestrator/internal/ports/persistence"
 )
 
 // ErrResetRequired means the snapshot is not the current complete format. It is
@@ -72,6 +73,21 @@ func loadSnapshot(b []byte) (*state, error) {
 // and configuration metadata. Raw plan/Score documents stay untyped. Errors
 // name no values.
 func (s *state) validateCurrent() error {
+	if s.GitSettings == nil {
+		s.GitSettings = map[string]persistence.GitSettings{}
+	}
+	for org, v := range s.GitSettings {
+		if _, ok := s.Organizations[org]; !ok {
+			return resetRequired("Git settings have no Organization")
+		}
+		if org != v.OrganizationKey || v.Version < 1 || v.URL == "" || v.UpdatedAt.IsZero() || v.UpdatedBy == "" {
+			return resetRequired("Git settings metadata is incomplete")
+		}
+		if v.Authenticated && (v.CredentialRef == "" || v.Username == "") || !v.Authenticated && (v.CredentialRef != "" || v.Username != "") {
+			return resetRequired("Git authentication metadata is inconsistent")
+		}
+	}
+
 	for key, org := range s.Organizations {
 		if org.ID == "" || org.Key == "" || org.Name == "" || key != org.Key {
 			return resetRequired("an Organization record is incomplete")

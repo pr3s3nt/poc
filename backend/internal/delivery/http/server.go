@@ -25,6 +25,7 @@ import (
 	connectionapp "orchestrator/internal/application/connection"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/envops"
+	"orchestrator/internal/application/gitaccess"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/preview"
 	"orchestrator/internal/application/resourcecleanup"
@@ -42,6 +43,8 @@ import (
 
 // Server wires the HTTP handlers to the application services.
 type Server struct {
+	gitAccess       *gitaccess.Service
+	gitTester       GitTester
 	observability   *observabilityapp.Service
 	deployments     *appsvc.Service
 	queries         *appsvc.QueryService
@@ -67,6 +70,8 @@ type Server struct {
 
 // Config configures the HTTP server.
 type Config struct {
+	GitAccess     *gitaccess.Service
+	GitTester     GitTester
 	Observability *observabilityapp.Service
 	RenderBundles map[string]resource.RenderBundle
 	// RenderRegistry inspects Git render bundles and reports availability
@@ -107,6 +112,7 @@ type Config struct {
 // NewServer builds the HTTP handler tree.
 func NewServer(cfg Config) *Server {
 	s := &Server{
+		gitAccess: cfg.GitAccess, gitTester: cfg.GitTester,
 		observability:   cfg.Observability,
 		deployments:     cfg.Deployments,
 		queries:         cfg.Queries,
@@ -150,6 +156,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) routes() {
+	s.mux.HandleFunc("GET /api/v1/platform/settings/git", s.handleGetGitSettings)
+	s.mux.HandleFunc("PUT /api/v1/platform/settings/git", s.handleSaveGitSettings)
+	s.mux.HandleFunc("POST /api/v1/platform/settings/git/test", s.handleTestGitSettings)
 	s.mux.HandleFunc("GET /api/v1/healthz", s.handleHealth)
 	s.effectivenessRoutes()
 	s.observabilityRoutes()

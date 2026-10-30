@@ -14,7 +14,13 @@ import (
 // Frozen references and transitions must never be edited after release.
 //
 //go:embed migrations/version-001.sql
+var versionOneSQL string
+
+//go:embed migrations/version-002.sql
 var versionSQL string
+
+//go:embed migrations/002-git-settings.sql
+var gitSettingsUpgradeSQL string
 
 //go:embed migrations/source-1516dec.sql
 var sourceOldSQL string
@@ -40,26 +46,65 @@ func supportedSource(sum string) string {
 }
 func migrationChecksum() string { return digest(productUpgradeSQL + "\n" + historyUpgradeSQL) }
 
+// recordUpgrade records both transitions for a fresh current installation.
 func recordUpgrade(ctx context.Context, tx pgx.Tx, source string) error {
+	if source == digest(versionSQL) {
+		source = digest(versionOneSQL)
+	}
+	if err := recordVersionOne(ctx, tx, source); err != nil {
+		return err
+	}
+	return recordVersionTwo(ctx, tx)
+}
+func recordVersionOne(ctx context.Context, tx pgx.Tx, source string) error {
 	_, err := tx.Exec(ctx, `INSERT INTO schema_upgrade_history(version,migration_sha256,source_sha256) VALUES(1,$1,$2)`, migrationChecksum(), source)
 	if err != nil {
-		return fmt.Errorf("postgres: record upgrade (%s)", sqlState(err))
+		return fmt.Errorf("postgres: record upgrade 1 (%s)", sqlState(err))
+	}
+	return nil
+}
+func recordVersionTwo(ctx context.Context, tx pgx.Tx) error {
+	_, err := tx.Exec(ctx, `INSERT INTO schema_upgrade_history(version,migration_sha256,source_sha256) VALUES(2,$1,$2)`, digest(gitSettingsUpgradeSQL), digest(versionOneSQL))
+	if err != nil {
+		return fmt.Errorf("postgres: record upgrade 2 (%s)", sqlState(err))
 	}
 	return nil
 }
 func verifyUpgradeHistory(ctx context.Context, tx pgx.Tx) error {
-	var count int
-	var version int64
-	var checksum, source string
-	err := tx.QueryRow(ctx, `SELECT count(*),COALESCE(max(version),0),COALESCE(min(migration_sha256),''),COALESCE(min(source_sha256),'') FROM schema_upgrade_history`).Scan(&count, &version, &checksum, &source)
+	return verifyHistoryThrough(ctx, tx, 2)
+}
+func verifyHistoryThrough(ctx context.Context, tx pgx.Tx, want int) error {
+	rows, err := tx.Query(ctx, `SELECT version,migration_sha256,source_sha256 FROM schema_upgrade_history ORDER BY version`)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "42501" {
-			return err // verifyMarkerRuntime classifies missing runtime grants.
+			return err
 		}
 		return resetRequired("upgrade history is missing or unreadable")
 	}
-	if count != 1 || version != 1 || checksum != migrationChecksum() || (source != digest(versionSQL) && supportedSource(source) == "") {
+	defer rows.Close()
+	count := 0
+	for rows.Next() {
+		var v int
+		var checksum, source string
+		if err := rows.Scan(&v, &checksum, &source); err != nil {
+			return resetRequired("upgrade history is unreadable")
+		}
+		count++
+		valid := v == count && v <= want
+		switch v {
+		case 1:
+			valid = valid && checksum == migrationChecksum() && (source == digest(versionOneSQL) || supportedSource(source) != "")
+		case 2:
+			valid = valid && checksum == digest(gitSettingsUpgradeSQL) && source == digest(versionOneSQL)
+		default:
+			valid = false
+		}
+		if !valid {
+			return resetRequired("upgrade history does not match this release")
+		}
+	}
+	if rows.Err() != nil || count != want {
 		return resetRequired("upgrade history does not match this release")
 	}
 	return nil
@@ -118,7 +163,11 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 		return false, nil
 	}
 	source := supportedSource(sum)
-	if identity != "orchestrator-fresh-baseline-v02" || source == "" || name != schema {
+	versionOne := identity == "orchestrator-schema-v1" && sum == digest(versionOneSQL)
+	if versionOne {
+		source = versionOneSQL
+	}
+	if (!versionOne && (identity != "orchestrator-fresh-baseline-v02" || source == "")) || name != schema {
 		return false, resetRequired("unsupported source version; a reviewed migration is required")
 	}
 	var count int
@@ -135,18 +184,40 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 	if err = compareSchemaSQL(ctx, tx, schema, source); err != nil {
 		return false, err
 	}
-	if sum == digest(sourceOldSQL) {
-		if _, err = tx.Exec(ctx, productUpgradeSQL); err != nil {
-			return false, fmt.Errorf("postgres: apply upgrade 1 (%s); transaction will roll back", sqlState(err))
+	if versionOne {
+		if err = verifyHistoryThrough(ctx, tx, 1); err != nil {
+			return false, err
+		}
+	} else {
+		if sum == digest(sourceOldSQL) {
+			if _, err = tx.Exec(ctx, productUpgradeSQL); err != nil {
+				return false, fmt.Errorf("postgres: apply upgrade 1 (%s)", sqlState(err))
+			}
+		}
+		if _, err = tx.Exec(ctx, historyUpgradeSQL); err != nil {
+			return false, fmt.Errorf("postgres: create upgrade history (%s)", sqlState(err))
+		}
+		if err = compareSchemaSQL(ctx, tx, schema, versionOneSQL); err != nil {
+			return false, err
+		}
+		if err = recordVersionOne(ctx, tx, sum); err != nil {
+			return false, err
 		}
 	}
-	if _, err = tx.Exec(ctx, historyUpgradeSQL); err != nil {
-		return false, fmt.Errorf("postgres: create upgrade history (%s)", sqlState(err))
+	if _, err = tx.Exec(ctx, gitSettingsUpgradeSQL); err != nil {
+		return false, fmt.Errorf("postgres: apply upgrade 2 (%s)", sqlState(err))
 	}
 	if err = compareSchemaSQL(ctx, tx, schema, versionSQL); err != nil {
 		return false, err
 	}
-	if err = recordUpgrade(ctx, tx, sum); err != nil {
+	if err = recordVersionTwo(ctx, tx); err != nil {
+		return false, err
+	}
+	// Only the new table grants change. Existing grants are verified by Setup.
+	if _, err = tx.Exec(ctx, `REVOKE ALL ON platform_git_settings FROM PUBLIC`); err != nil {
+		return false, err
+	}
+	if _, err = tx.Exec(ctx, `GRANT SELECT,INSERT,UPDATE,DELETE ON platform_git_settings TO `+pgx.Identifier{roles.Console}.Sanitize()); err != nil {
 		return false, err
 	}
 	actual, err = catalogDump(ctx, tx, schema)

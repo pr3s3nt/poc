@@ -40,7 +40,14 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO schema_baseline(baseline,baseline_sha256,catalog_sha256,installation_id,schema_name) VALUES('orchestrator-fresh-baseline-v02',$1,$2,'11111111-1111-4111-8111-111111111111','public')`, digest(sql), digest(strings.Join(catalog, "\n"))); err != nil {
+	identity := "orchestrator-fresh-baseline-v02"
+	if sql == versionOneSQL {
+		identity = "orchestrator-schema-v1"
+		if err = recordVersionOne(ctx, tx, digest(versionOneSQL)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO schema_baseline(baseline,baseline_sha256,catalog_sha256,installation_id,schema_name) VALUES($3,$1,$2,'11111111-1111-4111-8111-111111111111','public')`, digest(sql), digest(strings.Join(catalog, "\n")), identity); err != nil {
 		t.Fatal(err)
 	}
 	for _, q := range []string{
@@ -61,7 +68,7 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 	}
 	for role, name := range map[RuntimeRole]string{ConsoleRuntime: db.ConsoleRole, StateRuntime: db.StateRole} {
 		for _, g := range grantsOf(role) {
-			if g.table == "schema_upgrade_history" {
+			if g.table == "platform_git_settings" || (g.table == "schema_upgrade_history" && sql != versionOneSQL) {
 				continue
 			}
 			// Source Applications use whole-table grants already, no new-column backfill privileges.
@@ -88,7 +95,7 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 }
 
 func TestUpgradeSupportedPopulatedSources(t *testing.T) {
-	for name, source := range map[string]string{"staging-1516dec": sourceOldSQL, "preview-2a111db": sourceCurrentSQL} {
+	for name, source := range map[string]string{"staging-1516dec": sourceOldSQL, "preview-2a111db": sourceCurrentSQL, "version-1": versionOneSQL} {
 		t.Run(name, func(t *testing.T) {
 			owner, console, roles := legacyDatabase(t, source)
 			stamp := scalar[string](t, owner, `SELECT created_at::text FROM schema_baseline`)
@@ -105,7 +112,7 @@ func TestUpgradeSupportedPopulatedSources(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if n := scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`); n != 1 {
+			if n := scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`); n != 2 {
 				t.Fatal(n)
 			}
 			if got := scalar[string](t, owner, `SELECT installation_id::text FROM schema_baseline`); got != "11111111-1111-4111-8111-111111111111" {
@@ -193,7 +200,7 @@ func TestUpgradeRollbackOnGrantFailure(t *testing.T) {
 }
 
 func TestUpgradePreservesStateAndRuntimeIsolation(t *testing.T) {
-	for name, source := range map[string]string{"staging": sourceOldSQL, "preview": sourceCurrentSQL} {
+	for name, source := range map[string]string{"staging": sourceOldSQL, "preview": sourceCurrentSQL, "version-1": versionOneSQL} {
 		t.Run(name, func(t *testing.T) {
 			f := newStateFixture(t)
 			f.console.Close()
@@ -205,8 +212,13 @@ func TestUpgradePreservesStateAndRuntimeIsolation(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer tx.Rollback(ctx)
-			if _, err = tx.Exec(ctx, `DROP TABLE schema_upgrade_history`); err != nil {
+			if _, err = tx.Exec(ctx, `DROP TABLE platform_git_settings`); err != nil {
 				t.Fatal(err)
+			}
+			if source != versionOneSQL {
+				if _, err = tx.Exec(ctx, `DROP TABLE schema_upgrade_history`); err != nil {
+					t.Fatal(err)
+				}
 			}
 			if source == sourceOldSQL {
 				for _, q := range []string{
@@ -228,7 +240,14 @@ func TestUpgradePreservesStateAndRuntimeIsolation(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err = tx.Exec(ctx, `UPDATE schema_baseline SET baseline='orchestrator-fresh-baseline-v02',baseline_sha256=$1,catalog_sha256=$2`, digest(source), digest(strings.Join(catalog, "\n"))); err != nil {
+			identity := "orchestrator-fresh-baseline-v02"
+			if source == versionOneSQL {
+				identity = "orchestrator-schema-v1"
+				if _, err = tx.Exec(ctx, `DELETE FROM schema_upgrade_history WHERE version=2`); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err = tx.Exec(ctx, `UPDATE schema_baseline SET baseline=$3,baseline_sha256=$1,catalog_sha256=$2`, digest(source), digest(strings.Join(catalog, "\n")), identity); err != nil {
 				t.Fatal(err)
 			}
 			if err = tx.Commit(ctx); err != nil {
@@ -258,7 +277,8 @@ func TestUpgradePreservesStateAndRuntimeIsolation(t *testing.T) {
 				t.Fatal("installation identity differs")
 			}
 			denied(t, connectAs(t, f.db.Console), "history write", `DELETE FROM schema_upgrade_history`)
-			denied(t, connectAs(t, f.db.State), "history write", `UPDATE schema_upgrade_history SET version=2`)
+			denied(t, connectAs(t, f.db.State), "history write", `UPDATE schema_upgrade_history SET version=3 WHERE version=2`)
+			denied(t, connectAs(t, f.db.State), "Git credentials metadata", `SELECT credential_ref FROM platform_git_settings`)
 			denied(t, connectAs(t, f.db.Console), "private ciphertext", `SELECT ciphertext FROM terraform_states`)
 		})
 	}
@@ -362,7 +382,7 @@ func TestBaselineCommentChangesDoNotRequireUpgrade(t *testing.T) {
 func TestUpgradeHistoryTamperingIsRejected(t *testing.T) {
 	for name, mutation := range map[string]string{
 		"checksum":       `UPDATE schema_upgrade_history SET migration_sha256=repeat('0',64)`,
-		"future-version": `UPDATE schema_upgrade_history SET version=2`,
+		"future-version": `UPDATE schema_upgrade_history SET version=3 WHERE version=2`,
 		"source":         `UPDATE schema_upgrade_history SET source_sha256=repeat('0',64)`,
 		"missing":        `DELETE FROM schema_upgrade_history`,
 	} {
@@ -451,5 +471,25 @@ func TestRuntimeHistoryGrantFailureIsClassified(t *testing.T) {
 	sqlOn(t, db.Admin, `REVOKE SELECT ON schema_upgrade_history FROM `+pgx.Identifier{db.ConsoleRole}.Sanitize())
 	if _, err := Open(context.Background(), db.Console); !errors.Is(err, ErrRuntimeRole) {
 		t.Fatalf("expected runtime grant error, got %v", err)
+	}
+}
+
+func TestVersionTwoRollbackPreservesVersionOne(t *testing.T) {
+	owner, _, roles := legacyDatabase(t, versionOneSQL)
+	sqlOn(t, owner, `GRANT DELETE ON schema_baseline TO `+pgx.Identifier{roles.Console}.Sanitize())
+	if _, err := Setup(context.Background(), owner, roles); err == nil {
+		t.Fatal("expected grant verification failure")
+	}
+	if scalar[string](t, owner, `SELECT baseline_sha256 FROM schema_baseline`) != digest(versionOneSQL) {
+		t.Fatal("source marker changed")
+	}
+	if scalar[bool](t, owner, `SELECT to_regclass('platform_git_settings') IS NOT NULL`) {
+		t.Fatal("migration DDL was committed")
+	}
+	if scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`) != 1 {
+		t.Fatal("history changed")
+	}
+	if scalar[int](t, owner, `SELECT count(*) FROM applications WHERE version=7`) != 1 {
+		t.Fatal("retained data changed")
 	}
 }

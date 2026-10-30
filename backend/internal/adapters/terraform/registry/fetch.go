@@ -6,11 +6,14 @@ import (
 
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"io/fs"
+	access "orchestrator/internal/ports/gitaccess"
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -84,6 +87,7 @@ func (p packagedSnapshot) Tree(dir string) (Tree, error) {
 // objects, so symlinks, executables and submodules are refused before any
 // file is written.
 type GitCLI struct {
+	Access  access.Resolver
 	Binary  string
 	TempDir string
 	Timeout time.Duration
@@ -107,6 +111,7 @@ type gitSnapshot struct {
 	dir    string
 	commit string
 	ca     string
+	auth   access.Access
 }
 
 var gitReferencePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$`)
@@ -125,7 +130,11 @@ func (g *GitCLI) Resolve(ctx context.Context, source GitSource, ref string) (str
 	if err != nil {
 		return "", ErrFetch
 	}
-	s := &gitSnapshot{cli: g, ctx: ctx, dir: dir, ca: source.CAFile}
+	s, err := g.snapshot(ctx, source, dir, "")
+	if err != nil {
+		_ = os.RemoveAll(dir)
+		return "", ErrFetch
+	}
 	defer s.Close()
 	names := []string{ref}
 	if !strings.HasPrefix(ref, "refs/") {
@@ -176,7 +185,11 @@ func (g *GitCLI) Open(ctx context.Context, source GitSource, commit string) (Sna
 	if err != nil {
 		return nil, ErrFetch
 	}
-	s := &gitSnapshot{cli: g, ctx: ctx, dir: dir, commit: commit, ca: source.CAFile}
+	s, err := g.snapshot(ctx, source, dir, commit)
+	if err != nil {
+		_ = os.RemoveAll(dir)
+		return nil, ErrFetch
+	}
 	if _, err := s.git("init", "-q", "--bare", "--object-format="+objectFormat(commit), "."); err != nil {
 		s.Close()
 		return nil, ErrFetch
@@ -191,6 +204,54 @@ func (g *GitCLI) Open(ctx context.Context, source GitSource, commit string) (Sna
 		return nil, ErrFetch
 	}
 	return s, nil
+}
+
+// snapshot resolves credentials once per operation and isolates CA/auth state.
+func (g *GitCLI) snapshot(ctx context.Context, source GitSource, dir, commit string) (*gitSnapshot, error) {
+	s := &gitSnapshot{cli: g, ctx: ctx, dir: dir, commit: commit, ca: source.CAFile}
+	if g.Access != nil {
+		var err error
+		s.auth, err = g.Access.ResolveGitAccess(ctx, access.Organization(ctx), source.URL)
+		if err != nil {
+			return nil, ErrFetch
+		}
+		if s.auth.CAPEM != "" {
+			s.ca = filepath.Join(dir, "platform-ca.pem")
+			if err = os.WriteFile(s.ca, []byte(s.auth.CAPEM), 0600); err != nil {
+				return nil, ErrFetch
+			}
+		}
+	}
+	return s, nil
+}
+
+type draftAccess struct {
+	repository string
+	value      access.Access
+}
+
+func (d draftAccess) ResolveGitAccess(_ context.Context, _ string, repo string) (access.Access, error) {
+	if repo != d.repository {
+		return access.Access{}, ErrFetch
+	}
+	return d.value, nil
+}
+
+// TestGit reads a branch/tag or opens an exact commit using draft-only auth.
+func (g *GitCLI) TestGit(ctx context.Context, repository, ref string, value access.Access) error {
+	clone := *g
+	clone.Access = draftAccess{repository, value}
+	source := GitSource{URL: repository}
+	if tfmodule.FullCommit(ref) {
+		snapshot, err := clone.Open(ctx, source, ref)
+		if err != nil {
+			return err
+		}
+		snapshot.Close()
+		return nil
+	}
+	_, err := clone.Resolve(ctx, source, ref)
+	return err
 }
 
 func objectFormat(commit string) string {
@@ -221,6 +282,12 @@ func (s *gitSnapshot) git(args ...string) ([]byte, error) {
 		"GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_TERMINAL_PROMPT=0",
 		"GIT_ASKPASS=", "SSH_ASKPASS=", "GIT_ALLOW_PROTOCOL=https", "GIT_PROTOCOL_FROM_USER=0",
 		"GIT_NO_REPLACE_OBJECTS=1",
+	}
+	// The authorization header is passed in the child environment, never argv,
+	// repository URL or on-disk Git config. Redirects and helpers remain disabled.
+	if s.auth.Token != "" {
+		header := "Authorization: Basic " + base64.StdEncoding.EncodeToString([]byte(s.auth.Username+":"+s.auth.Token))
+		cmd.Env = append(cmd.Env, "GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=http.extraHeader", "GIT_CONFIG_VALUE_0="+header)
 	}
 	cmd.Stdin = nil
 	var stdout bytes.Buffer

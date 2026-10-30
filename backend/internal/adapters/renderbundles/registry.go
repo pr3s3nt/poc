@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"orchestrator/internal/ports/gitaccess"
 	"strings"
 	"time"
 
@@ -46,6 +47,7 @@ const maxURLLength = 2048
 
 // Inspect implements renderregistry.Registry.
 func (r *Registry) Inspect(ctx context.Context, organizationKey string, req renderregistry.Inspection) (renderbundle.Bundle, error) {
+	ctx = gitaccess.WithOrganization(ctx, organizationKey)
 	url := strings.TrimSpace(req.URL)
 	path := strings.TrimSuffix(strings.TrimSpace(req.Path), "/")
 	ref := strings.TrimSpace(req.Ref)

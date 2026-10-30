@@ -71,4 +71,15 @@ class VerifiedRenderBundle <<entity>>
 ResourceDefinitionService --> RenderBundleRegistry : inspect/cache/read scoped pin
 RenderBundleRegistry --> VerifiedRenderBundle : immutable metadata
 ResourceDefinition --> VerifiedRenderBundle : verified Git/ZIP ID + inputs
+class PlatformGitSettingsController <<boundary>>
+class GitAccessService <<control>>
+interface GitSettingsRepository
+interface CredentialStore
+class PlatformGitSettings <<entity>>
+PlatformGitSettingsController --> GitAccessService : PE/Admin session
+GitAccessService --> GitSettingsRepository : metadata CAS
+GitAccessService --> CredentialStore : immutable token objects
+GitSettingsRepository --> PlatformGitSettings
+ModuleBundleResolver --> GitAccessService : Organization + HTTPS URL
+RenderBundleRegistry --> GitAccessService : Organization + HTTPS URL
 @enduml

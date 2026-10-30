@@ -59,3 +59,5 @@ last_reviewed: 2026-10-28
 ZIP source upload: [ADR-026](ADR-026-zip-source-upload.md).
 
 - [ADR-027 — PostgreSQL upgrades preserving data](ADR-027-postgres-upgrades.md) — supersedes PostgreSQL fresh-only/reset policy.
+
+- [ADR-029 — Platform Git access](ADR-029-platform-git-access.md).

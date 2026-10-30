@@ -188,3 +188,12 @@ resolver reads it as a snapshot, while the render registry validates its selecte
 directory with the existing engine. Cache materialization precedes immutable
 metadata insertion. Registration, planning, execution and cleanup consume the
 same verified pin as Git. See [ADR-026](../../architecture/decisions/ADR-026-zip-source-upload.md).
+
+## Platform Git access — GA-01–06
+
+[Service collaboration and HTTP/UI contract](git-access.md#realization-and-contract).
+Platform role handlers call GitAccessService; CAS saves public metadata through
+GitSettingsRepository and opaque token objects through CredentialStore. Module
+and render transports ask the same resolver with authenticated Organization and
+source URL before invoking Git. Test uses draft-only access with the same Git
+transport; it never persists settings or verified bundle data.

@@ -53,11 +53,13 @@ checkout's reference directory or embed it into every execution.
 
 ## RB-C02 — Inspection, pinning and cache
 
-PE/Admin may inspect public/credential-free HTTPS Git sources without a per-repo
+PE/Admin may inspect anonymous or platform-authenticated HTTPS Git sources without a per-repo
 allowlist, following the hardened Terraform Git downloader. Reuse transport/path/
 ref validation, bounded fetch and redacted errors; do not reuse HCL parsing,
-Terraform release identity or Terraform state. SSH/private Git authentication is
-outside v1. Reject credential-bearing URLs, unsafe protocols/redirects and hooks.
+Terraform release identity or Terraform state. Private HTTPS authentication uses
+Organization-scoped [platform Git access](../../usecase/UC-03/git-access.md);
+SSH remains unsupported. Reject credential-bearing URLs, unsafe
+protocols/redirects and hooks.
 
 Empty path becomes `.`. Otherwise accept clean relative segments; reject traversal,
 absolute paths and encoded bypasses. Ref accepts branch/tag/full commit, never

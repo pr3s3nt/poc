@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"orchestrator/internal/adapters/tlsprobe"
 	"orchestrator/internal/application/accountdiag"
+	"orchestrator/internal/application/gitaccess"
 	diagprobes "orchestrator/internal/ports/diagnostics"
 	"os"
 	"os/exec"
@@ -374,6 +375,12 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	gitAccess := gitaccess.New(st, connectionCredentials)
+	modules.SetGitAccess(gitAccess)
+	gitTester, err := moduleregistry.NewGitCLI(opts.GitPath, "")
+	if err != nil {
+		return nil, err
+	}
 	credentialResolver := connection.NewCredentialResolver(st, connectionCredentials)
 	ec2RoleProvider := opts.EC2RoleProviderOverride
 	if ec2RoleProvider == nil && (opts.Adapters == AdapterKubernetes || opts.Adapters == AdapterAWS) {
@@ -459,6 +466,9 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	if score, ok := renderer.(*scorek8s.Renderer); ok {
 		if renderRegistry, err = gitRenderRegistry(opts, st, score, closers); err != nil {
 			return nil, err
+		}
+		if transport, ok := renderRegistry.Git.(*moduleregistry.GitCLI); ok {
+			transport.Access = gitAccess
 		}
 		score.SetGitBundles(renderRegistry, renderengine.Executor{Command: opts.RenderWorkerPath})
 	}
@@ -632,6 +642,8 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		KubeconfigVerifier:    kubeconfigVerifier,
 		AWSVerifier:           awsVerifier,
 		EC2RoleProvider:       ec2RoleProvider,
+		GitAccess:             gitAccess,
+		GitTester:             gitTester,
 		ConnectionCredentials: connectionCredentials,
 		Configurations:        configurations,
 		SecretStores:          secretStoreService,

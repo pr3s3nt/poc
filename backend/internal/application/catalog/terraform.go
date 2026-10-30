@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"orchestrator/internal/ports/gitaccess"
 	"regexp"
 	"strconv"
 
@@ -39,7 +40,7 @@ func (s *Service) validateTerraform(ctx context.Context, org string, def *resour
 	if s.modules == nil {
 		return tfmodule.Bundle{}, &internalError{err: errors.New("catalog: the Terraform module registry is unavailable")}
 	}
-	bundle, err := s.modules.Verify(ctx, inputs.Source)
+	bundle, err := s.modules.Verify(gitaccess.WithOrganization(ctx, org), inputs.Source)
 	if err != nil {
 		return tfmodule.Bundle{}, registryError(err)
 	}

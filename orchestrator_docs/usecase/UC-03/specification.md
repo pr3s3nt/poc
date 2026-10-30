@@ -362,10 +362,10 @@ Applications (AWS after V03.10); unscoped internal workloads need both refs.
   Đã xác minh. Full commit/digest chỉ trong Chi tiết kỹ thuật; không nhập digest.
   Backend lưu safe origin URL để module hoạt động sau restart. URL có credential,
   non-HTTPS, traversal, hooks/provisioners và mutable execution bị từ chối.
-- **GIT-06:** Đợt này hỗ trợ HTTPS repository mà hardened Git downloader truy cập
-  được không cần credential. Private Git credential authoring/SSH chưa hỗ trợ;
-  UI phải nói rõ, không thu raw secret. Provider release/runtime readiness vẫn
-  có phạm vi hỗ trợ hiện hành; inspect không tuyên bố deploy đã kiểm chứng.
+- **GIT-06:** Hardened Git supports anonymous HTTPS and Organization-scoped
+  platform credentials configured by PE/Admin under [GA-01–06](git-access.md).
+  Source drafts/URLs never carry credentials. SSH remains unsupported.
+  Inspection does not establish provider/runtime deployment readiness.
 
 ## Resource Definition v3 authoring — issue #8
 
@@ -459,7 +459,7 @@ These RB requirements extend BR-15/16, installed discovery BR-18/19 and V03's
 exact-three-variable restriction for Git selections; legacy installed selections
 keep their original contract. Infrastructure Definitions/matching stay unchanged.
 
-- **RB-01:** PE/Admin can register a workload rendering template from credential-free
+- **RB-01:** PE/Admin can register a workload rendering template from anonymous or platform-authenticated
   HTTPS Git URL, directory and branch/tag/commit in Mẫu dựng ứng dụng. Inspect
   resolves/pins the commit, checks the whole bundle and caches it; no Definition,
   provider or cluster mutation. New drafts default to Git; installed/previously
@@ -520,3 +520,8 @@ hình, không update/delete catalog có sẵn. Không lưu password, trace hay v
   cache restoration. Errors keep the draft, never display raw file content.
 
 Limits, transport and identity follow [ADR-026](../../architecture/decisions/ADR-026-zip-source-upload.md).
+
+## Platform Git access — GA-01–06
+
+The [approved specification extension](git-access.md) owns Git settings,
+role/scope isolation, credential persistence, Test and Save behavior.

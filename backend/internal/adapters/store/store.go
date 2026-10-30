@@ -32,6 +32,7 @@ import (
 )
 
 type state struct {
+	GitSettings         map[string]persistence.GitSettings            `json:"gitSettings,omitempty"`
 	TelemetrySources    map[string]telemetry.State                    `json:"telemetrySources"`
 	TelemetryLogs       map[string]telemetry.Log                      `json:"telemetryLogs"`
 	TelemetrySamples    map[string]telemetry.Sample                   `json:"telemetrySamples"`
@@ -70,6 +71,7 @@ type state struct {
 
 func newState() *state {
 	return &state{
+		GitSettings:      map[string]persistence.GitSettings{},
 		TelemetrySources: map[string]telemetry.State{}, TelemetryLogs: map[string]telemetry.Log{},
 		TelemetrySamples: map[string]telemetry.Sample{}, TelemetryEvents: map[string]telemetry.Event{},
 		Organizations:       map[string]application.Organization{},

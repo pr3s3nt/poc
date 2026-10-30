@@ -1080,3 +1080,11 @@ Module bundles keep ZIP source kind and sourceOrganizationKey (the uploader
 session Organization) in their immutable JSON contract and full
 archive revision in their existing pin columns; no additional table is needed.
 Only fresh baseline setup changes; retained installations are never reset here.
+
+## Platform Git settings (schema version 2)
+
+`platform_git_settings` has organization_id (PK/FK organizations, cascade delete),
+url, username, authenticated, ca_pem, credential_ref (opaque, no token), version
+(positive CAS counter), updated_at and updated_by (session user ID text).
+One row per Organization; URL is HTTPS scope. Only Console has CRUD; State has
+no access. Frozen version-002 and migration 002 preserve all existing records.

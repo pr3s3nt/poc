@@ -590,4 +590,17 @@ No new column or database reset at domain checkpoint.
 end note
 ExecutionExtension .. workload_drafts
 ExecutionExtension .. deployment_sets
+entity platform_git_settings {
+  * organization_id : uuid <<PK,FK>>
+  --
+  url : text
+  username : text
+  authenticated : boolean
+  ca_pem : text
+  credential_ref : text <<opaque>>
+  version : bigint
+  updated_at : timestamptz
+  updated_by : text
+}
+organizations ||--o| platform_git_settings : Git access
 @enduml

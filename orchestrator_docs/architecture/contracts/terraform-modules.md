@@ -396,3 +396,11 @@ INVALID_REQUEST, oversized requests REQUEST_TOO_LARGE (413); invalid content
 uses existing module/RENDER_BUNDLE_INVALID classifications. ZIP uses the same
 verified cache, inspector, input schema and execution guards as Git. No mutable
 ref or Git URL is required. Rendering engine `git-render-v1` is unchanged for ZIP.
+
+## Platform Git transport authentication
+
+[GA-01–06](../../usecase/UC-03/git-access.md) extends HTTPS downloads with
+Organization-scoped URL matching, username/token and optional CA from platform
+settings. Authenticated catalog services propagate session Organization through
+request context to all root/child fetches. Source contracts and verified cache
+contain no token or credential reference. Execution still never fetches.

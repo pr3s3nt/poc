@@ -721,3 +721,7 @@ a { color: inherit; }
 .password-toggle { position:absolute; top:50%; right:4px; transform:translateY(-50%); border:0; border-radius:6px; background:transparent; color:#0969da; cursor:pointer; font-size:12px; font-weight:600; padding:4px 8px; }
 .password-toggle:hover { background:#ddf4ff; }
 .password-toggle:focus-visible { outline:2px solid #0969da; outline-offset:-1px; }
+
+.git-settings-fields .field { display: grid; gap: 7px; }
+.git-settings-fields details { margin: 1rem 0; }
+.git-settings-fields summary { cursor: pointer; font-weight: 600; margin-bottom: 1rem; }

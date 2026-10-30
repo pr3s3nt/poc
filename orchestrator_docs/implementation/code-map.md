@@ -903,3 +903,15 @@ all inspect/catalog writes are intercepted fixtures. No actual company Git,
 staging mutation, reset, Terraform or cluster scenario was run. CLI syntax/help,
 shared Console helper tests, documentation and whitespace checks pass; product
 Go/React suites were not repeated for this operator-script change.
+
+## Platform Git access
+
+- [Service](../../backend/internal/application/gitaccess/service.go): scope,
+  write-only token retention, CAS and per-Organization resolution.
+- [HTTP](../../backend/internal/delivery/http/gitsettings.go) and
+  [Console](../../frontend/src/features/platform/PlatformSettingsPage.tsx).
+- [Transport](../../backend/internal/adapters/terraform/registry/fetch.go):
+  isolated auth environment and temporary CA shared by module/render inspection.
+- [Repository](../../backend/internal/ports/persistence/gitsettings.go),
+  PostgreSQL `gitsettings.go`, JSON `store/gitsettings.go`; immutable migration
+  `002-git-settings.sql` and frozen `version-002.sql`.

@@ -166,3 +166,5 @@ ZIP module/render sources: [ADR-026](architecture/decisions/ADR-026-zip-source-u
 ZIP upload usage: [runbook](operations/zip-source-upload.md).
 
 PostgreSQL versioned upgrades: [runbook](operations/postgres-upgrades.md).
+
+Platform Git access: [UC-03 specification/contract](usecase/UC-03/git-access.md).

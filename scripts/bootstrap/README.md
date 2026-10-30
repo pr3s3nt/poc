@@ -309,3 +309,14 @@ bundle: `node scripts/bootstrap/test/company-git-ui.mjs`. Script đăng nhập t
 không ghi Definition vào backend, không truy cập Git công ty hay mutate cluster.
 Kiểm tra installed→Git qua form, rerun không PUT, renderer update và HTTP409
 không retry. Đây là kiểm tra UI với fixture, không phải nghiệm thu Git staging.
+
+### Private company Git
+
+After deploying the version with platform Git settings, sign in as Platform
+Engineer/Admin and open **Cài đặt nền tảng → Truy cập Git**. Save the company
+HTTPS URL scope and read username/token; add internal CA PEM when required.
+The backend automatically applies this access to Terraform and render bundle
+inspection. Then run bootstrap with the existing Git URL/ref options.
+No token is placed in bootstrap presets, command arguments or source URLs.
+This setting requires the platform's existing credential store to be available;
+it does not provision backend DNS, network routing or Vault.

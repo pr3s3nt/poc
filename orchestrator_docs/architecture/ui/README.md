@@ -218,3 +218,9 @@ Reuse dependency controls and Advanced disclosure. New resources default to
 shared within the current app/environment; generated IDs stay out of basic
 controls. Existing-resource choices show alias, Type and source workload.
 Private scope is advanced. No shell/navigation or cross-Application scope change.
+
+## Platform settings — Git access
+
+Sidebar adds “Cài đặt nền tảng” at `/ui/platform/settings`, in the platform
+group with PLATFORM_ENGINEER/ADMIN gating. Reuse the existing Secret Stores
+form and shell. [UC-03](../../usecase/UC-03/git-access.md) owns fields/states.

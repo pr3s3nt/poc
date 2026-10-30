@@ -248,7 +248,7 @@ delivery stays unavailable; installed (legacy) bundles keep the ADR-010 envelope
 ## Git-owned manifest rendering — implemented and accepted 2026-10-24
 
 [ADR-021](architecture/decisions/ADR-021-git-render-bundles.md) is implemented:
-PE/Admin inspect a credential-free HTTPS Git directory in Mẫu dựng ứng dụng
+PE/Admin inspect an anonymous or platform-authenticated HTTPS Git directory in Mẫu dựng ứng dụng
 (new drafts default to Git), configure typed `render_inputs` and save; the
 verified Organization-scoped pin lives in `render_bundles` and the durable
 render bundle cache. Planning/Preview/Deploy pin source, engine, binary and
@@ -490,7 +490,7 @@ backend build/vet, frontend107distinct tests (chỉ các file chịu ảnh hư�
 changed-file lint/build và browser Git main flow PASS. Không fullsuite hoặc
 AWS/Kubernetes/deploy rerun. HTTPS Git fixture và product HTTP/catalog chạy thật;
 browser catalog in-memory, không claim SQL persistence hoặc Terraform apply.
-Private Git auth/SSH, provider mới và resource upgrade/destroy ngoài phạm vi.
+HTTPS Git credentials are configured through [platform settings](usecase/UC-03/git-access.md). SSH, provider mới và resource upgrade/destroy ngoài phạm vi.
 Cần durable catalog + module cache để reuse qua process restart. Full repository
 lint còn lỗi có sẵn ở `ec2-role-real.mjs` và user-owned untracked demo; task files
 lint sạch. [Verification](verification/2026-10-20-git-module-authoring.md).
@@ -1647,3 +1647,18 @@ see [issue #6 evidence](verification/2026-10-20-issue6-ec2-role.md).
 EKS/Aurora/ElastiCache full provisioning and waiting for natural credential expiry
 are outside this focused verification. Previous SQL baseline compatibility rules
 remain: no automatic migration or authorized reset is introduced.
+
+## Platform Git access — 2026-10-30
+
+Implemented Organization-scoped Git settings at `/ui/platform/settings` for
+Platform Engineer/Admin: HTTPS URL scope, username/token or anonymous, optional
+CA, draft Test and versioned Save. Terraform and render Git transports resolve
+settings automatically. Tokens remain in the existing credential store; product
+persistence holds references only. PostgreSQL schema v2 requires owner setup
+before runtime; no retained database was mutated for this task.
+
+Automated checks/builds and real private-company-Git verification were not run
+per user instruction. UI was compared headlessly with Secret Stores using
+fixture API responses; this is visual review, not backend acceptance.
+[Contract](usecase/UC-03/git-access.md),
+[handoff](implementation/platform-git-access.md).

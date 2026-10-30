@@ -48,3 +48,5 @@ records implementation and actual acceptance separately.
 [shared contract](../../architecture/contracts/workload-catalog.md) và
 [implementation handoff](../../implementation/workload-catalog.md) mô tả phần
 mở rộng đang review; chưa thay thế current behavior hoặc chứng minh implementation.
+
+Platform Git credentials: [approved specification and contract](git-access.md).

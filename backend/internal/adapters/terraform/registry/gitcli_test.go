@@ -12,11 +12,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"orchestrator/internal/adapters/store"
 	"orchestrator/internal/adapters/terraform"
 	"orchestrator/internal/domain/tfmodule"
+	access "orchestrator/internal/ports/gitaccess"
 	"orchestrator/internal/ports/moduleregistry"
 )
 
@@ -40,7 +42,7 @@ func runGit(t *testing.T, dir string, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
-func newGitServer(t *testing.T) gitServer {
+func newGitServer(t *testing.T, authenticated ...bool) gitServer {
 	t.Helper()
 	backend, err := exec.Command("git", "--exec-path").Output()
 	if err != nil {
@@ -60,7 +62,19 @@ func newGitServer(t *testing.T) gitServer {
 	runGit(t, filepath.Join(root, "repo.git"), "config", "uploadpack.allowAnySHA1InWant", "true")
 	runGit(t, filepath.Join(root, "repo.git"), "config", "http.receivepack", "false")
 	handler := &cgi.Handler{Path: httpBackend, Stderr: io.Discard, Env: []string{"GIT_PROJECT_ROOT=" + root, "GIT_HTTP_EXPORT_ALL=1", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null"}}
-	server := httptest.NewTLSServer(handler)
+	var endpoint http.Handler = handler
+	if len(authenticated) > 0 && authenticated[0] {
+		endpoint = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user, token, ok := r.BasicAuth()
+			if !ok || user != "reader" || token != "fixture-token" {
+				w.Header().Set("WWW-Authenticate", `Basic realm="git"`)
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			handler.ServeHTTP(w, r)
+		})
+	}
+	server := httptest.NewTLSServer(endpoint)
 	t.Cleanup(server.Close)
 	caFile := filepath.Join(root, "ca.pem")
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})
@@ -182,3 +196,57 @@ func TestGitCLIFetchesExactCommitOverHTTPS(t *testing.T) {
 }
 
 var _ http.Handler = (*cgi.Handler)(nil)
+
+func TestGitDraftAuthenticationAndPrivateCA(t *testing.T) {
+	g := newGitServer(t, true)
+	commit := g.commit(t, map[string]string{"main.tf": "# fixture"}, nil, nil)
+	temp := privateDir(t)
+	cli, err := NewGitCLI("git", temp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ca, err := os.ReadFile(g.caFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := access.Access{Username: "reader", Token: "fixture-token", CAPEM: string(ca)}
+	if err = cli.TestGit(context.Background(), g.url, "main", value); err != nil {
+		t.Fatal("authenticated ref read failed", err)
+	}
+	if err = cli.TestGit(context.Background(), g.url, commit, value); err != nil {
+		t.Fatal("authenticated commit read failed", err)
+	}
+	value.Token = ""
+	if err = cli.TestGit(context.Background(), g.url, "main", value); err == nil {
+		t.Fatal("private Git accepted anonymous access")
+	}
+	entries, err := os.ReadDir(temp)
+	if err != nil || len(entries) != 0 {
+		t.Fatal("Git/CA temporary files remained")
+	}
+}
+
+func TestGitCredentialsNeverFollowRedirect(t *testing.T) {
+	var targetReads atomic.Int64
+	target := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		targetReads.Add(1)
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer target.Close()
+	redirect := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL+r.URL.Path, http.StatusFound)
+	}))
+	defer redirect.Close()
+	ca := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: redirect.Certificate().Raw})
+	ca = append(ca, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: target.Certificate().Raw})...)
+	cli, err := NewGitCLI("git", privateDir(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = cli.TestGit(context.Background(), redirect.URL+"/repo.git", "main", access.Access{Username: "reader", Token: "fixture-token", CAPEM: string(ca)}); err == nil {
+		t.Fatal("redirect was accepted")
+	}
+	if targetReads.Load() != 0 {
+		t.Fatal("authenticated request followed redirect")
+	}
+}

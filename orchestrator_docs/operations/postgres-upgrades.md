@@ -82,3 +82,12 @@ Use the CI `go test -timeout 30m ./...` timeout for the full backend suite. If
 local `/tmp` is a crowded tmpfs, set `TMPDIR` to a new task-owned directory on a
 disk with enough space: Terraform executor fixtures copy multiple real binaries.
 Do not clear another session's temporary files to make tests pass.
+
+## Current version: 2 — platform Git settings
+
+The current runtime also accepts the frozen version-1 schema as an upgrade
+source (marker `orchestrator-schema-v1`). Owner setup validates its history and
+catalog, applies `002-git-settings.sql`, grants the new table to Console only,
+and records version 2 atomically. Original migrations/references remain frozen.
+Legacy supported sources first transition through version 1. Run the same
+backup/quiesce/owner-setup procedure above; do not reset existing data.

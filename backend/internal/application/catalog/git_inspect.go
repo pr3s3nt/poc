@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"orchestrator/internal/ports/gitaccess"
 
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
@@ -16,7 +17,7 @@ func (s *Service) InspectTerraformModule(ctx context.Context, org string, reques
 		if !ok {
 			return tfmodule.Bundle{}, errors.New("module inspection is unavailable")
 		}
-		return inspector.InspectGit(ctx, request)
+		return inspector.InspectGit(gitaccess.WithOrganization(ctx, org), request)
 	})
 }
 

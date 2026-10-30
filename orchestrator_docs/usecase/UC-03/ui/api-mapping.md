@@ -222,3 +222,8 @@ come from the same response. Client cannot provide digest/engine overrides.
 ZIP-01..04 use `POST /terraform-modules/upload` and `POST /render-bundles/upload`
 with multipart file/path and scoped resourceType for Terraform. Success reuses
 existing inspect projections; Definition Create/CAS payloads are unchanged.
+
+## Platform Git settings
+
+[GA-01–06 UI states and API contract](../git-access.md) defines the platform
+settings screen at `/ui/platform/settings`, separate from Definition authoring.

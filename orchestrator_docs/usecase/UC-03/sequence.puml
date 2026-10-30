@@ -8,9 +8,28 @@ entity ResourceDefinition as Validator
 control DriverContractInspector as Inspector
 control ModuleBundleResolver as Modules
 control RenderBundleRegistry as Bundles
+control GitAccessService as GitAccess
+database GitSettingsRepository as SettingsRepo
+collections CredentialStore as Credentials
 database ResourceTypeRepository as TypeRepo
 database ConnectionRepository as ConnectionRepo
 database ResourceDefinitionRepository as DefinitionRepo
+
+opt Configure platform Git access [GA-01..06]
+PE -> API: GET / PUT platform/settings/git or POST .../test
+API -> API: PE/Admin session + bounded strict body
+API -> GitAccess: Read / Save CAS / Resolve draft access(sessionOrg)
+GitAccess -> SettingsRepo: Read Organization setting
+opt Authenticated setting
+GitAccess -> Credentials: Read retained / Put immutable token object
+end
+alt Save
+GitAccess -> SettingsRepo: CAS public metadata + credential reference
+else Test
+API -> Modules: TestGit(repo, ref, draft-only access) [no persistence]
+end
+API --> PE: Safe settings view / reachable / fixed error code
+end
 
 opt Read capability metadata [BR-23..26, OC-04d]
 PE -> API: GET resource-definition-capabilities
@@ -67,6 +86,9 @@ API -> API: PE/Admin session + strict bounded body + deadline
 API -> Service: InspectTerraformModule(ctx, org, request)
 Service -> TypeRepo: Get scoped Type
 Service -> Modules: Resolve ref, fetch exact commit, compute digest, inspect/cache
+Modules -> GitAccess: ResolveGitAccess(sessionOrg, root/child URL)
+GitAccess -> SettingsRepo: Read matching Organization scope
+GitAccess -> Credentials: Read token only for matching authenticated scope
 Modules -> DefinitionRepo: Persist verified bundle metadata only
 Modules --> Service: immutable verified bundle
 Service --> API: capability projection
@@ -77,6 +99,7 @@ opt Inspect Git render bundle [RB-01..06, ADR-021]
 PE -> API: POST render-bundles/inspect(url, path, ref)
 API -> Service: InspectRenderBundle(scoped PE/Admin request)
 Service -> Bundles: Resolve/fetch immutable tree; validate schema/templates; cache
+Bundles -> GitAccess: ResolveGitAccess(sessionOrg, URL) [same scope/credential rules]
 Bundles -> DefinitionRepo: Insert immutable same-org render metadata (no Definition)
 Bundles --> Service: verified pin + typed schema
 Service --> API: safe renderBundle

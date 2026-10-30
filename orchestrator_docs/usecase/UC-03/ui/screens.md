@@ -284,3 +284,8 @@ picker (.zip), directory, and one “Tải lên và kiểm tra” action. ZIP he
 root/path semantics and limits; no Git ref field. Verified results use the current
 metadata/input editors; technical details distinguish ZIP digest from Git commit.
 Git remains default. Never send a ZIP source through Git re-inspection.
+
+## Platform Git settings
+
+[GA-01–06 UI states and API contract](../git-access.md) defines the platform
+settings screen at `/ui/platform/settings`, separate from Definition authoring.

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	access "orchestrator/internal/ports/gitaccess"
 	"os"
 	"path"
 	"path/filepath"
@@ -654,4 +655,11 @@ func removePrivate(dir string) error {
 func exists(path string) bool {
 	_, err := os.Lstat(path)
 	return err == nil
+}
+
+// SetGitAccess is called once at bootstrap before serving requests.
+func (s *Service) SetGitAccess(resolver access.Resolver) {
+	if git, ok := s.cfg.Git.(*GitCLI); ok {
+		git.Access = resolver
+	}
 }

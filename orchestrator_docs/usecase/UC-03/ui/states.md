@@ -233,3 +233,8 @@ invalid/oversize archives preserve file/path with safe error and explicit retry;
 verified enables existing form; changing file/path/Type/source invalidates the
 pin and pending reply. Missing saved ZIP cache requests explicit same-content
 re-upload. Leaving/resetting drafts never implicitly repeats an upload.
+
+## Platform Git settings
+
+[GA-01–06 UI states and API contract](../git-access.md) defines the platform
+settings screen at `/ui/platform/settings`, separate from Definition authoring.
