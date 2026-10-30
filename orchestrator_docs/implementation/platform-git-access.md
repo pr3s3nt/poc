@@ -49,3 +49,24 @@ preservation/rollback/repeated setup/runtime-role isolation. These assertions
 have not been executed in this task. No staging/database/cluster mutation or
 real company-Git authentication was performed. No preexisting uncommitted user
 changes existed at task start.
+
+## Local runtime refresh — 2026-10-30
+
+At the user's request, built backend `./cmd/orchestrator` and frontend
+`npm run build` (includes TypeScript typecheck). The build exposed unsupported
+`exact` options in new Testing Library role queries; removed those options.
+Both builds then passed. No unit/integration suites were run.
+
+Replaced only the identified fake demo process on Tailscale port 18080. Kept the
+original `/tmp/orchestrator-demo/state.json` and copied its final snapshot into
+private runtime `/tmp/orchestrator-current-u1m97lho`; `state-before.json` is the
+pre-start backup. New binary and runtime log are in the same directory; frontend
+uses this checkout's production dist. No PostgreSQL migration was needed and no
+Kubernetes/cloud/staging mutation occurred.
+
+Headless Chromium signed in as the existing Platform Engineer, opened
+`http://100.77.224.24:18080/ui/platform/settings`, verified the real Git access
+heading/form and GET settings HTTP 200, then signed out. Screenshot stays outside
+Git in the private runtime directory. This process keeps fake adapters and its
+existing unconfigured credential-store mode; token persistence needs a durable
+credential store such as the platform Vault before it can be used.

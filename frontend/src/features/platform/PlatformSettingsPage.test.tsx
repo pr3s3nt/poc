@@ -20,7 +20,7 @@ it('keeps the stored token blank and sends versioned updates', async () => {
   const token = await screen.findByLabelText('Token');
   expect(token).toHaveValue('');
   await user.type(token, 'replacement-token');
-  await user.click(screen.getByRole('button', { name: 'Lưu', exact: true }));
+  await user.click(screen.getByRole('button', { name: 'Lưu' }));
   await screen.findByText('Đã lưu cấu hình Git.');
   expect(submitted.token).toBe('replacement-token');
   expect(submitted.expectedVersion).toBe(1);
@@ -32,12 +32,12 @@ it('blocks stale writes until settings are reloaded and clears entered token', a
   const user = userEvent.setup(); render(<PlatformSettingsPage />);
   const token = await screen.findByLabelText('Token');
   await user.type(token, 'new-token');
-  await user.click(screen.getByRole('button', { name: 'Lưu', exact: true }));
+  await user.click(screen.getByRole('button', { name: 'Lưu' }));
   await screen.findByText('Cấu hình đã thay đổi. Tải lại và xem lại trước khi lưu.');
   expect(token).toHaveValue('');
-  expect(screen.getByRole('button', { name: 'Lưu', exact: true })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Lưu' })).toBeDisabled();
   await user.click(screen.getByRole('button', { name: 'Tải lại cấu hình' }));
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Lưu', exact: true })).toBeEnabled());
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Lưu' })).toBeEnabled());
 });
 
 it('tests a draft without saving and invalidates its result on edit', async () => {
