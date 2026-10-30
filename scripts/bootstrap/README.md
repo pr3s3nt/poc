@@ -15,6 +15,48 @@ và vị trí code để đối chiếu khi sửa script.
 Bản Terraform modules và render bundle để copy sang Git công ty:
 [platform-catalog](../../platform-catalog/README.md).
 
+## Dùng Git công ty và chuyển nguồn Definition
+
+Copy nội dung `platform-catalog/` làm gốc repo công ty rồi push. Lấy full commit
+SHA40 ký tự của repo đó; không dùng SHA của repo GitHub nguồn sau khi copy file.
+
+```bash
+node scripts/bootstrap/run.mjs \
+  --target staging \
+  --url https://platform-cong-ty.example \
+  --kubeconfig /private/staging.kubeconfig \
+  --git-url https://git-cong-ty.example/team/catalog.git \
+  --git-ref <full-commit-SHA40>
+```
+
+`--git-url` đổi Git URL cho Terraform sources và render bundle. Các installed
+Terraform modules có trong bản phân phối được chuyển sang
+`backend/terraform-modules/<tên-module>`; giữ nguyên tên/ID Definition, params,
+mappings, provider bindings, criteria và placement. Existing-cluster vẫn trỏ
+account đã có. Không biết đường dẫn module thì dừng thay vì tự suy đoán.
+Git source đã khai báo giữ nguyên subdirectory. `--git-ref` thay pin Git cho cả
+modules và bundle; nhận full commit để các bước inspect dùng cùng snapshot.
+Khi chuyển installed modules sang Git, bắt buộc có `--git-ref`. Bỏ cả hai cờ
+thì giữ hành vi/config cũ; hỗ trợ cả --target và --config.
+
+Nếu Definition cùng ID đã có nhưng còn dùng source/pin cũ, chạy thêm
+`--update-existing`. Cờ này **chỉ** cho phép đổi source Terraform hoặc bundle pin.
+Không cho tự đổi account, Type/driver, tên, criteria, variables, mappings,
+placement, render inputs hoặc provision. Khác các trường đó vẫn dừng để operator
+review. Resource Type schema khác vẫn bị chặn. Không reset database/resource.
+
+Update đi qua form Sửa → Lưu thay đổi, dùng expected version CAS. Trước khi
+forward PUT, script kiểm payload UI đúng desired và đúng version đã đọc; sai thì
+chặn request. Sau khi lưu, đọc lại và kiểm version tăng1/config khớp. HTTP409,
+unknown outcome hoặc lỗi khác dừng, không tự retry/reload rồi ghi đè winner.
+Seed có thể hoàn tất một phần trước khi lỗi; chạy lại reuse phần đã khớp.
+
+Backend platform phải truy cập HTTPS Git và có CA/auth/source policy phù hợp.
+Không nhúng token vào URL. Script không cấu hình Git server, không sửa workload
+đã chạy, không Preview/Deploy. Definition mới sẽ được chọn trong Preview/Deploy
+sau đó theo criteria; resource instances/state đã tạo không bị reset/migrate bởi
+bootstrap. Việc chuyển nguồn resource đang có phải review ở Preview riêng.
+
 ## Presets dev và staging
 
 Cấu hình đã điền trong `targets/dev.json` và `targets/staging.json`:
@@ -63,7 +105,7 @@ Renderer Definition mới chỉ match `env_type=staging, class=pvc`, để khôn
 renderer mặc định của các workload đã chạy. Workload mới dùng template catalog
 và class `pvc` để chọn bundle này; workload cũ cần thêm execution pin nếu chưa có.
 Không tự sửa/di chuyển workload hoặc đổi renderer đang pin. Account/Definitions
-cùng ID nhưng cấu hình khác thì dừng; không tự tạo ID khác để né conflict.
+cùng ID nhưng cấu hình khác mặc định dừng; chỉ đổi source/pin khi có --update-existing; không tự tạo ID khác để né conflict.
 Nếu chưa có Application, seed hoàn tất và ghi rõ bỏ kiểm tra picker; không tạo
 Application chỉ để kiểm tra. Nếu config chỉ định verify.applicationKey mà không
 có Application tương ứng, script báo lỗi.
@@ -206,7 +248,7 @@ namespace rồi các resources cần namespace. Mỗi entry có `key`, `name`,
   biểu thức hoặc JSON. Không hỗ trợ literal object/array, AWS hay credentials.
 
 Đã có cùng Definition ID thì so sánh toàn bộ cấu hình, account key, mappings,
-variables, criteria và source pin; chỉ reuse khi khớp. Khác thì FAIL, không PUT.
+variables, criteria và source pin; chỉ reuse khi khớp. Khác thì mặc định FAIL; --update-existing chỉ cho phép source/pin migration qua PUT/CAS.
 Installed modules dùng verified capability pin của backend đích. Git modules
 phải khớp repo/path/full commit và registry capability; inspect không chạy apply.
 
@@ -241,18 +283,29 @@ mở dialog storage tại chỗ, xác nhận dependency và thêm được mount
 Không tạo workload/draft, Preview, Deploy, sửa database schema hoặc mutate cluster/cloud.
 
 Chạy lại cùng cấu hình sẽ kiểm tra Git source và reuse Definition cùng ID nếu
-toàn bộ cấu hình/pin khớp; không POST Definition lần hai. Khác bất kỳ cấu hình
-nào thì FAIL, không update/delete. Với branch/tag đã đổi commit, dùng ID mới hoặc
-chỉnh Definition thủ công sau review. Không tự retry POST khi kết quả chưa rõ.
+toàn bộ cấu hình/pin khớp; không POST Definition lần hai. Khác cấu hình mặc định
+FAIL; --update-existing chỉ cho đổi source/pin qua PUT/CAS. Các thay đổi khác
+cần review thủ công, không tự delete/reset. Không tự retry POST/PUT khi kết quả chưa rõ.
 Script có thể đã lưu bundle/Definition trước khi bước sau thất bại; kiểm tra
 Console rồi chạy lại. Không rollback hay xóa tài nguyên đã có.
 
 Account, Resource Types, module/bundle cache/metadata và Definitions được **giữ lại** để người dùng test. Session
 do script mở được sign out và browser đóng trong `finally`; không lưu storage
-state, screenshot, video hoặc trace. Mật khẩu vẫn ở file riêng ngoài Git. Không
+state, screenshot, video hoặc trace. Presets dùng seed login; mật khẩu tùy chỉnh
+đọc từ file riêng ngoài Git. Không
 có cleanup namespace/PVC vì script không tạo chúng. Nếu chưa có Application,
 script báo rõ registration đã xong nhưng verification chưa hoàn tất; tạo
 Application qua Console rồi chạy lại.
 
 Kiểm tra local helpers: `cd e2e && npm test`. Kết quả trên một Console không
 chứng minh deployment hoặc credentials/placement ở máy khác đã đúng.
+
+## Kiểm tra phần Git migration
+
+`npm test` chạy unit checks cấu hình/override/source-only migration/CAS payload.
+Kiểm tra UI riêng trên Console local đã có metadata postgres-k8s và một Git
+bundle: `node scripts/bootstrap/test/company-git-ui.mjs`. Script đăng nhập thật,
+đọc metadata public rồi intercept mọi inspect/catalog write bằng fixtures;
+không ghi Definition vào backend, không truy cập Git công ty hay mutate cluster.
+Kiểm tra installed→Git qua form, rerun không PUT, renderer update và HTTP409
+không retry. Đây là kiểm tra UI với fixture, không phải nghiệm thu Git staging.

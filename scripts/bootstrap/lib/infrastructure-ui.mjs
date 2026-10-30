@@ -1,3 +1,5 @@
+import { definitionAction } from './definition-action.mjs';
+import { saveDefinitionUpdate } from './definition-update-ui.mjs';
 import { expect } from '@playwright/test';
 import { readPrivateFile } from './console.mjs';
 import { assertAccountTarget, desiredInfrastructureDefinition, discoverAccountTarget } from './infrastructure-config.mjs';
@@ -81,7 +83,7 @@ async function applyCriteria(section, criteria, act) {
   }
 }
 
-export async function ensureResourceDefinitions({ page, baseURL, definitions, act, get, responseFor }) {
+export async function ensureResourceDefinitions({ page, baseURL, definitions, act, get, responseFor, updateExisting = false }) {
   for (const item of definitions) {
     console.log(`UI: kiểm tra Resource Definition ${item.key}`);
     const accounts = (await get('/driver-accounts')).accounts;
@@ -100,16 +102,20 @@ export async function ensureResourceDefinitions({ page, baseURL, definitions, ac
       continue;
     }
     await page.goto(`${baseURL}/ui/platform/resource-definitions`);
-    await act(page.getByRole('button', { name: 'Tạo cấu hình', exact: true }), 'click');
+    const editing = Boolean(existing && item.source && updateExisting);
+    await act(page.getByRole('button', { name: editing ? `Sửa cấu hình ${item.key}` : 'Tạo cấu hình', exact: true }), 'click');
     const section = page.locator('.definition-detail:visible');
-    await act(section.getByLabel('ID cấu hình (Definition ID)', { exact: true }), 'fill', item.key);
-    await act(section.getByLabel('Tên hiển thị', { exact: true }), 'fill', item.name);
-    await act(section.getByRole('combobox', { name: 'Loại tài nguyên', exact: true }), 'selectOption', item.resourceType);
+    if (!editing) {
+      await act(section.getByLabel('ID cấu hình (Definition ID)', { exact: true }), 'fill', item.key);
+      await act(section.getByLabel('Tên hiển thị', { exact: true }), 'fill', item.name);
+      await act(section.getByRole('combobox', { name: 'Loại tài nguyên', exact: true }), 'selectOption', item.resourceType);
+    }
     if (item.driverType === 'existing-cluster') {
       await act(section.getByRole('combobox', { name: 'Cách cung cấp cluster', exact: true }), 'selectOption', 'existing-cluster');
       await act(section.getByLabel('Tài khoản hạ tầng', { exact: true }), 'selectOption', account.key);
     } else {
       if (item.source) {
+        if (editing) await act(section.getByRole('button', { name: 'Thêm từ Git', exact: true }), 'click');
         await act(section.getByLabel('Git HTTPS URL', { exact: true }), 'fill', item.source.url);
         await act(section.getByLabel('Thư mục module', { exact: true }), 'fill', item.source.path);
         await act(section.getByLabel('Tag hoặc commit', { exact: true }), 'fill', item.source.ref);
@@ -128,8 +134,8 @@ export async function ensureResourceDefinitions({ page, baseURL, definitions, ac
       }
       if (capability.account.required || !capability.providerRequirements.some(provider => provider.binding === 'kubernetes') || capability.providerRequirements.some(provider => provider.binding === 'aws')) throw new Error('Chỉ hỗ trợ Kubernetes Terraform qua resource binding, không AWS');
       const desired = desiredInfrastructureDefinition(item, capability, account);
-      if (existing) {
-        assertSameDefinition(existing, desired);
+      const action = definitionAction(existing, desired, updateExisting);
+      if (action === 'reuse') {
         console.log(`PASS: dùng lại Definition ${item.key}, Git pin/cấu hình khớp`);
         continue;
       }
@@ -141,14 +147,19 @@ export async function ensureResourceDefinitions({ page, baseURL, definitions, ac
       for (const [name, source] of Object.entries(item.variables)) await chooseSource({ page, section, act }, name, source);
     }
     const desired = desiredInfrastructureDefinition(item, capability, account);
-    await applyCriteria(section, item.criteria, act);
-    const reply = responseFor('/resource-definitions', 'POST');
-    await act(section.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên', exact: true }), 'click');
-    const saved = await reply;
-    if (!saved.ok()) throw new Error(`${item.key}: Definition registration HTTP ${saved.status()}; không tự retry POST`);
+    if (editing) {
+      await saveDefinitionUpdate({ page, baseURL, act, button: section.getByRole('button', { name: 'Lưu thay đổi', exact: true }), existing, desired });
+    } else {
+      await applyCriteria(section, item.criteria, act);
+      const reply = responseFor('/resource-definitions', 'POST');
+      await act(section.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên', exact: true }), 'click');
+      const saved = await reply;
+      if (!saved.ok()) throw new Error(`${item.key}: Definition registration HTTP ${saved.status()}; không tự retry POST`);
+    }
     const persisted = (await get('/resource-definitions')).resourceDefinitions.find(def => def.key === item.key);
     if (!persisted) throw new Error(`${item.key}: không tìm thấy sau registration`);
     assertSameDefinition(persisted, desired);
-    console.log(`PASS: đăng ký Definition ${item.key}, full config/pin/mappings khớp`);
+    if (editing && persisted.version !== existing.version + 1) throw new Error(`${item.key}: version sau update không đúng CAS`);
+    console.log(`PASS: ${editing ? 'cập nhật source' : 'đăng ký'} Definition ${item.key}, full config/pin/mappings khớp`);
   }
 }

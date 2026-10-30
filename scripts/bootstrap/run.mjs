@@ -2,13 +2,15 @@ import { parseArgs } from 'node:util';
 import { expect } from '@playwright/test';
 import { closeConsole, openConsole, readConsoleConfig } from './lib/console.mjs';
 import { assertSameDefinition, assertSameResourceType, desiredDefinition, parseBundleConfig } from './lib/render-bundle-config.mjs';
+import { updateRenderDefinitionSource } from './lib/definition-update-ui.mjs';
+import { definitionAction } from './lib/definition-action.mjs';
 import { loadTarget } from './lib/target-config.mjs';
 import { readSetupPacing } from './lib/infrastructure-config.mjs';
 import { ensureInfrastructureAccount, ensureResourceDefinitions } from './lib/infrastructure-ui.mjs';
 
-const { values } = parseArgs({ options: { config: { type: 'string' }, target: { type: 'string' }, url: { type: 'string' }, kubeconfig: { type: 'string' }, help: { type: 'boolean' }, ...Object.fromEntries(['step', 'account', 'type', 'definition', 'bundle'].map(phase => [`${phase}-delay-ms`, { type: 'string' }])) } });
+const { values } = parseArgs({ options: { config: { type: 'string' }, target: { type: 'string' }, url: { type: 'string' }, 'git-url': { type: 'string' }, 'git-ref': { type: 'string' }, 'update-existing': { type: 'boolean' }, kubeconfig: { type: 'string' }, help: { type: 'boolean' }, ...Object.fromEntries(['step', 'account', 'type', 'definition', 'bundle'].map(phase => [`${phase}-delay-ms`, { type: 'string' }])) } });
 if (values.help) {
-  console.log('node scripts/bootstrap/run.mjs --target dev|staging [--url https://console.example] [--kubeconfig /private/kubeconfig] OR --config /path/catalog.json [--step-delay-ms 800] [--type-delay-ms 1000] [--definition-delay-ms 1500] [--account-delay-ms 800] [--bundle-delay-ms 800]\nConsole: ORCH_PLATFORM_URL, ORCH_PLATFORM_USERNAME, ORCH_PLATFORM_PASSWORD_FILE; presets mặc định ORCH_HEADLESS=1\nKubeconfig (chỉ cần khi account chưa có): ORCH_KUBECONFIG_FILE');
+  console.log('node scripts/bootstrap/run.mjs --target dev|staging [--url https://console.example] [--kubeconfig /private/kubeconfig] [--git-url https://git.company/catalog.git --git-ref FULL_COMMIT] [--update-existing] OR --config /path/catalog.json [--step-delay-ms 800] [--type-delay-ms 1000] [--definition-delay-ms 1500] [--account-delay-ms 800] [--bundle-delay-ms 800]\nConsole: ORCH_PLATFORM_URL, ORCH_PLATFORM_USERNAME, ORCH_PLATFORM_PASSWORD_FILE; presets mặc định ORCH_HEADLESS=1\nKubeconfig (chỉ cần khi account chưa có): ORCH_KUBECONFIG_FILE');
   process.exit(0);
 }
 
@@ -53,7 +55,7 @@ try {
     const existing = existingTypes.find(item => item.key === type.key);
     if (existing) assertSameResourceType(existing, type);
   }
-  const ui = { page, baseURL: consoleConfig.baseURL, act, get, responseFor };
+  const ui = { page, baseURL: consoleConfig.baseURL, act, get, responseFor, updateExisting: values['update-existing'] === true };
   await ensureInfrastructureAccount({ ...ui, account: config.account, kubeconfigFile: target.env.ORCH_KUBECONFIG_FILE });
   phase = 'type';
   for (const type of config.resourceTypes) {
@@ -110,9 +112,17 @@ try {
     const definitions = (await get('/resource-definitions')).resourceDefinitions;
     if (!Array.isArray(definitions)) throw new Error('Danh sách Definitions không hợp lệ');
     const existing = definitions.find(definition => definition.key === item.key);
-    if (existing) {
-      assertSameDefinition(existing, desired);
+    const action = definitionAction(existing, desired, values['update-existing'] === true);
+    if (action === 'reuse') {
       console.log(`PASS: dùng lại ${item.key}, cấu hình và Git pin khớp`);
+      continue;
+    }
+    if (action === 'update') {
+      await updateRenderDefinitionSource({ page, baseURL: consoleConfig.baseURL, act, existing, desired, bundleId: renderBundle.id });
+      const persisted = (await get('/resource-definitions')).resourceDefinitions.find(def => def.key === item.key);
+      if (!persisted || persisted.version !== existing.version + 1) throw new Error(`${item.key}: không xác minh được version CAS sau update`);
+      assertSameDefinition(persisted, desired);
+      console.log(`PASS: cập nhật source ${item.key}, version ${existing.version} → ${persisted.version}`);
       continue;
     }
     await act(form.getByLabel('Tham chiếu namespace', { exact: true }), 'fill', item.placement.namespace);

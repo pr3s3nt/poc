@@ -67,10 +67,13 @@ khác giữ controller/rollout policy tương ứng. Không có credential trong
 3. Không dùng commit GitHub cũ sau khi chỉ copy file sang repo mới: nội dung giống
    nhau không làm Git commit giống nhau. Bootstrap Terraform Git source hiện cần
    full commit, nên lấy SHA đầy đủ trong repo công ty.
-4. CLI `--git-url`/`--git-ref` chưa được implement tại thời điểm snapshot này.
-   Tạm chỉnh `source.url`/`source.ref` trong JSON bootstrap rồi chạy `--config`.
-   Các Definition đang dùng installed module (`module`) chưa tự chuyển sang Git;
-   cần đổi sang Git source nếu muốn chúng dùng bản trong repo công ty.
+4. Bootstrap hỗ trợ `--git-url <repo-HTTPS> --git-ref <full-commit-SHA40>`.
+   Khi có Git URL override, các installed Terraform modules trong preset được
+   chuyển sang subdirectory tương ứng ở đây; Git sources giữ path hiện có.
+   Mappings/criteria/placement giữ nguyên. Nếu cần chuyển Definition đã tồn tại,
+   thêm `--update-existing` để đổi source/pin qua version CAS, không reset dữ liệu.
+   Mặc định khác cấu hình vẫn dừng; khác các trường ngoài source/pin vẫn bị chặn
+   dù có cờ update. Không tự Deploy hoặc chuyển resource state đã tạo.
 
 Đăng ký/inspect chỉ seed metadata/cache. Apply tài nguyên xảy ra sau Preview →
 Deploy; không chạy `terraform apply` hoặc `destroy` chỉ vì vừa copy repo.

@@ -16,13 +16,14 @@ chuyển sang `scripts/bootstrap/`, có package và hướng dẫn cài riêng:
 | 4 | [`scripts/bootstrap/run.mjs`](../../scripts/bootstrap/README.md) | Luồng đầy đủ account/kubeconfig → Resource Types → Resource Definitions → Git render bundles; nhập UI từng trường, chọn tốc độ riêng từng phần |
 
 Script render bundles ghi qua UI và dùng API GET để xác minh pin/cấu hình;
-chạy lại chỉ reuse khi toàn bộ cấu hình khớp, không tự sửa Definition.
+chạy lại reuse khi toàn bộ cấu hình khớp. Bootstrap mới có --update-existing
+cho source/pin migration qua PUT/CAS; xem hướng dẫn bootstrap, mặc định không sửa.
 Ví dụ của script 4 có thể dùng độc lập cho `k8s-4f`: nó kiểm tra account trước,
 chỉ upload kubeconfig khi chưa có, rồi chuẩn bị cluster/namespace/storage/
 PostgreSQL/Redis Definitions. Không cần chạy bootstrap staging cũ để tạo trùng
 Definitions. Xem README của script để đổi target, schema và tốc độ.
 Các script account/Secret Store dùng lại mục cùng tên đã Sẵn sàng; mục có cùng tên nhưng khác trạng
-thái thì dừng. Không script nào sửa hoặc xóa mục đã có. Fail giữa chừng có thể
+thái thì dừng. Các setup account/Secret Store không sửa hoặc xóa mục đã có. Fail giữa chừng có thể
 để lại mục đã tạo; xem trên Console rồi chạy lại.
 
 ## Register Internal account

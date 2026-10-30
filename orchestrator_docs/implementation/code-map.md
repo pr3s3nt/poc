@@ -878,3 +878,27 @@ all nine module trees parse with Terraform fmt (no writes), and real score-k8s
 primary/mount plus standard-example tests pass on the identical canonical files.
 Docs/whitespace checks pass. No Terraform init/apply/destroy, cluster mutation,
 provider download or unrelated full suite was run for this distribution copy.
+
+## Bootstrap company Git migration — 2026-10-30
+
+`git-overrides.mjs` rewrites source URL/ref from CLI and converts known installed
+Terraform modules to the exported `backend/terraform-modules/<module>` layout.
+The explicit company commit is required for installed→Git conversion. Original
+paths/mappings/variables/criteria/placement and existing-cluster account stay
+unchanged. --config and presets both support overrides; no override retains old
+behavior. Existing source changes require --update-existing, implemented via
+`definition-action.mjs` (source-only diff guard) and `definition-update-ui.mjs`
+(browser PUT payload + expected-version guard). Infrastructure edits and renderer
+bundle selection use normal Console edit/CAS flows. HTTP409 or uncertain outcomes
+stop without retry. Runtime workloads and resource state are never reset/deployed.
+
+Validation: bootstrap26/26 tests pass, including exported source conversion,
+invalid URL/ref, preserving non-source fields, forbidden account/criteria/mapping
+changes and payload/version guards. Explicit local browser check
+`scripts/bootstrap/test/company-git-ui.mjs` passed installed→company Git module
+update, exact matching rerun with no additional PUT, renderer source update and
+one-PUT HTTP409 stop. It uses actual local product UI and read-only metadata;
+all inspect/catalog writes are intercepted fixtures. No actual company Git,
+staging mutation, reset, Terraform or cluster scenario was run. CLI syntax/help,
+shared Console helper tests, documentation and whitespace checks pass; product
+Go/React suites were not repeated for this operator-script change.

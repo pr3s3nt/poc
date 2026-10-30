@@ -31,6 +31,18 @@ không thay default renderer/workload đang chạy. Chưa có app vẫn seed đ�
 không tạo app/deploy để kiểm tra. Phần bên dưới mô tả runner legacy chỉ đăng ký
 installed catalog, không có storage/templates mới.
 
+## Chuyển source sang Git công ty
+
+Push nội dung [platform-catalog](../../platform-catalog/README.md) vào gốc repo
+công ty. Truyền `--git-url <HTTPS URL> --git-ref <full commit SHA40>` cho bootstrap;
+module names/paths, mappings/variables và criteria giữ theo seed. Namespace,
+PostgreSQL và Redis từ installed modules được chọn Git source tương ứng.
+Nếu Definition đã có source cũ, `--update-existing` chỉ đổi source/pin qua form
+Sửa/PUT version CAS, giữ các trường còn lại; conflict409 hoặc thay đổi ngoài
+source/pin thì dừng. Resource Types/accounts không được tự ghi đè. Không reset
+DB hoặc deploy workload. Đọc lại/Preview riêng để review tác động Definition mới
+đến kế hoạch tiếp theo; instances/state cũ không tự chuyển theo Git URL mới.
+
 ## Prepare
 
 1. Deploy image mới. Container entrypoint bật installed renderer bằng

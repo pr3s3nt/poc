@@ -18,6 +18,8 @@ node scripts/bootstrap/run.mjs \
 
 - Chọn `--target dev|staging` hoặc `--config /path/catalog.json`, không dùng cả hai.
 - Presets: [dev.json](targets/dev.json), [staging.json](targets/staging.json).
+- `--git-url`/`--git-ref` ghi đè nguồn theo cấu trúc platform-catalog;
+  `--update-existing` bật riêng source/pin migration.
 - `--url` ưu tiên hơn `ORCH_PLATFORM_URL`, rồi tới URL trong preset.
 - `--kubeconfig` ưu tiên hơn `ORCH_KUBECONFIG_FILE`, rồi tới đường dẫn mặc định
   `~/.orch/bootstrap/<target>/kubeconfig` của preset.
@@ -52,9 +54,13 @@ Code: `parseArgs` trong [run.mjs](run.mjs), `loadTarget` trong
 3. Đọc JSON preset hoặc file config do người dùng cung cấp.
 4. Ghép các giá trị ghi đè và defaults. Không đọc kubeconfig ở bước này.
 
-`--git-url` và `--git-ref` đã được thống nhất trong hội thoại nhưng **chưa có
-trong CLI hiện tại**. Git URL/path/ref đang lấy từ JSON. Không chạy hai cờ đó
-cho tới khi implementation được bổ sung.
+`applyGitOverrides` trong [git-overrides.mjs](lib/git-overrides.mjs) chạy trước
+validate/browser: đổi URL Git, chuyển installed Terraform modules được biết sang
+`backend/terraform-modules/<module>`, giữ subdirectory của Git sources đã có,
+đổi ref cho module/bundle khi được chỉ định. Chuyển installed→Git bắt buộc có
+full commit SHA40. Không biết module path, URL không HTTPS/nhúng credential,
+ref không full commit thì dừng. Không sửa preset/file config gốc trong quá trình
+này. Không đổi existing-cluster, mappings, variables, Type/schema hay criteria.
 
 ## 02 — Validate cấu hình trước browser
 
@@ -145,6 +151,12 @@ Với từng Definition, theo thứ tự trong `resourceDefinitions`:
    các variable sources literal/context/resource và criteria.
 6. Đăng ký; đọc lại và so cấu hình cùng source pin/mappings.
 
+Nếu Git Definition đã có và --update-existing bật: mở form Sửa, inspect pin mới,
+so policy source-only trước khi Save; điền lại mappings/variable sources của
+desired đã kiểm tra, giữ criteria hiện có. Khác ngoài source bị chặn. Save qua
+PUT version CAS với payload guard, kiểm GET sau update và version tăng1.
+Không có flag thì khác cấu hình vẫn dừng. Account/Type không tự cập nhật.
+
 Preset có cluster, namespace, storage, PostgreSQL và Redis Definitions.
 Storage staging đặt module variable `storage_class=rook-ceph-block`.
 Đăng ký Definition chưa chạy Terraform, chưa tạo namespace/PVC/database thật.
@@ -163,7 +175,10 @@ Với mỗi bundle entry:
    full commit thì revision phải khớp. Ghi nhận bundle ID đã kiểm tra.
 4. GET `/resource-definitions`, tìm renderer Definition theo key.
 5. Đã có: so name/type/driver/account/inputs/provision/criteria, bao gồm bundle
-   pin và placement. Khớp thì reuse; khác thì dừng. **Inspect luôn đi trước
+   pin và placement. Khớp thì reuse; khác mặc định dừng. Khi --update-existing bật, chỉ bundle pin
+   được đổi nếu các trường còn lại khớp: mở Sửa mẫu, chọn bundle đã xác minh,
+   PUT qua form với version CAS/payload guard, GET xác nhận tăng version1.
+   Không tạo Definition khác để né conflict. **Inspect luôn đi trước
    kiểm tra Definition tồn tại**, nên rerun vẫn cần backend truy cập Git.
 6. Chưa có: điền namespace reference, cluster reference và render inputs qua
    control đúng kiểu; nhập criteria rồi đăng ký.
@@ -202,6 +217,9 @@ Code: `catch`/`finally` trong [run.mjs](run.mjs), `closeConsole` trong
 - Hoàn tất bình thường: exit0; lỗi trong luồng chính: in FAIL và action cuối,
   đặt exit code1; không in raw Playwright error chứa giá trị đã điền.
 - Khi có session, gọi đăng xuất và đóng browser trong finally.
+- Update dùng [definition-action.mjs](lib/definition-action.mjs) để chặn thay đổi
+  ngoài source/pin và [definition-update-ui.mjs](lib/definition-update-ui.mjs)
+  để chặn PUT sai payload/version trước khi gửi backend. HTTP409 không tự retry.
 - Không tự retry POST tạo mới, không rollback/xóa các mục đã đăng ký.
 - Fail có thể để lại một phần seed hoặc metadata/cache từ inspect. Sửa nguyên
   nhân rồi chạy lại; mục khớp được dùng lại, mục khác cấu hình vẫn bị chặn.
@@ -213,6 +231,8 @@ Code: `catch`/`finally` trong [run.mjs](run.mjs), `closeConsole` trong
 | Muốn thay đổi | Nơi sửa |
 |---|---|
 | URL mặc định, user seed, dữ liệu dev/staging | [targets/](targets/) và [target-config.mjs](lib/target-config.mjs) |
+| Git URL/ref và chuyển installed module sang Git | [git-overrides.mjs](lib/git-overrides.mjs) |
+| Update policy và PUT payload/CAS guard | [definition-action.mjs](lib/definition-action.mjs), [definition-update-ui.mjs](lib/definition-update-ui.mjs) |
 | CLI hoặc thứ tự thực thi | [run.mjs](run.mjs) |
 | Validate Type/bundle, so renderer Definition | [render-bundle-config.mjs](lib/render-bundle-config.mjs) |
 | Validate account/infra, dựng Definition, pacing | [infrastructure-config.mjs](lib/infrastructure-config.mjs) |
