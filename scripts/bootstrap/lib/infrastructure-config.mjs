@@ -47,20 +47,36 @@ export function parseInfrastructure(raw) {
     } else check(text(item.module), 'Thiếu installed module');
     for (const key of ['inputMapping', 'outputMapping']) check(object(item[key]) && Object.values(item[key]).every(text), `${key} cần object ánh xạ tên trường`);
     const variables = item.variables ?? {};
-    check(object(variables), 'variables phải là object nguồn giá trị');
-    for (const source of Object.values(variables)) {
-      check(object(source) && Object.keys(source).length === 1, 'Mỗi variable chọn một nguồn literal/context/resource');
-      if (Object.hasOwn(source, 'literal')) check(['string', 'number', 'boolean'].includes(typeof source.literal) && (typeof source.literal !== 'number' || Number.isFinite(source.literal)), 'literal phải là scalar, không nhập JSON');
-      else if (Object.hasOwn(source, 'context')) check(['env.namespace', 'infra.resourceName'].includes(source.context), 'context source không hỗ trợ');
+    check(object(variables), `${item.key}.variables: cần object nguồn giá trị, ví dụ {"image":{"literal":"mysql:8"}}`);
+    for (const [name, source] of Object.entries(variables)) {
+      const path = `${item.key}.variables[${JSON.stringify(name)}]`;
+      check(text(name), `${path}: tên biến không được rỗng hoặc có khoảng trắng thừa`);
+      const kind = value => value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
+      check(object(source) && Object.keys(source).length === 1, `${path}: nhận ${kind(source)}; cần đúng một nguồn, ví dụ {"literal":"mysql:8"}, {"context":"env.namespace"} hoặc {"resource":{"type":"k8s-namespace","class":"default","scope":"environments.@app.@env","output":"name"}}`);
+      if (Object.hasOwn(source, 'literal')) check(['string', 'number', 'boolean'].includes(typeof source.literal) && (typeof source.literal !== 'number' || Number.isFinite(source.literal)), `${path}.literal: nhận ${kind(source.literal)}; cần string/number/boolean, ví dụ {"literal":"mysql:8"}; không nhận object/array/null`);
+      else if (Object.hasOwn(source, 'context')) check(['env.namespace', 'infra.resourceName'].includes(source.context), `${path}.context: chỉ nhận "env.namespace" hoặc "infra.resourceName"`);
       else {
-        only(source, ['resource'], 'variable source');
-        only(source.resource, ['type', 'class', 'scope', 'output'], 'resource source');
-        check(['type', 'class', 'output'].every(key => text(source.resource[key])) && ['environments.@app.@env', '@infra'].includes(source.resource.scope), 'resource source không hợp lệ');
+        only(source, ['resource'], path);
+        only(source.resource, ['type', 'class', 'scope', 'output'], `${path}.resource`);
+        for (const field of ['type', 'class', 'output']) check(text(source.resource[field]), `${path}.resource.${field}: cần chuỗi không rỗng`);
+        check(['environments.@app.@env', '@infra'].includes(source.resource.scope), `${path}.resource.scope: chỉ nhận "environments.@app.@env" hoặc "@infra"`);
       }
     }
     return { ...item, variables, criteria };
   });
   return { account, resourceDefinitions };
+}
+
+// Validate authored literals against inspected module metadata before UI typing
+// can coerce their types. No submitted value is included in the error.
+export function validateVariableLiterals(item, capability) {
+  const types = { string: 'string', number: 'number', bool: 'boolean' };
+  for (const [name, source] of Object.entries(item.variables ?? {})) {
+    if (!Object.hasOwn(source, 'literal')) continue;
+    const variable = capability.variables?.find(variable => variable.name === name);
+    const expected = types[variable?.type];
+    if (expected && typeof source.literal !== expected) throw Error(`${item.key}.variables[${JSON.stringify(name)}].literal: module yêu cầu ${expected}, seed khai báo ${typeof source.literal}; sửa kiểu giá trị trước khi chạy lại`);
+  }
 }
 
 // Discovery is limited to a single inspected context; credentials never leave UI.

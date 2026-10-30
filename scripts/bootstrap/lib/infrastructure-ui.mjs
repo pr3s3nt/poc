@@ -1,8 +1,9 @@
+import { preserveConsoleVariables } from './config-diff.mjs';
 import { definitionAction } from './definition-action.mjs';
 import { saveDefinitionUpdate } from './definition-update-ui.mjs';
 import { expect } from '@playwright/test';
 import { readPrivateFile } from './console.mjs';
-import { assertAccountTarget, desiredInfrastructureDefinition, discoverAccountTarget } from './infrastructure-config.mjs';
+import { assertAccountTarget, desiredInfrastructureDefinition, discoverAccountTarget, validateVariableLiterals } from './infrastructure-config.mjs';
 import { assertSameDefinition } from './render-bundle-config.mjs';
 
 export async function ensureInfrastructureAccount({ page, baseURL, account, act, get, responseFor, kubeconfigFile }) {
@@ -89,6 +90,7 @@ export async function ensureResourceDefinitions({ page, baseURL, definitions, ac
     const accounts = (await get('/driver-accounts')).accounts;
     const account = item.driverType === 'existing-cluster' ? accounts.find(account => account.name === item.accountName && account.type === 'INTERNAL' && account.status === 'READY') : undefined;
     if (item.driverType === 'existing-cluster' && !account) throw new Error(`${item.key}: chưa có Internal account READY ${item.accountName}`);
+    let desired;
     let capability;
     if (item.module) {
       const caps = (await get('/resource-definition-capabilities')).capabilities.filter(cap => cap.resourceType === item.resourceType && cap.driverType === 'terraform' && cap.module === item.module && cap.source?.sourceId === 'platform');
@@ -133,7 +135,8 @@ export async function ensureResourceDefinitions({ page, baseURL, definitions, ac
         await expect(select).toHaveValue(value);
       }
       if (capability.account.required || !capability.providerRequirements.some(provider => provider.binding === 'kubernetes') || capability.providerRequirements.some(provider => provider.binding === 'aws')) throw new Error('Chỉ hỗ trợ Kubernetes Terraform qua resource binding, không AWS');
-      const desired = desiredInfrastructureDefinition(item, capability, account);
+      validateVariableLiterals(item, capability);
+      desired = preserveConsoleVariables(existing, desiredInfrastructureDefinition(item, capability, account), updateExisting, console.warn);
       const action = definitionAction(existing, desired, updateExisting);
       if (action === 'reuse') {
         console.log(`PASS: dùng lại Definition ${item.key}, Git pin/cấu hình khớp`);
@@ -144,9 +147,15 @@ export async function ensureResourceDefinitions({ page, baseURL, definitions, ac
       for (const [param, variable] of Object.entries(item.inputMapping)) await act(section.getByLabel(`Biến module nhận tham số ${param}`, { exact: true }), 'selectOption', variable);
       for (const [output, moduleOutput] of Object.entries(item.outputMapping)) await act(section.getByLabel(`Output module cung cấp ${output}`, { exact: true }), 'selectOption', moduleOutput);
       for (const provider of capability.providerRequirements.filter(provider => provider.binding === 'kubernetes')) await act(section.getByLabel(`Nhóm cluster của provider ${provider.name}`, { exact: true }), 'selectOption', item.clusterClass);
-      for (const [name, source] of Object.entries(item.variables)) await chooseSource({ page, section, act }, name, source);
+      const retained = Object.keys(desired.driverInputs.values.variables).some(name => !Object.hasOwn(item.variables, name));
+      if (retained) {
+        // New source selection can reset the form draft. Re-enter the merged
+        // configuration through the product JSON control to preserve raw types.
+        await act(section.getByRole('button', { name: 'Tham số: JSON nâng cao', exact: true }), 'click');
+        await act(section.getByLabel('Tham số cấu hình (JSON object)', { exact: true }), 'fill', JSON.stringify(desired.driverInputs.values.variables));
+      } else for (const [name, source] of Object.entries(item.variables)) await chooseSource({ page, section, act }, name, source);
     }
-    const desired = desiredInfrastructureDefinition(item, capability, account);
+    desired ??= desiredInfrastructureDefinition(item, capability, account);
     if (editing) {
       await saveDefinitionUpdate({ page, baseURL, act, button: section.getByRole('button', { name: 'Lưu thay đổi', exact: true }), existing, desired });
     } else {

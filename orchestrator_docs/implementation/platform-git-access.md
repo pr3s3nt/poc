@@ -87,3 +87,27 @@ target presets and bundle config); docs checker and whitespace check passed.
 UI helper tests model product form payloads and route interception; no company
 Git, staging, Kubernetes, Vault setup or real settings mutation was executed.
 This is platform setup automation, not deployment acceptance.
+
+## Bootstrap portability and source migration refinement — 2026-10-30
+
+The shared private-file reader skips POSIX mode-bit enforcement on Windows;
+regular-file/content constraints remain, and POSIX hosts retain mode checks.
+Authorized source updates preserve and warn on Console-only variables, add
+seed-only variables, and refuse conflicting shared values. Metadata, mappings,
+account, criteria and provision guards remain. When selecting a new module resets
+the draft, the product JSON control receives merged variables. The exact payload
+and CAS/readback checks verify preserved variables. Difference messages identify
+paths and Console/seed values with secret redaction; malformed sources and module
+literal type errors identify the Definition/variable without printing values.
+
+Dev/staging/example add MySQL Type/Definition using the existing Git module.
+Image/database/user/Secret-reference params are mapped from the Type; namespace
+uses its resource dependency. No image or password is invented; bootstrap does
+not deploy MySQL. Staging StorageClass is rook-ceph-block.
+[Operator guide](../../scripts/bootstrap/README.md#mysql-definition).
+
+40 focused Node tests passed, including simulated Windows mode-check behavior,
+variable union/conflicts, exact update guards, redaction and MySQL preset mapping.
+No native Windows execution, real MySQL deploy, company Git/staging or cluster
+mutation was performed. Other application/backend/frontend suites are outside
+this bootstrap-only change. No preexisting user changes were present.

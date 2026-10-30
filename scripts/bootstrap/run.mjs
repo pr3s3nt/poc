@@ -1,3 +1,4 @@
+import { preserveConsoleVariables } from './lib/config-diff.mjs';
 import { parseGitAccess } from './lib/git-access-config.mjs';
 import { ensureGitAccess } from './lib/git-access-ui.mjs';
 import { parseArgs } from 'node:util';
@@ -114,10 +115,11 @@ try {
     if (renderBundle?.status !== 'AVAILABLE' || !renderBundle.source || renderBundle.source.url !== item.source.url || renderBundle.source.path !== item.source.path || !/^[0-9a-f]{40}$/.test(renderBundle.source.revision)) throw new Error(`${item.key}: pin Git không hợp lệ`);
     if (/^[0-9a-f]{40}$/.test(item.source.ref) && renderBundle.source.revision !== item.source.ref) throw new Error(`${item.key}: commit không khớp`);
     checkedBundleIds.add(renderBundle.id);
-    const desired = desiredDefinition(item, renderBundle.id);
+    let desired = desiredDefinition(item, renderBundle.id);
     const definitions = (await get('/resource-definitions')).resourceDefinitions;
     if (!Array.isArray(definitions)) throw new Error('Danh sách Definitions không hợp lệ');
     const existing = definitions.find(definition => definition.key === item.key);
+    desired = preserveConsoleVariables(existing, desired, values['update-existing'] === true, console.warn);
     const action = definitionAction(existing, desired, values['update-existing'] === true);
     if (action === 'reuse') {
       console.log(`PASS: dùng lại ${item.key}, cấu hình và Git pin khớp`);

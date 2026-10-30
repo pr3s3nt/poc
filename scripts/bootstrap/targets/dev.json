@@ -170,6 +170,84 @@
         "key": "workload",
         "inputs": [],
         "outputs": []
+      },
+      {
+        "key": "mysql",
+        "inputs": [
+          {
+            "name": "image",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "database",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "auth_secret_name",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "root_password_key",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "user_password_key",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "storage",
+            "type": "string",
+            "required": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "host",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "port",
+            "type": "number",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "database",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "claimName",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "namespace",
+            "type": "string",
+            "required": true,
+            "secret": false
+          }
+        ]
       }
     ],
     "bundles": [
@@ -233,7 +311,7 @@
     "resourceDefinitions": [
       {
         "key": "staging-k8s-4f-cluster",
-        "name": "Cluster k8s-4f (c\u00f3 s\u1eb5n)",
+        "name": "Cluster k8s-4f (có sẵn)",
         "resourceType": "k8s-cluster",
         "driverType": "existing-cluster",
         "accountName": "k8s-4f",
@@ -359,6 +437,54 @@
               "scope": "environments.@app.@env",
               "output": "name"
             }
+          }
+        },
+        "criteria": [
+          {
+            "env_type": "staging",
+            "class": "in-cluster"
+          }
+        ]
+      },
+      {
+        "key": "staging-k8s-4f-mysql",
+        "name": "MySQL Kubernetes staging",
+        "resourceType": "mysql",
+        "driverType": "terraform",
+        "source": {
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "path": "backend/terraform-modules/mysql",
+          "ref": "1182cb5ff275451ebfa8b711bc07effd1e120fcf"
+        },
+        "clusterClass": "internal",
+        "inputMapping": {
+          "image": "image",
+          "database": "database",
+          "username": "username",
+          "auth_secret_name": "auth_secret_name",
+          "root_password_key": "root_password_key",
+          "user_password_key": "user_password_key",
+          "storage": "storage"
+        },
+        "outputMapping": {
+          "host": "host",
+          "port": "port",
+          "database": "database",
+          "username": "username",
+          "claimName": "claimName",
+          "namespace": "namespace"
+        },
+        "variables": {
+          "namespace": {
+            "resource": {
+              "type": "k8s-namespace",
+              "class": "default",
+              "scope": "environments.@app.@env",
+              "output": "name"
+            }
+          },
+          "storage_class": {
+            "literal": ""
           }
         },
         "criteria": [

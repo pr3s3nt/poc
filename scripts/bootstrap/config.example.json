@@ -164,6 +164,84 @@
       "key": "workload",
       "inputs": [],
       "outputs": []
+    },
+    {
+      "key": "mysql",
+      "inputs": [
+        {
+          "name": "image",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "database",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "auth_secret_name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "root_password_key",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "user_password_key",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "storage",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        {
+          "name": "host",
+          "type": "string",
+          "required": true,
+          "secret": false
+        },
+        {
+          "name": "port",
+          "type": "number",
+          "required": true,
+          "secret": false
+        },
+        {
+          "name": "database",
+          "type": "string",
+          "required": true,
+          "secret": false
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "required": true,
+          "secret": false
+        },
+        {
+          "name": "claimName",
+          "type": "string",
+          "required": true,
+          "secret": false
+        },
+        {
+          "name": "namespace",
+          "type": "string",
+          "required": true,
+          "secret": false
+        }
+      ]
     }
   ],
   "bundles": [
@@ -350,6 +428,56 @@
             "scope": "environments.@app.@env",
             "output": "name"
           }
+        }
+      },
+      "criteria": [
+        {
+          "class": "default"
+        },
+        {
+          "class": "in-cluster"
+        }
+      ]
+    },
+    {
+      "key": "k8s4f-mysql",
+      "name": "K8S-4F MySQL",
+      "resourceType": "mysql",
+      "driverType": "terraform",
+      "source": {
+        "url": "https://github.com/pr3s3nt/poc.git",
+        "path": "backend/terraform-modules/mysql",
+        "ref": "a0fe3a4a1e3c7ed22ad3dc18fa19744de040ce01"
+      },
+      "clusterClass": "internal",
+      "inputMapping": {
+        "image": "image",
+        "database": "database",
+        "username": "username",
+        "auth_secret_name": "auth_secret_name",
+        "root_password_key": "root_password_key",
+        "user_password_key": "user_password_key",
+        "storage": "storage"
+      },
+      "outputMapping": {
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "claimName": "claimName",
+        "namespace": "namespace"
+      },
+      "variables": {
+        "namespace": {
+          "resource": {
+            "type": "k8s-namespace",
+            "class": "default",
+            "scope": "environments.@app.@env",
+            "output": "name"
+          }
+        },
+        "storage_class": {
+          "literal": ""
         }
       },
       "criteria": [

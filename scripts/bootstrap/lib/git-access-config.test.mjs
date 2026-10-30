@@ -50,7 +50,9 @@ test('token file must be private, bounded and single-line; invalid errors do not
     const file = join(dir, 'token');
     writeFileSync(file, 'secret-sentinel\n', { mode: 0o600 });
     assert.equal(readGitToken(file), 'secret-sentinel');
-    chmodSync(file, 0o644); assert.throws(() => readGitToken(file), error => !error.message.includes('secret-sentinel'));
+    chmodSync(file, 0o644);
+    if (process.platform !== 'win32') assert.throws(() => readGitToken(file), error => !error.message.includes('secret-sentinel'));
+    else assert.equal(readGitToken(file), 'secret-sentinel');
     chmodSync(file, 0o600);
     for (const text of ['', 'secret-sentinel\nother', 'x'.repeat(4097)]) {
       writeFileSync(file, text); assert.throws(() => readGitToken(file));

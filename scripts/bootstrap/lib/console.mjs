@@ -40,11 +40,11 @@ export function readSecondAccount(config, env, { usernameVar, passwordFileVar, d
 }
 
 // Reads a credential file that only its owner may read; the content is never printed.
-export function readPrivateFile(file, what = 'bí mật') {
+export function readPrivateFile(file, what = 'bí mật', { platform = process.platform } = {}) {
   let stat;
   try { stat = statSync(file); } catch { throw new ConsoleError(`Không tìm thấy file ${what}: ${file}`); }
   if (!stat.isFile()) throw new ConsoleError(`File ${what} không phải file thường: ${file}`);
-  if (stat.mode & 0o077) throw new ConsoleError(`File ${what} phải riêng tư; chạy: chmod 600 ${file}`);
+  if (platform !== 'win32' && (stat.mode & 0o077)) throw new ConsoleError(`File ${what} phải riêng tư; chạy: chmod 600 ${file}`);
   const value = readFileSync(file, 'utf8').replace(/\r?\n$/, '');
   if (!value) throw new ConsoleError(`File ${what} rỗng: ${file}`);
   return value;

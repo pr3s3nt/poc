@@ -93,8 +93,9 @@ thì giữ hành vi/config cũ; hỗ trợ cả --target và --config.
 
 Nếu Definition cùng ID đã có nhưng còn dùng source/pin cũ, chạy thêm
 `--update-existing`. Cờ này **chỉ** cho phép đổi source Terraform hoặc bundle pin.
-Không cho tự đổi account, Type/driver, tên, criteria, variables, mappings,
-placement, render inputs hoặc provision. Khác các trường đó vẫn dừng để operator
+Không cho tự đổi account, Type/driver, tên, criteria, mappings,
+placement, render inputs hoặc provision. Biến chỉ có trên Console được giữ và cảnh báo;
+biến chỉ có trong seed được thêm, biến chung khác giá trị thì dừng. Khác các trường còn lại vẫn dừng để operator
 review. Resource Type schema khác vẫn bị chặn. Không reset database/resource.
 
 Update đi qua form Sửa → Lưu thay đổi, dùng expected version CAS. Trước khi
@@ -151,7 +152,7 @@ Nếu bỏ `--kubeconfig`, đường dẫn mặc định là
 endpoint backend platform truy cập được; không tự dùng current context máy host.
 Không truyền `--config` cùng `--target`. Chế độ `--config` cũ vẫn được giữ.
 
-Preset đăng ký sáu Types, các infrastructure Definitions và standard Git bundle
+Preset đăng ký bảy Types, các infrastructure Definitions và standard Git bundle
 pin `1182cb5ff275451ebfa8b711bc07effd1e120fcf` có policy PVC Recreate.
 Renderer Definition mới chỉ match `env_type=staging, class=pvc`, để không thay
 renderer mặc định của các workload đã chạy. Workload mới dùng template catalog
@@ -275,8 +276,8 @@ nâng cao, không dán JSON vào UI và không dùng API để tạo/sửa dữ 
 | `verify.environment` | `staging` (mặc định) hoặc `production` |
 | `verify.volumeMount` | Tùy chọn `{templateId,templateVersion,resourceType}`: chọn mẫu → Thêm volume mount → dialog storage → thêm dependency và mount `/data` trên form local, không Save |
 
-Ví dụ hiện có sáu Types và năm Infrastructure Definitions: cluster có sẵn,
-namespace, persistent-storage, PostgreSQL và Redis. Cluster chọn account có tên
+Ví dụ hiện có bảy Types và sáu Infrastructure Definitions: cluster có sẵn,
+namespace, persistent-storage, PostgreSQL, Redis và MySQL. Cluster chọn account có tên
 `k8s-4f` và công bố class `internal`; các Terraform Definitions bind provider tới
 cluster class này. Namespace lấy tên từ deployment context; storage/PostgreSQL/
 Redis lấy namespace từ resource output qua UI source chooser. Chỉ metadata được
@@ -372,3 +373,48 @@ inspection. Then run bootstrap with the existing Git URL/ref options.
 No token is placed in bootstrap presets, command arguments or source URLs.
 This setting requires the platform's existing credential store to be available;
 it does not provision backend DNS, network routing or Vault.
+
+## Chạy Windows, giữ biến Console và lỗi cấu hình
+
+Trên Windows, script không kiểm tra POSIX mode/chmod của file mật khẩu,
+kubeconfig hoặc Git token; vẫn yêu cầu file thường, đọc được, không rỗng và
+đúng giới hạn nội dung. Linux/macOS vẫn yêu cầu file riêng tư 0600/0400.
+
+Khi chạy `--update-existing` để chuyển nguồn Git, các biến chỉ có trên Console
+(ví dụ `image`) được copy nguyên giá trị/kiểu vào desired payload và cảnh báo
+bằng tên biến; seed không xóa hoặc đặt lại chúng. Biến chỉ có trong seed sẽ được thêm. Nếu Console và seed cùng khai
+báo một biến nhưng giá trị khác nhau thì dừng, nêu Definition, đường dẫn trường,
+giá trị Console và seed. Không nới guard schema, account, mapping, criteria hoặc
+provision; những thay đổi ngoài source vẫn cần operator review. Readback và CAS
+kiểm tra cả biến được giữ. Token/password/credential và URL có credential được
+ẩn khỏi thông báo lỗi. Khi cần giữ biến qua thao tác chọn module mới, script dùng
+control JSON của form sản phẩm để không làm mất kiểu dữ liệu.
+
+Ví dụ biến đúng trong seed:
+
+```json
+"variables": {
+  "image": { "literal": "mysql@sha256:<digest>" },
+  "storage_class": { "literal": "rook-ceph-block" }
+}
+```
+
+Không dùng `"image":"mysql:8"` trực tiếp. Lỗi định dạng nêu tên Definition,
+`variables["image"]`, kiểu nhận được và ví dụ cú pháp được hỗ trợ; không in
+nguyên giá trị nguồn bị lỗi.
+
+## MySQL Definition
+
+Dev/staging/config mẫu bổ sung Type `mysql` và Definition cùng prefix với
+PostgreSQL, dùng Git module `backend/terraform-modules/mysql` (không phải installed
+module). `--git-url`/`--git-ref` ghi đè nguồn này như các Git modules khác.
+
+MySQL map các resource params `image`, `database`, `username`, `auth_secret_name`,
+`root_password_key`, `user_password_key` (bắt buộc) và `storage` (tùy chọn).
+`image` cần digest khi module thực thi; seed không tự chọn image hoặc mật khẩu.
+Các param Secret là tên Secret và tên key, không phải giá trị mật khẩu. Secret
+phải được chuẩn bị bằng cơ chế delivery đã phê duyệt trước khi deploy MySQL.
+Bootstrap không tạo Secret hoặc workload. Namespace lấy từ dependency namespace;
+storage class staging là `rook-ceph-block`, dev dùng mặc định cluster. Module
+mặc định storage `50Gi`; outputs gồm host/port/database/username/claimName/namespace,
+không công bố password. Criteria/class kế thừa Definition PostgreSQL của target.

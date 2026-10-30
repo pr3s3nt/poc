@@ -58,13 +58,13 @@ export function parseGitAccess(raw, options = {}, home = homedir()) {
   }
   return { url, username: value.username, tokenFile, caPem, repositoryUrl, ref };
 }
-export function readGitToken(file) {
+export function readGitToken(file, { platform = process.platform } = {}) {
   try {
     if (statSync(file).size > 4098) fail('Git token quá lớn');
-    const token = readPrivateFile(file, 'Git token');
+    const token = readPrivateFile(file, 'Git token', { platform });
     if (Buffer.byteLength(token) > 4096 || /[\x00-\x1f\x7f-\x9f]/u.test(token)) fail('Git token không hợp lệ');
     return token;
-  } catch { fail('Git access: cần file token không rỗng, tối đa 4096 byte, quyền 0600/0400'); }
+  } catch { fail('Git access: cần file token không rỗng, tối đa 4096 byte' + (platform === 'win32' ? '' : ', quyền 0600/0400')); }
 }
 export function gitAccessAction(current, desired, update) {
   if (!current || !Number.isSafeInteger(current.version) || current.version < 0) fail('Git access: metadata hiện tại không hợp lệ');

@@ -61,7 +61,8 @@ validate/browser: đổi URL Git, chuyển installed Terraform modules được 
 đổi ref cho module/bundle khi được chỉ định. Chuyển installed→Git bắt buộc có
 full commit SHA40. Không biết module path, URL không HTTPS/nhúng credential,
 ref không full commit thì dừng. Không sửa preset/file config gốc trong quá trình
-này. Không đổi existing-cluster, mappings, variables, Type/schema hay criteria.
+này. Không đổi existing-cluster, mappings, Type/schema hay criteria. Khi update source,
+variables được hợp nhất: giữ Console-only, thêm seed-only, từ chối shared conflicts.
 
 ## 02 — Validate cấu hình trước browser
 
@@ -115,7 +116,7 @@ Code: [git-access-config.mjs](lib/git-access-config.mjs),
 2. Sau role/schema preflight, GET settings hiện tại của Organization.
 3. Version0: tạo. Có metadata/token khớp: reuse, không đọc token file. Khác:
    dừng nếu chưa có `--update-git-access`. Cờ này luôn dùng token file mới.
-4. Chỉ create/update mới đọc file token riêng tư 0600/0400, tối đa4096 byte;
+4. Chỉ create/update mới đọc file token thường, riêng tư 0600/0400 trên POSIX (Windows bỏ mode check), tối đa4096 byte;
    giữ token trong bộ nhớ, không log/trace/video/screenshot.
 5. Mở trang settings, điền URL/auth/username/token, CA và repo/ref kiểm tra.
    Form luôn giữ token đã lưu là chuỗi rỗng khi reuse.
@@ -141,7 +142,7 @@ Code: `ensureInfrastructureAccount` trong [infrastructure-ui.mjs](lib/infrastruc
 3. Đã có: yêu cầu INTERNAL, KUBECONFIG, READY và metadata target hợp lệ.
    Target cố định phải khớp context/endpoint; discovery reuse target đã cấu hình.
    **Không đọc/upload kubeconfig khi dùng lại account.**
-4. Chưa có: đọc file kubeconfig riêng tư0600/0400, mở form đăng ký và upload.
+4. Chưa có: đọc file kubeconfig thường, riêng tư0600/0400 trên POSIX (Windows bỏ mode check), mở form đăng ký và upload.
 5. Chờ inspect qua UI. Discovery staging yêu cầu đúng một context; lấy
    context/endpoint từ metadata inspect. Không tự chọn một trong nhiều cluster.
 6. Target cố định phải có đúng context/endpoint trong kết quả inspect.
@@ -157,8 +158,8 @@ Dùng kết quả preflight ở bước04. Type đã có thì bỏ qua. Type thi
 Loại tài nguyên, nhập ID và từng input/output, chọn kiểu/required/secret rồi
 đăng ký. Đọc lại API và kiểm schema cùng thông báo thành công trên UI.
 
-Preset có sáu Types: persistent-storage, k8s-cluster, k8s-namespace, postgres,
-redis, workload. Thứ tự thực tế theo mảng `resourceTypes` trong JSON.
+Preset có bảy Types: persistent-storage, k8s-cluster, k8s-namespace, postgres,
+redis, workload, mysql. Thứ tự thực tế theo mảng `resourceTypes` trong JSON.
 
 ## 07 — Kiểm tra/đăng ký Infrastructure Definitions
 
@@ -269,3 +270,24 @@ Code: `catch`/`finally` trong [run.mjs](run.mjs), `closeConsole` trong
 
 Sau khi sửa, cập nhật luồng này và README nếu behavior/cách chạy đổi. Chạy checks
 đúng phần bị ảnh hưởng; không cần chạy Deploy ứng dụng để kiểm một thay đổi tài liệu.
+
+## Source update: hợp nhất variables và thông báo lỗi
+
+[config-diff.mjs](lib/config-diff.mjs) giữ nguyên mọi Console-only variable,
+cảnh báo theo tên biến mà không in giá trị; thêm biến seed-only. Shared variables
+khác giá trị dừng với Definition/path và Console/seed values (secret được ẩn).
+[definition-action.mjs](lib/definition-action.mjs) tiếp tục kiểm source/version,
+metadata, mappings, placement/criteria/provision; không mở rộng quyền cập nhật
+ngoài các nguồn và quy tắc variables đã được người dùng yêu cầu.
+
+Sau khi chọn module mới, form có thể reset variables: helper dùng control JSON
+sản phẩm để điền merged variables khi có Console-only values. Guard PUT và GET
+readback phải so toàn bộ merged payload; không cho xóa một biến đã giữ.
+Lỗi parse source của biến có Definition, tên biến, field sai và cú pháp mẫu;
+không in nguyên source bị sai. Windows chỉ bỏ POSIX permission bits ở shared
+file reader; regular-file/readable/nonempty/size/content guards vẫn áp dụng.
+
+MySQL Type/Definition được seed sau các database Definitions hiện có. Source là
+Git module mysql, params image/database/username/Secret refs/storage được map từ
+Type; namespace từ resource binding và StorageClass theo target. Setup không
+chạy MySQL hay tạo credential/Secret. Xem [README](README.md#mysql-definition).

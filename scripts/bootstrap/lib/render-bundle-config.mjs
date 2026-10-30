@@ -1,3 +1,4 @@
+import { differences } from './config-diff.mjs';
 import { isDeepStrictEqual } from 'node:util';
 import { parseInfrastructure } from './infrastructure-config.mjs';
 
@@ -80,7 +81,7 @@ export function assertSameResourceType(actual, desired) {
   const normalize = item => ({ key: item.key, ...Object.fromEntries(['inputs', 'outputs'].map(kind => [kind,
     (item[kind] ?? []).map(field => ({ name: field.name, type: field.type, required: field.required === true, ...(kind === 'outputs' ? { secret: field.secret === true } : {}) })).sort((a, b) => a.name.localeCompare(b.name)),
   ])) });
-  requireValue(isDeepStrictEqual(normalize(actual), normalize(desired)), `${desired.key}: schema Resource Type đã có khác cấu hình; script không ghi đè.`);
+  requireValue(isDeepStrictEqual(normalize(actual), normalize(desired)), `${desired.key}: schema Resource Type đã có khác cấu hình; script không ghi đè. ${differences(normalize(actual), normalize(desired))}`);
 }
 
 export function desiredDefinition(item, bundleId) {
@@ -90,11 +91,13 @@ export function desiredDefinition(item, bundleId) {
 }
 
 export function assertSameDefinition(actual, desired) {
+  const mismatches = [];
   const criteria = rows => rows.map(row => Object.fromEntries(fields.filter(key => row[key] !== undefined).map(key => [key, row[key]]))).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
   for (const field of ['key', 'name', 'resourceType', 'driverType', 'driverAccount', 'driverInputs', 'provision', 'criteria']) {
     let left = actual[field], right = desired[field];
     if (field === 'provision') { left ??= {}; right ??= {}; }
     if (field === 'criteria') { left = criteria(left ?? []); right = criteria(right ?? []); }
-    requireValue(isDeepStrictEqual(left, right), `${desired.key}: cấu hình đã có khác ${field}; script không ghi đè. Kiểm tra trên Console hoặc dùng ID mới.`);
+    if (!isDeepStrictEqual(left, right)) mismatches.push(differences(left, right, field));
   }
+  requireValue(mismatches.length === 0, `${desired.key}: cấu hình đã có khác seed; script không ghi đè. ${mismatches.join('; ')}`);
 }

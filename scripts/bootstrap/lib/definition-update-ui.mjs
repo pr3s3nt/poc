@@ -1,9 +1,9 @@
 import { assertSameDefinition } from './render-bundle-config.mjs';
 
 export function validateUpdatePayload(body, existing, desired) {
-  if (body.version !== existing.version) throw Error(`${desired.key}: version UI đã đổi; dừng và đọc lại trước khi chạy lại`);
-  try { assertSameDefinition(body, desired); } catch {
-    throw Error(`${desired.key}: payload UI không khớp cấu hình đã kiểm tra; không gửi cập nhật`);
+  if (body.version !== existing.version) throw Error(`${desired.key}: version UI đã đổi: Console=${body.version}; đã đọc=${existing.version}; dừng và đọc lại trước khi chạy lại`);
+  try { assertSameDefinition(body, desired); } catch (error) {
+    throw Error(`${desired.key}: payload UI không khớp cấu hình đã kiểm tra; không gửi cập nhật. ${error.message}`);
   }
 }
 

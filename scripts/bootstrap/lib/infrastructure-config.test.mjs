@@ -15,10 +15,10 @@ test('independent phase speeds override global speed and reject invalid values b
   assert.equal(readSetupPacing({ 'type-delay-ms': '0' }, {}).type, 0);
 });
 
-test('example config defines six Types and the account/cluster/namespace/storage/database dependencies', () => {
+test('example config defines seven Types and the account/cluster/namespace/storage/database dependencies', () => {
   const config = parseBundleConfig(example());
-  assert.equal(config.resourceTypes.length, 6);
-  assert.deepEqual(config.resourceDefinitions.map(item => item.resourceType), ['k8s-cluster', 'k8s-namespace', 'persistent-storage', 'postgres', 'redis']);
+  assert.equal(config.resourceTypes.length, 7);
+  assert.deepEqual(config.resourceDefinitions.map(item => item.resourceType), ['k8s-cluster', 'k8s-namespace', 'persistent-storage', 'postgres', 'redis', 'mysql']);
   assert.doesNotThrow(() => assertAccountTarget(ready, config.account));
 });
 
