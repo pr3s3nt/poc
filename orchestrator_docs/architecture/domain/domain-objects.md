@@ -281,3 +281,22 @@ Resource health. Private input/plan values stay in encrypted artifact storage.
 These are new required aggregates, not implemented entities. Storage constraints:
 [schema](../database/schema.md#delivery-and-drift--adr-027-required-design);
 relationships/participants: [supplemental class diagram](../components/delivery-reconciliation-vopc.puml).
+
+## ADR-031 catalog source/release aggregates
+
+`CatalogSource` is Organization-scoped mutable configuration with CAS and durable
+observed tag identities. Account slots belong to platform configuration, not Git.
+`CatalogRelease` is an immutable entity identified by Organization/source/tag;
+its verified components own content digests, module/render bundle pins or copied
+Definition configuration. A release never owns credentials or a mutable global
+Definition. `CatalogSelection` is an Environment-owned value snapshot of release
+identity/fingerprint and resolved account slots. Optional `EnvironmentCatalog`
+owns desired/applied/revision/status, leaving legacy Environments unpinned.
+
+Active Resource logical/state identity excludes catalog version. Acknowledged
+provenance references either the original global Definition or an immutable
+release snapshot; deployment plans and existing per-resource/workload outcomes
+retain actual pins. Applied selection advances only after complete success.
+The [supplemental classes](catalog-releases.puml) ([PNG](catalog-releases.png)),
+[schema](../database/schema.md#catalog-releases--adr-031) and
+[contract](../contracts/catalog-releases.md) define these relationships.

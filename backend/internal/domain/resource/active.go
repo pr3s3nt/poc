@@ -20,6 +20,8 @@ const (
 
 // ActiveResource is a provisioned resource instance recorded by the orchestrator.
 type ActiveResource struct {
+	CatalogSource    string         `json:"catalogSource,omitempty"`
+	CatalogTag       string         `json:"catalogTag,omitempty"`
 	ID               string         `json:"id"`
 	OrganizationKey  string         `json:"organizationKey"`
 	Descriptor       Descriptor     `json:"descriptor"`

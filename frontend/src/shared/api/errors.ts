@@ -4,6 +4,7 @@
 import { t } from '../i18n';
 
 const messageTable = {
+ CATALOG_CONFLICT:t('catalog.conflict'),
 	DRIFT_BASELINE_UNAVAILABLE:t('infrastructureDrift.reason.BASELINE_UNAVAILABLE'),
 	DRIFT_REPAIR_BLOCKED:t('infrastructureDrift.blocker.IN_PLACE_STABLE_OUTPUTS_REQUIRED'),
 	DRIFT_REPAIR_STALE:t('infrastructureDrift.repairStale'),

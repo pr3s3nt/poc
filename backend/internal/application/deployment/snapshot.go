@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	catalogapp "orchestrator/internal/application/catalogrelease"
 
 	"orchestrator/internal/application/deploymentreview"
 	"orchestrator/internal/application/target"
@@ -66,10 +67,11 @@ func PublicFailure(err error) string {
 // point in time (UC-05 BR-01, OC-06/07). UC-05 Preview and UC-06 Deploy share
 // it so both plan from identical input semantics.
 type PlanningSnapshot struct {
-	App       appdomain.Application
-	Env       environment.Environment
-	BaseSetID string
-	BaseSet   environment.Document
+	CatalogPending bool
+	App            appdomain.Application
+	Env            environment.Environment
+	BaseSetID      string
+	BaseSet        environment.Document
 	// BaseProofs is the private literal provenance of the base set (UC-16 BR-23).
 	BaseProofs  environment.LiteralProofs
 	BaseAliases environment.ResourceAliases
@@ -131,6 +133,14 @@ func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 		if err != nil {
 			return err
 		}
+		catalogBinding, err := view.GetCatalogEnvironment(ctx, applicationKey, environmentKey)
+		if err != nil {
+			return err
+		}
+		defList, releasePin, err := catalogapp.ResolveDefinitions(ctx, view, organizationKey, applicationKey, environmentKey, defList)
+		if err != nil {
+			return err
+		}
 		active, err := view.ListActiveResources(ctx, organizationKey)
 		if err != nil {
 			return err
@@ -153,12 +163,13 @@ func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 			return err
 		}
 		out = PlanningSnapshot{
-			App: app, Env: env,
+			CatalogPending: catalogBinding.Desired != nil && (catalogBinding.Applied == nil || catalogBinding.Desired.Digest() != catalogBinding.Applied.Digest()),
+			App:            app, Env: env,
 			BaseSetID: env.CurrentDeploymentSetID, BaseSet: base, BaseProofs: baseProofs, BaseAliases: baseAliases,
-			Catalog: planning.Catalog{Types: types, Definitions: defList, Accounts: accounts, RenderBundles: renderBundles},
+			Catalog: planning.Catalog{ReleaseSelection: catalogBinding.Desired, ReleasePin: releasePin, Types: types, Definitions: defList, Accounts: accounts, RenderBundles: renderBundles},
 			Types:   types, Definitions: definitions, Active: active,
 		}
-		if withBaselines {
+		if withBaselines || catalogBinding.Desired != nil {
 			if out.Baselines, err = CaptureBaselines(ctx, view, organizationKey, active); err != nil {
 				return err
 			}

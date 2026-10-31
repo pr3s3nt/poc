@@ -1326,3 +1326,11 @@ defaults, concurrent/repeated execution, atomic rollback and runtime isolation.
 AppShell integration test preserves CD, platform Git and Admin navigation together.
 [Merge validation](../verification/2026-10-30-reconciliation-merge.md) owns results
 and explicitly separates fixture browser checks from live-provider acceptance.
+
+## Catalog releases — issue #28
+
+| Requirement | Design | Implementation | Validation |
+|---|---|---|---|
+| UC-03 CR-01/02 | [ADR-031](../architecture/decisions/ADR-031-versioned-catalog.md), [contract](../architecture/contracts/catalog-releases.md) | `domain/catalogrelease`, `application/catalogrelease`, `registry/catalog_discovery.go`, `registry/catalog_inspection.go`, HTTP catalog routes | Manifest guards, HTTPS Git ancestry/annotated-tag tests, publication/conflict/CAS tests |
+| UC-03 CR-03/04 | [specification](../usecase/UC-03/catalog-releases.md), [UI](../usecase/UC-03/ui/catalog-releases.md) | Environment selection repository, planning snapshot, pending Preview, template scoping, Console Catalog/settings | Selection isolation/CAS, UI intent-only Save, existing planner suites |
+| UC-03 CR-05/06 | [schema](../architecture/database/schema.md#catalog-releases--adr-031) | Pending fenced activation, immutable releases and retained deployment outcomes; migration 004 | PostgreSQL populated-v3 upgrade/rollback, retention/CAS/grants/restart checks; live cluster acceptance remains separate |

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	catalogapp "orchestrator/internal/application/catalogrelease"
 	"regexp"
 	"sort"
 	"strings"
@@ -156,6 +157,11 @@ func (s *Service) PreviewDeployment(ctx context.Context, q PreviewDeploymentQuer
 	})
 	if err != nil {
 		return nil, publicPlanningError(err)
+	}
+	if snapshot.CatalogPending {
+		if err := catalogapp.ValidateDataUpdates(plan, snapshot.Baselines.Reader(), snapshot.Types); err != nil {
+			return nil, publicPlanningError(err)
+		}
 	}
 	// AWS identity belongs to each node's Definition (provider pins in Intents),
 	// never to the Environment, so no Environment AccountID is reported.

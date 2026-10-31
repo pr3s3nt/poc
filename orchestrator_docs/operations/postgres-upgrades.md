@@ -92,7 +92,7 @@ and records version 2 atomically. Original migrations/references remain frozen.
 Legacy supported sources first transition through version 1. Run the same
 backup/quiesce/owner-setup procedure above; do not reset existing data.
 
-## Current version: 3 — optional CD and infrastructure reconciliation
+## Version 3 — optional CD and infrastructure reconciliation
 
 Owner setup upgrades frozen version 2 with `003-reconciliation.sql` and records
 version 3 atomically with the new grants. Existing Environments stay DIRECT with
@@ -101,3 +101,16 @@ inferred. Existing platform Git settings and all domain/state identities remain.
 Earlier supported versions first traverse the unchanged version 1/2 migrations.
 Follow the backup/quiesce procedure above; this code merge does not authorize
 upgrading or deploying to a retained environment.
+
+## Current version: 4 — versioned catalog releases
+
+`004-catalog-releases.sql` adds Organization-scoped sources, immutable releases
+and optional Environment desired/applied bindings. `version-004.sql` is the
+complete frozen reference. Owner setup accepts the exact populated version-3
+schema/history and upgrades atomically; versions 1/2 and supported legacy sources
+continue through the ordered chain. Existing identities, state, delivery and
+Environment configurations remain unchanged; absence of a catalog binding keeps
+legacy behavior. Runtime never performs DDL or receives owner credentials.
+Use the same backup/quiesce/owner-setup procedure. See
+[catalog runbook](catalog-releases.md) before registering a source or choosing a
+release. Migration validation does not authorize upgrading a retained installation.

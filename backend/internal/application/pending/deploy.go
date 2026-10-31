@@ -78,6 +78,16 @@ func (s *Service) DeployWithReview(ctx context.Context, appKey, envKey, actor, t
 		return DeployReport{}, err
 	}
 	report, err := s.deployClaimed(lease, app.OrganizationKey, appKey, envKey, actor, preview)
+	if preview.CatalogPending {
+		catalogStatus := "PARTIAL"
+		if err == nil && report.Status == "SUCCEEDED" {
+			catalogStatus = "APPLIED"
+		}
+		if catalogErr := s.store.ActivateCatalog(lease.Ctx, appKey, envKey, preview.CatalogRevision, catalogStatus); catalogErr != nil && err == nil {
+			err = catalogErr
+		}
+	}
+
 	status, failure := environment.OpSucceeded, ""
 	if err != nil || report.Status != "SUCCEEDED" {
 		status, failure = environment.OpFailed, "the deploy did not complete: "+report.Status
@@ -100,6 +110,16 @@ func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, act
 		return report, err
 	}
 	if pin != preview.DeliveryBindingPin || env.DeliveryConfigRevision != preview.DeliveryConfigurationRevision || env.DesiredDelivery.Effective() != preview.DesiredDelivery || env.AppliedDelivery.Effective() != preview.AppliedDelivery {
+		return report, ErrStalePreview
+	}
+	catalogBinding, err := s.store.GetCatalogEnvironment(ctx, appKey, envKey)
+	if err != nil {
+		return report, err
+	}
+	if catalogBinding.Revision != preview.CatalogRevision {
+		return report, ErrStalePreview
+	}
+	if preview.CatalogPin != "" && (catalogBinding.Desired == nil || catalogBinding.Desired.Digest() != preview.CatalogPin) {
 		return report, ErrStalePreview
 	}
 	if preview.DeliveryTransfer {

@@ -50,3 +50,5 @@ records implementation and actual acceptance separately.
 mở rộng đang review; chưa thay thế current behavior hoặc chứng minh implementation.
 
 Platform Git credentials: [approved specification and contract](git-access.md).
+
+Versioned catalog releases: [specification](catalog-releases.md).

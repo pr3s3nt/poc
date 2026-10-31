@@ -967,3 +967,15 @@ and [downstream release retirement](../../backend/internal/adapters/delivery/fle
 stay behind the provider port.
 
 ADR-030 retention: [owner maintenance](../../backend/internal/adapters/postgres/drift_retention.go) is invoked by `-prune-drift-history`; exact catalog/role checks and schema triggers preserve active/recovery evidence without runtime DELETE privileges. [Historical dependency comparison](../../backend/internal/application/tfexec/drift_dependencies.go) retains original consumer inputs across stable-output acknowledgements.
+
+## Versioned catalog releases — issue #28
+
+[Implementation route](catalog-releases.md): domain manifest/selection/diff in
+`backend/internal/domain/catalogrelease`; complete publication/selection in
+`application/catalogrelease`; hardened Git discovery/inspection in
+`adapters/terraform/registry/catalog_*.go`; durable source/release/Environment
+repositories in memory/JSON and PostgreSQL, migration 004. Planning snapshots and
+pending Preview/Deploy resolve release-scoped Definitions and fence applied
+activation. Template authoring filters verified metadata to the selected release.
+HTTP: `delivery/http/catalogreleases.go`; Console:
+`frontend/src/features/catalog/`, Application Settings and existing Preview UI.

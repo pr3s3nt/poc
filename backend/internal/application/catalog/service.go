@@ -412,3 +412,10 @@ func validateReferences(def resource.Definition, types []resource.Type) error {
 func (s *Service) SetRenderBundles(bundles map[string]resource.RenderBundle) {
 	s.bundles = resource.CopyRenderBundles(bundles)
 }
+
+// PrepareReleaseDefinition applies the normal Definition contract without
+// registering/updating the global registry. Catalog publication retains a copy.
+func (s *Service) PrepareReleaseDefinition(ctx context.Context, org string, def resource.Definition) (resource.Definition, error) {
+	prepared, _, err := s.prepareDefinition(ctx, org, def)
+	return prepared, err
+}

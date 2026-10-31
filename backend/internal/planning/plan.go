@@ -178,6 +178,8 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 	if err := validateStorageIntent(base, candidate, req.Catalog); err != nil {
 		return nil, err
 	}
+	plan.CatalogSelection = req.Catalog.ReleaseSelection
+	plan.CatalogPin = req.Catalog.ReleasePin
 	plan.IntentEvidence = intentEvidence(matches, matcher)
 	plan.Rendering, err = s.selectRendering(ctx, graph, matcher, req.Catalog)
 	if err != nil {
@@ -205,6 +207,9 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		"terraform":    plan.Terraform,
 		"batches":      plan.Batches,
 		"target":       plan.Target,
+	}
+	if plan.CatalogPin != "" {
+		hashInput["catalogPin"] = plan.CatalogPin
 	}
 	if len(plan.AfterWorkloads) > 0 {
 		hashInput["afterWorkloads"] = plan.AfterWorkloads

@@ -7,6 +7,26 @@ last_reviewed: 2026-10-30
 
 # Current project state
 
+## Versioned Git catalog releases — issue #28, 2026-10-30
+
+The `features/nangcap` implementation adds Organization catalog sources and
+immutable releases, authenticated branch/tag discovery with ancestry checks,
+periodic/manual refresh and independent Environment desired/applied selection.
+Preview/Deploy uses release-scoped Definition/template snapshots, retains state
+identity and acknowledges applied release only after complete success. Platform
+Catalog and Environment settings reuse the current Console shell/components.
+Schema version 4 adds catalog records and optional release provenance for Active
+Resources; populated version-3 upgrades preserve installation/domain/state IDs.
+
+Existing database/storage changes without a verified migration capability are
+blocked before mutation; unchanged data pins and new resources remain supported.
+Legacy unpinned Environments retain existing resolution. No automatic deployment,
+downgrade or cluster mutation is enabled. Implementation, conservative limits and
+local verification are recorded in the
+[catalog handoff](implementation/catalog-releases.md). Live cluster/data acceptance
+has not been run for this feature and issue acceptance must not be inferred from
+browser fixtures or the existence of an E2E runner.
+
 ## Reconciliation integration into main — 2026-10-30
 
 The `features/reconciliation` implementation at `d3e9383` is integrated with

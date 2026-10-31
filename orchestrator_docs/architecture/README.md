@@ -79,3 +79,11 @@ installed-only renderer remains current code until IMP-034 is implemented.
 [infrastructure drift](contracts/infrastructure-drift.md),
 [implementation route](../implementation/delivery-reconciliation.md).
 Environment opt-in, provider-neutral lifecycle, Fleet first; design only.
+
+## Versioned catalog releases — ADR-031
+
+[Decision](decisions/ADR-031-versioned-catalog.md),
+[domain extension](domain/domain-objects.md#adr-031-catalog-sourcerelease-aggregates),
+[classes](domain/catalog-releases.puml), [contract](contracts/catalog-releases.md)
+and [release ERD](database/catalog-releases-erd.puml) describe source/release
+identity, Environment selections and acknowledged resource provenance.

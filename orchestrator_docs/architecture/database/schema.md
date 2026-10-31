@@ -346,7 +346,8 @@ One-to-one with Deployment: `deployment_id uuid PK/FK`, `score_before jsonb`, `s
 | `descriptor` | text | canonical `type.class#res_id` |
 | `scope_type` | text | `APPLICATION`, `ENVIRONMENT`, `WORKLOAD`, `SHARED` |
 | `scope_id` | text | stable scoped identity |
-| `resource_definition_id` | uuid | FK resource_definitions |
+| `resource_definition_id` | uuid | nullable FK resource_definitions; legacy provenance only |
+| `catalog_source`, `catalog_tag`, `catalog_definition_key` | text | nullable release snapshot provenance; exclusive with legacy FK |
 | `connection_id` | uuid | FK connections, nullable |
 | `status` | text | state-machine value |
 | `executor_state_ref` | jsonb | opaque backend/workspace/object refs |
@@ -1192,3 +1193,44 @@ a private baseline remain BASELINE_UNAVAILABLE until a normal successful deploy.
 Owner setup applies DDL/history/grants atomically; runtime performs no DDL.
 Frozen `version-003.sql` is the complete reference. Legacy supported versions
 upgrade through the unchanged version 1 and 2 transitions first.
+
+## Catalog releases — ADR-031
+
+Version 4 adds Organization-scoped `catalog_sources` and append-only
+`catalog_releases`. Source identity is `(organization_id, source_key)`; its
+versioned JSONB document contains configuration, observed tag→commit identities,
+last observation time and safe discovery code. Configuration changes use CAS;
+repository/branch/manifest identity cannot change after observing tags (register
+a new source). Releases are keyed by `(organization_id, source_key, tag)` and
+reference their source. JSONB stores the complete immutable manifest, commit,
+branch-tip evidence, component pins/hashes and Definition snapshots. UPDATE and
+DELETE are denied to runtime; an owner trigger rejects mutation. Console can
+SELECT/INSERT releases and SELECT/INSERT/UPDATE sources; State has no access.
+No existing Environment is backfilled or inferred to use a catalog. Owner setup
+upgrades populated version 3 installations without changing domain/state IDs.
+These tables alone do not implement desired/applied Environment bindings.
+
+`environment_catalog_bindings` adds one optional record per Environment:
+Organization, desired/applied source+tag foreign keys, CAS revision and JSONB
+selection/status. Selection holds the resolved platform account-slot map and
+release fingerprint, so editing source bindings does not silently modify an
+already pinned Environment. Initial absence is LEGACY. Console SELECT/INSERT/
+UPDATE only; State has no catalog grants. A selection locks the Environment,
+checks Organization, expected Environment version, revision and busy state,
+then increments Environment version. Applied activation requires the current
+operation owner/fence and selection revision. Failures retain applied pins;
+individual workload/resource records retain acknowledged outcomes and plans.
+No destructive pin removal or release deletion endpoint is added.
+
+[Catalog ERD](catalog-releases-erd.puml) ([PNG](catalog-releases-erd.png)).
+
+Active Resources may reference either a legacy global Definition or a release
+snapshot. Version 4 makes `resource_definition_id` nullable and adds
+`catalog_source`, `catalog_tag`, `catalog_definition_key`; exactly one provenance
+form must be present. The catalog source/tag pair references the immutable
+Organization release. Adapter admission verifies that Definition key exists in
+that release. Acknowledgement updates provenance while preserving Active Resource
+ID, logical descriptor/scope and Terraform instance/state identity. Plan snapshots
+also retain the complete catalog selection; cleanup reads acknowledged original
+artifacts rather than joining mutable desired Definitions. Existing rows remain
+legacy with their original FK; no release identity is fabricated during upgrade.

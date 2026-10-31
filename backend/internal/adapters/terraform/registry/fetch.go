@@ -106,12 +106,13 @@ func NewGitCLI(binary, tempDir string) (*GitCLI, error) {
 }
 
 type gitSnapshot struct {
-	cli    *GitCLI
-	ctx    context.Context
-	dir    string
-	commit string
-	ca     string
-	auth   access.Access
+	outputLimit int
+	cli         *GitCLI
+	ctx         context.Context
+	dir         string
+	commit      string
+	ca          string
+	auth        access.Access
 }
 
 var gitReferencePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$`)
@@ -291,7 +292,11 @@ func (s *gitSnapshot) git(args ...string) ([]byte, error) {
 	}
 	cmd.Stdin = nil
 	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
+	if s.outputLimit > 0 {
+		cmd.Stdout = &limitedGitOutput{buffer: &stdout, remaining: s.outputLimit}
+	} else {
+		cmd.Stdout = &stdout
+	}
 	// stderr may echo the URL; it is discarded, never logged or returned.
 	cmd.Stderr = nil
 	if err := cmd.Run(); err != nil {
@@ -355,4 +360,18 @@ func (s *gitSnapshot) Tree(dir string) (Tree, error) {
 		}
 	}
 	return out, nil
+}
+
+// limitedGitOutput bounds discovery metadata before it is accumulated in memory.
+type limitedGitOutput struct {
+	buffer    *bytes.Buffer
+	remaining int
+}
+
+func (w *limitedGitOutput) Write(p []byte) (int, error) {
+	if len(p) > w.remaining {
+		return 0, ErrFetch
+	}
+	w.remaining -= len(p)
+	return w.buffer.Write(p)
 }

@@ -403,6 +403,8 @@ type ReadSnapshot interface {
 
 // Store aggregates every repository port behind one adapter.
 type Store interface {
+	CatalogReleaseRepository
+	CatalogEnvironmentRepository
 	ApplicationRepository
 	IdentityRepository
 	EnvironmentRepository

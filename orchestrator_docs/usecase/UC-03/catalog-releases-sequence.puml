@@ -1,0 +1,38 @@
+@startuml
+actor PE
+actor Developer
+participant Console
+participant CatalogService
+participant HardenedGit
+participant Inspectors
+database Store
+participant Planner
+participant Executor
+PE -> Console : register source / refresh
+Console -> CatalogService : authenticated Organization
+CatalogService -> HardenedGit : branch + tag discovery
+HardenedGit --> CatalogService : tip, peeled commits, ancestry evidence
+loop each eligible unchanged observed tag
+ CatalogService -> Inspectors : exact commit + strict manifest
+ Inspectors --> CatalogService : verified pins + Definition snapshots
+ CatalogService -> Store : transaction: CAS source + complete release INSERT
+end
+Developer -> Console : choose Environment release
+Console -> CatalogService : expected Environment version + selection revision
+CatalogService -> Store : lock Environment; save desired + platform binding snapshot
+Developer -> Console : Preview
+Console -> Store : read snapshot: release definitions, account versions, desired config
+Console -> Planner : immutable release pins, existing state identities
+Planner --> Console : graph, changes/blockers, token
+Developer -> Console : Deploy(token)
+Console -> Store : claim operation + recheck pins
+Console -> Executor : admitted graph + verified cache
+loop required components
+ Executor -> Store : fenced acknowledgements, original/new pins
+end
+alt all required work succeeded
+ Console -> Store : fenced applied release activation
+else error or unknown outcome
+ Console -> Store : retain applied release; mark partial, preserve component outcomes
+end
+@enduml

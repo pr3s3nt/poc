@@ -14,6 +14,7 @@ it('shows separate environment tabs and never displays saved secret values', asy
   const calls: string[] = [];
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.includes("/environments/") && url.endsWith("/catalog")) return Response.json({catalog:{revision:0,status:"LEGACY"},environmentVersion:1,releases:[]});
     if (url.endsWith('/delivery-bindings')) return Response.json({ bindings: [] });
     if (url.endsWith('/delivery')) return Response.json({ desired: { mode: 'DIRECT', selfHeal: false }, applied: { mode: 'DIRECT', selfHeal: false }, pending: false, environmentVersion: 1, configurationRevision: 0 });
     calls.push(`${init?.method ?? 'GET'} ${url}`);
@@ -40,6 +41,7 @@ it('lets ordinary variables be added without a store but asks for a store before
   const unselected: Application = { ...application, environments: { staging: configuredTarget(), production: configuredTarget() } };
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
+    if (url.includes("/environments/") && url.endsWith("/catalog")) return Response.json({catalog:{revision:0,status:"LEGACY"},environmentVersion:1,releases:[]});
     if (url.endsWith('/delivery-bindings')) return Response.json({ bindings: [] });
     if (url.endsWith('/delivery')) return Response.json({ desired: { mode: 'DIRECT', selfHeal: false }, applied: { mode: 'DIRECT', selfHeal: false }, pending: false, environmentVersion: 1, configurationRevision: 0 });
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [{ key: 'vault-a', name: 'Vault A', provider: 'VAULT_KV_V2', status: 'READY' }] });
@@ -61,6 +63,7 @@ it('shows the server sentence and reloads on a 409 conflict', async () => {
   let puts = 0;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.includes("/environments/") && url.endsWith("/catalog")) return Response.json({catalog:{revision:0,status:"LEGACY"},environmentVersion:1,releases:[]});
     if (url.endsWith('/delivery-bindings')) return Response.json({ bindings: [] });
     if (url.endsWith('/delivery')) return Response.json({ desired: { mode: 'DIRECT', selfHeal: false }, applied: { mode: 'DIRECT', selfHeal: false }, pending: false, environmentVersion: 1, configurationRevision: 0 });
     if (init?.method === 'PUT' && url.includes('/configuration/')) { puts += 1; return Response.json({ error: 'the environment is busy with another operation', code: 'ENVIRONMENT_BUSY' }, { status: 409 }); }
@@ -81,6 +84,7 @@ it('holds every configuration write while an operation owns the environment, kee
   const writes: string[] = [];
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.includes("/environments/") && url.endsWith("/catalog")) return Response.json({catalog:{revision:0,status:"LEGACY"},environmentVersion:1,releases:[]});
     if (url.endsWith('/delivery-bindings')) return Response.json({ bindings: [] });
     if (url.endsWith('/delivery')) return Response.json({ desired: { mode: 'DIRECT', selfHeal: false }, applied: { mode: 'DIRECT', selfHeal: false }, pending: false, environmentVersion: 1, configurationRevision: 0 });
     if (init?.method && init.method !== 'GET' && url.includes('/configuration')) writes.push(`${init.method} ${url}`);
@@ -110,6 +114,7 @@ it('holds every configuration write while an operation owns the environment, kee
 it('holds an open rename or delete confirmation while busy', async () => {
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
+    if (url.includes("/environments/") && url.endsWith("/catalog")) return Response.json({catalog:{revision:0,status:"LEGACY"},environmentVersion:1,releases:[]});
     if (url.endsWith('/delivery-bindings')) return Response.json({ bindings: [] });
     if (url.endsWith('/delivery')) return Response.json({ desired: { mode: 'DIRECT', selfHeal: false }, applied: { mode: 'DIRECT', selfHeal: false }, pending: false, environmentVersion: 1, configurationRevision: 0 });
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [] });
@@ -137,6 +142,7 @@ it('notices an operation started elsewhere by polling an idle editor, holds subm
   const env = (t: typeof remote) => ({ key: 'staging', version: t.version, secretStoreKey: t.secretStoreKey, targetGeneration: t.targetGeneration, activeOperation: t.activeOperation });
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
+    if (url.includes("/environments/") && url.endsWith("/catalog")) return Response.json({catalog:{revision:0,status:"LEGACY"},environmentVersion:1,releases:[]});
     if (url.endsWith('/delivery-bindings')) return Response.json({ bindings: [] });
     if (url.endsWith('/delivery')) return Response.json({ desired: { mode: 'DIRECT', selfHeal: false }, applied: { mode: 'DIRECT', selfHeal: false }, pending: false, environmentVersion: 1, configurationRevision: 0 });
     if (url.endsWith('/applications/catalog')) return Response.json({ application: { environments: [env(remote)] } });
@@ -175,6 +181,7 @@ it('keeps an open editor and its text when the configuration is refreshed after 
   let configGets = 0;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.includes("/environments/") && url.endsWith("/catalog")) return Response.json({catalog:{revision:0,status:"LEGACY"},environmentVersion:1,releases:[]});
     if (url.endsWith('/delivery-bindings')) return Response.json({ bindings: [] });
     if (url.endsWith('/delivery')) return Response.json({ desired: { mode: 'DIRECT', selfHeal: false }, applied: { mode: 'DIRECT', selfHeal: false }, pending: false, environmentVersion: 1, configurationRevision: 0 });
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [{ key: 'vault-a', name: 'Vault A', provider: 'VAULT_KV_V2', status: 'READY' }] });
@@ -197,6 +204,7 @@ it('drops a late save reply that belongs to the environment the user left', asyn
   let release: (response: Response) => void = () => undefined;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.includes("/environments/") && url.endsWith("/catalog")) return Response.json({catalog:{revision:0,status:"LEGACY"},environmentVersion:1,releases:[]});
     if (url.endsWith('/delivery-bindings')) return Response.json({ bindings: [] });
     if (url.endsWith('/delivery')) return Response.json({ desired: { mode: 'DIRECT', selfHeal: false }, applied: { mode: 'DIRECT', selfHeal: false }, pending: false, environmentVersion: 1, configurationRevision: 0 });
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [] });
@@ -222,6 +230,7 @@ it('drops a late save reply that belongs to the environment the user left', asyn
 it('warns on rename and delete that references are not rewritten and names the key technical values unchanged', async () => {
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
+    if (url.includes("/environments/") && url.endsWith("/catalog")) return Response.json({catalog:{revision:0,status:"LEGACY"},environmentVersion:1,releases:[]});
     if (url.endsWith('/delivery-bindings')) return Response.json({ bindings: [] });
     if (url.endsWith('/delivery')) return Response.json({ desired: { mode: 'DIRECT', selfHeal: false }, applied: { mode: 'DIRECT', selfHeal: false }, pending: false, environmentVersion: 1, configurationRevision: 0 });
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [] });
@@ -243,6 +252,7 @@ function deferredPut() {
   const state: { release: (response: Response) => void; configGets: number } = { release: () => undefined, configGets: 0 };
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.includes("/environments/") && url.endsWith("/catalog")) return Response.json({catalog:{revision:0,status:"LEGACY"},environmentVersion:1,releases:[]});
     if (url.endsWith('/delivery-bindings')) return Response.json({ bindings: [] });
     if (url.endsWith('/delivery')) return Response.json({ desired: { mode: 'DIRECT', selfHeal: false }, applied: { mode: 'DIRECT', selfHeal: false }, pending: false, environmentVersion: 1, configurationRevision: 0 });
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [] });
@@ -304,6 +314,7 @@ it('claims a reload only after the GET succeeds: a failed stale reload keeps the
   let puts = 0;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.includes("/environments/") && url.endsWith("/catalog")) return Response.json({catalog:{revision:0,status:"LEGACY"},environmentVersion:1,releases:[]});
     if (url.endsWith('/delivery-bindings')) return Response.json({ bindings: [] });
     if (url.endsWith('/delivery')) return Response.json({ desired: { mode: 'DIRECT', selfHeal: false }, applied: { mode: 'DIRECT', selfHeal: false }, pending: false, environmentVersion: 1, configurationRevision: 0 });
     if (init?.method === 'PUT' && url.includes('/configuration/')) { puts += 1; return Response.json({ error: 'stale', code: 'STALE_VERSION' }, { status: 409 }); }
@@ -332,6 +343,7 @@ it('does not carry a failed stale reload gate from staging into production, and 
   let stagingGets = 0;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.includes("/environments/") && url.endsWith("/catalog")) return Response.json({catalog:{revision:0,status:"LEGACY"},environmentVersion:1,releases:[]});
     if (url.endsWith('/delivery-bindings')) return Response.json({ bindings: [] });
     if (url.endsWith('/delivery')) return Response.json({ desired: { mode: 'DIRECT', selfHeal: false }, applied: { mode: 'DIRECT', selfHeal: false }, pending: false, environmentVersion: 1, configurationRevision: 0 });
     if (init?.method === 'PUT' && url.includes('/staging/configuration/')) return Response.json({ error: 'stale', code: 'STALE_VERSION' }, { status: 409 });

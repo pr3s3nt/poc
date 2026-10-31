@@ -3,7 +3,7 @@ package http
 import "net/http"
 
 func (s *Server) handleWorkloadTemplates(w http.ResponseWriter, r *http.Request) {
-	app, _, ok := s.authorizedConfiguration(w, r)
+	app, env, ok := s.authorizedConfiguration(w, r)
 	if !ok {
 		return
 	}
@@ -12,7 +12,7 @@ func (s *Server) handleWorkloadTemplates(w http.ResponseWriter, r *http.Request)
 		s.writeError(w, err)
 		return
 	}
-	templates, err := s.catalog.ListWorkloadTemplates(r.Context(), application.OrganizationKey)
+	templates, err := s.catalog.ListEnvironmentWorkloadTemplates(r.Context(), application.OrganizationKey, app, env)
 	if err != nil {
 		s.writeError(w, err)
 		return

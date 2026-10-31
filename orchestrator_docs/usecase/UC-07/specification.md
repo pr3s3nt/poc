@@ -266,3 +266,11 @@ and cache contracts. No upload or source fetch is introduced into this use case.
 - **CD-04:** Disabling CD changes desired selection, not live ownership. Removal
   during a pending toggle uses applied manager; admitted transitions hold the
   Environment until completed or explicitly recovered.
+
+
+## Catalog release extension — ADR-031
+
+[UC-03 CR-03..06](../UC-03/catalog-releases.md) governs selected-release
+resolution, stale selection guards, conservative data migration admission,
+partial acknowledgement and legacy compatibility for this flow. It supplements
+this specification without changing resource/state identity or cleanup authority.

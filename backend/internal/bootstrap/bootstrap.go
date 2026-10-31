@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"orchestrator/internal/adapters/tlsprobe"
 	"orchestrator/internal/application/accountdiag"
+	"orchestrator/internal/application/catalog"
+	catalogapp "orchestrator/internal/application/catalogrelease"
 	"orchestrator/internal/application/gitaccess"
 	diagprobes "orchestrator/internal/ports/diagnostics"
 	"os"
@@ -647,7 +649,22 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		driftService = &driftapp.Service{Store: repo, Instances: terraformRuntime.repo, Inspector: terraformRuntime.executor, Operations: operations, Interval: opts.InfrastructureDriftInterval}
 		*closers = append(*closers, driftService.Start(ctx))
 	}
+	gitTester.Access = gitAccess
+	catalogValidator := catalog.NewService(st, modules)
+	catalogValidator.SetRenderRegistry(renderPort)
+	catalogValidator.SetRenderBundles(bundles)
+	catalogReleases := &catalogapp.Service{Store: st, Discovery: gitTester, Inspector: moduleregistry.CatalogInspector{Store: st, Definitions: catalogValidator, Git: gitTester, Modules: modules, Rendering: renderPort}}
+	if organizations, ok := st.(persistence.CatalogDiscoveryOrganizations); ok {
+		workerCtx, workerCancel := context.WithCancel(ctx)
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			catalogReleases.Run(workerCtx, organizations.ListCatalogSourceOrganizations)
+		}()
+		*closers = append(*closers, func() { workerCancel(); <-done })
+	}
 	server := deliveryhttp.NewServer(deliveryhttp.Config{
+		CatalogReleases:       catalogReleases,
 		Drift:                 driftService,
 		Reconciliation:        deliveryCoordinator,
 		Delivery:              deliveryBindings,

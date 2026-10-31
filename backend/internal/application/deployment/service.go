@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	catalogapp "orchestrator/internal/application/catalogrelease"
 	"sort"
 	"strings"
 
@@ -305,6 +306,11 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	})
 	if err != nil {
 		return nil, s.fail(ctx, record, err)
+	}
+	if snapshot.CatalogPending {
+		if err := catalogapp.ValidateDataUpdates(plan, snapshot.Baselines.Reader(), snapshot.Types); err != nil {
+			return nil, s.fail(ctx, record, err)
+		}
 	}
 	if cmd.ExpectedPlanHash != "" && plan.PlanHash != cmd.ExpectedPlanHash {
 		return nil, s.fail(ctx, record, ErrStalePlan)
