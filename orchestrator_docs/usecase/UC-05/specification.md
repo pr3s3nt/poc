@@ -273,3 +273,11 @@ and cache contracts. No upload or source fetch is introduced into this use case.
 - **CD-03:** Deploy rechecks those pins plus runtime target identity. Unsupported
   lifecycle kinds or absent credentials cannot silently fall back to direct.
   Drift repair uses the separate UC-08 review, not pure Score Preview.
+
+
+## Catalog release extension — ADR-031
+
+[UC-03 CR-03..06](../UC-03/catalog-releases.md) governs selected-release
+resolution, stale selection guards, conservative data migration admission,
+partial acknowledgement and legacy compatibility for this flow. It supplements
+this specification without changing resource/state identity or cleanup authority.

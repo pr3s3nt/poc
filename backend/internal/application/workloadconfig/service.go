@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	catalogapp "orchestrator/internal/application/catalogrelease"
 	"regexp"
 	"sort"
 	"strings"
@@ -293,6 +294,10 @@ func (s *Service) validateBindings(ctx context.Context, app, env string, doc sco
 			return err
 		}
 		records, err := persistence.RenderBundlesOf(ctx, s.store, application.OrganizationKey)
+		if err != nil {
+			return err
+		}
+		records, err = catalogapp.RenderBundles(ctx, s.store, application.OrganizationKey, app, env, records)
 		if err != nil {
 			return err
 		}

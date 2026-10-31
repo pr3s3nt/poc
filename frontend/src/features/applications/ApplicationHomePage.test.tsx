@@ -584,3 +584,22 @@ it('tracks a delivery-only transfer with no workload graph without losing the re
   expect(await screen.findByRole('heading', { name: 'Triển khai thành công' })).toBeInTheDocument();
   expect(await screen.findByText('SUCCEEDED · COMPLETED')).toBeInTheDocument(); expect(submits).toBe(1);
 });
+
+it('admits a catalog-only deployment when component content is unchanged', async () => {
+  let submits = 0;
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const path = new URL(String(input), 'http://localhost').pathname;
+    if (path.endsWith('/workloads')) return Response.json({ draftVersion: 1, workloads: [] });
+    if (path.endsWith('/preview')) return Response.json({ token: 'catalog-only', changes: [], catalogPending: true, catalogRevision: 2 });
+    if (path.endsWith('/deploy') && init?.method === 'POST') { submits++; return Response.json({ status: 'SUCCEEDED', results: [] }); }
+    if (path.endsWith('/deployments')) return Response.json({ deployments: [] });
+    if (path.endsWith('/operations')) return Response.json({ operations: [] });
+    if (path.endsWith('/resources')) return Response.json({ resources: [] });
+    return Response.json({}, { status: 404 });
+  }));
+  const user = userEvent.setup(); render(<ApplicationHomePage application={application} />);
+  await user.click(await screen.findByRole('button', { name: 'Xem trước thay đổi' }));
+  expect(await screen.findByText('Áp dụng phiên bản catalog mục tiêu cho môi trường này.')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Triển khai các thay đổi này' }));
+  expect(await screen.findByRole('heading', { name: 'Triển khai thành công' })).toBeInTheDocument(); expect(submits).toBe(1);
+});

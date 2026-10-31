@@ -9,6 +9,7 @@ export type Route =
   | { name: 'driver-accounts'; account?: string; tab?: 'diagnose'; purpose?: 'use-case'; report?: string }
   | { name: 'secret-stores' }
   | { name: 'platform-settings' }
+  | { name: 'catalog' }
   | { name: 'users' }
   | { name: 'account' }
   | { name: 'cd-providers' }
@@ -51,6 +52,7 @@ export function parseRoute(path = window.location.pathname): Route {
     const report = diagnose ? query.get('report') : null;
     return { name: 'driver-accounts', ...(account ? { account } : {}), ...(diagnose ? { tab: 'diagnose' as const } : {}), ...(diagnose && query.get('purpose') === 'use-case' ? { purpose: 'use-case' as const } : {}), ...(report ? { report } : {}) };
   }
+  if (relative === '/platform/catalog') return { name: 'catalog' };
   if (relative === '/platform/settings') return { name: 'platform-settings' };
   if (relative === '/platform/cd-providers') return { name: 'cd-providers' };
   if (relative === '/platform/secret-stores') return { name: 'secret-stores' };
@@ -108,6 +110,7 @@ export function href(route: Route): string {
       if (route.tab && route.report) query.set('report', route.report);
       return `${base}/platform/driver-accounts?${query.toString()}`;
     }
+    case 'catalog': return `${base}/platform/catalog`;
     case 'platform-settings': return `${base}/platform/settings`;
     case 'cd-providers': return `${base}/platform/cd-providers`;
     case 'secret-stores': return `${base}/platform/secret-stores`;

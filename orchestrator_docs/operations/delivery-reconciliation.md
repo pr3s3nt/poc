@@ -16,7 +16,7 @@ alone does not claim an accepted release or authorize an external deployment.
 
 ## Platform prerequisites
 
-Use PostgreSQL schema version 3 (fresh install or versioned owner upgrade) with separate ordinary Console,
+Use the current PostgreSQL schema (version 4, including the version-3 delivery tables; fresh install or versioned owner upgrade) with separate ordinary Console,
 State and owner logins. Setup is the explicit owner command `-setup-database`;
 API startup only verifies the baseline and exact grants. Keep database URLs and
 State encryption key in their existing private file mounts. Retained databases

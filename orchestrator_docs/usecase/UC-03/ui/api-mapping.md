@@ -227,3 +227,8 @@ existing inspect projections; Definition Create/CAS payloads are unchanged.
 
 [GA-01–06 UI states and API contract](../git-access.md) defines the platform
 settings screen at `/ui/platform/settings`, separate from Definition authoring.
+
+
+Catalog source/release and Environment selection routes: see the
+[Catalog release API contract](../../../architecture/contracts/catalog-releases.md).
+They reuse platform-role and scoped Application configuration authorization.

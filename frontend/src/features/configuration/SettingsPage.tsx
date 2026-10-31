@@ -12,6 +12,7 @@ import { deleteKey, getConfiguration, putKey, renameKey, type ConfigKey, type Co
 import { t } from '../../shared/i18n';
 import { DeleteApplicationDialog } from '../applications/deletion/DeleteApplicationDialog';
 import { DeletionPanel } from '../applications/deletion/DeletionPanel';
+import { EnvironmentCatalogPanel } from '../catalog/EnvironmentCatalogPanel';
 import { DeliverySelectionPanel } from '../delivery/DeliverySelectionPanel';
 import { Dialog } from '../../shared/ui/Dialog';
 
@@ -199,6 +200,7 @@ export function SettingsPage({ application, initialEnvironment = 'staging', canE
     <header className="page-header application-header"><div><p className="eyebrow">{t('configuration.settings.applicationSettings')}</p><h1>{t('configuration.settings.environmentSettings')}</h1><p>{t('configuration.settings.chooseTheSecretStoreOf')}</p></div>{data && data.version > 0 ? <span className="pending-pill">{t('configuration.settings.configurationVersionVVersion', { version: data.version })}</span> : null}</header>
     <div className="tabs" role="tablist" aria-label={t('configuration.settings.environment')}>{(['staging', 'production'] as const).map((env) => <button key={env} role="tab" aria-selected={env === environment} className={env === environment ? 'tab tab-active' : 'tab'} onClick={() => changeEnvironment(env)}>{environmentTitle(env)}</button>)}</div>
     <OperationBanner application={application} environment={environment} onTargetChange={change} />
+    <EnvironmentCatalogPanel key={`catalog:${application.id}:${environment}`} applicationId={application.id} environment={environment} busy={busy} onSaved={deliverySaved} />
     <DeliverySelectionPanel key={`${application.id}:${environment}`} applicationId={application.id} environment={environment} canEdit={canEditDelivery} busy={busy} onDirtyChange={setDeliveryDirty} onSaved={deliverySaved} />
     {switchEnvironment ? <Dialog label={t('delivery.discardTitle')} onClose={() => setSwitchEnvironment(undefined)}><h2>{t('delivery.discardTitle')}</h2><div className="form-actions"><Button onClick={() => setSwitchEnvironment(undefined)}>{t('delivery.keepEditing')}</Button><Button onClick={() => { const next = switchEnvironment; setSwitchEnvironment(undefined); setDeliveryDirty(false); setEnvironment(next); replaceRoute({ name: 'settings', applicationId: application.id, environment: next }); }}>{t('delivery.discard')}</Button></div></Dialog> : null}
     <SecretStoreSelection application={application} environment={environment} configVersion={data?.version ?? 0} onTargetChange={change} onConfigurationChanged={() => setReloadCount((value) => value + 1)} />

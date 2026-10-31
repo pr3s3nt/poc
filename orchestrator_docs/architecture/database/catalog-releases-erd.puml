@@ -1,0 +1,62 @@
+@startuml
+hide circle
+skinparam linetype ortho
+title Catalog releases — schema version 4
+entity organizations {
+ * id : uuid <<PK>>
+ organization_key : text
+}
+entity environments {
+ * id : uuid <<PK>>
+ application_id : uuid <<FK>>
+ version : bigint
+ active_operation_id : uuid <<FK>>
+}
+entity catalog_sources {
+ * organization_id : uuid <<PK,FK>>
+ * source_key : text <<PK>>
+ version : bigint
+ document : jsonb
+}
+entity catalog_releases {
+ * organization_id : uuid <<PK,FK>>
+ * source_key : text <<PK,FK>>
+ * tag : text <<PK>>
+ fingerprint : text
+ document : jsonb
+}
+entity environment_catalog_bindings {
+ * environment_id : uuid <<PK,FK>>
+ organization_id : uuid <<FK>>
+ desired_source : text <<FK>>
+ desired_tag : text <<FK>>
+ applied_source : text <<FK,nullable>>
+ applied_tag : text <<FK,nullable>>
+ revision : bigint
+ document : jsonb
+}
+entity active_resources {
+ * id : uuid <<PK>>
+ organization_id : uuid <<FK>>
+ resource_definition_id : uuid <<FK,nullable>>
+ catalog_source : text <<FK,nullable>>
+ catalog_tag : text <<FK,nullable>>
+ catalog_definition_key : text <<nullable>>
+}
+catalog_releases ||--o{ active_resources : acknowledged snapshot
+organizations ||--o{ catalog_sources
+catalog_sources ||--o{ catalog_releases
+catalog_releases ||--o{ environment_catalog_bindings : desired/applied
+ environments ||--o| environment_catalog_bindings
+note right of catalog_releases
+ Immutable complete manifest, component pins and Definition snapshots.
+ Runtime SELECT/INSERT only; mutation trigger rejects UPDATE/DELETE.
+ Referenced versions retained; no remote resolution during execution.
+end note
+note right of environment_catalog_bindings
+ Desired and applied account-slot snapshots.
+ CAS selection increments Environment version; no infrastructure mutation.
+ Applied activation requires the current operation owner/fence.
+ Per-workload/resource acknowledgements retain existing deployment provenance.
+end note
+@enduml

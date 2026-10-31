@@ -478,6 +478,10 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		LastDeploymentID: req.DeploymentID,
 	}
 
+	if req.Plan.CatalogSelection != nil {
+		active.CatalogSource = req.Plan.CatalogSelection.SourceID
+		active.CatalogTag = req.Plan.CatalogSelection.Tag
+	}
 	finished := s.clock.Now()
 	progress.Status = deployment.ResourceReady
 	progress.OutputSnapshot = storable

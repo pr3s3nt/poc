@@ -152,7 +152,17 @@ func (s *Store) fencedUpsertActiveResource(ctx context.Context, v resource.Activ
 	if err != nil {
 		return v, err
 	}
-	err = s.q(ctx).QueryRow(ctx, `INSERT INTO active_resources(id,organization_id,descriptor,scope_type,scope_id,resource_definition_id,connection_id,status,executor_state_ref,outputs,input_fingerprint,last_deployment_id,version,created_at,updated_at) SELECT $1::uuid,o.id,$3,$4,$5,rd.id,c.id,$8,$9,$10,NULLIF($11,''),NULLIF($12,'')::uuid,1,$13,$14 FROM organizations o JOIN resource_definitions rd ON rd.organization_id=o.id AND rd.definition_key=$6 LEFT JOIN connections c ON c.organization_id=o.id AND c.connection_key=NULLIF($7,'') WHERE o.organization_key=$2 ON CONFLICT(organization_id,descriptor,scope_type,scope_id) DO UPDATE SET status=EXCLUDED.status,executor_state_ref=EXCLUDED.executor_state_ref,outputs=EXCLUDED.outputs,input_fingerprint=EXCLUDED.input_fingerprint,last_deployment_id=EXCLUDED.last_deployment_id,version=active_resources.version+1,updated_at=EXCLUDED.updated_at RETURNING id::text,version,created_at,updated_at`, v.ID, v.OrganizationKey, v.Descriptor.String(), v.Scope.Type, v.Scope.ID, v.DefinitionKey, v.ConnectionKey, v.Status, a, b, v.InputFingerprint, v.LastDeploymentID, v.CreatedAt, v.UpdatedAt).Scan(&v.ID, &v.Version, &v.CreatedAt, &v.UpdatedAt)
+	err = s.q(ctx).QueryRow(ctx, `INSERT INTO active_resources(id,organization_id,descriptor,scope_type,scope_id,resource_definition_id,connection_id,status,executor_state_ref,outputs,input_fingerprint,last_deployment_id,version,created_at,updated_at,catalog_source,catalog_tag,catalog_definition_key)
+ SELECT $1::uuid,o.id,$3,$4,$5,rd.id,c.id,$8,$9,$10,NULLIF($11,''),NULLIF($12,'')::uuid,1,$13,$14,NULLIF($15,''),NULLIF($16,''),CASE WHEN $15<>'' THEN $6 ELSE NULL END
+ FROM organizations o
+ LEFT JOIN resource_definitions rd ON rd.organization_id=o.id AND rd.definition_key=$6 AND $15=''
+ LEFT JOIN catalog_releases cr ON cr.organization_id=o.id AND cr.source_key=$15 AND cr.tag=$16
+ LEFT JOIN connections c ON c.organization_id=o.id AND c.connection_key=NULLIF($7,'')
+ WHERE o.organization_key=$2 AND (($15='' AND rd.id IS NOT NULL) OR ($15<>'' AND EXISTS(SELECT 1 FROM jsonb_array_elements(cr.document->'components') comp WHERE comp->'snapshot'->>'key'=$6)))
+ ON CONFLICT(organization_id,descriptor,scope_type,scope_id) DO UPDATE SET
+ resource_definition_id=EXCLUDED.resource_definition_id,catalog_source=EXCLUDED.catalog_source,catalog_tag=EXCLUDED.catalog_tag,catalog_definition_key=EXCLUDED.catalog_definition_key,
+ status=EXCLUDED.status,executor_state_ref=EXCLUDED.executor_state_ref,outputs=EXCLUDED.outputs,input_fingerprint=EXCLUDED.input_fingerprint,last_deployment_id=EXCLUDED.last_deployment_id,version=active_resources.version+1,updated_at=EXCLUDED.updated_at
+ RETURNING id::text,version,created_at,updated_at`, v.ID, v.OrganizationKey, v.Descriptor.String(), v.Scope.Type, v.Scope.ID, v.DefinitionKey, v.ConnectionKey, v.Status, a, b, v.InputFingerprint, v.LastDeploymentID, v.CreatedAt, v.UpdatedAt, v.CatalogSource, v.CatalogTag).Scan(&v.ID, &v.Version, &v.CreatedAt, &v.UpdatedAt)
 	if err != nil {
 		return v, fmt.Errorf("postgres: upsert active resource: %w", translate(err))
 	}
@@ -162,7 +172,7 @@ func scanActive(values interface{ Scan(...any) error }) (resource.ActiveResource
 	var v resource.ActiveResource
 	var descriptor string
 	var a, b []byte
-	err := values.Scan(&v.ID, &v.OrganizationKey, &descriptor, &v.Scope.Type, &v.Scope.ID, &v.DefinitionKey, &v.ConnectionKey, &v.Status, &a, &b, &v.InputFingerprint, &v.LastDeploymentID, &v.Version, &v.CreatedAt, &v.UpdatedAt)
+	err := values.Scan(&v.ID, &v.OrganizationKey, &descriptor, &v.Scope.Type, &v.Scope.ID, &v.DefinitionKey, &v.ConnectionKey, &v.Status, &a, &b, &v.InputFingerprint, &v.LastDeploymentID, &v.Version, &v.CreatedAt, &v.UpdatedAt, &v.CatalogSource, &v.CatalogTag)
 	if err != nil {
 		return v, err
 	}
@@ -175,7 +185,7 @@ func scanActive(values interface{ Scan(...any) error }) (resource.ActiveResource
 	return v, nil
 }
 
-const activeSelect = `SELECT ar.id::text,o.organization_key,ar.descriptor,ar.scope_type,ar.scope_id,rd.definition_key,COALESCE(c.connection_key,''),ar.status,ar.executor_state_ref,ar.outputs,COALESCE(ar.input_fingerprint,''),COALESCE(ar.last_deployment_id::text,''),ar.version,ar.created_at,ar.updated_at FROM active_resources ar JOIN organizations o ON o.id=ar.organization_id JOIN resource_definitions rd ON rd.id=ar.resource_definition_id LEFT JOIN connections c ON c.id=ar.connection_id`
+const activeSelect = `SELECT ar.id::text,o.organization_key,ar.descriptor,ar.scope_type,ar.scope_id,COALESCE(rd.definition_key,ar.catalog_definition_key),COALESCE(c.connection_key,''),ar.status,ar.executor_state_ref,ar.outputs,COALESCE(ar.input_fingerprint,''),COALESCE(ar.last_deployment_id::text,''),ar.version,ar.created_at,ar.updated_at,COALESCE(ar.catalog_source,''),COALESCE(ar.catalog_tag,'') FROM active_resources ar JOIN organizations o ON o.id=ar.organization_id LEFT JOIN resource_definitions rd ON rd.id=ar.resource_definition_id LEFT JOIN connections c ON c.id=ar.connection_id`
 
 func (s *Store) FindByLogicalIdentity(ctx context.Context, org string, d resource.Descriptor, scope resource.Scope) (resource.ActiveResource, error) {
 	v, err := scanActive(s.q(ctx).QueryRow(ctx, activeSelect+` WHERE o.organization_key=$1 AND ar.descriptor=$2 AND ar.scope_type=$3 AND ar.scope_id=$4`, org, d.String(), scope.Type, scope.ID))

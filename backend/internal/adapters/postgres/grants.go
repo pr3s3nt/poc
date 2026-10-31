@@ -76,6 +76,9 @@ func consoleGrants() []grant {
 		}
 	}
 	return append(out,
+		grant{table: "environment_catalog_bindings", privilege: "SELECT"}, grant{table: "environment_catalog_bindings", privilege: "INSERT"}, grant{table: "environment_catalog_bindings", privilege: "UPDATE"},
+		grant{table: "catalog_sources", privilege: "SELECT"}, grant{table: "catalog_sources", privilege: "INSERT"}, grant{table: "catalog_sources", privilege: "UPDATE"},
+		grant{table: "catalog_releases", privilege: "SELECT"}, grant{table: "catalog_releases", privilege: "INSERT"},
 		grant{table: "drift_scans", privilege: "SELECT"}, grant{table: "drift_scans", privilege: "INSERT"}, grant{table: "drift_scans", privilege: "UPDATE"},
 		grant{table: "delivery_poll_leases", privilege: "SELECT"}, grant{table: "delivery_poll_leases", privilege: "INSERT"}, grant{table: "delivery_poll_leases", privilege: "UPDATE"},
 		grant{table: "delivery_observations", privilege: "SELECT"}, grant{table: "delivery_observations", privilege: "INSERT"},

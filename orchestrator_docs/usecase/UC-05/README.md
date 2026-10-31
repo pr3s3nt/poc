@@ -61,3 +61,10 @@ mở rộng đang review; chưa thay thế current behavior hoặc chứng minh 
 Read this use case's CD/INF/REC specification extension, then the
 [design and implementation route](../../implementation/delivery-reconciliation.md).
 Required design only; current runtime availability is tracked separately.
+
+## Versioned catalog release selection — issue #28
+
+[CR-01..06](../UC-03/catalog-releases.md) extends catalog resolution and
+Environment upgrades. Read its [sequence](../UC-03/catalog-releases-sequence.puml)
+and [shared contract](../../architecture/contracts/catalog-releases.md).
+Existing ownership, locking, fencing, state identity and cleanup rules continue.

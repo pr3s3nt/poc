@@ -247,3 +247,11 @@ instances. Orphan import/recovery D12–D14 remain deferred.
   outcomes retain v2 holds. Secret/state/plan values never appear in reports.
 
 Algorithm and API: [infrastructure drift contract](../../architecture/contracts/infrastructure-drift.md).
+
+
+## Catalog release extension — ADR-031
+
+[UC-03 CR-03..06](../UC-03/catalog-releases.md) governs selected-release
+resolution, stale selection guards, conservative data migration admission,
+partial acknowledgement and legacy compatibility for this flow. It supplements
+this specification without changing resource/state identity or cleanup authority.

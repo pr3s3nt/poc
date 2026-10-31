@@ -234,7 +234,10 @@ entity deployment_plans {
 entity active_resources {
   * id : uuid <<PK>>
   * organization_id : uuid <<FK>>
-  * resource_definition_id : uuid <<FK>>
+  resource_definition_id : uuid <<FK,nullable>>
+ catalog_source : text <<nullable>>
+ catalog_tag : text <<nullable>>
+ catalog_definition_key : text <<nullable>>
   --
   descriptor : text
   scope_type : text
@@ -329,7 +332,7 @@ deployments }o--|| deployment_sets : candidate
 deployments ||--o| deployment_delta_snapshots : delta_snapshot
 deployments ||--o{ deployment_resources
 deployments ||--o{ deployment_workloads
-resource_definitions ||--o{ active_resources
+resource_definitions |o--o{ active_resources
 active_resources ||--o{ deployment_resources
 deployments ||--o{ active_resources : last
 deployments ||--o{ workload_instances : last
@@ -603,4 +606,11 @@ entity platform_git_settings {
   updated_by : text
 }
 organizations ||--o| platform_git_settings : Git access
+note right of active_resources
+ Exactly one Definition provenance:
+ legacy global FK OR immutable catalog release snapshot.
+ Catalog source/tag FK is Organization scoped.
+ Logical ID, scope and Terraform state identities are preserved.
+ See catalog-releases-erd for the release tables.
+end note
 @enduml

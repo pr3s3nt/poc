@@ -41,6 +41,18 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 		t.Fatal(err)
 	}
 	identity := "orchestrator-fresh-baseline-v02"
+	if sql == versionThreeSQL {
+		identity = "orchestrator-schema-v3"
+		if err = recordVersionOne(ctx, tx, digest(versionOneSQL)); err != nil {
+			t.Fatal(err)
+		}
+		if err = recordVersionTwo(ctx, tx); err != nil {
+			t.Fatal(err)
+		}
+		if err = recordVersionThree(ctx, tx); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if sql == versionTwoSQL {
 		identity = "orchestrator-schema-v2"
 		if err = recordVersionOne(ctx, tx, digest(versionOneSQL)); err != nil {
@@ -82,10 +94,10 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 	}
 	for role, name := range map[RuntimeRole]string{ConsoleRuntime: db.ConsoleRole, StateRuntime: db.StateRole} {
 		for _, g := range grantsOf(role) {
-			if reconciliationTable(g.table) || (g.table == "platform_git_settings" && sql != versionTwoSQL) || (g.table == "schema_upgrade_history" && sql != versionOneSQL && sql != versionTwoSQL) {
+			if catalogTable(g.table) || (reconciliationTable(g.table) && sql != versionThreeSQL) || (g.table == "platform_git_settings" && sql != versionTwoSQL && sql != versionThreeSQL) || (g.table == "schema_upgrade_history" && sql != versionOneSQL && sql != versionTwoSQL && sql != versionThreeSQL) {
 				continue
 			}
-			if role == StateRuntime {
+			if role == StateRuntime && sql != versionThreeSQL {
 				if g.table == "environments" {
 					g.columns = []string{"id", "application_id", "active_operation_id", "generation_high"}
 				}
@@ -117,7 +129,7 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 }
 
 func TestUpgradeSupportedPopulatedSources(t *testing.T) {
-	for name, source := range map[string]string{"staging-1516dec": sourceOldSQL, "preview-2a111db": sourceCurrentSQL, "version-1": versionOneSQL, "version-2": versionTwoSQL} {
+	for name, source := range map[string]string{"staging-1516dec": sourceOldSQL, "preview-2a111db": sourceCurrentSQL, "version-1": versionOneSQL, "version-2": versionTwoSQL, "version-3": versionThreeSQL} {
 		t.Run(name, func(t *testing.T) {
 			owner, console, roles := legacyDatabase(t, source)
 			stamp := scalar[string](t, owner, `SELECT created_at::text FROM schema_baseline`)
@@ -134,7 +146,7 @@ func TestUpgradeSupportedPopulatedSources(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if n := scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`); n != 3 {
+			if n := scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`); n != 4 {
 				t.Fatal(n)
 			}
 			if got := scalar[string](t, owner, `SELECT installation_id::text FROM schema_baseline`); got != "11111111-1111-4111-8111-111111111111" {
@@ -225,7 +237,7 @@ func TestUpgradeRollbackOnGrantFailure(t *testing.T) {
 }
 
 func TestUpgradePreservesStateAndRuntimeIsolation(t *testing.T) {
-	for name, source := range map[string]string{"staging": sourceOldSQL, "preview": sourceCurrentSQL, "version-1": versionOneSQL, "version-2": versionTwoSQL} {
+	for name, source := range map[string]string{"staging": sourceOldSQL, "preview": sourceCurrentSQL, "version-1": versionOneSQL, "version-2": versionTwoSQL, "version-3": versionThreeSQL} {
 		t.Run(name, func(t *testing.T) {
 			f := newStateFixture(t)
 			f.console.Close()
@@ -238,45 +250,50 @@ func TestUpgradePreservesStateAndRuntimeIsolation(t *testing.T) {
 			}
 			defer tx.Rollback(ctx)
 			// Reconstruct historical shape only inside this disposable owned fixture.
-			for _, function := range reconciliationFunctions {
-				if _, err = tx.Exec(ctx, `DROP FUNCTION `+function+` CASCADE`); err != nil {
-					t.Fatal(err)
-				}
-			}
-			for i := len(reconciliationTables) - 1; i >= 0; i-- {
-				if _, err = tx.Exec(ctx, `DROP TABLE `+pgx.Identifier{reconciliationTables[i]}.Sanitize()+` CASCADE`); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if _, err = tx.Exec(ctx, `ALTER TABLE environments DROP COLUMN desired_delivery, DROP COLUMN applied_delivery, DROP COLUMN delivery_config_revision, DROP COLUMN delivery_epoch`); err != nil {
+			if _, err = tx.Exec(ctx, `ALTER TABLE active_resources DROP CONSTRAINT active_resources_catalog_release_fk, DROP CONSTRAINT active_resources_definition_provenance_check, DROP COLUMN catalog_source, DROP COLUMN catalog_tag, DROP COLUMN catalog_definition_key, ALTER COLUMN resource_definition_id SET NOT NULL; DROP TABLE environment_catalog_bindings; DROP TABLE catalog_releases; DROP TABLE catalog_sources; DROP FUNCTION catalog_release_immutable_guard()`); err != nil {
 				t.Fatal(err)
 			}
-			if _, err = tx.Exec(ctx, `REVOKE SELECT(version) ON environments FROM `+pgx.Identifier{f.db.StateRole}.Sanitize()); err != nil {
-				t.Fatal(err)
-			}
-			if _, err = tx.Exec(ctx, `REVOKE SELECT(kind) ON environment_operations FROM `+pgx.Identifier{f.db.StateRole}.Sanitize()); err != nil {
-				t.Fatal(err)
-			}
-			if source != versionTwoSQL {
-				if _, err = tx.Exec(ctx, `DROP TABLE platform_git_settings`); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if source != versionOneSQL && source != versionTwoSQL {
-				if _, err = tx.Exec(ctx, `DROP TABLE schema_upgrade_history`); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if source == sourceOldSQL {
-				for _, q := range []string{
-					`DROP INDEX applications_subdomain_key`,
-					`DROP INDEX applications_organization_lower_name_key`,
-					`ALTER TABLE applications DROP COLUMN status, DROP COLUMN deletion, ADD CONSTRAINT applications_subdomain_key UNIQUE(subdomain), ADD CONSTRAINT applications_organization_id_name_key UNIQUE(organization_id,name)`,
-					`CREATE UNIQUE INDEX applications_organization_lower_name_key ON applications(organization_id,lower(name))`,
-					`ALTER TABLE render_bundles DROP CONSTRAINT render_bundles_check, DROP COLUMN source_kind, DROP CONSTRAINT render_bundles_source_url_check, ADD CONSTRAINT render_bundles_source_url_check CHECK (source_url ~ '^https://' AND length(source_url)<=2048)`,
-				} {
-					if _, err = tx.Exec(ctx, q); err != nil {
+			if source != versionThreeSQL {
+				for _, function := range reconciliationFunctions {
+					if _, err = tx.Exec(ctx, `DROP FUNCTION `+function+` CASCADE`); err != nil {
 						t.Fatal(err)
+					}
+				}
+				for i := len(reconciliationTables) - 1; i >= 0; i-- {
+					if _, err = tx.Exec(ctx, `DROP TABLE `+pgx.Identifier{reconciliationTables[i]}.Sanitize()+` CASCADE`); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if _, err = tx.Exec(ctx, `ALTER TABLE environments DROP COLUMN desired_delivery, DROP COLUMN applied_delivery, DROP COLUMN delivery_config_revision, DROP COLUMN delivery_epoch`); err != nil {
+					t.Fatal(err)
+				}
+				if _, err = tx.Exec(ctx, `REVOKE SELECT(version) ON environments FROM `+pgx.Identifier{f.db.StateRole}.Sanitize()); err != nil {
+					t.Fatal(err)
+				}
+				if _, err = tx.Exec(ctx, `REVOKE SELECT(kind) ON environment_operations FROM `+pgx.Identifier{f.db.StateRole}.Sanitize()); err != nil {
+					t.Fatal(err)
+				}
+				if source != versionTwoSQL {
+					if _, err = tx.Exec(ctx, `DROP TABLE platform_git_settings`); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if source != versionOneSQL && source != versionTwoSQL {
+					if _, err = tx.Exec(ctx, `DROP TABLE schema_upgrade_history`); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if source == sourceOldSQL {
+					for _, q := range []string{
+						`DROP INDEX applications_subdomain_key`,
+						`DROP INDEX applications_organization_lower_name_key`,
+						`ALTER TABLE applications DROP COLUMN status, DROP COLUMN deletion, ADD CONSTRAINT applications_subdomain_key UNIQUE(subdomain), ADD CONSTRAINT applications_organization_id_name_key UNIQUE(organization_id,name)`,
+						`CREATE UNIQUE INDEX applications_organization_lower_name_key ON applications(organization_id,lower(name))`,
+						`ALTER TABLE render_bundles DROP CONSTRAINT render_bundles_check, DROP COLUMN source_kind, DROP CONSTRAINT render_bundles_source_url_check, ADD CONSTRAINT render_bundles_source_url_check CHECK (source_url ~ '^https://' AND length(source_url)<=2048)`,
+					} {
+						if _, err = tx.Exec(ctx, q); err != nil {
+							t.Fatal(err)
+						}
 					}
 				}
 			}
@@ -288,6 +305,12 @@ func TestUpgradePreservesStateAndRuntimeIsolation(t *testing.T) {
 				t.Fatal(err)
 			}
 			identity := "orchestrator-fresh-baseline-v02"
+			if source == versionThreeSQL {
+				identity = "orchestrator-schema-v3"
+				if _, err = tx.Exec(ctx, `DELETE FROM schema_upgrade_history WHERE version>3`); err != nil {
+					t.Fatal(err)
+				}
+			}
 			if source == versionTwoSQL {
 				identity = "orchestrator-schema-v2"
 				if _, err = tx.Exec(ctx, `DELETE FROM schema_upgrade_history WHERE version>2`); err != nil {
@@ -362,6 +385,9 @@ func retainedFingerprints(t *testing.T, url string) map[string]string {
 	result := map[string]string{}
 	for _, table := range tables {
 		expr := `to_jsonb(t)`
+		if table == "active_resources" {
+			expr += ` - 'catalog_source' - 'catalog_tag' - 'catalog_definition_key'`
+		}
 		if table == "environments" {
 			expr += ` - 'desired_delivery' - 'applied_delivery' - 'delivery_config_revision' - 'delivery_epoch'`
 		}
@@ -441,7 +467,7 @@ func TestBaselineCommentChangesDoNotRequireUpgrade(t *testing.T) {
 func TestUpgradeHistoryTamperingIsRejected(t *testing.T) {
 	for name, mutation := range map[string]string{
 		"checksum":       `UPDATE schema_upgrade_history SET migration_sha256=repeat('0',64)`,
-		"future-version": `UPDATE schema_upgrade_history SET version=4 WHERE version=3`,
+		"future-version": `UPDATE schema_upgrade_history SET version=5 WHERE version=4`,
 		"source":         `UPDATE schema_upgrade_history SET source_sha256=repeat('0',64)`,
 		"missing":        `DELETE FROM schema_upgrade_history`,
 	} {
@@ -573,6 +599,30 @@ func TestVersionThreeRollbackPreservesVersionTwo(t *testing.T) {
 	for table, hash := range before {
 		if after[table] != hash {
 			t.Errorf("retained rows changed in %s", table)
+		}
+	}
+}
+
+func TestVersionFourRollbackPreservesVersionThree(t *testing.T) {
+	owner, _, roles := legacyDatabase(t, versionThreeSQL)
+	before := retainedFingerprints(t, owner)
+	sqlOn(t, owner, `GRANT DELETE ON schema_baseline TO `+pgx.Identifier{roles.Console}.Sanitize())
+	if _, err := Setup(context.Background(), owner, roles); err == nil {
+		t.Fatal("expected grant validation failure")
+	}
+	if scalar[string](t, owner, `SELECT baseline_sha256 FROM schema_baseline`) != digest(versionThreeSQL) {
+		t.Fatal("source marker changed")
+	}
+	if scalar[bool](t, owner, `SELECT to_regclass('catalog_sources') IS NOT NULL`) {
+		t.Fatal("catalog DDL committed")
+	}
+	if scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`) != 3 {
+		t.Fatal("history changed")
+	}
+	after := retainedFingerprints(t, owner)
+	for table, hash := range before {
+		if after[table] != hash {
+			t.Errorf("retained data changed in %s", table)
 		}
 	}
 }

@@ -21,6 +21,7 @@ import (
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/authentication"
 	"orchestrator/internal/application/catalog"
+	catalogapp "orchestrator/internal/application/catalogrelease"
 	appconfig "orchestrator/internal/application/configuration"
 	connectionapp "orchestrator/internal/application/connection"
 	deliveryapp "orchestrator/internal/application/delivery"
@@ -45,6 +46,7 @@ import (
 
 // Server wires the HTTP handlers to the application services.
 type Server struct {
+	catalogReleases *catalogapp.Service
 	gitAccess       *gitaccess.Service
 	gitTester       GitTester
 	drift           *driftapp.Service
@@ -75,13 +77,14 @@ type Server struct {
 
 // Config configures the HTTP server.
 type Config struct {
-	GitAccess      *gitaccess.Service
-	GitTester      GitTester
-	Drift          *driftapp.Service
-	Reconciliation *deliveryapp.Coordinator
-	Delivery       *deliveryapp.Bindings
-	Observability  *observabilityapp.Service
-	RenderBundles  map[string]resource.RenderBundle
+	CatalogReleases *catalogapp.Service
+	GitAccess       *gitaccess.Service
+	GitTester       GitTester
+	Drift           *driftapp.Service
+	Reconciliation  *deliveryapp.Coordinator
+	Delivery        *deliveryapp.Bindings
+	Observability   *observabilityapp.Service
+	RenderBundles   map[string]resource.RenderBundle
 	// RenderRegistry inspects Git render bundles and reports availability
 	// (ADR-021); nil disables Git bundle inspection.
 	RenderRegistry renderregistry.Registry
@@ -120,7 +123,8 @@ type Config struct {
 // NewServer builds the HTTP handler tree.
 func NewServer(cfg Config) *Server {
 	s := &Server{
-		gitAccess: cfg.GitAccess, gitTester: cfg.GitTester,
+		catalogReleases: cfg.CatalogReleases,
+		gitAccess:       cfg.GitAccess, gitTester: cfg.GitTester,
 		reconciliation:  cfg.Reconciliation,
 		drift:           cfg.Drift,
 		delivery:        cfg.Delivery,
@@ -167,6 +171,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) routes() {
+	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/catalog", s.handleGetEnvironmentCatalog)
+	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/catalog", s.handleSelectEnvironmentCatalog)
+	s.mux.HandleFunc("GET /api/v1/platform/catalog/sources", s.handleListCatalogSources)
+	s.mux.HandleFunc("PUT /api/v1/platform/catalog/sources/{source}", s.handleSaveCatalogSource)
+	s.mux.HandleFunc("POST /api/v1/platform/catalog/sources/{source}/refresh", s.handleRefreshCatalogSource)
+	s.mux.HandleFunc("GET /api/v1/platform/catalog/sources/{source}/releases", s.handleListCatalogReleases)
 	s.mux.HandleFunc("GET /api/v1/platform/settings/git", s.handleGetGitSettings)
 	s.mux.HandleFunc("PUT /api/v1/platform/settings/git", s.handleSaveGitSettings)
 	s.mux.HandleFunc("POST /api/v1/platform/settings/git/test", s.handleTestGitSettings)

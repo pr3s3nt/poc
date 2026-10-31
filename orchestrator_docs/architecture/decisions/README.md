@@ -63,3 +63,5 @@ ZIP source upload: [ADR-026](ADR-026-zip-source-upload.md).
 - [ADR-029 — Platform Git access](ADR-029-platform-git-access.md).
 
 - [ADR-030 — Optional CD providers and infrastructure reconciliation](ADR-030-delivery-reconciliation.md) — required design, not yet implemented.
+
+- [ADR-031 — Versioned Git catalog releases](ADR-031-versioned-catalog.md).

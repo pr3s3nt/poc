@@ -393,3 +393,11 @@ availability is recorded in CURRENT_STATE.
   prove release before adoption, retain checkpoints/hold on unknown outcomes.
 - **CD-07:** Public routes use the selected delivery manager and independent
   revision receipt, preserving route-only retry and the complete Candidate Set.
+
+
+## Catalog release extension — ADR-031
+
+[UC-03 CR-03..06](../UC-03/catalog-releases.md) governs selected-release
+resolution, stale selection guards, conservative data migration admission,
+partial acknowledgement and legacy compatibility for this flow. It supplements
+this specification without changing resource/state identity or cleanup authority.

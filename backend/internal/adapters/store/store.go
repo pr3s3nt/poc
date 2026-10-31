@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"orchestrator/internal/domain/application"
+	"orchestrator/internal/domain/catalogrelease"
 	"orchestrator/internal/domain/configuration"
 	"orchestrator/internal/domain/delivery"
 	"orchestrator/internal/domain/deployment"
@@ -43,6 +44,9 @@ type deliveryExecutionRecord struct {
 }
 
 type state struct {
+	CatalogEnvironments  map[string]persistence.CatalogEnvironment     `json:"catalogEnvironments,omitempty"`
+	CatalogSources       map[string]persistence.CatalogSource          `json:"catalogSources,omitempty"`
+	CatalogReleases      map[string]catalogrelease.Release             `json:"catalogReleases,omitempty"`
 	GitSettings          map[string]persistence.GitSettings            `json:"gitSettings,omitempty"`
 	DeliveryPollLeases   map[string]persistence.DeliveryPollLease      `json:"deliveryPollLeases,omitempty"`
 	DeliveryObservations map[string][]persistence.DeliveryObservation  `json:"deliveryObservations,omitempty"`
@@ -1176,6 +1180,23 @@ func (s *Store) UpsertActiveResource(ctx context.Context, a resource.ActiveResou
 	defer s.lock(ctx)()
 	if err := s.fence(ctx); err != nil {
 		return resource.ActiveResource{}, err
+	}
+	if a.CatalogSource != "" {
+		release, ok := s.state.CatalogReleases[catalogReleaseKey(a.OrganizationKey, a.CatalogSource)+"/"+a.CatalogTag]
+		if !ok {
+			return resource.ActiveResource{}, persistence.ErrNotFound
+		}
+		found := false
+		for _, component := range release.Components {
+			if component.Snapshot != nil && component.Snapshot.Key == a.DefinitionKey {
+				found = true
+			}
+		}
+		if !found {
+			return resource.ActiveResource{}, persistence.ErrNotFound
+		}
+	} else if a.CatalogTag != "" {
+		return resource.ActiveResource{}, persistence.ErrNotFound
 	}
 	key := a.LogicalKey()
 	existing, ok := s.state.ActiveResources[key]

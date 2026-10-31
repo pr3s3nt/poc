@@ -179,3 +179,5 @@ Fleet is opt-in independently per Environment behind optional runtime wiring;
 direct remains the default. Implementation is integrated into main; see Current state and
 the merge verification for validation limits. This requested change
 does not activate another roadmap iteration.
+
+Versioned Git catalog releases (issue #28): [implementation route](implementation/catalog-releases.md).

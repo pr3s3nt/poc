@@ -3,6 +3,7 @@
 package planning
 
 import (
+	"orchestrator/internal/domain/catalogrelease"
 	"orchestrator/internal/domain/renderbundle"
 	"sort"
 
@@ -195,12 +196,14 @@ type Classification struct {
 
 // Plan is the immutable planning artifact persisted with a Deployment.
 type Plan struct {
-	Review      any                                    `json:"review,omitempty"`
-	Rendering   map[string]resource.RenderingSelection `json:"rendering,omitempty"`
-	WorkloadID  string                                 `json:"workloadId"`
-	Action      deployment.Action                      `json:"action"`
-	ScoreBefore map[string]any                         `json:"scoreBefore,omitempty"`
-	ScoreAfter  map[string]any                         `json:"scoreAfter,omitempty"`
+	CatalogSelection *catalogrelease.Selection              `json:"catalogSelection,omitempty"`
+	CatalogPin       string                                 `json:"catalogPin,omitempty"`
+	Review           any                                    `json:"review,omitempty"`
+	Rendering        map[string]resource.RenderingSelection `json:"rendering,omitempty"`
+	WorkloadID       string                                 `json:"workloadId"`
+	Action           deployment.Action                      `json:"action"`
+	ScoreBefore      map[string]any                         `json:"scoreBefore,omitempty"`
+	ScoreAfter       map[string]any                         `json:"scoreAfter,omitempty"`
 	// Delta is the transient Humanitec-shaped Delta document. It is not part
 	// of the persisted plan: UC-06/07 persist it as a DeploymentDeltaSnapshot.
 	Delta        deployment.DeltaDocument `json:"-"`
@@ -235,8 +238,10 @@ type Plan struct {
 
 // Catalog is the read-only registry planning matches against.
 type Catalog struct {
-	Types       map[string]resource.Type
-	Definitions []resource.Definition
+	ReleaseSelection *catalogrelease.Selection
+	ReleasePin       string
+	Types            map[string]resource.Type
+	Definitions      []resource.Definition
 	// Accounts are the scoped Driver Accounts (Connections) of the
 	// Organization by key. Planning reads only identity, kind, status and
 	// version; never configuration secrets.

@@ -1,0 +1,59 @@
+@startuml
+skinparam classAttributeIconSize 0
+hide empty members
+title ADR-031 — versioned catalog domain extension
+class CatalogSource {
+ Organization
+ ID
+ Repository / Branch / TagPattern / ManifestPath
+ Version
+ ObservedTags / LastChecked / SafeCode
+ AccountSlots
+}
+class CatalogRelease <<immutable>> {
+ Organization / SourceID / Tag
+ Commit / ObservedBranchTip
+ Manifest / ManifestSHA256
+ VerifiedComponents
+}
+class VerifiedComponent <<value>> {
+ ID / Kind / Path / SHA256
+ BundleID or DefinitionSnapshot
+ BindingSlot
+}
+class CatalogSelection <<value>> {
+ SourceID / Tag / Fingerprint
+ AccountBindingSnapshot
+}
+class EnvironmentCatalog {
+ EnvironmentIdentity
+ Revision
+ Desired / Applied
+ Status
+}
+class Environment
+class ActiveResource {
+ LogicalIdentity
+ DefinitionKey
+ CatalogSource / CatalogTag
+ LastAcknowledgedDeployment
+}
+class DeploymentPlan <<immutable>> {
+ CatalogSelection / CatalogPin
+ Matches / Terraform / Rendering
+}
+class ResourceDefinition
+CatalogSource "1" -- "0..*" CatalogRelease
+CatalogRelease "1" *-- "1..*" VerifiedComponent
+Environment "1" *-- "0..1" EnvironmentCatalog
+EnvironmentCatalog "1" *-- "1..2" CatalogSelection
+CatalogSelection --> CatalogRelease
+VerifiedComponent --> ResourceDefinition : immutable configuration copy
+ActiveResource --> CatalogRelease : optional acknowledged snapshot
+DeploymentPlan --> CatalogSelection : pinned provenance
+note bottom of ActiveResource
+ Exactly one legacy Definition FK or catalog snapshot reference.
+ Resource/state identity excludes catalog version.
+ Historical execution outcomes keep original cleanup artifacts.
+end note
+@enduml
