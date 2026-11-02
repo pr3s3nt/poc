@@ -47,7 +47,7 @@ chỉ. Cấu hình chung:
 
 | Biến | Ý nghĩa |
 |---|---|
-| `ORCH_PLATFORM_URL` | Địa chỉ gốc Console, ví dụ `http://localhost:3001` |
+| `ORCH_PLATFORM_URL` | Địa chỉ gốc Console dùng cho runner; khi kiểm tra link bàn giao, dùng URL Tailscale đã xác định theo runbook |
 | `ORCH_PLATFORM_USERNAME` | Tài khoản đăng nhập |
 | `ORCH_PLATFORM_PASSWORD_FILE` | File riêng tư (0600/0400) chỉ chứa mật khẩu |
 | `ORCH_HEADLESS=1` | Không hiện cửa sổ trình duyệt |
@@ -58,6 +58,14 @@ phiên thuộc tài khoản khác hoặc sai vai trò yêu cầu. Ví dụ tối
 [bootstrap platform](../scripts/bootstrap/README.md),
 [setup scenario](setup/README.md); triển khai ứng dụng mẫu:
 [acceptance-app](scenarios/acceptance-app/README.md).
+
+## Link để người dùng mở thử
+
+Theo [quy tắc bàn giao qua Tailscale](../orchestrator_docs/operations/tailscale-handoff.md),
+runner có thể dùng loopback cho kiểm tra nội bộ, nhưng link gửi người dùng phải
+được mở kiểm tra riêng qua địa chỉ Tailscale thực tế. Chạy runner trên localhost
+không chứng minh URL MagicDNS/IP hoạt động. Ghi URL, route, kết quả browser và
+điểm kiểm tra trong evidence; không đóng dịch vụ/forward cần cho lượt dùng thử.
 
 ## Nội dung bắt buộc cho một scenario
 

@@ -10,6 +10,27 @@ Tài liệu này không sở hữu product requirement, architecture, project st
 runbook. Dùng [documentation index](orchestrator_docs/INDEX.md) để tìm nguồn
 chuẩn tương ứng.
 
+## Link bàn giao để người dùng thử — quyết định 2026-11-02
+
+Khi bàn giao ứng dụng, Console, UI/mock hoặc preview để người dùng mở thử,
+**phải cung cấp link truy cập qua Tailscale đã kiểm tra**. Quy tắc này áp dụng
+cho final answer và mọi lời mời mở thử trong quá trình làm việc, trừ khi người
+dùng yêu cầu rõ cách truy cập khác.
+
+- Đọc [runbook bàn giao qua Tailscale](orchestrator_docs/operations/tailscale-handoff.md).
+- Xác định hostname, scheme, port và route thực tế; ưu tiên URL MagicDNS do
+  `tailscale serve status` công bố khi dùng Serve. Không đoán URL hoặc tự thay
+  hostname bằng IP: IP có thể trả 404 dù MagicDNS hoạt động.
+- Mở đúng URL sẽ gửi bằng browser và kiểm tra trang đích/API liên quan. Chỉ
+  kiểm tra localhost, health endpoint hoặc nhận HTML shell 200 chưa đủ để khẳng
+  định màn hình ứng dụng hoạt động. Không dùng mock để chứng minh khả năng truy cập.
+- Trong bàn giao, dùng link Tailscale đầy đủ tới trang cần thử và nêu rõ đó là
+  Console hay web của workload. `localhost`, `127.0.0.1`, `0.0.0.0`, ClusterIP và
+  địa chỉ nội bộ container chỉ là địa chỉ vận hành, không phải link bàn giao.
+- Giữ dịch vụ/forward cần thiết hoạt động khi mời người dùng thử; ghi cách chạy
+  lại và phạm vi dữ liệu được giữ. Nếu Tailscale chưa hoạt động, xử lý phần kết
+  nối trong scope hoặc báo rõ trở ngại; chưa được tuyên bố sẵn sàng mở thử.
+
 ## Starting a task
 
 Trước khi sửa file:
@@ -160,7 +181,8 @@ nhất quán hoặc deviation còn lại được ghi rõ, validation phù hợp
 không làm mất công việc có sẵn của người dùng.
 
 Handoff phải nêu ngắn gọn: outcome, vùng thay đổi, checks đã chạy, checks bỏ qua
-và lý do, cùng mọi user-owned change còn lại.
+và lý do, cùng mọi user-owned change còn lại. Khi có giao diện để mở thử,
+handoff phải chứa URL Tailscale đã xác minh theo quy tắc ở đầu file.
 
 ## Quy trình hiện hành — quyết định người dùng 2026-10-19
 

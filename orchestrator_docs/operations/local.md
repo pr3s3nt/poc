@@ -148,7 +148,10 @@ go run ./cmd/orchestrator \
   -run-id local-demo
 ```
 
-Mở `http://127.0.0.1:8080/ui/`. API cùng origin nằm dưới `/api/v1/`.
+Mở `http://127.0.0.1:8080/ui/` để kiểm tra nội bộ trên máy chạy dịch vụ.
+API cùng origin nằm dưới `/api/v1/`. Khi mời người dùng mở thử, cung cấp và
+kiểm tra URL Tailscale theo [runbook bàn giao](tailscale-handoff.md); URL loopback
+trong các lệnh phát triển/runner bên dưới không phải link bàn giao cho người dùng.
 
 ## Expected baseline
 

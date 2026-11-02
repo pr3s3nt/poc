@@ -22,6 +22,7 @@ README này.
 ## Start here
 
 - [AI agent workflow](AGENTS.md)
+- [Bàn giao ứng dụng để mở thử qua Tailscale](orchestrator_docs/operations/tailscale-handoff.md)
 - [Documentation index](orchestrator_docs/INDEX.md)
 - [Current project state](orchestrator_docs/CURRENT_STATE.md)
 - [Iteration index and active iteration](orchestrator_docs/iterations/README.md)

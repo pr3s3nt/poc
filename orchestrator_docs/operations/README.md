@@ -7,6 +7,10 @@ last_reviewed: 2026-10-28
 
 # Operations index
 
+Khi đưa ứng dụng/Console/UI cho người dùng thử, làm theo
+[bàn giao qua Tailscale](tailscale-handoff.md): gửi URL đã mở kiểm tra trên browser,
+giữ dịch vụ hoạt động và cung cấp đúng trang cần thử.
+
 Trước khi thêm runner E2E/setup mới, dùng [quy ước thư mục E2E](../../e2e/README.md).
 Scripts nằm dưới `e2e/`; procedure vẫn ở index này và evidence ở `verification/`.
 Các runner hiện có giữ đường dẫn cho tới migration/refactor liên quan.

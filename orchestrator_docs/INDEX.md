@@ -25,6 +25,7 @@ implementation status.
 
 | Task | Read first |
 |---|---|
+| Bàn giao ứng dụng/UI/preview để người dùng mở thử | [Tailscale handoff](operations/tailscale-handoff.md) và quy tắc trong `AGENTS.md` |
 | Bootstrap/seed cấu hình platform để sử dụng | [Bootstrap guide](../scripts/bootstrap/README.md) |
 | Thêm/sửa kịch bản hoặc setup E2E | [E2E script guide](../e2e/README.md), rồi use case và runbook liên quan |
 | Hiểu scope, mức hoàn thành hoặc limitation | [Current project state](CURRENT_STATE.md) |
