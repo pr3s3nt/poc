@@ -3512,7 +3512,7 @@
   "cd.desired": "Pending",
   "cd.unused": "No environment uses this version.",
   "cd.inspect": "Discover cluster configuration",
-  "cd.inspectFailed": "Could not read Fleet configuration. Check the account and workspace.",
+  "cd.inspectFailed": "Fleet discovery failed. Check that the cluster has a supported Fleet installation and the account can read Deployments and Fleet Clusters.",
   "cd.choose": "Choose configuration",
   "cd.status.READY": "Ready",
   "cd.status.UNVERIFIED": "Unverified",
@@ -3712,5 +3712,6 @@
   "cd.reason.CONTROLLER_UNAVAILABLE": "Fleet controller is unavailable. Check its Deployment and management account permissions.",
   "cd.reason.VERSION_UNSUPPORTED": "Fleet version is unsupported. Check the controller version.",
   "cd.reason.TARGET_MAPPING_UNSUPPORTED": "Fleet cluster does not match the workload account or is unsupported. Retry discovery and check the account.",
-  "cd.reason.PERMISSION_DENIED": "Account permissions are insufficient. Check access to the required resources."
+  "cd.reason.PERMISSION_DENIED": "Account permissions are insufficient. Check access to the required resources.",
+  "cd.inspecting": "Discovering Fleet…"
 }

@@ -19,6 +19,8 @@ export function CDProvidersPage() {
   const [bindings, setBindings] = useState<BindingSummary[]>([]);
   const [platformDefault, setDefault] = useState<PlatformDefault>({ bindingId: '', bindingVersion: 0, revision: 0 });
   const [form, setForm] = useState<Form>();
+  const [inspecting, setInspecting] = useState(false);
+  const [inspectError, setInspectError] = useState('');
   const [discovery, setDiscovery] = useState<Discovery>();
   const [details, setDetails] = useState<BindingDetails>();
   const [loading, setLoading] = useState(true);
@@ -77,15 +79,15 @@ export function CDProvidersPage() {
   }
   async function inspect(nextForm = form, nextAccount = account) {
     if (!nextForm?.account || !nextForm.provider || !nextAccount || nextAccount.key !== nextForm.account) return;
-    const current = generation.current; setBusy(true); setError('');
+    const current = generation.current; setBusy(true); setInspecting(true); setInspectError(''); setError('');
     try {
       const found = await inspectProvider(nextForm.provider, nextAccount, nextForm.config);
       if (generation.current !== current) return;
       setDiscovery(found);
       const only = found.options.targetCluster?.length === 1 ? found.options.targetCluster[0] : undefined;
       if (only) setForm(old => old ? { ...old, config: { ...old.config, ...only.values } } : old);
-    } catch (err) { if (generation.current === current) setError(describeError(err, t('cd.inspectFailed'))); }
-    finally { if (generation.current === current) setBusy(false); }
+    } catch { if (generation.current === current) setInspectError(t('cd.inspectFailed')); }
+    finally { if (generation.current === current) { setBusy(false); setInspecting(false); } }
   }
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -115,7 +117,7 @@ export function CDProvidersPage() {
     return <div key={f.key} className="editor-grid"><label htmlFor={props.id}>{t(f.labelKey)}</label>{f.choices ? <select {...props}>{f.choices.map(c => <option key={c.value} value={c.value}>{t(c.labelKey)}</option>)}</select> : discovery?.options[f.key] ? <select {...props} onChange={e => { const option = discovery.options[f.key]?.find(item => item.value === e.target.value); edit({ ...form, config: { ...form.config, ...option?.values, [f.key]: e.target.value } }); }}><option value="">{t('cd.choose')}</option>{discovery.options[f.key]?.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}</select> : f.kind === 'account' ? <select {...props}><option value="">{t('cd.chooseAccount')}</option>{eligibleAccounts.map(a => <option key={a.key} value={a.key}>{a.name}</option>)}</select> : f.kind === 'textarea' ? <textarea {...props} rows={4} /> : <input {...props} type={f.kind === 'url' ? 'url' : 'text'} autoComplete="off" />}</div>;
   }
   return <section className="page">
-    <header className="page-header"><div><p className="eyebrow">{t('cd.platform')}</p><h1>{t('cd.title')}</h1></div><Button tone="primary" disabled={locked || providers.length === 0} onClick={() => { const p = providers.length === 1 ? providers[0] : undefined; setDiscovery(undefined); setForm({ ...empty, usePlatformGit: Boolean(platformGit?.tokenConfigured), provider: p?.kind ?? '', config: defaults(p) }); setDetails(undefined); setError(''); setNotice(''); }}>{t('cd.add')}</Button></header>
+    <header className="page-header"><div><p className="eyebrow">{t('cd.platform')}</p><h1>{t('cd.title')}</h1></div><Button tone="primary" disabled={locked || providers.length === 0} onClick={() => { const p = providers.length === 1 ? providers[0] : undefined; setDiscovery(undefined); setInspectError(''); setForm({ ...empty, usePlatformGit: Boolean(platformGit?.tokenConfigured), provider: p?.kind ?? '', config: defaults(p) }); setDetails(undefined); setError(''); setNotice(''); }}>{t('cd.add')}</Button></header>
     {loading ? <p role="status">{t('cd.loading')}</p> : null}
     {error ? <div className="form-error" role="alert">{error}</div> : null}
     {notice ? <div className="form-info" role="status">{notice}</div> : null}
@@ -127,10 +129,12 @@ export function CDProvidersPage() {
     {form ? <form className="content-panel create-form secret-store-form" onSubmit={event => void save(event)}><h2>{form.previous ? t('cd.newVersion') : t('cd.add')}</h2>
       <label>{t('cd.name')}<input value={form.name} required maxLength={120} disabled={locked} onChange={e => edit({ ...form, name: e.target.value })} /></label>
       <label htmlFor="cd-provider-kind">{t('cd.provider')}</label><select id="cd-provider-kind" required value={form.provider} disabled={locked || Boolean(form.previous)} onChange={e => { const p = providers.find(item => item.kind === e.target.value); edit({ ...form, provider: e.target.value, config: defaults(p) }); }}><option value="">{t('cd.chooseProvider')}</option>{providers.map(p => <option key={p.kind} value={p.kind}>{p.kind}</option>)}</select>
-      <label htmlFor="cd-management-account">{t('cd.managementAccount')}</label><select id="cd-management-account" required value={form.account} disabled={locked} onChange={e => { setDiscovery(undefined); const next = { ...form, account: e.target.value, config: { ...form.config, targetAccountKey: e.target.value, targetClusterUID: '' } }; edit(next); void inspect(next, eligibleAccounts.find(a => a.key === e.target.value)); }}><option value="">{t('cd.chooseAccount')}</option>{eligibleAccounts.map(a => <option key={a.key} value={a.key}>{a.name}</option>)}</select>
+      <label htmlFor="cd-management-account">{t('cd.managementAccount')}</label><select id="cd-management-account" required value={form.account} disabled={locked} onChange={e => { setDiscovery(undefined); setInspectError(''); const next = { ...form, account: e.target.value, config: { ...form.config, targetAccountKey: e.target.value, targetClusterUID: '' } }; edit(next); void inspect(next, eligibleAccounts.find(a => a.key === e.target.value)); }}><option value="">{t('cd.chooseAccount')}</option>{eligibleAccounts.map(a => <option key={a.key} value={a.key}>{a.name}</option>)}</select>
       {form.config.targetClusterUID ? <p className="form-info" role="status">{t('cd.discovered')} {form.config.workspace} / {form.config.targetCluster} · {form.config.controllerNamespace}/{form.config.controllerName}</p> : null}
       {eligibleAccounts.length === 0 ? <p className="form-info">{t('cd.noAccount')}</p> : null}
-      <Button type="button" disabled={locked || !account} onClick={() => void inspect()}>{t('cd.inspect')}</Button>
+      <Button type="button" disabled={locked || !account} onClick={() => void inspect()}>{t(inspecting ? 'cd.inspecting' : 'cd.inspect')}</Button>
+      {inspecting ? <p role="status">{t('cd.inspecting')}</p> : null}
+      {inspectError ? <p className="form-error" role="alert">{inspectError}</p> : null}
       {(provider?.fields ?? []).filter(f => !f.advanced).map(field)}
       <details><summary>{t('cd.connectionDetails')}</summary><div className="editor-grid">{(provider?.fields ?? []).filter(f => f.advanced).map(field)}</div></details>
       {!form.usePlatformGit && !form.previous?.usePlatformGit && form.previous?.credentialConfigured ? <label className="checkbox"><input type="checkbox" checked={form.retainCredential} disabled={locked} onChange={e => edit({ ...form, retainCredential: e.target.checked, username: '', password: '' })} />{t('cd.retainCredential')}</label> : null}

@@ -3512,7 +3512,7 @@
   "cd.desired": "Chờ áp dụng",
   "cd.unused": "Chưa có môi trường sử dụng phiên bản này.",
   "cd.inspect": "Tìm cấu hình trên cluster",
-  "cd.inspectFailed": "Không đọc được cấu hình Fleet. Kiểm tra tài khoản và workspace.",
+  "cd.inspectFailed": "Không khám phá được Fleet. Kiểm tra cluster đã cài Fleet đúng phiên bản hỗ trợ và tài khoản có quyền đọc Deployment, Cluster của Fleet.",
   "cd.choose": "Chọn cấu hình",
   "cd.status.READY": "Sẵn sàng",
   "cd.status.UNVERIFIED": "Chưa xác minh",
@@ -3712,5 +3712,6 @@
   "cd.reason.CONTROLLER_UNAVAILABLE": "Fleet controller chưa sẵn sàng hoặc không truy cập được. Kiểm tra Deployment và quyền management account.",
   "cd.reason.VERSION_UNSUPPORTED": "Phiên bản Fleet chưa được hỗ trợ. Kiểm tra phiên bản controller.",
   "cd.reason.TARGET_MAPPING_UNSUPPORTED": "Cluster Fleet chưa khớp workload account hoặc chưa được hỗ trợ. Chạy khám phá lại và kiểm tra account.",
-  "cd.reason.PERMISSION_DENIED": "Account chưa đủ quyền. Kiểm tra quyền truy cập tài nguyên cần thiết."
+  "cd.reason.PERMISSION_DENIED": "Account chưa đủ quyền. Kiểm tra quyền truy cập tài nguyên cần thiết.",
+  "cd.inspecting": "Đang tìm cấu hình Fleet…"
 }

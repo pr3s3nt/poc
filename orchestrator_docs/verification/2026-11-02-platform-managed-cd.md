@@ -128,3 +128,14 @@ no browser runtime errors occurred. Visually compared with existing CD form:
 AppShell, layout and collapsed Advanced styling preserved. Current platform Git
 has no configured token, and there are zero READY CD bindings; live reuse and
 Fleet deployment require operator-provided credentials/prerequisites.
+
+### Discovery feedback follow-up
+
+Reproduced discovery on the real Console for `k8s-4f`: inspect returns 503.
+Read-only Kubernetes inspection of `kind-k8s-4f` found no Fleet Deployments and
+no `clusters.fleet.cattle.io` resource type. The existing generic error was above
+the form and easy to miss. Discovery now displays progress and actionable failure
+beside the retry button. No Fleet installation or cluster mutation was performed.
+Focused frontend/catalog tests passed (12 tests), with lint/typecheck/build and
+documentation/whitespace checks passing; only the known warnings remain.
+Updated frontend only using the retained runtime's `start-frontend.sh`.

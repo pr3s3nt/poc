@@ -130,3 +130,23 @@ it('reuses platform Git without exposing token fields and discovers Fleet on acc
   await user.click(screen.getByRole('button', { name: 'Lưu cấu hình' }));
   await waitFor(() => expect(requests.find(r => r.path.endsWith('/delivery-bindings'))?.body).toMatchObject({ usePlatformGit: true, writerUsername: '', writerPassword: '', config: { targetClusterUID: 'discovered-uid' } }));
 });
+
+it('shows discovery failure inside the form and permits retry', async () => {
+  let inspections = 0;
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const path = String(input);
+    if (path.endsWith('/inspect')) { inspections++; return Response.json({ code: 'SERVICE_UNAVAILABLE' }, { status: 503 }); }
+    if (path.endsWith('/delivery-default')) return Response.json({ bindingId: '', bindingVersion: 0, revision: 0 });
+    if (path.endsWith('/delivery-providers')) return Response.json({ providers: [{ kind: 'fleet', fields }] });
+    if (path.endsWith('/driver-accounts')) return Response.json({ accounts: [account] });
+    return Response.json({ bindings: [] });
+  }));
+  const user = userEvent.setup(); render(<CDProvidersPage />);
+  await user.click(await screen.findByRole('button', { name: 'Thêm cấu hình CD' }));
+  await user.selectOptions(screen.getByLabelText('Tài khoản quản lý CD'), account.key);
+  const alert = await screen.findByRole('alert');
+  expect(alert.closest('form')).not.toBeNull();
+  expect(alert).toHaveTextContent('Kiểm tra cluster đã cài Fleet');
+  await user.click(screen.getByRole('button', { name: 'Tìm cấu hình trên cluster' }));
+  await waitFor(() => expect(inspections).toBe(2));
+});
