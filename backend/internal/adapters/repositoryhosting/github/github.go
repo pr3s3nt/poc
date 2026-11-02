@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"orchestrator/internal/application/gitaccess"
 	domain "orchestrator/internal/domain/delivery"
 	"orchestrator/internal/ports/credentials"
 	"orchestrator/internal/ports/persistence"
@@ -35,7 +36,14 @@ func (f *Factory) Open(ctx context.Context, b domain.BindingVersion, p domain.Re
 	if err != nil {
 		return nil, ErrUnavailable
 	}
-	raw, err := f.Credentials.Get(ctx, org.Key, b.ID, b.WriterCredentialRef)
+	var raw []byte
+	if b.WriterCredentialRef == gitaccess.PlatformWriterReference {
+		settings, _ := f.Organizations.(persistence.GitSettingsRepository)
+		destination := strings.TrimRight(b.Config["repositoryHost"], "/") + "/" + b.Config["repositoryOwner"]
+		raw, _, err = gitaccess.Writer(ctx, settings, f.Credentials, org.Key, destination)
+	} else {
+		raw, err = f.Credentials.Get(ctx, org.Key, b.ID, b.WriterCredentialRef)
+	}
 	if err != nil {
 		return nil, ErrUnavailable
 	}

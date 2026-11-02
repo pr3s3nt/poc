@@ -456,3 +456,22 @@ Driver Account `k8s-4f` bằng kubeconfig thật; startup không tạo account R
   Preview/Deploy/update/manager transfer/removal. No pasted JSON, Score/YAML or
   mutation API shortcuts substitute for UI actions. Technical read-only assertions
   may verify real Git revisions, resource ownership, data, readiness and cleanup.
+
+## Platform CD setup — shared Git connection
+
+Platform Engineers/Admins may select `usePlatformGit` when registering a CD
+binding. It is mutually exclusive with submitted writer credentials or credential
+retention. The backend validates authenticated Organization-scoped Platform Git
+settings whose URL scope covers the configured repository owner, and resolves the
+current credential server-side for subsequent repository and publication
+operations. Rotation is effective for subsequent operations; re-verification is
+recommended. No token is returned to the Console or copied into binding config.
+Explicit separate writer credentials remain supported.
+
+Selecting a management account triggers read-only Fleet discovery. Show the
+resolved workspace, cluster and controller beside the account, with manual retry.
+Technical defaults remain under Advanced. Missing or inaccessible reader Secret,
+release namespace and deployment ServiceAccount produce bounded actionable
+verification reasons. Setup does not create these resources. READY enables the
+explicit platform default action; it does not prove a live deployment or repository
+creation permission beyond the adapter's read-only checks.

@@ -71,3 +71,7 @@ connection details remain platform-only. Set-default is explicit after READY.
 Application Settings removes delivery authoring. Errors refer users to platform
 setup rather than asking for a repository URL. Fixture UI or simulated Git HTTP
 does not prove live GitHub/Fleet deployment.
+
+## Shared platform Git connection
+
+CD setup reuses Organization-scoped Platform Settings Git access by default. Backend resolves the current credential on each new host/publisher operation without exposing or copying tokens into browser forms. Scope must cover the configured repository owner. Credential rotation applies to subsequent operations; operators re-verify CD after rotation. Separate credentials remain an explicit override. Account selection automatically performs read-only Fleet discovery with a retry action and visible cluster summary. Verification reports bounded actionable reasons for missing reader Secret, namespace or ServiceAccount; setup does not create cluster resources. READY bindings retain the explicit Use by default action.

@@ -91,3 +91,40 @@ test Applications remain available for inspection and are not automatically move
 Create new Applications after setting the default.
 Live GitHub repository creation/Fleet deploy/self-heal/cleanup is outside this
 run's verification; the new allocation path still requires that live acceptance.
+
+## Shared Git and Fleet setup refinement — 2026-11-02
+
+CD registration supports `usePlatformGit`, mutually exclusive with submitted or
+retained separate credentials. It resolves current Organization Git settings on
+subsequent host/publication opens, validates destination scope and durable
+credential storage, and changes publisher cache identity on token rotation.
+Tokens never return to the form. Existing explicit credentials remain supported.
+Account selection automatically discovers Fleet and shows workspace/cluster and
+controller; Advanced defaults and explicit READY/default selection remain.
+Verification gives bounded remediation text for inaccessible reader Secret,
+release namespace, ServiceAccount, controller/version, target mapping and Git.
+
+Validation: backend full `go test ./...` / `go build ./...` passed, followed by
+focused checks after final edits. The new Git writer test covers rotation,
+tenant isolation and destination scope. Frontend full suite passed (81 files,
+773 tests before adding the new form test); final focused form/catalog checks
+passed (11 tests), with typecheck, lint and production build passing. Existing
+hook and chunk-size warnings remain. Docs checker and `git diff --check` passed.
+No schema changes or live GitHub creation/Fleet deployment were exercised.
+
+Updated retained `thieu-staging` backend/frontend only, using images
+`orchestrator-backend:shared-git-cd-20261102` and
+`orchestrator-frontend:shared-git-cd-20261102`. Initial host-linked backend binary
+failed to start in the container; rebuilt with `CGO_ENABLED=0`, restarted and
+confirmed healthy. Private restart/evidence directory:
+`/home/thanhnt1/.local/state/orch-acceptance/shared-git-cd-20261102` (`start.sh`).
+No dependencies, volumes, schema or workloads were recreated.
+
+Real authenticated browser verification passed through
+<http://desktop-bdjp2rq-1.tail342836.ts.net:3001/ui/platform/cd-providers>, including
+Git metadata/API reads, source-selection form and Application Settings. Compared
+before/after identities for all 15 Applications and retained deployment state;
+no browser runtime errors occurred. Visually compared with existing CD form:
+AppShell, layout and collapsed Advanced styling preserved. Current platform Git
+has no configured token, and there are zero READY CD bindings; live reuse and
+Fleet deployment require operator-provided credentials/prerequisites.

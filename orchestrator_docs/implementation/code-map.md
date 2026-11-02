@@ -1023,3 +1023,16 @@ See [implementation and checks](delivery-reconciliation.md).
 - HTTP: platform-only GET/PUT `/delivery-default`; retired per-Environment PUT `/delivery`.
   Console platform form authors owner/credentials; Application Settings authors neither.
 - Verification: [results and limits](../verification/2026-11-02-platform-managed-cd.md).
+
+## Shared Git for platform CD setup
+
+- `application/gitaccess/writer.go`: resolves current Organization-scoped Git
+  settings into private writer credentials; validates scope and durable storage.
+- `application/delivery/bindings.go`, `delivery/http/delivery.go`: author and
+  expose the credential-source choice without returning credential references.
+- `adapters/repositoryhosting/github/github.go`,
+  `adapters/gitpublication/factory.go`: resolve live platform credentials;
+  publication cache identity changes on credential rotation.
+- `features/delivery/CDProvidersPage.tsx`: default shared Git when configured,
+  automatic Fleet discovery on account selection, connection summary, actionable
+  bounded verification reasons and existing explicit platform default action.

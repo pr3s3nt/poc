@@ -48,3 +48,7 @@ Technical Fleet namespaces, reader Secret, TLS and host URLs live in Advanced.
 After Verify reaches READY, the PE/Admin explicitly chooses Use by default.
 Display the default badge and preserve CAS/reload/unknown-outcome handling.
 Default changes apply to new Applications only. GitHub is the first host adapter.
+
+## Shared platform Git connection
+
+CD setup reuses Organization-scoped Platform Settings Git access by default. Backend resolves the current credential on each new host/publisher operation without exposing or copying tokens into browser forms. Scope must cover the configured repository owner. Credential rotation applies to subsequent operations; operators re-verify CD after rotation. Separate credentials remain an explicit override. Account selection automatically performs read-only Fleet discovery with a retry action and visible cluster summary. Verification reports bounded actionable reasons for missing reader Secret, namespace or ServiceAccount; setup does not create cluster resources. READY bindings retain the explicit Use by default action.

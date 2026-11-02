@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"orchestrator/internal/application/gitaccess"
 	"orchestrator/internal/domain/application"
 	domain "orchestrator/internal/domain/delivery"
 	"orchestrator/internal/domain/environment"
@@ -54,6 +55,7 @@ type RegisterBinding struct {
 	BindingID                string
 	PreviousVersion          int64
 	ExpectedRevision         int64
+	UsePlatformGit           bool
 	RetainWriterCredential   bool
 	WriterUsername           string
 	WriterPassword           string
@@ -131,6 +133,17 @@ func (s *Bindings) Register(ctx context.Context, orgKey string, cmd RegisterBind
 	if err := validator.ValidateConfiguration(b); err != nil {
 		return domain.BindingVersion{}, domain.ErrInvalid
 	}
+	if cmd.UsePlatformGit {
+		if cmd.WriterUsername != "" || cmd.WriterPassword != "" || cmd.RetainWriterCredential {
+			return domain.BindingVersion{}, domain.ErrInvalid
+		}
+		repo, _ := s.store.(persistence.GitSettingsRepository)
+		destination := strings.TrimRight(b.Config["repositoryHost"], "/") + "/" + b.Config["repositoryOwner"]
+		if _, _, err := gitaccess.Writer(ctx, repo, s.credentials, orgKey, destination); err != nil {
+			return domain.BindingVersion{}, domain.ErrInvalid
+		}
+		b.WriterCredentialRef = gitaccess.PlatformWriterReference
+	}
 	createdCredential := false
 	if cmd.WriterUsername != "" || cmd.WriterPassword != "" {
 		if s.credentials == nil || !s.credentials.Durable() || cmd.WriterUsername == "" || cmd.WriterPassword == "" || strings.ContainsAny(cmd.WriterUsername+cmd.WriterPassword, "\x00\r\n") {
@@ -197,7 +210,7 @@ func (s *Bindings) Verify(ctx context.Context, orgKey, id string, version, expec
 }
 func safeCode(code string) bool {
 	switch code {
-	case "CONTROLLER_UNAVAILABLE", "VERSION_UNSUPPORTED", "TARGET_MAPPING_UNSUPPORTED", "VERIFICATION_FAILED", "PERMISSION_DENIED":
+	case "READER_SECRET_MISSING", "RELEASE_NAMESPACE_MISSING", "SERVICE_ACCOUNT_MISSING", "GIT_ACCESS_FAILED", "CONTROLLER_UNAVAILABLE", "VERSION_UNSUPPORTED", "TARGET_MAPPING_UNSUPPORTED", "VERIFICATION_FAILED", "PERMISSION_DENIED":
 		return true
 	}
 	return false

@@ -52,14 +52,14 @@ func (p *Provider) Verify(ctx context.Context, b port.BindingVersion) (port.Veri
 	}
 	if policy.Enabled {
 		if p.RepositoryHosts == nil {
-			return port.Verification{ReasonCode: "VERIFICATION_FAILED"}, ErrVerification
+			return port.Verification{ReasonCode: "GIT_ACCESS_FAILED"}, ErrVerification
 		}
 		host, err := p.RepositoryHosts.Open(ctx, b, policy)
 		if err != nil {
-			return port.Verification{ReasonCode: "VERIFICATION_FAILED"}, err
+			return port.Verification{ReasonCode: "GIT_ACCESS_FAILED"}, err
 		}
 		if err := host.Verify(ctx); err != nil {
-			return port.Verification{ReasonCode: "VERIFICATION_FAILED"}, err
+			return port.Verification{ReasonCode: "GIT_ACCESS_FAILED"}, err
 		}
 		result.Capabilities = Capabilities()
 		return result, nil

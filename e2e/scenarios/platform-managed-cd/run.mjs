@@ -15,7 +15,10 @@ try {
  assert(Number.isInteger(current.revision));
  await page.getByRole('button', { name: 'Thêm cấu hình CD', exact: true }).click();
  await page.getByLabel('Tài khoản hoặc tổ chức GitHub', { exact: true }).waitFor();
- await page.getByLabel('Token hoặc mật khẩu Git', { exact: true }).waitFor();
+ await page.getByRole('checkbox', { name: 'Dùng kết nối Git của platform', exact: true }).waitFor();
+ const shared = await page.getByRole('checkbox', { name: 'Dùng kết nối Git của platform', exact: true }).isChecked();
+ if (shared) assert.equal(await page.getByLabel('Token hoặc mật khẩu Git', { exact: true }).count(), 0);
+ else await page.getByLabel('Token hoặc mật khẩu Git', { exact: true }).waitFor();
  assert.equal(await page.getByLabel('Git repository HTTPS', { exact: true }).count(), 0);
  await page.getByRole('button', { name: 'Hủy', exact: true }).click();
  const apps = await page.request.get(`${config.baseURL}/api/v1/applications`);

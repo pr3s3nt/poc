@@ -110,3 +110,46 @@ func TestDraftDoesNotSaveAndRejectsInvalidCA(t *testing.T) {
 		t.Fatal("invalid CA accepted")
 	}
 }
+
+// Writer access follows rotation while preserving tenant and destination scope.
+func TestPlatformWriterRotationAndScope(t *testing.T) {
+	ctx := context.Background()
+	st := store.New()
+	creds := durableWriterTestStore{credentialmemory.New()}
+	for _, org := range []string{"one", "two"} {
+		if err := st.SaveOrganization(ctx, application.Organization{Key: org, Name: org}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	svc := New(st, creds)
+	d := Draft{URL: "https://github.com/team", Authenticated: true, Username: "writer", Token: "first"}
+	v, err := svc.Save(ctx, "one", "actor", d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, token := range []string{"first", "rotated"} {
+		if token == "rotated" {
+			d.ExpectedVersion, d.Token = v.Version, token
+			if _, err := svc.Save(ctx, "one", "actor", d); err != nil {
+				t.Fatal(err)
+			}
+		}
+		raw, _, err := Writer(ctx, st, creds, "one", "https://github.com/team/app")
+		var secret struct{ Username, Password string }
+		if err != nil || json.Unmarshal(raw, &secret) != nil || secret.Password != token {
+			t.Fatal("writer did not resolve current credential")
+		}
+	}
+	for _, destination := range []string{"https://github.com/other/app", "https://github.com/team-other/app", "https://example.com/team/app"} {
+		if _, _, err := Writer(ctx, st, creds, "one", destination); err == nil {
+			t.Fatal("writer crossed destination scope")
+		}
+	}
+	if _, _, err := Writer(ctx, st, creds, "two", "https://github.com/team/app"); err == nil {
+		t.Fatal("writer crossed tenant scope")
+	}
+}
+
+type durableWriterTestStore struct{ *credentialmemory.Store }
+
+func (durableWriterTestStore) Durable() bool { return true }

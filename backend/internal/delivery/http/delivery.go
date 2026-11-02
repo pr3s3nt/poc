@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	appdelivery "orchestrator/internal/application/delivery"
+	"orchestrator/internal/application/gitaccess"
 	domain "orchestrator/internal/domain/delivery"
 )
 
@@ -65,11 +66,12 @@ type bindingChoice struct {
 	Provider     string               `json:"provider"`
 	Status       domain.BindingStatus `json:"status"`
 	Revision     int64                `json:"revision"`
+	ReasonCode   string               `json:"reasonCode,omitempty"`
 	Capabilities domain.Capabilities  `json:"capabilities"`
 }
 
 func choice(b domain.BindingVersion) bindingChoice {
-	return bindingChoice{ID: b.ID, Version: b.Version, Name: b.Name, Provider: b.ProviderKind, Status: b.Status, Revision: b.Revision, Capabilities: b.Capabilities}
+	return bindingChoice{ID: b.ID, Version: b.Version, Name: b.Name, Provider: b.ProviderKind, Status: b.Status, Revision: b.Revision, ReasonCode: b.ReasonCode, Capabilities: b.Capabilities}
 }
 func (s *Server) handleDeliveryProviders(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.sessionIdentity(r); !ok {
@@ -121,6 +123,7 @@ func (s *Server) handleCreateDeliveryBinding(w http.ResponseWriter, r *http.Requ
 		PreviousVersion        int64 `json:"previousVersion"`
 		ExpectedRevision       int64 `json:"expectedRevision"`
 		RetainWriterCredential bool  `json:"retainWriterCredential"`
+		UsePlatformGit         bool  `json:"usePlatformGit"`
 
 		Name                     string            `json:"name"`
 		Provider                 string            `json:"provider"`
@@ -146,7 +149,7 @@ func (s *Server) handleCreateDeliveryBinding(w http.ResponseWriter, r *http.Requ
 		writeCode(w, codeInvalidRequest, "")
 		return
 	}
-	b, err := s.delivery.Register(r.Context(), org, appdelivery.RegisterBinding{BindingID: bindingID, PreviousVersion: req.PreviousVersion, ExpectedRevision: req.ExpectedRevision, RetainWriterCredential: req.RetainWriterCredential, Name: req.Name, ProviderKind: req.Provider, ManagementAccountKey: req.ManagementAccountKey, ManagementAccountVersion: req.ManagementAccountVersion, Config: req.Config, WriterUsername: req.WriterUsername, WriterPassword: req.WriterPassword})
+	b, err := s.delivery.Register(r.Context(), org, appdelivery.RegisterBinding{UsePlatformGit: req.UsePlatformGit, BindingID: bindingID, PreviousVersion: req.PreviousVersion, ExpectedRevision: req.ExpectedRevision, RetainWriterCredential: req.RetainWriterCredential, Name: req.Name, ProviderKind: req.Provider, ManagementAccountKey: req.ManagementAccountKey, ManagementAccountVersion: req.ManagementAccountVersion, Config: req.Config, WriterUsername: req.WriterUsername, WriterPassword: req.WriterPassword})
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalid) || errors.Is(err, domain.ErrUnsupported) {
 			writeCode(w, codeInvalidRequest, "")
@@ -177,7 +180,7 @@ func (s *Server) handleDeliveryBindingDetails(w http.ResponseWriter, r *http.Req
 		s.writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"binding": choice(details.Binding), "config": details.Binding.Config, "managementAccountKey": details.ManagementAccountKey, "managementAccountVersion": details.Binding.ManagementAccountVersion, "credentialConfigured": details.CredentialConfigured, "usage": details.Usage, "verifiedAt": details.Binding.VerifiedAt, "reasonCode": details.Binding.ReasonCode})
+	writeJSON(w, http.StatusOK, map[string]any{"binding": choice(details.Binding), "config": details.Binding.Config, "managementAccountKey": details.ManagementAccountKey, "managementAccountVersion": details.Binding.ManagementAccountVersion, "credentialConfigured": details.CredentialConfigured, "usePlatformGit": details.Binding.WriterCredentialRef == gitaccess.PlatformWriterReference, "usage": details.Usage, "verifiedAt": details.Binding.VerifiedAt, "reasonCode": details.Binding.ReasonCode})
 }
 func (s *Server) handleVerifyDeliveryBinding(w http.ResponseWriter, r *http.Request) {
 	org, ok := s.platformActor(w, r)

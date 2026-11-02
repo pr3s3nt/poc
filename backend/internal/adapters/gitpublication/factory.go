@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"orchestrator/internal/application/gitaccess"
 	"orchestrator/internal/ports/credentials"
 	port "orchestrator/internal/ports/delivery"
 	gitport "orchestrator/internal/ports/gitpublication"
@@ -64,13 +65,29 @@ func (f *Factory) ResolvePublisher(ctx context.Context, b port.BindingVersion) (
 	if err != nil {
 		return nil, ErrInvalid
 	}
+	var platformRaw []byte
+	if b.WriterCredentialRef == gitaccess.PlatformWriterReference {
+		settings, ok := f.Organizations.(persistence.GitSettingsRepository)
+		if !ok {
+			return nil, ErrInvalid
+		}
+		raw, ca, err := gitaccess.Writer(ctx, settings, f.Credentials, org.Key, repo)
+		if err != nil {
+			return nil, ErrPublication
+		}
+		platformRaw = raw
+		digest := sha256.Sum256(raw)
+		b = b.Clone()
+		b.Config["caBundle"] = ca
+		b.Config["platformCredentialIdentity"] = hex.EncodeToString(digest[:])
+	}
 	destination := sha256.Sum256([]byte(repo + "\x00" + branch))
 	key := hex.EncodeToString(destination[:])
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	// Cache is scoped to binding version too: different credentials do not share
 	// a process-local checkout even when their remote publication lease is common.
-	identityBytes, err := json.Marshal([]any{b.OrganizationID, b.ID, b.Version, strings.TrimSpace(repo), branch, b.WriterCredentialRef, b.Config["caBundle"]})
+	identityBytes, err := json.Marshal([]any{b.OrganizationID, b.ID, b.Version, strings.TrimSpace(repo), branch, b.WriterCredentialRef, b.Config["caBundle"], b.Config["platformCredentialIdentity"]})
 	if err != nil {
 		return nil, ErrInvalid
 	}
@@ -99,7 +116,13 @@ func (f *Factory) ResolvePublisher(ctx context.Context, b port.BindingVersion) (
 		if f.Credentials == nil || !f.Credentials.Durable() {
 			return nil, ErrInvalid
 		}
-		raw, err := f.Credentials.Get(ctx, org.Key, b.ID, b.WriterCredentialRef)
+		var raw []byte
+		var err error
+		if b.WriterCredentialRef == gitaccess.PlatformWriterReference {
+			raw = platformRaw
+		} else {
+			raw, err = f.Credentials.Get(ctx, org.Key, b.ID, b.WriterCredentialRef)
+		}
 		if err != nil {
 			return nil, ErrPublication
 		}

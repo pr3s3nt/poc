@@ -3700,5 +3700,17 @@
   "cd.discovered": "Đã tìm thấy Fleet trên cluster.",
   "cd.platformRequired": "Platform chưa có CD mặc định sẵn sàng. Nhờ quản trị viên thiết lập Cấu hình CD.",
   "cd.repositoryUnavailable": "Chưa chuẩn bị được kho triển khai của ứng dụng. Nhờ quản trị viên kiểm tra kết nối Git của platform.",
-  "cd.repositoryIdentity": "Danh tính kho triển khai đã thay đổi. Nhờ quản trị viên kiểm tra trước khi thử lại."
+  "cd.repositoryIdentity": "Danh tính kho triển khai đã thay đổi. Nhờ quản trị viên kiểm tra trước khi thử lại.",
+  "cd.usePlatformGit": "Dùng kết nối Git của platform",
+  "cd.platformGitMissing": "Cần cấu hình kết nối Git có quyền tạo và ghi repository.",
+  "cd.platformGitSettings": "Cài đặt Git",
+  "cd.reason.READER_SECRET_MISSING": "Không truy cập được reader Secret trong workspace Fleet. Kiểm tra Secret và quyền đọc của management account.",
+  "cd.reason.RELEASE_NAMESPACE_MISSING": "Không truy cập được release namespace. Kiểm tra namespace và quyền của workload account.",
+  "cd.reason.SERVICE_ACCOUNT_MISSING": "Không truy cập được ServiceAccount triển khai trong agent namespace. Kiểm tra tài nguyên và quyền truy cập.",
+  "cd.reason.GIT_ACCESS_FAILED": "Không xác minh được Git. Kiểm tra phạm vi kết nối, owner và quyền của token trong Cài đặt Git.",
+  "cd.reason.VERIFICATION_FAILED": "Không xác minh được kết nối. Kiểm tra account, Fleet controller và cluster đã chọn.",
+  "cd.reason.CONTROLLER_UNAVAILABLE": "Fleet controller chưa sẵn sàng hoặc không truy cập được. Kiểm tra Deployment và quyền management account.",
+  "cd.reason.VERSION_UNSUPPORTED": "Phiên bản Fleet chưa được hỗ trợ. Kiểm tra phiên bản controller.",
+  "cd.reason.TARGET_MAPPING_UNSUPPORTED": "Cluster Fleet chưa khớp workload account hoặc chưa được hỗ trợ. Chạy khám phá lại và kiểm tra account.",
+  "cd.reason.PERMISSION_DENIED": "Account chưa đủ quyền. Kiểm tra quyền truy cập tài nguyên cần thiết."
 }

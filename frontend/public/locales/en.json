@@ -3700,5 +3700,17 @@
   "cd.discovered": "Fleet discovered on the cluster.",
   "cd.platformRequired": "The platform has no ready default CD. Ask an administrator to configure CD.",
   "cd.repositoryUnavailable": "The application deployment repository could not be prepared. Ask an administrator to check platform Git access.",
-  "cd.repositoryIdentity": "The deployment repository identity changed. Ask an administrator to inspect it before retrying."
+  "cd.repositoryIdentity": "The deployment repository identity changed. Ask an administrator to inspect it before retrying.",
+  "cd.usePlatformGit": "Use platform Git connection",
+  "cd.platformGitMissing": "Configure Git access with repository creation and write permissions.",
+  "cd.platformGitSettings": "Git settings",
+  "cd.reason.READER_SECRET_MISSING": "Cannot access the reader Secret in the Fleet workspace. Check the Secret and management account permissions.",
+  "cd.reason.RELEASE_NAMESPACE_MISSING": "Cannot access the release namespace. Check the namespace and workload account permissions.",
+  "cd.reason.SERVICE_ACCOUNT_MISSING": "Cannot access the deployment ServiceAccount in the agent namespace. Check the resource and account permissions.",
+  "cd.reason.GIT_ACCESS_FAILED": "Git verification failed. Check connection scope, owner and token permissions in Git settings.",
+  "cd.reason.VERIFICATION_FAILED": "Verification failed. Check the account, Fleet controller and selected cluster.",
+  "cd.reason.CONTROLLER_UNAVAILABLE": "Fleet controller is unavailable. Check its Deployment and management account permissions.",
+  "cd.reason.VERSION_UNSUPPORTED": "Fleet version is unsupported. Check the controller version.",
+  "cd.reason.TARGET_MAPPING_UNSUPPORTED": "Fleet cluster does not match the workload account or is unsupported. Retry discovery and check the account.",
+  "cd.reason.PERMISSION_DENIED": "Account permissions are insufficient. Check access to the required resources."
 }

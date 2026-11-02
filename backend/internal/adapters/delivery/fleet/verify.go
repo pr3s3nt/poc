@@ -48,7 +48,7 @@ func (v *Verifier) Verify(ctx context.Context, b port.BindingVersion) (port.Veri
 	defer close()
 	deployment, exists, err := cli.Get(ctx, cfg.ControllerNamespace, "deployment", cfg.ControllerName)
 	if err != nil || !exists {
-		return fail, ErrVerification
+		return port.Verification{ReasonCode: "CONTROLLER_UNAVAILABLE"}, ErrVerification
 	}
 	spec, _ := deployment["spec"].(map[string]any)
 	template, _ := spec["template"].(map[string]any)
@@ -63,12 +63,12 @@ func (v *Verifier) Verify(ctx context.Context, b port.BindingVersion) (port.Veri
 		}
 	}
 	if !pinned {
-		return fail, ErrVerification
+		return port.Verification{ReasonCode: "VERSION_UNSUPPORTED"}, ErrVerification
 	}
 	status, _ := deployment["status"].(map[string]any)
 	ready, _ := status["availableReplicas"].(float64)
 	if ready < 1 {
-		return fail, ErrVerification
+		return port.Verification{ReasonCode: "CONTROLLER_UNAVAILABLE"}, ErrVerification
 	}
 	cluster, exists, err := cli.Get(ctx, cfg.Workspace, "clusters.fleet.cattle.io", cfg.TargetCluster)
 	if err != nil || !exists {
@@ -112,14 +112,14 @@ func (v *Verifier) Verify(ctx context.Context, b port.BindingVersion) (port.Veri
 	if cfg.ReadSecret != "" {
 		uid, err := cli.Run(ctx, nil, "get", "secret", cfg.ReadSecret, "-n", cfg.Workspace, "-o", "jsonpath={.metadata.uid}")
 		if err != nil || len(uid) == 0 {
-			return fail, ErrVerification
+			return port.Verification{ReasonCode: "READER_SECRET_MISSING"}, ErrVerification
 		}
 	}
 	if _, found, err := workloadCLI.Get(ctx, "", "namespace", cfg.ReleaseNamespace); err != nil || !found {
-		return fail, ErrVerification
+		return port.Verification{ReasonCode: "RELEASE_NAMESPACE_MISSING"}, ErrVerification
 	}
 	if _, found, err := workloadCLI.Get(ctx, cfg.AgentNamespace, "serviceaccount", cfg.ServiceAccount); err != nil || !found {
-		return fail, ErrVerification
+		return port.Verification{ReasonCode: "SERVICE_ACCOUNT_MISSING"}, ErrVerification
 	}
 	if cfg.GitRepoMode == "EXISTING" {
 		if _, err := checkExisting(ctx, cli, cfg); err != nil {
