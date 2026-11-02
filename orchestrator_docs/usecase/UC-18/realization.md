@@ -8,6 +8,13 @@ related: [UC-18-SPEC, ADR-025]
 
 # UC-18 realization — Xóa Application
 
+Current delivery flow: [ADR-033](../../architecture/decisions/ADR-033-platform-managed-delivery.md)
+supersedes per-Application destination authoring and old-app transfer below.
+Platform default → Application pins binding → Preview without Git writes → first
+owned Deploy allocates repo → per-Environment CD publication. See the shared
+[sequence](../../architecture/components/platform-managed-delivery-sequence.puml).
+
+
 Diagrams: [sequence](sequence.puml), [VOPC](vopc.puml).
 
 ## Participants

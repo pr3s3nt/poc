@@ -244,7 +244,12 @@ func (s *Store) fencedSaveEnvironment(ctx context.Context, v environment.Environ
 	if v.Version == 0 {
 		v.Version = 1
 	}
-	tag, err := s.q(ctx).Exec(ctx, `INSERT INTO environments(id,application_id,environment_key,name,environment_type,namespace_identity,current_deployment_set_id,version,draft_version,public_routes_pending) SELECT $1::uuid,a.id,$3,$4,$5,$6,NULLIF($7,'')::uuid,$8,$9,$10 FROM applications a WHERE a.application_key=$2 ON CONFLICT(application_id,environment_key) DO UPDATE SET name=EXCLUDED.name,environment_type=EXCLUDED.environment_type,namespace_identity=EXCLUDED.namespace_identity,current_deployment_set_id=EXCLUDED.current_deployment_set_id,version=EXCLUDED.version,draft_version=EXCLUDED.draft_version,public_routes_pending=EXCLUDED.public_routes_pending WHERE environments.active_operation_id IS NULL OR environments.active_operation_id=NULLIF($11,'')::uuid`, v.ID, v.ApplicationKey, v.Key, v.Name, v.Type, v.NamespaceIdentity, v.CurrentDeploymentSetID, v.Version, v.DraftVersion, v.PublicRoutesPending, persistence.OperationFrom(ctx))
+	if v.DesiredDelivery.Validate() != nil || v.AppliedDelivery.Validate() != nil {
+		return delivery.ErrInvalid
+	}
+	desired, _ := json.Marshal(v.DesiredDelivery.Effective())
+	applied, _ := json.Marshal(v.AppliedDelivery.Effective())
+	tag, err := s.q(ctx).Exec(ctx, `INSERT INTO environments(id,application_id,environment_key,name,environment_type,namespace_identity,current_deployment_set_id,version,draft_version,public_routes_pending,desired_delivery,applied_delivery) SELECT $1::uuid,a.id,$3,$4,$5,$6,NULLIF($7,'')::uuid,$8,$9,$10,$12,$13 FROM applications a WHERE a.application_key=$2 ON CONFLICT(application_id,environment_key) DO UPDATE SET name=EXCLUDED.name,environment_type=EXCLUDED.environment_type,namespace_identity=EXCLUDED.namespace_identity,current_deployment_set_id=EXCLUDED.current_deployment_set_id,version=EXCLUDED.version,draft_version=EXCLUDED.draft_version,public_routes_pending=EXCLUDED.public_routes_pending WHERE environments.active_operation_id IS NULL OR environments.active_operation_id=NULLIF($11,'')::uuid`, v.ID, v.ApplicationKey, v.Key, v.Name, v.Type, v.NamespaceIdentity, v.CurrentDeploymentSetID, v.Version, v.DraftVersion, v.PublicRoutesPending, persistence.OperationFrom(ctx), desired, applied)
 	if err != nil {
 		return fmt.Errorf("postgres: save environment: %w", translate(err))
 	}

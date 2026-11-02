@@ -9,7 +9,6 @@ import (
 
 	appdelivery "orchestrator/internal/application/delivery"
 	domain "orchestrator/internal/domain/delivery"
-	"orchestrator/internal/ports/persistence"
 )
 
 func (s *Server) registerDeliveryRoutes() {
@@ -27,7 +26,8 @@ func (s *Server) registerDeliveryRoutes() {
 	s.mux.HandleFunc("POST /api/v1/delivery-bindings/{binding}/versions", s.handleCreateDeliveryBinding)
 	s.mux.HandleFunc("POST /api/v1/delivery-bindings/{binding}/verify", s.handleVerifyDeliveryBinding)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/delivery", s.handleGetDelivery)
-	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/delivery", s.handleSelectDelivery)
+	s.mux.HandleFunc("GET /api/v1/delivery-default", s.handleGetDeliveryDefault)
+	s.mux.HandleFunc("PUT /api/v1/delivery-default", s.handleSetDeliveryDefault)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/reconciliation", s.handleReconciliation)
 }
 
@@ -51,50 +51,6 @@ func (s *Server) handleGetDelivery(w http.ResponseWriter, r *http.Request) {
 	identity, _ := s.sessionIdentity(r)
 	current, err := s.delivery.Selection(r.Context(), identity.OrganizationKey, app, env)
 	if err != nil {
-		s.writeError(w, err)
-		return
-	}
-	desired, applied := current.DesiredDelivery.Effective(), current.AppliedDelivery.Effective()
-	writeJSON(w, http.StatusOK, deliveryView{Desired: desired, Applied: applied, EnvironmentVersion: current.Version, ConfigurationRevision: current.DeliveryConfigRevision, Pending: desired != applied})
-}
-func (s *Server) handleSelectDelivery(w http.ResponseWriter, r *http.Request) {
-	app, env, ok := s.authorizedConfiguration(w, r)
-	if !ok {
-		return
-	}
-	org, ok := s.platformActor(w, r)
-	if !ok {
-		return
-	}
-	if s.delivery == nil {
-		writeCode(w, codeServiceUnavailable, "")
-		return
-	}
-	var req struct {
-		ExpectedEnvironmentVersion    *int64      `json:"expectedEnvironmentVersion"`
-		ExpectedConfigurationRevision *int64      `json:"expectedConfigurationRevision"`
-		Mode                          domain.Mode `json:"mode"`
-		BindingID                     string      `json:"bindingId"`
-		BindingVersion                int64       `json:"bindingVersion"`
-		SelfHeal                      *bool       `json:"selfHeal"`
-	}
-	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10))
-	decoder.DisallowUnknownFields()
-	if decoder.Decode(&req) != nil || req.ExpectedEnvironmentVersion == nil || req.ExpectedConfigurationRevision == nil || req.SelfHeal == nil || req.Mode == "" {
-		writeCode(w, codeInvalidRequest, "")
-		return
-	}
-	var extra any
-	if decoder.Decode(&extra) != io.EOF {
-		writeCode(w, codeInvalidRequest, "")
-		return
-	}
-	current, err := s.delivery.Select(r.Context(), org, persistence.DeliverySelectionCommand{ApplicationKey: app, EnvironmentKey: env, ExpectedEnvironmentVersion: *req.ExpectedEnvironmentVersion, ExpectedConfigurationRevision: *req.ExpectedConfigurationRevision, Selection: domain.Selection{Mode: req.Mode, BindingID: req.BindingID, BindingVersion: req.BindingVersion, SelfHeal: *req.SelfHeal}})
-	if err != nil {
-		if errors.Is(err, domain.ErrInvalid) || errors.Is(err, domain.ErrUnsupported) {
-			writeCode(w, codeInvalidRequest, "")
-			return
-		}
 		s.writeError(w, err)
 		return
 	}
@@ -286,4 +242,49 @@ func (s *Server) handleInspectDeliveryProvider(w http.ResponseWriter, r *http.Re
 		return
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) handleGetDeliveryDefault(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.platformActor(w, r)
+	if !ok {
+		return
+	}
+	if s.delivery == nil {
+		writeCode(w, codeServiceUnavailable, "")
+		return
+	}
+	d, err := s.delivery.Default(r.Context(), org)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"bindingId": d.BindingID, "bindingVersion": d.BindingVersion, "revision": d.Revision})
+}
+func (s *Server) handleSetDeliveryDefault(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.platformActor(w, r)
+	if !ok {
+		return
+	}
+	if s.delivery == nil {
+		writeCode(w, codeServiceUnavailable, "")
+		return
+	}
+	var input struct {
+		BindingID        string `json:"bindingId"`
+		BindingVersion   int64  `json:"bindingVersion"`
+		ExpectedRevision *int64 `json:"expectedRevision"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
+	decoder.DisallowUnknownFields()
+	var extra any
+	if decoder.Decode(&input) != nil || input.ExpectedRevision == nil || input.BindingID == "" || input.BindingVersion < 1 || *input.ExpectedRevision < 0 || decoder.Decode(&extra) != io.EOF {
+		writeCode(w, codeInvalidRequest, "")
+		return
+	}
+	d, err := s.delivery.SetDefault(r.Context(), org, input.BindingID, input.BindingVersion, *input.ExpectedRevision)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"bindingId": d.BindingID, "bindingVersion": d.BindingVersion, "revision": d.Revision})
 }

@@ -193,3 +193,10 @@ type ConfigurationDiscovery struct {
 type ConfigurationInspector interface {
 	InspectConfiguration(context.Context, BindingVersion) (ConfigurationDiscovery, error)
 }
+
+// ApplicationRepositoryBinding separates reusable platform policy from the
+// resolved private destination of one Application/Environment.
+type ApplicationRepositoryBinding interface {
+	RepositoryPolicy(BindingVersion) (domain.RepositoryPolicy, error)
+	BindApplicationRepository(BindingVersion, domain.ApplicationRepository, string) (BindingVersion, error)
+}

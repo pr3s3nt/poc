@@ -155,3 +155,5 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [2026-10-29/30 optional CD and infrastructure reconciliation](2026-10-29-delivery-ui-progress.md): real Fleet v0.15.2 ordinary-form UI lifecycle, handoff/recovery, self-heal/HPA, migration Job/CronJob, reviewed Terraform repair, validation and owned cleanup evidence.
 
 - [2026-10-30 reconciliation merge](2026-10-30-reconciliation-merge.md) — schema v3, compatibility checks and execution limits.
+
+- [2026-11-02: Platform-managed CD repositories](2026-11-02-platform-managed-cd.md).

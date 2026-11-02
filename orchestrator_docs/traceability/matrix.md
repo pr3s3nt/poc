@@ -1355,3 +1355,13 @@ and explicitly separates fixture browser checks from live-provider acceptance.
 | Provider always visible; no disable toggle | DeliverySelectionPanel and VI/EN catalogs | Component tests and Chromium fixture visual review |
 
 No schema change or live CD/VSO acceptance is implied by these local checks.
+
+## Platform-managed delivery repositories — ADR-033
+
+| Approved behavior | Implementation | Validation |
+|---|---|---|
+| Application knows no deployment repo | Application Create/Settings, removed delivery PUT/panel | HTTP retired-route/role tests; Console component/browser review |
+| Platform configures once, pins new Applications | Bindings.DefaultSelection/SetDefault, creation transaction | service pin/change/missing-default tests; default UI lost-ack test |
+| One private repo per Application, paths per env | Repositories.Resolve, GitHub Host.Ensure, Fleet.BindApplicationRepository | mock HTTPS GitHub create/conflict/lost-response/identity tests; service path/retry/owner tests |
+| Durable allocation, tenant/CAS/remote identity | Store and PostgreSQL delivery_repository; migration 005 | shared JSON/reopen/real PostgreSQL concurrency contract; upgrade/rollback/privilege suites |
+| Terraform remains infrastructure owner; no old-app migration | Existing planner/Terraform flow and ADR-033 | backend suite; unchanged retained identities; no live GitHub/Fleet acceptance claim |

@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"net/url"
+	domain "orchestrator/internal/domain/delivery"
 	"path"
 	"regexp"
 	"strings"
@@ -39,7 +40,7 @@ type Config struct {
 }
 
 func ParseConfig(raw map[string]string) (Config, error) {
-	keys := map[string]bool{"gitRepoMode": true, "existingGitRepo": true, "existingGitRepoUID": true, "agentNamespace": true, "workspace": true, "controllerNamespace": true, "controllerName": true, "targetCluster": true, "targetClusterUID": true, "targetAccountKey": true, "repositoryURL": true, "branch": true, "root": true, "readSecret": true, "serviceAccount": true, "caBundle": true, "releaseNamespace": true}
+	keys := map[string]bool{"gitRepoMode": true, "existingGitRepo": true, "existingGitRepoUID": true, "agentNamespace": true, "workspace": true, "controllerNamespace": true, "controllerName": true, "targetCluster": true, "targetClusterUID": true, "targetAccountKey": true, "repositoryURL": true, "branch": true, "root": true, "readSecret": true, "serviceAccount": true, "caBundle": true, "releaseNamespace": true, "repositoryOwner": true, "repositoryAPI": true, "repositoryHost": true, "repositoryPrefix": true}
 	for k := range raw {
 		if !keys[k] {
 			return Config{}, ErrConfig
@@ -69,6 +70,19 @@ func ParseConfig(raw map[string]string) (Config, error) {
 	if c.ReadSecret != "" && !label.MatchString(c.ReadSecret) {
 		return Config{}, ErrConfig
 	}
+	if c.CABundle != "" {
+		pool := x509.NewCertPool()
+		if len(c.CABundle) > 65536 || !pool.AppendCertsFromPEM([]byte(c.CABundle)) {
+			return Config{}, ErrConfig
+		}
+	}
+	if raw["repositoryOwner"] != "" && c.RepositoryURL == "" {
+		policy := domain.RepositoryPolicy{Enabled: true, Host: "github", APIBase: raw["repositoryAPI"], CloneBase: raw["repositoryHost"], Owner: raw["repositoryOwner"], Prefix: raw["repositoryPrefix"], Root: c.Root}
+		if policy.Validate() != nil || c.GitRepoMode != "MANAGED" || c.ReadSecret == "" {
+			return Config{}, ErrConfig
+		}
+		return c, nil
+	}
 	u, err := url.Parse(c.RepositoryURL)
 	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		return Config{}, ErrConfig
@@ -79,11 +93,6 @@ func ParseConfig(raw map[string]string) (Config, error) {
 	if c.Root == "" || strings.HasPrefix(c.Root, "/") || path.Clean(c.Root) != c.Root || strings.Contains(c.Root, "..") || strings.ContainsAny(c.Root, "\\\x00\r\n") {
 		return Config{}, ErrConfig
 	}
-	if c.CABundle != "" {
-		pool := x509.NewCertPool()
-		if len(c.CABundle) > 65536 || !pool.AppendCertsFromPEM([]byte(c.CABundle)) {
-			return Config{}, ErrConfig
-		}
-	}
+
 	return c, nil
 }

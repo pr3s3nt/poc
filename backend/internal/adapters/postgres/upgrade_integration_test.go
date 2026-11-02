@@ -41,7 +41,7 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 		t.Fatal(err)
 	}
 	identity := "orchestrator-fresh-baseline-v02"
-	if sql == versionThreeSQL {
+	if sql == versionThreeSQL || sql == versionFourSQL {
 		identity = "orchestrator-schema-v3"
 		if err = recordVersionOne(ctx, tx, digest(versionOneSQL)); err != nil {
 			t.Fatal(err)
@@ -50,6 +50,12 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 			t.Fatal(err)
 		}
 		if err = recordVersionThree(ctx, tx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if sql == versionFourSQL {
+		identity = "orchestrator-schema-v4"
+		if err = recordVersionFour(ctx, tx); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -94,10 +100,10 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 	}
 	for role, name := range map[RuntimeRole]string{ConsoleRuntime: db.ConsoleRole, StateRuntime: db.StateRole} {
 		for _, g := range grantsOf(role) {
-			if catalogTable(g.table) || (reconciliationTable(g.table) && sql != versionThreeSQL) || (g.table == "platform_git_settings" && sql != versionTwoSQL && sql != versionThreeSQL) || (g.table == "schema_upgrade_history" && sql != versionOneSQL && sql != versionTwoSQL && sql != versionThreeSQL) {
+			if g.table == "platform_delivery_defaults" || g.table == "application_delivery_repositories" || (catalogTable(g.table) && sql != versionFourSQL) || (reconciliationTable(g.table) && sql != versionThreeSQL && sql != versionFourSQL) || (g.table == "platform_git_settings" && sql != versionTwoSQL && sql != versionThreeSQL && sql != versionFourSQL) || (g.table == "schema_upgrade_history" && sql != versionOneSQL && sql != versionTwoSQL && sql != versionThreeSQL && sql != versionFourSQL) {
 				continue
 			}
-			if role == StateRuntime && sql != versionThreeSQL {
+			if role == StateRuntime && sql != versionThreeSQL && sql != versionFourSQL {
 				if g.table == "environments" {
 					g.columns = []string{"id", "application_id", "active_operation_id", "generation_high"}
 				}
@@ -129,7 +135,7 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 }
 
 func TestUpgradeSupportedPopulatedSources(t *testing.T) {
-	for name, source := range map[string]string{"staging-1516dec": sourceOldSQL, "preview-2a111db": sourceCurrentSQL, "version-1": versionOneSQL, "version-2": versionTwoSQL, "version-3": versionThreeSQL} {
+	for name, source := range map[string]string{"staging-1516dec": sourceOldSQL, "preview-2a111db": sourceCurrentSQL, "version-1": versionOneSQL, "version-2": versionTwoSQL, "version-3": versionThreeSQL, "version-4": versionFourSQL} {
 		t.Run(name, func(t *testing.T) {
 			owner, console, roles := legacyDatabase(t, source)
 			stamp := scalar[string](t, owner, `SELECT created_at::text FROM schema_baseline`)
@@ -146,7 +152,7 @@ func TestUpgradeSupportedPopulatedSources(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if n := scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`); n != 4 {
+			if n := scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`); n != 5 {
 				t.Fatal(n)
 			}
 			if got := scalar[string](t, owner, `SELECT installation_id::text FROM schema_baseline`); got != "11111111-1111-4111-8111-111111111111" {
@@ -237,7 +243,7 @@ func TestUpgradeRollbackOnGrantFailure(t *testing.T) {
 }
 
 func TestUpgradePreservesStateAndRuntimeIsolation(t *testing.T) {
-	for name, source := range map[string]string{"staging": sourceOldSQL, "preview": sourceCurrentSQL, "version-1": versionOneSQL, "version-2": versionTwoSQL, "version-3": versionThreeSQL} {
+	for name, source := range map[string]string{"staging": sourceOldSQL, "preview": sourceCurrentSQL, "version-1": versionOneSQL, "version-2": versionTwoSQL, "version-3": versionThreeSQL, "version-4": versionFourSQL} {
 		t.Run(name, func(t *testing.T) {
 			f := newStateFixture(t)
 			f.console.Close()
@@ -249,11 +255,16 @@ func TestUpgradePreservesStateAndRuntimeIsolation(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer tx.Rollback(ctx)
-			// Reconstruct historical shape only inside this disposable owned fixture.
-			if _, err = tx.Exec(ctx, `ALTER TABLE active_resources DROP CONSTRAINT active_resources_catalog_release_fk, DROP CONSTRAINT active_resources_definition_provenance_check, DROP COLUMN catalog_source, DROP COLUMN catalog_tag, DROP COLUMN catalog_definition_key, ALTER COLUMN resource_definition_id SET NOT NULL; DROP TABLE environment_catalog_bindings; DROP TABLE catalog_releases; DROP TABLE catalog_sources; DROP FUNCTION catalog_release_immutable_guard()`); err != nil {
+			if _, err = tx.Exec(ctx, `DROP TABLE application_delivery_repositories; DROP TABLE platform_delivery_defaults; DROP FUNCTION application_delivery_repository_guard(); ALTER TABLE applications DROP CONSTRAINT applications_id_organization_key`); err != nil {
 				t.Fatal(err)
 			}
-			if source != versionThreeSQL {
+			// Reconstruct historical shape only inside this disposable owned fixture.
+			if source != versionFourSQL {
+				if _, err = tx.Exec(ctx, `ALTER TABLE active_resources DROP CONSTRAINT active_resources_catalog_release_fk, DROP CONSTRAINT active_resources_definition_provenance_check, DROP COLUMN catalog_source, DROP COLUMN catalog_tag, DROP COLUMN catalog_definition_key, ALTER COLUMN resource_definition_id SET NOT NULL; DROP TABLE environment_catalog_bindings; DROP TABLE catalog_releases; DROP TABLE catalog_sources; DROP FUNCTION catalog_release_immutable_guard()`); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if source != versionThreeSQL && source != versionFourSQL {
 				for _, function := range reconciliationFunctions {
 					if _, err = tx.Exec(ctx, `DROP FUNCTION `+function+` CASCADE`); err != nil {
 						t.Fatal(err)
@@ -305,6 +316,12 @@ func TestUpgradePreservesStateAndRuntimeIsolation(t *testing.T) {
 				t.Fatal(err)
 			}
 			identity := "orchestrator-fresh-baseline-v02"
+			if source == versionFourSQL {
+				identity = "orchestrator-schema-v4"
+				if _, err = tx.Exec(ctx, `DELETE FROM schema_upgrade_history WHERE version>4`); err != nil {
+					t.Fatal(err)
+				}
+			}
 			if source == versionThreeSQL {
 				identity = "orchestrator-schema-v3"
 				if _, err = tx.Exec(ctx, `DELETE FROM schema_upgrade_history WHERE version>3`); err != nil {
@@ -467,7 +484,7 @@ func TestBaselineCommentChangesDoNotRequireUpgrade(t *testing.T) {
 func TestUpgradeHistoryTamperingIsRejected(t *testing.T) {
 	for name, mutation := range map[string]string{
 		"checksum":       `UPDATE schema_upgrade_history SET migration_sha256=repeat('0',64)`,
-		"future-version": `UPDATE schema_upgrade_history SET version=5 WHERE version=4`,
+		"future-version": `UPDATE schema_upgrade_history SET version=6 WHERE version=5`,
 		"source":         `UPDATE schema_upgrade_history SET source_sha256=repeat('0',64)`,
 		"missing":        `DELETE FROM schema_upgrade_history`,
 	} {
@@ -617,6 +634,30 @@ func TestVersionFourRollbackPreservesVersionThree(t *testing.T) {
 		t.Fatal("catalog DDL committed")
 	}
 	if scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`) != 3 {
+		t.Fatal("history changed")
+	}
+	after := retainedFingerprints(t, owner)
+	for table, hash := range before {
+		if after[table] != hash {
+			t.Errorf("retained data changed in %s", table)
+		}
+	}
+}
+
+func TestVersionFiveRollbackPreservesVersionFour(t *testing.T) {
+	owner, _, roles := legacyDatabase(t, versionFourSQL)
+	before := retainedFingerprints(t, owner)
+	sqlOn(t, owner, `GRANT DELETE ON schema_baseline TO `+pgx.Identifier{roles.Console}.Sanitize())
+	if _, err := Setup(context.Background(), owner, roles); err == nil {
+		t.Fatal("expected grant verification failure")
+	}
+	if scalar[string](t, owner, `SELECT baseline_sha256 FROM schema_baseline`) != digest(versionFourSQL) {
+		t.Fatal("source marker changed")
+	}
+	if scalar[bool](t, owner, `SELECT to_regclass('application_delivery_repositories') IS NOT NULL`) {
+		t.Fatal("migration DDL committed")
+	}
+	if scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`) != 4 {
 		t.Fatal("history changed")
 	}
 	after := retainedFingerprints(t, owner)

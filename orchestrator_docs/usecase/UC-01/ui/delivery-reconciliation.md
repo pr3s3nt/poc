@@ -99,3 +99,11 @@ is UI fixture evidence, not real Fleet deployment acceptance. Provider-binding a
 
 API/error/role mapping: [CDR-08](../../../architecture/contracts/delivery-reconciliation.md#cdr-08--public-api)
 and [INF-C04](../../../architecture/contracts/infrastructure-drift.md#inf-c04--http-and-rbac).
+
+## Platform-managed application delivery — ADR-033
+
+Remove delivery binding/repository authoring from Application Settings. No token,
+branch, root or CD selection is requested from the Application user. New creation
+pins the platform default internally; missing setup is reported with an actionable
+platform-configuration message. Keep reconciliation observations on Home. No
+legacy migration/ownership-transfer editor is introduced for test Applications.

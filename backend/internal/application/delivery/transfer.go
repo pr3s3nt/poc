@@ -261,6 +261,24 @@ func (c *Coordinator) sourceProvider(ctx context.Context, e persistence.Delivery
 		}
 	}
 	p, err := c.Registry.Resolve(providerKind(e.Revision.Selection, b))
+	if err == nil {
+		if managed, ok := p.(port.ApplicationRepositoryBinding); ok {
+			policy, policyErr := managed.RepositoryPolicy(b)
+			if policyErr != nil {
+				return b, p, policyErr
+			}
+			if policy.Enabled {
+				if c.Repositories == nil {
+					return b, p, ErrUnavailable
+				}
+				env, envErr := c.Store.GetEnvironment(ctx, e.Target.Extra["application"], e.Target.Extra["environment"])
+				if envErr != nil {
+					return b, p, envErr
+				}
+				b, err = c.Repositories.Resolve(ctx, b, managed, env, false)
+			}
+		}
+	}
 	return b, p, err
 }
 func (c *Coordinator) adoptUnit(ctx context.Context, orgKey string, b domain.BindingVersion, adopter port.OwnershipTransfer, provider port.Provider, unit *transferUnit) error {

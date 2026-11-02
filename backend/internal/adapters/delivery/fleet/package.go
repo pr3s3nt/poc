@@ -31,6 +31,9 @@ func PackageUnit(intent port.Intent, manifests []execution.Manifest) (Package, e
 	if err != nil {
 		return Package{}, err
 	}
+	if cfg.RepositoryURL == "" || cfg.Branch == "" {
+		return Package{}, ErrConfig
+	}
 	if intent.Target.Namespace == "" || intent.Target.Namespace == cfg.ReleaseNamespace || !label.MatchString(intent.Target.Namespace) {
 		return Package{}, ErrConfig
 	}

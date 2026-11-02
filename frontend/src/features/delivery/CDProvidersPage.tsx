@@ -4,7 +4,7 @@ import { ApiError, describeError } from '../../shared/api/client';
 import { t } from '../../shared/i18n';
 import { Button } from '../../shared/ui/Button';
 import { listAccounts, type Account } from '../platform/accounts/accountsApi';
-import { createBinding, inspectProvider, type Discovery, getBinding, getBindings, getProviders, verifyBinding, type BindingDetails, type BindingInput, type BindingSummary, type ConfigField, type Provider } from './platformApi';
+import { createBinding, inspectProvider, type Discovery, getBinding, getBindings, getProviders, getPlatformDefault, setPlatformDefault, type PlatformDefault, verifyBinding, type BindingDetails, type BindingInput, type BindingSummary, type ConfigField, type Provider } from './platformApi';
 
 type Form = { name: string; provider: string; account: string; config: Record<string, string>; username: string; password: string; retainCredential: boolean; previous?: BindingDetails };
 const empty: Form = { name: '', provider: '', account: '', config: {}, username: '', password: '', retainCredential: false };
@@ -16,6 +16,7 @@ export function CDProvidersPage() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [bindings, setBindings] = useState<BindingSummary[]>([]);
+  const [platformDefault, setDefault] = useState<PlatformDefault>({ bindingId: '', bindingVersion: 0, revision: 0 });
   const [form, setForm] = useState<Form>();
   const [discovery, setDiscovery] = useState<Discovery>();
   const [details, setDetails] = useState<BindingDetails>();
@@ -24,14 +25,15 @@ export function CDProvidersPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [unknown, setUnknown] = useState(false);
+  const [defaultUncertain, setDefaultUncertain] = useState(false);
   const [reload, setReload] = useState(0);
   const generation = useRef(0);
   useEffect(() => {
     const current = ++generation.current;
     setLoading(true);
-    Promise.all([getProviders(), listAccounts(), getBindings()]).then(([p, a, b]) => {
+    Promise.all([getProviders(), listAccounts(), getBindings(), getPlatformDefault()]).then(([p, a, b, d]) => {
       if (generation.current !== current) return;
-      setProviders(p); setAccounts(a); setBindings(b); setError('');
+      setProviders(p); setAccounts(a); setBindings(b); setDefault(d); setDefaultUncertain(false); setError('');
     }).catch(() => { if (generation.current === current) setError(t('cd.loadFailed')); }).finally(() => { if (generation.current === current) setLoading(false); });
     return () => { generation.current += 1; };
   }, [reload]);
@@ -60,6 +62,16 @@ export function CDProvidersPage() {
       setNotice(next.status === 'READY' ? t('cd.verified') : t('cd.verifyFailed'));
     } catch (err) { if (generation.current === current) setError(describeError(err, t('cd.verifyFailed'))); }
     finally { if (generation.current === current) setBusy(false); }
+  }
+  async function selectDefault(binding: BindingSummary) {
+    const current = generation.current; setBusy(true); setError(''); setNotice('');
+    try {
+      const next = await setPlatformDefault(binding, platformDefault);
+      if (generation.current !== current) return;
+      setDefault(next); setNotice(t('cd.defaultSaved'));
+    } catch (err) {
+      if (generation.current === current) { setError(describeError(err, t('cd.defaultFailed'))); setDefaultUncertain(true); }
+    } finally { if (generation.current === current) setBusy(false); }
   }
   async function inspect() {
     if (!form || !account) return;
@@ -93,7 +105,7 @@ export function CDProvidersPage() {
       if (!(err instanceof ApiError) || err.status >= 500) setUnknown(true);
     } finally { if (generation.current === current) setBusy(false); }
   }
-  const locked = busy || loading || unknown;
+  const locked = busy || loading || unknown || defaultUncertain;
   function field(f: ConfigField) {
     if (!form || (f.visibleWhenKey && form.config[f.visibleWhenKey] !== f.visibleWhenValue)) return null;
     const value = form.config[f.key] ?? '';
@@ -108,18 +120,19 @@ export function CDProvidersPage() {
     {unknown ? <p className="form-info" role="status">{t('cd.saveUnknown')}</p> : null}
     {!loading ? <section className="content-panel"><div className="section-header"><h2>{t('cd.registered')}</h2><Button disabled={busy} onClick={() => setReload(n => n + 1)}>{t('cd.reload')}</Button></div>
       {providers.length === 0 ? <p className="form-info">{t('cd.notConfigured')}</p> : null}
-      {bindings.length === 0 ? <div className="section-empty">{t('cd.empty')}</div> : <table className="plain-table"><thead><tr><th>{t('cd.name')}</th><th>{t('cd.provider')}</th><th>{t('cd.version')}</th><th>{t('cd.status')}</th><th>{t('cd.actions')}</th></tr></thead><tbody>{bindings.map(b => <tr key={key(b)}><td>{b.name}</td><td>{b.provider}</td><td>{b.version}</td><td>{statusText(b.status)}</td><td><div className="row-actions"><Button disabled={busy} onClick={() => void open(b, false)}>{t('cd.view')}</Button><Button disabled={locked} onClick={() => void open(b, true)}>{t('cd.edit')}</Button><Button disabled={locked} onClick={() => void verify(b)}>{t('cd.verify')}</Button></div></td></tr>)}</tbody></table>}
+      {bindings.length === 0 ? <div className="section-empty">{t('cd.empty')}</div> : <table className="plain-table"><thead><tr><th>{t('cd.name')}</th><th>{t('cd.provider')}</th><th>{t('cd.version')}</th><th>{t('cd.status')}</th><th>{t('cd.actions')}</th></tr></thead><tbody>{bindings.map(b => <tr key={key(b)}><td>{b.name}{platformDefault.bindingId === b.id && platformDefault.bindingVersion === b.version ? <span className="pending-pill">{t('cd.default')}</span> : null}</td><td>{b.provider}</td><td>{b.version}</td><td>{statusText(b.status)}</td><td><div className="row-actions"><Button disabled={busy} onClick={() => void open(b, false)}>{t('cd.view')}</Button><Button disabled={locked} onClick={() => void open(b, true)}>{t('cd.edit')}</Button><Button disabled={locked} onClick={() => void verify(b)}>{t('cd.verify')}</Button>{b.status === 'READY' ? <Button disabled={locked || (platformDefault.bindingId === b.id && platformDefault.bindingVersion === b.version)} onClick={() => void selectDefault(b)}>{t('cd.useDefault')}</Button> : null}</div></td></tr>)}</tbody></table>}
     </section> : null}
     {form ? <form className="content-panel create-form secret-store-form" onSubmit={event => void save(event)}><h2>{form.previous ? t('cd.newVersion') : t('cd.add')}</h2>
       <label>{t('cd.name')}<input value={form.name} required maxLength={120} disabled={locked} onChange={e => edit({ ...form, name: e.target.value })} /></label>
       <label htmlFor="cd-provider-kind">{t('cd.provider')}</label><select id="cd-provider-kind" required value={form.provider} disabled={locked || Boolean(form.previous)} onChange={e => { const p = providers.find(item => item.kind === e.target.value); edit({ ...form, provider: e.target.value, config: defaults(p) }); }}><option value="">{t('cd.chooseProvider')}</option>{providers.map(p => <option key={p.kind} value={p.kind}>{p.kind}</option>)}</select>
-      <label htmlFor="cd-management-account">{t('cd.managementAccount')}</label><select id="cd-management-account" required value={form.account} disabled={locked} onChange={e => (setDiscovery(undefined), edit({ ...form, account: e.target.value, config: { ...form.config, targetClusterUID: '' } }))}><option value="">{t('cd.chooseAccount')}</option>{eligibleAccounts.map(a => <option key={a.key} value={a.key}>{a.name}</option>)}</select>
+      <label htmlFor="cd-management-account">{t('cd.managementAccount')}</label><select id="cd-management-account" required value={form.account} disabled={locked} onChange={e => (setDiscovery(undefined), edit({ ...form, account: e.target.value, config: { ...form.config, targetAccountKey: e.target.value, targetClusterUID: '' } }))}><option value="">{t('cd.chooseAccount')}</option>{eligibleAccounts.map(a => <option key={a.key} value={a.key}>{a.name}</option>)}</select>
+      {form.config.targetClusterUID ? <p className="form-info" role="status">{t('cd.discovered')}</p> : null}
       {eligibleAccounts.length === 0 ? <p className="form-info">{t('cd.noAccount')}</p> : null}
-      <Button type="button" disabled={locked || !account || !form.config.workspace} onClick={() => void inspect()}>{t('cd.inspect')}</Button>
+      <Button type="button" disabled={locked || !account} onClick={() => void inspect()}>{t('cd.inspect')}</Button>
       {(provider?.fields ?? []).filter(f => !f.advanced).map(field)}
       <details><summary>{t('cd.connectionDetails')}</summary><div className="editor-grid">{(provider?.fields ?? []).filter(f => f.advanced).map(field)}</div></details>
       {form.previous?.credentialConfigured ? <label className="checkbox"><input type="checkbox" checked={form.retainCredential} disabled={locked} onChange={e => edit({ ...form, retainCredential: e.target.checked, username: '', password: '' })} />{t('cd.retainCredential')}</label> : null}
-      {!form.retainCredential ? <details><summary>{t('cd.gitCredentials')}</summary><div className="editor-grid"><label>{t('cd.gitUsername')}<input value={form.username} disabled={locked} autoComplete="off" onChange={e => edit({ ...form, username: e.target.value })} /></label><label>{t('cd.gitToken')}<input type="password" value={form.password} disabled={locked} autoComplete="new-password" onChange={e => edit({ ...form, password: e.target.value })} /></label></div></details> : null}
+      {!form.retainCredential ? <div className="editor-grid"><label>{t('cd.gitUsername')}<input required value={form.username} disabled={locked} autoComplete="off" onChange={e => edit({ ...form, username: e.target.value })} /></label><label>{t('cd.gitToken')}<input type="password" required value={form.password} disabled={locked} autoComplete="new-password" onChange={e => edit({ ...form, password: e.target.value })} /></label></div> : null}
       <div className="form-actions"><Button type="button" disabled={busy} onClick={() => setForm(undefined)}>{t('cd.cancel')}</Button><Button type="submit" tone="primary" disabled={locked || !provider || !account}>{t('cd.save')}</Button></div>
     </form> : null}
     {details && !form ? <section className="content-panel"><h2>{details.binding.name} · {t('cd.version')} {details.binding.version}</h2><dl>{Object.entries(details.config).filter(([k]) => k !== 'caBundle').map(([k, v]) => <div key={k}><dt>{t(`cd.fields.${k}`)}</dt><dd>{v || '—'}</dd></div>)}</dl><h3>{t('cd.usage')}</h3>{details.usage.length ? <ul>{details.usage.map(u => <li key={`${u.applicationKey}:${u.environmentKey}`}><Button onClick={() => navigate({ name: 'settings', applicationId: u.applicationKey, environment: u.environmentKey === 'production' ? 'production' : 'staging' })}>{u.applicationKey} / {u.environmentKey}</Button> {u.applied ? t('cd.applied') : t('cd.desired')}</li>)}</ul> : <p>{t('cd.unused')}</p>}</section> : null}

@@ -13,20 +13,25 @@ import (
 	port "orchestrator/internal/ports/delivery"
 	"orchestrator/internal/ports/execution"
 	gitport "orchestrator/internal/ports/gitpublication"
+	hosting "orchestrator/internal/ports/repositoryhosting"
 )
 
 type PublisherResolver interface {
 	ResolvePublisher(context.Context, port.BindingVersion) (gitport.Publisher, error)
 }
 type Provider struct {
-	Manager    *Manager
-	Publishers PublisherResolver
+	Manager         *Manager
+	Publishers      PublisherResolver
+	RepositoryHosts hosting.Factory
 }
 
 func Capabilities() domain.Capabilities {
 	return domain.Capabilities{ContractVersion: "v1", ExactRevision: true, DriftDetection: true, SelfHeal: true, PhasedDelivery: true, RetainOnWithdraw: true, GuardedPrune: true}
 }
 func (p *Provider) ValidateConfiguration(b port.BindingVersion) error {
+	if b.Config["repositoryURL"] != "" || b.Config["branch"] != "" || b.Config["existingGitRepo"] != "" || b.Config["existingGitRepoUID"] != "" || b.Config["gitRepoMode"] == "EXISTING" {
+		return ErrConfig
+	}
 	_, err := ParseConfig(b.Config)
 	return err
 }
@@ -40,6 +45,24 @@ func (p *Provider) Verify(ctx context.Context, b port.BindingVersion) (port.Veri
 	result, err := p.Manager.Verifier.Verify(ctx, b)
 	if err != nil {
 		return result, err
+	}
+	policy, policyErr := p.RepositoryPolicy(b)
+	if policyErr != nil {
+		return port.Verification{ReasonCode: "VERIFICATION_FAILED"}, policyErr
+	}
+	if policy.Enabled {
+		if p.RepositoryHosts == nil {
+			return port.Verification{ReasonCode: "VERIFICATION_FAILED"}, ErrVerification
+		}
+		host, err := p.RepositoryHosts.Open(ctx, b, policy)
+		if err != nil {
+			return port.Verification{ReasonCode: "VERIFICATION_FAILED"}, err
+		}
+		if err := host.Verify(ctx); err != nil {
+			return port.Verification{ReasonCode: "VERIFICATION_FAILED"}, err
+		}
+		result.Capabilities = Capabilities()
+		return result, nil
 	}
 	// Resolve performs a scoped HTTPS clone/read with the private writer
 	// credential. Verification never pushes or creates a GitRepo.

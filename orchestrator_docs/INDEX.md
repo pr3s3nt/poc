@@ -21,6 +21,9 @@ implementation status.
 - [Project glossary](GLOSSARY.md)
 - [Documentation rules](DOCUMENTATION_RULES.md)
 
+- [Platform-managed delivery decision](architecture/decisions/ADR-033-platform-managed-delivery.md)
+- [Platform-managed delivery verification](verification/2026-11-02-platform-managed-cd.md)
+
 ## Route by task
 
 | Task | Read first |

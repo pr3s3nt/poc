@@ -16,7 +16,7 @@ alone does not claim an accepted release or authorize an external deployment.
 
 ## Platform prerequisites
 
-Use the current PostgreSQL schema (version 4, including the version-3 delivery tables; fresh install or versioned owner upgrade) with separate ordinary Console,
+Use the current PostgreSQL schema (version 5, including platform defaults and repository allocations; fresh install or versioned owner upgrade) with separate ordinary Console,
 State and owner logins. Setup is the explicit owner command `-setup-database`;
 API startup only verifies the baseline and exact grants. Keep database URLs and
 State encryption key in their existing private file mounts. Retained databases
@@ -46,36 +46,49 @@ ServiceAccount with permissions only for authorized workload namespaces and
 release Secrets. Provision those platform permissions after Terraform creates
 its namespace; do not precreate/adopt the application namespace to bypass it.
 
-Provide HTTPS Git with a dedicated writable branch/subtree, CA when needed and
-separate reader/writer credentials outside Git. Existing company GitRepo mode
-requires the registered parent UID/repo/branch/target/path pins and a dedicated
-child subtree. Parent configuration and siblings remain independently owned.
-Do not reuse a subtree already managed by another writer.
+Configure GitHub owner and private HTTPS writer credentials on the platform. The
+credential must create private initialized repositories in that owner and write
+Git commits. A personal owner must match the authenticated identity; an organization
+requires active membership and organization policy allowing repository creation.
+Read-only verification checks identity/membership; creation permission is finally
+proven by Deploy. GitHub Enterprise requires explicit HTTPS API and clone roots.
+Redirects are refused. Git CA configuration applies to Git/Fleet; the GitHub API
+uses the host system CA trust (install an enterprise CA there if needed).
+
+Create the Fleet Git reader Secret `orchestrator-git-reader` in the workspace,
+using a credential that can read the generated private repositories. Prepare
+`orchestrator-delivery` in the discovered agent namespace and `fleet-releases`
+with the scoped permissions described above. These are platform prerequisites;
+this feature does not install Fleet or manufacture READY verification.
 
 ## Console flow
 
-1. As Platform Engineer/Admin, open **Cấu hình CD**, add a binding, choose the
-   management/workload accounts and discover the registered target. Enter Git,
-   release namespace, workload ServiceAccount and private credential fields.
-   Verify to READY. Editing creates a new immutable binding version; usage shows
-   existing desired/applied references rather than silently moving consumers.
-2. Open Application Settings and select staging or production. Choose the
-   required verified **CD provider** binding and Save. The other Environment
-   keeps its own choice. No Direct choice or disable toggle is available. Saving
-   does not deploy. Leave **Tự sửa sai lệch** off unless
-   autonomous restoration of admitted continuous configuration is intended.
-3. Use the normal workload forms, Preview and Deploy. Review provider transition,
-   manifests/phase order and routes. Dependencies provision through Terraform;
-   GitRepo publication then delivers prerequisite → completed Job → rollout →
-   route phases. A live application changes provider through the explicit
-   transfer review, preserving UID/data/templates and completion receipts.
-4. Home shows stored synchronization, health, drift and observation time.
-   Unavailable/stale observations become UNKNOWN; a healthy app can still drift.
-   Refresh reads stored reports and does not trigger a deployment.
-5. Remove a workload or delete the Application through Preview/confirmation.
-   The product withdraws controller/release authority before UID-checked native
-   cleanup. Retained parent GitRepo/cluster registration/reader credentials and
-   siblings are not application cleanup targets.
+1. Platform Engineer/Admin opens **Cấu hình CD**. Enter a name, choose the
+   management cluster account, click **Tìm cấu hình trên cluster**, and enter
+   GitHub owner, Git username and token. Advanced fields retain platform
+   topology/defaults and support a different setup. Save, then verify to READY.
+2. Click **Dùng cho ứng dụng mới** on the verified configuration. This selects
+   an organization default with a revision guard; it affects new Applications
+   only. Editing creates an immutable version and does not move existing apps.
+3. Create an Application using name/subdomain. Its two empty Environments pin
+   the platform default. No Git request happens during creation or Preview.
+   Application Settings has no repo, branch, path or CD selection form.
+4. Configure workloads, Preview and Deploy normally. First admitted Deploy
+   reserves a durable allocation, creates/observes one private initialized
+   `orch-app-<Application UUID without hyphens>` repository and acknowledges its
+   actual remote ID/default branch. Environments publish under
+   `environments/staging/manifests` and `environments/production/manifests`.
+   Terraform provisions dependencies; Fleet delivers prerequisites → Job →
+   rollout → routes. Placement must still match Definition-derived accounts.
+5. Home reads stored synchronization/health/drift. Observation/removal resolves
+   recorded destinations without repository creation. Cleanup retains the remote
+   repository and its history, shared reader Secret and platform registration.
+
+If creation loses its response, retrying Deploy observes the same allocation and
+creation marker. Do not create a new repo name manually or edit private database
+records. An existing same-name foreign repo or replaced acknowledged remote ID is
+refused. A failed allocation is retained for diagnosis/retry. A lost set-default
+response requires **Tải lại** to read the authoritative default before another write.
 
 Kubernetes Jobs reject TTL and immutable template changes; an acknowledged
 unchanged Job is reused. CronJob children belong to Kubernetes, not Git inventory.
@@ -83,14 +96,13 @@ HPA targets must omit fixed replicas. Unsupported/missing ownership evidence
 blocks deployment rather than falling back to a competing direct writer. See
 [release semantics](../architecture/contracts/delivery-reconciliation.md#cdr-06--fleet-adapter-v1).
 
-## Upgrade from historical Direct delivery — ADR-032
+## Existing test Applications — ADR-033
 
-Keep the existing database/encryption keys and installed object identities. This
-change has no schema migration. DIRECT/empty stored selections are historical or
-unconfigured states, not executable deployment choices. Select a verified CD
-binding and use the existing reviewed transfer when exact admitted artifacts and
-UID receipts exist. Missing baseline remains blocked; do not redeploy Direct to
-manufacture it. Resolve in-flight Direct-destination transitions before upgrading.
+Owner setup upgrades recognized schemas through migration 005 and preserves data.
+No old-Application migration, Direct adoption or destination handoff is provided in
+this product flow. Existing test Applications are kept for inspection; create a new
+Application after setting the platform default to use the managed repository flow.
+Do not reset the database or delete test Applications as part of upgrading.
 
 New deployments publish nonsecret auxiliaries and scoped VSO declarations through
 CD. Select a usable Secret Store when dependency outputs contain secrets, even

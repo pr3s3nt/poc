@@ -25,6 +25,7 @@ type executionStore interface {
 	persistence.OrganizationIdentityReader
 }
 type Coordinator struct {
+	Repositories *Repositories
 	Store        executionStore
 	Registry     *port.Registry
 	Artifacts    *Artifacts
@@ -86,6 +87,9 @@ func (c *Coordinator) Guard(ctx context.Context, i port.Intent) error {
 	return nil
 }
 func (c *Coordinator) binding(ctx context.Context, orgKey string, env environment.Environment) (domain.BindingVersion, port.Provider, error) {
+	return c.resolveBinding(ctx, orgKey, env, true)
+}
+func (c *Coordinator) resolveBinding(ctx context.Context, orgKey string, env environment.Environment, provision bool) (domain.BindingVersion, port.Provider, error) {
 	selection := env.DesiredDelivery.Effective()
 	if selection.Mode == domain.Direct {
 		return domain.BindingVersion{}, nil, ErrCDRequired
@@ -105,6 +109,20 @@ func (c *Coordinator) binding(ctx context.Context, orgKey string, env environmen
 		return b, nil, err
 	}
 	provider, err := c.Registry.Resolve(b.ProviderKind)
+	if err == nil {
+		if managed, ok := provider.(port.ApplicationRepositoryBinding); ok {
+			policy, policyErr := managed.RepositoryPolicy(b)
+			if policyErr != nil {
+				return b, nil, policyErr
+			}
+			if policy.Enabled && provision {
+				if c.Repositories == nil {
+					return b, nil, ErrUnavailable
+				}
+				b, err = c.Repositories.Resolve(ctx, b, managed, env, true)
+			}
+		}
+	}
 	return b, provider, err
 }
 
@@ -448,6 +466,6 @@ func (c *Coordinator) ValidateForPreview(ctx context.Context, orgKey string, env
 	if env.DesiredDelivery.Effective().Mode != domain.CD {
 		return nil
 	}
-	_, _, err := c.binding(ctx, orgKey, env)
+	_, _, err := c.resolveBinding(ctx, orgKey, env, false)
 	return err
 }

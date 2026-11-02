@@ -14,9 +14,11 @@ func TestDeliveryBindingsSurviveJSONRestart(t *testing.T) {
 	}
 	b := persistencetest.DeliveryBindings(t, first)
 	persistencetest.DeliverySelections(t, first, b)
+	r := persistencetest.ManagedDelivery(t, first, b)
 	next, err := NewWithSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	persistencetest.AssertDeliveryBinding(t, next, b)
+	persistencetest.AssertManagedDelivery(t, next, r)
 }

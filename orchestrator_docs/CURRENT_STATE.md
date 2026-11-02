@@ -7,6 +7,20 @@ last_reviewed: 2026-11-02
 
 # Current project state
 
+## Platform-managed CD — 2026-11-02
+
+[ADR-033](architecture/decisions/ADR-033-platform-managed-delivery.md) supersedes
+per-Application CD/repository authoring below. Platform chooses a verified default;
+new Applications pin it at creation. First admitted Deploy provisions one private
+GitHub repository per Application; staging/production publish separate environment
+paths. Application Settings has no CD/repository controls. Default changes affect
+new Applications only. Existing test Applications are preserved without migration.
+
+Schema 5 adds platform defaults and immutable repository allocations. Terraform
+continues to own infrastructure/dependencies. Fleet receives application manifests
+and nonsecret auxiliaries. Live GitHub/Fleet deployment is not yet acceptance-tested
+for this new allocation flow; see [verification](verification/2026-11-02-platform-managed-cd.md).
+
 ## Required CD for application manifests — 2026-11-02
 
 [ADR-032](architecture/decisions/ADR-032-cd-only-manifests.md) supersedes the

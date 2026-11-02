@@ -4,6 +4,9 @@
 import { t } from '../i18n';
 
 const messageTable = {
+ PLATFORM_CD_REQUIRED:t('cd.platformRequired'),
+ DELIVERY_REPOSITORY_UNAVAILABLE:t('cd.repositoryUnavailable'),
+ DELIVERY_REPOSITORY_IDENTITY:t('cd.repositoryIdentity'),
  CD_PROVIDER_REQUIRED: t('delivery.required'),
  CATALOG_REQUIRED:t('catalog.required'),
  CATALOG_CONFLICT:t('catalog.conflict'),

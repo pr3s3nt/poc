@@ -33,6 +33,7 @@ import (
 	"orchestrator/internal/ports/credentials"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/ports/renderregistry"
+	hosting "orchestrator/internal/ports/repositoryhosting"
 )
 
 // Public HTTP error contract (T20 / VI-03). Every error response is
@@ -42,6 +43,9 @@ import (
 // output or catalog content. Clients choose their own wording from the code.
 const (
 	codeCatalogRequired           = "CATALOG_REQUIRED"
+	codePlatformCDRequired        = "PLATFORM_CD_REQUIRED"
+	codeRepositoryUnavailable     = "DELIVERY_REPOSITORY_UNAVAILABLE"
+	codeRepositoryIdentity        = "DELIVERY_REPOSITORY_IDENTITY"
 	codeCDRequired                = "CD_PROVIDER_REQUIRED"
 	codeDeliveryBaselineRequired  = "DELIVERY_BASELINE_REQUIRED"
 	codeDeliveryUnsupported       = "DELIVERY_UNSUPPORTED_CAPABILITY"
@@ -117,6 +121,9 @@ type publicError struct {
 
 var publicErrors = map[string]publicError{
 	codeCatalogRequired:                 {http.StatusConflict, "select a catalog release in Environment Settings"},
+	codePlatformCDRequired:              {http.StatusUnprocessableEntity, "configure a verified platform CD default before creating an Application"},
+	codeRepositoryUnavailable:           {http.StatusServiceUnavailable, "application deployment repository is unavailable"},
+	codeRepositoryIdentity:              {http.StatusConflict, "application deployment repository identity changed"},
 	codeCDRequired:                      {http.StatusUnprocessableEntity, "select a verified CD provider before deployment"},
 	codeDeliveryBaselineRequired:        {http.StatusConflict, "the applied delivery artifact and incarnation baseline is required"},
 	codeDeliveryUnsupported:             {http.StatusUnprocessableEntity, "the selected delivery capability is not supported"},
@@ -352,6 +359,12 @@ func classify(err error) (failure, bool) {
 	switch {
 	case errors.Is(err, catalogdomain.ErrRequired):
 		return failure{code: codeCatalogRequired}, true
+	case errors.Is(err, deliveryapp.ErrPlatformDefault):
+		return failure{code: codePlatformCDRequired}, true
+	case errors.Is(err, hosting.ErrUnavailable):
+		return failure{code: codeRepositoryUnavailable}, true
+	case errors.Is(err, hosting.ErrIdentity):
+		return failure{code: codeRepositoryIdentity}, true
 	case errors.Is(err, deliveryapp.ErrCDRequired):
 		return failure{code: codeCDRequired}, true
 	case errors.Is(err, deliveryapp.ErrBaselineRequired):

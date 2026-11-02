@@ -7,6 +7,13 @@ last_reviewed: 2026-10-28
 
 # UC-04 — Use Case Realization
 
+Current delivery flow: [ADR-033](../../architecture/decisions/ADR-033-platform-managed-delivery.md)
+supersedes per-Application destination authoring and old-app transfer below.
+Platform default → Application pins binding → Preview without Git writes → first
+owned Deploy allocates repo → per-Environment CD publication. See the shared
+[sequence](../../architecture/components/platform-managed-delivery-sequence.puml).
+
+
 ## Trách nhiệm và delivery boundary
 
 Thực hiện [specification đã duyệt](specification.md): đăng ký Kubernetes từ

@@ -1234,3 +1234,26 @@ ID, logical descriptor/scope and Terraform instance/state identity. Plan snapsho
 also retain the complete catalog selection; cleanup reads acknowledged original
 artifacts rather than joining mutable desired Definitions. Existing rows remain
 legacy with their original FK; no release identity is fabricated during upgrade.
+
+## Platform-managed delivery — ADR-033, schema version 5
+
+`platform_delivery_defaults`: Organization primary key; immutable CD binding ID
+and version references, monotonic revision for explicit PE/Admin CAS selection.
+Only verified bindings can become the default. Changing it does not update any
+existing Environment or repository allocation.
+
+`application_delivery_repositories`: allocation UUID, Organization/Application
+identity (unique per Application), binding ID/version, deterministic name and
+creation marker, status PENDING/READY, remote ID, HTTPS clone URL, default branch,
+monotonic revision and creation time. Organization/Application/binding pins and
+creation marker/name are immutable. READY remote identity cannot be overwritten.
+Only Console runtime can SELECT/INSERT/UPDATE these records; no runtime DELETE,
+DDL, schema-owner or State-runtime access is added. Allocation reserves before
+HTTP creation and acknowledgement CAS preserves concurrent deploy idempotency.
+Existing records are retained without automatic business migration.
+
+The [managed delivery ERD](platform-managed-delivery-erd.puml) ([rendered](platform-managed-delivery-erd.png))
+shows tenant-scoped allocation and platform default relationships. Initial empty
+Environments may pin desired/applied CD in their INSERT only; ordinary Environment
+updates still preserve those fields. This initializes ownership configuration and
+does not assert a successful deployment or create an execution receipt.

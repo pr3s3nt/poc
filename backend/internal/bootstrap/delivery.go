@@ -3,10 +3,9 @@ package bootstrap
 import (
 	"fmt"
 
-	directadapter "orchestrator/internal/adapters/delivery/direct"
 	fleetadapter "orchestrator/internal/adapters/delivery/fleet"
 	gitadapter "orchestrator/internal/adapters/gitpublication"
-	k8s "orchestrator/internal/adapters/kubernetes"
+	githubhost "orchestrator/internal/adapters/repositoryhosting/github"
 	appdelivery "orchestrator/internal/application/delivery"
 	"orchestrator/internal/ports/credentials"
 	port "orchestrator/internal/ports/delivery"
@@ -18,6 +17,7 @@ type deliveryStore interface {
 	persistence.Store
 	persistence.DeliveryBindingRepository
 	persistence.DeliverySelectionRepository
+	persistence.DeliveryPlatformRepository
 	persistence.DeliveryExecutionRepository
 	persistence.GitPublicationRepository
 	persistence.OrganizationIdentityReader
@@ -42,15 +42,9 @@ func setupDelivery(opts Options, st persistence.Store, source execution.Kubeconf
 		return nil, nil, fmt.Errorf("bootstrap: delivery Git storage unavailable")
 	}
 	coordinator := &appdelivery.Coordinator{Store: repo, Registry: registry, Artifacts: &appdelivery.Artifacts{Store: tf.repo, Cipher: tf.cipher}}
-	directDeployer := k8s.NewDeployer(opts.KubectlPath)
-	directDeployer.Credentials = source
-	// Historical Direct receipts remain readable/exportable/removable for migration.
-	// Coordinator.binding rejects Direct destinations before Prepare/Submit.
-	legacyDirect := &directadapter.Provider{Deployer: directDeployer, KubectlPath: opts.KubectlPath, Credentials: source, Guard: coordinator.Guard, RecoveryGuard: coordinator.GuardRecovery}
-	if err := registry.Register("direct", legacyDirect); err != nil {
-		return nil, nil, err
-	}
-	provider := &fleetadapter.Provider{Manager: &fleetadapter.Manager{Verifier: &fleetadapter.Verifier{KubectlPath: opts.KubectlPath, Credentials: source, Targets: appdelivery.Targets{Store: st, Identity: repo}}, Guard: coordinator.Guard, RecoveryGuard: coordinator.GuardRecovery}, Publishers: publishers}
+	hosts := &githubhost.Factory{Credentials: creds, Organizations: repo}
+	coordinator.Repositories = &appdelivery.Repositories{Store: repo, Hosts: hosts}
+	provider := &fleetadapter.Provider{Manager: &fleetadapter.Manager{Verifier: &fleetadapter.Verifier{KubectlPath: opts.KubectlPath, Credentials: source, Targets: appdelivery.Targets{Store: st, Identity: repo}}, Guard: coordinator.Guard, RecoveryGuard: coordinator.GuardRecovery}, Publishers: publishers, RepositoryHosts: hosts}
 	if err := registry.Register("fleet", provider); err != nil {
 		return nil, nil, err
 	}

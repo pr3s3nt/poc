@@ -7,6 +7,13 @@ last_reviewed: 2026-10-28
 
 # UC-07 — Use Case Realization
 
+Current delivery flow: [ADR-033](../../architecture/decisions/ADR-033-platform-managed-delivery.md)
+supersedes per-Application destination authoring and old-app transfer below.
+Platform default → Application pins binding → Preview without Git writes → first
+owned Deploy allocates repo → per-Environment CD publication. See the shared
+[sequence](../../architecture/components/platform-managed-delivery-sequence.puml).
+
+
 ## Trách nhiệm
 
 Cập nhật hoặc xóa đúng một workload, giữ nguyên contribution khác, gọi UC-08 cho desired resources và chỉ đánh dấu resource bỏ tham chiếu là `UNREFERENCED`.

@@ -67,3 +67,5 @@ ZIP source upload: [ADR-026](ADR-026-zip-source-upload.md).
 - [ADR-031 — Versioned Git catalog releases](ADR-031-versioned-catalog.md).
 
 - [ADR-032 — CD owns application manifests](ADR-032-cd-only-manifests.md).
+
+- [ADR-033 — Platform-managed delivery repositories](ADR-033-platform-managed-delivery.md).

@@ -44,43 +44,45 @@ type deliveryExecutionRecord struct {
 }
 
 type state struct {
-	CatalogEnvironments  map[string]persistence.CatalogEnvironment     `json:"catalogEnvironments,omitempty"`
-	CatalogSources       map[string]persistence.CatalogSource          `json:"catalogSources,omitempty"`
-	CatalogReleases      map[string]catalogrelease.Release             `json:"catalogReleases,omitempty"`
-	GitSettings          map[string]persistence.GitSettings            `json:"gitSettings,omitempty"`
-	DeliveryPollLeases   map[string]persistence.DeliveryPollLease      `json:"deliveryPollLeases,omitempty"`
-	DeliveryObservations map[string][]persistence.DeliveryObservation  `json:"deliveryObservations,omitempty"`
-	DriftScans           map[string]driftScanRecord                    `json:"driftScans,omitempty"`
-	PublicationLeases    map[string]persistence.GitPublicationLease    `json:"gitPublicationLeases,omitempty"`
-	DeliveryExecutions   map[string]deliveryExecutionRecord            `json:"deliveryExecutions,omitempty"`
-	DeliveryArtifacts    map[string]persistence.CipherArtifact         `json:"deliveryArtifacts,omitempty"`
-	DeliveryBindings     map[string]deliveryBindingRecord              `json:"deliveryBindings,omitempty"`
-	TelemetrySources     map[string]telemetry.State                    `json:"telemetrySources"`
-	TelemetryLogs        map[string]telemetry.Log                      `json:"telemetryLogs"`
-	TelemetrySamples     map[string]telemetry.Sample                   `json:"telemetrySamples"`
-	TelemetryEvents      map[string]telemetry.Event                    `json:"telemetryEvents"`
-	Organizations        map[string]application.Organization           `json:"organizations"`
-	UserAccounts         map[string]identity.UserAccount               `json:"userAccounts"`
-	Sessions             map[string]identity.Session                   `json:"sessions"`
-	Applications         map[string]application.Application            `json:"applications"`
-	Connections          map[string]application.Connection             `json:"connections"`
-	Environments         map[string]environment.Environment            `json:"environments"`
-	DeploymentSets       map[string]environment.DeploymentSet          `json:"deploymentSets"`
-	ResourceTypes        map[string]resource.Type                      `json:"resourceTypes"`
-	Definitions          map[string]resource.Definition                `json:"resourceDefinitions"`
-	Deployments          map[string]deployment.Deployment              `json:"deployments"`
-	DeltaSnapshots       map[string]deployment.DeploymentDeltaSnapshot `json:"deploymentDeltaSnapshots"`
-	Plans                map[string]map[string]any                     `json:"deploymentPlans"`
-	DeployResources      map[string][]deployment.Resource              `json:"deploymentResources"`
-	ActiveResources      map[string]resource.ActiveResource            `json:"activeResources"`
-	WorkloadInstances    map[string]deployment.WorkloadInstance        `json:"workloadInstances"`
-	DeploymentWorkloads  map[string]deployment.WorkloadSnapshot        `json:"deploymentWorkloads"`
-	ConfigScopes         map[string]configuration.Scope                `json:"configurationScopes"`
-	ConfigRevisions      map[string]configuration.Revision             `json:"configurationRevisions"`
-	WorkloadDrafts       map[string]environment.WorkloadDraft          `json:"workloadDrafts"`
-	SecretStores         map[string]secretstore.Store                  `json:"secretStores"`
-	Operations           map[string]environment.Operation              `json:"environmentOperations"`
-	ModuleBundles        map[string]tfmodule.Bundle                    `json:"terraformModuleBundles"`
+	PlatformDeliveryDefaults        map[string]delivery.PlatformDefault           `json:"platformDeliveryDefaults,omitempty"`
+	ApplicationDeliveryRepositories map[string]delivery.ApplicationRepository     `json:"applicationDeliveryRepositories,omitempty"`
+	CatalogEnvironments             map[string]persistence.CatalogEnvironment     `json:"catalogEnvironments,omitempty"`
+	CatalogSources                  map[string]persistence.CatalogSource          `json:"catalogSources,omitempty"`
+	CatalogReleases                 map[string]catalogrelease.Release             `json:"catalogReleases,omitempty"`
+	GitSettings                     map[string]persistence.GitSettings            `json:"gitSettings,omitempty"`
+	DeliveryPollLeases              map[string]persistence.DeliveryPollLease      `json:"deliveryPollLeases,omitempty"`
+	DeliveryObservations            map[string][]persistence.DeliveryObservation  `json:"deliveryObservations,omitempty"`
+	DriftScans                      map[string]driftScanRecord                    `json:"driftScans,omitempty"`
+	PublicationLeases               map[string]persistence.GitPublicationLease    `json:"gitPublicationLeases,omitempty"`
+	DeliveryExecutions              map[string]deliveryExecutionRecord            `json:"deliveryExecutions,omitempty"`
+	DeliveryArtifacts               map[string]persistence.CipherArtifact         `json:"deliveryArtifacts,omitempty"`
+	DeliveryBindings                map[string]deliveryBindingRecord              `json:"deliveryBindings,omitempty"`
+	TelemetrySources                map[string]telemetry.State                    `json:"telemetrySources"`
+	TelemetryLogs                   map[string]telemetry.Log                      `json:"telemetryLogs"`
+	TelemetrySamples                map[string]telemetry.Sample                   `json:"telemetrySamples"`
+	TelemetryEvents                 map[string]telemetry.Event                    `json:"telemetryEvents"`
+	Organizations                   map[string]application.Organization           `json:"organizations"`
+	UserAccounts                    map[string]identity.UserAccount               `json:"userAccounts"`
+	Sessions                        map[string]identity.Session                   `json:"sessions"`
+	Applications                    map[string]application.Application            `json:"applications"`
+	Connections                     map[string]application.Connection             `json:"connections"`
+	Environments                    map[string]environment.Environment            `json:"environments"`
+	DeploymentSets                  map[string]environment.DeploymentSet          `json:"deploymentSets"`
+	ResourceTypes                   map[string]resource.Type                      `json:"resourceTypes"`
+	Definitions                     map[string]resource.Definition                `json:"resourceDefinitions"`
+	Deployments                     map[string]deployment.Deployment              `json:"deployments"`
+	DeltaSnapshots                  map[string]deployment.DeploymentDeltaSnapshot `json:"deploymentDeltaSnapshots"`
+	Plans                           map[string]map[string]any                     `json:"deploymentPlans"`
+	DeployResources                 map[string][]deployment.Resource              `json:"deploymentResources"`
+	ActiveResources                 map[string]resource.ActiveResource            `json:"activeResources"`
+	WorkloadInstances               map[string]deployment.WorkloadInstance        `json:"workloadInstances"`
+	DeploymentWorkloads             map[string]deployment.WorkloadSnapshot        `json:"deploymentWorkloads"`
+	ConfigScopes                    map[string]configuration.Scope                `json:"configurationScopes"`
+	ConfigRevisions                 map[string]configuration.Revision             `json:"configurationRevisions"`
+	WorkloadDrafts                  map[string]environment.WorkloadDraft          `json:"workloadDrafts"`
+	SecretStores                    map[string]secretstore.Store                  `json:"secretStores"`
+	Operations                      map[string]environment.Operation              `json:"environmentOperations"`
+	ModuleBundles                   map[string]tfmodule.Bundle                    `json:"terraformModuleBundles"`
 	// Baselines are the append-only UC-17 versions, keyed by ID.
 	Baselines map[string]effectiveness.Baseline `json:"effectivenessBaselines"`
 	// RenderBundles are the verified Git render bundles (ADR-021), keyed by
@@ -93,10 +95,12 @@ type state struct {
 
 func newState() *state {
 	return &state{
-		GitSettings:        map[string]persistence.GitSettings{},
-		PublicationLeases:  map[string]persistence.GitPublicationLease{},
-		DeliveryBindings:   map[string]deliveryBindingRecord{},
-		DeliveryExecutions: map[string]deliveryExecutionRecord{}, DeliveryArtifacts: map[string]persistence.CipherArtifact{},
+		PlatformDeliveryDefaults:        map[string]delivery.PlatformDefault{},
+		ApplicationDeliveryRepositories: map[string]delivery.ApplicationRepository{},
+		GitSettings:                     map[string]persistence.GitSettings{},
+		PublicationLeases:               map[string]persistence.GitPublicationLease{},
+		DeliveryBindings:                map[string]deliveryBindingRecord{},
+		DeliveryExecutions:              map[string]deliveryExecutionRecord{}, DeliveryArtifacts: map[string]persistence.CipherArtifact{},
 		TelemetrySources: map[string]telemetry.State{}, TelemetryLogs: map[string]telemetry.Log{},
 		TelemetrySamples: map[string]telemetry.Sample{}, TelemetryEvents: map[string]telemetry.Event{},
 		Organizations:       map[string]application.Organization{},
@@ -706,7 +710,14 @@ func (s *Store) SaveEnvironment(ctx context.Context, env environment.Environment
 	}
 	env.InfrastructureScope, env.TargetGeneration = stored.InfrastructureScope, stored.TargetGeneration
 	env.SecretStoreKey, env.ActiveOperationID = stored.SecretStoreKey, stored.ActiveOperationID
-	env.DesiredDelivery, env.AppliedDelivery = stored.DesiredDelivery.Effective(), stored.AppliedDelivery.Effective()
+	if existed {
+		env.DesiredDelivery, env.AppliedDelivery = stored.DesiredDelivery.Effective(), stored.AppliedDelivery.Effective()
+	} else {
+		if env.DesiredDelivery.Validate() != nil || env.AppliedDelivery.Validate() != nil {
+			return delivery.ErrInvalid
+		}
+		env.DesiredDelivery, env.AppliedDelivery = env.DesiredDelivery.Effective(), env.AppliedDelivery.Effective()
+	}
 	env.DeliveryConfigRevision, env.DeliveryEpoch = stored.DeliveryConfigRevision, stored.DeliveryEpoch
 	if !existed {
 		// Stored rows carry the SQL defaults explicitly, not through helpers.

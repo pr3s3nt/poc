@@ -14,3 +14,7 @@ export const verifyBinding = (b: BindingSummary) => api<BindingSummary>(`/delive
 export type ConfigOption = { name: string; value: string; values: Record<string, string> };
 export type Discovery = { options: Record<string, ConfigOption[]> };
 export const inspectProvider = (provider: string, account: { key: string; version: number }, config: Record<string, string>) => api<Discovery>(`/delivery-providers/${encodeURIComponent(provider)}/inspect`, { method: 'POST', body: JSON.stringify({ managementAccountKey: account.key, managementAccountVersion: account.version, config }) });
+
+export type PlatformDefault = { bindingId: string; bindingVersion: number; revision: number };
+export const getPlatformDefault = () => api<PlatformDefault>('/delivery-default');
+export const setPlatformDefault = (b: BindingSummary, current: PlatformDefault) => api<PlatformDefault>('/delivery-default', { method: 'PUT', body: JSON.stringify({ bindingId: b.id, bindingVersion: b.version, expectedRevision: current.revision }) });

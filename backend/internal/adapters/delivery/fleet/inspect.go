@@ -3,17 +3,14 @@ package fleet
 import (
 	"context"
 	"encoding/json"
-	"net/url"
 	k8s "orchestrator/internal/adapters/kubernetes"
 	port "orchestrator/internal/ports/delivery"
-	"sort"
 	"strings"
 )
 
 func (p *Provider) InspectConfiguration(ctx context.Context, b port.BindingVersion) (port.ConfigurationDiscovery, error) {
-	out := port.ConfigurationDiscovery{Options: map[string][]port.ConfigurationOption{"targetCluster": {}, "existingGitRepo": {}}}
-	workspace := b.Config["workspace"]
-	if !label.MatchString(workspace) || p.Manager == nil || p.Manager.Verifier == nil {
+	out := port.ConfigurationDiscovery{Options: map[string][]port.ConfigurationOption{"targetCluster": {}}}
+	if p.Manager == nil || p.Manager.Verifier == nil {
 		return out, ErrConfig
 	}
 	v := p.Manager.Verifier
@@ -26,52 +23,76 @@ func (p *Provider) InspectConfiguration(ctx context.Context, b port.BindingVersi
 		return out, ErrVerification
 	}
 	defer close()
-	raw, err := cli.Run(ctx, nil, "get", "clusters.fleet.cattle.io", "-n", workspace, "-o", "json")
+	raw, err := cli.Run(ctx, nil, "get", "deployments", "--all-namespaces", "-o", "json")
+	if err != nil {
+		return out, ErrVerification
+	}
+	var deployments struct {
+		Items []struct {
+			Metadata struct{ Name, Namespace string }
+			Spec     struct {
+				Template struct {
+					Spec struct{ Containers []struct{ Image string } }
+				}
+			}
+		}
+	}
+	if json.Unmarshal(raw, &deployments) != nil {
+		return out, ErrVerification
+	}
+	values := map[string]string{"targetAccountKey": target.Connection}
+	controllers, agents := 0, 0
+	for _, d := range deployments.Items {
+		controller := false
+		for _, c := range d.Spec.Template.Spec.Containers {
+			if strings.HasSuffix(c.Image, "/fleet:"+Version) || c.Image == "rancher/fleet:"+Version {
+				controller = true
+			}
+		}
+		if controller {
+			controllers++
+			values["controllerNamespace"] = d.Metadata.Namespace
+			values["controllerName"] = d.Metadata.Name
+		}
+		if d.Metadata.Name == "fleet-agent" {
+			agents++
+			values["agentNamespace"] = d.Metadata.Namespace
+		}
+	}
+	if controllers != 1 || agents != 1 {
+		return out, ErrVerification
+	}
+	raw, err = cli.Run(ctx, nil, "get", "clusters.fleet.cattle.io", "--all-namespaces", "-o", "json")
 	if err != nil {
 		return out, ErrVerification
 	}
 	var clusters struct {
-		Items []struct{ Metadata struct{ Name, UID string } }
+		Items []struct {
+			Metadata struct {
+				Name, Namespace, UID string
+				Annotations          map[string]string
+			}
+			Spec struct{ KubeConfigSecret string }
+		}
 	}
 	if json.Unmarshal(raw, &clusters) != nil {
 		return out, ErrVerification
 	}
 	for _, c := range clusters.Items {
-		out.Options["targetCluster"] = append(out.Options["targetCluster"], port.ConfigurationOption{Name: c.Metadata.Name, Value: c.Metadata.Name, Values: map[string]string{"targetCluster": c.Metadata.Name, "targetClusterUID": c.Metadata.UID}})
-	}
-	raw, err = cli.Run(ctx, nil, "get", "gitrepos.fleet.cattle.io", "-n", workspace, "-o", "json")
-	if err != nil {
-		return out, ErrVerification
-	}
-	var repos struct {
-		Items []struct {
-			Metadata struct{ Name, UID string }
-			Spec     struct {
-				Repo, Branch, Revision, ClientSecretName string
-				Paths                                    []string
-				Targets                                  []struct{ ClusterName string }
-			}
-		}
-	}
-	if json.Unmarshal(raw, &repos) != nil {
-		return out, ErrVerification
-	}
-	for _, r := range repos.Items {
-		u, err := url.Parse(r.Spec.Repo)
-		if err != nil || u.Scheme != "https" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || len(r.Spec.Targets) > 1 || r.Spec.Revision != "" || r.Spec.Branch == "" {
+		if c.Metadata.Name != "local" || c.Spec.KubeConfigSecret != "local-cluster" || c.Metadata.Annotations["objectset.rio.cattle.io/id"] != "fleet-bootstrap" {
 			continue
 		}
-		values := map[string]string{"existingGitRepo": r.Metadata.Name, "existingGitRepoUID": r.Metadata.UID, "repositoryURL": r.Spec.Repo, "branch": r.Spec.Branch, "readSecret": r.Spec.ClientSecretName}
-		if len(r.Spec.Targets) == 1 {
-			values["targetCluster"] = r.Spec.Targets[0].ClusterName
+		copy := map[string]string{}
+		for k, v := range values {
+			copy[k] = v
 		}
-		if len(r.Spec.Paths) == 1 {
-			values["root"] = strings.TrimSuffix(r.Spec.Paths[0], "/") + "/orchestrator"
-		}
-		out.Options["existingGitRepo"] = append(out.Options["existingGitRepo"], port.ConfigurationOption{Name: r.Metadata.Name, Value: r.Metadata.Name, Values: values})
+		copy["workspace"] = c.Metadata.Namespace
+		copy["targetCluster"] = c.Metadata.Name
+		copy["targetClusterUID"] = c.Metadata.UID
+		out.Options["targetCluster"] = append(out.Options["targetCluster"], port.ConfigurationOption{Name: c.Metadata.Name, Value: c.Metadata.Name, Values: copy})
 	}
-	for _, options := range out.Options {
-		sort.Slice(options, func(i, j int) bool { return options[i].Name < options[j].Name })
+	if len(out.Options["targetCluster"]) != 1 {
+		return out, ErrVerification
 	}
 	return out, nil
 }

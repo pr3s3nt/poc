@@ -122,6 +122,12 @@ func (s *Bindings) Register(ctx context.Context, orgKey string, cmd RegisterBind
 	} else if cmd.RetainWriterCredential {
 		return domain.BindingVersion{}, domain.ErrInvalid
 	}
+	if managed, ok := provider.(port.ApplicationRepositoryBinding); ok {
+		policy, err := managed.RepositoryPolicy(b)
+		if err != nil || !policy.Enabled {
+			return domain.BindingVersion{}, domain.ErrInvalid
+		}
+	}
 	if err := validator.ValidateConfiguration(b); err != nil {
 		return domain.BindingVersion{}, domain.ErrInvalid
 	}

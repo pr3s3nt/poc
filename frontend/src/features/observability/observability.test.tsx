@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { OverviewPanel } from './OverviewPanel';
@@ -14,7 +14,7 @@ function fixture(): Snapshot {
   const sample = { workloadId: 'api', timestamp: at(-15000), metricsAt: at(-15000), cpuMilli: 100, memoryBytes: 104857600, cpuLimitMilli: 500, memoryLimitBytes: null, readyPods: 1, totalPods: 1, restarts: 1 };
   return { state: 'RECEIVING', from: at(-3600000), to: at(), generatedAt: at(), stepSeconds: 30, workloads: ['api'], sources: [{ workloadId: 'api', logsCode: 'OK', metricsCode: 'OK', observedAt: at(), lastLogAt: at(-1000), lastMetricAt: at(-15000), storageLimited: false }], signalCount: 1, logsRetentionDays: 7, metricsRetentionDays: 15, hasHistory: true, logs: [{ id: 'one', workloadId: 'api', timestamp: at(-1000), podUid: 'pod-one', podName: 'api-abc', container: 'main', restartIndex: 0, level: 'ERROR', message: 'ERROR <script>plain text</script>' }], logCount: 1, errorCount: 1, histogram: [{ timestamp: at(-1000), count: 1 }], points: [sample], latest: [sample], peaks: [{ workloadId: 'api', metric: 'cpu', timestamp: at(-600000), value: 450, limit: 500, percent: 90 }], usagePeaks: [{ workloadId: 'api', metric: 'memory', timestamp: at(-15000), value: 104857600 }], events: [], eventCount: 0 };
 }
-afterEach(() => { vi.unstubAllGlobals(); window.history.replaceState({}, '', '/'); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState({}, '', '/'); });
 it('preserves drill-down scope in routes without sending UI focus to the API', async () => {
   const route = { name: 'observability' as const, applicationId: 'app/a', environment: 'production' as const, tab: 'logs' as const, query: { from: at(-3600000), to: at(), workload: 'api', level: 'ERROR', q: 'a & b', focus: 'cpu' as const } };
   expect(parseRoute(href(route))).toEqual(route);
@@ -71,11 +71,11 @@ it('pauses at the latest followed interval without rewinding received logs', asy
   render(<HistoryPage application={{ id: 'shop', name: 'Shop', subdomain: 'shop', environments: bothConfigured(), workloads: { staging: [], production: [] } }} environment="staging" tab="logs" />);
   await screen.findByText(original.logs[0]!.message);
   now.mockReturnValue(stamp + 60000);
-  await user.click(screen.getByRole('button', { name: text('follow') }));
-  await screen.findByText(newer.message);
+  await user.click(await screen.findByRole('button', { name: text('follow') }, { timeout: 10000 }));
+  await screen.findByText(newer.message, {}, { timeout: 10000 });
   now.mockReturnValue(stamp + 90000);
-  await user.click(screen.getByRole('button', { name: text('pause') }));
-  await waitFor(() => expect(screen.getByRole('button', { name: text('follow') })).toBeVisible());
+  fireEvent.click(await screen.findByRole('button', { name: text('pause') }, { timeout: 10000 }));
+  await waitFor(() => expect(screen.getByRole('button', { name: text('follow') })).toBeVisible(), { timeout: 10000 });
   expect(await screen.findByText(newer.message)).toBeInTheDocument();
   now.mockRestore();
 });

@@ -522,6 +522,9 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	}
 	auth := authentication.NewService(st, rejectedAccountIDs...)
 	applications := appcreate.NewService(st)
+	if !fakeRenderer {
+		applications.SetDeliveryDefaults(deliveryBindings)
+	}
 	operations := envops.NewManager(st)
 	if opts.DeployDeadline != 0 {
 		if err := operations.SetDeadline(environment.OpDeploy, opts.DeployDeadline); err != nil {

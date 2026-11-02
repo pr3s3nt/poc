@@ -1,0 +1,26 @@
+@startuml
+actor "Platform Engineer" as PE
+actor Developer
+participant Console
+participant Orchestrator
+participant "Repository host" as Git
+participant Fleet
+database PostgreSQL
+PE -> Console : Discover/verify CD and Git policy
+Console -> Orchestrator : Set verified platform default (CAS)
+Orchestrator -> PostgreSQL : Save default binding/version
+Developer -> Console : Create Application
+Console -> Orchestrator : Name/subdomain only
+Orchestrator -> PostgreSQL : Create Application/Environments and pin default
+Developer -> Console : Preview
+Console -> Orchestrator : Plan pinned workload/dependencies (no Git writes)
+Developer -> Console : Deploy reviewed revision
+Orchestrator -> PostgreSQL : Admit operation and reserve application repository
+Orchestrator -> Git : Observe deterministic repo; create private if absent
+Git --> Orchestrator : Exact repository ID / branch
+Orchestrator -> PostgreSQL : Acknowledge allocation (CAS)
+Orchestrator -> Git : Publish environments/<env>/manifests units
+Orchestrator -> Fleet : Submit exact revision
+Fleet --> Orchestrator : Observation / UID inventory
+Orchestrator -> PostgreSQL : Acknowledge admitted revision
+@enduml

@@ -37,3 +37,14 @@ reloaded by request identity. No raw provider errors, hidden secret refs or toke
 
 Browser acceptance uses ordinary forms and real adapters. Fixture screenshots
 only prove UI behavior, never Fleet health or application deployment.
+
+## Platform-managed applications — ADR-033
+
+The platform form configures a reusable Fleet connection and GitHub owner,
+private credentials and generated-repository prefix. No concrete application
+repository/branch/root fields are authored. Cluster discovery fills exact Fleet
+identities and pairs the workload account with the selected management cluster.
+Technical Fleet namespaces, reader Secret, TLS and host URLs live in Advanced.
+After Verify reaches READY, the PE/Admin explicitly chooses Use by default.
+Display the default badge and preserve CAS/reload/unknown-outcome handling.
+Default changes apply to new Applications only. GitHub is the first host adapter.

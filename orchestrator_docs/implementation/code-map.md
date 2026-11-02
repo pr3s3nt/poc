@@ -1005,6 +1005,21 @@ HTTP: `delivery/http/catalogreleases.go`; Console:
 - `adapters/vault/provider.go`, `registry.go`: private dependency values and
   separate CD ServiceAccount identities. `ports/execution/certificates.go`
   validates the public-CA-only Secret exception.
-- `features/delivery/DeliverySelectionPanel.tsx`: required verified provider.
+- `features/delivery/CDProvidersPage.tsx`: platform default and GitHub repository policy; application delivery authoring is retired.
 
 See [implementation and checks](delivery-reconciliation.md).
+
+## Platform-managed delivery — ADR-033
+
+- Domain: `domain/delivery/repository.go`; ports: `persistence/delivery_repository.go`,
+  `repositoryhosting/hosting.go`, `delivery.ApplicationRepositoryBinding`.
+- Services: `application/delivery/repositories.go` pins defaults and reserves/acknowledges
+  allocations under an admitted owner; Application creation pins the binding without HTTP.
+- Persistence: Store/PostgreSQL `delivery_repository.go`; immutable migration 005 and
+  frozen version-005; Console SELECT/INSERT/UPDATE, no State or remote-delete privileges.
+- Adapters: `repositoryhosting/github` uses private initialized repositories, durable
+  markers, observed remote ID and branch; Fleet binds internal destinations and discovers
+  a unique controller/local cluster registration. Production registers no Direct provider.
+- HTTP: platform-only GET/PUT `/delivery-default`; retired per-Environment PUT `/delivery`.
+  Console platform form authors owner/credentials; Application Settings authors neither.
+- Verification: [results and limits](../verification/2026-11-02-platform-managed-cd.md).

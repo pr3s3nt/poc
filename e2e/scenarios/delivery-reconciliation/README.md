@@ -1,5 +1,10 @@
 # Optional CD through ordinary Console forms
 
+Historical runner: this targets per-Application CD selection. ADR-033 retires that
+product flow; use [platform-managed CD checks](../platform-managed-cd/README.md).
+Do not run this against the current managed-only flow.
+
+
 Scope: [ADR-030](../../../orchestrator_docs/architecture/decisions/ADR-030-delivery-reconciliation.md),
 [UC-04 CD configuration](../../../orchestrator_docs/usecase/UC-04/ui/cd-providers.md),
 [Environment CD](../../../orchestrator_docs/usecase/UC-01/ui/delivery-reconciliation.md).

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	appdomain "orchestrator/internal/domain/application"
+	"orchestrator/internal/domain/delivery"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
@@ -48,7 +49,15 @@ type Result struct {
 	Application  appdomain.Application
 	Environments []environment.Environment
 }
-type Service struct{ store persistence.Store }
+type DeliveryDefaults interface {
+	DefaultSelection(context.Context, string) (delivery.Selection, error)
+}
+type Service struct {
+	store    persistence.Store
+	delivery DeliveryDefaults
+}
+
+func (s *Service) SetDeliveryDefaults(d DeliveryDefaults) { s.delivery = d }
 
 func NewService(store persistence.Store) *Service { return &Service{store: store} }
 func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error) {
@@ -77,6 +86,13 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 				return fieldError("subdomain", ErrDuplicate, "subdomain is already in use")
 			}
 		}
+		var selection delivery.Selection
+		if s.delivery != nil {
+			selection, err = s.delivery.DefaultSelection(ctx, cmd.OrganizationKey)
+			if err != nil {
+				return err
+			}
+		}
 		appID := ids.New()
 		app := appdomain.Application{ID: appID, Key: appID, OrganizationKey: cmd.OrganizationKey, Name: cmd.Name, Subdomain: cmd.Subdomain}
 		if err := app.Validate(); err != nil {
@@ -92,7 +108,7 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 		for _, key := range []string{"staging", "production"} {
 			envID := ids.New()
 			set := environment.DeploymentSet{ID: ids.New(), EnvironmentID: envID, EnvironmentKey: app.Key + "/" + key, Document: environment.NewDocument(), DocumentHash: "empty", CreatedAt: time.Now().UTC()}
-			env := environment.Environment{ID: envID, Key: key, ApplicationID: app.ID, ApplicationKey: app.Key, Name: strings.Title(key), Type: key, NamespaceIdentity: "app-" + app.Key + "-" + key, CurrentDeploymentSetID: set.ID, Version: 1, InfrastructureScope: environment.ScopeEnvironment}
+			env := environment.Environment{DesiredDelivery: selection, AppliedDelivery: selection, ID: envID, Key: key, ApplicationID: app.ID, ApplicationKey: app.Key, Name: strings.Title(key), Type: key, NamespaceIdentity: "app-" + app.Key + "-" + key, CurrentDeploymentSetID: set.ID, Version: 1, InfrastructureScope: environment.ScopeEnvironment}
 			if err := s.store.SaveDeploymentSet(ctx, set); err != nil {
 				return err
 			}

@@ -7,6 +7,13 @@ last_reviewed: 2026-10-28
 
 # UC-01 — Use Case Realization
 
+Current delivery flow: [ADR-033](../../architecture/decisions/ADR-033-platform-managed-delivery.md)
+supersedes per-Application destination authoring and old-app transfer below.
+Platform default → Application pins binding → Preview without Git writes → first
+owned Deploy allocates repo → per-Environment CD publication. See the shared
+[sequence](../../architecture/components/platform-managed-delivery-sequence.puml).
+
+
 The V04–V06 replacement collaboration below supersedes deployment Connection/
 transition participants in the historical staged description which follows.
 

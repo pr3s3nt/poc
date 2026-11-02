@@ -5,6 +5,13 @@ status: current
 last_reviewed: 2026-10-28
 ---
 
+> Current managed delivery policy: [ADR-033](../../architecture/decisions/ADR-033-platform-managed-delivery.md)
+> supersedes per-Application/Environment CD and Git authoring below. Platform
+> selects a verified default; new Applications pin it internally and receive one
+> private repository at admitted Deploy. Users only Preview/Deploy workloads.
+> No historical Application migration/handoff is required.
+
+
 > Current delivery policy (2026-11-02): [ADR-032](../../architecture/decisions/ADR-032-cd-only-manifests.md) supersedes
 > optional/default Direct and disabling-CD requirements below. Real application
 > manifests, including nonsecret auxiliaries and VSO declarations, belong to CD.

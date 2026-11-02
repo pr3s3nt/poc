@@ -14,6 +14,17 @@ require a reviewed migration. Never delete a retained database or edit markers
 just to start the new application. Workload databases/JSON snapshots are outside
 this upgrade path. No deployment or external mutation is authorized by this text.
 
+## Schema 5 — platform-managed CD
+
+Migration `005-managed-delivery.sql` upgrades frozen version 4 to version 5.
+Fresh installations use the matching complete version-005 reference. The default
+and allocation tables start empty; existing Application/Environment identities,
+Terraform state and CD execution history are preserved. No old-app destination
+migration is performed. Stop writers, retain a verified private backup, run the
+new owner setup image, then start ordinary runtime services. Runtime roles gain
+no DDL: Console receives SELECT/INSERT/UPDATE on the two new tables; State receives
+no access. Follow the existing rollback/backup procedure below.
+
 ## Compose deployment
 
 Identify the exact project and compose overrides first. The script below builds

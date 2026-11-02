@@ -18,7 +18,7 @@ import (
 	"orchestrator/internal/seed/seedtest"
 )
 
-func TestDeliverySelectionHTTPIsScopedRoleGuardedAndIntentOnly(t *testing.T) {
+func TestApplicationDeliveryAuthoringIsRetiredAndReadIsScoped(t *testing.T) {
 	ctx := context.Background()
 	st := store.New()
 	opts := seedtest.Defaults()
@@ -66,15 +66,9 @@ func TestDeliverySelectionHTTPIsScopedRoleGuardedAndIntentOnly(t *testing.T) {
 		return resp.StatusCode
 	}
 	body := fmt.Sprintf(`{"expectedEnvironmentVersion":%d,"expectedConfigurationRevision":0,"mode":"DIRECT","selfHeal":false}`, before.EnvironmentVersion)
-	if code := put(developer, body); code != 403 {
-		t.Fatalf("developer selection mutation %d", code)
-	}
-	if code := put(engineer, body); code != 400 {
-		t.Fatalf("Direct selection must be rejected: %d", code)
-	}
-	for _, bad := range []string{`{"mode":"DIRECT"}`, body + ` {}`, strings.Replace(body, `"selfHeal":false`, `"selfHeal":null`, 1), strings.Replace(body, `"mode":"DIRECT"`, `"mode":"fleet"`, 1), strings.Replace(body, `"selfHeal":false`, `"selfHeal":true`, 1)} {
-		if code := put(engineer, bad); code != 400 {
-			t.Fatalf("invalid selection got %d", code)
+	for _, client := range []*http.Client{developer, engineer} {
+		if code := put(client, body); code != http.StatusNotFound && code != http.StatusMethodNotAllowed {
+			t.Fatalf("retired application authoring admitted: %d", code)
 		}
 	}
 	after := get(developer)
@@ -132,5 +126,46 @@ func TestReconciliationGETIsStoredScopedAndUnavailableWithoutRuntime(t *testing.
 	r.Body.Close()
 	if r.StatusCode != 404 {
 		t.Fatal("foreign scope exposed", r.StatusCode)
+	}
+}
+
+func TestPlatformDeliveryDefaultIsPlatformOnly(t *testing.T) {
+	ctx := context.Background()
+	st := store.New()
+	opts := seedtest.Defaults()
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(NewServer(Config{Authentication: authentication.NewService(st), Store: st, SeedOptions: opts, Delivery: appdelivery.NewBindings(st, port.NewRegistry())}))
+	defer server.Close()
+	endpoint := server.URL + "/api/v1/delivery-default"
+	for _, role := range []string{"developer", "platform-engineer"} {
+		client := bundleClient(t, server.URL, role)
+		resp, err := client.Get(endpoint)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		expected := 200
+		if role == "developer" {
+			expected = 403
+		}
+		if resp.StatusCode != expected {
+			t.Fatal(role, resp.StatusCode)
+		}
+		req, _ := http.NewRequest("PUT", endpoint, strings.NewReader(`{"bindingId":"foreign","bindingVersion":1,"expectedRevision":0}`))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err = client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		expected = 404
+		if role == "developer" {
+			expected = 403
+		}
+		if resp.StatusCode != expected {
+			t.Fatal(role, resp.StatusCode)
+		}
 	}
 }

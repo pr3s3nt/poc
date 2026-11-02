@@ -8,6 +8,16 @@ related: [ADR-030, UC-01, UC-04, UC-05, UC-06, UC-07, UC-08, UC-09, UC-18]
 
 # Delivery reconciliation — implementation handoff
 
+## Platform-managed repositories — 2026-11-02
+
+[ADR-033](../architecture/decisions/ADR-033-platform-managed-delivery.md) is current.
+Application delivery authoring and production Direct registration are retired.
+Platform defaults pin new Applications; first owned Deploy allocates a private GitHub
+repository. Existing tests are preserved without migration/handoff. See
+[sequence](../architecture/components/platform-managed-delivery-sequence.puml)
+([rendered](../architecture/components/platform-managed-delivery-sequence.png)) and
+[verification](../verification/2026-11-02-platform-managed-cd.md).
+
 ## CD-only application manifests — 2026-11-02
 
 [Local verification and limits](../verification/2026-11-02-cd-only-manifests.md).

@@ -6,6 +6,12 @@ last_reviewed: 2026-10-28
 related: [ADR-030, UC-01, UC-04, UC-05, UC-06, UC-07, UC-09, UC-18]
 ---
 
+> [ADR-033](../decisions/ADR-033-platform-managed-delivery.md) is the current
+> configuration contract: platform default plus hidden per-Application repository
+> allocation. Per-Environment selection forms and legacy Direct/repository
+> transfer compatibility are retired for new Applications.
+
+
 > Current delivery policy (2026-11-02): [ADR-032](../decisions/ADR-032-cd-only-manifests.md) supersedes
 > optional/default Direct and disabling-CD requirements below. Real application
 > manifests, including nonsecret auxiliaries and VSO declarations, belong to CD.

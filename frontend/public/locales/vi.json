@@ -3456,7 +3456,7 @@
   "delivery.reload": "Tải lại",
   "delivery.applied": "Đang dùng: {provider}",
   "delivery.notApplied": "Chưa áp dụng CD",
-  "delivery.required": "Chọn CD provider đã xác minh trong Cài đặt trước khi triển khai.",
+  "delivery.required": "Ứng dụng chưa có CD. Cần cấu hình CD mặc định trên platform trước khi tạo ứng dụng mới.",
   "delivery.direct": "Trực tiếp",
   "delivery.unavailable": "Không sẵn sàng",
   "delivery.enable": "Dùng CD provider",
@@ -3688,5 +3688,17 @@
   "catalog.noComponents": "Không có thành phần.",
   "catalog.binding": "Slot tài khoản",
   "catalog.inputs": "Đầu vào",
-  "catalog.editSource": "Sửa nguồn"
+  "catalog.editSource": "Sửa nguồn",
+  "cd.fields.repositoryOwner": "Tài khoản hoặc tổ chức GitHub",
+  "cd.fields.repositoryAPI": "GitHub API HTTPS",
+  "cd.fields.repositoryHost": "Git HTTPS gốc",
+  "cd.fields.repositoryPrefix": "Tiền tố repo tự tạo",
+  "cd.default": "Mặc định",
+  "cd.useDefault": "Dùng cho ứng dụng mới",
+  "cd.defaultSaved": "Đã đặt CD mặc định cho ứng dụng tạo mới.",
+  "cd.defaultFailed": "Chưa xác nhận được CD mặc định. Tải lại để kiểm tra.",
+  "cd.discovered": "Đã tìm thấy Fleet trên cluster.",
+  "cd.platformRequired": "Platform chưa có CD mặc định sẵn sàng. Nhờ quản trị viên thiết lập Cấu hình CD.",
+  "cd.repositoryUnavailable": "Chưa chuẩn bị được kho triển khai của ứng dụng. Nhờ quản trị viên kiểm tra kết nối Git của platform.",
+  "cd.repositoryIdentity": "Danh tính kho triển khai đã thay đổi. Nhờ quản trị viên kiểm tra trước khi thử lại."
 }

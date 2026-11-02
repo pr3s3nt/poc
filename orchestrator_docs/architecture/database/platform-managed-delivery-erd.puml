@@ -1,0 +1,39 @@
+@startuml
+entity Organizations {
+ * id : uuid
+}
+entity Applications {
+ * id : uuid
+ organization_id : uuid
+}
+entity DeliveryBindings {
+ * id : uuid
+ * version : bigint
+ organization_id : uuid
+}
+entity PlatformDeliveryDefaults {
+ * organization_id : uuid
+ binding_id : uuid
+ binding_version : bigint
+ revision : bigint
+}
+entity ApplicationDeliveryRepositories {
+ * id : uuid
+ organization_id : uuid
+ application_id : uuid <<unique>>
+ binding_id : uuid
+ binding_version : bigint
+ name : text
+ marker : text
+ status : PENDING|READY
+ remote_id : text
+ clone_url : text
+ branch : text
+ revision : bigint
+}
+Organizations ||--o| PlatformDeliveryDefaults
+DeliveryBindings ||--o{ PlatformDeliveryDefaults
+Applications ||--o| ApplicationDeliveryRepositories
+Organizations ||--o{ ApplicationDeliveryRepositories
+DeliveryBindings ||--o{ ApplicationDeliveryRepositories
+@enduml

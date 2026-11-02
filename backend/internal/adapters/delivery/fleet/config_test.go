@@ -27,3 +27,27 @@ func TestBindingRejectsCredentialsAndEscapingPublicationPaths(t *testing.T) {
 		})
 	}
 }
+
+func TestPlatformPolicyContainsNoApplicationDestination(t *testing.T) {
+	config := validConfig()
+	delete(config, "repositoryURL")
+	delete(config, "branch")
+	config["repositoryOwner"] = "platform"
+	config["repositoryAPI"] = "https://api.github.com"
+	config["repositoryHost"] = "https://github.com"
+	config["repositoryPrefix"] = "orch-app-"
+	config["root"] = "environments"
+	if _, err := ParseConfig(config); err != nil {
+		t.Fatal(err)
+	}
+	provider := &Provider{}
+	for _, f := range provider.ConfigurationFields() {
+		if f.Key == "repositoryURL" || f.Key == "branch" || f.Key == "gitRepoMode" || f.Key == "existingGitRepo" {
+			t.Fatal("application destination authoring field")
+		}
+	}
+	config["caBundle"] = "invalid CA"
+	if _, err := ParseConfig(config); err == nil {
+		t.Fatal("invalid platform CA")
+	}
+}

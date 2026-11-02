@@ -8,7 +8,7 @@ const fields = [
   { key: 'workspace', kind: 'text', labelKey: 'cd.fields.workspace', default: 'fleet-local', required: true },
   { key: 'targetCluster', kind: 'text', labelKey: 'cd.fields.targetCluster', default: 'local', required: true },
   { key: 'targetClusterUID', kind: 'text', labelKey: 'cd.fields.targetClusterUID', readOnly: true, advanced: true, required: true },
-  { key: 'repositoryURL', kind: 'url', labelKey: 'cd.fields.repositoryURL', required: true },
+  { key: 'repositoryOwner', kind: 'text', labelKey: 'cd.fields.repositoryOwner', required: true },
 ];
 const account = { key: 'local-k8s', name: 'Internal cluster', type: 'INTERNAL', version: 3, status: 'READY' };
 afterEach(() => vi.unstubAllGlobals());
@@ -23,6 +23,7 @@ it('creates and verifies CD using typed form fields, discovery and write-only cr
       if (path.endsWith('/verify')) return Response.json({ ...ready, revision: 2, status: 'READY' });
       return Response.json(ready, { status: 201 });
     }
+    if (path.endsWith('/delivery-default')) return Response.json({ bindingId: '', bindingVersion: 0, revision: 0 });
     if (path.endsWith('/delivery-providers')) return Response.json({ providers: [{ kind: 'fleet', fields }] });
     if (path.endsWith('/driver-accounts')) return Response.json({ accounts: [account] });
     return Response.json({ bindings: [] });
@@ -32,16 +33,16 @@ it('creates and verifies CD using typed form fields, discovery and write-only cr
   await user.type(screen.getByLabelText('Tên cấu hình'), 'Fleet team');
   await user.selectOptions(screen.getByLabelText('Tài khoản quản lý CD'), account.key);
   await user.click(screen.getByRole('button', { name: 'Tìm cấu hình trên cluster' }));
+  await user.click(screen.getByText('Chi tiết kết nối', { exact: true }));
   await waitFor(() => expect(screen.getByLabelText('Định danh cluster đã xác minh')).toHaveValue('cluster-incarnation'));
-  await user.type(screen.getByLabelText('Git repository HTTPS'), 'https://git.example/config.git');
-  await user.click(screen.getByText('Thông tin ghi Git', { exact: true }));
+  await user.type(screen.getByLabelText('Tài khoản hoặc tổ chức GitHub'), 'platform-team');
   await user.type(screen.getByLabelText('Tên đăng nhập Git'), 'writer');
   await user.type(screen.getByLabelText('Token hoặc mật khẩu Git'), 'private-token');
   await user.click(screen.getByRole('button', { name: 'Lưu cấu hình' }));
   expect(await screen.findByText('Đã lưu. Xác minh cấu hình trước khi sử dụng.')).toBeInTheDocument();
   expect(screen.queryByDisplayValue('private-token')).not.toBeInTheDocument();
   const create = requests.find(r => r.path.endsWith('/delivery-bindings'));
-  expect(create?.body).toMatchObject({ name: 'Fleet team', provider: 'fleet', managementAccountKey: account.key, managementAccountVersion: 3, writerUsername: 'writer', writerPassword: 'private-token', config: { targetClusterUID: 'cluster-incarnation', repositoryURL: 'https://git.example/config.git' } });
+  expect(create?.body).toMatchObject({ name: 'Fleet team', provider: 'fleet', managementAccountKey: account.key, managementAccountVersion: 3, writerUsername: 'writer', writerPassword: 'private-token', config: { targetClusterUID: 'cluster-incarnation', repositoryOwner: 'platform-team' } });
   expect(screen.queryByRole('textbox', { name: /JSON|Score/ })).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Xác minh' }));
   expect(await screen.findByText('Đã xác minh kết nối CD.')).toBeInTheDocument();
@@ -53,9 +54,10 @@ it('edits an immutable version while retaining credentials and displays environm
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const path = String(input);
     if (init?.method === 'POST') { requests.push(JSON.parse(String(init.body)) as Record<string, unknown>); return Response.json({ ...ready, version: 2, name: requests[0]?.name }); }
+    if (path.endsWith('/delivery-default')) return Response.json({ bindingId: '', bindingVersion: 0, revision: 0 });
     if (path.endsWith('/delivery-providers')) return Response.json({ providers: [{ kind: 'fleet', fields }] });
     if (path.endsWith('/driver-accounts')) return Response.json({ accounts: [account] });
-    if (path.includes('?version=')) return Response.json({ binding: ready, managementAccountKey: account.key, managementAccountVersion: 3, config: { workspace: 'fleet-local', targetCluster: 'local', targetClusterUID: 'uid', repositoryURL: 'https://git.example/config.git' }, credentialConfigured: true, usage: [{ applicationKey: 'shop', environmentKey: 'staging', applied: true, desired: true }] });
+    if (path.includes('?version=')) return Response.json({ binding: ready, managementAccountKey: account.key, managementAccountVersion: 3, config: { workspace: 'fleet-local', targetCluster: 'local', targetClusterUID: 'uid', repositoryOwner: 'platform-team' }, credentialConfigured: true, usage: [{ applicationKey: 'shop', environmentKey: 'staging', applied: true, desired: true }] });
     return Response.json({ bindings: [ready] });
   }));
   const user = userEvent.setup(); render(<CDProvidersPage />);
@@ -69,4 +71,34 @@ it('edits an immutable version while retaining credentials and displays environm
   await screen.findByText('Đã lưu. Xác minh cấu hình trước khi sử dụng.');
   expect(requests[0]).toMatchObject({ name: 'Fleet revised', previousVersion: 1, expectedRevision: 1, retainWriterCredential: true, writerUsername: '', writerPassword: '' });
   const table = screen.getByRole('table'); expect(within(table).getByText('Fleet team')).toBeInTheDocument(); expect(within(table).getByRole('cell', { name: '2' })).toBeInTheDocument();
+});
+
+it('sets the platform default using its revision and reloads after a lost acknowledgement', async () => {
+  const verified = { ...ready, status: 'READY' };
+  let selected = false;
+  let writes = 0;
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const path = String(input);
+    if (path.endsWith('/delivery-default')) {
+      if (init?.method === 'PUT') {
+        writes++;
+        expect(JSON.parse(String(init.body))).toEqual({ bindingId: 'binding', bindingVersion: 1, expectedRevision: 0 });
+        selected = true;
+        throw new TypeError('response lost');
+      }
+      return Response.json(selected ? { bindingId: 'binding', bindingVersion: 1, revision: 1 } : { bindingId: '', bindingVersion: 0, revision: 0 });
+    }
+    if (path.endsWith('/delivery-providers')) return Response.json({ providers: [{ kind: 'fleet', fields }] });
+    if (path.endsWith('/driver-accounts')) return Response.json({ accounts: [account] });
+    return Response.json({ bindings: [verified] });
+  }));
+  const user = userEvent.setup(); render(<CDProvidersPage />);
+  const button = await screen.findByRole('button', { name: 'Dùng cho ứng dụng mới' });
+  await user.click(button);
+  await waitFor(() => expect(button).toBeDisabled());
+  expect(writes).toBe(1);
+  await user.click(screen.getByRole('button', { name: 'Tải lại' }));
+  expect(await screen.findByText('Mặc định')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Dùng cho ứng dụng mới' })).toBeDisabled();
+  expect(writes).toBe(1);
 });

@@ -3456,7 +3456,7 @@
   "delivery.reload": "Reload",
   "delivery.applied": "Currently using: {provider}",
   "delivery.notApplied": "CD not applied",
-  "delivery.required": "Select a verified CD provider in Settings before deploying.",
+  "delivery.required": "This application has no CD. Configure a platform default before creating a new application.",
   "delivery.direct": "Direct",
   "delivery.unavailable": "Unavailable",
   "delivery.enable": "Use CD provider",
@@ -3688,5 +3688,17 @@
   "catalog.noComponents": "No components.",
   "catalog.binding": "Account slot",
   "catalog.inputs": "Inputs",
-  "catalog.editSource": "Edit source"
+  "catalog.editSource": "Edit source",
+  "cd.fields.repositoryOwner": "GitHub account or organization",
+  "cd.fields.repositoryAPI": "GitHub API HTTPS",
+  "cd.fields.repositoryHost": "Git HTTPS root",
+  "cd.fields.repositoryPrefix": "Generated repository prefix",
+  "cd.default": "Default",
+  "cd.useDefault": "Use for new applications",
+  "cd.defaultSaved": "Default CD set for newly created applications.",
+  "cd.defaultFailed": "Could not confirm the default CD. Reload to check.",
+  "cd.discovered": "Fleet discovered on the cluster.",
+  "cd.platformRequired": "The platform has no ready default CD. Ask an administrator to configure CD.",
+  "cd.repositoryUnavailable": "The application deployment repository could not be prepared. Ask an administrator to check platform Git access.",
+  "cd.repositoryIdentity": "The deployment repository identity changed. Ask an administrator to inspect it before retrying."
 }
