@@ -1342,3 +1342,5 @@ and explicitly separates fixture browser checks from live-provider acceptance.
 | Selected release required, no global fallback | `application/catalogrelease/selection.go` | `TestUnselectedEnvironmentNeverReadsGlobalDefinitionsOrBundles` |
 | Catalog release detail replaces editor routes | `http/catalogreleases.go`, `ReleaseDetails.tsx` | `TestCatalogReleaseDetailsAreScopedReadOnlyAndReplaceEditors`, `ReleaseDetails.test.tsx` |
 | Git-owned bootstrap configuration | `scripts/bootstrap/run.mjs`, `platform-catalog/catalog.yaml` | bootstrap tests, `TestExportedCatalogDocumentsUseReleaseLocalComponents` |
+
+| CR-05 historical cache availability during publication | `registry/service.go`, default Compose module-cache volume | `TestDirectGitPreparationRestoresMissingCacheAtOriginalHTTPSCommit`; [real UI upgrade/recreation](../verification/2026-11-02-catalog-only-live.md) |

@@ -187,3 +187,51 @@ func TestInspectGitReleaseCopiesKeepLifecycleIdentity(t *testing.T) {
 		})
 	}
 }
+
+// Preparation can recover a lost disk cache from an already verified exact Git
+// commit. A changed branch cannot change the pin, and corrupt caches fail closed.
+func TestDirectGitPreparationRestoresMissingCacheAtOriginalHTTPSCommit(t *testing.T) {
+	ctx := context.Background()
+	g := newGitServer(t)
+	commit := g.commit(t, map[string]string{"main.tf": rootModule}, nil, nil)
+	cli, err := NewGitCLI("git", privateDir(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	release, _ := DefaultRelease()
+	cache, err := OpenCache(privateDir(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := store.New()
+	cfg := Config{Release: release, Cache: cache, Store: st, Git: cli, Packaged: terraform.PackagedModules(), Policy: Policy{Sources: []GitSource{{ID: "tls", Kind: "git", URL: g.url, CAFile: g.caFile, Modules: []GitModule{{ID: "unrelated", Subdirectory: "other", ResourceTypes: []string{"other"}}}}}}}
+	svc, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old, err := svc.InspectGit(ctx, moduleregistry.GitInspection{ResourceType: "redis", URL: g.url, Path: ".", Ref: commit})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.commit(t, map[string]string{"main.tf": rootModule + `
+# newer branch commit
+`}, nil, nil)
+	if err := os.RemoveAll(cache.bundleDir(old.Ref)); err != nil {
+		t.Fatal(err)
+	}
+	restarted, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored, err := restarted.Verify(ctx, old.Ref)
+	if err != nil || !restored.SameVerifiedContent(old) {
+		t.Fatalf("historical pin not restored: %v", err)
+	}
+	dir := sourceDir(cache.bundleDir(old.Ref), rootDir(old.Ref))
+	if err := os.WriteFile(filepath.Join(dir, "main.tf"), []byte("drift"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := restarted.Verify(ctx, old.Ref); !errors.Is(err, moduleregistry.ErrDrift) {
+		t.Fatalf("corrupt cache repaired: %v", err)
+	}
+}

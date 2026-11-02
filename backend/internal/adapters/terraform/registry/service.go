@@ -305,7 +305,23 @@ func (s *Service) Verify(ctx context.Context, ref tfmodule.SourceRef) (tfmodule.
 			return tfmodule.Bundle{}, err
 		}
 		if _, err := s.cfg.Cache.verify(ref, existing.Contract); err != nil {
-			return tfmodule.Bundle{}, err
+			// Preparation may restore a missing cache from the original full
+			// commit. Existing corrupt entries remain errors; neither metadata
+			// reads nor execution can fetch or repair artifacts.
+			if exists(s.cfg.Cache.bundleDir(ref)) || len(existing.Contract.ResourceTypes) != 1 {
+				return tfmodule.Bundle{}, err
+			}
+			restored, restoreErr := s.InspectGit(ctx, moduleregistry.GitInspection{
+				URL: existing.Contract.SourceURL, Path: ref.Subdirectory,
+				Ref: ref.Revision, ResourceType: existing.Contract.ResourceTypes[0],
+			})
+			if restoreErr != nil {
+				return tfmodule.Bundle{}, restoreErr
+			}
+			if !restored.SameVerifiedContent(existing) {
+				return tfmodule.Bundle{}, moduleregistry.ErrDrift
+			}
+			return restored, nil
 		}
 		return existing, nil
 	}

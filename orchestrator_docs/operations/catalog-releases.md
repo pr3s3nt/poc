@@ -2,14 +2,19 @@
 id: OPS-CATALOG-RELEASES
 artifact: runbook
 status: current
-last_reviewed: 2026-10-30
+last_reviewed: 2026-11-02
 ---
 
 # Versioned catalog sources and Environment upgrades
 
 Run versioned owner setup first using the
 [PostgreSQL procedure](postgres-upgrades.md); keep the module/render cache volume
-and existing state/credential keys. No runtime owner credentials or DDL.
+and existing state/credential keys. Configure
+`ORCHESTRATOR_TERRAFORM_MODULE_CACHE_DIR=/var/lib/orchestrator/module-cache`
+and mount its durable volume; a temporary cache loses historical module pins on
+backend recreation. Publication can restore missing cache entries from their
+original full Git commits, but never repairs corrupt entries or fetches during
+Preview/execution. No runtime owner credentials or DDL.
 This text does not authorize mutation of a retained installation or cluster.
 
 PE/Admin configures Organization Git access through platform settings, then opens

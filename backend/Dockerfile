@@ -55,6 +55,7 @@ COPY deploy/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 ENV HOME=/tmp
 ENV ORCHESTRATOR_TERRAFORM_CLI_CONFIG_FILE=/etc/orchestrator/terraform-offline.tfrc
 # Durable verified Git render bundle content (ADR-021); mount its own volume.
+ENV ORCHESTRATOR_TERRAFORM_MODULE_CACHE_DIR=/var/lib/orchestrator/module-cache
 ENV ORCHESTRATOR_RENDER_BUNDLE_CACHE_DIR=/var/lib/orchestrator/render-bundle-cache
 RUN mkdir -p /var/lib/orchestrator/delivery-git /var/lib/orchestrator/recovery /var/lib/orchestrator/tfroot /var/lib/orchestrator/plugin-cache /var/lib/orchestrator/module-cache /var/lib/orchestrator/render-bundle-cache && chown -R 65532:65532 /var/lib/orchestrator && chmod -R 0700 /var/lib/orchestrator
 USER 65532:65532

@@ -17,9 +17,9 @@ export function ReleaseDetails({ source, tag }: { source: string; tag: string })
  }, [source, tag, attempt]);
  if (error) return <div className="form-error" role="alert">{error} <Button onClick={() => setAttempt(value => value + 1)}>{t('catalog.reload')}</Button></div>;
  if (!detail) return <p role="status">{t('catalog.loading')}</p>;
- return <section aria-label={`${t('catalog.components')} ${tag}`}>
+ return <section className="definition-review" aria-label={`${t('catalog.components')} ${tag}`}>
   <p className="feature-note">{t('catalog.gitOwned')}</p>
-  {detail.components.length ? detail.components.map(component => <details key={component.id} className="catalog-entry">
+  {detail.components.length ? detail.components.map(component => <details key={component.id} className="catalog-entry catalog-entry-rich">
    <summary><strong>{component.id}</strong> · {component.kind}</summary>
    <p>{t('catalog.path')}: <code>{component.path}</code></p><p>SHA-256: <code>{component.sha256}</code></p>
    {component.binding ? <p>{t('catalog.binding')}: <code>{component.binding}</code></p> : null}

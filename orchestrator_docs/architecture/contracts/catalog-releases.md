@@ -2,7 +2,7 @@
 id: CATALOG-RELEASES-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-10-30
+last_reviewed: 2026-11-02
 ---
 
 # Catalog release contract
@@ -134,3 +134,9 @@ Platform release summaries also include scoped `usage` rows with Application,
 Environment, desired/applied flags and catalog status. These are a consistent
 read projection of Environment bindings; they contain no account configuration
 or secret refs. Release lists use numeric SemVer ordering, newest first.
+
+Catalog publication may restore a missing verified Git module cache using only
+the recorded full commit, URL and path. It must reproduce the complete stored
+content/release identity; an existing corrupt cache is never silently repaired.
+Preview/metadata reads and execution never fetch. Deployments must mount durable
+module and render bundle cache volumes across backend recreation.

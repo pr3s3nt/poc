@@ -38,3 +38,14 @@ A successful report is not by itself proof of Pod readiness or served HTTP;
 record separate Kubernetes/HTTP reads against the returned namespace. See
 [requirements](../../../orchestrator_docs/usecase/UC-03/catalog-releases.md) and
 [operations](../../../orchestrator_docs/operations/catalog-releases.md).
+
+After recreating backend/frontend with the same durable volumes, run the read-only
+check with the same auth, app/tag and evidence environment variables:
+
+```bash
+node e2e/scenarios/catalog-only/verify.mjs
+```
+
+It opens the real UI, confirms an unchanged Preview and the applied release,
+then verifies the two-replica Git policy is displayed read-only. It performs no
+refresh, selection save or deployment. Override `ORCH_EXPECTED_REPLICAS` if needed.

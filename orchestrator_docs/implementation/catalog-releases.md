@@ -2,7 +2,7 @@
 id: IMP-CATALOG-RELEASES
 artifact: implementation-map
 status: current
-last_reviewed: 2026-10-30
+last_reviewed: 2026-11-02
 ---
 
 # Issue #28 — catalog releases implementation
@@ -49,3 +49,12 @@ ready release tags/commits and usage are listed. Detailed per-component Git
 validation diagnostics are not returned. Source identity is frozen after tag
 observation. The registry retains older referenced releases and caches; missing
 cache/engine artifacts fail closed rather than fetching at execution time.
+
+## Catalog-only follow-up — 2026-11-02
+
+Global Definition editors/routes and runtime fallback are retired. Release
+components and snapshots are inspected read-only in Catalog. Class metadata and
+diagnostic staleness use published/selected snapshots. Default deployments mount
+a durable Terraform module cache; preparation can restore a missing historical
+Git pin from its exact commit, while corrupt artifacts still fail closed. See
+[actual UI/Kubernetes verification](../verification/2026-11-02-catalog-only-live.md).

@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-10-29
+last_reviewed: 2026-11-02
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-02 | Real Console/GitHub/PostgreSQL/Vault/Kubernetes: Catalog-only source, release upgrade 1→2 Ready replicas, HTTP 200, preserved UIDs and container recreation | [Catalog-only live UI](2026-11-02-catalog-only-live.md) |
 | 2026-10-29 | Fast headless catalog/workload/PVC only: backend-only Preview, real file persistence after UID-guarded Pod recreation, 8 assertions | [Focused PVC acceptance](2026-10-29-acceptance-pvc-focused.md) |
 | 2026-10-29 | Current-main Console upgrade, paced headless acceptance app deploy, five checks and job DONE, published video | [Headless acceptance recording](2026-10-29-acceptance-headless-recording.md) |
 | 2026-10-29 | Acceptance volume file, one-shot scheduled receipts, real local SQL/Redis and browser process-restart observations; no Kubernetes run | [Acceptance PVC/CronJob local](2026-10-29-acceptance-pvc-cron-local.md) |

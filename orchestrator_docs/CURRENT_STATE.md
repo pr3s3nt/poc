@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-30
+last_reviewed: 2026-11-02
 ---
 
 # Current project state
@@ -17,7 +17,10 @@ Environment selection blocks preview/deploy and scoped template discovery with
 CATALOG_REQUIRED; there is no global Definition fallback. Bootstrap registers
 prerequisites plus a source and discovers releases; it never authors global
 Definitions or auto-selects Environment versions. Test harnesses publish explicit
-synthetic releases; these are not Git/provider acceptance evidence.
+synthetic releases; these are not Git/provider acceptance evidence. The
+[real UI run](verification/2026-11-02-catalog-only-live.md) verified GitHub discovery,
+release selection/upgrade, nginx scaling from one to two Ready replicas, HTTP 200
+and preserved UIDs/cache across backend/frontend recreation.
 
 
 ## Versioned Git catalog releases — issue #28, 2026-10-30
@@ -33,12 +36,11 @@ Resources; populated version-3 upgrades preserve installation/domain/state IDs.
 
 Existing database/storage changes without a verified migration capability are
 blocked before mutation; unchanged data pins and new resources remain supported.
-Legacy unpinned Environments retain existing resolution. No automatic deployment,
-downgrade or cluster mutation is enabled. Implementation, conservative limits and
+Since 2026-11-02, unselected Environments are blocked before planning; the legacy
+resolution exception is retired. No automatic deployment or downgrade is enabled. Implementation, conservative limits and
 local verification are recorded in the
-[catalog handoff](implementation/catalog-releases.md). Live cluster/data acceptance
-has not been run for this feature and issue acceptance must not be inferred from
-browser fixtures or the existence of an E2E runner.
+[catalog handoff](implementation/catalog-releases.md). Live stateless-workload Catalog acceptance is recorded above; database/storage
+migration and broader provider acceptance remain outside that run.
 
 ## Reconciliation integration into main — 2026-10-30
 
