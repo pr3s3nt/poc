@@ -26,7 +26,7 @@ func (s *Service) RemoveRetiredAuxiliary(ctx context.Context, appKey, envKey str
 	}
 	retired := []domain.WorkloadInstance{}
 	for _, w := range instances {
-		if w.Status == domain.InstanceRemoved && (w.TargetRef["deliveryMode"] == "CD" || w.TargetRef["deliveryMode"] == "DIRECT") {
+		if legacyAuxiliary(w) && w.Status == domain.InstanceRemoved && (w.TargetRef["deliveryMode"] == "CD" || w.TargetRef["deliveryMode"] == "DIRECT") {
 			retired = append(retired, w)
 		}
 	}
@@ -49,7 +49,7 @@ func (s *Service) RemoveRetiredAuxiliary(ctx context.Context, appKey, envKey str
 		if err = s.delivery.RemoveWorkload(lease.Ctx, app.OrganizationKey, env.ID, w.WorkloadID); err != nil {
 			break
 		}
-		if err = s.deployer.Remove(lease.Ctx, target, w.WorkloadID); err != nil {
+		if err = s.deployer.Remove(lease.Ctx, legacyAuxiliaryTarget(target, w), w.WorkloadID); err != nil {
 			break
 		}
 	}

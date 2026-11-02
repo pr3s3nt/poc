@@ -330,7 +330,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		return nil, err
 	}
 	if opts.WorkloadDelivery != "" && opts.WorkloadDelivery != "direct" {
-		return nil, fmt.Errorf("bootstrap: process-wide workload delivery is retired; configure an optional Environment delivery binding")
+		return nil, fmt.Errorf("bootstrap: process-wide workload delivery is retired; configure the required Environment CD binding")
 	}
 	var (
 		st  persistence.Store
@@ -493,6 +493,9 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	inspector := planning.RegistryInspector{Metadata: modules}
 	reviewer := deploymentreview.Assembler{Sources: modules, Renderer: renderer}
 	deployments := appsvc.NewService(st, planner, prov, renderer, deployer, inspector, c)
+	if fakeRenderer {
+		deployments = appsvc.NewSimulationService(st, planner, prov, renderer, deployer, inspector, c)
+	}
 	deployments.SetReviewer(reviewer)
 	if opts.Adapters == AdapterKubernetes {
 		routes, err := publicRoutes(opts, kubeconfigSource)
@@ -573,10 +576,16 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	}
 	workloads := workloadconfig.NewService(st)
 	pendingChanges := pending.NewService(st, planner, workloads, inspector)
+	if fakeRenderer {
+		pendingChanges = pending.NewSimulationService(st, planner, workloads, inspector)
+	}
 	pendingChanges.SetReviewer(reviewer)
 	pendingChanges.SetDeployer(deployments)
 	pendingChanges.SetOperations(operations)
 	previews := preview.NewService(st, planner, inspector)
+	if fakeRenderer {
+		previews = preview.NewSimulationService(st, planner, inspector)
+	}
 	previews.SetReviewer(reviewer)
 	kubeconfigVerifier := opts.KubeconfigVerifierOverride
 	if kubeconfigVerifier == nil {

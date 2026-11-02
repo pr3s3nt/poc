@@ -8,6 +8,7 @@ import (
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/platform/ids"
 	port "orchestrator/internal/ports/delivery"
+	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/ports/persistence"
 	"testing"
 	"time"
@@ -72,7 +73,7 @@ func TestTransferRecoveryFinishesReceiptedHealingWithoutRepeatingAdoption(t *tes
 		}
 		m.Object = map[string]any{"apiVersion": m.APIVersion, "kind": m.Kind, "metadata": map[string]any{"name": m.Name, "namespace": m.Namespace}}
 	}
-	if err := c.Deploy(ctx, req); err != nil {
+	if err := deployHistoricalDirect(c, p, ctx, req); err != nil {
 		t.Fatal(err)
 	}
 	if err := c.Activate(ctx, req.ApplicationKey, env); err != nil {
@@ -191,4 +192,35 @@ func TestReceiptedSubmissionRecoveryObservesWithoutReplayOrJobRerun(t *testing.T
 	if err := c.Activate(recovery, req.ApplicationKey, req.Environment); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// Seed an archived Direct admission through the phase persistence seam. The
+// public coordinator no longer permits creating Direct deployments.
+func deployHistoricalDirect(c *Coordinator, provider port.Provider, ctx context.Context, req DeployRequest) error {
+	org, err := c.Store.GetOrganization(ctx, req.OrganizationKey)
+	if err != nil {
+		return err
+	}
+	owner, _ := persistence.OwnerFrom(ctx)
+	phases := map[domain.Phase][]execution.Manifest{}
+	for _, manifest := range req.Manifests {
+		phase := domain.Prerequisite
+		if manifest.Kind == "Job" {
+			phase = domain.Job
+		}
+		if manifest.Kind == "Deployment" {
+			phase = domain.Rollout
+		}
+		phases[phase] = append(phases[phase], manifest)
+	}
+	for _, phase := range []domain.Phase{domain.Prerequisite, domain.Job, domain.Rollout} {
+		if len(phases[phase]) == 0 {
+			continue
+		}
+		intent, unit := phaseIntent(req, org.ID, owner, domain.BindingVersion{}, phase)
+		if err := c.runPhase(ctx, provider, intent, unit, req.WorkloadID, phases[phase]); err != nil {
+			return err
+		}
+	}
+	return nil
 }

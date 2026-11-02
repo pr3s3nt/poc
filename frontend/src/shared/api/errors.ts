@@ -4,6 +4,7 @@
 import { t } from '../i18n';
 
 const messageTable = {
+ CD_PROVIDER_REQUIRED: t('delivery.required'),
  CATALOG_REQUIRED:t('catalog.required'),
  CATALOG_CONFLICT:t('catalog.conflict'),
 	DRIFT_BASELINE_UNAVAILABLE:t('infrastructureDrift.reason.BASELINE_UNAVAILABLE'),

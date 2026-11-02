@@ -28,8 +28,8 @@ alt ownership transition
   Deploy -> Provider: Adopt exact artifacts / UID-guarded metadata
   Provider -> Cluster: Register new owner without rerunning Jobs
 else ordinary delivery
-  Deploy -> Prepare: Dependencies, render, secret readiness
-  Prepare --> Deploy: Validated non-secret artifacts and phase graph
+  Deploy -> Prepare: Dependencies, render, prepare private Vault bundle
+  Prepare --> Deploy: Validated artifacts including VSO declarations; phase graph
   Deploy -> DB: Persist immutable artifacts + pending intents
   loop prerequisite, Job, rollout, route (dependency order)
     Deploy -> Provider: Prepare / Submit(intent, expected revision, fence)

@@ -46,12 +46,11 @@ export function DeliverySelectionPanel({ applicationId, environment, canEdit, bu
   }, [dirty]);
   const eligible = bindings.filter(b => b.status === 'READY');
   const selected = bindings.find(b => bindingKey(b.id, b.version) === bindingKey(draft?.bindingId, draft?.bindingVersion));
-  const enabled = draft?.mode === 'CD';
   const locked = !canEdit || busy || saving || loading || needsReload;
   function edit(next: DeliverySelection) { setDraft(next); setNotice(false); setError(''); }
   async function save() {
-    if (!view || !draft || locked || !dirty) return;
-    const selection: DeliverySelection = draft.mode === 'DIRECT' ? { mode: 'DIRECT', selfHeal: false } : draft;
+    if (!view || !draft || locked || !dirty || draft.mode !== 'CD' || selected?.status !== 'READY') return;
+    const selection = draft;
     setSaving(true); setError(''); setNotice(false);
     try {
       const next = await saveDelivery(applicationId, environment, selection, view);
@@ -71,18 +70,17 @@ export function DeliverySelectionPanel({ applicationId, environment, canEdit, bu
     {loading ? <p role="status">{t('delivery.loading')}</p> : null}
     {error ? <div className="form-error" role="alert">{error}{needsReload || !view ? <Button onClick={() => setAttempt(v => v + 1)} disabled={saving || loading}>{t('delivery.reload')}</Button> : null}</div> : null}
     {view && draft ? <div className="inline-editor editor-grid">
-      <p className="muted">{t('delivery.applied', { provider: view.applied.mode === 'DIRECT' ? t('delivery.direct') : appliedBinding?.name ?? t('delivery.unavailable') })}</p>
-      <label className="checkbox-row"><input type="checkbox" checked={enabled} disabled={locked} onChange={e => edit({ ...draft, mode: e.target.checked ? 'CD' : 'DIRECT' })} />{t('delivery.enable')}</label>
-      {enabled ? <>
-        <label htmlFor={providerId}>{t('delivery.provider')}</label><select id={providerId} value={bindingKey(draft.bindingId, draft.bindingVersion)} disabled={locked} onChange={e => {
+      <p className="muted">{t('delivery.applied', { provider: view.applied.mode === 'DIRECT' ? t('delivery.notApplied') : appliedBinding?.name ?? t('delivery.unavailable') })}</p>
+      <>
+        <label htmlFor={providerId}>{t('delivery.provider')}</label><select id={providerId} value={bindingKey(draft.bindingId, draft.bindingVersion)} required disabled={locked} onChange={e => {
           const b = eligible.find(item => bindingKey(item.id, item.version) === e.target.value);
           edit({ mode: 'CD', bindingId: b?.id, bindingVersion: b?.version, selfHeal: Boolean(draft.selfHeal && b?.capabilities.selfHeal) });
         }}><option value="">{t('delivery.choose')}</option>{eligible.map(b => <option key={bindingKey(b.id, b.version)} value={bindingKey(b.id, b.version)}>{b.provider} · {b.name}</option>)}{selected && selected.status !== 'READY' ? <option value={bindingKey(selected.id, selected.version)}>{selected.name} · {t('delivery.unavailable')}</option> : null}</select>
         {eligible.length === 0 ? <p className="form-info">{t('delivery.noProvider')}{canEdit ? <Button onClick={() => navigate({ name: 'cd-providers' })}>{t('cd.title')}</Button> : null}</p> : null}
         {selected?.capabilities.selfHeal ? <label className="checkbox-row"><input type="checkbox" checked={draft.selfHeal} disabled={locked} onChange={e => edit({ ...draft, selfHeal: e.target.checked })} />{t('delivery.selfHeal')}</label> : null}
         <details><summary>{t('delivery.help')}</summary><p>{t('delivery.helpText')}</p></details>
-      </> : null}
-      {canEdit ? <div className="form-actions"><Button disabled={locked || !dirty} onClick={() => { setDraft(view.desired); setNotice(false); }}>{t('delivery.cancel')}</Button><Button tone="primary" disabled={locked || !dirty || (enabled && selected?.status !== 'READY')} onClick={() => void save()}>{t('delivery.save')}</Button></div> : null}
+      </>
+      {canEdit ? <div className="form-actions"><Button disabled={locked || !dirty} onClick={() => { setDraft(view.desired); setNotice(false); }}>{t('delivery.cancel')}</Button><Button tone="primary" disabled={locked || !dirty || (draft.mode !== 'CD' || selected?.status !== 'READY')} onClick={() => void save()}>{t('delivery.save')}</Button></div> : null}
     </div> : null}
     {notice ? <div className="form-success" role="status">{t('delivery.saved')} <Button onClick={() => navigate({ name: 'application', applicationId, environment })}>{t('delivery.preview')}</Button></div> : null}
   </section>;

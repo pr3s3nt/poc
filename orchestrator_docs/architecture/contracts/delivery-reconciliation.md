@@ -6,6 +6,13 @@ last_reviewed: 2026-10-28
 related: [ADR-030, UC-01, UC-04, UC-05, UC-06, UC-07, UC-09, UC-18]
 ---
 
+> Current delivery policy (2026-11-02): [ADR-032](../decisions/ADR-032-cd-only-manifests.md) supersedes
+> optional/default Direct and disabling-CD requirements below. Real application
+> manifests, including nonsecret auxiliaries and VSO declarations, belong to CD.
+> A verified binding is mandatory; historical Direct records remain readable
+> only for reviewed migration/cleanup. Terraform ownership is unchanged.
+
+
 # Optional workload CD and reconciliation
 
 Required design, not an available API. Behavior belongs to the linked use-case
@@ -14,7 +21,9 @@ Architecture: [ADR-030](../decisions/ADR-030-delivery-reconciliation.md).
 
 ## CDR-01 — Selection, identity and permissions
 
-Environment `desiredDelivery` and `appliedDelivery` are separate:
+Environment `desiredDelivery` and `appliedDelivery` are separate. New executable
+selections require `mode=CD`; a missing binding blocks real Preview/Deploy.
+The legacy representation below remains readable for history/migration only:
 
 ```json
 {"mode":"DIRECT","bindingId":null,"bindingVersion":null,"selfHeal":false}
@@ -37,7 +46,7 @@ Selection change bumps Environment version and delivery configuration revision.
 With no deployed inventory, next Deploy applies it. Otherwise Preview classifies
 `DELIVERY_TRANSITION` even if Score is unchanged; unrelated pending changes must
 be deployed/undone first. Cancel before Deploy discards desired selection without
-runtime calls. Disabling CD on an occupied Environment also requires transition.
+runtime calls. Direct cannot be selected or used as a transition destination.
 Changing policy only uses the same admission/revision guards; it is not a move
 of ownership and does not rerun Jobs or change Pod templates.
 
@@ -72,8 +81,9 @@ read-only external operation, never called by pure Preview. `Submit`/`Reconcile`
 take operation ID, fence, intent ID and expected revision; replay is idempotent.
 `Withdraw` stops management and retains objects; it never means “delete by name”.
 Shared `OwnedObjectRemover` deletes the confirmed inventory with UID preconditions
-after proof. Direct adapter delegates current Kubernetes apply/readiness/removal;
-it returns no autonomous self-heal capability. Its observation compares only
+after proof. The historical Direct adapter remains a source for observation,
+export and guarded cleanup; it cannot be a new deployment/transfer destination.
+Its observation compares only
 platform-owned desired fields, excluding status/defaulted/controller-owned fields.
 
 Capabilities are versioned structured data: accepted object/lifecycle classes,
@@ -174,7 +184,10 @@ withdrawal, no competing writer or destructive cleanup is enabled.
 | HPA | Owns replicas within declared bounds; adapter must prove ignore **and** apply semantics; explicit fixed Score replicas conflicting with HPA is rejected |
 | PVC | Owned inventory and guarded delete; no forced replacement/self-heal recreation that could change data identity |
 | Operator CR | API discovery plus adapter capability; unknown readiness/side-effect safety means observe-only or reject requested self-heal, never assume safe |
-| Terraform namespace/database/cache; VSO/Agent/Secret | Remain outside CD inventory and under their existing managers |
+| Terraform namespace/database/cache | Remain Terraform-owned, outside CD inventory |
+| VSO declarations and nonsecret renderer auxiliaries | CD-owned prerequisites, with VSO destination readiness before Job/rollout |
+| Secret values / VSO destination Secret | Private Vault data; generated Secret belongs to VSO, not Git inventory |
+| Public CA-only Secret | Validated certificate-only exception for VSO TLS; no credential/private key |
 
 Preserve ADR-024 stage order: non-rollout prerequisites → all Jobs complete →
 rollout objects Ready → public routes. Split units so a Job update does not rerun
@@ -309,7 +322,7 @@ versions, all unit receipts/inventory digests and target identity. Transition
 does not change Terraform state identity, secrets, manifests' business fields
 or target generation. All admitted objects including routes must be covered.
 Missing historical exact artifacts/UID proof yields `DELIVERY_BASELINE_REQUIRED`;
-do a normal direct redeploy to establish baseline first, never infer from live.
+migration is blocked; never perform a new Direct redeploy or infer proof from live.
 
 Stages: `CHECKING → RELEASING → ADOPTING → VERIFYING → COMMITTING`.
 Acquire Environment operation and delivery epoch fence; no normal deploy/scan
@@ -324,11 +337,8 @@ takeOwnership. Observe exact inventory/revision; completed Jobs are imported as
 completion records and excluded from execution, missing completed Jobs stay absent.
 Enable requested continuous policy only after all units are verified.
 
-Fleet → direct: withdraw every source unit with retain proof; establish no active
-controller/Helm operation remains; remove only the source's ownership metadata
-with UID/resourceVersion tests. Register direct receipts for the same artifacts,
-verify health and ownership, then commit applied selection/epoch. No force apply,
-Pod restart, re-provision or data-copy is implied by changing delivery manager.
+Fleet → Direct is retired. A CD binding/provider change retains the guarded
+withdrawal/adoption protocol; unavailable destination capabilities block it.
 
 Persist per-unit source release and destination adoption checkpoints. A timeout
 or lost ack can leave a mixture of owners: keep the whole Environment held and

@@ -13,6 +13,7 @@ const state = JSON.parse(readFileSync(statePath));
 const reverse = process.env.ORCH_RECON_RECOVERY_DIRECTION === 'fleet';
 const semantic = process.env.ORCH_RECON_FOCUS === 'semantics';
 const removal = process.env.ORCH_RECON_RECOVERY_KIND === 'removal';
+if (semantic) throw Error('This historical Direct handoff recovery fixture predates ADR-032; use CD binding recovery on a fresh run');
 const project = readPrivateFile(join(run, semantic ? 'drift-compose-project' : 'current-compose-project'));
 expect(project).toBe(semantic ? 'orch-reconciliation-drift-20261029' : 'orch-reconciliation-current-20261029');
 const prior = readPrivateFile(join(run, semantic ? (reverse ? 'semantic-reverse-failed-worker-container-id' : 'semantic-failed-worker-container-id') : removal ? 'removal-failed-worker-container-id' : 'transfer-failed-worker-container-id'));

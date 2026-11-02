@@ -248,6 +248,11 @@ type ConfigSecretSynchronizer interface {
 	Sync(ctx context.Context, target Target, bundle ConfigBundle) error
 }
 
+// ConfigBundleRenderer prepares nonsecret declarations for CD without cluster writes.
+type ConfigBundleRenderer interface {
+	RenderBundle(context.Context, Target, ConfigBundle) ([]Manifest, error)
+}
+
 // ConfigSecretRemover removes the synchronization objects a ConfigSecretSynchronizer
 // created for ONE Application Environment (proven by the exact Vault value
 // path of each object, never by name pattern) and returns the kinds and names

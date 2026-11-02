@@ -69,8 +69,8 @@ func TestDeliverySelectionHTTPIsScopedRoleGuardedAndIntentOnly(t *testing.T) {
 	if code := put(developer, body); code != 403 {
 		t.Fatalf("developer selection mutation %d", code)
 	}
-	if code := put(engineer, body); code != 200 {
-		t.Fatalf("platform no-op %d", code)
+	if code := put(engineer, body); code != 400 {
+		t.Fatalf("Direct selection must be rejected: %d", code)
 	}
 	for _, bad := range []string{`{"mode":"DIRECT"}`, body + ` {}`, strings.Replace(body, `"selfHeal":false`, `"selfHeal":null`, 1), strings.Replace(body, `"mode":"DIRECT"`, `"mode":"fleet"`, 1), strings.Replace(body, `"selfHeal":false`, `"selfHeal":true`, 1)} {
 		if code := put(engineer, bad); code != 400 {

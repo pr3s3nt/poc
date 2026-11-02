@@ -7,6 +7,26 @@ last_reviewed: 2026-11-02
 
 # Current project state
 
+## Required CD for application manifests — 2026-11-02
+
+[ADR-032](architecture/decisions/ADR-032-cd-only-manifests.md) supersedes the
+optional/default Direct policy in historical sections below. Real Preview/Deploy
+requires a selected verified CD binding; the API rejects Direct selections and
+the coordinator rejects Direct destinations. The Console always shows the provider
+selector. Default services are CD-only; explicit fake-adapter constructors preserve
+simulation without providing a real-cluster fallback.
+
+CD artifacts include nonsecret auxiliaries and workload-scoped VSO declarations.
+Dependency values go to private Vault bundles (or immutable Vault Agent refs),
+never a direct application Secret. VSO readiness checks Secret ownership and key
+names without returning values. CD cleanup preserves UID checks and waits for
+VSO child garbage collection. Existing Direct records remain readable for reviewed
+migration/cleanup; legacy auxiliary owner identity survives later CD updates.
+No database reset, schema change, external deployment or retained-installation
+migration was performed for this change. Historical Fleet acceptance does not
+prove the new VSO-through-CD lifecycle; see the implementation handoff for checks.
+
+
 ## Catalog-only configuration — 2026-11-02
 
 User-approved direction: Catalog is the sole source of runtime Definitions.

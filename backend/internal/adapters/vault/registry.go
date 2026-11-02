@@ -102,8 +102,16 @@ func (r *Registry) PrepareBundle(ctx context.Context, req configport.BundleReque
 		return configport.WorkloadBundle{}, err
 	}
 	values := map[string]map[string]string{}
-	for container, entries := range req.Refs {
+	for container, entries := range req.Values {
 		values[container] = map[string]string{}
+		for name, value := range entries {
+			values[container][name] = value
+		}
+	}
+	for container, entries := range req.Refs {
+		if values[container] == nil {
+			values[container] = map[string]string{}
+		}
 		for name, ref := range entries {
 			owner := delivery
 			if ref.StoreKey != req.DeliveryStoreKey {
@@ -125,7 +133,7 @@ func (r *Registry) PrepareBundle(ctx context.Context, req configport.BundleReque
 			values[container][name] = value
 		}
 	}
-	bundle, err := delivery.WriteBundle(ctx, req.ApplicationKey, req.EnvironmentKey, req.WorkloadID, req.Namespace, req.RevisionID, req.DeploymentID, values)
+	bundle, err := delivery.writeBundle(ctx, req.ApplicationKey, req.EnvironmentKey, req.WorkloadID, req.Namespace, req.RevisionID, req.DeploymentID, values, req.CDOwned)
 	if err != nil {
 		return configport.WorkloadBundle{}, err
 	}
@@ -139,7 +147,11 @@ func (r *Registry) PrepareAccess(ctx context.Context, req configport.AccessReque
 	if err != nil {
 		return configport.WorkloadAccess{}, err
 	}
-	return p.PrepareWorkloadAccess(ctx, req.ApplicationKey, req.EnvironmentKey, req.WorkloadID, req.Namespace, req.RevisionID, req.Refs)
+	serviceAccount := configport.WorkloadServiceAccount(req.ApplicationKey, req.EnvironmentKey, req.WorkloadID)
+	if req.CDOwned {
+		serviceAccount = configport.WorkloadServiceAccount(req.ApplicationKey, req.EnvironmentKey, req.WorkloadID+"/"+req.RevisionID)
+	}
+	return p.prepareWorkloadAccess(ctx, req.ApplicationKey, req.EnvironmentKey, req.WorkloadID, req.Namespace, req.RevisionID, req.Refs, serviceAccount)
 }
 
 // CheckWorkloadAuth verifies the store and its Kubernetes auth mount.

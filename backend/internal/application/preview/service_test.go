@@ -240,7 +240,7 @@ func eksScores(opts seed.Options) map[string]map[string]any {
 
 func newPreview(t *testing.T, st persistence.Store) *preview.Service {
 	t.Helper()
-	return preview.NewService(st, planning.NewService(bootstrap.FakeRenderBundles()), registrytest.Inspector(t, st))
+	return preview.NewSimulationService(st, planning.NewService(bootstrap.FakeRenderBundles()), registrytest.Inspector(t, st))
 }
 
 func deploy(t *testing.T, app *bootstrap.App, opts seed.Options, id string, before, after map[string]any) *appsvc.DeployResult {
@@ -850,7 +850,7 @@ func TestPreview_CatalogErrorsNeverEchoed(t *testing.T) {
 	t.Run("inspector", func(t *testing.T) {
 		app, opts := newApp(t, true)
 		calls := 0
-		svc := preview.NewService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), failingInspector{ModuleInspector: planning.RegistryInspector{Metadata: app.Modules}, sentinel: sentinel, calls: &calls})
+		svc := preview.NewSimulationService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), failingInspector{ModuleInspector: planning.RegistryInspector{Metadata: app.Modules}, sentinel: sentinel, calls: &calls})
 		_, err := svc.PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, eksScores(opts)["backend"]))
 		var public *preview.PublicError
 		if !errors.As(err, &public) || !errors.Is(err, preview.ErrPlanningRejected) || strings.Contains(err.Error(), sentinel) {
@@ -1015,7 +1015,7 @@ func (m metadataOnly) VerifyForExecution(context.Context, tfmodule.SourceRef) (t
 func TestPreview_TerraformUsesRegistryMetadataOnly(t *testing.T) {
 	app, opts := newApp(t, true)
 	reads := 0
-	svc := preview.NewService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), planning.RegistryInspector{Metadata: metadataOnly{Registry: app.Modules, t: t, reads: &reads}})
+	svc := preview.NewSimulationService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), planning.RegistryInspector{Metadata: metadataOnly{Registry: app.Modules, t: t, reads: &reads}})
 	result, err := svc.PreviewDeployment(context.Background(), query(opts, "backend", preview.ActionDeploy, nil, eksScores(opts)["backend"]))
 	if err != nil {
 		t.Fatal(err)

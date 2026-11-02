@@ -24,12 +24,12 @@ func (s fileRevisionStore) GetConfigurationRevision(context.Context, string) (co
 func TestFileOnlySecretConsumerFailsPreflightWithoutDeliveryOrPinnedRevision(t *testing.T) {
 	plan := &planning.Plan{CandidateSet: environment.NewDocument()}
 	plan.CandidateSet.Modules["app"] = environment.Module{Spec: environment.ModuleSpec{Execution: &environment.WorkloadExecution{SecretFiles: []environment.SecretFile{{Ref: "${context.uc12.GPG}", Container: "main", Path: "/keys/private", Mode: 0400}}}}}
-	svc := &Service{store: fileRevisionStore{revision: configuration.Revision{Entries: map[string]configuration.Entry{"GPG": {Kind: configuration.Secret, StoreKey: "vault", ValueRef: "opaque"}}}}}
+	svc := &Service{simulation: true, store: fileRevisionStore{revision: configuration.Revision{Entries: map[string]configuration.Entry{"GPG": {Kind: configuration.Secret, StoreKey: "vault", ValueRef: "opaque"}}}}}
 	// No env variable references are present; file-only intent must be sufficient.
-	if err := svc.preflightSecretDelivery(context.Background(), DeployCommand{}, environment.Environment{}, plan, "app", true); !errors.Is(err, configport.ErrNoStore) {
+	if err := svc.preflightSecretDelivery(context.Background(), DeployCommand{}, environment.Environment{}, plan, nil, "app", true); !errors.Is(err, configport.ErrNoStore) {
 		t.Fatalf("missing pinned revision admitted: %v", err)
 	}
-	if err := svc.preflightSecretDelivery(context.Background(), DeployCommand{ConfigRevisionID: "revision"}, environment.Environment{}, plan, "app", true); !errors.Is(err, environment.ErrExecutionUnavailable) {
+	if err := svc.preflightSecretDelivery(context.Background(), DeployCommand{ConfigRevisionID: "revision"}, environment.Environment{}, plan, nil, "app", true); !errors.Is(err, environment.ErrExecutionUnavailable) {
 		t.Fatalf("missing VSO delivery admitted: %v", err)
 	}
 }

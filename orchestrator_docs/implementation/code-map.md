@@ -992,3 +992,19 @@ HTTP: `delivery/http/catalogreleases.go`; Console:
 - [Export manifest](../../platform-catalog/catalog.yaml): Git-owned Definitions.
 - [Test fixture publisher](../../backend/internal/seed/seedtest/catalog.go):
   explicit synthetic release snapshots; not product discovery.
+
+## Required CD application manifests — ADR-032
+
+- `application/deployment`, `application/pending`, `application/preview`: strict
+  production constructors and explicit fake-adapter simulation constructors.
+- `application/delivery/bindings.go`, `coordinator.go`: no selectable or executable
+  Direct destination; historical source receipts remain usable for migration.
+- `adapters/kubernetes/vso.go`: pure CD declaration rendering; `secret_metadata.go`
+  reads only Secret identity/key names. `adapters/delivery/fleet/secrets.go` gates
+  prerequisite readiness and waits for VSO child garbage collection.
+- `adapters/vault/provider.go`, `registry.go`: private dependency values and
+  separate CD ServiceAccount identities. `ports/execution/certificates.go`
+  validates the public-CA-only Secret exception.
+- `features/delivery/DeliverySelectionPanel.tsx`: required verified provider.
+
+See [implementation and checks](delivery-reconciliation.md).

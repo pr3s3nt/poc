@@ -18,7 +18,7 @@ const inventoryKey = "objects"
 func renderedInventory(manifests []execution.Manifest, deploymentID string) []execution.ObjectRef {
 	var out []execution.ObjectRef
 	for _, m := range manifests {
-		if m.Auxiliary || m.Secret {
+		if m.Secret {
 			continue
 		}
 		metadata, _ := m.Object["metadata"].(map[string]any)

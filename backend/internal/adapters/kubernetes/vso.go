@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -259,3 +260,59 @@ var (
 	_ execution.ConfigSecretSynchronizer = (*VSOSynchronizer)(nil)
 	_ execution.WorkloadSecretRemover    = (*VSOSynchronizer)(nil)
 )
+
+// RenderBundle returns only public declarations. Each bundle owns a separate
+// connection/auth pair; its destination Secret is created and owned by VSO.
+func (s *VSOSynchronizer) RenderBundle(_ context.Context, target execution.Target, bundle execution.ConfigBundle) ([]execution.Manifest, error) {
+	if !target.Explicit() {
+		return nil, fmt.Errorf("vso: explicit Kubernetes target required")
+	}
+	if target.Namespace == "" || bundle.StoreKey == "" || bundle.AuthMount == "" || bundle.Address == "" || bundle.Mount == "" || bundle.Path == "" || bundle.Role == "" || bundle.ServiceAccount == "" || bundle.SecretName == "" || len(bundle.Keys) == 0 {
+		return nil, fmt.Errorf("vso: incomplete workload bundle")
+	}
+	if !strings.HasPrefix(bundle.SecretName, "orch-") {
+		return nil, fmt.Errorf("vso: invalid destination Secret name")
+	}
+	ns := target.Namespace
+	auth := bundle.SecretName + "-auth"
+	// The VaultConnection name includes the store identity, so a second store
+	// in the same namespace never overwrites an object that Secrets synced for
+	// older deployments still use.
+	connection := bundle.SecretName + "-connection"
+	connectionSpec := map[string]any{"address": bundle.Address, "skipTLSVerify": false}
+	objects := []map[string]any{
+		{"apiVersion": "v1", "kind": "ServiceAccount", "metadata": map[string]any{"name": bundle.ServiceAccount, "namespace": ns}},
+	}
+	if bundle.CAPEM != "" {
+		// A CA certificate is public data; it lets VSO verify a private-CA store.
+		caName := connection + "-ca"
+		objects = append(objects, map[string]any{"apiVersion": "v1", "kind": "Secret", "metadata": map[string]any{"name": caName, "namespace": ns}, "type": "Opaque", "data": map[string]any{"ca.crt": base64.StdEncoding.EncodeToString([]byte(bundle.CAPEM))}})
+		connectionSpec["caCertSecretRef"] = caName
+	}
+	objects = append(objects, []map[string]any{
+		{"apiVersion": "secrets.hashicorp.com/v1beta1", "kind": "VaultConnection", "metadata": map[string]any{"name": connection, "namespace": ns}, "spec": connectionSpec},
+		{"apiVersion": "secrets.hashicorp.com/v1beta1", "kind": "VaultAuth", "metadata": map[string]any{"name": auth, "namespace": ns}, "spec": map[string]any{"vaultConnectionRef": connection, "method": "kubernetes", "mount": bundle.AuthMount, "kubernetes": map[string]any{"role": bundle.Role, "serviceAccount": bundle.ServiceAccount}}},
+		{"apiVersion": "secrets.hashicorp.com/v1beta1", "kind": "VaultStaticSecret", "metadata": map[string]any{"name": bundle.SecretName, "namespace": ns}, "spec": map[string]any{"vaultAuthRef": auth, "type": "kv-v2", "mount": bundle.Mount, "path": bundle.Path, "refreshAfter": "1m", "hmacSecretData": true, "destination": map[string]any{"create": true, "name": bundle.SecretName}}},
+	}...)
+	keys := []string{}
+	for _, entries := range bundle.Keys {
+		for _, key := range entries {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	rawKeys, _ := json.Marshal(keys)
+	out := make([]execution.Manifest, 0, len(objects))
+	for _, object := range objects {
+		md := object["metadata"].(map[string]any)
+		md["labels"] = map[string]any{"app.kubernetes.io/managed-by": "orchestrator", "orchestrator.io/application": target.Extra["application"], "orchestrator.io/environment": target.Extra["environment"], "orchestrator.io/workload": target.Extra["workload"]}
+		if object["kind"] == "VaultStaticSecret" {
+			md["annotations"] = map[string]any{"orchestrator.io/secret-keys": string(rawKeys)}
+		}
+		if object["kind"] == "Secret" && !execution.PublicCertificateSecret(object) {
+			return nil, fmt.Errorf("vso: invalid public CA certificate")
+		}
+		out = append(out, execution.Manifest{APIVersion: object["apiVersion"].(string), Kind: object["kind"].(string), Name: md["name"].(string), Namespace: ns, Object: object})
+	}
+	return out, nil
+}

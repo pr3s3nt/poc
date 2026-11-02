@@ -41,7 +41,7 @@ func (m *markerFailure) UpsertActiveResource(ctx context.Context, a resource.Act
 func pgDeployments(t *testing.T, st persistence.Store) *appsvc.Service {
 	t.Helper()
 	prov := provisioning.NewService(st, fake.Registry{Executor: fake.NewResourceExecutor()}, secrets.NewMemory(), clock.System{})
-	return appsvc.NewService(st, planning.NewService(bootstrap.FakeRenderBundles()), prov, bootstrap.NewFakeBundleRenderer(kubernetes.NewRenderer()), fake.NewWorkloadDeployer(), registrytest.Inspector(t, st), clock.System{})
+	return appsvc.NewSimulationService(st, planning.NewService(bootstrap.FakeRenderBundles()), prov, bootstrap.NewFakeBundleRenderer(kubernetes.NewRenderer()), fake.NewWorkloadDeployer(), registrytest.Inspector(t, st), clock.System{})
 }
 
 func pgSharedDB(t *testing.T, st persistence.Store, opts seed.Options) resource.ActiveResource {

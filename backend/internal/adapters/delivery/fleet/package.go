@@ -47,11 +47,13 @@ func PackageUnit(intent port.Intent, manifests []execution.Manifest) (Package, e
 	objects := []execution.ObjectRef{}
 	seen := map[string]bool{}
 	for _, m := range manifests {
-		if m.Auxiliary {
-			continue
-		}
-		if m.Secret || m.Kind == "Secret" || strings.HasPrefix(m.APIVersion, "secrets.hashicorp.com/") || m.Namespace != intent.Target.Namespace || m.Object == nil || !label.MatchString(strings.ToLower(m.Kind)) || !validObjectName(m.Name) {
+		if m.Secret || (m.Kind == "Secret" && !execution.PublicCertificateSecret(m.Object)) || m.Namespace != intent.Target.Namespace || m.Object == nil || !label.MatchString(strings.ToLower(m.Kind)) || !validObjectName(m.Name) {
 			return Package{}, ErrConfig
+		}
+		if strings.HasPrefix(m.APIVersion, "secrets.hashicorp.com/") || m.Kind == "VaultConnection" || m.Kind == "VaultAuth" || m.Kind == "VaultStaticSecret" {
+			if m.APIVersion != "secrets.hashicorp.com/v1beta1" || (m.Kind != "VaultConnection" && m.Kind != "VaultAuth" && m.Kind != "VaultStaticSecret") {
+				return Package{}, domain.ErrUnsupported
+			}
 		}
 		if intent.Revision.Phase == domain.Job && m.Kind != "Job" {
 			return Package{}, ErrConfig
@@ -147,7 +149,7 @@ func validObjectName(s string) bool {
 }
 func knownContinuous(kind string) bool {
 	switch kind {
-	case "Deployment", "StatefulSet", "DaemonSet", "Service", "ConfigMap", "HorizontalPodAutoscaler", "PodDisruptionBudget", "NetworkPolicy", "ServiceAccount", "Role", "RoleBinding", "Ingress", "HTTPRoute", "CronJob":
+	case "Deployment", "StatefulSet", "DaemonSet", "Service", "ConfigMap", "HorizontalPodAutoscaler", "PodDisruptionBudget", "NetworkPolicy", "ServiceAccount", "Role", "RoleBinding", "Ingress", "HTTPRoute", "CronJob", "VaultConnection", "VaultAuth", "VaultStaticSecret", "Secret":
 		return true
 	}
 	return false
@@ -158,7 +160,7 @@ func knownContinuous(kind string) bool {
 // would still allow the next Helm upgrade to overwrite the HPA's decision.
 func validateReplicaOwnership(manifests []execution.Manifest) error {
 	for _, hpa := range manifests {
-		if hpa.Auxiliary || hpa.Kind != "HorizontalPodAutoscaler" {
+		if hpa.Kind != "HorizontalPodAutoscaler" {
 			continue
 		}
 		spec, _ := hpa.Object["spec"].(map[string]any)
@@ -168,7 +170,7 @@ func validateReplicaOwnership(manifests []execution.Manifest) error {
 		}
 		found := false
 		for _, target := range manifests {
-			if target.Auxiliary || target.APIVersion != ref["apiVersion"] || target.Kind != ref["kind"] || target.Name != ref["name"] || target.Namespace != hpa.Namespace {
+			if target.APIVersion != ref["apiVersion"] || target.Kind != ref["kind"] || target.Name != ref["name"] || target.Namespace != hpa.Namespace {
 				continue
 			}
 			found = true

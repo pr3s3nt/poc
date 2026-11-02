@@ -26,7 +26,7 @@ func TestAcceptedLiteralsSurviveRestartOnPostgres(t *testing.T) {
 			t.Fatal(err)
 		}
 		workloads := workloadconfig.NewService(app.Store)
-		svc := pending.NewService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
+		svc := pending.NewSimulationService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
 		svc.SetDeployer(app.Deployments)
 		return app, workloads, svc
 	}

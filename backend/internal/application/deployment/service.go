@@ -67,6 +67,8 @@ type DeployResult struct {
 
 // Service orchestrates plan, provision, render, apply and commit.
 type Service struct {
+	simulation bool // Explicit fake-adapter simulation; never a real-cluster fallback.
+
 	delivery        *deliveryapp.Coordinator
 	store           persistence.Store
 	planner         *planning.Service
@@ -176,6 +178,22 @@ func NewService(
 	}
 }
 
+// NewSimulationService is for explicit fake-adapter simulation only. Real runtime
+// composition must use NewService, which requires CD before any provision/apply.
+func NewSimulationService(
+	store persistence.Store,
+	planner *planning.Service,
+	prov *provisioning.Service,
+	renderer execution.WorkloadRenderer,
+	deployer execution.WorkloadDeployer,
+	terraform planning.ModuleInspector,
+	c clock.Clock,
+) *Service {
+	s := NewService(store, planner, prov, renderer, deployer, terraform, c)
+	s.simulation = true
+	return s
+}
+
 // DeployWorkload runs the full UC-06 main success scenario. A caller that
 // already holds the Environment claim passes a context carrying it (batch,
 // transition, recovery); a direct deploy claims the Environment itself,
@@ -274,6 +292,12 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	}
 	if err := s.store.SaveDeployment(ctx, record); err != nil {
 		return nil, err
+	}
+
+	if after != nil && !s.simulation {
+		if err := deliveryapp.RequireCD(env); err != nil {
+			return nil, s.fail(ctx, record, err)
+		}
 	}
 
 	planCtx := planning.Context{
@@ -386,11 +410,11 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		}
 	}
 	// Secret delivery must be usable before any infrastructure is touched.
-	if err := s.preflightSecretDelivery(ctx, cmd, env, plan, workloadID, after != nil); err != nil {
+	if err := s.preflightSecretDelivery(ctx, cmd, env, plan, types, workloadID, after != nil); err != nil {
 		return nil, s.fail(ctx, record, err)
 	}
 
-	if after != nil && env.DesiredDelivery.Effective().Mode == deliverydomain.CD {
+	if after != nil && (env.DesiredDelivery.Effective().Mode == deliverydomain.CD || !s.simulation) {
 		if s.delivery == nil {
 			return nil, s.fail(ctx, record, deliveryapp.ErrUnavailable)
 		}
@@ -568,10 +592,13 @@ func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, 
 			if err := s.delivery.RemoveWorkload(ctx, planCtx.OrganizationKey, planCtx.Env.ID, workloadID); err != nil {
 				return err
 			}
-			// Auxiliary renderer Secrets are applied directly and excluded from
-			// Git. Retire them only after the workload controller is stopped.
-			if err := s.deployer.Remove(ctx, target, workloadID); err != nil {
-				return err
+			// Retire historical direct auxiliaries only after the CD controller
+			// has stopped; new auxiliary inventories belong to the provider.
+			if legacyAuxiliary(instance) {
+				target = legacyAuxiliaryTarget(target, instance)
+				if err := s.deployer.Remove(ctx, target, workloadID); err != nil {
+					return err
+				}
 			}
 		} else {
 			if err := s.removeObjects(ctx, target, workloadID, instanceInventory(instance)); err != nil {
@@ -588,7 +615,7 @@ func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, 
 
 		// The workload's secret delivery objects go with it (UC-07 VSO-01);
 		// an unverified removal keeps the instance failed for a retry.
-		if remover, ok := s.configSync.(execution.WorkloadSecretRemover); ok {
+		if remover, ok := s.configSync.(execution.WorkloadSecretRemover); ok && legacyAuxiliary(instance) {
 			if _, err := remover.RemoveWorkloadSynchronized(ctx, target, planCtx.App.Key, planCtx.Env.Key, workloadID); err != nil {
 				instance.Status = domain.InstanceFailed
 				_ = s.store.UpsertWorkloadProgress(ctx, instance)
@@ -738,19 +765,69 @@ func (s *Service) applyWorkload(
 	var configSecretName string
 	var configSecretKeys map[string]map[string]string
 	var secretDelivery map[string]any
-	if len(storeRefs) > 0 {
+	var secretManifests []execution.Manifest
+	hasPrivateValues := false
+	for _, values := range secretEnv {
+		hasPrivateValues = hasPrivateValues || len(values) > 0
+	}
+	cdManifests := !s.simulation || s.delivery != nil
+	if cdManifests && hasPrivateValues && s.configSync == nil {
+		if s.registry == nil || deliveryStore == "" {
+			return configport.ErrNoStore
+		}
+		provider, err := s.registry.Provider(ctx, planCtx.OrganizationKey, deliveryStore)
+		if err != nil {
+			return err
+		}
+		for container, values := range secretEnv {
+			if storeRefs[container] == nil {
+				storeRefs[container] = map[string]configport.StoreRef{}
+			}
+			for name, value := range values {
+				ref, err := provider.WriteValue(ctx, planCtx.App.Key, planCtx.Env.Key, value)
+				if err != nil {
+					return err
+				}
+				storeRefs[container][name] = configport.StoreRef{StoreKey: deliveryStore, ValueRef: ref}
+			}
+		}
+		secretEnv = nil // Vault Agent receives only immutable private references.
+	}
+	deliveryRevision := configRevisionID
+	if deliveryRevision == "" {
+		deliveryRevision = record.ID
+	}
+	if len(storeRefs) > 0 || (cdManifests && hasPrivateValues) {
 		if s.registry == nil || deliveryStore == "" {
 			return configport.ErrNoStore
 		}
 		if s.configSync != nil {
+			var bundleValues map[string]map[string]string
+			if cdManifests {
+				bundleValues = secretEnv
+			}
 			bundle, err := s.registry.PrepareBundle(ctx, configport.BundleRequest{
+				CDOwned:         cdManifests,
 				OrganizationKey: planCtx.OrganizationKey, ApplicationKey: planCtx.App.Key, EnvironmentKey: planCtx.Env.Key, WorkloadID: workloadID,
-				Namespace: target.Namespace, RevisionID: configRevisionID, DeploymentID: record.ID, DeliveryStoreKey: deliveryStore, Refs: storeRefs,
+				Namespace: target.Namespace, RevisionID: deliveryRevision, DeploymentID: record.ID, DeliveryStoreKey: deliveryStore, Refs: storeRefs, Values: bundleValues,
 			})
 			if err != nil {
 				return err
 			}
-			if err := s.configSync.Sync(ctx, target, execution.ConfigBundle{StoreKey: bundle.StoreKey, Address: bundle.Address, Mount: bundle.Mount, AuthMount: bundle.AuthMount, Path: bundle.Path, Role: bundle.Role, ServiceAccount: bundle.ServiceAccount, SecretName: bundle.SecretName, CAPEM: bundle.CAPEM, Keys: bundle.Keys}); err != nil {
+			configBundle := execution.ConfigBundle{StoreKey: bundle.StoreKey, Address: bundle.Address, Mount: bundle.Mount, AuthMount: bundle.AuthMount, Path: bundle.Path, Role: bundle.Role, ServiceAccount: bundle.ServiceAccount, SecretName: bundle.SecretName, CAPEM: bundle.CAPEM, Keys: bundle.Keys}
+			if cdManifests {
+				renderer, ok := s.configSync.(execution.ConfigBundleRenderer)
+				if !ok {
+					return environment.ErrExecutionUnavailable
+				}
+				bundleTarget := target
+				bundleTarget.Extra = map[string]string{"application": planCtx.App.Key, "environment": planCtx.Env.Key, "workload": workloadID}
+				secretManifests, err = renderer.RenderBundle(ctx, bundleTarget, configBundle)
+				if err != nil {
+					return err
+				}
+				secretEnv = nil
+			} else if err := s.configSync.Sync(ctx, target, configBundle); err != nil {
 				return err
 			}
 			configSecretName, configSecretKeys = bundle.SecretName, bundle.Keys
@@ -769,8 +846,9 @@ func (s *Service) applyWorkload(
 				}
 			}
 			access, err := s.registry.PrepareAccess(ctx, configport.AccessRequest{
+				CDOwned:         cdManifests,
 				OrganizationKey: planCtx.OrganizationKey, ApplicationKey: planCtx.App.Key, EnvironmentKey: planCtx.Env.Key, WorkloadID: workloadID,
-				Namespace: target.Namespace, RevisionID: configRevisionID, StoreKey: deliveryStore, Refs: refs,
+				Namespace: target.Namespace, RevisionID: deliveryRevision, StoreKey: deliveryStore, Refs: refs,
 			})
 			if err != nil {
 				return err
@@ -822,6 +900,7 @@ func (s *Service) applyWorkload(
 	if err != nil {
 		return err
 	}
+	manifests = append(secretManifests, manifests...)
 	digest, err := manifestDigest(manifests)
 	if err != nil {
 		return err
@@ -849,25 +928,20 @@ func (s *Service) applyWorkload(
 	}
 	if s.delivery != nil {
 		instance.TargetRef["deliveryMode"] = string(planCtx.Env.DesiredDelivery.Effective().Mode)
+		instance.TargetRef["cdOwnsAuxiliary"] = true
+		if owner, ok := previous.TargetRef["legacyAuxiliaryOwner"].(string); ok && owner != "" {
+			instance.TargetRef["legacyAuxiliaryOwner"] = owner
+		} else if previous.WorkloadID != "" && previous.TargetRef["cdOwnsAuxiliary"] != true {
+			instance.TargetRef["legacyAuxiliaryOwner"] = workloadOwnerDeploymentID(previous)
+		}
 	}
 	if err := s.store.UpsertWorkloadProgress(ctx, instance); err != nil {
 		return err
 	}
 
-	if planCtx.Env.DesiredDelivery.Effective().Mode == deliverydomain.CD || s.delivery != nil {
+	if !s.simulation || planCtx.Env.DesiredDelivery.Effective().Mode == deliverydomain.CD || s.delivery != nil {
 		if s.delivery == nil {
 			return deliveryapp.ErrUnavailable
-		}
-		auxiliary := []execution.Manifest{}
-		for _, m := range manifests {
-			if m.Auxiliary || m.Secret {
-				auxiliary = append(auxiliary, m)
-			}
-		}
-		if len(auxiliary) > 0 {
-			if err := s.deployer.Apply(ctx, target, auxiliary); err != nil {
-				return err
-			}
 		}
 		if err := s.delivery.Deploy(ctx, deliveryapp.DeployRequest{OrganizationKey: planCtx.OrganizationKey, ApplicationKey: planCtx.App.Key, Environment: planCtx.Env, WorkloadID: workloadID, DeploymentID: record.ID, Target: target, Manifests: manifests}); err != nil {
 			instance.Status = domain.InstanceFailed
@@ -1017,7 +1091,33 @@ func (s *Service) routesFor(ctx context.Context, app appdomain.Application, env 
 			break
 		}
 	}
-	if env.DesiredDelivery.Effective().Mode == deliverydomain.CD || s.delivery != nil {
+	// Compatibility cleanup for routes predating durable delivery records. This
+	// branch can only remove (empty route set), never create/update a manifest.
+	if remove && env.AppliedDelivery.Effective().Mode == deliverydomain.Direct {
+		repo, ok := s.store.(persistence.DeliveryExecutionRepository)
+		if !ok {
+			return deliveryapp.ErrUnavailable
+		}
+		org, err := s.store.GetOrganization(ctx, app.OrganizationKey)
+		if err != nil {
+			return err
+		}
+		records, err := repo.ListDeliveryExecutions(ctx, org.ID, env.ID)
+		if err != nil {
+			return err
+		}
+		recorded := false
+		for _, record := range records {
+			if record.WorkloadID == "_routes" && record.Revision.Scope.TargetGeneration == env.TargetGeneration {
+				recorded = true
+			}
+		}
+		if !recorded {
+			return s.publicRoutes.Reconcile(ctx, target, route)
+		}
+	}
+
+	if !s.simulation || env.DesiredDelivery.Effective().Mode == deliverydomain.CD || s.delivery != nil {
 		if s.delivery == nil {
 			return deliveryapp.ErrUnavailable
 		}
@@ -1125,13 +1225,54 @@ func withWorkloadOwner(ref map[string]any, deploymentID string) map[string]any {
 // preflightSecretDelivery refuses a deploy whose secrets cannot be delivered
 // before any provisioning side effect: a store must be selected and its
 // workload Kubernetes auth must verify.
-func (s *Service) preflightSecretDelivery(ctx context.Context, cmd DeployCommand, env environment.Environment, plan *planning.Plan, workloadID string, applying bool) error {
+func (s *Service) preflightSecretDelivery(ctx context.Context, cmd DeployCommand, env environment.Environment, plan *planning.Plan, types map[string]resource.Type, workloadID string, applying bool) error {
 	if !applying {
 		return nil
 	}
 	module, ok := plan.CandidateSet.Modules[workloadID]
 	if !ok {
 		return nil
+	}
+	if !s.simulation {
+		needs := module.Spec.Execution != nil && len(module.Spec.Execution.SecretFiles) > 0
+		var revision configuration.Revision
+		if cmd.ConfigRevisionID != "" {
+			var err error
+			revision, err = s.store.GetConfigurationRevision(ctx, cmd.ConfigRevisionID)
+			if err != nil {
+				return err
+			}
+		}
+		for _, node := range plan.Graph.Nodes {
+			if node.Kind != planning.NodeWorkload || node.WorkloadID != workloadID {
+				continue
+			}
+			for _, container := range module.Spec.Containers {
+				for _, raw := range container.Variables {
+					secret, err := bindsSecret(raw, node.Bindings, plan.Graph, types)
+					if err != nil {
+						return err
+					}
+					needs = needs || secret
+					if strings.HasPrefix(raw, "${context.uc12.") && strings.HasSuffix(raw, "}") {
+						key := strings.TrimSuffix(strings.TrimPrefix(raw, "${context.uc12."), "}")
+						needs = needs || revision.Entries[key].Kind == configuration.Secret
+					}
+				}
+			}
+		}
+		if !needs {
+			return nil
+		}
+		if env.SecretStoreKey == "" || s.registry == nil {
+			return configport.ErrNoStore
+		}
+		if s.configSync != nil || (module.Spec.Execution != nil && len(module.Spec.Execution.SecretFiles) > 0) {
+			if _, ok := s.configSync.(execution.ConfigBundleRenderer); !ok {
+				return environment.ErrExecutionUnavailable
+			}
+		}
+		return s.registry.CheckWorkloadAuth(ctx, cmd.OrganizationKey, env.SecretStoreKey)
 	}
 	if cmd.ConfigRevisionID == "" {
 		if module.Spec.Execution != nil && len(module.Spec.Execution.SecretFiles) > 0 {
@@ -1414,4 +1555,22 @@ func (s *Service) provisionPostWorkload(ctx context.Context, req provisioning.Re
 	req.Select = func(descriptor string) bool { return ready[descriptor] }
 	_, err = s.provisioning.Provision(ctx, req)
 	return err
+}
+
+// Legacy auxiliaries are removed only after CD authority and inventory have
+// been withdrawn. Preserve their original deployment identity across updates.
+func legacyAuxiliary(instance domain.WorkloadInstance) bool {
+	owner, _ := instance.TargetRef["legacyAuxiliaryOwner"].(string)
+	return instance.TargetRef["cdOwnsAuxiliary"] != true || owner != ""
+}
+func legacyAuxiliaryTarget(target execution.Target, instance domain.WorkloadInstance) execution.Target {
+	if owner, _ := instance.TargetRef["legacyAuxiliaryOwner"].(string); owner != "" {
+		copied := map[string]string{}
+		for k, v := range target.Extra {
+			copied[k] = v
+		}
+		copied["deployment"] = owner
+		target.Extra = copied
+	}
+	return target
 }

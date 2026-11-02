@@ -10,7 +10,9 @@ export async function grantWorkloadAccess({ namespace, kubectl, state, saveState
   const labels = { 'orchestrator.test/run': state.runID };
   const resources = [
     { apiVersion:'rbac.authorization.k8s.io/v1',kind:'Role',metadata:{name,namespace,labels},rules:[
-      {apiGroups:[''],resources:['configmaps','services','persistentvolumeclaims','serviceaccounts','pods'],verbs:['get','list','watch','create','update','patch','delete']},
+      {apiGroups:[''],resources:['configmaps','services','persistentvolumeclaims','serviceaccounts','pods','secrets'],verbs:['get','list','watch','create','update','patch','delete']},
+      {apiGroups:['secrets.hashicorp.com'],resources:['vaultconnections','vaultauths','vaultstaticsecrets'],verbs:['get','list','watch','create','update','patch','delete']},
+      {apiGroups:['rbac.authorization.k8s.io'],resources:['roles','rolebindings'],verbs:['get','list','watch','create','update','patch','delete']},
       {apiGroups:['apps'],resources:['deployments','statefulsets','daemonsets','replicasets'],verbs:['get','list','watch','create','update','patch','delete']},
       {apiGroups:['autoscaling'],resources:['horizontalpodautoscalers'],verbs:['get','list','watch','create','update','patch','delete']},
       {apiGroups:['batch'],resources:['jobs','cronjobs'],verbs:['get','list','watch','create','update','patch','delete']},

@@ -83,6 +83,8 @@ type Preview struct {
 }
 
 type Service struct {
+	simulation bool // Explicit fake-adapter simulation; never a real-cluster fallback.
+
 	store             persistence.Store
 	planner           *planning.Service
 	workloads         *workloadconfig.Service
@@ -107,6 +109,14 @@ func (s *Service) operations() *envops.Manager {
 
 func NewService(store persistence.Store, planner *planning.Service, workloads *workloadconfig.Service, inspector planning.ModuleInspector) *Service {
 	return &Service{store: store, planner: planner, workloads: workloads, terraform: inspector}
+}
+
+// NewSimulationService is for explicit fake-adapter simulation only. Real runtime
+// composition must use NewService, which requires CD before any provision/apply.
+func NewSimulationService(store persistence.Store, planner *planning.Service, workloads *workloadconfig.Service, inspector planning.ModuleInspector) *Service {
+	s := NewService(store, planner, workloads, inspector)
+	s.simulation = true
+	return s
 }
 
 // SetImageRegistryHost constrains the optional Fleet mode at Preview time,
@@ -161,6 +171,11 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	env, err := st.GetEnvironment(ctx, appKey, envKey)
 	if err != nil {
 		return Preview{}, err
+	}
+	if !s.simulation {
+		if err := deliveryapp.RequireCD(env); err != nil {
+			return Preview{}, err
+		}
 	}
 	deliveryPin, err := deliveryapp.PinForPreview(ctx, st, app.OrganizationKey, env)
 	if err != nil {

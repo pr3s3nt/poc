@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 
+	deliveryapp "orchestrator/internal/application/delivery"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/deploymentreview"
 	domain "orchestrator/internal/domain/deployment"
@@ -117,6 +118,8 @@ type DeploymentPreview struct {
 
 // Service is read-only: it holds no executor, provisioner or deployer.
 type Service struct {
+	simulation bool // Explicit fake-adapter simulation; never a real-cluster fallback.
+
 	store     persistence.Store
 	planner   *planning.Service
 	terraform planning.ModuleInspector
@@ -130,6 +133,14 @@ func NewService(store persistence.Store, planner *planning.Service, inspector pl
 	return &Service{store: store, planner: planner, terraform: inspector}
 }
 
+// NewSimulationService is for explicit fake-adapter simulation only. Real runtime
+// composition must use NewService, which requires CD before any provision/apply.
+func NewSimulationService(store persistence.Store, planner *planning.Service, inspector planning.ModuleInspector) *Service {
+	s := NewService(store, planner, inspector)
+	s.simulation = true
+	return s
+}
+
 // PreviewDeployment validates the query, loads one consistent planning
 // snapshot and runs the shared planner without writing any state.
 func (s *Service) PreviewDeployment(ctx context.Context, q PreviewDeploymentQuery) (*DeploymentPreview, error) {
@@ -140,6 +151,14 @@ func (s *Service) PreviewDeployment(ctx context.Context, q PreviewDeploymentQuer
 	snapshot, err := appsvc.LoadPlanningSnapshotWithBaselines(ctx, s.store, q.OrganizationKey, q.ApplicationKey, q.EnvironmentKey)
 	if err != nil {
 		return nil, err
+	}
+	if !s.simulation && action != domain.ActionRemove {
+		if err := deliveryapp.RequireCD(snapshot.Env); err != nil {
+			return nil, err
+		}
+		if _, err := deliveryapp.PinForPreview(ctx, s.store, q.OrganizationKey, snapshot.Env); err != nil {
+			return nil, err
+		}
 	}
 	plan, err := s.planner.Plan(planning.Request{
 		OrganizationKey: q.OrganizationKey,

@@ -19,6 +19,18 @@ import (
 
 var ErrUnavailable = errors.New("delivery: service unavailable")
 
+// ErrCDRequired means no executable CD binding has been selected. DIRECT is
+// retained only as a historical storage identity.
+var ErrCDRequired = errors.New("delivery: select a verified CD provider before deployment")
+
+func RequireCD(env environment.Environment) error {
+	selection := env.DesiredDelivery.Effective()
+	if selection.Mode != domain.CD {
+		return ErrCDRequired
+	}
+	return selection.Validate()
+}
+
 type bindingStore interface {
 	persistence.Store
 	persistence.DeliveryBindingRepository
@@ -192,6 +204,9 @@ func (s *Bindings) Selection(ctx context.Context, orgKey, appKey, envKey string)
 	return s.store.GetEnvironment(ctx, appKey, envKey)
 }
 func (s *Bindings) Select(ctx context.Context, orgKey string, cmd persistence.DeliverySelectionCommand) (environment.Environment, error) {
+	if cmd.Selection.Effective().Mode != domain.CD {
+		return environment.Environment{}, domain.ErrUnsupported
+	}
 	org, err := s.store.GetOrganization(ctx, orgKey)
 	if err != nil {
 		return environment.Environment{}, err

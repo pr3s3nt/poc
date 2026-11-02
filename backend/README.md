@@ -1,5 +1,12 @@
 # Orchestrator backend
 
+Real application deployment requires a verified CD binding per Environment
+([ADR-032](../orchestrator_docs/architecture/decisions/ADR-032-cd-only-manifests.md)).
+Direct delivery and the process-wide `-workload-delivery` switch are retired.
+See the [CD runbook](../orchestrator_docs/operations/delivery-reconciliation.md)
+for Git storage, secret delivery and historical Direct migration prerequisites.
+Fake adapters are explicit simulation only.
+
 Go product module for the Orchestrator. [Canonical documentation](../orchestrator_docs/INDEX.md)
 owns requirements, architecture and operational permissions; this module implements them.
 The React/TypeScript [Web Console](../frontend/) is distinct from the

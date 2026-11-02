@@ -6,6 +6,13 @@ last_reviewed: 2026-10-28
 related: [ADR-007, ADR-014, ADR-016, ADR-017, ADR-024]
 ---
 
+> Current delivery policy (2026-11-02): [ADR-032](ADR-032-cd-only-manifests.md) supersedes
+> optional/default Direct and disabling-CD requirements below. Real application
+> manifests, including nonsecret auxiliaries and VSO declarations, belong to CD.
+> A verified binding is mandatory; historical Direct records remain readable
+> only for reviewed migration/cleanup. Terraform ownership is unchanged.
+
+
 # ADR-030 — Optional CD providers and infrastructure reconciliation
 
 ## Decision and authorization

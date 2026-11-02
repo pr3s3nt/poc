@@ -6,7 +6,7 @@ last_reviewed: 2026-10-30
 related: [ADR-030, DELIVERY-RECONCILIATION-CONTRACT, INFRASTRUCTURE-DRIFT-CONTRACT]
 ---
 
-# Optional CD and infrastructure reconciliation
+# CD application delivery and infrastructure reconciliation
 
 Read [ADR-030](../architecture/decisions/ADR-030-delivery-reconciliation.md),
 [delivery contract](../architecture/contracts/delivery-reconciliation.md) and
@@ -26,15 +26,15 @@ backfill guessed UID/baseline evidence or grant runtime owner privileges.
 Real adapters require durable scoped credential/output stores, the existing
 State runtime and pinned Terraform/score-k8s binaries. Preserve the encryption
 key, verified module/render caches and encrypted recovery volume across restarts.
-Optional delivery adds a private durable directory outside Git:
+Application delivery requires a private durable directory outside Git:
 
 ```text
 -delivery-git-root /var/lib/orchestrator/delivery-git
 ```
 
 The equivalent environment variable is `ORCHESTRATOR_DELIVERY_GIT_ROOT`. Empty
-keeps CD unavailable and the normal direct runtime. Process-wide
-`-workload-delivery fleet` is rejected; each Environment selects its own provider.
+keeps CD unavailable and blocks real application deployment. The process-wide
+`-workload-delivery` flag is removed; each Environment requires its own binding.
 
 Install Fleet **v0.15.2** controller/gitjob/agent on explicitly authorized
 infrastructure. Register the downstream target and verify its Cluster UID. The
@@ -59,9 +59,10 @@ Do not reuse a subtree already managed by another writer.
    release namespace, workload ServiceAccount and private credential fields.
    Verify to READY. Editing creates a new immutable binding version; usage shows
    existing desired/applied references rather than silently moving consumers.
-2. Open Application Settings and select staging or production. Tick **Dùng CD
-   provider**, choose the verified binding and Save. The other Environment keeps
-   its own choice. Saving does not deploy. Leave **Tự sửa sai lệch** off unless
+2. Open Application Settings and select staging or production. Choose the
+   required verified **CD provider** binding and Save. The other Environment
+   keeps its own choice. No Direct choice or disable toggle is available. Saving
+   does not deploy. Leave **Tự sửa sai lệch** off unless
    autonomous restoration of admitted continuous configuration is intended.
 3. Use the normal workload forms, Preview and Deploy. Review provider transition,
    manifests/phase order and routes. Dependencies provision through Terraform;
@@ -81,6 +82,29 @@ unchanged Job is reused. CronJob children belong to Kubernetes, not Git inventor
 HPA targets must omit fixed replicas. Unsupported/missing ownership evidence
 blocks deployment rather than falling back to a competing direct writer. See
 [release semantics](../architecture/contracts/delivery-reconciliation.md#cdr-06--fleet-adapter-v1).
+
+## Upgrade from historical Direct delivery — ADR-032
+
+Keep the existing database/encryption keys and installed object identities. This
+change has no schema migration. DIRECT/empty stored selections are historical or
+unconfigured states, not executable deployment choices. Select a verified CD
+binding and use the existing reviewed transfer when exact admitted artifacts and
+UID receipts exist. Missing baseline remains blocked; do not redeploy Direct to
+manufacture it. Resolve in-flight Direct-destination transitions before upgrading.
+
+New deployments publish nonsecret auxiliaries and scoped VSO declarations through
+CD. Select a usable Secret Store when dependency outputs contain secrets, even
+without Application secret keys. VSO destination Secrets must exist, have the
+expected owner and contain every required key before Jobs/rollout proceed.
+Vault Agent receives private immutable references instead of a direct env Secret.
+CD secret-delivery ServiceAccounts use distinct revision-scoped identities so
+old direct auxiliaries are never implicitly adopted. Grant the CD workload
+account the required namespaced VSO/ServiceAccount access;
+public CA manifests additionally require scoped Secret permissions. No secret
+values or private keys belong in Git. Existing non-CD auxiliary cleanup remains
+only for historical resources and retains their original deployment identity.
+Fresh CD inventories are withdrawn/pruned/deleted through the CD adapter; VSO
+children disappear through their owning controller/garbage collection.
 
 ## Infrastructure scan and repair
 

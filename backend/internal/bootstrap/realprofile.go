@@ -37,7 +37,7 @@ func validateRealProfile(opts Options) error {
 		add("the durable Vault output-secret store is required (the in-process store loses references on restart)")
 	}
 	if opts.WorkloadDelivery != "" && opts.WorkloadDelivery != "direct" {
-		add("workload delivery must be direct")
+		add("process-wide workload delivery is retired; configure CD per Environment")
 	}
 	overrides := map[string]bool{
 		"RegistryOverride": opts.RegistryOverride != nil, "KubeconfigVerifierOverride": opts.KubeconfigVerifierOverride != nil,

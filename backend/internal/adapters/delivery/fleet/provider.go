@@ -316,6 +316,13 @@ func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (
 			return out, nil
 		}
 		health := objectHealth(ref.Kind, object)
+		if ref.APIVersion == "secrets.hashicorp.com/v1beta1" && ref.Kind == "VaultStaticSecret" {
+			var err error
+			health, err = observeSecret(ctx, targetCLI, i.Target, object)
+			if err != nil {
+				return unknown(i), err
+			}
+		}
 		if health == domain.Degraded || (health == domain.Progressing && out.Health != domain.Degraded) {
 			out.Health = health
 		}
@@ -455,6 +462,11 @@ func (p *Provider) RemoveRetainedObjects(ctx context.Context, i port.Intent, r p
 		if err := k8s.RemoveRetainedDeliveryObject(ctx, cli, i.Target, object.ObjectRef, object.UID, object.Release, r.Handle["releaseNamespace"]); err != nil {
 			return err
 		}
+		if object.APIVersion == "secrets.hashicorp.com/v1beta1" && object.Kind == "VaultStaticSecret" {
+			if err := waitSecretRemoved(ctx, cli, i.Target, object.Name, object.UID); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -488,6 +500,11 @@ func (p *Provider) PruneReleasedObjects(ctx context.Context, i port.Intent, r po
 		}
 		if err := k8s.RemoveRetainedDeliveryObject(ctx, cli, i.Target, o.ObjectRef, o.UID, o.Release, r.Handle["releaseNamespace"]); err != nil {
 			return err
+		}
+		if o.APIVersion == "secrets.hashicorp.com/v1beta1" && o.Kind == "VaultStaticSecret" {
+			if err := waitSecretRemoved(ctx, cli, i.Target, o.Name, o.UID); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

@@ -88,8 +88,7 @@ func (c *Coordinator) Guard(ctx context.Context, i port.Intent) error {
 func (c *Coordinator) binding(ctx context.Context, orgKey string, env environment.Environment) (domain.BindingVersion, port.Provider, error) {
 	selection := env.DesiredDelivery.Effective()
 	if selection.Mode == domain.Direct {
-		provider, err := c.Registry.Resolve("direct")
-		return domain.BindingVersion{}, provider, err
+		return domain.BindingVersion{}, nil, ErrCDRequired
 	}
 	org, err := c.Store.GetOrganization(ctx, orgKey)
 	if err != nil {
@@ -136,8 +135,8 @@ func (c *Coordinator) Deploy(ctx context.Context, req DeployRequest) error {
 	}
 	phases := map[domain.Phase][]execution.Manifest{}
 	for _, m := range req.Manifests {
-		if m.Auxiliary || m.Secret {
-			continue
+		if m.Secret || (m.Kind == "Secret" && !execution.PublicCertificateSecret(m.Object)) {
+			return domain.ErrUnsupported
 		}
 		phase := domain.Prerequisite
 		switch m.Kind {

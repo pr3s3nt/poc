@@ -99,7 +99,7 @@ func (p *transferFake) Adopt(ctx context.Context, i port.Intent, _ port.Prepared
 	raw, _ := json.Marshal(source.Inventory)
 	return port.Receipt{IntentID: i.ID, RevisionID: i.Revision.ID, PayloadDigest: i.Revision.PayloadDigest, Handle: map[string]string{"inventory": string(raw)}}, nil
 }
-func TestTransferRoundTripPreservesUIDsAndDoesNotResubmitJobs(t *testing.T) {
+func TestCDBindingRoundTripPreservesUIDsAndDoesNotResubmitJobs(t *testing.T) {
 	c, original, ctx, req, _ := coordinatorFixture(t)
 	p := &transferFake{neutralProvider: original, live: map[string]string{}}
 	c.Deadline = 2 * time.Second
@@ -137,7 +137,17 @@ func TestTransferRoundTripPreservesUIDsAndDoesNotResubmitJobs(t *testing.T) {
 	originalUIDs, _ := json.Marshal(p.live)
 	selection := req.Environment.DesiredDelivery
 	stages := []string{}
-	for _, next := range []domain.Selection{{Mode: domain.Direct}, selection} {
+	repoBindings := c.Store.(persistence.DeliveryBindingRepository)
+	b, err := repoBindings.GetDeliveryBinding(ctx, org.ID, selection.BindingID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repoBindings.VerifyDeliveryBinding(ctx, org.ID, b.ID, 2, 1, domain.BindingReady, b.Capabilities, time.Now().UTC(), ""); err != nil {
+		t.Fatal(err)
+	}
+	alternate := selection
+	alternate.BindingVersion = 2
+	for n, next := range []domain.Selection{alternate, selection} {
 		owner, _ := persistence.OwnerFrom(ctx)
 		if err := c.Store.ReleaseOperation(ctx, owner, environment.OpSucceeded, ""); err != nil {
 			t.Fatal(err)
@@ -157,7 +167,7 @@ func TestTransferRoundTripPreservesUIDsAndDoesNotResubmitJobs(t *testing.T) {
 		}
 		ctx = persistence.WithOwner(context.Background(), persistence.Owner{OperationID: op.ID, Owner: op.Owner, Fence: op.Fence})
 		stage := func(stage string, _ map[string]any) error { stages = append(stages, stage); return nil }
-		if next.Mode == domain.Direct {
+		if n == 0 {
 			p.adoptFailure = errors.New("lost adoption acknowledgement")
 			if err := c.Transfer(ctx, req.OrganizationKey, env, stage); err == nil {
 				t.Fatal("interrupted transfer reported success")

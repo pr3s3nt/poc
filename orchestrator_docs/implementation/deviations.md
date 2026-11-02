@@ -7,6 +7,11 @@ last_reviewed: 2026-10-28
 
 # Known design and implementation deviations
 
+Current delivery policy is [ADR-032](../architecture/decisions/ADR-032-cd-only-manifests.md):
+Direct is historical migration/cleanup only; real deployments require CD. The
+optional/default-Direct descriptions and live acceptance below predate that
+change. VSO-through-CD lifecycle acceptance still requires an authorized new run.
+
 ## IMP-039 — Delivery reconciliation design (2026-10-28)
 
 [ADR-030](../architecture/decisions/ADR-030-delivery-reconciliation.md) is the

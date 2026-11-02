@@ -61,18 +61,18 @@ export async function runBusiness({ page, context, baseURL, run, state, saveStat
     await expect(page.getByRole('heading', { name: appName, exact: true })).toBeVisible(); state.appID = new URL(page.url()).pathname.split('/').at(-1); state.appName = appName; saveState();
   });
   const app = await getApp(); const namespace = app.environments.find(e => e.key === 'staging').namespaceIdentity; state.namespace = namespace; saveState();
-  await step('Select workload Vault and enable CD only in staging through Settings', async () => {
+  await step('Select workload Vault and the required staging CD binding through Settings', async () => {
     if (state.firstDeployPassed) return;
     await page.goto(`${baseURL}/ui/applications/${state.appID}/settings?environment=staging`);
     const store = page.getByLabel('Kho bí mật cho Staging', { exact: true }); await expect(store).toBeVisible();
     const label = (await store.locator('option').allTextContents()).find(s => s.startsWith('Reconciliation workload Vault'));
     if (!label) throw Error('Task workload Vault is not listed');
     await store.selectOption({ label }); const saveStore = page.getByRole('button', { name: 'Lưu kho bí mật', exact: true }); if (await saveStore.isEnabled()) { await saveStore.click(); await expect(saveStore).toBeDisabled({ timeout: 120_000 }); }
-    await page.reload(); const cd = page.getByRole('checkbox', { name: 'Dùng CD provider', exact: true }); await expect(cd).toBeEnabled();
-    if (!(await cd.isChecked())) await cd.check();
+    await page.reload(); await expect(page.getByLabel('CD provider', { exact: true })).toBeEnabled();
+    await expect(page.getByRole('checkbox', { name: 'Dùng CD provider', exact: true })).toHaveCount(0);
     await page.getByLabel('CD provider', { exact: true }).selectOption(`${state.managedBindingID}:${state.managedBindingVersion}`);
     const save = page.getByRole('button', { name: 'Lưu thay đổi', exact: true }); if (await save.isEnabled()) { await save.click(); await expect(page.getByText('Đã lưu. Xem trước để áp dụng.', { exact: false })).toBeVisible(); }
-    await page.getByRole('tab', { name: 'Production', exact: true }).click(); await expect(page.getByRole('checkbox', { name: 'Dùng CD provider', exact: true })).not.toBeChecked(); await home();
+    await page.getByRole('tab', { name: 'Production', exact: true }).click(); await expect(page.getByLabel('CD provider', { exact: true })).toHaveValue(''); await home();
   });
   await step('Create app workloads and PostgreSQL/Redis bindings through ordinary forms', async () => {
     const drafts = await page.request.get(`${baseURL}/api/v1/applications/${state.appID}/environments/staging/workloads`);
@@ -132,29 +132,8 @@ export async function runBusiness({ page, context, baseURL, run, state, saveStat
     expect(backend.spec.template.spec.containers[0].env).toContainEqual({name:'RECONCILIATION_RELEASE',value:'v2'});
     state.updatePassed=true;saveState();
   });
-  async function transfer(enabled) {
-    await page.goto(`${baseURL}/ui/applications/${state.appID}/settings?environment=staging`);
-    const checkbox=page.getByRole('checkbox',{name:'Dùng CD provider',exact:true});await expect(checkbox).toBeEnabled();
-    if ((await checkbox.isChecked()) === enabled) {
-      const applied=page.getByText(`Đang dùng: ${enabled ? 'Fleet managed reconciliation' : 'Trực tiếp'}`, {exact:true});
-      if(await applied.isVisible())return;
-      // A previous terminal refusal left the desired choice pending. Review it
-      // through the normal UI; never report the choice as already applied.
-      await home();await deploy();return;
-    }
-    await checkbox.setChecked(enabled);
-    if(enabled) await page.getByLabel('CD provider',{exact:true}).selectOption(`${state.managedBindingID}:${state.managedBindingVersion}`);
-    await click('Lưu thay đổi');await expect(page.getByText('Đã lưu. Xem trước để áp dụng.',{exact:false})).toBeVisible();
-    await home();await deploy();
-  }
-  const transfers = process.env.ORCH_RECON_FOCUS === 'infrastructure' ? [] : [['Fleet to Direct',false,'directTransferPassed'],['Direct to Fleet',true,'fleetTransferPassed']];
-  for(const [name,enabled,key] of transfers) {
-    await step(`${name} through Settings with stable UIDs and Pod templates`,async()=>{
-      if(state[key]) return;
-      const before=snapshot(); state.transferBaselines ??= {};state.transferBaselines[key] ??= before;saveState();await transfer(enabled);expect(snapshot()).toEqual(state.transferBaselines[key]);
-      state[key]=true;saveState();
-    });
-  }
+  // Binding-to-binding handoff is exercised by runExisting. ADR-032 retires
+  // Fleet -> Direct -> Fleet; never issue a Direct destination on this runtime.
   if (process.env.ORCH_RECON_OBSERVATIONS === '1') {
     await step('Stored reconciliation status through Console',async()=>{
       await home();const panel=page.getByRole('region',{name:'Đối soát workload',exact:true});

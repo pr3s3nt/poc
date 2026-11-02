@@ -8,6 +8,34 @@ related: [ADR-030, UC-01, UC-04, UC-05, UC-06, UC-07, UC-08, UC-09, UC-18]
 
 # Delivery reconciliation — implementation handoff
 
+## CD-only application manifests — 2026-11-02
+
+[Local verification and limits](../verification/2026-11-02-cd-only-manifests.md).
+
+[ADR-032](../architecture/decisions/ADR-032-cd-only-manifests.md) is the current
+policy. Production deployment/Preview constructors require CD; separate explicit
+simulation constructors are wired only for fake adapters. API selection and
+coordinator destination guards reject Direct. Historical Direct source adapters,
+receipts and guarded cleanup remain available for migration; frozen schemas and
+old history are unchanged.
+
+Renderer auxiliaries and VSO ServiceAccount/connection/auth/static-secret objects
+now enter CD prerequisites. Dependency secrets are hosted privately in Vault and
+referenced by VSO or Agent. Public-CA-only Secrets are narrowly validated.
+Readiness checks owned VSO destination key names before later phases. New CD
+inventories skip native legacy auxiliary cleanup; converted histories retain the
+old auxiliary owner pin. Adapter removal/prune waits for VSO child collection.
+
+Local validation covers mandatory CD before provisioning, denied Direct
+selection/destination, private dependency delivery through both Agent and VSO,
+complete provider-owned cleanup without a direct collaborator, VSO ownership/key
+readiness, certificate exceptions and preserved historical handoff/recovery.
+The browser review uses real AppShell/styles/DeliverySelectionPanel with fixture
+API data; it proves UI rendering, not Git/Fleet deployment. No cluster/database
+mutation was run. Real VSO-through-CD deployment/self-heal/prune/cleanup still
+needs authorized live acceptance; previous R01–R08 evidence predates this change.
+
+
 ## Main integration — 2026-10-30
 
 Feature head `d3e9383` is integrated with the current main implementation.

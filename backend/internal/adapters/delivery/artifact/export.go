@@ -3,7 +3,6 @@ package artifact
 import (
 	"encoding/json"
 	"sort"
-	"strings"
 
 	"orchestrator/internal/ports/execution"
 )
@@ -27,7 +26,7 @@ func Export(objects []map[string]any) ([]execution.Manifest, error) {
 		kind, _ := obj["kind"].(string)
 		name, _ := md["name"].(string)
 		ns, _ := md["namespace"].(string)
-		if api == "" || kind == "" || name == "" || ns == "" || kind == "Secret" || strings.HasPrefix(api, "secrets.hashicorp.com/") {
+		if api == "" || kind == "" || name == "" || ns == "" || (kind == "Secret" && !execution.PublicCertificateSecret(obj)) {
 			return nil, ErrInvalid
 		}
 		a, _ := md["annotations"].(map[string]any)

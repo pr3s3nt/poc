@@ -959,3 +959,11 @@ Environment selection, observation and reconciliation APIs and extensions to
 existing Preview/Deploy. [INF-C04](infrastructure-drift.md#inf-c04--http-and-rbac)
 defines scan and separate reviewed repair APIs. These are required, unimplemented
 contracts; existing pure Score Preview never calls Terraform or CD providers.
+
+### Required CD delivery — ADR-032
+
+`CD_PROVIDER_REQUIRED` (HTTP 422) means the Environment has no executable CD
+selection. Select a verified binding in Settings before Preview/Deploy. This
+refusal performs no Terraform apply or application manifest submission. Direct
+selection remains an invalid public mutation. Historical stored Direct states
+are readable for migration/cleanup, never a deploy fallback.

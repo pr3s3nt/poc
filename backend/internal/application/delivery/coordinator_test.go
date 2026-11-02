@@ -256,3 +256,17 @@ func TestBindingVersionRetainsOriginalConsumerConfiguration(t *testing.T) {
 		t.Fatal("foreign binding details exposed")
 	}
 }
+
+func TestDirectCannotBeADeploymentOrTransferDestination(t *testing.T) {
+	c, p, ctx, req, _ := coordinatorFixture(t)
+	req.Environment.DesiredDelivery = domain.Selection{Mode: domain.Direct}
+	if err := c.Deploy(ctx, req); !errors.Is(err, ErrCDRequired) {
+		t.Fatalf("Direct deploy accepted: %v", err)
+	}
+	if err := c.Transfer(ctx, req.OrganizationKey, req.Environment, nil); !errors.Is(err, ErrCDRequired) {
+		t.Fatalf("Direct transfer accepted: %v", err)
+	}
+	if len(p.order) != 0 {
+		t.Fatal("provider was submitted before CD admission")
+	}
+}

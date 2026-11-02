@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -62,7 +63,8 @@ func TestRegistryDeliversBundleToSelectedStoreReadingRefsThroughOwners(t *testin
 
 	bundle, err := reg.PrepareBundle(ctx, configport.BundleRequest{
 		OrganizationKey: "acme", ApplicationKey: "app-1", EnvironmentKey: "staging", WorkloadID: "web", Namespace: "app-staging", RevisionID: "rev-1", DeploymentID: "dep-1", DeliveryStoreKey: "new",
-		Refs: map[string]map[string]configport.StoreRef{"main": {"OLD": {StoreKey: "old", ValueRef: oldRef}, "NEW": {StoreKey: "new", ValueRef: newRef}}},
+		Refs:   map[string]map[string]configport.StoreRef{"main": {"OLD": {StoreKey: "old", ValueRef: oldRef}, "NEW": {StoreKey: "new", ValueRef: newRef}}},
+		Values: map[string]map[string]string{"main": {"PGPASSWORD": "dependency-secret-sentinel"}}, CDOwned: true,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -72,8 +74,15 @@ func TestRegistryDeliversBundleToSelectedStoreReadingRefsThroughOwners(t *testin
 	}
 	// The object lands in the delivery store only; the old store was only read.
 	data := newVault.values["orchestrator/apps/app-1/envs/staging/values/dep-1"]
-	if !strings.Contains(data, "old-secret-value") || !strings.Contains(data, "new-secret-value") {
+	if !strings.Contains(data, "old-secret-value") || !strings.Contains(data, "new-secret-value") || !strings.Contains(data, "dependency-secret-sentinel") {
 		t.Fatalf("bundle content: %s", data)
+	}
+	if bundle.ServiceAccount == configport.WorkloadServiceAccount("app-1", "staging", "web") {
+		t.Fatal("CD bundle collides with historical direct ServiceAccount")
+	}
+	raw, _ := json.Marshal(bundle)
+	if strings.Contains(string(raw), "dependency-secret-sentinel") || bundle.Keys["main"]["PGPASSWORD"] != "main_PGPASSWORD" {
+		t.Fatal("secret values escaped the Vault bundle or references were lost")
 	}
 	if _, wrote := oldVault.values["orchestrator/apps/app-1/envs/staging/values/dep-1"]; wrote {
 		t.Fatal("bundle must not be written to the previous store")

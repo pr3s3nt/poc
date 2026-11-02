@@ -86,7 +86,9 @@ func (s *Service) RemoveDelivered(ctx context.Context, organizationKey, applicat
 		return report, err
 	}
 	var lastTarget execution.Target
+	hasLegacyAuxiliary := false
 	for _, w := range candidates {
+		hasLegacyAuxiliary = hasLegacyAuxiliary || legacyAuxiliary(w)
 		target := execution.Target{Namespace: env.Namespace(), Extra: map[string]string{"application": applicationKey, "environment": environmentKey, "deployment": workloadOwnerDeploymentID(w)}}
 		if err := restoreEnvironmentTarget(&target, w.TargetRef, organizationKey, env); err != nil {
 			report.Failed = append(report.Failed, w.WorkloadID)
@@ -115,7 +117,10 @@ func (s *Service) RemoveDelivered(ctx context.Context, organizationKey, applicat
 			report.Failed = append(report.Failed, w.WorkloadID)
 			continue
 		}
-		if err := s.deployer.Remove(lease.Ctx, target, w.WorkloadID); err != nil {
+		if legacyAuxiliary(w) {
+			removeErr = s.deployer.Remove(lease.Ctx, legacyAuxiliaryTarget(target, w), w.WorkloadID)
+		}
+		if removeErr != nil {
 			w.Status = domain.InstanceFailed
 			_ = s.store.UpsertWorkloadInstance(lease.Ctx, w)
 			report.Failed = append(report.Failed, w.WorkloadID)
@@ -132,7 +137,7 @@ func (s *Service) RemoveDelivered(ctx context.Context, organizationKey, applicat
 	}
 	// The VSO objects the secret delivery created for this Application Environment (proven by their exact Vault value path) are
 	// run-owned non-Terraform artifacts: without them the namespace would hold unaccounted objects.
-	if _, ok := s.configSync.(execution.ConfigSecretRemover); ok && len(report.Failed) == 0 {
+	if _, ok := s.configSync.(execution.ConfigSecretRemover); ok && hasLegacyAuxiliary && len(report.Failed) == 0 {
 		if lastTarget.Namespace == "" {
 			app, err := s.store.GetApplication(lease.Ctx, applicationKey)
 			if err == nil {
@@ -143,7 +148,7 @@ func (s *Service) RemoveDelivered(ctx context.Context, organizationKey, applicat
 			}
 		}
 	}
-	if remover, ok := s.configSync.(execution.ConfigSecretRemover); ok && len(report.Failed) == 0 {
+	if remover, ok := s.configSync.(execution.ConfigSecretRemover); ok && hasLegacyAuxiliary && len(report.Failed) == 0 {
 		names, err := remover.RemoveSynchronized(lease.Ctx, lastTarget, applicationKey, environmentKey)
 		report.SecretObjects = names
 		if err != nil {

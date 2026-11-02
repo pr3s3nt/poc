@@ -64,10 +64,15 @@ type BundleRequest struct {
 	Namespace, RevisionID, DeploymentID                         string
 	DeliveryStoreKey                                            string
 	Refs                                                        map[string]map[string]StoreRef
+	// Values are private dependency outputs; never serialize them into Git/API.
+	Values map[string]map[string]string `json:"-"`
+	// CDOwned scopes ServiceAccounts away from historical direct auxiliaries.
+	CDOwned bool
 }
 
 // AccessRequest is the agent-delivery variant: all refs live in one store.
 type AccessRequest struct {
+	CDOwned                                                     bool
 	OrganizationKey, ApplicationKey, EnvironmentKey, WorkloadID string
 	Namespace, RevisionID, StoreKey                             string
 	Refs                                                        []string

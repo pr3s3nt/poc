@@ -1344,3 +1344,14 @@ and explicitly separates fixture browser checks from live-provider acceptance.
 | Git-owned bootstrap configuration | `scripts/bootstrap/run.mjs`, `platform-catalog/catalog.yaml` | bootstrap tests, `TestExportedCatalogDocumentsUseReleaseLocalComponents` |
 
 | CR-05 historical cache availability during publication | `registry/service.go`, default Compose module-cache volume | `TestDirectGitPreparationRestoresMissingCacheAtOriginalHTTPSCommit`; [real UI upgrade/recreation](../verification/2026-11-02-catalog-only-live.md) |
+
+## CD-only application manifests — ADR-032
+
+| Requirement | Implementation | Validation |
+|---|---|---|
+| Required verified CD; no new Direct destination | Production deployment/pending/standalone Preview constructors, binding API, coordinator | `cd_required_test.go`, real Preview refusal test, HTTP Direct refusal, coordinator destination tests |
+| Complete manifest authority and private dependency values | `deployment/service.go`, Vault bundle/value refs, pure VSO renderer, Fleet packaging | `cd_manifests_test.go` (deployment and Fleet), Vault registry tests |
+| VSO prerequisite and owned cleanup | Fleet secret observation and garbage-collection wait, complete UID inventory | `fleet/secrets_test.go`, provider-owned cleanup with rejecting direct collaborator |
+| Provider always visible; no disable toggle | DeliverySelectionPanel and VI/EN catalogs | Component tests and Chromium fixture visual review |
+
+No schema change or live CD/VSO acceptance is implied by these local checks.

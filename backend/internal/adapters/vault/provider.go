@@ -78,6 +78,9 @@ func (p *Provider) SetAgentAddress(address string) error {
 }
 
 func (p *Provider) PrepareWorkloadAccess(ctx context.Context, app, env, workload, namespace, revisionID string, refs []string) (configport.WorkloadAccess, error) {
+	return p.prepareWorkloadAccess(ctx, app, env, workload, namespace, revisionID, refs, configport.WorkloadServiceAccount(app, env, workload))
+}
+func (p *Provider) prepareWorkloadAccess(ctx context.Context, app, env, workload, namespace, revisionID string, refs []string, serviceAccount string) (configport.WorkloadAccess, error) {
 	if p.agentAddress == "" {
 		return configport.WorkloadAccess{}, fmt.Errorf("vault: in-cluster Agent address is not configured")
 	}
@@ -98,9 +101,11 @@ func (p *Provider) PrepareWorkloadAccess(ctx context.Context, app, env, workload
 	}
 	sort.Strings(paths)
 	identity := app + "/" + env + "/" + workload + "/" + namespace + "/" + revisionID + "/" + strings.Join(paths, ",")
+	if serviceAccount != configport.WorkloadServiceAccount(app, env, workload) {
+		identity += "/" + serviceAccount
+	}
 	sum := sha256.Sum256([]byte(identity))
 	role := "orch-" + hex.EncodeToString(sum[:10])
-	serviceAccount := configport.WorkloadServiceAccount(app, env, workload)
 	var policy strings.Builder
 	for _, path := range paths {
 		policy.WriteString("path \"" + p.mount + "/data/" + path + "\" { capabilities = [\"read\"] }\n")
@@ -125,6 +130,9 @@ func (p *Provider) PrepareWorkloadAccess(ctx context.Context, app, env, workload
 // Deploy. Values come from each ref's owning store; the object lands in this
 // (delivery) store and the access policy/role are written here.
 func (p *Provider) WriteBundle(ctx context.Context, app, env, workload, namespace, revisionID, deploymentID string, values map[string]map[string]string) (configport.WorkloadBundle, error) {
+	return p.writeBundle(ctx, app, env, workload, namespace, revisionID, deploymentID, values, false)
+}
+func (p *Provider) writeBundle(ctx context.Context, app, env, workload, namespace, revisionID, deploymentID string, values map[string]map[string]string, cdOwned bool) (configport.WorkloadBundle, error) {
 	if !safeSegment.MatchString(app) || !safeSegment.MatchString(workload) || !safeSegment.MatchString(namespace) || !safeSegment.MatchString(revisionID) || !safeSegment.MatchString(deploymentID) || (env != "staging" && env != "production") {
 		return configport.WorkloadBundle{}, fmt.Errorf("vault: invalid workload bundle scope")
 	}
@@ -154,7 +162,11 @@ func (p *Provider) WriteBundle(ctx context.Context, app, env, workload, namespac
 	if err := p.writeObject(ctx, "/v1/"+p.mount+"/data/"+path, map[string]any{"options": map[string]any{"cas": 0}, "data": data}); err != nil {
 		return configport.WorkloadBundle{}, fmt.Errorf("vault: create workload bundle: %w", err)
 	}
-	access, err := p.PrepareWorkloadAccess(ctx, app, env, workload, namespace, revisionID, []string{"kv2://" + p.mount + "/" + path})
+	serviceAccount := configport.WorkloadServiceAccount(app, env, workload)
+	if cdOwned {
+		serviceAccount = configport.WorkloadServiceAccount(app, env, workload+"/"+deploymentID)
+	}
+	access, err := p.prepareWorkloadAccess(ctx, app, env, workload, namespace, revisionID, []string{"kv2://" + p.mount + "/" + path}, serviceAccount)
 	if err != nil {
 		return configport.WorkloadBundle{}, err
 	}

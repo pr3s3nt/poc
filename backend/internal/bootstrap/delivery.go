@@ -44,8 +44,10 @@ func setupDelivery(opts Options, st persistence.Store, source execution.Kubeconf
 	coordinator := &appdelivery.Coordinator{Store: repo, Registry: registry, Artifacts: &appdelivery.Artifacts{Store: tf.repo, Cipher: tf.cipher}}
 	directDeployer := k8s.NewDeployer(opts.KubectlPath)
 	directDeployer.Credentials = source
-	direct := &directadapter.Provider{Deployer: directDeployer, KubectlPath: opts.KubectlPath, Credentials: source, Guard: coordinator.Guard, RecoveryGuard: coordinator.GuardRecovery}
-	if err := registry.Register("direct", direct); err != nil {
+	// Historical Direct receipts remain readable/exportable/removable for migration.
+	// Coordinator.binding rejects Direct destinations before Prepare/Submit.
+	legacyDirect := &directadapter.Provider{Deployer: directDeployer, KubectlPath: opts.KubectlPath, Credentials: source, Guard: coordinator.Guard, RecoveryGuard: coordinator.GuardRecovery}
+	if err := registry.Register("direct", legacyDirect); err != nil {
 		return nil, nil, err
 	}
 	provider := &fleetadapter.Provider{Manager: &fleetadapter.Manager{Verifier: &fleetadapter.Verifier{KubectlPath: opts.KubectlPath, Credentials: source, Targets: appdelivery.Targets{Store: st, Identity: repo}}, Guard: coordinator.Guard, RecoveryGuard: coordinator.GuardRecovery}, Publishers: publishers}

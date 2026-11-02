@@ -59,7 +59,6 @@ func main() {
 	renderBundleCacheDir := flag.String("render-bundle-cache-dir", os.Getenv("ORCHESTRATOR_RENDER_BUNDLE_CACHE_DIR"), "durable private absolute directory (0700, outside any Git work tree) caching verified Git render bundles; empty uses a temporary cache lost on exit")
 	vaultDelivery := flag.String("vault-delivery", "auto", "UC-12 Kubernetes delivery: auto, vso or agent")
 	deliveryGitRoot := flag.String("delivery-git-root", os.Getenv("ORCHESTRATOR_DELIVERY_GIT_ROOT"), "private absolute directory outside Git for optional Environment CD publication; empty disables CD bindings")
-	workloadDelivery := flag.String("workload-delivery", "direct", "deprecated process-wide workload delivery; only direct is accepted (CD is selected per Environment)")
 	gitopsRepoDir := flag.String("gitops-repo-dir", "", "writable local clone of the Fleet GitOps repository")
 	gitopsBranch := flag.String("gitops-branch", "main", "Fleet GitOps branch")
 	fleetGitRepoName := flag.String("fleet-gitrepo-name", "poc-workloads", "Fleet GitRepo resource name in fleet-local")
@@ -210,7 +209,6 @@ func main() {
 		Region:                        *region,
 		Tags:                          tags,
 		VaultDelivery:                 *vaultDelivery,
-		WorkloadDelivery:              *workloadDelivery,
 		GitOpsRepoDir:                 *gitopsRepoDir,
 		DeliveryGitRoot:               *deliveryGitRoot,
 		GitOpsBranch:                  *gitopsBranch,

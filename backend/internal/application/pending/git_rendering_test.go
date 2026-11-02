@@ -151,7 +151,7 @@ func TestGitBundleOnlyChangeIsPendingUpdateWithoutGitFetch(t *testing.T) {
 		t.Fatal(err)
 	}
 	workloads := workloadconfig.NewService(app.Store)
-	svc := pending.NewService(app.Store, planning.NewService(render.Bundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
+	svc := pending.NewSimulationService(app.Store, planning.NewService(render.Bundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
 	svc.SetDeployer(app.Deployments)
 	fetches := git.calls
 

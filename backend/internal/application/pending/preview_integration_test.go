@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	deliveryapp "orchestrator/internal/application/delivery"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/workloadconfig"
@@ -47,7 +48,7 @@ func fixture(t *testing.T) (*bootstrap.App, *workloadconfig.Service, *pending.Se
 		t.Fatal(err)
 	}
 	workloads := workloadconfig.NewService(app.Store)
-	preview := pending.NewService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
+	preview := pending.NewSimulationService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
 	preview.SetDeployer(app.Deployments)
 	return app, workloads, preview, opts
 }
@@ -185,5 +186,24 @@ func TestFailedRouteCanRetryWithoutRestartingWorkload(t *testing.T) {
 	resolved, err := svc.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
 	if err != nil || resolved.RoutePending {
 		t.Fatalf("route retry status not cleared: %+v %v", resolved, err)
+	}
+}
+
+func TestRealPreviewRequiresCDWithoutDiscardingDrafts(t *testing.T) {
+	ctx := context.Background()
+	app, workloads, _, opts := fixture(t)
+	if _, err := workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "web", scoreFor("web", "web:v1", false), 0); err != nil {
+		t.Fatal(err)
+	}
+	svc := pending.NewService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
+	if _, err := svc.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey); !errors.Is(err, deliveryapp.ErrCDRequired) {
+		t.Fatalf("preview bypassed required CD binding: %v", err)
+	}
+	// The simulation fixture can still read/plan the same saved draft; the real
+	// preflight did not clear it or silently choose a provider.
+	simulation := pending.NewSimulationService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
+	out, err := simulation.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil || len(out.Changes) != 1 {
+		t.Fatalf("required-CD refusal discarded the draft: %v", err)
 	}
 }

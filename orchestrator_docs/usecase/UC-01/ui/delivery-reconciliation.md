@@ -6,7 +6,14 @@ last_reviewed: 2026-10-28
 related: [ADR-030, UC-01, UC-05, UC-09]
 ---
 
-# Optional Environment CD
+> Current delivery policy (2026-11-02): [ADR-032](../../../architecture/decisions/ADR-032-cd-only-manifests.md) supersedes
+> optional/default Direct and disabling-CD requirements below. Real application
+> manifests, including nonsecret auxiliaries and VSO declarations, belong to CD.
+> A verified binding is mandatory; historical Direct records remain readable
+> only for reviewed migration/cleanup. Terraform ownership is unchanged.
+
+
+# Required Environment CD
 
 Required interaction design; the Settings panel is implemented on the feature branch. Reuse
 [shared UI](../../../architecture/ui/README.md), actual AppShell,
@@ -20,8 +27,7 @@ was a reference inspection, not Fleet acceptance or a new UI prototype.
 Within the selected staging/production tab, add one **Triển khai** section before
 Secret Store. No new sidebar navigation and no infrastructure target selector.
 
-- Checkbox **Dùng CD provider**, unchecked by default.
-- When checked, show **CD provider** select of verified eligible bindings, e.g.
+- Always show the required **CD provider** select of verified eligible bindings, e.g.
   `Fleet · Internal platform`. Provider kind/name are safe labels; credentials,
   Git paths, management topology and capability JSON stay out of this form.
 - Checkbox **Tự sửa sai lệch**, unchecked by default, only when the binding
@@ -29,11 +35,11 @@ Secret Store. No new sidebar navigation and no infrastructure target selector.
   revisions are restored and Jobs/data resources are not automatically recreated.
 - **Lưu thay đổi** saves desired selection. One confirmation: **Đã lưu. Xem trước
   để áp dụng.** Link to the existing Application Preview flow.
-- Compact applied value **Đang dùng: Trực tiếp** or **Đang dùng: Fleet**; show
+- Compact applied value **Đang dùng: Chưa áp dụng CD** or **Đang dùng: Fleet**; show
   **Chờ áp dụng** only when desired differs. PE/Admin edits; Developer reads.
 
-Unchecking hides provider fields locally but retains the last selected draft
-until Save/cancel. Cancel restores server desired selection. Switching Environment
+There is no enable/disable checkbox or Direct choice. An empty provider is
+unsaveable. Cancel restores server desired selection. Switching Environment
 discards unsaved local selection only with the existing unsaved-edit protection;
 never leaks staging choice into production. Do not auto-select a binding when
 multiple exist. A sole eligible binding may be a local suggestion, never a save.

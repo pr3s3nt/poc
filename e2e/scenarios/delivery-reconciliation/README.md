@@ -106,3 +106,13 @@ separate platform prerequisite, not claimed by port-forward business checks.
 The renderer is task-owned; its catalog changes remain until platform teardown.
 Run `cleanup.mjs` with the semantic state afterward, checking all owned workloads
 and Terraform dependencies are removed while the existing parent/sibling remain.
+
+## CD-only runtime (2026-11-02)
+
+ADR-032 removes the enable/disable checkbox and Fleet → Direct → Fleet scenario.
+The business runner selects a required binding; `runExisting` retains the
+binding-to-binding transfer scenario. Historical semantic Direct recovery evidence
+and its recovery fixture are not valid on a CD-only runtime. Platform workload
+permissions include VSO CRs and public-CA Secret manifests. These script changes
+have only syntax validation in this task; a new authorized live run is required
+for VSO-through-CD readiness, drift and UID cleanup acceptance.
