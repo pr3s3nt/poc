@@ -93,6 +93,22 @@ func (s *Bindings) Register(ctx context.Context, orgKey string, cmd RegisterBind
 	if err != nil || account.Status != application.ConnectionReady || account.Kind != application.ConnectionKubernetes || account.Version != cmd.ManagementAccountVersion {
 		return domain.BindingVersion{}, persistence.ErrNotFound
 	}
+	if cmd.UsePlatformGit {
+		repo, ok := s.store.(persistence.GitSettingsRepository)
+		if !ok {
+			return domain.BindingVersion{}, ErrUnavailable
+		}
+		settings, err := repo.GetGitSettings(ctx, orgKey)
+		if err != nil || gitaccess.RepositoryOwner(settings.URL) == "" {
+			return domain.BindingVersion{}, domain.ErrInvalid
+		}
+		config := make(map[string]string, len(cmd.Config)+1)
+		for k, v := range cmd.Config {
+			config[k] = v
+		}
+		config["repositoryOwner"] = gitaccess.RepositoryOwner(settings.URL)
+		cmd.Config = config
+	}
 	b := domain.BindingVersion{ID: ids.New(), Version: 1, OrganizationID: org.ID, Name: name, ProviderKind: cmd.ProviderKind, ContractVersion: "v1", ManagementAccountID: account.ID, ManagementAccountVersion: account.Version, Config: cmd.Config, WriterCredentialRef: cmd.WriterCredentialRef, Status: domain.Unverified, Revision: 1, CreatedAt: s.now()}
 	if cmd.BindingID != "" {
 		previous, err := s.store.GetDeliveryBinding(ctx, org.ID, cmd.BindingID, cmd.PreviousVersion)

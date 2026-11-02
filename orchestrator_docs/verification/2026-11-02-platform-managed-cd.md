@@ -160,3 +160,26 @@ Tailscale browser discovery returned 200 and exact controller/agent/workspace/
 cluster identities for account `k8s-4f`, with no alerts or JavaScript errors.
 Before/after checks retained all 15 Application deployment identities. This is
 Fleet installation/discovery verification, not GitHub/deployment acceptance.
+
+### Inherited repository ownership
+
+Shared CD Git now derives owner from the explicit account/group scope already
+stored by Platform Settings, e.g. `https://github.com/my-team`. Settings shows
+`Nơi tạo repository` and guidance to choose that URL scope; no redundant database
+column or migration was introduced. Host-only/repository-specific scopes do not
+silently select an owner. Shared CD hides owner authoring and displays the
+inherited destination. Backend registration derives/overrides owner before
+validation, preventing browser-submitted ownership from diverging from Settings.
+Existing immutable bindings retain their destinations until a new version is
+registered. Separate Git credentials retain explicit owner authoring.
+
+Checks passed: full backend tests/build, full frontend suite (81 files / 775
+assertions), lint/typecheck/production build, and focused backend inheritance and
+scope tests. Known hook/chunk warnings remain. New service test verifies an
+untrusted submitted owner is overridden without mutating caller config. Updated
+retained backend/frontend; no database, Git settings or workload mutations.
+Real authenticated browser checks passed through the retained Tailscale URL:
+selecting shared Git hides both owner and token inputs; Platform Settings displays
+the derived destination/help. Existing AppShell/forms/Advanced layout preserved,
+with no runtime errors and all 15 Application deployment identities retained.
+Screenshots remain in the retained private evidence directory.

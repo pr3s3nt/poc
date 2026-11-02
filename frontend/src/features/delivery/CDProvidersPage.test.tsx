@@ -113,7 +113,7 @@ it('reuses platform Git without exposing token fields and discovers Fleet on acc
       if (path.endsWith('/inspect')) return Response.json({ options: { targetCluster: [{ name: 'local', value: 'local', values: { targetCluster: 'local', targetClusterUID: 'discovered-uid', workspace: 'fleet-local' } }] } });
       return Response.json(ready, { status: 201 });
     }
-    if (path.endsWith('/platform/settings/git')) return Response.json({ settings: { tokenConfigured: true, url: 'https://github.com/platform-team', username: 'platform-writer' } });
+    if (path.endsWith('/platform/settings/git')) return Response.json({ settings: { tokenConfigured: true, url: 'https://github.com/platform-team', username: 'platform-writer', repositoryOwner: 'platform-team' } });
     if (path.endsWith('/delivery-default')) return Response.json({ bindingId: '', bindingVersion: 0, revision: 0 });
     if (path.endsWith('/delivery-providers')) return Response.json({ providers: [{ kind: 'fleet', fields }] });
     if (path.endsWith('/driver-accounts')) return Response.json({ accounts: [account] });
@@ -126,7 +126,8 @@ it('reuses platform Git without exposing token fields and discovers Fleet on acc
   await user.type(screen.getByLabelText('Tên cấu hình'), 'Shared Git');
   await user.selectOptions(screen.getByLabelText('Tài khoản quản lý CD'), account.key);
   await waitFor(() => expect(requests.some(r => r.path.endsWith('/inspect'))).toBe(true));
-  await user.type(screen.getByLabelText('Tài khoản hoặc tổ chức GitHub'), 'platform-team');
+  expect(screen.queryByLabelText('Tài khoản hoặc tổ chức GitHub')).not.toBeInTheDocument();
+  expect(screen.getByText(/Nơi tạo repository.*platform-team/)).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Lưu cấu hình' }));
   await waitFor(() => expect(requests.find(r => r.path.endsWith('/delivery-bindings'))?.body).toMatchObject({ usePlatformGit: true, writerUsername: '', writerPassword: '', config: { targetClusterUID: 'discovered-uid' } }));
 });

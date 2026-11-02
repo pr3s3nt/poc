@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"orchestrator/internal/ports/credentials"
 	"orchestrator/internal/ports/persistence"
+	"regexp"
+	"strings"
 )
 
 // PlatformWriterReference selects live organization settings, never secret bytes.
@@ -26,4 +28,20 @@ func Writer(ctx context.Context, repo persistence.GitSettingsRepository, creds c
 	}
 	raw, err := json.Marshal(map[string]string{"username": access.Username, "password": access.Token})
 	return raw, access.CAPEM, err
+}
+
+var repositoryOwnerShape = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]{0,38}$`)
+
+// RepositoryOwner accepts only an explicit account/group scope, never a host or
+// repository URL. Authentication username is not an ownership decision.
+func RepositoryOwner(raw string) string {
+	u, err := ScopeURL(raw)
+	if err != nil {
+		return ""
+	}
+	owner := strings.Trim(u.Path, "/")
+	if !repositoryOwnerShape.MatchString(owner) {
+		return ""
+	}
+	return owner
 }

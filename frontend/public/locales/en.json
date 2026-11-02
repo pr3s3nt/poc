@@ -3430,7 +3430,7 @@
   "platform.git.username": "Username",
   "platform.git.token": "Token",
   "platform.git.tokenSaved": "Token saved. Leave blank to keep it; enter it again when changing the URL or username.",
-  "platform.git.tokenHelp": "Used for Git reads only. Saved tokens are never displayed again.",
+  "platform.git.tokenHelp": "Used for Git reads; shared CD access also requires repository creation and write permissions. Saved tokens are never displayed again.",
   "platform.git.advanced": "Advanced",
   "platform.git.ca": "CA certificate (PEM, optional)",
   "platform.git.repository": "Test repository",
@@ -3713,5 +3713,8 @@
   "cd.reason.VERSION_UNSUPPORTED": "Fleet version is unsupported. Check the controller version.",
   "cd.reason.TARGET_MAPPING_UNSUPPORTED": "Fleet cluster does not match the workload account or is unsupported. Retry discovery and check the account.",
   "cd.reason.PERMISSION_DENIED": "Account permissions are insufficient. Check access to the required resources.",
-  "cd.inspecting": "Discovering Fleet…"
+  "cd.inspecting": "Discovering Fleet…",
+  "platform.git.repositoryOwner": "Repository destination",
+  "platform.git.ownerMissing": "No account or organization selected",
+  "platform.git.ownerHelp": "For CD, set the Git scope to an account or organization URL, e.g. https://github.com/my-team. CD inherits this destination."
 }

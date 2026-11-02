@@ -3430,7 +3430,7 @@
   "platform.git.username": "Username",
   "platform.git.token": "Token",
   "platform.git.tokenSaved": "Đã lưu token. Để trống để giữ nguyên; nhập lại khi đổi URL hoặc username.",
-  "platform.git.tokenHelp": "Token chỉ dùng để đọc Git và không hiển thị lại sau khi lưu.",
+  "platform.git.tokenHelp": "Token dùng để đọc Git; khi dùng chung cho CD, cần thêm quyền tạo và ghi repository. Token đã lưu không hiển thị lại.",
   "platform.git.advanced": "Nâng cao",
   "platform.git.ca": "Chứng chỉ CA (PEM, tùy chọn)",
   "platform.git.repository": "Repo kiểm tra",
@@ -3713,5 +3713,8 @@
   "cd.reason.VERSION_UNSUPPORTED": "Phiên bản Fleet chưa được hỗ trợ. Kiểm tra phiên bản controller.",
   "cd.reason.TARGET_MAPPING_UNSUPPORTED": "Cluster Fleet chưa khớp workload account hoặc chưa được hỗ trợ. Chạy khám phá lại và kiểm tra account.",
   "cd.reason.PERMISSION_DENIED": "Account chưa đủ quyền. Kiểm tra quyền truy cập tài nguyên cần thiết.",
-  "cd.inspecting": "Đang tìm cấu hình Fleet…"
+  "cd.inspecting": "Đang tìm cấu hình Fleet…",
+  "platform.git.repositoryOwner": "Nơi tạo repository",
+  "platform.git.ownerMissing": "Chưa chọn tài khoản hoặc organization",
+  "platform.git.ownerHelp": "Để dùng cho CD, đặt phạm vi Git là URL tài khoản hoặc organization, ví dụ https://github.com/my-team. CD tự kế thừa nơi này."
 }

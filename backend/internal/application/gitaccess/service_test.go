@@ -153,3 +153,19 @@ func TestPlatformWriterRotationAndScope(t *testing.T) {
 type durableWriterTestStore struct{ *credentialmemory.Store }
 
 func (durableWriterTestStore) Durable() bool { return true }
+
+func TestRepositoryOwnerRequiresExplicitGroupScope(t *testing.T) {
+	for _, tc := range []struct{ url, want string }{
+		{"https://github.com/my-team", "my-team"},
+		{"https://github.com/my-team/", "my-team"},
+		{"https://github.com", ""},
+		{"https://github.com/my-team/app.git", ""},
+		{"https://github.com/my-team.git", ""},
+		{"https://github.com/my-team?token=private", ""},
+		{"https://user@github.com/my-team", ""},
+	} {
+		if got := RepositoryOwner(tc.url); got != tc.want {
+			t.Errorf("unexpected owner for scope %q", tc.url)
+		}
+	}
+}

@@ -31,6 +31,7 @@ type Draft struct {
 	ExpectedVersion int64  `json:"expectedVersion"`
 }
 type View struct {
+	RepositoryOwner string     `json:"repositoryOwner"`
 	URL             string     `json:"url"`
 	Username        string     `json:"username"`
 	Authenticated   bool       `json:"authenticated"`
@@ -50,7 +51,7 @@ func New(st persistence.Store, creds credentials.Store) *Service {
 	return &Service{store: st, repo: repo, credentials: creds}
 }
 func view(v persistence.GitSettings) View {
-	out := View{URL: v.URL, Username: v.Username, Authenticated: v.Authenticated, CAPEM: v.CAPEM, TokenConfigured: v.CredentialRef != "", Version: v.Version}
+	out := View{RepositoryOwner: RepositoryOwner(v.URL), URL: v.URL, Username: v.Username, Authenticated: v.Authenticated, CAPEM: v.CAPEM, TokenConfigured: v.CredentialRef != "", Version: v.Version}
 	if !v.UpdatedAt.IsZero() {
 		out.UpdatedAt = &v.UpdatedAt
 	}

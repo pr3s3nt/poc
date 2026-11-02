@@ -56,3 +56,5 @@ CD setup reuses Organization-scoped Platform Settings Git access by default. Bac
 Discovery displays an in-progress status and actionable failure beside the retry
 button inside the form. A backend discovery failure must not appear solely above
 the registered-bindings list, outside the current form viewport.
+
+Shared CD Git derives repository ownership from the explicit account/group URL scope in Platform Settings (for example `https://github.com/my-team`). Host-only and repository-specific scopes do not define an eligible owner. Settings displays the derived destination with guidance; CD hides owner authoring for shared Git and shows the inherited destination. Registration resolves this value server-side before validation, overriding any submitted owner. Authentication username is never assumed to be the owner. Existing binding versions retain their pinned owner; changed destinations apply when registering a new version. No separate owner column or schema migration is needed.

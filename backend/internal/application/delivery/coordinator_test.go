@@ -10,8 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"orchestrator/internal/adapters/credentialmemory"
 	"orchestrator/internal/adapters/statecipher"
 	"orchestrator/internal/adapters/store"
+	"orchestrator/internal/application/gitaccess"
 	domain "orchestrator/internal/domain/delivery"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/platform/ids"
@@ -270,3 +272,34 @@ func TestDirectCannotBeADeploymentOrTransferDestination(t *testing.T) {
 		t.Fatal("provider was submitted before CD admission")
 	}
 }
+
+func TestSharedGitOwnerIsInheritedServerSide(t *testing.T) {
+	c, _, ctx, req, _ := coordinatorFixture(t)
+	st := c.Store.(bindingStore)
+	creds := ownerTestCredentials{credentialmemory.New()}
+	git := gitaccess.New(st, creds)
+	if _, err := git.Save(ctx, req.OrganizationKey, "actor", gitaccess.Draft{URL: "https://github.com/platform-team", Username: "writer", Token: "private-test-token", Authenticated: true}); err != nil {
+		t.Fatal(err)
+	}
+	account, err := st.GetConnection(ctx, req.OrganizationKey, "delivery-manager")
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := NewBindings(st, c.Registry)
+	svc.SetCredentials(creds)
+	config := map[string]string{"repositoryHost": "https://github.com", "repositoryOwner": "untrusted-owner"}
+	b, err := svc.Register(ctx, req.OrganizationKey, RegisterBinding{Name: "Inherited owner", ProviderKind: "fleet", ManagementAccountKey: account.Key, ManagementAccountVersion: account.Version, UsePlatformGit: true, Config: config})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.Config["repositoryOwner"] != "platform-team" || b.WriterCredentialRef != gitaccess.PlatformWriterReference {
+		t.Fatal("owner not inherited from platform scope")
+	}
+	if config["repositoryOwner"] != "untrusted-owner" {
+		t.Fatal("caller config mutated")
+	}
+}
+
+type ownerTestCredentials struct{ *credentialmemory.Store }
+
+func (ownerTestCredentials) Durable() bool { return true }

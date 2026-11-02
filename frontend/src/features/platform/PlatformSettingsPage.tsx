@@ -4,7 +4,7 @@ import { Button } from '../../shared/ui/Button';
 import { PasswordInput } from '../../shared/ui/PasswordInput';
 import { t } from '../../shared/i18n';
 
-type Settings = { url: string; username: string; authenticated: boolean; caPem: string; tokenConfigured: boolean; version: number; updatedAt?: string };
+type Settings = { repositoryOwner?: string; url: string; username: string; authenticated: boolean; caPem: string; tokenConfigured: boolean; version: number; updatedAt?: string };
 type Draft = Settings & { token: string; repositoryUrl: string; ref: string };
 const empty: Draft = { url: '', username: '', authenticated: true, caPem: '', tokenConfigured: false, version: 0, token: '', repositoryUrl: '', ref: 'main' };
 const endpoint = '/platform/settings/git';
@@ -39,7 +39,14 @@ export function PlatformSettingsPage() {
   }, [load]);
 
   function edit<K extends keyof Draft>(key: K, value: Draft[K]) {
-    setDraft(current => ({ ...current, [key]: value })); setMessage(''); setError('');
+    setDraft(current => {
+      const next = { ...current, [key]: value };
+      if (key === 'url') {
+        try { const url = new URL(String(value)); const owner = url.pathname.replace(/^\/|\/$/g, ''); next.repositoryOwner = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(owner) ? owner : ''; }
+        catch { next.repositoryOwner = ''; }
+      }
+      return next;
+    }); setMessage(''); setError('');
   }
   function payload() {
     return { url: draft.url.trim(), username: draft.username, authenticated: draft.authenticated, token: draft.token, caPem: draft.caPem, expectedVersion: draft.version };
@@ -86,6 +93,7 @@ export function PlatformSettingsPage() {
         <h2>{t('platform.git.access')}</h2>
         <fieldset className="form-fieldset editor-grid git-settings-fields" disabled={pending !== null || stale}>
           <div className="field"><label htmlFor="git-url">{t('platform.git.url')}</label><input id="git-url" type="url" required maxLength={2048} value={draft.url} placeholder="https://git.example.com/platform" onChange={event => edit('url', event.target.value)} aria-describedby="git-scope-help" /><small id="git-scope-help">{t('platform.git.scopeHelp')}</small></div>
+          <div className="field"><span>{t('platform.git.repositoryOwner')}</span><strong>{draft.repositoryOwner || t('platform.git.ownerMissing')}</strong><small>{t('platform.git.ownerHelp')}</small></div>
           <div className="field"><label htmlFor="git-auth">{t('platform.git.authentication')}</label><select id="git-auth" value={draft.authenticated ? 'token' : 'anonymous'} onChange={event => { edit('authenticated', event.target.value === 'token'); setDraft(current => ({ ...current, token: '' })); }}><option value="token">{t('platform.git.usernameToken')}</option><option value="anonymous">{t('platform.git.anonymous')}</option></select></div>
           {draft.authenticated ? <>
             <div className="field"><label htmlFor="git-user">{t('platform.git.username')}</label><input id="git-user" required maxLength={256} autoComplete="off" value={draft.username} onChange={event => edit('username', event.target.value)} /></div>
