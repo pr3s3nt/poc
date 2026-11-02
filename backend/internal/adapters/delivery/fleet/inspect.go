@@ -32,7 +32,9 @@ func (p *Provider) InspectConfiguration(ctx context.Context, b port.BindingVersi
 			Metadata struct{ Name, Namespace string }
 			Spec     struct {
 				Template struct {
-					Spec struct{ Containers []struct{ Image string } }
+					Spec struct {
+						Containers []struct{ Name, Image string }
+					}
 				}
 			}
 		}
@@ -45,7 +47,7 @@ func (p *Provider) InspectConfiguration(ctx context.Context, b port.BindingVersi
 	for _, d := range deployments.Items {
 		controller := false
 		for _, c := range d.Spec.Template.Spec.Containers {
-			if strings.HasSuffix(c.Image, "/fleet:"+Version) || c.Image == "rancher/fleet:"+Version {
+			if c.Name == "fleet-controller" && (strings.HasSuffix(c.Image, "/fleet:"+Version) || c.Image == "rancher/fleet:"+Version) {
 				controller = true
 			}
 		}

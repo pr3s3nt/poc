@@ -139,3 +139,24 @@ beside the retry button. No Fleet installation or cluster mutation was performed
 Focused frontend/catalog tests passed (12 tests), with lint/typecheck/build and
 documentation/whitespace checks passing; only the known warnings remain.
 Updated frontend only using the retained runtime's `start-frontend.sh`.
+
+### Fleet installation on the retained k8s-4f cluster
+
+User explicitly authorized installing Fleet on the existing cluster. Confirmed
+`kind-k8s-4f` kube-system UID `f4e29bff-e03c-4f9c-9425-f078d8016c75`, no existing
+Fleet releases/CRDs, and retained the unrelated Vault operator release. Installed
+`fleet-crd` then `fleet`, version 0.15.2, in `cattle-fleet-system` using official
+release charts with the existing pinned SHA-256 hashes. Private charts remain in
+`/home/thanhnt1/.local/state/orch-acceptance/fleet-k8s4f-20261102`.
+Controller, agent, gitjob and helmops Deployments each reached 1/1 available.
+Fleet created its bootstrap `fleet-local/local` registration, UID
+`0b18277b-3ab6-4a3c-8858-6be70bd40ae2`; no application GitRepos were created.
+
+Live discovery exposed an adapter bug: gitjob and helmops use the same Fleet
+image as the controller. Discovery now requires the `fleet-controller` container
+name as well as the pinned image, avoiding a false ambiguous-controller result.
+Rebuilt/restarted backend only using the retained runtime start script. Real
+Tailscale browser discovery returned 200 and exact controller/agent/workspace/
+cluster identities for account `k8s-4f`, with no alerts or JavaScript errors.
+Before/after checks retained all 15 Application deployment identities. This is
+Fleet installation/discovery verification, not GitHub/deployment acceptance.
