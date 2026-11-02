@@ -78,4 +78,4 @@ require an explicitly provisioned CLI binary to enable this optional feature.
 [CLI adapter tests](../../backend/internal/adapters/scorek8s/renderer_test.go),
 [deployment integration](../../backend/internal/application/deployment/scorek8s_test.go),
 [pending integration](../../backend/internal/application/pending/rendering_test.go),
-[HTTP flow](../../backend/test/e2e/rendering_http_test.go).
+HTTP flow (editor HTTP test retired 2026-11-02; see Catalog release verification).

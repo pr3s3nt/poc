@@ -1,7 +1,8 @@
 # Catalog-only live UI acceptance
 
 Uses a running Console, its real backend/database, HTTPS Git discovery and a READY
-Internal account. No response interception, fixture API or fake executor is used.
+Internal account and all Resource Type schemas referenced by the release
+(including MySQL in the sample). Run bootstrap prerequisites first. No response interception, fixture API or fake executor is used.
 The Console must run the current change with Kubernetes adapters. Use only an
 authorized cluster/account; this runner creates and deploys a dedicated Application.
 

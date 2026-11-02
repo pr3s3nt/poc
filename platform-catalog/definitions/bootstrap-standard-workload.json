@@ -9,7 +9,9 @@
         "variables": {
           "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
           "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}",
-          "render_inputs": {}
+          "render_inputs": {
+            "defaultReplicas": 2
+          }
         }
       }
     },
@@ -20,7 +22,7 @@
         "class": "pvc"
       }
     ],
-    "version": 1
+    "version": 2
   },
   "component": "render-standard"
 }
