@@ -31,8 +31,7 @@ components:
 ```
 
 Kinds are `terraform-module`, `render-bundle`, `definition`. Resource type is
-required only for Terraform modules. Paths/IDs are unique. Every release must
-include at least one Definition; definition documents refer to module/render
+required only for Terraform modules. Paths/IDs are unique. A release may contain modules without Definitions; definition documents refer to module/render
 components by stable ID, never mutable external refs. Component hashes are
 SHA-256 of inspected content; manifest digest is SHA-256 of original bytes.
 
@@ -59,7 +58,7 @@ changing its type or requiring a missing value is a blocker. Existing planner
 contract validation remains authoritative for references and resource targets.
 
 Environment desired/applied release references and per-component outcomes are
-persisted separately; absence means selection is required before planning. Applied advances
+persisted separately; absence uses directly authored Definitions. Applied advances
 only after all required acknowledgements. Infrastructure operations continue
 through existing Preview/admission/execution boundaries.
 
@@ -79,10 +78,8 @@ Release detail GET `/api/v1/platform/catalog/sources/{source}/releases/{tag}`
 returns `{release:{sourceId,tag,commit,components}}` to PE/Admin only. Components
 include immutable Definition snapshots and symbolic bindings, with no account
 credentials or observed-tag storage maps. Template metadata is derived from the
-release's verified render bundles. Missing selection returns CATALOG_REQUIRED
-(HTTP 409) from preview/deploy and scoped workload template discovery.
-Global Definition CRUD/matching and standalone render source authoring routes
-are retired; discovery retains the internal inspection/validation pipeline.
+release's verified render bundles. Global Definition CRUD/matching and standalone render authoring routes are
+available with their existing PE/Admin and strict validation/CAS contracts.
 Invalid input uses INVALID_REQUEST, stale CAS uses STALE_VERSION, moved identity
 uses CATALOG_CONFLICT, absence NOT_FOUND and unavailable service
 SERVICE_UNAVAILABLE. Per-tag discovery results are fixed codes on the observation.
@@ -140,3 +137,19 @@ the recorded full commit, URL and path. It must reproduce the complete stored
 content/release identity; an existing corrupt cache is never silently repaired.
 Preview/metadata reads and execution never fetch. Deployments must mount durable
 module and render bundle cache volumes across backend recreation.
+
+## Catalog module selection for Definition forms
+
+GET `/api/v1/platform/catalog/sources/{source}/releases/{tag}/modules?resourceType=...`
+requires PE/Admin, derives Organization from session, and returns
+`{modules:[{componentId,capability}]}` for verified Terraform components matching
+the registered Resource Type. Metadata comes from the exact stored bundle ID and
+content hash; the operation performs no Git fetch or inspection. Missing/corrupt
+pins fail closed. Unknown source/release/Type is NOT_FOUND. Empty compatible
+component lists are valid. Source/release selectors use the existing catalog APIs.
+
+A Terraform Definition may carry `driverInputs.catalog: {sourceId,tag,componentId}`.
+Create/update verifies that this scoped immutable component has the identical
+execution pin in `driverInputs.values.source`; mismatches reject the save.
+Provenance is optional for Git/ZIP/registered modules. Edit returns it unchanged.
+Matching and planning use the pinned source, not the newest Catalog release.

@@ -7,12 +7,12 @@ last_reviewed: 2026-10-28
 
 # UC-03 — Use Case Realization
 
-> **2026-11-02 — Catalog is the sole configuration source.**
-> [Catalog requirements](catalog-releases.md) supersede standalone Definition
-> and Rendering Templates authoring described below. Definition validation,
-> matching and placement contracts remain internal to release publication/planning.
-> Public global Definition CRUD and standalone render authoring are retired.
-> Environments must select a release before Preview/deploy.
+> **2026-11-02 — Definition forms and Catalog module sources.**
+> Direct Definition/render authoring and matching are restored. Catalog is an
+> additional immutable module source, not the exclusive Definition editor.
+> [Current requirements](catalog-releases.md#definition-authoring-and-catalog-modules)
+> supersede the earlier Catalog-only decision.
+
 
 
 ## Trách nhiệm và participants

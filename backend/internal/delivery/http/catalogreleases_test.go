@@ -58,7 +58,7 @@ func TestCatalogSourcesRoleCASAndCredentialURLGuards(t *testing.T) {
 	}
 }
 
-func TestCatalogReleaseDetailsAreScopedReadOnlyAndReplaceEditors(t *testing.T) {
+func TestCatalogReleaseDetailsAreScopedReadOnlyAlongsideEditors(t *testing.T) {
 	_, ts, st := bundleTestServer(t, nil)
 	opts := seedtest.Defaults()
 	pe := bundleClient(t, ts.URL, "platform-engineer")
@@ -87,13 +87,27 @@ func TestCatalogReleaseDetailsAreScopedReadOnlyAndReplaceEditors(t *testing.T) {
 	if len(before) != len(after) {
 		t.Fatal("detail mutated global Definitions")
 	}
-	for _, route := range []struct{ method, path string }{
-		{"GET", "resource-definitions"}, {"POST", "resource-definitions"}, {"PUT", "resource-definitions/example"}, {"POST", "resource-definitions/matching-preview"},
-		{"GET", "render-bundles"}, {"POST", "render-bundles/inspect"}, {"POST", "render-bundles/upload"},
-	} {
-		status, _ := request(t, pe, route.method, ts.URL+"/api/v1/"+route.path, `{}`)
-		if status != http.StatusNotFound && status != http.StatusMethodNotAllowed {
-			t.Fatalf("retired %s %s: %d", route.method, route.path, status)
+	for _, route := range []string{"resource-definitions", "render-bundles"} {
+		status, _ := request(t, pe, http.MethodGet, ts.URL+"/api/v1/"+route, "")
+		if status != http.StatusOK {
+			t.Fatalf("restored %s: %d", route, status)
+		}
+	}
+}
+
+func TestCatalogModuleMetadataRequiresPlatformRoleAndScopedRelease(t *testing.T) {
+	_, ts, _ := bundleTestServer(t, nil)
+	base := ts.URL + "/api/v1/platform/catalog/sources/test-fixture/releases/v1.0.0/modules?resourceType=postgres"
+	for _, tc := range []struct {
+		user   string
+		status int
+	}{{"platform-engineer", 200}, {"developer", 403}, {"other-admin", 404}} {
+		status, body := request(t, bundleClient(t, ts.URL, tc.user), http.MethodGet, base, "")
+		if status != tc.status {
+			t.Fatal(tc.user, status, body)
+		}
+		if status == 200 && !strings.Contains(body, `"modules":[]`) {
+			t.Fatal("empty module list must be explicit", body)
 		}
 	}
 }

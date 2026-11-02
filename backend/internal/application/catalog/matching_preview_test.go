@@ -11,6 +11,7 @@ import (
 
 	"orchestrator/internal/application/catalog"
 	"orchestrator/internal/domain/application"
+	catalogdomain "orchestrator/internal/domain/catalogrelease"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/persistence"
@@ -496,6 +497,15 @@ func (v readSpyView) ListResourceDefinitions(ctx context.Context, o string) ([]r
 	return v.in.ListResourceDefinitions(ctx, o)
 }
 
+func (v readSpyView) GetCatalogEnvironment(ctx context.Context, a, e string) (persistence.CatalogEnvironment, error) {
+	v.spy.reads = append(v.spy.reads, "GetCatalogEnvironment")
+	return v.in.GetCatalogEnvironment(ctx, a, e)
+}
+func (v readSpyView) GetCatalogRelease(ctx context.Context, o, s, t string) (catalogdomain.Release, error) {
+	v.spy.reads = append(v.spy.reads, "GetCatalogRelease")
+	return v.in.GetCatalogRelease(ctx, o, s, t)
+}
+
 // noInspectorUse fails the test if the module registry (fetch, metadata or
 // execution verification) is ever used.
 type noInspectorUse struct{ t *testing.T }
@@ -524,7 +534,7 @@ func (f noInspectorUse) VerifyForExecution(context.Context, tfmodule.SourceRef) 
 
 func TestPreviewMatching_UsesExactlyOneSnapshotAndNoWrites(t *testing.T) {
 	st, _, opts := seededCatalog(t, nil)
-	allowed := map[string]bool{"GetApplication": true, "GetEnvironment": true, "ListConnections": true, "ListResourceTypes": true, "ListResourceDefinitions": true}
+	allowed := map[string]bool{"GetApplication": true, "GetEnvironment": true, "ListConnections": true, "ListResourceTypes": true, "ListResourceDefinitions": true, "GetCatalogEnvironment": true, "GetCatalogRelease": true}
 	scenarios := map[string]struct {
 		q       catalog.MatchingPreviewQuery
 		org     string

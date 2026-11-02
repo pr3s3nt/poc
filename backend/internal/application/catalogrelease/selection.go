@@ -8,22 +8,29 @@ import (
 	"orchestrator/internal/ports/persistence"
 )
 
-// ResolveDefinitions reads only verified snapshots from the current store view.
-// Every Environment must explicitly select a release; there is no global fallback.
+// ResolveDefinitions uses one store view for authored Definitions and optional
+// release snapshots. Explicit authoring replaces the same release key.
 func ResolveDefinitions(ctx context.Context, st persistence.Store, org, app, env string) ([]resource.Definition, string, error) {
+	authored, err := st.ListResourceDefinitions(ctx, org)
+	if err != nil {
+		return nil, "", err
+	}
 	binding, err := st.GetCatalogEnvironment(ctx, app, env)
 	if err != nil {
 		return nil, "", err
 	}
 	if binding.Desired == nil {
-		return nil, "", domain.ErrRequired
+		return authored, "", nil
 	}
 	r, err := st.GetCatalogRelease(ctx, org, binding.Desired.SourceID, binding.Desired.Tag)
 	if err != nil {
 		return nil, "", err
 	}
 	defs, err := r.Definitions(*binding.Desired)
-	return defs, binding.Desired.Digest(), err
+	if err != nil {
+		return nil, "", err
+	}
+	return mergeDefinitions(defs, authored), binding.Desired.Digest(), nil
 }
 func (s *Service) Select(ctx context.Context, org, app, env, sourceID, tag string, expectedEnv, expectedRevision int64) (persistence.CatalogEnvironment, error) {
 	var out persistence.CatalogEnvironment
@@ -54,14 +61,15 @@ func (s *Service) Select(ctx context.Context, org, app, env, sourceID, tag strin
 	return out, err
 }
 
-// RenderBundles filters authoring/template discovery to the selected release.
+// RenderBundles keeps authored bundles available and validates optional selected
+// release artifacts before template discovery.
 func RenderBundles(ctx context.Context, st persistence.Store, org, app, env string, all map[string]renderbundle.Bundle) (map[string]renderbundle.Bundle, error) {
 	binding, err := st.GetCatalogEnvironment(ctx, app, env)
 	if err != nil {
 		return nil, err
 	}
 	if binding.Desired == nil {
-		return nil, domain.ErrRequired
+		return all, nil
 	}
 	r, err := st.GetCatalogRelease(ctx, org, binding.Desired.SourceID, binding.Desired.Tag)
 	if err != nil {
@@ -71,6 +79,9 @@ func RenderBundles(ctx context.Context, st persistence.Store, org, app, env stri
 		return nil, domain.ErrIncomplete
 	}
 	out := map[string]renderbundle.Bundle{}
+	for id, b := range all {
+		out[id] = b
+	}
 	for _, component := range r.Components {
 		if component.Kind == domain.RenderBundle {
 			b, ok := all[component.BundleID]
@@ -90,7 +101,14 @@ func PublishedDefinitions(ctx context.Context, st persistence.Store, org string)
 	if err != nil {
 		return nil, err
 	}
-	out := []resource.Definition{}
+	out, err := st.ListResourceDefinitions(ctx, org)
+	if err != nil {
+		return nil, err
+	}
+	authoredKeys := map[string]bool{}
+	for _, d := range out {
+		authoredKeys[d.Key] = true
+	}
 	for _, source := range sources {
 		releases, err := st.ListCatalogReleases(ctx, org, source.Source.ID)
 		if err != nil {
@@ -98,11 +116,26 @@ func PublishedDefinitions(ctx context.Context, st persistence.Store, org string)
 		}
 		for _, release := range releases {
 			for _, component := range release.Components {
-				if component.Snapshot != nil {
+				if component.Snapshot != nil && !authoredKeys[component.Snapshot.Key] {
 					out = append(out, *component.Snapshot)
 				}
 			}
 		}
 	}
 	return out, nil
+}
+
+func mergeDefinitions(released, authored []resource.Definition) []resource.Definition {
+	keys := map[string]bool{}
+	out := append([]resource.Definition{}, authored...)
+	for _, d := range authored {
+		keys[d.Key] = true
+	}
+	for _, d := range released {
+		if !keys[d.Key] {
+			out = append(out, d)
+		}
+	}
+	resource.SortDefinitions(out)
+	return out
 }

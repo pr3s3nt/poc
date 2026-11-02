@@ -1151,7 +1151,7 @@ Implemented tests: [domain](../../backend/internal/domain/renderbundle/renderbun
 [planner](../../backend/internal/planning/git_rendering_test.go),
 [pending A→B→A](../../backend/internal/application/pending/git_rendering_test.go),
 [review projection](../../backend/internal/application/deploymentreview/review_test.go),
-Console (retired; Catalog owns this flow since 2026-11-02); UC-07
+Console (restored by UC-03 CM-01–04); UC-07
 VSO-01 in [VSO](../../backend/internal/adapters/kubernetes/vso_test.go) and
 [removal](../../backend/internal/application/deployment/remove_delivered_test.go).
 Real RB-E01..E10: [verification](../verification/2026-10-24-git-render-bundles.md).
@@ -1365,3 +1365,9 @@ No schema change or live CD/VSO acceptance is implied by these local checks.
 | One private repo per Application, paths per env | Repositories.Resolve, GitHub Host.Ensure, Fleet.BindApplicationRepository | mock HTTPS GitHub create/conflict/lost-response/identity tests; service path/retry/owner tests |
 | Durable allocation, tenant/CAS/remote identity | Store and PostgreSQL delivery_repository; migration 005 | shared JSON/reopen/real PostgreSQL concurrency contract; upgrade/rollback/privilege suites |
 | Terraform remains infrastructure owner; no old-app migration | Existing planner/Terraform flow and ADR-033 | backend suite; unchanged retained identities; no live GitHub/Fleet acceptance claim |
+
+## Definition forms with Catalog module sources — 2026-11-02
+
+| Requirement | Realization/code | Validation |
+|---|---|---|
+| UC-03 CM-01–04 | UC-03 realization; `catalog_modules.go`, `catalogrelease/selection.go`, `ResourceDefinitionsPage.tsx`, `CatalogModuleSource.tsx` | `catalog_modules_test.go`, catalog release service/HTTP tests, `CatalogModuleSource.test.tsx`, restored form tests |

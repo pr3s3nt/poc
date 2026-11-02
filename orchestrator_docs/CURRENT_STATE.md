@@ -41,21 +41,24 @@ migration was performed for this change. Historical Fleet acceptance does not
 prove the new VSO-through-CD lifecycle; see the implementation handoff for checks.
 
 
-## Catalog-only configuration — 2026-11-02
+## Definition forms with Catalog module sources — 2026-11-02
 
-User-approved direction: Catalog is the sole source of runtime Definitions.
-Rendering Templates and Resource Definitions UI/routes are removed. Platform
-authors inspect immutable components, Definition snapshots and workload template
-metadata inside Catalog release details, and edit/publish through Git. Missing
-Environment selection blocks preview/deploy and scoped template discovery with
-CATALOG_REQUIRED; there is no global Definition fallback. Bootstrap registers
-prerequisites plus a source and discovers releases; it never authors global
-Definitions or auto-selects Environment versions. Test harnesses publish explicit
-synthetic releases; these are not Git/provider acceptance evidence. The
-[real UI run](verification/2026-11-02-catalog-only-live.md) verified GitHub discovery,
-release selection/upgrade, nginx scaling from one to two Ready replicas, HTTP 200
-and preserved UIDs/cache across backend/frontend recreation.
+UC-03 CM-01–04 supersedes the Catalog-only change earlier today. Resource
+Definitions and Rendering Templates list/Create/Edit, matching preview and their
+strict role-gated APIs are restored. Terraform source choices retain Git, ZIP and
+registered modules and add Catalog source → explicit release → compatible verified
+module. Save pins execution identity plus immutable source/tag/component metadata;
+Edit restores it, and discovery never upgrades a saved Definition implicitly.
+Module-only Catalog releases are valid. Existing JSONB stores provenance without
+schema changes. Runtime and matching preview compose authored Definitions with an
+optional selected release; authored keys replace the same snapshot key. Existing
+release-based applications and original cleanup pins remain supported.
 
+The earlier [Catalog-only live run](verification/2026-11-02-catalog-only-live.md)
+remains historical evidence of release upgrades; it does not validate this restored
+authoring path. New [validation](verification/2026-11-02-definition-catalog.md) covers backend,
+992 frontend tests and real authenticated Tailscale form/module access; existing
+16 Applications and seven Definitions were preserved.
 
 ## Versioned Git catalog releases — issue #28, 2026-10-30
 
@@ -70,8 +73,8 @@ Resources; populated version-3 upgrades preserve installation/domain/state IDs.
 
 Existing database/storage changes without a verified migration capability are
 blocked before mutation; unchanged data pins and new resources remain supported.
-Since 2026-11-02, unselected Environments are blocked before planning; the legacy
-resolution exception is retired. No automatic deployment or downgrade is enabled. Implementation, conservative limits and
+Environment release selection is optional for directly authored Definitions;
+selected release snapshots coexist with authored overrides (CM-04). No automatic deployment or downgrade is enabled. Implementation, conservative limits and
 local verification are recorded in the
 [catalog handoff](implementation/catalog-releases.md). Live stateless-workload Catalog acceptance is recorded above; database/storage
 migration and broader provider acceptance remain outside that run.

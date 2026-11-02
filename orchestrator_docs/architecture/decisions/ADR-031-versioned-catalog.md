@@ -38,11 +38,16 @@ cleanup provenance. Mutable global Definitions are never overwritten by discover
 
 Platform bindings map a release's symbolic account slots to Organization-scoped
 accounts. Account versions/criteria/dependencies use existing validation. Git
-never carries account credentials. A pinned Environment resolves exclusively
-against its release snapshots, with no fallback to mutable global Definitions;
-Environments without a desired release cannot preview or deploy. No global
-Definition authoring or legacy matching path is exposed. This supersedes the
-previous legacy exception (user decision 2026-11-02, before production users).
+never carries account credentials. A selected Environment release continues to provide immutable snapshots for
+existing applications. The user decision of 2026-11-02 restores direct Definition
+and rendering authoring: Catalog is an additional module source. Effective
+matching merges the selected release with Organization-authored Definitions;
+authored keys replace identical snapshot keys, while distinct keys use standard
+specificity/tie rules. An unselected Environment uses authored Definitions.
+Catalog module selection pins the verified execution identity and immutable
+source/tag/component provenance in the authored Definition; discovery never
+updates that pin. Module-only releases are supported. This supersedes the
+Catalog-only decision earlier on 2026-11-02.
 
 Selecting a release saves desired configuration under Environment CAS and busy
 guards. Preview includes selection revision and release digest in its hash and

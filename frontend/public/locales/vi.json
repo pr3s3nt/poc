@@ -3681,7 +3681,7 @@
   "catalog.code.UNSELECTED": "Chưa chọn",
   "catalog.details": "Xem thành phần",
   "catalog.components": "Thành phần",
-  "catalog.gitOwned": "Chỉnh sửa trong Git và phát hành phiên bản mới.",
+  "catalog.gitOwned": "Artifact của Catalog được quản lý phiên bản trong Git. Cấu hình module và điều kiện khớp tại trang Cấu hình tài nguyên.",
   "catalog.path": "Đường dẫn",
   "catalog.configuration": "Cấu hình",
   "catalog.templates": "Mẫu workload",
@@ -3716,5 +3716,18 @@
   "cd.inspecting": "Đang tìm cấu hình Fleet…",
   "platform.git.repositoryOwner": "Nơi tạo repository",
   "platform.git.ownerMissing": "Chưa chọn tài khoản hoặc organization",
-  "platform.git.ownerHelp": "Để dùng cho CD, đặt phạm vi Git là URL tài khoản hoặc organization, ví dụ https://github.com/my-team. CD tự kế thừa nơi này."
+  "platform.git.ownerHelp": "Để dùng cho CD, đặt phạm vi Git là URL tài khoản hoặc organization, ví dụ https://github.com/my-team. CD tự kế thừa nơi này.",
+  "platform.catalogModule.title": "Catalog",
+  "platform.catalogModule.source": "Nguồn Catalog",
+  "platform.catalogModule.release": "Phiên bản Catalog",
+  "platform.catalogModule.module": "Module trong Catalog",
+  "platform.catalogModule.chooseSource": "Chọn Catalog",
+  "platform.catalogModule.chooseRelease": "Chọn phiên bản",
+  "platform.catalogModule.chooseModule": "Chọn module",
+  "platform.catalogModule.loading": "Đang tải module từ Catalog…",
+  "platform.catalogModule.error": "Không thể tải module từ Catalog.",
+  "platform.catalogModule.retry": "Thử lại",
+  "platform.catalogModule.noSources": "Chưa có nguồn Catalog. Thêm nguồn tại trang Catalog.",
+  "platform.catalogModule.noReleases": "Catalog này chưa có phiên bản được công bố.",
+  "platform.catalogModule.noModules": "Phiên bản này không có module cho loại tài nguyên đã chọn."
 }

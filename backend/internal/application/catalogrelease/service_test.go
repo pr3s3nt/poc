@@ -12,6 +12,7 @@ import (
 	"orchestrator/internal/domain/application"
 	domain "orchestrator/internal/domain/catalogrelease"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/catalogsource"
 	"orchestrator/internal/ports/persistence"
@@ -142,7 +143,7 @@ func TestRefreshConcurrentSourceEditCannotPublish(t *testing.T) {
 	}
 }
 
-func TestEnvironmentSelectionsAreIndependentAndDoNotReadGlobalDefinitions(t *testing.T) {
+func TestEnvironmentSelectionsAreIndependentAndIncludeAuthoredDefinitions(t *testing.T) {
 	s, st, source := setupService(t)
 	ctx := context.Background()
 	opts := seedtest.Defaults()
@@ -161,16 +162,16 @@ func TestEnvironmentSelectionsAreIndependentAndDoNotReadGlobalDefinitions(t *tes
 		t.Fatal(err)
 	}
 	defs, pin, err := ResolveDefinitions(ctx, st, source.Organization, opts.ApplicationKey, "staging")
-	if err != nil || len(defs) != 1 || defs[0].Key != "cluster" || defs[0].DriverAccount != "internal" || pin == "" {
+	if err != nil || len(defs) < 1 || defs[0].Key != "cluster" || defs[0].DriverAccount != "internal" || pin == "" {
 		t.Fatal(defs, pin, err)
 	}
-	// An unrelated global Definition cannot be mixed into a pinned Environment.
+	// Authored Definitions join the effective catalog without changing release identity.
 	if err := st.SaveResourceDefinition(ctx, source.Organization, resource.Definition{Key: "other", Name: "Other", ResourceTypeKey: resource.ClusterTargetType, DriverType: resource.DriverExistingCluster, DriverAccount: "changed", Version: 1, Criteria: []resource.Criterion{{}}}); err != nil {
 		t.Fatal(err)
 	}
 	again, samePin, err := ResolveDefinitions(ctx, st, source.Organization, opts.ApplicationKey, "staging")
-	if err != nil || len(again) != 1 || samePin != pin {
-		t.Fatal("global edit changed catalog", err)
+	if err != nil || len(again) != len(defs)+1 || samePin != pin {
+		t.Fatal("authored edit missing or changed immutable release pin", err)
 	}
 	legacy, err := st.GetCatalogEnvironment(ctx, opts.ApplicationKey, "production")
 	if err != nil || legacy.Desired != nil {
@@ -246,14 +247,56 @@ func TestAppliedSelectionRequiresTheSameEnvironmentFenceAndPreservesPartial(t *t
 	}
 }
 
-func TestUnselectedEnvironmentNeverReadsGlobalDefinitionsOrBundles(t *testing.T) {
+func TestUnselectedEnvironmentUsesAuthoredDefinitionsAndBundles(t *testing.T) {
 	_, st, source := setupService(t)
 	ctx := context.Background()
 	opts := seedtest.Defaults()
-	if defs, pin, err := ResolveDefinitions(ctx, st, source.Organization, opts.ApplicationKey, "production"); !errors.Is(err, domain.ErrRequired) || defs != nil || pin != "" {
+	authored, err := st.ListResourceDefinitions(ctx, source.Organization)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defs, pin, err := ResolveDefinitions(ctx, st, source.Organization, opts.ApplicationKey, "production")
+	if err != nil || len(defs) != len(authored) || pin != "" {
 		t.Fatal(defs, pin, err)
 	}
-	if bundles, err := RenderBundles(ctx, st, source.Organization, opts.ApplicationKey, "production", nil); !errors.Is(err, domain.ErrRequired) || bundles != nil {
+	all := map[string]renderbundle.Bundle{"test": {}}
+	bundles, err := RenderBundles(ctx, st, source.Organization, opts.ApplicationKey, "production", all)
+	if err != nil || len(bundles) != 1 {
 		t.Fatal(bundles, err)
+	}
+}
+
+func TestAuthoredDefinitionReplacesSameReleaseKey(t *testing.T) {
+	s, st, source := setupService(t)
+	ctx := context.Background()
+	opts := seedtest.Defaults()
+	o := catalogsource.Observation{BranchTip: strings.Repeat("a", 40), ObservedAt: time.Now().UTC()}
+	r := fixtureRelease(source, catalogsource.Tag{Name: "v1.0.0", Commit: o.BranchTip}, o)
+	if err := st.InsertCatalogRelease(ctx, r); err != nil {
+		t.Fatal(err)
+	}
+	env, _ := st.GetEnvironment(ctx, opts.ApplicationKey, "staging")
+	if _, err := s.Select(ctx, source.Organization, opts.ApplicationKey, "staging", source.ID, r.Tag, env.Version, 0); err != nil {
+		t.Fatal(err)
+	}
+	authored := resource.Definition{Key: "cluster", Name: "Authored cluster", ResourceTypeKey: resource.ClusterTargetType, DriverType: resource.DriverExistingCluster, DriverAccount: "authored-account", Version: 2, Criteria: []resource.Criterion{{Class: "authored"}}}
+	if err := st.SaveResourceDefinition(ctx, source.Organization, authored); err != nil {
+		t.Fatal(err)
+	}
+	defs, _, err := ResolveDefinitions(ctx, st, source.Organization, opts.ApplicationKey, "staging")
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := 0
+	for _, d := range defs {
+		if d.Key == authored.Key {
+			count++
+			if d.Name != authored.Name || d.DriverAccount != authored.DriverAccount || d.Version != 2 {
+				t.Fatal("snapshot overrode authored edits", d)
+			}
+		}
+	}
+	if count != 1 {
+		t.Fatal("duplicate matching keys", count)
 	}
 }

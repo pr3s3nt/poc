@@ -404,3 +404,13 @@ Organization-scoped URL matching, username/token and optional CA from platform
 settings. Authenticated catalog services propagate session Organization through
 request context to all root/child fetches. Source contracts and verified cache
 contain no token or credential reference. Execution still never fetches.
+
+## Catalog module source — UC-03 CM-01–04
+
+The Definition form retains Git, ZIP and registered modules and adds a Catalog
+source/release/component selector. The immutable component resolves to the same
+full `values.source` pin and capability schemas. Optional `driverInputs.catalog`
+records `{sourceId,tag,componentId}` outside runtime variable values in existing
+JSONB; registration verifies its scoped component against every source-pin field.
+Catalog discovery never upgrades an authored Definition. See the
+[Catalog API contract](catalog-releases.md#catalog-module-selection-for-definition-forms).

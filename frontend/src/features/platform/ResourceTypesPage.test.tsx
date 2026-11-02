@@ -281,17 +281,35 @@ describe('UC-02 supported whitelist and definition CTA', () => {
     expect(entry('postgres-ha')).not.toHaveTextContent('Cách tạo');
   });
 
-  it('opens Catalog for every resource Type without direct Definition creation', async () => {
+  it('shows the Definition CTA only for supported types and points workload to rendering templates', async () => {
     const user = userEvent.setup();
     backend({ types: seeded });
     render(<ResourceTypesPage />);
-    const links = await screen.findAllByRole('link', { name: 'Catalog' });
-    for (const link of links) expect(link).toHaveAttribute('href', '/ui/platform/catalog');
-    await user.click(within(entry('workload')).getByRole('link', { name: 'Catalog' }));
-    expect(window.location.pathname).toBe('/ui/platform/catalog');
-    expect(screen.queryByRole('link', { name: /Tạo Cấu hình tài nguyên/ })).not.toBeInTheDocument();
+    await screen.findByText('vpc', { selector: 'strong' });
+    const ctas = screen.getAllByRole('link', { name: /^Tạo Cấu hình tài nguyên cho / }).map((link) => link.getAttribute('href'));
+    expect(ctas).toEqual([
+      '/ui/platform/resource-definitions?resourceType=vpc',
+      '/ui/platform/resource-definitions?resourceType=k8s-cluster',
+      '/ui/platform/resource-definitions?resourceType=k8s-namespace',
+      '/ui/platform/resource-definitions?resourceType=postgres',
+    ]);
+    for (const key of ['workload', 'postgres-ha', 'constructor', 'toString']) expect(within(entry(key)).queryByRole('link', { name: /Tạo Cấu hình tài nguyên/ })).not.toBeInTheDocument();
+    const guidance = within(entry('workload')).getByRole('link', { name: 'Mẫu dựng ứng dụng' });
+    expect(guidance).toHaveAttribute('href', '/ui/platform/rendering-templates');
+    await user.click(guidance);
+    expect(window.location.pathname).toBe('/ui/platform/rendering-templates');
   });
 
+  it('navigates the CTA to the definition form with the technical key in the query', async () => {
+    const user = userEvent.setup();
+    backend({ types: seeded });
+    render(<ResourceTypesPage />);
+    await user.click(await screen.findByRole('link', { name: 'Tạo Cấu hình tài nguyên cho postgres' }));
+    expect(window.location.pathname + window.location.search).toBe('/ui/platform/resource-definitions?resourceType=postgres');
+  });
+});
+
+describe('T31 support metadata is authoritative', () => {
   it('never reads loading or failed metadata as supported or contract-only, and retry only issues GET', async () => {
     const user = userEvent.setup();
     let fail = true;
@@ -309,8 +327,7 @@ describe('UC-02 supported whitelist and definition CTA', () => {
     expect(screen.getAllByText('Chưa xác nhận hỗ trợ').length).toBeGreaterThan(0);
     fail = false;
     await user.click(within(alert).getByRole('button', { name: 'Thử lại' }));
-    await screen.findAllByText('Có cách tạo hỗ trợ');
-    expect(within(entry('postgres')).getByRole('link', { name: 'Catalog' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Tạo Cấu hình tài nguyên cho postgres' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Tạo Cấu hình tài nguyên cho postgres-ha' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Tạo Cấu hình tài nguyên cho constructor' })).not.toBeInTheDocument();
     expect(methods.every((method) => method === 'GET')).toBe(true);

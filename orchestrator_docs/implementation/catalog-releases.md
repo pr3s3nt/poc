@@ -50,11 +50,18 @@ validation diagnostics are not returned. Source identity is frozen after tag
 observation. The registry retains older referenced releases and caches; missing
 cache/engine artifacts fail closed rather than fetching at execution time.
 
-## Catalog-only follow-up — 2026-11-02
+## Definition forms and Catalog module sources — 2026-11-02
 
-Global Definition editors/routes and runtime fallback are retired. Release
-components and snapshots are inspected read-only in Catalog. Class metadata and
-diagnostic staleness use published/selected snapshots. Default deployments mount
-a durable Terraform module cache; preparation can restore a missing historical
-Git pin from its exact commit, while corrupt artifacts still fail closed. See
-[actual UI/Kubernetes verification](../verification/2026-11-02-catalog-only-live.md).
+UC-03 CM-01–04 supersedes the earlier Catalog-only retirement. Definition/render
+forms, CRUD/matching and source APIs are restored. Catalog is an additional
+Terraform module source with explicit version/component selection, verified pin
+validation and persisted provenance in existing driver_inputs JSONB. Module-only
+releases are supported. Authored Definitions replace identical optional release
+snapshot keys; runtime, matching preview, metadata and diagnostics share this
+semantics. Existing release upgrade/cleanup provenance is retained.
+
+Default deployments retain durable module/render caches. Preparation may restore
+an absent historical Git module only from its exact recorded commit; corrupt
+existing cache entries still fail closed. Historical
+[Catalog-only verification](../verification/2026-11-02-catalog-only-live.md) remains
+valid for that run only, not the restored form behavior.

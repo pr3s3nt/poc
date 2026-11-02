@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	catalogapp "orchestrator/internal/application/catalogrelease"
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
@@ -255,7 +256,7 @@ func (s *Service) PreviewMatching(ctx context.Context, organizationKey string, q
 		for _, t := range typeList {
 			types[t.Key] = t
 		}
-		stored, err := view.ListResourceDefinitions(ctx, organizationKey)
+		stored, releasePin, err := catalogapp.ResolveDefinitions(ctx, view, organizationKey, c.ApplicationID, c.EnvironmentID)
 		if err != nil {
 			return err
 		}
@@ -278,7 +279,7 @@ func (s *Service) PreviewMatching(ctx context.Context, organizationKey string, q
 		sortedTypes := append([]resource.Type(nil), typeList...)
 		sort.Slice(sortedTypes, func(i, j int) bool { return sortedTypes[i].Key < sortedTypes[j].Key })
 		marker, err := canon.Hash(map[string]any{
-			"definitions": sortedDefs, "types": sortedTypes, "accounts": safeAccounts,
+			"definitions": sortedDefs, "types": sortedTypes, "accounts": safeAccounts, "releasePin": releasePin,
 			"environment": map[string]any{
 				"app": env.ApplicationKey, "key": env.Key, "type": env.Type,
 				"generation": env.TargetGeneration, "version": env.Version,

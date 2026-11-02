@@ -114,7 +114,6 @@ func ParseManifest(raw []byte) (Manifest, error) {
 		return Manifest{}, ErrInvalid
 	}
 	ids, paths := map[string]bool{}, map[string]bool{}
-	definitions := 0
 	for _, c := range m.Components {
 		if !ValidID(c.ID) || !ValidPath(c.Path) || ids[c.ID] || paths[c.Path] {
 			return Manifest{}, ErrInvalid
@@ -134,13 +133,9 @@ func ParseManifest(raw []byte) (Manifest, error) {
 			if c.ResourceType != "" {
 				return Manifest{}, ErrInvalid
 			}
-			definitions++
 		default:
 			return Manifest{}, ErrInvalid
 		}
-	}
-	if definitions == 0 {
-		return Manifest{}, ErrInvalid
 	}
 	sort.Slice(m.Components, func(i, j int) bool { return m.Components[i].ID < m.Components[j].ID })
 	return m, nil

@@ -101,5 +101,8 @@ Console Catalog using an existing platform account. No credential belongs in Git
 All paths in the manifest are relative to the Git repository root.
 
 Run `scripts/bootstrap/run.mjs` against that repository, then select a release in
-each Environment's Settings. Editing a Definition requires a new Git release;
-the former Rendering Templates/Resource Definitions editors are retired.
+each Environment's Settings. Definitions may also be created/edited through the Console forms. Select Catalog
+as a Terraform module source, then an explicit release and compatible module.
+Git/ZIP/registered module sources remain available. Save retains the exact pin;
+new Catalog releases never update authored Definitions implicitly. Module-only
+manifests are supported; the sample Definitions remain optional reusable policies.

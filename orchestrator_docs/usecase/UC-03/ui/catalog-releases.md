@@ -26,13 +26,15 @@ uses current Environment and catalog revision CAS. Busy operations disable Save;
 failed loads show Retry. Scope changes discard old requests and do not carry
 selection across staging/production. Backend blockers stay authoritative.
 
-## Sole configuration entry — 2026-11-02
+## Definition forms with Catalog modules — 2026-11-02
 
-Catalog replaces the separate Rendering Templates and Resource Definitions
-editors. Release details show component ID/kind/path/hash and read-only Definition
-snapshots, including driver inputs, criteria and provision. Render bundle template
-metadata shows supported workload kinds and inputs. Details have explicit loading,
-empty, failure and retry states; changing source discards late detail responses.
-Use Git for edits and a new release for publication. Resource Types links here.
-An unselected Environment is labelled “Chưa chọn”; guidance directs users to
-select a Catalog release in Environment Settings before Preview/deploy.
+Resource Definitions and Rendering Templates retain their existing list/Create/
+Edit forms and criteria/matching controls. Resource Types links to Definition
+creation. Catalog continues to inspect immutable components/snapshots.
+
+The Terraform source switch adds Catalog. Show source, published version and
+compatible module selectors, then reuse the existing typed configuration form.
+No automatic release selection. Loading disables dependent controls; empty sources,
+releases or compatible modules explain the missing choice. Failure offers retry.
+Changing source/version/Type clears the selected pin and stale requests are ignored.
+Edit restores the saved provenance and pin. Pin details remain in a disclosure.

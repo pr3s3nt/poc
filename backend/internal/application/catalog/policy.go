@@ -67,6 +67,10 @@ func validateDriverInputShape(def resource.Definition) (map[string]any, error) {
 	for _, key := range sortedKeys(def.DriverInputs) {
 		switch key {
 		case "values":
+		case "catalog":
+			if def.DriverType != resource.DriverTerraform {
+				return nil, errors.New("driverInputs.catalog requires Terraform")
+			}
 		case "secret_refs", "secrets":
 			return nil, fmt.Errorf("driverInputs.%s is not supported: secret Driver Inputs are not accepted", key)
 		default:

@@ -206,6 +206,12 @@ Columns: `id uuid PK`, `organization_id FK`, `resource_type_key text`, `input_sc
 
 Columns: `id uuid PK`, `organization_id FK`, `definition_key text`, `definition_name text NOT NULL`, `resource_type_id FK`, `driver_type text`, `connection_id FK nullable` (Driver Account backing identity), `driver_inputs jsonb`, `provision_rules jsonb`, `source_fingerprint text nullable`, `version bigint NOT NULL DEFAULT 1 CHECK(version >= 1)`, timestamps. Unique `(organization_id, definition_key)`. Name is nonblank, <=253 characters, no control characters. ID/type immutable for public edits; version CAS atomically replaces editable content and criteria. No Definition execution_profile column or profile matching predicate in V02.
 
+`driver_inputs` may include optional `catalog: {sourceId, tag, componentId}`
+next to `values` for Terraform module provenance. The application validates the
+scoped immutable component against the full `values.source` execution pin before
+Create/CAS. This uses existing JSONB; no table/column migration is required.
+
+
 ### `matching_criteria`
 
 Columns: `id uuid PK`, `resource_definition_id FK ON DELETE CASCADE`, optional `env_type`, `app_id`, `env_id`, `res_id`, `class`, and computed `specificity_score int`. Index by `resource_definition_id` and match fields.

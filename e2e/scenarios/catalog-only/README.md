@@ -1,4 +1,9 @@
-# Catalog-only live UI acceptance
+# Catalog-only live UI acceptance — historical
+
+This runner records the earlier Catalog-only behavior. Its removed-editor
+assertions are superseded by [UC-03 CM-01–04](../../../orchestrator_docs/usecase/UC-03/catalog-releases.md#definition-authoring-and-catalog-modules).
+Use the [Definition/Catalog scenario](../definition-catalog/README.md) for current
+read-only form verification; do not use this historical runner as a current gate.
 
 Uses a running Console, its real backend/database, HTTPS Git discovery and a READY
 Internal account and all Resource Type schemas referenced by the release

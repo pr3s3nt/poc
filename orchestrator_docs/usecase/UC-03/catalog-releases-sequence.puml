@@ -17,11 +17,16 @@ loop each eligible unchanged observed tag
  Inspectors --> CatalogService : verified pins + Definition snapshots
  CatalogService -> Store : transaction: CAS source + complete release INSERT
 end
-Developer -> Console : choose Environment release
+PE -> Console : create/edit Definition; Catalog source + version + module
+Console -> CatalogService : read exact verified module capability
+CatalogService -> Store : scoped release component + bundle pin
+Console -> CatalogService : save Definition + source pin + provenance (CAS)
+CatalogService -> Store : validate and persist authored Definition
+Developer -> Console : optionally choose Environment release
 Console -> CatalogService : expected Environment version + selection revision
 CatalogService -> Store : lock Environment; save desired + platform binding snapshot
 Developer -> Console : Preview
-Console -> Store : read snapshot: release definitions, account versions, desired config
+Console -> Store : read snapshot: authored + optional release Definitions, accounts, desired config
 Console -> Planner : immutable release pins, existing state identities
 Planner --> Console : graph, changes/blockers, token
 Developer -> Console : Deploy(token)

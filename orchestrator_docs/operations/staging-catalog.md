@@ -41,15 +41,19 @@ a new account requires an uploaded real kubeconfig and verification.
 Bootstrap checks existing Type schemas and source configuration before reuse.
 It does not overwrite different configuration, select Environment versions or
 deploy. The obsolete `--git-ref`/`--update-existing` editor workflow is removed.
-Source changes go through Catalog with CAS; Definition changes require a new tag.
+Source changes go through Catalog with CAS. Definition changes may be made in
+the restored Console form; Catalog modules are selected by explicit release.
 
 Open each Application's Environment Settings, select the desired Catalog release,
-Save, then Preview and Deploy. An unselected Environment is blocked with
-CATALOG_REQUIRED. Do not infer adoption of existing infrastructure from matching
+Save, then Preview and Deploy. Alternatively, directly authored Definitions use
+their own module pins without an Environment Catalog selection. Do not infer adoption of existing infrastructure from matching
 module names. The planner preserves identity and enforces compatibility and
 retention guards; unsupported data/storage migrations remain blocked.
 
-For live verification use the [Catalog-only UI scenario](../../e2e/scenarios/catalog-only/README.md)
-on an explicitly authorized cluster. A screenshot of bootstrap alone does not
+The [Definition/Catalog browser scenario](../../e2e/scenarios/definition-catalog/README.md)
+checks form/module access without saving or deploying. The historical
+[Catalog-only deployment run](../verification/2026-11-02-catalog-only-live.md)
+records an earlier authorized cluster run; its retired-navigation assertions
+do not apply to the restored forms. A screenshot of bootstrap alone does not
 prove workload deployment. Keep evidence outside Git and preserve unrelated
 Applications, resources, credentials and volumes.

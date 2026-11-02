@@ -134,12 +134,14 @@ Scenario đi qua UI, có headed browser, cursor/click, pause để đọc và ph
 không chứng minh adapter thật. Quy trình chạy và cleanup nằm trong
 [Claude tmux runbook](../../operations/claude-tmux.md).
 
-## Catalog configuration — 2026-11-02
+## Catalog and Definition configuration — 2026-11-02
 
-Catalog is the sole platform Definition entry. Remove Rendering Templates and
-Resource Definitions navigation/routes; Resource Types links to Catalog. Release
-details reuse content panels, details disclosures, schema tables and code views.
-Definitions are read-only; changes are made in Git and published as a new release.
+Restore Resource Definitions and Rendering Templates navigation/routes with the
+existing shell, forms and role gates. Resource Types links to Definition creation.
+Catalog remains the source/release browser. Terraform source controls add Catalog
+beside Git, ZIP and registered modules; show source, explicit version and compatible
+module selectors. Reuse typed variables/mapping/criteria and existing status/error
+patterns. See UC-03 CM-01–04; no shell or theme redesign.
 
 ## Shared shell tiếng Việt (T10)
 

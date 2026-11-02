@@ -38,10 +38,14 @@ Review applied/desired status, component differences and binding blockers. Save
 records desired only under Environment CAS; it does not touch infrastructure.
 Open Preview, review resource intents/targets and Deploy using that token.
 Selection/config/account changes invalidate stale review. Runtime uses verified
-cache; it never resolves a fresh Git ref. Snapshot Definitions are exclusive;
-there is no global Definition fallback. Every Environment must select a release
-before Preview/deploy. Definitions/templates are read in Catalog release details
-and edited in Git; the separate global editors and authoring APIs are retired.
+cache; it never resolves a fresh Git ref. Resource Definitions and Rendering Templates can also be created/edited directly
+in Console. Choose Catalog as the Terraform module source, then an explicit
+published version and compatible module. Git/ZIP/registered sources remain.
+Save pins the selected artifact and Catalog provenance; a Catalog refresh does
+not change saved Definitions. Environment Catalog selection is optional for
+directly authored Definitions. When selected, authored keys replace identical
+release snapshot keys; other candidates retain normal matching/tie rules.
+
 
 Complete success advances applied. PARTIAL retains prior applied selection and
 per-workload/resource deployment acknowledgements, actual state and artifacts.

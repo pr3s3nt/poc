@@ -3681,7 +3681,7 @@
   "catalog.code.UNSELECTED": "Not selected",
   "catalog.details": "View components",
   "catalog.components": "Components",
-  "catalog.gitOwned": "Edit in Git and publish a new release.",
+  "catalog.gitOwned": "Catalog artifacts are versioned in Git. Use Resource Definitions to configure modules and matching.",
   "catalog.path": "Path",
   "catalog.configuration": "Configuration",
   "catalog.templates": "Workload templates",
@@ -3716,5 +3716,18 @@
   "cd.inspecting": "Discovering Fleet…",
   "platform.git.repositoryOwner": "Repository destination",
   "platform.git.ownerMissing": "No account or organization selected",
-  "platform.git.ownerHelp": "For CD, set the Git scope to an account or organization URL, e.g. https://github.com/my-team. CD inherits this destination."
+  "platform.git.ownerHelp": "For CD, set the Git scope to an account or organization URL, e.g. https://github.com/my-team. CD inherits this destination.",
+  "platform.catalogModule.title": "Catalog",
+  "platform.catalogModule.source": "Catalog source",
+  "platform.catalogModule.release": "Catalog version",
+  "platform.catalogModule.module": "Catalog module",
+  "platform.catalogModule.chooseSource": "Choose a Catalog",
+  "platform.catalogModule.chooseRelease": "Choose a version",
+  "platform.catalogModule.chooseModule": "Choose a module",
+  "platform.catalogModule.loading": "Loading Catalog modules…",
+  "platform.catalogModule.error": "Could not load Catalog modules.",
+  "platform.catalogModule.retry": "Retry",
+  "platform.catalogModule.noSources": "No Catalog sources. Add a source in Catalog.",
+  "platform.catalogModule.noReleases": "No published versions in this Catalog.",
+  "platform.catalogModule.noModules": "This version has no module for the selected Resource Type."
 }

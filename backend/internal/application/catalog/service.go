@@ -266,6 +266,9 @@ func (s *Service) prepareDefinition(ctx context.Context, organizationKey string,
 	if err := def.Validate(); err != nil {
 		return resource.Definition{}, nil, invalidField("definition.schema", fmt.Errorf("%w: %v", ErrInvalid, err))
 	}
+	if err := s.validateCatalogModule(ctx, organizationKey, def); err != nil {
+		return resource.Definition{}, nil, err
+	}
 	def.SourceFingerpr = "" // Server-owned metadata; never trust a submitted fingerprint.
 	types, err := s.store.ListResourceTypes(ctx, organizationKey)
 	if err != nil {

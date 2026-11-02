@@ -52,8 +52,8 @@ func TestStalenessCoversDraftsDefinitionsAndContext(t *testing.T) {
 	}
 	// A Definition edit changes a pinned version.
 	must(st.SaveResourceDefinition(ctx, "acme", resource.Definition{Key: "pg", Name: "pg", ResourceTypeKey: "postgres", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{}}, Version: 8}))
-	if got := s.newStaleness("acme").reasons(ctx, scope, 5); slices.Contains(got, "DEFINITION_CHANGED") {
-		t.Fatal("mutable global Definition affected selected release", got)
+	if got := s.newStaleness("acme").reasons(ctx, scope, 5); !slices.Contains(got, "DEFINITION_CHANGED") {
+		t.Fatal("authored Definition edit did not stale diagnostics", got)
 	}
 	must(seedtest.PublishCatalog(ctx, st, opts))
 	if got := s.newStaleness("acme").reasons(ctx, scope, 5); !slices.Contains(got, "DEFINITION_CHANGED") {
