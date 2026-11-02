@@ -1,0 +1,22 @@
+{
+  "definition": {
+    "key": "staging-k8s-4f-cluster",
+    "name": "Cluster k8s-4f (có sẵn)",
+    "resourceType": "k8s-cluster",
+    "driverType": "existing-cluster",
+    "criteria": [
+      {
+        "env_type": "staging",
+        "class": "internal"
+      }
+    ],
+    "provision": {},
+    "driverInputs": {
+      "values": {
+        "variables": {}
+      }
+    },
+    "version": 1
+  },
+  "binding": "internal"
+}

@@ -37,7 +37,7 @@ export function EnvironmentCatalogPanel({ applicationId, environment, busy, onSa
     finally { posting.current = false; if (alive.current && started===generation.current) setSaving(false); }
   }
   const selected = view?.releases.find(value => key(value) === draft);
-  const title = (value?: Selection) => value ? `${value.sourceId} · ${value.tag}` : t('catalog.legacy');
+  const title = (value?: Selection) => value ? `${value.sourceId} · ${value.tag}` : t('catalog.unselected');
   return <section className="content-panel" aria-label={t('catalog.title')}><h2>{t('catalog.title')}</h2>
     {loading ? <p role="status">{t('catalog.loading')}</p> : view ? <>
       <p>{t('catalog.applied')}: <strong>{title(view.catalog.applied)}</strong></p>
@@ -45,6 +45,7 @@ export function EnvironmentCatalogPanel({ applicationId, environment, busy, onSa
       <div className="inline-editor editor-grid"><label htmlFor={`catalog-selection-${environment}`}>{t('catalog.version')}</label><select id={`catalog-selection-${environment}`} value={draft} disabled={busy || saving || reloadRequired} onChange={event => { setDraft(event.target.value); setNotice(false); }}><option value="">{t('catalog.choose')}</option>{view.releases.map(value => <option key={key(value)} value={key(value)} disabled={Boolean(value.blockers?.length)}>{title(value)}</option>)}</select></div>
       {selected?.changes?.length ? <details><summary>{t('catalog.differences')}</summary>{selected.changes.map(change => <p key={change.id}><strong>{change.id}</strong> · {t(`catalog.change.${change.change}`)}</p>)}</details> : null}
       {selected?.blockers?.map(blocker => <p className="form-error" key={blocker}>{t(`catalog.blocker.${blocker}`)}</p>)}
+      {!view.catalog.desired ? <p className="form-info">{t('catalog.required')}</p> : null}
       {view.releases.length === 0 ? <p>{t('catalog.noReleases')}</p> : null}
       <div className="form-actions"><Button disabled={busy || saving || reloadRequired || !draft || Boolean(selected?.blockers?.length) || draft === key(view.catalog.desired)} onClick={() => void save()}>{t('catalog.saveDesired')}</Button></div>
     </> : null}

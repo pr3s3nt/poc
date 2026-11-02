@@ -120,6 +120,9 @@ func TestCredentialBackedTarget_RemovalAfterRestart(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if err := seedtest.PublishCatalog(ctx, first.app.Store, opts); err != nil {
+		t.Fatal(err)
+	}
 	deploy := appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", ScoreAfter: scores["backend"], Actor: "test"}
 	if _, err := first.app.Deployments.DeployWorkload(ctx, deploy); err != nil {
 		t.Fatal(err)

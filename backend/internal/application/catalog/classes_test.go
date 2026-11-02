@@ -11,10 +11,17 @@ import (
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/ports/moduleregistry"
+	"orchestrator/internal/ports/persistence"
+	"orchestrator/internal/seed/seedtest"
 )
 
-func classesOf(t *testing.T, svc *catalog.Service, org, typeKey string) []string {
+func classesOf(t *testing.T, st persistence.Store, svc *catalog.Service, org, typeKey string) []string {
 	t.Helper()
+	opts := seedtest.Defaults()
+	opts.OrganizationKey = org
+	if err := seedtest.PublishCatalog(context.Background(), st, opts); err != nil {
+		t.Fatal(err)
+	}
 	views, err := svc.ListResourceTypeViews(context.Background(), org)
 	if err != nil {
 		t.Fatal(err)
@@ -36,7 +43,7 @@ func classesOf(t *testing.T, svc *catalog.Service, org, typeKey string) []string
 // from module names or defaulted.
 func TestResourceTypeClassesComeFromVerifiedCatalogMetadata(t *testing.T) {
 	ctx := context.Background()
-	_, svc, opts := seededCatalog(t, withRegistry)
+	st, svc, opts := seededCatalog(t, withRegistry)
 	refs, err := registry.PackagedRefs()
 	if err != nil {
 		t.Fatal(err)
@@ -46,10 +53,10 @@ func TestResourceTypeClassesComeFromVerifiedCatalogMetadata(t *testing.T) {
 		{Name: "password", Type: "string", Required: true, Secret: true}, {Name: "tls", Type: "bool", Required: true}}}); err != nil {
 		t.Fatal(err)
 	}
-	if got := classesOf(t, svc, opts.OrganizationKey, "redis"); len(got) != 0 {
+	if got := classesOf(t, st, svc, opts.OrganizationKey, "redis"); len(got) != 0 {
 		t.Fatalf("a Type no Definition serves has no classes: %v", got)
 	}
-	if got := classesOf(t, svc, opts.OrganizationKey, "postgres"); !reflect.DeepEqual(got, []string{"cloud-managed"}) {
+	if got := classesOf(t, st, svc, opts.OrganizationKey, "postgres"); !reflect.DeepEqual(got, []string{"cloud-managed"}) {
 		t.Fatalf("only the explicitly declared class from the verified Aurora seed Definition is offered: %v", got)
 	}
 	ns := "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
@@ -63,7 +70,7 @@ func TestResourceTypeClassesComeFromVerifiedCatalogMetadata(t *testing.T) {
 	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, k8sDefinition("redis-in-cluster-2", "redis", refs["redis-k8s"], map[string]any{"namespace": ns}, nil, out, resource.Criterion{Class: "in-cluster", ApplicationID: "other"})); err != nil {
 		t.Fatal(err)
 	}
-	if got := classesOf(t, svc, opts.OrganizationKey, "redis"); !reflect.DeepEqual(got, []string{"in-cluster", "team-a"}) {
+	if got := classesOf(t, st, svc, opts.OrganizationKey, "redis"); !reflect.DeepEqual(got, []string{"in-cluster", "team-a"}) {
 		t.Fatalf("classes %v", got)
 	}
 }
@@ -97,7 +104,7 @@ func TestResourceTypeClassesNeverGuessOnRegistryFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	notVerified := catalog.NewService(st, metadataFailure{err: moduleregistry.ErrNotVerified})
-	if got := classesOf(t, notVerified, opts.OrganizationKey, "redis"); len(got) != 0 {
+	if got := classesOf(t, st, notVerified, opts.OrganizationKey, "redis"); len(got) != 0 {
 		t.Fatalf("unverified pin must offer no class: %v", got)
 	}
 	unavailable := catalog.NewService(st, metadataFailure{err: errors.New("registry exploded: /private/cache/path")})

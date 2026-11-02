@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/seed/seedtest"
@@ -22,6 +23,14 @@ func TestWorkloadTemplateCatalogIsScopedAndReadOnly(t *testing.T) {
 	record := renderbundle.Bundle{ID: ids.New(), OrganizationKey: org, Source: renderbundle.Source{Kind: "git", URL: "https://example.com/r.git", Path: ".", Revision: strings.Repeat("a", 40), ContentSHA256: strings.Repeat("b", 64)}, EngineContract: renderbundle.EngineContract, RendererVersion: renderbundle.RendererVersion, RendererBinary: strings.Repeat("c", 64), Contract: renderbundle.Contract{InputContract: renderbundle.InputContract, InputsSchema: schema, Defaults: map[string]any{}}, CreatedAt: time.Now()}
 	record.Contract.Manifest.WorkloadTemplates = []renderbundle.WorkloadTemplate{template}
 	if _, err := store.InsertRenderBundle(context.Background(), record); err != nil {
+		t.Fatal(err)
+	}
+	opts := seedtest.Defaults()
+	opts.EnvironmentKey = "staging"
+	if err := store.SaveEnvironment(context.Background(), environment.Environment{Key: "staging", ApplicationKey: opts.ApplicationKey, NamespaceIdentity: "fixture-staging", Version: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := seedtest.PublishCatalog(context.Background(), store, opts); err != nil {
 		t.Fatal(err)
 	}
 	path := "/api/v1/applications/" + seedtest.Defaults().ApplicationKey + "/environments/staging/workload-templates"

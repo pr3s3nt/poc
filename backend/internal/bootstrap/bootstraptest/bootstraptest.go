@@ -29,5 +29,10 @@ func Build(ctx context.Context, opts bootstrap.Options) (*bootstrap.App, error) 
 	if err := ready(ctx, app.Store, opts.Seed); err != nil {
 		return nil, err
 	}
+	if !opts.Seed.CatalogFree() && opts.Seed.Catalog != seed.CatalogStaging {
+		if err := seedtest.PublishCatalog(ctx, app.Store, opts.Seed); err != nil {
+			return nil, err
+		}
+	}
 	return app, nil
 }

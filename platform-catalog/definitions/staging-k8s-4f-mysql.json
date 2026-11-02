@@ -1,0 +1,62 @@
+{
+  "definition": {
+    "key": "staging-k8s-4f-mysql",
+    "name": "MySQL Kubernetes staging",
+    "resourceType": "mysql",
+    "driverType": "terraform",
+    "criteria": [
+      {
+        "env_type": "staging",
+        "class": "in-cluster"
+      }
+    ],
+    "provision": {},
+    "driverInputs": {
+      "values": {
+        "variables": {
+          "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+          "storage_class": ""
+        },
+        "input_mapping": {
+          "image": {
+            "param": "image"
+          },
+          "database": {
+            "param": "database"
+          },
+          "username": {
+            "param": "username"
+          },
+          "auth_secret_name": {
+            "param": "auth_secret_name"
+          },
+          "root_password_key": {
+            "param": "root_password_key"
+          },
+          "user_password_key": {
+            "param": "user_password_key"
+          },
+          "storage": {
+            "param": "storage"
+          }
+        },
+        "output_mapping": {
+          "host": "host",
+          "port": "port",
+          "database": "database",
+          "username": "username",
+          "claimName": "claimName",
+          "namespace": "namespace"
+        },
+        "provider_bindings": {
+          "kubernetes": {
+            "target": "resource",
+            "resource_ref": "k8s-cluster.internal#environments.@app.@env"
+          }
+        }
+      }
+    },
+    "version": 1
+  },
+  "component": "module-mysql"
+}

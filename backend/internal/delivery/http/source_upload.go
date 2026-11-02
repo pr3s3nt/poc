@@ -10,8 +10,9 @@ import (
 
 	"orchestrator/internal/platform/sourcezip"
 	"orchestrator/internal/ports/moduleregistry"
-	"orchestrator/internal/ports/renderregistry"
 )
+
+const inspectDeadline = 120 * time.Second
 
 // readSourceUpload streams a strict multipart request into bounded memory; it
 // never spills submitted archives to a host temporary directory.
@@ -104,22 +105,4 @@ func (s *Server) handleUploadTerraformModule(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"capability": capability})
-}
-func (s *Server) handleUploadRenderBundle(w http.ResponseWriter, r *http.Request) {
-	org, ok := s.platformActor(w, r)
-	if !ok {
-		return
-	}
-	ctx, cancel := context.WithTimeout(r.Context(), inspectDeadline)
-	defer cancel()
-	fields, data, ok := readSourceUpload(w, r.WithContext(ctx), false)
-	if !ok {
-		return
-	}
-	bundle, err := s.catalog.UploadRenderBundle(ctx, org, renderregistry.ZIPInspection{Path: fields["path"], Data: data})
-	if err != nil {
-		s.writeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"renderBundle": bundle})
 }

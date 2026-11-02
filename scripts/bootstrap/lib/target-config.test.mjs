@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readConsoleConfig } from './console.mjs';
 import { loadTarget } from './target-config.mjs';
-import { parseBundleConfig } from './render-bundle-config.mjs';
+import { parseInfrastructure } from './infrastructure-config.mjs';
+import { parseCatalogConfig } from './catalog-config.mjs';
 import { discoverAccountTarget } from './infrastructure-config.mjs';
 import { ensureInfrastructureAccount } from './infrastructure-ui.mjs';
 
@@ -17,14 +18,14 @@ test('staging preset preloads Console, seed login, Ceph and PVC-only rendering',
   assert.equal(readConsoleConfig(target.env, { defaultPassword: target.defaultPassword }).password, 'test-password');
   assert.equal(target.env.ORCH_KUBECONFIG_FILE, '/private/cluster');
   assert.equal(target.env.ORCH_HEADLESS, '1');
-  const config = parseBundleConfig(target.raw);
+  const config = parseInfrastructure(target.raw);
   assert.equal(config.account.discover, true);
   const ambiguous = structuredClone(target.raw);
   ambiguous.account.context = 'must-not-combine-with-discovery';
-  assert.throws(() => parseBundleConfig(ambiguous));
-  assert.equal(config.resourceDefinitions.find(d => d.resourceType === 'persistent-storage').variables.storage_class.literal, 'rook-ceph-block');
-  assert.deepEqual(config.bundles[0].criteria, [{ env_type: 'staging', class: 'pvc' }]);
-  assert.equal(config.bundles[0].source.ref, '1182cb5ff275451ebfa8b711bc07effd1e120fcf');
+  assert.throws(() => parseInfrastructure(ambiguous));
+  assert.equal(config.resourceDefinitions.length, 0);
+  assert.equal(target.raw.catalog.tagPattern, 'v*');
+  assert.equal(parseCatalogConfig(target.raw, {'git-url':'https://git.company.example/catalog.git'}).repository, 'https://git.company.example/catalog.git');
   assert.equal(Object.keys(target.env).some(k => k === 'ORCH_PLATFORM_PASSWORD'), false);
 });
 test('dev preset retains exact kind target; explicit environment overrides Console auth defaults', () => {
@@ -32,7 +33,7 @@ test('dev preset retains exact kind target; explicit environment overrides Conso
   assert.equal(target.env.ORCH_PLATFORM_URL, 'https://override.example');
   assert.equal(target.env.ORCH_PLATFORM_PASSWORD_FILE, '/private/password');
   assert.equal(target.env.ORCH_HEADLESS, '0');
-  assert.equal(parseBundleConfig(target.raw).account.context, 'kind-k8s-4f');
+  assert.equal(parseInfrastructure(target.raw).account.context, 'kind-k8s-4f');
   assert.throws(() => loadTarget({ target: 'prod' }, {}));
   assert.throws(() => loadTarget({ target: 'dev', config: 'anything' }, {}));
 });

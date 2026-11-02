@@ -2,7 +2,6 @@ package catalogrelease
 
 import (
 	"context"
-	"errors"
 	domain "orchestrator/internal/domain/catalogrelease"
 	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
@@ -10,14 +9,14 @@ import (
 )
 
 // ResolveDefinitions reads only verified snapshots from the current store view.
-// Legacy absence preserves existing matching. Pinned scopes have no fallback.
-func ResolveDefinitions(ctx context.Context, st persistence.Store, org, app, env string, legacy []resource.Definition) ([]resource.Definition, string, error) {
+// Every Environment must explicitly select a release; there is no global fallback.
+func ResolveDefinitions(ctx context.Context, st persistence.Store, org, app, env string) ([]resource.Definition, string, error) {
 	binding, err := st.GetCatalogEnvironment(ctx, app, env)
 	if err != nil {
 		return nil, "", err
 	}
 	if binding.Desired == nil {
-		return legacy, "", nil
+		return nil, "", domain.ErrRequired
 	}
 	r, err := st.GetCatalogRelease(ctx, org, binding.Desired.SourceID, binding.Desired.Tag)
 	if err != nil {
@@ -58,14 +57,11 @@ func (s *Service) Select(ctx context.Context, org, app, env, sourceID, tag strin
 // RenderBundles filters authoring/template discovery to the selected release.
 func RenderBundles(ctx context.Context, st persistence.Store, org, app, env string, all map[string]renderbundle.Bundle) (map[string]renderbundle.Bundle, error) {
 	binding, err := st.GetCatalogEnvironment(ctx, app, env)
-	if errors.Is(err, persistence.ErrNotFound) {
-		return all, nil
-	}
 	if err != nil {
 		return nil, err
 	}
 	if binding.Desired == nil {
-		return all, nil
+		return nil, domain.ErrRequired
 	}
 	r, err := st.GetCatalogRelease(ctx, org, binding.Desired.SourceID, binding.Desired.Tag)
 	if err != nil {
@@ -82,6 +78,30 @@ func RenderBundles(ctx context.Context, st persistence.Store, org, app, env stri
 				return nil, domain.ErrIncomplete
 			}
 			out[component.BundleID] = b
+		}
+	}
+	return out, nil
+}
+
+// PublishedDefinitions supplies organization-wide read-only metadata (classes
+// and retained configuration). Runtime matching must use ResolveDefinitions.
+func PublishedDefinitions(ctx context.Context, st persistence.Store, org string) ([]resource.Definition, error) {
+	sources, err := st.ListCatalogSources(ctx, org)
+	if err != nil {
+		return nil, err
+	}
+	out := []resource.Definition{}
+	for _, source := range sources {
+		releases, err := st.ListCatalogReleases(ctx, org, source.Source.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, release := range releases {
+			for _, component := range release.Components {
+				if component.Snapshot != nil {
+					out = append(out, *component.Snapshot)
+				}
+			}
 		}
 	}
 	return out, nil

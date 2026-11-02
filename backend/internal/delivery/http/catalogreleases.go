@@ -5,6 +5,7 @@ import (
 	"net/http"
 	catalogapp "orchestrator/internal/application/catalogrelease"
 	"orchestrator/internal/domain/catalogrelease"
+	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/ports/persistence"
 )
 
@@ -23,6 +24,8 @@ func (s *Server) catalogReleaseService() *catalogapp.Service {
 }
 func catalogReleaseError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, catalogrelease.ErrRequired):
+		writeCode(w, codeCatalogRequired, "")
 	case errors.Is(err, catalogrelease.ErrInvalid), errors.Is(err, catalogrelease.ErrIncomplete):
 		writeCode(w, codeInvalidRequest, "")
 	case errors.Is(err, persistence.ErrVersionConflict):
@@ -212,4 +215,39 @@ func usageForTag(all []catalogapp.Usage, tag string) []catalogapp.Usage {
 		}
 	}
 	return out
+}
+
+func (s *Server) handleGetCatalogRelease(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.platformActor(w, r)
+	if !ok {
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	release, err := s.store.GetCatalogRelease(r.Context(), org, r.PathValue("source"), r.PathValue("tag"))
+	if err != nil {
+		catalogReleaseError(w, err)
+		return
+	}
+	records, err := persistence.RenderBundlesOf(r.Context(), s.store, org)
+	if err != nil {
+		catalogReleaseError(w, err)
+		return
+	}
+	selected := map[string]renderbundle.Bundle{}
+	for _, c := range release.Components {
+		if c.Kind == catalogrelease.RenderBundle {
+			b, ok := records[c.BundleID]
+			if !ok || b.Source.ContentSHA256 != c.SHA256 {
+				catalogReleaseError(w, catalogrelease.ErrIncomplete)
+				return
+			}
+			selected[c.BundleID] = b
+		}
+	}
+	templates, err := renderbundle.TemplateCatalog(selected)
+	if err != nil {
+		catalogReleaseError(w, catalogrelease.ErrIncomplete)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"release": map[string]any{"sourceId": release.SourceID, "tag": release.Tag, "commit": release.Commit, "components": release.Components, "templates": templates}})
 }

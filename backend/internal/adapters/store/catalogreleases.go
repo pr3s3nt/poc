@@ -113,7 +113,7 @@ func (s *Store) GetCatalogEnvironment(ctx context.Context, app, env string) (per
 	}
 	value, ok := s.state.CatalogEnvironments[key]
 	if !ok {
-		return persistence.CatalogEnvironment{ApplicationKey: app, EnvironmentKey: env, Status: "LEGACY"}, nil
+		return persistence.CatalogEnvironment{ApplicationKey: app, EnvironmentKey: env, Status: "UNSELECTED"}, nil
 	}
 	return copyCatalog(value), nil
 }

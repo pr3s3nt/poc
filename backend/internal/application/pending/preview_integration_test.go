@@ -58,6 +58,9 @@ func deploy(t *testing.T, app *bootstrap.App, opts seed.Options, name string, ra
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := seedtest.ApplyCatalogFixture(context.Background(), app.Store, opts); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestNoopDraftDoesNotPreviewOrDeploy(t *testing.T) {

@@ -48,7 +48,7 @@ func ParseDefinition(raw []byte) (DefinitionDocument, error) {
 	}
 	switch d.DriverType {
 	case resource.DriverTerraform:
-		if !ValidID(result.Component) || !ValidID(result.Binding) || d.Source()["source_id"] != nil {
+		if !ValidID(result.Component) || (result.Binding != "" && !ValidID(result.Binding)) || d.Source()["source_id"] != nil {
 			return DefinitionDocument{}, ErrInvalid
 		}
 		if _, exists := d.DriverValues()["source"]; exists {

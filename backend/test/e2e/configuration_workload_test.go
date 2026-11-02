@@ -150,6 +150,8 @@ func TestPendingDeployPartialFailureCanRetryOnlyRemainingWorkload(t *testing.T) 
 		t.Fatal(err)
 	}
 	server := httptest.NewServer(app.Server)
+	fixtureApps.Store(server.URL, app)
+	defer fixtureApps.Delete(server.URL)
 	defer server.Close()
 	client := authenticatedClient(t, server.URL)
 	created := createConfiguredApplication(t, client, server.URL, "Partial Test", "partial-test", "internal-cluster")

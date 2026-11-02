@@ -40,7 +40,9 @@ Platform bindings map a release's symbolic account slots to Organization-scoped
 accounts. Account versions/criteria/dependencies use existing validation. Git
 never carries account credentials. A pinned Environment resolves exclusively
 against its release snapshots, with no fallback to mutable global Definitions;
-legacy Environments retain existing matching. No fabricated adoption provenance.
+Environments without a desired release cannot preview or deploy. No global
+Definition authoring or legacy matching path is exposed. This supersedes the
+previous legacy exception (user decision 2026-11-02, before production users).
 
 Selecting a release saves desired configuration under Environment CAS and busy
 guards. Preview includes selection revision and release digest in its hash and

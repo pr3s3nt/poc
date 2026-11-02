@@ -17,6 +17,7 @@ import (
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 // scopedClusterExecutor is a fake existing-cluster executor for a synthetic
@@ -59,6 +60,14 @@ func selectedTargetApp(t *testing.T, definitionConnection string) (*bootstrap.Ap
 	key := newApplication(t, app.Store, opts.OrganizationKey, "Second App", "second-app")
 	if definitionConnection != "" {
 		registerClusterFor(t, app, opts.OrganizationKey, "cluster-second", definitionConnection, resource.Criterion{Class: "internal", ApplicationID: key})
+	}
+	for _, env := range []string{"staging", "production"} {
+		o := opts
+		o.ApplicationKey = key
+		o.EnvironmentKey = env
+		if err := seedtest.PublishCatalog(ctx, app.Store, o); err != nil {
+			t.Fatal(err)
+		}
 	}
 	return app, opts, executor, deployer, key
 }
@@ -122,6 +131,13 @@ func selectSeededDefinitionsFor(t *testing.T, store persistence.Store, organizat
 }
 
 func deployBackendTo(app *bootstrap.App, opts seed.Options, applicationKey, environment string) error {
+	o := opts
+	o.ApplicationKey = applicationKey
+	o.EnvironmentKey = environment
+	if err := seedtest.PublishCatalog(context.Background(), app.Store, o); err != nil {
+		return err
+	}
+
 	scores := seed.AcceptanceScores(opts)
 	_, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: applicationKey, EnvironmentKey: environment, WorkloadID: "backend", ScoreAfter: scores["backend"], Actor: "test", RunID: "run-1"})
 	return err
@@ -247,6 +263,12 @@ func TestPlanHashDiffersBetweenTargetsOfTheSameWorkload(t *testing.T) {
 	for _, tc := range []struct{ name, subdomain, key string }{{"On Second", "on-second", "second"}, {"On Third", "on-third", "third"}} {
 		appKey := newApplication(t, app.Store, opts.OrganizationKey, tc.name, tc.subdomain)
 		registerClusterFor(t, app, opts.OrganizationKey, "cluster-for-"+tc.subdomain, tc.key, resource.Criterion{Class: "internal", ApplicationID: appKey})
+		o := opts
+		o.ApplicationKey = appKey
+		o.EnvironmentKey = "staging"
+		if err := seedtest.PublishCatalog(context.Background(), app.Store, o); err != nil {
+			t.Fatal(err)
+		}
 		result, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: appKey, EnvironmentKey: "staging", WorkloadID: "backend", ScoreAfter: scores["backend"], Actor: "test", RunID: "run-1"})
 		if err != nil {
 			t.Fatal(err)

@@ -872,6 +872,9 @@ func TestPreview_CatalogErrorsNeverEchoed(t *testing.T) {
 				}
 			}
 		}
+		if err := seedtest.PublishCatalog(ctx, app.Store, opts); err != nil {
+			t.Fatal(err)
+		}
 		_, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, eksScores(opts)["backend"]))
 		if !errors.Is(err, preview.ErrPlanningRejected) || strings.Contains(err.Error(), sentinel) {
 			t.Fatalf("Definition error not sanitized: %v", err)

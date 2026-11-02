@@ -142,7 +142,7 @@ func TestEnvironmentSettingsStoreSelectionConflictsAndBusyStateOverHTTP(t *testi
 	busy("draft", s, o)
 	s, o = put(otherKey, current["version"], 0)
 	busy("store", s, o)
-	if status, ops := requestJSON(t, developer, http.MethodGet, base+"/operations", nil); status != http.StatusOK || len(ops["operations"].([]any)) != 2 {
+	if status, ops := requestJSON(t, developer, http.MethodGet, base+"/operations", nil); status != http.StatusOK || len(ops["operations"].([]any)) != 3 {
 		t.Fatalf("operations: %d %v", status, ops)
 	}
 	// Different environments stay independent.

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sort"
 
+	catalogapp "orchestrator/internal/application/catalogrelease"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/ports/moduleregistry"
@@ -35,7 +36,7 @@ func (s *Service) ListResourceTypeViews(ctx context.Context, organizationKey str
 		if types, err = view.ListResourceTypes(ctx, organizationKey); err != nil {
 			return err
 		}
-		definitions, err = view.ListResourceDefinitions(ctx, organizationKey)
+		definitions, err = catalogapp.PublishedDefinitions(ctx, view, organizationKey)
 		return err
 	})
 	if err != nil {

@@ -205,16 +205,12 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	if err != nil {
 		return Preview{}, err
 	}
-	definitions, err := st.ListResourceDefinitions(ctx, app.OrganizationKey)
-	if err != nil {
-		return Preview{}, err
-	}
 	catalogBinding, err := st.GetCatalogEnvironment(ctx, appKey, envKey)
 	if err != nil {
 		return Preview{}, err
 	}
 	catalogPending := catalogBinding.Desired != nil && (catalogBinding.Applied == nil || catalogBinding.Desired.Digest() != catalogBinding.Applied.Digest())
-	definitions, releasePin, err := catalogapp.ResolveDefinitions(ctx, st, app.OrganizationKey, appKey, envKey, definitions)
+	definitions, releasePin, err := catalogapp.ResolveDefinitions(ctx, st, app.OrganizationKey, appKey, envKey)
 	if err != nil {
 		return Preview{}, err
 	}
@@ -625,7 +621,7 @@ func (s *Service) Desired(ctx context.Context, appKey, envKey string) (Desired, 
 		if err != nil {
 			return err
 		}
-		defs, err := view.ListResourceDefinitions(ctx, app.OrganizationKey)
+		defs, _, err := catalogapp.ResolveDefinitions(ctx, view, app.OrganizationKey, appKey, envKey)
 		if err != nil {
 			return err
 		}

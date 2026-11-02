@@ -1,0 +1,38 @@
+{
+  "definition": {
+    "key": "staging-k8s-4f-redis",
+    "name": "Redis Kubernetes staging",
+    "resourceType": "redis",
+    "driverType": "terraform",
+    "criteria": [
+      {
+        "env_type": "staging",
+        "class": "in-cluster"
+      }
+    ],
+    "provision": {},
+    "driverInputs": {
+      "values": {
+        "variables": {
+          "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+        },
+        "input_mapping": {},
+        "output_mapping": {
+          "host": "host",
+          "port": "port",
+          "username": "username",
+          "password": "password",
+          "tls": "tls"
+        },
+        "provider_bindings": {
+          "kubernetes": {
+            "target": "resource",
+            "resource_ref": "k8s-cluster.internal#environments.@app.@env"
+          }
+        }
+      }
+    },
+    "version": 1
+  },
+  "component": "module-redis-k8s"
+}

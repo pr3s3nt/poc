@@ -11,68 +11,6 @@ const policySentinel = "sentinel-submitted-value-4d1e"
 // TestUC02UC03RegistrationPolicyHTTP covers UC-02 BR-05/BR-06 and UC-03
 // BR-10–BR-14 over HTTP: invalid documents are 400 with a safe message and
 // leave the catalog unchanged.
-func TestUC02UC03RegistrationPolicyHTTP(t *testing.T) {
-	server, _ := newServer(t, "", approvedCluster{})
-	pe := authenticatedClientAs(t, server.URL, "platform-engineer")
-	count := func(path, field string) int {
-		status, out := requestJSON(t, pe, http.MethodGet, server.URL+path, nil)
-		if status != http.StatusOK {
-			t.Fatalf("list %s: %d %v", path, status, out)
-		}
-		return len(out[field].([]any))
-	}
-	typesBefore := count("/api/v1/resource-types", "resourceTypes")
-	defsBefore := count("/api/v1/resource-definitions", "resourceDefinitions")
-	outputs := []any{map[string]any{"name": "url", "type": "string"}}
-	for _, key := range []string{"Queue", "queue_v1", " queue", "queue.v1", "", "environment", "service"} {
-		status, out := requestJSON(t, pe, http.MethodPost, server.URL+"/api/v1/resource-types", map[string]any{"key": key, "inputs": []any{}, "outputs": outputs})
-		if status != http.StatusBadRequest {
-			t.Errorf("type key %q: %d %v", key, status, out)
-		}
-	}
-	if status, out := requestJSON(t, pe, http.MethodPost, server.URL+"/api/v1/resource-types", map[string]any{"key": "queue-1", "inputs": []any{}, "outputs": outputs}); status != http.StatusCreated {
-		t.Fatalf("valid type key: %d %v", status, out)
-	}
-
-	namespace := "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
-	definition := func(key string, variables map[string]any) map[string]any {
-		return postgresModuleDefinition(key, variables, []any{map[string]any{"class": "policy"}})
-	}
-	invalid := map[string]map[string]any{
-		"uppercase key":        definition("Postgres-Policy", map[string]any{"namespace": namespace}),
-		"unsupported variable": definition("pg-policy", map[string]any{"password": policySentinel}),
-		"wrong type":           definition("pg-policy", map[string]any{"namespace": namespace, "storage": 20}),
-		"null variable":        definition("pg-policy", map[string]any{"namespace": namespace, "image": nil}),
-		"malformed":            definition("pg-policy", map[string]any{"namespace": namespace, "image": "${context." + policySentinel}),
-		"nested placeholder":   definition("pg-policy", map[string]any{"namespace": namespace, "image": "${context.${" + policySentinel + "}}"}),
-		"nested escaped token": definition("pg-policy", map[string]any{"namespace": namespace, "image": "${context.$${" + policySentinel + "}}"}),
-		"static kubernetes driver": {
-			"key": "pg-policy", "name": "PG policy", "resourceType": "postgres", "driverType": "kubernetes",
-			"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{"namespace": namespace}}},
-			"criteria":     []any{map[string]any{"class": "policy"}},
-		},
-		"secret refs": {
-			"key": "pg-policy", "name": "PG policy", "resourceType": "postgres", "driverType": "terraform",
-			"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{}}, "secret_refs": map[string]any{"password": policySentinel}},
-			"criteria":     []any{map[string]any{"class": "policy"}},
-		},
-	}
-	for name, body := range invalid {
-		status, out := requestJSON(t, pe, http.MethodPost, server.URL+"/api/v1/resource-definitions", body)
-		if status != http.StatusBadRequest || strings.Contains(toJSON(t, out), policySentinel) {
-			t.Errorf("%s: %d %v", name, status, out)
-		}
-	}
-	if status, out := requestJSON(t, pe, http.MethodPost, server.URL+"/api/v1/resource-definitions", definition("pg-policy", map[string]any{"namespace": namespace, "storage": "2Gi"})); status != http.StatusCreated {
-		t.Fatalf("valid definition: %d %v", status, out)
-	}
-	if got := count("/api/v1/resource-types", "resourceTypes"); got != typesBefore+1 {
-		t.Fatalf("types %d -> %d, want one new", typesBefore, got)
-	}
-	if got := count("/api/v1/resource-definitions", "resourceDefinitions"); got != defsBefore+1 {
-		t.Fatalf("definitions %d -> %d, want one new", defsBefore, got)
-	}
-}
 
 // TestUC16ResourceParamsRejectedOnSaveAndImportHTTP covers UC-16 BR-14 over
 // HTTP: an unbound resource with invalid params fails both import and save

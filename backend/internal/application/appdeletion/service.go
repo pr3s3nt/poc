@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	catalogapp "orchestrator/internal/application/catalogrelease"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/resourcecleanup"
 	"orchestrator/internal/application/workloadconfig"
@@ -251,13 +252,15 @@ func (s *Service) load(ctx context.Context, org, appKey string) (*snapshot, erro
 		view.Kept.SecretStores = append(view.Kept.SecretStores, key)
 	}
 	sort.Strings(view.Kept.SecretStores)
-	defs, err := s.store.ListResourceDefinitions(ctx, org)
+	defs, err := catalogapp.PublishedDefinitions(ctx, s.store, org)
 	if err != nil {
 		return nil, err
 	}
+	keptDefinitions := map[string]bool{}
 	for _, d := range defs {
 		for _, c := range d.Criteria {
-			if c.ApplicationID == app.Key {
+			if c.ApplicationID == app.Key && !keptDefinitions[d.Key] {
+				keptDefinitions[d.Key] = true
 				view.Kept.Definitions = append(view.Kept.Definitions, d.Key)
 				break
 			}

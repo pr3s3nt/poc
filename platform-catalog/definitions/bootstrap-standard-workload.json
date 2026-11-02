@@ -1,0 +1,26 @@
+{
+  "definition": {
+    "key": "bootstrap-standard-workload",
+    "name": "Standard workload",
+    "resourceType": "workload",
+    "driverType": "score-k8s",
+    "driverInputs": {
+      "values": {
+        "variables": {
+          "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+          "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}",
+          "render_inputs": {}
+        }
+      }
+    },
+    "provision": {},
+    "criteria": [
+      {
+        "env_type": "staging",
+        "class": "pvc"
+      }
+    ],
+    "version": 1
+  },
+  "component": "render-standard"
+}

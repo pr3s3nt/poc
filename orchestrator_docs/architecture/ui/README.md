@@ -134,19 +134,17 @@ Scenario đi qua UI, có headed browser, cursor/click, pause để đọc và ph
 không chứng minh adapter thật. Quy trình chạy và cleanup nằm trong
 [Claude tmux runbook](../../operations/claude-tmux.md).
 
-## Navigation Mẫu dựng ứng dụng (T03)
+## Catalog configuration — 2026-11-02
 
-Sidebar cung cấp mục “Mẫu dựng ứng dụng” ngang hàng catalog tài nguyên tại
-`/ui/platform/rendering-templates`, cùng gate PLATFORM_ENGINEER/ADMIN. Developer
-không thấy mục này và không render trang qua deep link. Trang thuộc
-[UC-03 screens](../../usecase/UC-03/ui/screens.md); không thêm cách chọn mẫu
-hoặc binding Environment. Các nhãn shell dùng tiếng Việt theo T10.
+Catalog is the sole platform Definition entry. Remove Rendering Templates and
+Resource Definitions navigation/routes; Resource Types links to Catalog. Release
+details reuse content panels, details disclosures, schema tables and code views.
+Definitions are read-only; changes are made in Git and published as a new release.
 
 ## Shared shell tiếng Việt (T10)
 
 Navigation có accessible name “Điều hướng chính”; các link giữ nguyên routes
-và gate: “Ứng dụng”, “Loại tài nguyên”, “Cấu hình tài nguyên”, “Mẫu dựng ứng dụng”,
-“Kết nối”, “Kho bí mật”. Mục triển khai chưa có link vẫn disabled, nhãn
+và gate: “Ứng dụng”, “Loại tài nguyên”, “Kết nối”, “Kho bí mật”. Mục triển khai chưa có link vẫn disabled, nhãn
 “Lịch sử triển khai” / “Sắp có”. Không thêm tính năng điều hướng.
 
 Footer giữ username thực; role ADMIN/PLATFORM_ENGINEER/DEVELOPER hiển thị lần

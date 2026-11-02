@@ -1,0 +1,45 @@
+{
+  "definition": {
+    "key": "staging-k8s-4f-postgres",
+    "name": "PostgreSQL Kubernetes staging",
+    "resourceType": "postgres",
+    "driverType": "terraform",
+    "criteria": [
+      {
+        "env_type": "staging",
+        "class": "in-cluster"
+      }
+    ],
+    "provision": {},
+    "driverInputs": {
+      "values": {
+        "variables": {
+          "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+        },
+        "input_mapping": {
+          "database": {
+            "param": "database"
+          },
+          "username": {
+            "param": "username"
+          }
+        },
+        "output_mapping": {
+          "host": "host",
+          "port": "port",
+          "database": "database",
+          "username": "username",
+          "password": "password"
+        },
+        "provider_bindings": {
+          "kubernetes": {
+            "target": "resource",
+            "resource_ref": "k8s-cluster.internal#environments.@app.@env"
+          }
+        }
+      }
+    },
+    "version": 1
+  },
+  "component": "module-postgres-k8s"
+}

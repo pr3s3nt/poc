@@ -1,26 +1,26 @@
-import { preserveConsoleVariables } from './lib/config-diff.mjs';
+import { assertSameResourceType, parseResourceTypes } from './lib/catalog-config.mjs';
+import { ensureInfrastructureAccount } from './lib/infrastructure-ui.mjs';
+import { parseCatalogConfig } from './lib/catalog-config.mjs';
+import { ensureCatalog } from './lib/catalog-ui.mjs';
 import { parseGitAccess } from './lib/git-access-config.mjs';
 import { ensureGitAccess } from './lib/git-access-ui.mjs';
 import { parseArgs } from 'node:util';
 import { expect } from '@playwright/test';
 import { closeConsole, openConsole, readConsoleConfig } from './lib/console.mjs';
-import { assertSameDefinition, assertSameResourceType, desiredDefinition, parseBundleConfig } from './lib/render-bundle-config.mjs';
-import { updateRenderDefinitionSource } from './lib/definition-update-ui.mjs';
-import { definitionAction } from './lib/definition-action.mjs';
 import { loadTarget } from './lib/target-config.mjs';
-import { readSetupPacing } from './lib/infrastructure-config.mjs';
-import { ensureInfrastructureAccount, ensureResourceDefinitions } from './lib/infrastructure-ui.mjs';
+import { parseInfrastructure, readSetupPacing } from './lib/infrastructure-config.mjs';
 
-const { values } = parseArgs({ options: { config: { type: 'string' }, target: { type: 'string' }, url: { type: 'string' }, 'git-url': { type: 'string' }, 'git-ref': { type: 'string' }, 'update-existing': { type: 'boolean' }, 'update-git-access': { type: 'boolean' }, kubeconfig: { type: 'string' }, help: { type: 'boolean' }, ...Object.fromEntries(['step', 'account', 'type', 'definition', 'bundle'].map(phase => [`${phase}-delay-ms`, { type: 'string' }])) } });
+const { values } = parseArgs({ options: { config: { type: 'string' }, target: { type: 'string' }, url: { type: 'string' }, 'git-url': { type: 'string' }, 'update-git-access': { type: 'boolean' }, kubeconfig: { type: 'string' }, help: { type: 'boolean' }, ...Object.fromEntries(['step', 'account', 'type', 'definition', 'bundle'].map(phase => [`${phase}-delay-ms`, { type: 'string' }])) } });
 if (values.help) {
-  console.log('node scripts/bootstrap/run.mjs --target dev|staging [--url https://console.example] [--kubeconfig /private/kubeconfig] [--git-url https://git.company/catalog.git --git-ref FULL_COMMIT] [--update-existing] [--update-git-access] OR --config /path/catalog.json [--step-delay-ms 800] [--type-delay-ms 1000] [--definition-delay-ms 1500] [--account-delay-ms 800] [--bundle-delay-ms 800]\nConsole: ORCH_PLATFORM_URL, ORCH_PLATFORM_USERNAME, ORCH_PLATFORM_PASSWORD_FILE; presets mặc định ORCH_HEADLESS=1\nKubeconfig (chỉ cần khi account chưa có): ORCH_KUBECONFIG_FILE');
+  console.log('node scripts/bootstrap/run.mjs --target dev|staging [--url https://console.example] [--kubeconfig /private/kubeconfig] --git-url https://git.company/catalog.git [--update-git-access] OR --config /private/bootstrap.json');
   process.exit(0);
 }
 
 let session, consoleConfig, lastAction = '';
 try {
   const target = loadTarget(values);
-  const config = parseBundleConfig(target.raw);
+  const config = { ...target.raw, ...parseInfrastructure(target.raw), resourceTypes: parseResourceTypes(target.raw.resourceTypes ?? []) };
+  parseCatalogConfig(target.raw, values);
   const gitAccess = parseGitAccess(target.raw, values);
   if (values['update-git-access'] && !gitAccess) throw new Error('--update-git-access cần gitAccess đang bật trong cấu hình');
   if (gitAccess && (process.env.DEBUG || process.env.NODE_DEBUG || process.env.PWDEBUG && process.env.PWDEBUG !== '0')) throw new Error('Git access: tắt DEBUG, NODE_DEBUG và PWDEBUG trước khi nhập token');
@@ -61,7 +61,7 @@ try {
     const existing = existingTypes.find(item => item.key === type.key);
     if (existing) assertSameResourceType(existing, type);
   }
-  const ui = { page, baseURL: consoleConfig.baseURL, act, get, responseFor, updateExisting: values['update-existing'] === true };
+  const ui = { page, baseURL: consoleConfig.baseURL, act, get, responseFor };
   await ensureGitAccess({ ...ui, desired: gitAccess, update: values['update-git-access'] === true });
   await ensureInfrastructureAccount({ ...ui, account: config.account, kubeconfigFile: target.env.ORCH_KUBECONFIG_FILE });
   phase = 'type';
@@ -94,126 +94,8 @@ try {
     await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký loại tài nguyên ${type.key}.` })).toBeVisible();
     console.log(`PASS: đăng ký Resource Type ${type.key}, inputs/outputs/flags khớp`);
   }
-  phase = 'definition';
-  await ensureResourceDefinitions({ ...ui, definitions: config.resourceDefinitions });
   phase = 'bundle';
-  const checkedBundleIds = new Set();
-  for (const item of config.bundles) {
-    console.log(`UI: mở và kiểm tra Git bundle ${item.key}`);
-    await page.goto(`${consoleConfig.baseURL}/ui/platform/rendering-templates`);
-    const form = page.getByRole('form', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true });
-    await act(form.getByLabel('ID mẫu', { exact: true }), 'fill', item.key);
-    await act(form.getByLabel('Tên hiển thị', { exact: true }), 'fill', item.name);
-    await act(form.getByLabel('Git HTTPS URL', { exact: true }), 'fill', item.source.url);
-    await act(form.getByLabel('Thư mục bundle', { exact: true }), 'fill', item.source.path);
-    await act(form.getByLabel('Tag hoặc commit', { exact: true }), 'fill', item.source.ref);
-    const inspectedReply = responseFor('/render-bundles/inspect', 'POST');
-    await act(form.getByRole('button', { name: 'Kiểm tra bundle', exact: true }), 'click');
-    const inspected = await inspectedReply;
-    if (!inspected.ok()) throw new Error(`${item.key}: inspect thất bại HTTP ${inspected.status()}; xem lỗi trên Console`);
-    const { renderBundle } = await inspected.json();
-    if (renderBundle?.status !== 'AVAILABLE' || !renderBundle.source || renderBundle.source.url !== item.source.url || renderBundle.source.path !== item.source.path || !/^[0-9a-f]{40}$/.test(renderBundle.source.revision)) throw new Error(`${item.key}: pin Git không hợp lệ`);
-    if (/^[0-9a-f]{40}$/.test(item.source.ref) && renderBundle.source.revision !== item.source.ref) throw new Error(`${item.key}: commit không khớp`);
-    checkedBundleIds.add(renderBundle.id);
-    let desired = desiredDefinition(item, renderBundle.id);
-    const definitions = (await get('/resource-definitions')).resourceDefinitions;
-    if (!Array.isArray(definitions)) throw new Error('Danh sách Definitions không hợp lệ');
-    const existing = definitions.find(definition => definition.key === item.key);
-    desired = preserveConsoleVariables(existing, desired, values['update-existing'] === true, console.warn);
-    const action = definitionAction(existing, desired, values['update-existing'] === true);
-    if (action === 'reuse') {
-      console.log(`PASS: dùng lại ${item.key}, cấu hình và Git pin khớp`);
-      continue;
-    }
-    if (action === 'update') {
-      await updateRenderDefinitionSource({ page, baseURL: consoleConfig.baseURL, act, existing, desired, bundleId: renderBundle.id });
-      const persisted = (await get('/resource-definitions')).resourceDefinitions.find(def => def.key === item.key);
-      if (!persisted || persisted.version !== existing.version + 1) throw new Error(`${item.key}: không xác minh được version CAS sau update`);
-      assertSameDefinition(persisted, desired);
-      console.log(`PASS: cập nhật source ${item.key}, version ${existing.version} → ${persisted.version}`);
-      continue;
-    }
-    await act(form.getByLabel('Tham chiếu namespace', { exact: true }), 'fill', item.placement.namespace);
-    await act(form.getByLabel('Tham chiếu cluster', { exact: true }), 'fill', item.placement.cluster);
-    for (const [key, value] of Object.entries(item.renderInputs)) {
-      const schema = renderBundle.inputsSchema?.properties?.[key];
-      if (!schema) throw new Error(`${item.key}: render input ${key} không có trong schema`);
-      const control = form.locator('[data-input]').filter({ has: page.getByLabel(schema.title || key, { exact: true }) }).getByLabel(schema.title || key, { exact: true });
-      if (Array.isArray(schema.enum)) await act(control, 'selectOption', JSON.stringify(value));
-      else if (schema.type === 'boolean') {
-        // A false default still needs an explicit user change so the authored
-        // false is preserved in the saved Definition.
-        await act(control, 'setChecked', !value);
-        await act(control, 'setChecked', value);
-      } else {
-        if (value === '') await act(control, 'fill', ' ');
-        await act(control, 'fill', String(value));
-      }
-    }
-    // Advanced criteria retain all five supported fields and OR rows.
-    await act(form.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }), 'check');
-    const labels = { env_type: 'Loại môi trường', app_id: 'ID ứng dụng', env_id: 'ID môi trường', res_id: 'ID tài nguyên', class: 'Class' };
-    for (const [index, row] of item.criteria.entries()) {
-      if (index > 0) await act(form.getByRole('button', { name: '+ Thêm điều kiện', exact: true }), 'click');
-      for (const [key, value] of Object.entries(row)) await act(form.getByLabel(`Điều kiện ${index + 1} ${labels[key]}`, { exact: true }), 'fill', value);
-    }
-    const savedReply = responseFor('/resource-definitions', 'POST');
-    await act(form.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }), 'click');
-    const saved = await savedReply;
-    if (!saved.ok()) throw new Error(`${item.key}: đăng ký thất bại HTTP ${saved.status()}; không tự retry POST, chạy lại để kiểm tra kết quả`);
-    const persisted = (await get('/resource-definitions')).resourceDefinitions.find(definition => definition.key === item.key);
-    if (!persisted) throw new Error(`${item.key}: không tìm thấy cấu hình sau đăng ký`);
-    assertSameDefinition(persisted, desired);
-    await expect(page.locator('[data-definition]').filter({ has: page.getByRole('button', { name: `Sửa mẫu ${item.key}`, exact: true }) })).toBeVisible();
-    console.log(`PASS: đăng ký ${item.key}, commit ${renderBundle.source.revision}`);
-  }
-
-  const apps = (await get('/applications')).applications;
-  if (!Array.isArray(apps)) throw new Error('Danh sách Applications không hợp lệ');
-  const app = config.verify.applicationKey ? apps.find(app => app.key === config.verify.applicationKey) : apps.find(app => app.environments?.some(env => env.key === config.verify.environment));
-  if (!app && config.verify.applicationKey) throw new Error('Không tìm thấy Application kiểm tra đã chỉ định');
-  if (!app) console.log('PASS: seed đã lưu; chưa có Application nên bỏ kiểm tra picker/volume mount, không tự tạo app');
-  else {
-    const env = config.verify.environment;
-    const { templates } = await get(`/applications/${encodeURIComponent(app.key)}/environments/${env}/workload-templates`);
-    if (!Array.isArray(templates)) throw new Error('Danh sách workload templates không hợp lệ');
-    const expected = config.bundles.flatMap(item => item.expectedTemplates);
-    for (const pin of expected) if (!templates.some(template => template.id === pin.id && template.version === pin.version)) throw new Error(`Catalog thiếu ${pin.id}@${pin.version}`);
-    // Cache availability is distinct from successful metadata registration.
-    for (const id of checkedBundleIds) {
-      const { renderBundle } = await get(`/render-bundles/${encodeURIComponent(id)}`);
-      if (!renderBundle || renderBundle.status !== 'AVAILABLE') throw new Error('Bundle đã lưu nhưng không AVAILABLE');
-    }
-    if (templates.length === 0) throw new Error('Catalog rỗng: bundle phải khai báo workloadTemplates trong bundle.yaml');
-    await page.goto(`${consoleConfig.baseURL}/ui/applications/${encodeURIComponent(app.key)}?environment=${env}`);
-    await act(page.getByRole('button', { name: '+ Thêm Workload', exact: true }), 'click');
-    const dialog = page.getByRole('dialog', { name: 'Chọn loại workload', exact: true });
-    await expect(dialog).toBeVisible();
-    for (const pin of expected) {
-      const template = templates.find(template => template.id === pin.id && template.version === pin.version);
-      const label = template.labels.vi ?? template.labels.en ?? template.id;
-      await expect(dialog.getByRole('button').filter({ hasText: label }).filter({ hasText: template.version })).toHaveCount(1);
-    }
-    await expect(dialog.locator('.application-card')).toHaveCount(templates.length);
-    console.log(`PASS: Thêm Workload hiển thị ${templates.length} mẫu; không tạo workload hoặc deploy`);
-    if (config.verify.volumeMount) {
-      const check = config.verify.volumeMount;
-      const template = templates.find(item => item.id === check.templateId && item.version === check.templateVersion);
-      if (!template) throw new Error('Không tìm thấy template để kiểm tra volume mount');
-      const type = (await readTypes()).find(item => item.key === check.resourceType);
-      if (!type || !['claimName', 'namespace'].every(name => type.outputs?.some(field => field.name === name && field.type === 'string' && !field.secret))) throw new Error(`${check.resourceType}: thiếu storage outputs claimName/namespace dạng string công khai`);
-      await act(dialog.getByRole('button').filter({ hasText: template.labels.vi ?? template.labels.en ?? template.id }).filter({ hasText: template.version }), 'click');
-      const addMount = page.getByRole('button', { name: 'Thêm volume mount', exact: true });
-      await expect(addMount).toBeEnabled();
-      await act(addMount, 'click');
-      const storageDialog = page.getByRole('dialog', { name: 'Thêm tài nguyên lưu trữ', exact: true });
-      await act(storageDialog.getByLabel('Alias tài nguyên', { exact: true }), 'fill', 'data');
-      await act(storageDialog.getByLabel('Loại tài nguyên', { exact: true }), 'selectOption', check.resourceType);
-      await act(storageDialog.getByRole('button', { name: 'Thêm và chọn', exact: true }), 'click');
-      await expect(page.getByLabel('Mount path', { exact: true })).toHaveValue('/data');
-      console.log(`PASS: ${check.templateId} thêm volume mount từ ${check.resourceType}; chỉ sửa form local, không lưu draft`);
-    }
-  }
+  await ensureCatalog({ ...ui, source: parseCatalogConfig(target.raw, values) });
 } catch (error) {
   // Raw Playwright errors can include filled values; do not log them.
   console.error(`FAIL: ${error.name === 'Error' ? error.message.split('\n')[0] : 'Browser assertion/timeout thất bại; kiểm tra Console và cấu hình'}`);

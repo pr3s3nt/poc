@@ -9,8 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"encoding/json"
 	"orchestrator/internal/adapters/credentialmemory"
+	"orchestrator/internal/adapters/terraform/registry/registrytest"
 	"orchestrator/internal/application/accountdiag"
+	"orchestrator/internal/application/catalog"
 	ct "orchestrator/internal/application/connection/connectiontest"
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/domain/application"
@@ -66,7 +69,8 @@ func desiredServer(t *testing.T, provider probes.Provider) (*httptest.Server, se
 	}
 	t.Cleanup(app.Close)
 	server := httptest.NewServer(app.Server)
-	t.Cleanup(server.Close)
+	fixtureApps.Store(server.URL, app)
+	t.Cleanup(func() { fixtureApps.Delete(server.URL); server.Close() })
 	return server, options
 }
 
@@ -80,6 +84,21 @@ func TestSavedUndeployedDraftIsPlannedIntoExactRequirementsBeforeAnyProbe(t *tes
 	}
 	post := func(path string, body map[string]any) map[string]any {
 		t.Helper()
+		if path == "/resource-definitions" {
+			value, _ := fixtureApps.Load(server.URL)
+			app := value.(*bootstrap.App)
+			raw, _ := json.Marshal(body)
+			var draft catalog.DefinitionDraft
+			if err := json.Unmarshal(raw, &draft); err != nil {
+				t.Fatal(err)
+			}
+			svc := catalog.NewService(app.Store, registrytest.Open(t, app.Store))
+			svc.SetRenderBundles(bootstrap.FakeRenderBundles())
+			if _, err := svc.RegisterResourceDefinition(context.Background(), opts.OrganizationKey, draft.Definition()); err != nil {
+				t.Fatal(err)
+			}
+			return map[string]any{}
+		}
 		status, out := requestJSON(t, pe, http.MethodPost, api+path, body)
 		if status != http.StatusCreated && status != http.StatusOK {
 			t.Fatalf("POST %s: %d %v", path, status, out)
@@ -102,6 +121,12 @@ func TestSavedUndeployedDraftIsPlannedIntoExactRequirementsBeforeAnyProbe(t *tes
 	post("/resource-definitions", k8sModuleDefinition("ns-lab", "k8s-namespace", "k8s-namespace", map[string]any{"name": "${context.env.namespace}"}, nil, []string{"name"}, []any{map[string]any{}}))
 	post("/resource-definitions", postgresModuleDefinition("pg-fast", map[string]any{"image": "postgres:17-alpine", "storage": "2Gi", "storage_class": `"fast"`, "namespace": namespaceOutput}, []any{map[string]any{}}))
 
+	value, _ := fixtureApps.Load(server.URL)
+	o := opts
+	o.EnvironmentKey = "staging"
+	if err := seedtest.PublishCatalog(context.Background(), value.(*bootstrap.App).Store, o); err != nil {
+		t.Fatal(err)
+	}
 	// A draft is saved and NOT deployed.
 	draft := map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "api"},
 		"containers": map[string]any{"main": map[string]any{"image": "example.invalid/api:v1"}},

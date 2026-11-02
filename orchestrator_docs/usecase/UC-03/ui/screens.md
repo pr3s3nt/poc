@@ -8,6 +8,14 @@ related: UC-03
 
 # UC-03 UI screens
 
+> **2026-11-02 — Catalog is the sole configuration source.**
+> [Catalog requirements](../catalog-releases.md) supersede standalone Definition
+> and Rendering Templates authoring described below. Definition validation,
+> matching and placement contracts remain internal to release publication/planning.
+> Public global Definition CRUD and standalone render authoring are retired.
+> Environments must select a release before Preview/deploy.
+
+
 Current authoring/edit/account/matching follows the V02, V03 and V04–V06
 replacement sections below and UC-03 specification. Earlier T02–T31 descriptions
 are historical wherever they name profiles, an Environment target, insert-only

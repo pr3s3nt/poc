@@ -14,8 +14,6 @@ function NavigationIcon({ name }: { name: string }) {
   const paths: Record<string, ReactNode> = {
     applications: <><rect x="3" y="3" width="5" height="5" rx="1" /><rect x="12" y="3" width="5" height="5" rx="1" /><rect x="3" y="12" width="5" height="5" rx="1" /><rect x="12" y="12" width="5" height="5" rx="1" /></>,
     'resource-types': <><path d="m10 2 7 4v8l-7 4-7-4V6l7-4Zm-7 4 7 4 7-4m-7 4v8" /></>,
-    'resource-definitions': <><path d="m2 6 8-4 8 4-8 4-8-4Zm0 4 8 4 8-4M2 14l8 4 8-4" /></>,
-    'rendering-templates': <><rect x="3" y="2" width="14" height="16" rx="2" /><path d="M3 6h14m-9 4-2 2 2 2m4-4 2 2-2 2" /></>,
     'driver-accounts': <><path d="m10 2 7 3v5c0 4-4 7-7 8-3-1-7-4-7-8V5l7-3Z" /><circle cx="10" cy="8" r="2" /><path d="M6 14c1-4 7-4 8 0" /></>,
     'catalog': <><rect x="3" y="3" width="14" height="14" rx="2" /><path d="M3 8h14M8 8v9" /></>,
     'platform-settings': <><circle cx="10" cy="10" r="3" /><path d="M10 2v3m0 10v3M2 10h3m10 0h3M4 4l2 2m8 8 2 2M4 16l2-2M14 6l2-2" /></>,
@@ -46,8 +44,6 @@ export function AppShell({ children, onSignOut, username, role, activeRoute }: P
   const links = [
     { route: 'applications', label: t('app.appShell.applications'), tone: 'blue', platform: false, admin: false },
     { route: 'resource-types', label: t('app.appShell.resourceTypes'), tone: 'teal', platform: true, admin: false },
-    { route: 'resource-definitions', label: t('app.appShell.resourceDefinitions'), tone: 'violet', platform: true, admin: false },
-    { route: 'rendering-templates', label: t('app.appShell.renderingTemplates'), tone: 'amber', platform: true, admin: false },
     { route: 'driver-accounts', label: t('app.appShell.infrastructureAccounts'), tone: 'blue', platform: true, admin: false },
     { route: 'catalog', label: t('catalog.title'), tone: 'violet', platform: true, admin: false },
     { route: 'platform-settings', label: t('platform.git.title'), tone: 'blue', platform: true, admin: false },

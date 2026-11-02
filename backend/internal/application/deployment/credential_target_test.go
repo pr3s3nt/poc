@@ -14,6 +14,7 @@ import (
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 // credentialExecutor behaves like the existing-cluster adapter for a
@@ -116,6 +117,9 @@ func credentialBackedApp(t *testing.T, status application.ConnectionStatus) (*bo
 		}
 	}
 	registerClusterFor(t, app, opts.OrganizationKey, "cluster-lab", "lab", resource.Criterion{Class: "internal", ApplicationID: opts.ApplicationKey})
+	if err := seedtest.PublishCatalog(ctx, app.Store, opts); err != nil {
+		t.Fatal(err)
+	}
 	return app, opts, executor, deployer
 }
 

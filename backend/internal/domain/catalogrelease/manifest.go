@@ -18,6 +18,7 @@ import (
 )
 
 var (
+	ErrRequired    = errors.New("catalog: select a release before planning")
 	ErrInvalid     = errors.New("catalog: invalid catalog document")
 	ErrConflict    = errors.New("catalog: observed tag changed commit")
 	ErrIncomplete  = errors.New("catalog: incomplete verified release")

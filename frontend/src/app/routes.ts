@@ -4,8 +4,6 @@ export type Route =
   | { name: 'sign-in' }
   | { name: 'applications' }
   | { name: 'resource-types' }
-  | { name: 'resource-definitions'; resourceType?: string }
-  | { name: 'rendering-templates' }
   | { name: 'driver-accounts'; account?: string; tab?: 'diagnose'; purpose?: 'use-case'; report?: string }
   | { name: 'secret-stores' }
   | { name: 'platform-settings' }
@@ -38,12 +36,6 @@ export function parseRoute(path = window.location.pathname): Route {
   if (relative === '/' || relative === '/sign-in') return { name: 'sign-in' };
   if (relative === '/applications') return { name: 'applications' };
   if (relative === '/platform/resource-types') return { name: 'resource-types' };
-  if (relative === '/platform/resource-definitions') {
-    // Raw query value: the page validates it against the loaded catalog (T04).
-    const resourceType = new URLSearchParams(search).get('resourceType');
-    return { name: 'resource-definitions', ...(resourceType ? { resourceType } : {}) };
-  }
-  if (relative === '/platform/rendering-templates') return { name: 'rendering-templates' };
   if (relative === '/platform/connections') return { name: 'driver-accounts' };
   if (relative === '/platform/driver-accounts') {
     const query = new URLSearchParams(search);
@@ -100,8 +92,6 @@ export function href(route: Route): string {
     case 'sign-in': return `${base}/sign-in`;
     case 'applications': return `${base}/applications`;
     case 'resource-types': return `${base}/platform/resource-types`;
-    case 'resource-definitions': return `${base}/platform/resource-definitions${route.resourceType ? `?resourceType=${encodeURIComponent(route.resourceType)}` : ''}`;
-    case 'rendering-templates': return `${base}/platform/rendering-templates`;
     case 'driver-accounts': {
       if (!route.account) return `${base}/platform/driver-accounts`;
       const query = new URLSearchParams({ account: route.account });

@@ -33,10 +33,19 @@ acknowledged state and provenance; failure never claims a complete upgrade.
 Existing operation/fencing, unknown-outcome and ownership guards govern recovery.
 No automatic deploy, downgrade or blind rollback is introduced.
 
-CR-06. Legacy Environments with no release retain existing behavior. Adoption
-requires explicit compatibility Preview, never inference from a module name.
+CR-06. Every Environment must select a verified release before Preview or deploy.
+Missing selection returns CATALOG_REQUIRED with guidance to Environment Settings.
+Templates and Definitions are authored in Git, never a mutable global registry.
 Referenced releases remain available for restart, retry and original-version
 cleanup. Catalog versions do not imply database engine upgrades/data migrations.
+
+CR-07. PE/Admin inspects release components and immutable Definition snapshots
+(including inputs, matching criteria, placement and companion resources) in
+Catalog. Source paths and component references identify what to edit in Git;
+publication requires a new tag. The Console has no separate Rendering Templates
+or Resource Definitions editor. Organization-wide class metadata and retained
+Definition warnings derive from published snapshots; diagnostic staleness uses
+the selected Environment release. Their authoring HTTP routes are removed.
 
 ## Realization
 
@@ -45,7 +54,7 @@ Discovery worker → Organization Git resolver → hardened Git snapshot → man
 parser → existing module/render inspectors → atomic verified-release publication.
 Environment selection → CAS desired binding → Preview release resolution →
 existing planner → fenced execution → per-component outcome → all-success applied
-binding. Global Definition management remains independent.
+binding. Catalog is the sole Definition configuration source.
 
 See [ADR-031](../../architecture/decisions/ADR-031-versioned-catalog.md) and
 [manifest contract](../../architecture/contracts/catalog-releases.md).

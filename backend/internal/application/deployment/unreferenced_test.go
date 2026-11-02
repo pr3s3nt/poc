@@ -144,6 +144,8 @@ func TestUnreferencedMarking_StaysInOrganizationAndEnvironmentScope(t *testing.T
 	others[0].Scope = resource.Scope{Type: resource.ScopeShared, ID: opts.ApplicationKey + ".production"}
 	others[1].Scope = resource.Scope{Type: resource.ScopeApplication, ID: opts.ApplicationKey}
 	others[2].OrganizationKey = "globex"
+	others[2].CatalogSource = ""
+	others[2].CatalogTag = ""
 	for i := range others {
 		others[i].ID = ""
 		saved, err := app.Store.UpsertActiveResource(ctx, others[i])

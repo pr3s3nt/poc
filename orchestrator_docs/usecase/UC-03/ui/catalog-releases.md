@@ -25,3 +25,14 @@ retains desired configuration only; a short notice links to Preview. Selection
 uses current Environment and catalog revision CAS. Busy operations disable Save;
 failed loads show Retry. Scope changes discard old requests and do not carry
 selection across staging/production. Backend blockers stay authoritative.
+
+## Sole configuration entry — 2026-11-02
+
+Catalog replaces the separate Rendering Templates and Resource Definitions
+editors. Release details show component ID/kind/path/hash and read-only Definition
+snapshots, including driver inputs, criteria and provision. Render bundle template
+metadata shows supported workload kinds and inputs. Details have explicit loading,
+empty, failure and retry states; changing source discards late detail responses.
+Use Git for edits and a new release for publication. Resource Types links here.
+An unselected Environment is labelled “Chưa chọn”; guidance directs users to
+select a Catalog release in Environment Settings before Preview/deploy.

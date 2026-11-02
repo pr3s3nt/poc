@@ -34,7 +34,13 @@ func Apply(ctx context.Context, st persistence.Store, o seed.Options) error {
 	if err := seed.Apply(ctx, st, o); err != nil {
 		return err
 	}
-	return Ready(ctx, st, o)
+	if err := Ready(ctx, st, o); err != nil {
+		return err
+	}
+	if o.CatalogFree() || o.Catalog == seed.CatalogStaging {
+		return nil
+	}
+	return PublishCatalog(ctx, st, o)
 }
 
 // Defaults is seed.Defaults plus an RFC 5737 documentation address as the EKS

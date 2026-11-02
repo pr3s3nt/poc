@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	catalogdomain "orchestrator/internal/domain/catalogrelease"
 	"regexp"
 
 	"orchestrator/internal/adapters/configmemory"
@@ -40,6 +41,7 @@ import (
 // err.Error(): cause text can quote submitted values, credentials, provider
 // output or catalog content. Clients choose their own wording from the code.
 const (
+	codeCatalogRequired           = "CATALOG_REQUIRED"
 	codeDeliveryBaselineRequired  = "DELIVERY_BASELINE_REQUIRED"
 	codeDeliveryUnsupported       = "DELIVERY_UNSUPPORTED_CAPABILITY"
 	codeDriftBaselineUnavailable  = "DRIFT_BASELINE_UNAVAILABLE"
@@ -113,6 +115,7 @@ type publicError struct {
 }
 
 var publicErrors = map[string]publicError{
+	codeCatalogRequired:                 {http.StatusConflict, "select a catalog release in Environment Settings"},
 	codeDeliveryBaselineRequired:        {http.StatusConflict, "the applied delivery artifact and incarnation baseline is required"},
 	codeDeliveryUnsupported:             {http.StatusUnprocessableEntity, "the selected delivery capability is not supported"},
 	codeDriftBaselineUnavailable:        {http.StatusUnprocessableEntity, "an acknowledged execution baseline is required"},
@@ -345,6 +348,8 @@ func classify(err error) (failure, bool) {
 	var bundleField *renderbundles.BundleInvalidError
 	var diagField *diagdomain.FieldError
 	switch {
+	case errors.Is(err, catalogdomain.ErrRequired):
+		return failure{code: codeCatalogRequired}, true
 	case errors.Is(err, deliveryapp.ErrBaselineRequired):
 		return failure{code: codeDeliveryBaselineRequired}, true
 	case errors.Is(err, deliverydomain.ErrUnsupported):

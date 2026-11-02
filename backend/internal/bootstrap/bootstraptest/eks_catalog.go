@@ -10,6 +10,7 @@ import (
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 // EKSCatalog saves the Definition-driven catalog of V05 into a fake-adapter application: VPC and EKS with the Definitions' own AWS
@@ -65,5 +66,9 @@ func EKSCatalog(t testing.TB, app *bootstrap.App, opts seed.Options) {
 		if err := app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, def); err != nil {
 			t.Fatalf("%s: %v", def.Key, err)
 		}
+	}
+	opts.EnvironmentKey = "staging"
+	if err := seedtest.PublishCatalog(ctx, app.Store, opts); err != nil {
+		t.Fatal(err)
 	}
 }

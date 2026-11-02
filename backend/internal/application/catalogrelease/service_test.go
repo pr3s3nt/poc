@@ -160,7 +160,7 @@ func TestEnvironmentSelectionsAreIndependentAndDoNotReadGlobalDefinitions(t *tes
 	if _, err = s.Select(ctx, source.Organization, opts.ApplicationKey, "staging", source.ID, "v1.0.0", staging.Version, 0); err != nil {
 		t.Fatal(err)
 	}
-	defs, pin, err := ResolveDefinitions(ctx, st, source.Organization, opts.ApplicationKey, "staging", []resource.Definition{{Key: "must-not-leak"}})
+	defs, pin, err := ResolveDefinitions(ctx, st, source.Organization, opts.ApplicationKey, "staging")
 	if err != nil || len(defs) != 1 || defs[0].Key != "cluster" || defs[0].DriverAccount != "internal" || pin == "" {
 		t.Fatal(defs, pin, err)
 	}
@@ -168,7 +168,7 @@ func TestEnvironmentSelectionsAreIndependentAndDoNotReadGlobalDefinitions(t *tes
 	if err := st.SaveResourceDefinition(ctx, source.Organization, resource.Definition{Key: "other", Name: "Other", ResourceTypeKey: resource.ClusterTargetType, DriverType: resource.DriverExistingCluster, DriverAccount: "changed", Version: 1, Criteria: []resource.Criterion{{}}}); err != nil {
 		t.Fatal(err)
 	}
-	again, samePin, err := ResolveDefinitions(ctx, st, source.Organization, opts.ApplicationKey, "staging", []resource.Definition{{Key: "other"}})
+	again, samePin, err := ResolveDefinitions(ctx, st, source.Organization, opts.ApplicationKey, "staging")
 	if err != nil || len(again) != 1 || samePin != pin {
 		t.Fatal("global edit changed catalog", err)
 	}
@@ -243,5 +243,17 @@ func TestAppliedSelectionRequiresTheSameEnvironmentFenceAndPreservesPartial(t *t
 	}
 	if err := st.ActivateCatalog(first.Ctx, opts.ApplicationKey, "staging", 2, "APPLIED"); !errors.Is(err, persistence.ErrOperationLost) {
 		t.Fatal("released fence advanced applied release", err)
+	}
+}
+
+func TestUnselectedEnvironmentNeverReadsGlobalDefinitionsOrBundles(t *testing.T) {
+	_, st, source := setupService(t)
+	ctx := context.Background()
+	opts := seedtest.Defaults()
+	if defs, pin, err := ResolveDefinitions(ctx, st, source.Organization, opts.ApplicationKey, "production"); !errors.Is(err, domain.ErrRequired) || defs != nil || pin != "" {
+		t.Fatal(defs, pin, err)
+	}
+	if bundles, err := RenderBundles(ctx, st, source.Organization, opts.ApplicationKey, "production", nil); !errors.Is(err, domain.ErrRequired) || bundles != nil {
+		t.Fatal(bundles, err)
 	}
 }

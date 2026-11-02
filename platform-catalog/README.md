@@ -90,3 +90,16 @@ Các file runtime `.tf`, `.tpl`, YAML/JSON và fixtures được copy nguyên n�
 README của bundle chỉ đổi link tài liệu sang GitHub để mở độc lập. Vì mọi file
 trong bundle tham gia digest, bản copy phải được inspect để lấy pin/digest mới;
 không tự gán lại digest hay sửa metadata pin cũ.
+
+## Catalog release workflow (2026-11-02)
+
+`catalog.yaml` and `definitions/*.json` form the release entrypoint. Copy this
+folder's contents into the root of a dedicated Git repository, review the sample
+Definitions (including criteria, placement and storage class), push to `main`,
+and publish a SemVer tag such as `v1.0.0`. Configure an `internal` account slot in
+Console Catalog using an existing platform account. No credential belongs in Git.
+All paths in the manifest are relative to the Git repository root.
+
+Run `scripts/bootstrap/run.mjs` against that repository, then select a release in
+each Environment's Settings. Editing a Definition requires a new Git release;
+the former Rendering Templates/Resource Definitions editors are retired.

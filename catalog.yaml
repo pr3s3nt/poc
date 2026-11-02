@@ -1,0 +1,75 @@
+{
+  "apiVersion": "orchestrator.dev/catalog/v1",
+  "components": [
+    {
+      "id": "staging-k8s-4f-cluster",
+      "kind": "definition",
+      "path": "platform-catalog/definitions/staging-k8s-4f-cluster.json"
+    },
+    {
+      "id": "module-k8s-namespace",
+      "kind": "terraform-module",
+      "path": "platform-catalog/backend/terraform-modules/k8s-namespace",
+      "resourceType": "k8s-namespace"
+    },
+    {
+      "id": "staging-k8s-4f-namespace",
+      "kind": "definition",
+      "path": "platform-catalog/definitions/staging-k8s-4f-namespace.json"
+    },
+    {
+      "id": "module-persistent-storage",
+      "kind": "terraform-module",
+      "path": "platform-catalog/backend/terraform-modules/persistent-storage",
+      "resourceType": "persistent-storage"
+    },
+    {
+      "id": "staging-k8s-4f-storage",
+      "kind": "definition",
+      "path": "platform-catalog/definitions/staging-k8s-4f-storage.json"
+    },
+    {
+      "id": "module-postgres-k8s",
+      "kind": "terraform-module",
+      "path": "platform-catalog/backend/terraform-modules/postgres-k8s",
+      "resourceType": "postgres"
+    },
+    {
+      "id": "staging-k8s-4f-postgres",
+      "kind": "definition",
+      "path": "platform-catalog/definitions/staging-k8s-4f-postgres.json"
+    },
+    {
+      "id": "module-redis-k8s",
+      "kind": "terraform-module",
+      "path": "platform-catalog/backend/terraform-modules/redis-k8s",
+      "resourceType": "redis"
+    },
+    {
+      "id": "staging-k8s-4f-redis",
+      "kind": "definition",
+      "path": "platform-catalog/definitions/staging-k8s-4f-redis.json"
+    },
+    {
+      "id": "module-mysql",
+      "kind": "terraform-module",
+      "path": "platform-catalog/backend/terraform-modules/mysql",
+      "resourceType": "mysql"
+    },
+    {
+      "id": "staging-k8s-4f-mysql",
+      "kind": "definition",
+      "path": "platform-catalog/definitions/staging-k8s-4f-mysql.json"
+    },
+    {
+      "id": "render-standard",
+      "kind": "render-bundle",
+      "path": "platform-catalog/backend/render-bundles/standard"
+    },
+    {
+      "id": "bootstrap-standard-workload",
+      "kind": "definition",
+      "path": "platform-catalog/definitions/bootstrap-standard-workload.json"
+    }
+  ]
+}

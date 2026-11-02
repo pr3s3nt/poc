@@ -44,6 +44,9 @@ func TestResourceTypesExposeComputedClassesToEveryAuthenticatedRole(t *testing.T
 			t.Fatal(err)
 		}
 	}
+	if err := seedtest.PublishCatalog(context.Background(), st, seedtest.Defaults()); err != nil {
+		t.Fatal(err)
+	}
 	for _, user := range []string{"developer", "platform-engineer"} {
 		code, body := getTypes(t, bundleClient(t, ts.URL, user), ts.URL)
 		if code != http.StatusOK {

@@ -143,7 +143,7 @@ func (s *Store) GetCatalogEnvironment(ctx context.Context, app, env string) (per
 		if _, err := s.GetEnvironment(ctx, app, env); err != nil {
 			return persistence.CatalogEnvironment{}, err
 		}
-		return persistence.CatalogEnvironment{ApplicationKey: app, EnvironmentKey: env, Status: "LEGACY"}, nil
+		return persistence.CatalogEnvironment{ApplicationKey: app, EnvironmentKey: env, Status: "UNSELECTED"}, nil
 	}
 	return catalogDecode[persistence.CatalogEnvironment](raw, err)
 }

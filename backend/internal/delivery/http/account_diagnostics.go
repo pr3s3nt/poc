@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	catalogapp "orchestrator/internal/application/catalogrelease"
 	"strconv"
 	"time"
 
@@ -174,7 +175,7 @@ type staleness struct {
 	org  string
 	apps map[string]int64
 	envs map[string]struct{ version, drafts, config int64 }
-	defs map[string]int64
+	defs map[string]map[string]int64
 }
 
 func (s *Server) newStaleness(org string) *staleness {
@@ -228,15 +229,19 @@ func (c *staleness) reasons(ctx context.Context, sc domain.Scope, accountVersion
 	}
 	if len(x.Definitions) > 0 {
 		if c.defs == nil {
-			c.defs = map[string]int64{}
-			if list, err := c.s.store.ListResourceDefinitions(ctx, c.org); err == nil {
+			c.defs = map[string]map[string]int64{}
+		}
+		if _, ok := c.defs[key]; !ok {
+			c.defs[key] = map[string]int64{}
+			if list, _, err := catalogapp.ResolveDefinitions(ctx, c.s.store, c.org, x.ApplicationKey, x.EnvironmentKey); err == nil {
 				for _, d := range list {
-					c.defs[d.Key] = d.Version
+					c.defs[key][d.Key] = d.Version
 				}
 			}
 		}
+
 		for _, pin := range x.Definitions {
-			if c.defs[pin.Key] != pin.Version {
+			if c.defs[key][pin.Key] != pin.Version {
 				out = append(out, "DEFINITION_CHANGED")
 				break
 			}

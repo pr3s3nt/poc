@@ -11,9 +11,11 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"orchestrator/internal/adapters/postgres/postgrestest"
+	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/seed/seedtest"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"orchestrator/internal/adapters/credentialmemory"
@@ -27,6 +29,8 @@ import (
 	"orchestrator/internal/planning"
 	"orchestrator/internal/seed"
 )
+
+var fixtureApps sync.Map
 
 func newServer(t *testing.T, uiDir string, verifier ...connectionapp.KubeconfigVerifier) (*httptest.Server, seed.Options) {
 	t.Helper()
@@ -67,7 +71,13 @@ func newServerAppWith(t *testing.T, uiDir string, mutate func(*bootstrap.Options
 	}
 	prepareSeedCluster(t, app, credentials, seedOptions)
 	server := httptest.NewServer(app.Server)
-	t.Cleanup(server.Close)
+	fixtureApps.Store(server.URL, app)
+	t.Cleanup(func() { fixtureApps.Delete(server.URL); server.Close() })
+	if options.Seed.Catalog != seed.CatalogNone && options.Seed.Catalog != seed.CatalogStaging {
+		if err := seedtest.PublishCatalog(context.Background(), app.Store, options.Seed); err != nil {
+			t.Fatal(err)
+		}
+	}
 	return server, seedOptions, app
 }
 
@@ -273,54 +283,6 @@ func TestResourceTypeRegistrationRequiresPlatformEngineer(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("registered type was not published to the catalog")
-	}
-}
-
-func TestResourceDefinitionRegistrationRequiresPlatformEngineer(t *testing.T) {
-	server, _ := newServer(t, "")
-	payload := []byte(mustJSON(k8sModuleDefinition("namespace-custom", "k8s-namespace", "k8s-namespace", map[string]any{"name": "${context.env.namespace}"}, nil, []string{"name"}, []any{map[string]any{}})))
-	post := func(client *http.Client) int {
-		t.Helper()
-		req, err := http.NewRequest(http.MethodPost, server.URL+"/api/v1/resource-definitions", bytes.NewReader(payload))
-		if err != nil {
-			t.Fatal(err)
-		}
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-		return resp.StatusCode
-	}
-	if got := post(http.DefaultClient); got != http.StatusUnauthorized {
-		t.Fatalf("anonymous: %d", got)
-	}
-	if got := post(authenticatedClient(t, server.URL)); got != http.StatusForbidden {
-		t.Fatalf("developer: %d", got)
-	}
-	if status, _ := getJSONClient(t, authenticatedClient(t, server.URL), server.URL+"/api/v1/resource-definitions"); status != http.StatusForbidden {
-		t.Fatalf("developer list: %d", status)
-	}
-	platform := authenticatedClientAs(t, server.URL, "platform-engineer")
-	if got := post(platform); got != http.StatusCreated {
-		t.Fatalf("platform: %d", got)
-	}
-	if got := post(platform); got != http.StatusConflict {
-		t.Fatalf("duplicate: %d", got)
-	}
-	status, body := getJSONClient(t, platform, server.URL+"/api/v1/resource-definitions")
-	if status != http.StatusOK {
-		t.Fatalf("list: %d", status)
-	}
-	found := false
-	for _, item := range body["resourceDefinitions"].([]any) {
-		if item.(map[string]any)["key"] == "namespace-custom" {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatal("registered definition missing from catalog")
 	}
 }
 
@@ -706,32 +668,41 @@ const placedWorkloadVariables = `"render_bundle":"score-k8s-internal-v1","namesp
 // placeOnSeededCluster is the platform engineer adding the Application to the explicit app_id
 // criteria of the seeded internal placement Definitions (ADR-016: Definitions place workloads;
 // an Environment carries no deployment Connection).
+// This helper publishes explicit synthetic release snapshots; it is not a public
+// Definition authoring API and cannot be used by product code.
 func placeOnSeededCluster(t *testing.T, baseURL, appKey string, workload bool) {
 	t.Helper()
-	pe := authenticatedClientAs(t, baseURL, "platform-engineer")
-	api := baseURL + "/api/v1/resource-definitions"
-	_, list := requestJSON(t, pe, http.MethodGet, api, nil)
-	for _, item := range list["resourceDefinitions"].([]any) {
-		def := item.(map[string]any)
-		criteria, _ := def["criteria"].([]any)
+	value, ok := fixtureApps.Load(baseURL)
+	if !ok {
+		t.Fatal("fixture server not registered")
+	}
+	app := value.(*bootstrap.App)
+	ctx := context.Background()
+	opts := seedtest.Defaults()
+	defs, err := app.Store.ListResourceDefinitions(ctx, opts.OrganizationKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range defs {
 		seeded := false
-		for _, raw := range criteria {
-			if c, _ := raw.(map[string]any); c["app_id"] == "acceptance" {
+		for _, c := range d.Criteria {
+			if c.ApplicationID == opts.ApplicationKey {
 				seeded = true
 			}
 		}
-		if !seeded || def["resourceType"] == "postgres" || def["resourceType"] == "redis" || (!workload && def["resourceType"] == "workload") {
+		if !seeded || d.ResourceTypeKey == "postgres" || d.ResourceTypeKey == "redis" || (!workload && d.ResourceTypeKey == "workload") {
 			continue
 		}
-		body := map[string]any{"key": def["key"], "name": def["name"], "resourceType": def["resourceType"], "driverType": def["driverType"], "version": def["version"],
-			"criteria": append(append([]any{}, criteria...), map[string]any{"app_id": appKey})}
-		for _, field := range []string{"driverAccount", "driverInputs", "provision"} {
-			if v, ok := def[field]; ok {
-				body[field] = v
-			}
+		d.Criteria = append(d.Criteria, resource.Criterion{ApplicationID: appKey})
+		if err := app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, d); err != nil {
+			t.Fatal(err)
 		}
-		if status, out := requestJSON(t, pe, http.MethodPut, api+"/"+def["key"].(string), body); status != http.StatusOK {
-			t.Fatalf("place %s on %s: %d %v", appKey, def["key"], status, out)
+	}
+	opts.ApplicationKey = appKey
+	for _, env := range []string{"staging", "production"} {
+		opts.EnvironmentKey = env
+		if err := seedtest.PublishCatalog(ctx, app.Store, opts); err != nil {
+			t.Fatal(err)
 		}
 	}
 }

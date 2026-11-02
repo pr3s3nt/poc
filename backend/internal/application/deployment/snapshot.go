@@ -129,15 +129,11 @@ func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 		if err != nil {
 			return err
 		}
-		defList, err := view.ListResourceDefinitions(ctx, organizationKey)
-		if err != nil {
-			return err
-		}
 		catalogBinding, err := view.GetCatalogEnvironment(ctx, applicationKey, environmentKey)
 		if err != nil {
 			return err
 		}
-		defList, releasePin, err := catalogapp.ResolveDefinitions(ctx, view, organizationKey, applicationKey, environmentKey, defList)
+		defList, releasePin, err := catalogapp.ResolveDefinitions(ctx, view, organizationKey, applicationKey, environmentKey)
 		if err != nil {
 			return err
 		}

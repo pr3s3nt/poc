@@ -8,6 +8,7 @@ import (
 	appsvc "orchestrator/internal/application/deployment"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/seed/seedtest"
 )
 
 // postFixture: two workloads share one workload Definition whose environment-scoped companion is_dependent
@@ -28,6 +29,12 @@ func postFixture(t *testing.T) *placedFixture {
 }
 
 func (f *placedFixture) deployWorkload(id string, before, after map[string]any) error {
+	o := f.opts
+	o.EnvironmentKey = "staging"
+	if err := seedtest.PublishCatalog(context.Background(), f.app.Store, o); err != nil {
+		return err
+	}
+
 	if after != nil {
 		after["metadata"] = map[string]any{"name": id}
 	}

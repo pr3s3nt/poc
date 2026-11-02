@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	catalogdomain "orchestrator/internal/domain/catalogrelease"
 	"strings"
 	"testing"
 
@@ -57,6 +58,7 @@ func TestWriteErrorCodesStatusesAndFields(t *testing.T) {
 		code   string
 		field  string
 	}{
+		{"catalog selection required", catalogdomain.ErrRequired, 409, "CATALOG_REQUIRED", ""},
 		{"score invalid", fmt.Errorf("score: %s bad: %w", canary, score.ErrInvalid), 400, "INVALID_SCORE", ""},
 		{"removed publicPort", fmt.Errorf("score: service.publicPort: %w", environment.ErrPublicPortRemoved), 400, "INVALID_SCORE", "service.publicPort"},
 		{"workload score", fmt.Errorf("%w: %s", workloadconfig.ErrInvalid, canary), 400, "INVALID_SCORE", ""},

@@ -1,0 +1,39 @@
+{
+  "definition": {
+    "key": "staging-k8s-4f-storage",
+    "name": "K8S-4F persistent storage",
+    "resourceType": "persistent-storage",
+    "driverType": "terraform",
+    "criteria": [
+      {
+        "env_type": "staging",
+        "class": "default"
+      }
+    ],
+    "provision": {},
+    "driverInputs": {
+      "values": {
+        "variables": {
+          "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+        },
+        "input_mapping": {
+          "storage": {
+            "param": "storage"
+          }
+        },
+        "output_mapping": {
+          "claimName": "claimName",
+          "namespace": "namespace"
+        },
+        "provider_bindings": {
+          "kubernetes": {
+            "target": "resource",
+            "resource_ref": "k8s-cluster.internal#environments.@app.@env"
+          }
+        }
+      }
+    },
+    "version": 1
+  },
+  "component": "module-persistent-storage"
+}

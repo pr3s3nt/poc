@@ -7,6 +7,19 @@ last_reviewed: 2026-10-30
 
 # Current project state
 
+## Catalog-only configuration — 2026-11-02
+
+User-approved direction: Catalog is the sole source of runtime Definitions.
+Rendering Templates and Resource Definitions UI/routes are removed. Platform
+authors inspect immutable components, Definition snapshots and workload template
+metadata inside Catalog release details, and edit/publish through Git. Missing
+Environment selection blocks preview/deploy and scoped template discovery with
+CATALOG_REQUIRED; there is no global Definition fallback. Bootstrap registers
+prerequisites plus a source and discovers releases; it never authors global
+Definitions or auto-selects Environment versions. Test harnesses publish explicit
+synthetic releases; these are not Git/provider acceptance evidence.
+
+
 ## Versioned Git catalog releases — issue #28, 2026-10-30
 
 The `features/nangcap` implementation adds Organization catalog sources and

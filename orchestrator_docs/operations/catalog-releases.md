@@ -34,8 +34,9 @@ records desired only under Environment CAS; it does not touch infrastructure.
 Open Preview, review resource intents/targets and Deploy using that token.
 Selection/config/account changes invalidate stale review. Runtime uses verified
 cache; it never resolves a fresh Git ref. Snapshot Definitions are exclusive;
-there is no fallback to the global Definition registry for a pinned Environment.
-Legacy Environments remain unpinned until explicitly reviewed/adopted.
+there is no global Definition fallback. Every Environment must select a release
+before Preview/deploy. Definitions/templates are read in Catalog release details
+and edited in Git; the separate global editors and authoring APIs are retired.
 
 Complete success advances applied. PARTIAL retains prior applied selection and
 per-workload/resource deployment acknowledgements, actual state and artifacts.

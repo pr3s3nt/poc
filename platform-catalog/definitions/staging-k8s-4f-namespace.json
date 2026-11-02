@@ -1,0 +1,33 @@
+{
+  "definition": {
+    "key": "staging-k8s-4f-namespace",
+    "name": "Namespace Kubernetes staging",
+    "resourceType": "k8s-namespace",
+    "driverType": "terraform",
+    "criteria": [
+      {
+        "env_type": "staging"
+      }
+    ],
+    "provision": {},
+    "driverInputs": {
+      "values": {
+        "variables": {
+          "name": "${context.env.namespace}"
+        },
+        "input_mapping": {},
+        "output_mapping": {
+          "name": "name"
+        },
+        "provider_bindings": {
+          "kubernetes": {
+            "target": "resource",
+            "resource_ref": "k8s-cluster.internal#environments.@app.@env"
+          }
+        }
+      }
+    },
+    "version": 1
+  },
+  "component": "module-k8s-namespace"
+}

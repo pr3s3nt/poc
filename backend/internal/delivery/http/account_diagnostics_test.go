@@ -10,6 +10,7 @@ import (
 	domain "orchestrator/internal/domain/diagnostics"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/seed/seedtest"
 )
 
 // Old evidence is labelled stale for every pinned input, not only the account
@@ -31,6 +32,10 @@ func TestStalenessCoversDraftsDefinitionsAndContext(t *testing.T) {
 	must(st.SaveEnvironment(ctx, env))
 	must(st.SaveResourceType(ctx, "acme", resource.Type{Key: "postgres", Outputs: []resource.OutputField{{Name: "host", Type: "string"}}}))
 	must(st.SaveResourceDefinition(ctx, "acme", resource.Definition{Key: "pg", Name: "pg", ResourceTypeKey: "postgres", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{}}, Version: 7}))
+	opts := seedtest.Defaults()
+	opts.ApplicationKey = "shop"
+	opts.EnvironmentKey = "staging"
+	must(seedtest.PublishCatalog(ctx, st, opts))
 	s := &Server{store: st}
 
 	scope := domain.Scope{AccountVersion: 5, Context: &domain.ContextRef{ApplicationKey: "shop", ApplicationVersion: 3, EnvironmentKey: "staging", EnvironmentVersion: 2, DraftVersion: 4, Definitions: []domain.DefinitionPin{{Key: "pg", Version: 7}}}}
@@ -47,6 +52,10 @@ func TestStalenessCoversDraftsDefinitionsAndContext(t *testing.T) {
 	}
 	// A Definition edit changes a pinned version.
 	must(st.SaveResourceDefinition(ctx, "acme", resource.Definition{Key: "pg", Name: "pg", ResourceTypeKey: "postgres", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{}}, Version: 8}))
+	if got := s.newStaleness("acme").reasons(ctx, scope, 5); slices.Contains(got, "DEFINITION_CHANGED") {
+		t.Fatal("mutable global Definition affected selected release", got)
+	}
+	must(seedtest.PublishCatalog(ctx, st, opts))
 	if got := s.newStaleness("acme").reasons(ctx, scope, 5); !slices.Contains(got, "DEFINITION_CHANGED") {
 		t.Fatalf("definition change: %v", got)
 	}

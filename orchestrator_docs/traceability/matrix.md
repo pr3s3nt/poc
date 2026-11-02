@@ -1151,7 +1151,7 @@ Implemented tests: [domain](../../backend/internal/domain/renderbundle/renderbun
 [planner](../../backend/internal/planning/git_rendering_test.go),
 [pending A→B→A](../../backend/internal/application/pending/git_rendering_test.go),
 [review projection](../../backend/internal/application/deploymentreview/review_test.go),
-[Console](../../frontend/src/features/platform/GitRenderBundle.test.tsx); UC-07
+Console (retired; Catalog owns this flow since 2026-11-02); UC-07
 VSO-01 in [VSO](../../backend/internal/adapters/kubernetes/vso_test.go) and
 [removal](../../backend/internal/application/deployment/remove_delivered_test.go).
 Real RB-E01..E10: [verification](../verification/2026-10-24-git-render-bundles.md).
@@ -1334,3 +1334,11 @@ and explicitly separates fixture browser checks from live-provider acceptance.
 | UC-03 CR-01/02 | [ADR-031](../architecture/decisions/ADR-031-versioned-catalog.md), [contract](../architecture/contracts/catalog-releases.md) | `domain/catalogrelease`, `application/catalogrelease`, `registry/catalog_discovery.go`, `registry/catalog_inspection.go`, HTTP catalog routes | Manifest guards, HTTPS Git ancestry/annotated-tag tests, publication/conflict/CAS tests |
 | UC-03 CR-03/04 | [specification](../usecase/UC-03/catalog-releases.md), [UI](../usecase/UC-03/ui/catalog-releases.md) | Environment selection repository, planning snapshot, pending Preview, template scoping, Console Catalog/settings | Selection isolation/CAS, UI intent-only Save, existing planner suites |
 | UC-03 CR-05/06 | [schema](../architecture/database/schema.md#catalog-releases--adr-031) | Pending fenced activation, immutable releases and retained deployment outcomes; migration 004 | PostgreSQL populated-v3 upgrade/rollback, retention/CAS/grants/restart checks; live cluster acceptance remains separate |
+
+## Catalog-only configuration — CR-06/07 (2026-11-02)
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| Selected release required, no global fallback | `application/catalogrelease/selection.go` | `TestUnselectedEnvironmentNeverReadsGlobalDefinitionsOrBundles` |
+| Catalog release detail replaces editor routes | `http/catalogreleases.go`, `ReleaseDetails.tsx` | `TestCatalogReleaseDetailsAreScopedReadOnlyAndReplaceEditors`, `ReleaseDetails.test.tsx` |
+| Git-owned bootstrap configuration | `scripts/bootstrap/run.mjs`, `platform-catalog/catalog.yaml` | bootstrap tests, `TestExportedCatalogDocumentsUseReleaseLocalComponents` |

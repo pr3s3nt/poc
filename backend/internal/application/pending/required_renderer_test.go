@@ -124,6 +124,9 @@ func registerRenderer(t *testing.T, app *bootstrap.App, bundles map[string]resou
 	if _, err := svc.RegisterResourceDefinition(context.Background(), opts.OrganizationKey, def); err != nil {
 		t.Fatal(err)
 	}
+	if err := seedtest.PublishCatalog(context.Background(), app.Store, opts); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func withDatabase(name string) map[string]any {
@@ -164,6 +167,9 @@ func TestRequiredRendererMissingTieAndUnavailableFailBeforeResources(t *testing.
 		t.Run(tc.name, func(t *testing.T) {
 			app, opts, _, bundles := requiredAppBundles(t, tc.withBinary)
 			tc.prepare(t, app, bundles, opts)
+			if err := seedtest.PublishCatalog(ctx, app.Store, opts); err != nil {
+				t.Fatal(err)
+			}
 			if _, err := app.Workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "backend", withDatabase("backend"), 0); err != nil {
 				t.Fatal(err)
 			}
@@ -429,17 +435,14 @@ func TestPreviewIntentSameDefinitionKeyChangedFallbackIsUpdate(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	updated, err := app.Pending.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
-	if err != nil || len(updated.Changes) != 1 {
-		t.Fatalf("preview: %+v %v", updated, err)
+	if err := seedtest.PublishCatalog(ctx, app.Store, opts); err != nil {
+		t.Fatal(err)
 	}
-	if got := intentOf(updated); got != "UPDATE" {
-		t.Fatalf("a changed fallback variable of the same Definition key must be UPDATE, got %s", got)
+	_, err = app.Pending.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if !errors.Is(err, pending.ErrInvalid) {
+		t.Fatalf("catalog storage update must require a reviewed migration: %v", err)
 	}
-	raw2, _ := json.Marshal(updated.Changes[0].ResourceIntents)
-	if strings.Contains(string(raw2), "9Gi") {
-		t.Fatal("the projection must not expose the changed value")
-	}
+
 }
 
 // intentEvidence is an internal comparison digest persisted inside the plan

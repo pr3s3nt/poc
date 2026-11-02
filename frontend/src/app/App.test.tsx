@@ -1,5 +1,4 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
-import { capabilityFixture } from '../test/capabilities';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
@@ -241,19 +240,13 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     await waitFor(() => expect(requests.some((request) => request.url.includes('/deployments'))).toBe(true));
     expect(screen.queryByText('Không tìm thấy ứng dụng')).not.toBeInTheDocument();
   });
-  describe.each(['PLATFORM_ENGINEER', 'ADMIN'])('rendering templates page for %s (T03)', (role) => {
-    it('shows the peer sidebar link and renders the page at the deep link', async () => {
-      authenticated = true;
-      window.history.replaceState({}, '', '/ui/platform/rendering-templates');
-      override = (url) => url.endsWith('/auth/session') ? Response.json({ user: { Username: 'platform', Role: role } })
-        : url.endsWith('/resource-definitions') ? Response.json({ resourceDefinitions: [] }) : undefined;
-      render(<App />);
-      expect(await screen.findByRole('heading', { name: 'Mẫu dựng ứng dụng' })).toBeInTheDocument();
-      const link = screen.getByRole('link', { name: /Mẫu dựng ứng dụng/ });
-      expect(link).toHaveAttribute('href', '/ui/platform/rendering-templates');
-      expect(link).toHaveClass('nav-item-active');
-      expect(screen.getByRole('link', { name: /(^|\s)Cấu hình tài nguyên$/ })).not.toHaveClass('nav-item-active');
-    });
+  it.each(['PLATFORM_ENGINEER', 'ADMIN'])('exposes Catalog as the sole Definition entry for %s', async role => {
+    authenticated = true;
+    window.history.replaceState({}, '', '/ui/platform/catalog');
+    override = url => url.endsWith('/auth/session') ? Response.json({ user: { Username: 'platform', Role: role } }) : url.endsWith('/platform/catalog/sources') ? Response.json({ sources: [] }) : undefined;
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: 'Catalog' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Mẫu dựng ứng dụng|Cấu hình tài nguyên/ })).not.toBeInTheDocument();
   });
 
   it('hides the rendering templates link and page from a developer deep link', async () => {
@@ -283,64 +276,6 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(await screen.findByRole('heading', { name: 'Hiệu quả platform' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Hiệu quả platform/ })).toHaveClass('nav-item-active');
     await waitFor(() => expect(requests.some((request) => request.url.includes('/effectiveness/report?') && request.url.includes('application=payment'))).toBe(true));
-  });
-  describe('Resource Types to Definitions navigation (T04)', () => {
-    const catalog = (url: string) => url.endsWith('/auth/session') ? Response.json({ user: { Username: 'platform', Role: 'PLATFORM_ENGINEER' } })
-      : url.endsWith('/resource-definition-capabilities') ? Response.json({ capabilities: capabilityFixture })
-      : url.endsWith('/resource-types') ? Response.json({ resourceTypes: ['vpc', 'postgres', 'postgres-ha', 'workload'].map((key) => ({ key, inputs: [], outputs: [], classes: [] })) })
-      : url.endsWith('/resource-definitions') ? Response.json({ resourceDefinitions: [] })
-      : url.endsWith('/connections') ? Response.json({ connections: [] }) : undefined;
-
-    it('opens the definitions form with the type chosen from the CTA, without any POST', async () => {
-      const user = userEvent.setup();
-      authenticated = true;
-      window.history.replaceState({}, '', '/ui/platform/resource-types');
-      override = catalog;
-      render(<App />);
-      await user.click(await screen.findByRole('link', { name: 'Tạo Cấu hình tài nguyên cho postgres' }));
-      expect(window.location.pathname + window.location.search).toBe('/ui/platform/resource-definitions?resourceType=postgres');
-      expect(await screen.findByRole('heading', { name: 'Cấu hình tài nguyên mới' })).toBeInTheDocument();
-      await waitFor(() => expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('postgres'));
-      expect(requests.filter((request) => request.method === 'POST')).toEqual([]);
-    });
-
-    it.each(['/ui/platform/resource-definitions', '/ui/platform/resource-definitions?resourceType=workload', '/ui/platform/resource-definitions?resourceType=nope'])('selects nothing for deep link %s', async (path) => {
-      authenticated = true;
-      window.history.replaceState({}, '', path);
-      override = catalog;
-      render(<App />);
-      if (path === '/ui/platform/resource-definitions') await userEvent.setup().click(await screen.findByRole('button', { name: 'Tạo cấu hình' }));
-      await screen.findByRole('option', { name: 'vpc' });
-      expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('');
-    });
-
-    it('prefills a catalog type awaiting its first Git module and keeps Git registration blocked until inspection', async () => {
-      authenticated = true;
-      window.history.replaceState({}, '', '/ui/platform/resource-definitions?resourceType=postgres-ha');
-      override = catalog;
-      render(<App />);
-      await waitFor(() => expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('postgres-ha'));
-      expect(screen.getByRole('button', { name: 'Thêm từ Git' })).toBeEnabled();
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Thêm từ Git' }));
-      expect(screen.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên' })).toBeDisabled();
-      expect(requests.filter((request) => request.method === 'POST')).toEqual([]);
-    });
-
-    it('selects a supported type from a deep link and keeps the choice when the user navigates away and back without a query', async () => {
-      const user = userEvent.setup();
-      authenticated = true;
-      window.history.replaceState({}, '', '/ui/platform/resource-definitions?resourceType=vpc');
-      override = catalog;
-      render(<App />);
-      await waitFor(() => expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('vpc'));
-      await user.click(screen.getByRole('link', { name: /(^|\s)Loại tài nguyên$/ }));
-      expect(await screen.findByRole('heading', { name: 'Loại tài nguyên' })).toBeInTheDocument();
-      await user.click(screen.getByRole('link', { name: /(^|\s)Cấu hình tài nguyên$/ }));
-      await user.click(await screen.findByRole('button', { name: 'Tạo cấu hình' }));
-      await screen.findByRole('option', { name: 'vpc' });
-      expect(window.location.search).toBe('');
-      expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('');
-    });
   });
   describe('shared shell and session (T10)', () => {
     const asRole = (role: string) => (url: string) => url.endsWith('/auth/session') ? Response.json({ user: { Username: 'tester', Role: role } }) : undefined;
@@ -431,7 +366,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       override = asRole(role);
       render(<App />);
       await screen.findByRole('navigation', { name: 'Điều hướng chính' });
-      const expected: [RegExp, string][] = [[/Ứng dụng/, '/ui/applications'], [/Loại tài nguyên/, '/ui/platform/resource-types'], [/Cấu hình tài nguyên/, '/ui/platform/resource-definitions'], [/Mẫu dựng ứng dụng/, '/ui/platform/rendering-templates'], [/Tài khoản hạ tầng/, '/ui/platform/driver-accounts'], [/Kho bí mật/, '/ui/platform/secret-stores'], [/Hiệu quả platform/, '/ui/platform/effectiveness']];
+      const expected: [RegExp, string][] = [[/Ứng dụng/, '/ui/applications'], [/Loại tài nguyên/, '/ui/platform/resource-types'], [/Catalog/, '/ui/platform/catalog'], [/Tài khoản hạ tầng/, '/ui/platform/driver-accounts'], [/Kho bí mật/, '/ui/platform/secret-stores'], [/Hiệu quả platform/, '/ui/platform/effectiveness']];
       for (const [name, path] of expected) expect(screen.getByRole('link', { name })).toHaveAttribute('href', path);
       expect(screen.queryByRole('link', { name: 'Kết nối' })).not.toBeInTheDocument();
       expect(screen.getByText(label)).toBeInTheDocument();

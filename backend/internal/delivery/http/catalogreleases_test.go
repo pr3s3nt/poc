@@ -57,3 +57,43 @@ func TestCatalogSourcesRoleCASAndCredentialURLGuards(t *testing.T) {
 		t.Fatal("Environment catalog permission/path failed", status)
 	}
 }
+
+func TestCatalogReleaseDetailsAreScopedReadOnlyAndReplaceEditors(t *testing.T) {
+	_, ts, st := bundleTestServer(t, nil)
+	opts := seedtest.Defaults()
+	pe := bundleClient(t, ts.URL, "platform-engineer")
+	base := ts.URL + "/api/v1/platform/catalog/sources/test-fixture/releases/v1.0.0"
+	for _, user := range []string{"developer", "other-admin"} {
+		status, _ := request(t, bundleClient(t, ts.URL, user), http.MethodGet, base, "")
+		want := http.StatusForbidden
+		if user == "other-admin" {
+			want = http.StatusNotFound
+		}
+		if status != want {
+			t.Fatalf("%s: %d", user, status)
+		}
+	}
+	before, _ := st.ListResourceDefinitions(context.Background(), opts.OrganizationKey)
+	status, body := request(t, pe, http.MethodGet, base, "")
+	if status != 200 || !strings.Contains(body, `"components"`) || !strings.Contains(body, `"snapshot"`) || !strings.Contains(body, `"criteria"`) {
+		t.Fatal(status, body)
+	}
+	for _, forbidden := range []string{"secretRef", "observedTags", "tokenConfigured"} {
+		if strings.Contains(body, forbidden) {
+			t.Fatalf("detail exposes %s", forbidden)
+		}
+	}
+	after, _ := st.ListResourceDefinitions(context.Background(), opts.OrganizationKey)
+	if len(before) != len(after) {
+		t.Fatal("detail mutated global Definitions")
+	}
+	for _, route := range []struct{ method, path string }{
+		{"GET", "resource-definitions"}, {"POST", "resource-definitions"}, {"PUT", "resource-definitions/example"}, {"POST", "resource-definitions/matching-preview"},
+		{"GET", "render-bundles"}, {"POST", "render-bundles/inspect"}, {"POST", "render-bundles/upload"},
+	} {
+		status, _ := request(t, pe, route.method, ts.URL+"/api/v1/"+route.path, `{}`)
+		if status != http.StatusNotFound && status != http.StatusMethodNotAllowed {
+			t.Fatalf("retired %s %s: %d", route.method, route.path, status)
+		}
+	}
+}

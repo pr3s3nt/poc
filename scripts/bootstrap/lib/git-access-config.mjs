@@ -28,7 +28,7 @@ export function parseGitAccess(raw, options = {}, home = homedir()) {
   if (value.enabled !== undefined && typeof value.enabled !== 'boolean') fail('gitAccess.enabled phải là boolean');
   if (value.enabled === false) return null;
   if (typeof value.username !== 'string' || !value.username.trim() || value.username.length > 256 || /[:\x00-\x1f\x7f-\x9f]/u.test(value.username)) fail('gitAccess.username không hợp lệ');
-  const sources = [...(raw.resourceDefinitions ?? []).map(item => item.source), ...(raw.bundles ?? []).map(item => item.source)].filter(Boolean);
+  const sources = [...(raw.catalog ? [{url: raw.catalog.repository, ref: raw.catalog.branch ?? 'main'}] : []), ...(raw.resourceDefinitions ?? []).map(item => item.source), ...(raw.bundles ?? []).map(item => item.source)].filter(Boolean);
   const urls = [...new Set(sources.map(source => source.url))];
   const repositoryUrl = gitURL(value.repositoryUrl ?? options['git-url'] ?? (urls.length === 1 ? urls[0] : undefined));
   const url = gitURL(value.url ?? options['git-url'] ?? repositoryUrl);

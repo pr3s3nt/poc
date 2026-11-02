@@ -102,6 +102,9 @@ func newPlacedApp(t *testing.T, mutate func(*bootstrap.Options)) *placedFixture 
 			t.Fatal(err)
 		}
 	}
+	if err := seedtest.PublishCatalog(ctx, app.Store, func() seed.Options { o := opts; o.EnvironmentKey = "staging"; return o }()); err != nil {
+		t.Fatal(err)
+	}
 	return f
 }
 
@@ -128,6 +131,12 @@ func (f *placedFixture) frontend(image string, extra ...func(map[string]any)) ma
 }
 
 func (f *placedFixture) deploy(before, after map[string]any) error {
+	o := f.opts
+	o.EnvironmentKey = "staging"
+	if err := seedtest.PublishCatalog(context.Background(), f.app.Store, o); err != nil {
+		return err
+	}
+
 	_, err := f.app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
 		OrganizationKey: f.opts.OrganizationKey, ApplicationKey: f.appKey, EnvironmentKey: "staging", WorkloadID: "frontend",
 		ScoreBefore: before, ScoreAfter: after, Actor: "test", RunID: "run-v03",

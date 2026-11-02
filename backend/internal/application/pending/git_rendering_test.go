@@ -147,6 +147,9 @@ func TestGitBundleOnlyChangeIsPendingUpdateWithoutGitFetch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := seedtest.PublishCatalog(ctx, app.Store, opts); err != nil {
+		t.Fatal(err)
+	}
 	workloads := workloadconfig.NewService(app.Store)
 	svc := pending.NewService(app.Store, planning.NewService(render.Bundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
 	svc.SetDeployer(app.Deployments)
@@ -198,6 +201,9 @@ func TestGitBundleOnlyChangeIsPendingUpdateWithoutGitFetch(t *testing.T) {
 	if _, err := catalogSvc.UpdateResourceDefinition(ctx, opts.OrganizationKey, def.Key, saved.Version, def); err != nil {
 		t.Fatal(err)
 	}
+	if err := seedtest.PublishCatalog(ctx, app.Store, opts); err != nil {
+		t.Fatal(err)
+	}
 	toB, err := svc.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
 	if err != nil {
 		t.Fatal(err)
@@ -242,6 +248,9 @@ func TestGitBundleOnlyChangeIsPendingUpdateWithoutGitFetch(t *testing.T) {
 	}
 	def.DriverInputs = map[string]any{"values": map[string]any{"variables": variables(a.ID)}}
 	if _, err := catalogSvc.UpdateResourceDefinition(ctx, opts.OrganizationKey, def.Key, version, def); err != nil {
+		t.Fatal(err)
+	}
+	if err := seedtest.PublishCatalog(ctx, app.Store, opts); err != nil {
 		t.Fatal(err)
 	}
 	back, err := svc.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)

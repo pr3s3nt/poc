@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseGitAccess, gitAccessAction, inGitScope, readGitToken } from './git-access-config.mjs';
 import { loadTarget } from './target-config.mjs';
-import { parseBundleConfig } from './render-bundle-config.mjs';
 const ref = 'a'.repeat(40);
 const raw = () => ({ gitAccess: { username: 'reader', tokenFile: '~/private/token' }, bundles: [{ source: { url: 'https://git.example.com/team/catalog.git', ref } }] });
 test('Git access is opt-in; presets and public source overrides preserve existing behavior', () => {
@@ -13,7 +12,7 @@ test('Git access is opt-in; presets and public source overrides preserve existin
   for (const target of ['dev', 'staging']) {
     const config = loadTarget({ target }, {}, '/private');
     assert.equal(parseGitAccess(config.raw), null);
-    assert.ok(parseBundleConfig(config.raw));
+    assert.ok(config.raw.catalog);
   }
 });
 test('derive repo/scope/ref and expand private token path without reading it', () => {

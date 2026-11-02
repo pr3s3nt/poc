@@ -17,6 +17,7 @@ import (
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 func TestScoreK8sDefinitionPreviewDeployAndSnapshot(t *testing.T) {
@@ -40,6 +41,9 @@ func TestScoreK8sDefinitionPreviewDeployAndSnapshot(t *testing.T) {
 	}
 	if registered.SourceFingerpr == "" {
 		t.Fatal("missing bundle pin")
+	}
+	if err := seedtest.PublishCatalog(ctx, app.Store, opts); err != nil {
+		t.Fatal(err)
 	}
 	scores := seed.AcceptanceScores(opts)
 	for _, id := range seed.AcceptanceOrder() {
@@ -102,6 +106,9 @@ func TestScoreK8sDefinitionPreviewDeployAndSnapshot(t *testing.T) {
 	def.Key = "score-specific"
 	def.Criteria = []resource.Criterion{{ApplicationID: opts.ApplicationKey, EnvironmentID: opts.EnvironmentKey, Class: "default"}}
 	if _, err := catalogSvc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); err != nil {
+		t.Fatal(err)
+	}
+	if err := seedtest.PublishCatalog(ctx, app.Store, opts); err != nil {
 		t.Fatal(err)
 	}
 	calls := len(app.FakeExec.Calls)

@@ -59,7 +59,7 @@ changing its type or requiring a missing value is a blocker. Existing planner
 contract validation remains authoritative for references and resource targets.
 
 Environment desired/applied release references and per-component outcomes are
-persisted separately; legacy absence means no catalog pin. Applied advances
+persisted separately; absence means selection is required before planning. Applied advances
 only after all required acknowledgements. Infrastructure operations continue
 through existing Preview/admission/execution boundaries.
 
@@ -75,7 +75,14 @@ POST `/api/v1/platform/catalog/sources/{source}/refresh` performs a bounded manu
 refresh and returns the observation summary. It does not deploy an Application.
 GET `/api/v1/platform/catalog/sources/{source}/releases` returns safe immutable
 release summaries (tag, commit, manifest digest, branch tip and observation time).
-Public responses exclude Definition internals and observed-tag storage maps.
+Release detail GET `/api/v1/platform/catalog/sources/{source}/releases/{tag}`
+returns `{release:{sourceId,tag,commit,components}}` to PE/Admin only. Components
+include immutable Definition snapshots and symbolic bindings, with no account
+credentials or observed-tag storage maps. Template metadata is derived from the
+release's verified render bundles. Missing selection returns CATALOG_REQUIRED
+(HTTP 409) from preview/deploy and scoped workload template discovery.
+Global Definition CRUD/matching and standalone render source authoring routes
+are retired; discovery retains the internal inspection/validation pipeline.
 Invalid input uses INVALID_REQUEST, stale CAS uses STALE_VERSION, moved identity
 uses CATALOG_CONFLICT, absence NOT_FOUND and unavailable service
 SERVICE_UNAVAILABLE. Per-tag discovery results are fixed codes on the observation.
@@ -85,7 +92,8 @@ SERVICE_UNAVAILABLE. Per-tag discovery results are fixed codes on the observatio
 A Definition file has `{definition, component?, binding?}`. `definition` uses the
 existing strict JSON field names (JSON or YAML encoding). Its account and source
 fingerprint must be absent; `component` names a module/render entry in this
-manifest, `binding` names a platform account slot. Terraform Definitions omit
+manifest, `binding` names a platform account slot. It is required for existing-cluster
+and account-backed Terraform; resource-bound Kubernetes Terraform omits it. Terraform Definitions omit
 `driverInputs.values.source`; discovery fills the verified source pin. Workload
 Definitions omit `driverInputs.values.variables.render_bundle`; discovery fills
 the verified render bundle ID. Existing-cluster Definitions name only a binding.
@@ -103,12 +111,11 @@ The new catalog still records its observed commit and manifest provenance.
 
 GET `/api/v1/applications/{id}/environments/{env}/catalog` uses existing scoped
 configuration authorization and returns `{catalog, environmentVersion, releases}`.
-`catalog` includes revision, desired/applied selection and LEGACY/PENDING/PARTIAL/
+`catalog` includes revision, desired/applied selection and UNSELECTED/PENDING/PARTIAL/
 APPLIED status. Available releases expose sourceId, tag and fingerprint.
 PUT accepts `{sourceId, tag, expectedEnvironmentVersion, expectedRevision}`;
 Organization and account bindings are server-derived. Saving mutates no provider.
-Unsupported downgrade within a source is rejected; legacy adoption has no inferred
-current version. Preview resolves all affected workloads from the desired release
+Unsupported downgrade within a source is rejected; first selection has no inferred current version. Preview resolves all affected workloads from the desired release
 and pins its digest/revision. A simultaneous delivery ownership transition is
 blocked. Applied activation occurs only after the entire pending batch and route
 reconciliation succeed. Failures retain acknowledged deployment snapshots and

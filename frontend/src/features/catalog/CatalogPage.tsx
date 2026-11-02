@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, describeError } from '../../shared/api/client';
 import { t } from '../../shared/i18n';
+import { ReleaseDetails } from './ReleaseDetails';
 import { Button } from '../../shared/ui/Button';
 
 type Source = { id: string; repository: string; branch: string; tagPattern: string; manifestPath: string; includePrereleases: boolean; accountBindings?: Record<string, string>; version: number; code: string; lastChecked: string };
@@ -12,6 +13,7 @@ export function CatalogPage() {
   const [sources, setSources] = useState<Source[]>([]);
   const [draft, setDraft] = useState<Source>(initial);
   const [bindings, setBindings] = useState('');
+  const [openedTag, setOpenedTag] = useState('');
   const [releases, setReleases] = useState<Release[]>();
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
@@ -29,7 +31,7 @@ export function CatalogPage() {
     finally { if (alive.current && current === generation.current) setLoading(false); }
   }
   function edit(source: Source) {
-    generation.current++; setDraft(source); setBindings(Object.entries(source.accountBindings ?? {}).map(([slot, account]) => `${slot}=${account}`).join('\n')); setReleases(undefined); setNotice(''); setError('');
+    generation.current++; setDraft(source); setBindings(Object.entries(source.accountBindings ?? {}).map(([slot, account]) => `${slot}=${account}`).join('\n')); setReleases(undefined); setOpenedTag(''); setNotice(''); setError('');
   }
   async function act(operation: () => Promise<void>) {
     if (busy.current) return; busy.current = true; setPending(true); setError(''); setNotice('');
@@ -63,11 +65,11 @@ export function CatalogPage() {
   return <section className="page">
     <header className="page-header"><div><p className="eyebrow">{t('platform.git.platform')}</p><h1>{t('catalog.title')}</h1></div><Button disabled={pending} onClick={() => edit(initial)}>{t('catalog.add')}</Button></header>
     {loading ? <p role="status">{t('catalog.loading')}</p> : <section className="content-panel">
-      {sources.length === 0 ? <p>{t('catalog.empty')}</p> : sources.map(source => <div className="section-header" key={source.id}><div><strong>{source.id}</strong><p>{source.branch} · {t(`catalog.code.${source.code || 'NOT_CHECKED'}`)}{source.lastChecked && !source.lastChecked.startsWith('0001') ? ` · ${new Date(source.lastChecked).toLocaleString()}` : ''}</p></div><div className="row-actions"><Button disabled={pending} onClick={() => void showReleases(source)}>{t('catalog.versions')}</Button><Button disabled={pending} onClick={() => void refresh(source)}>{t('catalog.refresh')}</Button></div></div>)}
+      {sources.length === 0 ? <p>{t('catalog.empty')}</p> : sources.map(source => <div className="section-header" key={source.id}><div><strong>{source.id}</strong><p>{source.branch} · {t(`catalog.code.${source.code || 'NOT_CHECKED'}`)}{source.lastChecked && !source.lastChecked.startsWith('0001') ? ` · ${new Date(source.lastChecked).toLocaleString()}` : ''}</p></div><div className="row-actions"><Button disabled={pending} onClick={() => edit(source)}>{t('catalog.editSource')}</Button><Button disabled={pending} onClick={() => void showReleases(source)}>{t('catalog.versions')}</Button><Button disabled={pending} onClick={() => void refresh(source)}>{t('catalog.refresh')}</Button></div></div>)}
     </section>}
     {error ? <div className="form-error" role="alert">{error} <Button disabled={pending} onClick={() => { edit(initial); void load(); }}>{t('catalog.reload')}</Button></div> : null}
     {notice ? <p className="form-info" role="status">{notice}</p> : null}
-    {releases ? <section className="content-panel"><h2>{t('catalog.versions')}</h2>{releases.length ? releases.map(release => <div key={release.tag}><p><strong>{release.tag}</strong> <code>{release.commit}</code></p>{release.usage?.length ? <ul>{release.usage.map(usage => <li key={`${usage.applicationKey}/${usage.environmentKey}`}>{usage.applicationKey} · {usage.environmentKey} · {[usage.applied ? t('catalog.applied') : '', usage.desired ? t('catalog.desired') : ''].filter(Boolean).join(' / ')}</li>)}</ul> : null}</div>) : <p>{t('catalog.noReleases')}</p>}</section> : null}
+    {releases ? <section className="content-panel"><h2>{t('catalog.versions')}</h2>{releases.length ? releases.map(release => <div key={release.tag}><p><strong>{release.tag}</strong> <code>{release.commit}</code> <Button aria-expanded={openedTag === release.tag} onClick={() => setOpenedTag(openedTag === release.tag ? '' : release.tag)}>{t('catalog.details')}</Button></p>{openedTag === release.tag ? <ReleaseDetails key={`${draft.id}/${release.tag}`} source={draft.id} tag={release.tag} /> : null}{release.usage?.length ? <ul>{release.usage.map(usage => <li key={`${usage.applicationKey}/${usage.environmentKey}`}>{usage.applicationKey} · {usage.environmentKey} · {[usage.applied ? t('catalog.applied') : '', usage.desired ? t('catalog.desired') : ''].filter(Boolean).join(' / ')}</li>)}</ul> : null}</div>) : <p>{t('catalog.noReleases')}</p>}</section> : null}
     <form className="create-form" onSubmit={submit}><h2>{t(draft.version ? 'catalog.edit' : 'catalog.add')}</h2>
       <fieldset className="form-fieldset editor-grid" disabled={pending || loading || reloadRequired}>
         <div className="field"><label htmlFor="catalog-id">{t('catalog.id')}</label><input id="catalog-id" required pattern="[a-z0-9]+(-[a-z0-9]+)*" maxLength={63} disabled={draft.version > 0} value={draft.id} onChange={event => setDraft({ ...draft, id: event.target.value })} /></div>
