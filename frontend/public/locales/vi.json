@@ -3266,6 +3266,7 @@
   "workloads.templates.choose": "Chọn loại workload",
   "workloads.templates.cancel": "Hủy",
   "workloads.templates.search": "Tìm loại workload",
+  "workloads.templates.catalogRequired": "Chọn một phiên bản Catalog trong Cài đặt môi trường để tải mẫu workload.",
   "workloads.templates.unavailable": "Không thể tải danh sách mẫu.",
   "workloads.templates.retry": "Thử lại",
   "workloads.templates.loading": "Đang tải mẫu…",

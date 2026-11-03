@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
+import { ApiError } from '../../shared/api/client';
 import { TemplatePicker } from './TemplatePicker';
 import { getWorkloadTemplates } from './templates';
 vi.mock('./templates', () => ({ getWorkloadTemplates: vi.fn() }));
@@ -15,4 +16,12 @@ it('reports catalog errors, retries explicitly and ignores late replies after sc
  vi.mocked(getWorkloadTemplates).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(templates);
  const user = userEvent.setup();render(<TemplatePicker app="app" environment="staging" onClose={vi.fn()} onCustom={vi.fn()} onSelect={vi.fn()} />);
  await screen.findByRole('alert');await user.click(screen.getByRole('button',{name:'Thử lại'}));await waitFor(()=>expect(screen.getByRole('button',{name:/Stateful application/})).toBeInTheDocument());
+});
+
+it('directs an unselected environment to its catalog settings instead of retrying', async () => {
+ vi.mocked(getWorkloadTemplates).mockRejectedValueOnce(new ApiError(409, 'CATALOG_REQUIRED'));
+ render(<TemplatePicker app="app" environment="production" onClose={vi.fn()} onCustom={vi.fn()} onSelect={vi.fn()} />);
+ expect(await screen.findByRole('alert')).toHaveTextContent('Chọn một phiên bản Catalog');
+ expect(screen.getByRole('link', { name: 'Cài đặt môi trường' })).toHaveAttribute('href', '/ui/applications/app/settings?environment=production');
+ expect(screen.queryByRole('button', { name: 'Thử lại' })).not.toBeInTheDocument();
 });

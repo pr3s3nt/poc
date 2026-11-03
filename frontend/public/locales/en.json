@@ -3266,6 +3266,7 @@
   "workloads.templates.choose": "Choose workload type",
   "workloads.templates.cancel": "Cancel",
   "workloads.templates.search": "Search workload types",
+  "workloads.templates.catalogRequired": "Select a Catalog release in Environment settings to load workload templates.",
   "workloads.templates.unavailable": "Could not load templates.",
   "workloads.templates.retry": "Retry",
   "workloads.templates.loading": "Loading templates…",
