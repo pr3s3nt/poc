@@ -457,6 +457,28 @@ Driver Account `k8s-4f` bằng kubeconfig thật; startup không tạo account R
   mutation API shortcuts substitute for UI actions. Technical read-only assertions
   may verify real Git revisions, resource ownership, data, readiness and cleanup.
 
+## Simplified CD configuration — ADR-034 (issue #31)
+
+- **CD-08:** CD configuration offers exactly four fields: Kubernetes Connection
+  (existing account or inline kubeconfig registration), Git Connection (existing
+  Git account or inline registration; Platform Settings Git remains the shared
+  default), Fleet Workspace and Target Cluster (both auto-discovered, defaulted,
+  reselectable). Repository URL, branch, root path, internal namespaces,
+  ServiceAccount, reader Secret, CA bundle and Helm options are derived by the
+  Platform and no longer appear in the form.
+- **CD-09:** Discovery lists Fleet workspaces and their registered clusters as
+  options; only targets whose physical identity is proven through a scoped
+  Kubernetes Connection are selectable. A single eligible option is auto-filled. Technical
+  identities resolved by discovery are pinned into the immutable binding
+  version. Verification stays read-only with bounded actionable reasons.
+- **CD-10:** Generated manifests and `fleet.yaml` are published as YAML per
+  Delivery Unit under `environments/<env>/manifests/orch-<unit-hash>/`.
+  Commit-SHA pinning of the Fleet `GitRepo` CRD is unchanged.
+- **CD-11:** Git accounts are Organization-scoped Connections of kind `GIT`,
+  write-only and reusable; inline creation from the CD screen stores the same
+  managed record. A pinned Environment binding never moves when the platform
+  default changes.
+
 ## Platform CD setup — shared Git connection
 
 Platform Engineers/Admins may select `usePlatformGit` when registering a CD
@@ -469,10 +491,15 @@ recommended. No token is returned to the Console or copied into binding config.
 Explicit separate writer credentials remain supported.
 
 Selecting a management account triggers read-only Fleet discovery. Show the
-resolved workspace, cluster and controller beside the account, with manual retry.
-Technical defaults remain under Advanced. Missing or inaccessible reader Secret,
-release namespace and deployment ServiceAccount produce bounded actionable
-verification reasons. Setup does not create these resources. READY enables the
+resolved workspace and cluster choices with manual retry; pin the discovered
+controller identity internally.
+ADR-034 keeps technical defaults internal. Previously configured reader Secrets,
+release namespace and deployment ServiceAccount remain prerequisites and produce
+bounded actionable verification reasons when missing. New configurations derive
+an owned reader Secret per immutable binding version from the selected Git
+Connection; read-only Verify checks the required permissions and admitted Deploy
+creates/refreshes that Secret under the operation fence. No controller installation
+or cluster-wide permission grant is implicit. READY enables the
 explicit platform default action; it does not prove a live deployment or repository
 creation permission beyond the adapter's read-only checks.
 

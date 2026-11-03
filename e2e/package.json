@@ -10,6 +10,7 @@
     "acceptance-app": "node scenarios/acceptance-app/run.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "1.63.0"
+    "@playwright/test": "1.63.0",
+    "yaml": "^2.9.1"
   }
 }

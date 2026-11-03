@@ -62,3 +62,6 @@ Read this use case's CD/INF/REC specification extension, then the
 Required design only; current runtime availability is tracked separately.
 
 CD platform authoring: [Cấu hình CD](ui/cd-providers.md).
+
+Simplified authoring and reusable Git Connections: [ADR-034](../../architecture/decisions/ADR-034-simplified-cd-configuration.md),
+[real dev verification](../../verification/2026-11-04-simplified-cd.md).

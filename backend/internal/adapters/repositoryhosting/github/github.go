@@ -41,6 +41,12 @@ func (f *Factory) Open(ctx context.Context, b domain.BindingVersion, p domain.Re
 		settings, _ := f.Organizations.(persistence.GitSettingsRepository)
 		destination := strings.TrimRight(b.Config["repositoryHost"], "/") + "/" + b.Config["repositoryOwner"]
 		raw, _, err = gitaccess.Writer(ctx, settings, f.Credentials, org.Key, destination)
+	} else if strings.HasPrefix(b.WriterCredentialRef, gitaccess.ConnectionWriterPrefix) {
+		conns, ok := f.Organizations.(gitaccess.ConnectionReader)
+		if !ok {
+			return nil, ErrUnavailable
+		}
+		raw, err = gitaccess.ConnectionCredential(ctx, conns, f.Credentials, org.Key, b.WriterCredentialRef, strings.TrimRight(p.CloneBase, "/")+"/"+p.Owner)
 	} else {
 		raw, err = f.Credentials.Get(ctx, org.Key, b.ID, b.WriterCredentialRef)
 	}

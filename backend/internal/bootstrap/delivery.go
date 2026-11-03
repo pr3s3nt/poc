@@ -1,7 +1,10 @@
 package bootstrap
 
 import (
+	"context"
 	"fmt"
+	"orchestrator/internal/application/gitaccess"
+	"strings"
 
 	fleetadapter "orchestrator/internal/adapters/delivery/fleet"
 	gitadapter "orchestrator/internal/adapters/gitpublication"
@@ -45,6 +48,24 @@ func setupDelivery(opts Options, st persistence.Store, source execution.Kubeconf
 	hosts := &githubhost.Factory{Credentials: creds, Organizations: repo}
 	coordinator.Repositories = &appdelivery.Repositories{Store: repo, Hosts: hosts}
 	provider := &fleetadapter.Provider{Manager: &fleetadapter.Manager{Verifier: &fleetadapter.Verifier{KubectlPath: opts.KubectlPath, Credentials: source, Targets: appdelivery.Targets{Store: st, Identity: repo}}, Guard: coordinator.Guard, RecoveryGuard: coordinator.GuardRecovery}, Publishers: publishers, RepositoryHosts: hosts}
+	provider.Manager.ReaderCredentials = func(ctx context.Context, b port.BindingVersion) ([]byte, error) {
+		org, err := repo.GetOrganizationByID(ctx, b.OrganizationID)
+		if err != nil {
+			return nil, err
+		}
+		if b.WriterCredentialRef == gitaccess.PlatformWriterReference {
+			settings, ok := st.(persistence.GitSettingsRepository)
+			if !ok {
+				return nil, gitaccess.ErrUnavailable
+			}
+			raw, _, err := gitaccess.Writer(ctx, settings, creds, org.Key, b.Config["repositoryURL"])
+			return raw, err
+		}
+		if strings.HasPrefix(b.WriterCredentialRef, gitaccess.ConnectionWriterPrefix) {
+			return gitaccess.ConnectionCredential(ctx, st, creds, org.Key, b.WriterCredentialRef, b.Config["repositoryURL"])
+		}
+		return creds.Get(ctx, org.Key, b.ID, b.WriterCredentialRef)
+	}
 	if err := registry.Register("fleet", provider); err != nil {
 		return nil, nil, err
 	}

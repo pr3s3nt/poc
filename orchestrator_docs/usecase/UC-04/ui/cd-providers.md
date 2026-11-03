@@ -58,3 +58,27 @@ button inside the form. A backend discovery failure must not appear solely above
 the registered-bindings list, outside the current form viewport.
 
 Shared CD Git derives repository ownership from the explicit account/group URL scope in Platform Settings (for example `https://github.com/my-team`). Host-only and repository-specific scopes do not define an eligible owner. Settings displays the derived destination with guidance; CD hides owner authoring for shared Git and shows the inherited destination. Registration resolves this value server-side before validation, overriding any submitted owner. Authentication username is never assumed to be the owner. Existing binding versions retain their pinned owner; changed destinations apply when registering a new version. No separate owner column or schema migration is needed.
+
+
+## Simplified authoring — ADR-034 / issue #31
+
+The basic Fleet form has four connection/topology fields: Kubernetes Connection,
+Git Connection, Fleet Workspace and Target Cluster. Name identifies the reusable
+configuration; the provider is implicit when Fleet is the only installed provider.
+Technical identities remain internal, including the registered cluster UID.
+Workspace choices constrain target choices; changing workspace or connection
+invalidates the old target identity. A single eligible choice is filled in.
+
+Inline Kubernetes creation opens the shared accessible Dialog with account name
+and the existing concealed upload/paste kubeconfig/context controls. Explicit
+Check and Save uses ordinary Driver Accounts registration; success selects the
+new reusable account and runs Fleet discovery. Parent configuration remains
+mounted. Failed registration preserves safe inputs; credential-store failure
+and uncertain mutation clear secret inputs. Uncertain creation blocks resubmit
+until the operator reloads and reviews registered accounts.
+
+Git selection offers the shared Platform Settings default, READY Git connections,
+and inline registration. Changing selection clears incompatible credential-retain
+state. Submitted tokens are cleared for every result; uncertain creation blocks
+replay until explicit reload/review. Connection registration alone does not prove
+live Git authorization; configuration verification must prove it before READY.

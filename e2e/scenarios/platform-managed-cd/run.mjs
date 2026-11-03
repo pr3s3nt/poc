@@ -14,13 +14,17 @@ try {
  const current = await response.json();
  assert(Number.isInteger(current.revision));
  await page.getByRole('button', { name: 'Thêm cấu hình CD', exact: true }).click();
- await page.getByRole('checkbox', { name: 'Dùng kết nối Git của platform', exact: true }).waitFor();
- const shared = await page.getByRole('checkbox', { name: 'Dùng kết nối Git của platform', exact: true }).isChecked();
+ const git = page.getByLabel('Kết nối Git', { exact: true });
+ await git.waitFor();
+ const shared = await git.inputValue() === '__platform';
  if (shared) {
   assert.equal(await page.getByLabel('Token hoặc mật khẩu Git', { exact: true }).count(), 0);
   assert.equal(await page.getByLabel('Tài khoản hoặc tổ chức GitHub', { exact: true }).count(), 0);
  }
- else await page.getByLabel('Token hoặc mật khẩu Git', { exact: true }).waitFor();
+ assert.equal(await page.getByRole('button', { name: 'Thêm kết nối Kubernetes', exact: true }).count(), 1);
+ assert.equal(await page.getByLabel('Định danh cluster đã xác minh', { exact: true }).count(), 0);
+ await page.getByLabel('Workspace Fleet', { exact: true }).waitFor();
+ await page.getByLabel('Cluster đã đăng ký', { exact: true }).waitFor();
  assert.equal(await page.getByLabel('Git repository HTTPS', { exact: true }).count(), 0);
  await page.getByRole('button', { name: 'Hủy', exact: true }).click();
  const apps = await page.request.get(`${config.baseURL}/api/v1/applications`);

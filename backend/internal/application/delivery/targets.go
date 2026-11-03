@@ -16,6 +16,29 @@ type Targets struct {
 	Identity persistence.OrganizationIdentityReader
 }
 
+// ListWorkloadTargets supplies only scoped, credential-backed candidates for
+// Fleet identity discovery. The adapter must independently prove cluster UIDs.
+func (t Targets) ListWorkloadTargets(ctx context.Context, b port.BindingVersion) ([]execution.Target, error) {
+	if t.Identity == nil || t.Store == nil {
+		return nil, persistence.ErrNotFound
+	}
+	org, err := t.Identity.GetOrganizationByID(ctx, b.OrganizationID)
+	if err != nil || org.ID != b.OrganizationID {
+		return nil, persistence.ErrNotFound
+	}
+	accounts, err := t.Store.ListConnections(ctx, org.Key)
+	if err != nil {
+		return nil, err
+	}
+	targets := []execution.Target{}
+	for _, account := range accounts {
+		if account.Kind == application.ConnectionKubernetes && account.Status == application.ConnectionReady {
+			targets = append(targets, execution.Target{Organization: org.Key, Connection: account.Key})
+		}
+	}
+	return targets, nil
+}
+
 func (t Targets) ResolveManagementTarget(ctx context.Context, b port.BindingVersion) (execution.Target, error) {
 	if t.Identity == nil || t.Store == nil {
 		return execution.Target{}, persistence.ErrNotFound

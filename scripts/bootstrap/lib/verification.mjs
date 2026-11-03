@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from 'node:child_process';
-import { openSync, closeSync } from 'node:fs';
+import { openSync, closeSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { requireConfig, BootstrapError } from './bootstrap-config.mjs';
 import { conflict } from './runtime.mjs';
@@ -29,7 +29,19 @@ export async function ensureAccess(ui,config,app,rt) {
  if(rt.state.forward) {
   conflict(rt.state.forward.uid===identity.uid&&rt.state.forward.url===identity.url,'Access service identity');
   let alive=false;try{process.kill(rt.state.forward.pid,0);alive=true;}catch{}
-  if(alive){rt.record('access','REUSED');return;}
+  if(alive){
+   // A service forward stays attached to its original pod. The first request
+   // after a rollout can reveal that the pod disappeared, despite a live PID.
+   const reachable=await ui.page.request.get(identity.url,{timeout:5000}).then(r=>r.ok()).catch(()=>false);
+   if(reachable){rt.record('access','REUSED');return;}
+   let command=[];
+   try{command=readFileSync(`/proc/${rt.state.forward.pid}/cmdline`,'utf8').split('\0');}catch(e){if(e.code!=='ENOENT')throw new BootstrapError('Cannot prove ownership of access forward');}
+   if(command.length>1){
+    conflict(command.includes('port-forward')&&command.includes(namespace)&&command.includes('svc/frontend')&&command.includes(config.runtime.clusterKubeconfigFile)&&command.includes(`${forward.port}:8080`),'Access forward process ownership');
+    process.kill(rt.state.forward.pid,'SIGTERM');
+    await ui.page.waitForTimeout(250);
+   }
+  }
  }
  const log=openSync(join(config.runtime.stateDir,'port-forward.log'),'a',0o600);
  const child=spawn('kubectl',['--kubeconfig',config.runtime.clusterKubeconfigFile,'--context',config.platform.account.context,'-n',namespace,'port-forward','--address',forward.bindAddress,'svc/frontend',`${forward.port}:8080`],{detached:true,stdio:['ignore',log,log]});

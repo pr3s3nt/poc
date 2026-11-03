@@ -77,8 +77,8 @@ Only token hashes are persisted. A revoked or expired session is invalid.
 | `organization_id` | uuid | FK organizations, NOT NULL |
 | `connection_key` | text | NOT NULL |
 | `name` | text | NOT NULL; supplied explicitly |
-| `authentication_type` | text | NOT NULL; `KUBECONFIG`, `AWS_ACCESS_KEY` or `AWS_EC2_ROLE`; kind-compatible |
-| `kind` | text | `AWS` or `KUBERNETES`; V01 account API projects AWS/INTERNAL |
+| `authentication_type` | text | NOT NULL; `KUBECONFIG`, `AWS_ACCESS_KEY`, `AWS_EC2_ROLE` or `GIT_TOKEN`; kind-compatible |
+| `kind` | text | `AWS`, `KUBERNETES` or `GIT` (schema 7, ADR-034); V01 account API projects AWS/INTERNAL |
 | `version` | bigint | NOT NULL, default 1, CHECK(version >= 1); CAS guard for V01 updates |
 | `config` | jsonb | non-secret config, NOT NULL |
 | `secret_ref` | text | NOT NULL |
@@ -1283,3 +1283,11 @@ only required DML; State role receives no new write privileges. Released version
 reference/migration remain unchanged; version 6 adds a frozen complete reference.
 
 Revision relations: [ERD](definition-versions-erd.puml) ([PNG](definition-versions-erd.png)).
+
+## Git connections — schema version 7
+
+Schema 7 (ADR-034, issue #31) widens the `connections` kind/authentication pair
+checks to admit `GIT` connections with `GIT_TOKEN` credentials: reusable,
+Organization-scoped Git accounts whose tokens stay in the private credential
+store. No new relation or grant is introduced; released references/migrations
+1–6 remain frozen and unchanged.

@@ -80,6 +80,19 @@ func (f *Factory) ResolvePublisher(ctx context.Context, b port.BindingVersion) (
 		b = b.Clone()
 		b.Config["caBundle"] = ca
 		b.Config["platformCredentialIdentity"] = hex.EncodeToString(digest[:])
+	} else if strings.HasPrefix(b.WriterCredentialRef, gitaccess.ConnectionWriterPrefix) {
+		conns, ok := f.Organizations.(gitaccess.ConnectionReader)
+		if !ok {
+			return nil, ErrInvalid
+		}
+		raw, err := gitaccess.ConnectionCredential(ctx, conns, f.Credentials, org.Key, b.WriterCredentialRef, repo)
+		if err != nil {
+			return nil, ErrPublication
+		}
+		platformRaw = raw
+		digest := sha256.Sum256(raw)
+		b = b.Clone()
+		b.Config["platformCredentialIdentity"] = hex.EncodeToString(digest[:])
 	}
 	destination := sha256.Sum256([]byte(repo + "\x00" + branch))
 	key := hex.EncodeToString(destination[:])
@@ -119,6 +132,8 @@ func (f *Factory) ResolvePublisher(ctx context.Context, b port.BindingVersion) (
 		var raw []byte
 		var err error
 		if b.WriterCredentialRef == gitaccess.PlatformWriterReference {
+			raw = platformRaw
+		} else if strings.HasPrefix(b.WriterCredentialRef, gitaccess.ConnectionWriterPrefix) {
 			raw = platformRaw
 		} else {
 			raw, err = f.Credentials.Get(ctx, org.Key, b.ID, b.WriterCredentialRef)

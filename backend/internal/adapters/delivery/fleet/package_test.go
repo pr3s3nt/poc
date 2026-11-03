@@ -7,6 +7,8 @@ import (
 	"orchestrator/internal/ports/execution"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func packageIntent() port.Intent {
@@ -33,8 +35,8 @@ func TestPackagePreservesPayloadAndRetainsObjectsOnWithdrawal(t *testing.T) {
 	}
 	for file, raw := range a.Publication.Files {
 		var obj map[string]any
-		if json.Unmarshal(raw, &obj) != nil {
-			t.Fatal("invalid generated JSON")
+		if yaml.Unmarshal(raw, &obj) != nil {
+			t.Fatal("invalid generated YAML")
 		}
 		if file == "fleet.yaml" {
 			helm := obj["helm"].(map[string]any)
@@ -42,6 +44,9 @@ func TestPackagePreservesPayloadAndRetainsObjectsOnWithdrawal(t *testing.T) {
 				t.Fatal("unsafe Fleet settings")
 			}
 			continue
+		}
+		if !strings.HasSuffix(file, ".yaml") {
+			t.Fatal("manifest not published as YAML", file)
 		}
 		metadata := obj["metadata"].(map[string]any)
 		annotations := metadata["annotations"].(map[string]any)

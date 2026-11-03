@@ -144,13 +144,15 @@ func (a Application) Validate() error {
 	return nil
 }
 
-// ConnectionKind distinguishes cloud accounts from registered clusters.
+// ConnectionKind distinguishes infrastructure accounts and reusable Git connections.
 type ConnectionKind string
 
-// Connection kinds registered in UC-04.
+// Connection kinds registered in UC-04; GIT is the reusable Git account of
+// ADR-034 (issue #31).
 const (
 	ConnectionAWS        ConnectionKind = "AWS"
 	ConnectionKubernetes ConnectionKind = "KUBERNETES"
+	ConnectionGit        ConnectionKind = "GIT"
 )
 
 // ConnectionStatus is the Connection state machine value.
@@ -175,6 +177,9 @@ const (
 	// AuthAWSAccessKey is the AWS account identity of ADR-009.
 	AuthAWSAccessKey AuthenticationType = "AWS_ACCESS_KEY"
 	AuthAWSEC2Role   AuthenticationType = "AWS_EC2_ROLE"
+	// AuthGitToken is the write-only username/token credential of a Git
+	// Connection (ADR-034).
+	AuthGitToken AuthenticationType = "GIT_TOKEN"
 )
 
 // Compatible reports whether the authentication type belongs to the kind.
@@ -184,6 +189,8 @@ func (t AuthenticationType) Compatible(kind ConnectionKind) bool {
 		return kind == ConnectionKubernetes
 	case AuthAWSAccessKey, AuthAWSEC2Role:
 		return kind == ConnectionAWS
+	case AuthGitToken:
+		return kind == ConnectionGit
 	}
 	return false
 }

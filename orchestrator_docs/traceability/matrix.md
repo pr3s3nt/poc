@@ -1384,3 +1384,17 @@ No schema change or live CD/VSO acceptance is implied by these local checks.
 | DV-07 preserving owner migration | migration 006 and complete reference | `definition_versions_integration_test.go`, full real PostgreSQL upgrade suite |
 
 [Requirement source](../usecase/UC-03/definition-versions.md), [verification and limits](../verification/2026-11-03-definition-versions.md).
+
+
+## Simplified CD configuration — UC-04 CD-08–11
+
+| Requirement | Realization/code | Validation |
+|---|---|---|
+| CD-08 four-field inline reusable Connections | UC-04 realization/UI; connection service/HTTP; `CDProvidersPage`, `CDKubernetesConnectionDialog` | Git registration/scoping tests; Console component tests; real `simplified-cd/setup.mjs` |
+| CD-09 workspace-scoped proven target discovery | Fleet `inspect.go`, `target_identity.go`, `verify.go`; scoped target repository | target identity tests; workspace reselection test; real discovery/Verify |
+| CD-10 deterministic YAML and exact SHA | Fleet package/export and existing GitRepo manager | package tests; `simplified-cd/verify.mjs` private-repository YAML/SHA reads |
+| CD-11 credential reuse and pinned binding stability | Git credential resolvers; immutable bindings/defaults; managed reader setup | scoped credential tests, owned Secret tests, real setup/rollback/default assertions |
+| Schema 7 preservation and runtime isolation | migration/reference 007; owner upgrade registry | populated prior-source upgrades, rollback, repeated setup, Git persistence and runtime DDL denial |
+
+Actual run outcomes belong in dated verification evidence; these runners alone
+do not establish real deployment or cleanup completion.

@@ -96,7 +96,17 @@ func cloneConfig(in map[string]any) map[string]any {
 // ListAccounts returns the Organization's backing records (safe projection is
 // the delivery layer's job).
 func (s *Service) ListAccounts(ctx context.Context, org string) ([]application.Connection, error) {
-	return s.store.ListConnections(ctx, org)
+	connections, err := s.store.ListConnections(ctx, org)
+	if err != nil {
+		return nil, err
+	}
+	accounts := []application.Connection{}
+	for _, conn := range connections {
+		if conn.Kind == application.ConnectionKubernetes || conn.Kind == application.ConnectionAWS {
+			accounts = append(accounts, conn)
+		}
+	}
+	return accounts, nil
 }
 
 // GetAccount returns one record of the Organization; a foreign or missing key
@@ -106,7 +116,7 @@ func (s *Service) GetAccount(ctx context.Context, org, key string) (application.
 	if err != nil {
 		return application.Connection{}, err
 	}
-	if conn.OrganizationKey != org || conn.Key != key {
+	if conn.OrganizationKey != org || conn.Key != key || (conn.Kind != application.ConnectionKubernetes && conn.Kind != application.ConnectionAWS) {
 		return application.Connection{}, persistence.ErrNotFound
 	}
 	return conn, nil

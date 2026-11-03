@@ -47,7 +47,7 @@ export function loadBootstrapConfig(file) {
  for (const k of ['backendAddress','workloadAddress']) { const u = new URL(p.secretStore[k]); requireConfig(['http:','https:'].includes(u.protocol) && !u.username && !u.password && !u.search && !u.hash, `secretStore.${k} invalid`); }
  p.secretStore.tokenFile = path(p.secretStore.tokenFile); readPrivateFile(p.secretStore.tokenFile,'Vault token');
  if (p.secretStore.tlsCaPemFile) p.secretStore.tlsCaPemFile=path(p.secretStore.tlsCaPemFile);
- onlyKeys(p.delivery,['name','provider','usePlatformGit','config','writerUsername','writerPasswordFile','setDefault','namespaceAccess'],'delivery');
+ onlyKeys(p.delivery,['name','provider','usePlatformGit','config','writerUsername','writerPasswordFile','writerURL','setDefault','namespaceAccess'],'delivery');
  requireConfig(text(p.delivery.name) && text(p.delivery.provider) && obj(p.delivery.config) && Object.values(p.delivery.config).every(v=>typeof v==='string'), 'delivery config invalid');
  requireConfig(typeof p.delivery.usePlatformGit === 'boolean' && typeof p.delivery.setDefault === 'boolean','delivery flags must be boolean');
  if(p.delivery.namespaceAccess) {
@@ -59,7 +59,7 @@ export function loadBootstrapConfig(file) {
   requireConfig(Array.isArray(policy.rules)&&policy.rules.every(r=>Array.isArray(r.apiGroups)&&r.apiGroups.every(v=>['','apps','batch','secrets.hashicorp.com','networking.k8s.io'].includes(v))&&Array.isArray(r.resources)&&r.resources.every(v=>['configmaps','secrets','services','serviceaccounts','pods','persistentvolumeclaims','deployments','replicasets','statefulsets','jobs','cronjobs','vaultauths','vaultconnections','vaultstaticsecrets','ingresses'].includes(v))&&Array.isArray(r.verbs)&&r.verbs.every(v=>['get','list','watch','create','update','patch','delete'].includes(v))), 'Only bounded namespaced workload rules allowed');
  }
  if (p.delivery.usePlatformGit) requireConfig(p.gitAccess, 'Shared CD requires gitAccess');
- else { p.delivery.writerPasswordFile=path(p.delivery.writerPasswordFile); readPrivateFile(p.delivery.writerPasswordFile,'CD credential'); }
+ else if(!p.delivery.config.gitConnectionKey) { requireConfig(typeof p.delivery.writerURL==='string' && p.delivery.writerURL.startsWith('https://'),'delivery.writerURL must name the Git account/group scope'); p.delivery.writerPasswordFile=path(p.delivery.writerPasswordFile); readPrivateFile(p.delivery.writerPasswordFile,'CD credential'); }
  onlyKeys(raw.application,['name','subdomain','expectedKey','environment','variables','secretFiles','scores','workloadClass','images','catalogTag','definitionRevisions'],'application');
  const app=config.application;
  requireConfig(text(app.name) && /^[a-z0-9][a-z0-9-]{0,62}$/.test(app.subdomain) && ['staging','production'].includes(app.environment),'application identity/environment invalid');

@@ -26,7 +26,7 @@ var baselineSQL string
 
 // baselineIdentity is the technical marker stored by a fresh initialization.
 // It identifies the frozen current schema version; history is recorded separately.
-const baselineIdentity = "orchestrator-schema-v6"
+const baselineIdentity = "orchestrator-schema-v7"
 
 // baselineLockKey serializes initialization and validation across instances.
 const baselineLockKey = 1862274311
@@ -395,7 +395,7 @@ func verifyMarker(ctx context.Context, tx pgx.Tx, schema string) (baselineMarker
 		}
 		return m, fmt.Errorf("postgres: read baseline marker: %w", err)
 	}
-	if rows == 1 && ((identity == "orchestrator-fresh-baseline-v02" && supportedSource(baselineSum) != "") || (identity == "orchestrator-schema-v1" && baselineSum == digest(versionOneSQL)) || (identity == "orchestrator-schema-v2" && baselineSum == digest(versionTwoSQL)) || (identity == "orchestrator-schema-v3" && baselineSum == digest(versionThreeSQL)) || (identity == "orchestrator-schema-v4" && baselineSum == digest(versionFourSQL)) || (identity == "orchestrator-schema-v5" && baselineSum == digest(versionFiveSQL))) {
+	if rows == 1 && ((identity == "orchestrator-fresh-baseline-v02" && supportedSource(baselineSum) != "") || (identity == "orchestrator-schema-v1" && baselineSum == digest(versionOneSQL)) || (identity == "orchestrator-schema-v2" && baselineSum == digest(versionTwoSQL)) || (identity == "orchestrator-schema-v3" && baselineSum == digest(versionThreeSQL)) || (identity == "orchestrator-schema-v4" && baselineSum == digest(versionFourSQL)) || (identity == "orchestrator-schema-v5" && baselineSum == digest(versionFiveSQL)) || (identity == "orchestrator-schema-v6" && baselineSum == digest(versionSixSQL))) {
 		return m, ErrUpgradeRequired
 	}
 	if rows != 1 || identity != baselineIdentity || baselineSum != digest(versionSQL) || schemaName != schema {

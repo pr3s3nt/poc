@@ -34,7 +34,7 @@ CREATE TABLE sessions (
 CREATE TABLE connections (
   id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES organizations(id),
   connection_key text NOT NULL, name text NOT NULL,
-  kind text NOT NULL CHECK (kind IN ('AWS','KUBERNETES')),
+  kind text NOT NULL CHECK (kind IN ('AWS','KUBERNETES','GIT')),
   authentication_type text NOT NULL,
   version bigint NOT NULL DEFAULT 1 CONSTRAINT connections_version_check CHECK (version >= 1),
   config jsonb NOT NULL, secret_ref text NOT NULL, status text NOT NULL,
@@ -43,7 +43,7 @@ CREATE TABLE connections (
   CONSTRAINT connections_id_organization_key UNIQUE (id, organization_id),
   CONSTRAINT connections_authentication_type_check CHECK (
     (kind='KUBERNETES' AND authentication_type='KUBECONFIG') OR
-    (kind='AWS' AND authentication_type IN ('AWS_ACCESS_KEY','AWS_EC2_ROLE')))
+    (kind='AWS' AND authentication_type IN ('AWS_ACCESS_KEY','AWS_EC2_ROLE')) OR (kind='GIT' AND authentication_type='GIT_TOKEN'))
 );
 
 -- Application is identity and current metadata only; execution and store

@@ -756,3 +756,38 @@ Resource-scoped secret prerequisite automation, broader probe union and volumeMo
 still differ from the full design; MySQL currently takes existing approved Secret
 refs. See [handoff](workload-catalog.md) and
 [verification](../verification/2026-10-29-workload-catalog.md). Main merge is gated.
+
+
+## IMP-040 — Simplified CD configuration completion — issue #31
+
+Status: resolved within the verified local Fleet scope, 2026-11-04.
+[ADR-034](../architecture/decisions/ADR-034-simplified-cd-configuration.md) and
+UC-04 CD-08..11 are implemented with reusable inline Connections, workspace-scoped
+discovery, authenticated physical target matching and an owned binding-version
+reader Secret. Schema 6→7 backup/restore rehearsal and retained-installation
+upgrade preserved original data/identity. Real private GitHub/Fleet baseline,
+update, image rollback, binding/default stability and unchanged Preview reuse
+passed, followed by product cleanup with native namespace/PV absence, original
+default restoration and unchanged existing Environment pins; see
+[execution evidence](../verification/2026-11-04-simplified-cd.md).
+
+The interrupted implementation originally listed targets that its verifier
+could not admit and treated every reader Secret as an external prerequisite.
+Discovery/Verify now agree on authenticated default-clientID or known bootstrap
+local mapping; unsupported custom identities remain disabled. Admitted Deploy
+manages the derived private reader Secret with exact binding/version ownership.
+Controller installation, release namespace and ServiceAccount/RBAC remain
+operator prerequisites, as recorded in ADR-034. This live run proves the local
+Fleet topology; it does not claim remote-cluster runtime acceptance.
+
+Live update exposed two additional defects. Retained keep-policy VSO objects
+blocked clean readiness before the UID pruner could run. `PendingPrune` now
+requires exact applied revision/digest, fresh complete healthy desired inventory
+and provider proof of deletion-only omitted acknowledged UIDs before fenced
+removal and clean reobservation. GitRepo status could also report the new SHA
+while its Bundle retained old content. Managed writes now preserve Fleet metadata
+and request one Git render generation per new admitted non-Job intent; explicit
+receipted recovery is bounded to one request for a proven commit mismatch.
+No status forging, unrelated drift acceptance, force replacement or Job replay
+was introduced. Broader remote-cluster runtime acceptance remains outside this
+local run; no unresolved code/design mismatch is hidden by that boundary.

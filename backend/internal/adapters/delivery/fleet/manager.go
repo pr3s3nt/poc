@@ -19,11 +19,12 @@ var ErrController = errors.New("fleet: controller operation could not be confirm
 // Manager writes only the exact Organization/Environment/epoch-scoped GitRepo.
 // Namespace/resources created by Terraform are never submitted through this port.
 type Manager struct {
-	RecoveryGuard func(context.Context, port.Intent) error
-	Verifier      *Verifier
-	HelmPath      string
-	Timeout       time.Duration
-	Guard         func(context.Context, port.Intent) error
+	ReaderCredentials func(context.Context, port.BindingVersion) ([]byte, error)
+	RecoveryGuard     func(context.Context, port.Intent) error
+	Verifier          *Verifier
+	HelmPath          string
+	Timeout           time.Duration
+	Guard             func(context.Context, port.Intent) error
 }
 
 func (m *Manager) open(ctx context.Context, i port.Intent) (k8s.CLI, func(), Config, error) {
@@ -72,6 +73,9 @@ func (m *Manager) Submit(ctx context.Context, i port.Intent, p Package, git gitp
 		return port.Receipt{}, err
 	}
 	defer close()
+	if err := m.ensureReader(ctx, i, cli, cfg); err != nil {
+		return port.Receipt{}, err
+	}
 	if cfg.GitRepoMode == "EXISTING" {
 		return m.submitExisting(ctx, i, p, git, cli, cfg)
 	}
@@ -79,7 +83,8 @@ func (m *Manager) Submit(ctx context.Context, i port.Intent, p Package, git gitp
 	if err != nil {
 		return port.Receipt{}, ErrController
 	}
-	md := map[string]any{"name": p.UnitName, "namespace": cfg.Workspace, "labels": ownerLabels(i, p.UnitName), "annotations": map[string]any{"orchestrator.io/delivery-revision": i.Revision.ID, "orchestrator.io/delivery-digest": git.TreeDigest, "orchestrator.io/delivery-intent": i.ID}}
+	md := managedRepoMetadata(current, i, p.UnitName, git.TreeDigest)
+	md["namespace"] = cfg.Workspace
 	spec := map[string]any{"repo": cfg.RepositoryURL, "revision": git.Commit, "paths": []any{p.Publication.Path}, "targets": []any{map[string]any{"clusterName": cfg.TargetCluster}}, "deleteNamespace": false, "keepResources": false}
 	if cfg.CABundle != "" {
 		spec["caBundle"] = []byte(cfg.CABundle)
@@ -100,6 +105,11 @@ func (m *Manager) Submit(ctx context.Context, i port.Intent, p Package, git gitp
 		}
 		md["resourceVersion"] = old["resourceVersion"]
 	}
+	generation, err := gitRenderGeneration(current, exists, i, git.Commit)
+	if err != nil {
+		return port.Receipt{}, err
+	}
+	spec["forceSyncGeneration"] = generation
 	payload, err := json.Marshal(obj)
 	if err != nil {
 		return port.Receipt{}, ErrController

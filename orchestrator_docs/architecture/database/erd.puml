@@ -71,6 +71,11 @@ entity connections {
   status : text
   config : jsonb
 }
+note right of connections
+  Schema 7: AWS / KUBERNETES / GIT.
+  GIT requires GIT_TOKEN; credentials stay outside SQL.
+  Git connections are not infrastructure Driver Accounts.
+end note
 entity secret_store_connections {
  * id : uuid <<PK>>
  * organization_id : uuid <<FK>>

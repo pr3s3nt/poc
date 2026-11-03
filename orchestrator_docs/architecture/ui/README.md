@@ -249,3 +249,13 @@ the existing catalog; edit remains the current two-tab form. Environment Setting
 adds revision selection beside Catalog using existing staging/production tabs.
 No navigation/theme redesign. New labels use VI/EN message catalogs; configuration
 rollback is not labelled as restoring database contents.
+
+
+## Simplified CD connections — issue #31
+
+UC-04 CD authoring uses the existing shell/card/form controls and shared Dialog.
+Its four connection/topology fields hide technical namespace, identity and
+repository defaults. Inline kubeconfig creation reuses the concealed Driver Accounts
+control; new Git credentials create reusable Connections. Workspace changes reset
+the selected target identity. Default changes retain existing Application pins.
+See [CD screens](../../usecase/UC-04/ui/cd-providers.md); no shell/theme redesign.

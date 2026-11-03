@@ -14,6 +14,16 @@ require a reviewed migration. Never delete a retained database or edit markers
 just to start the new application. Workload databases/JSON snapshots are outside
 this upgrade path. No deployment or external mutation is authorized by this text.
 
+## Schema 7 — reusable Git connections
+
+Migration `007-git-connections.sql` extends connection kind/authentication checks
+with `GIT`/`GIT_TOKEN`; `version-007.sql` is the frozen full reference. Source 6
+and all earlier supported sources upgrade in the same owner transaction, preserving
+existing connection IDs/credentials and domain/state identities. No new runtime
+grants or DDL privileges are added. Follow the same backup, isolated restore,
+quiesce and owner-setup procedure below. Git tokens remain private credential-store
+values; schema 7 stores only connection metadata and opaque references.
+
 ## Schema 6 — controlled Definition upgrades
 
 Migration `006-definition-versions.sql` upgrades frozen version 5; the active fresh

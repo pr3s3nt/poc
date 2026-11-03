@@ -69,3 +69,5 @@ ZIP source upload: [ADR-026](ADR-026-zip-source-upload.md).
 - [ADR-032 — CD owns application manifests](ADR-032-cd-only-manifests.md).
 
 - [ADR-033 — Platform-managed delivery repositories](ADR-033-platform-managed-delivery.md).
+
+- [ADR-034 — Simplified CD configuration with reusable connections](ADR-034-simplified-cd-configuration.md).

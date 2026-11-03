@@ -9,12 +9,12 @@ containers:
             path: /healthz
             port: 8080
         variables:
-            BACKEND_URL: ${resources.backend.url}
+            BACKEND_URL: ${resources.svc_backend_http.url}
             PORT: ${resources.env.PORT}
 metadata:
     name: frontend
 resources:
-    backend:
+    svc_backend_http:
         params:
             port: http
             workload: backend

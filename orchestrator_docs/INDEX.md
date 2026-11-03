@@ -22,6 +22,8 @@ implementation status.
 - [Documentation rules](DOCUMENTATION_RULES.md)
 
 - [Platform-managed delivery decision](architecture/decisions/ADR-033-platform-managed-delivery.md)
+- [Simplified CD configuration decision](architecture/decisions/ADR-034-simplified-cd-configuration.md)
+- [Simplified CD configuration verification](verification/2026-11-04-simplified-cd.md)
 - [Platform-managed delivery verification](verification/2026-11-02-platform-managed-cd.md)
 
 ## Route by task

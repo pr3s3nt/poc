@@ -287,14 +287,7 @@
       "provider": "fleet",
       "usePlatformGit": true,
       "setDefault": true,
-      "config": {
-        "repositoryAPI": "https://api.github.com",
-        "repositoryHost": "https://github.com",
-        "repositoryPrefix": "orch-bootstrap-dev-",
-        "root": "environments",
-        "readSecret": "orchestrator-git-reader",
-        "serviceAccount": "orchestrator-delivery"
-      },
+      "config": {},
       "namespaceAccess": {
         "enabled": true,
         "rulesFile": "../applications/acceptance/fleet-access.json"

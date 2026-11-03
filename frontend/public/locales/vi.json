@@ -3765,5 +3765,14 @@
   "versions.discard": "Bỏ lựa chọn nâng cấp",
   "versions.saved": "Đã lưu lựa chọn. Chưa triển khai.",
   "versions.editNote": "Lưu thay đổi tạo phiên bản đề xuất; Environment đang chạy giữ bản đã ghim.",
-  "versions.notUsed": "Chưa sử dụng"
+  "versions.notUsed": "Chưa sử dụng",
+  "cd.fields.gitConnectionKey": "Kết nối Git",
+  "cd.addKubernetesConnection": "Thêm kết nối Kubernetes",
+  "cd.chooseGitConnection": "Chọn kết nối Git",
+  "cd.addGitConnection": "Thêm kết nối Git mới",
+  "cd.saveGitConnection": "Lưu kết nối Git",
+  "cd.gitConnectionSaved": "Đã lưu kết nối Git.",
+  "cd.gitConnectionFailed": "Không lưu được kết nối Git.",
+  "cd.gitUrl": "URL phạm vi Git (tài khoản/nhóm)",
+  "cd.gitConnectionName": "Tên kết nối Git"
 }

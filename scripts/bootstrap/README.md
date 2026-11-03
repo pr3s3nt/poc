@@ -105,3 +105,13 @@ node scripts/bootstrap/run.mjs --target dev --url https://console.example \
 
 Luồng legacy chỉ bootstrap Catalog, không deploy acceptance. Dùng config v2 cho
 full bootstrap; không dùng legacy environment overrides với config v2.
+
+
+CD configuration follows issue #31: `platform.delivery.config` only selects
+`workspace`, `targetCluster` or an existing `gitConnectionKey`. Internal repository
+and Fleet fields are derived by the Platform; presets no longer author them.
+Shared Git uses `usePlatformGit=true`. For a separate new Git Connection, set
+`usePlatformGit=false`, `writerURL` to its HTTPS account/group scope, plus
+`writerUsername` and the private `writerPasswordFile`. Bootstrap registers that
+connection through the ordinary inline CD form. Existing infrastructure accounts,
+bindings and their applied consumers remain intact.

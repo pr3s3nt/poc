@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-04 | Issue #31: inline Connections, schema 6→7 preservation, private GitHub/Fleet YAML delivery; runtime phase results and limits | [Simplified CD](2026-11-04-simplified-cd.md) |
 | 2026-11-02 | Restored Definition forms, Catalog module pins/provenance, 992 frontend tests, real Tailscale browser, preserved 16 Applications | [Definition/Catalog form](2026-11-02-definition-catalog.md) |
 | 2026-11-02 | Real Console/GitHub/PostgreSQL/Vault/Kubernetes: Catalog-only source, release upgrade 1→2 Ready replicas, HTTP 200, preserved UIDs and container recreation | [Catalog-only live UI](2026-11-02-catalog-only-live.md) |
 | 2026-10-29 | Fast headless catalog/workload/PVC only: backend-only Preview, real file persistence after UID-guarded Pod recreation, 8 assertions | [Focused PVC acceptance](2026-10-29-acceptance-pvc-focused.md) |

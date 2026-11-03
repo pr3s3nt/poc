@@ -2,10 +2,38 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-03
+last_reviewed: 2026-11-04
 ---
 
 # Current project state
+
+## Simplified CD configuration — issue #31, 2026-11-04
+
+Dev Console port 3031 implements [ADR-034](architecture/decisions/ADR-034-simplified-cd-configuration.md):
+four connection/topology fields, inline reusable Kubernetes/Git Connections,
+workspace-scoped discovery and pinned physical target identity. Per-Application
+private GitHub repositories publish per-Environment/unit YAML at exact SHAs.
+New bindings derive an owned private reader Secret, created/refreshed only by
+admitted Deploy; read-only Verify checks permissions. Existing binding versions
+and Applications retain their selections when the platform default changes.
+
+The retained dev database was upgraded from schema 6 to 7 after actual backup
+restore rehearsal, preserving all original rows and installation identity.
+Real baseline/update/image rollback, PostgreSQL/Redis/job-data retention, new
+binding version reuse and unchanged Preview reuse passed. Exact GitRepo and
+rendered Bundle commit checks passed for six units. Product cleanup passed:
+test Application/namespace/PVs absent, original default restored and existing
+Environment binding pins preserved. Reusable Connections/bindings, the owned
+reader Secret and Git history remain. See the
+[execution record](verification/2026-11-04-simplified-cd.md).
+
+The run also fixed retained VSO deletion-only drift blocking update and stale
+Fleet Bundle content after a GitRepo revision change. Exact revision, ownership,
+UID and fencing guards remain required. Live topology is bootstrap-local Fleet
+v0.15.2; default-clientID remote mapping has unit coverage, not live remote-cluster
+acceptance. Custom/ambiguous identities remain unsupported. Fleet installation,
+release namespace and ServiceAccount/RBAC remain operator prerequisites.
+The separate port-3001 installation was not changed by this dev task.
 
 ## Controlled Definition upgrades — 2026-11-03
 
@@ -37,8 +65,9 @@ new Applications only. Existing test Applications are preserved without migratio
 
 Schema 5 adds platform defaults and immutable repository allocations. Terraform
 continues to own infrastructure/dependencies. Fleet receives application manifests
-and nonsecret auxiliaries. Live GitHub/Fleet deployment is not yet acceptance-tested
-for this new allocation flow; see [verification](verification/2026-11-02-platform-managed-cd.md).
+and nonsecret auxiliaries. Live acceptance was pending in the original
+[verification](verification/2026-11-02-platform-managed-cd.md); the issue #31
+execution above now covers the real private repository allocation flow on dev.
 
 ## Required CD for application manifests — 2026-11-02
 

@@ -109,7 +109,44 @@ func (s *Bindings) Register(ctx context.Context, orgKey string, cmd RegisterBind
 		config["repositoryOwner"] = gitaccess.RepositoryOwner(settings.URL)
 		cmd.Config = config
 	}
-	b := domain.BindingVersion{ID: ids.New(), Version: 1, OrganizationID: org.ID, Name: name, ProviderKind: cmd.ProviderKind, ContractVersion: "v1", ManagementAccountID: account.ID, ManagementAccountVersion: account.Version, Config: cmd.Config, WriterCredentialRef: cmd.WriterCredentialRef, Status: domain.Unverified, Revision: 1, CreatedAt: s.now()}
+	if defaults, ok := provider.(port.ConfigurationDefaults); ok {
+		merged := defaults.DefaultConfiguration()
+		for k, v := range cmd.Config {
+			merged[k] = v
+		}
+		cmd.Config = merged
+	}
+	writerRef := cmd.WriterCredentialRef
+	if key := strings.TrimSpace(cmd.Config["gitConnectionKey"]); key != "" {
+		if cmd.UsePlatformGit || cmd.WriterUsername != "" || cmd.WriterPassword != "" || cmd.RetainWriterCredential || writerRef != "" {
+			return domain.BindingVersion{}, domain.ErrInvalid
+		}
+		conn, err := s.store.GetConnection(ctx, orgKey, key)
+		if err != nil || conn.Kind != application.ConnectionGit || conn.Status != application.ConnectionReady {
+			return domain.BindingVersion{}, domain.ErrInvalid
+		}
+		owner := gitaccess.ConnectionRepositoryOwner(conn)
+		if owner == "" {
+			return domain.BindingVersion{}, domain.ErrInvalid
+		}
+		cmd.Config["repositoryOwner"] = owner
+		if rawURL, _ := conn.Config["url"].(string); rawURL != "" {
+			if u, err := gitaccess.ScopeURL(rawURL); err == nil {
+				host := u.Scheme + "://" + u.Host
+				cmd.Config["repositoryHost"] = host
+				if u.Host == "github.com" {
+					cmd.Config["repositoryAPI"] = "https://api.github.com"
+				} else {
+					cmd.Config["repositoryAPI"] = host + "/api/v3"
+				}
+			}
+		}
+		writerRef = gitaccess.ConnectionWriterPrefix + conn.Key
+		if _, err := gitaccess.ConnectionCredential(ctx, s.store, s.credentials, orgKey, writerRef); err != nil {
+			return domain.BindingVersion{}, domain.ErrInvalid
+		}
+	}
+	b := domain.BindingVersion{ID: ids.New(), Version: 1, OrganizationID: org.ID, Name: name, ProviderKind: cmd.ProviderKind, ContractVersion: "v1", ManagementAccountID: account.ID, ManagementAccountVersion: account.Version, Config: cmd.Config, WriterCredentialRef: writerRef, Status: domain.Unverified, Revision: 1, CreatedAt: s.now()}
 	if cmd.BindingID != "" {
 		previous, err := s.store.GetDeliveryBinding(ctx, org.ID, cmd.BindingID, cmd.PreviousVersion)
 		if err != nil {
@@ -145,6 +182,13 @@ func (s *Bindings) Register(ctx context.Context, orgKey string, cmd RegisterBind
 		if err != nil || !policy.Enabled {
 			return domain.BindingVersion{}, domain.ErrInvalid
 		}
+	}
+	if initializer, ok := provider.(port.ConfigurationInitializer); ok {
+		config, err := initializer.InitializeConfiguration(b)
+		if err != nil {
+			return domain.BindingVersion{}, err
+		}
+		b.Config = config
 	}
 	if err := validator.ValidateConfiguration(b); err != nil {
 		return domain.BindingVersion{}, domain.ErrInvalid

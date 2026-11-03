@@ -308,6 +308,16 @@ Secret selectors. Update prune requires proof that the old object is absent from
 the acknowledged new release manifest before UID removal. Prune is coordinated
 cleanup, not an unrestricted native Fleet deletion option.
 
+A provider may implement `PendingPrune` for a keep-policy retirement deadlock.
+Only the admitted Submit/recovery coordinator invokes it: fresh complete evidence
+must identify the exact applied revision/digest and healthy desired inventory.
+Every reported difference must be deletion-only and belong to omitted prior
+acknowledged inventory; unrelated drift, unknown UID or remaining desired objects
+refuse this path. The existing fenced UID/owner/release remover performs deletion.
+The coordinator reobserves clean sync/drift before acknowledging the new revision.
+Background/read-only Observe never deletes, and health alone never acknowledges.
+
+
 Provider metadata (GitRepo/BundleDeployment/release storage) receives its own
 owned UID inventory so namespace cleanup can account for it. Keep controller
 installation, registrations, read-credential Secrets and service accounts that
@@ -409,3 +419,31 @@ assertions, string switches in deployment/pending services or Fleet statuses in
 HTTP DTOs. New provider work is adapter + descriptor/configuration validator +
 bootstrap registration + conformance/live tests; optional configuration fields
 may need a UI editor, not a new deployment flow.
+
+
+## Simplified Fleet topology — ADR-034
+
+Read-only discovery groups target choices by workspace and resolves each eligible
+Fleet registration to a READY Kubernetes Connection in the same Organization.
+The default Fleet client identity is compared with an authenticated `kube-system`
+UID; local bootstrap additionally proves equality with the manager identity.
+Discovered account, agent namespace and registration UID remain internal binding
+configuration, not extra user-authored fields. Unproven custom identities fail
+closed. Verify and deployment preflight preserve these physical identity checks;
+GitRepo target selection does not move planner-selected resources.
+
+
+Managed GitRepo updates preserve Fleet-owned metadata, including credential hash
+annotations, finalizers and owner references. Each new admitted non-Job intent
+advances the Git render generation once while keeping the exact SHA/paths/targets.
+This requests a fresh Fleet Git job; Helm force/takeOwnership remain false and
+existing Job units cannot use this path. Replaying the same intent does not
+advance it. Read-only observation never advances a generation.
+
+Receipted recovery may request that same bounded Git rendering step only when
+GitRepo reports the admitted SHA but its owned Bundle still reports another commit.
+UID/resourceVersion/revision and exact repository/path/target checks are required;
+a per-intent recovery marker prevents repeated requests. Recovery never forges
+controller status, changes the admitted revision/target, deletes controllers or
+forces Kubernetes object replacement. All original Bundle/live revision proofs
+still gate acknowledgement.

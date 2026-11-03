@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"orchestrator/internal/adapters/statecipher"
 	"orchestrator/internal/adapters/store"
 	"orchestrator/internal/application/gitaccess"
+	"orchestrator/internal/domain/application"
 	domain "orchestrator/internal/domain/delivery"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/platform/ids"
@@ -303,3 +305,46 @@ func TestSharedGitOwnerIsInheritedServerSide(t *testing.T) {
 type ownerTestCredentials struct{ *credentialmemory.Store }
 
 func (ownerTestCredentials) Durable() bool { return true }
+
+func TestGitConnectionSuppliesWriterAndOwner(t *testing.T) {
+	c, _, ctx, req, _ := coordinatorFixture(t)
+	st := c.Store.(bindingStore)
+	creds := ownerTestCredentials{credentialmemory.New()}
+	ref, err := creds.Put(ctx, req.OrganizationKey, "team-git", []byte(`{"username":"writer","password":"private-test-token"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	git := application.Connection{ID: ids.New(), Key: "team-git", Name: "Team Git", OrganizationKey: req.OrganizationKey, Kind: application.ConnectionGit, AuthenticationType: application.AuthGitToken, Config: map[string]any{"url": "https://github.com/my-team"}, SecretRef: ref, Status: application.ConnectionReady, Version: 1}
+	if err := st.CreateConnection(ctx, git); err != nil {
+		t.Fatal(err)
+	}
+	account, err := st.GetConnection(ctx, req.OrganizationKey, "delivery-manager")
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := NewBindings(st, c.Registry)
+	svc.SetCredentials(creds)
+	b, err := svc.Register(ctx, req.OrganizationKey, RegisterBinding{Name: "Git connection", ProviderKind: "fleet", ManagementAccountKey: account.Key, ManagementAccountVersion: account.Version, Config: map[string]string{"gitConnectionKey": "team-git"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.WriterCredentialRef != gitaccess.ConnectionWriterPrefix+"team-git" || b.Config["repositoryOwner"] != "my-team" || b.Config["repositoryHost"] != "https://github.com" {
+		t.Fatalf("git connection not resolved into binding: %v %v", b.WriterCredentialRef, b.Config)
+	}
+	raw, err := gitaccess.ConnectionCredential(ctx, st, creds, req.OrganizationKey, b.WriterCredentialRef)
+	if err != nil || !strings.Contains(string(raw), "private-test-token") {
+		t.Fatal("writer credential not resolvable", err)
+	}
+	if _, err := gitaccess.ConnectionCredential(ctx, st, creds, req.OrganizationKey, b.WriterCredentialRef, "https://github.com/other-team/repo.git"); err == nil {
+		t.Fatal("Git connection credential escaped its URL scope")
+	}
+	if _, err := gitaccess.ConnectionCredential(ctx, st, creds, "other-org", b.WriterCredentialRef); err == nil {
+		t.Fatal("Git connection credential escaped its Organization")
+	}
+	if _, err := svc.Register(ctx, req.OrganizationKey, RegisterBinding{Name: "Mixed", ProviderKind: "fleet", ManagementAccountKey: account.Key, ManagementAccountVersion: account.Version, WriterUsername: "u", WriterPassword: "p", Config: map[string]string{"gitConnectionKey": "team-git"}}); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatal("mixed writer sources accepted", err)
+	}
+	if _, err := svc.Register(ctx, req.OrganizationKey, RegisterBinding{Name: "Foreign", ProviderKind: "fleet", ManagementAccountKey: account.Key, ManagementAccountVersion: account.Version, Config: map[string]string{"gitConnectionKey": "missing"}}); err == nil {
+		t.Fatal("unknown git connection accepted")
+	}
+}

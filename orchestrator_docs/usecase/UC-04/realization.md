@@ -217,3 +217,16 @@ creates immutable versions with scoped credential retain/replace, and supplies
 safe details/Environment usage. Fleet discovery reads Cluster/GitRepo metadata
 from the selected management account; it returns no Secret contents. Lifecycle
 coordinator remains independent of MANAGED/EXISTING publication topology.
+
+
+## Reusable Git connections — ADR-034
+
+The CD page registers inline Git credentials through the connection service,
+which validates the account/group URL, writes credentials to the scoped store,
+and persists only safe connection metadata. Registration does not prove live
+Git access. The binding service resolves a READY Git connection in the same
+Organization, derives its repository host/owner server-side and stores a private
+connection reference in the immutable binding version. It rejects mixed writer
+sources. Repository hosting and publication adapters resolve credentials at use;
+no token is copied into binding configuration or returned to the browser.
+Read-only binding verification proves Git access before READY eligibility.

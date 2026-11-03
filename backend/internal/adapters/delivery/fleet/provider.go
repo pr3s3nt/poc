@@ -29,6 +29,9 @@ func Capabilities() domain.Capabilities {
 	return domain.Capabilities{ContractVersion: "v1", ExactRevision: true, DriftDetection: true, SelfHeal: true, PhasedDelivery: true, RetainOnWithdraw: true, GuardedPrune: true}
 }
 func (p *Provider) ValidateConfiguration(b port.BindingVersion) error {
+	if b.Config["readSecretMode"] == "MANAGED" && b.Config["readSecret"] != managedReaderName(b) {
+		return ErrConfig
+	}
 	if b.Config["repositoryURL"] != "" || b.Config["branch"] != "" || b.Config["existingGitRepo"] != "" || b.Config["existingGitRepoUID"] != "" || b.Config["gitRepoMode"] == "EXISTING" {
 		return ErrConfig
 	}
@@ -505,6 +508,10 @@ func (p *Provider) PruneReleasedObjects(ctx context.Context, i port.Intent, r po
 	if !observed.Ready(i.Revision, time.Now(), 30*time.Second) {
 		return ErrController
 	}
+	return p.pruneRetainedInventory(ctx, i, r, stale, observed, p.Manager.Guard)
+}
+
+func (p *Provider) pruneRetainedInventory(ctx context.Context, i port.Intent, r port.Receipt, stale []port.AppliedObject, observed domain.Observation, guard func(context.Context, port.Intent) error) error {
 	inventory := map[string]bool{}
 	for _, o := range observed.Objects {
 		inventory[o.APIVersion+"/"+o.Kind+"/"+o.Name] = true
@@ -518,7 +525,7 @@ func (p *Provider) PruneReleasedObjects(ctx context.Context, i port.Intent, r po
 		if inventory[o.Key()] || o.Release != r.Handle["release"] {
 			return ErrOwnership
 		}
-		if err := p.Manager.Guard(ctx, i); err != nil {
+		if err := guard(ctx, i); err != nil {
 			return err
 		}
 		if err := k8s.RemoveRetainedDeliveryObject(ctx, cli, i.Target, o.ObjectRef, o.UID, o.Release, r.Handle["releaseNamespace"]); err != nil {

@@ -22,7 +22,7 @@ function fixture() {
  return {dir,raw,load,close:()=>rmSync(dir,{recursive:true,force:true})};
 }
 test('complete file-only config validates, resolves files and defaults upgrade on',()=>{
- const f=fixture();try{delete f.raw.upgrade.enabled;const c=f.load();assert.equal(c.upgrade.enabled,true);assert.equal(c.environment,'dev');assert.equal(c.developer.baseURL,c.console.baseURL);assert.equal(desiredScores(c,c.application).backend.metadata.class,'pvc');}finally{f.close();}
+ const f=fixture();try{delete f.raw.upgrade.enabled;const c=f.load();assert.equal(c.upgrade.enabled,true);assert.equal(c.environment,'dev');assert.equal(c.developer.baseURL,c.console.baseURL);assert.equal(desiredScores(c,c.application).backend.metadata.class,'pvc');const frontend=desiredScores(c,c.application).frontend;assert.equal(frontend.resources.svc_backend_http.params.workload,'backend');assert.equal(frontend.containers.main.variables.BACKEND_URL,'${resources.svc_backend_http.url}');}finally{f.close();}
 });
 test('reject unknown inputs and unpinned images without echoing credentials',()=>{
  const f=fixture();try{f.raw.application.images.backend='private-fixture-only:latest';assert.throws(f.load,e=>!e.message.includes('private-fixture-only'));f.raw.application.images.backend='image:v1';f.raw.upgrade.enabled='false';assert.throws(f.load);f.raw.upgrade.enabled=false;f.raw.misspelled=true;assert.throws(f.load,/unknown/);}finally{f.close();}

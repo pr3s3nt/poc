@@ -4,6 +4,7 @@ package connection
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -14,6 +15,7 @@ import (
 
 	"golang.org/x/text/unicode/norm"
 
+	"orchestrator/internal/application/gitaccess"
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/credentials"
@@ -163,6 +165,49 @@ func (s *Service) RegisterKubeconfig(ctx context.Context, org string, cmd Regist
 			Config:    config,
 			SecretRef: ref, Status: application.ConnectionReady, Version: 1,
 			Verification: map[string]any{"verified": true, "endpoint": selected.Context.Endpoint, "serverVersion": verified.Version, "verifiedAt": s.timestamp()},
+		}
+	})
+}
+
+// RegisterGitCommand is the Git account registration body (ADR-034). The URL
+// is an explicit account/group scope; the token is write-only.
+type RegisterGitCommand struct {
+	Name     string `json:"name"`
+	URL      string `json:"url"`
+	Username string `json:"username"`
+	Token    string `json:"token"`
+}
+
+// RegisterGit validates the account/group scope, stores the token in the
+// scoped credential store and inserts a READY Git Connection. Live Git access
+// is proven by CD binding verification, not by registration.
+func (s *Service) RegisterGit(ctx context.Context, org string, cmd RegisterGitCommand) (application.Connection, error) {
+	name, err := validName(cmd.Name)
+	if err != nil {
+		return application.Connection{}, err
+	}
+	if s.credentials == nil {
+		return application.Connection{}, ErrCredentialStore
+	}
+	scope, err := gitaccess.ScopeURL(strings.TrimSpace(cmd.URL))
+	if err != nil || gitaccess.RepositoryOwner(cmd.URL) == "" {
+		return application.Connection{}, fmt.Errorf("%w: Git URL must be an explicit account or group scope (for example https://github.com/my-team)", ErrInvalid)
+	}
+	if strings.TrimSpace(cmd.Username) == "" || cmd.Token == "" || len(cmd.Username) > 256 || len(cmd.Token) > 4096 ||
+		strings.ContainsAny(cmd.Username, ":\x00\r\n") || strings.IndexFunc(cmd.Token, unicode.IsControl) >= 0 {
+		return application.Connection{}, fmt.Errorf("%w: Git username and token are required", ErrInvalid)
+	}
+	if _, err := s.store.GetOrganization(ctx, org); err != nil {
+		return application.Connection{}, err
+	}
+	raw, _ := json.Marshal(map[string]string{"username": cmd.Username, "password": cmd.Token})
+	return s.persist(ctx, org, name, raw, func(key, ref string) application.Connection {
+		return application.Connection{
+			Key: key, Name: name, OrganizationKey: org,
+			Kind: application.ConnectionGit, AuthenticationType: application.AuthGitToken,
+			Config:    map[string]any{"url": scope.String()},
+			SecretRef: ref, Status: application.ConnectionReady, Version: 1,
+			Verification: map[string]any{"verified": false, "url": scope.String()},
 		}
 	})
 }

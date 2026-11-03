@@ -1052,3 +1052,30 @@ release and compatible component. Provenance persists beside `driverInputs.value
 `catalogrelease.ResolveDefinitions` composes authored and optional release
 Definitions for Preview, Deploy and matching preview; authored keys replace the
 same snapshot key. Metadata/diagnostics follow the same authoring semantics.
+
+
+## Simplified CD connections — ADR-034 / issue #31
+
+- `application/connection/service.go`, `accounts.go`, `delivery/http/connections.go`:
+  scoped `GIT`/`GIT_TOKEN` registration and safe list; infrastructure account APIs
+  exclude Git Connections. Migration/reference 007 extends only kind/auth checks.
+- `application/gitaccess/writer.go`, hosting/publication factories: live scoped
+  credential resolution; publication cache rotates with selected credential bytes.
+- `application/delivery/targets.go`, Fleet `inspect.go`, `target_identity.go`:
+  workspace-scoped registration discovery, authenticated physical UID matching and
+  bounded ineligible choices. Opaque custom identities remain unsupported.
+- Fleet `managed_reader.go`: derive owned per-binding-version Secret, create/refresh
+  only during admitted Deploy; retain external Secrets and reusable credentials.
+- Fleet `package.go`, `execution.go`: YAML publication and JSON/YAML artifact reading.
+- `application/delivery/pending_prune.go`, Fleet `pending_prune.go`: fenced
+  deletion-only retirement of acknowledged omitted UIDs before clean reobservation.
+- Fleet `git_repo_metadata.go`, `git_render_generation.go`: preserved controller
+  metadata, per-intent non-Job rendering and receipt-scoped recovery.
+- `CDProvidersPage.tsx`, `CDKubernetesConnectionDialog.tsx`: four-field authoring,
+  inline reuse/registration, private input clearing and uncertain-outcome holds.
+- `e2e/scenarios/simplified-cd/`: real inline setup, technical Git/Fleet proof,
+  connection reuse/default stability, image rollback and ownership cleanup.
+- `scripts/bootstrap/lib/platform.mjs`: updated ordinary-form selectors/configuration;
+  shared acceptance Score uses the canonical `svc_backend_http` service alias.
+- `scripts/bootstrap/lib/verification.mjs`: reconnect an owned service forward
+  after rollout before real web/data verification.

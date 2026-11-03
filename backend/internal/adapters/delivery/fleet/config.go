@@ -20,6 +20,7 @@ var gitRef = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$`)
 // Config contains nonsecret controller and publication topology only. The target
 // is independently resolved from resource Definitions, never selected by Fleet.
 type Config struct {
+	ManagedReadSecret   bool
 	GitRepoMode         string
 	ExistingGitRepo     string
 	ExistingGitRepoUID  string
@@ -40,13 +41,17 @@ type Config struct {
 }
 
 func ParseConfig(raw map[string]string) (Config, error) {
-	keys := map[string]bool{"gitRepoMode": true, "existingGitRepo": true, "existingGitRepoUID": true, "agentNamespace": true, "workspace": true, "controllerNamespace": true, "controllerName": true, "targetCluster": true, "targetClusterUID": true, "targetAccountKey": true, "repositoryURL": true, "branch": true, "root": true, "readSecret": true, "serviceAccount": true, "caBundle": true, "releaseNamespace": true, "repositoryOwner": true, "repositoryAPI": true, "repositoryHost": true, "repositoryPrefix": true}
+	keys := map[string]bool{"gitRepoMode": true, "existingGitRepo": true, "existingGitRepoUID": true, "agentNamespace": true, "workspace": true, "controllerNamespace": true, "controllerName": true, "targetCluster": true, "targetClusterUID": true, "targetAccountKey": true, "gitConnectionKey": true, "readSecretMode": true, "repositoryURL": true, "branch": true, "root": true, "readSecret": true, "serviceAccount": true, "caBundle": true, "releaseNamespace": true, "repositoryOwner": true, "repositoryAPI": true, "repositoryHost": true, "repositoryPrefix": true}
 	for k := range raw {
 		if !keys[k] {
 			return Config{}, ErrConfig
 		}
 	}
 	c := Config{GitRepoMode: raw["gitRepoMode"], ExistingGitRepo: raw["existingGitRepo"], ExistingGitRepoUID: raw["existingGitRepoUID"], Workspace: raw["workspace"], ControllerNamespace: raw["controllerNamespace"], AgentNamespace: raw["agentNamespace"], ControllerName: raw["controllerName"], TargetCluster: raw["targetCluster"], TargetClusterUID: raw["targetClusterUID"], TargetAccountKey: raw["targetAccountKey"], RepositoryURL: raw["repositoryURL"], Branch: raw["branch"], Root: raw["root"], ReadSecret: raw["readSecret"], ServiceAccount: raw["serviceAccount"], CABundle: raw["caBundle"], ReleaseNamespace: raw["releaseNamespace"]}
+	if raw["readSecretMode"] != "" && raw["readSecretMode"] != "MANAGED" {
+		return Config{}, ErrConfig
+	}
+	c.ManagedReadSecret = raw["readSecretMode"] == "MANAGED"
 	if c.GitRepoMode == "" {
 		c.GitRepoMode = "MANAGED"
 	}

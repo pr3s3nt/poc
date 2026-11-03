@@ -101,6 +101,7 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 			source = port.TransferSource{Revision: previous.Revision, Receipt: previous.Receipt, Inventory: previous.Inventory}
 		}
 		intent := port.Intent{ID: record.Mutation.ID, OrganizationKey: orgKey, Owner: port.Owner{OperationID: owner.OperationID, Instance: owner.Owner, Fence: owner.Fence}, Binding: binding, Revision: record.Revision, Target: record.Target, PolicyOnly: policyOnly}
+		intent.SourceInventory = append([]port.AppliedObject(nil), source.Inventory...)
 		receipt, err := recoverer.RecoverSubmission(ctx, intent, port.Prepared{Revision: record.Revision, Payload: raw}, record.Receipt, source)
 		if err != nil {
 			return err
@@ -118,6 +119,10 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 			if observeErr != nil {
 				cancel()
 				return observeErr
+			}
+			if err := c.prunePending(wait, provider, intent, receipt, observed); err != nil {
+				cancel()
+				return err
 			}
 			if observed.Ready(intent.Revision, time.Now().UTC(), ObservationInterval) {
 				expected := map[string]string{}

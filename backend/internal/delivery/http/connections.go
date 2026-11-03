@@ -31,7 +31,7 @@ type connectionView struct {
 }
 
 var (
-	publicConnectionConfig       = []string{"cluster", "kubeContext", "endpoint", "region", "accountId", "principalArn"}
+	publicConnectionConfig       = []string{"cluster", "kubeContext", "endpoint", "region", "accountId", "principalArn", "url"}
 	publicConnectionVerification = []string{"verified", "endpoint", "serverVersion", "cluster", "region", "accountId", "principalArn", "identity", "regionCheck", "capabilityCheck"}
 	// publicConnectionLists are allow-listed lists of plain strings (AWS
 	// regions and provisioning capability groups).
@@ -148,6 +148,32 @@ func (s *Server) handleRegisterKubernetesConnection(w http.ResponseWriter, r *ht
 		return
 	}
 	created, err := s.connections.RegisterKubeconfig(r.Context(), org, connectionapp.RegisterKubeconfigCommand{Name: deref(body.Name), Kubeconfig: deref(body.Kubeconfig), Context: deref(body.Context)})
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, publicConnection(created))
+}
+
+// registerGitBody is the only accepted Git registration shape (ADR-034).
+type registerGitBody struct {
+	Name     *string `json:"name"`
+	URL      *string `json:"url"`
+	Username *string `json:"username"`
+	Token    *string `json:"token"`
+}
+
+func (s *Server) handleRegisterGitConnection(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.platformActor(w, r)
+	if !ok {
+		return
+	}
+	var body registerGitBody
+	allowed := map[string]bool{"name": true, "url": true, "username": true, "token": true}
+	if !decodeConnectionBody(w, r, allowed, &body) {
+		return
+	}
+	created, err := s.connections.RegisterGit(r.Context(), org, connectionapp.RegisterGitCommand{Name: deref(body.Name), URL: deref(body.URL), Username: deref(body.Username), Token: deref(body.Token)})
 	if err != nil {
 		s.writeError(w, err)
 		return

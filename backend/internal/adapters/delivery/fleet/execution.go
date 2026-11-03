@@ -6,6 +6,8 @@ import (
 
 	"orchestrator/internal/adapters/delivery/artifact"
 	"orchestrator/internal/ports/execution"
+
+	"gopkg.in/yaml.v3"
 )
 
 // SameExecution ignores only platform-generated provenance. Business labels,
@@ -21,7 +23,7 @@ func (p *Provider) SameExecution(_ context.Context, previous []byte, proposed []
 			continue
 		}
 		var object map[string]any
-		if json.Unmarshal(raw, &object) != nil || object["kind"] != "Job" {
+		if yaml.Unmarshal(raw, &object) != nil || object["kind"] != "Job" {
 			return false, ErrConfig
 		}
 		prior = append(prior, object)
@@ -55,7 +57,7 @@ func (p *Provider) ExportArtifact(_ context.Context, raw []byte) ([]execution.Ma
 			continue
 		}
 		var obj map[string]any
-		if json.Unmarshal(body, &obj) != nil {
+		if yaml.Unmarshal(body, &obj) != nil {
 			return nil, ErrConfig
 		}
 		objects = append(objects, obj)

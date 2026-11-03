@@ -65,6 +65,9 @@ func (p *Provider) RecoverSubmission(ctx context.Context, i port.Intent, prepare
 		if !owns(repo, i, r.Handle["gitrepo"]) || controllerRevision(repo) != i.Revision.ID || annotations["orchestrator.io/delivery-intent"] != i.ID || spec["revision"] != r.Handle["commit"] {
 			return r, ErrOwnership
 		}
+		if err := p.wakeGitRender(ctx, cli, cfg, i, r, pkg, repo); err != nil {
+			return r, err
+		}
 	}
 	if len(source.Inventory) == 0 {
 		return r, p.wakePendingReceipt(ctx, cli, cfg, i, r)

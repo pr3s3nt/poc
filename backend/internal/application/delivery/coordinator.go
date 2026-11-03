@@ -380,6 +380,9 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 		if observed.Health == domain.Degraded {
 			return errors.New("delivery: admitted workload is degraded")
 		}
+		if err := c.prunePending(wait, provider, i, receipt, observed); err != nil {
+			return err
+		}
 		select {
 		case <-wait.Done():
 			return errors.New("delivery: exact revision readiness deadline exceeded")

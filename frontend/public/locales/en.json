@@ -3765,5 +3765,14 @@
   "versions.discard": "Discard upgrade selection",
   "versions.saved": "Selection saved. Nothing deployed.",
   "versions.editNote": "Saving creates a proposed revision; running Environments keep their pinned configuration.",
-  "versions.notUsed": "Not used yet"
+  "versions.notUsed": "Not used yet",
+  "cd.fields.gitConnectionKey": "Git connection",
+  "cd.addKubernetesConnection": "Add Kubernetes connection",
+  "cd.chooseGitConnection": "Choose a Git connection",
+  "cd.addGitConnection": "Add a new Git connection",
+  "cd.saveGitConnection": "Save Git connection",
+  "cd.gitConnectionSaved": "Git connection saved.",
+  "cd.gitConnectionFailed": "Could not save the Git connection.",
+  "cd.gitUrl": "Git scope URL (account/group)",
+  "cd.gitConnectionName": "Git connection name"
 }

@@ -67,23 +67,32 @@ export async function ensureDelivery(ui,want,account,rt) {
   conflict(Object.entries(want.config).every(([k,v])=>details.config[k]===v),'CD provider config');
  } else {
   await page.goto(ui.baseURL+'/ui/platform/cd-providers');
+  const inspected=ui.responseFor(`/delivery-providers/${want.provider}/inspect`,'POST');
   await page.getByRole('button',{name:'Thêm cấu hình CD',exact:true}).click();
   const form=page.locator('form.secret-store-form');
   await form.locator('input').first().fill(want.name);
-  await form.locator('#cd-provider-kind').selectOption(want.provider);
-  const inspected=ui.responseFor(`/delivery-providers/${want.provider}/inspect`,'POST');
+  if(await form.locator('#cd-provider-kind').count()) await form.locator('#cd-provider-kind').selectOption(want.provider);
   await form.locator('#cd-management-account').selectOption(account.key);
   const discovered=await inspected;requireConfig(discovered.ok(),'Fleet discovery failed');
   const result=await discovered.json();
-  requireConfig(result.options?.targetCluster?.length===1 || want.config.targetCluster,'Ambiguous Fleet discovery; specify targetCluster');
-  await form.locator('details summary').click();
+  const eligible=(result.options?.targetCluster??[]).filter(v=>!v.disabled);
+  requireConfig(eligible.length===1 || want.config.targetCluster,'Ambiguous or unsupported Fleet discovery; specify workspace/targetCluster');
+  if(await form.locator('details summary').count()) await form.locator('details summary').click();
   for(const [key,value]of Object.entries(want.config)) {
    const field=form.locator(`#cd-${key}`);
    if(await field.count()) { if(await field.evaluate(n=>n.tagName)==='SELECT')await field.selectOption(value);else await field.fill(value); }
   }
-  const shared=form.getByRole('checkbox',{name:'Dùng kết nối Git của platform',exact:true});
-  await shared.setChecked(want.usePlatformGit);
-  if(!want.usePlatformGit){await form.getByLabel('Tên đăng nhập Git',{exact:true}).fill(want.writerUsername);await form.getByLabel('Token hoặc mật khẩu Git',{exact:true}).fill(readPrivateFile(want.writerPasswordFile,'CD credential'));}
+  const git=form.locator('#cd-gitConnectionKey');
+  if(want.usePlatformGit) await git.selectOption('__platform');
+  else if(want.config.gitConnectionKey) await git.selectOption(want.config.gitConnectionKey);
+  else {
+   await git.selectOption('__new');
+   await form.getByLabel('Tên kết nối Git',{exact:true}).fill(want.name+' Git');
+   await form.getByLabel('URL phạm vi Git (tài khoản/nhóm)',{exact:true}).fill(want.writerURL);
+   await form.getByLabel('Tên đăng nhập Git',{exact:true}).fill(want.writerUsername);
+   await form.getByLabel('Token hoặc mật khẩu Git',{exact:true}).fill(readPrivateFile(want.writerPasswordFile,'CD credential'));
+   await ui.submit('/connections/git','POST',form.getByRole('button',{name:'Lưu kết nối Git',exact:true}));
+  }
   binding=await ui.submit('/delivery-bindings','POST',form.getByRole('button',{name:'Lưu cấu hình',exact:true}));
   rt.record('delivery-binding','CREATED',{id:binding.id,version:binding.version});
  }

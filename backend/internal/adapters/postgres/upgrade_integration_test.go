@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"orchestrator/internal/domain/application"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence/persistencetest"
 )
@@ -41,7 +42,7 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 		t.Fatal(err)
 	}
 	identity := "orchestrator-fresh-baseline-v02"
-	if sql == versionThreeSQL || sql == versionFourSQL || sql == versionFiveSQL {
+	if sql == versionThreeSQL || sql == versionFourSQL || sql == versionFiveSQL || sql == versionSixSQL {
 		identity = "orchestrator-schema-v3"
 		if err = recordVersionOne(ctx, tx, digest(versionOneSQL)); err != nil {
 			t.Fatal(err)
@@ -53,15 +54,21 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 			t.Fatal(err)
 		}
 	}
-	if sql == versionFourSQL || sql == versionFiveSQL {
+	if sql == versionFourSQL || sql == versionFiveSQL || sql == versionSixSQL {
 		identity = "orchestrator-schema-v4"
 		if err = recordVersionFour(ctx, tx); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if sql == versionFiveSQL {
+	if sql == versionFiveSQL || sql == versionSixSQL {
 		identity = "orchestrator-schema-v5"
 		if err = recordVersionFive(ctx, tx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if sql == versionSixSQL {
+		identity = "orchestrator-schema-v6"
+		if err = recordVersionSix(ctx, tx); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -106,10 +113,10 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 	}
 	for role, name := range map[RuntimeRole]string{ConsoleRuntime: db.ConsoleRole, StateRuntime: db.StateRole} {
 		for _, g := range grantsOf(role) {
-			if ((g.table == "platform_delivery_defaults" || g.table == "application_delivery_repositories") && sql != versionFiveSQL) || g.table == "resource_definition_versions" || g.table == "resource_definition_policies" || g.table == "environment_definition_selections" || (catalogTable(g.table) && sql != versionFourSQL && sql != versionFiveSQL) || (reconciliationTable(g.table) && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL) || (g.table == "platform_git_settings" && sql != versionTwoSQL && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL) || (g.table == "schema_upgrade_history" && sql != versionOneSQL && sql != versionTwoSQL && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL) {
+			if ((g.table == "platform_delivery_defaults" || g.table == "application_delivery_repositories") && sql != versionFiveSQL && sql != versionSixSQL) || ((g.table == "resource_definition_versions" || g.table == "resource_definition_policies" || g.table == "environment_definition_selections") && sql != versionSixSQL) || (catalogTable(g.table) && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL) || (reconciliationTable(g.table) && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL) || (g.table == "platform_git_settings" && sql != versionTwoSQL && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL) || (g.table == "schema_upgrade_history" && sql != versionOneSQL && sql != versionTwoSQL && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL) {
 				continue
 			}
-			if role == StateRuntime && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL {
+			if role == StateRuntime && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL {
 				if g.table == "environments" {
 					g.columns = []string{"id", "application_id", "active_operation_id", "generation_high"}
 				}
@@ -141,7 +148,7 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 }
 
 func TestUpgradeSupportedPopulatedSources(t *testing.T) {
-	for name, source := range map[string]string{"staging-1516dec": sourceOldSQL, "preview-2a111db": sourceCurrentSQL, "version-1": versionOneSQL, "version-2": versionTwoSQL, "version-3": versionThreeSQL, "version-4": versionFourSQL, "version-5": versionFiveSQL} {
+	for name, source := range map[string]string{"staging-1516dec": sourceOldSQL, "preview-2a111db": sourceCurrentSQL, "version-1": versionOneSQL, "version-2": versionTwoSQL, "version-3": versionThreeSQL, "version-4": versionFourSQL, "version-5": versionFiveSQL, "version-6": versionSixSQL} {
 		t.Run(name, func(t *testing.T) {
 			owner, console, roles := legacyDatabase(t, source)
 			stamp := scalar[string](t, owner, `SELECT created_at::text FROM schema_baseline`)
@@ -158,7 +165,7 @@ func TestUpgradeSupportedPopulatedSources(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if n := scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`); n != 6 {
+			if n := scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`); n != 7 {
 				t.Fatal(n)
 			}
 			if got := scalar[string](t, owner, `SELECT installation_id::text FROM schema_baseline`); got != "11111111-1111-4111-8111-111111111111" {
@@ -249,7 +256,7 @@ func TestUpgradeRollbackOnGrantFailure(t *testing.T) {
 }
 
 func TestUpgradePreservesStateAndRuntimeIsolation(t *testing.T) {
-	for name, source := range map[string]string{"staging": sourceOldSQL, "preview": sourceCurrentSQL, "version-1": versionOneSQL, "version-2": versionTwoSQL, "version-3": versionThreeSQL, "version-4": versionFourSQL, "version-5": versionFiveSQL} {
+	for name, source := range map[string]string{"staging": sourceOldSQL, "preview": sourceCurrentSQL, "version-1": versionOneSQL, "version-2": versionTwoSQL, "version-3": versionThreeSQL, "version-4": versionFourSQL, "version-5": versionFiveSQL, "version-6": versionSixSQL} {
 		t.Run(name, func(t *testing.T) {
 			f := newStateFixture(t)
 			f.console.Close()
@@ -261,21 +268,29 @@ func TestUpgradePreservesStateAndRuntimeIsolation(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer tx.Rollback(ctx)
-			if _, err = tx.Exec(ctx, `DROP TABLE environment_definition_selections,resource_definition_policies,resource_definition_versions;DROP FUNCTION definition_revision_immutable_guard()`); err != nil {
+			if _, err = tx.Exec(ctx, `ALTER TABLE connections DROP CONSTRAINT connections_kind_check;
+ALTER TABLE connections ADD CONSTRAINT connections_kind_check CHECK (kind IN ('AWS','KUBERNETES'));
+ALTER TABLE connections DROP CONSTRAINT connections_authentication_type_check;
+ALTER TABLE connections ADD CONSTRAINT connections_authentication_type_check CHECK ((kind='KUBERNETES' AND authentication_type='KUBECONFIG') OR (kind='AWS' AND authentication_type IN ('AWS_ACCESS_KEY','AWS_EC2_ROLE')))`); err != nil {
 				t.Fatal(err)
 			}
-			if source != versionFiveSQL {
+			if source != versionSixSQL {
+				if _, err = tx.Exec(ctx, `DROP TABLE environment_definition_selections,resource_definition_policies,resource_definition_versions;DROP FUNCTION definition_revision_immutable_guard()`); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if source != versionFiveSQL && source != versionSixSQL {
 				if _, err = tx.Exec(ctx, `DROP TABLE application_delivery_repositories; DROP TABLE platform_delivery_defaults; DROP FUNCTION application_delivery_repository_guard(); ALTER TABLE applications DROP CONSTRAINT applications_id_organization_key`); err != nil {
 					t.Fatal(err)
 				}
 			}
 			// Reconstruct historical shape only inside this disposable owned fixture.
-			if source != versionFourSQL && source != versionFiveSQL {
+			if source != versionFourSQL && source != versionFiveSQL && source != versionSixSQL {
 				if _, err = tx.Exec(ctx, `ALTER TABLE active_resources DROP CONSTRAINT active_resources_catalog_release_fk, DROP CONSTRAINT active_resources_definition_provenance_check, DROP COLUMN catalog_source, DROP COLUMN catalog_tag, DROP COLUMN catalog_definition_key, ALTER COLUMN resource_definition_id SET NOT NULL; DROP TABLE environment_catalog_bindings; DROP TABLE catalog_releases; DROP TABLE catalog_sources; DROP FUNCTION catalog_release_immutable_guard()`); err != nil {
 					t.Fatal(err)
 				}
 			}
-			if source != versionThreeSQL && source != versionFourSQL && source != versionFiveSQL {
+			if source != versionThreeSQL && source != versionFourSQL && source != versionFiveSQL && source != versionSixSQL {
 				for _, function := range reconciliationFunctions {
 					if _, err = tx.Exec(ctx, `DROP FUNCTION `+function+` CASCADE`); err != nil {
 						t.Fatal(err)
@@ -327,6 +342,12 @@ func TestUpgradePreservesStateAndRuntimeIsolation(t *testing.T) {
 				t.Fatal(err)
 			}
 			identity := "orchestrator-fresh-baseline-v02"
+			if source == versionSixSQL {
+				identity = "orchestrator-schema-v6"
+				if _, err = tx.Exec(ctx, `DELETE FROM schema_upgrade_history WHERE version>6`); err != nil {
+					t.Fatal(err)
+				}
+			}
 			if source == versionFiveSQL {
 				identity = "orchestrator-schema-v5"
 				if _, err = tx.Exec(ctx, `DELETE FROM schema_upgrade_history WHERE version>5`); err != nil {
@@ -501,7 +522,7 @@ func TestBaselineCommentChangesDoNotRequireUpgrade(t *testing.T) {
 func TestUpgradeHistoryTamperingIsRejected(t *testing.T) {
 	for name, mutation := range map[string]string{
 		"checksum":       `UPDATE schema_upgrade_history SET migration_sha256=repeat('0',64)`,
-		"future-version": `UPDATE schema_upgrade_history SET version=7 WHERE version=6`,
+		"future-version": `UPDATE schema_upgrade_history SET version=8 WHERE version=7`,
 		"source":         `UPDATE schema_upgrade_history SET source_sha256=repeat('0',64)`,
 		"missing":        `DELETE FROM schema_upgrade_history`,
 	} {
@@ -682,5 +703,61 @@ func TestVersionFiveRollbackPreservesVersionFour(t *testing.T) {
 		if after[table] != hash {
 			t.Errorf("retained data changed in %s", table)
 		}
+	}
+}
+
+func TestVersionSevenRollbackPreservesVersionSix(t *testing.T) {
+	owner, _, roles := legacyDatabase(t, versionSixSQL)
+	before := retainedFingerprints(t, owner)
+	sqlOn(t, owner, `GRANT DELETE ON schema_baseline TO `+pgx.Identifier{roles.Console}.Sanitize())
+	if _, err := Setup(context.Background(), owner, roles); err == nil {
+		t.Fatal("expected grant verification failure")
+	}
+	if scalar[string](t, owner, `SELECT baseline_sha256 FROM schema_baseline`) != digest(versionSixSQL) {
+		t.Fatal("source marker changed")
+	}
+	if scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`) != 6 {
+		t.Fatal("history changed")
+	}
+	if scalar[bool](t, owner, `SELECT count(*)>0 FROM pg_constraint WHERE conrelid='connections'::regclass AND conname='connections_kind_check' AND pg_get_constraintdef(oid) LIKE '%GIT%'`) {
+		t.Fatal("migration DDL committed")
+	}
+	after := retainedFingerprints(t, owner)
+	for table, hash := range before {
+		if after[table] != hash {
+			t.Errorf("retained data changed in %s", table)
+		}
+	}
+}
+
+func TestVersionSevenPreservesConnectionsAndAdmitsGit(t *testing.T) {
+	owner, console, roles := legacyDatabase(t, versionSixSQL)
+	sqlOn(t, owner, `INSERT INTO connections(id,organization_id,connection_key,name,kind,authentication_type,config,secret_ref,status,verification) VALUES('88888888-8888-4888-8888-888888888888','22222222-2222-4222-8222-222222222222','retained-cluster','Retained cluster','KUBERNETES','KUBECONFIG','{}','private-credential-ref','READY','{}')`)
+	before := retainedFingerprints(t, owner)
+	if _, err := Setup(context.Background(), owner, roles); err != nil {
+		t.Fatal(err)
+	}
+	after := retainedFingerprints(t, owner)
+	for table, hash := range before {
+		if after[table] != hash {
+			t.Fatalf("retained rows changed in %s", table)
+		}
+	}
+	store, err := Open(context.Background(), console)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	conn := application.Connection{ID: ids.New(), OrganizationKey: "retained-org", Key: "team-git", Name: "Team Git", Kind: application.ConnectionGit, AuthenticationType: application.AuthGitToken, Version: 1, Config: map[string]any{"url": "https://github.com/team"}, SecretRef: "scoped-private-ref", Status: application.ConnectionReady, Verification: map[string]any{"verified": false}}
+	if err := store.CreateConnection(context.Background(), conn); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.GetConnection(context.Background(), "retained-org", "team-git")
+	if err != nil || got.ID != conn.ID || got.Kind != application.ConnectionGit || got.AuthenticationType != application.AuthGitToken {
+		t.Fatal("Git connection did not survive persistence", err)
+	}
+	denied(t, connectAs(t, console), "runtime cannot change connection schema", `ALTER TABLE connections DROP CONSTRAINT connections_kind_check`)
+	if changed, err := Setup(context.Background(), owner, roles); err != nil || changed {
+		t.Fatal("repeat setup changed schema", err)
 	}
 }

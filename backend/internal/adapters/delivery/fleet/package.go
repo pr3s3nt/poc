@@ -12,6 +12,8 @@ import (
 	port "orchestrator/internal/ports/delivery"
 	"orchestrator/internal/ports/execution"
 	gitport "orchestrator/internal/ports/gitpublication"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Package is a deterministic generated unit, never a user-authored chart. The
@@ -116,25 +118,25 @@ func PackageUnit(intent port.Intent, manifests []execution.Manifest) (Package, e
 			return Package{}, ErrConfig
 		}
 		seen[objectKey] = true
-		body, err := json.MarshalIndent(obj, "", "  ")
+		body, err := yaml.Marshal(obj)
 		if err != nil {
 			return Package{}, ErrConfig
 		}
 		// Include the API group in the filename to avoid collisions across CRDs.
 		keySum := sha256.Sum256([]byte(objectKey))
-		filename := strings.ToLower(m.Kind) + "-" + hex.EncodeToString(keySum[:])[:20] + ".json"
-		files[filename] = append(body, '\n')
+		filename := strings.ToLower(m.Kind) + "-" + hex.EncodeToString(keySum[:])[:20] + ".yaml"
+		files[filename] = body
 		objects = append(objects, execution.ObjectRef{APIVersion: m.APIVersion, Kind: m.Kind, Name: m.Name})
 	}
 	if len(objects) == 0 {
 		return Package{}, ErrConfig
 	}
 	fleet := map[string]any{"defaultNamespace": cfg.ReleaseNamespace, "deleteNamespace": false, "keepResources": false, "correctDrift": map[string]any{"enabled": intent.Revision.Selection.SelfHeal, "force": false}, "serviceAccount": cfg.ServiceAccount, "helm": map[string]any{"releaseName": name, "takeOwnership": false, "force": false, "atomic": false, "waitForJobs": intent.Revision.Phase == domain.Job, "timeoutSeconds": 300}}
-	raw, err := json.MarshalIndent(fleet, "", "  ")
+	raw, err := yaml.Marshal(fleet)
 	if err != nil {
 		return Package{}, ErrConfig
 	}
-	files["fleet.yaml"] = append(raw, '\n')
+	files["fleet.yaml"] = raw
 	sort.Slice(objects, func(i, j int) bool { return objects[i].Key() < objects[j].Key() })
 	destination := sha256.Sum256([]byte(cfg.RepositoryURL + "\x00" + cfg.Branch))
 	return Package{UnitName: name, ReleaseName: name, Objects: objects, Publication: gitport.Intent{ID: intent.ID, DestinationKey: hex.EncodeToString(destination[:]), Branch: cfg.Branch, Path: path.Join(cfg.Root, name), Files: files, TreeDigest: gitport.Digest(files)}}, nil

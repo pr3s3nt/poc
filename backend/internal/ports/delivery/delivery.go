@@ -146,6 +146,13 @@ type GuardedPrune interface {
 	PruneReleasedObjects(context.Context, Intent, Receipt, []AppliedObject) error
 }
 
+// PendingPrune breaks a retained-object readiness deadlock without declaring
+// drift clean. Only admitted Submit/recovery calls it with acknowledged old UIDs;
+// the provider proves deletion-only drift and fences every removal. Observe stays read-only.
+type PendingPrune interface {
+	PrunePendingReleasedObjects(context.Context, Intent, Receipt, []AppliedObject) (bool, error)
+}
+
 // ImmutableExecution compares the private acknowledged execution artifact with
 // a proposed Job set without contacting a controller. An equal set reuses its
 // completion receipt; a different set requires explicit removal/new identity.
@@ -180,15 +187,28 @@ type ConfigurationChoice struct {
 }
 type ConfigurationDescriptor interface{ ConfigurationFields() []ConfigurationField }
 
+// ConfigurationDefaults supplies platform-derived values for fields the
+// simplified CD form no longer asks about (ADR-034). Registration merges them
+// under the submitted config: an explicit submitted value always wins.
+type ConfigurationDefaults interface{ DefaultConfiguration() map[string]string }
+
 // Discovery returns safe named options from an explicitly selected management
 // account. It never enrolls a cluster, writes resources or reads Secret bytes.
 type ConfigurationOption struct {
-	Name   string            `json:"name"`
-	Value  string            `json:"value"`
-	Values map[string]string `json:"values"`
+	Disabled   bool              `json:"disabled,omitempty"`
+	ReasonCode string            `json:"reasonCode,omitempty"`
+	Name       string            `json:"name"`
+	Value      string            `json:"value"`
+	Values     map[string]string `json:"values"`
 }
 type ConfigurationDiscovery struct {
 	Options map[string][]ConfigurationOption `json:"options"`
+}
+
+// ConfigurationInitializer derives private topology names after immutable
+// binding identity/version allocation, without external calls or secret bytes.
+type ConfigurationInitializer interface {
+	InitializeConfiguration(BindingVersion) (map[string]string, error)
 }
 type ConfigurationInspector interface {
 	InspectConfiguration(context.Context, BindingVersion) (ConfigurationDiscovery, error)

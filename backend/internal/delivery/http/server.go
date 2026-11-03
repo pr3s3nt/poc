@@ -251,6 +251,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/connections", s.handleConnections)
 	s.mux.HandleFunc("POST /api/v1/connections/kubernetes", s.handleRegisterKubernetesConnection)
 	s.mux.HandleFunc("POST /api/v1/connections/aws", s.handleRegisterAWSConnection)
+	s.mux.HandleFunc("POST /api/v1/connections/git", s.handleRegisterGitConnection)
 	s.mux.HandleFunc("POST /api/v1/connections/kubernetes/inspect", s.handleInspectKubeconfig)
 	s.registerDriverAccountRoutes()
 	s.mux.HandleFunc("POST /api/v1/deployments", s.handleCreateDeployment)

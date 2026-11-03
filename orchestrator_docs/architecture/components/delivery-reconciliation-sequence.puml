@@ -37,12 +37,21 @@ else ordinary delivery
       Provider -> Git: Publish owned path idempotently
       Git --> Provider: Exact tree / commit receipt
     end
-    Provider -> Cluster: Submit pinned revision on exact target
+    opt managed Fleet reader Secret (ADR-034)
+      Provider -> Cluster: GET exact binding-version Secret; verify ownership
+      Provider -> Cluster: Create/refresh private credentials under admission fence
+    end
+    Provider -> Cluster: Submit pinned revision on exact target\nFresh Git render generation per new non-Job intent
     Provider --> Deploy: Receipt
     Deploy -> DB: Persist receipt / union inventory
     Deploy -> Provider: Observe exact revision and readiness
     Provider -> Cluster: Read controller + owned live objects
     Provider --> Deploy: Complete observation or unknown
+    opt only proven retained deletions prevent clean readiness
+      Deploy -> Provider: PrunePendingReleasedObjects(omitted acknowledged inventory)
+      Provider -> Cluster: Verify applied revision/healthy desired objects; UID-guarded prune
+      Deploy -> Provider: Observe again; clean sync required before acknowledgement
+    end
   end
 end
 Deploy -> DB: Commit applied selection / successful state only after proof
