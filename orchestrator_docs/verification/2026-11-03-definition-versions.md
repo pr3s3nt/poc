@@ -73,10 +73,13 @@ excluded from the preview build and task commit. Restart with its `start.sh`;
 Tailscale Serve maps port 3022 to the same local listener. Keep both alive for review.
 The preview has fixture accounts and synthetic resources; it owns no cluster/cloud.
 
-The original Console on port 3001 and its schema-5 PostgreSQL/Vault/cache volumes
-are unchanged. Applying schema 6 requires separate environment authorization under
+At the implementation handoff, the original Console on port 3001 and its schema-5
+PostgreSQL/Vault/cache volumes were unchanged. Applying schema 6 requires separate environment authorization under
 [ADR-027](../architecture/decisions/ADR-027-postgres-upgrades.md), then stopped
 writers, a verified private backup/restore rehearsal, owner setup and runtime
 restart per the [upgrade runbook](../operations/postgres-upgrades.md). No reset,
 manual marker edit, automatic data rollback or existing workload upgrade is part
 of that rollout. Original tool/cache volumes must survive recreation.
+
+The subsequently authorized backup and Console-3001 installation are recorded in
+[separate live evidence](2026-11-03-definition-versions-live.md).

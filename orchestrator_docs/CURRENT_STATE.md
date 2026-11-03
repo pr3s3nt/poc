@@ -19,9 +19,12 @@ Schema 6 captures current configurations without deployment or invented history.
 Durable caches retain verified tools/provider archives; unavailable historical
 contracts block execution. Database/storage changes require a separate migration.
 [Implementation and limits](implementation/definition-versions.md),
-[verification](verification/2026-11-03-definition-versions.md). The original Console
-on port 3001 remains on schema 5 pending separate retained-environment authorization;
-the isolated preview uses fake execution adapters and its own data.
+[implementation verification](verification/2026-11-03-definition-versions.md).
+Following explicit user authorization, Console port 3001 now runs this change on
+schema 6. The actual backup was restored/rehearsed separately; all original domain
+rows and installation identity were preserved. Existing Applications retain their
+configurations and were not redeployed. See [live installation evidence](verification/2026-11-03-definition-versions-live.md).
+The isolated port-3022 preview uses fake execution adapters and separate data.
 
 ## Platform-managed CD — 2026-11-02
 
