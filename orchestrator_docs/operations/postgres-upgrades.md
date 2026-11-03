@@ -14,6 +14,30 @@ require a reviewed migration. Never delete a retained database or edit markers
 just to start the new application. Workload databases/JSON snapshots are outside
 this upgrade path. No deployment or external mutation is authorized by this text.
 
+## Schema 6 — controlled Definition upgrades
+
+Migration `006-definition-versions.sql` upgrades frozen version 5; the active fresh
+reference is `version-006.sql`. It adds immutable revision history, Active policy
+and Environment baseline/desired/applied selections. Current configurations are
+captured as the initial revision. Existing applications, resource/state identities
+and deployment history are preserved. Captured baselines remain unverified until
+new successful deployment evidence exists. No infrastructure is upgraded by setup.
+
+Stop writers and verify a private backup/isolated restore before owner setup. Keep
+module and render cache volumes: new runtime archives verified installed tools and,
+for the platform filesystem-only policy, provider ZIPs. Previously missing historical
+binaries, old installed Go renderer contracts and arbitrary custom CLI mirrors are
+operator-managed; unavailable pins fail closed. Do not delete cache volumes to fix
+an upgrade error. See [implementation limits](../implementation/definition-versions.md).
+
+Console gains SELECT/INSERT/UPDATE on the three version tables; State gains no
+access. A database trigger also rejects revision snapshot updates/deletes. Runtime
+never performs DDL. Separate authorization is required before applying this change
+to a retained installation, per ADR-027. On transactional setup failure, version 5
+remains valid; after a committed upgrade, restore the verified pre-upgrade backup
+with the matching old application if rollback is necessary. There is no automatic
+downgrade, workload database rollback or reset.
+
 ## Schema 5 — platform-managed CD
 
 Migration `005-managed-delivery.sql` upgrades frozen version 4 to version 5.

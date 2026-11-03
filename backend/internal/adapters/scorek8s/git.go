@@ -105,7 +105,7 @@ func (r *Renderer) validateGit(ctx context.Context, selected resource.RenderingS
 		return renderengine.Bundle{}, fmt.Errorf("%w: Git render bundles are not enabled", ErrBundleUnavailable)
 	}
 	if selected.DriverType != resource.DriverScoreK8s || selected.DefinitionKey == "" || selected.DefinitionHash == "" ||
-		pin.EngineContract != renderbundle.EngineContract || pin.RendererVersion != Version || pin.InputContract != renderbundle.InputContract ||
+		pin.EngineContract != renderbundle.EngineContract || pin.RendererVersion != r.bundle.Version || pin.InputContract != renderbundle.InputContract ||
 		pin.Source == nil || pin.Source.ContentSHA256 != pin.Digest {
 		return renderengine.Bundle{}, fmt.Errorf("%w: the pinned engine contract is not supported", ErrBundleUnavailable)
 	}

@@ -205,3 +205,9 @@ GitSettingsRepository and opaque token objects through CredentialStore. Module
 and render transports ask the same resolver with authenticated Organization and
 source URL before invoking Git. Test uses draft-only access with the same Git
 transport; it never persists settings or verified bundle data.
+
+## Controlled revisions
+
+[DV realization](definition-versions.md#realization) extends the existing Create/
+Update transaction with immutable revision storage and policy CAS. Runtime
+resolves Environment snapshots rather than mutable editing heads.

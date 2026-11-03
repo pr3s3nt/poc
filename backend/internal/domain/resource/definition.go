@@ -103,6 +103,8 @@ type ProvisionRule struct {
 // key of the scoped Driver Account (Connection) that supplies cloud identity
 // when the driver needs one; it is never inferred from the Environment.
 type Definition struct {
+	RenderPin       *RenderBundle            `json:"renderPin,omitempty"`
+	RevisionID      string                   `json:"revisionId,omitempty"`
 	Key             string                   `json:"key"`
 	Name            string                   `json:"name"`
 	ResourceTypeKey string                   `json:"resourceType"`

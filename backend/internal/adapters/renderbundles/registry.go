@@ -156,10 +156,14 @@ func (r *Registry) Load(ctx context.Context, pin resource.RenderBundle) (rendere
 }
 
 func (r *Registry) load(pin resource.RenderBundle) (renderengine.Bundle, error) {
-	if pin.Source == nil || pin.EngineContract != renderbundle.EngineContract || pin.RendererVersion != renderbundle.RendererVersion {
+	if pin.Source == nil || pin.EngineContract != renderbundle.EngineContract {
 		return renderengine.Bundle{}, fmt.Errorf("%w: unsupported engine contract", renderregistry.ErrBundleUnavailable)
 	}
-	if r.Runtime == nil || r.Cache == nil || pin.BinaryDigest != r.Runtime.BinaryDigest() || r.Runtime.CheckBinary() != nil {
+	validRuntime := r.Runtime != nil && pin.BinaryDigest == r.Runtime.BinaryDigest() && pin.RendererVersion == renderbundle.RendererVersion && r.Runtime.CheckBinary() == nil
+	if retained, ok := r.Runtime.(interface{ CheckPinnedBinary(string, string) error }); ok {
+		validRuntime = retained.CheckPinnedBinary(pin.BinaryDigest, pin.RendererVersion) == nil
+	}
+	if !validRuntime || r.Cache == nil {
 		return renderengine.Bundle{}, fmt.Errorf("%w: the runtime renderer does not match the pin", renderregistry.ErrBundleUnavailable)
 	}
 	files, err := r.Cache.Load(pin.Source.ContentSHA256)

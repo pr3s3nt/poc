@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	catalogapp "orchestrator/internal/application/catalogrelease"
+	"orchestrator/internal/application/definitionversions"
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
@@ -151,7 +153,15 @@ func (s *Service) RegisterResourceDefinition(ctx context.Context, organizationKe
 		if err := s.verifyRenderAssociation(ctx, organizationKey, prepared); err != nil {
 			return err
 		}
-		return s.store.CreateResourceDefinition(ctx, organizationKey, prepared)
+		if err := definitionversions.FreezeRunningOrganization(ctx, s.store, organizationKey, catalogapp.ResolveDefinitions); err != nil {
+			return err
+		}
+		if err := s.store.CreateResourceDefinition(ctx, organizationKey, prepared); err != nil {
+			return err
+		}
+		var recordErr error
+		_, recordErr = s.recordRevision(ctx, organizationKey, prepared, true)
+		return recordErr
 	})
 	if errors.Is(err, persistence.ErrDuplicate) {
 		return resource.Definition{}, fmt.Errorf("%w: resource definition %q", ErrDuplicate, prepared.Key)
@@ -201,8 +211,23 @@ func (s *Service) UpdateResourceDefinition(ctx context.Context, organizationKey,
 		if err := s.verifyRenderAssociation(ctx, organizationKey, prepared); err != nil {
 			return err
 		}
-		var err error
+		if err := definitionversions.FreezeOrganization(ctx, s.store, organizationKey, catalogapp.ResolveDefinitions); err != nil {
+			return err
+		}
+		h, err := s.store.GetDefinitionHistory(ctx, organizationKey, key)
+		if err != nil {
+			return err
+		}
+		if len(h.Versions) == 0 {
+			if _, err := s.recordRevision(ctx, organizationKey, stored, true); err != nil {
+				return err
+			}
+		}
 		saved, err = s.store.UpdateResourceDefinition(ctx, organizationKey, expected, prepared)
+		if err != nil {
+			return err
+		}
+		_, err = s.recordRevision(ctx, organizationKey, saved, false)
 		return err
 	})
 	switch {
@@ -269,6 +294,7 @@ func (s *Service) prepareDefinition(ctx context.Context, organizationKey string,
 	if err := s.validateCatalogModule(ctx, organizationKey, def); err != nil {
 		return resource.Definition{}, nil, err
 	}
+	def.RevisionID = ""     // Immutable revision identity is assigned by the history service.
 	def.SourceFingerpr = "" // Server-owned metadata; never trust a submitted fingerprint.
 	types, err := s.store.ListResourceTypes(ctx, organizationKey)
 	if err != nil {

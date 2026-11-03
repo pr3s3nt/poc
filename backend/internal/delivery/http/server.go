@@ -222,6 +222,21 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/score-samples", s.handleScoreSamples)
 	s.mux.HandleFunc("GET /api/v1/resource-types", s.handleResourceTypes)
 	s.mux.HandleFunc("POST /api/v1/resource-types", s.handleRegisterResourceType)
+	s.mux.HandleFunc("GET /api/v1/resource-definitions/{key}/versions", s.handleDefinitionVersions)
+	s.mux.HandleFunc("POST /api/v1/resource-definitions/{key}/versions/{revision}/promote", func(w http.ResponseWriter, r *http.Request) {
+		r.SetPathValue("action", "promote")
+		s.handleDefinitionRevisionAction(w, r)
+	})
+	s.mux.HandleFunc("POST /api/v1/resource-definitions/{key}/versions/{revision}/archive", func(w http.ResponseWriter, r *http.Request) {
+		r.SetPathValue("action", "archive")
+		s.handleDefinitionRevisionAction(w, r)
+	})
+	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/definition-versions", s.handleEnvironmentDefinitionVersions)
+	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/definition-versions", s.handleSelectDefinitionVersions)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/definition-versions/discard", func(w http.ResponseWriter, r *http.Request) {
+		r.SetPathValue("action", "discard")
+		s.handleSelectDefinitionVersions(w, r)
+	})
 	s.mux.HandleFunc("GET /api/v1/resource-definitions", s.handleResourceDefinitions)
 	s.mux.HandleFunc("POST /api/v1/resource-definitions", s.handleRegisterResourceDefinition)
 	s.mux.HandleFunc("PUT /api/v1/resource-definitions/{key}", s.handleUpdateResourceDefinition)

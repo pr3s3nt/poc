@@ -331,7 +331,10 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	if err != nil {
 		return nil, s.fail(ctx, record, err)
 	}
-	if snapshot.CatalogPending {
+	if snapshot.DefinitionsPending && !cmd.DeferPublicRoutes {
+		return nil, s.fail(ctx, record, ErrStalePlan)
+	}
+	if snapshot.CatalogPending || snapshot.DefinitionsPending {
 		if err := catalogapp.ValidateDataUpdates(plan, snapshot.Baselines.Reader(), snapshot.Types); err != nil {
 			return nil, s.fail(ctx, record, err)
 		}
@@ -493,6 +496,11 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		}
 		if err := s.markUnreferenced(ctx, cmd.OrganizationKey, record.ID, plan.UnreferencedResources); err != nil {
 			return err
+		}
+		if !cmd.DeferPublicRoutes {
+			if err := s.store.ApplyDefinitionSelection(ctx, app.Key, env.Key, snapshot.DefinitionSelectionRevision, plan.DefinitionSnapshots, plan.CatalogPin); err != nil {
+				return err
+			}
 		}
 		finished := s.clock.Now()
 		record.Status = domain.StatusSucceeded

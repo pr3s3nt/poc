@@ -26,7 +26,13 @@ var versionThreeSQL string
 var versionFourSQL string
 
 //go:embed migrations/version-005.sql
+var versionFiveSQL string
+
+//go:embed migrations/version-006.sql
 var versionSQL string
+
+//go:embed migrations/006-definition-versions.sql
+var definitionVersionsUpgradeSQL string
 
 //go:embed migrations/005-managed-delivery.sql
 var managedDeliveryUpgradeSQL string
@@ -81,7 +87,10 @@ func recordUpgrade(ctx context.Context, tx pgx.Tx, source string) error {
 	if err := recordVersionFour(ctx, tx); err != nil {
 		return err
 	}
-	return recordVersionFive(ctx, tx)
+	if err := recordVersionFive(ctx, tx); err != nil {
+		return err
+	}
+	return recordVersionSix(ctx, tx)
 }
 func recordVersionOne(ctx context.Context, tx pgx.Tx, source string) error {
 	_, err := tx.Exec(ctx, `INSERT INTO schema_upgrade_history(version,migration_sha256,source_sha256) VALUES(1,$1,$2)`, migrationChecksum(), source)
@@ -115,8 +124,12 @@ func recordVersionFive(ctx context.Context, tx pgx.Tx) error {
 	_, err := tx.Exec(ctx, `INSERT INTO schema_upgrade_history(version,migration_sha256,source_sha256) VALUES(5,$1,$2)`, digest(managedDeliveryUpgradeSQL), digest(versionFourSQL))
 	return err
 }
+func recordVersionSix(ctx context.Context, tx pgx.Tx) error {
+	_, err := tx.Exec(ctx, `INSERT INTO schema_upgrade_history(version,migration_sha256,source_sha256) VALUES(6,$1,$2)`, digest(definitionVersionsUpgradeSQL), digest(versionFiveSQL))
+	return err
+}
 func verifyUpgradeHistory(ctx context.Context, tx pgx.Tx) error {
-	return verifyHistoryThrough(ctx, tx, 5)
+	return verifyHistoryThrough(ctx, tx, 6)
 }
 func verifyHistoryThrough(ctx context.Context, tx pgx.Tx, want int) error {
 	rows, err := tx.Query(ctx, `SELECT version,migration_sha256,source_sha256 FROM schema_upgrade_history ORDER BY version`)
@@ -148,6 +161,8 @@ func verifyHistoryThrough(ctx context.Context, tx pgx.Tx, want int) error {
 			valid = valid && checksum == digest(catalogUpgradeSQL) && source == digest(versionThreeSQL)
 		case 5:
 			valid = valid && checksum == digest(managedDeliveryUpgradeSQL) && source == digest(versionFourSQL)
+		case 6:
+			valid = valid && checksum == digest(definitionVersionsUpgradeSQL) && source == digest(versionFiveSQL)
 		default:
 			valid = false
 		}
@@ -221,10 +236,14 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 		return false, nil
 	}
 	source := supportedSource(sum)
+	versionFive := identity == "orchestrator-schema-v5" && sum == digest(versionFiveSQL)
 	versionFour := identity == "orchestrator-schema-v4" && sum == digest(versionFourSQL)
 	versionThree := identity == "orchestrator-schema-v3" && sum == digest(versionThreeSQL)
 	versionOne := identity == "orchestrator-schema-v1" && sum == digest(versionOneSQL)
 	versionTwo := identity == "orchestrator-schema-v2" && sum == digest(versionTwoSQL)
+	if versionFive {
+		source = versionFiveSQL
+	}
 	if versionFour {
 		source = versionFourSQL
 	}
@@ -237,7 +256,7 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 	if versionTwo {
 		source = versionTwoSQL
 	}
-	if (!versionOne && !versionTwo && !versionThree && !versionFour && (identity != "orchestrator-fresh-baseline-v02" || source == "")) || name != schema {
+	if (!versionOne && !versionTwo && !versionThree && !versionFour && !versionFive && (identity != "orchestrator-fresh-baseline-v02" || source == "")) || name != schema {
 		return false, resetRequired("unsupported source version; a reviewed migration is required")
 	}
 	var count int
@@ -254,7 +273,11 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 	if err = compareSchemaSQL(ctx, tx, schema, source); err != nil {
 		return false, err
 	}
-	if versionFour {
+	if versionFive {
+		if err = verifyHistoryThrough(ctx, tx, 5); err != nil {
+			return false, err
+		}
+	} else if versionFour {
 		if err = verifyHistoryThrough(ctx, tx, 4); err != nil {
 			return false, err
 		}
@@ -286,7 +309,7 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 			return false, err
 		}
 	}
-	if !versionTwo && !versionThree && !versionFour {
+	if !versionTwo && !versionThree && !versionFour && !versionFive {
 		if _, err = tx.Exec(ctx, gitSettingsUpgradeSQL); err != nil {
 			return false, fmt.Errorf("postgres: apply upgrade 2 (%s)", sqlState(err))
 		}
@@ -303,7 +326,7 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 			return false, err
 		}
 	}
-	if !versionThree && !versionFour {
+	if !versionThree && !versionFour && !versionFive {
 		if _, err = tx.Exec(ctx, reconciliationUpgradeSQL); err != nil {
 			return false, fmt.Errorf("postgres: apply upgrade 3 (%s)", sqlState(err))
 		}
@@ -349,7 +372,7 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 			}
 		}
 	}
-	if !versionFour {
+	if !versionFour && !versionFive {
 		if _, err = tx.Exec(ctx, catalogUpgradeSQL); err != nil {
 			return false, fmt.Errorf("postgres: apply upgrade 4 (%s)", sqlState(err))
 		}
@@ -372,19 +395,44 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 		}
 	}
 
-	if _, err = tx.Exec(ctx, managedDeliveryUpgradeSQL); err != nil {
-		return false, fmt.Errorf("postgres: apply upgrade 5 (%s)", sqlState(err))
+	if !versionFive {
+
+		if _, err = tx.Exec(ctx, managedDeliveryUpgradeSQL); err != nil {
+			return false, fmt.Errorf("postgres: apply upgrade 5 (%s)", sqlState(err))
+		}
+		if err = compareSchemaSQL(ctx, tx, schema, versionFiveSQL); err != nil {
+			return false, err
+		}
+		if err = recordVersionFive(ctx, tx); err != nil {
+			return false, err
+		}
+		if _, err = tx.Exec(ctx, `REVOKE ALL ON FUNCTION application_delivery_repository_guard() FROM PUBLIC`); err != nil {
+			return false, err
+		}
+		for _, table := range []string{"platform_delivery_defaults", "application_delivery_repositories"} {
+			if _, err = tx.Exec(ctx, `REVOKE ALL ON `+pgx.Identifier{table}.Sanitize()+` FROM PUBLIC`); err != nil {
+				return false, err
+			}
+			if _, err = tx.Exec(ctx, `GRANT SELECT,INSERT,UPDATE ON `+pgx.Identifier{table}.Sanitize()+` TO `+pgx.Identifier{roles.Console}.Sanitize()); err != nil {
+				return false, err
+			}
+		}
+
+	}
+
+	if _, err = tx.Exec(ctx, definitionVersionsUpgradeSQL); err != nil {
+		return false, fmt.Errorf("postgres: apply upgrade 6 (%s)", sqlState(err))
 	}
 	if err = compareSchemaSQL(ctx, tx, schema, versionSQL); err != nil {
 		return false, err
 	}
-	if err = recordVersionFive(ctx, tx); err != nil {
+	if err = recordVersionSix(ctx, tx); err != nil {
 		return false, err
 	}
-	if _, err = tx.Exec(ctx, `REVOKE ALL ON FUNCTION application_delivery_repository_guard() FROM PUBLIC`); err != nil {
+	if _, err = tx.Exec(ctx, `REVOKE ALL ON FUNCTION definition_revision_immutable_guard() FROM PUBLIC`); err != nil {
 		return false, err
 	}
-	for _, table := range []string{"platform_delivery_defaults", "application_delivery_repositories"} {
+	for _, table := range []string{"resource_definition_versions", "resource_definition_policies", "environment_definition_selections"} {
 		if _, err = tx.Exec(ctx, `REVOKE ALL ON `+pgx.Identifier{table}.Sanitize()+` FROM PUBLIC`); err != nil {
 			return false, err
 		}

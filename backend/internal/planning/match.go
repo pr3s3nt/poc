@@ -86,13 +86,14 @@ func (m *definitionMatcher) match(node *Node) (Match, error) {
 	case 1:
 		win := ranking.Top[0]
 		match := Match{
-			Descriptor:        node.Descriptor,
-			DefinitionKey:     win.Definition.Key,
-			DriverType:        win.Definition.DriverType,
-			DefinitionVersion: win.Definition.Version,
-			DriverAccount:     win.Definition.DriverAccount,
-			Specificity:       win.Score,
-			Criterion:         win.Criterion,
+			Descriptor:           node.Descriptor,
+			DefinitionKey:        win.Definition.Key,
+			DriverType:           win.Definition.DriverType,
+			DefinitionVersion:    win.Definition.Version,
+			DefinitionRevisionID: win.Definition.RevisionID,
+			DriverAccount:        win.Definition.DriverAccount,
+			Specificity:          win.Score,
+			Criterion:            win.Criterion,
 		}
 		if win.Definition.DriverType == resource.DriverExistingCluster {
 			if err := m.pinClusterAccount(node, win.Definition, &match); err != nil {

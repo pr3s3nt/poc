@@ -1371,3 +1371,16 @@ No schema change or live CD/VSO acceptance is implied by these local checks.
 | Requirement | Realization/code | Validation |
 |---|---|---|
 | UC-03 CM-01–04 | UC-03 realization; `catalog_modules.go`, `catalogrelease/selection.go`, `ResourceDefinitionsPage.tsx`, `CatalogModuleSource.tsx` | `catalog_modules_test.go`, catalog release service/HTTP tests, `CatalogModuleSource.test.tsx`, restored form tests |
+
+## Controlled Definition upgrades — DV-01–07
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| DV-01, DV-02 immutable revisions, proposed/default, independent frozen selection | `application/catalog/versions.go`, `application/definitionversions/service.go` | `catalog/versions_test.go`, `http/definition_versions_test.go` |
+| DV-03 exact Preview and fenced activation | planner snapshots, deployment/pending coordinators | `pending/git_rendering_test.go`, `pending/rendering_test.go`, catalog lifecycle test |
+| DV-04 history/compare/usage/selection and stale scope | version endpoints and two shared UI panels | `DefinitionVersions.test.tsx`, authenticated preview browser evidence |
+| DV-05 original tool identities | registry/renderer retained tools and provider mirror | retained toolchain, renderer and provider tests |
+| DV-06 data guards | shared `catalogrelease.ValidateDataUpdates` | `pending/definition_versions_test.go`, existing catalog safety tests |
+| DV-07 preserving owner migration | migration 006 and complete reference | `definition_versions_integration_test.go`, full real PostgreSQL upgrade suite |
+
+[Requirement source](../usecase/UC-03/definition-versions.md), [verification and limits](../verification/2026-11-03-definition-versions.md).

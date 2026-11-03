@@ -705,6 +705,10 @@ func TestVerifyForExecutionFailsClosed(t *testing.T) {
 		t.Fatalf("failed verifications left %d private copies", len(entries))
 	}
 	f.svc.cfg.Release.Providers[0].Version = "5.81.0"
+	if _, err := f.svc.VerifyForExecution(ctx, ref); !errors.Is(err, moduleregistry.ErrDrift) {
+		t.Fatalf("retained release must still refuse missing artifact: %v", err)
+	}
+	f.svc.cfg.Retained = nil
 	if _, err := f.svc.VerifyForExecution(ctx, ref); !errors.Is(err, moduleregistry.ErrReleaseMismatch) {
 		t.Fatalf("upgraded provider release: %v", err)
 	}
@@ -938,5 +942,42 @@ func TestLoadRetainedIsStrict(t *testing.T) {
 		if _, err := LoadRetained(write(content)); err == nil {
 			t.Errorf("%s accepted", name)
 		}
+	}
+}
+
+func TestRetainedToolchainSurvivesPlatformReleaseAndRestart(t *testing.T) {
+	ctx := context.Background()
+	f := newFixtureWithBinary(t, baseRepo(), "original Terraform bytes")
+	ref := mustPackaged(t, "vpc")
+	cfg := f.svc.cfg
+	cfg.Release = cfg.Release.Clone()
+	cfg.Retained = nil
+	cfg.Release.Providers[0].Version = "5.81.0"
+	upgraded, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifact, err := upgraded.VerifyForExecution(ctx, ref)
+	if err != nil {
+		t.Fatalf("old pin unavailable after restart: %v", err)
+	}
+	defer artifact.Close()
+	if artifact.Bundle.TerraformBinarySHA256 != f.release.Terraform.BinarySHA256 {
+		t.Fatal("old module was run with a different toolchain")
+	}
+	digest, err := fileSHA256(artifact.TerraformBinary)
+	if err != nil || digest != f.release.Terraform.BinarySHA256 {
+		t.Fatal("retained binary changed", err)
+	}
+	// Missing/corrupt retained bytes never silently fall back to the new toolchain.
+	retained := filepath.Join(f.cache.dir, "toolchains", f.release.Terraform.BinarySHA256, "terraform")
+	if err := os.Chmod(retained, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(retained, []byte("corrupt"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := upgraded.VerifyForExecution(ctx, ref); !errors.Is(err, moduleregistry.ErrReleaseMismatch) {
+		t.Fatal("corrupt old binary was executed", err)
 	}
 }

@@ -2,10 +2,26 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-02
+last_reviewed: 2026-11-03
 ---
 
 # Current project state
+
+## Controlled Definition upgrades — 2026-11-03
+
+Definition/Rendering Template edits create immutable Proposed revisions. Active
+is a default; existing Environments retain frozen selections. Environment Settings
+allows an explicit revision selection, comparison and the existing Preview/Deploy
+flow. Applied state advances only on complete fenced success; Usage reads actual
+resource/workload Plans and labels missing historical evidence unverified.
+
+Schema 6 captures current configurations without deployment or invented history.
+Durable caches retain verified tools/provider archives; unavailable historical
+contracts block execution. Database/storage changes require a separate migration.
+[Implementation and limits](implementation/definition-versions.md),
+[verification](verification/2026-11-03-definition-versions.md). The original Console
+on port 3001 remains on schema 5 pending separate retained-environment authorization;
+the isolated preview uses fake execution adapters and its own data.
 
 ## Platform-managed CD — 2026-11-02
 

@@ -415,3 +415,10 @@ availability is recorded in CURRENT_STATE.
 resolution, stale selection guards, conservative data migration admission,
 partial acknowledgement and legacy compatibility for this flow. It supplements
 this specification without changing resource/state identity or cleanup authority.
+
+## Definition revision upgrades — 2026-11-03
+
+[UC-03 DV-02–07](../UC-03/definition-versions.md) governs frozen Environment
+Definition selection, Preview pins, all-success activation, retained historical
+artifacts and explicit data-migration blockers. Partial execution preserves actual
+per-resource evidence; changing a Definition does not silently upgrade this scope.

@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -221,5 +222,12 @@ func ResolveRenderDefinition(def Definition, typ Type, bundles map[string]Render
 	// Definition.SourceFingerpr is registration-time audit provenance. It stays in
 	// the Definition hash but is not compared with the installed bundle: plans pin
 	// the installed snapshot, so an upgrade only makes older plans stale.
+	if def.RenderPin != nil {
+		a, _ := json.Marshal(def.RenderPin)
+		b, _ := json.Marshal(pin)
+		if string(a) != string(b) {
+			return RenderBundle{}, nil, &RenderSelectionError{Kind: ErrRenderBundleUnavailable, Err: fmt.Errorf("pinned renderer contract is unavailable; choose a verified compatible revision")}
+		}
+	}
 	return pin, inputs, nil
 }

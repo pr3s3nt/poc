@@ -34,9 +34,10 @@ const Version = "0.15.0"
 var bundleFiles embed.FS
 
 type Renderer struct {
-	path   string
-	bundle resource.RenderBundle
-	native execution.WorkloadRenderer
+	retained map[string]retainedRenderer
+	path     string
+	bundle   resource.RenderBundle
+	native   execution.WorkloadRenderer
 	// git and executor serve Git render bundles (ADR-021); nil git keeps
 	// only the installed bundle.
 	git      BundleStore
@@ -99,6 +100,13 @@ func binaryDigest(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 func (r *Renderer) ValidateSelection(ctx context.Context, selected resource.RenderingSelection) error {
+	if selected.Bundle.Git() && selected.Bundle.BinaryDigest != r.bundle.BinaryDigest {
+		old, err := r.forRetained(selected.Bundle)
+		if err != nil {
+			return err
+		}
+		return old.ValidateSelection(ctx, selected)
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -126,6 +134,13 @@ func (r *Renderer) ValidateSelection(ctx context.Context, selected resource.Rend
 }
 
 func (r *Renderer) Render(ctx context.Context, req execution.RenderRequest) ([]execution.Manifest, error) {
+	if req.Selection.Bundle.Git() && req.Selection.Bundle.BinaryDigest != r.bundle.BinaryDigest {
+		old, err := r.forRetained(req.Selection.Bundle)
+		if err != nil {
+			return nil, err
+		}
+		return old.Render(ctx, req)
+	}
 	if req.Module.Spec.Execution != nil && !req.Selection.Bundle.Git() {
 		return nil, environment.ErrExecutionUnavailable
 	}

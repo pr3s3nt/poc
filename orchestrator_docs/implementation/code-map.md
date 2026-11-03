@@ -7,6 +7,10 @@ last_reviewed: 2026-10-28
 
 # Design-to-code map
 
+## Controlled Definition upgrades
+
+[UC-03 DV-01–07](../usecase/UC-03/definition-versions.md) maps to immutable revision/Environment repositories, catalog resolution, Plan snapshots, fenced activation and the existing forms. See the [implementation route](definition-versions.md) for paths and supported tool-retention boundaries.
+
 ## PostgreSQL versioned upgrades
 
 [ADR-027](../architecture/decisions/ADR-027-postgres-upgrades.md): `backend/internal/adapters/postgres/upgrade.go`, frozen `migrations/` SQL, owner `Setup` and runtime marker/history validation. Tests: `upgrade_integration_test.go`; guard: `scripts/check_migrations.py`; Compose orchestration: `deploy/local/upgrade-database.sh`. Procedure: [runbook](../operations/postgres-upgrades.md).

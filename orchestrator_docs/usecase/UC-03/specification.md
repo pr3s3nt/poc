@@ -533,3 +533,8 @@ Limits, transport and identity follow [ADR-026](../../architecture/decisions/ADR
 
 The [approved specification extension](git-access.md) owns Git settings,
 role/scope isolation, credential persistence, Test and Save behavior.
+
+## Controlled Definition upgrades — 2026-11-03
+
+[DV-01–07](definition-versions.md) supersedes mutable-global runtime upgrade behavior
+in CM-04. Existing Environments retain frozen revisions until explicitly upgraded.

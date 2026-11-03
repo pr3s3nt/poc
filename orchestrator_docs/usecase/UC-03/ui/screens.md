@@ -297,3 +297,10 @@ Git remains default. Never send a ZIP source through Git re-inspection.
 
 [GA-01–06 UI states and API contract](../git-access.md) defines the platform
 settings screen at `/ui/platform/settings`, separate from Definition authoring.
+
+## Revision versions and usage
+
+[DV-04](../definition-versions.md) owns revision controls and Environment upgrade
+selection. Compare shows changed configuration paths; full JSON remains an optional
+disclosure. Empty history, unknown applied evidence, loading/error/retry and stale
+selection keep distinct states. Busy scopes disable selection without replay.

@@ -52,3 +52,5 @@ mở rộng đang review; chưa thay thế current behavior hoặc chứng minh 
 Platform Git credentials: [approved specification and contract](git-access.md).
 
 Versioned catalog releases: [specification](catalog-releases.md).
+
+Controlled upgrades: [Definition versions](definition-versions.md).

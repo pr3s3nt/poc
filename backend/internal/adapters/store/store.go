@@ -44,6 +44,8 @@ type deliveryExecutionRecord struct {
 }
 
 type state struct {
+	DefinitionHistories             map[string]persistence.DefinitionHistory      `json:"definitionHistories,omitempty"`
+	DefinitionSelections            map[string]persistence.DefinitionSelection    `json:"definitionSelections,omitempty"`
 	PlatformDeliveryDefaults        map[string]delivery.PlatformDefault           `json:"platformDeliveryDefaults,omitempty"`
 	ApplicationDeliveryRepositories map[string]delivery.ApplicationRepository     `json:"applicationDeliveryRepositories,omitempty"`
 	CatalogEnvironments             map[string]persistence.CatalogEnvironment     `json:"catalogEnvironments,omitempty"`

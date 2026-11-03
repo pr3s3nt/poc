@@ -178,12 +178,27 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 	if err := validateStorageIntent(base, candidate, req.Catalog); err != nil {
 		return nil, err
 	}
+	plan.DefinitionSnapshots = append([]resource.Definition{}, req.Catalog.Definitions...)
+	resource.SortDefinitions(plan.DefinitionSnapshots)
+	plan.DefinitionSelectionRevision = req.Catalog.DefinitionSelectionRevision
 	plan.CatalogSelection = req.Catalog.ReleaseSelection
 	plan.CatalogPin = req.Catalog.ReleasePin
 	plan.IntentEvidence = intentEvidence(matches, matcher)
 	plan.Rendering, err = s.selectRendering(ctx, graph, matcher, req.Catalog)
 	if err != nil {
 		return nil, stageErr(StageCatalog, err)
+	}
+	// A successful deployment freezes resolved renderer evidence as well as the
+	// authored configuration. Future reads do not need a historical Plan to
+	// reinterpret this snapshot, and legacy resource baselines may remain unknown.
+	for i := range plan.DefinitionSnapshots {
+		for _, selected := range plan.Rendering {
+			if plan.DefinitionSnapshots[i].Key == selected.DefinitionKey {
+				pin := selected.Bundle
+				plan.DefinitionSnapshots[i].RenderPin = &pin
+				break
+			}
+		}
 	}
 	if err := validateExecution(plan, req.Catalog); err != nil {
 		return nil, &StageError{Stage: StageCatalog, Reason: ReasonRendererUnavailable, Err: err}
@@ -208,6 +223,10 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		"batches":      plan.Batches,
 		"target":       plan.Target,
 	}
+	if len(plan.DefinitionSnapshots) > 0 {
+		hashInput["definitionSnapshots"] = plan.DefinitionSnapshots
+	}
+	hashInput["definitionSelectionRevision"] = plan.DefinitionSelectionRevision
 	if plan.CatalogPin != "" {
 		hashInput["catalogPin"] = plan.CatalogPin
 	}

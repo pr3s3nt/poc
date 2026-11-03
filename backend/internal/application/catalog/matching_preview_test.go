@@ -506,6 +506,15 @@ func (v readSpyView) GetCatalogRelease(ctx context.Context, o, s, t string) (cat
 	return v.in.GetCatalogRelease(ctx, o, s, t)
 }
 
+func (v readSpyView) GetDefinitionHistory(ctx context.Context, o, k string) (persistence.DefinitionHistory, error) {
+	v.spy.reads = append(v.spy.reads, "GetDefinitionHistory")
+	return v.in.GetDefinitionHistory(ctx, o, k)
+}
+func (v readSpyView) GetDefinitionSelection(ctx context.Context, a, e string) (persistence.DefinitionSelection, error) {
+	v.spy.reads = append(v.spy.reads, "GetDefinitionSelection")
+	return v.in.GetDefinitionSelection(ctx, a, e)
+}
+
 // noInspectorUse fails the test if the module registry (fetch, metadata or
 // execution verification) is ever used.
 type noInspectorUse struct{ t *testing.T }
@@ -534,7 +543,7 @@ func (f noInspectorUse) VerifyForExecution(context.Context, tfmodule.SourceRef) 
 
 func TestPreviewMatching_UsesExactlyOneSnapshotAndNoWrites(t *testing.T) {
 	st, _, opts := seededCatalog(t, nil)
-	allowed := map[string]bool{"GetApplication": true, "GetEnvironment": true, "ListConnections": true, "ListResourceTypes": true, "ListResourceDefinitions": true, "GetCatalogEnvironment": true, "GetCatalogRelease": true}
+	allowed := map[string]bool{"GetApplication": true, "GetEnvironment": true, "ListConnections": true, "ListResourceTypes": true, "ListResourceDefinitions": true, "GetCatalogEnvironment": true, "GetCatalogRelease": true, "GetDefinitionHistory": true, "GetDefinitionSelection": true}
 	scenarios := map[string]struct {
 		q       catalog.MatchingPreviewQuery
 		org     string

@@ -105,9 +105,10 @@ func (g Graph) Providers(consumer string) []string {
 
 // Match records the Resource Definition selected for a resource node (UC-06 MS-07).
 type Match struct {
-	Descriptor    string              `json:"descriptor"`
-	DefinitionKey string              `json:"definitionKey"`
-	DriverType    resource.DriverType `json:"driverType"`
+	DefinitionRevisionID string              `json:"definitionRevisionId,omitempty"`
+	Descriptor           string              `json:"descriptor"`
+	DefinitionKey        string              `json:"definitionKey"`
+	DriverType           resource.DriverType `json:"driverType"`
 	// DefinitionVersion, DriverAccount and AccountVersion pin the Definition
 	// content version and the selected Driver Account the plan saw
 	// (UC-03 V02-07); editing either makes an older Preview stale.
@@ -196,14 +197,16 @@ type Classification struct {
 
 // Plan is the immutable planning artifact persisted with a Deployment.
 type Plan struct {
-	CatalogSelection *catalogrelease.Selection              `json:"catalogSelection,omitempty"`
-	CatalogPin       string                                 `json:"catalogPin,omitempty"`
-	Review           any                                    `json:"review,omitempty"`
-	Rendering        map[string]resource.RenderingSelection `json:"rendering,omitempty"`
-	WorkloadID       string                                 `json:"workloadId"`
-	Action           deployment.Action                      `json:"action"`
-	ScoreBefore      map[string]any                         `json:"scoreBefore,omitempty"`
-	ScoreAfter       map[string]any                         `json:"scoreAfter,omitempty"`
+	DefinitionSnapshots         []resource.Definition                  `json:"definitionSnapshots,omitempty"`
+	DefinitionSelectionRevision int64                                  `json:"definitionSelectionRevision,omitempty"`
+	CatalogSelection            *catalogrelease.Selection              `json:"catalogSelection,omitempty"`
+	CatalogPin                  string                                 `json:"catalogPin,omitempty"`
+	Review                      any                                    `json:"review,omitempty"`
+	Rendering                   map[string]resource.RenderingSelection `json:"rendering,omitempty"`
+	WorkloadID                  string                                 `json:"workloadId"`
+	Action                      deployment.Action                      `json:"action"`
+	ScoreBefore                 map[string]any                         `json:"scoreBefore,omitempty"`
+	ScoreAfter                  map[string]any                         `json:"scoreAfter,omitempty"`
 	// Delta is the transient Humanitec-shaped Delta document. It is not part
 	// of the persisted plan: UC-06/07 persist it as a DeploymentDeltaSnapshot.
 	Delta        deployment.DeltaDocument `json:"-"`
@@ -238,10 +241,11 @@ type Plan struct {
 
 // Catalog is the read-only registry planning matches against.
 type Catalog struct {
-	ReleaseSelection *catalogrelease.Selection
-	ReleasePin       string
-	Types            map[string]resource.Type
-	Definitions      []resource.Definition
+	DefinitionSelectionRevision int64
+	ReleaseSelection            *catalogrelease.Selection
+	ReleasePin                  string
+	Types                       map[string]resource.Type
+	Definitions                 []resource.Definition
 	// Accounts are the scoped Driver Accounts (Connections) of the
 	// Organization by key. Planning reads only identity, kind, status and
 	// version; never configuration secrets.

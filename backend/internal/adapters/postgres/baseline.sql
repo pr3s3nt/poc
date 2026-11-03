@@ -925,3 +925,40 @@ BEGIN
  RETURN NEW;
 END $$;
 CREATE TRIGGER application_delivery_repository_guard BEFORE INSERT OR UPDATE ON application_delivery_repositories FOR EACH ROW EXECUTE FUNCTION application_delivery_repository_guard();
+
+CREATE TABLE resource_definition_versions (
+ organization_id uuid NOT NULL REFERENCES organizations(id),
+ definition_key text NOT NULL,
+ revision_id text NOT NULL,
+ number bigint NOT NULL CHECK(number>0),
+ snapshot jsonb NOT NULL CHECK(jsonb_typeof(snapshot)='object' AND snapshot->>'key'=definition_key AND snapshot->>'revisionId'=revision_id),
+ created_at timestamptz NOT NULL,
+ archived boolean NOT NULL DEFAULT false,
+ PRIMARY KEY(organization_id,revision_id),
+ UNIQUE(organization_id,definition_key,number),
+ UNIQUE(organization_id,definition_key,revision_id)
+);
+CREATE TABLE resource_definition_policies (
+ organization_id uuid NOT NULL REFERENCES organizations(id),
+ definition_key text NOT NULL,
+ generation bigint NOT NULL CHECK(generation>0),
+ active_revision text NOT NULL,
+ PRIMARY KEY(organization_id,definition_key),
+ FOREIGN KEY(organization_id,definition_key,active_revision) REFERENCES resource_definition_versions(organization_id,definition_key,revision_id)
+);
+CREATE TABLE environment_definition_selections (
+ environment_id uuid PRIMARY KEY REFERENCES environments(id),
+ revision bigint NOT NULL CHECK(revision>=0),
+ document jsonb NOT NULL
+);
+CREATE FUNCTION definition_revision_immutable_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ IF TG_OP='DELETE' THEN RAISE EXCEPTION 'immutable definition revision'; END IF;
+ IF ROW(NEW.organization_id,NEW.definition_key,NEW.revision_id,NEW.number,NEW.snapshot,NEW.created_at)
+ IS DISTINCT FROM ROW(OLD.organization_id,OLD.definition_key,OLD.revision_id,OLD.number,OLD.snapshot,OLD.created_at) THEN
+ RAISE EXCEPTION 'immutable definition revision'; END IF;
+ IF NEW.archived AND EXISTS(SELECT 1 FROM resource_definition_policies WHERE organization_id=NEW.organization_id AND active_revision=NEW.revision_id) THEN RAISE EXCEPTION 'active revision cannot be archived'; END IF;
+ RETURN NEW;
+END;
+$$;
+CREATE TRIGGER definition_revision_immutable BEFORE UPDATE OR DELETE ON resource_definition_versions FOR EACH ROW EXECUTE FUNCTION definition_revision_immutable_guard();

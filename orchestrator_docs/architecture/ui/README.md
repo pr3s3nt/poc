@@ -240,3 +240,12 @@ shell. Application Environment Settings adds a Catalog selection panel and uses
 the existing Preview/Deploy surface. [Screen/states](../../usecase/UC-03/ui/catalog-releases.md)
 own this feature; no shell identity, navigation interaction or generic form
 pattern is replaced.
+
+## Controlled revision upgrades — 2026-11-03
+
+DV-04 extends the existing Definition/render forms using shared Button, details,
+status/error and comparison patterns. Versions/Usage are compact disclosures below
+the existing catalog; edit remains the current two-tab form. Environment Settings
+adds revision selection beside Catalog using existing staging/production tabs.
+No navigation/theme redesign. New labels use VI/EN message catalogs; configuration
+rollback is not labelled as restoring database contents.

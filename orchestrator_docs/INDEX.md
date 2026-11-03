@@ -185,3 +185,5 @@ the merge verification for validation limits. This requested change
 does not activate another roadmap iteration.
 
 Versioned Git catalog releases (issue #28): [implementation route](implementation/catalog-releases.md).
+
+Controlled Definition upgrades: [specification](usecase/UC-03/definition-versions.md), [implementation and limits](implementation/definition-versions.md), [verification](verification/2026-11-03-definition-versions.md).

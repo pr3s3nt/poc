@@ -13,6 +13,8 @@ import (
 	"orchestrator/internal/adapters/scorek8s"
 	"orchestrator/internal/adapters/terraform/registry"
 	"orchestrator/internal/application/catalog"
+	catalogapp "orchestrator/internal/application/catalogrelease"
+	"orchestrator/internal/application/definitionversions"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/workloadconfig"
 	"orchestrator/internal/bootstrap"
@@ -204,6 +206,29 @@ func TestGitBundleOnlyChangeIsPendingUpdateWithoutGitFetch(t *testing.T) {
 	if err := seedtest.PublishCatalog(ctx, app.Store, opts); err != nil {
 		t.Fatal(err)
 	}
+	selectLatest := func() {
+		t.Helper()
+		h, err := app.Store.GetDefinitionHistory(ctx, opts.OrganizationKey, def.Key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		selection, err := app.Store.GetDefinitionSelection(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		env, err := app.Store.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defs, pin, err := catalogapp.ResolveDefinitions(ctx, app.Store, opts.OrganizationKey, opts.ApplicationKey, opts.EnvironmentKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := definitionversions.Select(ctx, app.Store, opts.OrganizationKey, opts.ApplicationKey, opts.EnvironmentKey, def.Key, h.Versions[len(h.Versions)-1].ID, env.Version, selection.Revision, defs, pin, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	selectLatest()
 	toB, err := svc.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
 	if err != nil {
 		t.Fatal(err)
@@ -253,6 +278,7 @@ func TestGitBundleOnlyChangeIsPendingUpdateWithoutGitFetch(t *testing.T) {
 	if err := seedtest.PublishCatalog(ctx, app.Store, opts); err != nil {
 		t.Fatal(err)
 	}
+	selectLatest()
 	back, err := svc.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
 	if err != nil || len(back.Changes) != 1 {
 		t.Fatalf("B->A: %+v %v", back.Changes, err)

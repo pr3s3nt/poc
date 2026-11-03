@@ -2,6 +2,7 @@ package catalogrelease
 
 import (
 	"context"
+	"orchestrator/internal/application/definitionversions"
 	domain "orchestrator/internal/domain/catalogrelease"
 	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
@@ -15,12 +16,17 @@ func ResolveDefinitions(ctx context.Context, st persistence.Store, org, app, env
 	if err != nil {
 		return nil, "", err
 	}
+	authored, err = definitionversions.ActiveDefinitions(ctx, st, org, authored)
+	if err != nil {
+		return nil, "", err
+	}
 	binding, err := st.GetCatalogEnvironment(ctx, app, env)
 	if err != nil {
 		return nil, "", err
 	}
 	if binding.Desired == nil {
-		return authored, "", nil
+		resolved, err := definitionversions.Resolve(ctx, st, app, env, authored, nil, "")
+		return resolved, "", err
 	}
 	r, err := st.GetCatalogRelease(ctx, org, binding.Desired.SourceID, binding.Desired.Tag)
 	if err != nil {
@@ -30,7 +36,8 @@ func ResolveDefinitions(ctx context.Context, st persistence.Store, org, app, env
 	if err != nil {
 		return nil, "", err
 	}
-	return mergeDefinitions(defs, authored), binding.Desired.Digest(), nil
+	resolved, err := definitionversions.Resolve(ctx, st, app, env, mergeDefinitions(defs, authored), defs, binding.Desired.Digest())
+	return resolved, binding.Desired.Digest(), err
 }
 func (s *Service) Select(ctx context.Context, org, app, env, sourceID, tag string, expectedEnv, expectedRevision int64) (persistence.CatalogEnvironment, error) {
 	var out persistence.CatalogEnvironment
@@ -102,6 +109,10 @@ func PublishedDefinitions(ctx context.Context, st persistence.Store, org string)
 		return nil, err
 	}
 	out, err := st.ListResourceDefinitions(ctx, org)
+	if err != nil {
+		return nil, err
+	}
+	out, err = definitionversions.ActiveDefinitions(ctx, st, org, out)
 	if err != nil {
 		return nil, err
 	}

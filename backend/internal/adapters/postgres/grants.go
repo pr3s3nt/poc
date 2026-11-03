@@ -75,6 +75,11 @@ func consoleGrants() []grant {
 			out = append(out, grant{table: table, privilege: privilege})
 		}
 	}
+	for _, table := range []string{"resource_definition_versions", "resource_definition_policies", "environment_definition_selections"} {
+		for _, privilege := range []string{"SELECT", "INSERT", "UPDATE"} {
+			out = append(out, grant{table: table, privilege: privilege})
+		}
+	}
 	return append(out,
 		grant{table: "platform_delivery_defaults", privilege: "SELECT"}, grant{table: "platform_delivery_defaults", privilege: "INSERT"}, grant{table: "platform_delivery_defaults", privilege: "UPDATE"},
 		grant{table: "application_delivery_repositories", privilege: "SELECT"}, grant{table: "application_delivery_repositories", privilege: "INSERT"}, grant{table: "application_delivery_repositories", privilege: "UPDATE"},

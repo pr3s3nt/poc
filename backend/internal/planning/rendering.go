@@ -67,7 +67,9 @@ func (s *Service) selectRendering(ctx Context, graph Graph, matcher *definitionM
 		if skipped {
 			continue
 		}
-		hash, err := canon.Hash(def)
+		hashDefinition := def
+		hashDefinition.RenderPin = nil // The rendering selection already pins the bundle independently.
+		hash, err := canon.Hash(hashDefinition)
 		if err != nil {
 			return nil, err
 		}

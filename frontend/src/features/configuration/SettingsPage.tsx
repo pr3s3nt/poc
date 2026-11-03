@@ -1,3 +1,4 @@
+import { EnvironmentDefinitionVersions } from '../platform/EnvironmentDefinitionVersions';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { navigate, replaceRoute } from '../../app/routes';
 import { ApiError, isStaleConflict } from '../../shared/api/client';
@@ -195,6 +196,7 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
     <header className="page-header application-header"><div><p className="eyebrow">{t('configuration.settings.applicationSettings')}</p><h1>{t('configuration.settings.environmentSettings')}</h1><p>{t('configuration.settings.chooseTheSecretStoreOf')}</p></div>{data && data.version > 0 ? <span className="pending-pill">{t('configuration.settings.configurationVersionVVersion', { version: data.version })}</span> : null}</header>
     <div className="tabs" role="tablist" aria-label={t('configuration.settings.environment')}>{(['staging', 'production'] as const).map((env) => <button key={env} role="tab" aria-selected={env === environment} className={env === environment ? 'tab tab-active' : 'tab'} onClick={() => changeEnvironment(env)}>{environmentTitle(env)}</button>)}</div>
     <OperationBanner application={application} environment={environment} onTargetChange={change} />
+    <EnvironmentDefinitionVersions key={`definitions:${application.id}:${environment}`} applicationId={application.id} environment={environment} busy={busy} onSaved={deliverySaved} />
     <EnvironmentCatalogPanel key={`catalog:${application.id}:${environment}`} applicationId={application.id} environment={environment} busy={busy} onSaved={deliverySaved} />
     <SecretStoreSelection application={application} environment={environment} configVersion={data?.version ?? 0} onTargetChange={change} onConfigurationChanged={() => setReloadCount((value) => value + 1)} />
     {needStore && !hasStore ? <div className="form-info" role="status">{t('configuration.settings.chooseASecretStoreAbove')}</div> : null}

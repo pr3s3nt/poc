@@ -1,0 +1,28 @@
+@startuml
+actor PlatformEngineer
+actor Developer
+participant Console
+participant DefinitionService
+participant Planner
+participant Executor
+database Store
+PlatformEngineer -> Console : save form changes
+Console -> DefinitionService : expected editor version
+DefinitionService -> Store : transaction: CAS editor + immutable Proposed revision
+PlatformEngineer -> Console : promote default (optional)
+DefinitionService -> Store : CAS policy; frozen Environments unchanged
+Developer -> Console : select Environment revision
+Console -> Store : scope/busy check; CAS desired snapshot
+Developer -> Console : Preview
+Console -> Planner : frozen desired snapshots + applied resource baselines
+Planner --> Console : affected workloads, changes and migration blockers
+Developer -> Console : Deploy(reviewed token)
+Console -> Store : claim/fence and recheck selections
+Console -> Executor : exact cached artifacts and retained tools
+Executor -> Store : per-resource acknowledgements + original pins
+alt complete success
+ Console -> Store : fenced applied selection activation
+else partial or unknown outcome
+ Console -> Store : preserve previous full applied policy and actual resource Plans
+end
+@enduml

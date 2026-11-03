@@ -6,6 +6,8 @@ import (
 	"orchestrator/internal/adapters/kubernetes"
 	"orchestrator/internal/adapters/scorek8s"
 	"orchestrator/internal/application/catalog"
+	catalogapp "orchestrator/internal/application/catalogrelease"
+	"orchestrator/internal/application/definitionversions"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/workloadconfig"
 	"orchestrator/internal/bootstrap"
@@ -111,8 +113,8 @@ func restart(t *testing.T, state, binary string) (*bootstrap.App, *pending.Servi
 	return app, svc, render, opts
 }
 
-// A Definition registered under bundle A keeps selecting the installed bundle
-// after an upgrade to B. Tokens pinned to A are stale; a fresh B preview deploys.
+// A frozen Environment never substitutes renderer B for A. An unavailable
+// historical renderer requires an explicit, reviewed Definition selection.
 func TestExistingDefinitionSurvivesRendererUpgrade(t *testing.T) {
 	for _, withDraft := range []bool{false, true} {
 		name := "renderer-only"
@@ -167,9 +169,36 @@ func TestExistingDefinitionSurvivesRendererUpgrade(t *testing.T) {
 			if registered.SourceFingerpr != bundleA.Digest {
 				t.Fatal("registration should record bundle A as provenance")
 			}
+			callsBefore := len(appB.FakeExec.Calls)
+			if _, err := svcB.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey); err == nil {
+				t.Fatal("unavailable pinned renderer was silently replaced")
+			}
+			if len(appB.FakeExec.Calls) != callsBefore || len(appB.FakeDeploy.Applied) != 0 {
+				t.Fatal("blocked renderer upgrade caused effects")
+			}
+			// A new proposed revision captures B; only this explicit Environment
+			// selection allows the next Preview to use it.
+			catalogB := catalog.NewService(appB.Store)
+			catalogB.SetRenderBundles(renderB.Bundles())
+			if _, err := catalogB.UpdateResourceDefinition(ctx, opts.OrganizationKey, def.Key, registered.Version, registered); err != nil {
+				t.Fatal(err)
+			}
+			h, err := appB.Store.GetDefinitionHistory(ctx, opts.OrganizationKey, def.Key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			selection, _ := appB.Store.GetDefinitionSelection(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+			env, _ := appB.Store.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+			defs, pin, err := catalogapp.ResolveDefinitions(ctx, appB.Store, opts.OrganizationKey, opts.ApplicationKey, opts.EnvironmentKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := definitionversions.Select(ctx, appB.Store, opts.OrganizationKey, opts.ApplicationKey, opts.EnvironmentKey, def.Key, h.Versions[len(h.Versions)-1].ID, env.Version, selection.Revision, defs, pin, false); err != nil {
+				t.Fatal(err)
+			}
 			fresh, err := svcB.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
 			if err != nil {
-				t.Fatalf("existing Definition rejected after upgrade: %v", err)
+				t.Fatalf("explicit upgrade: %v", err)
 			}
 			if len(fresh.Changes) != 1 || fresh.Changes[0].Rendering.DefinitionKey != "render" || fresh.Changes[0].Rendering.Bundle != bundleB {
 				t.Fatalf("fresh preview must pin installed bundle B: %+v", fresh.Changes)

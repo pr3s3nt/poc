@@ -1,0 +1,32 @@
+@startuml
+entity organizations {
+ *id : uuid
+}
+entity resource_definition_versions {
+ *organization_id : uuid
+ *revision_id : text
+ definition_key : text
+ number : bigint
+ snapshot : jsonb <<immutable>>
+ created_at : timestamptz
+ archived : boolean
+}
+entity resource_definition_policies {
+ *organization_id : uuid
+ *definition_key : text
+ active_revision : text
+ generation : bigint <<CAS>>
+}
+entity environments {
+ *id : uuid
+}
+entity environment_definition_selections {
+ *environment_id : uuid
+ revision : bigint <<CAS>>
+ document : jsonb <<baseline, desired, applied>>
+}
+organizations ||--o{ resource_definition_versions
+organizations ||--o{ resource_definition_policies
+resource_definition_versions ||--o{ resource_definition_policies : active_revision
+environments ||--o| environment_definition_selections
+@enduml

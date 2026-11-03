@@ -11,6 +11,7 @@ import (
 	"orchestrator/internal/application/accountdiag"
 	"orchestrator/internal/application/catalog"
 	catalogapp "orchestrator/internal/application/catalogrelease"
+	"orchestrator/internal/application/definitionversions"
 	"orchestrator/internal/application/gitaccess"
 	diagprobes "orchestrator/internal/ports/diagnostics"
 	"os"
@@ -367,6 +368,17 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		return nil, err
 	}
 
+	if opts.StatePath != "" && opts.DatabaseURL == "" {
+		if err := st.Transact(ctx, func(ctx context.Context) error {
+			return definitionversions.FreezeRunningOrganization(ctx, st, "", catalogapp.ResolveDefinitions)
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := retainProviderInstallation(&opts, modules.Release()); err != nil {
+		return nil, err
+	}
 	terraformRuntime, err := terraformStateBackend(ctx, opts, st, closers)
 	if err != nil {
 		return nil, err
@@ -750,6 +762,9 @@ func gitRenderRegistry(opts Options, st persistence.Store, score *scorek8s.Rende
 		*closers = append(*closers, func() { _ = os.RemoveAll(temp) })
 		dir = temp
 	}
+	if err := score.RetainTools(dir); err != nil {
+		return nil, err
+	}
 	cache, err := renderbundles.OpenCache(dir)
 	if err != nil {
 		return nil, err
@@ -804,6 +819,7 @@ func moduleRegistry(ctx context.Context, opts *Options, st persistence.Store, cl
 			opts.TerraformPath, binary = resolved, resolved
 		}
 	}
+	opts.TerraformModuleCacheDir = cacheDir
 	return moduleregistry.Open(ctx, moduleregistry.Options{
 		PolicyFile: opts.TerraformModulePolicyFile, CacheDir: cacheDir, GitBinary: opts.GitPath,
 		TerraformBinary: binary, RetainedReleasesFile: opts.TerraformRetainedReleasesFile, Store: st,

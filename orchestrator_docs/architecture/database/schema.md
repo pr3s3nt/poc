@@ -1263,3 +1263,23 @@ shows tenant-scoped allocation and platform default relationships. Initial empty
 Environments may pin desired/applied CD in their INSERT only; ordinary Environment
 updates still preserve those fields. This initializes ownership configuration and
 does not assert a successful deployment or create an execution receipt.
+
+## Definition revisions — schema version 6
+
+`resource_definition_versions` stores immutable revision ID, Organization/Definition
+key, ordinal, JSONB Definition snapshot and created timestamp; archived is mutable
+lifecycle metadata. Unique `(organization_id,definition_key,number)` and revision
+ID prevent replacement. `resource_definition_policies` stores active revision ID
+and generation CAS per Organization/Definition family. Active/archive changes do
+not rewrite configuration. Immutable-row trigger protects snapshots.
+
+`environment_definition_selections` stores one Environment FK/PK, selection revision,
+last applied revision, frozen baseline and desired/applied snapshot JSONB, plus an
+applied-evidence flag. Snapshots are immutable contract documents, not secrets.
+Configuration writes lock/check Environment version/busy status; activation uses
+the current operation fence. Owner migration captures current effective definitions
+for existing Environments but leaves applied evidence unverified. Console receives
+only required DML; State role receives no new write privileges. Released version-5
+reference/migration remain unchanged; version 6 adds a frozen complete reference.
+
+Revision relations: [ERD](definition-versions-erd.puml) ([PNG](definition-versions-erd.png)).

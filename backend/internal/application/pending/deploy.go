@@ -78,12 +78,20 @@ func (s *Service) DeployWithReview(ctx context.Context, appKey, envKey, actor, t
 		return DeployReport{}, err
 	}
 	report, err := s.deployClaimed(lease, app.OrganizationKey, appKey, envKey, actor, preview)
-	if preview.CatalogPending {
-		catalogStatus := "PARTIAL"
-		if err == nil && report.Status == "SUCCEEDED" {
-			catalogStatus = "APPLIED"
-		}
-		if catalogErr := s.store.ActivateCatalog(lease.Ctx, appKey, envKey, preview.CatalogRevision, catalogStatus); catalogErr != nil && err == nil {
+	if err == nil && report.Status == "SUCCEEDED" {
+		err = s.store.Transact(lease.Ctx, func(ctx context.Context) error {
+			if len(preview.Changes) > 0 {
+				if applyErr := s.store.ApplyDefinitionSelection(ctx, appKey, envKey, preview.DefinitionRevision, preview.DefinitionSnapshots, preview.CatalogPin); applyErr != nil {
+					return applyErr
+				}
+			}
+			if preview.CatalogPending {
+				return s.store.ActivateCatalog(ctx, appKey, envKey, preview.CatalogRevision, "APPLIED")
+			}
+			return nil
+		})
+	} else if preview.CatalogPending {
+		if catalogErr := s.store.ActivateCatalog(lease.Ctx, appKey, envKey, preview.CatalogRevision, "PARTIAL"); catalogErr != nil && err == nil {
 			err = catalogErr
 		}
 	}
@@ -110,6 +118,13 @@ func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, act
 		return report, err
 	}
 	if pin != preview.DeliveryBindingPin || env.DeliveryConfigRevision != preview.DeliveryConfigurationRevision || env.DesiredDelivery.Effective() != preview.DesiredDelivery || env.AppliedDelivery.Effective() != preview.AppliedDelivery {
+		return report, ErrStalePreview
+	}
+	defSelection, err := s.store.GetDefinitionSelection(ctx, appKey, envKey)
+	if err != nil {
+		return report, err
+	}
+	if defSelection.Revision != preview.DefinitionRevision {
 		return report, ErrStalePreview
 	}
 	catalogBinding, err := s.store.GetCatalogEnvironment(ctx, appKey, envKey)

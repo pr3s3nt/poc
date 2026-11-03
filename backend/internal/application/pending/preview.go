@@ -47,6 +47,9 @@ type Change struct {
 }
 
 type Preview struct {
+	DefinitionRevision            int64                                  `json:"definitionRevision"`
+	DefinitionsPending            bool                                   `json:"definitionsPending"`
+	DefinitionSnapshots           []resource.Definition                  `json:"-"`
 	DesiredCatalog                *catalogdomain.Selection               `json:"desiredCatalog,omitempty"`
 	AppliedCatalog                *catalogdomain.Selection               `json:"appliedCatalog,omitempty"`
 	CatalogPin                    string                                 `json:"catalogPin,omitempty"`
@@ -224,6 +227,11 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	if err != nil {
 		return Preview{}, err
 	}
+	definitionSelection, err := st.GetDefinitionSelection(ctx, appKey, envKey)
+	if err != nil {
+		return Preview{}, err
+	}
+	definitionsPending := definitionSelection.Pending()
 	catalogPending := catalogBinding.Desired != nil && (catalogBinding.Applied == nil || catalogBinding.Desired.Digest() != catalogBinding.Applied.Digest())
 	definitions, releasePin, err := catalogapp.ResolveDefinitions(ctx, st, app.OrganizationKey, appKey, envKey)
 	if err != nil {
@@ -255,7 +263,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	if err != nil {
 		return Preview{}, err
 	}
-	catalog := planning.Catalog{ReleaseSelection: catalogBinding.Desired, ReleasePin: releasePin, Types: typeMap, Definitions: definitions, Accounts: accounts, RenderBundles: renderBundles}
+	catalog := planning.Catalog{DefinitionSelectionRevision: definitionSelection.Revision, ReleaseSelection: catalogBinding.Desired, ReleasePin: releasePin, Types: typeMap, Definitions: definitions, Accounts: accounts, RenderBundles: renderBundles}
 
 	pending := map[string]environment.WorkloadDraft{}
 	for _, draft := range drafts {
@@ -265,7 +273,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		if _, exists := pending[id]; exists {
 			continue
 		}
-		if all || catalogPending {
+		if all || catalogPending || definitionsPending {
 			raw, err := workloadconfig.ReconstructScoreProven(id, module, set.Document, set.LiteralProofs.ProverFor(id), set.ResourceAliases[id])
 			if err != nil {
 				return Preview{}, fmt.Errorf("%w: workload %s cannot be rebuilt: %v", ErrInvalid, id, err)
@@ -310,14 +318,14 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		transferRequired = false
 		policyOnly = false
 	}
-	if (transferRequired || policyOnly) && (catalogPending || (len(pending) > 0 && !all)) {
+	if (transferRequired || policyOnly) && (catalogPending || definitionsPending || (len(pending) > 0 && !all)) {
 		return Preview{}, fmt.Errorf("%w: apply or discard workload changes before changing delivery manager", ErrInvalid)
 	}
 	ordered, err := orderDrafts(pending)
 	if err != nil {
 		return Preview{}, err
 	}
-	preview := Preview{DesiredCatalog: catalogBinding.Desired, AppliedCatalog: catalogBinding.Applied, CatalogPin: releasePin, CatalogRevision: catalogBinding.Revision, CatalogPending: catalogPending, DeliveryTransfer: transferRequired, DeliveryPending: deliveryPending, DeliveryBindingPin: deliveryPin, ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, RoutePending: env.PublicRoutesPending, ConfigRevisionID: scope.DesiredRevisionID,
+	preview := Preview{DefinitionRevision: definitionSelection.Revision, DefinitionsPending: definitionsPending, DefinitionSnapshots: append([]resource.Definition{}, definitions...), DesiredCatalog: catalogBinding.Desired, AppliedCatalog: catalogBinding.Applied, CatalogPin: releasePin, CatalogRevision: catalogBinding.Revision, CatalogPending: catalogPending, DeliveryTransfer: transferRequired, DeliveryPending: deliveryPending, DeliveryBindingPin: deliveryPin, ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, RoutePending: env.PublicRoutesPending, ConfigRevisionID: scope.DesiredRevisionID,
 		DesiredDelivery: env.DesiredDelivery.Effective(), AppliedDelivery: env.AppliedDelivery.Effective(), DeliveryConfigurationRevision: env.DeliveryConfigRevision, ConfigVersion: scope.Version, Binding: env.Binding(), SecretStoreKey: env.SecretStoreKey, Changes: []Change{}, previous: reviewBaselines}
 	preview.DeliveryPolicyOnly = policyOnly
 	if transferRequired || policyOnly {
@@ -371,12 +379,12 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		if err != nil {
 			return Preview{}, publicPlanningError(id, err)
 		}
-		if catalogPending {
+		if catalogPending || definitionsPending {
 			if err := validateCatalogDataUpdates(plan, baselines.Reader(), catalog.Types); err != nil {
 				return Preview{}, err
 			}
 		}
-		if !all && !catalogPending && draft.State == environment.DraftUpsert && before != nil {
+		if !all && !catalogPending && !definitionsPending && draft.State == environment.DraftUpsert && before != nil {
 			same, err := equivalentSets(base, plan.CandidateSet)
 			if err != nil {
 				return Preview{}, err
@@ -394,6 +402,15 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 					if sameRenderer {
 						continue
 					}
+				}
+			}
+		}
+		for i := range preview.DefinitionSnapshots {
+			for _, selected := range plan.Rendering {
+				if preview.DefinitionSnapshots[i].Key == selected.DefinitionKey {
+					pin := selected.Bundle
+					preview.DefinitionSnapshots[i].RenderPin = &pin
+					break
 				}
 			}
 		}

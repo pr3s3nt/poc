@@ -92,6 +92,9 @@ func New(cfg Config) (*Service, error) {
 	if err := cfg.Policy.Validate(cfg.Release); err != nil {
 		return nil, err
 	}
+	if err := retainToolchains(&cfg); err != nil {
+		return nil, err
+	}
 	if cfg.Now == nil {
 		cfg.Now = time.Now
 	}
@@ -284,7 +287,7 @@ func (s *Service) Verify(ctx context.Context, ref tfmodule.SourceRef) (tfmodule.
 		if existing.Ref != ref || existing.Contract.SourceKind != tfmodule.SourceKindZIP || !tfmodule.ValidDigest(ref.Revision) || existing.Contract.SourceOrganizationKey == "" || ref.SourceID != zipSourceID(existing.Contract.SourceOrganizationKey, ref.Revision) {
 			return tfmodule.Bundle{}, moduleregistry.ErrDrift
 		}
-		if err := s.releaseMatches(existing); err != nil {
+		if err := s.supportedRelease(existing); err != nil {
 			return tfmodule.Bundle{}, err
 		}
 		if _, err := s.cfg.Cache.verify(ref, existing.Contract); err != nil {
@@ -301,7 +304,7 @@ func (s *Service) Verify(ctx context.Context, ref tfmodule.SourceRef) (tfmodule.
 		if existing.Ref != ref || existing.Contract.SourceURL == "" || gitSourceID(existing.Contract.SourceURL) != ref.SourceID {
 			return tfmodule.Bundle{}, moduleregistry.ErrDrift
 		}
-		if err := s.releaseMatches(existing); err != nil {
+		if err := s.supportedRelease(existing); err != nil {
 			return tfmodule.Bundle{}, err
 		}
 		if _, err := s.cfg.Cache.verify(ref, existing.Contract); err != nil {
@@ -347,7 +350,7 @@ func (s *Service) Verify(ctx context.Context, ref tfmodule.SourceRef) (tfmodule.
 		if existing.Ref.ContentSHA256 != ref.ContentSHA256 {
 			return tfmodule.Bundle{}, moduleregistry.ErrDrift
 		}
-		if s.releaseMatches(existing) != nil {
+		if s.supportedRelease(existing) != nil {
 			return tfmodule.Bundle{}, moduleregistry.ErrReleaseMismatch
 		}
 		if _, err := s.cfg.Cache.verify(ref, existing.Contract); err == nil {
@@ -474,6 +477,17 @@ func (s *Service) BundleByID(ctx context.Context, id string) (tfmodule.Bundle, e
 
 // releaseMatches checks the bundle against the current release pins.
 func (s *Service) releaseMatches(b tfmodule.Bundle) error { return matchRelease(s.cfg.Release, b) }
+func (s *Service) supportedRelease(b tfmodule.Bundle) error {
+	if matchRelease(s.cfg.Release, b) == nil {
+		return nil
+	}
+	for _, r := range s.cfg.Retained {
+		if matchRelease(r.Release, b) == nil {
+			return nil
+		}
+	}
+	return moduleregistry.ErrReleaseMismatch
+}
 
 // matchRelease checks the bundle's Terraform and provider pins against one
 // release manifest.
@@ -554,15 +568,10 @@ func (s *Service) VerifyForExecution(ctx context.Context, ref tfmodule.SourceRef
 	if err != nil {
 		return tfmodule.VerifiedArtifact{}, err
 	}
-	if err := s.releaseMatches(bundle); err != nil {
-		return tfmodule.VerifiedArtifact{}, err
-	}
-	// A runnable artifact always includes the binary pin check: without a
-	// configured Terraform binary nothing is verified for execution.
-	if s.cfg.TerraformBinary == "" {
+	if s.cfg.TerraformBinary == "" && len(s.cfg.Retained) == 0 {
 		return tfmodule.VerifiedArtifact{}, moduleregistry.ErrBinaryUnverified
 	}
-	return s.materializeBundle(bundle, s.cfg.TerraformBinary)
+	return s.VerifyHistoricalForExecution(ctx, bundle)
 }
 
 // VerifyHistoricalForExecution implements moduleregistry.ExecutionVerifier for
