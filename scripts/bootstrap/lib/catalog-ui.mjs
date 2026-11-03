@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
-export async function ensureCatalog({ page, baseURL, act, get, responseFor, source }) {
+export async function ensureCatalog({ page, baseURL, act, get, responseFor, source, requiredTags = [] }) {
  const accounts = (await get('/driver-accounts')).accounts;
  const bindings = {};
  for (const [slot, name] of Object.entries(source.accountBindings)) {
@@ -27,6 +27,8 @@ export async function ensureCatalog({ page, baseURL, act, get, responseFor, sour
   await act(page.getByRole('button', {name:'Lưu',exact:true}), 'click');
   if (!(await reply).ok()) throw Error('Không xác nhận được lưu Catalog; tải lại Console để kiểm tra trước khi chạy lại');
  }
+ const cached = (await get(`/platform/catalog/sources/${encodeURIComponent(source.id)}/releases`)).releases ?? [];
+ if (existing?.code === 'READY' && requiredTags.length && requiredTags.every(tag => cached.some(v => v.tag === tag))) return existing;
  const row = page.locator('.section-header').filter({has:page.locator('strong').filter({hasText:source.id})});
  const reply = responseFor(`/platform/catalog/sources/${encodeURIComponent(source.id)}/refresh`, 'POST');
  await act(row.getByRole('button',{name:'Kiểm tra cập nhật',exact:true}), 'click');
@@ -36,5 +38,6 @@ export async function ensureCatalog({ page, baseURL, act, get, responseFor, sour
  if (result.source?.code !== 'READY') throw Error('Catalog chưa READY; kiểm tra trạng thái nguồn/release trong Console');
  const {releases} = await get(`/platform/catalog/sources/${encodeURIComponent(source.id)}/releases`);
  if (!releases?.length) throw Error('Chưa có release hợp lệ; push tag SemVer khớp bộ lọc và thuộc nhánh theo dõi');
+ if (requiredTags.some(tag => !releases.some(v => v.tag === tag))) throw Error('Configured Catalog release missing');
  console.log(`PASS: Catalog có ${releases.length} release; chọn phiên bản trong Cài đặt môi trường trước khi Preview`);
 }

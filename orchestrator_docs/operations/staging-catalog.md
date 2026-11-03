@@ -12,9 +12,8 @@ it does not create Driver Accounts, Applications, Definitions or templates.
 Existing schema and platform data survive restarts. No database reset is needed.
 
 Use the [bootstrap tool](../../scripts/bootstrap/README.md) to register/reuse an
-Internal account, schema prerequisites and a Git Catalog source. The former
-Resource Definitions/Rendering Templates editors and their HTTP authoring routes
-are retired. Definitions and templates are Git documents in an immutable release.
+Internal account, schema prerequisites and a Git Catalog source. Resource Definitions/Rendering Templates also have Console authoring forms.
+The bootstrap tool uses Git documents in immutable releases for these artifacts.
 
 1. Copy [platform-catalog](../../platform-catalog/README.md) into the root of the
    company Git repository. Review `catalog.yaml` and `definitions/`, including
@@ -57,3 +56,16 @@ records an earlier authorized cluster run; its retired-navigation assertions
 do not apply to the restored forms. A screenshot of bootstrap alone does not
 prove workload deployment. Keep evidence outside Git and preserve unrelated
 Applications, resources, credentials and volumes.
+
+## Full environment bootstrap
+
+For issue #30 use the file-only schemaVersion 2 workflow in the
+[bootstrap guide](../../scripts/bootstrap/README.md), with separate dev/staging/
+production inputs. It adds Secret Store/CD setup, acceptance deployment,
+verification and explicit version upgrades to the reusable Catalog setup.
+The historical CLI above remains Catalog-only through legacy presets.
+
+[Bootstrap acceptance scenario](../../e2e/scenarios/bootstrap-acceptance/README.md)
+checks unchanged reruns against real server state. A setup PASS alone is not a
+workload/business PASS. Namespaced Fleet access can be configured by rulesFile;
+shared cluster prerequisites still require separate authorization.

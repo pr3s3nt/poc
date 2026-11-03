@@ -1,0 +1,13 @@
+# Full local bootstrap/acceptance prerequisites on an existing kind network.
+# Does not install or modify Kubernetes controllers. Keep this overlay on restart.
+services:
+  backend:
+    command:
+      - -terraform-root
+      - /var/lib/orchestrator/tfroot
+    environment:
+      ORCHESTRATOR_DELIVERY_GIT_ROOT: /var/lib/orchestrator/delivery-git
+    volumes:
+      - bootstrap-delivery-git:/var/lib/orchestrator/delivery-git
+volumes:
+  bootstrap-delivery-git:

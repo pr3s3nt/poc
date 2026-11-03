@@ -11,7 +11,7 @@ export function loadTarget(options, env = process.env, home = homedir()) {
     return { raw: applyGitOverrides(JSON.parse(readFileSync(options.config, 'utf8')), options), env: { ...env, ...(options.url !== undefined ? { ORCH_PLATFORM_URL: options.url } : {}), ...(options.kubeconfig ? { ORCH_KUBECONFIG_FILE: options.kubeconfig } : {}) } };
   }
   if (!['dev', 'staging'].includes(options.target)) throw Error('--target chỉ nhận dev hoặc staging');
-  const preset = JSON.parse(readFileSync(new URL(`../targets/${options.target}.json`, import.meta.url), 'utf8'));
+  const preset = JSON.parse(readFileSync(new URL(`../legacy-targets/${options.target}.json`, import.meta.url), 'utf8'));
   const privateDir = join(home, '.orch', 'bootstrap', options.target);
   return { raw: applyGitOverrides(preset.seed, options), defaultPassword: preset.console.password, env: {
     ...env,

@@ -1,14 +1,27 @@
 {
+  "schemaVersion": 2,
+  "environment": "dev",
   "console": {
-    "url": "http://localhost:3001",
+    "url": "http://desktop-bdjp2rq-1.tail342836.ts.net:3031",
     "username": "platform-engineer",
-    "password": "test-password"
+    "passwordFile": "~/.orch/bootstrap/dev/password"
   },
-  "seed": {
+  "developer": {
+    "username": "developer",
+    "passwordFile": "~/.orch/bootstrap/dev/developer-password"
+  },
+  "platform": {
     "gitAccess": {
-      "enabled": false,
-      "username": "github-reader",
+      "enabled": true,
+      "url": "https://github.com/pr3s3nt",
+      "username": "pr3s3nt",
       "tokenFile": "~/.orch/bootstrap/dev/git-token"
+    },
+    "account": {
+      "name": "bootstrap-dev",
+      "context": "kind-k8s-4f",
+      "endpoint": "https://k8s-4f-control-plane:6443",
+      "kubeconfigFile": "~/.orch/bootstrap/dev/kubeconfig"
     },
     "resourceTypes": [
       {
@@ -250,20 +263,101 @@
         ]
       }
     ],
-    "account": {
-      "name": "k8s-4f",
-      "context": "kind-k8s-4f",
-      "endpoint": "https://k8s-4f-control-plane:6443"
-    },
     "catalog": {
-      "id": "platform",
-      "repository": "https://git.example.com/platform/catalog.git",
+      "id": "bootstrap-dev",
+      "repository": "https://github.com/pr3s3nt/poc.git",
       "branch": "main",
-      "tagPattern": "v*",
+      "tagPattern": "v0.20261102.*",
       "manifestPath": "catalog.yaml",
+      "includePrereleases": false,
       "accountBindings": {
-        "internal": "k8s-4f"
+        "internal": "bootstrap-dev"
+      }
+    },
+    "secretStore": {
+      "name": "Bootstrap dev Vault",
+      "backendAddress": "http://k8s-4f-workload-vault:8200",
+      "workloadAddress": "http://k8s-4f-workload-vault:8200",
+      "mount": "kv",
+      "authMount": "kubernetes",
+      "tokenFile": "~/.orch/bootstrap/dev/vault-token"
+    },
+    "delivery": {
+      "name": "bootstrap-dev",
+      "provider": "fleet",
+      "usePlatformGit": true,
+      "setDefault": true,
+      "config": {
+        "repositoryAPI": "https://api.github.com",
+        "repositoryHost": "https://github.com",
+        "repositoryPrefix": "orch-bootstrap-dev-",
+        "root": "environments",
+        "readSecret": "orchestrator-git-reader",
+        "serviceAccount": "orchestrator-delivery"
+      },
+      "namespaceAccess": {
+        "enabled": true,
+        "rulesFile": "../applications/acceptance/fleet-access.json"
       }
     }
+  },
+  "application": {
+    "name": "acceptance-bootstrap-dev",
+    "subdomain": "acceptance-bootstrap-dev",
+    "environment": "staging",
+    "catalogTag": "v0.20261102.2",
+    "definitionRevisions": {},
+    "workloadClass": "pvc",
+    "variables": {
+      "ACCEPTANCE_CACHE_APP": "${applicationKey}",
+      "ACCEPTANCE_CACHE_ENV": "${environment}",
+      "ACCEPTANCE_CACHE_RUN": "bootstrap-dev",
+      "ACCEPTANCE_CACHE_TTL_SECONDS": "30",
+      "ACCEPTANCE_CONFIG": "acceptance-config-ok",
+      "POLL_INTERVAL_MS": "500",
+      "PORT": "8080"
+    },
+    "secretFiles": {
+      "ACCEPTANCE_SECRET": "~/.orch/bootstrap/dev/acceptance-secret"
+    },
+    "scores": {
+      "backend": "../../../e2e/scenarios/acceptance-app/scores/backend.yaml",
+      "worker": "../../../e2e/scenarios/acceptance-app/scores/worker.yaml",
+      "frontend": "../../../e2e/scenarios/acceptance-app/scores/frontend.yaml"
+    },
+    "images": {
+      "backend": "acceptance-backend:thieu-0eff925",
+      "worker": "acceptance-worker:thieu-0eff925",
+      "frontend": "acceptance-frontend:thieu-0eff925"
+    }
+  },
+  "upgrade": {
+    "enabled": true,
+    "catalogTag": "v0.20261102.2",
+    "definitionRevisions": {},
+    "images": {
+      "backend": "acceptance-backend:reconciliation-20261029",
+      "worker": "acceptance-worker:reconciliation-20261029",
+      "frontend": "acceptance-frontend:reconciliation-20261029"
+    }
+  },
+  "verification": {
+    "enabled": true,
+    "url": "http://100.77.224.24:3032",
+    "jobPayload": "bootstrap-dev-persistent-job",
+    "timeoutMs": 300000,
+    "forward": {
+      "bindAddress": "100.77.224.24",
+      "port": 3032
+    }
+  },
+  "runtime": {
+    "mode": "all",
+    "headless": true,
+    "timeoutMs": 1500000,
+    "stateDir": "~/.local/state/orch-bootstrap/dev/state",
+    "reportDir": "~/.local/state/orch-bootstrap/dev/reports",
+    "clusterKubeconfigFile": "~/.orch/bootstrap/dev/cluster-kubeconfig",
+    "recoverCompletedDeploy": true
   }
 }

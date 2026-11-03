@@ -1,0 +1,269 @@
+{
+  "console": {
+    "url": "http://localhost:3001",
+    "username": "platform-engineer",
+    "password": "test-password"
+  },
+  "seed": {
+    "gitAccess": {
+      "enabled": false,
+      "username": "github-reader",
+      "tokenFile": "~/.orch/bootstrap/dev/git-token"
+    },
+    "resourceTypes": [
+      {
+        "key": "persistent-storage",
+        "inputs": [
+          {
+            "name": "storage",
+            "type": "string",
+            "required": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "claimName",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "namespace",
+            "type": "string",
+            "required": true,
+            "secret": false
+          }
+        ]
+      },
+      {
+        "key": "k8s-cluster",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "name",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "endpoint",
+            "type": "string",
+            "required": false,
+            "secret": false
+          },
+          {
+            "name": "kubeContext",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "kubeconfig",
+            "type": "string",
+            "required": false,
+            "secret": false
+          },
+          {
+            "name": "cluster",
+            "type": "any",
+            "required": false,
+            "secret": false
+          }
+        ]
+      },
+      {
+        "key": "k8s-namespace",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "name",
+            "type": "string",
+            "required": true,
+            "secret": false
+          }
+        ]
+      },
+      {
+        "key": "postgres",
+        "inputs": [
+          {
+            "name": "database",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "host",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "port",
+            "type": "number",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "database",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "password",
+            "type": "string",
+            "required": true,
+            "secret": true
+          }
+        ]
+      },
+      {
+        "key": "redis",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "host",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "port",
+            "type": "number",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "password",
+            "type": "string",
+            "required": true,
+            "secret": true
+          },
+          {
+            "name": "tls",
+            "type": "bool",
+            "required": true,
+            "secret": false
+          }
+        ]
+      },
+      {
+        "key": "workload",
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "key": "mysql",
+        "inputs": [
+          {
+            "name": "image",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "database",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "auth_secret_name",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "root_password_key",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "user_password_key",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "storage",
+            "type": "string",
+            "required": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "host",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "port",
+            "type": "number",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "database",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "claimName",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "namespace",
+            "type": "string",
+            "required": true,
+            "secret": false
+          }
+        ]
+      }
+    ],
+    "account": {
+      "name": "k8s-4f",
+      "context": "kind-k8s-4f",
+      "endpoint": "https://k8s-4f-control-plane:6443"
+    },
+    "catalog": {
+      "id": "platform",
+      "repository": "https://git.example.com/platform/catalog.git",
+      "branch": "main",
+      "tagPattern": "v*",
+      "manifestPath": "catalog.yaml",
+      "accountBindings": {
+        "internal": "k8s-4f"
+      }
+    }
+  }
+}

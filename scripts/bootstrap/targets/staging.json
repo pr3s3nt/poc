@@ -1,14 +1,27 @@
 {
+  "schemaVersion": 2,
+  "environment": "staging",
   "console": {
-    "url": "https://devportal.stg.exampledevops.com",
+    "url": "https://console.staging.example.com",
     "username": "platform-engineer",
-    "password": "test-password"
+    "passwordFile": "~/.orch/bootstrap/staging/password"
   },
-  "seed": {
+  "developer": {
+    "username": "developer",
+    "passwordFile": "~/.orch/bootstrap/staging/developer-password"
+  },
+  "platform": {
     "gitAccess": {
-      "enabled": false,
-      "username": "github-reader",
+      "enabled": true,
+      "url": "https://github.com/REPLACE_OWNER",
+      "username": "REPLACE_USER",
       "tokenFile": "~/.orch/bootstrap/staging/git-token"
+    },
+    "account": {
+      "name": "bootstrap-staging",
+      "context": "REPLACE_CONTEXT",
+      "endpoint": "https://REPLACE_CLUSTER:6443",
+      "kubeconfigFile": "~/.orch/bootstrap/staging/kubeconfig"
     },
     "resourceTypes": [
       {
@@ -250,19 +263,97 @@
         ]
       }
     ],
-    "account": {
-      "name": "k8s-4f",
-      "discover": true
-    },
     "catalog": {
-      "id": "platform",
-      "repository": "https://git.example.com/platform/catalog.git",
+      "id": "bootstrap-staging",
+      "repository": "https://github.com/REPLACE_OWNER/catalog.git",
       "branch": "main",
       "tagPattern": "v*",
       "manifestPath": "catalog.yaml",
+      "includePrereleases": false,
       "accountBindings": {
-        "internal": "k8s-4f"
+        "internal": "bootstrap-staging"
+      }
+    },
+    "secretStore": {
+      "name": "Bootstrap staging Vault",
+      "backendAddress": "https://vault.staging.example.com",
+      "workloadAddress": "https://vault.staging.example.com",
+      "mount": "kv",
+      "authMount": "kubernetes",
+      "tokenFile": "~/.orch/bootstrap/staging/vault-token"
+    },
+    "delivery": {
+      "name": "bootstrap-staging",
+      "provider": "fleet",
+      "usePlatformGit": true,
+      "setDefault": true,
+      "config": {
+        "repositoryAPI": "https://api.github.com",
+        "repositoryHost": "https://github.com",
+        "repositoryPrefix": "orch-bootstrap-staging-",
+        "root": "environments",
+        "readSecret": "orchestrator-git-reader",
+        "serviceAccount": "orchestrator-delivery"
+      },
+      "namespaceAccess": {
+        "enabled": true,
+        "rulesFile": "../applications/acceptance/fleet-access.json"
       }
     }
+  },
+  "application": {
+    "name": "acceptance-bootstrap-staging",
+    "subdomain": "acceptance-bootstrap-staging",
+    "environment": "staging",
+    "catalogTag": "v1.0.0",
+    "definitionRevisions": {},
+    "workloadClass": "pvc",
+    "variables": {
+      "ACCEPTANCE_CACHE_APP": "${applicationKey}",
+      "ACCEPTANCE_CACHE_ENV": "${environment}",
+      "ACCEPTANCE_CACHE_RUN": "bootstrap-staging",
+      "ACCEPTANCE_CACHE_TTL_SECONDS": "30",
+      "ACCEPTANCE_CONFIG": "acceptance-config-ok",
+      "POLL_INTERVAL_MS": "500",
+      "PORT": "8080"
+    },
+    "secretFiles": {
+      "ACCEPTANCE_SECRET": "~/.orch/bootstrap/staging/acceptance-secret"
+    },
+    "scores": {
+      "backend": "../../../e2e/scenarios/acceptance-app/scores/backend.yaml",
+      "worker": "../../../e2e/scenarios/acceptance-app/scores/worker.yaml",
+      "frontend": "../../../e2e/scenarios/acceptance-app/scores/frontend.yaml"
+    },
+    "images": {
+      "backend": "registry.example.com/acceptance-backend:v1.0.0",
+      "worker": "registry.example.com/acceptance-worker:v1.0.0",
+      "frontend": "registry.example.com/acceptance-frontend:v1.0.0"
+    }
+  },
+  "upgrade": {
+    "enabled": true,
+    "catalogTag": "v1.1.0",
+    "definitionRevisions": {},
+    "images": {
+      "backend": "registry.example.com/acceptance-backend:v1.1.0",
+      "worker": "registry.example.com/acceptance-worker:v1.1.0",
+      "frontend": "registry.example.com/acceptance-frontend:v1.1.0"
+    }
+  },
+  "verification": {
+    "enabled": true,
+    "url": "https://acceptance.staging.REPLACE.tailnet.ts.net",
+    "jobPayload": "bootstrap-staging-persistent-job",
+    "timeoutMs": 300000
+  },
+  "runtime": {
+    "mode": "all",
+    "headless": true,
+    "timeoutMs": 1500000,
+    "stateDir": "~/.local/state/orch-bootstrap/staging/state",
+    "reportDir": "~/.local/state/orch-bootstrap/staging/reports",
+    "clusterKubeconfigFile": "~/.orch/bootstrap/staging/cluster-kubeconfig",
+    "recoverCompletedDeploy": true
   }
 }

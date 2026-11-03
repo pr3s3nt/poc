@@ -114,3 +114,5 @@ Khi được di chuyển, script này thuộc `e2e/setup/`.
 
 Focused update of an existing acceptance backend (catalog → PVC mount → file
 retention after verified Pod recreation): [acceptance-pvc](scenarios/acceptance-pvc/README.md).
+
+Full bootstrap/idempotency from a dev config: [bootstrap-acceptance](scenarios/bootstrap-acceptance/README.md).

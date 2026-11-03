@@ -96,9 +96,18 @@ func (p *Plan) intentFingerprints() map[string]string {
 		if !hasEvidence {
 			continue // no authored-content evidence (for example an older persisted plan): unverified
 		}
+		// Omitted empty maps decode as nil in persisted plans. Both represent no
+		// authored parameters/bindings; normalize before comparing execution intent.
+		params, bindings := node.Params, node.Bindings
+		if len(params) == 0 {
+			params = nil
+		}
+		if len(bindings) == 0 {
+			bindings = nil
+		}
 		hash, err := canon.Hash(map[string]any{
 			"definition": match.DefinitionKey, "driver": match.DriverType, "account": match.DriverAccount, "accountVersion": match.AccountVersion,
-			"type": node.ResourceType, "class": node.Class, "params": node.Params, "bindings": node.Bindings,
+			"type": node.ResourceType, "class": node.Class, "params": params, "bindings": bindings,
 			"authored": evidence, "fingerprint": contract.Fingerprint, "bundle": contract.BundleID, "terraform": contract.TerraformVersion, "lock": contract.ProviderLockDigest,
 			"source": contract.Source, "inputs": contract.Inputs, "outputs": contract.OutputMapping, "secretOutputs": contract.SecretOutputs, "providers": contract.ProviderBindings,
 		})

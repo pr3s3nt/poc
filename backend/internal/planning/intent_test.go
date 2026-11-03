@@ -1,6 +1,7 @@
 package planning
 
 import (
+	"encoding/json"
 	"testing"
 
 	"orchestrator/internal/domain/resource"
@@ -130,5 +131,36 @@ func TestResourceIntentComparesAccountAndShowsAnExistingClusterAsPreexisting(t *
 	other.DriverAccount = "other"
 	if mk(base).intentFingerprints()[key] == mk(other).intentFingerprints()[key] {
 		t.Fatal("a changed account must change the fingerprint")
+	}
+}
+
+// Persisted Plan JSON omits empty node maps. An unchanged no-param data resource
+// must remain RETAIN after a failed deploy/recovery or restart, while real input
+// changes still require UPDATE and the Catalog migration guard remains active.
+func TestResourceIntentRetainsEmptyMapsAfterPlanPersistence(t *testing.T) {
+	current := intentPlan(func(p *Plan) {
+		p.Graph.Nodes[0].Params = map[string]any{}
+		p.Graph.Nodes[0].Bindings = map[string]string{}
+	})
+	raw, err := json.Marshal(current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var persisted Plan
+	if err := json.Unmarshal(raw, &persisted); err != nil {
+		t.Fatal(err)
+	}
+	if persisted.Graph.Nodes[0].Params != nil || persisted.Graph.Nodes[0].Bindings != nil {
+		t.Fatal("expected omitted maps to decode as nil")
+	}
+	if got := intentOf(t, current, &persisted); got != IntentRetain {
+		t.Fatalf("unchanged persisted intent: %s", got)
+	}
+	if got := intentOf(t, &persisted, current); got != IntentRetain {
+		t.Fatalf("reverse comparison: %s", got)
+	}
+	current.Graph.Nodes[0].Params["size"] = 2
+	if got := intentOf(t, current, &persisted); got != IntentUpdate {
+		t.Fatalf("real param change must remain UPDATE: %s", got)
 	}
 }
