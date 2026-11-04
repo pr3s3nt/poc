@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-11-02
+last_reviewed: 2026-11-04
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-04 | Issue #33 Git-only inputs, backend PVC retention, unchanged reruns and final-success video | [Git bootstrap/PVC](2026-11-04-git-bootstrap-pvc.md) |
 | 2026-11-04 | Rancher-compatible Fleet discovery/Verify, opaque registration identity, version/schema gates; user-selected kind-only runtime acceptance | [Rancher Fleet](2026-11-04-rancher-fleet.md) |
 | 2026-11-04 | Issue #31: inline Connections, schema 6→7 preservation, private GitHub/Fleet YAML delivery; runtime phase results and limits | [Simplified CD](2026-11-04-simplified-cd.md) |
 | 2026-11-02 | Restored Definition forms, Catalog module pins/provenance, 992 frontend tests, real Tailscale browser, preserved 16 Applications | [Definition/Catalog form](2026-11-02-definition-catalog.md) |

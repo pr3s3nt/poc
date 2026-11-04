@@ -1,8 +1,9 @@
+import { openWorkloadEvidence } from './video.mjs';
 import { execFileSync, spawn } from 'node:child_process';
 import { openSync, closeSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { requireConfig, BootstrapError } from './bootstrap-config.mjs';
-import { conflict } from './runtime.mjs';
+import { conflict, digest, equal } from './runtime.mjs';
 export const CHECKS=['backend connection','environment','secret','database','cache'];
 export function kubectl(config,...args) {
  try{return JSON.parse(execFileSync('kubectl',['--kubeconfig',config.runtime.clusterKubeconfigFile,'--context',config.platform.account.context,...args,'-o','json'],{encoding:'utf8',timeout:30000,stdio:['ignore','pipe','pipe']}));}
@@ -63,7 +64,8 @@ export async function verifyAcceptance(ui,config,rt,{submitJob=true}={}) {
  const dataUids=[...sts,...pvcs].map(v=>v.metadata.uid).sort();
  if(rt.state.dataUids)conflict(equalArrays(rt.state.dataUids,dataUids),'Data resource identities after upgrade');
  rt.state.dataUids=dataUids;rt.save();
- const page=await ui.page.context().newPage();
+ const evidence=await openWorkloadEvidence(ui.page.context().browser(),config,'acceptance-app');
+ const {page}=evidence;let status='FAILED';
  try {
   const deadline=Date.now()+timeoutMs;
   for(;;){
@@ -92,9 +94,37 @@ export async function verifyAcceptance(ui,config,rt,{submitJob=true}={}) {
   const jobId=await job().locator('td').first().textContent();
   if(rt.state.jobId)conflict(rt.state.jobId===jobId,'Job/data identity after upgrade');
   rt.state.jobId=jobId;rt.state.jobIntent=false;rt.save();
+  if(config.verification.storage?.enabled)await verifyBackendStorage(page,config,rt);
   await page.screenshot({path:join(config.runtime.reportDir,`app-${Date.now()}.png`),fullPage:true});
   rt.record('business-checks','REUSED',{checks:CHECKS,jobId,url});
- } finally {await page.close();}
+  if(config.runtime.recordVideo)await page.waitForTimeout(1000);
+  status='SUCCEEDED';
+ } finally {await evidence.close(status);}
 }
 
 function equalArrays(a,b){return a.length===b.length&&a.every((v,i)=>v===b[i]);}
+
+export function backendClaim(deployment) {
+ const main=deployment.spec.template.spec.containers.find(c=>c.name==='main');
+ requireConfig(main?.env?.some(e=>e.name==='ACCEPTANCE_STORAGE_DIR'&&e.value==='/data'),'Backend storage directory is not enabled');
+ const mount=main.volumeMounts?.find(m=>m.mountPath==='/data'&&!m.readOnly);
+ const volume=deployment.spec.template.spec.volumes?.find(v=>v.name===mount?.name);
+ requireConfig(volume?.persistentVolumeClaim?.claimName,'Backend /data has no managed PVC');return volume.persistentVolumeClaim.claimName;
+}
+export async function verifyBackendStorage(page,config,rt) {
+ const namespace=`app-${rt.state.appKey}-${config.application.environment}`;
+ const claim=backendClaim(kubectl(config,'-n',namespace,'get','deployment','backend'));
+ const pvc=kubectl(config,'-n',namespace,'get','pvc',claim);
+ requireConfig(pvc.status.phase==='Bound'&&pvc.metadata.labels?.['app.kubernetes.io/managed-by']==='orchestrator','Backend PVC must be owned and Bound');
+ const hash=digest(config.verification.storage.value),identity={namespace,name:claim,uid:pvc.metadata.uid,hash};
+ if(rt.state.backendStorage)conflict(equal(rt.state.backendStorage,identity),'Backend PVC/file identity changed');
+ const stored=page.locator('#storage-hash');
+ if(!await stored.count()) {
+  requireConfig(!rt.state.storageWriteIntent,'Unknown storage write result; inspect before retry');
+  rt.state.storageWriteIntent=true;rt.save();
+  await page.getByLabel('Test value',{exact:true}).fill(config.verification.storage.value);
+  await page.getByRole('button',{name:'Write to volume',exact:true}).click();
+ }
+ conflict(await page.locator('#storage-hash').textContent()===hash&&await page.locator('#storage-value').textContent()===config.verification.storage.value,'Backend file value/hash');
+ rt.state.backendStorage=identity;rt.state.storageWriteIntent=false;rt.save();rt.record('backend-pvc-file','REUSED',identity);
+}

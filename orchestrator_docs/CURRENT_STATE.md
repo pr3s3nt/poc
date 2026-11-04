@@ -26,6 +26,15 @@ were kept. The dedicated Console 3040 already had schema 8; no shared database
 upgrade/reset, staging/production, AWS or real Rancher run. App/data/forward are
 retained. [Verification and tested Tailscale links](verification/2026-11-04-direct-bootstrap.md).
 
+Git-only follow-up accepted on the same date: 11 pinned Git business files,
+six Definitions, four Git Terraform modules and Git workload templates. A separate
+acceptance app passed five business checks/job, backend `/data` PVC write/read,
+UID-guarded Pod recreation with retained file/hash, and two unchanged reruns
+without extra deployments/source revisions. 56 bootstrap tests pass. Only the
+final successful scenario video is retained. The earlier Git publication failure
+remains held with its data unchanged; missing receipt proof was not bypassed.
+[Git/PVC evidence and handoff](verification/2026-11-04-git-bootstrap-pvc.md).
+
 ## Rancher-compatible Fleet discovery — 2026-11-04
 
 UC-04 CD-12 extends [ADR-034](architecture/decisions/ADR-034-simplified-cd-configuration.md)

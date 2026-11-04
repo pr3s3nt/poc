@@ -206,3 +206,6 @@ does not activate another roadmap iteration.
 Versioned Git catalog releases (issue #28): [implementation route](implementation/catalog-releases.md).
 
 Controlled Definition upgrades: [specification](usecase/UC-03/definition-versions.md), [implementation and limits](implementation/definition-versions.md), [verification](verification/2026-11-03-definition-versions.md).
+
+Git-only issue #33 follow-up: [real Git inputs/PVC/idempotency acceptance and
+final-success video](verification/2026-11-04-git-bootstrap-pvc.md).

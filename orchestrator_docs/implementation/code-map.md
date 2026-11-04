@@ -1114,3 +1114,10 @@ reuses real application acceptance and independently checks topology evidence.
 - Focused config/reuse/resume/pin tests: `direct-bootstrap.test.mjs`; real kind
   smoke/unchanged-rerun comparison: `e2e/scenarios/bootstrap-acceptance/run.mjs`.
 - [Scope and status](direct-bootstrap.md), [procedure](../../scripts/bootstrap/README.md).
+
+Git-only follow-up: `scripts/bootstrap/lib/git-inputs.mjs` reads and verifies pinned
+Git files; `git-targets/` supplies dev/staging input examples and `git-assets/` the
+committed business documents. `verification.mjs` checks backend PVC/file identity;
+`e2e/scenarios/bootstrap-git-pvc/run.mjs` verifies owned Pod recreation and rerun.
+`video.mjs` publishes only successful workload recordings; `video.test.mjs` covers
+its actual Chromium lifecycle.

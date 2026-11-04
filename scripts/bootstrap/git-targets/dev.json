@@ -1,0 +1,253 @@
+{
+  "schemaVersion": 3,
+  "environment": "dev",
+  "console": {
+    "url": "https://console-dev.example.test",
+    "username": "platform-engineer",
+    "passwordFile": "~/.orch/bootstrap/dev/password"
+  },
+  "developer": {
+    "username": "developer",
+    "passwordFile": "~/.orch/bootstrap/dev/developer-password"
+  },
+  "platform": {
+    "gitAccess": {
+      "enabled": true,
+      "url": "https://github.com/pr3s3nt",
+      "username": "pr3s3nt",
+      "tokenFile": "~/.orch/bootstrap/dev/git-token",
+      "repositoryUrl": "https://github.com/pr3s3nt/poc.git",
+      "ref": "c78243afdb0173535a02914e5907f9f7ef0b2bec"
+    },
+    "account": {
+      "name": "git-dev",
+      "context": "kind-k8s-4f",
+      "endpoint": "https://k8s-4f-control-plane:6443",
+      "kubeconfigFile": "~/.orch/bootstrap/dev/kubeconfig"
+    },
+    "resourceTypes": {
+      "git": {
+        "url": "https://github.com/pr3s3nt/poc.git",
+        "ref": "d181e7181d7080542b60f148c52d55e7b7119392",
+        "path": "scripts/bootstrap/git-assets/dev/resource-types.json",
+        "sha256": "1175743fc3845109a11bc9044327eba5408e63391fc168b9082af6216c318155"
+      }
+    },
+    "secretStore": {
+      "name": "Git dev Vault",
+      "backendAddress": "http://k8s-4f-workload-vault:8200",
+      "workloadAddress": "http://k8s-4f-workload-vault:8200",
+      "mount": "kv",
+      "authMount": "kubernetes",
+      "tokenFile": "~/.orch/bootstrap/dev/vault-token"
+    },
+    "delivery": {
+      "name": "git-dev",
+      "provider": "fleet",
+      "usePlatformGit": true,
+      "setDefault": true,
+      "config": {},
+      "namespaceAccess": {
+        "enabled": true,
+        "rulesFile": {
+          "git": {
+            "url": "https://github.com/pr3s3nt/poc.git",
+            "ref": "d181e7181d7080542b60f148c52d55e7b7119392",
+            "path": "scripts/bootstrap/applications/acceptance/fleet-access.json",
+            "sha256": "918dfbec0fc51d5e1a69f01c59f51828bbb9cf2326c70b7b2da2396f50be5072"
+          }
+        }
+      }
+    },
+    "definitions": [
+      {
+        "git": {
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "ref": "d181e7181d7080542b60f148c52d55e7b7119392",
+          "path": "scripts/bootstrap/git-assets/dev/cluster.json",
+          "sha256": "b291a99e13d469a81855c9b26c58db55037b8b3df8c4a02ddcfd616373c2d480"
+        }
+      },
+      {
+        "git": {
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "ref": "d181e7181d7080542b60f148c52d55e7b7119392",
+          "path": "scripts/bootstrap/git-assets/dev/k8s-namespace.json",
+          "sha256": "e086ec911d59283665c41f737acdea535fb96fb3f2834cadb4b6ddf6a4b38c7f"
+        },
+        "source": {
+          "kind": "git",
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "path": "backend/internal/adapters/terraform/modules/k8s-namespace",
+          "ref": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+          "pin": {
+            "sourceId": "git-7dc6fe0ec3a6493b6b784f69aed5acac5bb6ffb109cdf639f3c65f03",
+            "moduleId": "k8s-namespace",
+            "revision": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+            "subdirectory": "backend/internal/adapters/terraform/modules/k8s-namespace",
+            "contentSha256": "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"
+          }
+        }
+      },
+      {
+        "git": {
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "ref": "d181e7181d7080542b60f148c52d55e7b7119392",
+          "path": "scripts/bootstrap/git-assets/dev/postgres.json",
+          "sha256": "586bd1a24b849454150b50b4a3b7d73b6e1ab7d248bbb0e862fba78abb6a6476"
+        },
+        "source": {
+          "kind": "git",
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "path": "backend/internal/adapters/terraform/modules/postgres-k8s",
+          "ref": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+          "pin": {
+            "sourceId": "git-7dc6fe0ec3a6493b6b784f69aed5acac5bb6ffb109cdf639f3c65f03",
+            "moduleId": "postgres-k8s",
+            "revision": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+            "subdirectory": "backend/internal/adapters/terraform/modules/postgres-k8s",
+            "contentSha256": "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"
+          }
+        }
+      },
+      {
+        "git": {
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "ref": "d181e7181d7080542b60f148c52d55e7b7119392",
+          "path": "scripts/bootstrap/git-assets/dev/redis.json",
+          "sha256": "3fbc16d97508abbcebeebcfd77123c2e2c7b762e9c74c6ccaa1f7569e649799f"
+        },
+        "source": {
+          "kind": "git",
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "path": "backend/internal/adapters/terraform/modules/redis-k8s",
+          "ref": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+          "pin": {
+            "sourceId": "git-7dc6fe0ec3a6493b6b784f69aed5acac5bb6ffb109cdf639f3c65f03",
+            "moduleId": "redis-k8s",
+            "revision": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+            "subdirectory": "backend/internal/adapters/terraform/modules/redis-k8s",
+            "contentSha256": "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"
+          }
+        }
+      },
+      {
+        "git": {
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "ref": "d181e7181d7080542b60f148c52d55e7b7119392",
+          "path": "scripts/bootstrap/git-assets/dev/storage.json",
+          "sha256": "f0ab9806f848a47a796215bc0ed78be39157b3804c5b1a54a73bac710d4b89d4"
+        },
+        "source": {
+          "kind": "git",
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "path": "backend/terraform-modules/persistent-storage",
+          "ref": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+          "pin": {
+            "sourceId": "git-7dc6fe0ec3a6493b6b784f69aed5acac5bb6ffb109cdf639f3c65f03",
+            "moduleId": "module-3cf4a61a6de996f329ba2f2548b123a7c",
+            "revision": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+            "subdirectory": "backend/terraform-modules/persistent-storage",
+            "contentSha256": "78353f77590598641291ecb4b7a740174ac48e3a6b04986c1286f8e7bce50bb7"
+          }
+        }
+      },
+      {
+        "git": {
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "ref": "d181e7181d7080542b60f148c52d55e7b7119392",
+          "path": "scripts/bootstrap/git-assets/dev/workload.json",
+          "sha256": "3f5ada786d02d90448f60b9f7745072bfcdac50fa75c31de7fa1f11aaf82e71c"
+        }
+      }
+    ],
+    "templateSources": [
+      {
+        "name": "acceptance",
+        "kind": "git",
+        "url": "https://github.com/pr3s3nt/poc.git",
+        "path": "backend/template-sources/standard",
+        "ref": "48035f75af4b3fe7ce1fafd9ebaf41f8b4356d10",
+        "pin": {
+          "revision": "48035f75af4b3fe7ce1fafd9ebaf41f8b4356d10",
+          "contentSha256": "fa4df6f2e54046fe85cefe58c30782663b899cee63ec480047df636be1f55c18"
+        }
+      }
+    ]
+  },
+  "application": {
+    "name": "acceptance-git-dev",
+    "subdomain": "acceptance-git-dev",
+    "environment": "staging",
+    "definitionRevisions": {},
+    "workloadClass": "git-dev",
+    "variables": {
+      "ACCEPTANCE_CACHE_APP": "${applicationKey}",
+      "ACCEPTANCE_CACHE_ENV": "${environment}",
+      "ACCEPTANCE_CACHE_RUN": "git-dev",
+      "ACCEPTANCE_CACHE_TTL_SECONDS": "30",
+      "ACCEPTANCE_CONFIG": "acceptance-config-ok",
+      "POLL_INTERVAL_MS": "500",
+      "PORT": "8080"
+    },
+    "secretFiles": {
+      "ACCEPTANCE_SECRET": "~/.orch/bootstrap/dev/acceptance-secret"
+    },
+    "images": {
+      "backend": "acceptance-backend:git-bootstrap-20261104",
+      "worker": "acceptance-worker:git-bootstrap-20261104",
+      "frontend": "acceptance-frontend:git-bootstrap-20261104"
+    },
+    "workloads": {
+      "backend": {
+        "git": {
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "ref": "d181e7181d7080542b60f148c52d55e7b7119392",
+          "path": "scripts/bootstrap/git-assets/dev/backend.yaml",
+          "sha256": "ebf8fa5ef70682fee356eefec25607f5e799d300e0806cf6c8d9f66384327e6a"
+        }
+      },
+      "worker": {
+        "git": {
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "ref": "d181e7181d7080542b60f148c52d55e7b7119392",
+          "path": "scripts/bootstrap/git-assets/dev/worker.yaml",
+          "sha256": "ffde97f21ac09a05584385b177e56e9c8936d0d30878ecb134a74aa1f00ccc2a"
+        }
+      },
+      "frontend": {
+        "git": {
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "ref": "d181e7181d7080542b60f148c52d55e7b7119392",
+          "path": "scripts/bootstrap/git-assets/dev/frontend.yaml",
+          "sha256": "9236930cd3975af7e92695f07d5cd140de541b41bed9217bbb750052a23bf302"
+        }
+      }
+    }
+  },
+  "verification": {
+    "enabled": true,
+    "url": "http://your-host.your-tailnet.ts.net:3041",
+    "jobPayload": "git-dev-persistent-job",
+    "timeoutMs": 300000,
+    "forward": {
+      "bindAddress": "127.0.0.1",
+      "port": 3041
+    },
+    "storage": {
+      "enabled": true,
+      "value": "git-dev-persistent-file"
+    }
+  },
+  "runtime": {
+    "mode": "all",
+    "headless": true,
+    "timeoutMs": 1500000,
+    "stateDir": "~/.local/state/orch-bootstrap/git-dev/state",
+    "reportDir": "~/.local/state/orch-bootstrap/git-dev/reports",
+    "clusterKubeconfigFile": "~/.orch/bootstrap/dev/cluster-kubeconfig",
+    "recoverCompletedDeploy": false,
+    "recordVideo": true
+  },
+  "gitOnly": true
+}

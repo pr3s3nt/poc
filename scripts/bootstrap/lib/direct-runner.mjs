@@ -10,7 +10,7 @@ import { ensureAccess, verifyAcceptance, kubectl } from './verification.mjs';
 
 export function acceptanceInputHash(config) {
  const app=config.application;
- const value={name:app.name,subdomain:app.subdomain,environment:app.environment,variables:app.variables,workloads:desiredScores(config,app),secretHashes:Object.fromEntries(Object.entries(app.secretFiles).map(([name,file])=>[name,digest(readPrivateFile(file,'application secret'))])),jobPayload:config.verification.jobPayload};
+ const value={name:app.name,subdomain:app.subdomain,environment:app.environment,variables:app.variables,workloads:desiredScores(config,app),secretHashes:Object.fromEntries(Object.entries(app.secretFiles).map(([name,file])=>[name,digest(readPrivateFile(file,'application secret'))])),jobPayload:config.verification.jobPayload,storage:config.verification.storage??null};
  const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
  return digest(JSON.stringify(canonical(value)));
 }
@@ -56,6 +56,7 @@ export async function runDirectBootstrap(config,{preflight}) {
  const rt=createRuntime(config);let platform,developer,status='FAILED';
  try {
   if(config.runtime.mode==='all') {const hash=acceptanceInputHash(config);conflict(!rt.state.acceptanceInputHash||rt.state.acceptanceInputHash===hash,'Acceptance input changed; direct bootstrap does not upgrade or overwrite pending changes');rt.state.acceptanceInputHash=hash;rt.save();}
+  if(config.gitInputReceipts?.length){rt.record('git-inputs','REUSED',{files:config.gitInputReceipts});}
   platform=await openConsole(config.console);requireConfig(['ADMIN','PLATFORM_ENGINEER'].includes(platform.user.role),'Platform Engineer/Admin required');
   const ui=makeUI(platform.page,config.console.baseURL,config.runtime.timeoutMs);
   await preflight(ui,config,rt);

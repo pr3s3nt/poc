@@ -54,3 +54,9 @@ a separate ownership/UID-guarded Pod recreation proves persistence. Keep old
 Definitions/Application/data unchanged; use an isolated schema-8 Console and new
 acceptance Application for the Git-source run, then prove unchanged rerun.
 This extends operational inputs/acceptance, not renderer, schema or matching rules.
+
+Git-only/PVC follow-up implemented and accepted on kind; see
+[execution and final video scope](../verification/2026-11-04-git-bootstrap-pvc.md).
+The original unknown publication remains held; final acceptance uses a separate
+Application and preserves the failed run's resources. Recording is opt-in and
+publishes only the complete successful scenario's latest video.

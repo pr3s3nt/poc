@@ -188,3 +188,67 @@ prerequisites; chỉ Role/RoleBinding của namespace acceptance do sản phẩm
 được setup khi config cho phép.
 
 Nghiệm thu dev/kind bằng [bootstrap acceptance](../../e2e/scenarios/bootstrap-acceptance/README.md).
+
+## Git-only inputs and backend PVC
+
+The current Git-only presets are [dev](git-targets/dev.json) and
+[staging](git-targets/staging.json). Copy the environment config outside Git and
+review endpoints/accounts/credential-file references/images/access URLs before
+running the ordinary command. The staging preset does not authorize a staging run.
+The older `direct-targets/` presets retain their original local-document/installed
+module compatibility; they are not the Git-only path.
+
+`gitOnly=true` (schemaVersion 3) requires Resource Types, every Definition document,
+Workload documents and namespace-access rules to be Git file references:
+
+```json
+{
+  "git": {
+    "url": "https://github.com/company/platform.git",
+    "ref": "0123456789012345678901234567890123456789",
+    "path": "definitions/backend.json",
+    "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  }
+}
+```
+
+Definition entries use `git` directly alongside their Terraform `source` metadata.
+Terraform/template sources must have `kind=git`, full commit and content digest.
+The bootstrap obtains regular input files from the exact Git objects, verifies
+file SHA-256 and caches them outside the repository (`runtime.gitCacheDir`, default
+`<stateDir>/git-inputs`). Missing/wrong commits, file/digest drift, symlink/executable
+files and local/inline/installed fallback are blocked. It never loads input from
+the current checkout or resolves latest. Product Git inspection separately pins
+Terraform modules/templates; Definition registration remains through Console,
+without an Application Catalog selection. Reports include safe Git origin/commit/
+file-digest receipts. Config and credential files remain local environment inputs.
+
+The host input reader uses the declared platform Git credential only within its
+configured HTTPS scope, through a private askpass helper; no token in URLs/CLI
+arguments/logs. Git global credential helpers/hooks and interactive prompts are
+disabled. Public Git inputs can omit credentials when the platform/CD profile
+also permits that. Explicit `gitAccess.repositoryUrl/ref` selects the connectivity
+test when module/template sources use several pinned commits.
+
+The Git presets register a persistent-storage Definition and use the committed
+backend Workload with a managed `/data` mount and `ACCEPTANCE_STORAGE_DIR=/data`.
+`verification.storage` enables browser write/read of a bounded public test `value`,
+checks the actual mounted PVC is owned/Bound and preserves its UID/file hash on
+rerun. It never overwrites an existing different value. Bootstrap itself does not
+recreate Pods; the separate
+[Git/PVC scenario](../../e2e/scenarios/bootstrap-git-pvc/README.md) proves file/hash
+retention after one ownership/UID-checked backend Pod recreation, then reruns
+bootstrap to verify source/Definition/deployment identity preservation.
+
+### Video acceptance
+
+Set `runtime.recordVideo: true` to record public acceptance-app checks with
+Playwright. Videos are saved only after successful checks; failed recordings
+are deleted. The latest successful video for each phase replaces its previous
+file under `runtime.reportDir/videos/`, alongside a JSON status receipt.
+Console sign-in and credential-entry forms are excluded; no browser storage
+state is saved. For one final Git/PVC acceptance video, use the dedicated
+`e2e/scenarios/bootstrap-git-pvc/run.mjs` runner: intermediate bootstrap runs
+have recording disabled, and only the successful complete scenario publishes
+`videos/backend-pvc-retention.webm`. CLI/Kubernetes operations are not screen
+recordings; the video shows the real app before and after Pod recreation.

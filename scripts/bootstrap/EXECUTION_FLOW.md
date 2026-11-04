@@ -50,3 +50,15 @@ SchemaVersion 3 chạy theo thứ tự sau; schemaVersion 2 ở trên là luồn
 
 Input dev/staging độc lập theo Console/cluster/criteria/state. Có mẫu staging
 không cấp quyền chạy staging; runtime nghiệm thu issue #33 giới hạn kind.
+
+## Git-only follow-up and backend PVC
+
+Before browser mutation, `gitOnly` resolves Types/Definition/Workload/rules files
+from exact HTTPS Git commits and verifies file digests into a private external
+cache. Definition/module/template pins are independent: documents carry complete
+resource configuration, while product inspection verifies Git module/template
+content and provider contracts. No Catalog release or installed fallback is used.
+The six-Definition profile adds persistent-storage; backend mounts it at `/data`.
+Final acceptance verifies Bound PVC, file value/hash and receipt reuse. The E2E
+Git/PVC scenario additionally verifies namespace/controller ownership and exact
+Pod UID before recreation, proves retained PVC/file and runs bootstrap again.

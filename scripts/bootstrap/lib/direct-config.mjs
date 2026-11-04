@@ -40,13 +40,15 @@ export function parseSource(source, path, template = false) {
  }
  return source;
 }
-export function parseDirectPlatform(platform, path) {
+export function parseDirectPlatform(platform, path, businessFile=path, gitOnly=false) {
  requireConfig(Array.isArray(platform.templateSources)&&platform.templateSources.length>0,'templateSources required');
- for(const source of platform.templateSources)parseSource(source,path,true);
+ for(const source of platform.templateSources){requireConfig(!gitOnly||source.kind==='git','gitOnly template sources must use Git');parseSource(source,path,true);}
  requireConfig(new Set(platform.templateSources.map(s=>s.name)).size===platform.templateSources.length,'Duplicate template source name');
  requireConfig(Array.isArray(platform.definitions)&&platform.definitions.length>0,'Definitions required');
  for(const entry of platform.definitions) {
-  onlyKeys(entry,['file','source'],'Definition entry');entry.file=path(entry.file);
+  onlyKeys(entry,['file','git','source'],'Definition entry');
+  requireConfig(Boolean(entry.file)!==Boolean(entry.git),'Definition requires exactly one file or Git document');
+  entry.file=businessFile(entry.git?{git:entry.git}:entry.file);
   const definition=JSON.parse(readFileSync(entry.file,'utf8'));
   onlyKeys(definition,['key','name','resourceType','driverType','driverAccount','driverInputs','provision','criteria'],'Definition');
   requireConfig(/^[a-z0-9][a-z0-9-]*$/.test(definition.key??'')&&typeof definition.name==='string'&&definition.name.length>0&&typeof definition.resourceType==='string'&&object(definition.driverInputs?.values)&&Array.isArray(definition.criteria)&&definition.criteria.length>0,'Invalid Definition document');
@@ -54,6 +56,7 @@ export function parseDirectPlatform(platform, path) {
   requireConfig(definition.criteria.every(rule=>object(rule)&&Object.entries(rule).every(([k,v])=>['env_type','app_id','env_id','res_id','class'].includes(k)&&typeof v==='string'&&v.length>0)),'Invalid Definition criteria');
   if(definition.driverType==='existing-cluster')requireConfig(definition.resourceType==='k8s-cluster'&&typeof definition.driverAccount==='string','Existing cluster requires an account');
   if(definition.driverType==='terraform') {
+   requireConfig(!gitOnly||entry.source?.kind==='git','gitOnly Terraform modules must use Git');
    parseSource(entry.source,path);
    const p=entry.source.pin;
    const expected={source_id:p.sourceId,module_id:p.moduleId,revision:p.revision,subdirectory:p.subdirectory,content_sha256:p.contentSha256};

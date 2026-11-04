@@ -127,3 +127,6 @@ current acceptance gates. Their paths stay for provenance; wrappers that require
 the removed CLI stop before setup. Mixed historical scenarios are not evidence
 that their obsolete rendering steps still work. Reuse focused product tests and
 the new scenario for this change; no bulk E2E migration is included.
+
+Git-only bootstrap, unchanged rerun and owned backend Pod recreation/PVC persistence:
+[bootstrap-git-pvc](scenarios/bootstrap-git-pvc/README.md).
