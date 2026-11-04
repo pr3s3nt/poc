@@ -110,9 +110,30 @@ Enterprise input exposes `parameters.postgresImage` and `redisImage`, expanded
 into Definition Terraform variables. Both require digest-pinned images compatible
 with existing module entrypoints; registry host ports are supported. Pull access
 and registry CA on cluster nodes remain prerequisites. Embedded backend modules
-are unchanged. MySQL additions were withdrawn by the user; no MySQL module or
-Definition is included in the publishable folder. The preexisting Resource Type
-list is retained for compatibility.
+are unchanged. The earlier MySQL withdrawal was superseded by the user request below.
 
 Validation: bootstrap tests cover company image interpolation; PostgreSQL/Redis
 Terraform modules validated with Kubernetes provider 2.38.0. No staging mutations.
+
+## MySQL, MariaDB and MongoDB resource assets — approved 2026-11-04
+
+Add Git-owned Kubernetes modules, Resource Types and Definitions for MySQL,
+MariaDB and MongoDB. Keep existing MySQL Type input/output names for compatibility;
+MariaDB and MongoDB use the same nonsecret Secret-reference input pattern.
+MongoDB creates a database-scoped readWrite application user at first empty-volume
+initialization, separate from its root user. One StatefulSet and owned PVC per
+instance; no HA, operator, backup or automatic DB credential rotation claim.
+Image references, storage/class and Secret/key names come from private input.
+Secrets must already be delivered into the application namespace by an approved
+process; modules never read Secret contents or publish passwords. Module/Definition
+registration does not extend the PostgreSQL/Redis acceptance app or authorize
+cluster mutations. Retain embedded release assets and existing resource identities.
+
+Validation for the added database assets: 59/59 bootstrap tests (nine Definitions,
+Git-only pinning and company image/Secret interpolation); Terraform fmt/validate
+for all three modules with Terraform 1.9.8 and Kubernetes provider 2.38.0; six
+mocked contract tests passed for registry/pull/auth Secret references, ownership
+labels, PVC/outputs/readiness settings, MongoDB init code and mutable-image
+rejection. Tests are retained under each module's `tests/contract.tftest.hcl`.
+Docs checker and diff whitespace passed. No backend/frontend runtime code changes,
+no live database/cluster/GHES mutations and no company staging success claim.

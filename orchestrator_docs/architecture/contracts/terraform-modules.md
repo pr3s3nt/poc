@@ -160,6 +160,7 @@ hiệu lực nếu Type hoặc module đánh dấu secret; không downgrade đ�
 |---|---|
 | `postgres` | Giữ contract catalog hiện hành: `host` string, `port` number, `database` string, `username` string, `password` secret string |
 | `redis` | `host` string, `port` number, `username` string, `password` secret string, `tls` bool; credentials không rỗng khi auth yêu cầu |
+| `mysql`, `mariadb`, `mongodb` (Git resource assets) | `host` string, `port` number, `database` string, `username` string, `claimName` string, `namespace` string; credentials supplied through existing Kubernetes Secret references, no password output |
 
 Redis v2 dùng auth cho cả in-cluster/managed; in-cluster có thể không TLS,
 ElastiCache dùng TLS và app phải hỗ trợ theo output `tls`. Module sinh username/

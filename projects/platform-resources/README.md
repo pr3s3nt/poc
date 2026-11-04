@@ -3,7 +3,7 @@
 Đưa **nội dung thư mục này** lên root một repo GitHub Enterprise riêng:
 
 ```
-terraform/             # 8 Terraform modules
+terraform/             # 11 Terraform modules
 templates/standard/  # bộ template chuẩn
 bootstrap/             # Resource Types, Definitions, Workloads, policy
 README.md
@@ -12,12 +12,13 @@ AGENTS.md
 
 Không tạo thêm tầng `platform-resources/` trong repo mới. Definitions nằm ở
 `bootstrap/definitions/`; chúng tham chiếu module trong `terraform/` qua các
-tham số input. Preset staging dùng bốn module namespace/postgres/redis/storage;
+tham số input. Preset staging đăng ký namespace/postgres/redis/storage và mysql/mariadb/mongodb;
 các module AWS chỉ là mã nguồn bổ sung, không phải quyền triển khai AWS.
 
 ## Chuyển sang Git công ty
 
-1. Giải nén, đưa nội dung thư mục lên repo nội bộ theo quy trình công ty và commit.
+1. Pull nhánh `main` repo Orchestrator, lấy nội dung `projects/platform-resources/`
+   đưa lên repo nội bộ theo quy trình công ty và commit.
 2. Lấy HTTPS clone URL và full commit SHA đã review. Không nhúng token vào URL.
 3. Trong bản `staging.input.json` riêng tư, thay `parameters.inputsRepository`,
    `parameters.modulesRepository`, `parameters.templatesRepository` bằng URL mới. Có thể dùng
@@ -30,8 +31,8 @@ các module AWS chỉ là mã nguồn bổ sung, không phải quyền triển k
 6. Điền các dữ liệu staging còn lại theo hướng dẫn; chạy mode `check`, rồi
    `bootstrap`/`all` khi target đã được cấp quyền.
 
-Bản ZIP bàn giao có thư mục `setup/` chứa input mẫu, chú thích và hướng dẫn AI.
-Trong source Orchestrator, các file chuẩn ở `scripts/bootstrap/enterprise/`.
+Input mẫu, chú thích và hướng dẫn AI chuẩn ở `scripts/bootstrap/enterprise/`
+trong repo Orchestrator.
 Đây là repo tài nguyên, không chứa chương trình bootstrap hoặc ứng dụng
 Orchestrator; chạy công cụ từ checkout Orchestrator đúng release.
 
@@ -48,3 +49,6 @@ các snapshot embed bất biến khi tùy chỉnh repo công ty.
 Image PostgreSQL và Redis được điền tại `parameters.postgresImage` và
 `parameters.redisImage` trong input riêng tư, dạng digest-pinned. Image của
 backend/worker/frontend tiếp tục nằm tại `application.images`.
+
+MySQL, MariaDB và MongoDB cũng có `<db>Image`, `<db>AuthSecretName`, tên key,
+storage và pull Secret trong input. Xem [hướng dẫn database](bootstrap/DATABASES.md).

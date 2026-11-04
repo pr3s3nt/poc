@@ -7,15 +7,21 @@ Không copy địa chỉ/IP/credential hoặc commit demo của cá nhân sang c
 | Trường | Cần điền / ý nghĩa |
 |---|---|
 | `environment` | Danh tính target/state, ví dụ `company-staging`; đổi target phải dùng state khác |
-| `parameters.definitionPrefix`, `definitionName` | Prefix ID và tên hiển thị cho sáu Definitions; chọn một lần rồi giữ nguyên |
+| `parameters.definitionPrefix`, `definitionName` | Prefix ID và tên hiển thị cho chín Definitions; chọn một lần rồi giữ nguyên |
 | `parameters.targetClass` | Class cluster/workload và resource references tương ứng |
 | `parameters.environmentType` | Loại Environment để matching; preset là `staging` |
 | `parameters.postgresImage`, `redisImage` | Image PostgreSQL/Redis từ registry công ty, dạng `registry:port/path@sha256:<64 hex>`; không dùng tag trần/latest |
+| `parameters.mysqlImage`, `mariadbImage`, `mongodbImage` | Image registry công ty, bắt buộc `@sha256:<64 hex>`; có hỗ trợ hostname kèm port |
+| `parameters.<db>Database`, `<db>Username` | Database và application user mặc định; `<db>` là mysql/mariadb/mongodb |
+| `parameters.<db>AuthSecretName`, `<db>RootPasswordKey`, `<db>UserPasswordKey` | Tên Secret có sẵn trong namespace ứng dụng và hai tên key; không điền mật khẩu thật |
+| `parameters.<db>Storage`, `<db>StorageClass` | Dung lượng PVC và StorageClass; rỗng chọn class mặc định cluster |
+| `parameters.<db>ImagePullSecretName` | Secret pull registry có sẵn trong namespace; rỗng dùng credential node/ServiceAccount |
+| `parameters.mongodbRootUsername` | Tài khoản quản trị MongoDB trong auth database `admin`; app user riêng nằm trong database ứng dụng |
 | `parameters.backendStorage` | Dung lượng PVC backend, ví dụ `1Gi`; thay đổi sau deploy là thay đổi cấu hình, không tự upgrade |
 | `parameters.inputsRepository`, `inputsCommit` | HTTPS repo + full commit chứa `bootstrap/` ở root repo tài nguyên |
 | `parameters.modulesRepository`, `modulesCommit` | HTTPS repo + full commit chứa Terraform modules |
 | `parameters.templatesRepository`, `templatesCommit` | HTTPS repo + full commit chứa workload templates |
-| `parameters.*ModulePath` | Đường dẫn module trong repo; namespace/PostgreSQL/Redis/persistent-storage |
+| `parameters.*ModulePath` | Đường dẫn module trong repo; namespace/PostgreSQL/Redis/MySQL/MariaDB/MongoDB/persistent-storage |
 | `parameters.moduleSourceId`, `*ModuleId`, `*ModuleSHA256`, `templateTreeSHA256` | Helper lock tính; không đoán/copy ID từ repo demo. Contract/packaged recognition phụ thuộc đúng release đang chạy |
 | `console.url`, `username`, `passwordFile` | Origin Console và account Admin/PE đã có; mật khẩu là file owner-only |
 | `developer` | Account Developer thật, cùng Console/Organization; bootstrap không tự tạo user |
@@ -51,3 +57,25 @@ không tự tạo registry Secret: cấu hình node credential provider hoặc S
 imagePullSecrets theo quy trình công ty. Đổi URL image không tự cấp quyền pull.
 PostgreSQL image cần tương thích PostgreSQL Alpine UID/GID 70; Redis giữ contract
 entrypoint hiện có. Mirror nguyên image đã duyệt hoặc review module nếu đổi distro.
+
+## MySQL, MariaDB và MongoDB
+
+Input đăng ký thêm ba Definitions `class=in-cluster`; app nghiệm thu vẫn dùng
+PostgreSQL/Redis. Workload chọn một Type bằng resource declaration, các params
+bắt buộc là `image`, `database`, `username`, `auth_secret_name`,
+`root_password_key`, `user_password_key`; `storage` tùy chọn. Các params ưu tiên
+hơn fallback trong Definition. Khi khai báo workload hãy dùng image đã review
+khớp với tham số `<db>Image`. Xem ví dụ ở
+[database resources](../../../projects/platform-resources/bootstrap/DATABASES.md).
+
+Chuẩn bị Secret có hai key mật khẩu root/app qua Vault/VSO hoặc quy trình đã
+được duyệt, trong đúng namespace trước khi Pod cần chạy. Module không đọc data
+Secret, không tạo credential và không xuất password. Consumer nhận password
+qua secret delivery của công ty, không qua Type params/output. MongoDB app user
+có role readWrite trong database ứng dụng, authSource là database đó; root ở admin.
+
+Các module là single-instance có PVC, chưa có HA/replica set/backup automation.
+Đổi biến init trên PVC đã có dữ liệu không tự rotate mật khẩu hoặc migrate DB.
+Không xóa PVC/state để khắc phục lỗi credentials. Chỉ dùng image tương thích
+entrypoint Docker Official Images của từng engine; MongoDB cần mongosh. Không
+đổi sang distribution khác mà chỉ sửa URL nếu entrypoint/UID/đường dẫn khác.

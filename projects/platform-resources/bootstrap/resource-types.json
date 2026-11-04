@@ -236,5 +236,161 @@
         "secret": false
       }
     ]
+  },
+  {
+    "key": "mariadb",
+    "inputs": [
+      {
+        "name": "image",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "database",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "username",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "auth_secret_name",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "root_password_key",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "user_password_key",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "storage",
+        "type": "string",
+        "required": false
+      }
+    ],
+    "outputs": [
+      {
+        "name": "host",
+        "type": "string",
+        "required": true,
+        "secret": false
+      },
+      {
+        "name": "port",
+        "type": "number",
+        "required": true,
+        "secret": false
+      },
+      {
+        "name": "database",
+        "type": "string",
+        "required": true,
+        "secret": false
+      },
+      {
+        "name": "username",
+        "type": "string",
+        "required": true,
+        "secret": false
+      },
+      {
+        "name": "claimName",
+        "type": "string",
+        "required": true,
+        "secret": false
+      },
+      {
+        "name": "namespace",
+        "type": "string",
+        "required": true,
+        "secret": false
+      }
+    ]
+  },
+  {
+    "key": "mongodb",
+    "inputs": [
+      {
+        "name": "image",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "database",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "username",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "auth_secret_name",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "root_password_key",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "user_password_key",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "storage",
+        "type": "string",
+        "required": false
+      }
+    ],
+    "outputs": [
+      {
+        "name": "host",
+        "type": "string",
+        "required": true,
+        "secret": false
+      },
+      {
+        "name": "port",
+        "type": "number",
+        "required": true,
+        "secret": false
+      },
+      {
+        "name": "database",
+        "type": "string",
+        "required": true,
+        "secret": false
+      },
+      {
+        "name": "username",
+        "type": "string",
+        "required": true,
+        "secret": false
+      },
+      {
+        "name": "claimName",
+        "type": "string",
+        "required": true,
+        "secret": false
+      },
+      {
+        "name": "namespace",
+        "type": "string",
+        "required": true,
+        "secret": false
+      }
+    ]
   }
 ]

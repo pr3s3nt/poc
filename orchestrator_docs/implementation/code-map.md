@@ -1131,3 +1131,10 @@ TLS trust is in `adapters/repositoryhosting/github/github.go`.
 Enterprise infrastructure image overrides: `parameters.postgresImage` and
 `redisImage` in `scripts/bootstrap/enterprise/staging.input.json` are expanded
 into the publishable PostgreSQL/Redis Definitions. Embedded release unchanged.
+
+Database Git assets: `projects/platform-resources/terraform/{mysql,mariadb,mongodb}`
+and matching `bootstrap/definitions/*.json`; Types are declared in
+`bootstrap/resource-types.json`, input/pin fields in enterprise staging input.
+Setup and credential/storage contract: `projects/platform-resources/bootstrap/DATABASES.md`.
+The MySQL Type schema remains compatible; new types use the same nonsecret
+Secret-reference contract. No embedded release/runtime code changed.

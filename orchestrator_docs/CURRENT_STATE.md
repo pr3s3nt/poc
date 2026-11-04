@@ -1941,3 +1941,14 @@ per user instruction. UI was compared headlessly with Secret Stores using
 fixture API responses; this is visual review, not backend acceptance.
 [Contract](usecase/UC-03/git-access.md),
 [handoff](implementation/platform-git-access.md).
+
+## Company database resource assets — 2026-11-04
+
+The publishable `projects/platform-resources/` set now includes Git Definitions
+and single-instance Kubernetes modules for MySQL, MariaDB and MongoDB, alongside
+PostgreSQL/Redis. Enterprise input configures company image digests, external
+Secret/key references, storage and optional image-pull Secret names. New MariaDB
+and MongoDB Types reuse the existing MySQL nonsecret Secret-reference contract.
+Registration/loader and mocked Terraform checks do not establish live database
+readiness, retention, HA or company-staging verification. Existing acceptance app
+continues to use PostgreSQL/Redis; embedded backend release assets are unchanged.

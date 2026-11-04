@@ -1,0 +1,73 @@
+{
+  "key": "${bootstrap.definitionPrefix}-mariadb",
+  "name": "${bootstrap.definitionName} mariadb",
+  "resourceType": "mariadb",
+  "driverType": "terraform",
+  "driverInputs": {
+    "values": {
+      "variables": {
+        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+        "database": "${bootstrap.mariadbDatabase}",
+        "username": "${bootstrap.mariadbUsername}",
+        "image": "${bootstrap.mariadbImage}",
+        "auth_secret_name": "${bootstrap.mariadbAuthSecretName}",
+        "root_password_key": "${bootstrap.mariadbRootPasswordKey}",
+        "user_password_key": "${bootstrap.mariadbUserPasswordKey}",
+        "storage": "${bootstrap.mariadbStorage}",
+        "storage_class": "${bootstrap.mariadbStorageClass}",
+        "image_pull_secret_name": "${bootstrap.mariadbImagePullSecretName}"
+      },
+      "source": {
+        "source_id": "${bootstrap.moduleSourceId}",
+        "module_id": "${bootstrap.mariadbModuleId}",
+        "revision": "${bootstrap.modulesCommit}",
+        "subdirectory": "${bootstrap.mariadbModulePath}",
+        "content_sha256": "${bootstrap.mariadbModuleSHA256}"
+      },
+      "input_mapping": {
+        "image": {
+          "param": "image"
+        },
+        "database": {
+          "param": "database"
+        },
+        "username": {
+          "param": "username"
+        },
+        "auth_secret_name": {
+          "param": "auth_secret_name"
+        },
+        "root_password_key": {
+          "param": "root_password_key"
+        },
+        "user_password_key": {
+          "param": "user_password_key"
+        },
+        "storage": {
+          "param": "storage"
+        }
+      },
+      "output_mapping": {
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "claimName": "claimName",
+        "namespace": "namespace"
+      },
+      "provider_bindings": {
+        "kubernetes": {
+          "target": "resource",
+          "resource_ref": "k8s-cluster.${bootstrap.targetClass}#environments.@app.@env"
+        }
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "${bootstrap.environmentType}",
+      "class": "in-cluster"
+    }
+  ]
+}

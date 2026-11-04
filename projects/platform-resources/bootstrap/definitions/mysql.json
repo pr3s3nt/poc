@@ -1,0 +1,73 @@
+{
+  "key": "${bootstrap.definitionPrefix}-mysql",
+  "name": "${bootstrap.definitionName} mysql",
+  "resourceType": "mysql",
+  "driverType": "terraform",
+  "driverInputs": {
+    "values": {
+      "variables": {
+        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+        "database": "${bootstrap.mysqlDatabase}",
+        "username": "${bootstrap.mysqlUsername}",
+        "image": "${bootstrap.mysqlImage}",
+        "auth_secret_name": "${bootstrap.mysqlAuthSecretName}",
+        "root_password_key": "${bootstrap.mysqlRootPasswordKey}",
+        "user_password_key": "${bootstrap.mysqlUserPasswordKey}",
+        "storage": "${bootstrap.mysqlStorage}",
+        "storage_class": "${bootstrap.mysqlStorageClass}",
+        "image_pull_secret_name": "${bootstrap.mysqlImagePullSecretName}"
+      },
+      "source": {
+        "source_id": "${bootstrap.moduleSourceId}",
+        "module_id": "${bootstrap.mysqlModuleId}",
+        "revision": "${bootstrap.modulesCommit}",
+        "subdirectory": "${bootstrap.mysqlModulePath}",
+        "content_sha256": "${bootstrap.mysqlModuleSHA256}"
+      },
+      "input_mapping": {
+        "image": {
+          "param": "image"
+        },
+        "database": {
+          "param": "database"
+        },
+        "username": {
+          "param": "username"
+        },
+        "auth_secret_name": {
+          "param": "auth_secret_name"
+        },
+        "root_password_key": {
+          "param": "root_password_key"
+        },
+        "user_password_key": {
+          "param": "user_password_key"
+        },
+        "storage": {
+          "param": "storage"
+        }
+      },
+      "output_mapping": {
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "claimName": "claimName",
+        "namespace": "namespace"
+      },
+      "provider_bindings": {
+        "kubernetes": {
+          "target": "resource",
+          "resource_ref": "k8s-cluster.${bootstrap.targetClass}#environments.@app.@env"
+        }
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "${bootstrap.environmentType}",
+      "class": "in-cluster"
+    }
+  ]
+}

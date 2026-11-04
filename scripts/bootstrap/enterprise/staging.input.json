@@ -161,6 +161,69 @@
           "path": "bootstrap/definitions/workload.json",
           "sha256": "LOCK_WITH_HELPER"
         }
+      },
+      {
+        "git": {
+          "url": "${bootstrap.inputsRepository}",
+          "ref": "${bootstrap.inputsCommit}",
+          "path": "bootstrap/definitions/mysql.json",
+          "sha256": "LOCK_WITH_HELPER"
+        },
+        "source": {
+          "kind": "git",
+          "url": "${bootstrap.modulesRepository}",
+          "path": "${bootstrap.mysqlModulePath}",
+          "ref": "${bootstrap.modulesCommit}",
+          "pin": {
+            "sourceId": "${bootstrap.moduleSourceId}",
+            "moduleId": "${bootstrap.mysqlModuleId}",
+            "revision": "${bootstrap.modulesCommit}",
+            "subdirectory": "${bootstrap.mysqlModulePath}",
+            "contentSha256": "${bootstrap.mysqlModuleSHA256}"
+          }
+        }
+      },
+      {
+        "git": {
+          "url": "${bootstrap.inputsRepository}",
+          "ref": "${bootstrap.inputsCommit}",
+          "path": "bootstrap/definitions/mariadb.json",
+          "sha256": "LOCK_WITH_HELPER"
+        },
+        "source": {
+          "kind": "git",
+          "url": "${bootstrap.modulesRepository}",
+          "path": "${bootstrap.mariadbModulePath}",
+          "ref": "${bootstrap.modulesCommit}",
+          "pin": {
+            "sourceId": "${bootstrap.moduleSourceId}",
+            "moduleId": "${bootstrap.mariadbModuleId}",
+            "revision": "${bootstrap.modulesCommit}",
+            "subdirectory": "${bootstrap.mariadbModulePath}",
+            "contentSha256": "${bootstrap.mariadbModuleSHA256}"
+          }
+        }
+      },
+      {
+        "git": {
+          "url": "${bootstrap.inputsRepository}",
+          "ref": "${bootstrap.inputsCommit}",
+          "path": "bootstrap/definitions/mongodb.json",
+          "sha256": "LOCK_WITH_HELPER"
+        },
+        "source": {
+          "kind": "git",
+          "url": "${bootstrap.modulesRepository}",
+          "path": "${bootstrap.mongodbModulePath}",
+          "ref": "${bootstrap.modulesCommit}",
+          "pin": {
+            "sourceId": "${bootstrap.moduleSourceId}",
+            "moduleId": "${bootstrap.mongodbModuleId}",
+            "revision": "${bootstrap.modulesCommit}",
+            "subdirectory": "${bootstrap.mongodbModulePath}",
+            "contentSha256": "${bootstrap.mongodbModuleSHA256}"
+          }
+        }
       }
     ],
     "templateSources": [
@@ -276,6 +339,43 @@
     "storageModuleId": "LOCK_WITH_HELPER",
     "storageModuleSHA256": "LOCK_WITH_HELPER",
     "postgresImage": "registry.company.example/platform/postgres@sha256:REPLACE_64_HEX_DIGEST",
-    "redisImage": "registry.company.example/platform/redis@sha256:REPLACE_64_HEX_DIGEST"
+    "redisImage": "registry.company.example/platform/redis@sha256:REPLACE_64_HEX_DIGEST",
+    "mysqlImage": "registry.company.example/platform/mysql@sha256:REPLACE_64_HEX_DIGEST",
+    "mysqlModulePath": "terraform/mysql",
+    "mysqlModuleId": "LOCK_WITH_HELPER",
+    "mysqlModuleSHA256": "LOCK_WITH_HELPER",
+    "mysqlDatabase": "appdb",
+    "mysqlUsername": "app",
+    "mysqlAuthSecretName": "mysql-auth",
+    "mysqlRootPasswordKey": "root-password",
+    "mysqlUserPasswordKey": "user-password",
+    "mysqlStorage": "10Gi",
+    "mysqlStorageClass": "",
+    "mysqlImagePullSecretName": "",
+    "mariadbImage": "registry.company.example/platform/mariadb@sha256:REPLACE_64_HEX_DIGEST",
+    "mariadbModulePath": "terraform/mariadb",
+    "mariadbModuleId": "LOCK_WITH_HELPER",
+    "mariadbModuleSHA256": "LOCK_WITH_HELPER",
+    "mariadbDatabase": "appdb",
+    "mariadbUsername": "app",
+    "mariadbAuthSecretName": "mariadb-auth",
+    "mariadbRootPasswordKey": "root-password",
+    "mariadbUserPasswordKey": "user-password",
+    "mariadbStorage": "10Gi",
+    "mariadbStorageClass": "",
+    "mariadbImagePullSecretName": "",
+    "mongodbImage": "registry.company.example/platform/mongodb@sha256:REPLACE_64_HEX_DIGEST",
+    "mongodbModulePath": "terraform/mongodb",
+    "mongodbModuleId": "LOCK_WITH_HELPER",
+    "mongodbModuleSHA256": "LOCK_WITH_HELPER",
+    "mongodbDatabase": "appdb",
+    "mongodbUsername": "app",
+    "mongodbAuthSecretName": "mongodb-auth",
+    "mongodbRootPasswordKey": "root-password",
+    "mongodbUserPasswordKey": "user-password",
+    "mongodbStorage": "10Gi",
+    "mongodbStorageClass": "",
+    "mongodbImagePullSecretName": "",
+    "mongodbRootUsername": "admin"
   }
 }

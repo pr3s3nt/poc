@@ -1,0 +1,74 @@
+{
+  "key": "${bootstrap.definitionPrefix}-mongodb",
+  "name": "${bootstrap.definitionName} mongodb",
+  "resourceType": "mongodb",
+  "driverType": "terraform",
+  "driverInputs": {
+    "values": {
+      "variables": {
+        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+        "database": "${bootstrap.mongodbDatabase}",
+        "username": "${bootstrap.mongodbUsername}",
+        "image": "${bootstrap.mongodbImage}",
+        "auth_secret_name": "${bootstrap.mongodbAuthSecretName}",
+        "root_password_key": "${bootstrap.mongodbRootPasswordKey}",
+        "user_password_key": "${bootstrap.mongodbUserPasswordKey}",
+        "storage": "${bootstrap.mongodbStorage}",
+        "storage_class": "${bootstrap.mongodbStorageClass}",
+        "image_pull_secret_name": "${bootstrap.mongodbImagePullSecretName}",
+        "root_username": "${bootstrap.mongodbRootUsername}"
+      },
+      "source": {
+        "source_id": "${bootstrap.moduleSourceId}",
+        "module_id": "${bootstrap.mongodbModuleId}",
+        "revision": "${bootstrap.modulesCommit}",
+        "subdirectory": "${bootstrap.mongodbModulePath}",
+        "content_sha256": "${bootstrap.mongodbModuleSHA256}"
+      },
+      "input_mapping": {
+        "image": {
+          "param": "image"
+        },
+        "database": {
+          "param": "database"
+        },
+        "username": {
+          "param": "username"
+        },
+        "auth_secret_name": {
+          "param": "auth_secret_name"
+        },
+        "root_password_key": {
+          "param": "root_password_key"
+        },
+        "user_password_key": {
+          "param": "user_password_key"
+        },
+        "storage": {
+          "param": "storage"
+        }
+      },
+      "output_mapping": {
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "claimName": "claimName",
+        "namespace": "namespace"
+      },
+      "provider_bindings": {
+        "kubernetes": {
+          "target": "resource",
+          "resource_ref": "k8s-cluster.${bootstrap.targetClass}#environments.@app.@env"
+        }
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "${bootstrap.environmentType}",
+      "class": "in-cluster"
+    }
+  ]
+}
