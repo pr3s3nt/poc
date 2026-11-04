@@ -83,11 +83,44 @@ registration's default `spec.clientID` to the `kube-system` namespace UID read
 through an existing READY Organization-scoped Kubernetes Connection. Bootstrap
 local registration additionally requires its known bootstrap markers and equality
 with the manager's cluster UID. Names/endpoints alone are insufficient proof.
-Only one physical identity may match; ambiguous or custom client IDs without an
-identity mapping remain unsupported rather than silently selecting the manager.
+For an explicit opaque client ID, discovery also reads the nonsecret `fleet-agent`
+ConfigMap through the authenticated target Connection. Its configured client ID
+must equal the selected Fleet registration, and its agent namespace must agree
+with the registration when specified. This uses Fleet's documented registration
+identity, not a Rancher display name. Different physical clusters claiming the
+same registration identity are ambiguous and cannot be selected. The authenticated
+target's `kube-system` UID is pinned and rechecked during Verify/preflight.
+Only one physical identity may match; custom client IDs without this evidence
+remain unsupported rather than silently selecting the manager.
 The binding pins the discovered account key and Fleet registration UID. Deployment
 preflight compares the actual provisioned workload target with that pinned account;
 selecting a Fleet target never redirects a planner-selected infrastructure target.
+
+### Rancher-managed Fleet discovery — 2026-11-04
+
+Discovery recognizes controller/agent Deployments or StatefulSets using workload
+identity and container metadata; registry prefixes and image digests do not define
+compatibility. A released Fleet 0.13–0.15 version must be identifiable from image
+tag or consistent application-version metadata. The served v1alpha1 CRD schemas
+must expose the GitRepo, Bundle, BundleDeployment and Cluster fields used by this
+adapter. Unknown/newer versions and missing contracts fail closed. This is a
+bounded compatibility policy, not a claim that every Rancher/Fleet release was
+live-tested. Existing immutable bindings retain their recorded settings.
+
+All namespace-scoped Fleet registrations are listed, including Rancher's
+`fleet-local`, `fleet-default` and custom workspaces. Rancher display-name labels
+improve choice labels while namespace/name/UID remain the deployment identity.
+Controller and agent must be healthy; discovery and Verify share the same
+identity/compatibility checks. Multiple physical matches, conflicting version
+evidence or ambiguous controllers/agents are rejected.
+
+For new discovery, prefer the existing `orchestrator-delivery` ServiceAccount,
+then an existing `fleet-default` account in the selected agent namespace. When
+neither exists, preserve Fleet's native agent identity behavior by leaving the
+Fleet serviceAccount override empty; never create/grant an account implicitly.
+Use the existing dedicated release namespace when present, otherwise the agent
+namespace as Fleet's native release-storage location. Verify checks the selected
+namespace and explicit account; existing bindings are never silently rewritten.
 
 Fleet documents its default registration identity in
 [cluster registration](https://fleet.rancher.io/how-tos-for-operators/cluster-registration).
@@ -107,7 +140,7 @@ Secret; the admitted Deploy creates/refreshes it before writing the GitRepo.
 Updates require exact Organization/binding/version ownership and resourceVersion.
 Shared binding credentials remain for later deployments and are not deleted by
 Application cleanup. Controller installation and cluster-wide RBAC remain operator
-prerequisites; fixed release namespace/service account defaults do not grant rights.
+prerequisites; discovered release namespace/service account policy does not grant rights.
 
 
 ### Exact Git rendering on explicit updates

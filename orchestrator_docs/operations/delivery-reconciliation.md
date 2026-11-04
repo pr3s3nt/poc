@@ -16,7 +16,7 @@ alone does not claim an accepted release or authorize an external deployment.
 
 ## Platform prerequisites
 
-Use the current PostgreSQL schema (version 5, including platform defaults and repository allocations; fresh install or versioned owner upgrade) with separate ordinary Console,
+Use the current PostgreSQL schema (version 7, including reusable Git Connections; fresh install or versioned owner upgrade) with separate ordinary Console,
 State and owner logins. Setup is the explicit owner command `-setup-database`;
 API startup only verifies the baseline and exact grants. Keep database URLs and
 State encryption key in their existing private file mounts. Retained databases
@@ -36,10 +36,18 @@ The equivalent environment variable is `ORCHESTRATOR_DELIVERY_GIT_ROOT`. Empty
 keeps CD unavailable and blocks real application deployment. The process-wide
 `-workload-delivery` flag is removed; each Environment requires its own binding.
 
-Install Fleet **v0.15.2** controller/gitjob/agent on explicitly authorized
-infrastructure. Register the downstream target and verify its Cluster UID. The
-v1 adapter accepts the verified same-cluster `local` registration; a separate
-management/downstream topology is currently rejected. Fleet owns only
+Install a compatible Fleet controller/gitjob/agent on explicitly authorized
+infrastructure. The ADR-034 policy admits released Fleet **0.13–0.15** only after
+checking the served v1alpha1 schema fields used by this adapter. Version/image
+metadata must agree; unknown digests without version metadata, prereleases,
+unsupported versions and incompatible schemas are rejected. Point the CD
+management Connection at the Rancher/Fleet management cluster, not a downstream
+cluster that only runs an agent. Register a separate scoped Kubernetes Connection
+for each downstream physical target. Discovery matches default kube-system IDs,
+known local bootstrap identity, or opaque IDs attested by the target's nonsecret
+fleet-agent ConfigMap; different physical clusters matching one identity are
+ambiguous. Pin and recheck both Fleet registration UID and physical target UID.
+Fleet owns only
 workload/route objects, never the Terraform namespace, PostgreSQL/Redis resources
 or credentials. Use a separate release-storage namespace and a workload
 ServiceAccount with permissions only for authorized workload namespaces and
@@ -55,11 +63,20 @@ proven by Deploy. GitHub Enterprise requires explicit HTTPS API and clone roots.
 Redirects are refused. Git CA configuration applies to Git/Fleet; the GitHub API
 uses the host system CA trust (install an enterprise CA there if needed).
 
-Create the Fleet Git reader Secret `orchestrator-git-reader` in the workspace,
-using a credential that can read the generated private repositories. Prepare
-`orchestrator-delivery` in the discovered agent namespace and `fleet-releases`
-with the scoped permissions described above. These are platform prerequisites;
-this feature does not install Fleet or manufacture READY verification.
+New CD bindings derive an owned private reader Secret per binding version from
+the selected Git Connection. Verify only checks permission; first admitted Deploy
+creates/refreshes it. Existing externally configured reader Secrets remain
+prerequisites and are never adopted. Discovery prefers an existing
+`orchestrator-delivery`, then `fleet-default` account in the agent namespace.
+Otherwise it leaves the account override empty and Fleet uses its native identity
+selection. Existing `fleet-releases` storage is preferred; otherwise use the
+existing agent namespace. Verify checks explicit accounts/namespaces. Discovery
+does not create namespaces, install Fleet or grant cluster-wide permissions.
+Prepare scoped operator permissions where required; a READY configuration still
+does not prove successful deployment. Existing binding versions keep their pins.
+
+Rancher compatibility checks: [kind-only scenario](../../e2e/scenarios/rancher-fleet/README.md).
+This user-selected acceptance scope does not claim a live Rancher installation.
 
 ## Console flow
 

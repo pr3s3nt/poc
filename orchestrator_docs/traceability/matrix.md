@@ -1394,6 +1394,7 @@ No schema change or live CD/VSO acceptance is implied by these local checks.
 | CD-09 workspace-scoped proven target discovery | Fleet `inspect.go`, `target_identity.go`, `verify.go`; scoped target repository | target identity tests; workspace reselection test; real discovery/Verify |
 | CD-10 deterministic YAML and exact SHA | Fleet package/export and existing GitRepo manager | package tests; `simplified-cd/verify.mjs` private-repository YAML/SHA reads |
 | CD-11 credential reuse and pinned binding stability | Git credential resolvers; immutable bindings/defaults; managed reader setup | scoped credential tests, owned Secret tests, real setup/rollback/default assertions |
+| CD-12 Rancher-compatible identity and compatibility | ADR-034; UC-04 realization; Fleet `topology.go`, `target_identity.go`, `inspect.go`, `verify.go`, pinned config and preflight | mirrored/digest/vendor version and served-schema tests, StatefulSet/opaque-ID/ambiguity fixtures, opt-in kind probe, `rancher-fleet/verify-discovery.mjs` plus shared deploy/update/rollback/cleanup |
 | Schema 7 preservation and runtime isolation | migration/reference 007; owner upgrade registry | populated prior-source upgrades, rollback, repeated setup, Git persistence and runtime DDL denial |
 
 Actual run outcomes belong in dated verification evidence; these runners alone

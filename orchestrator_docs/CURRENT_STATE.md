@@ -7,6 +7,26 @@ last_reviewed: 2026-11-04
 
 # Current project state
 
+## Rancher-compatible Fleet discovery — 2026-11-04
+
+UC-04 CD-12 extends [ADR-034](architecture/decisions/ADR-034-simplified-cd-configuration.md)
+with a shared version/served-schema policy for released Fleet 0.13–0.15,
+Deployment/StatefulSet controller/agent discovery, registry mirrors/digests,
+Rancher display-name labels and authenticated opaque clientID matching from the
+target's nonsecret agent ConfigMap. New bindings pin physical target UID and
+derive existing release namespace/account policy. Distinct physical matches,
+incompatible versions/schemas and unproven identities remain blocked. Existing
+binding settings remain unchanged; no schema migration or automatic RBAC grant.
+
+The user selected kind-only acceptance. Real kind discovery/Verify, baseline,
+update/rollback, exact GitRepo/Bundle SHAs, data/job retention and VI/EN browser
+checks passed. Ownership cleanup proved Application/namespace/PV absence, restored
+the original platform default and preserved existing Environment pins. Reusable
+Connections/bindings, reader Secret and Git history remain. Rancher-shaped StatefulSet/
+opaque-ID/version/schema cases use adapter fixtures, not a live Rancher install.
+See [verification](verification/2026-11-04-rancher-fleet.md) for exact results and
+limits. The separate staging installation remains untouched.
+
 ## Simplified CD configuration — issue #31, 2026-11-04
 
 Dev Console port 3031 implements [ADR-034](architecture/decisions/ADR-034-simplified-cd-configuration.md):
@@ -31,7 +51,8 @@ The run also fixed retained VSO deletion-only drift blocking update and stale
 Fleet Bundle content after a GitRepo revision change. Exact revision, ownership,
 UID and fencing guards remain required. Live topology is bootstrap-local Fleet
 v0.15.2; default-clientID remote mapping has unit coverage, not live remote-cluster
-acceptance. Custom/ambiguous identities remain unsupported. Fleet installation,
+acceptance. Unproven custom/ambiguous identities remain unsupported; the extension
+above adds authenticated opaque-clientID mapping. Fleet installation,
 release namespace and ServiceAccount/RBAC remain operator prerequisites.
 The separate port-3001 installation was not changed by this dev task.
 

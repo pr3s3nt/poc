@@ -427,6 +427,11 @@ Read-only discovery groups target choices by workspace and resolves each eligibl
 Fleet registration to a READY Kubernetes Connection in the same Organization.
 The default Fleet client identity is compared with an authenticated `kube-system`
 UID; local bootstrap additionally proves equality with the manager identity.
+An opaque ID requires exact nonsecret agent-configuration evidence through the
+authenticated target Connection. Matching must resolve to one physical UID;
+discovery pins that UID and Verify/preflight rechecks it. Rancher display labels
+never establish ownership. Controller and agent discovery supports healthy
+Deployment/StatefulSet workloads under the ADR-034 version/schema policy.
 Discovered account, agent namespace and registration UID remain internal binding
 configuration, not extra user-authored fields. Unproven custom identities fail
 closed. Verify and deployment preflight preserve these physical identity checks;

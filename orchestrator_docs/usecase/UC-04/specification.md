@@ -478,6 +478,14 @@ Driver Account `k8s-4f` bằng kubeconfig thật; startup không tạo account R
   write-only and reusable; inline creation from the CD screen stores the same
   managed record. A pinned Environment binding never moves when the platform
   default changes.
+- **CD-12:** Discovery/Verify support standalone and Rancher-managed Fleet through
+  one version/schema compatibility policy. Enumerate all registered workspaces,
+  show Rancher display names with namespace/name identity, and recognize healthy
+  Deployment/StatefulSet agents. Opaque registration IDs require matching
+  nonsecret agent configuration through an authenticated target Connection;
+  conflicting physical matches are disabled. Pin/recheck the target cluster UID.
+  Internal namespace/account defaults follow the discovered topology without
+  adding form fields or granting permissions. Preserve existing binding versions.
 
 ## Platform CD setup — shared Git connection
 
@@ -498,7 +506,9 @@ release namespace and deployment ServiceAccount remain prerequisites and produce
 bounded actionable verification reasons when missing. New configurations derive
 an owned reader Secret per immutable binding version from the selected Git
 Connection; read-only Verify checks the required permissions and admitted Deploy
-creates/refreshes that Secret under the operation fence. No controller installation
+creates/refreshes that Secret under the operation fence. CD-12 derives the existing
+release namespace and account/native identity policy from the discovered topology;
+existing immutable bindings retain their prior settings. No controller installation
 or cluster-wide permission grant is implicit. READY enables the
 explicit platform default action; it does not prove a live deployment or repository
 creation permission beyond the adapter's read-only checks.

@@ -230,3 +230,11 @@ connection reference in the immutable binding version. It rejects mixed writer
 sources. Repository hosting and publication adapters resolve credentials at use;
 no token is copied into binding configuration or returned to the browser.
 Read-only binding verification proves Git access before READY eligibility.
+
+Rancher discovery and Verify share a controller-version/served-schema policy and
+target identity resolver. Candidate target Connections expose authenticated
+kube-system identity, healthy agent workload and the nonsecret fleet-agent
+ConfigMap client ID. Exact Fleet registration matching rejects distinct physical
+clusters claiming the same ID; saved bindings pin physical UID for revalidation.
+Rancher labels supply display names only. Neither path reads Fleet credential
+Secret bytes, installs controllers, enrolls clusters or grants permissions.

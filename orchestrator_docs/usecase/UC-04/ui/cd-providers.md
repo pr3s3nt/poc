@@ -82,3 +82,9 @@ and inline registration. Changing selection clears incompatible credential-retai
 state. Submitted tokens are cleared for every result; uncertain creation blocks
 replay until explicit reload/review. Connection registration alone does not prove
 live Git authorization; configuration verification must prove it before READY.
+
+Rancher discovery retains the same four-field form. Target labels include an
+available Rancher display name followed by workspace/name, preserving an
+unambiguous selection. Safe details translate controller/agent kind/name, Fleet
+version, physical target identity and deployment identity mode in VI/EN; no extra
+technical input is required. Unsupported or ambiguous mappings remain disabled.

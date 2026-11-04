@@ -402,7 +402,7 @@ func (p *Provider) preflight(ctx context.Context, i port.Intent, pkg Package) er
 	}
 	expectedMeta, _ := expectedNS["metadata"].(map[string]any)
 	actualMeta, _ := actualNS["metadata"].(map[string]any)
-	if expectedMeta["uid"] == nil || actualMeta["uid"] != expectedMeta["uid"] {
+	if expectedMeta["uid"] == nil || actualMeta["uid"] != expectedMeta["uid"] || (cfg.TargetKubeSystemUID != "" && actualMeta["uid"] != cfg.TargetKubeSystemUID) {
 		return ErrOwnership
 	}
 	objects, err := k8s.InspectDeliveryObjects(ctx, cli, i.Target, pkg.Objects)

@@ -65,3 +65,7 @@ CD platform authoring: [Cấu hình CD](ui/cd-providers.md).
 
 Simplified authoring and reusable Git Connections: [ADR-034](../../architecture/decisions/ADR-034-simplified-cd-configuration.md),
 [real dev verification](../../verification/2026-11-04-simplified-cd.md).
+
+Rancher-compatible Fleet discovery: CD-12 in the specification, ADR-034 topology
+extension, [kind-only verification](../../verification/2026-11-04-rancher-fleet.md)
+and [scenario](../../../e2e/scenarios/rancher-fleet/README.md).

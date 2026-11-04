@@ -1056,6 +1056,16 @@ same snapshot key. Metadata/diagnostics follow the same authoring semantics.
 
 ## Simplified CD connections — ADR-034 / issue #31
 
+Rancher-compatible discovery extends this route: Fleet `topology.go` shares
+controller/agent workload identity, version and served-schema policy across
+Inspect/Verify; `target_identity.go` reads authenticated target UID and nonsecret
+agent clientID, rejects ambiguous physical matches and derives existing
+namespace/account policy. `Config` retains optional pins for new bindings while
+legacy versions remain readable. `Provider.preflight` checks the saved physical
+UID against the actual planner-selected target. `topology_test.go` covers
+Rancher-shaped fixtures and opt-in read-only kind probing; `e2e/scenarios/rancher-fleet`
+reuses real application acceptance and independently checks topology evidence.
+
 - `application/connection/service.go`, `accounts.go`, `delivery/http/connections.go`:
   scoped `GIT`/`GIT_TOKEN` registration and safe list; infrastructure account APIs
   exclude Git Connections. Migration/reference 007 extends only kind/auth checks.

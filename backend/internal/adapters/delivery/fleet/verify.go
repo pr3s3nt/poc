@@ -2,8 +2,8 @@ package fleet
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"strings"
 	"time"
 
 	k8s "orchestrator/internal/adapters/kubernetes"
@@ -46,29 +46,24 @@ func (v *Verifier) Verify(ctx context.Context, b port.BindingVersion) (port.Veri
 		return fail, ErrVerification
 	}
 	defer close()
-	deployment, exists, err := cli.Get(ctx, cfg.ControllerNamespace, "deployment", cfg.ControllerName)
+	deployment, exists, err := cli.Get(ctx, cfg.ControllerNamespace, cfg.ControllerKind, cfg.ControllerName)
 	if err != nil || !exists {
 		return port.Verification{ReasonCode: "CONTROLLER_UNAVAILABLE"}, ErrVerification
 	}
-	spec, _ := deployment["spec"].(map[string]any)
-	template, _ := spec["template"].(map[string]any)
-	pod, _ := template["spec"].(map[string]any)
-	containers, _ := pod["containers"].([]any)
-	pinned := false
-	for _, raw := range containers {
-		c, _ := raw.(map[string]any)
-		image, _ := c["image"].(string)
-		if strings.HasSuffix(image, "/fleet:"+Version) || image == "rancher/fleet:"+Version {
-			pinned = true
-		}
+	raw, _ := json.Marshal(deployment)
+	var controller fleetWorkload
+	if json.Unmarshal(raw, &controller) != nil {
+		return fail, ErrVerification
 	}
-	if !pinned {
+	version, supported := workloadVersion(controller, "fleet-controller")
+	if !supported || (cfg.ControllerVersion != "" && !sameFleetMinor(version, cfg.ControllerVersion)) {
 		return port.Verification{ReasonCode: "VERSION_UNSUPPORTED"}, ErrVerification
 	}
-	status, _ := deployment["status"].(map[string]any)
-	ready, _ := status["availableReplicas"].(float64)
-	if ready < 1 {
+	if !workloadHealthy(controller) {
 		return port.Verification{ReasonCode: "CONTROLLER_UNAVAILABLE"}, ErrVerification
+	}
+	if err := checkFleetSchemas(ctx, cli); err != nil {
+		return port.Verification{ReasonCode: "VERSION_UNSUPPORTED"}, err
 	}
 	cluster, exists, err := cli.Get(ctx, cfg.Workspace, "clusters.fleet.cattle.io", cfg.TargetCluster)
 	if err != nil || !exists {
@@ -78,8 +73,6 @@ func (v *Verifier) Verify(ctx context.Context, b port.BindingVersion) (port.Veri
 	if metadata["uid"] != cfg.TargetClusterUID {
 		return fail, ErrVerification
 	}
-	registrationSpec, _ := cluster["spec"].(map[string]any)
-	annotations, _ := metadata["annotations"].(map[string]any)
 	// Explicit target credentials independently prove this registered cluster is
 	// the same physical destination, rather than merely sharing a context/name.
 	workload, err := v.Targets.ResolveWorkloadTarget(ctx, b, cfg.TargetAccountKey)
@@ -105,10 +98,24 @@ func (v *Verifier) Verify(ctx context.Context, b port.BindingVersion) (port.Veri
 	right, _ := actual["metadata"].(map[string]any)
 	managerUID, _ := left["uid"].(string)
 	targetUID, _ := right["uid"].(string)
-	clientID, _ := registrationSpec["clientID"].(string)
-	secret, _ := registrationSpec["kubeConfigSecret"].(string)
-	bootstrap, _ := annotations["objectset.rio.cattle.io/id"].(string)
-	if !registrationMatches(cfg.TargetCluster, clientID, secret, bootstrap, managerUID, targetUID) {
+	if cfg.TargetKubeSystemUID != "" && cfg.TargetKubeSystemUID != targetUID {
+		return port.Verification{ReasonCode: "TARGET_MAPPING_UNSUPPORTED"}, ErrOwnership
+	}
+	raw, _ = json.Marshal(cluster)
+	var registration fleetRegistration
+	if json.Unmarshal(raw, &registration) != nil {
+		return fail, ErrVerification
+	}
+	legacyProof := registrationMatches(registration.Metadata.Name, registration.Spec.ClientID, registration.Spec.KubeConfigSecret, registration.Metadata.Annotations["objectset.rio.cattle.io/id"], managerUID, targetUID)
+	if !legacyProof && cfg.TargetKubeSystemUID == "" {
+		return port.Verification{ReasonCode: "TARGET_MAPPING_UNSUPPORTED"}, ErrOwnership
+	}
+	candidates, err := v.workloadCandidates(ctx, b, target)
+	if err != nil {
+		return fail, err
+	}
+	matched, ok := matchingTarget(registration, managerUID, version, candidates)
+	if !ok || matched.uid != targetUID || matched.agentNamespace != cfg.AgentNamespace || (cfg.AgentName != "" && matched.agentName != cfg.AgentName) || (cfg.AgentKind != "" && matched.agentKind != cfg.AgentKind) {
 		return port.Verification{ReasonCode: "TARGET_MAPPING_UNSUPPORTED"}, domain.ErrUnsupported
 	}
 	if cfg.GitRepoMode == "MANAGED" {
@@ -136,8 +143,10 @@ func (v *Verifier) Verify(ctx context.Context, b port.BindingVersion) (port.Veri
 	if _, found, err := workloadCLI.Get(ctx, "", "namespace", cfg.ReleaseNamespace); err != nil || !found {
 		return port.Verification{ReasonCode: "RELEASE_NAMESPACE_MISSING"}, ErrVerification
 	}
-	if _, found, err := workloadCLI.Get(ctx, cfg.AgentNamespace, "serviceaccount", cfg.ServiceAccount); err != nil || !found {
-		return port.Verification{ReasonCode: "SERVICE_ACCOUNT_MISSING"}, ErrVerification
+	if !cfg.NativeServiceAccount {
+		if _, found, err := workloadCLI.Get(ctx, cfg.AgentNamespace, "serviceaccount", cfg.ServiceAccount); err != nil || !found {
+			return port.Verification{ReasonCode: "SERVICE_ACCOUNT_MISSING"}, ErrVerification
+		}
 	}
 	if cfg.GitRepoMode == "EXISTING" {
 		if _, err := checkExisting(ctx, cli, cfg); err != nil {

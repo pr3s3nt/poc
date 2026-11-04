@@ -6,7 +6,6 @@ import (
 	k8s "orchestrator/internal/adapters/kubernetes"
 	port "orchestrator/internal/ports/delivery"
 	"sort"
-	"strings"
 )
 
 // InspectConfiguration performs read-only discovery through the selected
@@ -29,41 +28,18 @@ func (p *Provider) InspectConfiguration(ctx context.Context, b port.BindingVersi
 		return out, ErrVerification
 	}
 	defer close()
-	raw, err := cli.Run(ctx, nil, "get", "deployments", "--all-namespaces", "-o", "json")
+	workloads, err := readFleetWorkloads(ctx, cli)
 	if err != nil {
-		return out, ErrVerification
+		return out, err
 	}
-	var deployments struct {
-		Items []struct {
-			Metadata struct{ Name, Namespace string }
-			Spec     struct {
-				Template struct {
-					Spec struct {
-						Containers []struct{ Name, Image string }
-					}
-				}
-			}
-		}
+	controller, version, err := controllerFrom(workloads)
+	if err != nil {
+		return out, err
 	}
-	if json.Unmarshal(raw, &deployments) != nil {
-		return out, ErrVerification
+	if err = checkFleetSchemas(ctx, cli); err != nil {
+		return out, err
 	}
-	controller := map[string]string{}
-	for _, d := range deployments.Items {
-		for _, c := range d.Spec.Template.Spec.Containers {
-			if c.Name == "fleet-controller" && (strings.HasSuffix(c.Image, "/fleet:"+Version) || c.Image == "rancher/fleet:"+Version) {
-				controller[d.Metadata.Namespace+"/"+d.Metadata.Name] = d.Metadata.Namespace
-			}
-		}
-	}
-	if len(controller) != 1 {
-		return out, ErrVerification
-	}
-	values := map[string]string{"targetAccountKey": target.Connection}
-	for name, namespace := range controller {
-		values["controllerName"] = strings.SplitN(name, "/", 2)[1]
-		values["controllerNamespace"] = namespace
-	}
+	values := map[string]string{"controllerName": controller.Metadata.Name, "controllerNamespace": controller.Metadata.Namespace, "controllerKind": controller.Kind, "controllerVersion": version}
 	managerNS, exists, err := cli.Get(ctx, "", "namespace", "kube-system")
 	if err != nil || !exists {
 		return out, ErrVerification
@@ -74,19 +50,11 @@ func (p *Provider) InspectConfiguration(ctx context.Context, b port.BindingVersi
 	if err != nil {
 		return out, ErrVerification
 	}
-	raw, err = cli.Run(ctx, nil, "get", "clusters.fleet.cattle.io", "--all-namespaces", "-o", "json")
+	raw, err := cli.Run(ctx, nil, "get", "clusters.fleet.cattle.io", "--all-namespaces", "-o", "json")
 	if err != nil {
 		return out, ErrVerification
 	}
-	var clusters struct {
-		Items []struct {
-			Metadata struct {
-				Name, Namespace, UID string
-				Annotations          map[string]string
-			}
-			Spec struct{ ClientID, KubeConfigSecret string }
-		}
-	}
+	var clusters struct{ Items []fleetRegistration }
 	if json.Unmarshal(raw, &clusters) != nil {
 		return out, ErrVerification
 	}
@@ -103,16 +71,25 @@ func (p *Provider) InspectConfiguration(ctx context.Context, b port.BindingVersi
 		copy["workspace"] = c.Metadata.Namespace
 		copy["targetCluster"] = c.Metadata.Name
 		copy["targetClusterUID"] = c.Metadata.UID
-		delete(copy, "targetAccountKey")
-		for _, candidate := range candidates {
-			if registrationMatches(c.Metadata.Name, c.Spec.ClientID, c.Spec.KubeConfigSecret, c.Metadata.Annotations["objectset.rio.cattle.io/id"], managerUID, candidate.uid) {
-				copy["targetAccountKey"] = candidate.target.Connection
-				copy["agentNamespace"] = candidate.agentNamespace
-				break
-			}
+		candidate, matched := matchingTarget(c, managerUID, version, candidates)
+		display := c.Metadata.Namespace + "/" + c.Metadata.Name
+		if name := c.Metadata.Labels["management.cattle.io/cluster-display-name"]; name != "" {
+			display = name + " · " + display
 		}
-		option := port.ConfigurationOption{Name: c.Metadata.Namespace + "/" + c.Metadata.Name, Value: c.Metadata.Name, Values: copy}
-		if copy["targetAccountKey"] == "" {
+		option := port.ConfigurationOption{Name: display, Value: c.Metadata.Name, Values: copy}
+		if matched {
+			copy["targetAccountKey"] = candidate.target.Connection
+			copy["targetKubeSystemUID"] = candidate.uid
+			copy["agentNamespace"] = candidate.agentNamespace
+			copy["agentName"] = candidate.agentName
+			copy["agentKind"] = candidate.agentKind
+			copy["serviceAccount"] = candidate.serviceAccount
+			copy["serviceAccountMode"] = ""
+			if candidate.serviceAccount == "" {
+				copy["serviceAccountMode"] = "NATIVE"
+			}
+			copy["releaseNamespace"] = candidate.releaseNamespace
+		} else {
 			option.Disabled = true
 			option.ReasonCode = "TARGET_MAPPING_UNSUPPORTED"
 		}

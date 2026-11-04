@@ -791,3 +791,18 @@ receipted recovery is bounded to one request for a proven commit mismatch.
 No status forging, unrelated drift acceptance, force replacement or Job replay
 was introduced. Broader remote-cluster runtime acceptance remains outside this
 local run; no unresolved code/design mismatch is hidden by that boundary.
+
+## IMP-041 — Rancher-managed Fleet discovery
+
+User-approved extension, 2026-11-04. The v0.15.2 image-string/Deployment-only
+discovery and kube-system-UID-only downstream matching did not cover Rancher
+registrations with opaque IDs. ADR-034/UC-04 CD-12 now define shared controller/
+agent version/schema and physical identity rules, implemented in Fleet
+`topology.go`/`target_identity.go` and shared by Inspect/Verify. Native account/
+namespace policy is explicit; no discovery writes or implicit permission grants.
+
+Resolved within the user-selected kind verification scope. Fixture checks and
+real kind discovery/Verify/baseline/update/rollback/cleanup pass, along with VI/EN
+locale/browser checks and legacy local binding verification. Results are recorded in
+[verification](../verification/2026-11-04-rancher-fleet.md). The user explicitly
+selected kind-only acceptance; no real Rancher/downstream installation is claimed.

@@ -2,21 +2,30 @@ package fleet
 
 import (
 	"context"
-	"encoding/json"
 	"sort"
 
+	"gopkg.in/yaml.v3"
 	k8s "orchestrator/internal/adapters/kubernetes"
 	port "orchestrator/internal/ports/delivery"
 	"orchestrator/internal/ports/execution"
 )
 
 type workloadCandidate struct {
-	target              execution.Target
-	uid, agentNamespace string
+	target                                                            execution.Target
+	uid, agentNamespace, agentName, agentKind, agentVersion, clientID string
+	serviceAccount, releaseNamespace                                  string
 }
 
-// Discovery uses already managed credentials only. No host kubeconfig or Fleet
-// Secret is read to invent an otherwise unregistered target connection.
+type fleetRegistration struct {
+	Metadata struct {
+		Name, Namespace, UID string
+		Annotations, Labels  map[string]string
+	}
+	Spec struct{ ClientID, KubeConfigSecret, AgentNamespace string }
+}
+
+// Candidates use registered, scoped credentials and nonsecret agent ConfigMaps.
+// Fleet credential Secrets and host kubeconfigs never supply target identity.
 func (v *Verifier) workloadCandidates(ctx context.Context, b port.BindingVersion, manager execution.Target) ([]workloadCandidate, error) {
 	targets := []execution.Target{manager}
 	if reader, ok := v.Targets.(interface {
@@ -48,46 +57,101 @@ func (v *Verifier) workloadCandidates(ctx context.Context, b port.BindingVersion
 				return
 			}
 			defer close()
-			namespace, exists, err := cli.Get(ctx, "", "namespace", "kube-system")
-			if err != nil || !exists {
-				return
-			}
-			metadata, _ := namespace["metadata"].(map[string]any)
-			uid, _ := metadata["uid"].(string)
-			if uid == "" {
-				return
-			}
-			raw, err := cli.Run(ctx, nil, "get", "deployments", "--all-namespaces", "-o", "json")
-			if err != nil {
-				return
-			}
-			var deployments struct {
-				Items []struct {
-					Metadata struct{ Name, Namespace string }
-				}
-			}
-			if json.Unmarshal(raw, &deployments) != nil {
-				return
-			}
-			agents := map[string]bool{}
-			for _, d := range deployments.Items {
-				if d.Metadata.Name == "fleet-agent" && d.Metadata.Namespace != "" {
-					agents[d.Metadata.Namespace] = true
-				}
-			}
-			if len(agents) != 1 {
-				return
-			}
-			for agent := range agents {
-				out = append(out, workloadCandidate{target: target, uid: uid, agentNamespace: agent})
+			candidates, err := readTargetCandidates(ctx, cli, target)
+			if err == nil {
+				out = append(out, candidates...)
 			}
 		}()
 	}
 	return out, nil
 }
 
-// registrationMatches proves the Fleet target using authenticated physical
-// cluster identity, never a display name or an endpoint resemblance.
+func readTargetCandidates(ctx context.Context, cli k8s.CLI, target execution.Target) ([]workloadCandidate, error) {
+	namespace, found, err := cli.Get(ctx, "", "namespace", "kube-system")
+	if err != nil || !found {
+		return nil, ErrVerification
+	}
+	metadata, _ := namespace["metadata"].(map[string]any)
+	uid, _ := metadata["uid"].(string)
+	if uid == "" {
+		return nil, ErrVerification
+	}
+	workloads, err := readFleetWorkloads(ctx, cli)
+	if err != nil {
+		return nil, err
+	}
+	out := []workloadCandidate{}
+	for _, w := range workloads {
+		version, identified := workloadVersion(w, "fleet-agent")
+		if !identified || !workloadHealthy(w) {
+			continue
+		}
+		c := workloadCandidate{target: target, uid: uid, agentNamespace: w.Metadata.Namespace, agentName: w.Metadata.Name, agentKind: w.Kind, agentVersion: version}
+		cm, exists, err := cli.Get(ctx, c.agentNamespace, "configmap", "fleet-agent")
+		if err != nil {
+			return nil, ErrVerification
+		}
+		if exists {
+			data, _ := cm["data"].(map[string]any)
+			raw, _ := data["config"].(string)
+			var config struct {
+				ClientID string `yaml:"clientID"`
+			}
+			if len(raw) > 65536 || yaml.Unmarshal([]byte(raw), &config) != nil {
+				return nil, ErrVerification
+			}
+			c.clientID = config.ClientID
+		}
+		for _, name := range []string{"orchestrator-delivery", "fleet-default"} {
+			_, exists, err := cli.Get(ctx, c.agentNamespace, "serviceaccount", name)
+			if err != nil {
+				return nil, ErrVerification
+			}
+			if exists {
+				c.serviceAccount = name
+				break
+			}
+		}
+		c.releaseNamespace = c.agentNamespace
+		if _, exists, err := cli.Get(ctx, "", "namespace", "fleet-releases"); err != nil {
+			return nil, ErrVerification
+		} else if exists {
+			c.releaseNamespace = "fleet-releases"
+		}
+		out = append(out, c)
+	}
+	return out, nil
+}
+
+func matchingTarget(r fleetRegistration, managerUID, controllerVersion string, candidates []workloadCandidate) (workloadCandidate, bool) {
+	var selected workloadCandidate
+	found := false
+	for _, c := range candidates {
+		if c.uid == "" {
+			continue
+		}
+		if !sameFleetMinor(controllerVersion, c.agentVersion) || (r.Spec.AgentNamespace != "" && r.Spec.AgentNamespace != c.agentNamespace) {
+			continue
+		}
+		if c.clientID != "" && r.Spec.ClientID != "" && c.clientID != r.Spec.ClientID {
+			continue
+		}
+		direct := registrationMatches(r.Metadata.Name, r.Spec.ClientID, r.Spec.KubeConfigSecret, r.Metadata.Annotations["objectset.rio.cattle.io/id"], managerUID, c.uid)
+		explicit := c.clientID != "" && c.clientID == r.Spec.ClientID
+		if !direct && !explicit {
+			continue
+		}
+		if found && (selected.uid != c.uid || selected.agentNamespace != c.agentNamespace || selected.agentKind != c.agentKind || selected.agentName != c.agentName) {
+			return workloadCandidate{}, false
+		}
+		if !found {
+			selected = c
+			found = true
+		}
+	}
+	return selected, found
+}
+
 func registrationMatches(name, clientID, kubeconfigSecret, bootstrapID, managerUID, targetUID string) bool {
 	if targetUID == "" {
 		return false
