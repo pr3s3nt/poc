@@ -21,6 +21,32 @@
       "title": "Run as non-root",
       "description": "Sets the Pod securityContext runAsNonRoot field.",
       "default": false
+    },
+    "httpRouteEnabled": {
+      "type": "boolean",
+      "title": "Enable HTTPRoute",
+      "default": false
+    },
+    "httpRouteGatewayName": {
+      "type": "string",
+      "title": "Existing Gateway name",
+      "default": "",
+      "pattern": "^$|^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)*$",
+      "maxLength": 253
+    },
+    "httpRouteGatewayNamespace": {
+      "type": "string",
+      "title": "Existing Gateway namespace",
+      "default": "",
+      "pattern": "^$|^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$",
+      "maxLength": 63
+    },
+    "httpRouteGatewaySectionName": {
+      "type": "string",
+      "title": "Gateway listener (optional)",
+      "default": "",
+      "pattern": "^$|^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$",
+      "maxLength": 63
     }
   }
 }

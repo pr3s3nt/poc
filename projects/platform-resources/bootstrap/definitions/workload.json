@@ -7,7 +7,12 @@
     "values": {
       "variables": {
         "template_source": "${templateSources.acceptance}",
-        "template_inputs": {},
+        "template_inputs": {
+          "httpRouteEnabled": "${bootstrap.httprouteEnabled}",
+          "httpRouteGatewayName": "${bootstrap.httprouteGatewayName}",
+          "httpRouteGatewayNamespace": "${bootstrap.httprouteGatewayNamespace}",
+          "httpRouteGatewaySectionName": "${bootstrap.httprouteGatewaySectionName}"
+        },
         "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
       }
     }

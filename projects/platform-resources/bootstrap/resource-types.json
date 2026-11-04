@@ -392,50 +392,5 @@
         "secret": false
       }
     ]
-  },
-  {
-    "key": "httproute",
-    "inputs": [
-      {
-        "name": "hostname",
-        "type": "string",
-        "required": true
-      },
-      {
-        "name": "service",
-        "type": "string",
-        "required": true
-      },
-      {
-        "name": "port",
-        "type": "number",
-        "required": true
-      },
-      {
-        "name": "path",
-        "type": "string",
-        "required": false
-      }
-    ],
-    "outputs": [
-      {
-        "name": "name",
-        "type": "string",
-        "required": true,
-        "secret": false
-      },
-      {
-        "name": "namespace",
-        "type": "string",
-        "required": true,
-        "secret": false
-      },
-      {
-        "name": "hostname",
-        "type": "string",
-        "required": true,
-        "secret": false
-      }
-    ]
   }
 ]

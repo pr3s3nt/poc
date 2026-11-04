@@ -1964,11 +1964,12 @@ snapshot hashes/browser file checks from Git-object/Fleet/PVC UID evidence.
 Preparation does not prove business documents belong to a declared remote commit.
 Focused local tests passed; no company staging run or new live deployment claimed.
 
-## Existing Gateway HTTPRoute resource — 2026-11-04
+## Workload-owned HTTPRoute — 2026-11-05
 
-Publishable resource assets add a namespaced HTTPRoute v1 Type/Definition/module
-and frontend acceptance declaration pointing to an existing company Gateway.
-Input selects Gateway/listener/hostname/path; backend Service frontend:8080 is
-in the application namespace. Gateway/controller/DNS/TLS are not created or
-changed. Console-only profile remains; mock/provider validation does not prove
-Gateway Accepted/ResolvedRefs, DNS/TLS or live company traffic.
+HTTPRoute is now rendered by the publishable workload template and delivered
+alongside Service through Git/Fleet. Workload annotations opt in hostname/path/
+named Service port; Definition template inputs select existing Gateway/listener.
+Removed the separate HTTPRoute Terraform module, Type/Definition and frontend
+resource declaration from publishable inputs. No automatic migration/deletion of
+previous remote objects, state or historical pins. Gateway/controller/DNS/TLS
+unchanged; staging remains Console-only. Render tests are not live Traefik proof.

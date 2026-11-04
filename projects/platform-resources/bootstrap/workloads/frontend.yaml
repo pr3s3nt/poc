@@ -12,18 +12,13 @@ containers:
       BACKEND_URL: ${resources.svc_backend_http.url}
       PORT: ${resources.env.PORT}
 metadata:
+  annotations:
+    routing.orchestrator.dev/hostname: ${bootstrap.httprouteHostname}
+    routing.orchestrator.dev/path: ${bootstrap.httproutePath}
+    routing.orchestrator.dev/service-port: ${bootstrap.httprouteServicePort}
   name: frontend
   class: ${bootstrap.targetClass}
 resources:
-  public_http:
-    type: httproute
-    class: in-cluster
-    id: acceptance-frontend-http
-    params:
-      hostname: ${bootstrap.httprouteHostname}
-      service: frontend
-      port: 8080
-      path: ${bootstrap.httproutePath}
   svc_backend_http:
     params:
       port: http

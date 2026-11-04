@@ -166,22 +166,31 @@ prepared documents and native setup/profile mixing are rejected. Existing
 Git-lock/direct-bootstrap regression coverage passed. No full backend/frontend
 suites or runtime deploy reruns: no product runtime code changed.
 
-## HTTPRoute to an existing company Gateway — approved 2026-11-04
+## HTTPRoute delivered with workload manifests — approved 2026-11-05
 
-Add an independent Git `httproute` Type/Definition/Terraform module creating only
-one namespaced gateway.networking.k8s.io/v1 HTTPRoute. Gateway namespace/name
-and optional listener section are PE-controlled input; workload params select
-hostname, PathPrefix path and a same-namespace Service/numeric Service port.
-No Gateway/controller/DNS/TLS/ReferenceGrant or cluster RBAC mutations. Frontend
-acceptance declares the route resource; it does not also declare the platform
-publicRoutes mechanism. Existing public-route defaults remain unchanged.
-Console profile is preserved. Provider completion is not proof of Gateway
-Accepted/ResolvedRefs or external DNS/TLS readiness; browser checks still require
-a working supplied URL. Route may be created before its backend Service; the
-existing controller reconciles it when the workload Service exists.
+Supersedes the earlier Terraform HTTPRoute asset. The publishable standard
+workload template emits an optional namespaced HTTPRoute for each workload that opts in
+with hostname annotations, alongside its Service. Definition template inputs select an existing
+Gateway/listener and enable the feature; per-workload annotations select hostname,
+PathPrefix and a named declared Service port. Backend
+Service name/namespace/numeric port are derived from the workload itself.
+No separate route Type/Definition/Terraform module/state, no Gateway/controller/
+DNS/TLS changes. Route objects follow existing workload inventory, ownership,
+Git publication, Fleet apply and removal. Reject a missing selected Service port
+and conflicting platform publicRoutes on the target workload. Other workloads
+and route-disabled templates emit no route.
 
-Focused HTTPRoute checks: Terraform fmt/validate and three mocked module tests
-passed (existing Gateway/listener/backend mapping, omitted optional listener,
-invalid Service port); three Console preparation/Git-lock regression tests passed,
-including ten Definitions/fourteen input receipts and frontend route interpolation.
-No cluster/Gateway mutations or live route acceptance claimed.
+Keep existing embedded backend release assets immutable; only the Git-published
+resource template changes. Preserve user data, prior pins and Terraform-owned
+route/state if already deployed. Repository deletion is not remote cleanup or
+state migration: use the reviewed product old-pin removal and new template
+revision/Preview/Deploy, never state-rm/import/takeover or direct cluster deletion.
+Console staging stays Playwright-only; no new cluster mutations are authorized.
+
+Focused validation: the real template renderer/admission test passed six cases
+(enabled frontend, omitted optional listener, disabled route, workload without
+route annotations, missing named Service port and conflicting platform route).
+The route is a non-auxiliary workload inventory object with platform ownership.
+Three Console preparation/Git-lock tests passed after removing the separate
+route Type/Definition/module and pin fields. No broad backend/frontend suite
+or live deploy: production Go logic and embedded release files are unchanged.
