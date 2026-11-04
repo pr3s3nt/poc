@@ -1,3 +1,4 @@
+import { requireDevTest } from './execution-profile.mjs';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { conflict, equal } from './runtime.mjs';
@@ -7,6 +8,7 @@ import { BootstrapError, requireConfig } from './bootstrap-config.mjs';
 export async function ensureNamespaceAccess(ui,config,app,rt,{wait=true}={}) {
  const access=config.platform.delivery.namespaceAccess;
  if(!access?.enabled)return;
+ requireDevTest(config);
  const ns=`app-${app.key}-${config.application.environment}`;
  const args=['--kubeconfig',config.runtime.clusterKubeconfigFile,'--context',config.platform.account.context];
  const run=(more,input)=>execFileSync('kubectl',[...args,...more],{encoding:'utf8',input,timeout:15000,stdio:['pipe','pipe','pipe']});

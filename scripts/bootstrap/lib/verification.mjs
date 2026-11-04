@@ -1,3 +1,4 @@
+import { isDevTest, requireDevTest } from './execution-profile.mjs';
 import { openWorkloadEvidence } from './video.mjs';
 import { execFileSync, spawn } from 'node:child_process';
 import { openSync, closeSync, readFileSync } from 'node:fs';
@@ -6,6 +7,7 @@ import { requireConfig, BootstrapError } from './bootstrap-config.mjs';
 import { conflict, digest, equal } from './runtime.mjs';
 export const CHECKS=['backend connection','environment','secret','database','cache'];
 export function kubectl(config,...args) {
+ requireDevTest(config);
  try{return JSON.parse(execFileSync('kubectl',['--kubeconfig',config.runtime.clusterKubeconfigFile,'--context',config.platform.account.context,...args,'-o','json'],{encoding:'utf8',timeout:30000,stdio:['ignore','pipe','pipe']}));}
  catch{throw new BootstrapError('Cluster prerequisite/read failed; check configured kubeconfig/context');}
 }
@@ -24,6 +26,7 @@ export function inspectCluster(config) {
 export async function ensureAccess(ui,config,app,rt) {
  const forward=config.verification.forward;
  if(!forward)return;
+ requireDevTest(config);
  const namespace=`app-${app.key}-${config.application.environment}`;
  const service=kubectl(config,'-n',namespace,'get','service','frontend');
  const identity={uid:service.metadata.uid,namespace,url:config.verification.url};
@@ -55,6 +58,7 @@ export async function ensureAccess(ui,config,app,rt) {
 export async function verifyAcceptance(ui,config,rt,{submitJob=true}={}) {
  const {url,timeoutMs,jobPayload}=config.verification;
  const namespace=`app-${rt.state.appKey}-${config.application.environment}`;
+ if(isDevTest(config)){
  const deployments=kubectl(config,'-n',namespace,'get','deployments').items;
  requireConfig(['backend','worker','frontend'].every(name=>deployments.some(d=>d.metadata.name===name&&(d.status.availableReplicas??0)>=(d.spec.replicas??1))),'Acceptance deployments not Ready');
  const sts=kubectl(config,'-n',namespace,'get','statefulsets').items;
@@ -64,6 +68,7 @@ export async function verifyAcceptance(ui,config,rt,{submitJob=true}={}) {
  const dataUids=[...sts,...pvcs].map(v=>v.metadata.uid).sort();
  if(rt.state.dataUids)conflict(equalArrays(rt.state.dataUids,dataUids),'Data resource identities after upgrade');
  rt.state.dataUids=dataUids;rt.save();
+ }
  const evidence=await openWorkloadEvidence(ui.page.context().browser(),config,'acceptance-app');
  const {page}=evidence;let status='FAILED';
  try {
@@ -113,10 +118,13 @@ export function backendClaim(deployment) {
 }
 export async function verifyBackendStorage(page,config,rt) {
  const namespace=`app-${rt.state.appKey}-${config.application.environment}`;
+ let identity;const hash=digest(config.verification.storage.value);
+ if(isDevTest(config)){
  const claim=backendClaim(kubectl(config,'-n',namespace,'get','deployment','backend'));
  const pvc=kubectl(config,'-n',namespace,'get','pvc',claim);
  requireConfig(pvc.status.phase==='Bound'&&pvc.metadata.labels?.['app.kubernetes.io/managed-by']==='orchestrator','Backend PVC must be owned and Bound');
- const hash=digest(config.verification.storage.value),identity={namespace,name:claim,uid:pvc.metadata.uid,hash};
+ identity={namespace,name:claim,uid:pvc.metadata.uid,hash};
+ }else identity={verification:'browser-file',hash};
  if(rt.state.backendStorage)conflict(equal(rt.state.backendStorage,identity),'Backend PVC/file identity changed');
  const stored=page.locator('#storage-hash');
  if(!await stored.count()) {
@@ -126,5 +134,5 @@ export async function verifyBackendStorage(page,config,rt) {
   await page.getByRole('button',{name:'Write to volume',exact:true}).click();
  }
  conflict(await page.locator('#storage-hash').textContent()===hash&&await page.locator('#storage-value').textContent()===config.verification.storage.value,'Backend file value/hash');
- rt.state.backendStorage=identity;rt.state.storageWriteIntent=false;rt.save();rt.record('backend-pvc-file','REUSED',identity);
+ rt.state.backendStorage=identity;rt.state.storageWriteIntent=false;rt.save();rt.record(isDevTest(config)?'backend-pvc-file':'backend-browser-file','REUSED',identity);
 }

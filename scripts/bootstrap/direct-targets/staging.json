@@ -389,6 +389,7 @@
     "stateDir": "~/.local/state/orch-bootstrap/direct-staging/state",
     "reportDir": "~/.local/state/orch-bootstrap/direct-staging/reports",
     "clusterKubeconfigFile": "~/.orch/bootstrap/staging/cluster-kubeconfig",
-    "recoverCompletedDeploy": false
+    "recoverCompletedDeploy": false,
+    "profile": "dev-test"
   }
 }

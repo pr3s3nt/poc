@@ -12,6 +12,7 @@ const sha=x=>createHash('sha256').update(x).digest('hex');
 test('enterprise locking reads exact local commits, derives pins, stays idempotent and rejects wrong origins',()=>{
  const root=mkdtempSync(join(tmpdir(),'enterprise-lock-'));
  const raw=JSON.parse(readFileSync(new URL('../enterprise/staging.input.json',import.meta.url)));
+ raw.runtime.profile='dev-test';
  const git=args=>execFileSync('git',['-C',root,...args],{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
  try{
   const copy=(name,content)=>{mkdirSync(dirname(join(root,name)),{recursive:true});writeFileSync(join(root,name),content);};
@@ -38,7 +39,7 @@ test('enterprise locking reads exact local commits, derives pins, stays idempote
   locked.runtime.mode='all';
   const configFile=join(privateDir,'locked.json');writeFileSync(configFile,JSON.stringify(locked));
   const config=loadBootstrapConfig(configFile);
-  assert.equal(config.gitInputReceipts.length,14);assert.equal(config.platform.definitions.length,9);
+  assert.equal(config.gitInputReceipts.length,13);assert.equal(config.platform.definitions.length,9);
   assert.equal(config.platform.definitions[0].definition.key,'company-staging-cluster');
   assert.equal(config.platform.definitions[1].definition.driverInputs.values.source.source_id,locked.parameters.moduleSourceId);
   assert.equal(config.platform.definitions[2].source.url,raw.parameters.modulesRepository);

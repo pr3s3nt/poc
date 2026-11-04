@@ -25,9 +25,10 @@ các module AWS chỉ là mã nguồn bổ sung, không phải quyền triển k
    cùng một URL cho cả ba. Thay ba tham số commit tương ứng bằng full SHA.
 4. Giữ các đường dẫn mặc định `bootstrap/...`, `terraform/...`,
    `templates/standard`. Nếu đổi cấu trúc repo, cập nhật input tương ứng.
-5. Checkout commit từ đúng HTTPS origin rồi chạy `lock-enterprise-input.mjs`
-   trong repo Orchestrator. Tool tính lại source ID, module ID và SHA; không điền
-   hash thủ công. Dùng cùng checkout cho ba tùy chọn nếu chung repo.
+5. Từ bộ nguồn đã có, chạy `prepare-enterprise-input.mjs` trong repo Orchestrator
+   để tạo private snapshot/pins cho Console profile (không cần git/kubectl CLI).
+   Helper hash bytes local; backend kiểm module/template với Git commit thật.
+   Xem setup kit để phân biệt local snapshot với proof remote commit.
 6. Điền các dữ liệu staging còn lại theo hướng dẫn; chạy mode `check`, rồi
    `bootstrap`/`all` khi target đã được cấp quyền.
 

@@ -31,7 +31,8 @@ SchemaVersion 3 chạy theo thứ tự sau; schemaVersion 2 ở trên là luồn
 
 1. Đọc input môi trường, validate files/credentials, image pins, Definition JSON,
    criteria, Terraform pins và template-source pin. Không lấy latest.
-2. Đăng nhập Console; preflight kind/Fleet/VSO, accounts/Types/store/CD,
+2. Đăng nhập Console; preflight accounts/Types/store/CD (native kind/Fleet/VSO
+   chỉ khi opt-in dev-test),
    schema-8 Generic Workload capabilities, sources và existing Definition conflicts.
 3. Dùng lại/tạo Git access, Kubernetes account và Resource Types qua Console.
 4. Dùng lại immutable template source; nếu thiếu thì prepare Git/ZIP/Inline qua
@@ -43,17 +44,19 @@ SchemaVersion 3 chạy theo thứ tự sau; schemaVersion 2 ở trên là luồn
    Catalog. Không sửa hoặc bỏ ghim Catalog của app có sẵn.
 7. Chọn Secret Store, bổ sung config/secret/workloads còn thiếu; Preview/Deploy
    chỉ khi có thay đổi. Unknown/interrupted operation không tự replay.
-8. Read-back Generic Workload và template pins; xác minh Fleet GitRepo/Bundle
-   đúng commit, readiness; mở app qua URL Tailscale và kiểm tra app/jobs/DB/cache.
+8. Read-back Generic Workload/template pins và deployment status qua Console;
+   mở URL workload đã có route và kiểm app/jobs/DB/cache. Chỉ dev-test kiểm thêm
+   Fleet GitRepo/Bundle commit/readiness bằng kubectl.
 9. Lưu safe identities/pins/report ngoài Git; chỉ SUCCEEDED khi acceptance đạt.
-   Rerun giữ nguyên revisions, deployments, Fleet commits và resource/PVC/job IDs.
+   Rerun giữ revisions/deployments/resource/job IDs; native Fleet/PVC UID proof
+   chỉ có trong dev-test.
 
 Input dev/staging độc lập theo Console/cluster/criteria/state. Có mẫu staging
 không cấp quyền chạy staging; runtime nghiệm thu issue #33 giới hạn kind.
 
 ## Git-only follow-up and backend PVC
 
-Before browser mutation, `gitOnly` resolves Types/Definition/Workload/rules files
+In explicit dev-test, before browser mutation, `gitOnly` resolves Types/Definition/Workload/rules files
 from exact HTTPS Git commits and verifies file digests into a private external
 cache. Definition/module/template pins are independent: documents carry complete
 resource configuration, while product inspection verifies Git module/template
@@ -62,3 +65,19 @@ The six-Definition profile adds persistent-storage; backend mounts it at `/data`
 Final acceptance verifies Bound PVC, file value/hash and receipt reuse. The E2E
 Git/PVC scenario additionally verifies namespace/controller ownership and exact
 Pod UID before recreation, proves retained PVC/file and runs bootstrap again.
+
+## Staging Console profile
+
+Schema 3 defaults to `runtime.profile=console`. Use the enterprise preparation
+helper with supplied local resources to create `git.preparedFile` documents and
+SHA-256 receipts; it does not execute git/kubectl/gh. Playwright mutates through
+Console forms and reads state through its authenticated browser session. Backend
+inspects Git module/template pins and handles Kubernetes. Local document hashes
+do not prove remote commit membership; receipts say gitCommitVerified=false.
+
+No direct cluster preflight/RBAC/port-forward on the staging runner. Native
+checks remain under explicit dev-test and separate state/report directories.
+Old private schema-3 dev inputs must add profile=dev-test to retain their native
+behavior; do not reuse their evidence/state for console profile. For Console
+inputs run `prepare-enterprise-input.mjs` and supply existing platform/route/RBAC
+prerequisites. See enterprise README and AI_HANDOFF for exact commands.

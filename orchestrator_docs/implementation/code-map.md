@@ -1138,3 +1138,9 @@ and matching `bootstrap/definitions/*.json`; Types are declared in
 Setup and credential/storage contract: `projects/platform-resources/bootstrap/DATABASES.md`.
 The MySQL Type schema remains compatible; new types use the same nonsecret
 Secret-reference contract. No embedded release/runtime code changed.
+
+Console staging bootstrap: `execution-profile.mjs` guards native CLI access;
+`enterprise-prepare.mjs` / `prepare-enterprise-input.mjs` prepare local snapshots;
+`prepared-inputs.mjs` checks their hashes without shell Git. `runner.mjs`,
+`direct-runner.mjs` and `verification.mjs` separate Console/browser observations
+from explicit dev-test cluster checks; runtime receipts pin the profile.

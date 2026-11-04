@@ -1,3 +1,4 @@
+import { executionProfile } from './execution-profile.mjs';
 import { mkdirSync, readFileSync, writeFileSync, renameSync, openSync, closeSync, unlinkSync, realpathSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,8 +35,12 @@ export function createRuntime(config) {
   if(state.acceptanceIdentity && !equal(state.acceptanceIdentity,acceptanceIdentity)){unlinkSync(lock);throw new BootstrapError('Acceptance receipt belongs to another Application/Environment');}
   state.acceptanceIdentity=acceptanceIdentity;
  }
+ const profile=executionProfile(config);
+ const previousProfile=state.executionProfile??(state.acceptanceSnapshot?.fleet||state.dataUids?'dev-test':undefined);
+ if(previousProfile&&previousProfile!==profile){unlinkSync(lock);throw new BootstrapError('State receipt belongs to another execution profile; use separate state/report directories');}
+ state.executionProfile=profile;
  state.identity=identity;
- const report={environment:config.environment,startedAt:new Date().toISOString(),status:'RUNNING',steps:[]};
+ const report={environment:config.environment,profile:executionProfile(config),startedAt:new Date().toISOString(),status:'RUNNING',steps:[]};
  const reportFile=join(reportDir,`${Date.now()}-${process.pid}.json`);
  const save=()=>{const temp=file+'.tmp';writeFileSync(temp,JSON.stringify(state,null,2),{mode:0o600});renameSync(temp,file);};
  const record=(step,status,details={})=>{const entry={step,status,...details};report.steps.push(entry);writeFileSync(reportFile,JSON.stringify(report,null,2),{mode:0o600});console.log(`${status}: ${step}`);};

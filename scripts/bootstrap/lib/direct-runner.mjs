@@ -1,3 +1,4 @@
+import { isDevTest } from './execution-profile.mjs';
 import { openConsole, closeConsole, signInContext, signOutContext, readPrivateFile } from './console.mjs';
 import { createRuntime, makeUI, conflict, equal, waitIdle, digest } from './runtime.mjs';
 import { requireConfig, BootstrapError } from './bootstrap-config.mjs';
@@ -40,6 +41,8 @@ export async function verifyDirectAcceptance(ui,config,app,rt) {
   const source=Object.values(rt.state.templateSources??{}).find(s=>s.id===rendered.bundle?.id);
   requireConfig(source&&rendered.bundle?.source?.contentSha256===source.pin.contentSha256,'Acceptance template content pin mismatch');
  }
+ let snapshot={deploymentIds:deployments.map(d=>d.id).sort()};
+ if(isDevTest(config)){
  const repos=kubectl(config,'get','gitrepos.fleet.cattle.io','-A').items.filter(r=>r.metadata.labels?.['orchestrator.io/environment-id']===detail.deployment.environmentId);
  const bundles=kubectl(config,'get','bundles.fleet.cattle.io','-A').items;
  requireConfig(repos.length>0,'No acceptance Fleet repository');
@@ -48,15 +51,16 @@ export async function verifyDirectAcceptance(ui,config,app,rt) {
   const owned=bundles.filter(b=>b.metadata.namespace===repo.metadata.namespace&&b.metadata.labels?.['fleet.cattle.io/repo-name']===repo.metadata.name);
   requireConfig(owned.length===1&&owned[0].metadata.labels['fleet.cattle.io/commit']===repo.spec.revision&&owned[0].status?.summary?.desiredReady===1&&owned[0].status.summary.ready===1,'Fleet Bundle not ready at pinned revision');
  }
- const snapshot={deploymentIds:deployments.map(d=>d.id).sort(),fleet:repos.map(r=>({uid:r.metadata.uid,revision:r.spec.revision})).sort((a,b)=>a.uid.localeCompare(b.uid))};
+ snapshot={deploymentIds:deployments.map(d=>d.id).sort(),fleet:repos.map(r=>({uid:r.metadata.uid,revision:r.spec.revision})).sort((a,b)=>a.uid.localeCompare(b.uid))};
+ }
  if(rt.state.acceptanceSnapshot)conflict(equal(snapshot,rt.state.acceptanceSnapshot),'Acceptance deployment/Fleet identities changed');
- rt.state.acceptanceSnapshot=snapshot;rt.save();rt.record('acceptance-cd-fleet','REUSED',snapshot);
+ rt.state.acceptanceSnapshot=snapshot;rt.save();rt.record(isDevTest(config)?'acceptance-cd-fleet':'acceptance-console','REUSED',snapshot);
 }
 export async function runDirectBootstrap(config,{preflight}) {
  const rt=createRuntime(config);let platform,developer,status='FAILED';
  try {
   if(config.runtime.mode==='all') {const hash=acceptanceInputHash(config);conflict(!rt.state.acceptanceInputHash||rt.state.acceptanceInputHash===hash,'Acceptance input changed; direct bootstrap does not upgrade or overwrite pending changes');rt.state.acceptanceInputHash=hash;rt.save();}
-  if(config.gitInputReceipts?.length){rt.record('git-inputs','REUSED',{files:config.gitInputReceipts});}
+  if(config.gitInputReceipts?.length){rt.record(isDevTest(config)?'git-inputs':'prepared-inputs','REUSED',{files:config.gitInputReceipts});}
   platform=await openConsole(config.console);requireConfig(['ADMIN','PLATFORM_ENGINEER'].includes(platform.user.role),'Platform Engineer/Admin required');
   const ui=makeUI(platform.page,config.console.baseURL,config.runtime.timeoutMs);
   await preflight(ui,config,rt);

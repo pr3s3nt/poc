@@ -7,6 +7,7 @@ import { parseResourceTypes, parseCatalogConfig } from './catalog-config.mjs';
 import { parseInfrastructure } from './infrastructure-config.mjs';
 import { parseGitAccess } from './git-access-config.mjs';
 import { readConsoleConfig, readPrivateFile } from './console.mjs';
+import { createPreparedInputs } from './prepared-inputs.mjs';
 import { createGitInputs } from './git-inputs.mjs';
 import { parseDirectPlatform } from './direct-config.mjs';
 
@@ -28,17 +29,21 @@ export function loadBootstrapConfig(file) {
  if (platformOnly && !raw.developer) raw.developer = raw.console;
  const path = v => { requireConfig(text(v), 'File path required'); return v.startsWith('~/') ? join(homedir(), v.slice(2)) : resolve(root, v); };
  const auth = v => { onlyKeys(v,['url','username','passwordFile'],'console account'); return readConsoleConfig({ORCH_PLATFORM_URL:v.url ?? raw.console.url, ORCH_PLATFORM_USERNAME:v.username, ORCH_PLATFORM_PASSWORD_FILE:path(v.passwordFile), ORCH_HEADLESS:'1'}); };
- onlyKeys(raw.runtime, ['mode','headless','timeoutMs','stateDir','reportDir','clusterKubeconfigFile','recoverCompletedDeploy','gitCacheDir','recordVideo'], 'runtime');
+ onlyKeys(raw.runtime, ['mode','headless','timeoutMs','stateDir','reportDir','clusterKubeconfigFile','recoverCompletedDeploy','gitCacheDir','recordVideo','profile'], 'runtime');
  requireConfig((direct?['all','check','bootstrap']:['all','check','bootstrap','acceptance','upgrade','verify']).includes(raw.runtime.mode), 'runtime.mode invalid');
  requireConfig(typeof raw.runtime.headless === 'boolean' && Number.isInteger(raw.runtime.timeoutMs) && raw.runtime.timeoutMs >= 1000 && raw.runtime.timeoutMs <= 3600000,'runtime headless/timeoutMs invalid');
  requireConfig(obj(raw.console)&&obj(raw.developer),'console/developer account input required');
  requireConfig((raw.developer.url??raw.console.url)===raw.console.url,'Developer and platform Console must be the same target');
  const config = structuredClone(raw);
+ config.runtime.profile=raw.runtime.profile??(direct?'console':'dev-test');
+ requireConfig(['console','dev-test'].includes(config.runtime.profile)&&(direct||config.runtime.profile==='dev-test'),'Console profile requires schemaVersion 3; profile must be console or dev-test');
+ const native=config.runtime.profile==='dev-test';
+ if(!native){requireConfig(!raw.platform?.delivery?.namespaceAccess?.enabled,'namespaceAccess is dev-test setup; provision Fleet RBAC outside staging bootstrap');requireConfig(!raw.verification?.forward,'port-forward is dev-test only; configure an accessible workload URL');}
  config.runtime.recordVideo=raw.runtime.recordVideo??false;
  requireConfig(typeof config.runtime.recordVideo==='boolean','runtime.recordVideo must be boolean');
  config.console = auth(raw.console); config.developer = auth(raw.developer);
  config.console.headless = config.developer.headless = raw.runtime.headless;
- config.runtime.clusterKubeconfigFile = path(raw.runtime.clusterKubeconfigFile); readPrivateFile(config.runtime.clusterKubeconfigFile,'cluster kubeconfig');
+ if(native){config.runtime.clusterKubeconfigFile = path(raw.runtime.clusterKubeconfigFile); readPrivateFile(config.runtime.clusterKubeconfigFile,'cluster kubeconfig');}else requireConfig(raw.runtime.clusterKubeconfigFile===undefined,'Console profile does not use a runtime cluster kubeconfig');
  config.runtime.recoverCompletedDeploy=raw.runtime.recoverCompletedDeploy??!direct;requireConfig(typeof config.runtime.recoverCompletedDeploy==='boolean','recoverCompletedDeploy invalid');
  config.runtime.stateDir = path(raw.runtime.stateDir); config.runtime.reportDir = path(raw.runtime.reportDir);
  requireConfig(config.runtime.stateDir !== config.runtime.reportDir,'stateDir and reportDir must differ');
@@ -51,7 +56,7 @@ export function loadBootstrapConfig(file) {
  // Business input files may come from a pinned Git object; private credential files stay local.
  let gitInputs;
  const gitAccess=raw.platform.gitAccess?{...raw.platform.gitAccess,tokenFile:raw.platform.gitAccess.tokenFile?path(raw.platform.gitAccess.tokenFile):undefined,caPemFile:raw.platform.gitAccess.caPemFile?path(raw.platform.gitAccess.caPemFile):undefined}:undefined;
- const businessFile=value=>{if(value&&typeof value==='object'&&!Array.isArray(value)){onlyKeys(value,['git'],'Git file reference');gitInputs??=createGitInputs(path(raw.runtime.gitCacheDir??join(config.runtime.stateDir,'git-inputs')),gitAccess);return gitInputs.read(value.git);}requireConfig(!raw.gitOnly,'gitOnly business inputs must use pinned Git files');return path(value);};
+ const businessFile=value=>{if(value&&typeof value==='object'&&!Array.isArray(value)){onlyKeys(value,['git'],'Git file reference');gitInputs??=native?createGitInputs(path(raw.runtime.gitCacheDir??join(config.runtime.stateDir,'git-inputs')),gitAccess):createPreparedInputs(path);return gitInputs.read(value.git);}requireConfig(!raw.gitOnly,'gitOnly business inputs must use pinned Git files');return path(value);};
  if(!Array.isArray(p.resourceTypes))p.resourceTypes=JSON.parse(readFileSync(businessFile(p.resourceTypes),'utf8'));
  else requireConfig(!raw.gitOnly,'gitOnly Resource Types must come from Git');
  p.resourceTypes = parseResourceTypes(p.resourceTypes);
@@ -69,7 +74,7 @@ export function loadBootstrapConfig(file) {
  onlyKeys(p.delivery,['name','provider','usePlatformGit','config','writerUsername','writerPasswordFile','writerURL','setDefault','namespaceAccess'],'delivery');
  requireConfig(text(p.delivery.name) && text(p.delivery.provider) && obj(p.delivery.config) && Object.values(p.delivery.config).every(v=>typeof v==='string'), 'delivery config invalid');
  requireConfig(typeof p.delivery.usePlatformGit === 'boolean' && typeof p.delivery.setDefault === 'boolean','delivery flags must be boolean');
- if(p.delivery.namespaceAccess) {
+ if(p.delivery.namespaceAccess && (native || p.delivery.namespaceAccess.enabled)) {
   onlyKeys(p.delivery.namespaceAccess,['enabled','rulesFile'],'namespaceAccess');
   requireConfig(typeof p.delivery.namespaceAccess.enabled==='boolean','namespaceAccess.enabled invalid');
   p.delivery.namespaceAccess.rulesFile=businessFile(p.delivery.namespaceAccess.rulesFile);

@@ -1,3 +1,4 @@
+import { isDevTest } from './execution-profile.mjs';
 import { preflightDirect } from './direct-platform.mjs';
 import { runDirectBootstrap } from './direct-runner.mjs';
 import { openConsole, closeConsole, signInContext, signOutContext } from './console.mjs';
@@ -14,7 +15,9 @@ import { assertSameResourceType } from './catalog-config.mjs';
 import { assertAccountTarget } from './infrastructure-config.mjs';
 
 export async function preflight(ui,config,rt) {
- const checks=[['console-health',async()=>ui.get('/healthz')],['cluster-capabilities',async()=>inspectCluster(config)]];
+ const checks=[['console-health',async()=>ui.get('/healthz')]];
+ if(isDevTest(config))checks.push(['cluster-capabilities',async()=>inspectCluster(config)]);
+ else rt.record('verification-scope','REUSED',{profile:'console',nativeClusterChecks:false});
  const p=config.platform;
  checks.push(['existing-config',async()=>{
   const accounts=(await ui.get('/driver-accounts')).accounts;

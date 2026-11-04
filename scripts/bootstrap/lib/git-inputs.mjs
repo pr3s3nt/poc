@@ -8,7 +8,7 @@ import { BootstrapError, requireConfig, onlyKeys } from './bootstrap-config.mjs'
 const sha = value => createHash('sha256').update(value).digest('hex');
 const repositoryRoot = fileURLToPath(new URL('../../../', import.meta.url));
 export function validateGitInput(input) {
- onlyKeys(input,['url','ref','path','sha256'],'Git input');
+ onlyKeys(input,['url','ref','path','sha256','preparedFile'],'Git input');
  requireConfig(gitURL(input.url)===input.url && /^[a-f0-9]{40}$/.test(input.ref??''),'Git input requires normalized HTTPS URL and full commit');
  requireConfig(typeof input.path==='string'&&input.path.length<512&&input.path.split('/').every(p=>p&&p!=='.'&&p!=='..')&&!/[\\\x00-\x1f\x7f:]/.test(input.path)&&!input.path.startsWith('-'),'Git input path must be a clean relative file path');
  requireConfig(/^[a-f0-9]{64}$/.test(input.sha256??''),'Git input file SHA256 required');

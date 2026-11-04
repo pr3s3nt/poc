@@ -46,6 +46,15 @@ Upgrade dùng diff/blockers/CAS/Preview/Deploy của sản phẩm. Dữ liệu/P
 RETAIN guards, không thực hiện migration/rollback dữ liệu. Không quay về baseline
 khi đã ở phiên bản đích; config không phải lệnh downgrade.
 
+## Staging qua Console
+
+Schema 3 mặc định `runtime.profile=console`. Dùng
+[enterprise setup kit](enterprise/README.md) và `prepare-enterprise-input.mjs`
+để chuẩn bị local documents, sau đó Playwright thao tác qua Console. Runner
+không cần git/kubectl/gh CLI, không cấp RBAC hay port-forward. Backend vẫn lấy
+module/template từ Git và truy cập Kubernetes. State/report của Console và
+`dev-test` phải riêng; các native checks bên dưới chỉ dành dev-test.
+
 ## Prerequisites và phạm vi
 
 Console phải chạy với adapter thật và database setup đúng phiên bản. Platform
@@ -53,7 +62,8 @@ trống nghĩa là chưa có dữ liệu nghiệp vụ, không cần xóa databa
 Kubernetes, Vault Kubernetes auth, VSO, Fleet, Git read Secret/service account/RBAC (gồm quyền patch đúng release Namespace),
 registry/images và network là prerequisites hiện hành. Script kiểm tra và báo
 BLOCKED nếu thiếu; không tự cài đè controller hoặc cấp cluster permissions.
-`platform.delivery.namespaceAccess` bật sẵn, đọc rulesFile để tạo Role/RoleBinding
+Trong explicit `runtime.profile=dev-test`, `platform.delivery.namespaceAccess`
+đọc rulesFile để tạo Role/RoleBinding
 chỉ trong namespace do product tạo cho acceptance app. Không tạo Namespace, không
 grant ClusterRole/ClusterRoleBinding, không thay RBAC của app khác. Đây là technical
 setup được ghi riêng trong report; mọi thao tác nghiệp vụ vẫn qua Console.

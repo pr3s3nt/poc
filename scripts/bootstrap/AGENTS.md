@@ -29,3 +29,11 @@ permissions take precedence; do not ask again for actions already authorized.
 - Hand off exact commands, versions, nonsecret pins/identities, results, retained
   resources/forwards, tested URLs and unresolved failures. Never claim real company
   staging/GHES verification based on local/mocked tests.
+
+Schema-3 staging defaults to `runtime.profile=console`: local prepared inputs,
+Playwright UI mutations and Console read-back only. Do not require Git/kubectl/gh
+CLIs, perform native RBAC setup or port-forward on this path. Use
+`prepare-enterprise-input.mjs` with supplied local source folders; its SHA receipts
+are not proof of remote Git membership. Backend inspects Git module/template pins.
+Explicit dev-test retains native tooling for authorized development verification,
+with separate state/reports; never mix its evidence with Console-only reports.

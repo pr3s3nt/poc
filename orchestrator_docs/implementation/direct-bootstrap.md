@@ -137,3 +137,31 @@ labels, PVC/outputs/readiness settings, MongoDB init code and mutable-image
 rejection. Tests are retained under each module's `tests/contract.tftest.hcl`.
 Docs checker and diff whitespace passed. No backend/frontend runtime code changes,
 no live database/cluster/GHES mutations and no company staging success claim.
+
+## Console-only staging bootstrap — approved 2026-11-04
+
+Separate the schema-3 staging operational path from dev acceptance tooling.
+The default schema-3 runtime profile is `console`: local prepared business inputs,
+Playwright UI mutations and authenticated Console read-back only. No shell Git,
+kubectl, direct Kubernetes reads/RBAC writes or port-forward on the runner.
+Backend Git module/template inspection and backend Kubernetes operations remain
+unchanged. Kubeconfig/token files needed for UI onboarding are still input data.
+The optional local preparation helper reads files already provided by the company
+AI, computes hashes/pins and emits private snapshots without subprocesses. It
+verifies local bytes, not the claimed Git provenance; backend source inspection
+must still verify module/template commit and digest. Do not report local document
+SHA verification as proof that a remote Git commit was inspected.
+
+Explicit `runtime.profile=dev-test` retains old CLI Git/native cluster checks and
+scoped acceptance setup for authorized dev tests; legacy schema-2 defaults remain
+compatible. Profile is pinned in state so native and Console-only proof are not
+silently mixed. Console reports claim Console deployment/selection and browser
+business/file checks only; native Fleet/PVC UID/recreation proof remains dev-only.
+Console profile rejects native setup flags instead of silently skipping them.
+
+Focused validation: 19 tests across console-profile, direct-bootstrap and
+enterprise-lock passed. Console test clears PATH while preparing/loading input,
+running preflight and reading deployment/browser-file evidence; absent/altered
+prepared documents and native setup/profile mixing are rejected. Existing
+Git-lock/direct-bootstrap regression coverage passed. No full backend/frontend
+suites or runtime deploy reruns: no product runtime code changed.

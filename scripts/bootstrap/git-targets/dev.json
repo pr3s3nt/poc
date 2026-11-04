@@ -247,7 +247,8 @@
     "reportDir": "~/.local/state/orch-bootstrap/git-dev/reports",
     "clusterKubeconfigFile": "~/.orch/bootstrap/dev/cluster-kubeconfig",
     "recoverCompletedDeploy": false,
-    "recordVideo": true
+    "recordVideo": true,
+    "profile": "dev-test"
   },
   "gitOnly": true
 }

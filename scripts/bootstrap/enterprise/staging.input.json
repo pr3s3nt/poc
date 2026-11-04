@@ -48,18 +48,7 @@
       "provider": "fleet",
       "usePlatformGit": true,
       "setDefault": true,
-      "config": {},
-      "namespaceAccess": {
-        "enabled": true,
-        "rulesFile": {
-          "git": {
-            "url": "${bootstrap.inputsRepository}",
-            "ref": "${bootstrap.inputsCommit}",
-            "path": "bootstrap/fleet-access.json",
-            "sha256": "LOCK_WITH_HELPER"
-          }
-        }
-      }
+      "config": {}
     },
     "definitions": [
       {
@@ -306,10 +295,9 @@
     "timeoutMs": 1500000,
     "stateDir": "./state",
     "reportDir": "./reports",
-    "clusterKubeconfigFile": "./secrets/cluster-kubeconfig",
     "recoverCompletedDeploy": false,
     "recordVideo": false,
-    "gitCacheDir": "./git-cache"
+    "profile": "console"
   },
   "gitOnly": true,
   "parameters": {

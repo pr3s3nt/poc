@@ -36,77 +36,54 @@ không chạy script bootstrap để thay installer/migration. Không dùng seed
 hoặc hardcode mật khẩu demo trong môi trường công ty. Migrations theo ADR-027,
 owner setup tách runtime; tuyệt đối không reset DB/chỉnh schema marker để qua gate.
 
-## 2. Chuẩn bị dữ liệu
+## 2. Chuẩn bị dữ liệu staging
 
-1. Xem branch/diff và giữ công việc có sẵn. Dùng đúng release đã có Enterprise
-   host/CA fix và source-summary UI fix. Kiểm tra tài liệu code-map/current-state.
-2. Đảm bảo root repo internal chứa `terraform/`, `templates/`, `bootstrap/`
-   (upload nội dung `projects/platform-resources/`, không thêm tầng thư mục). Nếu chuyển
-   nguồn sang path khác, cập nhật input tương ứng; commit
-   bằng quy trình publish đã được cấp quyền. Không tự push ngoài scope.
-3. Nếu nhận source ZIP thì ZIP không có Git history: đưa nguồn vào repo nội bộ
-   theo quyền publish đã có, commit và checkout lại đúng HTTPS origin trước khi lock.
-   Dùng npm registry, provider mirror và image registry nội bộ theo chính sách công ty;
-   không giả định runner có Internet.
-4. Copy `staging.input.json` và hướng dẫn vào thư mục private của target. Đặt owner
-   permissions: thư mục 0700, credential/input 0600 hoặc 0400 khi chỉ đọc. Không
-   đặt state/report/cache dưới checkout. Không ghi token thật vào tham số hoặc JSON.
-5. Điền từng dòng theo `INPUT_REFERENCE.md`. Giữ riêng config đầu vào có thể review;
-   điền 3 full commits, không branch/tag/latest. Registry image phải có tag cố định
-   hoặc digest. Nếu bỏ custom CA phải thực sự là certificate được hệ thống trust.
-6. Lock từ local Git objects bằng lệnh trong README. Tool không đọc working-tree
-   edits, không fetch/clone/push. Không ghi đè lock cũ; dùng tên lock mới để review
-   sự thay đổi và giữ nguyên vị trí tương đối của credential/state.
+1. Giữ thay đổi có sẵn, dùng release có console-only profile. Chuẩn bị nguồn đã
+   review từ repo công ty, root có `terraform/`, `templates/`, `bootstrap/`.
+2. Copy input mẫu vào thư mục private, điền theo INPUT_REFERENCE. Giữ
+   `runtime.profile=console`. Bỏ `runtime.clusterKubeconfigFile`, `gitCacheDir`,
+   namespaceAccess và port-forward; platform/RBAC/route là prerequisites.
+3. Chọn đúng ba full commits. AI xác nhận snapshot local là bộ nguồn được review;
+   helper không dùng Git để chứng minh commit/origin. Không gửi secret lên Git.
+4. Chạy `prepare-enterprise-input.mjs` theo README. Helper chỉ đọc files, tính
+   pins/hashes, tạo prepared config và `prepared-inputs-*` bên cạnh. Không fetch,
+   clone, gọi kubectl hoặc mutate hệ thống. Input/output cùng thư mục để credential
+   paths không đổi; file 0600, thư mục 0700, không ghi đè output cũ.
+5. Giữ bộ prepared config/documents nguyên vẹn. Snapshot của module/template phải
+   khớp Git commit thật: backend inspect qua Console sẽ xác minh content pin.
+   Business documents được kiểm SHA local, không có chứng minh remote commit.
 
-Lock tính file SHA-256, tree SHA-256 và Git source ID. Module ID nhận diện theo
-content/release giống backend; nếu backend khác release có thể khác trusted
-metadata. Khóa hash không chứng minh Terraform input/output/provider contracts
-hoặc workload TemplatePin đúng; Console inspection vẫn bắt buộc. Helper cơ bản
-chỉ nhận regular nonexecutable files; custom module/child modules/phụ thuộc ngoài
-cần được inspect và pin theo đúng policy, không bỏ validation để tiếp tục.
+## 3. Preflight và chạy qua Playwright
 
-Ba Definitions database bổ sung dùng `terraform/mysql`, `terraform/mariadb`,
-`terraform/mongodb`; điền nhóm tham số image/Secret/storage trong INPUT_REFERENCE.
-Secret data và pull credentials không do script tạo. Đọc
-`projects/platform-resources/bootstrap/DATABASES.md`; app nghiệm thu không tự dùng
-ba database này, đăng ký thành công không chứng minh chúng đã chạy trên staging.
-
-## 3. Preflight và chạy
-
-Từ root checkout, Node 24 và dependencies/Chromium đã cài:
+Từ checkout công cụ đã được cung cấp, Node 24 và dependencies/Chromium đã cài:
 
 ```sh
-node scripts/bootstrap/run.mjs --config /var/lib/orch-bootstrap/staging/staging.locked.json
+node scripts/bootstrap/run.mjs --config /var/lib/orch-bootstrap/staging/staging.prepared.json
 ```
 
-Lần đầu giữ `runtime.mode=check`. Phải thấy check Git file digests của platform, Console
-health/schema/module/template capabilities, cluster/Fleet/VSO prerequisites và
-compatibility/config conflict checks. Đây có kết nối thật nhưng không seed/deploy.
-Không bật debug/trace chứa credential. Các vấn đề TLS phải sửa trust/hostname/CA,
-không dùng insecure flags. Đảm bảo proxy/firewall cho runner, backend, Git writer,
-Fleet và image pull; thành công từ laptop không chứng minh container truy cập được.
+Bắt đầu mode `check`: kiểm local input/hash và thông tin/capabilities/conflicts
+qua Console. Không có kiểm tra node/Fleet/VSO bằng kubectl. Console checks không
+chứng minh mọi thành phần cluster hoạt động; trạng thái target được backend xác
+minh qua các flow onboarding/verify tương ứng. Thiếu quyền thì dừng bước phụ thuộc
+và xử lý platform prerequisites bằng quy trình công ty, không tự cấp RBAC.
 
-Khi target được cấp quyền và preflight pass, đổi mode sang `bootstrap` để seed
-platform. Kiểm tra Types, chín Definitions, Git source pins, account, Secret Store,
-verified Fleet binding và platform default. Nếu default hiện có khác input,
-bootstrap dừng; không ghi đè. Chỉ BOOTSTRAPPED chưa phải app nghiệm thu.
+Đổi mode `bootstrap` khi được cấp quyền target để cấu hình Types, chín Definitions,
+Git module/template sources, account, Vault, Fleet binding/default qua Console UI.
+Báo BOOTSTRAPPED riêng với nghiệm thu deploy. Không gọi API mutation để thay UI.
+`ui.get` qua browser session chỉ dùng đọc lại trạng thái và đối chiếu receipts.
 
-Đổi mode `all` để seed và deploy acceptance app riêng. Full run phải có app không
-Catalog, Preview/Deploy qua Console, CD/Fleet exact-commit readiness, 3 workloads,
-5 business checks, job DONE, backend mounted Bound owned PVC `/data` và file/hash.
-Lưu ý URL workload trong preset cần route thực tế tới frontend; script không tự
-biến một hostname nhập vào thành DNS/Ingress hoạt động. Cấu hình route/forward
-qua cách truy cập được công ty phê duyệt trước phần browser verification.
+Mode `all` thêm acceptance app, Preview/Deploy qua Console và browser business/job/
+file checks ở URL workload đã có route. App vẫn dùng PostgreSQL/Redis; MySQL,
+MariaDB/MongoDB chỉ được đăng ký Definition. Chuẩn bị Secret delivery và registry
+pull access riêng theo `projects/platform-resources/bootstrap/DATABASES.md`.
 
-Chạy lại mode `all` cùng input/state. Phải không có deployment/revision/resource
-mới, Git/Definition identities giữ nguyên. Script chỉ reuse hoặc tạo thiếu; input
-khác trên target có sẵn sẽ BLOCKED, không phải general upgrade engine. Đừng xóa
-state/rename resource để lách conflict. Thay đổi có chủ đích sau bootstrap cần
-quy trình review/upgrade riêng của sản phẩm.
+Report Console không có proof đọc Fleet resources/PVC UID hoặc Pod recreation.
+Bản video thành công chỉ phản ánh browser checks thực sự chạy. Nếu cần native
+proof ở dev, dùng explicit dev-test và các scenario đã review với state/report
+khác, không nâng quyền staging bootstrap. Không đổi profile trên state đã có.
 
-Nếu cần chứng minh file qua lần tạo lại Pod ở staging, xin phạm vi riêng nếu chưa
-được cấp và dùng scenario đã review cho target đó. Runner `bootstrap-git-pvc`
-hiện chủ động chặn ngoài dev. Không đổi tên environment thành dev để vượt guard.
+Rerun giữ nguyên input/state/identities; khác cấu hình thì BLOCKED, không reset,
+đổi tên resource hoặc xóa state để tiếp tục. Đây không phải general upgrade engine.
 
 ## 4. Lỗi và resume
 
@@ -129,8 +106,8 @@ Không xóa app cũ, PVC, remote repo hoặc shared resource khi chưa có clean
 ## 5. Bàn giao và video
 
 Báo cáo: release/commit công cụ, tên target, nguồn repo/full commits/digests,
-checks pass/fail/skipped và lý do; IDs/UID của app/namespace/PVC/deployments, nguồn
-Definition và Git template; số deployment trước/sau rerun; URL Console/workload
+checks pass/fail/skipped và lý do; IDs do Console cung cấp và nguồn
+Definition và Git template; số deployment trước/sau rerun; không ghi PVC UID nếu không quan sát; URL Console/workload
 đã mở thật trên browser và cùng-origin API. Nêu rõ từ máy nào đã kiểm tra.
 
 Nếu có yêu cầu video, bật `runtime.recordVideo` đúng phase được nghiệm thu. Chỉ

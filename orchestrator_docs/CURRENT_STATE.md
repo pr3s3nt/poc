@@ -1952,3 +1952,14 @@ and MongoDB Types reuse the existing MySQL nonsecret Secret-reference contract.
 Registration/loader and mocked Terraform checks do not establish live database
 readiness, retention, HA or company-staging verification. Existing acceptance app
 continues to use PostgreSQL/Redis; embedded backend release assets are unchanged.
+
+## Console-only staging runner — 2026-11-04
+
+Schema-3 bootstrap defaults to console profile. Local preparation and SHA checks
+need no Git/kubectl/gh CLI; Playwright preserves UI mutation flows and authenticated
+Console read-back. Backend still inspects Git module/template commits/pins and
+performs Kubernetes operations. Native cluster checks/RBAC/port-forward remain
+explicit dev-test only. Reports/state pin their profile and distinguish local
+snapshot hashes/browser file checks from Git-object/Fleet/PVC UID evidence.
+Preparation does not prove business documents belong to a declared remote commit.
+Focused local tests passed; no company staging run or new live deployment claimed.

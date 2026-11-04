@@ -22,7 +22,7 @@ Không copy địa chỉ/IP/credential hoặc commit demo của cá nhân sang c
 | `parameters.modulesRepository`, `modulesCommit` | HTTPS repo + full commit chứa Terraform modules |
 | `parameters.templatesRepository`, `templatesCommit` | HTTPS repo + full commit chứa workload templates |
 | `parameters.*ModulePath` | Đường dẫn module trong repo; namespace/PostgreSQL/Redis/MySQL/MariaDB/MongoDB/persistent-storage |
-| `parameters.moduleSourceId`, `*ModuleId`, `*ModuleSHA256`, `templateTreeSHA256` | Helper lock tính; không đoán/copy ID từ repo demo. Contract/packaged recognition phụ thuộc đúng release đang chạy |
+| `parameters.moduleSourceId`, `*ModuleId`, `*ModuleSHA256`, `templateTreeSHA256` | Prepare helper tính từ snapshot local (hoặc locker từ Git objects); không đoán/copy ID từ repo demo. Contract/packaged recognition phụ thuộc đúng release đang chạy |
 | `console.url`, `username`, `passwordFile` | Origin Console và account Admin/PE đã có; mật khẩu là file owner-only |
 | `developer` | Account Developer thật, cùng Console/Organization; bootstrap không tự tạo user |
 | `platform.gitAccess.url` | Scope HTTPS của Organization GHES, ví dụ `https://github.company.example/platform` |
@@ -32,18 +32,19 @@ Không copy địa chỉ/IP/credential hoặc commit demo của cá nhân sang c
 | `platform.account` | Tên account, context, server endpoint và kubeconfig. Endpoint phải tới được từ backend, không dùng loopback của laptop |
 | `platform.secretStore` | Tên Vault, URL backend/workload nhìn thấy, KV-v2 mount, Kubernetes auth mount, tokenFile, CA nếu cần |
 | `platform.delivery` | Tên Fleet binding, platform Git và default. `config` để discovery tự điền hoặc đặt đúng `workspace`/`targetCluster` nếu có nhiều lựa chọn |
-| `platform.resourceTypes`, `definitions`, `namespaceAccess.rulesFile` | Git document refs; helper điền SHA-256. Không đổi thành local/inline để tránh lỗi fetch |
+| `platform.resourceTypes`, `definitions`, `namespaceAccess.rulesFile` | Git document refs; prepare helper điền SHA-256 và `git.preparedFile` cho local documents; module/template vẫn Git |
 | `platform.templateSources` | Git path của template bundle, commit và tree digest |
 | `application.name`, `subdomain` | App nghiệm thu riêng, tránh đụng app đang có |
 | `application.environment` | `staging` hoặc `production` của mô hình sản phẩm; không đồng nghĩa cấp quyền target |
 | `application.images` | Ba images từ registry nội bộ, immutable tag hoặc digest; không `latest` |
 | `application.variables`, `secretFiles` | Dữ liệu nghiệm thu và file secret; giữ đúng hợp đồng acceptance workload |
 | `verification.url` | URL thật trỏ frontend acceptance app sau deploy, nhìn thấy từ host Playwright |
-| `verification.forward` | Tùy chọn: chỉ dùng nếu chủ động chọn port-forward. Preset công ty không giả định có route/forward |
+| `verification.forward` | Chỉ dev-test. Console profile yêu cầu URL workload đã có route, từ chối port-forward |
 | `verification.storage.value` | Chuỗi kiểm thử công khai ghi vào PVC; không dùng dữ liệu thật/bí mật |
 | `runtime.mode` | `check` → `bootstrap` hoặc `all`; mode nằm trong file, không qua override ngầm |
-| `runtime.stateDir`, `reportDir`, `gitCacheDir` | Đường dẫn riêng từng target, ngoài Git; giữ lại để resume/lũy đẳng |
-| `runtime.clusterKubeconfigFile` | Kubeconfig cho native read-back/scoped namespace setup của script |
+| `runtime.stateDir`, `reportDir` | Riêng từng target/profile, ngoài Git; giữ để resume/lũy đẳng. `gitCacheDir` chỉ dùng dev-test |
+| `runtime.profile` | `console` cho staging; `dev-test` opt-in CLI/native checks. Schema 3 mặc định console |
+| `runtime.clusterKubeconfigFile` | Chỉ dùng trong dev-test; không nhập trong console profile |
 | `runtime.recordVideo` | Mặc định false ở staging; nếu bật, chỉ các checks thành công mới lưu video workload; không quay secret-entry |
 
 Tất cả đường dẫn tương đối được tính từ vị trí file input; `~/` chỉ dùng với
@@ -79,3 +80,12 @@ Các module là single-instance có PVC, chưa có HA/replica set/backup automat
 Không xóa PVC/state để khắc phục lỗi credentials. Chỉ dùng image tương thích
 entrypoint Docker Official Images của từng engine; MongoDB cần mongosh. Không
 đổi sang distribution khác mà chỉ sửa URL nếu entrypoint/UID/đường dẫn khác.
+
+## Quyền của staging runner
+
+Console profile chỉ dùng Playwright và local prepared documents. Không cần Git,
+kubectl hoặc gh CLI; không dùng `runtime.clusterKubeconfigFile` và không cho
+`platform.delivery.namespaceAccess.enabled=true`. Kubeconfig/token của platform
+account vẫn có thể là input cho form onboarding, backend giữ trách nhiệm truy
+cập target. Dữ liệu `git.preparedFile` được đọc tương đối từ prepared config,
+kiểm SHA-256 và ghi receipt local; không coi đó là bằng chứng remote Git commit.
