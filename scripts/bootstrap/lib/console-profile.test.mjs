@@ -28,7 +28,8 @@ test('Console preparation, load and preflight need no CLI on PATH; hashes fail c
  try{
   const prepared=prepareEnterpriseInput(f.raw,{inputs:resources,outputDir:f.dir});
   const config=f.load(prepared);assert.equal(config.runtime.profile,'console');assert.equal(config.runtime.clusterKubeconfigFile,undefined);
-  assert.equal(config.platform.definitions.length,9);assert.equal(config.gitInputReceipts.length,13);
+  assert.equal(config.platform.definitions.length,10);assert.equal(config.gitInputReceipts.length,14);
+  const route=config.platform.definitions.find(d=>d.definition.resourceType==='httproute');assert.equal(route.definition.driverInputs.values.variables.gateway_name,config.parameters.httprouteGatewayName);assert.equal(desiredScores(config,config.application).frontend.resources.public_http.params.hostname,config.parameters.httprouteHostname);
   assert.ok(config.gitInputReceipts.every(r=>r.verification==='local-sha256'&&r.gitCommitVerified===false));
   const responses={'/healthz':{},'/driver-accounts':{accounts:[]},'/resource-types':{resourceTypes:[]},'/secret-stores':{secretStores:[]},'/delivery-bindings':{bindings:[]},'/delivery-providers':{providers:[{kind:'fleet'}]},'/resource-definition-capabilities':{capabilities:[{resourceType:'workload',driverType:'template'}]},'/template-sources':{templateSources:[]},'/resource-definitions':{resourceDefinitions:[]},'/delivery-default':{}};
   const steps=[];await preflight({get:async path=>{assert.ok(Object.hasOwn(responses,path),path);return responses[path];}},config,{state:{},record:(...args)=>steps.push(args)});

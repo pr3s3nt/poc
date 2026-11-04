@@ -165,3 +165,23 @@ running preflight and reading deployment/browser-file evidence; absent/altered
 prepared documents and native setup/profile mixing are rejected. Existing
 Git-lock/direct-bootstrap regression coverage passed. No full backend/frontend
 suites or runtime deploy reruns: no product runtime code changed.
+
+## HTTPRoute to an existing company Gateway — approved 2026-11-04
+
+Add an independent Git `httproute` Type/Definition/Terraform module creating only
+one namespaced gateway.networking.k8s.io/v1 HTTPRoute. Gateway namespace/name
+and optional listener section are PE-controlled input; workload params select
+hostname, PathPrefix path and a same-namespace Service/numeric Service port.
+No Gateway/controller/DNS/TLS/ReferenceGrant or cluster RBAC mutations. Frontend
+acceptance declares the route resource; it does not also declare the platform
+publicRoutes mechanism. Existing public-route defaults remain unchanged.
+Console profile is preserved. Provider completion is not proof of Gateway
+Accepted/ResolvedRefs or external DNS/TLS readiness; browser checks still require
+a working supplied URL. Route may be created before its backend Service; the
+existing controller reconciles it when the workload Service exists.
+
+Focused HTTPRoute checks: Terraform fmt/validate and three mocked module tests
+passed (existing Gateway/listener/backend mapping, omitted optional listener,
+invalid Service port); three Console preparation/Git-lock regression tests passed,
+including ten Definitions/fourteen input receipts and frontend route interpolation.
+No cluster/Gateway mutations or live route acceptance claimed.

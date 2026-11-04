@@ -213,6 +213,27 @@
             "contentSha256": "${bootstrap.mongodbModuleSHA256}"
           }
         }
+      },
+      {
+        "git": {
+          "url": "${bootstrap.inputsRepository}",
+          "ref": "${bootstrap.inputsCommit}",
+          "path": "bootstrap/definitions/httproute.json",
+          "sha256": "LOCK_WITH_HELPER"
+        },
+        "source": {
+          "kind": "git",
+          "url": "${bootstrap.modulesRepository}",
+          "path": "${bootstrap.httprouteModulePath}",
+          "ref": "${bootstrap.modulesCommit}",
+          "pin": {
+            "sourceId": "${bootstrap.moduleSourceId}",
+            "moduleId": "${bootstrap.httprouteModuleId}",
+            "revision": "${bootstrap.modulesCommit}",
+            "subdirectory": "${bootstrap.httprouteModulePath}",
+            "contentSha256": "${bootstrap.httprouteModuleSHA256}"
+          }
+        }
       }
     ],
     "templateSources": [
@@ -281,7 +302,7 @@
   },
   "verification": {
     "enabled": true,
-    "url": "https://acceptance.staging.company.example",
+    "url": "https://${bootstrap.httprouteHostname}",
     "jobPayload": "company-staging-persistent-job",
     "timeoutMs": 300000,
     "storage": {
@@ -364,6 +385,14 @@
     "mongodbStorage": "10Gi",
     "mongodbStorageClass": "",
     "mongodbImagePullSecretName": "",
-    "mongodbRootUsername": "admin"
+    "mongodbRootUsername": "admin",
+    "httprouteModulePath": "terraform/httproute",
+    "httprouteModuleId": "LOCK_WITH_HELPER",
+    "httprouteModuleSHA256": "LOCK_WITH_HELPER",
+    "httprouteGatewayName": "REPLACE_GATEWAY_NAME",
+    "httprouteGatewayNamespace": "REPLACE_GATEWAY_NAMESPACE",
+    "httprouteGatewaySectionName": "REPLACE_LISTENER_NAME",
+    "httprouteHostname": "acceptance.staging.company.example",
+    "httproutePath": "/"
   }
 }

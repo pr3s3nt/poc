@@ -7,7 +7,9 @@ Không copy địa chỉ/IP/credential hoặc commit demo của cá nhân sang c
 | Trường | Cần điền / ý nghĩa |
 |---|---|
 | `environment` | Danh tính target/state, ví dụ `company-staging`; đổi target phải dùng state khác |
-| `parameters.definitionPrefix`, `definitionName` | Prefix ID và tên hiển thị cho chín Definitions; chọn một lần rồi giữ nguyên |
+| `parameters.definitionPrefix`, `definitionName` | Prefix ID và tên hiển thị cho mười Definitions; chọn một lần rồi giữ nguyên |
+| `parameters.httprouteGatewayName`, `httprouteGatewayNamespace`, `httprouteGatewaySectionName` | Gateway/listener công ty có sẵn; section rỗng để bỏ sectionName, không tạo Gateway |
+| `parameters.httprouteHostname`, `httproutePath` | Hostname và PathPrefix web mới; frontend mẫu trỏ Service frontend:8080; verification.url phải dùng đúng scheme listener |
 | `parameters.targetClass` | Class cluster/workload và resource references tương ứng |
 | `parameters.environmentType` | Loại Environment để matching; preset là `staging` |
 | `parameters.postgresImage`, `redisImage` | Image PostgreSQL/Redis từ registry công ty, dạng `registry:port/path@sha256:<64 hex>`; không dùng tag trần/latest |
@@ -89,3 +91,8 @@ kubectl hoặc gh CLI; không dùng `runtime.clusterKubeconfigFile` và không c
 account vẫn có thể là input cho form onboarding, backend giữ trách nhiệm truy
 cập target. Dữ liệu `git.preparedFile` được đọc tương đối từ prepared config,
 kiểm SHA-256 và ghi receipt local; không coi đó là bằng chứng remote Git commit.
+
+HTTPRoute: xem [hướng dẫn Gateway có sẵn](../../../projects/platform-resources/bootstrap/HTTPROUTE.md).
+Cần HTTPRoute v1 CRD và quyền tạo route của backend account. Staging bootstrap
+không dùng kubectl hoặc sửa Gateway. Provider apply không chứng minh Accepted/
+ResolvedRefs; chỉ báo browser checks nếu URL thực sự truy cập được.

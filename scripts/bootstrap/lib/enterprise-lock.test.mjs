@@ -17,8 +17,8 @@ test('enterprise locking reads exact local commits, derives pins, stays idempote
  try{
   const copy=(name,content)=>{mkdirSync(dirname(join(root,name)),{recursive:true});writeFileSync(join(root,name),content);};
   const visit=value=>{if(!value||typeof value!=='object')return;if(value.git){const name=value.git.path;copy(name,readFileSync(new URL('../../../projects/platform-resources/'+name,import.meta.url)));}for(const v of Object.values(value))visit(v);};visit(raw);
-  for(const kind of ['namespace','postgres','redis','storage','mysql','mariadb','mongodb'])copy(raw.parameters[kind+'ModulePath']+'/main.tf',`variable "namespace" {type=string}\n# ${kind}\n`);
-  for(const kind of ['mysql','mariadb','mongodb'])copy(raw.parameters[kind+'ModulePath']+'/main.tf',readFileSync(new URL('../../../projects/platform-resources/terraform/'+kind+'/main.tf',import.meta.url)));
+  for(const kind of ['namespace','postgres','redis','storage','mysql','mariadb','mongodb','httproute'])copy(raw.parameters[kind+'ModulePath']+'/main.tf',`variable "namespace" {type=string}\n# ${kind}\n`);
+  for(const kind of ['mysql','mariadb','mongodb','httproute'])copy(raw.parameters[kind+'ModulePath']+'/main.tf',readFileSync(new URL('../../../projects/platform-resources/terraform/'+kind+'/main.tf',import.meta.url)));
   copy(raw.platform.templateSources[0].path+'/bundle.yaml','kind: TemplateSource\n');
   git(['init','--quiet']);git(['config','user.email','test@localhost']);git(['config','user.name','Bootstrap Test']);git(['remote','add','origin',raw.parameters.inputsRepository]);git(['add','.']);git(['commit','--quiet','-m','Fixture sources']);
   for(const kind of ['postgres','redis','mysql','mariadb','mongodb'])raw.parameters[kind+'Image']='registry.company.example:5000/platform/'+kind+'@sha256:'+'a'.repeat(64);
@@ -39,7 +39,7 @@ test('enterprise locking reads exact local commits, derives pins, stays idempote
   locked.runtime.mode='all';
   const configFile=join(privateDir,'locked.json');writeFileSync(configFile,JSON.stringify(locked));
   const config=loadBootstrapConfig(configFile);
-  assert.equal(config.gitInputReceipts.length,13);assert.equal(config.platform.definitions.length,9);
+  assert.equal(config.gitInputReceipts.length,14);assert.equal(config.platform.definitions.length,10);
   assert.equal(config.platform.definitions[0].definition.key,'company-staging-cluster');
   assert.equal(config.platform.definitions[1].definition.driverInputs.values.source.source_id,locked.parameters.moduleSourceId);
   assert.equal(config.platform.definitions[2].source.url,raw.parameters.modulesRepository);

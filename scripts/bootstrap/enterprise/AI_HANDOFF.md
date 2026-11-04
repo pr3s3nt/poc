@@ -67,7 +67,7 @@ chứng minh mọi thành phần cluster hoạt động; trạng thái target đ
 minh qua các flow onboarding/verify tương ứng. Thiếu quyền thì dừng bước phụ thuộc
 và xử lý platform prerequisites bằng quy trình công ty, không tự cấp RBAC.
 
-Đổi mode `bootstrap` khi được cấp quyền target để cấu hình Types, chín Definitions,
+Đổi mode `bootstrap` khi được cấp quyền target để cấu hình Types, mười Definitions,
 Git module/template sources, account, Vault, Fleet binding/default qua Console UI.
 Báo BOOTSTRAPPED riêng với nghiệm thu deploy. Không gọi API mutation để thay UI.
 `ui.get` qua browser session chỉ dùng đọc lại trạng thái và đối chiếu receipts.
@@ -84,6 +84,11 @@ khác, không nâng quyền staging bootstrap. Không đổi profile trên state
 
 Rerun giữ nguyên input/state/identities; khác cấu hình thì BLOCKED, không reset,
 đổi tên resource hoặc xóa state để tiếp tục. Đây không phải general upgrade engine.
+
+Frontend mẫu khai báo httproute tới Gateway đã có. Điền nhóm tham số httproute,
+kiểm listener/DNS/TLS phù hợp hostname và quyền backend account tạo route. Đọc
+`projects/platform-resources/bootstrap/HTTPROUTE.md`. Không tạo Gateway/controller
+hoặc sửa route web khác; không thêm publicRoutes trùng đích này.
 
 ## 4. Lỗi và resume
 

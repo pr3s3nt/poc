@@ -1144,3 +1144,9 @@ Console staging bootstrap: `execution-profile.mjs` guards native CLI access;
 `prepared-inputs.mjs` checks their hashes without shell Git. `runner.mjs`,
 `direct-runner.mjs` and `verification.mjs` separate Console/browser observations
 from explicit dev-test cluster checks; runtime receipts pin the profile.
+
+Existing Gateway HTTPRoute assets: `projects/platform-resources/terraform/httproute`,
+`bootstrap/definitions/httproute.json`, Type entry and frontend resource declaration.
+PE Gateway/listener inputs live in enterprise staging input; setup at
+`projects/platform-resources/bootstrap/HTTPROUTE.md`. No built-in public-route
+flags or Gateway/controller configuration changed.

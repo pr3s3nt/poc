@@ -1,0 +1,59 @@
+{
+  "key": "${bootstrap.definitionPrefix}-httproute",
+  "name": "${bootstrap.definitionName} HTTPRoute",
+  "resourceType": "httproute",
+  "driverType": "terraform",
+  "driverInputs": {
+    "values": {
+      "source": {
+        "source_id": "${bootstrap.moduleSourceId}",
+        "module_id": "${bootstrap.httprouteModuleId}",
+        "revision": "${bootstrap.modulesCommit}",
+        "subdirectory": "${bootstrap.httprouteModulePath}",
+        "content_sha256": "${bootstrap.httprouteModuleSHA256}"
+      },
+      "variables": {
+        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+        "gateway_name": "${bootstrap.httprouteGatewayName}",
+        "gateway_namespace": "${bootstrap.httprouteGatewayNamespace}",
+        "gateway_section_name": "${bootstrap.httprouteGatewaySectionName}",
+        "hostname": "${bootstrap.httprouteHostname}",
+        "service": "frontend",
+        "port": 8080,
+        "path": "${bootstrap.httproutePath}"
+      },
+      "input_mapping": {
+        "hostname": {
+          "param": "hostname"
+        },
+        "service": {
+          "param": "service"
+        },
+        "port": {
+          "param": "port"
+        },
+        "path": {
+          "param": "path"
+        }
+      },
+      "output_mapping": {
+        "name": "name",
+        "namespace": "namespace",
+        "hostname": "hostname"
+      },
+      "provider_bindings": {
+        "kubernetes": {
+          "target": "resource",
+          "resource_ref": "k8s-cluster.${bootstrap.targetClass}#environments.@app.@env"
+        }
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "${bootstrap.environmentType}",
+      "class": "in-cluster"
+    }
+  ]
+}

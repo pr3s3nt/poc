@@ -3,7 +3,7 @@
 Đưa **nội dung thư mục này** lên root một repo GitHub Enterprise riêng:
 
 ```
-terraform/             # 11 Terraform modules
+terraform/             # 12 Terraform modules
 templates/standard/  # bộ template chuẩn
 bootstrap/             # Resource Types, Definitions, Workloads, policy
 README.md
@@ -12,7 +12,7 @@ AGENTS.md
 
 Không tạo thêm tầng `platform-resources/` trong repo mới. Definitions nằm ở
 `bootstrap/definitions/`; chúng tham chiếu module trong `terraform/` qua các
-tham số input. Preset staging đăng ký namespace/postgres/redis/storage và mysql/mariadb/mongodb;
+tham số input. Preset staging đăng ký namespace/postgres/redis/storage và mysql/mariadb/mongodb/httproute;
 các module AWS chỉ là mã nguồn bổ sung, không phải quyền triển khai AWS.
 
 ## Chuyển sang Git công ty
@@ -53,3 +53,7 @@ backend/worker/frontend tiếp tục nằm tại `application.images`.
 
 MySQL, MariaDB và MongoDB cũng có `<db>Image`, `<db>AuthSecretName`, tên key,
 storage và pull Secret trong input. Xem [hướng dẫn database](bootstrap/DATABASES.md).
+
+HTTPRoute trỏ Gateway công ty đã có: điền nhóm `parameters.httproute*`; frontend
+mẫu đã khai báo route tới Service frontend:8080. Không tạo Gateway/controller.
+Xem [HTTPRoute setup](bootstrap/HTTPROUTE.md).

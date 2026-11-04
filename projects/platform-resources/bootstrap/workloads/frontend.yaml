@@ -15,6 +15,15 @@ metadata:
   name: frontend
   class: ${bootstrap.targetClass}
 resources:
+  public_http:
+    type: httproute
+    class: in-cluster
+    id: acceptance-frontend-http
+    params:
+      hostname: ${bootstrap.httprouteHostname}
+      service: frontend
+      port: 8080
+      path: ${bootstrap.httproutePath}
   svc_backend_http:
     params:
       port: http

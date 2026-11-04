@@ -1963,3 +1963,12 @@ explicit dev-test only. Reports/state pin their profile and distinguish local
 snapshot hashes/browser file checks from Git-object/Fleet/PVC UID evidence.
 Preparation does not prove business documents belong to a declared remote commit.
 Focused local tests passed; no company staging run or new live deployment claimed.
+
+## Existing Gateway HTTPRoute resource — 2026-11-04
+
+Publishable resource assets add a namespaced HTTPRoute v1 Type/Definition/module
+and frontend acceptance declaration pointing to an existing company Gateway.
+Input selects Gateway/listener/hostname/path; backend Service frontend:8080 is
+in the application namespace. Gateway/controller/DNS/TLS are not created or
+changed. Console-only profile remains; mock/provider validation does not prove
+Gateway Accepted/ResolvedRefs, DNS/TLS or live company traffic.
