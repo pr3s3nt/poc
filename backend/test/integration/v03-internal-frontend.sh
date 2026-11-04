@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Retired by ADR-035; historical scenario body retained for provenance.
+printf "%s\n" "This Score rendering scenario is retired. Use e2e/scenarios/generic-workload/README.md." >&2
+exit 2
 # V03 integrated acceptance (issue #4): the Orchestrator places the REAL acceptance FRONTEND on an
 # existing Kubernetes cluster from Resource Definitions only (ADR-016). One headed, captioned run:
 # Internal account upload, Types, existing-cluster / Terraform namespace / workload Definitions with a

@@ -5,7 +5,7 @@ and [UC-18 Application deletion](../../../orchestrator_docs/usecase/UC-18/README
 The existing owned-kind harness prepares a disposable cluster, Vault/VSO and
 Console stack. This scenario registers the catalog through the PE Console,
 then reuses [workload-env-form](../workload-env-form/README.md) as Developer.
-Application and workload mutations use form controls; no Score files, Score
+Application and workload mutations use form controls; no Workload files, Workload
 editor or direct mutation API are used.
 
 ## Prerequisites and run

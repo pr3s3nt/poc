@@ -226,9 +226,9 @@ func newApp(t *testing.T, cloud bool) (*bootstrap.App, seed.Options) {
 	return app, opts
 }
 
-// eksScores are the acceptance Scores whose PostgreSQL runs in the cluster the plan itself creates.
-func eksScores(opts seed.Options) map[string]map[string]any {
-	docs := seed.AcceptanceScores(opts)
+// eksWorkloads are the acceptance Workloads whose PostgreSQL runs in the cluster the plan itself creates.
+func eksWorkloads(opts seed.Options) map[string]map[string]any {
+	docs := seed.AcceptanceWorkloads(opts)
 	for _, doc := range docs {
 		resources, _ := doc["resources"].(map[string]any)
 		if db, ok := resources["db"].(map[string]any); ok {
@@ -240,14 +240,14 @@ func eksScores(opts seed.Options) map[string]map[string]any {
 
 func newPreview(t *testing.T, st persistence.Store) *preview.Service {
 	t.Helper()
-	return preview.NewSimulationService(st, planning.NewService(bootstrap.FakeRenderBundles()), registrytest.Inspector(t, st))
+	return preview.NewSimulationService(st, planning.NewService(bootstrap.FakeTemplateSources()), registrytest.Inspector(t, st))
 }
 
 func deploy(t *testing.T, app *bootstrap.App, opts seed.Options, id string, before, after map[string]any) *appsvc.DeployResult {
 	t.Helper()
 	result, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
 		OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey,
-		WorkloadID: id, ScoreBefore: before, ScoreAfter: after, Actor: "test", RunID: runID,
+		WorkloadID: id, WorkloadBefore: before, WorkloadAfter: after, Actor: "test", RunID: runID,
 	})
 	if err != nil {
 		t.Fatalf("deploy %s: %v", id, err)
@@ -258,11 +258,11 @@ func deploy(t *testing.T, app *bootstrap.App, opts seed.Options, id string, befo
 func query(opts seed.Options, id, action string, before, after map[string]any) preview.PreviewDeploymentQuery {
 	return preview.PreviewDeploymentQuery{
 		OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey,
-		WorkloadID: id, Action: action, RunID: runID, ScoreBefore: before, ScoreAfter: after,
+		WorkloadID: id, Action: action, RunID: runID, WorkloadBefore: before, WorkloadAfter: after,
 	}
 }
 
-func scores(opts seed.Options) map[string]map[string]any { return seed.AcceptanceScores(opts) }
+func scores(opts seed.Options) map[string]map[string]any { return seed.AcceptanceWorkloads(opts) }
 
 func mainContainer(doc map[string]any) map[string]any {
 	return doc["containers"].(map[string]any)["main"].(map[string]any)
@@ -499,11 +499,11 @@ func TestPreview_StrictQuery(t *testing.T) {
 	}{
 		"deploy existing":  {query(opts, "backend", preview.ActionDeploy, nil, b), "already exists in the current Deployment Set"},
 		"stale before":     {query(opts, "worker", preview.ActionRemove, scores(opts)["worker"], nil), "is not part of the current Deployment Set"},
-		"invalid resource": {query(opts, "worker", preview.ActionDeploy, nil, badResources), `scoreAfter: score:`},
+		"invalid resource": {query(opts, "worker", preview.ActionDeploy, nil, badResources), `workloadAfter: score:`},
 	} {
 		_, err := svc.PreviewDeployment(ctx, tc.q)
-		if !errors.Is(err, preview.ErrInvalidScore) || !strings.Contains(err.Error(), tc.want) {
-			t.Errorf("%s: want actionable ErrInvalidScore containing %q, got %v", name, tc.want, err)
+		if !errors.Is(err, preview.ErrInvalidWorkload) || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: want actionable ErrInvalidWorkload containing %q, got %v", name, tc.want, err)
 		}
 	}
 }
@@ -576,7 +576,7 @@ func TestPreview_InternalImplicitGraph(t *testing.T) {
 
 func TestPreview_EKSChainComesFromDefinitions(t *testing.T) {
 	app, opts := newApp(t, true)
-	result, err := newPreview(t, app.Store).PreviewDeployment(context.Background(), query(opts, "backend", preview.ActionDeploy, nil, eksScores(opts)["backend"]))
+	result, err := newPreview(t, app.Store).PreviewDeployment(context.Background(), query(opts, "backend", preview.ActionDeploy, nil, eksWorkloads(opts)["backend"]))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -610,7 +610,7 @@ func TestPreview_EKSChainComesFromDefinitions(t *testing.T) {
 func TestPreview_ResourceIntentsAndTargetAreSafe(t *testing.T) {
 	ctx := context.Background()
 	app, opts := newApp(t, true)
-	result, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, eksScores(opts)["backend"]))
+	result, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, eksWorkloads(opts)["backend"]))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -850,8 +850,8 @@ func TestPreview_CatalogErrorsNeverEchoed(t *testing.T) {
 	t.Run("inspector", func(t *testing.T) {
 		app, opts := newApp(t, true)
 		calls := 0
-		svc := preview.NewSimulationService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), failingInspector{ModuleInspector: planning.RegistryInspector{Metadata: app.Modules}, sentinel: sentinel, calls: &calls})
-		_, err := svc.PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, eksScores(opts)["backend"]))
+		svc := preview.NewSimulationService(app.Store, planning.NewService(bootstrap.FakeTemplateSources()), failingInspector{ModuleInspector: planning.RegistryInspector{Metadata: app.Modules}, sentinel: sentinel, calls: &calls})
+		_, err := svc.PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, eksWorkloads(opts)["backend"]))
 		var public *preview.PublicError
 		if !errors.As(err, &public) || !errors.Is(err, preview.ErrPlanningRejected) || strings.Contains(err.Error(), sentinel) {
 			t.Fatalf("inspector error not sanitized: %v", err)
@@ -875,11 +875,11 @@ func TestPreview_CatalogErrorsNeverEchoed(t *testing.T) {
 		if err := seedtest.PublishCatalog(ctx, app.Store, opts); err != nil {
 			t.Fatal(err)
 		}
-		_, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, eksScores(opts)["backend"]))
+		_, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, eksWorkloads(opts)["backend"]))
 		if !errors.Is(err, preview.ErrPlanningRejected) || strings.Contains(err.Error(), sentinel) {
 			t.Fatalf("Definition error not sanitized: %v", err)
 		}
-		_, raw := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", ScoreAfter: eksScores(opts)["backend"], Actor: "test", RunID: runID})
+		_, raw := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", WorkloadAfter: eksWorkloads(opts)["backend"], Actor: "test", RunID: runID})
 		if raw == nil || !strings.Contains(raw.Error(), sentinel) {
 			t.Fatalf("fixture no longer exercises a leaking planner error: %v", raw)
 		}
@@ -905,7 +905,7 @@ func TestPreview_CatalogErrorsNeverEchoed(t *testing.T) {
 		}
 		// The raw planner error does quote the persisted content, which is
 		// why Preview must not echo it.
-		_, raw := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "worker", ScoreAfter: scores(opts)["worker"], Actor: "test", RunID: runID})
+		_, raw := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "worker", WorkloadAfter: scores(opts)["worker"], Actor: "test", RunID: runID})
 		if raw == nil || !strings.Contains(raw.Error(), sentinel) {
 			t.Fatalf("fixture no longer exercises a leaking planner error: %v", raw)
 		}
@@ -1015,8 +1015,8 @@ func (m metadataOnly) VerifyForExecution(context.Context, tfmodule.SourceRef) (t
 func TestPreview_TerraformUsesRegistryMetadataOnly(t *testing.T) {
 	app, opts := newApp(t, true)
 	reads := 0
-	svc := preview.NewSimulationService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), planning.RegistryInspector{Metadata: metadataOnly{Registry: app.Modules, t: t, reads: &reads}})
-	result, err := svc.PreviewDeployment(context.Background(), query(opts, "backend", preview.ActionDeploy, nil, eksScores(opts)["backend"]))
+	svc := preview.NewSimulationService(app.Store, planning.NewService(bootstrap.FakeTemplateSources()), planning.RegistryInspector{Metadata: metadataOnly{Registry: app.Modules, t: t, reads: &reads}})
+	result, err := svc.PreviewDeployment(context.Background(), query(opts, "backend", preview.ActionDeploy, nil, eksWorkloads(opts)["backend"]))
 	if err != nil {
 		t.Fatal(err)
 	}

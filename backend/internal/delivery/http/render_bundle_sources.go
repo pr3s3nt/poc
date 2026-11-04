@@ -17,10 +17,10 @@ const inspectBodyLimit = 64 << 10
 // inspectDeadline bounds resolve, fetch, validation and caching (RB-C02).
 const inspectDeadline = 120 * time.Second
 
-// handleInspectRenderBundle is POST /render-bundles/inspect (RB-C07): PE/Admin,
+// handleInspectTemplateSource is POST /template-sources/inspect (RB-C07): PE/Admin,
 // Organization scoped, strict {url,path,ref}. It records a verified pin only
 // and never saves a Definition.
-func (s *Server) handleInspectRenderBundle(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleInspectTemplateSource(w http.ResponseWriter, r *http.Request) {
 	org, ok := s.platformActor(w, r)
 	if !ok {
 		return
@@ -42,25 +42,51 @@ func (s *Server) handleInspectRenderBundle(w http.ResponseWriter, r *http.Reques
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), inspectDeadline)
 	defer cancel()
-	bundle, err := s.catalog.InspectRenderBundle(ctx, org, req)
+	bundle, err := s.catalog.InspectTemplateSource(ctx, org, req)
 	if err != nil {
 		s.writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"renderBundle": bundle})
+	writeJSON(w, http.StatusOK, map[string]any{"templateSource": bundle})
 }
 
-// handleGetRenderBundle is GET /render-bundles/{id}: one same-Organization
+// handleGetTemplateSource is GET /template-sources/{id}: one same-Organization
 // verified Git record; a foreign or missing ID is 404.
-func (s *Server) handleGetRenderBundle(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetTemplateSource(w http.ResponseWriter, r *http.Request) {
 	org, ok := s.platformActor(w, r)
 	if !ok {
 		return
 	}
-	bundle, err := s.catalog.GetRenderBundle(r.Context(), org, r.PathValue("id"))
+	bundle, err := s.catalog.GetTemplateSource(r.Context(), org, r.PathValue("id"))
 	if err != nil {
 		s.writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"renderBundle": bundle})
+	writeJSON(w, http.StatusOK, map[string]any{"templateSource": bundle})
+}
+
+func (s *Server) handleInlineTemplateSource(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.platformActor(w, r)
+	if !ok {
+		return
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 5<<20))
+	decoder.DisallowUnknownFields()
+	var req renderregistry.InlineInspection
+	if err := decoder.Decode(&req); err != nil {
+		if !writeTooLarge(w, err) {
+			writeCode(w, codeInvalidRequest, "")
+		}
+		return
+	}
+	if decoder.Decode(&struct{}{}) != io.EOF {
+		writeCode(w, codeInvalidRequest, "")
+		return
+	}
+	source, err := s.catalog.PrepareInlineTemplateSource(r.Context(), org, req)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"templateSource": source})
 }

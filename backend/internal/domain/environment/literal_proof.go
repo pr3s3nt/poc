@@ -8,7 +8,7 @@ import (
 // LiteralProofs is the private, server-owned provenance of ordinary string
 // container variables (UC-16 BR-23). It maps workload -> container -> variable
 // name to a digest of the exact accepted value, and is stored beside one
-// immutable Deployment Set, never inside its Document, a Score or a Delta.
+// immutable Deployment Set, never inside its Document, a Workload or a Delta.
 //
 // A literal in a deployed module is readable by an editor only when the same
 // set proves it. Historical and direct-API literals have no proof and stay

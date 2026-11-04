@@ -31,12 +31,11 @@ func main() {
 	runID := flag.String("run-id", "", "run id")
 	region := flag.String("region", "", "AWS region of the fake cloud Application")
 	accountID := flag.String("account-id", "", "AWS account id of the fake cloud Application")
-	scoreK8s := flag.String("score-k8s", "", "score-k8s binary or stand-in")
-	requireScore := flag.Bool("require-score-renderer", true, "product renderer policy: every Workload needs a score-k8s Definition and bundle, no native fallback")
+	requireWorkload := flag.Bool("require-score-renderer", true, "product renderer policy: every Workload needs a template Definition and bundle, no native fallback")
 	flag.Parse()
 	opts.Profile, opts.RunID, opts.Region, opts.AccountID = *profile, *runID, *region, *accountID
 	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{
-		Seed: opts, UIDir: *uiDir, Adapters: bootstrap.AdapterFake, ScoreK8sPath: *scoreK8s, RequireScoreRenderer: *requireScore, ConnectionCredentialStore: "memory",
+		Seed: opts, UIDir: *uiDir, Adapters: bootstrap.AdapterFake, RequireTemplateRenderer: *requireWorkload, ConnectionCredentialStore: "memory",
 	})
 	if err != nil {
 		log.Printf("fakeserver: startup failed: %v", err)

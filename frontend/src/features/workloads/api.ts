@@ -2,17 +2,17 @@ import { api } from '../../shared/api/client';
 import type { EnvironmentKey } from '../../shared/types/application';
 import type { DeploymentReviewData } from '../preview/DeploymentReview';
 
-export type Workload = { runtime?: string; schedule?: { expression: string; timeZone: string; suspend: boolean }; id: string; state?: 'PENDING_UPSERT' | 'PENDING_DELETE'; score?: Record<string, unknown>; ready: boolean; servicePorts?: string[] };
+export type Workload = { runtime?: string; schedule?: { expression: string; timeZone: string; suspend: boolean }; id: string; state?: 'PENDING_UPSERT' | 'PENDING_DELETE'; workload?: Record<string, unknown>; ready: boolean; servicePorts?: string[] };
 export type WorkloadList = { applicationKey: string; environmentKey: EnvironmentKey; draftVersion: number; workloads: Workload[] };
 
 const base = (app: string, env: EnvironmentKey) => `/applications/${encodeURIComponent(app)}/environments/${env}/workloads`;
 const item = (app: string, env: EnvironmentKey, id: string) => `${base(app, env)}/${encodeURIComponent(id)}`;
 
 export const getWorkloads = (app: string, env: EnvironmentKey) => api<WorkloadList>(base(app, env));
-export const saveWorkload = (app: string, env: EnvironmentKey, id: string, score: Record<string, unknown>, version: number) => api<WorkloadList>(item(app, env, id), { method: 'PUT', body: JSON.stringify({ score, version }) });
+export const saveWorkload = (app: string, env: EnvironmentKey, id: string, workload: Record<string, unknown>, version: number) => api<WorkloadList>(item(app, env, id), { method: 'PUT', body: JSON.stringify({ workload, version }) });
 export const deleteWorkload = (app: string, env: EnvironmentKey, id: string, version: number) => api<WorkloadList>(item(app, env, id), { method: 'DELETE', body: JSON.stringify({ version }) });
 export const undoWorkloadDelete = (app: string, env: EnvironmentKey, id: string, version: number) => api<WorkloadList>(`${item(app, env, id)}/undo`, { method: 'POST', body: JSON.stringify({ version }) });
-export const parseScoreImport = (app: string, env: EnvironmentKey, content: string) => api<{ score: Record<string, unknown> }>(`${base(app, env)}/parse`, { method: 'POST', body: JSON.stringify({ content }) });
+export const parseWorkloadImport = (app: string, env: EnvironmentKey, content: string) => api<{ workload: Record<string, unknown> }>(`${base(app, env)}/parse`, { method: 'POST', body: JSON.stringify({ content }) });
 
 // Safe projection of one resource node of a Preview (UC-05 BR-10): no params, resolved inputs, secret or state reference.
 export type ResourceIntent = {

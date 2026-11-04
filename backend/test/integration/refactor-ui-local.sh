@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Retired by ADR-035; historical scenario body retained for provenance.
+printf "%s\n" "This Score rendering scenario is retired. Use e2e/scenarios/generic-workload/README.md." >&2
+exit 2
 # Local UI scenario runner for the Web Console refactor (refactor.md, V-UI):
 #   refactor-ui-local.sh --scenario Txx --headed --captions vi --evidence NEW_PATH
 # A fake-adapter backend with temporary JSON state serves the built Web Console;

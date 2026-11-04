@@ -210,7 +210,7 @@ ALTER TABLE environments ADD CONSTRAINT environments_desired_revision_fk
   FOREIGN KEY(desired_config_revision_id) REFERENCES configuration_revisions(id) DEFERRABLE INITIALLY DEFERRED;
 CREATE TABLE workload_drafts (
   environment_id uuid NOT NULL REFERENCES environments(id) ON DELETE CASCADE, workload_id text NOT NULL,
-  score_document jsonb, state text NOT NULL, updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(environment_id,workload_id)
+  workload_document jsonb, state text NOT NULL, updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(environment_id,workload_id)
 );
 CREATE TABLE workload_instances (
   id uuid PRIMARY KEY, environment_id uuid NOT NULL REFERENCES environments(id), workload_id text NOT NULL,
@@ -257,28 +257,28 @@ CREATE UNIQUE INDEX effectiveness_baselines_scope_version ON effectiveness_basel
 -- Verified Git render bundles (ADR-021): Organization scoped, insert-only and
 -- immutable (the Console has SELECT/INSERT only; the trigger refuses UPDATE
 -- and DELETE). Availability is computed from the cache, never stored here.
-CREATE TABLE render_bundles (
-  id uuid PRIMARY KEY,
-  organization_id uuid NOT NULL REFERENCES organizations(id),
-  source_kind text NOT NULL DEFAULT 'git' CHECK (source_kind IN ('git','zip')),
-  source_url text NOT NULL CHECK (length(source_url) <= 2048),
-  CHECK ((source_kind='git' AND source_url ~ '^https://') OR (source_kind='zip' AND source_url='zip:sha256:' || source_revision AND source_revision ~ '^[0-9a-f]{64}$')),
-  source_path text NOT NULL CHECK (source_path = '.' OR (source_path !~ '(^|/)\.\.?(/|$)' AND source_path !~ '^/' AND length(source_path) <= 512)),
-  source_revision text NOT NULL CHECK (source_revision ~ '^([0-9a-f]{40}|[0-9a-f]{64})$'),
-  content_sha256 text NOT NULL CHECK (content_sha256 ~ '^[0-9a-f]{64}$'),
-  engine_contract text NOT NULL CHECK (engine_contract = 'git-render-v1'),
-  renderer_version text NOT NULL CHECK (renderer_version = '0.15.0'),
-  renderer_binary_sha256 text NOT NULL CHECK (renderer_binary_sha256 ~ '^[0-9a-f]{64}$'),
-  contract jsonb NOT NULL CHECK (jsonb_typeof(contract) = 'object'),
+CREATE TABLE template_sources (
+  id uuid CONSTRAINT template_sources_pkey PRIMARY KEY,
+  organization_id uuid NOT NULL CONSTRAINT template_sources_organization_id_fkey REFERENCES organizations(id),
+  source_kind text NOT NULL DEFAULT 'git' CHECK (source_kind IN ('git','zip','inline')),
+  source_url text NOT NULL CONSTRAINT template_sources_source_url_check CHECK (length(source_url) <= 2048),
+  CHECK ((source_kind='git' AND source_url ~ '^https://') OR (source_kind='zip' AND source_url='zip:sha256:' || source_revision AND source_revision ~ '^[0-9a-f]{64}$') OR (source_kind='inline' AND source_url='inline:sha256:' || source_revision AND source_revision ~ '^[0-9a-f]{64}$')),
+  source_path text NOT NULL CONSTRAINT template_sources_source_path_check CHECK (source_path = '.' OR (source_path !~ '(^|/)\.\.?(/|$)' AND source_path !~ '^/' AND length(source_path) <= 512)),
+  source_revision text NOT NULL CONSTRAINT template_sources_source_revision_check CHECK (source_revision ~ '^([0-9a-f]{40}|[0-9a-f]{64})$'),
+  content_sha256 text NOT NULL CONSTRAINT template_sources_content_sha256_check CHECK (content_sha256 ~ '^[0-9a-f]{64}$'),
+  engine_contract text NOT NULL CONSTRAINT template_sources_engine_contract_check CHECK (engine_contract = 'template-v1'),
+  renderer_version text NOT NULL CHECK (renderer_version = '1.0.0'),
+  renderer_binary_sha256 text NOT NULL CONSTRAINT template_sources_renderer_binary_sha256_check CHECK (renderer_binary_sha256 ~ '^[0-9a-f]{64}$'),
+  contract jsonb NOT NULL CONSTRAINT template_sources_contract_check CHECK (jsonb_typeof(contract) = 'object'),
   created_at timestamptz NOT NULL,
-  UNIQUE(organization_id, source_url, source_path, source_revision, engine_contract)
+  CONSTRAINT template_sources_origin_key UNIQUE(organization_id, source_url, source_path, source_revision, engine_contract, renderer_binary_sha256)
 );
-CREATE FUNCTION render_bundle_immutable() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE FUNCTION template_source_immutable() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-  RAISE EXCEPTION 'render_bundles rows are immutable' USING ERRCODE='23514';
+  RAISE EXCEPTION 'template_sources rows are immutable' USING ERRCODE='23514';
 END $$;
-CREATE TRIGGER render_bundles_immutable BEFORE UPDATE OR DELETE ON render_bundles
-  FOR EACH ROW EXECUTE FUNCTION render_bundle_immutable();
+CREATE TRIGGER template_sources_immutable BEFORE UPDATE OR DELETE ON template_sources
+  FOR EACH ROW EXECUTE FUNCTION template_source_immutable();
 
 -- Terraform v2 resource identity and state (ADR-014). Instances, attempts,
 -- dependency edges and state blobs are retained audit records: they are never

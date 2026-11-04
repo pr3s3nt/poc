@@ -46,6 +46,6 @@ describe('Preview target provenance (ADR-016)', () => {
     render(<ResourceIntents intents={[{ descriptor: 'k8s-cluster.internal#environments.shop.dev', resourceType: 'k8s-cluster', class: 'internal', scope: 'ENVIRONMENT:shop.dev', ownership: 'PREEXISTING', intent: 'CREATE', definitionKey: 'cluster-lab', driverType: 'existing-cluster', driverAccount: 'lab', accountVersion: 4 }]} />);
     expect(screen.getByText(/Có sẵn \(không bao giờ bị tạo hoặc xóa\)/)).toBeInTheDocument();
     expect(screen.getByText(/existing-cluster · tài khoản lab v4/)).toBeInTheDocument();
-    expect(rendererText({ definitionKey: 'workload-gold', class: 'gold', driverType: 'score-k8s', bundle: { version: '0.15.0' } })).toBe('score-k8s 0.15.0 (mẫu workload-gold, class gold)');
+    expect(rendererText({ definitionKey: 'workload-gold', class: 'gold', driverType: 'template', bundle: { version: '0.15.0' } })).toBe('template 0.15.0 (mẫu workload-gold, class gold)');
   });
 });

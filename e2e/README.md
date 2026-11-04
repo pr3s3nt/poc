@@ -24,7 +24,7 @@ e2e/
 |---|---|
 | `setup/` | Setup phục vụ scenario; bootstrap dùng thực tế ở `scripts/bootstrap/`; không coi setup là bằng chứng deploy thành công. |
 | `scenarios/<scenario-name>/` | Một luồng nghiệp vụ và entrypoint có tên rõ ràng; dùng tên lowercase có hyphen, ví dụ `acceptance-app`. |
-| `fixtures/` | Score YAML, cấu hình mẫu và dữ liệu kiểm thử không chứa credential. Fixture chỉ dùng cho một scenario có thể đặt cạnh scenario đó. |
+| `fixtures/` | Workload YAML, cấu hình mẫu và dữ liệu kiểm thử không chứa credential. Fixture chỉ dùng cho một scenario có thể đặt cạnh scenario đó. |
 | `lib/` | Helpers dùng chung: đăng nhập, thao tác Console, chờ trạng thái và kiểm tra cleanup. |
 
 `run.mjs` chỉ là ví dụ cho Playwright/Node. Shell wrappers được đặt cùng setup
@@ -116,3 +116,14 @@ Focused update of an existing acceptance backend (catalog → PVC mount → file
 retention after verified Pod recreation): [acceptance-pvc](scenarios/acceptance-pvc/README.md).
 
 Full bootstrap/idempotency from a dev config: [bootstrap-acceptance](scenarios/bootstrap-acceptance/README.md).
+
+## Generic Workload acceptance
+
+[Generic Workload scenario](scenarios/generic-workload/README.md) is the current
+ADR-035 acceptance entrypoint for workload rendering and CD/Fleet. Older
+`frontend/test/e2e` / `backend/test/integration` scenarios that require the removed
+Score contract, installed Render Bundle or external renderer are historical, not
+current acceptance gates. Their paths stay for provenance; wrappers that require
+the removed CLI stop before setup. Mixed historical scenarios are not evidence
+that their obsolete rendering steps still work. Reuse focused product tests and
+the new scenario for this change; no bulk E2E migration is included.

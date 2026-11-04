@@ -3,7 +3,7 @@
 Đầu vào mới dùng schemaVersion 2, tách dev/staging/production. Mọi giá trị runtime
 đến từ config; credential từ file riêng. Legacy catalog-only CLI vẫn được giữ.
 
-1. Validate toàn bộ config, file credential và Score trước khi mở browser.
+1. Validate toàn bộ config, file credential và Workload trước khi mở browser.
 2. Đăng nhập, đọc health/account/Types/Git/Catalog/Secret Store/CD; báo prerequisites.
 3. Qua Console: dùng lại cấu hình khớp, tạo phần thiếu; khác thì BLOCKED.
 4. Definitions/modules/rendering templates được lấy từ Git Catalog, pin tag rõ.

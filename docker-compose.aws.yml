@@ -15,7 +15,6 @@ services:
       - -run-id=aws-demo
       - -owner=demo
       - -ttl=168h
-      - -score-k8s=/usr/local/bin/score-k8s
       - -terraform=/usr/local/bin/terraform
       - -terraform-root=/var/lib/orchestrator/tfroot
       - -terraform-plugin-cache=/var/lib/orchestrator/plugin-cache

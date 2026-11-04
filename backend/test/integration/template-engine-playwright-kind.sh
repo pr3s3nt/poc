@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Retired by ADR-035; historical scenario body retained for provenance.
+printf "%s\n" "This Score rendering scenario is retired. Use e2e/scenarios/generic-workload/README.md." >&2
+exit 2
 # Browser-driven verification that the Definition-selected score-k8s renderer
 # deploys the diagnostic acceptance app on existing kind (always headed and
 # recorded). Requires score-k8s 0.15.0 on PATH or SCORE_K8S_BIN.

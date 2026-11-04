@@ -2,7 +2,7 @@ package planning
 
 import (
 	"orchestrator/internal/domain/environment"
-	"orchestrator/internal/domain/renderbundle"
+	"orchestrator/internal/domain/templatesource"
 )
 
 // validateExecution proves that the selected renderer implements every explicit
@@ -17,11 +17,11 @@ func validateExecution(plan *Plan, catalog Catalog) error {
 		if !ok || !selection.Bundle.Git() {
 			return environment.ErrExecutionUnavailable
 		}
-		bundle, ok := catalog.RenderBundles[selection.Bundle.ID]
+		bundle, ok := catalog.TemplateSources[selection.Bundle.ID]
 		if !ok {
 			return environment.ErrExecutionUnavailable
 		}
-		if _, _, err := renderbundle.MatchWorkloadTemplate(bundle.Contract.Manifest.WorkloadTemplates, e.Template.ID, e.Template.Version, e.Template.SHA256, e.Kind, e.Inputs); err != nil {
+		if _, _, err := templatesource.MatchWorkloadTemplate(bundle.Contract.Manifest.WorkloadTemplates, e.Template.ID, e.Template.Version, e.Template.SHA256, e.Kind, e.Inputs); err != nil {
 			return environment.ErrExecutionUnavailable
 		}
 		var bindings map[string]string

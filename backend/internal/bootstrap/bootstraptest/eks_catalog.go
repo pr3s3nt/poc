@@ -59,8 +59,8 @@ func EKSCatalog(t testing.TB, app *bootstrap.App, opts seed.Options) {
 		k8sDef("namespace-eks", "k8s-namespace", "k8s-namespace", "default", map[string]any{"name": "${context.env.namespace}"}, map[string]any{}, map[string]any{"name": "name"}),
 		k8sDef("pg-eks", "postgres", "postgres-k8s", "in-cluster", map[string]any{"namespace": nsOut}, map[string]any{"database": map[string]any{"param": "database"}, "username": map[string]any{"param": "username"}},
 			map[string]any{"host": "host", "port": "port", "database": "database", "username": "username", "password": "password"}),
-		{Key: "render-eks", Name: "render", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{}},
-			DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": bootstrap.FakeRenderBundleID, "namespace": nsOut, "cluster": "${resources['k8s-cluster.eks#environments.@app.@env'].outputs.cluster}"}}}},
+		{Key: "render-eks", Name: "render", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverTemplate, Criteria: []resource.Criterion{{}},
+			DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"template_source": bootstrap.FakeTemplateSourceID, "namespace": nsOut, "cluster": "${resources['k8s-cluster.eks#environments.@app.@env'].outputs.cluster}"}}}},
 	}
 	for _, def := range defs {
 		if err := app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, def); err != nil {

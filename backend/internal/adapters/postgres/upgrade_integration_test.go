@@ -42,7 +42,7 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 		t.Fatal(err)
 	}
 	identity := "orchestrator-fresh-baseline-v02"
-	if sql == versionThreeSQL || sql == versionFourSQL || sql == versionFiveSQL || sql == versionSixSQL {
+	if sql == versionThreeSQL || sql == versionFourSQL || sql == versionFiveSQL || sql == versionSixSQL || sql == versionSevenSQL {
 		identity = "orchestrator-schema-v3"
 		if err = recordVersionOne(ctx, tx, digest(versionOneSQL)); err != nil {
 			t.Fatal(err)
@@ -54,21 +54,27 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 			t.Fatal(err)
 		}
 	}
-	if sql == versionFourSQL || sql == versionFiveSQL || sql == versionSixSQL {
+	if sql == versionFourSQL || sql == versionFiveSQL || sql == versionSixSQL || sql == versionSevenSQL {
 		identity = "orchestrator-schema-v4"
 		if err = recordVersionFour(ctx, tx); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if sql == versionFiveSQL || sql == versionSixSQL {
+	if sql == versionFiveSQL || sql == versionSixSQL || sql == versionSevenSQL {
 		identity = "orchestrator-schema-v5"
 		if err = recordVersionFive(ctx, tx); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if sql == versionSixSQL {
+	if sql == versionSixSQL || sql == versionSevenSQL {
 		identity = "orchestrator-schema-v6"
 		if err = recordVersionSix(ctx, tx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if sql == versionSevenSQL {
+		identity = "orchestrator-schema-v7"
+		if err = recordVersionSeven(ctx, tx); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -113,10 +119,13 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 	}
 	for role, name := range map[RuntimeRole]string{ConsoleRuntime: db.ConsoleRole, StateRuntime: db.StateRole} {
 		for _, g := range grantsOf(role) {
-			if ((g.table == "platform_delivery_defaults" || g.table == "application_delivery_repositories") && sql != versionFiveSQL && sql != versionSixSQL) || ((g.table == "resource_definition_versions" || g.table == "resource_definition_policies" || g.table == "environment_definition_selections") && sql != versionSixSQL) || (catalogTable(g.table) && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL) || (reconciliationTable(g.table) && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL) || (g.table == "platform_git_settings" && sql != versionTwoSQL && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL) || (g.table == "schema_upgrade_history" && sql != versionOneSQL && sql != versionTwoSQL && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL) {
+			if g.table == "template_sources" {
+				g.table = "render_bundles"
+			}
+			if ((g.table == "platform_delivery_defaults" || g.table == "application_delivery_repositories") && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL) || ((g.table == "resource_definition_versions" || g.table == "resource_definition_policies" || g.table == "environment_definition_selections") && sql != versionSixSQL && sql != versionSevenSQL) || (catalogTable(g.table) && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL) || (reconciliationTable(g.table) && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL) || (g.table == "platform_git_settings" && sql != versionTwoSQL && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL) || (g.table == "schema_upgrade_history" && sql != versionOneSQL && sql != versionTwoSQL && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL) {
 				continue
 			}
-			if role == StateRuntime && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL {
+			if role == StateRuntime && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL {
 				if g.table == "environments" {
 					g.columns = []string{"id", "application_id", "active_operation_id", "generation_high"}
 				}
@@ -148,7 +157,7 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 }
 
 func TestUpgradeSupportedPopulatedSources(t *testing.T) {
-	for name, source := range map[string]string{"staging-1516dec": sourceOldSQL, "preview-2a111db": sourceCurrentSQL, "version-1": versionOneSQL, "version-2": versionTwoSQL, "version-3": versionThreeSQL, "version-4": versionFourSQL, "version-5": versionFiveSQL, "version-6": versionSixSQL} {
+	for name, source := range map[string]string{"staging-1516dec": sourceOldSQL, "preview-2a111db": sourceCurrentSQL, "version-1": versionOneSQL, "version-2": versionTwoSQL, "version-3": versionThreeSQL, "version-4": versionFourSQL, "version-5": versionFiveSQL, "version-6": versionSixSQL, "version-7": versionSevenSQL} {
 		t.Run(name, func(t *testing.T) {
 			owner, console, roles := legacyDatabase(t, source)
 			stamp := scalar[string](t, owner, `SELECT created_at::text FROM schema_baseline`)
@@ -165,7 +174,7 @@ func TestUpgradeSupportedPopulatedSources(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if n := scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`); n != 7 {
+			if n := scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`); n != 8 {
 				t.Fatal(n)
 			}
 			if got := scalar[string](t, owner, `SELECT installation_id::text FROM schema_baseline`); got != "11111111-1111-4111-8111-111111111111" {
@@ -191,8 +200,8 @@ func TestUpgradeSupportedPopulatedSources(t *testing.T) {
 			if _, err = store.GetSessionByTokenHash(context.Background(), "retained-token-hash"); err != nil {
 				t.Fatal("retained session missing")
 			}
-			if n := scalar[int](t, owner, `SELECT count(*) FROM render_bundles WHERE source_kind='git' AND source_url='https://example.invalid/retained.git'`); n != 1 {
-				t.Fatal("retained render source changed")
+			if n := scalar[int](t, owner, `SELECT count(*) FROM template_sources WHERE source_kind='git' AND source_url='https://example.invalid/retained.git'`); n != 0 {
+				t.Fatal("retired experimental render source survived upgrade")
 			}
 			if source == versionTwoSQL && scalar[int](t, owner, `SELECT count(*) FROM platform_git_settings WHERE url='https://git.example/retained' AND version=7`) != 1 {
 				t.Fatal("retained Git settings changed")
@@ -268,6 +277,16 @@ func TestUpgradePreservesStateAndRuntimeIsolation(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer tx.Rollback(ctx)
+			// Reconstruct only the retired empty source table in this disposable fixture.
+			// Use the frozen version-7 DDL rather than mutating a released reference.
+			start := strings.Index(versionSevenSQL, "CREATE TABLE render_bundles (")
+			end := strings.Index(versionSevenSQL[start:], "-- Terraform v2 resource identity") + start
+			if _, err = tx.Exec(ctx, `DROP TABLE template_sources; DROP FUNCTION template_source_immutable(); ALTER TABLE workload_drafts RENAME COLUMN workload_document TO score_document;`+versionSevenSQL[start:end]); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = tx.Exec(ctx, `GRANT SELECT,INSERT ON render_bundles TO `+pgx.Identifier{f.db.ConsoleRole}.Sanitize()); err != nil {
+				t.Fatal(err)
+			}
 			if _, err = tx.Exec(ctx, `ALTER TABLE connections DROP CONSTRAINT connections_kind_check;
 ALTER TABLE connections ADD CONSTRAINT connections_kind_check CHECK (kind IN ('AWS','KUBERNETES'));
 ALTER TABLE connections DROP CONSTRAINT connections_authentication_type_check;
@@ -449,13 +468,16 @@ func retainedFingerprints(t *testing.T, url string) map[string]string {
 		if table == "applications" {
 			expr += ` - 'status' - 'deletion'`
 		}
-		if table == "render_bundles" {
+		if table == "template_sources" || table == "render_bundles" {
 			expr += ` - 'source_kind'`
 		}
 		var hash string
 		q := `SELECT md5(COALESCE(jsonb_agg(x ORDER BY x::text)::text,'')) FROM (SELECT ` + expr + ` AS x FROM ` + pgx.Identifier{table}.Sanitize() + ` t) data`
 		if err = conn.QueryRow(context.Background(), q).Scan(&hash); err != nil {
 			t.Fatal(err)
+		}
+		if table == "render_bundles" {
+			table = "template_sources"
 		}
 		result[table] = hash
 	}

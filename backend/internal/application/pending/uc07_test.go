@@ -18,7 +18,7 @@ import (
 	"orchestrator/internal/seed"
 )
 
-// consumerOf returns a Score whose variable references provider's http Service.
+// consumerOf returns a Workload whose variable references provider's http Service.
 func consumerOf(name, provider string) map[string]any {
 	score := scoreFor(name, "example.invalid/"+name+":v1", false)
 	score["containers"].(map[string]any)["main"].(map[string]any)["variables"] = map[string]any{"API_URL": "${resources.api.url}"}
@@ -102,7 +102,7 @@ func toJSON(t *testing.T, value any) string {
 }
 
 func deployCommand(opts seed.Options, id string, before, after map[string]any) appsvc.DeployCommand {
-	return appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: id, ScoreBefore: before, ScoreAfter: after, Actor: "test"}
+	return appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: id, WorkloadBefore: before, WorkloadAfter: after, Actor: "test"}
 }
 
 type sentinelDeployer struct{}
@@ -125,7 +125,7 @@ func TestDeployReportDoesNotEchoRuntimeErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 	workloads := workloadconfig.NewService(app.Store)
-	svc := pending.NewSimulationService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
+	svc := pending.NewSimulationService(app.Store, planning.NewService(bootstrap.FakeTemplateSources()), workloads, planning.RegistryInspector{Metadata: app.Modules})
 	svc.SetDeployer(app.Deployments)
 	if _, err := workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "backend", scoreFor("backend", "example.invalid/backend:v1", false), 0); err != nil {
 		t.Fatal(err)

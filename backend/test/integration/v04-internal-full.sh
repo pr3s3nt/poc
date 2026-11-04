@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Retired by ADR-035; historical scenario body retained for provenance.
+printf "%s\n" "This Score rendering scenario is retired. Use e2e/scenarios/generic-workload/README.md." >&2
+exit 2
 # V04 integrated acceptance (issue #4): the ENTIRE acceptance application (frontend, backend, worker) with a REAL shared
 # PostgreSQL and a REAL shared Redis on an existing Kubernetes cluster, placed from Resource Definitions and a resolved
 # dependency graph only (ADR-016, ADR-017). One headed, captioned run: Internal account upload, Secret Store, Types,

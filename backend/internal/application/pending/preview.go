@@ -24,7 +24,7 @@ import (
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/planning"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 	"orchestrator/internal/platform/canon"
 	"orchestrator/internal/ports/persistence"
 )
@@ -259,11 +259,11 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	if err != nil {
 		return Preview{}, err
 	}
-	renderBundles, err := persistence.RenderBundlesOf(ctx, st, app.OrganizationKey)
+	templateSources, err := persistence.TemplateSourcesOf(ctx, st, app.OrganizationKey)
 	if err != nil {
 		return Preview{}, err
 	}
-	catalog := planning.Catalog{DefinitionSelectionRevision: definitionSelection.Revision, ReleaseSelection: catalogBinding.Desired, ReleasePin: releasePin, Types: typeMap, Definitions: definitions, Accounts: accounts, RenderBundles: renderBundles}
+	catalog := planning.Catalog{DefinitionSelectionRevision: definitionSelection.Revision, ReleaseSelection: catalogBinding.Desired, ReleasePin: releasePin, Types: typeMap, Definitions: definitions, Accounts: accounts, TemplateSources: templateSources}
 
 	pending := map[string]environment.WorkloadDraft{}
 	for _, draft := range drafts {
@@ -274,11 +274,11 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 			continue
 		}
 		if all || catalogPending || definitionsPending {
-			raw, err := workloadconfig.ReconstructScoreProven(id, module, set.Document, set.LiteralProofs.ProverFor(id), set.ResourceAliases[id])
+			raw, err := workloadconfig.ReconstructWorkloadProven(id, module, set.Document, set.LiteralProofs.ProverFor(id), set.ResourceAliases[id])
 			if err != nil {
 				return Preview{}, fmt.Errorf("%w: workload %s cannot be rebuilt: %v", ErrInvalid, id, err)
 			}
-			pending[id] = environment.WorkloadDraft{ApplicationKey: appKey, EnvironmentKey: envKey, WorkloadID: id, State: environment.DraftUpsert, Score: raw}
+			pending[id] = environment.WorkloadDraft{ApplicationKey: appKey, EnvironmentKey: envKey, WorkloadID: id, State: environment.DraftUpsert, Workload: raw}
 			continue
 		}
 		changed, err := usesChangedConfiguration(ctx, st, module, desired, instanceByID[id].AppliedConfigRevisionID)
@@ -299,11 +299,11 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		if !changed && unchangedRenderer && (!deliveryPending || transferRequired || policyOnly) {
 			continue
 		}
-		raw, err := workloadconfig.ReconstructScoreProven(id, module, set.Document, set.LiteralProofs.ProverFor(id), set.ResourceAliases[id])
+		raw, err := workloadconfig.ReconstructWorkloadProven(id, module, set.Document, set.LiteralProofs.ProverFor(id), set.ResourceAliases[id])
 		if err != nil {
 			return Preview{}, fmt.Errorf("%w: workload %s cannot be rebuilt: %v", ErrInvalid, id, err)
 		}
-		pending[id] = environment.WorkloadDraft{ApplicationKey: appKey, EnvironmentKey: envKey, WorkloadID: id, State: environment.DraftUpsert, Score: raw}
+		pending[id] = environment.WorkloadDraft{ApplicationKey: appKey, EnvironmentKey: envKey, WorkloadID: id, State: environment.DraftUpsert, Workload: raw}
 	}
 	// Complete removal uses the applied manager's retained receipts even if a
 	// different manager was saved as draft. It does not adopt workloads only to
@@ -344,22 +344,22 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	base := set.Document
 	for _, id := range ordered {
 		draft := pending[id]
-		var before, after *score.Document
+		var before, after *workloadspec.Document
 		if module, exists := base.Modules[id]; exists {
-			raw, err := workloadconfig.ReconstructScoreProven(id, module, base, set.LiteralProofs.ProverFor(id), set.ResourceAliases[id])
+			raw, err := workloadconfig.ReconstructWorkloadProven(id, module, base, set.LiteralProofs.ProverFor(id), set.ResourceAliases[id])
 			if err != nil {
 				return Preview{}, fmt.Errorf("%w: workload %s cannot be updated: %v", ErrInvalid, id, err)
 			}
-			before, err = score.FromMap(raw)
+			before, err = workloadspec.FromMap(raw)
 			if err != nil {
 				return Preview{}, err
 			}
 		}
 		if draft.State == environment.DraftUpsert {
-			if err := s.workloads.Bound(st).ValidateImport(ctx, appKey, envKey, draft.Score); err != nil {
+			if err := s.workloads.Bound(st).ValidateImport(ctx, appKey, envKey, draft.Workload); err != nil {
 				return Preview{}, err
 			}
-			after, err = score.FromMap(draft.Score)
+			after, err = workloadspec.FromMap(draft.Workload)
 			if err != nil {
 				return Preview{}, err
 			}
@@ -482,7 +482,7 @@ func canonicalServices(set environment.Document) environment.Document {
 	return copy
 }
 
-func validateImageRegistry(doc *score.Document, host string) error {
+func validateImageRegistry(doc *workloadspec.Document, host string) error {
 	if host == "" || doc == nil {
 		return nil
 	}
@@ -547,7 +547,7 @@ func orderDrafts(drafts map[string]environment.WorkloadDraft) ([]string, error) 
 		state[id] = 1
 		draft := drafts[id]
 		if draft.State == environment.DraftUpsert {
-			parsed, err := score.FromMap(draft.Score)
+			parsed, err := workloadspec.FromMap(draft.Workload)
 			if err != nil {
 				return err
 			}
@@ -679,7 +679,7 @@ func (s *Service) Desired(ctx context.Context, appKey, envKey string) (Desired, 
 				continue
 			}
 			routes[d.WorkloadID] = 0
-			if doc, err := score.FromMap(d.Score); err == nil && doc.Service != nil {
+			if doc, err := workloadspec.FromMap(d.Workload); err == nil && doc.Service != nil {
 				routes[d.WorkloadID] = len(doc.Service.PublicRoutes)
 			}
 		}

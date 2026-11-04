@@ -8,7 +8,7 @@ import (
 
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 )
 
 func TestExecutionRoundTripThroughAppliedSet(t *testing.T) {
@@ -19,7 +19,7 @@ func TestExecutionRoundTripThroughAppliedSet(t *testing.T) {
 				zero := int32(0)
 				execution.Schedule = &environment.Schedule{Expression: "0 0 * * *", TimeZone: "UTC", ConcurrencyPolicy: "Forbid", BackoffLimit: &zero}
 			}
-			document := score.Document{APIVersion: score.SupportedAPIVersion, Metadata: score.Metadata{Name: "example"}, Containers: map[string]environment.Container{"main": {Image: "example:v1"}}, Execution: execution}
+			document := workloadspec.Document{APIVersion: workloadspec.SupportedAPIVersion, Metadata: workloadspec.Metadata{Name: "example"}, Containers: map[string]environment.Container{"main": {Image: "example:v1"}}, Execution: execution}
 			fragment, err := document.Fragment(map[string]resource.Type{})
 			if err != nil {
 				t.Fatal(err)
@@ -32,11 +32,11 @@ func TestExecutionRoundTripThroughAppliedSet(t *testing.T) {
 			if err = json.Unmarshal(raw, &set); err != nil {
 				t.Fatal(err)
 			}
-			restored, err := ReconstructScore("example", set.Modules["example"], set)
+			restored, err := ReconstructWorkload("example", set.Modules["example"], set)
 			if err != nil {
 				t.Fatal(err)
 			}
-			parsed, err := score.FromMap(restored)
+			parsed, err := workloadspec.FromMap(restored)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -45,7 +45,7 @@ func TestExecutionRoundTripThroughAppliedSet(t *testing.T) {
 			}
 			fragment.Module.Spec.Execution.Template.ID = "changed"
 			if document.Execution.Template.ID != "custom" {
-				t.Fatal("fragment aliases Score execution")
+				t.Fatal("fragment aliases Workload execution")
 			}
 		})
 	}
@@ -53,7 +53,7 @@ func TestExecutionRoundTripThroughAppliedSet(t *testing.T) {
 
 func TestExecutionMountAliasSurvivesSharedResourceRoundTrip(t *testing.T) {
 	execution := &environment.WorkloadExecution{Version: 1, Kind: "StatefulSet", Template: environment.TemplatePin{ID: "stateful", Version: "1.0.0", SHA256: strings.Repeat("a", 64)}, Mounts: []environment.StorageMount{{Resource: "photos", Container: "main", Path: "/data"}}}
-	doc := score.Document{APIVersion: score.SupportedAPIVersion, Metadata: score.Metadata{Name: "web"}, Containers: map[string]environment.Container{"main": {Image: "web:v1"}}, Execution: execution, Resources: map[string]score.ResourceSpec{"photos": {Type: "storage", ID: "shared-photos"}}}
+	doc := workloadspec.Document{APIVersion: workloadspec.SupportedAPIVersion, Metadata: workloadspec.Metadata{Name: "web"}, Containers: map[string]environment.Container{"main": {Image: "web:v1"}}, Execution: execution, Resources: map[string]workloadspec.ResourceSpec{"photos": {Type: "storage", ID: "shared-photos"}}}
 	types := map[string]resource.Type{"storage": {Key: "storage", Outputs: []resource.OutputField{{Name: "claimName", Type: "string"}, {Name: "namespace", Type: "string"}}}}
 	fragment, err := doc.Fragment(types)
 	if err != nil {
@@ -70,11 +70,11 @@ func TestExecutionMountAliasSurvivesSharedResourceRoundTrip(t *testing.T) {
 	_ = json.Unmarshal(raw, &tree)
 	aliases := KeepResourceAliases(nil, environment.Document{Modules: map[string]environment.Module{"web": fragment.Module}}, &doc)["web"]
 	set := environment.Document{Modules: map[string]environment.Module{"web": fragment.Module}, Shared: fragment.Shared}
-	restored, err := ReconstructScore("web", fragment.Module, set, aliases)
+	restored, err := ReconstructWorkload("web", fragment.Module, set, aliases)
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed, err := score.FromMap(restored)
+	parsed, err := workloadspec.FromMap(restored)
 	if err != nil {
 		t.Fatal(err)
 	}

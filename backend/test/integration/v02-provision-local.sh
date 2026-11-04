@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Retired by ADR-035; historical scenario body retained for provenance.
+printf "%s\n" "This Score rendering scenario is retired. Use e2e/scenarios/generic-workload/README.md." >&2
+exit 2
 # V02P local browser scenario: companion-resource ("provision") authoring and
 # planner consumption. A Platform Engineer authors a Redis Resource Definition
 # whose provision rules create four PostgreSQL companions (one per

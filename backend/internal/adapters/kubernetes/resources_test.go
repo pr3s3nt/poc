@@ -67,7 +67,7 @@ func TestRender_DeclaredContainerResources(t *testing.T) {
 }
 
 // A missing request field falls back to the declared limit of the same field,
-// else to the platform default; limits only contain the fields the Score
+// else to the platform default; limits only contain the fields the Workload
 // declared.
 func TestRender_PartialContainerResourcesFillMissingRequests(t *testing.T) {
 	got := renderContainers(t, map[string]environment.Container{

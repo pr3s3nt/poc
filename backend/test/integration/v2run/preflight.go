@@ -15,7 +15,7 @@ import (
 // Pinned tool versions of the acceptance.
 const (
 	PinnedTerraformVersion = "1.9.8"
-	PinnedScoreK8sVersion  = "0.15.0"
+	PinnedTemplateVersion  = "0.15.0"
 )
 
 // Check is one preflight verdict (names and verdicts only, never values).
@@ -40,7 +40,7 @@ func FileSHA256(path string) (string, error) {
 }
 
 // VerifyBinaries checks every configured binary against its pinned SHA-256 and
-// proves the pinned Terraform and score-k8s versions by running them.
+// proves the pinned Terraform and template versions by running them.
 func VerifyBinaries(ctx context.Context, c Config) []Check {
 	var out []Check
 	for _, name := range sortedKeys(c.Binaries) {
@@ -61,9 +61,9 @@ func VerifyBinaries(ctx context.Context, c Config) []Check {
 		_ = json.Unmarshal([]byte(run(b.Path, "version", "-json")), &v)
 		out = append(out, Check{Name: "version:terraform", OK: v.Version == PinnedTerraformVersion, Note: v.Version})
 	}
-	if b, ok := c.Binaries["score-k8s"]; ok {
+	if b, ok := c.Binaries["template"]; ok {
 		first := strings.SplitN(run(b.Path, "--version"), "\n", 2)[0]
-		out = append(out, Check{Name: "version:score-k8s", OK: strings.HasPrefix(first, "score-k8s "+PinnedScoreK8sVersion+" ("), Note: first})
+		out = append(out, Check{Name: "version:template", OK: strings.HasPrefix(first, "template "+PinnedTemplateVersion+" ("), Note: first})
 	}
 	return out
 }

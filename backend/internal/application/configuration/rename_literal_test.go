@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"orchestrator/internal/domain/environment"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 )
 
 func (f *fixture) deployWithProofs(t *testing.T, env string, scores map[string]map[string]any, proofs environment.LiteralProofs) {
@@ -47,11 +47,11 @@ func TestRenameKeepsProvenLiteralsAndRejectsUnprovenOnes(t *testing.T) {
 			t.Fatalf("rename with a proven literal: %v", err)
 		}
 		draft := draftByID(f.state(t, "staging").drafts)["api"]
-		vars := variablesOf(t, draft.Score)
+		vars := variablesOf(t, draft.Workload)
 		if vars["A"] != "${resources.env.DATABASE_URL}" || vars["LOG"] != "  debug $${X}  " {
 			t.Fatalf("draft variables: %v", vars)
 		}
-		if _, err := score.FromMap(draft.Score); err != nil {
+		if _, err := workloadspec.FromMap(draft.Workload); err != nil {
 			t.Fatal(err)
 		}
 	})

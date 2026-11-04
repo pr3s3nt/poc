@@ -5,7 +5,7 @@ import type { ResourceType } from './api';
 import { t } from '../../shared/i18n';
 import { newSharedId, type SharedResource } from './sharedResources';
 
-// sharedId is the Score resource `id` (UC-06 shared dependency `<type>.<class>#shared.<id>`); className is the
+// sharedId is the Workload resource `id` (UC-06 shared dependency `<type>.<class>#shared.<id>`); className is the
 // provisioning class. Existing/imported identities are preserved. New form resources are shared.
 export type Dependency = { alias: string; type: string; className: string; sharedId: string; params: Record<string, string>; reuseId?: string; existing?: boolean };
 export type ClassMetadata = 'ready' | 'loading' | 'error';
@@ -15,7 +15,7 @@ export const emptyDependency = (): Dependency => ({ alias: '', type: '', classNa
 // not an inherited Object member.
 export const paramValue = (params: Record<string, string>, name: string): string => (Object.hasOwn(params, name) ? params[name] ?? '' : '');
 
-// Aliases the Score reserves for virtual resources (Application keys and Service references).
+// Aliases the Workload reserves for virtual resources (Application keys and Service references).
 export const reservedAlias = (alias: string): boolean => alias === 'env' || alias.startsWith('svc_');
 
 // The first problem of one dependency (type, required and numeric inputs), or undefined.

@@ -38,8 +38,8 @@ if [ -n "${ORCHESTRATOR_TERRAFORM_STATE_DATABASE_URL:-}" ]; then
 fi
 unset ORCHESTRATOR_TERRAFORM_STATE_DATABASE_URL
 
-# The image ships the pinned renderer; explicit CLI arguments can override it.
-set -- -addr "${ORCHESTRATOR_LISTEN_ADDR:-0.0.0.0:8080}" -ui-dir "" -adapters "${ORCHESTRATOR_ADAPTERS:-kubernetes}" -score-k8s "${ORCHESTRATOR_SCORE_K8S_PATH:-/usr/local/bin/score-k8s}" "$@"
+# Manifest templates run in the built-in bounded Go worker.
+set -- -addr "${ORCHESTRATOR_LISTEN_ADDR:-0.0.0.0:8080}" -ui-dir "" -adapters "${ORCHESTRATOR_ADAPTERS:-kubernetes}" "$@"
 if [ -n "${ORCHESTRATOR_KUBE_CONTEXT:-}" ]; then set -- "$@" -kube-context "${ORCHESTRATOR_KUBE_CONTEXT}"; fi
 if [ -n "${ORCHESTRATOR_CLUSTER:-}" ]; then set -- "$@" -cluster "${ORCHESTRATOR_CLUSTER}"; fi
 if [ -n "${ORCHESTRATOR_VAULT_DELIVERY:-}" ]; then set -- "$@" -vault-delivery "${ORCHESTRATOR_VAULT_DELIVERY}"; fi

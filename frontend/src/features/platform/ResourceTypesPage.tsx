@@ -100,7 +100,7 @@ export function ResourceTypesPage() {
     const metadataPending = capabilityList.loading || capabilityList.loadError !== '';
     // Only registry-verified module pins count as a way to create the Type.
     const pairs = metadataPending ? [] : capabilitiesForType(capabilityList.items, type.key).filter(isVerifiedPin);
-    const rule = pairs.length > 0;
+    const rule = pairs.length > 0 || (!metadataPending && type.key === 'workload' && capabilityList.items.some((item) => item.resourceType === 'workload' && item.driverType === 'template'));
     const supportLabel = capabilityList.loading ? t('platform.resourceTypes.checkingSupport') : capabilityList.loadError ? t('platform.resourceTypes.supportNotConfirmed') : rule ? t('platform.resourceTypes.provisioningSupported') : t('platform.resourceTypes.contractOnly');
     const open = expanded === type.key;
     const inputList = type.inputs ?? [];
@@ -111,7 +111,6 @@ export function ResourceTypesPage() {
         <Button type="button" aria-expanded={open} aria-label={`${open ? t('platform.resourceTypes.hide') : t('platform.resourceTypes.view')} schema ${type.key}`} onClick={() => setExpanded(open ? '' : type.key)}>{open ? t('platform.resourceTypes.hideSchema') : 'Xem schema'}</Button>
         {rule ? <a className="button" href={href({ name: 'resource-definitions', resourceType: type.key })} aria-label={t('platform.resourceTypes.createAResourceDefinitionFor', { key: type.key })} onClick={(event) => { event.preventDefault(); navigate({ name: 'resource-definitions', resourceType: type.key }); }}>{t('platform.resourceTypes.createResourceDefinition')}</a> : null}
       </div></div>
-      {type.key === 'workload' ? <p className="feature-note">{t('platform.resourceTypes.thisTypeDescribesTheApplications')}{' '} <a href={href({ name: 'rendering-templates' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'rendering-templates' }); }}>{t('platform.resourceTypes.renderingTemplate')}</a>{t('platform.resourceTypes.doNotCreateAResource')}</p> : null}
       {open ? <section className="catalog-details" aria-label={t('platform.resourceTypes.schemaOfKey', { key: type.key })}>
         <h3>{t('platform.resourceTypes.inputs')}</h3>{inputList.length === 0 ? <p className="muted">{t('platform.resourceTypes.noInputParametersDeclared')}</p> : <SchemaTable label={t('platform.resourceTypes.inputsOfKey', { key: type.key })} fields={inputList} secret={false} />}
         <h3>{t('platform.resourceTypes.outputs')}</h3>{outputList.length === 0 ? <p className="muted">{t('platform.resourceTypes.noOutputParametersDeclared')}</p> : <SchemaTable label={t('platform.resourceTypes.outputsOfKey', { key: type.key })} fields={outputList} secret />}

@@ -138,8 +138,8 @@ func deployBackendTo(app *bootstrap.App, opts seed.Options, applicationKey, envi
 		return err
 	}
 
-	scores := seed.AcceptanceScores(opts)
-	_, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: applicationKey, EnvironmentKey: environment, WorkloadID: "backend", ScoreAfter: scores["backend"], Actor: "test", RunID: "run-1"})
+	scores := seed.AcceptanceWorkloads(opts)
+	_, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: applicationKey, EnvironmentKey: environment, WorkloadID: "backend", WorkloadAfter: scores["backend"], Actor: "test", RunID: "run-1"})
 	return err
 }
 
@@ -258,7 +258,7 @@ func TestEnvironmentWithoutConnectionFailsPlacementBeforeAnySideEffect(t *testin
 func TestPlanHashDiffersBetweenTargetsOfTheSameWorkload(t *testing.T) {
 	app, opts, _, _, _ := selectedTargetApp(t, "second")
 	registerCluster(t, app, opts.OrganizationKey, "third")
-	scores := seed.AcceptanceScores(opts)
+	scores := seed.AcceptanceWorkloads(opts)
 	hashes := map[string]string{}
 	for _, tc := range []struct{ name, subdomain, key string }{{"On Second", "on-second", "second"}, {"On Third", "on-third", "third"}} {
 		appKey := newApplication(t, app.Store, opts.OrganizationKey, tc.name, tc.subdomain)
@@ -269,7 +269,7 @@ func TestPlanHashDiffersBetweenTargetsOfTheSameWorkload(t *testing.T) {
 		if err := seedtest.PublishCatalog(context.Background(), app.Store, o); err != nil {
 			t.Fatal(err)
 		}
-		result, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: appKey, EnvironmentKey: "staging", WorkloadID: "backend", ScoreAfter: scores["backend"], Actor: "test", RunID: "run-1"})
+		result, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: appKey, EnvironmentKey: "staging", WorkloadID: "backend", WorkloadAfter: scores["backend"], Actor: "test", RunID: "run-1"})
 		if err != nil {
 			t.Fatal(err)
 		}

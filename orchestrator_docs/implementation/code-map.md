@@ -138,14 +138,14 @@ Canonical behavior: [UC-04 DIAG-01..14](../usecase/UC-04/specification.md#accoun
 | UC-16 all-dependency params validation before Save/import | [`workload configuration service`](../../backend/internal/application/workloadconfig/service.go) (`validateResourceParams`), [`resource params tests`](../../backend/internal/application/workloadconfig/resource_params_test.go) and [`shared input type check`](../../backend/internal/domain/resource/contract.go) |
 | UC-02..04 insert-only registration, race/rollback and truthful UI states | [`PostgreSQL registration`](../../backend/internal/adapters/postgres/registration.go), [`repository contract`](../../backend/internal/ports/persistence/persistencetest/registration.go), [`HTTP integration`](../../backend/test/e2e/uc02_04_http_test.go), `UI state tests` (restored by UC-03 CM-01–04) |
 | UC-05 planning core and pending Preview → Deploy | [`backend/internal/planning`](../../backend/internal/planning/) and [`backend/internal/application/pending`](../../backend/internal/application/pending/) |
-| UC-05 standalone Score Preview | [`read-only service`](../../backend/internal/application/preview/), [`shared planning snapshot`](../../backend/internal/application/deployment/snapshot.go), [`HTTP`](../../backend/internal/delivery/http/score_preview.go) and [`Console`](../../frontend/src/features/preview/) |
+| UC-05 standalone Score Preview | [`read-only service`](../../backend/internal/application/preview/), [`shared planning snapshot`](../../backend/internal/application/deployment/snapshot.go), [`HTTP`](../../backend/internal/delivery/http/workload_preview.go) and [`Console`](../../frontend/src/features/preview/) |
 | UC-05 human-paced UI recording | [`Playwright`](../../frontend/test/e2e/uc05-video-local.mjs) and [`local runner`](../../backend/test/integration/uc05-video-local.sh) |
 | T13 Vietnamese standalone Score Preview | [`Console and parser messages`](../../frontend/src/features/preview/), [`T13 scenario`](../../frontend/test/e2e/refactor-local.mjs), [`refactor runner`](../../backend/test/integration/refactor-ui-local.sh); UC-05 UI screens/states own labels, parser and API semantics unchanged |
 | UC-06, UC-07 and UC-09 orchestration/query | [`backend/internal/application/deployment`](../../backend/internal/application/deployment/) |
 | UC-07 final resource marking and Service-reference guards | [`deployment service`](../../backend/internal/application/deployment/service.go), [`planner`](../../backend/internal/planning/plan.go), [`Service validation`](../../backend/internal/planning/service_refs.go), [`PostgreSQL atomicity tests`](../../backend/internal/application/deployment/postgres_uc07_integration_test.go) |
 | UC-07 pending UI and human-paced recording | [`Application home`](../../frontend/src/features/applications/ApplicationHomePage.tsx), [`editor`](../../frontend/src/features/workloads/WorkloadEditorPage.tsx), [`Playwright`](../../frontend/test/e2e/uc07-video-local.mjs) and [`runner`](../../backend/test/integration/uc07-video-local.sh) |
-| Definition-selected workload rendering | [`catalog validation`](../../backend/internal/domain/resource/rendering.go), [`planner selection`](../../backend/internal/planning/rendering.go), [`CLI adapter`](../../backend/internal/adapters/scorek8s/), [`deployment wiring`](../../backend/internal/bootstrap/bootstrap.go), [`pending comparisons`](../../backend/internal/application/pending/preview.go), `HTTP flow tests` (editor HTTP test retired 2026-11-02; see Catalog release verification) |
-| ADR-024 open object set, inventory, Gateway routes | [`guard`](../../backend/internal/adapters/scorek8s/guard.go), [`resources stage`](../../backend/internal/adapters/scorek8s/git.go), [`object discovery/ownership/UID removal`](../../backend/internal/adapters/kubernetes/objects.go), [`inventory and apply order`](../../backend/internal/application/deployment/inventory.go), [`HTTPRoute`](../../backend/internal/adapters/kubernetes/public_routes.go), [`kind runner`](../../backend/test/integration/workload-manifests-kind.sh), [`browser scenario`](../../frontend/test/e2e/workload-manifests-kind.mjs) |
+| Definition-selected workload rendering | [`catalog validation`](../../backend/internal/domain/resource/rendering.go), [`planner selection`](../../backend/internal/planning/rendering.go), [`CLI adapter`](../../backend/internal/adapters/templatedriver/), [`deployment wiring`](../../backend/internal/bootstrap/bootstrap.go), [`pending comparisons`](../../backend/internal/application/pending/preview.go), `HTTP flow tests` (editor HTTP test retired 2026-11-02; see Catalog release verification) |
+| ADR-024 open object set, inventory, Gateway routes | [`guard`](../../backend/internal/adapters/templatedriver/guard.go), [`resources stage`](../../backend/internal/adapters/templatedriver/git.go), [`object discovery/ownership/UID removal`](../../backend/internal/adapters/kubernetes/objects.go), [`inventory and apply order`](../../backend/internal/application/deployment/inventory.go), [`HTTPRoute`](../../backend/internal/adapters/kubernetes/public_routes.go), [`kind runner`](../../backend/test/integration/workload-manifests-kind.sh), [`browser scenario`](../../frontend/test/e2e/workload-manifests-kind.mjs) |
 | V04 full reference/provision graph and safe blocked-consumer progress | [`planning graph`](../../backend/internal/planning/graph.go), [`blocked projection`](../../backend/internal/application/deployment/blocked.go), [`Console graph`](../../frontend/src/shared/ui/DependencyGraph.tsx) |
 | V04 full-app acceptance, private output cleanup and completed predecessor evidence | [`integrated runner`](../../backend/test/integration/v04-internal-full.sh), [`browser scenario`](../../frontend/test/e2e/v04-internal-full.mjs), [`operator inventory`](../../backend/test/integration/v2ctl/v04.go), [`admission proof`](../../backend/test/integration/v2run/v04_admission.go) |
 | V05 Definition-selected EKS, deferred cluster completion and per-resource fresh authentication | [`planner catalog contract`](../../backend/internal/planning/definition_catalog_plan_test.go), [`EKS completion`](../../backend/internal/application/provisioning/service.go), [`cluster readiness`](../../backend/internal/adapters/kubernetes/cluster_ready.go), [`restore target`](../../backend/internal/application/deployment/target_restore_test.go) |
@@ -227,7 +227,7 @@ Container resource requests/limits (UC-05 BR-07, UC-06 BR-11):
   [`backend/internal/domain/environment/document.go`](../../backend/internal/domain/environment/document.go)
   dưới `Container.Resources`.
 - Score shape validation nằm tại
-  [`backend/internal/planning/score/resources.go`](../../backend/internal/planning/score/resources.go);
+  [`backend/internal/planning/workloadspec/resources.go`](../../backend/internal/planning/workloadspec/resources.go);
   `Document.Fragment` copy requirements vào module.
 - Kubernetes mapping và request policy (request > limit > default) nằm tại `containerResources`
   trong [`backend/internal/adapters/kubernetes/renderer.go`](../../backend/internal/adapters/kubernetes/renderer.go).
@@ -438,7 +438,7 @@ reference fixtures do not use these aliases.
 UC-16 BR-12/UC-06 routing use only `publicRoutes`.
 [`Service` decoder](../../backend/internal/domain/environment/document.go)
 rejects the removed alias in Score and Deployment Set JSON;
-[`Score tests`](../../backend/internal/planning/score/score_test.go),
+[`Score tests`](../../backend/internal/planning/workloadspec/score_test.go),
 [`domain tests`](../../backend/internal/domain/environment/service_test.go) and
 [`HTTP no-write tests`](../../backend/test/e2e/public_port_removed_test.go)
 cover rejection and strict nested fields. The
@@ -732,17 +732,17 @@ copy in `labels.ts`; a new external source also needs spec/schema first.
 
 | Concern | Code |
 |---|---|
-| Bundle manifest, pin record, typed inputs | [`renderbundle`](../../backend/internal/domain/renderbundle/), selection pin in [`rendering.go`](../../backend/internal/domain/resource/rendering.go) |
-| Registry port and errors | [`renderregistry`](../../backend/internal/ports/renderregistry/renderregistry.go), repository [`renderbundles.go`](../../backend/internal/ports/persistence/renderbundles.go) |
-| Inspect, durable cache, loader | [`adapters/renderbundles`](../../backend/internal/adapters/renderbundles/) (Git transport shared via [`shared.go`](../../backend/internal/adapters/terraform/registry/shared.go)) |
-| Persistence | [`render_bundles` DDL](../../backend/internal/adapters/postgres/baseline.sql), [PostgreSQL](../../backend/internal/adapters/postgres/renderbundles.go), [JSON store](../../backend/internal/adapters/store/renderbundles.go), [grants](../../backend/internal/adapters/postgres/grants.go) |
+| Bundle manifest, pin record, typed inputs | [`renderbundle`](../../backend/internal/domain/templatesource/), selection pin in [`rendering.go`](../../backend/internal/domain/resource/rendering.go) |
+| Registry port and errors | [`renderregistry`](../../backend/internal/ports/renderregistry/renderregistry.go), repository [`renderbundles.go`](../../backend/internal/ports/persistence/templatesources.go) |
+| Inspect, durable cache, loader | [`adapters/renderbundles`](../../backend/internal/adapters/templatesources/) (Git transport shared via [`shared.go`](../../backend/internal/adapters/terraform/registry/shared.go)) |
+| Persistence | [`render_bundles` DDL](../../backend/internal/adapters/postgres/baseline.sql), [PostgreSQL](../../backend/internal/adapters/postgres/templatesources.go), [JSON store](../../backend/internal/adapters/store/templatesources.go), [grants](../../backend/internal/adapters/postgres/grants.go) |
 | Template engine, worker, patches, tree validation | [`renderengine`](../../backend/internal/renderengine/); worker entry in [`main.go`](../../backend/cmd/orchestrator/main.go) |
-| Git render pipeline and invariant guard | [`git.go`](../../backend/internal/adapters/scorek8s/git.go), [`guard.go`](../../backend/internal/adapters/scorek8s/guard.go); secret bridge [`delivery.go`](../../backend/internal/adapters/kubernetes/delivery.go) |
-| Catalog/HTTP | [`catalog/renderbundles.go`](../../backend/internal/application/catalog/renderbundles.go), `render_bundle_sources.go` (restored by UC-03 CM-01–04), codes in [`apierror.go`](../../backend/internal/delivery/http/apierror.go) |
+| Git render pipeline and invariant guard | [`git.go`](../../backend/internal/adapters/templatedriver/git.go), [`guard.go`](../../backend/internal/adapters/templatedriver/guard.go); secret bridge [`delivery.go`](../../backend/internal/adapters/kubernetes/delivery.go) |
+| Catalog/HTTP | [`catalog/renderbundles.go`](../../backend/internal/application/catalog/templatesources.go), `render_bundle_sources.go` (restored by UC-03 CM-01–04), codes in [`apierror.go`](../../backend/internal/delivery/http/apierror.go) |
 | Planner, snapshot, pending, review | [`planning/rendering.go`](../../backend/internal/planning/rendering.go), [`deployment/snapshot.go`](../../backend/internal/application/deployment/snapshot.go), [`pending/preview.go`](../../backend/internal/application/pending/preview.go), [`deploymentreview/review.go`](../../backend/internal/application/deploymentreview/review.go) |
 | Wiring/runtime | [`bootstrap.go`](../../backend/internal/bootstrap/bootstrap.go), [`Dockerfile`](../../backend/Dockerfile), [`docker-compose.yml`](../../docker-compose.yml) cache volume |
 | Console | `RenderingTemplatesPage` (restored by UC-03 CM-01–04), [`GitBundleSource`](../../frontend/src/features/platform/GitBundleSource.tsx), [`RenderInputsEditor`](../../frontend/src/features/platform/RenderInputsEditor.tsx), [`renderInputs`](../../frontend/src/features/platform/renderInputs.ts), Preview provenance in [`DeploymentReview`](../../frontend/src/features/preview/DeploymentReview.tsx) |
-| Reference bundle | [`backend/render-bundles/standard`](../../backend/render-bundles/standard/README.md) with executable examples |
+| Reference bundle | [`backend/render-bundles/standard`](../../backend/template-sources/standard/README.md) with executable examples |
 | Tests | domain/engine/registry/guard/stage/pending/HTTP/PostgreSQL tests beside each package; UI `GitRenderBundle.test.tsx` (restored by UC-03 CM-01–04) |
 | Real acceptance | [`git-render-bundle-kind.sh`](../../backend/test/integration/git-render-bundle-kind.sh), [`git-render-bundle-kind.mjs`](../../frontend/test/e2e/git-render-bundle-kind.mjs), [`compose overlay`](../../deploy/local/compose.git-render-bundle.yml) |
 
@@ -1089,3 +1089,13 @@ reuses real application acceptance and independently checks topology evidence.
   shared acceptance Score uses the canonical `svc_backend_http` service alias.
 - `scripts/bootstrap/lib/verification.mjs`: reconnect an owned service forward
   after rollout before real web/data verification.
+
+## Generic Workload replacement — ADR-035
+
+- Generic Workload admission and dependency conversion: `backend/internal/planning/workloadspec/`.
+- Immutable template source domain/registry: `backend/internal/domain/templatesource/`, `backend/internal/adapters/templatesources/`.
+- Direct renderer and semantic guards: `backend/internal/adapters/templatedriver/`; bounded worker/helpers: `backend/internal/renderengine/`.
+- Standard manifest sources and initial immutable registration: `backend/template-sources/`.
+- Shared Definition form: `frontend/src/features/platform/ResourceDefinitionsPage.tsx` and `TemplateDriverFields.tsx`; separate Rendering Templates page removed.
+- Owner-only PostgreSQL transition: `migrations/008-generic-workload.sql`, frozen `version-008.sql`.
+- API replacements: `/template-sources` (GET, inspect, upload, inline), workload request field `workload`, standalone `/workload-preview`, `/workload-samples`.

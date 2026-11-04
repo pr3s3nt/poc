@@ -46,7 +46,7 @@ type PublicPath struct {
 var ErrPublicPortRemoved = errors.New("environment: service.publicPort is not supported; declare service.publicRoutes")
 
 // UnmarshalJSON rejects any presence of `publicPort` (empty, null or next to
-// `publicRoutes`) so no decoder of a Score, draft or Deployment Set drops it.
+// `publicRoutes`) so no decoder of a Workload, draft or Deployment Set drops it.
 func (s *Service) UnmarshalJSON(b []byte) error {
 	var keys map[string]json.RawMessage
 	if err := json.Unmarshal(b, &keys); err == nil {
@@ -54,7 +54,7 @@ func (s *Service) UnmarshalJSON(b []byte) error {
 			return ErrPublicPortRemoved
 		}
 	}
-	// Strict like the Score decoder: unknown keys at any depth are rejected.
+	// Strict like the Workload decoder: unknown keys at any depth are rejected.
 	type plain Service
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.DisallowUnknownFields()
@@ -90,13 +90,13 @@ type Probe struct {
 }
 
 // ComputeResources is one `requests` or `limits` branch of a container. Values
-// are the Score strings exactly as declared; an empty field is not declared.
+// are the Workload strings exactly as declared; an empty field is not declared.
 type ComputeResources struct {
 	CPU    string `json:"cpu,omitempty"`
 	Memory string `json:"memory,omitempty"`
 }
 
-// ContainerResourceRequirements holds the optional Score
+// ContainerResourceRequirements holds the optional Workload
 // `containers.*.resources` of one container. It belongs to the workload module
 // and is never a Resource Graph node (UC-05 BR-07, UC-06 BR-11).
 type ContainerResourceRequirements struct {
@@ -104,7 +104,7 @@ type ContainerResourceRequirements struct {
 	Limits   *ComputeResources `json:"limits,omitempty"`
 }
 
-// Clone returns an independent copy, so a module never aliases the Score it was
+// Clone returns an independent copy, so a module never aliases the Workload it was
 // converted from.
 func (r *ContainerResourceRequirements) Clone() *ContainerResourceRequirements {
 	if r == nil {
@@ -124,7 +124,13 @@ func (r *ContainerResourceRequirements) Clone() *ContainerResourceRequirements {
 
 // Container is one container of a workload module. The id repeats the map key,
 // which is the Humanitec module form.
+type ContainerPort struct {
+	Name          string `json:"name"`
+	ContainerPort int    `json:"containerPort"`
+}
+
 type Container struct {
+	Ports          []ContainerPort                `json:"ports,omitempty"`
 	ID             string                         `json:"id,omitempty"`
 	WorkingDir     string                         `json:"workingDir,omitempty"`
 	StartupProbe   *Probe                         `json:"startupProbe,omitempty"`
@@ -147,19 +153,19 @@ type ModuleSpec struct {
 
 // ReplicaCount returns the declared replica count, defaulting to one.
 func (m ModuleSpec) ReplicaCount() int {
-	if m.Replicas == nil || *m.Replicas <= 0 {
+	if m.Replicas == nil {
 		return 1
 	}
 	return *m.Replicas
 }
 
-// Module is the Deployment Set contribution of one Score document.
+// Module is the Deployment Set contribution of one Workload document.
 type Module struct {
 	Profile string `json:"profile"`
-	// Class is the explicit workload class of the Score `metadata.class`
+	// Class is the explicit workload class of the Workload `metadata.class`
 	// (ADR-016); empty means the default class.
 	Class string `json:"class,omitempty"`
-	// Annotations are the Score metadata.annotations of the workload
+	// Annotations are the Workload metadata.annotations of the workload
 	// (ADR-024): input of Git render bundles only.
 	Annotations map[string]string        `json:"annotations,omitempty"`
 	Spec        ModuleSpec               `json:"spec"`
@@ -167,7 +173,7 @@ type Module struct {
 }
 
 // WorkloadClass returns the effective workload class: the explicit class, or
-// "default" when the Score declared none.
+// "default" when the Workload declared none.
 func (m Module) WorkloadClass() string {
 	if m.Class == "" {
 		return "default"

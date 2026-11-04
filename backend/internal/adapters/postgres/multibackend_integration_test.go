@@ -107,7 +107,7 @@ func TestClaimAndSettingsWritesRaceAcrossBackends(t *testing.T) {
 		}()
 		go func() {
 			defer wg.Done()
-			errs <- b.SaveWorkloadDraft(ctx, 0, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: "staging", WorkloadID: "web", State: environment.DraftUpsert, Score: map[string]any{"a": "b"}})
+			errs <- b.SaveWorkloadDraft(ctx, 0, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: "staging", WorkloadID: "web", State: environment.DraftUpsert, Workload: map[string]any{"a": "b"}})
 		}()
 		go func() {
 			defer wg.Done()

@@ -84,7 +84,7 @@ type Config struct {
 	Reconciliation  *deliveryapp.Coordinator
 	Delivery        *deliveryapp.Bindings
 	Observability   *observabilityapp.Service
-	RenderBundles   map[string]resource.RenderBundle
+	TemplateSources map[string]resource.TemplateSource
 	// RenderRegistry inspects Git render bundles and reports availability
 	// (ADR-021); nil disables Git bundle inspection.
 	RenderRegistry renderregistry.Registry
@@ -154,7 +154,7 @@ func NewServer(cfg Config) *Server {
 	s.connections.SetAWSRegistration(cfg.AWSVerifier)
 	s.connections.SetEC2RoleProvider(cfg.EC2RoleProvider)
 
-	s.catalog.SetRenderBundles(cfg.RenderBundles)
+	s.catalog.SetTemplateSources(cfg.TemplateSources)
 	if cfg.RenderRegistry != nil {
 		s.catalog.SetRenderRegistry(cfg.RenderRegistry)
 	}
@@ -212,14 +212,14 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("DELETE /api/v1/applications/{id}/environments/{env}/configuration/keys/{key}", s.handleDeleteConfigurationKey)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/workload-templates", s.handleWorkloadTemplates)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/workloads", s.handleListWorkloadDrafts)
-	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/workloads/parse", s.handleParseWorkloadScore)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/workloads/parse", s.handleParseWorkloadDocument)
 	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/workloads/{workload}", s.handleSaveWorkloadDraft)
 	s.mux.HandleFunc("DELETE /api/v1/applications/{id}/environments/{env}/workloads/{workload}", s.handleDeleteWorkloadDraft)
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/workloads/{workload}/undo", s.handleUndoWorkloadDraft)
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/preview", s.handlePreviewPending)
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/deploy", s.handleDeployPending)
-	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/score-preview", s.handleScorePreview)
-	s.mux.HandleFunc("GET /api/v1/score-samples", s.handleScoreSamples)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/workload-preview", s.handleWorkloadPreview)
+	s.mux.HandleFunc("GET /api/v1/workload-samples", s.handleWorkloadSamples)
 	s.mux.HandleFunc("GET /api/v1/resource-types", s.handleResourceTypes)
 	s.mux.HandleFunc("POST /api/v1/resource-types", s.handleRegisterResourceType)
 	s.mux.HandleFunc("GET /api/v1/resource-definitions/{key}/versions", s.handleDefinitionVersions)
@@ -244,10 +244,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/resource-definition-capabilities", s.handleDefinitionCapabilities)
 	s.mux.HandleFunc("POST /api/v1/terraform-modules/inspect", s.handleInspectTerraformModule)
 	s.mux.HandleFunc("POST /api/v1/terraform-modules/upload", s.handleUploadTerraformModule)
-	s.mux.HandleFunc("POST /api/v1/render-bundles/upload", s.handleUploadRenderBundle)
-	s.mux.HandleFunc("GET /api/v1/render-bundles", s.handleRenderBundles)
-	s.mux.HandleFunc("POST /api/v1/render-bundles/inspect", s.handleInspectRenderBundle)
-	s.mux.HandleFunc("GET /api/v1/render-bundles/{id}", s.handleGetRenderBundle)
+	s.mux.HandleFunc("POST /api/v1/template-sources/upload", s.handleUploadTemplateSource)
+	s.mux.HandleFunc("GET /api/v1/template-sources", s.handleTemplateSources)
+	s.mux.HandleFunc("POST /api/v1/template-sources/inline", s.handleInlineTemplateSource)
+	s.mux.HandleFunc("POST /api/v1/template-sources/inspect", s.handleInspectTemplateSource)
+	s.mux.HandleFunc("GET /api/v1/template-sources/{id}", s.handleGetTemplateSource)
 	s.mux.HandleFunc("GET /api/v1/connections", s.handleConnections)
 	s.mux.HandleFunc("POST /api/v1/connections/kubernetes", s.handleRegisterKubernetesConnection)
 	s.mux.HandleFunc("POST /api/v1/connections/aws", s.handleRegisterAWSConnection)
@@ -502,10 +503,10 @@ func (s *Server) handleGetApplication(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"application": view})
 }
 
-func (s *Server) handleScoreSamples(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) handleWorkloadSamples(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"order":   seed.AcceptanceOrder(),
-		"samples": seed.AcceptanceScores(s.seedOptions),
+		"samples": seed.AcceptanceWorkloads(s.seedOptions),
 	})
 }
 
@@ -515,8 +516,8 @@ type createDeploymentRequest struct {
 	WorkloadID     string         `json:"workloadId"`
 	Actor          string         `json:"actor"`
 	RunID          string         `json:"runId"`
-	Score          map[string]any `json:"score"`
-	ScoreBefore    map[string]any `json:"scoreBefore"`
+	Workload       map[string]any `json:"workload"`
+	WorkloadBefore map[string]any `json:"workloadBefore"`
 }
 
 func (s *Server) handleCreateDeployment(w http.ResponseWriter, r *http.Request) {
@@ -529,7 +530,7 @@ func (s *Server) handleCreateDeployment(w http.ResponseWriter, r *http.Request) 
 		writeCode(w, codeInvalidRequest, "")
 		return
 	}
-	if req.Score == nil {
+	if req.Workload == nil {
 		writeCode(w, codeInvalidRequest, "")
 		return
 	}
@@ -551,8 +552,8 @@ func (s *Server) handleCreateDeployment(w http.ResponseWriter, r *http.Request) 
 		ApplicationKey:  req.ApplicationKey,
 		EnvironmentKey:  req.EnvironmentKey,
 		WorkloadID:      req.WorkloadID,
-		ScoreAfter:      req.Score,
-		ScoreBefore:     req.ScoreBefore,
+		WorkloadAfter:   req.Workload,
+		WorkloadBefore:  req.WorkloadBefore,
 		Actor:           actor,
 		RunID:           runID,
 	})

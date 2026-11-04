@@ -21,13 +21,13 @@ try {
   mkdirSync(join(work, 'modules'), { recursive: true });
   mkdirSync(join(work, 'bundles'), { recursive: true });
   cpSync(join(root, 'backend/internal/adapters/terraform/modules/k8s-namespace'), join(work, 'modules/namespace'), { recursive: true });
-  cpSync(join(root, 'backend/render-bundles/standard'), join(work, 'bundles/standard'), { recursive: true });
+  cpSync(join(root, 'backend/template-sources/standard'), join(work, 'bundles/standard'), { recursive: true });
   const archive = join(work, 'source.zip');
   execFileSync('zip', ['-q', '-r', archive, 'modules', 'bundles'], { cwd: work });
   session = await openConsole(config, { role: 'PLATFORM_ENGINEER' });
   const { page } = session;
   const gitInspections = [];
-  page.on('request', (req) => { if (/\/(render-bundles|terraform-modules)\/inspect$/.test(new URL(req.url()).pathname)) gitInspections.push(req.url()); });
+  page.on('request', (req) => { if (/\/(template-sources|terraform-modules)\/inspect$/.test(new URL(req.url()).pathname)) gitInspections.push(req.url()); });
   const upload = async (path, endpoint) => {
     await page.getByRole('button', { name: 'Tải ZIP', exact: true }).click();
     await page.getByLabel('Tệp ZIP', { exact: true }).setInputFiles(archive);
@@ -59,9 +59,9 @@ try {
   const moduleList = await page.request.get(`${config.baseURL}/api/v1/resource-definition-capabilities`);
   assert.ok((await moduleList.json()).capabilities.some((item) => item.source?.sourceId === capability.source.sourceId));
   await page.goto(`${config.baseURL}/ui/platform/rendering-templates`);
-  const { renderBundle } = await upload('bundles/standard', 'render-bundles');
-  assert.equal(renderBundle.source.kind, 'zip');
-  assert.equal(renderBundle.source.url, `zip:sha256:${renderBundle.source.revision}`);
+  const { templateSource } = await upload('bundles/standard', 'template-sources');
+  assert.equal(templateSource.source.kind, 'zip');
+  assert.equal(templateSource.source.url, `zip:sha256:${templateSource.source.revision}`);
   await page.getByLabel('ID mẫu', { exact: true }).fill(runID);
   await page.getByLabel('Tên hiển thị', { exact: true }).fill('ZIP source E2E');
   await page.getByRole('button', { name: 'Dùng gợi ý namespace', exact: true }).click();
@@ -74,8 +74,8 @@ try {
   const row = page.locator('.catalog-entry').filter({ hasText: runID });
   await expect(row).toBeVisible();
   await row.getByRole('button', { name: `Sửa mẫu ${runID}`, exact: true }).click();
-  const detail = await page.request.get(`${config.baseURL}/api/v1/render-bundles/${renderBundle.id}`);
-  assert.deepEqual((await detail.json()).renderBundle.source, renderBundle.source);
+  const detail = await page.request.get(`${config.baseURL}/api/v1/template-sources/${templateSource.id}`);
+  assert.deepEqual((await detail.json()).templateSource.source, templateSource.source);
   assert.equal(gitInspections.length, 0, 'ZIP source was sent to Git inspection');
   console.log('PASS: browser ZIP module/bundle upload, real inspection, catalog pins, template save/reopen, no Git inspection; no deployment');
 } catch (error) {

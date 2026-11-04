@@ -41,7 +41,7 @@ it('preserves the file and directory on safe errors and lets explicit retry veri
   const fetcher = vi.fn().mockResolvedValueOnce(Response.json({ error: 'secret-source.tf' }, { status: 400 })).mockResolvedValueOnce(Response.json({ pin: 'verified' }));
   vi.stubGlobal('fetch', fetcher);
   const result = vi.fn();
-  render(<ZIPSource endpoint="/render-bundles/upload" disabled={false} parseResult={(value) => value} onResult={result} />);
+  render(<ZIPSource endpoint="/template-sources/upload" disabled={false} parseResult={(value) => value} onResult={result} />);
   await user.upload(screen.getByLabelText('Tệp ZIP'), new File(['zip'], 'bundle.zip'));
   await user.type(screen.getByLabelText('Thư mục trong ZIP'), 'bundles/standard');
   await user.click(screen.getByRole('button', { name: 'Tải lên và kiểm tra' }));

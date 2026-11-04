@@ -96,9 +96,9 @@ func newEKSServerApp(t *testing.T) (*httptest.Server, seed.Options, *bootstrap.A
 	return server, opts, app
 }
 
-// eksScores are the acceptance Scores whose PostgreSQL runs in the cluster the plan creates.
-func eksScores(opts seed.Options) map[string]map[string]any {
-	docs := seed.AcceptanceScores(opts)
+// eksWorkloads are the acceptance Workloads whose PostgreSQL runs in the cluster the plan creates.
+func eksWorkloads(opts seed.Options) map[string]map[string]any {
+	docs := seed.AcceptanceWorkloads(opts)
 	for _, doc := range docs {
 		resources, _ := doc["resources"].(map[string]any)
 		if db, ok := resources["db"].(map[string]any); ok {
@@ -300,7 +300,7 @@ func getJSONClient(t *testing.T, client *http.Client, url string) (int, map[stri
 
 func TestHTTPDeploymentEndToEnd(t *testing.T) {
 	server, seedOptions := newServer(t, "")
-	scores := seed.AcceptanceScores(seedOptions)
+	scores := seed.AcceptanceWorkloads(seedOptions)
 	client := authenticatedClient(t, server.URL)
 
 	status, apps := getJSONClient(t, client, server.URL+"/api/v1/applications")
@@ -319,7 +319,7 @@ func TestHTTPDeploymentEndToEnd(t *testing.T) {
 			"environmentKey": seedOptions.EnvironmentKey,
 			"workloadId":     workload,
 			"actor":          "e2e-test",
-			"score":          scores[workload],
+			"workload":       scores[workload],
 		})
 		if status != http.StatusCreated {
 			t.Fatalf("deploy %s returned %d: %v", workload, status, created)
@@ -360,16 +360,16 @@ func TestHTTPDeploymentEndToEnd(t *testing.T) {
 	}
 }
 
-func TestHTTPRejectsInvalidScore(t *testing.T) {
+func TestHTTPRejectsInvalidWorkload(t *testing.T) {
 	server, seedOptions := newServer(t, "")
 	status, body := postJSON(t, server.URL+"/api/v1/deployments", map[string]any{
 		"applicationKey": seedOptions.ApplicationKey,
 		"environmentKey": seedOptions.EnvironmentKey,
 		"workloadId":     "backend",
-		"score":          map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "backend"}},
+		"workload":       map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": "backend"}},
 	})
 	if status != http.StatusBadRequest {
-		t.Fatalf("expected 400 for a Score without containers, got %d: %v", status, body)
+		t.Fatalf("expected 400 for a Workload without containers, got %d: %v", status, body)
 	}
 }
 
@@ -389,20 +389,20 @@ func TestHTTPDeploymentHistoryScopeFilterPlanningFailureAndSafeJSON(t *testing.T
 		t.Fatalf("anonymous history returned %d", status)
 	}
 	client := authenticatedClient(t, server.URL)
-	scores := seed.AcceptanceScores(seedOptions)
+	scores := seed.AcceptanceWorkloads(seedOptions)
 	status, created := postJSON(t, server.URL+"/api/v1/deployments", map[string]any{
 		"applicationKey": seedOptions.ApplicationKey, "environmentKey": seedOptions.EnvironmentKey,
-		"workloadId": "backend", "actor": "history-test", "score": scores["backend"],
+		"workloadId": "backend", "actor": "history-test", "workload": scores["backend"],
 	})
 	if status != http.StatusCreated {
 		t.Fatalf("successful deployment = %d %v", status, created)
 	}
 	successID := created["deploymentId"].(string)
-	invalid := seed.AcceptanceScores(seedOptions)["backend"]
+	invalid := seed.AcceptanceWorkloads(seedOptions)["backend"]
 	invalid["resources"].(map[string]any)["db"].(map[string]any)["type"] = "unsupported-resource"
 	status, _ = postJSON(t, server.URL+"/api/v1/deployments", map[string]any{
 		"applicationKey": seedOptions.ApplicationKey, "environmentKey": seedOptions.EnvironmentKey,
-		"workloadId": "broken", "actor": "history-test", "score": invalid,
+		"workloadId": "broken", "actor": "history-test", "workload": invalid,
 	})
 	if status != http.StatusBadRequest {
 		t.Fatalf("planning failure request = %d", status)
@@ -491,14 +491,14 @@ func TestUIServesBundleAndBrowserFallback(t *testing.T) {
 // Deployment Resource rows are inspected through the store port instead.
 func TestHTTPUsesTheConfiguredRunID(t *testing.T) {
 	server, seedOptions, app := newEKSServerApp(t)
-	scores := eksScores(seedOptions)
+	scores := eksWorkloads(seedOptions)
 
 	status, created := postJSON(t, server.URL+"/api/v1/deployments", map[string]any{
 		"applicationKey": seedOptions.ApplicationKey,
 		"environmentKey": eksEnvironment,
 		"workloadId":     "backend",
 		"actor":          "web-console",
-		"score":          scores["backend"],
+		"workload":       scores["backend"],
 	})
 	if status != http.StatusCreated {
 		t.Fatalf("deploy returned %d: %v", status, created)
@@ -536,14 +536,14 @@ func TestHTTPUsesTheConfiguredRunID(t *testing.T) {
 
 func TestHTTPDeploymentReadsRequireScopedSessionAndHideResolvedInputs(t *testing.T) {
 	server, seedOptions, _ := newEKSServerApp(t)
-	scores := eksScores(seedOptions)
+	scores := eksWorkloads(seedOptions)
 
 	status, created := postJSON(t, server.URL+"/api/v1/deployments", map[string]any{
 		"applicationKey": seedOptions.ApplicationKey,
 		"environmentKey": eksEnvironment,
 		"workloadId":     "backend",
 		"actor":          "web-console",
-		"score":          scores["backend"],
+		"workload":       scores["backend"],
 	})
 	if status != http.StatusCreated {
 		t.Fatalf("deploy returned %d: %v", status, created)
@@ -611,7 +611,7 @@ func TestHTTPDeploymentReadsOnPostgres(t *testing.T) {
 
 	status, created := postJSON(t, server.URL+"/api/v1/deployments", map[string]any{
 		"applicationKey": seedOptions.ApplicationKey, "environmentKey": seedOptions.EnvironmentKey,
-		"workloadId": "backend", "actor": "postgres-test", "score": seed.AcceptanceScores(seedOptions)["backend"],
+		"workloadId": "backend", "actor": "postgres-test", "workload": seed.AcceptanceWorkloads(seedOptions)["backend"],
 	})
 	if status != http.StatusCreated {
 		t.Fatalf("deploy = %d %v", status, created)
@@ -663,7 +663,7 @@ func createUnrenderedApplication(t *testing.T, client *http.Client, baseURL, nam
 }
 
 // placedWorkloadVariables are the typed references an internal workload rendering Definition carries.
-const placedWorkloadVariables = `"render_bundle":"score-k8s-internal-v1","namespace":"${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}","cluster":"${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"`
+const placedWorkloadVariables = `"template_source":"template-internal-v1","namespace":"${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}","cluster":"${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"`
 
 // placeOnSeededCluster is the platform engineer adding the Application to the explicit app_id
 // criteria of the seeded internal placement Definitions (ADR-016: Definitions place workloads;

@@ -23,7 +23,7 @@ import (
 	"orchestrator/internal/application/workloadconfig"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/planning"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 	configport "orchestrator/internal/ports/configuration"
 	"orchestrator/internal/ports/persistence"
 )
@@ -59,9 +59,9 @@ func TestWriteErrorCodesStatusesAndFields(t *testing.T) {
 		field  string
 	}{
 		{"catalog selection required", catalogdomain.ErrRequired, 409, "CATALOG_REQUIRED", ""},
-		{"score invalid", fmt.Errorf("score: %s bad: %w", canary, score.ErrInvalid), 400, "INVALID_SCORE", ""},
-		{"removed publicPort", fmt.Errorf("score: service.publicPort: %w", environment.ErrPublicPortRemoved), 400, "INVALID_SCORE", "service.publicPort"},
-		{"workload score", fmt.Errorf("%w: %s", workloadconfig.ErrInvalid, canary), 400, "INVALID_SCORE", ""},
+		{"score invalid", fmt.Errorf("score: %s bad: %w", canary, workloadspec.ErrInvalid), 400, "INVALID_WORKLOAD", ""},
+		{"removed publicPort", fmt.Errorf("score: service.publicPort: %w", environment.ErrPublicPortRemoved), 400, "INVALID_WORKLOAD", "service.publicPort"},
+		{"workload score", fmt.Errorf("%w: %s", workloadconfig.ErrInvalid, canary), 400, "INVALID_WORKLOAD", ""},
 		{"workload variable", fmt.Errorf("x %s: %w", canary, workloadconfig.ErrInvalidVariable), 400, "INVALID_VARIABLE", ""},
 		{"config invalid", fmt.Errorf("%s: %w", canary, appconfig.ErrInvalid), 400, "INVALID_VARIABLE", ""},
 		{"rewrite unsafe", fmt.Errorf("%s: %w", canary, appconfig.ErrReferenceRewriteUnsafe), 422, "REFERENCE_REWRITE_UNSAFE", ""},
@@ -139,7 +139,7 @@ func TestPlannerStageParamsAreAllowListed(t *testing.T) {
 		reason string
 	}{
 		{&preview.PublicError{Kind: preview.ErrPlanningRejected, Message: canary, Stage: planning.StageCatalog}, "PLANNING_REJECTED", "catalog", ""},
-		{&preview.PublicError{Kind: preview.ErrInvalidScore, Message: canary, Stage: planning.StageBefore, Reason: planning.ReasonBeforeMismatch}, "INVALID_SCORE", "before-state", "before-mismatch"},
+		{&preview.PublicError{Kind: preview.ErrInvalidWorkload, Message: canary, Stage: planning.StageBefore, Reason: planning.ReasonBeforeMismatch}, "INVALID_WORKLOAD", "before-state", "before-mismatch"},
 		{&preview.PublicError{Kind: preview.ErrPlanningRejected, Message: canary, Stage: planning.Stage(canary), Reason: canary}, "PLANNING_REJECTED", "", ""},
 		{&planning.StageError{Stage: planning.StageGraph, Err: errors.New(canary)}, "PLANNING_REJECTED", "graph", ""},
 		{&preview.PublicError{Kind: preview.ErrInvalidRequest, Message: canary}, "INVALID_REQUEST", "", ""},
@@ -231,7 +231,7 @@ func TestBodyDecodingNeverEchoesCallerKeysOrValues(t *testing.T) {
 	}
 }
 
-func TestScoreObjectRejectionIsCoded(t *testing.T) {
+func TestWorkloadObjectRejectionIsCoded(t *testing.T) {
 	if _, err := scoreObject([]byte(`null`)); err == nil {
 		t.Fatal("null accepted")
 	}
@@ -257,7 +257,7 @@ func TestParamErrorNamesOnlyAValidatedRegisteredType(t *testing.T) {
 		(&Server{}).writeError(rec, typed)
 		body := decode(t, rec)
 		params, _ := body["params"].(map[string]any)
-		if rec.Code != 400 || body["code"] != "INVALID_SCORE" || params["resourceType"] != tc.want || strings.Contains(rec.Body.String(), canary) {
+		if rec.Code != 400 || body["code"] != "INVALID_WORKLOAD" || params["resourceType"] != tc.want || strings.Contains(rec.Body.String(), canary) {
 			t.Errorf("%q -> %d %s", tc.typ, rec.Code, rec.Body.String())
 		}
 	}

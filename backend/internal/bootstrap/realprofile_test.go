@@ -15,7 +15,7 @@ func realOptions() Options {
 	o.Profile, o.Catalog = seed.ProfileAcceptanceV2, seed.CatalogNone
 	return Options{
 		Seed: o, Adapters: AdapterKubernetes, DatabaseURL: "postgres://console", TerraformStateDatabaseURL: "postgres://state",
-		TerraformStateKeyFile: "/k", TerraformRecoveryDir: "/r", ScoreK8sPath: "/s", RequireScoreRenderer: true,
+		TerraformStateKeyFile: "/k", TerraformRecoveryDir: "/r", RequireTemplateRenderer: true,
 		ConnectionCredentialStore: "vault", ConnectionVaultAddress: "http://v", ConnectionVaultTokenFile: "/t",
 		OutputSecretStore: "vault", OutputSecretVaultAddress: "http://v", OutputSecretVaultTokenFile: "/o",
 	}
@@ -30,8 +30,7 @@ func TestRealProfileAcceptsOnlyTheFullRealWiring(t *testing.T) {
 		"json state":          func(o *Options) { o.StatePath = "/x" },
 		"no state backend":    func(o *Options) { o.TerraformStateKeyFile = "" },
 		"no recovery dir":     func(o *Options) { o.TerraformRecoveryDir = "" },
-		"native renderer":     func(o *Options) { o.RequireScoreRenderer = false },
-		"no score binary":     func(o *Options) { o.ScoreK8sPath = "" },
+		"native renderer":     func(o *Options) { o.RequireTemplateRenderer = false },
 		"memory credentials":  func(o *Options) { o.ConnectionCredentialStore = "memory" },
 		"fleet delivery":      func(o *Options) { o.WorkloadDelivery = "fleet-gitrepo" },
 		"memory output store": func(o *Options) { o.OutputSecretStore = "memory" },

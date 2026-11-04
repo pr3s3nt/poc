@@ -41,7 +41,7 @@ func (m *markerFailure) UpsertActiveResource(ctx context.Context, a resource.Act
 func pgDeployments(t *testing.T, st persistence.Store) *appsvc.Service {
 	t.Helper()
 	prov := provisioning.NewService(st, fake.Registry{Executor: fake.NewResourceExecutor()}, secrets.NewMemory(), clock.System{})
-	return appsvc.NewSimulationService(st, planning.NewService(bootstrap.FakeRenderBundles()), prov, bootstrap.NewFakeBundleRenderer(kubernetes.NewRenderer()), fake.NewWorkloadDeployer(), registrytest.Inspector(t, st), clock.System{})
+	return appsvc.NewSimulationService(st, planning.NewService(bootstrap.FakeTemplateSources()), prov, bootstrap.NewFakeBundleRenderer(kubernetes.NewRenderer()), fake.NewWorkloadDeployer(), registrytest.Inspector(t, st), clock.System{})
 }
 
 func pgSharedDB(t *testing.T, st persistence.Store, opts seed.Options) resource.ActiveResource {
@@ -67,9 +67,9 @@ func TestPostgresRemove_CommitsSetStatusAndMarkerAtomically(t *testing.T) {
 	}
 	store := &markerFailure{Store: st}
 	service := pgDeployments(t, store)
-	backend := seed.AcceptanceScores(opts)["backend"]
+	backend := seed.AcceptanceWorkloads(opts)["backend"]
 	command := func(before, after map[string]any) appsvc.DeployCommand {
-		return appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", ScoreBefore: before, ScoreAfter: after, Actor: "test"}
+		return appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", WorkloadBefore: before, WorkloadAfter: after, Actor: "test"}
 	}
 	if _, err := service.DeployWorkload(ctx, command(nil, backend)); err != nil {
 		t.Fatal(err)

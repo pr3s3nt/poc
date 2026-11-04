@@ -5,6 +5,11 @@ status: current
 last_reviewed: 2026-10-28
 ---
 
+> Generic Workload replacement: [ADR-035](../../architecture/decisions/ADR-035-generic-workload-template-driver.md)
+> and [GW-01–05](../../architecture/contracts/generic-workload.md) supersede
+> Score/score-k8s/Render Bundle clauses below. Existing infrastructure, dependency,
+> identity, secret and delivery guarantees remain.
+
 # UC-07 — Use Case Realization
 
 Current delivery flow: [ADR-033](../../architecture/decisions/ADR-033-platform-managed-delivery.md)

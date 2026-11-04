@@ -53,7 +53,7 @@ try {
   await page.getByLabel(vi.username, { exact: true }).fill('appuser');
   await expect(page.getByLabel(/ID dùng chung|Shared ID/)).toHaveCount(0);
   await save(vi);
-  const db = (await list(app)).find(w => w.id === 'api').score.resources.db;
+  const db = (await list(app)).find(w => w.id === 'api').workload.resources.db;
   expect(db.id).toMatch(/^resource-/);
   check('New resource automatically shared, no manual ID');
 
@@ -66,7 +66,7 @@ try {
   await expect(page.getByLabel(vi.type, { exact: true })).toBeDisabled();
   await expect(page.getByLabel(vi.database, { exact: true })).toBeDisabled();
   await save(vi);
-  expect((await list(app)).find(w => w.id === 'worker').score.resources.store).toEqual(db);
+  expect((await list(app)).find(w => w.id === 'worker').workload.resources.store).toEqual(db);
   check('Worker reuses API database with a different local alias');
 
   for (const locale of ['vi', 'en']) {
@@ -93,7 +93,7 @@ try {
   await editor(app, 'api');
   await page.getByLabel(vi.image, { exact: true }).fill('example.invalid/api:v2');
   await save(vi);
-  expect((await list(app)).find(w => w.id === 'api').score.resources.db).toEqual(db);
+  expect((await list(app)).find(w => w.id === 'api').workload.resources.db).toEqual(db);
   check('Edit and save preserve original shared identity');
 
   await editor(app, 'new', 'production');
@@ -114,7 +114,7 @@ try {
   await page.getByRole('button', { name: vi.advanced, exact: true }).click();
   await page.getByLabel(vi.private, { exact: true }).check();
   await save(vi);
-  expect((await list(other))[0].score.resources.db).not.toHaveProperty('id');
+  expect((await list(other))[0].workload.resources.db).not.toHaveProperty('id');
   check('Advanced private scope omits shared ID');
   expect(errors).toEqual([]);
   await writeFile(`${evidence}/assertions.json`, JSON.stringify({ assertions, errors }, null, 2));

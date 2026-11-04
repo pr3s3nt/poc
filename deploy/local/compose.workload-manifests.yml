@@ -1,6 +1,6 @@
 # Run-owned Console for the open workload object acceptance (ADR-024). Used only by
 # backend/test/integration/workload-manifests-kind.sh on top of
-# compose.git-render-bundle.yml: public routes are Gateway API HTTPRoutes attached to
+# compose.git-template-source.yml: public routes are Gateway API HTTPRoutes attached to
 # the run cluster's Gateway, with a run-local base domain.
 services:
   backend:

@@ -57,7 +57,7 @@ func options(h v2run.CleanupHandles) (bootstrap.Options, error) {
 	// profile-bound cloud Application) and reaches every AWS node through its ORIGINAL pinned account and region.
 	return bootstrap.Options{
 		Seed: seedOpts, Adapters: adapterMode(h), DatabaseURL: databaseURL, TerraformStateDatabaseURL: stateURL,
-		KubectlPath: h.Kubectl, TerraformPath: h.Terraform, ScoreK8sPath: h.ScoreK8s, RequireScoreRenderer: true, GitPath: h.Git,
+		KubectlPath: h.Kubectl, TerraformPath: h.Terraform, RequireTemplateRenderer: true, GitPath: h.Git,
 		TerraformRoot: h.TerraformRoot, TerraformPluginCache: h.PluginCacheDir, TerraformModuleCacheDir: h.ModuleCacheDir,
 		TerraformRecoveryDir: h.RecoveryDir, TerraformStateKeyFile: h.StateKeyFile, TerraformStateKeyID: h.StateKeyID,
 		ConnectionCredentialStore: "vault", ConnectionVaultAddress: h.VaultAddress, ConnectionVaultTokenFile: h.ConnectionTokenFile, ConnectionVaultMount: h.VaultMount,

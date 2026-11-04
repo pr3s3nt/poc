@@ -62,7 +62,7 @@ export function EnvironmentDefinitionVersions({ applicationId, environment, busy
             {changes.length && ['postgres', 'mysql', 'redis', 'persistent-storage'].includes(row.resourceType) ? <p className="form-info">{t('versions.dataGuard')}</p> : null}
           </section>;
         })}
-        <div className="form-actions"><Button disabled={busy || saving} onClick={() => navigate({ name: 'score-preview', applicationId, environment })}>{t('versions.preview')}</Button>{data.pending ? <Button disabled={busy || saving || uncertain} onClick={() => void save()}>{t('versions.discard')}</Button> : null}</div>
+        <div className="form-actions"><Button disabled={busy || saving} onClick={() => navigate({ name: 'workload-preview', applicationId, environment })}>{t('versions.preview')}</Button>{data.pending ? <Button disabled={busy || saving || uncertain} onClick={() => void save()}>{t('versions.discard')}</Button> : null}</div>
       </> : null}
     </> : null}
   </details>;

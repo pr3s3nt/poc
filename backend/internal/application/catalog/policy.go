@@ -18,7 +18,7 @@ import (
 // own rules.
 var publicID = regexp.MustCompile(`^[a-z0-9-]+$`)
 
-// reservedTypeKeys are the virtual Score Resource Types (UC-02 BR-06).
+// reservedTypeKeys are the virtual Workload Resource Types (UC-02 BR-06).
 var reservedTypeKeys = map[string]bool{"environment": true, "service": true}
 
 // validatePublicID checks a new public ID without trimming or normalizing it.

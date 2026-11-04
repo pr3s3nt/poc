@@ -30,7 +30,7 @@ const MaxComponents = 256
 const APIVersion = "orchestrator.dev/catalog/v1"
 const (
 	TerraformModule = "terraform-module"
-	RenderBundle    = "render-bundle"
+	TemplateSource  = "template-source"
 	Definition      = "definition"
 )
 
@@ -125,7 +125,7 @@ func ParseManifest(raw []byte) (Manifest, error) {
 			if !ValidID(c.ResourceType) {
 				return Manifest{}, ErrInvalid
 			}
-		case RenderBundle:
+		case TemplateSource:
 			if c.ResourceType != "" {
 				return Manifest{}, ErrInvalid
 			}

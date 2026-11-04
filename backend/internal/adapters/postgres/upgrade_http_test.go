@@ -9,12 +9,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
 	"orchestrator/internal/adapters/postgres"
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/bootstrap/bootstraptest"
 	"orchestrator/internal/platform/password"
 	"orchestrator/internal/seed/seedtest"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // Real PostgreSQL + product HTTP handlers; workload execution is explicitly fake.
@@ -94,8 +95,8 @@ func TestUpgradeHTTPLoginPreviewDeploy(t *testing.T) {
 	// on the migrated schema, including new writes, without touching a cluster.
 	request("POST", "/api/v1/auth/sign-in", map[string]any{"username": "developer", "password": "test-password"}, http.StatusOK)
 	base := "/api/v1/applications/" + opts.ApplicationKey + "/environments/" + opts.EnvironmentKey
-	score := map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "migration-api"}, "containers": map[string]any{"main": map[string]any{"image": "example.invalid/migration-api:v1"}}}
-	request("PUT", base+"/workloads/migration-api", map[string]any{"version": 0, "score": score}, http.StatusOK)
+	score := map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": "migration-api"}, "containers": map[string]any{"main": map[string]any{"image": "example.invalid/migration-api:v1"}}}
+	request("PUT", base+"/workloads/migration-api", map[string]any{"version": 0, "workload": score}, http.StatusOK)
 	preview := request("POST", base+"/preview", map[string]any{}, http.StatusOK)
 	token, ok := preview["token"].(string)
 	if !ok || token == "" {

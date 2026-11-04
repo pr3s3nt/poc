@@ -34,7 +34,7 @@ func chainRequest(t *testing.T, workloadRules map[string]resource.ProvisionRule,
 	t.Helper()
 	defs := defaultCatalog(t)
 	defs[2].Provision = workloadRules
-	req := placedRequest(t, frontendScore(), append(defs, extra...)...)
+	req := placedRequest(t, frontendWorkload(), append(defs, extra...)...)
 	chainTypes(&req)
 	return req
 }
@@ -164,7 +164,7 @@ func TestDependencyGraph_ReferenceToUndeclaredOutputFailsAtTheReferenceStage(t *
 }
 
 func TestDependencyGraph_ProviderBindingOrdersButDoesNotSelectAnAccount(t *testing.T) {
-	plan, err := placedPlan(t, placedRequest(t, frontendScore(), defaultCatalog(t)...))
+	plan, err := placedPlan(t, placedRequest(t, frontendWorkload(), defaultCatalog(t)...))
 	if err != nil {
 		t.Fatal(err)
 	}

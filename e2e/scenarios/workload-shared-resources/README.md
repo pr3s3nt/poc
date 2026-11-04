@@ -5,7 +5,7 @@ and [resource UI](../../../orchestrator_docs/usecase/UC-16/ui/screens.md).
 Product UI and HTTP handlers use a disposable in-memory backend with fake
 execution adapters. This does not verify database provisioning or deployment.
 
-Prerequisites: Node 22+, Go, installed `score-k8s`, Chromium; `cd e2e && npm ci`
+Prerequisites: Node 22+, Go, installed `template`, Chromium; `cd e2e && npm ci`
 and `npx playwright install chromium`. Build Console with `npm --prefix frontend
 run build`. Start `go run ./test/fixtures/deployment-review` from `backend/`,
 passing `-ui-dir` (absolute frontend/dist), `-cache-dir` and `-addr-file` paths

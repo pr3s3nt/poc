@@ -8,13 +8,13 @@ import (
 
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/planning/placeholder"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 )
 
 // KeepResourceAliases carries display metadata for remaining workloads and
-// replaces the deployed workload's metadata from its validated Score. Removed
+// replaces the deployed workload's metadata from its validated Workload. Removed
 // workloads and declarations never inherit stale aliases.
-func KeepResourceAliases(base environment.ResourceAliases, document environment.Document, after *score.Document) environment.ResourceAliases {
+func KeepResourceAliases(base environment.ResourceAliases, document environment.Document, after *workloadspec.Document) environment.ResourceAliases {
 	out := environment.ResourceAliases{}
 	for id := range document.Modules {
 		if after != nil && id == after.Metadata.Name {
@@ -27,7 +27,7 @@ func KeepResourceAliases(base environment.ResourceAliases, document environment.
 			if len(aliases.Shared) == 0 {
 				continue
 			}
-			raw, _ := json.Marshal(after) // validated typed Score is JSON-serializable
+			raw, _ := json.Marshal(after) // validated typed Workload is JSON-serializable
 			var tree map[string]any
 			_ = json.Unmarshal(raw, &tree)
 			walkAliasText(tree, "", func(path, value string) string {
@@ -148,7 +148,7 @@ func restoreResourceAliases(raw map[string]any, aliases environment.WorkloadReso
 	return nil
 }
 
-// Score expands variables and dependency params, not command/args/image text.
+// Workload expands variables and dependency params, not command/args/image text.
 func aliasBindingPath(path string) bool {
 	parts := strings.Split(path, "/")
 	return len(parts) == 5 && parts[1] == "containers" && parts[3] == "variables" ||

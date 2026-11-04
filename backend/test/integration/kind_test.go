@@ -115,7 +115,7 @@ func TestKindInternalVerification(t *testing.T) {
 		t.Fatal("the backend Deployment carries a plaintext PGPASSWORD")
 	}
 
-	// Container resources (UC-06 BR-11): declared Score values reach the live
+	// Container resources (UC-06 BR-11): declared Workload values reach the live
 	// Deployment verbatim, only missing requests get defaults and limits appear
 	// only when declared. The seeded values are canonical Kubernetes quantities,
 	// so the API server returns them unchanged.

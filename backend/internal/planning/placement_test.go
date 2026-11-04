@@ -13,7 +13,7 @@ import (
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/planning"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 )
 
 // ADR-016 placement: Definitions and typed references decide the target of a
@@ -23,11 +23,11 @@ import (
 const (
 	nsRef      = "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
 	clusterRef = "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"
-	bundleID   = "score-k8s-internal-v1"
+	bundleID   = "template-internal-v1"
 )
 
-func placedBundles() map[string]resource.RenderBundle {
-	return map[string]resource.RenderBundle{bundleID: {ID: bundleID, Version: "0.15.0", BinaryDigest: "sha256:bin", Digest: "sha256:bundle"}}
+func placedBundles() map[string]resource.TemplateSource {
+	return map[string]resource.TemplateSource{bundleID: {ID: bundleID, Version: "0.15.0", BinaryDigest: "sha256:bin", Digest: "sha256:bundle"}}
 }
 
 func placedAccounts() map[string]application.Connection {
@@ -57,7 +57,7 @@ func namespaceDefinition(t *testing.T, key, clusterClass string, criteria ...res
 }
 
 func workloadDefinition(key string, variables map[string]any, criteria ...resource.Criterion) resource.Definition {
-	merged := map[string]any{"render_bundle": bundleID, "namespace": nsRef, "cluster": clusterRef}
+	merged := map[string]any{"template_source": bundleID, "namespace": nsRef, "cluster": clusterRef}
 	for k, v := range variables {
 		if v == nil {
 			delete(merged, k)
@@ -65,13 +65,13 @@ func workloadDefinition(key string, variables map[string]any, criteria ...resour
 		}
 		merged[k] = v
 	}
-	return resource.Definition{Key: key, Name: key, Version: 4, ResourceTypeKey: planning.TypeWorkload, DriverType: resource.DriverScoreK8s,
+	return resource.Definition{Key: key, Name: key, Version: 4, ResourceTypeKey: planning.TypeWorkload, DriverType: resource.DriverTemplate,
 		DriverInputs: map[string]any{"values": map[string]any{"variables": merged}}, Criteria: criteria}
 }
 
 func placedRequest(t *testing.T, doc map[string]any, defs ...resource.Definition) planning.Request {
 	t.Helper()
-	parsed, err := score.FromMap(doc)
+	parsed, err := workloadspec.FromMap(doc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,9 +95,9 @@ func placedRequest(t *testing.T, doc map[string]any, defs ...resource.Definition
 	}
 }
 
-func frontendScore(extra ...func(map[string]any)) map[string]any {
+func frontendWorkload(extra ...func(map[string]any)) map[string]any {
 	doc := map[string]any{
-		"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "web"},
+		"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": "web"},
 		"containers": map[string]any{"main": map[string]any{"image": "example.invalid/frontend:1"}},
 	}
 	for _, mutate := range extra {
@@ -126,7 +126,7 @@ const (
 )
 
 func TestPlacement_DefinitionsDecideTargetWithoutEnvironmentConnection(t *testing.T) {
-	req := placedRequest(t, frontendScore(), defaultCatalog(t)...)
+	req := placedRequest(t, frontendWorkload(), defaultCatalog(t)...)
 	plan, err := placedPlan(t, req)
 	if err != nil {
 		t.Fatal(err)
@@ -159,7 +159,7 @@ func TestPlacement_DefinitionsDecideTargetWithoutEnvironmentConnection(t *testin
 	if selection.DefinitionKey != "workload-render" || selection.Class != "default" || selection.Bundle.ID != bundleID {
 		t.Fatalf("rendering = %+v", selection)
 	}
-	req2 := placedRequest(t, frontendScore(), defaultCatalog(t)...)
+	req2 := placedRequest(t, frontendWorkload(), defaultCatalog(t)...)
 	req2.Terraform = req.Terraform // one registry: the bundle ID is part of the pin
 	again, err := placedPlan(t, req2)
 	if err != nil || again.PlanHash != plan.PlanHash {
@@ -168,12 +168,12 @@ func TestPlacement_DefinitionsDecideTargetWithoutEnvironmentConnection(t *testin
 }
 
 func TestPlacement_AccountVersionAndClusterDefinitionChangeThePlanHash(t *testing.T) {
-	baseReq := placedRequest(t, frontendScore(), defaultCatalog(t)...)
+	baseReq := placedRequest(t, frontendWorkload(), defaultCatalog(t)...)
 	base, err := placedPlan(t, baseReq)
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := placedRequest(t, frontendScore(), defaultCatalog(t)...)
+	req := placedRequest(t, frontendWorkload(), defaultCatalog(t)...)
 	req.Terraform = baseReq.Terraform
 	account := req.Catalog.Accounts["acct-a"]
 	account.Version++
@@ -184,7 +184,7 @@ func TestPlacement_AccountVersionAndClusterDefinitionChangeThePlanHash(t *testin
 	}
 	defs := defaultCatalog(t)
 	defs[0].Version++
-	defReq := placedRequest(t, frontendScore(), defs...)
+	defReq := placedRequest(t, frontendWorkload(), defs...)
 	defReq.Terraform = baseReq.Terraform
 	again, err := placedPlan(t, defReq)
 	if err != nil || again.PlanHash == base.PlanHash {
@@ -218,7 +218,7 @@ func TestPlacement_UnavailableAccountFailsWithoutFallback(t *testing.T) {
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
-			req := placedRequest(t, frontendScore(), defaultCatalog(t)...)
+			req := placedRequest(t, frontendWorkload(), defaultCatalog(t)...)
 			mutate(req.Catalog.Accounts) // acct-b stays READY: it must never replace the winner.
 			plan, err := placedPlan(t, req)
 			var staged *planning.StageError
@@ -234,7 +234,7 @@ func TestPlacement_UnavailableAccountFailsWithoutFallback(t *testing.T) {
 
 func TestPlacement_TiedClusterDefinitionsAreAmbiguousNotResolved(t *testing.T) {
 	defs := append(defaultCatalog(t), clusterDefinition("cluster-b", "acct-b", resource.Criterion{Class: "internal"}))
-	plan, err := placedPlan(t, placedRequest(t, frontendScore(), defs...))
+	plan, err := placedPlan(t, placedRequest(t, frontendWorkload(), defs...))
 	var staged *planning.StageError
 	if plan != nil || err == nil || !strings.Contains(err.Error(), "ambiguous match") || !errors.As(err, &staged) || staged.Reason != planning.ReasonResourceAmbiguous || staged.Stage != planning.StageGraph {
 		t.Fatalf("plan=%v err=%v", plan, err)
@@ -246,7 +246,7 @@ func TestPlacement_TiedClusterDefinitionsAreAmbiguousNotResolved(t *testing.T) {
 
 func TestPlacement_MoreSpecificClusterDefinitionWinsByNormalWeights(t *testing.T) {
 	defs := append(defaultCatalog(t), clusterDefinition("cluster-b", "acct-b", resource.Criterion{Class: "internal", ApplicationID: "shop"}))
-	plan, err := placedPlan(t, placedRequest(t, frontendScore(), defs...))
+	plan, err := placedPlan(t, placedRequest(t, frontendWorkload(), defs...))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,7 +257,7 @@ func TestPlacement_MoreSpecificClusterDefinitionWinsByNormalWeights(t *testing.T
 
 func TestPlacement_NoClusterDefinitionHasNoBuiltinFallback(t *testing.T) {
 	defs := defaultCatalog(t)[1:]
-	plan, err := placedPlan(t, placedRequest(t, frontendScore(), defs...))
+	plan, err := placedPlan(t, placedRequest(t, frontendWorkload(), defs...))
 	var staged *planning.StageError
 	if plan != nil || err == nil || !strings.Contains(err.Error(), "no resource definition matches") || !errors.As(err, &staged) || staged.Reason != planning.ReasonResourceNoMatch {
 		t.Fatalf("plan=%v err=%v", plan, err)
@@ -266,12 +266,12 @@ func TestPlacement_NoClusterDefinitionHasNoBuiltinFallback(t *testing.T) {
 
 func TestPlacement_WorkloadWithoutTypedReferencesFails(t *testing.T) {
 	defs := []resource.Definition{defaultCatalog(t)[0], defaultCatalog(t)[1], {
-		Key: "workload-render", Name: "w", Version: 1, ResourceTypeKey: planning.TypeWorkload, DriverType: resource.DriverScoreK8s,
-		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": bundleID}}}, Criteria: []resource.Criterion{{}},
+		Key: "workload-render", Name: "w", Version: 1, ResourceTypeKey: planning.TypeWorkload, DriverType: resource.DriverTemplate,
+		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"template_source": bundleID}}}, Criteria: []resource.Criterion{{}},
 	}}
-	_, err := placedPlan(t, placedRequest(t, frontendScore(), defs...))
+	_, err := placedPlan(t, placedRequest(t, frontendWorkload(), defs...))
 	var staged *planning.StageError
-	if !errors.As(err, &staged) || staged.Stage != planning.StageCatalog || !strings.Contains(err.Error(), "needs both the namespace and cluster references") {
+	if !errors.As(err, &staged) || staged.Stage != planning.StageCatalog || !strings.Contains(err.Error(), "needs a namespace reference") {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -284,7 +284,7 @@ func TestPlacement_NamespaceProviderMustMatchWorkloadCluster(t *testing.T) {
 		namespaceDefinition(t, "namespace-module", "other", resource.Criterion{Class: "default"}),
 		workloadDefinition("workload-render", nil, resource.Criterion{}),
 	}
-	plan, err := placedPlan(t, placedRequest(t, frontendScore(), defs...))
+	plan, err := placedPlan(t, placedRequest(t, frontendWorkload(), defs...))
 	var staged *planning.StageError
 	if plan != nil || !errors.As(err, &staged) || staged.Reason != planning.ReasonPlacement || !strings.Contains(err.Error(), "contradicts") {
 		t.Fatalf("plan=%v err=%v", plan, err)
@@ -299,7 +299,7 @@ func TestPlacement_TwoClustersInOneCandidateSetAreUnsupportedBeforeExecution(t *
 		namespaceDefinition(t, "namespace-second", "other", resource.Criterion{Class: "second"}),
 		workloadDefinition("workload-render", nil, resource.Criterion{}),
 	}
-	doc := frontendScore(func(d map[string]any) {
+	doc := frontendWorkload(func(d map[string]any) {
 		d["resources"] = map[string]any{"extra": map[string]any{"type": "k8s-namespace", "class": "second"}}
 	})
 	plan, err := placedPlan(t, placedRequest(t, doc, defs...))
@@ -316,11 +316,11 @@ func TestPlacement_ClassSelectsWorkloadDefinitionAndDefaultsWhenMissing(t *testi
 	defs := append(defaultCatalog(t),
 		workloadDefinition("workload-gold", nil, resource.Criterion{Class: "gold"}))
 	defs[2] = workloadDefinition("workload-render", nil, resource.Criterion{Class: "default"})
-	plain, err := placedPlan(t, placedRequest(t, frontendScore(), defs...))
+	plain, err := placedPlan(t, placedRequest(t, frontendWorkload(), defs...))
 	if err != nil || plain.Rendering["web"].DefinitionKey != "workload-render" || plain.Rendering["web"].Class != "default" {
 		t.Fatalf("default class: %+v %v", plain, err)
 	}
-	gold, err := placedPlan(t, placedRequest(t, frontendScore(func(d map[string]any) { d["metadata"] = map[string]any{"name": "web", "class": "gold"} }), defs...))
+	gold, err := placedPlan(t, placedRequest(t, frontendWorkload(func(d map[string]any) { d["metadata"] = map[string]any{"name": "web", "class": "gold"} }), defs...))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -333,7 +333,7 @@ func TestPlacement_ClassSelectsWorkloadDefinitionAndDefaultsWhenMissing(t *testi
 	if gold.PlanHash == plain.PlanHash {
 		t.Fatal("a class change must invalidate an older Preview")
 	}
-	_, err = placedPlan(t, placedRequest(t, frontendScore(func(d map[string]any) { d["metadata"] = map[string]any{"name": "web", "class": "silver"} }), defs...))
+	_, err = placedPlan(t, placedRequest(t, frontendWorkload(func(d map[string]any) { d["metadata"] = map[string]any{"name": "web", "class": "silver"} }), defs...))
 	var staged *planning.StageError
 	if !errors.As(err, &staged) || staged.Reason != planning.ReasonRendererNoMatch {
 		t.Fatalf("an unmatched class must not fall back to default: %v", err)
@@ -346,7 +346,7 @@ func companionPlan(t *testing.T, rules map[string]resource.ProvisionRule) (*plan
 	t.Helper()
 	defs := defaultCatalog(t)
 	defs[2].Provision = rules
-	return placedPlan(t, placedRequest(t, frontendScore(), defs...))
+	return placedPlan(t, placedRequest(t, frontendWorkload(), defs...))
 }
 
 const (
@@ -434,7 +434,7 @@ func TestPlacement_WorkloadProvisionFlagsKeepBR08Semantics(t *testing.T) {
 	// fixed point: the same input plans to the same hash.
 	defs := defaultCatalog(t)
 	defs[2].Provision = map[string]resource.ProvisionRule{companionA: {IsDependent: true}, companionB: {IsDependent: true, MatchDependents: true}}
-	req := placedRequest(t, frontendScore(), defs...)
+	req := placedRequest(t, frontendWorkload(), defs...)
 	first, err := placedPlan(t, req)
 	if err != nil {
 		t.Fatal(err)
@@ -473,7 +473,7 @@ func TestPlacement_EnvironmentProviderTargetIsRetiredForDefinitionPlacedEnvironm
 	defs := defaultCatalog(t)
 	values := defs[1].DriverInputs["values"].(map[string]any)
 	values["provider_bindings"] = map[string]any{"kubernetes": map[string]any{"target": "environment"}}
-	_, err := placedPlan(t, placedRequest(t, frontendScore(), defs...))
+	_, err := placedPlan(t, placedRequest(t, frontendWorkload(), defs...))
 	if err == nil || !strings.Contains(err.Error(), "provider_bindings") {
 		t.Fatalf("err=%v", err)
 	}
@@ -484,7 +484,7 @@ func TestPlacement_ANamespaceThatReferencesTheClusterOutputIsPlacedByThatReferen
 	// A non-Terraform namespace Definition has no provider binding; its own cluster reference places it.
 	defs[1] = resource.Definition{Key: "namespace-driver", Name: "ns", Version: 1, ResourceTypeKey: planning.TypeNamespace, DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{Class: "default"}},
 		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"name": "${context.env.namespace}", "cluster": clusterRef}}}}
-	plan, err := placedPlan(t, placedRequest(t, frontendScore(), defs...))
+	plan, err := placedPlan(t, placedRequest(t, frontendWorkload(), defs...))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,10 +1,10 @@
 // Package planning is the deterministic, side-effect free core that turns a
-// Score document into a Deployment Plan (UC-05, UC-06, UC-07).
+// Workload document into a Deployment Plan (UC-05, UC-06, UC-07).
 package planning
 
 import (
 	"orchestrator/internal/domain/catalogrelease"
-	"orchestrator/internal/domain/renderbundle"
+	"orchestrator/internal/domain/templatesource"
 	"sort"
 
 	"orchestrator/internal/domain/application"
@@ -12,7 +12,7 @@ import (
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 )
 
 // NodeKind separates workload nodes from resource nodes. UC-08 executes
@@ -205,8 +205,8 @@ type Plan struct {
 	Rendering                   map[string]resource.RenderingSelection `json:"rendering,omitempty"`
 	WorkloadID                  string                                 `json:"workloadId"`
 	Action                      deployment.Action                      `json:"action"`
-	ScoreBefore                 map[string]any                         `json:"scoreBefore,omitempty"`
-	ScoreAfter                  map[string]any                         `json:"scoreAfter,omitempty"`
+	WorkloadBefore              map[string]any                         `json:"workloadBefore,omitempty"`
+	WorkloadAfter               map[string]any                         `json:"workloadAfter,omitempty"`
 	// Delta is the transient Humanitec-shaped Delta document. It is not part
 	// of the persisted plan: UC-06/07 persist it as a DeploymentDeltaSnapshot.
 	Delta        deployment.DeltaDocument `json:"-"`
@@ -250,9 +250,9 @@ type Catalog struct {
 	// Organization by key. Planning reads only identity, kind, status and
 	// version; never configuration secrets.
 	Accounts map[string]application.Connection
-	// RenderBundles are the Organization's verified Git render bundles by ID
+	// TemplateSources are the Organization's verified Git render bundles by ID
 	// (ADR-021): immutable metadata only, never fetched or rendered here.
-	RenderBundles map[string]renderbundle.Bundle
+	TemplateSources map[string]templatesource.Bundle
 }
 
 // ModuleInspector returns the Terraform module contract of a Definition. The
@@ -317,8 +317,8 @@ type Request struct {
 	Env              environment.Environment
 	Connection       application.Connection
 	BaseSet          environment.Document
-	Before           *score.Document
-	After            *score.Document
+	Before           *workloadspec.Document
+	After            *workloadspec.Document
 	WorkloadID       string
 	RunID            string
 	Action           deployment.Action

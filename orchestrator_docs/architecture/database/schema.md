@@ -1291,3 +1291,19 @@ checks to admit `GIT` connections with `GIT_TOKEN` credentials: reusable,
 Organization-scoped Git accounts whose tokens stay in the private credential
 store. No new relation or grant is introduced; released references/migrations
 1–6 remain frozen and unchanged.
+
+## Generic Workload and Template sources — ADR-035 (schema version 8)
+
+Version 8 renames `render_bundles` to `template_sources`, and
+`workload_drafts.score_document` to `workload_document`. Immutable source records
+accept Git, ZIP and inline digest origins, engine `template-v1`, renderer 1.0.0.
+Retain Organization scoping, unique source identity including the renderer fingerprint, insert-only runtime grants
+and immutable content triggers. Templates and typed contracts remain JSONB;
+Definition revisions and deployment artifacts pin their verified content.
+
+The owner migration removes obsolete experimental score-k8s Definitions and
+published versions, related selection entries, old Score drafts and obsolete
+render source records. It refuses retained deployed workloads or resource
+references to an obsolete Definition. Terraform Definitions, accounts,
+connections, installation identity and Terraform state are preserved. Released
+versions 1–7 are frozen. Runtime never performs DDL or this cleanup.

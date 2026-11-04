@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 	"orchestrator/internal/seed"
 )
 
@@ -19,14 +19,14 @@ func options() Options {
 		Application: "acc-v04", Environment: "staging", RunID: "v04-run-1", TTLSeconds: 30}
 }
 
-func TestBuildKeepsTheRepositoryScoreSourceIdentity(t *testing.T) {
+func TestBuildKeepsTheRepositoryWorkloadSourceIdentity(t *testing.T) {
 	result, err := Build(options())
 	if err != nil {
 		t.Fatal(err)
 	}
 	base := seed.Defaults()
 	base.Images = seed.Images{Frontend: "acceptance-frontend:v1", Backend: "acceptance-backend:v1", Worker: "acceptance-worker:v1"}
-	source := seed.AcceptanceScoresRedis(base, "acceptance-cache", "default", "acc-v04", "staging", "v04-run-1")
+	source := seed.AcceptanceWorkloadsRedis(base, "acceptance-cache", "default", "acc-v04", "staging", "v04-run-1")
 	for _, w := range result.Workloads {
 		want := source[w.Name]["containers"].(map[string]any)["main"].(map[string]any)
 		got := w.Document["containers"].(map[string]any)["main"].(map[string]any)
@@ -37,7 +37,7 @@ func TestBuildKeepsTheRepositoryScoreSourceIdentity(t *testing.T) {
 			}
 		}
 		if w.SourceHash == w.Hash {
-			t.Fatalf("%s: the generated Score must differ from the source (literals become references) and say so", w.Name)
+			t.Fatalf("%s: the generated Workload must differ from the source (literals become references) and say so", w.Name)
 		}
 	}
 	backend, worker := workload(t, result, "backend"), workload(t, result, "worker")
@@ -145,7 +145,7 @@ func TestBuildUsesReferencesOnlyAndRecordsEveryDifference(t *testing.T) {
 		t.Fatalf("the frontend must reach the backend through the Service reference:\n%s", front.YAML)
 	}
 	if strings.Contains(front.YAML, "http://backend:8080") {
-		t.Fatal("a literal backend URL leaked into the frontend Score")
+		t.Fatal("a literal backend URL leaked into the frontend Workload")
 	}
 }
 
@@ -214,7 +214,7 @@ func TestBuildIsDeterministicAndRejectsIncompleteOptions(t *testing.T) {
 	}
 }
 
-func TestGeneratedScoresParseAndConvertWithTheProductScoreParser(t *testing.T) {
+func TestGeneratedWorkloadsParseAndConvertWithTheProductWorkloadParser(t *testing.T) {
 	result, err := Build(options())
 	if err != nil {
 		t.Fatal(err)
@@ -223,7 +223,7 @@ func TestGeneratedScoresParseAndConvertWithTheProductScoreParser(t *testing.T) {
 		Outputs: []resource.OutputField{{Name: "host", Type: "string"}, {Name: "port", Type: "number"}, {Name: "database", Type: "string"}, {Name: "username", Type: "string"}, {Name: "password", Type: "string", Secret: true}}},
 		"redis": seed.RedisType()}
 	for _, w := range result.Workloads {
-		doc, err := score.FromMap(w.Document)
+		doc, err := workloadspec.FromMap(w.Document)
 		if err != nil {
 			t.Fatalf("%s: %v", w.Name, err)
 		}
@@ -241,12 +241,12 @@ func TestGeneratedScoresParseAndConvertWithTheProductScoreParser(t *testing.T) {
 	}
 }
 
-func TestProbeScoreRequestsTheRunOwnedReadinessFailureResource(t *testing.T) {
-	text, doc, err := ProbeScore(options())
+func TestProbeWorkloadRequestsTheRunOwnedReadinessFailureResource(t *testing.T) {
+	text, doc, err := ProbeWorkload(options())
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed, err := score.FromMap(doc)
+	parsed, err := workloadspec.FromMap(doc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,12 +291,12 @@ func TestBuildCanOmitTheOptionalApplicationSecretForEKSTargets(t *testing.T) {
 	}
 }
 
-func TestPreApplyProbeScoreUsesDistinctRunOwnedPostgresAndInvalidIdentifier(t *testing.T) {
-	text, doc, err := PreApplyProbeScore(options())
+func TestPreApplyProbeWorkloadUsesDistinctRunOwnedPostgresAndInvalidIdentifier(t *testing.T) {
+	text, doc, err := PreApplyProbeWorkload(options())
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed, err := score.FromMap(doc)
+	parsed, err := workloadspec.FromMap(doc)
 	if err != nil {
 		t.Fatal(err)
 	}

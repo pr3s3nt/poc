@@ -284,7 +284,7 @@ func ChangedPaths(before, after any) []string {
 func legacyRenderPins(ctx context.Context, st persistence.Store, app, env string, defs []resource.Definition) ([]resource.Definition, error) {
 	needs := false
 	for _, d := range defs {
-		if d.DriverType == resource.DriverScoreK8s && d.RenderPin == nil {
+		if d.DriverType == resource.DriverTemplate && d.RenderPin == nil {
 			needs = true
 			break
 		}
@@ -296,7 +296,7 @@ func legacyRenderPins(ctx context.Context, st persistence.Store, app, env string
 	if err != nil {
 		return nil, err
 	}
-	pins := map[string]resource.RenderBundle{}
+	pins := map[string]resource.TemplateSource{}
 	missingEvidence := false
 	for _, instance := range instances {
 		if instance.LastDeploymentID == "" {
@@ -321,7 +321,7 @@ func legacyRenderPins(ctx context.Context, st persistence.Store, app, env string
 				a, _ := json.Marshal(old)
 				b, _ := json.Marshal(render.Bundle)
 				if string(a) != string(b) {
-					pins[render.DefinitionKey] = resource.RenderBundle{ID: "unverified"}
+					pins[render.DefinitionKey] = resource.TemplateSource{ID: "unverified"}
 					continue
 				}
 			}
@@ -330,11 +330,11 @@ func legacyRenderPins(ctx context.Context, st persistence.Store, app, env string
 	}
 	out := append([]resource.Definition{}, defs...)
 	for i, d := range out {
-		if d.DriverType != resource.DriverScoreK8s || d.RenderPin != nil {
+		if d.DriverType != resource.DriverTemplate || d.RenderPin != nil {
 			continue
 		}
 		if missingEvidence {
-			out[i].RenderPin = &resource.RenderBundle{ID: "unverified"}
+			out[i].RenderPin = &resource.TemplateSource{ID: "unverified"}
 		} else if pin, ok := pins[d.Key]; ok {
 			out[i].RenderPin = &pin
 		}

@@ -8,10 +8,10 @@ const respond = (body: unknown, status: number) => vi.stubGlobal('fetch', vi.fn(
 const failure = async (path = '/x') => api(path).then(() => { throw new Error('expected a failure'); }, (error: unknown) => error as ApiError);
 
 it('reads code, field and allow-listed params, never the backend sentence', async () => {
-  respond({ error: 'raw English SECRET', code: 'PLANNING_REJECTED', field: 'scoreAfter', params: { stage: 'graph', reason: 'before-mismatch', extra: 'SECRET' } }, 400);
+  respond({ error: 'raw English SECRET', code: 'PLANNING_REJECTED', field: 'workloadAfter', params: { stage: 'graph', reason: 'before-mismatch', extra: 'SECRET' } }, 400);
   const error = await failure();
   expect(error).toBeInstanceOf(ApiError);
-  expect([error.status, error.code, error.field, error.params]).toEqual([400, 'PLANNING_REJECTED', 'scoreAfter', { stage: 'graph', reason: 'before-mismatch' }]);
+  expect([error.status, error.code, error.field, error.params]).toEqual([400, 'PLANNING_REJECTED', 'workloadAfter', { stage: 'graph', reason: 'before-mismatch' }]);
   expect(error.message).toContain(errorMessages.PLANNING_REJECTED);
   expect(error.message).not.toMatch(/SECRET|raw English/);
 });
@@ -90,23 +90,23 @@ it('announces session expiry only for protected 401', async () => {
   expect(listener).toHaveBeenCalledTimes(1);
 });
 
-it('names only a bounded registered resource Type for INVALID_SCORE and drops malformed ones', async () => {
-  respond({ code: 'INVALID_SCORE', error: 'raw SECRET', params: { resourceType: 'postgres', other: 'SECRET' } }, 400);
+it('names only a bounded registered resource Type for INVALID_WORKLOAD and drops malformed ones', async () => {
+  respond({ code: 'INVALID_WORKLOAD', error: 'raw SECRET', params: { resourceType: 'postgres', other: 'SECRET' } }, 400);
   const known = await failure();
   expect(known.params).toEqual({ resourceType: 'postgres' });
   expect(known.message).toContain('loại postgres');
   expect(known.message).not.toMatch(/SECRET|alias|db/);
   for (const resourceType of ['Bad_SECRET', 'a'.repeat(64), '', 7, { a: 1 }, '__proto__', 'x y']) {
-    respond({ code: 'INVALID_SCORE', params: { resourceType } }, 400);
+    respond({ code: 'INVALID_WORKLOAD', params: { resourceType } }, 400);
     const bad = await failure();
     expect(bad.params).toBeUndefined();
     expect(bad.message).not.toContain('loại ');
   }
-  respond({ code: 'INVALID_SCORE', field: 'resources' }, 400);
+  respond({ code: 'INVALID_WORKLOAD', field: 'resources' }, 400);
   const unknown = await failure();
   expect(unknown.field).toBe('resources');
   expect(unknown.message).toContain('loại chưa được đăng ký');
-  expect(new ApiError(400, 'INVALID_SCORE', 'resources', { resourceType: 'Bad_SECRET' }).message).not.toContain('SECRET');
+  expect(new ApiError(400, 'INVALID_WORKLOAD', 'resources', { resourceType: 'Bad_SECRET' }).message).not.toContain('SECRET');
 });
 
 it('maps the resource deletion codes to specific Vietnamese text and keeps only allowlisted cleanup reasons', async () => {

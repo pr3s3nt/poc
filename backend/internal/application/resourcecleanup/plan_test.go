@@ -151,7 +151,7 @@ func TestWorkloadAndPendingConsumersBlock(t *testing.T) {
 	}
 	// A pending upsert consumes what it declares (and the Environment infrastructure).
 	s.doc = environment.NewDocument()
-	s.drafts = []environment.WorkloadDraft{{WorkloadID: "web", State: environment.DraftUpsert, Score: map[string]any{"resources": map[string]any{"db": map[string]any{"type": "postgres", "id": "db"}}}}}
+	s.drafts = []environment.WorkloadDraft{{WorkloadID: "web", State: environment.DraftUpsert, Workload: map[string]any{"resources": map[string]any{"db": map[string]any{"type": "postgres", "id": "db"}}}}}
 	for _, id := range []string{"shared", "infra"} {
 		p, _ := buildPlan(s, id)
 		if p.rootRefusal() != ReasonHasConsumers {

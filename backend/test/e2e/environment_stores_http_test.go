@@ -138,7 +138,7 @@ func TestEnvironmentSettingsStoreSelectionConflictsAndBusyStateOverHTTP(t *testi
 	}
 	s, o := requestJSON(t, developer, http.MethodPut, base+"/configuration/keys/MODE", map[string]any{"kind": "VARIABLE", "value": "x", "version": 0})
 	busy("config", s, o)
-	s, o = requestJSON(t, developer, http.MethodPut, base+"/workloads/web", map[string]any{"score": extraScore("web"), "version": 0})
+	s, o = requestJSON(t, developer, http.MethodPut, base+"/workloads/web", map[string]any{"workload": extraWorkload("web"), "version": 0})
 	busy("draft", s, o)
 	s, o = put(otherKey, current["version"], 0)
 	busy("store", s, o)
@@ -159,6 +159,6 @@ func TestEnvironmentSettingsStoreSelectionConflictsAndBusyStateOverHTTP(t *testi
 	_ = opts
 }
 
-func extraScore(name string) map[string]any {
-	return map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": name}, "containers": map[string]any{"main": map[string]any{"image": "example.invalid/" + name + ":1"}}}
+func extraWorkload(name string) map[string]any {
+	return map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": name}, "containers": map[string]any{"main": map[string]any{"image": "example.invalid/" + name + ":1"}}}
 }

@@ -831,3 +831,4 @@ export const capabilityFixture: Capability[] = [
   ]
  }
 ];
+capabilityFixture.push({resourceType:'workload',driverType:'template',module:'',providerRequirements:[],outputs:[],variables:[{name:'template_source',type:'string',required:true,hasDefault:false,resourceParam:false},{name:'namespace',type:'string',required:true,hasDefault:false,resourceParam:false}],executorOwned:[],account:{required:false},bindings:[]});

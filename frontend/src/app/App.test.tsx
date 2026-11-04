@@ -241,18 +241,19 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     await waitFor(() => expect(requests.some((request) => request.url.includes('/deployments'))).toBe(true));
     expect(screen.queryByText('Không tìm thấy ứng dụng')).not.toBeInTheDocument();
   });
-  describe.each(['PLATFORM_ENGINEER', 'ADMIN'])('rendering templates page for %s (T03)', (role) => {
-    it('shows the peer sidebar link and renders the page at the deep link', async () => {
+  describe.each(['PLATFORM_ENGINEER', 'ADMIN'])('unified workload Definition route for %s', (role) => {
+    it('opens the unified Definition editor through the retired bookmark', async () => {
       authenticated = true;
       window.history.replaceState({}, '', '/ui/platform/rendering-templates');
       override = (url) => url.endsWith('/auth/session') ? Response.json({ user: { Username: 'platform', Role: role } })
         : url.endsWith('/resource-definitions') ? Response.json({ resourceDefinitions: [] }) : undefined;
       render(<App />);
-      expect(await screen.findByRole('heading', { name: 'Mẫu dựng ứng dụng' })).toBeInTheDocument();
-      const link = screen.getByRole('link', { name: /Mẫu dựng ứng dụng/ });
-      expect(link).toHaveAttribute('href', '/ui/platform/rendering-templates');
+      expect(await screen.findByRole('heading', { name: /Cấu hình tài nguyên mới/ })).toBeInTheDocument();
+      const link = screen.getByRole('link', { name: /(^|\s)Cấu hình tài nguyên$/ });
+      expect(screen.queryByRole('link', { name: /Mẫu dựng ứng dụng/ })).not.toBeInTheDocument();
+      expect(link).toHaveAttribute('href', '/ui/platform/resource-definitions');
       expect(link).toHaveClass('nav-item-active');
-      expect(screen.getByRole('link', { name: /(^|\s)Cấu hình tài nguyên$/ })).not.toHaveClass('nav-item-active');
+
     });
   });
 
@@ -431,7 +432,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       override = asRole(role);
       render(<App />);
       await screen.findByRole('navigation', { name: 'Điều hướng chính' });
-      const expected: [RegExp, string][] = [[/Ứng dụng/, '/ui/applications'], [/Loại tài nguyên/, '/ui/platform/resource-types'], [/Cấu hình tài nguyên/, '/ui/platform/resource-definitions'], [/Mẫu dựng ứng dụng/, '/ui/platform/rendering-templates'], [/Tài khoản hạ tầng/, '/ui/platform/driver-accounts'], [/Kho bí mật/, '/ui/platform/secret-stores'], [/Hiệu quả platform/, '/ui/platform/effectiveness']];
+      const expected: [RegExp, string][] = [[/Ứng dụng/, '/ui/applications'], [/Loại tài nguyên/, '/ui/platform/resource-types'], [/Cấu hình tài nguyên/, '/ui/platform/resource-definitions'], [/Tài khoản hạ tầng/, '/ui/platform/driver-accounts'], [/Kho bí mật/, '/ui/platform/secret-stores'], [/Hiệu quả platform/, '/ui/platform/effectiveness']];
       for (const [name, path] of expected) expect(screen.getByRole('link', { name })).toHaveAttribute('href', path);
       expect(screen.queryByRole('link', { name: 'Kết nối' })).not.toBeInTheDocument();
       expect(screen.getByText(label)).toBeInTheDocument();

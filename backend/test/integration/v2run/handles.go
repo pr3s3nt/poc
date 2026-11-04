@@ -28,7 +28,7 @@ type CleanupHandles struct {
 
 	Terraform string `json:"terraform"`
 	Kubectl   string `json:"kubectl"`
-	ScoreK8s  string `json:"scoreK8s"`
+	Template  string `json:"workloadK8s"`
 	Git       string `json:"git"`
 
 	DatabaseURLFile      string `json:"databaseUrlFile"`
@@ -79,7 +79,7 @@ func (h CleanupHandles) Validate() error {
 			errs = append(errs, name+" is required")
 		}
 	}
-	for name, v := range map[string]string{"terraform": h.Terraform, "kubectl": h.Kubectl, "scoreK8s": h.ScoreK8s, "git": h.Git, "databaseUrlFile": h.DatabaseURLFile,
+	for name, v := range map[string]string{"terraform": h.Terraform, "kubectl": h.Kubectl, "scoreK8s": h.Template, "git": h.Git, "databaseUrlFile": h.DatabaseURLFile,
 		"stateDatabaseUrlFile": h.StateDatabaseURLFile, "stateKeyFile": h.StateKeyFile, "recoveryDir": h.RecoveryDir, "terraformRoot": h.TerraformRoot,
 		"pluginCacheDir": h.PluginCacheDir, "moduleCacheDir": h.ModuleCacheDir, "connectionTokenFile": h.ConnectionTokenFile, "outputTokenFile": h.OutputTokenFile} {
 		if !filepath.IsAbs(v) {

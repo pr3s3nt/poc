@@ -20,7 +20,7 @@ type Props = {
 
 // "Cách cung cấp / Class" of one dependency. The choices are the
 // classes GET /resource-types publishes for the Type; the Developer never picks a
-// Terraform module, provider or credential. `default` (empty) keeps its Score
+// Terraform module, provider or credential. `default` (empty) keeps its Workload
 // meaning: it is never mapped to a class, and an imported/custom class is kept.
 export function ClassControls({ index, alias, type, className, metadata, disabled = false, onClass, onReload }: Props) {
   const name = alias || type?.key || t('workloads.classControls.resourceValue', { value: index + 1 });

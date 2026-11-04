@@ -3,7 +3,7 @@
 // PUBLIC product adapters that matter to the scenario: the PostgreSQL Console
 // store, the Vault KV v2 Connection credential store, the verified Terraform
 // module registry over the packaged release modules and the REAL pinned
-// score-k8s renderer (required on both profiles, no native fallback). Workload
+// template renderer (required on both profiles, no native fallback). Workload
 // and resource executors stay FAKE: nothing is provisioned or deployed, and a
 // passing scenario is NOT live proof for V2-A01/A02/A03.
 //
@@ -49,12 +49,12 @@ func main() {
 	vaultAddress := flag.String("connection-vault-address", "", "Vault address of the Connection credential store")
 	vaultTokenFile := flag.String("connection-vault-token-file", "", "scoped Vault token file")
 	vaultMount := flag.String("connection-vault-mount", "secret", "KV v2 mount")
-	scoreK8s := flag.String("score-k8s", "", "path of the pinned score-k8s 0.15.0 renderer")
+	scoreK8s := flag.String("template", "", "path of the pinned template 0.15.0 renderer")
 	profile := flag.String("profile", "test", "seed profile")
 	runID := flag.String("run-id", "", "run id")
 	flag.Parse()
 	if *databaseURLFile == "" || *vaultAddress == "" || *vaultTokenFile == "" || *scoreK8s == "" {
-		log.Print("defworkserver: -database-url-file, -connection-vault-address, -connection-vault-token-file and -score-k8s are required")
+		log.Print("defworkserver: -database-url-file, -connection-vault-address, -connection-vault-token-file and -template are required")
 		os.Exit(2)
 	}
 	raw, err := os.ReadFile(*databaseURLFile)
@@ -68,7 +68,7 @@ func main() {
 	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{
 		Seed: opts, UIDir: *uiDir, Adapters: bootstrap.AdapterFake, DatabaseURL: strings.TrimSpace(string(raw)),
 		ConnectionCredentialStore: "vault", ConnectionVaultAddress: *vaultAddress, ConnectionVaultTokenFile: *vaultTokenFile, ConnectionVaultMount: *vaultMount,
-		ScoreK8sPath: *scoreK8s, RequireScoreRenderer: true,
+		RequireTemplateRenderer: true,
 	})
 	if err != nil {
 		log.Printf("defworkserver: startup failed: %v", err)
@@ -85,7 +85,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	fmt.Printf("defworkserver listening on http://%s (FAKE executors, real score-k8s, PostgreSQL, Vault)\n", listener.Addr())
+	fmt.Printf("defworkserver listening on http://%s (FAKE executors, real template, PostgreSQL, Vault)\n", listener.Addr())
 	server := &http.Server{Handler: app.Server, ReadHeaderTimeout: 10 * time.Second}
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"orchestrator/internal/domain/environment"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 )
 
 // A shared claim mount has no output placeholder. It must still create a graph
@@ -46,14 +46,14 @@ func TestSharedMountSurvivesUnrelatedDeltaAndOtherConsumerRemoval(t *testing.T) 
 	base.Modules["app"] = mounted()
 	base.Shared["images"] = data
 	worker := environment.Module{Profile: environment.ModuleProfile, Spec: environment.ModuleSpec{Containers: map[string]environment.Container{"main": {Image: "busybox:1.37"}}}}
-	added, err := (DeltaBuilder{}).BuildHumanitecDelta(base, "worker", nil, &score.Fragment{WorkloadID: "worker", Module: worker})
+	added, err := (DeltaBuilder{}).BuildHumanitecDelta(base, "worker", nil, &workloadspec.Fragment{WorkloadID: "worker", Module: worker})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := added.Candidate.Shared["images"]; !ok {
 		t.Fatal("unrelated workload addition dropped mounted shared storage")
 	}
-	before := &score.Fragment{WorkloadID: "app", Module: base.Modules["app"], Shared: map[string]environment.ResourceEntry{"images": data}}
+	before := &workloadspec.Fragment{WorkloadID: "app", Module: base.Modules["app"], Shared: map[string]environment.ResourceEntry{"images": data}}
 	added.Candidate.Modules["second"] = mounted()
 	removed, err := (DeltaBuilder{}).BuildHumanitecDelta(added.Candidate, "app", before, nil)
 	if err != nil {
@@ -62,7 +62,7 @@ func TestSharedMountSurvivesUnrelatedDeltaAndOtherConsumerRemoval(t *testing.T) 
 	if _, ok := removed.Candidate.Shared["images"]; !ok {
 		t.Fatal("removing one consumer dropped another consumer's mount")
 	}
-	before = &score.Fragment{WorkloadID: "second", Module: removed.Candidate.Modules["second"], Shared: map[string]environment.ResourceEntry{"images": data}}
+	before = &workloadspec.Fragment{WorkloadID: "second", Module: removed.Candidate.Modules["second"], Shared: map[string]environment.ResourceEntry{"images": data}}
 	last, err := (DeltaBuilder{}).BuildHumanitecDelta(removed.Candidate, "second", before, nil)
 	if err != nil {
 		t.Fatal(err)

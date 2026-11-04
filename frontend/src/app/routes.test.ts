@@ -10,8 +10,8 @@ describe('console routes', () => {
     expect(parseRoute('/ui/applications/payment%20api/settings')).toEqual({ name: 'settings', applicationId: 'payment api' });
     expect(parseRoute('/ui/applications/payment%20api/environments/staging/workloads/new')).toEqual({ name: 'workload', applicationId: 'payment api', environment: 'staging', workloadId: undefined });
     expect(parseRoute('/ui/applications/payment%20api/environments/production/workloads/backend')).toEqual({ name: 'workload', applicationId: 'payment api', environment: 'production', workloadId: 'backend' });
-    expect(parseRoute('/ui/applications/payment%20api/environments/production/preview')).toEqual({ name: 'score-preview', applicationId: 'payment api', environment: 'production' });
-    expect(href({ name: 'score-preview', applicationId: 'payment api', environment: 'staging' })).toBe('/ui/applications/payment%20api/environments/staging/preview');
+    expect(parseRoute('/ui/applications/payment%20api/environments/production/preview')).toEqual({ name: 'workload-preview', applicationId: 'payment api', environment: 'production' });
+    expect(href({ name: 'workload-preview', applicationId: 'payment api', environment: 'staging' })).toBe('/ui/applications/payment%20api/environments/staging/preview');
     expect(parseRoute('/ui/applications/payment%20api/environments/staging/deployments')).toEqual({ name: 'deployments', applicationId: 'payment api', environment: 'staging' });
     expect(parseRoute('/ui/applications/payment%20api/environments/staging/deployments/deploy-1')).toEqual({ name: 'deployment', applicationId: 'payment api', environment: 'staging', deploymentId: 'deploy-1' });
   });
@@ -49,8 +49,7 @@ describe('console routes', () => {
   });
 
   it('routes the rendering templates page', () => {
-    expect(parseRoute('/ui/platform/rendering-templates')).toEqual({ name: 'rendering-templates' });
-    expect(href({ name: 'rendering-templates' })).toBe('/ui/platform/rendering-templates');
+    expect(parseRoute('/ui/platform/rendering-templates')).toEqual({ name: 'resource-definitions', resourceType: 'workload' });
   });
 
   it('carries the resourceType query of the definitions page and drops an empty one', () => {

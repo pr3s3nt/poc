@@ -53,7 +53,7 @@ func uc07Deploy(t *testing.T, app *bootstrap.App, opts seed.Options, id string, 
 	t.Helper()
 	return app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
 		OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey,
-		WorkloadID: id, ScoreBefore: before, ScoreAfter: after, Actor: "test",
+		WorkloadID: id, WorkloadBefore: before, WorkloadAfter: after, Actor: "test",
 	})
 }
 
@@ -76,7 +76,7 @@ func sharedDB(t *testing.T, st persistence.Store, opts seed.Options) resource.Ac
 func TestRemoveWorkload_PreservesSharedDatabaseAndMarksLastReference(t *testing.T) {
 	ctx := context.Background()
 	app, opts, _ := uc07App(t)
-	scores := seed.AcceptanceScores(opts)
+	scores := seed.AcceptanceWorkloads(opts)
 	for _, id := range []string{"backend", "worker"} {
 		if _, err := uc07Deploy(t, app, opts, id, nil, scores[id]); err != nil {
 			t.Fatal(err)
@@ -135,7 +135,7 @@ func TestRemoveWorkload_PreservesSharedDatabaseAndMarksLastReference(t *testing.
 func TestUnreferencedMarking_StaysInOrganizationAndEnvironmentScope(t *testing.T) {
 	ctx := context.Background()
 	app, opts, _ := uc07App(t)
-	backend := seed.AcceptanceScores(opts)["backend"]
+	backend := seed.AcceptanceWorkloads(opts)["backend"]
 	if _, err := uc07Deploy(t, app, opts, "backend", nil, backend); err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +180,7 @@ func TestUnreferencedMarking_RollsBackWithFailedRuntimeOrCommit(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			app, opts, deployer := uc07App(t)
-			backend := seed.AcceptanceScores(opts)["backend"]
+			backend := seed.AcceptanceWorkloads(opts)["backend"]
 			if _, err := uc07Deploy(t, app, opts, "backend", nil, backend); err != nil {
 				t.Fatal(err)
 			}
@@ -207,7 +207,7 @@ func TestUnreferencedMarking_RollsBackWithFailedRuntimeOrCommit(t *testing.T) {
 
 func TestFailedWorkloadRemovalKeepsOriginalOwnershipDeployment(t *testing.T) {
 	app, opts, deployer := uc07App(t)
-	backend := seed.AcceptanceScores(opts)["backend"]
+	backend := seed.AcceptanceWorkloads(opts)["backend"]
 	if _, err := uc07Deploy(t, app, opts, "backend", nil, backend); err != nil {
 		t.Fatal(err)
 	}
@@ -240,7 +240,7 @@ func TestFailedWorkloadRemovalKeepsOriginalOwnershipDeployment(t *testing.T) {
 func TestEnvironmentWritesDuringAdmittedDeployAreRejected(t *testing.T) {
 	ctx := context.Background()
 	app, opts, deployer := uc07App(t)
-	backend := seed.AcceptanceScores(opts)["backend"]
+	backend := seed.AcceptanceWorkloads(opts)["backend"]
 	if _, err := uc07Deploy(t, app, opts, "backend", nil, backend); err != nil {
 		t.Fatal(err)
 	}
@@ -270,7 +270,7 @@ func TestDeploymentHistoryHidesUnsafeFailureReasons(t *testing.T) {
 	ctx := context.Background()
 	const sentinel = "sentinel-legacy-terraform-password"
 	app, opts, deployer := uc07App(t)
-	backend := seed.AcceptanceScores(opts)["backend"]
+	backend := seed.AcceptanceWorkloads(opts)["backend"]
 	if _, err := uc07Deploy(t, app, opts, "backend", nil, backend); err != nil {
 		t.Fatal(err)
 	}
@@ -319,7 +319,7 @@ func TestDeploymentHistoryHidesUnsafeFailureReasons(t *testing.T) {
 func TestUpdateWorkload_PreservesOtherModules(t *testing.T) {
 	ctx := context.Background()
 	app, opts, _ := uc07App(t)
-	scores := seed.AcceptanceScores(opts)
+	scores := seed.AcceptanceWorkloads(opts)
 	for _, id := range seed.AcceptanceOrder() {
 		if _, err := uc07Deploy(t, app, opts, id, nil, scores[id]); err != nil {
 			t.Fatal(err)
@@ -328,7 +328,7 @@ func TestUpdateWorkload_PreservesOtherModules(t *testing.T) {
 	env, _ := app.Store.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
 	before, _ := app.Store.GetDeploymentSet(ctx, env.CurrentDeploymentSetID)
 	db := sharedDB(t, app.Store, opts)
-	updated := seed.AcceptanceScores(opts)["frontend"]
+	updated := seed.AcceptanceWorkloads(opts)["frontend"]
 	updated["containers"].(map[string]any)["main"].(map[string]any)["image"] = "example.invalid/frontend:v2"
 	result, err := uc07Deploy(t, app, opts, "frontend", scores["frontend"], updated)
 	if err != nil {
@@ -354,15 +354,15 @@ func TestUpdateWorkload_PreservesOtherModules(t *testing.T) {
 func TestUpdateRemove_ConflictsFailBeforeSideEffects(t *testing.T) {
 	ctx := context.Background()
 	app, opts, deployer := uc07App(t)
-	scores := seed.AcceptanceScores(opts)
+	scores := seed.AcceptanceWorkloads(opts)
 	if _, err := uc07Deploy(t, app, opts, "backend", nil, scores["backend"]); err != nil {
 		t.Fatal(err)
 	}
 	env, _ := app.Store.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
 	provisions, applied := len(app.FakeExec.Calls), deployer.calls
-	stale := seed.AcceptanceScores(opts)["backend"]
+	stale := seed.AcceptanceWorkloads(opts)["backend"]
 	stale["containers"].(map[string]any)["main"].(map[string]any)["image"] = "example.invalid/other:v0"
-	conflict := seed.AcceptanceScores(opts)["worker"]
+	conflict := seed.AcceptanceWorkloads(opts)["worker"]
 	conflict["resources"].(map[string]any)["db"].(map[string]any)["params"].(map[string]any)["database"] = "other"
 	for name, cmd := range map[string][2]map[string]any{
 		"stale before remove": {stale, nil},

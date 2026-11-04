@@ -63,8 +63,8 @@
     },
     {
       "id": "render-standard",
-      "kind": "render-bundle",
-      "path": "platform-catalog/backend/render-bundles/standard"
+      "kind": "template-source",
+      "path": "platform-catalog/backend/template-sources/standard"
     },
     {
       "id": "bootstrap-standard-workload",

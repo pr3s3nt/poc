@@ -17,10 +17,10 @@ import (
 // TestUC02UC04RegistrationIsUsableWithoutRestart registers a Connection, a
 // runtime-supported PostgreSQL Definition for class "fast" and a new Resource
 // Type over HTTP, then uses them from a Developer session on the same process:
-// Score Preview matches the new Definition, and the new Type validates Score
+// Workload Preview matches the new Definition, and the new Type validates Workload
 // params although no runtime driver can provision it.
 
-// The new Type's input schema validates Score params in planning at once
+// The new Type's input schema validates Workload params in planning at once
 // (score stage), but runtime drivers stay fixed: valid params then fail
 // only because no Definition can provision the new Type (graph stage).
 

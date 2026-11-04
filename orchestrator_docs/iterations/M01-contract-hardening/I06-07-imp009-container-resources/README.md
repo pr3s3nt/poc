@@ -53,7 +53,7 @@ Hoàn thành 2026-09-22; mọi exit criteria pass. IMP-009 đã đóng.
 - `backend/internal/domain/environment/document.go` thêm typed
   `ComputeResources` và `ContainerResourceRequirements` dưới
   `Container.Resources`; strict decoder vẫn reject unknown fields.
-- `backend/internal/planning/score/resources.go` reject `null`, number, empty
+- `backend/internal/planning/workloadspec/resources.go` reject `null`, number, empty
   string, branch/key ngoài `requests`/`limits` và `cpu`/`memory`; không kiểm
   Kubernetes quantity semantics (UC-05 BR-07).
 - Giá trị khai báo đi nguyên văn qua Score fragment, Candidate Set, Delta

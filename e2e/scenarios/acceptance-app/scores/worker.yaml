@@ -1,4 +1,4 @@
-apiVersion: score.dev/v1b1
+apiVersion: orchestrator.dev/workload/v1
 containers:
     main:
         image: @@WORKER_IMAGE@@

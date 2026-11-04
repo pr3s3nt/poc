@@ -9,11 +9,11 @@ const (
 )
 
 // WorkloadDraft is desired UC-16 state, separate from the current Deployment Set.
-// Score contains references only, never copied Application secret values.
+// Workload contains references only, never copied Application secret values.
 type WorkloadDraft struct {
 	ApplicationKey string         `json:"applicationKey"`
 	EnvironmentKey string         `json:"environmentKey"`
 	WorkloadID     string         `json:"workloadId"`
 	State          DraftState     `json:"state"`
-	Score          map[string]any `json:"score,omitempty"`
+	Workload       map[string]any `json:"workload,omitempty"`
 }

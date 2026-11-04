@@ -18,10 +18,10 @@ func TestRealDeploymentRequiresCDBeforeProvisioningOrDirectApply(t *testing.T) {
 	app, opts := newApp(t)
 	// Nil provisioning and rendering collaborators are deliberate: an attempt to
 	// use either before rejecting the missing CD binding would panic this test.
-	svc := appsvc.NewService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), nil, nil, &rejectDirectApply{}, registrytest.Inspector(t, app.Store), clock.System{})
+	svc := appsvc.NewService(app.Store, planning.NewService(bootstrap.FakeTemplateSources()), nil, nil, &rejectDirectApply{}, registrytest.Inspector(t, app.Store), clock.System{})
 	_, err := svc.DeployWorkload(context.Background(), appsvc.DeployCommand{
 		OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "frontend", Actor: "test",
-		ScoreAfter: map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "frontend"}, "containers": map[string]any{"main": map[string]any{"image": "frontend:v1"}}},
+		WorkloadAfter: map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": "frontend"}, "containers": map[string]any{"main": map[string]any{"image": "frontend:v1"}}},
 	})
 	if !errors.Is(err, deliveryapp.ErrCDRequired) {
 		t.Fatalf("missing CD did not fail before infrastructure/workload effects: %v", err)

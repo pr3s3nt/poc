@@ -8,9 +8,9 @@ import (
 	"orchestrator/internal/domain/environment"
 )
 
-// literalScore is a workload whose container carries ordinary strings only:
+// literalWorkload is a workload whose container carries ordinary strings only:
 // plain text, an empty value, surrounding whitespace and an escaped placeholder.
-func literalScore(name string, values map[string]string) map[string]any {
+func literalWorkload(name string, values map[string]string) map[string]any {
 	score := scoreFor(name, "example.invalid/"+name+":v1", false)
 	variables := map[string]any{}
 	for key, value := range values {
@@ -27,7 +27,7 @@ var acceptedLiterals = map[string]string{
 	"TEMPLATE":  "$${NOT_A_REFERENCE}",
 }
 
-func liveScore(t *testing.T, workloads *workloadconfig.Service, app, env, id string) map[string]any {
+func liveWorkload(t *testing.T, workloads *workloadconfig.Service, app, env, id string) map[string]any {
 	t.Helper()
 	view, err := workloads.List(context.Background(), app, env)
 	if err != nil {
@@ -35,7 +35,7 @@ func liveScore(t *testing.T, workloads *workloadconfig.Service, app, env, id str
 	}
 	for _, item := range view.Workloads {
 		if item.ID == id {
-			return item.Score
+			return item.Workload
 		}
 	}
 	t.Fatalf("workload %s not listed", id)
@@ -49,13 +49,13 @@ func variablesOf(score map[string]any) map[string]any {
 }
 
 // DEVEX-ENV E02/E10: an ordinary value accepted by UC-16 Save survives Preview,
-// Deploy and reopen exactly; the same value written by a direct Score deploy
+// Deploy and reopen exactly; the same value written by a direct Workload deploy
 // never becomes readable.
 func TestAcceptedLiteralsRoundTripAndDirectDeployStaysHidden(t *testing.T) {
 	ctx := context.Background()
 	app, workloads, svc, opts := fixture(t)
 
-	if _, err := workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "api", literalScore("api", acceptedLiterals), 0); err != nil {
+	if _, err := workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "api", literalWorkload("api", acceptedLiterals), 0); err != nil {
 		t.Fatalf("save ordinary literals: %v", err)
 	}
 	preview, err := svc.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
@@ -66,7 +66,7 @@ func TestAcceptedLiteralsRoundTripAndDirectDeployStaysHidden(t *testing.T) {
 		t.Fatalf("deploy: %+v %v", report, err)
 	}
 
-	got := variablesOf(liveScore(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "api"))
+	got := variablesOf(liveWorkload(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "api"))
 	for key, want := range acceptedLiterals {
 		if value, ok := got[key]; !ok || value != want {
 			t.Fatalf("variable %s = %q (present %v), want %q", key, value, ok, want)
@@ -80,7 +80,7 @@ func TestAcceptedLiteralsRoundTripAndDirectDeployStaysHidden(t *testing.T) {
 	}
 
 	// A second UC-16 edit of the deployed workload starts from the proven value.
-	edited := literalScore("api", map[string]string{"LOG_LEVEL": "info", "EMPTY": "", "PADDED": "  two spaces  ", "TEMPLATE": "$${NOT_A_REFERENCE}"})
+	edited := literalWorkload("api", map[string]string{"LOG_LEVEL": "info", "EMPTY": "", "PADDED": "  two spaces  ", "TEMPLATE": "$${NOT_A_REFERENCE}"})
 	view, _ := workloads.List(ctx, opts.ApplicationKey, opts.EnvironmentKey)
 	if _, err := workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "api", edited, view.DraftVersion); err != nil {
 		t.Fatal(err)
@@ -92,22 +92,22 @@ func TestAcceptedLiteralsRoundTripAndDirectDeployStaysHidden(t *testing.T) {
 	if report, err := svc.Deploy(ctx, opts.ApplicationKey, opts.EnvironmentKey, "test", preview.Token); err != nil || report.Status != "SUCCEEDED" {
 		t.Fatalf("second deploy: %+v %v", report, err)
 	}
-	if value := variablesOf(liveScore(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "api"))["LOG_LEVEL"]; value != "info" {
+	if value := variablesOf(liveWorkload(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "api"))["LOG_LEVEL"]; value != "info" {
 		t.Fatalf("edited value = %v", value)
 	}
 
-	// A direct Score deploy that changes the value invalidates the proof.
-	direct := literalScore("api", map[string]string{"LOG_LEVEL": "trace", "EMPTY": "", "PADDED": "  two spaces  ", "TEMPLATE": "$${NOT_A_REFERENCE}"})
+	// A direct Workload deploy that changes the value invalidates the proof.
+	direct := literalWorkload("api", map[string]string{"LOG_LEVEL": "trace", "EMPTY": "", "PADDED": "  two spaces  ", "TEMPLATE": "$${NOT_A_REFERENCE}"})
 	if _, err := app.Deployments.DeployWorkload(ctx, deployCommand(opts, "api", edited, direct)); err != nil {
 		t.Fatalf("direct deploy: %v", err)
 	}
-	if score := liveScore(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "api"); score != nil {
+	if score := liveWorkload(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "api"); score != nil {
 		t.Fatalf("direct-API literal became readable: %v", variablesOf(score))
 	}
 
 	// A brand-new workload deployed directly never gains a proof either.
-	deploy(t, app, opts, "legacy", literalScore("legacy", map[string]string{"TOKEN": "looks-like-a-secret"}))
-	if score := liveScore(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "legacy"); score != nil {
+	deploy(t, app, opts, "legacy", literalWorkload("legacy", map[string]string{"TOKEN": "looks-like-a-secret"}))
+	if score := liveWorkload(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "legacy"); score != nil {
 		t.Fatalf("unproven legacy literal is readable: %v", score)
 	}
 }
@@ -117,8 +117,8 @@ func TestAcceptedLiteralsRoundTripAndDirectDeployStaysHidden(t *testing.T) {
 func TestLiteralProofIsPerWorkload(t *testing.T) {
 	ctx := context.Background()
 	app, workloads, svc, opts := fixture(t)
-	deploy(t, app, opts, "legacy", literalScore("legacy", map[string]string{"TOKEN": "unproven"}))
-	if _, err := workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "api", literalScore("api", map[string]string{"LOG_LEVEL": "debug"}), 0); err != nil {
+	deploy(t, app, opts, "legacy", literalWorkload("legacy", map[string]string{"TOKEN": "unproven"}))
+	if _, err := workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "api", literalWorkload("api", map[string]string{"LOG_LEVEL": "debug"}), 0); err != nil {
 		t.Fatal(err)
 	}
 	preview, err := svc.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
@@ -128,10 +128,10 @@ func TestLiteralProofIsPerWorkload(t *testing.T) {
 	if report, err := svc.Deploy(ctx, opts.ApplicationKey, opts.EnvironmentKey, "test", preview.Token); err != nil || report.Status != "SUCCEEDED" {
 		t.Fatalf("deploy: %+v %v", report, err)
 	}
-	if variablesOf(liveScore(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "api"))["LOG_LEVEL"] != "debug" {
+	if variablesOf(liveWorkload(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "api"))["LOG_LEVEL"] != "debug" {
 		t.Fatal("accepted workload lost its value")
 	}
-	if score := liveScore(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "legacy"); score != nil {
+	if score := liveWorkload(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "legacy"); score != nil {
 		t.Fatalf("deploying another workload promoted a legacy literal: %v", score)
 	}
 	env, _ := app.Store.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)

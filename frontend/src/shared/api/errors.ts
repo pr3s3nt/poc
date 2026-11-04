@@ -18,7 +18,7 @@ const messageTable = {
   INVALID_REQUEST: t('shared.errors.theSubmittedDataIsInvalid'),
   INVALID_ID: t('shared.errors.theIDDoesNotFollow'),
   INVALID_VARIABLE: t('shared.errors.invalidVariableNameValueOr'),
-  INVALID_SCORE: t('shared.errors.invalidScoreOrResourceParameters'),
+  INVALID_WORKLOAD: t('shared.errors.invalidScoreOrResourceParameters'),
   PLANNING_REJECTED: t('shared.errors.thisChangeCannotBePlanned'),
   DUPLICATE: t('shared.errors.thisIdentifierAlreadyExistsIn'),
   UNAUTHORIZED: t('shared.errors.yourSessionHasExpiredOr'),
@@ -67,11 +67,11 @@ const messageTable = {
   DIAGNOSTIC_SCOPE_INVALID: t('shared.errors.diagnosticScopeInvalid'),
   BUSY: t('shared.errors.diagnosticBusy'),
   RENDER_SOURCE_INVALID: t('shared.errors.renderSourceInvalid'),
-  RENDER_BUNDLE_INVALID: t('shared.errors.renderBundleInvalid'),
+  TEMPLATE_SOURCE_INVALID: t('shared.errors.templateSourceInvalid'),
   RENDER_INPUT_INVALID: t('shared.errors.renderInputInvalid'),
   RENDER_SOURCE_UNAVAILABLE: t('shared.errors.renderSourceUnavailable'),
-  RENDER_BUNDLE_UNAVAILABLE: t('shared.errors.renderBundleUnavailable'),
-  RENDER_BUNDLE_DRIFT: t('shared.errors.renderBundleDrift'),
+  TEMPLATE_SOURCE_UNAVAILABLE: t('shared.errors.templateSourceUnavailable'),
+  TEMPLATE_SOURCE_DRIFT: t('shared.errors.templateSourceDrift'),
   RENDER_CONTRACT_UNSUPPORTED: t('shared.errors.renderContractUnsupported'),
   RENDER_FAILED: t('shared.errors.renderFailed'),
 } as const;
@@ -108,7 +108,7 @@ export const cleanupReasonLabels: Readonly<Record<CleanupReason, string>> = Obje
 });
 export interface ErrorParams { stage?: PlannerStage; reason?: PlannerReason; cleanupReason?: CleanupReason; resourceType?: string; file?: string }
 
-// A bundle-relative file name of a RENDER_BUNDLE_INVALID error.
+// A bundle-relative file name of a TEMPLATE_SOURCE_INVALID error.
 const bundleFile = /^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+){0,7}$/;
 
 // A registered resource Type key: lowercase letters, digits and hyphens, at most 63 characters.
@@ -133,7 +133,7 @@ export const reasonLabels: Readonly<Record<PlannerReason, string>> = Object.free
   'before-mismatch': t('shared.errors.theBeforeScoreDoesNot2'),
   'legacy-infrastructure-reference': t('shared.errors.aResourceDefinitionStillReferences'),
   'environment-unconfigured': t('shared.errors.theEnvironmentHasNoDeployment'),
-  'renderer-no-match': t('shared.errors.noRenderingTemplateScoreK8s'),
+  'renderer-no-match': t('shared.errors.noRenderingTemplateTemplate'),
   'renderer-ambiguous': t('shared.errors.severalRenderingTemplatesMatchThis'),
   'storage-immutable': t('shared.errors.storageImmutable'),
   'renderer-unavailable': t('shared.errors.theRenderingTemplateNeedsA'),
@@ -144,14 +144,14 @@ const has = (table: object, key: unknown): key is string => typeof key === 'stri
 // Field names the Console recognises; everything else is dropped.
 const knownFields: ReadonlySet<string> = new Set([
   'name', 'subdomain', 'connectionKey', 'expectedVersion', 'expectedConfigVersion', 'secretStoreKey', 'destinationKey',
-  'acknowledgeDowntime', 'priorExecutionStopped', 'resources', 'status', 'scoreBefore', 'scoreAfter', 'version', 'token', 'kubeconfig',
+  'acknowledgeDowntime', 'priorExecutionStopped', 'resources', 'status', 'workloadBefore', 'workloadAfter', 'version', 'token', 'kubeconfig',
   'type.key', 'type.schema', 'definition.schema', 'definition.driver', 'definition.references', 'definition.key',
   'definition.resourceType', 'definition.driverType', 'definition.criteria',
   'definition.connectionKey', 'definition.driverInputs.values', 'definition.driverInputs.values.source', 'definition.driverInputs.values.provider_bindings', 'driverInputs.values.variables', 'context.applicationId', 'context.environmentId', 'context.resourceId', 'context.class', 'service.publicPort',
   'accessKeyId', 'secretAccessKey', 'allowedRegions', 'verificationRegions', 'confirmationName', 'selectedResourceIds',
   'username', 'role', 'password', 'currentPassword', 'newPassword', 'confirmPassword',
   'from', 'to', 'workload', 'metric', 'valueSeconds', 'source', 'effectiveFrom', 'sampleSize', 'measuredFrom', 'measuredTo',
-  'definition.driverInputs.values.variables.render_bundle', 'definition.driverInputs.values.variables.render_inputs',
+  'definition.driverInputs.values.variables.template_source', 'definition.driverInputs.values.variables.template_inputs',
   'purpose', 'mode', 'region', 'useCases', 'application', 'environment',
 ]);
 
@@ -173,22 +173,22 @@ export function safeParams(params: unknown): ErrorParams | undefined {
 /** Vietnamese text for a code/status; never uses backend sentences. */
 export function messageFor(status: number, code?: string, params?: ErrorParams, field?: string): string {
   const base = (knownCode(code) ? errorMessages[code] : undefined) ?? fallbackByStatus(status);
-  if (code === 'INVALID_SCORE' && params?.resourceType) {
+  if (code === 'INVALID_WORKLOAD' && params?.resourceType) {
     return t('shared.errors.baseParametersOfTheResourceType', { base, resourceType: params.resourceType });
   }
-  if (code === 'INVALID_SCORE' && field === 'service.publicPort') {
+  if (code === 'INVALID_WORKLOAD' && field === 'service.publicPort') {
     return t('shared.errors.baseThePublicPortFieldIs', { base });
   }
-  if (code === 'INVALID_SCORE' && field === 'resources') {
+  if (code === 'INVALID_WORKLOAD' && field === 'resources') {
     return t('shared.errors.baseAResourceInThe', { base });
   }
-  if (code === 'RENDER_BUNDLE_INVALID' && params?.file) {
-    return t('shared.errors.renderBundleInvalidFile', { base, file: params.file });
+  if (code === 'TEMPLATE_SOURCE_INVALID' && params?.file) {
+    return t('shared.errors.templateSourceInvalidFile', { base, file: params.file });
   }
   if (code === 'CLEANUP_REFUSED' && params?.cleanupReason) {
     return t('shared.errors.cannotDeleteValueNothingHas', { value: cleanupReasonLabels[params.cleanupReason] });
   }
-  if (code === 'PLANNING_REJECTED' || code === 'INVALID_SCORE') {
+  if (code === 'PLANNING_REJECTED' || code === 'INVALID_WORKLOAD') {
     const detail = (params?.reason && reasonLabels[params.reason]) || (params?.stage && stageLabels[params.stage]);
     if (detail) return `${base} ${detail}.`;
   }
@@ -198,7 +198,7 @@ export function messageFor(status: number, code?: string, params?: ErrorParams, 
 const fieldLabels: Readonly<Record<string, string>> = Object.freeze({
   name: t('shared.errors.name'), subdomain: 'Subdomain', connectionKey: t('shared.errors.connection'), expectedVersion: t('shared.errors.version'), expectedConfigVersion: t('shared.errors.configurationVersion'),
   secretStoreKey: t('shared.errors.secretStore'), destinationKey: t('shared.errors.targetConnection'), acknowledgeDowntime: t('shared.errors.stopTimeConfirmation'), priorExecutionStopped: t('shared.errors.confirmTheOperationHasStopped'),
-  status: t('shared.errors.status'), resources: t('shared.errors.resourcesInTheScore'), scoreBefore: t('shared.errors.beforeScore'), scoreAfter: 'Score sau', version: t('shared.errors.version'), token: 'Token', kubeconfig: 'Kubeconfig',
+  status: t('shared.errors.status'), resources: t('shared.errors.resourcesInTheScore'), workloadBefore: t('shared.errors.beforeScore'), workloadAfter: 'Workload sau', version: t('shared.errors.version'), token: 'Token', kubeconfig: 'Kubeconfig',
   'type.key': t('shared.errors.resourceTypeID'), 'type.schema': t('shared.errors.inputOutputStructureOfThe'), 'definition.schema': t('shared.errors.resourceDefinition'),
   'definition.driver': t('shared.errors.driverAndParametersOfThe'), 'definition.references': t('shared.errors.referencesInParametersRelatedResource'),
   'definition.key': t('shared.errors.definitionID'), 'definition.resourceType': t('shared.errors.resourceType'),
@@ -211,7 +211,7 @@ const fieldLabels: Readonly<Record<string, string>> = Object.freeze({
   username: t('shared.errors.username'), role: t('shared.errors.role'), password: t('shared.errors.password'),
   currentPassword: t('shared.errors.currentPassword'), newPassword: t('shared.errors.newPassword'), confirmPassword: t('shared.errors.confirmPassword'),
   from: t('shared.errors.fromDate'), to: t('shared.errors.toDate'), workload: 'Workload', metric: t('shared.errors.metric'), valueSeconds: t('shared.errors.leadTime'), source: t('shared.errors.measurementSource'),
-  'definition.driverInputs.values.variables.render_bundle': t('shared.errors.renderBundleField'), 'definition.driverInputs.values.variables.render_inputs': t('shared.errors.renderInputsField'),
+  'definition.driverInputs.values.variables.template_source': t('shared.errors.templateSourceField'), 'definition.driverInputs.values.variables.template_inputs': t('shared.errors.renderInputsField'),
   effectiveFrom: t('shared.errors.effectiveDate'), sampleSize: t('shared.errors.sampleSize'), measuredFrom: t('shared.errors.measurementPeriod'), measuredTo: t('shared.errors.measurementPeriod'),
 });
 

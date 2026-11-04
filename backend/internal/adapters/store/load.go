@@ -10,9 +10,9 @@ import (
 
 	"orchestrator/internal/domain/diagnostics"
 	"orchestrator/internal/domain/environment"
-	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/telemetry"
+	"orchestrator/internal/domain/templatesource"
 	"orchestrator/internal/ports/persistence"
 )
 
@@ -70,7 +70,7 @@ func loadSnapshot(b []byte) (*state, error) {
 
 // validateCurrent checks the required identity, ownership and pointer
 // integrity of the loaded aggregates plus the current binding, authentication
-// and configuration metadata. Raw plan/Score documents stay untyped. Errors
+// and configuration metadata. Raw plan/Workload documents stay untyped. Errors
 // name no values.
 func (s *state) validateCurrent() error {
 	if s.GitSettings == nil {
@@ -166,10 +166,10 @@ func (s *state) validateCurrent() error {
 			return resetRequired("a Terraform module bundle record is invalid")
 		}
 	}
-	if s.RenderBundles == nil {
-		s.RenderBundles = map[string]renderbundle.Bundle{}
+	if s.TemplateSources == nil {
+		s.TemplateSources = map[string]templatesource.Bundle{}
 	}
-	for key, bundle := range s.RenderBundles {
+	for key, bundle := range s.TemplateSources {
 		if bundle.Validate() != nil || key != bundle.ID {
 			return resetRequired("a render bundle record is invalid")
 		}

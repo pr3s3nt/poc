@@ -160,7 +160,7 @@ func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 			return err
 		}
 		// Verified Git render bundle metadata of the same snapshot (ADR-021).
-		renderBundles, err := persistence.RenderBundlesOf(ctx, view, organizationKey)
+		templateSources, err := persistence.TemplateSourcesOf(ctx, view, organizationKey)
 		if err != nil {
 			return err
 		}
@@ -169,7 +169,7 @@ func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 			CatalogPending: catalogBinding.Desired != nil && (catalogBinding.Applied == nil || catalogBinding.Desired.Digest() != catalogBinding.Applied.Digest()),
 			App:            app, Env: env,
 			BaseSetID: env.CurrentDeploymentSetID, BaseSet: base, BaseProofs: baseProofs, BaseAliases: baseAliases,
-			Catalog: planning.Catalog{DefinitionSelectionRevision: selection.Revision, ReleaseSelection: catalogBinding.Desired, ReleasePin: releasePin, Types: types, Definitions: defList, Accounts: accounts, RenderBundles: renderBundles},
+			Catalog: planning.Catalog{DefinitionSelectionRevision: selection.Revision, ReleaseSelection: catalogBinding.Desired, ReleasePin: releasePin, Types: types, Definitions: defList, Accounts: accounts, TemplateSources: templateSources},
 			Types:   types, Definitions: definitions, Active: active,
 		}
 		if withBaselines || catalogBinding.Desired != nil {

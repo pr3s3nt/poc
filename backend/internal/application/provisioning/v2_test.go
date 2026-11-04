@@ -85,7 +85,7 @@ func deployV2(t *testing.T) (*v2Executor, seed.Options) {
 		workload := []string{"backend", "worker"}[i]
 		if _, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
 			OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv,
-			WorkloadID: workload, ScoreAfter: eksScore(opts, workload), Actor: "test", RunID: run,
+			WorkloadID: workload, WorkloadAfter: eksWorkload(opts, workload), Actor: "test", RunID: run,
 		}); err != nil {
 			t.Fatalf("deploy %s: %v", workload, err)
 		}
@@ -158,7 +158,7 @@ func TestProvision_V2RuntimeSensitiveOutputsAreStoredAsReferences(t *testing.T) 
 	app, opts := eksHarness(t, reg, nil)
 	if _, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
 		OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv,
-		WorkloadID: "backend", ScoreAfter: eksScore(opts, "backend"), Actor: "test", RunID: "run-a",
+		WorkloadID: "backend", WorkloadAfter: eksWorkload(opts, "backend"), Actor: "test", RunID: "run-a",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +195,7 @@ func TestDeployWithUnknownTerraformOutcomeHoldsTheEnvironment(t *testing.T) {
 	reg := v2Registry{v2: &held.v2Executor, fake: fake.NewResourceExecutor()}
 	reg.override = held
 	app, opts := eksHarness(t, reg, nil)
-	cmd := appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv, WorkloadID: "backend", ScoreAfter: eksScore(opts, "backend"), Actor: "test", RunID: "run-a"}
+	cmd := appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv, WorkloadID: "backend", WorkloadAfter: eksWorkload(opts, "backend"), Actor: "test", RunID: "run-a"}
 	if _, err := app.Deployments.DeployWorkload(context.Background(), cmd); err == nil {
 		t.Fatal("the deploy succeeded after an unknown outcome")
 	}
@@ -228,7 +228,7 @@ func TestProvision_MissingRequiredOutputBlocksTheConsumerAndIsRecorded(t *testin
 	app, opts := eksHarness(t, reg, nil)
 	_, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
 		OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv,
-		WorkloadID: "backend", ScoreAfter: eksScore(opts, "backend"), Actor: "test", RunID: "run-a",
+		WorkloadID: "backend", WorkloadAfter: eksWorkload(opts, "backend"), Actor: "test", RunID: "run-a",
 	})
 	if err == nil || !strings.Contains(err.Error(), `requires output "host"`) {
 		t.Fatalf("a missing required output must fail the deployment: %v", err)
@@ -290,7 +290,7 @@ func TestProvision_ClusterReadinessFailureBlocksEveryConsumer(t *testing.T) {
 	app, opts := eksHarness(t, reg, proof)
 	_, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
 		OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv,
-		WorkloadID: "backend", ScoreAfter: eksScore(opts, "backend"), Actor: "test", RunID: "run-a",
+		WorkloadID: "backend", WorkloadAfter: eksWorkload(opts, "backend"), Actor: "test", RunID: "run-a",
 	})
 	if err == nil || !errors.Is(err, execution.ErrClusterNoCapacity) || !errors.Is(err, provisioning.ErrClusterNotUsable) {
 		t.Fatalf("a cluster without usable capacity must fail the deployment: %v", err)
@@ -337,7 +337,7 @@ func TestProvision_UsableClusterLetsConsumersRunAndIsCheckedEachDeployment(t *te
 	for i, workload := range []string{"backend", "worker"} {
 		if _, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
 			OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv,
-			WorkloadID: workload, ScoreAfter: eksScore(opts, workload), Actor: "test", RunID: fmt.Sprintf("run-%d", i),
+			WorkloadID: workload, WorkloadAfter: eksWorkload(opts, workload), Actor: "test", RunID: fmt.Sprintf("run-%d", i),
 		}); err != nil {
 			t.Fatalf("deploy %s: %v", workload, err)
 		}

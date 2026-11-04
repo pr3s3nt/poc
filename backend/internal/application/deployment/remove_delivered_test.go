@@ -18,7 +18,7 @@ func deliveredApp(t *testing.T) (context.Context, appsvc.RemoveInputs, *hookDepl
 	t.Helper()
 	ctx := context.Background()
 	app, opts, deployer := uc07App(t)
-	scores := seed.AcceptanceScores(opts)
+	scores := seed.AcceptanceWorkloads(opts)
 	for _, id := range []string{"backend", "worker"} {
 		if _, err := uc07Deploy(t, app, opts, id, nil, scores[id]); err != nil {
 			t.Fatal(err)
@@ -216,7 +216,7 @@ func (r *workloadRemovingSync) RemoveWorkloadSynchronized(_ context.Context, _ e
 func TestWorkloadRemovalAlsoRemovesItsSecretDeliveryObjects(t *testing.T) {
 	for _, fail := range []bool{false, true} {
 		app, opts, _ := uc07App(t)
-		scores := seed.AcceptanceScores(opts)
+		scores := seed.AcceptanceWorkloads(opts)
 		for _, id := range []string{"backend", "worker"} {
 			if _, err := uc07Deploy(t, app, opts, id, nil, scores[id]); err != nil {
 				t.Fatal(err)

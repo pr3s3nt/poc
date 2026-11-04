@@ -9,7 +9,7 @@ import (
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/configuration"
 	"orchestrator/internal/domain/environment"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 	"orchestrator/internal/ports/persistence"
 )
 
@@ -32,9 +32,9 @@ func testWorkloadService(t *testing.T) (*Service, *store.Store) {
 	return NewService(st), st
 }
 
-func testScore(name string, vars map[string]string, resources map[string]any) map[string]any {
+func testWorkload(name string, vars map[string]string, resources map[string]any) map[string]any {
 	return map[string]any{
-		"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": name},
+		"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": name},
 		"containers": map[string]any{"main": map[string]any{"image": "example.invalid/app:test", "variables": vars}},
 		"resources":  resources,
 	}
@@ -55,18 +55,18 @@ func TestWorkloadDraftRejectsInvalidBindingsAndStaleVersion(t *testing.T) {
 		"unknown":   "${context.env.namespace}",
 		"nul":       "a\x00b",
 	} {
-		if _, err := svc.Save(ctx, "app", "staging", "frontend", testScore("frontend", map[string]string{"API_URL": value}, resources), 0); !errors.Is(err, ErrInvalid) {
+		if _, err := svc.Save(ctx, "app", "staging", "frontend", testWorkload("frontend", map[string]string{"API_URL": value}, resources), 0); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("%s binding should fail: %v", name, err)
 		}
 	}
-	if _, err := svc.Save(ctx, "app", "production", "frontend", testScore("frontend", map[string]string{"API_URL": "${resources.env.API_URL}"}, resources), 0); !errors.Is(err, ErrInvalid) {
+	if _, err := svc.Save(ctx, "app", "production", "frontend", testWorkload("frontend", map[string]string{"API_URL": "${resources.env.API_URL}"}, resources), 0); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("cross-environment key should fail: %v", err)
 	}
-	view, err := svc.Save(ctx, "app", "staging", "frontend", testScore("frontend", map[string]string{"API_URL": "${resources.env.API_URL}"}, resources), 0)
+	view, err := svc.Save(ctx, "app", "staging", "frontend", testWorkload("frontend", map[string]string{"API_URL": "${resources.env.API_URL}"}, resources), 0)
 	if err != nil || view.DraftVersion != 1 || len(view.Workloads) != 1 {
 		t.Fatalf("valid draft failed: %+v, %v", view, err)
 	}
-	if _, err := svc.Save(ctx, "app", "staging", "frontend", testScore("frontend", nil, nil), 0); !errors.Is(err, persistence.ErrVersionConflict) {
+	if _, err := svc.Save(ctx, "app", "staging", "frontend", testWorkload("frontend", nil, nil), 0); !errors.Is(err, persistence.ErrVersionConflict) {
 		t.Fatalf("stale draft version should fail: %v", err)
 	}
 }
@@ -74,13 +74,13 @@ func TestWorkloadDraftRejectsInvalidBindingsAndStaleVersion(t *testing.T) {
 func TestServiceReferenceUsesLatestDraftPorts(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := testWorkloadService(t)
-	backend := testScore("backend", nil, nil)
+	backend := testWorkload("backend", nil, nil)
 	backend["service"] = map[string]any{"ports": map[string]any{"http": map[string]any{"port": 80}}}
 	if _, err := svc.Save(ctx, "app", "staging", "backend", backend, 0); err != nil {
 		t.Fatal(err)
 	}
 	resources := map[string]any{"backend_service": map[string]any{"type": "service", "params": map[string]any{"workload": "backend", "port": "http"}}}
-	frontend := testScore("frontend", map[string]string{"BACKEND_URL": "${resources.backend_service.url}"}, resources)
+	frontend := testWorkload("frontend", map[string]string{"BACKEND_URL": "${resources.backend_service.url}"}, resources)
 	if _, err := svc.Save(ctx, "app", "staging", "frontend", frontend, 1); err != nil {
 		t.Fatalf("draft service reference rejected: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestServiceReferenceUsesLatestDraftPorts(t *testing.T) {
 func TestDeletingUndeployedDraftCancelsPendingAdd(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := testWorkloadService(t)
-	if _, err := svc.Save(ctx, "app", "staging", "scratch", testScore("scratch", nil, nil), 0); err != nil {
+	if _, err := svc.Save(ctx, "app", "staging", "scratch", testWorkload("scratch", nil, nil), 0); err != nil {
 		t.Fatal(err)
 	}
 	view, err := svc.Delete(ctx, "app", "staging", "scratch", 1)
@@ -109,8 +109,8 @@ func TestDeletingUndeployedDraftCancelsPendingAdd(t *testing.T) {
 }
 
 func TestReconstructDeployedReferenceWorkload(t *testing.T) {
-	raw := testScore("frontend", map[string]string{"TOKEN": "${resources.env.API_TOKEN}"}, map[string]any{"env": map[string]any{"type": "environment"}})
-	parsed, err := score.FromMap(raw)
+	raw := testWorkload("frontend", map[string]string{"TOKEN": "${resources.env.API_TOKEN}"}, map[string]any{"env": map[string]any{"type": "environment"}})
+	parsed, err := workloadspec.FromMap(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,11 +120,11 @@ func TestReconstructDeployedReferenceWorkload(t *testing.T) {
 	}
 	set := environment.NewDocument()
 	set.Modules["frontend"] = fragment.Module
-	reconstructed, err := ReconstructScore("frontend", fragment.Module, set)
+	reconstructed, err := ReconstructWorkload("frontend", fragment.Module, set)
 	if err != nil {
 		t.Fatal(err)
 	}
-	again, err := score.FromMap(reconstructed)
+	again, err := workloadspec.FromMap(reconstructed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestReconstructDeployedReferenceWorkload(t *testing.T) {
 	legacy := fragment.Module
 	for _, value := range []string{"raw-secret", "", "  "} {
 		legacy.Spec.Containers["main"] = environment.Container{Image: "frontend:dev", Variables: map[string]string{"PASSWORD": value}}
-		if _, err := ReconstructScore("frontend", legacy, set); err == nil {
+		if _, err := ReconstructWorkload("frontend", legacy, set); err == nil {
 			t.Fatalf("legacy literal %q should not be exposed in the editor", value)
 		}
 	}
@@ -149,14 +149,14 @@ func TestPublicPortIsRejectedWithoutWritingDraft(t *testing.T) {
 	svc, st := testWorkloadService(t)
 	for name, publicPort := range map[string]any{"value": "http", "empty": "", "null": nil} {
 		for _, withRoutes := range []bool{false, true} {
-			raw := testScore("api", nil, nil)
+			raw := testWorkload("api", nil, nil)
 			service := map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}, "publicPort": publicPort}
 			if withRoutes {
 				service["publicRoutes"] = []any{map[string]any{"path": "/api", "port": "http"}}
 			}
 			raw["service"] = service
-			if _, err := svc.Save(ctx, "app", "staging", "api", raw, 0); !errors.Is(err, score.ErrInvalid) || !errors.Is(err, environment.ErrPublicPortRemoved) {
-				t.Fatalf("%s routes=%v: Save want INVALID_SCORE class, got %v", name, withRoutes, err)
+			if _, err := svc.Save(ctx, "app", "staging", "api", raw, 0); !errors.Is(err, workloadspec.ErrInvalid) || !errors.Is(err, environment.ErrPublicPortRemoved) {
+				t.Fatalf("%s routes=%v: Save want INVALID_WORKLOAD class, got %v", name, withRoutes, err)
 			}
 			if err := svc.ValidateImport(ctx, "app", "staging", raw); !errors.Is(err, environment.ErrPublicPortRemoved) {
 				t.Fatalf("%s routes=%v: ValidateImport got %v", name, withRoutes, err)
@@ -174,9 +174,9 @@ func TestPublicPortIsRejectedWithoutWritingDraft(t *testing.T) {
 func TestListFailsOnDraftWithPublicPort(t *testing.T) {
 	ctx := context.Background()
 	svc, st := testWorkloadService(t)
-	raw := testScore("api", nil, nil)
+	raw := testWorkload("api", nil, nil)
 	raw["service"] = map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}, "publicPort": "http"}
-	if err := st.SaveWorkloadDraft(ctx, 0, environment.WorkloadDraft{ApplicationKey: "app", EnvironmentKey: "staging", WorkloadID: "api", State: environment.DraftUpsert, Score: raw}); err != nil {
+	if err := st.SaveWorkloadDraft(ctx, 0, environment.WorkloadDraft{ApplicationKey: "app", EnvironmentKey: "staging", WorkloadID: "api", State: environment.DraftUpsert, Workload: raw}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := svc.List(ctx, "app", "staging"); !errors.Is(err, environment.ErrPublicPortRemoved) {

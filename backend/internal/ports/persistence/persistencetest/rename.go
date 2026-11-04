@@ -19,9 +19,9 @@ type RenameFixture struct {
 	Command persistence.DesiredRename
 }
 
-func renameScore(key string) map[string]any {
+func renameWorkload(key string) map[string]any {
 	return map[string]any{
-		"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "api"},
+		"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": "api"},
 		"containers": map[string]any{"web": map[string]any{"image": "x", "variables": map[string]any{"A": "${resources.env." + key + "}"}}},
 		"resources":  map[string]any{"env": map[string]any{"type": "environment"}},
 	}
@@ -45,7 +45,7 @@ func SeedRename(t *testing.T, st persistence.Store) RenameFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := st.SaveWorkloadDraft(ctx, e.DraftVersion, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: "api", State: environment.DraftUpsert, Score: renameScore("OLD")}); err != nil {
+	if err := st.SaveWorkloadDraft(ctx, e.DraftVersion, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: "api", State: environment.DraftUpsert, Workload: renameWorkload("OLD")}); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.SaveWorkloadDraft(ctx, e.DraftVersion+1, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: "gone", State: environment.DraftDelete}); err != nil {
@@ -59,7 +59,7 @@ func SeedRename(t *testing.T, st persistence.Store) RenameFixture {
 		ApplicationKey: app, EnvironmentKey: env, ExpectedConfigVersion: 1, ExpectedEnvironmentVersion: e.Version,
 		ExpectedDraftVersion: e.DraftVersion, ExpectedCurrentSetID: e.CurrentDeploymentSetID,
 		Revision: configuration.Revision{ID: ids.New(), ApplicationKey: app, EnvironmentKey: env, Version: 2, Entries: map[string]configuration.Entry{"NEW": {Kind: configuration.Variable, Value: "v"}}},
-		Drafts:   []environment.WorkloadDraft{{ApplicationKey: app, EnvironmentKey: env, WorkloadID: "api", State: environment.DraftUpsert, Score: renameScore("NEW")}},
+		Drafts:   []environment.WorkloadDraft{{ApplicationKey: app, EnvironmentKey: env, WorkloadID: "api", State: environment.DraftUpsert, Workload: renameWorkload("NEW")}},
 	}}
 }
 
@@ -105,7 +105,7 @@ func DesiredRename(t *testing.T, st persistence.Store) {
 		"current set":         func(c *persistence.DesiredRename) { c.ExpectedCurrentSetID = ids.New() },
 		"revision version":    func(c *persistence.DesiredRename) { c.Revision.Version = 5 },
 		"pending delete": func(c *persistence.DesiredRename) {
-			c.Drafts = append(c.Drafts, environment.WorkloadDraft{ApplicationKey: c.ApplicationKey, EnvironmentKey: c.EnvironmentKey, WorkloadID: "gone", State: environment.DraftUpsert, Score: renameScore("NEW")})
+			c.Drafts = append(c.Drafts, environment.WorkloadDraft{ApplicationKey: c.ApplicationKey, EnvironmentKey: c.EnvironmentKey, WorkloadID: "gone", State: environment.DraftUpsert, Workload: renameWorkload("NEW")})
 		},
 	}
 	for name, mutate := range mutations {
@@ -124,7 +124,7 @@ func DesiredRename(t *testing.T, st persistence.Store) {
 	invalid.Revision.ID = ids.New()
 	invalid.Drafts = []environment.WorkloadDraft{{ApplicationKey: invalid.ApplicationKey, EnvironmentKey: invalid.EnvironmentKey, WorkloadID: "api", State: environment.DraftUpsert}}
 	if err := st.CommitDesiredRename(ctx, invalid); err == nil {
-		t.Fatal("draft without a Score was accepted")
+		t.Fatal("draft without a Workload was accepted")
 	}
 	if after := TakeRenameSnapshot(t, st, fx.Options); !reflect.DeepEqual(before, after) {
 		t.Fatal("invalid draft changed state")
@@ -144,7 +144,7 @@ func DesiredRename(t *testing.T, st persistence.Store) {
 	for _, d := range after.Drafts {
 		byID[d.WorkloadID] = d
 	}
-	if !reflect.DeepEqual(byID["api"].Score, renameScore("NEW")) || byID["gone"].State != environment.DraftDelete {
+	if !reflect.DeepEqual(byID["api"].Workload, renameWorkload("NEW")) || byID["gone"].State != environment.DraftDelete {
 		t.Fatalf("drafts = %#v", after.Drafts)
 	}
 	if err := st.CommitDesiredRename(ctx, fx.Command); !errors.Is(err, persistence.ErrVersionConflict) {

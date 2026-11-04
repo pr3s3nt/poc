@@ -30,9 +30,9 @@ test('reject unknown inputs and unpinned images without echoing credentials',()=
 test('all environment files are explicit and isolated, without embedded credentials',()=>{
  for(const e of ['dev','staging','production']){const c=JSON.parse(readFileSync(new URL(`../targets/${e}.json`,import.meta.url)));assert.equal(c.environment,e);assert.equal(c.upgrade.enabled,true);assert.ok(c.runtime.stateDir.includes('/'+e+'/'));assert.ok(c.console.passwordFile);assert.equal(c.console.password,undefined);}
 });
-test('matching score reuses, baseline may upgrade, foreign/pending deletion is blocked',()=>{
+test('matching workload reuses, baseline may upgrade, foreign/pending deletion is blocked',()=>{
  const baseline={metadata:{name:'backend'},containers:{main:{image:'a:v1'}}},target={...baseline,containers:{main:{image:'a:v2'}}};
- assert.equal(workloadAction(undefined,target),'CREATE');assert.equal(workloadAction({score:target},target),'REUSE');assert.equal(workloadAction({score:baseline},target,baseline),'UPDATE');assert.throws(()=>workloadAction({score:{x:1}},target,baseline),/BLOCKED/);assert.throws(()=>workloadAction({score:target,state:'PENDING_DELETE'},target),/BLOCKED/);
+ assert.equal(workloadAction(undefined,target),'CREATE');assert.equal(workloadAction({workload:target},target),'REUSE');assert.equal(workloadAction({workload:baseline},target,baseline),'UPDATE');assert.throws(()=>workloadAction({workload:{x:1}},target,baseline),/BLOCKED/);assert.throws(()=>workloadAction({workload:target,state:'PENDING_DELETE'},target),/BLOCKED/);
 });
 test('server matching Application needs explicit identity receipt, not just same name',async()=>{
  const app={key:'id',name:'acceptance',subdomain:'acceptance',environments:[{key:'staging'}]};

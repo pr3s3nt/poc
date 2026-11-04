@@ -5,14 +5,13 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
-	"os/exec"
+	standardtemplates "orchestrator/template-sources"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"orchestrator/internal/adapters/fake"
 	"orchestrator/internal/adapters/postgres/postgrestest"
-	"orchestrator/internal/adapters/scorek8s"
 	"orchestrator/internal/adapters/store"
 	"orchestrator/internal/adapters/terraform/registry"
 	appsvc "orchestrator/internal/application/deployment"
@@ -41,19 +40,16 @@ type placedFixture struct {
 func placedApp(t *testing.T) *placedFixture { return newPlacedApp(t, nil) }
 
 // newPlacedApp builds the product with fake workload adapters and the real
-// score-k8s renderer; mutate swaps the Console store (PostgreSQL variant).
+// template renderer; mutate swaps the Console store (PostgreSQL variant).
 func newPlacedApp(t *testing.T, mutate func(*bootstrap.Options)) *placedFixture {
 	t.Helper()
 	ctx := context.Background()
-	path, err := exec.LookPath("score-k8s")
-	if err != nil {
-		t.Skip("local score-k8s unavailable")
-	}
+	var err error
 	opts := seedtest.Defaults()
 	opts.Profile, opts.Catalog, opts.NamespaceIdentity = "test", seed.CatalogNone, "orch-v2-test-ns1"
 	deployer := &targetDeployer{WorkloadDeployer: fake.NewWorkloadDeployer()}
 	state := filepath.Join(t.TempDir(), "state.json")
-	buildOptions := bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, ScoreK8sPath: path, RequireScoreRenderer: true, StatePath: state, DeployerOverride: deployer}
+	buildOptions := bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, RequireTemplateRenderer: true, StatePath: state, DeployerOverride: deployer}
 	if mutate != nil {
 		mutate(&buildOptions)
 	}
@@ -87,15 +83,15 @@ func newPlacedApp(t *testing.T, mutate func(*bootstrap.Options)) *placedFixture 
 				"input_mapping": map[string]any{}, "output_mapping": map[string]any{"name": "name"},
 				"provider_bindings": map[string]any{"kubernetes": map[string]any{"target": tfmodule.TargetResource, "resource_ref": "k8s-cluster.internal#environments.@app.@env"}},
 			}}},
-		{Key: "workload-score", Name: "workload", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{}},
+		{Key: "workload-score", Name: "workload", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverTemplate, Criteria: []resource.Criterion{{}},
 			DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{
-				"render_bundle": scorek8s.BundleID,
-				"namespace":     "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
-				"cluster":       "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}",
+				"template_source": standardtemplates.ID(opts.OrganizationKey),
+				"namespace":       "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+				"cluster":         "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}",
 			}}}},
 	}
 	for _, def := range defs {
-		if def.DriverType == resource.DriverScoreK8s {
+		if def.DriverType == resource.DriverTemplate {
 			def.SourceFingerpr = ""
 		}
 		if err := app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, def); err != nil {
@@ -120,7 +116,7 @@ func (f *placedFixture) account(t *testing.T, key string, version int64, status 
 
 func (f *placedFixture) frontend(image string, extra ...func(map[string]any)) map[string]any {
 	doc := map[string]any{
-		"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "frontend"},
+		"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": "frontend"},
 		"containers": map[string]any{"main": map[string]any{"image": image, "variables": map[string]any{"BACKEND_URL": "http://backend.invalid:8080"}}},
 		"service":    map[string]any{"ports": map[string]any{"http": map[string]any{"port": 80, "targetPort": 8080}}},
 	}
@@ -139,7 +135,7 @@ func (f *placedFixture) deploy(before, after map[string]any) error {
 
 	_, err := f.app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
 		OrganizationKey: f.opts.OrganizationKey, ApplicationKey: f.appKey, EnvironmentKey: "staging", WorkloadID: "frontend",
-		ScoreBefore: before, ScoreAfter: after, Actor: "test", RunID: "run-v03",
+		WorkloadBefore: before, WorkloadAfter: after, Actor: "test", RunID: "run-v03",
 	})
 	return err
 }

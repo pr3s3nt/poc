@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"orchestrator/internal/domain/renderbundle"
+	"orchestrator/internal/domain/templatesource"
 )
 
 func TestMain(m *testing.M) {
@@ -25,7 +25,7 @@ func execute(t *testing.T, source string, data map[string]any) (string, error) {
 func TestHelpersAreDeterministicAndKeepExplicitValues(t *testing.T) {
 	data := map[string]any{"In": map[string]any{"off": false, "zero": 0.0, "empty": "", "nil": nil, "obj": map[string]any{"a": 1.0, "b": map[string]any{"c": 1.0}}}}
 	out, err := execute(t, `{{ default "d" .In.off }}|{{ default "d" .In.zero }}|{{ default "d" .In.empty }}|{{ default "d" .In.nil }}|{{ default "d" (get .In "absent") }}|`+
-		`{{ toJson (merge .In.obj (dict "b" (dict "d" 2) "e" (list 1 2))) }}|{{ toJson .In.obj }}|{{ escapeScore "a$b$$c" }}|{{ toJson (keys .In.obj) }}|{{ quote "x\"y" }}|{{ toJson (sortAlpha (list "b" "a")) }}`, data)
+		`{{ toJson (merge .In.obj (dict "b" (dict "d" 2) "e" (list 1 2))) }}|{{ toJson .In.obj }}|{{ escapeBinding "a$b$$c" }}|{{ toJson (keys .In.obj) }}|{{ quote "x\"y" }}|{{ toJson (sortAlpha (list "b" "a")) }}`, data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,24 +142,25 @@ func TestPatchSemantics(t *testing.T) {
 
 func validTree() map[string][]byte {
 	return map[string][]byte{
-		"bundle.yaml": []byte(`apiVersion: orchestrator.dev/render-bundle/v1
-kind: RenderBundle
+		"bundle.yaml": []byte(`apiVersion: orchestrator.dev/template-source/v1
+kind: TemplateSource
 metadata:
   name: t
 renderer:
-  type: score-k8s
-  version: 0.15.0
-inputContract: orchestrator.dev/render-input/v1
+  type: template
+  version: 1.0.0
+inputContract: orchestrator.dev/template-input/v1
 inputsSchema: inputs.schema.json
 defaults: defaults.yaml
 normalize: n.tpl
-provisioners: [p/a.provisioners.yaml]
+resources: [r.tpl]
 patches: [x.tpl]
 `),
 		"inputs.schema.json":    []byte(`{"type":"object","additionalProperties":false,"properties":{}}`),
 		"defaults.yaml":         []byte("a: 1\n"),
 		"n.tpl":                 []byte(`{{ toJson (dict) }}`),
 		"x.tpl":                 []byte(``),
+		"r.tpl":                 []byte(`[]`),
 		"p/a.provisioners.yaml": []byte("- uri: template://x/y\n  type: t\n  outputs: |\n    a: {{ .Params.b | quote }}\n"),
 		"examples/README.md":    []byte("doc"),
 	}
@@ -172,18 +173,8 @@ func TestValidateBundleTree(t *testing.T) {
 	}
 	mutate := map[string]func(map[string][]byte){
 		"missing listed file": func(f map[string][]byte) { delete(f, "x.tpl") },
-		"cmd provisioner": func(f map[string][]byte) {
-			f["p/a.provisioners.yaml"] = []byte("- uri: cmd://sh\n  type: t\n  outputs: x\n")
-		},
-		"state provisioner": func(f map[string][]byte) {
-			f["p/a.provisioners.yaml"] = []byte("- uri: template://x\n  type: t\n  state: x\n  outputs: x\n")
-		},
-		"manifests": func(f map[string][]byte) {
-			f["p/a.provisioners.yaml"] = []byte("- uri: template://x\n  type: t\n  manifests: x\n  outputs: x\n")
-		},
-		"bad provisioner name": func(f map[string][]byte) {
-			f["p/b.yaml"] = f["p/a.provisioners.yaml"]
-			f["bundle.yaml"] = []byte(strings.Replace(string(f["bundle.yaml"]), "p/a.provisioners.yaml", "p/b.yaml", 1))
+		"removed provisioners": func(f map[string][]byte) {
+			f["bundle.yaml"] = append(f["bundle.yaml"], []byte("provisioners: []\n")...)
 		},
 		"unknown helper": func(f map[string][]byte) { f["n.tpl"] = []byte(`{{ exec "ls" }}`) },
 		"duplicate json key": func(f map[string][]byte) {
@@ -191,11 +182,11 @@ func TestValidateBundleTree(t *testing.T) {
 		},
 		"defaults not object": func(f map[string][]byte) { f["defaults.yaml"] = []byte("- a\n") },
 		"too many files": func(f map[string][]byte) {
-			for i := 0; i < renderbundle.MaxFiles; i++ {
+			for i := 0; i < templatesource.MaxFiles; i++ {
 				f["examples/"+strings.Repeat("x", 1)+string(rune('a'+i%26))+string(rune('a'+i/26))] = []byte("x")
 			}
 		},
-		"file too large": func(f map[string][]byte) { f["examples/big"] = make([]byte, renderbundle.MaxFileBytes+1) },
+		"file too large": func(f map[string][]byte) { f["examples/big"] = make([]byte, templatesource.MaxFileBytes+1) },
 		"unsafe path":    func(f map[string][]byte) { f["../x"] = []byte("x") },
 	}
 	for name, change := range mutate {

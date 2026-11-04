@@ -4,7 +4,7 @@ Verifies [UC-03 ZIP-01..04](../../../orchestrator_docs/usecase/UC-03/specificati
 and [ADR-026](../../../orchestrator_docs/architecture/decisions/ADR-026-zip-source-upload.md).
 
 Prerequisites: a **disposable loopback** platform built from this branch, seeded
-Kubernetes Types, configured pinned score-k8s 0.15.0 binary and private module/
+Kubernetes Types, configured pinned template 0.15.0 binary and private module/
 render caches; PLATFORM_ENGINEER account. Node 22+, `zip`, `npm ci` and
 `npx playwright install chromium` from `e2e/`. Product archive inspection and
 cache adapters are real; a local platform may use fake deployment adapters

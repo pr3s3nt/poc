@@ -42,22 +42,22 @@ export function parseTypeMetadata(body: unknown): TypeMetadata[] {
 
 // A Git render bundle (ADR-021) adds its verified source pin and input schema; an installed
 // bundle keeps the legacy id/version/status shape. Both shapes are accepted.
-export type RenderSource = { kind: 'git' | 'zip'; url: string; path: string; revision: string; contentSha256: string };
-export type RenderBundle = { id: string; version: string; status: string; name?: string; source?: RenderSource; inputsSchema?: Record<string, unknown>; engineContract?: string; inputContract?: string; renderer?: { type: string; version: string } };
+export type RenderSource = { kind: 'git' | 'zip' | 'inline'; url: string; path: string; revision: string; contentSha256: string };
+export type TemplateSource = { id: string; version: string; status: string; name?: string; source?: RenderSource; inputsSchema?: Record<string, unknown>; engineContract?: string; inputContract?: string; renderer?: { type: string; version: string } };
 
-export function parseRenderBundle(item: unknown): RenderBundle {
+export function parseTemplateSource(item: unknown): TemplateSource {
   if (!isObject(item) || !filled(item.id) || !text(item.version) || !text(item.status)) return fail();
-  const base: RenderBundle = { id: item.id, version: item.version, status: item.status };
+  const base: TemplateSource = { id: item.id, version: item.version, status: item.status };
   if (item.source === undefined) return base;
   const source = item.source;
-  if (!isObject(source) || (source.kind !== 'git' && source.kind !== 'zip') || !filled(source.url) || !filled(source.path) || !filled(source.revision) || !filled(source.contentSha256)) return fail();
+  if (!isObject(source) || (source.kind !== 'git' && source.kind !== 'zip' && source.kind !== 'inline') || !filled(source.url) || !filled(source.path) || !filled(source.revision) || !filled(source.contentSha256)) return fail();
   if (!filled(item.name) || !isObject(item.inputsSchema) || !filled(item.engineContract) || !filled(item.inputContract)) return fail();
   const renderer = item.renderer;
   if (!isObject(renderer) || !filled(renderer.type) || !filled(renderer.version)) return fail();
   return { ...base, name: item.name, source: { kind: source.kind, url: source.url, path: source.path, revision: source.revision, contentSha256: source.contentSha256 }, inputsSchema: item.inputsSchema, engineContract: item.engineContract, inputContract: item.inputContract, renderer: { type: renderer.type, version: renderer.version } };
 }
 
-export function parseRenderBundles(body: unknown): RenderBundle[] {
+export function parseTemplateSources(body: unknown): TemplateSource[] {
   if (!isObject(body)) return fail();
-  return members(body.renderBundles, parseRenderBundle);
+  return members(body.templateSources, parseTemplateSource);
 }

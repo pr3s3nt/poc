@@ -70,7 +70,7 @@ Go integration helpers/tests cần module Go tiếp tục nằm trong backend.
 
 The [Terraform acceptance runbook](../orchestrator_docs/operations/terraform-v2-acceptance.md)
 and [AWS runbook](../orchestrator_docs/operations/aws.md) own fixture handles,
-pinned Terraform/score-k8s/kubectl tools, permissions, estimates, finite deadlines,
+pinned Terraform/template-engine/kubectl tools, permissions, estimates, finite deadlines,
 independent supervisors, ownership and service-API cleanup proofs.
 
 - Existing cluster: test/integration/v04-internal-full.sh; full acceptance app,

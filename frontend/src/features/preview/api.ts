@@ -5,12 +5,12 @@ import type { DeploymentReviewData } from './DeploymentReview';
 
 export type PreviewAction = 'deploy' | 'update' | 'remove';
 
-export type ScorePreviewRequest = {
+export type WorkloadPreviewRequest = {
   workloadId: string;
   action: PreviewAction;
   runId: string;
-  scoreBefore?: Record<string, unknown>;
-  scoreAfter?: Record<string, unknown>;
+  workloadBefore?: Record<string, unknown>;
+  workloadAfter?: Record<string, unknown>;
 };
 
 export type JSONPatchOperation = { op: string; path: string; value?: unknown };
@@ -26,7 +26,7 @@ export type PreviewMatch = { descriptor: string; definitionKey: string; driverTy
 
 export type RenderingSelection = { definitionKey: string; class?: string; driverType: string; bundle: { id: string; version: string; digest: string } };
 
-export type ScorePreview = {
+export type WorkloadPreview = {
 	 review?: DeploymentReviewData;
   rendering?: Record<string, RenderingSelection>;
   applicationKey: string;
@@ -47,5 +47,5 @@ export type ScorePreview = {
   placements?: Placement[];
 };
 
-export const previewScore = (app: string, env: EnvironmentKey, request: ScorePreviewRequest) =>
-  api<ScorePreview>(`/applications/${encodeURIComponent(app)}/environments/${env}/score-preview`, { method: 'POST', body: JSON.stringify(request) });
+export const previewScore = (app: string, env: EnvironmentKey, request: WorkloadPreviewRequest) =>
+  api<WorkloadPreview>(`/applications/${encodeURIComponent(app)}/environments/${env}/workload-preview`, { method: 'POST', body: JSON.stringify(request) });

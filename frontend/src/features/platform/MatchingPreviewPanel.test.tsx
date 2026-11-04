@@ -1,9 +1,11 @@
-import { within, act, render, screen, waitFor } from '@testing-library/react';
+import { capabilityFixture } from '../../test/capabilities';
+import { typeFixture } from '../../test/types';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MatchingPreviewPanel, type MatchingSample } from './MatchingPreviewPanel';
 import { CriteriaEditor, emptyDraft, type ApplicationOption, type CriteriaSource } from './CriteriaEditor';
-import { RenderingTemplatesPage } from './RenderingTemplatesPage';
+import { ResourceDefinitionsPage } from './ResourceDefinitionsPage';
 
 const sample: MatchingSample = { applicationId: 'shop', environmentId: 'staging', resourceId: 'db', class: 'default' };
 const definition = { key: 'pg-new', name: 'PG mới', resourceType: 'postgres', criteria: [{}] };
@@ -141,67 +143,35 @@ describe('exact matching preview panel (T19)', () => {
   });
 });
 
-describe('exact matching preview in the template form (T19)', () => {
-  it('previews the unsaved template without registering it and keeps the frontend hint separate', async () => {
-    const user = userEvent.setup();
-    const posts: { url: string; body: Record<string, unknown> }[] = [];
-    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-      const url = String(input);
-      if (init?.method === 'POST') { posts.push({ url, body: JSON.parse(String(init.body)) as Record<string, unknown> }); return Response.json({ status: 'NO_MATCH', candidates: [], snapshot: { marker: 'm1', environmentVersion: 2 } }); }
-      if (url.endsWith('/applications')) return Response.json({ applications: [{ key: 'shop', name: 'shop', environments: [{ key: 'staging', name: 'staging', environmentType: 'staging' }] }] });
-      if (url.endsWith('/render-bundles')) return Response.json({ renderBundles: [{ id: 'bundle-web', version: '1', status: 'AVAILABLE' }] });
-      return Response.json({ resourceDefinitions: [] });
-    }));
-    render(<RenderingTemplatesPage />);
-    await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
-    await user.click(screen.getByRole('button', { name: 'Bundle đã xác minh' }));
-    expect(screen.getByText('Nhập ID mẫu hợp lệ để kiểm tra matching chính xác.')).toBeInTheDocument();
-    await user.type(screen.getByLabelText('ID mẫu'), 'web-tpl');
-    await user.type(screen.getByLabelText('Tên hiển thị'), 'Mẫu web');
-    await user.selectOptions(screen.getByLabelText('Ứng dụng kiểm tra'), 'shop');
-    await user.selectOptions(screen.getByLabelText('Môi trường kiểm tra'), 'staging');
-    await user.type(screen.getByLabelText('ID tài nguyên kiểm tra (res_id)'), 'modules.web');
-    await user.type(screen.getByLabelText('Class kiểm tra'), 'default');
-    await waitFor(() => expect(run()).toBeEnabled());
-    expect(screen.queryByRole('group', { name: /Xem trước phạm vi/ })).not.toBeInTheDocument();
-    await user.click(run());
-    expect(await screen.findByText('Không có cấu hình nào khớp (khác với hòa điểm)')).toBeInTheDocument();
-    expect(within(screen.getByRole('region', { name: 'Kết quả matching chính xác' })).queryByText(/renderer mặc định/)).not.toBeInTheDocument();
-    expect(posts).toHaveLength(1);
-    expect(posts[0]?.url).toBe('/api/v1/resource-definitions/matching-preview');
-    expect(posts[0]?.body).toMatchObject({ definition: { key: 'web-tpl', name: 'Mẫu web', resourceType: 'workload', driverType: 'score-k8s' }, context: { applicationId: 'shop', environmentId: 'staging', resourceId: 'modules.web', class: 'default' } });
-    expect(posts[0]?.body.definition).not.toHaveProperty('executionProfile');
-    expect(screen.queryByText(/Đã đăng ký mẫu/)).not.toBeInTheDocument();
-    await user.type(screen.getByLabelText('ID mẫu'), 'x');
-    expect(screen.queryByRole('region', { name: 'Kết quả matching chính xác' })).not.toBeInTheDocument();
-  });
-
-  it('drops the result when only the availability metadata of the installed bundles changed', async () => {
-    const user = userEvent.setup();
-    let bundleVersion = '1';
-    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-      const url = String(input);
-      if (init?.method === 'POST') return Response.json({ status: 'NO_MATCH', candidates: [], snapshot: { marker: 'm1', environmentVersion: 2 } });
-      if (url.endsWith('/applications')) return Response.json({ applications: [{ key: 'shop', name: 'shop', environments: [{ key: 'staging', name: 'staging', environmentType: 'staging' }] }] });
-      if (url.endsWith('/render-bundles')) return Response.json({ renderBundles: [{ id: 'bundle-web', version: bundleVersion, status: 'AVAILABLE' }] });
-      return Response.json({ resourceDefinitions: [] });
-    }));
-    render(<RenderingTemplatesPage />);
-    await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
-    await user.click(screen.getByRole('button', { name: 'Bundle đã xác minh' }));
-    await user.type(screen.getByLabelText('ID mẫu'), 'web-tpl');
-    await user.type(screen.getByLabelText('Tên hiển thị'), 'Mẫu web');
-    await user.selectOptions(screen.getByLabelText('Ứng dụng kiểm tra'), 'shop');
-    await user.selectOptions(screen.getByLabelText('Môi trường kiểm tra'), 'staging');
-    await user.type(screen.getByLabelText('ID tài nguyên kiểm tra (res_id)'), 'modules.web');
-    await user.type(screen.getByLabelText('Class kiểm tra'), 'default');
-    await waitFor(() => expect(run()).toBeEnabled());
-    await user.click(run());
-    await screen.findByRole('region', { name: 'Kết quả matching chính xác' });
-    bundleVersion = '2';
-    await user.click(screen.getByRole('button', { name: 'Làm mới danh sách bundle' }));
-    await waitFor(() => expect(screen.queryByRole('region', { name: 'Kết quả matching chính xác' })).not.toBeInTheDocument());
-  });
+describe('exact matching preview in the unified workload Definition form', () => {
+ function backend() {
+  const posts: {url:string;body:Record<string,unknown>}[]=[];
+  vi.stubGlobal('fetch',vi.fn(async(input: string | URL | Request,init?:RequestInit)=>{
+   const url=String(input);
+   if(init?.method==='POST'){posts.push({url,body:JSON.parse(String(init.body)) as Record<string,unknown>});return Response.json({status:'NO_MATCH',candidates:[],snapshot:{marker:'m',environmentVersion:2}});}
+   if(url.endsWith('/applications'))return Response.json({applications:[{key:'shop',name:'shop',environments:[{key:'staging',name:'staging',environmentType:'staging'}]}]});
+   if(url.endsWith('/resource-types'))return Response.json({resourceTypes:typeFixture});
+   if(url.endsWith('/resource-definition-capabilities'))return Response.json({capabilities:capabilityFixture});
+   if(url.endsWith('/driver-accounts'))return Response.json({accounts:[]});
+   if(url.endsWith('/template-sources'))return Response.json({templateSources:[{id:'source-a',version:'1',status:'AVAILABLE'},{id:'source-b',version:'2',status:'AVAILABLE'}]});
+   return Response.json({resourceDefinitions:[]});
+  }));return posts;
+ }
+ it('previews a workload candidate without saving and invalidates its result after the source changes',async()=>{
+  const posts=backend();const user=userEvent.setup();render(<ResourceDefinitionsPage initialResourceType="workload" />);
+  await screen.findByText('Manifest Templates');
+  await user.type(screen.getByLabelText('ID cấu hình (Definition ID)'),'web-tpl');await user.type(screen.getByLabelText('Tên hiển thị'),'Mẫu web');
+  await user.selectOptions(screen.getByLabelText('Nguồn đã xác thực'),'source-a');
+  await user.click(screen.getByLabelText('Tham chiếu namespace'));await user.paste("${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}");
+  await user.click(screen.getByRole('tab',{name:/^Điều kiện áp dụng/}));await user.click(screen.getByText('Kiểm tra cấu hình được chọn',{exact:true}));
+  await user.selectOptions(screen.getByLabelText('Ứng dụng kiểm tra'),'shop');await user.selectOptions(screen.getByLabelText('Môi trường kiểm tra'),'staging');
+  await user.type(screen.getByLabelText('ID tài nguyên kiểm tra (res_id)'),'modules.web');await user.type(screen.getByLabelText('Class kiểm tra'),'default');
+  await user.click(run());await screen.findByRole('region',{name:'Kết quả matching chính xác'});
+  expect(posts).toHaveLength(1);expect(posts[0]?.url).toBe('/api/v1/resource-definitions/matching-preview');
+  expect(posts[0]?.body).toMatchObject({definition:{key:'web-tpl',resourceType:'workload',driverType:'template'}});
+  await user.click(screen.getByRole('tab',{name:/^Cấu hình$/}));await user.selectOptions(screen.getByLabelText('Nguồn đã xác thực'),'source-b');
+  await user.click(screen.getByRole('tab',{name:/^Điều kiện áp dụng/}));expect(screen.queryByRole('region',{name:'Kết quả matching chính xác'})).not.toBeInTheDocument();
+ });
 });
 
 describe('exact matching preview shows the safe winner, account, region and conflicts (UC-03 V02-05)', () => {

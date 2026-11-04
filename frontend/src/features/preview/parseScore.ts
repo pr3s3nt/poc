@@ -6,7 +6,7 @@ export type ParsedScore = { ok: true; score: Record<string, unknown> } | { ok: f
 // YAML anchors may be reused a few times; more is treated as an alias bomb.
 const MAX_ALIASES = 20;
 
-// Parses one Score document locally. YAML is a superset of JSON, so both are
+// Parses one Workload document locally. YAML is a superset of JSON, so both are
 // accepted; nothing is sent to the server and the text is never rewritten.
 // The result is a plain JSON value, so it can always be serialized.
 export function parseScoreText(text: string): ParsedScore {

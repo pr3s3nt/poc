@@ -36,7 +36,8 @@ related: I06-07, IMP-009, UC-05, UC-06
     in `backend/internal/domain/environment/document.go`, carried as
     `Container.Resources` (`omitempty`, so modules without resources serialise
     unchanged).
-  - `backend/internal/planning/score/resources.go` validates the raw
+  - `backend/internal/planning/workloadspec/resources.go` (path renamed from
+    `planning/score` on 2026-11-04) validates the raw
     `containers.*.resources` tree after the strict (`DisallowUnknownFields`)
     decode. `Document.Fragment` copies the requirements into the module.
   - `containerResources` in `backend/internal/adapters/kubernetes/renderer.go`

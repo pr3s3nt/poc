@@ -17,7 +17,7 @@ it('binds a fresh review request ID and polls only exact scoped deployments', as
   let requestId = ''; const filteredRequests:string[] = [];
   vi.stubGlobal('fetch',vi.fn(async (input:string|URL|Request,init?:RequestInit)=>{
     const url=new URL(String(input),'http://localhost');
-    if (url.pathname.endsWith('/workloads')) return Response.json({applicationKey:'catalog',environmentKey:'staging',draftVersion:1,workloads:[{id:'api',state:'PENDING_UPSERT',ready:false,score:{}}]});
+    if (url.pathname.endsWith('/workloads')) return Response.json({applicationKey:'catalog',environmentKey:'staging',draftVersion:1,workloads:[{id:'api',state:'PENDING_UPSERT',ready:false,workload:{}}]});
     if (url.pathname.endsWith('/preview')) return Response.json({token:'pin',changes:[{workloadId:'api',action:'DEPLOY',resources:{existing:[],new:[],unreferenced:[]},planHash:'plan'}],review:{version:1,planHash:'plan',nodes:[{id:'api',kind:'workload',name:'api',resourceType:'workload',class:'default'}],edges:[],batches:[],artifacts:[]}});
     if (url.pathname.endsWith('/deploy') && init?.method==='POST') {requestId=(JSON.parse(String(init.body)) as {reviewRequestId:string}).reviewRequestId;return Response.json({status:'SUCCEEDED',results:[{workloadId:'api',action:'DEPLOY',status:'SUCCEEDED',deploymentId:'exact-deployment'}]});}
     if (url.pathname.endsWith('/deployments')) {const filter=url.searchParams.get('reviewRequestId')??'';filteredRequests.push(filter);return Response.json({deployments:filter?[{id:'exact-deployment',workloadId:'api',status:'SUCCEEDED'}]:[]});}
@@ -39,7 +39,7 @@ it('previews pending changes and deploys only after confirmation', async () => {
   let deployToken = '';
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
-    if (url.endsWith('/workloads')) return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', draftVersion: 1, workloads: [{ id: 'frontend', state: 'PENDING_UPSERT', ready: false, score: {} }] });
+    if (url.endsWith('/workloads')) return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', draftVersion: 1, workloads: [{ id: 'frontend', state: 'PENDING_UPSERT', ready: false, workload: {} }] });
     if (url.endsWith('/preview')) return Response.json({ token: 'pinned-preview', draftVersion: 1, configRevisionId: 'revision-1', changes: [{ workloadId: 'frontend', action: 'DEPLOY', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'plan-1' }] });
     if (url.endsWith('/deploy')) {
       deployToken = (JSON.parse(String(init?.body)) as { token: string }).token;
@@ -65,7 +65,7 @@ it('offers route-only retry when workloads have already been applied', async () 
   let deployCalls = 0;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
-    if (url.endsWith('/workloads')) return Response.json({ draftVersion: 2, workloads: [{ id: 'frontend', state: '', ready: true, score: {} }] });
+    if (url.endsWith('/workloads')) return Response.json({ draftVersion: 2, workloads: [{ id: 'frontend', state: '', ready: true, workload: {} }] });
     if (url.endsWith('/preview')) return Response.json({ token: 'route-retry', draftVersion: 2, routePending: true, changes: [] });
     if (url.endsWith('/deploy')) { deployCalls += 1; return Response.json({ status: 'SUCCEEDED', results: [] }); }
     return Response.json({}, { status: 404 });
@@ -92,10 +92,10 @@ it('confirms deletion by name and Environment, disables duplicate actions while 
       await new Promise<void>((done) => { release = done; });
       return list('staging', [{ id: 'api', state: 'PENDING_DELETE', ready: true }], 2);
     }
-    if (url.endsWith('/workloads/api/undo')) return list('staging', [{ id: 'api', state: '', ready: true, score: {} }], 3);
+    if (url.endsWith('/workloads/api/undo')) return list('staging', [{ id: 'api', state: '', ready: true, workload: {} }], 3);
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
     if (url.includes('/resources')) return Response.json({ resources: [] });
-    return list('staging', [{ id: 'api', state: '', ready: true, score: {} }]);
+    return list('staging', [{ id: 'api', state: '', ready: true, workload: {} }]);
   }));
   const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
   const user = userEvent.setup();
@@ -123,7 +123,7 @@ it('reloads the list on a version conflict and never retries the mutation', asyn
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
     if (url.includes('/resources')) return Response.json({ resources: [] });
     lists += 1;
-    return list('staging', [{ id: 'api', state: '', ready: true, score: {} }, ...(lists > 1 ? [{ id: 'web', state: 'PENDING_UPSERT', ready: false, score: {} }] : [])], lists);
+    return list('staging', [{ id: 'api', state: '', ready: true, workload: {} }, ...(lists > 1 ? [{ id: 'web', state: 'PENDING_UPSERT', ready: false, workload: {} }] : [])], lists);
   }));
   vi.spyOn(window, 'confirm').mockReturnValue(true);
   const user = userEvent.setup();
@@ -147,7 +147,7 @@ it('keeps the deploy outcome when the list reload fails and blocks mutations unt
     if (url.endsWith('/deploy')) return Response.json({ status: 'SUCCEEDED', results: [{ workloadId: 'api', action: 'UPDATE', status: 'SUCCEEDED', deploymentId: 'dep-1' }] });
     lists += 1;
     if (lists === 2) return Response.json({ error: 'unavailable' }, { status: 500 });
-    return list('staging', [{ id: 'api', state: lists === 1 ? 'PENDING_UPSERT' : '', ready: true, score: {} }], lists);
+    return list('staging', [{ id: 'api', state: lists === 1 ? 'PENDING_UPSERT' : '', ready: true, workload: {} }], lists);
   }));
   const user = userEvent.setup();
   render(<ApplicationHomePage application={application} />);
@@ -177,7 +177,7 @@ it('keeps controls busy until the post-deploy reload finishes', async () => {
     if (url.endsWith('/deploy')) return Response.json({ status: 'SUCCEEDED', results: [{ workloadId: 'api', action: 'UPDATE', status: 'SUCCEEDED' }] });
     lists += 1;
     if (lists === 2) return new Promise<Response>((done) => { releaseReload = done; });
-    return list('staging', [{ id: 'api', state: 'PENDING_UPSERT', ready: true, score: {} }], 1);
+    return list('staging', [{ id: 'api', state: 'PENDING_UPSERT', ready: true, workload: {} }], 1);
   }));
   const user = userEvent.setup();
   render(<ApplicationHomePage application={application} />);
@@ -187,7 +187,7 @@ it('keeps controls busy until the post-deploy reload finishes', async () => {
   expect(await screen.findByRole('heading', { name: 'Triển khai thành công' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Xóa' })).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Xem trước thay đổi' })).toBeDisabled();
-  releaseReload(list('staging', [{ id: 'api', state: '', ready: true, score: {} }], 2));
+  releaseReload(list('staging', [{ id: 'api', state: '', ready: true, workload: {} }], 2));
   expect(await screen.findByText('Sẵn sàng')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Xóa' })).toBeEnabled();
 });
@@ -200,10 +200,10 @@ it('does not show a staging conflict notice after switching to production', asyn
     if (init?.method === 'DELETE') return Response.json({ error: 'conflict' }, { status: 409 });
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
     if (url.includes('/resources')) return Response.json({ resources: [] });
-    if (url.includes('/production/')) return list('production', [{ id: 'prod-only', state: '', ready: true, score: {} }]);
+    if (url.includes('/production/')) return list('production', [{ id: 'prod-only', state: '', ready: true, workload: {} }]);
     stagingLists += 1;
     if (stagingLists === 2) return new Promise<Response>((done) => { releaseReload = done; });
-    return list('staging', [{ id: 'api', state: '', ready: true, score: {} }]);
+    return list('staging', [{ id: 'api', state: '', ready: true, workload: {} }]);
   }));
   vi.spyOn(window, 'confirm').mockReturnValue(true);
   const user = userEvent.setup();
@@ -212,7 +212,7 @@ it('does not show a staging conflict notice after switching to production', asyn
   await user.click(screen.getByRole('button', { name: 'Xóa' }));
   await user.click(screen.getByRole('button', { name: /^production/ }));
   await screen.findByText('prod-only');
-  releaseReload(list('staging', [{ id: 'api', state: '', ready: true, score: {} }], 2));
+  releaseReload(list('staging', [{ id: 'api', state: '', ready: true, workload: {} }], 2));
   await new Promise((done) => setTimeout(done, 20));
   expect(screen.queryByText(/đã thay đổi kể từ khi trang được tải/)).not.toBeInTheDocument();
   expect(screen.getByText('prod-only')).toBeInTheDocument();
@@ -228,7 +228,7 @@ it('reports truthfully when the reload after a conflict fails', async () => {
     if (url.includes('/resources')) return Response.json({ resources: [] });
     lists += 1;
     if (lists === 2) return Response.json({ error: 'unavailable' }, { status: 500 });
-    return list('staging', [{ id: 'api', state: '', ready: true, score: {} }], lists);
+    return list('staging', [{ id: 'api', state: '', ready: true, workload: {} }], lists);
   }));
   vi.spyOn(window, 'confirm').mockReturnValue(true);
   const user = userEvent.setup();
@@ -294,7 +294,7 @@ it('disables draft Delete and Undo while an environment operation runs and enabl
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     if (init?.method && init.method !== 'GET') calls.push(`${init.method} ${url}`);
-    if (url.endsWith('/workloads')) return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', draftVersion: 1, workloads: [{ id: 'frontend', ready: true, score: {} }, { id: 'old', state: 'PENDING_DELETE', ready: true }] });
+    if (url.endsWith('/workloads')) return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', draftVersion: 1, workloads: [{ id: 'frontend', ready: true, workload: {} }, { id: 'old', state: 'PENDING_DELETE', ready: true }] });
     return Response.json({}, { status: 404 });
   }));
   const busyApp: Application = { ...application, environments: { ...application.environments, staging: { ...application.environments.staging, activeOperation: { id: 'op1', kind: 'DEPLOY', status: 'ACTIVE', stage: 'DEPLOY web', startedAt: '', updatedAt: '', heartbeatAt: '', recoverable: false } } } };
@@ -311,7 +311,7 @@ it('disables draft Delete and Undo while an environment operation runs and enabl
   expect(calls).toEqual([]);
 });
 
-const pendingList = () => list('staging', [{ id: 'api', state: 'PENDING_UPSERT', ready: true, score: {} }]);
+const pendingList = () => list('staging', [{ id: 'api', state: 'PENDING_UPSERT', ready: true, workload: {} }]);
 
 it('shows only a safe Vietnamese message when Preview fails with a raw provider error', async () => {
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
@@ -383,7 +383,7 @@ it('drops a stale Preview on a 409 Deploy, reloads the list and does not redeplo
     if (url.endsWith('/preview')) return Response.json({ token: 'old', draftVersion: 1, changes: [{ workloadId: 'api', action: 'UPDATE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] });
     if (url.endsWith('/deploy')) { deploys += 1; return Response.json({ error: 'preview token is stale: raw detail xyz' }, { status: 409 }); }
     lists += 1;
-    return list('staging', [{ id: 'api', state: 'PENDING_UPSERT', ready: true, score: {} }], lists);
+    return list('staging', [{ id: 'api', state: 'PENDING_UPSERT', ready: true, workload: {} }], lists);
   }));
   const user = userEvent.setup();
   render(<ApplicationHomePage application={application} />);
@@ -404,7 +404,7 @@ it('keeps Deploy unavailable for a no-op Preview', async () => {
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
     if (url.includes('/resources')) return Response.json({ resources: [] });
     if (url.endsWith('/preview')) return Response.json({ token: 'noop', draftVersion: 1, changes: [], review: { version: 0, planHash: '', nodes: null, edges: null, batches: null, artifacts: null } });
-    return list('staging', [{ id: 'api', state: '', ready: true, score: {} }]);
+    return list('staging', [{ id: 'api', state: '', ready: true, workload: {} }]);
   }));
   const user = userEvent.setup();
   render(<ApplicationHomePage application={application} />);
@@ -423,7 +423,7 @@ it('ignores a late Deploy result after the same page is rerendered for another A
     if (url.includes('/resources')) return Response.json({ resources: [] });
     if (url.endsWith('/preview')) return Response.json({ token: 't', draftVersion: 1, changes: [{ workloadId: 'api', action: 'UPDATE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] });
     if (url.endsWith('/deploy')) return new Promise<Response>((done) => { resolveDeploy = done; });
-    return url.includes('/applications/other/') ? list('staging', [{ id: 'other-api', state: '', ready: true, score: {} }]) : pendingList();
+    return url.includes('/applications/other/') ? list('staging', [{ id: 'other-api', state: '', ready: true, workload: {} }]) : pendingList();
   }));
   const user = userEvent.setup();
   const view = render(<ApplicationHomePage application={application} />);
@@ -447,7 +447,7 @@ it('shows unknown action and status keys verbatim without reading inherited prop
     const url = String(input);
     if (url.includes('/deployments')) return Response.json({ deployments: [{ id: 'd1', workloadId: 'api', action: 'constructor', status: 'toString', startedAt: '2026-01-01T00:00:00Z' }] });
     if (url.endsWith('/preview')) return Response.json({ token: 't', draftVersion: 1, changes: [{ workloadId: 'api', action: 'toString', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] });
-    return list('staging', [{ id: 'api', state: '', ready: true, score: {} }]);
+    return list('staging', [{ id: 'api', state: '', ready: true, workload: {} }]);
   }));
   const user = userEvent.setup();
   render(<ApplicationHomePage application={application} />);
@@ -456,7 +456,7 @@ it('shows unknown action and status keys verbatim without reading inherited prop
   expect(entry).toHaveTextContent('toString');
   await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
   const item = (await within(await screen.findByLabelText('Xem trước triển khai')).findByRole('listitem'));
-  expect(item).toHaveTextContent('api · toString · trình dựng: Chưa xác định trình dựng score-k8s (không có renderer mặc định)');
+  expect(item).toHaveTextContent('api · toString · trình dựng: Chưa xác định trình dựng template (không có renderer mặc định)');
   expect(item).not.toHaveTextContent('Kubernetes tích hợp sẵn');
 });
 
@@ -465,7 +465,7 @@ it('uses a fixed Vietnamese message when delete fails and keeps the list', async
     if (init?.method === 'DELETE') return Response.json({ error: 'db password=hunter2' }, { status: 500 });
     if (String(input).includes('/deployments')) return Response.json({ deployments: [] });
     if (String(input).includes('/resources')) return Response.json({ resources: [] });
-    return list('staging', [{ id: 'api', state: '', ready: true, score: {} }]);
+    return list('staging', [{ id: 'api', state: '', ready: true, workload: {} }]);
   }));
   vi.spyOn(window, 'confirm').mockReturnValue(true);
   const user = userEvent.setup();
@@ -483,7 +483,7 @@ it('opens on the Environment given by the route and previews that Environment', 
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
     urls.push(url);
-    if (url.endsWith('/workloads')) return Response.json({ applicationKey: 'catalog', environmentKey: 'production', draftVersion: 3, workloads: [{ id: 'api', state: 'PENDING_UPSERT', ready: false, score: {} }] });
+    if (url.endsWith('/workloads')) return Response.json({ applicationKey: 'catalog', environmentKey: 'production', draftVersion: 3, workloads: [{ id: 'api', state: 'PENDING_UPSERT', ready: false, workload: {} }] });
     if (url.endsWith('/preview')) return Response.json({ token: 't', draftVersion: 3, configRevisionId: 'r', changes: [{ workloadId: 'api', action: 'UPDATE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] });
     return Response.json({}, { status: 404 });
   }));
@@ -501,11 +501,11 @@ it('shows the safe Preview projection: renderer, module pin, per-resource provid
   const digest = 'a'.repeat(64);
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
-    if (url.endsWith('/workloads')) return Response.json({ draftVersion: 1, workloads: [{ id: 'api', state: 'PENDING_UPSERT', ready: false, score: {} }] });
+    if (url.endsWith('/workloads')) return Response.json({ draftVersion: 1, workloads: [{ id: 'api', state: 'PENDING_UPSERT', ready: false, workload: {} }] });
     if (url.endsWith('/preview')) return Response.json({
       token: 't', draftVersion: 1,
       changes: [{ workloadId: 'api', action: 'DEPLOY', planHash: 'p', resources: { existing: [], new: ['postgres.default#shared.orders'], unreferenced: [] },
-        rendering: { definitionKey: 'render-cloud', driverType: 'score-k8s', bundle: { id: 'score-k8s-internal-v1', version: '0.15.0' } },
+        rendering: { definitionKey: 'render-cloud', driverType: 'template', bundle: { id: 'template-internal-v1', version: '0.15.0' } },
         resourceIntents: [
           { descriptor: 'postgres.cloud-managed#shared.orders', resourceType: 'postgres', class: 'cloud-managed', scope: 'SHARED:orders', ownership: 'ORCHESTRATOR', intent: 'CREATE', definitionKey: 'aurora-prod', driverType: 'terraform',
             module: { module: 'aurora', sourceId: 'platform', revision: 'v3-2026.10.13', subdirectory: 'aurora', contentSha256: digest }, providers: [{ name: 'aws', kind: 'aws', target: 'account', connectionKey: 'aws-prod', region: 'us-east-1' }] },
@@ -521,7 +521,7 @@ it('shows the safe Preview projection: renderer, module pin, per-resource provid
   await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
   const panel = await screen.findByLabelText('Xem trước triển khai');
   expect(within(panel).queryByLabelText('Đích đã ghim của xem trước')).not.toBeInTheDocument();
-  expect(panel.querySelector('.preview-changes > li')).toHaveTextContent('trình dựng: score-k8s 0.15.0 (mẫu render-cloud)');
+  expect(panel.querySelector('.preview-changes > li')).toHaveTextContent('trình dựng: template 0.15.0 (mẫu render-cloud)');
   const table = within(panel).getByRole('table');
   const rows = within(table).getAllByRole('row').slice(1);
   expect(rows[0]).toHaveTextContent('postgres / cloud-managed');
@@ -540,7 +540,7 @@ it('shows the safe Preview projection: renderer, module pin, per-resource provid
 it('never shows an existing identity as unchanged without proof, and treats a missing projection as unavailable', async () => {
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
-    if (url.endsWith('/workloads')) return Response.json({ draftVersion: 1, workloads: [{ id: 'api', state: 'PENDING_UPSERT', ready: false, score: {} }] });
+    if (url.endsWith('/workloads')) return Response.json({ draftVersion: 1, workloads: [{ id: 'api', state: 'PENDING_UPSERT', ready: false, workload: {} }] });
     if (url.endsWith('/preview')) return Response.json({ token: 't', draftVersion: 1, changes: [
       { workloadId: 'api', action: 'UPDATE', planHash: 'p', resources: { existing: [], new: [], unreferenced: [] }, resourceIntents: [
         { descriptor: 'postgres.default#modules.api.externals.db', resourceType: 'postgres', class: 'default', scope: 'WORKLOAD:api', ownership: 'ORCHESTRATOR', intent: 'UPDATE', definitionKey: 'pg', driverType: 'terraform' },
@@ -568,7 +568,7 @@ it('tracks a delivery-only transfer with no workload graph without losing the re
   let requestId = ''; let submits = 0;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/workloads')) return Response.json({ draftVersion: 1, workloads: [{ id: 'api', ready: true, score: {} }] });
+    if (url.pathname.endsWith('/workloads')) return Response.json({ draftVersion: 1, workloads: [{ id: 'api', ready: true, workload: {} }] });
     if (url.pathname.endsWith('/preview')) return Response.json({ token: 'transfer', changes: [], deliveryPending: true, deliveryTransfer: true, deliveryUnits: [{ workloadId: 'api', phase: 'ROLLOUT', objects: 2, revision: 'admitted' }], appliedDelivery: { mode: 'CD' }, desiredDelivery: { mode: 'DIRECT' }, review: { version: 0, nodes: null, edges: null, batches: null, artifacts: null } });
     if (url.pathname.endsWith('/deploy') && init?.method === 'POST') { submits++; requestId = (JSON.parse(String(init.body)) as { reviewRequestId: string }).reviewRequestId; return Response.json({ status: 'SUCCEEDED', results: [] }); }
     if (url.pathname.endsWith('/deployments')) return Response.json({ deployments: [] });

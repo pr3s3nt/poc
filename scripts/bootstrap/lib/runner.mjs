@@ -31,7 +31,7 @@ async function verifyPins(ui,config,app,version) {
  const base=envBase(app.key,config.application.environment),catalog=(await ui.get(base+'/catalog')).catalog;
  conflict(catalog.desired?.sourceId===config.platform.catalog.id&&catalog.desired.tag===version.catalogTag,'Environment Catalog target');
  const actual=(await ui.get(base+'/workloads')).workloads,want=desiredScores(config,version);
- conflict(actual.length===3&&actual.every(v=>!v.state&&equal(v.score,want[v.id])),'Workload version target');
+ conflict(actual.length===3&&actual.every(v=>!v.state&&equal(v.workload,want[v.id])),'Workload version target');
  for(const [key,id]of Object.entries(version.definitionRevisions??{}))conflict((await ui.get(base+'/definition-versions')).definitions.find(v=>v.key===key)?.desiredRevisionId===id,'Definition target pin');
 }
 export async function runBootstrap(config) {
@@ -47,7 +47,7 @@ export async function runBootstrap(config) {
    requireConfig(app,'Verify requires an existing confirmed Application key');
    const base=envBase(app.key,config.application.environment);
    const actual=(await ui.get(base+'/workloads')).workloads,target=desiredScores(config,config.upgrade);
-   const atTarget=actual.length===3&&actual.every(v=>equal(v.score,target[v.id]));
+   const atTarget=actual.length===3&&actual.every(v=>equal(v.workload,target[v.id]));
    await verifyPins(ui,config,app,atTarget?config.upgrade:config.application);
    if(config.verification.enabled)await verifyAcceptance(ui,config,rt,{submitJob:false});
    status='VERIFIED';return rt.report;
@@ -66,9 +66,9 @@ export async function runBootstrap(config) {
   const catalog=(await dev.get(base+'/catalog')).catalog;
   const scores=(await dev.get(base+'/workloads')).workloads;
   const targetScores=desiredScores(config,config.upgrade);
-  const atTarget= catalog.desired?.tag===config.upgrade.catalogTag && scores.length===3&&scores.every(v=>!v.state&&equal(v.score,targetScores[v.id]))&&catalog.status==='APPLIED';
+  const atTarget= catalog.desired?.tag===config.upgrade.catalogTag && scores.length===3&&scores.every(v=>!v.state&&equal(v.workload,targetScores[v.id]))&&catalog.status==='APPLIED';
   const baselineScores=desiredScores(config,config.application);
-  const upgradeInProgress=catalog.desired?.tag===config.upgrade.catalogTag&&config.upgrade.catalogTag!==config.application.catalogTag || scores.some(v=>!equal(v.score,baselineScores[v.id])&&equal(v.score,targetScores[v.id]));
+  const upgradeInProgress=catalog.desired?.tag===config.upgrade.catalogTag&&config.upgrade.catalogTag!==config.application.catalogTag || scores.some(v=>!equal(v.workload,baselineScores[v.id])&&equal(v.workload,targetScores[v.id]));
   if(upgradeInProgress&&!atTarget)requireConfig(config.upgrade.enabled,'Upgrade partially selected; enable upgrade to resume');
   if(config.runtime.mode==='verify') {
    await verifyPins(dev,config,app,atTarget?config.upgrade:config.application);

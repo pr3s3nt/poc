@@ -15,7 +15,6 @@ import (
 	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 	"os"
-	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
@@ -30,16 +29,12 @@ func main() {
 	if *ui == "" || *cache == "" || *addrFile == "" {
 		log.Fatal("ui-dir, cache-dir and addr-file are required")
 	}
-	renderer, err := exec.LookPath("score-k8s")
-	if err != nil {
-		log.Fatal("installed selected renderer required")
-	}
 	opts := seedtest.Defaults()
 	opts.Profile = "test"
 	opts.Catalog = seed.CatalogTerraformK8s
 	opts.Region = "us-east-1"
 	opts.AccountID = "000000000000"
-	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, UIDir: *ui, ScoreK8sPath: renderer, RequireScoreRenderer: true, TerraformModuleCacheDir: *cache, ConnectionCredentialsOverride: credentialmemory.New()})
+	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, UIDir: *ui, RequireTemplateRenderer: true, TerraformModuleCacheDir: *cache, ConnectionCredentialsOverride: credentialmemory.New()})
 	if err != nil {
 		log.Fatal(err)
 	}

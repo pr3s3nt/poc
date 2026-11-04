@@ -37,7 +37,7 @@ func scoreFor(name, image string, public bool) map[string]any {
 	if public {
 		service["publicRoutes"] = []any{map[string]any{"path": "/", "port": "http"}}
 	}
-	return map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": name}, "containers": map[string]any{"main": map[string]any{"image": image}}, "service": service}
+	return map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": name}, "containers": map[string]any{"main": map[string]any{"image": image}}, "service": service}
 }
 
 func fixture(t *testing.T) (*bootstrap.App, *workloadconfig.Service, *pending.Service, seed.Options) {
@@ -48,14 +48,14 @@ func fixture(t *testing.T) (*bootstrap.App, *workloadconfig.Service, *pending.Se
 		t.Fatal(err)
 	}
 	workloads := workloadconfig.NewService(app.Store)
-	preview := pending.NewSimulationService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
+	preview := pending.NewSimulationService(app.Store, planning.NewService(bootstrap.FakeTemplateSources()), workloads, planning.RegistryInspector{Metadata: app.Modules})
 	preview.SetDeployer(app.Deployments)
 	return app, workloads, preview, opts
 }
 
 func deploy(t *testing.T, app *bootstrap.App, opts seed.Options, name string, raw map[string]any) {
 	t.Helper()
-	_, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: name, ScoreAfter: raw, Actor: "test"})
+	_, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: name, WorkloadAfter: raw, Actor: "test"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,13 +195,13 @@ func TestRealPreviewRequiresCDWithoutDiscardingDrafts(t *testing.T) {
 	if _, err := workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "web", scoreFor("web", "web:v1", false), 0); err != nil {
 		t.Fatal(err)
 	}
-	svc := pending.NewService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
+	svc := pending.NewService(app.Store, planning.NewService(bootstrap.FakeTemplateSources()), workloads, planning.RegistryInspector{Metadata: app.Modules})
 	if _, err := svc.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey); !errors.Is(err, deliveryapp.ErrCDRequired) {
 		t.Fatalf("preview bypassed required CD binding: %v", err)
 	}
 	// The simulation fixture can still read/plan the same saved draft; the real
 	// preflight did not clear it or silently choose a provider.
-	simulation := pending.NewSimulationService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
+	simulation := pending.NewSimulationService(app.Store, planning.NewService(bootstrap.FakeTemplateSources()), workloads, planning.RegistryInspector{Metadata: app.Modules})
 	out, err := simulation.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
 	if err != nil || len(out.Changes) != 1 {
 		t.Fatalf("required-CD refusal discarded the draft: %v", err)

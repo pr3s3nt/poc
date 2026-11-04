@@ -259,3 +259,15 @@ repository defaults. Inline kubeconfig creation reuses the concealed Driver Acco
 control; new Git credentials create reusable Connections. Workspace changes reset
 the selected target identity. Default changes retain existing Application pins.
 See [CD screens](../../usecase/UC-04/ui/cd-providers.md); no shell/theme redesign.
+
+## Generic Workload and Template Driver — ADR-035
+
+Resource Definitions now owns workload Definitions alongside Terraform and
+existing-cluster Definitions. Remove the separate Rendering Templates navigation;
+old bookmarks open Resource Definitions with workload selected. Keep the existing
+two tabs, Overview, Review JSON, CAS/error states and Version History. Template
+sections are Manifest Templates (Inline/Git/ZIP/Catalog), Template Inputs and
+Resource References. Existing placement may supply the cluster through namespace.
+Inline uses named file editors; schema/default details remain collapsed.
+Workload authoring/import uses Generic Workload and keeps existing env/storage/
+scheduling controls and shared config/secret pickers. No shell/theme redesign.

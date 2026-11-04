@@ -108,7 +108,7 @@ func newEnv(t *testing.T, namespaceRunID string) *env {
 	e.handles = filepath.Join(dir, "cleanup-handles.json")
 	handles := v2run.CleanupHandles{
 		RunID: "a01-0001", OrganizationKey: "acme", ApplicationKey: "acceptance", EnvironmentKey: "staging", NamespaceIdentity: "orch-v2-test-a01-0001", Owner: "codex",
-		Terraform: "/opt/t", Kubectl: "/opt/k", ScoreK8s: "/opt/s", Git: "/usr/bin/git", DatabaseURLFile: "/p/console.url", StateDatabaseURLFile: "/p/state.url", StateKeyFile: "/p/state.key", StateKeyID: "v2-a01",
+		Terraform: "/opt/t", Kubectl: "/opt/k", Template: "/opt/s", Git: "/usr/bin/git", DatabaseURLFile: "/p/console.url", StateDatabaseURLFile: "/p/state.url", StateKeyFile: "/p/state.key", StateKeyID: "v2-a01",
 		RecoveryDir: "/p/recovery", TerraformRoot: "/p/tfroot", PluginCacheDir: "/p/plugins", ModuleCacheDir: "/p/modules", VaultAddress: "http://127.0.0.1:18200", VaultMount: "secret",
 		ConnectionTokenFile: "/p/ct", OutputTokenFile: "/p/ot", CleanupBudget: v2run.Duration{Duration: 10 * time.Minute},
 	}
@@ -136,7 +136,7 @@ func newEnv(t *testing.T, namespaceRunID string) *env {
 	e.cfg = v2run.Config{
 		RunID: "a01-0001", Scenario: "A01", Target: v2run.TargetK8s4f, Owner: "codex", EvidenceDir: filepath.Join(dir, "evidence"),
 		Execution: v2run.Duration{Duration: 30 * time.Minute}, Cleanup: v2run.Duration{Duration: 10 * time.Minute},
-		Binaries: map[string]v2run.Binary{"terraform": bin("/opt/t"), "score-k8s": bin("/opt/s"), "kubectl": bin(kubectl)},
+		Binaries: map[string]v2run.Binary{"terraform": bin("/opt/t"), "template": bin("/opt/s"), "kubectl": bin(kubectl)},
 		NodeArch: "amd64", Images: map[string]map[string]v2run.Image{"amd64": {"frontend": img("f"), "backend": img("b"), "worker": img("w")}},
 		Kube: &v2run.KubeConfig{Context: v2run.KubeContextK8s4f, Kubeconfig: filepath.Join(e.private, "kubeconfig"), Namespace: "orch-v2-test-a01-0001",
 			Sentinel: v2run.Sentinel{Namespace: "kube-public", Kind: "configmap", Name: "x", UID: "u1"}},

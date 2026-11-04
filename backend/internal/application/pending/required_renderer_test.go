@@ -4,13 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	standardtemplates "orchestrator/template-sources"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"orchestrator/internal/adapters/scorek8s"
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/catalog"
 	appsvc "orchestrator/internal/application/deployment"
@@ -23,7 +22,7 @@ import (
 	"orchestrator/internal/seed/seedtest"
 )
 
-// requiredApp is the product renderer policy: score-k8s is mandatory and the
+// requiredApp is the product renderer policy: template is mandatory and the
 // native renderer is unreachable. The CLI is a recording wrapper around the
 // real pinned binary so a test can prove Preview never runs it.
 func requiredApp(t *testing.T, withBinary bool) (*bootstrap.App, seed.Options, string) {
@@ -32,36 +31,19 @@ func requiredApp(t *testing.T, withBinary bool) (*bootstrap.App, seed.Options, s
 	return app, opts, log
 }
 
-func requiredAppBundles(t *testing.T, withBinary bool) (*bootstrap.App, seed.Options, string, map[string]resource.RenderBundle) {
+func requiredAppBundles(t *testing.T, withBinary bool) (*bootstrap.App, seed.Options, string, map[string]resource.TemplateSource) {
 	t.Helper()
 	return requiredAppBundlesOn(t, withBinary, "")
 }
 
 // requiredAppBundlesOn is requiredAppBundles over a PostgreSQL Console store when
 // databaseURL is set.
-func requiredAppBundlesOn(t *testing.T, withBinary bool, databaseURL string) (*bootstrap.App, seed.Options, string, map[string]resource.RenderBundle) {
+func requiredAppBundlesOn(t *testing.T, withBinary bool, databaseURL string) (*bootstrap.App, seed.Options, string, map[string]resource.TemplateSource) {
 	t.Helper()
-	real, err := exec.LookPath("score-k8s")
-	if err != nil && withBinary {
-		t.Skip("local score-k8s 0.15.0 unavailable")
-	}
 	opts := seedtest.Defaults()
-	options := bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, RequireScoreRenderer: true, DatabaseURL: databaseURL}
+	options := bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, RequireTemplateRenderer: true, DatabaseURL: databaseURL}
 	log := filepath.Join(t.TempDir(), "calls.log")
-	bundles := map[string]resource.RenderBundle{}
-	if withBinary {
-		wrapper := filepath.Join(t.TempDir(), "score-k8s")
-		script := "#!/bin/sh\nif [ \"$1\" != \"--version\" ]; then echo \"$@\" >> '" + log + "'; fi\nexec '" + real + "' \"$@\"\n"
-		if err := os.WriteFile(wrapper, []byte(script), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		options.ScoreK8sPath = wrapper
-		renderer, err := scorek8s.New(context.Background(), wrapper, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		bundles = renderer.Bundles()
-	}
+	bundles := map[string]resource.TemplateSource{}
 	app, err := bootstraptest.Build(context.Background(), options)
 	if err != nil {
 		t.Fatal(err)
@@ -78,7 +60,7 @@ func disableSeededRenderers(t *testing.T, st persistence.Store, organizationKey 
 		t.Fatal(err)
 	}
 	for _, def := range defs {
-		if def.ResourceTypeKey == "workload" && strings.HasPrefix(def.Key, "workload-score-k8s") {
+		if def.ResourceTypeKey == "workload" && strings.HasPrefix(def.Key, "workload-template") {
 			def.Criteria = []resource.Criterion{{ApplicationID: "disabled-by-test"}}
 			if err := st.SaveResourceDefinition(context.Background(), organizationKey, def); err != nil {
 				t.Fatal(err)
@@ -95,12 +77,12 @@ func placedVariables(variables map[string]any) map[string]any {
 	return variables
 }
 
-// registerRenderer registers a score-k8s template; profile only names which seeded Application
+// registerRenderer registers a template template; profile only names which seeded Application
 // ("internal-k8s" or "aws-eks") the default criterion scopes it to.
-func registerRenderer(t *testing.T, app *bootstrap.App, bundles map[string]resource.RenderBundle, opts seed.Options, key, profile string, criteria ...resource.Criterion) {
+func registerRenderer(t *testing.T, app *bootstrap.App, bundles map[string]resource.TemplateSource, opts seed.Options, key, profile string, criteria ...resource.Criterion) {
 	t.Helper()
 	svc := catalog.NewService(app.Store)
-	svc.SetRenderBundles(bundles)
+	svc.SetTemplateSources(bundles)
 	disableSeededRenderers(t, app.Store, opts.OrganizationKey)
 	if len(criteria) == 0 {
 		// V02 has no profile guard: the seeded internal and cloud Applications
@@ -115,11 +97,11 @@ func registerRenderer(t *testing.T, app *bootstrap.App, bundles map[string]resou
 			criteria = []resource.Criterion{{}}
 		}
 	}
-	variables := map[string]any{"render_bundle": scorek8s.BundleID}
+	variables := map[string]any{"template_source": standardtemplates.ID(opts.OrganizationKey)}
 	if profile != "aws-eks" {
 		placedVariables(variables)
 	}
-	def := resource.Definition{Key: key, Name: key, Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: criteria,
+	def := resource.Definition{Key: key, Name: key, Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverTemplate, Criteria: criteria,
 		DriverInputs: map[string]any{"values": map[string]any{"variables": variables}}}
 	if _, err := svc.RegisterResourceDefinition(context.Background(), opts.OrganizationKey, def); err != nil {
 		t.Fatal(err)
@@ -135,7 +117,7 @@ func withDatabase(name string) map[string]any {
 	return raw
 }
 
-// UC-05 BR-09 / UC-06 BR-17: without exactly one compatible score-k8s
+// UC-05 BR-09 / UC-06 BR-17: without exactly one compatible template
 // Definition and an installed bundle, Preview and Deploy fail before any
 // executor or deployer call; there is no native fallback.
 func TestRequiredRendererMissingTieAndUnavailableFailBeforeResources(t *testing.T) {
@@ -143,17 +125,17 @@ func TestRequiredRendererMissingTieAndUnavailableFailBeforeResources(t *testing.
 	for _, tc := range []struct {
 		name       string
 		withBinary bool
-		prepare    func(*testing.T, *bootstrap.App, map[string]resource.RenderBundle, seed.Options)
+		prepare    func(*testing.T, *bootstrap.App, map[string]resource.TemplateSource, seed.Options)
 		want       string
 	}{
-		{"no-definition", true, func(t *testing.T, app *bootstrap.App, _ map[string]resource.RenderBundle, o seed.Options) {
+		{"no-definition", true, func(t *testing.T, app *bootstrap.App, _ map[string]resource.TemplateSource, o seed.Options) {
 			disableSeededRenderers(t, app.Store, o.OrganizationKey)
 		}, "rendering template"},
-		{"tie", true, func(t *testing.T, app *bootstrap.App, b map[string]resource.RenderBundle, o seed.Options) {
+		{"tie", true, func(t *testing.T, app *bootstrap.App, b map[string]resource.TemplateSource, o seed.Options) {
 			registerRenderer(t, app, b, o, "render-a", "internal-k8s")
 			registerRenderer(t, app, b, o, "render-b", "internal-k8s")
 		}, "equally"},
-		{"other-application", true, func(t *testing.T, app *bootstrap.App, b map[string]resource.RenderBundle, o seed.Options) {
+		{"other-application", true, func(t *testing.T, app *bootstrap.App, b map[string]resource.TemplateSource, o seed.Options) {
 			// A renderer for another (different) Application never applies to this one.
 			other, err := appcreate.NewService(app.Store).Create(context.Background(), appcreate.CreateCommand{OrganizationKey: o.OrganizationKey, Name: "Other", Subdomain: "other"})
 			if err != nil {
@@ -162,7 +144,7 @@ func TestRequiredRendererMissingTieAndUnavailableFailBeforeResources(t *testing.
 
 			registerRenderer(t, app, b, o, "render-other", "internal-k8s", resource.Criterion{ApplicationID: other.Application.Key})
 		}, "rendering template"},
-		{"no-binary", false, func(*testing.T, *bootstrap.App, map[string]resource.RenderBundle, seed.Options) {}, "rendering template"},
+		{"no-binary", false, func(*testing.T, *bootstrap.App, map[string]resource.TemplateSource, seed.Options) {}, "rendering template"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			app, opts, _, bundles := requiredAppBundles(t, tc.withBinary)
@@ -212,7 +194,7 @@ func TestRequiredRendererPreviewIsPurePinsAndDeployRendersAfterOutputs(t *testin
 		t.Fatal("Preview had effects")
 	}
 	change := preview.Changes[0]
-	if change.Rendering.DefinitionKey != "render" || change.Rendering.DriverType != resource.DriverScoreK8s || change.Rendering.Bundle.ID != scorek8s.BundleID {
+	if change.Rendering.DefinitionKey != "render" || change.Rendering.DriverType != resource.DriverTemplate || change.Rendering.Bundle.ID != standardtemplates.ID(opts.OrganizationKey) {
 		t.Fatalf("renderer not pinned: %+v", change.Rendering)
 	}
 	byType := map[string]string{}
@@ -222,7 +204,7 @@ func TestRequiredRendererPreviewIsPurePinsAndDeployRendersAfterOutputs(t *testin
 	if byType["postgres"] != "CREATE/default/postgres-internal-statefulset" {
 		t.Fatalf("resource projection: %v", byType)
 	}
-	// The projection carries no Score params or resolved inputs; the whole
+	// The projection carries no Workload params or resolved inputs; the whole
 	// Preview carries no credential, kubeconfig, state or secret value.
 	intents, _ := json.Marshal(change.ResourceIntents)
 	for _, forbidden := range []string{"appuser", "appdb", "params"} {
@@ -263,7 +245,7 @@ func TestRequiredRendererDeployRendersWithRealCLIAfterOutputs(t *testing.T) {
 	}
 	called, err := os.ReadFile(log)
 	if err != nil || !strings.Contains(string(called), "generate") {
-		t.Fatalf("score-k8s did not render: %q %v", called, err)
+		t.Fatalf("template did not render: %q %v", called, err)
 	}
 	if len(app.FakeExec.Calls) == 0 || len(app.FakeDeploy.Applied) == 0 {
 		t.Fatalf("resources/workload not applied: %d/%d", len(app.FakeExec.Calls), len(app.FakeDeploy.Applied))

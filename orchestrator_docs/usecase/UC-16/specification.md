@@ -6,6 +6,11 @@ last_reviewed: 2026-10-28
 related: UC-01, UC-05, UC-06, UC-07, UC-12
 ---
 
+> Generic Workload replacement: [ADR-035](../../architecture/decisions/ADR-035-generic-workload-template-driver.md)
+> and [GW-01–05](../../architecture/contracts/generic-workload.md) supersede
+> Score/score-k8s/Render Bundle clauses below. Existing infrastructure, dependency,
+> identity, secret and delivery guarantees remain.
+
 # UC-16 — Quản lý cấu hình workload
 
 ## Mục tiêu

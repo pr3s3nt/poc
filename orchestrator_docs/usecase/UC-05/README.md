@@ -27,7 +27,7 @@ Specification/realization định nghĩa yêu cầu, không chứng minh impleme
 - [`backend/internal/planning`](../../../backend/internal/planning/)
 - [`backend/internal/application/preview`](../../../backend/internal/application/preview/)
 - [`shared snapshot loader`](../../../backend/internal/application/deployment/snapshot.go)
-- [`HTTP boundary`](../../../backend/internal/delivery/http/score_preview.go)
+- [`HTTP boundary`](../../../backend/internal/delivery/http/workload_preview.go)
 - [`Web Console`](../../../frontend/src/features/preview/)
 - [`backend/test/conformance`](../../../backend/test/conformance/)
 

@@ -195,7 +195,7 @@ func validatePreviewCandidate(def resource.Definition, types map[string]resource
 		return invalid("definition.resourceType")
 	}
 	switch def.DriverType {
-	case resource.DriverTerraform, resource.DriverScoreK8s, resource.DriverExistingCluster:
+	case resource.DriverTerraform, resource.DriverTemplate, resource.DriverExistingCluster:
 	default:
 		return invalid("definition.driverType")
 	}
@@ -333,9 +333,9 @@ func (s *Service) previewResult(env environment.Environment, candidate resource.
 
 	mctx := resource.MatchContext{EnvironmentType: env.Type, ApplicationID: c.ApplicationID, EnvironmentID: c.EnvironmentID, ResourceID: c.ResourceID, Class: c.Class}
 	complete := len(out.MissingFields) == 0
-	// Workload ranking only includes score-k8s renderers, as selectRendering.
+	// Workload ranking only includes template renderers, as selectRendering.
 	include := func(d resource.Definition) bool {
-		return typeKey != "workload" || d.DriverType == resource.DriverScoreK8s
+		return typeKey != "workload" || d.DriverType == resource.DriverTemplate
 	}
 	ranking := resource.Rank(defs, typeKey, mctx, include)
 	byKey := map[string]resource.Ranked{}
@@ -362,7 +362,7 @@ func (s *Service) previewResult(env environment.Environment, candidate resource.
 	}
 	switch len(ranking.Top) {
 	case 0:
-		// A Workload with no score-k8s match is NO_MATCH like any other type:
+		// A Workload with no template match is NO_MATCH like any other type:
 		// there is no native/default renderer to fall back to (UC-03 V02-02).
 		out.Status = PreviewNoMatch
 	case 1:

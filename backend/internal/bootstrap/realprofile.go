@@ -9,7 +9,7 @@ import (
 
 // validateRealProfile enforces the real v2 acceptance profile: product
 // planner -> pinned Terraform with encrypted PostgreSQL state -> required
-// pinned score-k8s -> real Kubernetes delivery, scoped Vault Connections. No
+// pinned template -> real Kubernetes delivery, scoped Vault Connections. No
 // fake or native fallback, no test override and no host credential chain can
 // stand in for any of them. It runs before anything is opened.
 func validateRealProfile(opts Options) error {
@@ -26,9 +26,6 @@ func validateRealProfile(opts Options) error {
 	}
 	if opts.TerraformStateKeyFile == "" || opts.TerraformStateDatabaseURL == "" || opts.TerraformRecoveryDir == "" {
 		add("the encrypted PostgreSQL Terraform state backend and recovery directory are required")
-	}
-	if !opts.RequireScoreRenderer || opts.ScoreK8sPath == "" {
-		add("the pinned score-k8s renderer is required (no native fallback)")
 	}
 	if opts.ConnectionCredentialStore != "vault" || opts.ConnectionVaultAddress == "" || opts.ConnectionVaultTokenFile == "" {
 		add("scoped Vault Connection credentials are required")

@@ -8,11 +8,11 @@ import (
 	"orchestrator/internal/domain/configuration"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 )
 
 func TestValidateImageRegistryForFleetPreview(t *testing.T) {
-	doc := &score.Document{Containers: map[string]environment.Container{"main": {Image: "10.96.91.170:80/library/app:v1"}}}
+	doc := &workloadspec.Document{Containers: map[string]environment.Container{"main": {Image: "10.96.91.170:80/library/app:v1"}}}
 	if err := validateImageRegistry(doc, "10.96.91.170:80"); err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func TestLegacyWorkloadWithoutPlanUsesNativeRendering(t *testing.T) {
 	if err != nil || !same {
 		t.Fatal("legacy native rendering failed", err)
 	}
-	same, err = sameRendering(context.Background(), st, "legacy-deployment", "backend", resource.RenderingSelection{DriverType: resource.DriverScoreK8s})
+	same, err = sameRendering(context.Background(), st, "legacy-deployment", "backend", resource.RenderingSelection{DriverType: resource.DriverTemplate})
 	if err != nil || same {
 		t.Fatal("new renderer incorrectly treated as already applied", err)
 	}

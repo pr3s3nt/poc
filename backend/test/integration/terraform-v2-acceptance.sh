@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Retired by ADR-035; historical scenario body retained for provenance.
+printf "%s\n" "This Score rendering scenario is retired. Use e2e/scenarios/generic-workload/README.md." >&2
+exit 2
 # Real Terraform v2 acceptance runner (M04 I04-10): V2-A01/E01/E02 on k8s-4f
 # and V2-A02/A03 on AWS after the I04-11 gate.
 #

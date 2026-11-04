@@ -8,7 +8,7 @@ import (
 	"regexp"
 
 	"orchestrator/internal/adapters/configmemory"
-	"orchestrator/internal/adapters/renderbundles"
+	"orchestrator/internal/adapters/templatesources"
 	"orchestrator/internal/application/accountdiag"
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/authentication"
@@ -25,10 +25,10 @@ import (
 	deliverydomain "orchestrator/internal/domain/delivery"
 	diagdomain "orchestrator/internal/domain/diagnostics"
 	"orchestrator/internal/domain/environment"
-	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/templatesource"
 	"orchestrator/internal/planning"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 	configport "orchestrator/internal/ports/configuration"
 	"orchestrator/internal/ports/credentials"
 	"orchestrator/internal/ports/persistence"
@@ -55,7 +55,7 @@ const (
 	codeInvalidRequest            = "INVALID_REQUEST"
 	codeInvalidID                 = "INVALID_ID"
 	codeInvalidVariable           = "INVALID_VARIABLE"
-	codeInvalidScore              = "INVALID_SCORE"
+	codeInvalidWorkload           = "INVALID_WORKLOAD"
 	codePlanningRejected          = "PLANNING_REJECTED"
 	codeDuplicate                 = "DUPLICATE"
 	codeUnauthorized              = "UNAUTHORIZED"
@@ -101,11 +101,11 @@ const (
 	codeInternal                  = "INTERNAL_ERROR"
 	// Git render bundles (ADR-021, contract RB-C07).
 	codeRenderSourceInvalid       = "RENDER_SOURCE_INVALID"
-	codeRenderBundleInvalid       = "RENDER_BUNDLE_INVALID"
+	codeTemplateSourceInvalid     = "TEMPLATE_SOURCE_INVALID"
 	codeRenderInputInvalid        = "RENDER_INPUT_INVALID"
 	codeRenderSourceUnavailable   = "RENDER_SOURCE_UNAVAILABLE"
-	codeRenderBundleUnavailable   = "RENDER_BUNDLE_UNAVAILABLE"
-	codeRenderBundleDrift         = "RENDER_BUNDLE_DRIFT"
+	codeTemplateSourceUnavailable = "TEMPLATE_SOURCE_UNAVAILABLE"
+	codeTemplateSourceDrift       = "TEMPLATE_SOURCE_DRIFT"
 	codeRenderContractUnsupported = "RENDER_CONTRACT_UNSUPPORTED"
 	codeRenderFailed              = "RENDER_FAILED"
 	// Application deletion (UC-18, ADR-025).
@@ -133,7 +133,7 @@ var publicErrors = map[string]publicError{
 	codeInvalidRequest:                  {http.StatusBadRequest, "the request is not valid"},
 	codeInvalidID:                       {http.StatusBadRequest, "the id does not follow the id rules"},
 	codeInvalidVariable:                 {http.StatusBadRequest, "a variable name, value or reference is not valid"},
-	codeInvalidScore:                    {http.StatusBadRequest, "the Score or its resource parameters are not valid"},
+	codeInvalidWorkload:                 {http.StatusBadRequest, "the Workload or its resource parameters are not valid"},
 	codePlanningRejected:                {http.StatusBadRequest, "the change cannot be planned"},
 	codeDuplicate:                       {http.StatusConflict, "an item with this identity already exists"},
 	codeUnauthorized:                    {http.StatusUnauthorized, "sign-in is required"},
@@ -178,11 +178,11 @@ var publicErrors = map[string]publicError{
 	codeDiagnosticBusy:                  {http.StatusConflict, "this account already has an active diagnostic run"},
 	codeInternal:                        {http.StatusInternalServerError, "the request failed"},
 	codeRenderSourceInvalid:             {http.StatusBadRequest, "the Git source URL, directory or reference is not valid"},
-	codeRenderBundleInvalid:             {http.StatusBadRequest, "the render bundle is not valid"},
+	codeTemplateSourceInvalid:           {http.StatusBadRequest, "the render bundle is not valid"},
 	codeRenderInputInvalid:              {http.StatusBadRequest, "the render inputs do not match the bundle schema"},
 	codeRenderSourceUnavailable:         {http.StatusServiceUnavailable, "the Git source could not be reached"},
-	codeRenderBundleUnavailable:         {http.StatusServiceUnavailable, "the render bundle is not available on this platform"},
-	codeRenderBundleDrift:               {http.StatusConflict, "the render bundle content differs from its recorded pin"},
+	codeTemplateSourceUnavailable:       {http.StatusServiceUnavailable, "the render bundle is not available on this platform"},
+	codeTemplateSourceDrift:             {http.StatusConflict, "the render bundle content differs from its recorded pin"},
 	codeRenderContractUnsupported:       {http.StatusBadRequest, "the render bundle contract version is not supported"},
 	codeRenderFailed:                    {http.StatusUnprocessableEntity, "the render bundle could not render the workload"},
 	codeApplicationDeleting:             {http.StatusConflict, "the application is being deleted"},
@@ -195,14 +195,14 @@ var publicErrors = map[string]publicError{
 var trustedFields = map[string]bool{
 	"name": true, "subdomain": true, "connectionKey": true, "expectedVersion": true, "expectedConfigVersion": true,
 	"secretStoreKey": true, "destinationKey": true, "acknowledgeDowntime": true, "priorExecutionStopped": true,
-	"resources": true, "status": true, "scoreBefore": true, "scoreAfter": true, "version": true, "token": true, "kubeconfig": true,
+	"resources": true, "status": true, "workloadBefore": true, "workloadAfter": true, "version": true, "token": true, "kubeconfig": true,
 	"username": true, "role": true, "password": true, "currentPassword": true, "newPassword": true, "confirmPassword": true,
 	"type.key": true, "type.schema": true, "definition.schema": true, "definition.driver": true, "definition.references": true,
 	"definition.key": true, "definition.name": true, "definition.resourceType": true, "definition.version": true,
 	"definition.driverType": true, "definition.criteria": true, "definition.driverAccount": true,
 	"definition.driverInputs.values": true, "definition.driverInputs.values.source": true, "definition.driverInputs.values.variables.region": true,
-	"definition.driverInputs.values.provider_bindings":       true,
-	"definition.driverInputs.values.variables.render_bundle": true, "definition.driverInputs.values.variables.render_inputs": true,
+	"definition.driverInputs.values.provider_bindings":         true,
+	"definition.driverInputs.values.variables.template_source": true, "definition.driverInputs.values.variables.template_inputs": true,
 	"context.applicationId": true, "context.environmentId": true, "context.resourceId": true, "context.class": true,
 	"service.publicPort": true, "confirmationName": true, "selectedResourceIds": true,
 	"accessKeyId": true, "secretAccessKey": true, "allowedRegions": true, "verificationRegions": true,
@@ -223,7 +223,7 @@ var technicalID = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
 // Planner enums allowed as params; the server defines them.
 var (
 	trustedStages = map[string]bool{
-		string(planning.StageScore): true, string(planning.StageBefore): true, string(planning.StageCandidate): true,
+		string(planning.StageWorkload): true, string(planning.StageBefore): true, string(planning.StageCandidate): true,
 		string(planning.StageRoutes): true, string(planning.StageServiceRefs): true, string(planning.StageCatalog): true,
 		string(planning.StageGraph): true, string(planning.StageReference): true, string(planning.StageContract): true,
 		string(planning.StageSchedule): true,
@@ -354,7 +354,7 @@ func classify(err error) (failure, bool) {
 	var refused *resourcecleanup.RefusedError
 	var cleanupField *resourcecleanup.FieldError
 	var renderErr *catalog.RenderError
-	var bundleField *renderbundles.BundleInvalidError
+	var bundleField *templatesources.BundleInvalidError
 	var diagField *diagdomain.FieldError
 	switch {
 	case errors.Is(err, catalogdomain.ErrRequired):
@@ -387,27 +387,27 @@ func classify(err error) (failure, bool) {
 		return failure{code: codeServiceUnavailable}, true
 	case errors.Is(err, renderregistry.ErrSourceInvalid):
 		return failure{code: codeRenderSourceInvalid}, true
-	case errors.Is(err, renderregistry.ErrContractUnsupported), errors.Is(err, renderbundle.ErrUnsupported):
+	case errors.Is(err, renderregistry.ErrContractUnsupported), errors.Is(err, templatesource.ErrUnsupported):
 		return failure{code: codeRenderContractUnsupported}, true
 	case errors.Is(err, renderregistry.ErrBundleInvalid):
-		f := failure{code: codeRenderBundleInvalid}
+		f := failure{code: codeTemplateSourceInvalid}
 		if errors.As(err, &bundleField) && safeBundleFile.MatchString(bundleField.File) {
 			f.params = map[string]string{"file": bundleField.File}
 		}
 		return f, true
-	case errors.Is(err, renderbundle.ErrInputInvalid), errors.Is(err, resource.ErrRenderInputsInvalid):
-		f := failure{code: codeRenderInputInvalid, field: "definition.driverInputs.values.variables.render_inputs"}
+	case errors.Is(err, templatesource.ErrInputInvalid), errors.Is(err, resource.ErrRenderInputsInvalid):
+		f := failure{code: codeRenderInputInvalid, field: "definition.driverInputs.values.variables.template_inputs"}
 		return f, true
 	case errors.Is(err, renderregistry.ErrSourceUnavailable):
 		return failure{code: codeRenderSourceUnavailable}, true
 	case errors.Is(err, renderregistry.ErrBundleUnavailable):
-		f := failure{code: codeRenderBundleUnavailable}
+		f := failure{code: codeTemplateSourceUnavailable}
 		if errors.As(err, &renderErr) {
 			f.field = renderErr.Field
 		}
 		return f, true
 	case errors.Is(err, renderregistry.ErrDrift):
-		return failure{code: codeRenderBundleDrift}, true
+		return failure{code: codeTemplateSourceDrift}, true
 	case errors.Is(err, renderregistry.ErrRenderFailed):
 		return failure{code: codeRenderFailed}, true
 	case errors.As(err, &refused):
@@ -473,8 +473,8 @@ func classify(err error) (failure, bool) {
 	case errors.As(err, &published):
 		f := failure{params: plannerParams(published.Stage, published.Reason)}
 		switch {
-		case errors.Is(err, preview.ErrInvalidScore):
-			f.code = codeInvalidScore
+		case errors.Is(err, preview.ErrInvalidWorkload):
+			f.code = codeInvalidWorkload
 		case errors.Is(err, preview.ErrPlanningRejected):
 			f.code = codePlanningRejected
 		default:
@@ -520,22 +520,22 @@ func classify(err error) (failure, bool) {
 		}
 		return f, true
 	case errors.As(err, &paramErr):
-		f := failure{code: codeInvalidScore}
+		f := failure{code: codeInvalidWorkload}
 		if technicalID.MatchString(paramErr.Type) {
 			f.params = map[string]string{"resourceType": paramErr.Type}
 		}
 		return f, true
 	case errors.Is(err, workloadconfig.ErrUnknownResourceType):
-		return failure{code: codeInvalidScore, field: "resources"}, true
+		return failure{code: codeInvalidWorkload, field: "resources"}, true
 	case errors.Is(err, workloadconfig.ErrInvalidVariable), errors.Is(err, appconfig.ErrInvalid):
 		return failure{code: codeInvalidVariable}, true
 	case errors.Is(err, workloadconfig.ErrInvalidRequest), errors.Is(err, secretstores.ErrInvalid), errors.Is(err, pending.ErrInvalid),
 		errors.Is(err, appsvc.ErrInvalidStatus):
 		return failure{code: codeInvalidRequest}, true
 	case errors.Is(err, environment.ErrPublicPortRemoved):
-		return failure{code: codeInvalidScore, field: "service.publicPort"}, true
-	case errors.Is(err, workloadconfig.ErrInvalid), errors.Is(err, score.ErrInvalid):
-		return failure{code: codeInvalidScore}, true
+		return failure{code: codeInvalidWorkload, field: "service.publicPort"}, true
+	case errors.Is(err, workloadconfig.ErrInvalid), errors.Is(err, workloadspec.ErrInvalid):
+		return failure{code: codeInvalidWorkload}, true
 	}
 	return failure{}, false
 }

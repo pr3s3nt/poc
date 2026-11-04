@@ -73,7 +73,7 @@ func TestPlannerMatchesChallengeFixtures(t *testing.T) {
 }
 
 // fixtureRejects reports whether a fixture expects a rejected plan, used when
-// the failure happens while loading the Score itself.
+// the failure happens while loading the Workload itself.
 func fixtureRejects(root, name string) bool {
 	payload, err := os.ReadFile(filepath.Join(root, "testcases", name, "expected", "result.json"))
 	if err != nil {
@@ -197,7 +197,7 @@ func assertMatches(t *testing.T, plan *planning.Plan, expectedPlan map[string]an
 		}
 		entry := item.(map[string]any)
 		expected[descriptor] = map[string]any{
-			"definitionId": entry["definitionId"], "score": entry["score"],
+			"definitionId": entry["definitionId"], "workload": entry["score"],
 		}
 	}
 	actual := map[string]map[string]any{}
@@ -206,7 +206,7 @@ func assertMatches(t *testing.T, plan *planning.Plan, expectedPlan map[string]an
 			continue
 		}
 		actual[descriptor] = map[string]any{
-			"definitionId": match.DefinitionKey, "score": float64(match.Specificity),
+			"definitionId": match.DefinitionKey, "workload": float64(match.Specificity),
 		}
 	}
 	if !reflect.DeepEqual(actual, expected) {

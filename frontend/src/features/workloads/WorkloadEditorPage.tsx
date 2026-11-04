@@ -5,7 +5,7 @@ import { Button } from '../../shared/ui/Button';
 import { ApiError, describeError, isBusy, isStaleConflict } from '../../shared/api/client';
 import { useEnvironmentBusy } from '../environment/useEnvironmentBusy';
 import { getConfiguration, type Configuration, type KeyKind } from '../configuration/api';
-import { getResourceTypes, getWorkloads, parseScoreImport, saveWorkload, type ResourceType, type Workload } from './api';
+import { getResourceTypes, getWorkloads, parseWorkloadImport, saveWorkload, type ResourceType, type Workload } from './api';
 import { AddResourceDialog } from './AddResourceDialog';
 import { CreateKeyDialog } from './CreateKeyDialog';
 import { DependencyFields, dependencyProblem, dependencyAliasesProblem, emptyDependency, type ClassMetadata, type Dependency } from './DependencyFields';
@@ -22,7 +22,7 @@ type Probe = { path: string; port: number };
 type ContainerForm = { workingDir?: string; readinessProbe?: Probe; livenessProbe?: Probe; startupProbe?: Probe; command: string[]; args: string[]; name: string; image: string; cpuRequest: string; memoryRequest: string; cpuLimit: string; memoryLimit: string; bindings: Binding[] };
 type ServicePort = { name: string; port: string; targetPort: string };
 type PublicRoute = { path: string; port: string };
-// workloadClass is Score metadata.class (ADR-016): empty means the default class, an explicit value is kept as written.
+// workloadClass is Workload metadata.class (ADR-016): empty means the default class, an explicit value is kept as written.
 type Form = { execution?: Execution; replicas?: number; name: string; workloadClass: string; containers: ContainerForm[]; dependencies: Dependency[]; servicePorts: ServicePort[]; publicRoutes: PublicRoute[] };
 
 const emptyContainer = (): ContainerForm => ({ command: [], args: [], name: 'main', image: '', cpuRequest: '', memoryRequest: '', cpuLimit: '', memoryLimit: '', bindings: [] });
@@ -51,7 +51,7 @@ function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): 
   if (Object.values(resources).some((resource) => Object.keys(resource).some((key) => !['type', 'class', 'params', 'id'].includes(key)))) return true;
   if (Object.values(resources).some((resource) => resource.type === 'environment' && Object.keys(resource).length !== 1)) return true;
   // A variable the table cannot hold unchanged (text mixed with a reference, a malformed reference) or a virtual
-  // resource no variable uses would be rewritten or dropped by the form: keep the advanced Score path.
+  // resource no variable uses would be rewritten or dropped by the form: keep the advanced Workload path.
   const referenced = new Set<string>();
  if ((raw.workloadExecution as Execution | undefined)?.secretFiles?.length) referenced.add('env');
   for (const container of Object.values(containers)) {
@@ -116,14 +116,14 @@ function buildScore(form: Form, types: ResourceType[]): Record<string, unknown> 
   if (form.execution?.secretFiles?.length) resources.set('env', { type: 'environment' });
   const ports = new Map<string, unknown>();
   for (const port of form.servicePorts) if (port.name && Number(port.port) > 0) ports.set(port.name, { port: Number(port.port), targetPort: Number(port.targetPort || port.port) });
-  return { ...(form.execution ? { workloadExecution: form.execution } : {}), ...(form.replicas !== undefined ? { replicas: form.replicas } : {}), apiVersion: 'score.dev/v1b1', metadata: { name: form.name, ...(form.workloadClass ? { class: form.workloadClass } : {}) }, containers: Object.fromEntries(containers), ...(ports.size ? { service: { ports: Object.fromEntries(ports), ...(form.publicRoutes.length ? { publicRoutes: form.publicRoutes } : {}) } } : {}), ...(resources.size ? { resources: Object.fromEntries(resources) } : {}) };
+  return { ...(form.execution ? { workloadExecution: form.execution } : {}), ...(form.replicas !== undefined ? { replicas: form.replicas } : {}), apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: form.name, ...(form.workloadClass ? { class: form.workloadClass } : {}) }, containers: Object.fromEntries(containers), ...(ports.size ? { service: { ports: Object.fromEntries(ports), ...(form.publicRoutes.length ? { publicRoutes: form.publicRoutes } : {}) } } : {}), ...(resources.size ? { resources: Object.fromEntries(resources) } : {}) };
 }
 
 const DEFAULT_CPU_REQUEST = '10m';
 const DEFAULT_MEMORY_REQUEST = '32Mi';
 
 // Effective request: explicit value, else the same-dimension limit, else the
-// current default. Display only; the Score keeps exactly what the user entered.
+// current default. Display only; the Workload keeps exactly what the user entered.
 function effectiveRequest(request: string, limit: string, fallback: string): string {
   if (request) return t('workloads.workloadEditor.requestExplicit', { request });
   if (limit) return `${limit} (theo limit)`;
@@ -148,27 +148,27 @@ function routeTargetProblem(route: PublicRoute, valid: ReadonlySet<string>): str
   return undefined;
 }
 
-function readForm(score: Record<string, unknown>): Form {
+function readForm(workload: Record<string, unknown>): Form {
   const form = emptyForm();
-  form.execution = score.workloadExecution as Execution | undefined;
-  form.replicas = score.replicas as number | undefined;
-  form.name = String((score.metadata as { name?: string } | undefined)?.name ?? '');
-  form.workloadClass = String((score.metadata as { class?: string } | undefined)?.class ?? '');
-  const resources = (score.resources ?? {}) as Record<string, { type?: string; class?: string; id?: unknown; params?: Record<string, unknown> }>;
+  form.execution = workload.workloadExecution as Execution | undefined;
+  form.replicas = workload.replicas as number | undefined;
+  form.name = String((workload.metadata as { name?: string } | undefined)?.name ?? '');
+  form.workloadClass = String((workload.metadata as { class?: string } | undefined)?.class ?? '');
+  const resources = (workload.resources ?? {}) as Record<string, { type?: string; class?: string; id?: unknown; params?: Record<string, unknown> }>;
   form.dependencies = Object.entries(resources).filter(([, spec]) => spec.type !== 'environment' && spec.type !== 'service').map(([alias, spec]) => ({ existing: true, alias, type: spec.type ?? '', className: spec.class ?? '', sharedId: typeof spec.id === 'string' ? spec.id : '', params: Object.fromEntries(Object.entries(spec.params ?? {}).map(([key, value]) => [key, String(value)])) }));
-  const rawContainers = (score.containers ?? {}) as Record<string, { workingDir?: string; readinessProbe?: Probe; livenessProbe?: Probe; startupProbe?: Probe; command?: string[]; args?: string[]; image?: string; variables?: Record<string, string>; resources?: { requests?: { cpu?: string; memory?: string }; limits?: { cpu?: string; memory?: string } } }>;
+  const rawContainers = (workload.containers ?? {}) as Record<string, { workingDir?: string; readinessProbe?: Probe; livenessProbe?: Probe; startupProbe?: Probe; command?: string[]; args?: string[]; image?: string; variables?: Record<string, string>; resources?: { requests?: { cpu?: string; memory?: string }; limits?: { cpu?: string; memory?: string } } }>;
   form.containers = Object.entries(rawContainers).map(([name, value]) => ({ workingDir: value.workingDir, readinessProbe: value.readinessProbe, livenessProbe: value.livenessProbe, startupProbe: value.startupProbe, command: value.command ?? [], args: value.args ?? [], name, image: value.image ?? '', cpuRequest: value.resources?.requests?.cpu ?? '', memoryRequest: value.resources?.requests?.memory ?? '', cpuLimit: value.resources?.limits?.cpu ?? '', memoryLimit: value.resources?.limits?.memory ?? '', bindings: Object.entries(value.variables ?? {}).flatMap(([envName, raw]) => readBinding(envName, raw, resources as ResourceSpecs) ?? []) }));
   if (!form.containers.length) form.containers = [emptyContainer()];
-  const ports = ((score.service as { ports?: Record<string, { port: number; targetPort?: number }> } | undefined)?.ports ?? {});
+  const ports = ((workload.service as { ports?: Record<string, { port: number; targetPort?: number }> } | undefined)?.ports ?? {});
   form.servicePorts = Object.entries(ports).map(([name, port]) => ({ name, port: String(port.port), targetPort: String(port.targetPort ?? port.port) }));
-  form.publicRoutes = [...((score.service as { publicRoutes?: PublicRoute[] } | undefined)?.publicRoutes ?? [])];
+  form.publicRoutes = [...((workload.service as { publicRoutes?: PublicRoute[] } | undefined)?.publicRoutes ?? [])];
   return form;
 }
 
 // `service.publicPort` was removed; a draft that still has it is never opened
 // as a form because the route it declared would be dropped or rewritten.
-function hasRemovedPublicPort(score: Record<string, unknown>): boolean {
-  const service = score.service;
+function hasRemovedPublicPort(workload: Record<string, unknown>): boolean {
+  const service = workload.service;
   return typeof service === 'object' && service !== null && Object.prototype.hasOwnProperty.call(service, 'publicPort');
 }
 
@@ -203,7 +203,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   // the user reloads and reviews the current state; nothing is re-sent.
   const [stale, setStale] = useState(false);
   const [reloading, setReloading] = useState(false);
-  const [current, setCurrent] = useState<{ version: number; score?: Record<string, unknown>; state?: string }>();
+  const [current, setCurrent] = useState<{ version: number; workload?: Record<string, unknown>; state?: string }>();
   const [reloadError, setReloadError] = useState('');
   // Inline creation (UC-16 BR-21/22): one dialog at a time, bound to the row (stable id) that opened it.
   const [dialog, setDialog] = useState<{ type: 'key'; kind: KeyKind; rowId: string; suggested: string } | { type: 'resource'; rowId: string } | { type: 'storage'; initial: Dependency }>();
@@ -232,8 +232,8 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
       if (cancelled) return;
       setWorkloads(list.workloads); setTypes(catalog.resourceTypes.filter((type) => type.key !== 'workload')); setClassMetadata('ready'); setVersion(list.draftVersion);
       const existing = list.workloads.find((item) => item.id === workloadId);
-      if (existing?.score && hasRemovedPublicPort(existing.score)) { setForm({ ...emptyForm(), name: workloadId ?? '' }); setBlocked(true); setError(removedPublicPortMessage); }
-      else if (existing?.score) { setForm(readForm(existing.score)); setImported(existing.score); setBlocked(false); const advanced = needsScoreEditor(existing.score, catalog.resourceTypes); setAdvancedScore(advanced); if (advanced) setMode('import'); }
+      if (existing?.workload && hasRemovedPublicPort(existing.workload)) { setForm({ ...emptyForm(), name: workloadId ?? '' }); setBlocked(true); setError(removedPublicPortMessage); }
+      else if (existing?.workload) { setForm(readForm(existing.workload)); setImported(existing.workload); setBlocked(false); const advanced = needsScoreEditor(existing.workload, catalog.resourceTypes); setAdvancedScore(advanced); if (advanced) setMode('import'); }
       else if (selectedTemplate) {
         const templates = await getWorkloadTemplates(application.id, environment); if (cancelled) return;
         const chosen = templates.find(item => templateKey(item) === selectedTemplate);
@@ -266,7 +266,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
       const id = workloadId ?? form.name;
       const item = list.workloads.find((entry) => entry.id === id);
       setCatalog(readyCatalog(config)); setWorkloads(list.workloads); setVersion(list.draftVersion);
-      setCurrent({ version: list.draftVersion, score: item?.score, state: item?.state || (item ? 'deployed' : 'absent') });
+      setCurrent({ version: list.draftVersion, workload: item?.workload, state: item?.state || (item ? 'deployed' : 'absent') });
       setStale(false); setError('');
     } catch (err) {
       if (at === scope.current) setReloadError(t('workloads.workloadEditor.couldNotReloadTheCurrent', { describeError: describeError(err, t('workloads.workloadEditor.noResponseFromTheServer2')) }));
@@ -325,9 +325,9 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     try {
       const content = await file.text();
       if (at !== scope.current) return;
-      const result = await parseScoreImport(application.id, environment, content);
+      const result = await parseWorkloadImport(application.id, environment, content);
       if (at !== scope.current) return;
-      setImported(result.score); setForm(readForm(result.score)); setAdvancedScore(needsScoreEditor(result.score, types)); setDirty(false);
+      setImported(result.workload); setForm(readForm(result.workload)); setAdvancedScore(needsScoreEditor(result.workload, types)); setDirty(false);
     }
     catch (err) { if (at === scope.current) setError(describeError(err, t('workloads.workloadEditor.couldNotImportTheScore'))); }
   }
@@ -367,12 +367,12 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
       const problem = bindingProblem(form.containers, rowContext);
       if (problem) { setError(problem); setShowIncomplete(true); return; }
     }
-    const score = mode === 'import' && imported && !dirty ? imported : !dirty && imported ? imported : buildScore(form, types);
-    const id = String((score.metadata as { name?: string } | undefined)?.name ?? '');
+    const workload = mode === 'import' && imported && !dirty ? imported : !dirty && imported ? imported : buildScore(form, types);
+    const id = String((workload.metadata as { name?: string } | undefined)?.name ?? '');
     if (!id) { setError(t('workloads.workloadEditor.enterAWorkloadName')); return; }
     const at = scope.current;
     setSaving(true); setError('');
-    try { await saveWorkload(application.id, environment, id, score, version); if (at === scope.current) navigate({ name: 'application', applicationId: application.id }); }
+    try { await saveWorkload(application.id, environment, id, workload, version); if (at === scope.current) navigate({ name: 'application', applicationId: application.id }); }
     catch (err) {
       if (at !== scope.current) return;
       if (isBusy(err)) setError((err as ApiError).message);
@@ -391,8 +391,8 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     {advancedScore ? <p className="feature-note">{t('workloads.workloadEditor.thisScoreHasFieldsThe')}</p> : null}
     {error ? <div className="form-error" role="alert">{error}{loadFailed ? <> <Button onClick={() => setLoadAttempt((value) => value + 1)}>{t('workloads.workloadEditor.retry')}</Button></> : null}</div> : null}
     {stale ? <div className="form-error" role="alert" aria-label={t('workloads.workloadEditor.workloadDraftIsStale')}>{t('workloads.workloadEditor.workloadsIn')}{' '} {environment} {' '}{t('workloads.workloadEditor.changedAfterThisPageWas')}{' '} <Button disabled={reloading} onClick={() => void reloadCurrent()}>{reloading ? t('workloads.workloadEditor.reloading') : t('workloads.workloadEditor.reloadCurrentState')}</Button>{reloadError ? <p>{reloadError}</p> : null}</div> : null}
-    {current ? <div className="form-info" role="status">{t('workloads.workloadEditor.reloadedDraftVersion')}{' '} {current.version}{t('workloads.workloadEditor.currentStateOfThisWorkload')}{' '} {currentState}{t('workloads.workloadEditor.theEditsBelowAreUnchanged')}{current.score ? <details><summary>{t('workloads.workloadEditor.currentScore')}</summary><pre className="score-preview">{JSON.stringify(current.score, null, 2)}</pre></details> : null}</div> : null}
-    {loading ? <p>{t('workloads.workloadEditor.loadingWorkloadOptions')}</p> : mode === 'import' ? <section className="content-panel"><h2>{t('workloads.workloadEditor.importAScoreFile')}</h2><p>{t('workloads.workloadEditor.yAMLOrJSONTheSame')}</p><input aria-label={t('workloads.workloadEditor.scoreFile')} type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} />{imported ? <><p>{t('workloads.workloadEditor.parsedWorkload')}{' '} <strong>{String((imported.metadata as { name?: string } | undefined)?.name ?? '')}</strong></p><pre className="score-preview">{JSON.stringify(imported, null, 2)}</pre></> : null}</section> : <>
+    {current ? <div className="form-info" role="status">{t('workloads.workloadEditor.reloadedDraftVersion')}{' '} {current.version}{t('workloads.workloadEditor.currentStateOfThisWorkload')}{' '} {currentState}{t('workloads.workloadEditor.theEditsBelowAreUnchanged')}{current.workload ? <details><summary>{t('workloads.workloadEditor.currentScore')}</summary><pre className="workload-preview">{JSON.stringify(current.workload, null, 2)}</pre></details> : null}</div> : null}
+    {loading ? <p>{t('workloads.workloadEditor.loadingWorkloadOptions')}</p> : mode === 'import' ? <section className="content-panel"><h2>{t('workloads.workloadEditor.importAScoreFile')}</h2><p>{t('workloads.workloadEditor.yAMLOrJSONTheSame')}</p><input aria-label={t('workloads.workloadEditor.scoreFile')} type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} />{imported ? <><p>{t('workloads.workloadEditor.parsedWorkload')}{' '} <strong>{String((imported.metadata as { name?: string } | undefined)?.name ?? '')}</strong></p><pre className="workload-preview">{JSON.stringify(imported, null, 2)}</pre></> : null}</section> : <>
       <section className="content-panel editor-grid"><h2>{t('workloads.workloadEditor.basicInformation')}</h2><label>{t('workloads.workloadEditor.workloadName')}<input value={form.name} disabled={Boolean(workloadId)} onChange={(event) => updateForm({ ...form, name: event.target.value })} placeholder="frontend" /></label><label>{t('workloads.workloadEditor.workloadClassMetadataClass')}<input aria-label={t('workloads.workloadEditor.workloadClass')} value={form.workloadClass} onChange={(event) => updateForm({ ...form, workloadClass: event.target.value })} placeholder="default" /></label>{form.workloadClass && !validWorkloadClass(form.workloadClass) ? <small role="note">{t('workloads.workloadEditor.classUsesOnlyLowercaseLetters')}</small> : <small className="muted">{t('workloads.workloadEditor.emptyMeansDefaultTheClass')}</small>}</section>
       {form.execution && form.execution.kind !== 'CronJob' ? <section className="content-panel editor-grid"><label>{t('workloads.templates.replicas')}<input type="number" min="1" max={form.execution.kind === 'StatefulSet' ? 1 : undefined} value={form.replicas ?? 1} onChange={e => updateForm({ ...form, replicas: Number(e.target.value) })} /></label></section> : null}
       {form.execution ? <ExecutionFields value={form.execution} onChange={execution => updateForm({ ...form, execution })} containers={form.containers.map(c => c.name)} storage={form.dependencies.filter(dep => storageKeys.has(dep.type)).map(dep => dep.alias)} onAddStorage={storageTypes.length ? openStorageResource : undefined} catalogReady={!loadFailed && classMetadata === 'ready'} metadata={templateMetadata} secrets={catalog.status === 'ready' ? catalog.keys.filter(key => key.kind === 'SECRET').map(key => key.name) : []} disabled={saving} onRawProblems={setTemplateInputProblems} /> : null}

@@ -6,14 +6,14 @@ const expand = (value: string): string => value.replace(/\$\$?\{[^}]*\}/g, (matc
 
 it.each([
   '', 'debug', '  padded  ', '${resources.env.KEY}', '$${already}', 'a ${x} b $${y} c', '$', '${', '$${', '}{', 'multi\nline', '$$$${x}', '${a}${b}',
-])('escapes %j so the Score expander gives the text back and nothing resolves', (text) => {
+])('escapes %j so the Workload expander gives the text back and nothing resolves', (text) => {
   const stored = escapeLiteral(text);
   expect(hasUnescapedPlaceholder(stored)).toBe(false);
   expect(expand(stored)).toBe(text);
   expect(unescapeLiteral(stored)).toBe(text);
 });
 
-it('classifies Score variables into references, literals and unrepresentable values', () => {
+it('classifies Workload variables into references, literals and unrepresentable values', () => {
   const resources = { env: { type: 'environment' }, svc_a_http: { type: 'service', params: { workload: 'a', port: 'http' } }, db: { type: 'postgres' } };
   expect(readBinding('A', '${resources.env.KEY}', resources)).toMatchObject({ source: 'KEY', key: 'KEY' });
   expect(readBinding('B', '${resources.db.host}', resources)).toMatchObject({ source: 'RESOURCE', alias: 'db', output: 'host' });
@@ -26,7 +26,7 @@ it('classifies Score variables into references, literals and unrepresentable val
   expect(readBinding('I', 5, resources)).toBeUndefined();
 });
 
-it('keeps non-url service outputs on the lossless Score path', () => {
+it('keeps non-url service outputs on the lossless Workload path', () => {
   expect(readBinding('HOST', '${resources.backend.host}', { backend: { type: 'service', params: { workload: 'api', port: 'http' } } })).toBeUndefined();
 });
 

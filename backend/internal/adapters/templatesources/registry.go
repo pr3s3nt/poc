@@ -1,0 +1,179 @@
+package templatesources
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"orchestrator/internal/ports/gitaccess"
+	"strings"
+	"time"
+
+	"orchestrator/internal/adapters/terraform/registry"
+	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/templatesource"
+	"orchestrator/internal/domain/tfmodule"
+	"orchestrator/internal/platform/ids"
+	"orchestrator/internal/ports/moduleregistry"
+	"orchestrator/internal/ports/persistence"
+	"orchestrator/internal/ports/renderregistry"
+	"orchestrator/internal/renderengine"
+)
+
+// Fetcher is the hardened Git transport (registry.GitCLI).
+type Fetcher interface {
+	Resolve(ctx context.Context, source registry.GitSource, ref string) (string, error)
+	Open(ctx context.Context, source registry.GitSource, commit string) (registry.Snapshot, error)
+}
+
+// Runtime is the verified template binary that records pin.
+type Runtime interface {
+	BinaryDigest() string
+	CheckBinary() error
+}
+
+// Registry implements renderregistry.Registry and the renderer's verified
+// content loader.
+type Registry struct {
+	Cache   *Cache
+	Git     Fetcher
+	Store   persistence.TemplateSourceRepository
+	Runtime Runtime
+	Now     func() time.Time
+}
+
+var _ renderregistry.Registry = (*Registry)(nil)
+
+const maxURLLength = 2048
+
+// Inspect implements renderregistry.Registry.
+func (r *Registry) Inspect(ctx context.Context, organizationKey string, req renderregistry.Inspection) (templatesource.Bundle, error) {
+	ctx = gitaccess.WithOrganization(ctx, organizationKey)
+	url := strings.TrimSpace(req.URL)
+	path := strings.TrimSuffix(strings.TrimSpace(req.Path), "/")
+	ref := strings.TrimSpace(req.Ref)
+	if path == "" {
+		path = "."
+	}
+	if len(url) > maxURLLength || registry.ValidateGitURL(url) != nil || !templatesource.ValidDirectory(path) || !tfmodule.ValidSubdirectory(path) ||
+		!(tfmodule.FullCommit(ref) || registry.ValidGitReference(ref)) {
+		return templatesource.Bundle{}, renderregistry.ErrSourceInvalid
+	}
+	if r.Runtime == nil || r.Runtime.BinaryDigest() == "" || r.Runtime.CheckBinary() != nil || r.Cache == nil || r.Git == nil || r.Store == nil {
+		return templatesource.Bundle{}, fmt.Errorf("%w: Git render bundles are not enabled on this runtime", renderregistry.ErrBundleUnavailable)
+	}
+	source := registry.GitSource{ID: "template-source", Kind: tfmodule.SourceKindGit, URL: url}
+	commit := ref
+	if !tfmodule.FullCommit(commit) {
+		resolved, err := r.Git.Resolve(ctx, source, ref)
+		if err != nil {
+			return templatesource.Bundle{}, renderregistry.ErrSourceUnavailable
+		}
+		commit = resolved
+	}
+	snapshot, err := r.Git.Open(ctx, source, commit)
+	if err != nil {
+		return templatesource.Bundle{}, renderregistry.ErrSourceUnavailable
+	}
+	tree, err := snapshot.Tree(path)
+	snapshot.Close()
+	if err != nil {
+		if errors.Is(err, moduleregistry.ErrRejected) {
+			// Symlinks, submodules, executables, unsafe paths or oversize trees.
+			return templatesource.Bundle{}, renderregistry.ErrBundleInvalid
+		}
+		return templatesource.Bundle{}, renderregistry.ErrSourceUnavailable
+	}
+	return r.prepare(ctx, organizationKey, templatesource.Source{Kind: templatesource.SourceKindGit, URL: url, Path: path, Revision: commit}, tree)
+}
+
+func (r *Registry) prepare(ctx context.Context, organizationKey string, source templatesource.Source, tree registry.Tree) (templatesource.Bundle, error) {
+	return r.prepareWithID(ctx, organizationKey, source, tree, ids.New())
+}
+
+func (r *Registry) prepareWithID(ctx context.Context, organizationKey string, source templatesource.Source, tree registry.Tree, id string) (templatesource.Bundle, error) {
+	files := map[string][]byte(tree)
+	bundle, err := renderengine.Validate(files)
+	if err != nil {
+		return templatesource.Bundle{}, classifyInvalid(err)
+	}
+	digest := Digest(files)
+	// Persist metadata only after the content is durably cached and verified.
+	if err := r.Cache.Store(digest, files); err != nil {
+		return templatesource.Bundle{}, err
+	}
+	now := time.Now
+	if r.Now != nil {
+		now = r.Now
+	}
+	source.ContentSHA256 = digest
+	record := templatesource.Bundle{
+		ID: id, OrganizationKey: organizationKey,
+		Source:          source,
+		EngineContract:  templatesource.EngineContract,
+		RendererVersion: templatesource.RendererVersion,
+		RendererBinary:  r.Runtime.BinaryDigest(),
+		Contract:        bundle.Contract,
+		CreatedAt:       now().UTC(),
+	}
+	stored, err := r.Store.InsertTemplateSource(ctx, record)
+	if err != nil {
+		return templatesource.Bundle{}, err
+	}
+	if !stored.SameVerifiedContent(record) {
+		return templatesource.Bundle{}, renderregistry.ErrDrift
+	}
+	return stored, nil
+}
+
+func classifyInvalid(err error) error {
+	if errors.Is(err, templatesource.ErrUnsupported) {
+		return renderregistry.ErrContractUnsupported
+	}
+	var invalid *templatesource.InvalidError
+	if errors.As(err, &invalid) {
+		return &BundleInvalidError{File: invalid.File}
+	}
+	return renderregistry.ErrBundleInvalid
+}
+
+// BundleInvalidError is ErrBundleInvalid at a safe bundle-relative file.
+type BundleInvalidError struct{ File string }
+
+func (e *BundleInvalidError) Error() string {
+	return renderregistry.ErrBundleInvalid.Error() + ": " + e.File
+}
+func (e *BundleInvalidError) Is(target error) bool { return target == renderregistry.ErrBundleInvalid }
+
+// Available implements renderregistry.Registry.
+func (r *Registry) Available(_ context.Context, b templatesource.Bundle) error {
+	_, err := r.load(resource.GitRenderPin(b))
+	return err
+}
+
+// Load implements the renderer's verified content loader: engine and binary
+// compatibility, then the digest-verified cache. It never fetches Git.
+func (r *Registry) Load(ctx context.Context, pin resource.TemplateSource) (renderengine.Bundle, error) {
+	if err := ctx.Err(); err != nil {
+		return renderengine.Bundle{}, err
+	}
+	return r.load(pin)
+}
+
+func (r *Registry) load(pin resource.TemplateSource) (renderengine.Bundle, error) {
+	if pin.Source == nil || pin.EngineContract != templatesource.EngineContract {
+		return renderengine.Bundle{}, fmt.Errorf("%w: unsupported engine contract", renderregistry.ErrBundleUnavailable)
+	}
+	validRuntime := r.Runtime != nil && pin.BinaryDigest == r.Runtime.BinaryDigest() && pin.RendererVersion == templatesource.RendererVersion && r.Runtime.CheckBinary() == nil
+	if !validRuntime || r.Cache == nil {
+		return renderengine.Bundle{}, fmt.Errorf("%w: the runtime renderer does not match the pin", renderregistry.ErrBundleUnavailable)
+	}
+	files, err := r.Cache.Load(pin.Source.ContentSHA256)
+	if err != nil {
+		return renderengine.Bundle{}, err
+	}
+	bundle, err := renderengine.Validate(files)
+	if err != nil {
+		return renderengine.Bundle{}, fmt.Errorf("%w: cached content no longer validates", renderregistry.ErrBundleUnavailable)
+	}
+	return bundle, nil
+}

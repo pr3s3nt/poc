@@ -10,8 +10,6 @@ services:
       - local
       - -seed-catalog
       - none
-      - -score-k8s
-      - /usr/local/bin/score-k8s
       - -terraform-root
       - /var/lib/orchestrator/tfroot
     environment:

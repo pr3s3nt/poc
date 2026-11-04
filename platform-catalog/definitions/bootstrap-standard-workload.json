@@ -3,13 +3,13 @@
     "key": "bootstrap-standard-workload",
     "name": "Standard workload",
     "resourceType": "workload",
-    "driverType": "score-k8s",
+    "driverType": "template",
     "driverInputs": {
       "values": {
         "variables": {
           "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
           "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}",
-          "render_inputs": {
+          "template_inputs": {
             "defaultReplicas": 2
           }
         }

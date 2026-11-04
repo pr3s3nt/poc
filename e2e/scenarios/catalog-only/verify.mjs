@@ -32,7 +32,7 @@ try{
  const component=detail.locator('details').filter({has:page.locator('strong').filter({hasText:'bootstrap-standard-workload'})});
  await component.locator('summary').click();
  const snapshot=JSON.parse(await component.locator('pre').textContent());
- assert.equal(snapshot.driverInputs.values.variables.render_inputs.defaultReplicas,replicas);
+ assert.equal(snapshot.driverInputs.values.variables.template_inputs.defaultReplicas,replicas);
  assert.equal(await detail.getByRole('textbox').count(),0);
  await page.screenshot({path:join(evidence,'read-only-policy.png'),fullPage:true});
  writeFileSync(join(evidence,'after-recreate.json'),JSON.stringify({status:'SUCCEEDED',application:app,applied:tag,changes:0,catalogPending:false,defaultReplicas:replicas,readOnly:true},null,2)+'\n',{mode:0o600});

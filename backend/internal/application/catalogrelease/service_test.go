@@ -12,8 +12,8 @@ import (
 	"orchestrator/internal/domain/application"
 	domain "orchestrator/internal/domain/catalogrelease"
 	"orchestrator/internal/domain/environment"
-	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/templatesource"
 	"orchestrator/internal/ports/catalogsource"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed/seedtest"
@@ -259,8 +259,8 @@ func TestUnselectedEnvironmentUsesAuthoredDefinitionsAndBundles(t *testing.T) {
 	if err != nil || len(defs) != len(authored) || pin != "" {
 		t.Fatal(defs, pin, err)
 	}
-	all := map[string]renderbundle.Bundle{"test": {}}
-	bundles, err := RenderBundles(ctx, st, source.Organization, opts.ApplicationKey, "production", all)
+	all := map[string]templatesource.Bundle{"test": {}}
+	bundles, err := TemplateSources(ctx, st, source.Organization, opts.ApplicationKey, "production", all)
 	if err != nil || len(bundles) != 1 {
 		t.Fatal(bundles, err)
 	}

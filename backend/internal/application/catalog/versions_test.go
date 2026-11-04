@@ -141,7 +141,7 @@ func TestNewDefinitionDoesNotChangeLegacyRunningEnvironment(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, old := range defs {
-		if old.DriverType == resource.DriverScoreK8s && (old.RenderPin == nil || old.RenderPin.ID != "unverified") {
+		if old.DriverType == resource.DriverTemplate && (old.RenderPin == nil || old.RenderPin.ID != "unverified") {
 			t.Fatal("missing historical evidence silently used the current renderer")
 		}
 	}

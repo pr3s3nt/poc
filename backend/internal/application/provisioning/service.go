@@ -183,7 +183,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		}
 		terraformInputs = &parsed
 	}
-	// Resource params come from the Score document and win over driver
+	// Resource params come from the Workload document and win over driver
 	// defaults. Terraform params reach module variables only through the
 	// Definition input mapping.
 	if values := params; values != nil {

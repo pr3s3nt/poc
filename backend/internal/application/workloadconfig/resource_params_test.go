@@ -38,9 +38,9 @@ func paramsWorkloadService(t *testing.T) (*Service, *store.Store) {
 	return svc, st
 }
 
-// unboundScore declares one resource no container binds.
-func unboundScore(resources map[string]any) map[string]any {
-	return testScore("api", map[string]string{}, resources)
+// unboundWorkload declares one resource no container binds.
+func unboundWorkload(resources map[string]any) map[string]any {
+	return testWorkload("api", map[string]string{}, resources)
 }
 
 // TestSaveAndImportValidateUnboundResourceParams covers UC-16 BR-14: every
@@ -69,7 +69,7 @@ func TestSaveAndImportValidateUnboundResourceParams(t *testing.T) {
 		"second resource":  {map[string]any{"a": map[string]any{"type": "postgres", "params": map[string]any{"database": "x"}}, "b": map[string]any{"type": "postgres", "params": map[string]any{"size": 1}}}, "resources.b.params.database"},
 	}
 	for name, tc := range cases {
-		raw := unboundScore(tc.resources)
+		raw := unboundWorkload(tc.resources)
 		_, saveErr := svc.Save(ctx, "app", "staging", "api", raw, 0)
 		importErr := svc.ValidateImport(ctx, "app", "staging", raw)
 		for label, err := range map[string]error{"save": saveErr, "import": importErr} {
@@ -97,7 +97,7 @@ func TestSaveAndImportValidateUnboundResourceParams(t *testing.T) {
 		t.Fatalf("rejected input mutated state: version=%d drafts=%d set=%s", env.DraftVersion, len(drafts), env.CurrentDeploymentSetID)
 	}
 
-	valid := unboundScore(map[string]any{
+	valid := unboundWorkload(map[string]any{
 		"db":  map[string]any{"type": "postgres", "params": map[string]any{"database": "shop", "size": 2, "ha": true, "extra": []any{"x"}}},
 		"env": map[string]any{"type": "environment"},
 	})
@@ -122,7 +122,7 @@ func TestResourceParamValidationStoreFailureIsInternal(t *testing.T) {
 	ctx := context.Background()
 	_, st := paramsWorkloadService(t)
 	svc := NewService(failingTypesStore{st})
-	raw := unboundScore(map[string]any{"db": map[string]any{"type": "postgres", "params": map[string]any{"database": "shop"}}})
+	raw := unboundWorkload(map[string]any{"db": map[string]any{"type": "postgres", "params": map[string]any{"database": "shop"}}})
 	if _, err := svc.Save(ctx, "app", "staging", "api", raw, 0); err == nil || errors.Is(err, ErrInvalid) {
 		t.Fatalf("save store failure must be internal: %v", err)
 	}

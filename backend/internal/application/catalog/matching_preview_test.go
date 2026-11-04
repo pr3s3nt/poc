@@ -349,20 +349,20 @@ func TestPreviewMatching_ReservedKeyAndMalformedDraftsRejected(t *testing.T) {
 	}
 }
 
-func TestPreviewMatching_WorkloadOnlyRanksScoreK8sAndNeverFallsBackToNative(t *testing.T) {
+func TestPreviewMatching_WorkloadOnlyRanksTemplateAndNeverFallsBackToNative(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
 	k8s := catalog.DefinitionDraft{Key: "wl-k8s", Name: "wl-k8s", ResourceTypeKey: "workload", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}}
 	got := runPreview(t, svc, opts, previewQuery(opts, k8s, "modules.web", "default"))
 	if got.Status != catalog.PreviewMatched || got.Winner == nil || got.Winner.Key == "wl-k8s" {
-		t.Fatalf("non-score-k8s must not rank: %+v", got)
+		t.Fatalf("non-template must not rank: %+v", got)
 	}
 	if _, ok := candidateByKey(got, "wl-k8s"); ok {
-		t.Fatal("non-score-k8s workload definition must be excluded from ranking")
+		t.Fatal("non-template workload definition must be excluded from ranking")
 	}
-	score := catalog.DefinitionDraft{Key: "wl-score", Name: "wl-score", ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{ApplicationID: opts.ApplicationKey, Class: "default"}}}
+	score := catalog.DefinitionDraft{Key: "wl-score", Name: "wl-score", ResourceTypeKey: "workload", DriverType: resource.DriverTemplate, Criteria: []resource.Criterion{{ApplicationID: opts.ApplicationKey, Class: "default"}}}
 	got = runPreview(t, svc, opts, previewQuery(opts, score, "modules.web", "default"))
 	if got.Status != catalog.PreviewMatched || got.Winner.Key != "wl-score" {
-		t.Fatalf("score-k8s: %+v", got)
+		t.Fatalf("template: %+v", got)
 	}
 }
 
@@ -581,7 +581,7 @@ func TestPreviewMatching_UsesExactlyOneSnapshotAndNoWrites(t *testing.T) {
 	}
 }
 
-func TestPreviewMatching_AllFiveCriteriaScoreThirtyOne(t *testing.T) {
+func TestPreviewMatching_AllFiveCriteriaWorkloadThirtyOne(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
 	full := resource.Criterion{EnvironmentType: opts.EnvironmentType, ApplicationID: opts.ApplicationKey, EnvironmentID: opts.EnvironmentKey, ResourceID: "db", Class: "fast"}
 	got := runPreview(t, svc, opts, previewQuery(opts, previewCandidate("pg-all", full, resource.Criterion{Class: "fast"}), "db", "fast"))

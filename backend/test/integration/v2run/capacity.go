@@ -83,7 +83,7 @@ func EKSSystemPods() []Pod {
 	}
 }
 
-// AcceptancePods are the three workloads (Score requests of the acceptance
+// AcceptancePods are the three workloads (Workload requests of the acceptance
 // documents) plus the in-cluster Redis and, for V05, the in-cluster PostgreSQL
 // when the scenario has them.
 func AcceptancePods(redis bool, postgres ...bool) []Pod {

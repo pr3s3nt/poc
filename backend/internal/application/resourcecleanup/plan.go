@@ -200,7 +200,7 @@ func (s *snapshot) workloadConsumers(rec tfresource.ResourceRecord) []ConsumerVi
 			}
 		}
 		for _, draft := range s.drafts {
-			if draft.WorkloadID == workload && draft.State == environment.DraftUpsert && draftDeclares(draft.Score, "", name, d) {
+			if draft.WorkloadID == workload && draft.State == environment.DraftUpsert && draftDeclares(draft.Workload, "", name, d) {
 				out = append(out, ConsumerView{Kind: KindPendingWorkload, Name: workload})
 			}
 		}
@@ -215,7 +215,7 @@ func (s *snapshot) workloadConsumers(rec tfresource.ResourceRecord) []ConsumerVi
 			}
 		}
 		for _, draft := range s.drafts {
-			if draft.State == environment.DraftUpsert && draftDeclares(draft.Score, sid, "", d) {
+			if draft.State == environment.DraftUpsert && draftDeclares(draft.Workload, sid, "", d) {
 				out = append(out, ConsumerView{Kind: KindPendingWorkload, Name: draft.WorkloadID})
 			}
 		}
@@ -257,7 +257,7 @@ func moduleMentions(m environment.Module, needle string) bool {
 	return err == nil && strings.Contains(string(b), needle)
 }
 
-// draftDeclares reports whether a pending Score declares the resource: a
+// draftDeclares reports whether a pending Workload declares the resource: a
 // shared one by its id, or a private one by its alias, with the same type and
 // class as the descriptor.
 func draftDeclares(score map[string]any, sharedID, alias string, d resource.Descriptor) bool {

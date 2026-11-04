@@ -42,7 +42,7 @@ func TestPostgresDesiredRenameRollsBackAfterWritesBegin(t *testing.T) {
 	// pointer, draft-version bump and first draft were already written.
 	cmd := fx.Command
 	cmd.Drafts = append(append([]environment.WorkloadDraft(nil), cmd.Drafts...),
-		environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: "zz-fail", State: environment.DraftUpsert, Score: map[string]any{"apiVersion": "score.dev/v1b1"}})
+		environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: "zz-fail", State: environment.DraftUpsert, Workload: map[string]any{"apiVersion": "orchestrator.dev/workload/v1"}})
 	before := persistencetest.TakeRenameSnapshot(t, st, fx.Options)
 	// Test-only fault injection runs as the administrator: no runtime login has DDL.
 	adminExec(t, url,

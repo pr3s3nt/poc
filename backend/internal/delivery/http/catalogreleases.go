@@ -5,7 +5,7 @@ import (
 	"net/http"
 	catalogapp "orchestrator/internal/application/catalogrelease"
 	"orchestrator/internal/domain/catalogrelease"
-	"orchestrator/internal/domain/renderbundle"
+	"orchestrator/internal/domain/templatesource"
 	"orchestrator/internal/ports/persistence"
 )
 
@@ -228,14 +228,14 @@ func (s *Server) handleGetCatalogRelease(w http.ResponseWriter, r *http.Request)
 		catalogReleaseError(w, err)
 		return
 	}
-	records, err := persistence.RenderBundlesOf(r.Context(), s.store, org)
+	records, err := persistence.TemplateSourcesOf(r.Context(), s.store, org)
 	if err != nil {
 		catalogReleaseError(w, err)
 		return
 	}
-	selected := map[string]renderbundle.Bundle{}
+	selected := map[string]templatesource.Bundle{}
 	for _, c := range release.Components {
-		if c.Kind == catalogrelease.RenderBundle {
+		if c.Kind == catalogrelease.TemplateSource {
 			b, ok := records[c.BundleID]
 			if !ok || b.Source.ContentSHA256 != c.SHA256 {
 				catalogReleaseError(w, catalogrelease.ErrIncomplete)
@@ -244,7 +244,7 @@ func (s *Server) handleGetCatalogRelease(w http.ResponseWriter, r *http.Request)
 			selected[c.BundleID] = b
 		}
 	}
-	templates, err := renderbundle.TemplateCatalog(selected)
+	templates, err := templatesource.TemplateCatalog(selected)
 	if err != nil {
 		catalogReleaseError(w, catalogrelease.ErrIncomplete)
 		return

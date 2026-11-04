@@ -19,17 +19,17 @@ func TestUC07PendingDraftHTTPContract(t *testing.T) {
 	created := createConfiguredApplication(t, client, server.URL, "Update Remove", "update-remove", "internal-cluster")
 	key := created["application"].(map[string]any)["key"].(string)
 	base := server.URL + "/api/v1/applications/" + key + "/environments/staging"
-	draft := previewScore("api")
+	draft := previewWorkload("api")
 	delete(draft["containers"].(map[string]any)["main"].(map[string]any), "variables") // UC-16 forbids literals
 	api := toJSON(t, draft)
 
 	for name, tc := range map[string]struct{ method, path, body string }{
-		"save without version":   {http.MethodPut, "/workloads/api", `{"score":` + api + `}`},
-		"save null version":      {http.MethodPut, "/workloads/api", `{"version":null,"score":` + api + `}`},
-		"save negative version":  {http.MethodPut, "/workloads/api", `{"version":-1,"score":` + api + `}`},
-		"save unknown field":     {http.MethodPut, "/workloads/api", `{"version":0,"score":` + api + `,"force":true}`},
-		"save trailing":          {http.MethodPut, "/workloads/api", `{"version":0,"score":` + api + `} {}`},
-		"save string version":    {http.MethodPut, "/workloads/api", `{"version":"0","score":` + api + `}`},
+		"save without version":   {http.MethodPut, "/workloads/api", `{"workload":` + api + `}`},
+		"save null version":      {http.MethodPut, "/workloads/api", `{"version":null,"workload":` + api + `}`},
+		"save negative version":  {http.MethodPut, "/workloads/api", `{"version":-1,"workload":` + api + `}`},
+		"save unknown field":     {http.MethodPut, "/workloads/api", `{"version":0,"workload":` + api + `,"force":true}`},
+		"save trailing":          {http.MethodPut, "/workloads/api", `{"version":0,"workload":` + api + `} {}`},
+		"save string version":    {http.MethodPut, "/workloads/api", `{"version":"0","workload":` + api + `}`},
 		"delete without version": {http.MethodDelete, "/workloads/api", `{}`},
 		"undo without version":   {http.MethodPost, "/workloads/api/undo", `{}`},
 		"preview unknown field":  {http.MethodPost, "/preview", `{"token":"x"}`},
@@ -58,7 +58,7 @@ func TestUC07PendingDraftHTTPContract(t *testing.T) {
 	}
 
 	// Valid pending add, then a stale version and stale token are conflicts.
-	if resp, body := call(t, client, http.MethodPut, base+"/workloads/api", `{"version":0,"score":`+api+`}`); resp.StatusCode != http.StatusOK {
+	if resp, body := call(t, client, http.MethodPut, base+"/workloads/api", `{"version":0,"workload":`+api+`}`); resp.StatusCode != http.StatusOK {
 		t.Fatalf("save = %d %s", resp.StatusCode, body)
 	}
 	if resp, _ := call(t, client, http.MethodDelete, base+"/workloads/api", `{"version":0}`); resp.StatusCode != http.StatusConflict {
@@ -69,7 +69,7 @@ func TestUC07PendingDraftHTTPContract(t *testing.T) {
 	}
 	_, preview := requestJSON(t, client, http.MethodPost, base+"/preview", map[string]any{})
 	token := preview["token"].(string)
-	if resp, _ := call(t, client, http.MethodPut, base+"/workloads/api", `{"version":1,"score":`+strings.Replace(api, ":v1", ":v2", 1)+`}`); resp.StatusCode != http.StatusOK {
+	if resp, _ := call(t, client, http.MethodPut, base+"/workloads/api", `{"version":1,"workload":`+strings.Replace(api, ":v1", ":v2", 1)+`}`); resp.StatusCode != http.StatusOK {
 		t.Fatal("second save failed")
 	}
 	resp, body := call(t, client, http.MethodPost, base+"/deploy", `{"token":"`+token+`"}`)
@@ -92,7 +92,7 @@ func TestUC07PendingDraftHTTPContract(t *testing.T) {
 	foreign := authenticatedClientAs(t, server.URL, "globex-uc07")
 	for _, tc := range []struct{ method, path, body string }{
 		{http.MethodGet, "/workloads", ""},
-		{http.MethodPut, "/workloads/api", `{"version":2,"score":` + api + `}`},
+		{http.MethodPut, "/workloads/api", `{"version":2,"workload":` + api + `}`},
 		{http.MethodDelete, "/workloads/api", `{"version":2}`},
 		{http.MethodPost, "/workloads/api/undo", `{"version":2}`},
 		{http.MethodPost, "/preview", `{}`},

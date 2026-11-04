@@ -181,7 +181,7 @@ func TestPreviewRefusesIneligibleRootsWithAllowlistedReasons(t *testing.T) {
 		t.Fatalf("consumed root = %d %s", s, r)
 	}
 	// A pending (draft) workload that declares the shared resource is a consumer.
-	f.exec(`INSERT INTO workload_drafts(environment_id,workload_id,score_document,state) VALUES($1::uuid,'api',$2::jsonb,'PENDING_UPSERT')`, f.envID, `{"apiVersion":"score.dev/v1b1","metadata":{"name":"api"},"resources":{"db":{"type":"postgres","id":"db"}}}`)
+	f.exec(`INSERT INTO workload_drafts(environment_id,workload_id,score_document,state) VALUES($1::uuid,'api',$2::jsonb,'PENDING_UPSERT')`, f.envID, `{"apiVersion":"orchestrator.dev/workload/v1","metadata":{"name":"api"},"resources":{"db":{"type":"postgres","id":"db"}}}`)
 	f.exec(`UPDATE environments SET draft_version=draft_version+1 WHERE id=$1::uuid`, f.envID)
 	if s, r := reason(f.root.ID); s != http.StatusConflict || r != "HAS_CONSUMERS" {
 		t.Fatalf("root consumed by a pending workload = %d %s", s, r)
@@ -760,7 +760,7 @@ func TestAdmissionRacesAgainstConcurrentDraftWrites(t *testing.T) {
 			defer wg.Done()
 			<-start
 			err := f.app.Store.SaveWorkloadDraft(context.Background(), env.DraftVersion, environment.WorkloadDraft{ApplicationKey: f.appKey, EnvironmentKey: "staging", WorkloadID: "api", State: environment.DraftUpsert,
-				Score: map[string]any{"resources": map[string]any{"db": map[string]any{"type": "postgres", "id": "db"}}}})
+				Workload: map[string]any{"resources": map[string]any{"db": map[string]any{"type": "postgres", "id": "db"}}}})
 			saved = err == nil
 		}()
 		close(start)

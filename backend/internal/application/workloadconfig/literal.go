@@ -7,7 +7,7 @@ import (
 	"orchestrator/internal/planning/placeholder"
 )
 
-// hasUnescapedPlaceholder reports a ${...} that the Score expander would
+// hasUnescapedPlaceholder reports a ${...} that the Workload expander would
 // resolve. An escaped $${...} is text.
 func hasUnescapedPlaceholder(value string) bool {
 	for _, match := range placeholder.Pattern.FindAllString(value, -1) {
@@ -19,7 +19,7 @@ func hasUnescapedPlaceholder(value string) bool {
 }
 
 // isOrdinaryValue reports a container variable that is plain text under the
-// Score syntax: any string, including empty, whitespace and escaped $${...},
+// Workload syntax: any string, including empty, whitespace and escaped $${...},
 // without a resolvable placeholder. NUL is rejected by validateBindings.
 func isOrdinaryValue(value string) bool { return !hasUnescapedPlaceholder(value) }
 
@@ -34,7 +34,7 @@ func isOrdinaryValue(value string) bool { return !hasUnescapedPlaceholder(value)
 //     container and name (carried through unrelated deploys, restart and
 //     rename-free redeploys).
 //
-// Any other literal, including one a direct Score API changed, is left
+// Any other literal, including one a direct Workload API changed, is left
 // unproven and so stays unreadable. Nothing here reads or stores a secret: a
 // reference binding is never a literal.
 func ProveLiterals(base environment.LiteralProofs, document environment.Document, accepted string) environment.LiteralProofs {

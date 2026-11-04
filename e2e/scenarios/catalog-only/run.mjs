@@ -29,7 +29,7 @@ try{
  const template=detail.locator('details').filter({has:page.locator('strong').filter({hasText:'bootstrap-standard-workload'})});
  await template.locator('summary').click();
  const snapshot=JSON.parse(await template.locator('pre').textContent());
- assert.equal(snapshot.driverType,'score-k8s');assert.ok(snapshot.criteria.length);
+ assert.equal(snapshot.driverType,'template');assert.ok(snapshot.criteria.length);
  assert.equal(await detail.getByRole('textbox').count(),0);
  assert.equal(await page.getByRole('link',{name:/Mẫu dựng ứng dụng|Cấu hình tài nguyên/}).count(),0);
  await page.screenshot({path:join(evidence,'release.png'),fullPage:true});
@@ -58,11 +58,11 @@ try{
  const desired=(await get(base+'/staging/catalog')).catalog;
  assert.equal(desired.desired.tag,tag);
  if(!beforeResources.length){
-  const score={apiVersion:'score.dev/v1b1',metadata:{name:'web',class:'pvc'},containers:{main:{image:'nginx:1.27-alpine'}},service:{ports:{http:{port:80,targetPort:80}}}};
-  const file=join(evidence,'web.json');writeFileSync(file,JSON.stringify(score,null,2)+'\n',{mode:0o600});
+  const workload={apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'web',class:'pvc'},containers:{main:{image:'nginx:1.27-alpine'}},service:{ports:{http:{port:80,targetPort:80}}}};
+  const file=join(evidence,'web.json');writeFileSync(file,JSON.stringify(workload,null,2)+'\n',{mode:0o600});
   await page.goto(`${config.baseURL}/ui/applications/${appKey}/environments/staging/workloads/new`);
-  await page.getByRole('button',{name:'Nhập Score',exact:true}).click();
-  await page.getByLabel('File Score',{exact:true}).setInputFiles(file);
+  await page.getByRole('button',{name:'Nhập Workload',exact:true}).click();
+  await page.getByLabel('File Workload',{exact:true}).setInputFiles(file);
   await page.getByText('Đã phân tích Workload: web',{exact:false}).waitFor();
   const draft=responseFor(base+'/staging/workloads/web','PUT');
   await page.getByRole('button',{name:'Lưu draft Workload',exact:true}).click();

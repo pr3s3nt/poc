@@ -208,7 +208,7 @@ func TestPlan_DeltaIsHumanitecShapedAndDeterministic(t *testing.T) {
 	}
 }
 
-func TestPlan_RedeployingSameScoreIsNoOpDelta(t *testing.T) {
+func TestPlan_RedeployingSameWorkloadIsNoOpDelta(t *testing.T) {
 	svc := NewService(testBundles())
 	first, err := svc.Plan(testRequest(t, "internal-k8s", "backend"))
 	if err != nil {

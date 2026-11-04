@@ -18,7 +18,7 @@ function providerText(provider: NonNullable<ResourceIntent['providers']>[number]
 }
 
 export const rendererText = (rendering: { definitionKey: string; class?: string; driverType: string; bundle: { version: string } } | undefined) =>
-  rendering?.driverType ? t('preview.resourceIntents.driverTypeVersionTemplateDefinitionKeyValue', { driverType: rendering.driverType, version: rendering.bundle.version, definitionKey: rendering.definitionKey, value: rendering.class ? `, class ${rendering.class}` : '' }) : t('preview.resourceIntents.noScoreK8sRendererDetermined');
+  rendering?.driverType ? t('preview.resourceIntents.driverTypeVersionTemplateDefinitionKeyValue', { driverType: rendering.driverType, version: rendering.bundle.version, definitionKey: rendering.definitionKey, value: rendering.class ? `, class ${rendering.class}` : '' }) : t('preview.resourceIntents.noTemplateRendererDetermined');
 
 // The safe resource projection of a Preview (UC-05 BR-10). It states intent only
 // and does not claim a final Terraform plan or manifest.

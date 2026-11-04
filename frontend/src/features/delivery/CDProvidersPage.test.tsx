@@ -72,7 +72,7 @@ it('creates and verifies CD using typed form fields, discovery and write-only cr
   expect(screen.queryByDisplayValue('private-token')).not.toBeInTheDocument();
   const create = requests.find(r => r.path.endsWith('/delivery-bindings'));
   expect(create?.body).toMatchObject({ name: 'Fleet team', provider: 'fleet', managementAccountKey: account.key, managementAccountVersion: 3, writerUsername: '', writerPassword: '', config: { targetClusterUID: 'cluster-incarnation', gitConnectionKey: 'team-git' } });
-  expect(screen.queryByRole('textbox', { name: /JSON|Score/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('textbox', { name: /JSON|Workload/ })).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Xác minh' }));
   expect(await screen.findByText('Đã xác minh kết nối CD.')).toBeInTheDocument();
   expect(screen.getByRole('cell', { name: 'Sẵn sàng' })).toBeInTheDocument();
