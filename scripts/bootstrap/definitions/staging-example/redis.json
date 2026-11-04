@@ -1,0 +1,41 @@
+{
+  "key": "direct-staging-redis",
+  "name": "Direct staging redis",
+  "resourceType": "redis",
+  "driverType": "terraform",
+  "driverInputs": {
+    "values": {
+      "variables": {
+        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+      },
+      "source": {
+        "source_id": "platform",
+        "module_id": "redis-k8s",
+        "revision": "v4-2026.10.15",
+        "subdirectory": "redis-k8s",
+        "content_sha256": "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"
+      },
+      "input_mapping": {},
+      "output_mapping": {
+        "host": "host",
+        "password": "password",
+        "port": "port",
+        "tls": "tls",
+        "username": "username"
+      },
+      "provider_bindings": {
+        "kubernetes": {
+          "target": "resource",
+          "resource_ref": "k8s-cluster.bootstrap-staging#environments.@app.@env"
+        }
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "production",
+      "class": "in-cluster"
+    }
+  ]
+}

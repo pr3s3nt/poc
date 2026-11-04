@@ -1,0 +1,50 @@
+{
+  "key": "direct-dev-postgres",
+  "name": "Direct dev postgres",
+  "resourceType": "postgres",
+  "driverType": "terraform",
+  "driverInputs": {
+    "values": {
+      "variables": {
+        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+        "database": "acceptance",
+        "username": "app"
+      },
+      "source": {
+        "source_id": "platform",
+        "module_id": "postgres-k8s",
+        "revision": "v4-2026.10.15",
+        "subdirectory": "postgres-k8s",
+        "content_sha256": "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"
+      },
+      "input_mapping": {
+        "database": {
+          "param": "database"
+        },
+        "username": {
+          "param": "username"
+        }
+      },
+      "output_mapping": {
+        "database": "database",
+        "host": "host",
+        "password": "password",
+        "port": "port",
+        "username": "username"
+      },
+      "provider_bindings": {
+        "kubernetes": {
+          "target": "resource",
+          "resource_ref": "k8s-cluster.bootstrap-dev#environments.@app.@env"
+        }
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "staging",
+      "class": "in-cluster"
+    }
+  ]
+}

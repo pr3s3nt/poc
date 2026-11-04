@@ -1099,3 +1099,18 @@ reuses real application acceptance and independently checks topology evidence.
 - Shared Definition form: `frontend/src/features/platform/ResourceDefinitionsPage.tsx` and `TemplateDriverFields.tsx`; separate Rendering Templates page removed.
 - Owner-only PostgreSQL transition: `migrations/008-generic-workload.sql`, frozen `version-008.sql`.
 - API replacements: `/template-sources` (GET, inspect, upload, inline), workload request field `workload`, standalone `/workload-preview`, `/workload-samples`.
+
+
+## Direct Definition bootstrap — issue #33
+
+- Config schema 2/3: `scripts/bootstrap/lib/bootstrap-config.mjs`; source/Definition
+  files and immutable pins: `direct-config.mjs`, `direct-targets/`, `definitions/`.
+- Console source preparation, form review/read-back and conflict checks:
+  `scripts/bootstrap/lib/direct-platform.mjs`; shared platform/CD helpers remain
+  in `platform.mjs`, `git-access-config.mjs` and `infrastructure-ui.mjs`.
+- Platform → acceptance orchestration: `direct-runner.mjs`; reuse `application`,
+  `environment`, `workloads`, `deployment`, `namespace-access`, `verification` and
+  `runtime` helpers. Catalog v2 stays in `runner.mjs`.
+- Focused config/reuse/resume/pin tests: `direct-bootstrap.test.mjs`; real kind
+  smoke/unchanged-rerun comparison: `e2e/scenarios/bootstrap-acceptance/run.mjs`.
+- [Scope and status](direct-bootstrap.md), [procedure](../../scripts/bootstrap/README.md).

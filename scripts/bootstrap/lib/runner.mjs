@@ -1,7 +1,9 @@
+import { preflightDirect } from './direct-platform.mjs';
+import { runDirectBootstrap } from './direct-runner.mjs';
 import { openConsole, closeConsole, signInContext, signOutContext } from './console.mjs';
 import { createRuntime, makeUI, conflict, equal, waitIdle } from './runtime.mjs';
 import { requireConfig, BootstrapError } from './bootstrap-config.mjs';
-import { bootstrapPlatform, assertStore } from './platform.mjs';
+import { bootstrapPlatform, assertStore, assertDelivery } from './platform.mjs';
 import { ensureApplication } from './application.mjs';
 import { ensureEnvironment, envBase } from './environment.mjs';
 import { ensureWorkloads, desiredScores } from './workloads.mjs';
@@ -21,7 +23,8 @@ export async function preflight(ui,config,rt) {
   for(const t of p.resourceTypes){const found=types.find(v=>v.key===t.key);if(found)assertSameResourceType(found,t);}
   const stores=(await ui.get('/secret-stores')).secretStores??[];
   const store=stores.filter(v=>v.name===p.secretStore.name);conflict(store.length<=1,'Secret Store ambiguous');if(store[0])assertStore(store[0],p.secretStore);
-  const providers=(await ui.get('/delivery-providers')).providers;requireConfig(providers.some(v=>v.kind===p.delivery.provider),'CD provider disabled or unavailable on backend');await ui.get('/platform/catalog/sources');
+  if(config.schemaVersion===3) {const bindings=(await ui.get('/delivery-bindings')).bindings;const binding=bindings.find(b=>b.name===p.delivery.name);if(binding){requireConfig(matches[0],'CD account target missing');assertDelivery(binding,await ui.get(`/delivery-bindings/${binding.id}?version=${binding.version}`),p.delivery,matches[0]);}}
+  const providers=(await ui.get('/delivery-providers')).providers;requireConfig(providers.some(v=>v.kind===p.delivery.provider),'CD provider disabled or unavailable on backend');if(config.schemaVersion===3) await preflightDirect(ui,config,rt);else await ui.get('/platform/catalog/sources');
  }]);
  let blocked=false;
  for(const [name,fn]of checks){try{await fn();rt.record(name,'REUSED');}catch(e){blocked=true;rt.record(name,'BLOCKED',{reason:e instanceof BootstrapError?e.message:'Prerequisite mismatch; inspect configured target'});}}
@@ -35,6 +38,7 @@ async function verifyPins(ui,config,app,version) {
  for(const [key,id]of Object.entries(version.definitionRevisions??{}))conflict((await ui.get(base+'/definition-versions')).definitions.find(v=>v.key===key)?.desiredRevisionId===id,'Definition target pin');
 }
 export async function runBootstrap(config) {
+ if(config.schemaVersion===3)return runDirectBootstrap(config,{preflight});
  const rt=createRuntime(config);let platform,developer;let status='FAILED';
  try {
   platform=await openConsole(config.console);requireConfig(['ADMIN','PLATFORM_ENGINEER'].includes(platform.user.role),'Platform Engineer/Admin required');

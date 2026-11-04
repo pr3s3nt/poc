@@ -1,4 +1,6 @@
-# Bootstrap và acceptance — issue #30
+# Bootstrap và acceptance
+
+## Catalog schemaVersion 2 — issue #30
 
 Đầu vào mới dùng schemaVersion 2, tách dev/staging/production. Mọi giá trị runtime
 đến từ config; credential từ file riêng. Legacy catalog-only CLI vẫn được giữ.
@@ -22,3 +24,29 @@ prerequisites; script không tự cấp cluster rights hoặc cài đè shared c
 Nghiệm thu: fresh, unchanged rerun, partial/resume, conflict, upgrade on/off,
 rerun sau upgrade và restart platform. Kịch bản E2E thuộc e2e/; logs/evidence và
 credential ngoài Git. Không reset/xóa dữ liệu để tạo platform trống.
+
+## Definitions trực tiếp — issue #33
+
+SchemaVersion 3 chạy theo thứ tự sau; schemaVersion 2 ở trên là luồng Catalog.
+
+1. Đọc input môi trường, validate files/credentials, image pins, Definition JSON,
+   criteria, Terraform pins và template-source pin. Không lấy latest.
+2. Đăng nhập Console; preflight kind/Fleet/VSO, accounts/Types/store/CD,
+   schema-8 Generic Workload capabilities, sources và existing Definition conflicts.
+3. Dùng lại/tạo Git access, Kubernetes account và Resource Types qua Console.
+4. Dùng lại immutable template source; nếu thiếu thì prepare Git/ZIP/Inline qua
+   Console và đối chiếu pin. Tạo Definitions trực tiếp từ file, xác nhận form
+   review rồi read-back; không tạo revision khi đã khớp.
+5. Cấu hình/reuse Secret Store, Verify CD và default theo input. Mode `bootstrap`
+   dừng ở đây với BOOTSTRAPPED, không khẳng định acceptance app đã đạt.
+6. Mode `all` tạo/dùng lại acceptance app theo identity receipt; phải không có
+   Catalog. Không sửa hoặc bỏ ghim Catalog của app có sẵn.
+7. Chọn Secret Store, bổ sung config/secret/workloads còn thiếu; Preview/Deploy
+   chỉ khi có thay đổi. Unknown/interrupted operation không tự replay.
+8. Read-back Generic Workload và template pins; xác minh Fleet GitRepo/Bundle
+   đúng commit, readiness; mở app qua URL Tailscale và kiểm tra app/jobs/DB/cache.
+9. Lưu safe identities/pins/report ngoài Git; chỉ SUCCEEDED khi acceptance đạt.
+   Rerun giữ nguyên revisions, deployments, Fleet commits và resource/PVC/job IDs.
+
+Input dev/staging độc lập theo Console/cluster/criteria/state. Có mẫu staging
+không cấp quyền chạy staging; runtime nghiệm thu issue #33 giới hạn kind.

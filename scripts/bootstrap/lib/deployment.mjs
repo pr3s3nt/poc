@@ -10,6 +10,7 @@ export async function ensureDeployment(ui,config,app,rt) {
  await waitIdle(ui,app.key,env,config.runtime.timeoutMs);
  await ui.page.goto(`${ui.baseURL}/ui/applications/${app.key}?environment=${env}`);
  const preview=await ui.submit(base+'/preview','POST',ui.page.getByRole('button',{name:'Xem trước thay đổi',exact:true}));
+ if(config.schemaVersion===3 && rt.state.acceptanceSnapshot)conflict(!hasPending(preview),'Pending changes on previously verified acceptance app');
  if(!hasPending(preview)){await retainResources(ui,base,rt);rt.record('deployment','SKIPPED');return;}
  conflict((preview.changes??[]).every(v=>['backend','worker','frontend'].includes(v.workloadId)&&v.action!=='REMOVE'),'Unexpected Preview changes');
  rt.record('preview','REUSED',{workloads:(preview.changes??[]).map(v=>v.workloadId)});

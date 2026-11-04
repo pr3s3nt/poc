@@ -1,0 +1,36 @@
+{
+  "key": "direct-staging-k8s-namespace",
+  "name": "Direct staging k8s-namespace",
+  "resourceType": "k8s-namespace",
+  "driverType": "terraform",
+  "driverInputs": {
+    "values": {
+      "variables": {
+        "name": "${context.env.namespace}"
+      },
+      "source": {
+        "source_id": "platform",
+        "module_id": "k8s-namespace",
+        "revision": "v4-2026.10.15",
+        "subdirectory": "k8s-namespace",
+        "content_sha256": "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"
+      },
+      "input_mapping": {},
+      "output_mapping": {
+        "name": "name"
+      },
+      "provider_bindings": {
+        "kubernetes": {
+          "target": "resource",
+          "resource_ref": "k8s-cluster.bootstrap-staging#environments.@app.@env"
+        }
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "production"
+    }
+  ]
+}

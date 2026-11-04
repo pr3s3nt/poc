@@ -44,7 +44,8 @@ export async function ensureEnvironment(ui,config,app,store,version,rt,{upgrade=
   conflict((await ui.get('/applications/'+app.key)).application.environments.find(v=>v.key===env).secretStoreKey===store.key,'Secret Store selection read-back');rt.record('environment-store','UPDATED');
  }else rt.record('environment-store','REUSED');
  await ui.page.reload();
- await selectCatalog(ui,base,config.platform.catalog.id,version.catalogTag,upgrade?[{sourceId:config.platform.catalog.id,tag:config.application.catalogTag}]:[],rt);
+ if(config.schemaVersion===3) conflict(!(await ui.get(base+'/catalog')).catalog.desired,'Direct acceptance must not have a Catalog');
+ else await selectCatalog(ui,base,config.platform.catalog.id,version.catalogTag,upgrade?[{sourceId:config.platform.catalog.id,tag:config.application.catalogTag}]:[],rt);
  await selectDefinitionRevisions(ui,base,version.definitionRevisions,rt);
  const vars=Object.fromEntries(Object.entries(config.application.variables).map(([k,v])=>[k,v.replaceAll('${applicationKey}',app.key).replaceAll('${environment}',env)]));
  const secrets=Object.fromEntries(Object.entries(config.application.secretFiles).map(([k,v])=>[k,readPrivateFile(v,'application secret')]));

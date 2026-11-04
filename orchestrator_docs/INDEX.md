@@ -135,6 +135,16 @@ bỏ điểm duyệt cuối và yêu cầu sửa/check/chạy lại khi scenario
 
 Kết quả và cleanup cuối: [bàn giao M04](verification/2026-10-16-m04-completion.md).
 
+## Bootstrap bằng Definitions trực tiếp — issue #33
+
+[Implementation/approved scope](implementation/direct-bootstrap.md),
+[config và cách chạy](../scripts/bootstrap/README.md),
+[execution flow](../scripts/bootstrap/EXECUTION_FLOW.md) và
+[smoke scenario](../e2e/scenarios/bootstrap-acceptance/README.md) và
+[verified handoff](verification/2026-11-04-direct-bootstrap.md).
+SchemaVersion 3 nhận input môi trường, bootstrap Definitions không cần Catalog
+và deploy acceptance app ở cuối lệnh đầy đủ; schemaVersion 2 Catalog được giữ.
+
 ## Generic Workload and Template Driver
 
 Approved replacement: [ADR-035](architecture/decisions/ADR-035-generic-workload-template-driver.md),

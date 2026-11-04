@@ -1,0 +1,19 @@
+{
+  "key": "direct-staging-cluster",
+  "name": "Direct staging cluster",
+  "resourceType": "k8s-cluster",
+  "driverType": "existing-cluster",
+  "driverInputs": {
+    "values": {
+      "variables": {}
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "production",
+      "class": "bootstrap-staging"
+    }
+  ],
+  "driverAccount": "${account.key}"
+}

@@ -27,8 +27,13 @@ export function createRuntime(config) {
  const file=join(stateDir,'identity.json');
  let state={};
  try { state=JSON.parse(readFileSync(file,'utf8')); } catch(e) { if(e.code!=='ENOENT'){unlinkSync(lock);throw new BootstrapError('Invalid state receipt');} }
- const identity={origin:config.console.baseURL,environment:config.environment,subdomain:config.application.subdomain};
+ const identity=config.schemaVersion===3?{origin:config.console.baseURL,environment:config.environment,account:config.platform.account.name,context:config.platform.account.context,endpoint:config.platform.account.endpoint}:{origin:config.console.baseURL,environment:config.environment,subdomain:config.application?.subdomain??null};
  if(state.identity && !equal(state.identity,identity)){unlinkSync(lock);throw new BootstrapError('State directory belongs to another target');}
+ if(config.schemaVersion===3 && config.application) {
+  const acceptanceIdentity={name:config.application.name,subdomain:config.application.subdomain,environment:config.application.environment};
+  if(state.acceptanceIdentity && !equal(state.acceptanceIdentity,acceptanceIdentity)){unlinkSync(lock);throw new BootstrapError('Acceptance receipt belongs to another Application/Environment');}
+  state.acceptanceIdentity=acceptanceIdentity;
+ }
  state.identity=identity;
  const report={environment:config.environment,startedAt:new Date().toISOString(),status:'RUNNING',steps:[]};
  const reportFile=join(reportDir,`${Date.now()}-${process.pid}.json`);
@@ -40,7 +45,7 @@ export function makeUI(page,baseURL,timeoutMs) {
  const get=async path=>{const r=await page.request.get(baseURL+'/api/v1'+path);if(!r.ok())throw new BootstrapError(`GET ${path.split('?')[0]}: HTTP ${r.status()}`);return r.json();};
  const act=async(locator,method,...args)=>locator[method](...args);
  const responseFor=(path,method)=>page.waitForResponse(r=>r.request().method()===method && new URL(r.url()).pathname==='/api/v1'+path,{timeout:/\/(deploy|refresh|verify|recover)$/.test(path)?timeoutMs:Math.min(timeoutMs,180000)});
- const submit=async(path,method,button)=>{const pending=responseFor(path,method);const [r]=await Promise.all([pending,button.click()]);if(!r.ok())throw new BootstrapError(`Mutation ${method} ${path}: HTTP ${r.status()}; inspect server before retry`);return r.json();};
+ const submit=async(path,method,button)=>{const pending=responseFor(path,method);const [r]=await Promise.all([pending,button.click()]);if(!r.ok()){const error=new BootstrapError(`Mutation ${method} ${path}: HTTP ${r.status()}; inspect server before retry`);error.status=r.status();throw error;}return r.json();};
  return {page,baseURL,get,act,responseFor,submit};
 }
 export async function waitIdle(ui,appKey,env,timeout) {

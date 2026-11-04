@@ -1,10 +1,14 @@
 # Bootstrap platform và acceptance app
 
-Issue #30 mở rộng bootstrap cũ thành luồng từ Console trống đến acceptance app
+Luồng [Definitions trực tiếp — issue #33](#definitions-trực-tiếp--issue-33-schemaversion-3)
+nhận config schemaVersion 3 theo môi trường, có tính lũy đẳng và deploy acceptance
+app ở cuối. Dùng `direct-targets/dev.json` làm mẫu; input thực tế nằm ngoài Git.
+
+Phần Catalog schemaVersion 2 được giữ tương thích dưới đây. Issue #30 mở rộng bootstrap cũ thành luồng từ Console trống đến acceptance app
 frontend/backend/worker dùng chung PostgreSQL và Redis. Toàn bộ mutation nghiệp
 vụ qua Console; API/native reads xác minh hiện trạng, không dùng fake adapters.
 
-## Chạy
+## Chạy Catalog schemaVersion 2
 
 ```bash
 npm ci --prefix scripts/bootstrap
@@ -115,3 +119,72 @@ Shared Git uses `usePlatformGit=true`. For a separate new Git Connection, set
 `writerUsername` and the private `writerPasswordFile`. Bootstrap registers that
 connection through the ordinary inline CD form. Existing infrastructure accounts,
 bindings and their applied consumers remain intact.
+
+## Definitions trực tiếp — issue #33 (schemaVersion 3)
+
+```sh
+node scripts/bootstrap/run.mjs --config /private/bootstrap/dev.json
+```
+
+Bắt đầu từ [dev input](direct-targets/dev.json) hoặc
+[staging input](direct-targets/staging.json); copy ra ngoài Git và sửa endpoint,
+account, credential file references, Definition files, source pins, images và URL
+Tailscale cho môi trường của bạn. Hai ví dụ dùng Console/cluster riêng và stateDir
+riêng. `environment` là identity của lượt bootstrap, không thay thế Environment
+`staging`/`production` của sản phẩm. Script không tự cấp quyền chạy staging.
+
+`runtime.mode=all` chạy **platform → acceptance app → xác minh CD/Fleet và app/job**.
+Acceptance là phase bắt buộc ở cuối; chỉ báo SUCCEEDED khi toàn luồng đạt.
+`bootstrap` chỉ chuẩn bị platform và báo BOOTSTRAPPED; không cần `application`,
+`developer`, `upgrade`, `verification`, image, Workload hay Catalog input.
+`check` chỉ validate/prerequisite reads và auth sessions, không bootstrap.
+V3 không chạy upgrade matrix hoặc chọn upgrade revisions; config v2 và legacy CLI
+vẫn được giữ.
+
+V3 bỏ `platform.catalog` và `application.catalogTag`; dùng:
+
+- `platform.templateSources`: tên và nguồn `git`, `zip`, `inline` hoặc `installed`,
+  với `pin.revision` và `pin.contentSha256`. Git dùng full commit trong `ref`;
+  ZIP có `file`, `archiveSha256`, optional `path`; Inline dùng `filesFile` chứa
+  map tên file → content. Installed phải tồn tại và AVAILABLE.
+- `platform.definitions`: mỗi entry trỏ `file` JSON của Resource Definition.
+  Terraform entry có `source` gồm `kind` và full `pin` (sourceId, moduleId,
+  revision, subdirectory, contentSha256); pin phải khớp `driverInputs.values.source`.
+  Các nguồn Git/ZIP được inspect/prepare qua Console. Installed pin được kiểm tra
+  từ capabilities trước mutation. Ví dụ kind dùng verified packaged Terraform
+  modules cho namespace, PostgreSQL và Redis; storage tùy input, không tự thêm.
+- `${account.key}` trong `driverAccount` được resolve thành đúng account vừa
+  xác minh; `${templateSources.acceptance}` trong `template_source` trỏ source
+  đã pin. Resource expressions của sản phẩm được giữ nguyên.
+- `application.workloads`: ba Generic Workload files backend/worker/frontend,
+  cùng image pins, variables, secretFiles, name/subdomain và Environment đích.
+  Workload fixtures hiện hành được dùng chung, không có bước Score/render bundle.
+
+Inline hỗ trợ đúng bộ file Console cho phép sửa: `deployment.tpl`, `service.tpl`,
+optional các `.tpl` thêm, `inputs.schema.json`, `defaults.yaml` và `bundle.yaml`
+của editor `custom-workload`. Manifest khác hoặc có normalization/patches dùng
+Git/ZIP. Nội dung file/template nằm ngoài runner; local files được kiểm tra pin.
+Typed template inputs theo schema, criteria, references, provider/account mappings
+và companion resources đi qua form Definition hiện hành; review JSON phải khớp
+input trước khi lưu. Product giữ precedence của explicit Workload values và
+bảo vệ Secret references; không truyền secret bytes qua template inputs.
+
+Chạy lại cùng input giữ nguyên source IDs, Definition revisions, account/CD,
+acceptance Application, resource/PVC UIDs, deployment IDs và Fleet commits.
+Receipt pin cả active revision ID/generation và semantic acceptance input (gồm
+hash nội dung secret, không lưu secret bytes). Khác input hoặc hiện trạng thì
+BLOCKED, không publish/promote revision, rotate
+credential hay ghi đè pending changes. Platform-only rồi chuyển `all` dùng cùng
+stateDir để resume. Dùng stateDir/reportDir riêng cho mỗi target; không dùng
+receipt của môi trường khác. Request mất kết quả phải đối chiếu server; chưa
+chứng minh kết quả thì dừng, không replay mutation.
+
+Backend phải khởi động thành công trên schema 8 và công bố Generic Workload/template
+capabilities; preflight đọc chúng và template-source API trước mutation. Xác minh
+schema installation trước runtime; upgrade installation có sẵn là thao tác riêng
+[ADR-027](../../orchestrator_docs/architecture/decisions/ADR-027-postgres-upgrades.md).
+Không reset database/chỉnh migration marker. Shared Fleet/VSO/Vault/RBAC vẫn là
+prerequisites; chỉ Role/RoleBinding của namespace acceptance do sản phẩm tạo mới
+được setup khi config cho phép.
+
+Nghiệm thu dev/kind bằng [bootstrap acceptance](../../e2e/scenarios/bootstrap-acceptance/README.md).

@@ -160,3 +160,5 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [2026-10-30 reconciliation merge](2026-10-30-reconciliation-merge.md) — schema v3, compatibility checks and execution limits.
 
 - [2026-11-02: Platform-managed CD repositories](2026-11-02-platform-managed-cd.md).
+
+- [Direct Definition bootstrap and acceptance — 2026-11-04](2026-11-04-direct-bootstrap.md).

@@ -1,0 +1,22 @@
+{
+  "key": "direct-dev-workload",
+  "name": "Direct dev workload",
+  "resourceType": "workload",
+  "driverType": "template",
+  "driverInputs": {
+    "values": {
+      "variables": {
+        "template_source": "${templateSources.acceptance}",
+        "template_inputs": {},
+        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "staging",
+      "class": "bootstrap-dev"
+    }
+  ]
+}

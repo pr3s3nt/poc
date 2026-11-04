@@ -1414,3 +1414,14 @@ do not establish real deployment or cleanup completion.
 Collaboration: [sequence](../architecture/components/generic-workload-sequence.puml).
 Actual baseline/update, exact Fleet commit/Bundle readiness and product cleanup:
 [execution record](../verification/2026-11-04-generic-workload.md).
+
+
+## Direct bootstrap — issue #33
+
+| Operational requirement | Implementation | Validation |
+|---|---|---|
+| Environment input, pinned direct Definitions and platform-only mode without Application/Catalog | [Bootstrap procedure](../../scripts/bootstrap/README.md), `bootstrap-config.mjs`, `direct-config.mjs`, `direct-platform.mjs` | `direct-bootstrap.test.mjs` |
+| Idempotent platform/acceptance, explicit conflict and server reconciliation | `runtime.mjs`, `direct-platform.mjs`, `direct-runner.mjs`, shared bootstrap helpers | Receipt/source/Definition tests; [real smoke](../../e2e/scenarios/bootstrap-acceptance/README.md) |
+| Full command deploys acceptance app without Catalog, Generic Workload/template, exact CD/Fleet and business readiness | [ADR-035](../architecture/decisions/ADR-035-generic-workload-template-driver.md), [contract](../architecture/contracts/generic-workload.md), `direct-runner.mjs`, `verification.mjs` | Separate platform/acceptance reports and real kind smoke |
+
+Execution evidence: [real kind direct bootstrap/acceptance and idempotency](../verification/2026-11-04-direct-bootstrap.md).

@@ -7,6 +7,25 @@ last_reviewed: 2026-11-04
 
 # Current project state
 
+## Direct Definition bootstrap — issue #33, 2026-11-04
+
+SchemaVersion 3 in `scripts/bootstrap/` accepts environment-specific input,
+registers pinned direct Resource Definitions without Catalog, and deploys the
+acceptance app at the end of the full command. Reuses Console helpers and keeps
+Catalog schemaVersion 2/legacy entrypoints. Platform-only mode has no Application,
+image, Workload, upgrade or Catalog input dependency and reports separately.
+Reuse/conflict/resume protects identities, source pins, Definition revision IDs/
+generation, pending changes and acceptance input; unchanged rerun creates no
+extra revision/deployment. See [implementation](implementation/direct-bootstrap.md).
+
+49 focused tests and real kind Console/CD/Fleet/business checks passed. The new
+acceptance Application has no Catalog; platform-only → full resume and unchanged
+rerun preserved platform/source/Definition/app/resource/PVC/job identities and
+Fleet commits. Existing Connections/binding/default and unrelated Applications
+were kept. The dedicated Console 3040 already had schema 8; no shared database
+upgrade/reset, staging/production, AWS or real Rancher run. App/data/forward are
+retained. [Verification and tested Tailscale links](verification/2026-11-04-direct-bootstrap.md).
+
 ## Rancher-compatible Fleet discovery — 2026-11-04
 
 UC-04 CD-12 extends [ADR-034](architecture/decisions/ADR-034-simplified-cd-configuration.md)

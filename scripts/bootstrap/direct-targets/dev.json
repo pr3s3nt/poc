@@ -1,0 +1,394 @@
+{
+  "schemaVersion": 3,
+  "environment": "dev",
+  "console": {
+    "url": "https://console-dev.example.test",
+    "username": "platform-engineer",
+    "passwordFile": "~/.orch/bootstrap/dev/password"
+  },
+  "developer": {
+    "username": "developer",
+    "passwordFile": "~/.orch/bootstrap/dev/developer-password"
+  },
+  "platform": {
+    "gitAccess": {
+      "enabled": true,
+      "url": "https://github.com/pr3s3nt",
+      "username": "pr3s3nt",
+      "tokenFile": "~/.orch/bootstrap/dev/git-token"
+    },
+    "account": {
+      "name": "bootstrap-dev",
+      "context": "kind-k8s-4f",
+      "endpoint": "https://k8s-4f-control-plane:6443",
+      "kubeconfigFile": "~/.orch/bootstrap/dev/kubeconfig"
+    },
+    "resourceTypes": [
+      {
+        "key": "persistent-storage",
+        "inputs": [
+          {
+            "name": "storage",
+            "type": "string",
+            "required": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "claimName",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "namespace",
+            "type": "string",
+            "required": true,
+            "secret": false
+          }
+        ]
+      },
+      {
+        "key": "k8s-cluster",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "name",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "endpoint",
+            "type": "string",
+            "required": false,
+            "secret": false
+          },
+          {
+            "name": "kubeContext",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "kubeconfig",
+            "type": "string",
+            "required": false,
+            "secret": false
+          },
+          {
+            "name": "cluster",
+            "type": "any",
+            "required": false,
+            "secret": false
+          }
+        ]
+      },
+      {
+        "key": "k8s-namespace",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "name",
+            "type": "string",
+            "required": true,
+            "secret": false
+          }
+        ]
+      },
+      {
+        "key": "postgres",
+        "inputs": [
+          {
+            "name": "database",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "host",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "port",
+            "type": "number",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "database",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "password",
+            "type": "string",
+            "required": true,
+            "secret": true
+          }
+        ]
+      },
+      {
+        "key": "redis",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "host",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "port",
+            "type": "number",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "password",
+            "type": "string",
+            "required": true,
+            "secret": true
+          },
+          {
+            "name": "tls",
+            "type": "bool",
+            "required": true,
+            "secret": false
+          }
+        ]
+      },
+      {
+        "key": "workload",
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "key": "mysql",
+        "inputs": [
+          {
+            "name": "image",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "database",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "auth_secret_name",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "root_password_key",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "user_password_key",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "storage",
+            "type": "string",
+            "required": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "host",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "port",
+            "type": "number",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "database",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "claimName",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "namespace",
+            "type": "string",
+            "required": true,
+            "secret": false
+          }
+        ]
+      }
+    ],
+    "secretStore": {
+      "name": "Bootstrap dev Vault",
+      "backendAddress": "http://k8s-4f-workload-vault:8200",
+      "workloadAddress": "http://k8s-4f-workload-vault:8200",
+      "mount": "kv",
+      "authMount": "kubernetes",
+      "tokenFile": "~/.orch/bootstrap/dev/vault-token"
+    },
+    "delivery": {
+      "name": "bootstrap-dev",
+      "provider": "fleet",
+      "usePlatformGit": true,
+      "setDefault": true,
+      "config": {},
+      "namespaceAccess": {
+        "enabled": true,
+        "rulesFile": "../applications/acceptance/fleet-access.json"
+      }
+    },
+    "definitions": [
+      {
+        "file": "../definitions/kind/cluster.json"
+      },
+      {
+        "file": "../definitions/kind/k8s-namespace.json",
+        "source": {
+          "kind": "installed",
+          "pin": {
+            "sourceId": "platform",
+            "moduleId": "k8s-namespace",
+            "revision": "v4-2026.10.15",
+            "subdirectory": "k8s-namespace",
+            "contentSha256": "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"
+          }
+        }
+      },
+      {
+        "file": "../definitions/kind/postgres.json",
+        "source": {
+          "kind": "installed",
+          "pin": {
+            "sourceId": "platform",
+            "moduleId": "postgres-k8s",
+            "revision": "v4-2026.10.15",
+            "subdirectory": "postgres-k8s",
+            "contentSha256": "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"
+          }
+        }
+      },
+      {
+        "file": "../definitions/kind/redis.json",
+        "source": {
+          "kind": "installed",
+          "pin": {
+            "sourceId": "platform",
+            "moduleId": "redis-k8s",
+            "revision": "v4-2026.10.15",
+            "subdirectory": "redis-k8s",
+            "contentSha256": "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"
+          }
+        }
+      },
+      {
+        "file": "../definitions/kind/workload.json"
+      }
+    ],
+    "templateSources": [
+      {
+        "name": "acceptance",
+        "kind": "git",
+        "url": "https://github.com/pr3s3nt/poc.git",
+        "path": "backend/template-sources/standard",
+        "ref": "48035f75af4b3fe7ce1fafd9ebaf41f8b4356d10",
+        "pin": {
+          "revision": "48035f75af4b3fe7ce1fafd9ebaf41f8b4356d10",
+          "contentSha256": "fa4df6f2e54046fe85cefe58c30782663b899cee63ec480047df636be1f55c18"
+        }
+      }
+    ]
+  },
+  "application": {
+    "name": "acceptance-direct-dev",
+    "subdomain": "acceptance-direct-dev",
+    "environment": "staging",
+    "definitionRevisions": {},
+    "workloadClass": "bootstrap-dev",
+    "variables": {
+      "ACCEPTANCE_CACHE_APP": "${applicationKey}",
+      "ACCEPTANCE_CACHE_ENV": "${environment}",
+      "ACCEPTANCE_CACHE_RUN": "bootstrap-dev",
+      "ACCEPTANCE_CACHE_TTL_SECONDS": "30",
+      "ACCEPTANCE_CONFIG": "acceptance-config-ok",
+      "POLL_INTERVAL_MS": "500",
+      "PORT": "8080"
+    },
+    "secretFiles": {
+      "ACCEPTANCE_SECRET": "~/.orch/bootstrap/dev/acceptance-secret"
+    },
+    "images": {
+      "backend": "acceptance-backend:reconciliation-20261029",
+      "worker": "acceptance-worker:reconciliation-20261029",
+      "frontend": "acceptance-frontend:reconciliation-20261029"
+    },
+    "workloads": {
+      "backend": "../../../e2e/scenarios/acceptance-app/scores/backend.yaml",
+      "worker": "../../../e2e/scenarios/acceptance-app/scores/worker.yaml",
+      "frontend": "../../../e2e/scenarios/acceptance-app/scores/frontend.yaml"
+    }
+  },
+  "verification": {
+    "enabled": true,
+    "url": "http://your-host.your-tailnet.ts.net:3041",
+    "jobPayload": "bootstrap-dev-persistent-job",
+    "timeoutMs": 300000,
+    "forward": {
+      "bindAddress": "127.0.0.1",
+      "port": 3041
+    }
+  },
+  "runtime": {
+    "mode": "all",
+    "headless": true,
+    "timeoutMs": 1500000,
+    "stateDir": "~/.local/state/orch-bootstrap/direct-dev/state",
+    "reportDir": "~/.local/state/orch-bootstrap/direct-dev/reports",
+    "clusterKubeconfigFile": "~/.orch/bootstrap/dev/cluster-kubeconfig",
+    "recoverCompletedDeploy": false
+  }
+}

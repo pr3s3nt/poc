@@ -17,6 +17,8 @@ phải theo [operations index](../operations/README.md).
 
 ## Navigation
 
+- [Direct Definition bootstrap — issue #33](direct-bootstrap.md).
+
 - [Basic application observability — implemented and accepted on real Kubernetes](native-observability.md)
 
 - [Account diagnostics implementation and real acceptance](account-diagnostics.md) — authorized 2026-10-25; delivery tracked separately from design.

@@ -1,3 +1,4 @@
+import { ensureTemplateSources, ensureDirectDefinitions } from './direct-platform.mjs';
 import { readFileSync } from 'node:fs';
 import { readPrivateFile } from './console.mjs';
 import { assertSameResourceType } from './catalog-config.mjs';
@@ -52,6 +53,10 @@ export async function ensureSecretStore(ui,want,rt) {
  const saved=stores.find(v=>v.name===want.name);requireConfig(saved,'Secret Store save unconfirmed');assertStore(saved,want);
  rt.record('secret-store','CREATED',{key:saved.key});return saved;
 }
+export function assertDelivery(binding,details,want,account) {
+ conflict(binding.provider===want.provider && details.managementAccountKey===account.key && details.managementAccountVersion===account.version && Boolean(details.usePlatformGit)===want.usePlatformGit,'CD binding');
+ conflict(Object.entries(want.config).every(([k,v])=>details.config[k]===v),'CD provider config');
+}
 export async function ensureDelivery(ui,want,account,rt) {
  const providers=(await ui.get('/delivery-providers')).providers;
  const provider=providers.find(v=>v.kind===want.provider);requireConfig(provider,'CD provider unavailable');
@@ -63,8 +68,7 @@ export async function ensureDelivery(ui,want,account,rt) {
  const {page}=ui;
  if(binding) {
   const details=await ui.get(`/delivery-bindings/${binding.id}?version=${binding.version}`);
-  conflict(binding.provider===want.provider && details.managementAccountKey===account.key && details.managementAccountVersion===account.version && Boolean(details.usePlatformGit)===want.usePlatformGit,'CD binding');
-  conflict(Object.entries(want.config).every(([k,v])=>details.config[k]===v),'CD provider config');
+  assertDelivery(binding,details,want,account);
  } else {
   await page.goto(ui.baseURL+'/ui/platform/cd-providers');
   const inspected=ui.responseFor(`/delivery-providers/${want.provider}/inspect`,'POST');
@@ -120,8 +124,13 @@ export async function bootstrapPlatform(ui,config,rt) {
  const beforeAccounts=(await ui.get('/driver-accounts')).accounts;
  const account=await ensureInfrastructureAccount({...ui,account:p.account,kubeconfigFile:p.account.kubeconfigFile});rt.record('infrastructure-account',beforeAccounts.some(v=>v.key===account.key)?'REUSED':'CREATED',{key:account.key});
  await ensureTypes(ui,p.resourceTypes,rt);
+ if(config.schemaVersion===3) {
+  const sources=await ensureTemplateSources(ui,config,rt);
+  await ensureDirectDefinitions(ui,config,account,sources,rt);
+ } else {
  const beforeSources=(await ui.get('/platform/catalog/sources')).sources;
  await ensureCatalog({...ui,source:p.catalog,requiredTags:[config.application.catalogTag,...(config.upgrade.enabled?[config.upgrade.catalogTag]:[])]});rt.record('catalog',beforeSources.some(v=>v.id===p.catalog.id)?'REUSED':'CREATED');
+ }
  const store=await ensureSecretStore(ui,p.secretStore,rt);
  const binding=await ensureDelivery(ui,p.delivery,account,rt);
  return {account,store,binding};

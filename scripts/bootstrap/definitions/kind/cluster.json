@@ -1,0 +1,19 @@
+{
+  "key": "direct-dev-cluster",
+  "name": "Direct dev cluster",
+  "resourceType": "k8s-cluster",
+  "driverType": "existing-cluster",
+  "driverInputs": {
+    "values": {
+      "variables": {}
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "staging",
+      "class": "bootstrap-dev"
+    }
+  ],
+  "driverAccount": "${account.key}"
+}
