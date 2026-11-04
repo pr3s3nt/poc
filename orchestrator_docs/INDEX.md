@@ -209,3 +209,6 @@ Controlled Definition upgrades: [specification](usecase/UC-03/definition-version
 
 Git-only issue #33 follow-up: [real Git inputs/PVC/idempotency acceptance and
 final-success video](verification/2026-11-04-git-bootstrap-pvc.md).
+
+Company staging and GitHub Enterprise: [bootstrap setup kit](../scripts/bootstrap/enterprise/README.md)
+and [internal-AI handoff](../scripts/bootstrap/enterprise/AI_HANDOFF.md).

@@ -348,3 +348,26 @@ func TestGitConnectionSuppliesWriterAndOwner(t *testing.T) {
 		t.Fatal("unknown git connection accepted")
 	}
 }
+
+func TestSharedEnterpriseGitDerivesScopedHostAndAPI(t *testing.T) {
+	c, _, ctx, req, _ := coordinatorFixture(t)
+	st := c.Store.(bindingStore)
+	creds := ownerTestCredentials{credentialmemory.New()}
+	git := gitaccess.New(st, creds)
+	if _, err := git.Save(ctx, req.OrganizationKey, "actor", gitaccess.Draft{URL: "https://github.company.example/platform", Username: "writer", Token: "private-test-token", Authenticated: true}); err != nil {
+		t.Fatal(err)
+	}
+	account, err := st.GetConnection(ctx, req.OrganizationKey, "delivery-manager")
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := NewBindings(st, c.Registry)
+	svc.SetCredentials(creds)
+	b, err := svc.Register(ctx, req.OrganizationKey, RegisterBinding{Name: "Enterprise", ProviderKind: "fleet", ManagementAccountKey: account.Key, ManagementAccountVersion: account.Version, UsePlatformGit: true, Config: map[string]string{"repositoryHost": "https://github.com", "repositoryAPI": "https://api.github.com"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.Config["repositoryHost"] != "https://github.company.example" || b.Config["repositoryAPI"] != "https://github.company.example/api/v3" || b.Config["repositoryOwner"] != "platform" {
+		t.Fatal("enterprise identity was not inherited")
+	}
+}

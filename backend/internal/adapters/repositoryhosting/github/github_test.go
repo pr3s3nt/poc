@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -110,5 +111,39 @@ func TestReadyRepositoryIsNeverRecreated(t *testing.T) {
 	in := domain.ApplicationRepository{ID: "allocation", ApplicationID: "app", OrganizationID: "org", BindingID: "binding", BindingVersion: 1, Name: "orch-app", Marker: "marker", Status: "READY", RemoteID: "123", CloneURL: "https://github.com/platform/orch-app.git", Branch: "trunk", Revision: 2, CreatedAt: time.Now()}
 	if _, err := h.Ensure(context.Background(), in); !errors.Is(err, ErrIdentity) || posts != 0 {
 		t.Fatal("recreated missing ready repo", err)
+	}
+}
+
+func TestEnterpriseAPIUsesDeclaredCAAndBasePath(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer enterprise-test-token" {
+			w.WriteHeader(401)
+			return
+		}
+		switch r.URL.Path {
+		case "/api/v3/user":
+			json.NewEncoder(w).Encode(map[string]string{"login": "platform"})
+		case "/api/v3/users/platform":
+			json.NewEncoder(w).Encode(map[string]string{"login": "platform", "type": "User"})
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer server.Close()
+	untrusted, _ := repositoryHTTPClient(nil, "")
+	if _, err := untrusted.Get(server.URL + "/api/v3/user"); err == nil {
+		t.Fatal("untrusted server accepted")
+	}
+	ca := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}))
+	client, err := repositoryHTTPClient(nil, ca)
+	if err != nil {
+		t.Fatal(err)
+	}
+	host := &Host{policy: domain.RepositoryPolicy{APIBase: server.URL + "/api/v3", Owner: "platform"}, token: "enterprise-test-token", client: client}
+	if err := host.Verify(context.Background()); err != nil {
+		t.Fatal("enterprise API/CA failed", err)
+	}
+	if _, err := repositoryHTTPClient(nil, "invalid CA"); err == nil {
+		t.Fatal("invalid CA accepted")
 	}
 }

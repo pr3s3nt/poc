@@ -1,3 +1,4 @@
+import { expandParameters, validateParameters } from './input-parameters.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { homedir } from 'node:os';
@@ -17,7 +18,9 @@ export function onlyKeys(value, keys, label) { requireConfig(obj(value) && Objec
 export function loadBootstrapConfig(file) {
  const absolute = resolve(file), root = dirname(absolute);
  let raw; try { raw = JSON.parse(readFileSync(absolute, 'utf8')); } catch { throw new BootstrapError('Cannot read JSON config'); }
- onlyKeys(raw, ['schemaVersion','environment','console','developer','platform','application','upgrade','verification','runtime','gitOnly'], 'config');
+ onlyKeys(raw, ['schemaVersion','environment','console','developer','platform','application','upgrade','verification','runtime','gitOnly','parameters'], 'config');
+ const parameters=validateParameters(raw.parameters??{});
+ raw=expandParameters(raw,parameters);
  const direct = raw.schemaVersion === 3;
  requireConfig(raw.gitOnly===undefined||direct&&typeof raw.gitOnly==='boolean','gitOnly requires schemaVersion 3 and boolean');
  requireConfig((direct || raw.schemaVersion === 2) && (direct ? /^[a-z][a-z0-9-]{0,62}$/.test(raw.environment ?? '') : ['dev','staging','production'].includes(raw.environment)), 'schemaVersion must be 2 or 3; explicit environment identity required');
@@ -56,7 +59,7 @@ export function loadBootstrapConfig(file) {
  if (p.gitAccess?.caPemFile) p.gitAccess.caPemFile = path(p.gitAccess.caPemFile);
  p.gitAccess = parseGitAccess(p);
  if (p.gitAccess) readPrivateFile(p.gitAccess.tokenFile, 'Git token');
- if (direct) { requireConfig(p.catalog === undefined, 'schemaVersion 3 does not select a Catalog'); parseDirectPlatform(p, path, businessFile,raw.gitOnly===true); }
+ if (direct) { requireConfig(p.catalog === undefined, 'schemaVersion 3 does not select a Catalog'); parseDirectPlatform(p, path, businessFile,raw.gitOnly===true,value=>expandParameters(value,parameters)); }
  else p.catalog = parseCatalogConfig(p);
  onlyKeys(p.secretStore,['name','backendAddress','workloadAddress','mount','authMount','tokenFile','tlsCaPemFile'],'secretStore');
  for (const k of ['name','mount','authMount']) requireConfig(text(p.secretStore[k]), `secretStore.${k} required`);
@@ -84,7 +87,7 @@ export function loadBootstrapConfig(file) {
  requireConfig(obj(app.variables) && Object.values(app.variables).every(v=>typeof v==='string') && obj(app.secretFiles),'variables/secretFiles required');
  for (const [k,v] of Object.entries(app.secretFiles)) { app.secretFiles[k]=path(v); readPrivateFile(app.secretFiles[k],'application secret'); }
  requireConfig(obj(app.scores) && ['backend','worker','frontend'].every(k=>text(app.scores[k])||direct&&obj(app.scores[k])), 'Three acceptance Workload paths required');
- for (const [k,v] of Object.entries(app.scores)) { app.scores[k]=direct?businessFile(v):path(v); let workload; try { workload=parseYaml(readFileSync(app.scores[k],'utf8').replace(/@@(\w+)_IMAGE@@/g,(_,w)=>app.images?.[w.toLowerCase()]??'invalid:pin')); } catch { throw new BootstrapError(`Invalid Workload: ${k}`); } requireConfig(workload?.metadata?.name===k,`Workload identity differs: ${k}`); }
+ for (const [k,v] of Object.entries(app.scores)) { app.scores[k]=direct?businessFile(v):path(v); let workload; try { workload=expandParameters(parseYaml(readFileSync(app.scores[k],'utf8').replace(/@@(\w+)_IMAGE@@/g,(_,w)=>app.images?.[w.toLowerCase()]??'invalid:pin')),parameters); } catch { throw new BootstrapError(`Invalid Workload: ${k}`); } requireConfig(workload?.metadata?.name===k,`Workload identity differs: ${k}`); }
  const version = (v,label) => { requireConfig(obj(v.images) && ['backend','worker','frontend'].every(k=>text(v.images[k]) && /(?::[A-Za-z0-9_][A-Za-z0-9._-]*|@sha256:[a-f0-9]{64})$/.test(v.images[k]) && !v.images[k].endsWith(':latest')), `${label}: explicit images required`); if (!direct) requireConfig(/^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(v.catalogTag??''), `${label}: explicit SemVer Catalog tag required`); requireConfig(obj(v.definitionRevisions??{}) && Object.values(v.definitionRevisions??{}).every(text),`${label}: definition revisions invalid`); };
  version(app,'application');
  if (!direct) {

@@ -1,0 +1,42 @@
+{
+  "key": "${bootstrap.definitionPrefix}-storage",
+  "name": "${bootstrap.definitionName} backend storage",
+  "resourceType": "persistent-storage",
+  "driverType": "terraform",
+  "driverInputs": {
+    "values": {
+      "source": {
+        "source_id": "${bootstrap.moduleSourceId}",
+        "module_id": "${bootstrap.storageModuleId}",
+        "revision": "${bootstrap.modulesCommit}",
+        "subdirectory": "${bootstrap.storageModulePath}",
+        "content_sha256": "${bootstrap.storageModuleSHA256}"
+      },
+      "variables": {
+        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+        "storage": "1Gi"
+      },
+      "input_mapping": {
+        "storage": {
+          "param": "storage"
+        }
+      },
+      "output_mapping": {
+        "claimName": "claimName",
+        "namespace": "namespace"
+      },
+      "provider_bindings": {
+        "kubernetes": {
+          "target": "resource",
+          "resource_ref": "k8s-cluster.${bootstrap.targetClass}#environments.@app.@env"
+        }
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "${bootstrap.environmentType}"
+    }
+  ]
+}

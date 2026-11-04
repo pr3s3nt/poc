@@ -60,3 +60,26 @@ Git-only/PVC follow-up implemented and accepted on kind; see
 The original unknown publication remains held; final acceptance uses a separate
 Application and preserves the failed run's resources. Recording is opt-in and
 publishes only the complete successful scenario's latest video.
+
+## Enterprise staging portability — approved 2026-11-04
+
+Target GitHub Enterprise via environment inputs, without company-specific code
+edits. Keep business documents Git-owned and verify their raw bytes before
+expanding explicit nonsecret `${bootstrap.NAME}` parameters. Missing parameters
+fail before product mutations; existing `${context...}`/`${resources...}` and
+`${templateSources...}` keep their product meaning. Scalar substitution occurs
+in parsed JSON/YAML values, never by injecting unescaped serialized text.
+
+Portable documents and a staging preset separate host/account/Vault/registry/
+access/identity data from reusable operations. A read-only lock helper reads exact
+commits from trusted local HTTPS-origin checkouts, computes file/tree digests and
+source identities, and writes a private locked input; it never fetches/pushes or
+changes a cluster. Custom module contract changes still require verified Console
+inspection; the helper does not confer release/executor trust.
+
+ADR-033 already permits HTTPS Enterprise API/clone roots. Correct the platform
+Git binding path to inherit its actual host, `/api/v3` API and CA; GitHub.com keeps
+its public API. Repository-hosting HTTPS trusts the declared CA and never disables
+TLS or forwards credentials through redirects. No staging mutation is authorized
+by a preset. The internal-AI handoff must list prerequisites, inputs, permissions,
+checks, resume/conflict behavior, retention and known limits.

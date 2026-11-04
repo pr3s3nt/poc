@@ -1,0 +1,36 @@
+{
+  "key": "${bootstrap.definitionPrefix}-k8s-namespace",
+  "name": "${bootstrap.definitionName} k8s-namespace",
+  "resourceType": "k8s-namespace",
+  "driverType": "terraform",
+  "driverInputs": {
+    "values": {
+      "variables": {
+        "name": "${context.env.namespace}"
+      },
+      "source": {
+        "source_id": "${bootstrap.moduleSourceId}",
+        "module_id": "${bootstrap.namespaceModuleId}",
+        "revision": "${bootstrap.modulesCommit}",
+        "subdirectory": "${bootstrap.namespaceModulePath}",
+        "content_sha256": "${bootstrap.namespaceModuleSHA256}"
+      },
+      "input_mapping": {},
+      "output_mapping": {
+        "name": "name"
+      },
+      "provider_bindings": {
+        "kubernetes": {
+          "target": "resource",
+          "resource_ref": "k8s-cluster.${bootstrap.targetClass}#environments.@app.@env"
+        }
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "${bootstrap.environmentType}"
+    }
+  ]
+}

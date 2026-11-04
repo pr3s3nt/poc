@@ -123,3 +123,13 @@ test('known registration rejection clears only its own intent',async()=>{
  await assert.rejects(()=>submitRegistration(ui,rt,'definition:test','/resource-definitions',{}),/rejected/);
  assert.equal(rt.state.pendingRegistrations['definition:test'],undefined);assert.ok(rt.state.pendingRegistrations.other);
 });
+
+test('environment and Git-owned Definition values expand explicitly without replacing product placeholders',()=>{
+ const f=fixture();try{
+  f.raw.parameters={env:'company-staging',prefix:'corporate'};f.raw.environment='${bootstrap.env}';
+  const first=f.raw.platform.definitions[0];const definition=JSON.parse(readFileSync(first.file,'utf8'));
+  definition.key='${bootstrap.prefix}-cluster';const file=join(f.dir,'definition.json');writeFileSync(file,JSON.stringify(definition));first.file=file;
+  const c=f.load();assert.equal(c.environment,'company-staging');assert.equal(c.platform.definitions[0].definition.key,'corporate-cluster');
+  delete f.raw.parameters.prefix;assert.throws(f.load,/Missing bootstrap parameter/);
+ }finally{f.close();}
+});

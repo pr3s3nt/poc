@@ -1,0 +1,48 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync,mkdirSync,readFileSync,writeFileSync,rmSync} from 'node:fs';
+import {join,dirname} from 'node:path';
+import {tmpdir} from 'node:os';
+import {execFileSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
+import {lockEnterpriseInput} from './enterprise-lock.mjs';
+import {expandParameters} from './input-parameters.mjs';
+import {loadBootstrapConfig} from './bootstrap-config.mjs';
+const sha=x=>createHash('sha256').update(x).digest('hex');
+test('enterprise locking reads exact local commits, derives pins, stays idempotent and rejects wrong origins',()=>{
+ const root=mkdtempSync(join(tmpdir(),'enterprise-lock-'));
+ const raw=JSON.parse(readFileSync(new URL('../enterprise/staging.input.json',import.meta.url)));
+ const git=args=>execFileSync('git',['-C',root,...args],{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+ try{
+  const copy=(name,content)=>{mkdirSync(dirname(join(root,name)),{recursive:true});writeFileSync(join(root,name),content);};
+  const visit=value=>{if(!value||typeof value!=='object')return;if(value.git){const name=value.git.path;copy(name,readFileSync(new URL('../'+name.replace('scripts/bootstrap/',''),import.meta.url)));}for(const v of Object.values(value))visit(v);};visit(raw);
+  for(const kind of ['namespace','postgres','redis','storage'])copy(raw.parameters[kind+'ModulePath']+'/main.tf',`variable "namespace" {type=string}\n# ${kind}\n`);
+  copy(raw.platform.templateSources[0].path+'/bundle.yaml','kind: TemplateSource\n');
+  git(['init','--quiet']);git(['config','user.email','test@localhost']);git(['config','user.name','Bootstrap Test']);git(['remote','add','origin',raw.parameters.inputsRepository]);git(['add','.']);git(['commit','--quiet','-m','Fixture sources']);
+  const commit=git(['rev-parse','HEAD']);for(const k of ['inputsCommit','modulesCommit','templatesCommit'])raw.parameters[k]=commit;
+  const checkouts={inputs:root,modules:root,templates:root};const locked=lockEnterpriseInput(raw,checkouts);
+  assert.deepEqual(lockEnterpriseInput(raw,checkouts),locked);
+  assert.equal(locked.parameters.moduleSourceId,('git-'+sha(raw.parameters.modulesRepository)).slice(0,60));
+  assert.equal(locked.platform.resourceTypes.git.sha256,sha(readFileSync(join(root,raw.platform.resourceTypes.git.path))));
+  assert.equal(locked.parameters.namespaceModuleId,('module-'+sha('k8s-namespace\0'+raw.parameters.namespaceModulePath)).slice(0,40));
+  assert.match(locked.parameters.templateTreeSHA256,/^[a-f0-9]{64}$/);
+  const resolved=expandParameters(locked,locked.parameters);assert.equal(resolved.platform.definitions[1].source.pin.sourceId,locked.parameters.moduleSourceId);
+  const privateDir=join(root,'private');mkdirSync(privateDir);
+  const credential=join(privateDir,'credential');writeFileSync(credential,'private-test-value',{mode:0o600});
+  delete locked.platform.gitAccess.caPemFile;delete locked.platform.secretStore.tlsCaPemFile;
+  locked.console.passwordFile=locked.developer.passwordFile=locked.platform.gitAccess.tokenFile=locked.platform.account.kubeconfigFile=locked.platform.secretStore.tokenFile=locked.runtime.clusterKubeconfigFile=locked.application.secretFiles.ACCEPTANCE_SECRET=credential;
+  locked.runtime.stateDir=join(privateDir,'state');locked.runtime.reportDir=join(privateDir,'reports');locked.runtime.gitCacheDir=join(privateDir,'git-cache');mkdirSync(locked.runtime.gitCacheDir);
+  const cached=join(locked.runtime.gitCacheDir,sha(raw.parameters.inputsRepository+'\0'+commit));git(['clone','--bare',root,cached]);
+  locked.runtime.mode='all';
+  const configFile=join(privateDir,'locked.json');writeFileSync(configFile,JSON.stringify(locked));
+  const config=loadBootstrapConfig(configFile);
+  assert.equal(config.gitInputReceipts.length,11);assert.equal(config.platform.definitions.length,6);
+  assert.equal(config.platform.definitions[0].definition.key,'company-staging-cluster');
+  assert.equal(config.platform.definitions[1].definition.driverInputs.values.source.source_id,locked.parameters.moduleSourceId);
+  assert.equal(config.platform.definitions[2].source.url,raw.parameters.modulesRepository);
+  assert.equal(config.application.workloadClass,'company-staging');
+  assert.ok(config.gitInputReceipts.every(r=>r.url.startsWith('https://github.company.example/')));
+  git(['remote','set-url','origin','https://github.company.example/other/repo.git']);assert.throws(()=>lockEnterpriseInput(raw,checkouts),/origin/);
+  assert.throws(()=>lockEnterpriseInput({...raw,parameters:{...raw.parameters,inputsCommit:'main'}},checkouts),/full commits/);
+ }finally{rmSync(root,{recursive:true,force:true});}
+});

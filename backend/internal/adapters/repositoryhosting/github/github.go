@@ -4,6 +4,8 @@ package github
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -37,10 +39,11 @@ func (f *Factory) Open(ctx context.Context, b domain.BindingVersion, p domain.Re
 		return nil, ErrUnavailable
 	}
 	var raw []byte
+	caPEM := b.Config["caBundle"]
 	if b.WriterCredentialRef == gitaccess.PlatformWriterReference {
 		settings, _ := f.Organizations.(persistence.GitSettingsRepository)
 		destination := strings.TrimRight(b.Config["repositoryHost"], "/") + "/" + b.Config["repositoryOwner"]
-		raw, _, err = gitaccess.Writer(ctx, settings, f.Credentials, org.Key, destination)
+		raw, caPEM, err = gitaccess.Writer(ctx, settings, f.Credentials, org.Key, destination)
 	} else if strings.HasPrefix(b.WriterCredentialRef, gitaccess.ConnectionWriterPrefix) {
 		conns, ok := f.Organizations.(gitaccess.ConnectionReader)
 		if !ok {
@@ -57,12 +60,59 @@ func (f *Factory) Open(ctx context.Context, b domain.BindingVersion, p domain.Re
 	if json.Unmarshal(raw, &secret) != nil || secret.Password == "" || strings.ContainsAny(secret.Password, "\x00\r\n") {
 		return nil, ErrUnavailable
 	}
+
+	client, err := repositoryHTTPClient(f.Client, caPEM)
+	if err != nil {
+		return nil, err
+	}
+	return &Host{policy: p, token: secret.Password, client: client}, nil
+
+}
+
+// Trust the declared enterprise CA without disabling certificate verification or
+// forwarding credentials on redirects. Clone transports so callers stay unchanged.
+func repositoryHTTPClient(base *http.Client, caPEM string) (*http.Client, error) {
 	client := http.Client{Timeout: 20 * time.Second}
-	if f.Client != nil {
-		client = *f.Client
+	if base != nil {
+		client = *base
+	}
+	if caPEM != "" {
+		transport := client.Transport
+		if transport == nil {
+			transport = http.DefaultTransport
+		}
+		original, ok := transport.(*http.Transport)
+		if !ok {
+			return nil, ErrUnavailable
+		}
+		cloned := original.Clone()
+		roots, err := x509.SystemCertPool()
+		if err != nil || roots == nil {
+			roots = x509.NewCertPool()
+		}
+		if cloned.TLSClientConfig != nil && cloned.TLSClientConfig.RootCAs != nil {
+			roots = cloned.TLSClientConfig.RootCAs.Clone()
+		}
+		if !roots.AppendCertsFromPEM([]byte(caPEM)) {
+			return nil, ErrUnavailable
+		}
+		tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+		if cloned.TLSClientConfig != nil {
+			tlsConfig = cloned.TLSClientConfig.Clone()
+		}
+		tlsConfig.RootCAs = roots
+		tlsConfig.InsecureSkipVerify = false
+		if tlsConfig.MinVersion < tls.VersionTLS12 {
+			tlsConfig.MinVersion = tls.VersionTLS12
+		}
+		cloned.TLSClientConfig = tlsConfig
+		client.Transport = cloned
+	}
+	if client.Timeout <= 0 {
+		client.Timeout = 20 * time.Second
 	}
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	return &Host{policy: p, token: secret.Password, client: &client}, nil
+	return &client, nil
 }
 
 type Host struct {

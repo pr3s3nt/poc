@@ -1,3 +1,4 @@
+import { expandParameters } from './input-parameters.mjs';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse, stringify } from 'yaml';
@@ -6,7 +7,7 @@ import { envBase } from './environment.mjs';
 export function desiredScores(config,version) {
  return Object.fromEntries(['backend','worker','frontend'].map(name=>{
   const raw=readFileSync(config.application.scores[name],'utf8').replace(/@@(\w+)_IMAGE@@/g,(_,w)=>version.images[w.toLowerCase()]);
-  const workload=parse(raw);if(config.application.workloadClass)workload.metadata.class=config.application.workloadClass;
+  const workload=expandParameters(parse(raw),config.parameters);if(config.application.workloadClass)workload.metadata.class=config.application.workloadClass;
   return [name,workload];
  }));
 }

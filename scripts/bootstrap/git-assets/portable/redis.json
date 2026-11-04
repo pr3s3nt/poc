@@ -1,0 +1,41 @@
+{
+  "key": "${bootstrap.definitionPrefix}-redis",
+  "name": "${bootstrap.definitionName} redis",
+  "resourceType": "redis",
+  "driverType": "terraform",
+  "driverInputs": {
+    "values": {
+      "variables": {
+        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+      },
+      "source": {
+        "source_id": "${bootstrap.moduleSourceId}",
+        "module_id": "${bootstrap.redisModuleId}",
+        "revision": "${bootstrap.modulesCommit}",
+        "subdirectory": "${bootstrap.redisModulePath}",
+        "content_sha256": "${bootstrap.redisModuleSHA256}"
+      },
+      "input_mapping": {},
+      "output_mapping": {
+        "host": "host",
+        "password": "password",
+        "port": "port",
+        "tls": "tls",
+        "username": "username"
+      },
+      "provider_bindings": {
+        "kubernetes": {
+          "target": "resource",
+          "resource_ref": "k8s-cluster.${bootstrap.targetClass}#environments.@app.@env"
+        }
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "${bootstrap.environmentType}",
+      "class": "in-cluster"
+    }
+  ]
+}

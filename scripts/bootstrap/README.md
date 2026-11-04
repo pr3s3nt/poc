@@ -252,3 +252,13 @@ state is saved. For one final Git/PVC acceptance video, use the dedicated
 have recording disabled, and only the successful complete scenario publishes
 `videos/backend-pvc-retention.webm`. CLI/Kubernetes operations are not screen
 recordings; the video shows the real app before and after Pod recreation.
+
+## Company staging / GitHub Enterprise
+
+Use the [Enterprise staging setup kit](enterprise/README.md),
+[field-by-field input reference](enterprise/INPUT_REFERENCE.md) and
+[internal-AI handoff](enterprise/AI_HANDOFF.md). The preset is data-only and
+uses Git-owned portable Definitions/Workloads with explicit nonsecret parameters.
+The offline lock helper computes pins from exact local Git commits; platform
+preflight/inspection/deployment remain separate. No company endpoint, credential
+or staging execution is supplied or implied by the example.

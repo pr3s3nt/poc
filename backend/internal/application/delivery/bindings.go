@@ -107,6 +107,18 @@ func (s *Bindings) Register(ctx context.Context, orgKey string, cmd RegisterBind
 			config[k] = v
 		}
 		config["repositoryOwner"] = gitaccess.RepositoryOwner(settings.URL)
+		scope, err := gitaccess.ScopeURL(settings.URL)
+		if err != nil {
+			return domain.BindingVersion{}, domain.ErrInvalid
+		}
+		host := scope.Scheme + "://" + scope.Host
+		config["repositoryHost"] = host
+		config["repositoryAPI"] = host + "/api/v3"
+		if scope.Host == "github.com" {
+			config["repositoryAPI"] = "https://api.github.com"
+		}
+		config["caBundle"] = settings.CAPEM
+
 		cmd.Config = config
 	}
 	if defaults, ok := provider.(port.ConfigurationDefaults); ok {

@@ -16,6 +16,15 @@ labelled Registered sources. 129 relevant tests/typecheck/lint/build and real
 Tailscale browser pass; two historical Score scenario checks reproduce on base.
 [Evidence](verification/2026-11-04-definition-source-provenance.md).
 
+## GitHub Enterprise bootstrap setup kit — 2026-11-04
+
+Staging preset, Git-owned portable documents, nonsecret environment parameters,
+offline exact-commit pin locker and internal-AI setup guide are implemented.
+Platform Git now derives Enterprise host/API/CA; HTTPS API trusts declared CA
+without disabling TLS. 59 bootstrap tests, focused Go tests and build pass.
+No real company GHES/staging run; broad-suite failures remain documented.
+[Verification and limits](verification/2026-11-04-enterprise-bootstrap.md).
+
 ## Direct Definition bootstrap — issue #33, 2026-11-04
 
 SchemaVersion 3 in `scripts/bootstrap/` accepts environment-specific input,

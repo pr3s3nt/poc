@@ -1,0 +1,22 @@
+{
+  "key": "${bootstrap.definitionPrefix}-workload",
+  "name": "${bootstrap.definitionName} workload",
+  "resourceType": "workload",
+  "driverType": "template",
+  "driverInputs": {
+    "values": {
+      "variables": {
+        "template_source": "${templateSources.acceptance}",
+        "template_inputs": {},
+        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "${bootstrap.environmentType}",
+      "class": "${bootstrap.targetClass}"
+    }
+  ]
+}

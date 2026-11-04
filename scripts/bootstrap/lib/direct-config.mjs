@@ -40,7 +40,7 @@ export function parseSource(source, path, template = false) {
  }
  return source;
 }
-export function parseDirectPlatform(platform, path, businessFile=path, gitOnly=false) {
+export function parseDirectPlatform(platform, path, businessFile=path, gitOnly=false, expand=value=>value) {
  requireConfig(Array.isArray(platform.templateSources)&&platform.templateSources.length>0,'templateSources required');
  for(const source of platform.templateSources){requireConfig(!gitOnly||source.kind==='git','gitOnly template sources must use Git');parseSource(source,path,true);}
  requireConfig(new Set(platform.templateSources.map(s=>s.name)).size===platform.templateSources.length,'Duplicate template source name');
@@ -49,7 +49,7 @@ export function parseDirectPlatform(platform, path, businessFile=path, gitOnly=f
   onlyKeys(entry,['file','git','source'],'Definition entry');
   requireConfig(Boolean(entry.file)!==Boolean(entry.git),'Definition requires exactly one file or Git document');
   entry.file=businessFile(entry.git?{git:entry.git}:entry.file);
-  const definition=JSON.parse(readFileSync(entry.file,'utf8'));
+  const definition=expand(JSON.parse(readFileSync(entry.file,'utf8')));
   onlyKeys(definition,['key','name','resourceType','driverType','driverAccount','driverInputs','provision','criteria'],'Definition');
   requireConfig(/^[a-z0-9][a-z0-9-]*$/.test(definition.key??'')&&typeof definition.name==='string'&&definition.name.length>0&&typeof definition.resourceType==='string'&&object(definition.driverInputs?.values)&&Array.isArray(definition.criteria)&&definition.criteria.length>0,'Invalid Definition document');
   requireConfig(['terraform','existing-cluster','template'].includes(definition.driverType),'Unsupported Definition driver');

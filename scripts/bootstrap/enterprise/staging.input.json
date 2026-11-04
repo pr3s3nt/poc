@@ -1,0 +1,279 @@
+{
+  "schemaVersion": 3,
+  "environment": "company-staging",
+  "console": {
+    "url": "https://orchestrator.staging.company.example",
+    "username": "platform-engineer",
+    "passwordFile": "./secrets/platform-password"
+  },
+  "developer": {
+    "username": "acceptance-developer",
+    "passwordFile": "./secrets/developer-password"
+  },
+  "platform": {
+    "gitAccess": {
+      "enabled": true,
+      "url": "https://github.company.example/platform",
+      "username": "bootstrap-bot",
+      "tokenFile": "./secrets/github-token",
+      "repositoryUrl": "${bootstrap.inputsRepository}",
+      "ref": "${bootstrap.inputsCommit}",
+      "caPemFile": "./secrets/company-ca.pem"
+    },
+    "account": {
+      "name": "company-staging",
+      "context": "company-staging",
+      "endpoint": "https://kubernetes.staging.company.example:6443",
+      "kubeconfigFile": "./secrets/cluster-kubeconfig"
+    },
+    "resourceTypes": {
+      "git": {
+        "url": "${bootstrap.inputsRepository}",
+        "ref": "${bootstrap.inputsCommit}",
+        "path": "scripts/bootstrap/git-assets/portable/resource-types.json",
+        "sha256": "LOCK_WITH_HELPER"
+      }
+    },
+    "secretStore": {
+      "name": "Company staging Vault",
+      "backendAddress": "https://vault.staging.company.example:8200",
+      "workloadAddress": "https://vault.staging.company.example:8200",
+      "mount": "kv",
+      "authMount": "kubernetes",
+      "tokenFile": "./secrets/vault-token",
+      "tlsCaPemFile": "./secrets/company-ca.pem"
+    },
+    "delivery": {
+      "name": "company-staging",
+      "provider": "fleet",
+      "usePlatformGit": true,
+      "setDefault": true,
+      "config": {},
+      "namespaceAccess": {
+        "enabled": true,
+        "rulesFile": {
+          "git": {
+            "url": "${bootstrap.inputsRepository}",
+            "ref": "${bootstrap.inputsCommit}",
+            "path": "scripts/bootstrap/git-assets/portable/fleet-access.json",
+            "sha256": "LOCK_WITH_HELPER"
+          }
+        }
+      }
+    },
+    "definitions": [
+      {
+        "git": {
+          "url": "${bootstrap.inputsRepository}",
+          "ref": "${bootstrap.inputsCommit}",
+          "path": "scripts/bootstrap/git-assets/portable/cluster.json",
+          "sha256": "LOCK_WITH_HELPER"
+        }
+      },
+      {
+        "git": {
+          "url": "${bootstrap.inputsRepository}",
+          "ref": "${bootstrap.inputsCommit}",
+          "path": "scripts/bootstrap/git-assets/portable/k8s-namespace.json",
+          "sha256": "LOCK_WITH_HELPER"
+        },
+        "source": {
+          "kind": "git",
+          "url": "${bootstrap.modulesRepository}",
+          "path": "${bootstrap.namespaceModulePath}",
+          "ref": "${bootstrap.modulesCommit}",
+          "pin": {
+            "sourceId": "${bootstrap.moduleSourceId}",
+            "moduleId": "${bootstrap.namespaceModuleId}",
+            "revision": "${bootstrap.modulesCommit}",
+            "subdirectory": "${bootstrap.namespaceModulePath}",
+            "contentSha256": "${bootstrap.namespaceModuleSHA256}"
+          }
+        }
+      },
+      {
+        "git": {
+          "url": "${bootstrap.inputsRepository}",
+          "ref": "${bootstrap.inputsCommit}",
+          "path": "scripts/bootstrap/git-assets/portable/postgres.json",
+          "sha256": "LOCK_WITH_HELPER"
+        },
+        "source": {
+          "kind": "git",
+          "url": "${bootstrap.modulesRepository}",
+          "path": "${bootstrap.postgresModulePath}",
+          "ref": "${bootstrap.modulesCommit}",
+          "pin": {
+            "sourceId": "${bootstrap.moduleSourceId}",
+            "moduleId": "${bootstrap.postgresModuleId}",
+            "revision": "${bootstrap.modulesCommit}",
+            "subdirectory": "${bootstrap.postgresModulePath}",
+            "contentSha256": "${bootstrap.postgresModuleSHA256}"
+          }
+        }
+      },
+      {
+        "git": {
+          "url": "${bootstrap.inputsRepository}",
+          "ref": "${bootstrap.inputsCommit}",
+          "path": "scripts/bootstrap/git-assets/portable/redis.json",
+          "sha256": "LOCK_WITH_HELPER"
+        },
+        "source": {
+          "kind": "git",
+          "url": "${bootstrap.modulesRepository}",
+          "path": "${bootstrap.redisModulePath}",
+          "ref": "${bootstrap.modulesCommit}",
+          "pin": {
+            "sourceId": "${bootstrap.moduleSourceId}",
+            "moduleId": "${bootstrap.redisModuleId}",
+            "revision": "${bootstrap.modulesCommit}",
+            "subdirectory": "${bootstrap.redisModulePath}",
+            "contentSha256": "${bootstrap.redisModuleSHA256}"
+          }
+        }
+      },
+      {
+        "git": {
+          "url": "${bootstrap.inputsRepository}",
+          "ref": "${bootstrap.inputsCommit}",
+          "path": "scripts/bootstrap/git-assets/portable/storage.json",
+          "sha256": "LOCK_WITH_HELPER"
+        },
+        "source": {
+          "kind": "git",
+          "url": "${bootstrap.modulesRepository}",
+          "path": "${bootstrap.storageModulePath}",
+          "ref": "${bootstrap.modulesCommit}",
+          "pin": {
+            "sourceId": "${bootstrap.moduleSourceId}",
+            "moduleId": "${bootstrap.storageModuleId}",
+            "revision": "${bootstrap.modulesCommit}",
+            "subdirectory": "${bootstrap.storageModulePath}",
+            "contentSha256": "${bootstrap.storageModuleSHA256}"
+          }
+        }
+      },
+      {
+        "git": {
+          "url": "${bootstrap.inputsRepository}",
+          "ref": "${bootstrap.inputsCommit}",
+          "path": "scripts/bootstrap/git-assets/portable/workload.json",
+          "sha256": "LOCK_WITH_HELPER"
+        }
+      }
+    ],
+    "templateSources": [
+      {
+        "name": "acceptance",
+        "kind": "git",
+        "url": "${bootstrap.templatesRepository}",
+        "path": "backend/template-sources/standard",
+        "ref": "${bootstrap.templatesCommit}",
+        "pin": {
+          "revision": "${bootstrap.templatesCommit}",
+          "contentSha256": "${bootstrap.templateTreeSHA256}"
+        }
+      }
+    ]
+  },
+  "application": {
+    "name": "bootstrap-acceptance-company-staging",
+    "subdomain": "bootstrap-acceptance-company-staging",
+    "environment": "production",
+    "definitionRevisions": {},
+    "workloadClass": "${bootstrap.targetClass}",
+    "variables": {
+      "ACCEPTANCE_CACHE_APP": "${applicationKey}",
+      "ACCEPTANCE_CACHE_ENV": "${environment}",
+      "ACCEPTANCE_CACHE_RUN": "company-staging",
+      "ACCEPTANCE_CACHE_TTL_SECONDS": "30",
+      "ACCEPTANCE_CONFIG": "acceptance-config-ok",
+      "POLL_INTERVAL_MS": "500",
+      "PORT": "8080"
+    },
+    "secretFiles": {
+      "ACCEPTANCE_SECRET": "./secrets/acceptance-secret"
+    },
+    "images": {
+      "backend": "registry.company.example/platform/acceptance-backend:REPLACE_IMMUTABLE_TAG",
+      "worker": "registry.company.example/platform/acceptance-worker:REPLACE_IMMUTABLE_TAG",
+      "frontend": "registry.company.example/platform/acceptance-frontend:REPLACE_IMMUTABLE_TAG"
+    },
+    "workloads": {
+      "backend": {
+        "git": {
+          "url": "${bootstrap.inputsRepository}",
+          "ref": "${bootstrap.inputsCommit}",
+          "path": "scripts/bootstrap/git-assets/portable/backend.yaml",
+          "sha256": "LOCK_WITH_HELPER"
+        }
+      },
+      "worker": {
+        "git": {
+          "url": "${bootstrap.inputsRepository}",
+          "ref": "${bootstrap.inputsCommit}",
+          "path": "scripts/bootstrap/git-assets/portable/worker.yaml",
+          "sha256": "LOCK_WITH_HELPER"
+        }
+      },
+      "frontend": {
+        "git": {
+          "url": "${bootstrap.inputsRepository}",
+          "ref": "${bootstrap.inputsCommit}",
+          "path": "scripts/bootstrap/git-assets/portable/frontend.yaml",
+          "sha256": "LOCK_WITH_HELPER"
+        }
+      }
+    }
+  },
+  "verification": {
+    "enabled": true,
+    "url": "https://acceptance.staging.company.example",
+    "jobPayload": "company-staging-persistent-job",
+    "timeoutMs": 300000,
+    "storage": {
+      "enabled": true,
+      "value": "company-staging-persistent-file"
+    }
+  },
+  "runtime": {
+    "mode": "check",
+    "headless": true,
+    "timeoutMs": 1500000,
+    "stateDir": "./state",
+    "reportDir": "./reports",
+    "clusterKubeconfigFile": "./secrets/cluster-kubeconfig",
+    "recoverCompletedDeploy": false,
+    "recordVideo": false,
+    "gitCacheDir": "./git-cache"
+  },
+  "gitOnly": true,
+  "parameters": {
+    "definitionPrefix": "company-staging",
+    "definitionName": "Company staging",
+    "targetClass": "company-staging",
+    "environmentType": "staging",
+    "backendStorage": "1Gi",
+    "inputsRepository": "https://github.company.example/platform/orchestrator-platform.git",
+    "modulesRepository": "https://github.company.example/platform/orchestrator-platform.git",
+    "templatesRepository": "https://github.company.example/platform/orchestrator-platform.git",
+    "inputsCommit": "REPLACE_FULL_COMMIT",
+    "modulesCommit": "REPLACE_FULL_COMMIT",
+    "templatesCommit": "REPLACE_FULL_COMMIT",
+    "moduleSourceId": "LOCK_WITH_HELPER",
+    "templateTreeSHA256": "LOCK_WITH_HELPER",
+    "namespaceModulePath": "backend/internal/adapters/terraform/modules/k8s-namespace",
+    "namespaceModuleId": "LOCK_WITH_HELPER",
+    "namespaceModuleSHA256": "LOCK_WITH_HELPER",
+    "postgresModulePath": "backend/internal/adapters/terraform/modules/postgres-k8s",
+    "postgresModuleId": "LOCK_WITH_HELPER",
+    "postgresModuleSHA256": "LOCK_WITH_HELPER",
+    "redisModulePath": "backend/internal/adapters/terraform/modules/redis-k8s",
+    "redisModuleId": "LOCK_WITH_HELPER",
+    "redisModuleSHA256": "LOCK_WITH_HELPER",
+    "storageModulePath": "backend/terraform-modules/persistent-storage",
+    "storageModuleId": "LOCK_WITH_HELPER",
+    "storageModuleSHA256": "LOCK_WITH_HELPER"
+  }
+}

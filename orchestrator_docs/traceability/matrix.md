@@ -1437,3 +1437,9 @@ Issue #33 Git-only/PVC follow-up:
 UC-03 SP-01–03 saved source identity: `SavedSourceSummary.tsx`, Definition and
 Template driver editors; regression tests in `SavedSourceSummary.test.tsx` and
 Catalog/Definition suites. [Browser/check evidence](../verification/2026-11-04-definition-source-provenance.md).
+
+Company staging input portability: `input-parameters.mjs`, `enterprise-lock.mjs`,
+portable Git documents and Enterprise preset; `input-parameters.test.mjs`,
+`enterprise-lock.test.mjs` and direct-bootstrap tests. Enterprise host/API/CA:
+shared-Git binding and repository-host HTTPS tests.
+[Evidence/limits](../verification/2026-11-04-enterprise-bootstrap.md).

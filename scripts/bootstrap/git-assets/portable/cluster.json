@@ -1,0 +1,19 @@
+{
+  "key": "${bootstrap.definitionPrefix}-cluster",
+  "name": "${bootstrap.definitionName} cluster",
+  "resourceType": "k8s-cluster",
+  "driverType": "existing-cluster",
+  "driverInputs": {
+    "values": {
+      "variables": {}
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "${bootstrap.environmentType}",
+      "class": "${bootstrap.targetClass}"
+    }
+  ],
+  "driverAccount": "${account.key}"
+}

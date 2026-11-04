@@ -1,0 +1,50 @@
+{
+  "key": "${bootstrap.definitionPrefix}-postgres",
+  "name": "${bootstrap.definitionName} postgres",
+  "resourceType": "postgres",
+  "driverType": "terraform",
+  "driverInputs": {
+    "values": {
+      "variables": {
+        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+        "database": "acceptance",
+        "username": "app"
+      },
+      "source": {
+        "source_id": "${bootstrap.moduleSourceId}",
+        "module_id": "${bootstrap.postgresModuleId}",
+        "revision": "${bootstrap.modulesCommit}",
+        "subdirectory": "${bootstrap.postgresModulePath}",
+        "content_sha256": "${bootstrap.postgresModuleSHA256}"
+      },
+      "input_mapping": {
+        "database": {
+          "param": "database"
+        },
+        "username": {
+          "param": "username"
+        }
+      },
+      "output_mapping": {
+        "database": "database",
+        "host": "host",
+        "password": "password",
+        "port": "port",
+        "username": "username"
+      },
+      "provider_bindings": {
+        "kubernetes": {
+          "target": "resource",
+          "resource_ref": "k8s-cluster.${bootstrap.targetClass}#environments.@app.@env"
+        }
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "${bootstrap.environmentType}",
+      "class": "in-cluster"
+    }
+  ]
+}
