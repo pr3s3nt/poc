@@ -23,7 +23,7 @@ func goodConfig(t *testing.T) v2run.Config {
 	return v2run.Config{
 		RunID: "a01-0001", Scenario: "A01", Target: v2run.TargetK8s4f, Owner: "codex", EvidenceDir: filepath.Join(t.TempDir(), "evidence"),
 		Execution: v2run.Duration{Duration: 60 * time.Minute}, Cleanup: v2run.Duration{Duration: 120 * time.Minute},
-		Binaries: map[string]v2run.Binary{"terraform": bin("terraform"), "score-k8s": bin("score"), "kubectl": bin("kubectl")},
+		Binaries: map[string]v2run.Binary{"terraform": bin("terraform"), "template": bin("score"), "kubectl": bin("kubectl")},
 		NodeArch: "amd64", Images: map[string]map[string]v2run.Image{"amd64": {"frontend": img("frontend"), "backend": img("backend"), "worker": img("worker")}},
 		SecretStore: &v2run.SecretStoreConfig{Name: "platform-vault", BackendAddress: "http://127.0.0.1:18200", WorkloadAddress: "http://vault.vault.svc:8200", TokenFile: "/priv/secret-store.token", Mount: "kv", AuthMount: "kubernetes"},
 		Kube: &v2run.KubeConfig{Context: v2run.KubeContextK8s4f, Kubeconfig: "/priv/kubeconfig", Namespace: "orch-v2-test-a01-0001",

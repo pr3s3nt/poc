@@ -30,7 +30,7 @@ account slots. No credential is stored in Git or evidence.
 
 The runner registers/refreshes the source through UI, opens read-only release
 components, creates a dedicated app, selects the release, imports a real nginx
-Score and Preview/Deploys through UI. Provide `ORCH_CATALOG_APP` on follow-up runs
+Workload and Preview/Deploys through UI. Provide `ORCH_CATALOG_APP` on follow-up runs
 to select a newer tag for that same owned Application. It verifies saved selection,
 Preview pins, applied release, production isolation and resource IDs. It retains
 screenshots and nonsecret metadata outside Git, including on failure.

@@ -74,7 +74,7 @@ func (t Type) Input(name string) (InputField, bool) {
 	return InputField{}, false
 }
 
-// ValidateParams enforces the Resource Type input contract on Score params
+// ValidateParams enforces the Resource Type input contract on Workload params
 // (UC-06 BR-07).
 func (t Type) ValidateParams(params map[string]any) error {
 	names := make([]string, 0, len(params))

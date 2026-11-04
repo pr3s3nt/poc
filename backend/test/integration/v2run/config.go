@@ -253,7 +253,7 @@ func (c Config) Validate() error {
 	if c.Cleanup.Duration <= 0 || c.Cleanup.Duration > MaxCleanup {
 		add("cleanup budget must be positive and at most %s", MaxCleanup)
 	}
-	for _, name := range []string{"terraform", "score-k8s", "kubectl"} {
+	for _, name := range []string{"terraform", "template", "kubectl"} {
 		b, ok := c.Binaries[name]
 		if !ok || !filepath.IsAbs(b.Path) || len(b.SHA256) != 64 {
 			add("binary %s needs an absolute path and a sha256", name)

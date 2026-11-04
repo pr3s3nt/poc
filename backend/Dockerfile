@@ -20,6 +20,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
+COPY template-sources ./template-sources
 RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/orchestrator ./cmd/orchestrator
 
 # Only image preparation needs Internet. Download every release provider and
@@ -44,9 +45,6 @@ RUN echo "http://dl-cdn.alpinelinux.org/alpine/v3.22/main" > /etc/apk/repositori
  && echo "$(cat /tmp/kubectl.sha256)  /usr/local/bin/kubectl" | sha256sum -c - \
  && chmod 0755 /usr/local/bin/kubectl \
  && rm /tmp/kubectl.sha256
-ARG SCORE_K8S_VERSION=0.15.0
-RUN wget --no-check-certificate -q -O /tmp/score.tgz "https://github.com/score-spec/score-k8s/releases/download/${SCORE_K8S_VERSION}/score-k8s_${SCORE_K8S_VERSION}_linux_${TARGETARCH}.tar.gz" \
- && tar -xzf /tmp/score.tgz -C /usr/local/bin score-k8s && chmod 0755 /usr/local/bin/score-k8s && rm /tmp/score.tgz
 COPY --from=hashicorp/terraform:1.9.8 /bin/terraform /usr/local/bin/terraform
 COPY --from=build /out/orchestrator /usr/local/bin/orchestrator
 COPY --from=provider-mirror /out/provider-mirror /usr/local/share/orchestrator/provider-mirror
@@ -54,10 +52,10 @@ COPY deploy/terraform-offline.tfrc /etc/orchestrator/terraform-offline.tfrc
 COPY deploy/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 ENV HOME=/tmp
 ENV ORCHESTRATOR_TERRAFORM_CLI_CONFIG_FILE=/etc/orchestrator/terraform-offline.tfrc
-# Durable verified Git render bundle content (ADR-021); mount its own volume.
+# Durable verified template source content (ADR-021); mount its own volume.
 ENV ORCHESTRATOR_TERRAFORM_MODULE_CACHE_DIR=/var/lib/orchestrator/module-cache
-ENV ORCHESTRATOR_RENDER_BUNDLE_CACHE_DIR=/var/lib/orchestrator/render-bundle-cache
-RUN mkdir -p /var/lib/orchestrator/delivery-git /var/lib/orchestrator/recovery /var/lib/orchestrator/tfroot /var/lib/orchestrator/plugin-cache /var/lib/orchestrator/module-cache /var/lib/orchestrator/render-bundle-cache && chown -R 65532:65532 /var/lib/orchestrator && chmod -R 0700 /var/lib/orchestrator
+ENV ORCHESTRATOR_TEMPLATE_SOURCE_CACHE_DIR=/var/lib/orchestrator/template-source-cache
+RUN mkdir -p /var/lib/orchestrator/delivery-git /var/lib/orchestrator/recovery /var/lib/orchestrator/tfroot /var/lib/orchestrator/plugin-cache /var/lib/orchestrator/module-cache /var/lib/orchestrator/template-source-cache && chown -R 65532:65532 /var/lib/orchestrator && chmod -R 0700 /var/lib/orchestrator
 USER 65532:65532
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

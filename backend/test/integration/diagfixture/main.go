@@ -139,20 +139,20 @@ func main() {
 	namespaceOutput := "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
 	c.must("POST", "/resource-definitions", map[string]any{"key": "diag-cluster", "name": "Diagnostics cluster", "resourceType": "k8s-cluster", "driverType": "existing-cluster", "driverAccount": *account,
 		"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{}}}, "criteria": []any{map[string]any{"class": "internal", "app_id": key}}})
-	c.must("POST", "/resource-definitions", map[string]any{"key": "diag-workload", "name": "Diagnostics workload", "resourceType": "workload", "driverType": "score-k8s",
-		"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "score-k8s-internal-v1", "namespace": namespaceOutput, "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"}}},
+	c.must("POST", "/resource-definitions", map[string]any{"key": "diag-workload", "name": "Diagnostics workload", "resourceType": "workload", "driverType": "template",
+		"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{"template_source": "template-internal-v1", "namespace": namespaceOutput, "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"}}},
 		"criteria":     []any{map[string]any{}}})
 	c.must("POST", "/resource-definitions", module("diag-namespace", "k8s-namespace", "k8s-namespace", map[string]any{"name": "${context.env.namespace}"}, nil, []string{"name"}, []any{map[string]any{}}))
 	c.must("POST", "/resource-definitions", module("diag-postgres", "postgres", "postgres-k8s",
 		map[string]any{"image": "postgres:17-alpine", "storage": "1Gi", "storage_class": fmt.Sprintf("%q", *class), "namespace": namespaceOutput},
 		[]string{"database", "username"}, []string{"host", "port", "database", "username", "password"}, []any{map[string]any{}}))
 
-	draft := map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "api"},
+	draft := map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": "api"},
 		"containers": map[string]any{"main": map[string]any{"image": "registry.invalid/diag/api:v1"}},
 		"service":    map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}, "publicRoutes": []any{map[string]any{"path": "/", "port": "http"}}},
 		"resources":  map[string]any{"db": map[string]any{"type": "postgres", "class": "default", "params": map[string]any{"database": "app", "username": "app"}}}}
 	c.signIn("developer")
-	c.must("PUT", "/applications/"+key+"/environments/staging/workloads/api", map[string]any{"score": draft, "version": 0})
+	c.must("PUT", "/applications/"+key+"/environments/staging/workloads/api", map[string]any{"workload": draft, "version": 0})
 	out, _ := json.Marshal(map[string]string{"application": key, "environment": "staging", "storageClass": *class})
 	fmt.Println(string(out))
 }

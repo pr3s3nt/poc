@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"orchestrator/internal/adapters/renderbundles"
+	"orchestrator/internal/adapters/templatesources"
 	"orchestrator/internal/adapters/terraform"
 	"orchestrator/internal/adapters/terraform/registry"
 	"orchestrator/internal/adapters/terraform/registry/registrytest"
@@ -88,11 +88,11 @@ func TestUploadedSourcesUseRealInspectorsAndNeverRegisterDefinitions(t *testing.
 	server, ts, st := bundleTestServer(t, nil)
 	modules := registrytest.Open(t, st)
 	server.catalog = catalog.NewService(st, modules)
-	cache, err := renderbundles.OpenCache(filepath.Join(t.TempDir(), "cache"))
+	cache, err := templatesources.OpenCache(filepath.Join(t.TempDir(), "cache"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.catalog.SetRenderRegistry(&renderbundles.Registry{Cache: cache, Store: st, Runtime: uploadRuntime{}})
+	server.catalog.SetRenderRegistry(&templatesources.Registry{Cache: cache, Store: st, Runtime: uploadRuntime{}})
 	pe := bundleClient(t, ts.URL, "platform-engineer")
 	ctx := context.Background()
 	org := seedtest.Defaults().OrganizationKey
@@ -180,7 +180,7 @@ func TestUploadedSourcesUseRealInspectorsAndNeverRegisterDefinitions(t *testing.
 		t.Fatalf("repeat %d %v", againCode, again)
 	}
 	bundleFiles := map[string][]byte{}
-	root := "../../../render-bundles/standard"
+	root := "../../../template-sources/standard"
 	err = filepath.WalkDir(root, func(name string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -194,24 +194,24 @@ func TestUploadedSourcesUseRealInspectorsAndNeverRegisterDefinitions(t *testing.
 		t.Fatal(err)
 	}
 	zip := sourceArchive(t, bundleFiles)
-	endpoint = ts.URL + "/api/v1/render-bundles/upload"
+	endpoint = ts.URL + "/api/v1/template-sources/upload"
 	code, body = multipartUpload(t, pe, endpoint, [][2]string{{"path", "repo/bundles/standard"}}, zip)
 	if code != 200 {
 		t.Fatalf("bundle: %d %v", code, body)
 	}
-	bundle := body["renderBundle"].(map[string]any)
+	bundle := body["templateSource"].(map[string]any)
 	if bundle["source"].(map[string]any)["kind"] != "zip" || bundle["status"] != "AVAILABLE" {
 		t.Fatalf("bundle pin %v", bundle)
 	}
 	id := bundle["id"].(string)
-	if code, _ := call(t, bundleClient(t, ts.URL, "other-admin"), "GET", ts.URL+"/api/v1/render-bundles/"+id, ""); code != 404 {
+	if code, _ := call(t, bundleClient(t, ts.URL, "other-admin"), "GET", ts.URL+"/api/v1/template-sources/"+id, ""); code != 404 {
 		t.Fatalf("foreign access %d", code)
 	}
 	after, err := st.ListResourceDefinitions(ctx, org)
 	if err != nil || len(after) != len(before) {
 		t.Fatalf("upload registered a Definition: %v", err)
 	}
-	for _, endpoint := range []string{"terraform-modules/upload", "render-bundles/upload"} {
+	for _, endpoint := range []string{"terraform-modules/upload", "template-sources/upload"} {
 		url := ts.URL + "/api/v1/" + endpoint
 		for _, client := range []*http.Client{{}, bundleClient(t, ts.URL, "developer")} {
 			code, _ := multipartUpload(t, client, url, nil, []byte("invalid"))
@@ -226,8 +226,8 @@ func TestUploadedSourcesUseRealInspectorsAndNeverRegisterDefinitions(t *testing.
 			}
 		}
 	}
-	code, out := multipartUpload(t, pe, ts.URL+"/api/v1/render-bundles/upload", nil, []byte("secret malformed zip"))
-	if code != 400 || out["code"] != "RENDER_BUNDLE_INVALID" {
+	code, out := multipartUpload(t, pe, ts.URL+"/api/v1/template-sources/upload", nil, []byte("secret malformed zip"))
+	if code != 400 || out["code"] != "TEMPLATE_SOURCE_INVALID" {
 		t.Fatalf("malformed ZIP %d %v", code, out)
 	}
 }

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { dependencyAliasesProblem, emptyDependency } from './DependencyFields';
 
-it('rejects duplicate, invalid and colliding aliases before Score serialization', () => {
+it('rejects duplicate, invalid and colliding aliases before Workload serialization', () => {
   const dependency = { ...emptyDependency(), alias: 'db', type: 'postgres' };
   expect(dependencyAliasesProblem([dependency, { ...dependency }])).toBeDefined();
   expect(dependencyAliasesProblem([{ ...dependency, alias: '' }])).toBeDefined();

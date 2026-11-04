@@ -61,7 +61,7 @@ type PublicRoute struct {
 	Paths                              []PublicPath
 }
 
-// PublicPath is one Score public route; Port is the numeric Service port of
+// PublicPath is one Workload public route; Port is the numeric Service port of
 // PortName (Gateway API backendRefs need a number).
 type PublicPath struct {
 	Path, WorkloadID, PortName string
@@ -204,7 +204,8 @@ type StorageBinding struct {
 }
 
 type RenderRequest struct {
-	Storage map[string]StorageBinding
+	ResourceReferences map[string]any
+	Storage            map[string]StorageBinding
 
 	Selection        resource.RenderingSelection
 	WorkloadID       string

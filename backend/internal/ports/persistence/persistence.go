@@ -365,7 +365,7 @@ type ConfigurationRepository interface {
 // DesiredRename is one atomic UC-12 rename with reference rewrite. Every
 // Expected* field is checked inside the same transaction as the writes.
 // Revision.Version must be ExpectedConfigVersion+1 and Drafts hold only
-// PENDING_UPSERT drafts with a Score. The command never changes the
+// PENDING_UPSERT drafts with a Workload. The command never changes the
 // Environment version, current Deployment Set, applied revisions or pending
 // deletes; it advances the draft version once when Drafts is not empty.
 // Failures are ErrEnvironmentBusy, ErrVersionConflict or ErrNotFound and leave
@@ -380,7 +380,7 @@ type DesiredRename struct {
 	Drafts                         []environment.WorkloadDraft
 }
 
-// WorkloadDraftRepository owns UC-16 pending desired Score documents.
+// WorkloadDraftRepository owns UC-16 pending desired Workload documents.
 type WorkloadDraftRepository interface {
 	ListWorkloadDrafts(ctx context.Context, applicationKey, environmentKey string) ([]environment.WorkloadDraft, error)
 	GetWorkloadDraft(ctx context.Context, applicationKey, environmentKey, workloadID string) (environment.WorkloadDraft, error)

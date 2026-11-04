@@ -22,9 +22,9 @@ func TestDeliveryCleansAppliedTargetsWithoutLegacyEnvironmentBinding(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	scores := seed.AcceptanceScores(opts)
+	scores := seed.AcceptanceWorkloads(opts)
 	for _, id := range []string{"worker", "frontend"} {
-		if _, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: id, ScoreAfter: scores[id], Actor: "test"}); err != nil {
+		if _, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: id, WorkloadAfter: scores[id], Actor: "test"}); err != nil {
 			t.Fatal(err)
 		}
 	}

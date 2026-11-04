@@ -48,76 +48,70 @@
       "sha256": "332ba6966955032b69284b926701afad6864cc0a8df2eb98321f31c3c5561ef3"
     },
     {
-      "source": "backend/render-bundles/standard/README.md",
-      "destination": "backend/render-bundles/standard/README.md",
-      "sha256": "3bd679d4ad6fffff5888a4d2ba04706783cead98c0d8a44fcab85fbd6dcbf12f",
-      "documentationLinkAdjusted": true
+      "source": "backend/template-sources/standard/README.md",
+      "destination": "backend/template-sources/standard/README.md",
+      "sha256": "ffcd54d884b5d43ea50c0e7d9ff10739818a748a0aa720673ee5e3bad605e5d1"
     },
     {
-      "source": "backend/render-bundles/standard/bundle.yaml",
-      "destination": "backend/render-bundles/standard/bundle.yaml",
-      "sha256": "a735dbbcb859bcf8e9b5b90c14c47b31cb5dfaac34486241d1b5a2cb720e5739",
-      "documentationLinkAdjusted": false
+      "source": "backend/template-sources/standard/bundle.yaml",
+      "destination": "backend/template-sources/standard/bundle.yaml",
+      "sha256": "078319f23bd0735e6e1dc671d534d5a57655bcf87a64dfb4a4fa18a84dd77f0c"
     },
     {
-      "source": "backend/render-bundles/standard/defaults.yaml",
-      "destination": "backend/render-bundles/standard/defaults.yaml",
-      "sha256": "f0ef2ce7e90670d74209e6be145087e18a6c880e22cd1af0cf871ffd51f9cddd",
-      "documentationLinkAdjusted": false
+      "source": "backend/template-sources/standard/defaults.yaml",
+      "destination": "backend/template-sources/standard/defaults.yaml",
+      "sha256": "15de13510a5bb9e191cf734aaec601097fde98bf15db56a75841aa7d5a0947b3"
     },
     {
-      "source": "backend/render-bundles/standard/examples/web/expected.yaml",
-      "destination": "backend/render-bundles/standard/examples/web/expected.yaml",
-      "sha256": "211788fac7c5561ff024218a5e05de14d281aa3d91035903cf32376f95db2cae",
-      "documentationLinkAdjusted": false
+      "source": "backend/template-sources/standard/examples/web/expected.yaml",
+      "destination": "backend/template-sources/standard/examples/web/expected.yaml",
+      "sha256": "ebdb901996ff332e8568546874139ce726c7ee2e32845c0674d41cce3c5b4f62"
     },
     {
-      "source": "backend/render-bundles/standard/examples/web/request.json",
-      "destination": "backend/render-bundles/standard/examples/web/request.json",
-      "sha256": "7ae7cc880242e46b13f4a5f6adf31f64bdbdf92777800010bc9aa52af102247e",
-      "documentationLinkAdjusted": false
+      "source": "backend/template-sources/standard/examples/web/request.json",
+      "destination": "backend/template-sources/standard/examples/web/request.json",
+      "sha256": "7ae7cc880242e46b13f4a5f6adf31f64bdbdf92777800010bc9aa52af102247e"
     },
     {
-      "source": "backend/render-bundles/standard/inputs.schema.json",
-      "destination": "backend/render-bundles/standard/inputs.schema.json",
-      "sha256": "fa937cbc67b35680744feac769a4ea898458fdbeecfc4e0aeadf13b736987832",
-      "documentationLinkAdjusted": false
+      "source": "backend/template-sources/standard/inputs.schema.json",
+      "destination": "backend/template-sources/standard/inputs.schema.json",
+      "sha256": "9f3567b4b1f81d10010cfdb24702e1066ffa21f5d99116a7136ace8a7037c0f4"
     },
     {
-      "source": "backend/render-bundles/standard/normalize/score.tpl",
-      "destination": "backend/render-bundles/standard/normalize/score.tpl",
-      "sha256": "ea2e6a86ad16f7b8b4b9c8bcb6036afb78a1894acb4b42f91331ffdd711c3a2e",
-      "documentationLinkAdjusted": false
+      "source": "backend/template-sources/standard/normalize/workload.tpl",
+      "destination": "backend/template-sources/standard/normalize/workload.tpl",
+      "sha256": "1a1be2c8136d3c32c63519cc0af69d4816b0645aa75db474b0abc9ad24d9393d"
     },
     {
-      "source": "backend/render-bundles/standard/patches/deployment.tpl",
-      "destination": "backend/render-bundles/standard/patches/deployment.tpl",
-      "sha256": "c34a6a113748468155c3aed29c13a2fc49721b624f570a146cca2d3c3d9f39a7",
-      "documentationLinkAdjusted": false
+      "source": "backend/template-sources/standard/patches/deployment.tpl",
+      "destination": "backend/template-sources/standard/patches/deployment.tpl",
+      "sha256": "c0c22648ded0ac7e9f35464f037448efa04e845c0a2b58f53f282b609c80e882"
     },
     {
-      "source": "backend/render-bundles/standard/patches/execution.tpl",
-      "destination": "backend/render-bundles/standard/patches/execution.tpl",
-      "sha256": "a3547d7ee9ae002b3b214d6f314fd50ae14890d994d53fca2b2c3f15ae5b45f2",
-      "documentationLinkAdjusted": false
+      "source": "backend/template-sources/standard/patches/execution.tpl",
+      "destination": "backend/template-sources/standard/patches/execution.tpl",
+      "sha256": "a3547d7ee9ae002b3b214d6f314fd50ae14890d994d53fca2b2c3f15ae5b45f2"
     },
     {
-      "source": "backend/render-bundles/standard/patches/service.tpl",
-      "destination": "backend/render-bundles/standard/patches/service.tpl",
-      "sha256": "3f929d26ee64dcbb3ab6abe1476db2b425a07e5cbd191617ecb775668d2020b6",
-      "documentationLinkAdjusted": false
+      "source": "backend/template-sources/standard/patches/service.tpl",
+      "destination": "backend/template-sources/standard/patches/service.tpl",
+      "sha256": "3f929d26ee64dcbb3ab6abe1476db2b425a07e5cbd191617ecb775668d2020b6"
     },
     {
-      "source": "backend/render-bundles/standard/provisioners/bindings.provisioners.yaml",
-      "destination": "backend/render-bundles/standard/provisioners/bindings.provisioners.yaml",
-      "sha256": "db27dddfb8dce537da793607816c7b07673653d069bf9741b9a0992e94c416c4",
-      "documentationLinkAdjusted": false
+      "source": "backend/template-sources/standard/resources/deployment.tpl",
+      "destination": "backend/template-sources/standard/resources/deployment.tpl",
+      "sha256": "f5fc9f19441260b3c1135cd142d72bbae7f3e1f952f0e2aa10646158731c5a2c"
     },
     {
-      "source": "backend/render-bundles/standard/resources/identity.tpl",
-      "destination": "backend/render-bundles/standard/resources/identity.tpl",
-      "sha256": "733f3831cb1287ca4b7e365cdbed01638119311ffcfb96fb7fd8fcb4542f43ec",
-      "documentationLinkAdjusted": false
+      "source": "backend/template-sources/standard/resources/identity.tpl",
+      "destination": "backend/template-sources/standard/resources/identity.tpl",
+      "sha256": "733f3831cb1287ca4b7e365cdbed01638119311ffcfb96fb7fd8fcb4542f43ec"
+    },
+    {
+      "source": "backend/template-sources/standard/resources/service.tpl",
+      "destination": "backend/template-sources/standard/resources/service.tpl",
+      "sha256": "c0bc20f68362506136c2310683f411f0471ded2b32156fad952ffa2c8c35cbc1"
     }
-  ]
+  ],
+  "workloadSource": "ADR-035; generated from the current task checkout; sourceRevision above continues to identify unchanged infrastructure files"
 }

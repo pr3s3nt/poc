@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Retired by ADR-035; historical scenario body retained for provenance.
+printf "%s\n" "This Score rendering scenario is retired. Use e2e/scenarios/generic-workload/README.md." >&2
+exit 2
 # I04-07 local browser scenario: Platform Engineer registers a Type and
 # Definitions from verified registry pins, a Developer chooses a Workload class,
 # saves a draft and previews, recorded headed with Vietnamese captions below the

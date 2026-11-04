@@ -1,8 +1,8 @@
 import { api } from '../../shared/api/client';
 import { fail, filled, flag, isObject, members, text } from './metadata';
 
-// existing-cluster and score-k8s are platform pairs without a Terraform module pin (ADR-016).
-export type Driver = 'terraform' | 'kubernetes' | 'existing-cluster' | 'score-k8s';
+// existing-cluster and template are platform pairs without a Terraform module pin (ADR-016).
+export type Driver = 'terraform' | 'kubernetes' | 'existing-cluster' | 'template';
 
 // Public, secret-free metadata of GET /resource-definition-capabilities (UC-03 BR-23, OC-04d).
 export type CapabilityVariable = {

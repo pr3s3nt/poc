@@ -460,7 +460,7 @@ func configGet(args []string) int {
 		"owner": func() string { return c.Owner }, "evidenceDir": func() string { return c.EvidenceDir }, "nodeArch": func() string { return c.NodeArch },
 		"executionSeconds": func() string { return fmt.Sprint(int(c.Execution.Duration.Seconds())) },
 		"cleanupSeconds":   func() string { return fmt.Sprint(int(c.Cleanup.Duration.Seconds())) },
-		"terraform":        func() string { return c.Binaries["terraform"].Path }, "scoreK8s": func() string { return c.Binaries["score-k8s"].Path },
+		"terraform":        func() string { return c.Binaries["terraform"].Path }, "scoreK8s": func() string { return c.Binaries["template"].Path },
 		"kubectl": func() string { return c.Binaries["kubectl"].Path }, "vaultBin": func() string { return c.VaultBin },
 		"vaultDelivery": func() string {
 			if c.Target == v2run.TargetK8s4f {
@@ -607,7 +607,7 @@ func handlesWrite(args []string) int {
 	h := v2run.CleanupHandles{
 		RunID: c.RunID, OrganizationKey: "acme", ApplicationKey: c.ApplicationKey(), EnvironmentKey: "staging",
 		NamespaceIdentity: namespace, Adapters: adapters, Owner: c.Owner,
-		Terraform: c.Binaries["terraform"].Path, Kubectl: c.Binaries["kubectl"].Path, ScoreK8s: c.Binaries["score-k8s"].Path, Git: git,
+		Terraform: c.Binaries["terraform"].Path, Kubectl: c.Binaries["kubectl"].Path, Template: c.Binaries["template"].Path, Git: git,
 		DatabaseURLFile: p("console.url"), StateDatabaseURLFile: p("state.url"), StateKeyFile: p("state.key"), StateKeyID: "v2-" + c.RunID,
 		RecoveryDir: p("recovery"), TerraformRoot: p("tfroot"), PluginCacheDir: p("plugin-cache"), ModuleCacheDir: p("module-cache"),
 		VaultAddress: *vaultAddr, VaultMount: "secret", ConnectionTokenFile: p("connection-vault-token"), OutputTokenFile: p("output-vault-token"),

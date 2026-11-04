@@ -3,6 +3,7 @@
 !go.sum
 !cmd/
 !internal/
+!template-sources/
 !deploy/docker-entrypoint.sh
 !deploy/terraform-offline.tfrc
 **/*_test.go

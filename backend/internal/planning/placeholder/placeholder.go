@@ -1,4 +1,4 @@
-// Package placeholder parses and resolves the ${...} syntax used by Score
+// Package placeholder parses and resolves the ${...} syntax used by Workload
 // documents, Deployment Sets and Resource Definition driver inputs.
 //
 // Three forms exist:

@@ -189,7 +189,7 @@ func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, act
 		}
 		var before, after map[string]any
 		if module, exists := set.Document.Modules[change.WorkloadID]; exists {
-			before, err = workloadconfig.ReconstructScoreProven(change.WorkloadID, module, set.Document, set.LiteralProofs.ProverFor(change.WorkloadID), set.ResourceAliases[change.WorkloadID])
+			before, err = workloadconfig.ReconstructWorkloadProven(change.WorkloadID, module, set.Document, set.LiteralProofs.ProverFor(change.WorkloadID), set.ResourceAliases[change.WorkloadID])
 			if err != nil {
 				return report, err
 			}
@@ -199,14 +199,14 @@ func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, act
 			return report, draftErr
 		}
 		if draftErr == nil && draft.State == environment.DraftUpsert {
-			after = draft.Score
+			after = draft.Workload
 		}
 		if draftErr != nil && change.Action != domain.ActionRemove {
 			after = before
 		}
 		result, deployErr := s.deployer.DeployWorkload(ctx, appsvc.DeployCommand{
 			OrganizationKey: orgKey, ApplicationKey: appKey, EnvironmentKey: envKey,
-			WorkloadID: change.WorkloadID, ScoreBefore: before, ScoreAfter: after, Action: change.Action,
+			WorkloadID: change.WorkloadID, WorkloadBefore: before, WorkloadAfter: after, Action: change.Action,
 			Actor: actor, RunID: preview.RunID,
 			ReviewRequestID:   lease.Operation.ReviewRequestID,
 			ExpectedPlanHash:  change.PlanHash,

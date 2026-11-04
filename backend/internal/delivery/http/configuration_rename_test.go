@@ -95,11 +95,11 @@ func TestRenameHandlerStrictDecodingAndSafeEnvelopes(t *testing.T) {
 	if _, err := cfg.Put(ctx, app, env, "DUP", domain.Variable, "d", 1); err != nil {
 		t.Fatal(err)
 	}
-	draftScore := map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "api"},
+	draftWorkload := map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": "api"},
 		"containers": map[string]any{"web": map[string]any{"image": "i", "variables": map[string]any{"A": "${resources.env.OLD}"}}},
 		"resources":  map[string]any{"env": map[string]any{"type": "environment"}}}
 	current, _ := st.GetEnvironment(ctx, app, env)
-	if err := st.SaveWorkloadDraft(ctx, current.DraftVersion, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: "api", State: environment.DraftUpsert, Score: draftScore}); err != nil {
+	if err := st.SaveWorkloadDraft(ctx, current.DraftVersion, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: "api", State: environment.DraftUpsert, Workload: draftWorkload}); err != nil {
 		t.Fatal(err)
 	}
 	ts := httptest.NewServer(NewServer(Config{Authentication: authentication.NewService(st), Store: st, SeedOptions: opts, Configurations: cfg}))

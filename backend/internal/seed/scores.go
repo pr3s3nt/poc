@@ -1,12 +1,12 @@
 package seed
 
-// AcceptanceScores returns the three Score documents of the acceptance
+// AcceptanceWorkloads returns the three Workload documents of the acceptance
 // application. frontend, backend and worker are independent workloads; backend
 // and worker share one stable database resource ID and pass the same `params`.
 // Container resources cover the three renderer cases of UC-06 BR-11: backend
 // declares full requests/limits, worker declares a partial set and frontend
 // declares none.
-func AcceptanceScores(o Options) map[string]map[string]any {
+func AcceptanceWorkloads(o Options) map[string]map[string]any {
 	database := o.Database
 	if database == "" {
 		database = "acceptance"
@@ -38,7 +38,7 @@ func AcceptanceScores(o Options) map[string]map[string]any {
 
 	return map[string]map[string]any{
 		"backend": {
-			"apiVersion": "score.dev/v1b1",
+			"apiVersion": "orchestrator.dev/workload/v1",
 			"metadata":   map[string]any{"name": "backend"},
 			"containers": map[string]any{
 				"main": map[string]any{
@@ -56,7 +56,7 @@ func AcceptanceScores(o Options) map[string]map[string]any {
 			"resources": map[string]any{"db": dbRef},
 		},
 		"worker": {
-			"apiVersion": "score.dev/v1b1",
+			"apiVersion": "orchestrator.dev/workload/v1",
 			"metadata":   map[string]any{"name": "worker"},
 			"containers": map[string]any{
 				"main": map[string]any{
@@ -71,7 +71,7 @@ func AcceptanceScores(o Options) map[string]map[string]any {
 			"resources": map[string]any{"db": dbRef},
 		},
 		"frontend": {
-			"apiVersion": "score.dev/v1b1",
+			"apiVersion": "orchestrator.dev/workload/v1",
 			"metadata":   map[string]any{"name": "frontend"},
 			"containers": map[string]any{
 				"main": map[string]any{
@@ -97,13 +97,13 @@ func AcceptanceOrder() []string { return []string{"backend", "worker", "frontend
 // recording, long enough for the worker write and the backend hit assertions.
 const CacheTTLSeconds = 20
 
-// AcceptanceScoresRedis returns the three acceptance Score documents with one
+// AcceptanceWorkloadsRedis returns the three acceptance Workload documents with one
 // shared Redis (resource ID cacheID, class cacheClass) wired to the backend
 // and the worker (UC-05/UC-06, I04-09 contract). The Redis password reaches
 // the Pods only through the secret output binding; the cache scope variables
 // carry the Application, Environment and run so keys never collide.
-func AcceptanceScoresRedis(o Options, cacheID, cacheClass, application, environment, runID string) map[string]map[string]any {
-	docs := AcceptanceScores(o)
+func AcceptanceWorkloadsRedis(o Options, cacheID, cacheClass, application, environment, runID string) map[string]map[string]any {
+	docs := AcceptanceWorkloads(o)
 	cacheRef := map[string]any{"type": "redis", "class": cacheClass, "id": cacheID}
 	vars := map[string]any{
 		"REDIS_HOST":                   "${resources.cache.host}",

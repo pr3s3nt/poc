@@ -58,7 +58,7 @@ func (v *countingView) GetPlan(ctx context.Context, id string) (map[string]any, 
 // baseline plan is read through ONE snapshot view, nothing from the outer store,
 // and writers that commit after the snapshot cannot mix into the result or the
 // Preview token.
-func assertPendingPreviewIsOneSnapshot(t *testing.T, app *bootstrap.App, opts seed.Options, bundles map[string]resource.RenderBundle) {
+func assertPendingPreviewIsOneSnapshot(t *testing.T, app *bootstrap.App, opts seed.Options, bundles map[string]resource.TemplateSource) {
 	t.Helper()
 	ctx := context.Background()
 	registerRenderer(t, app, bundles, opts, "render", "internal-k8s")

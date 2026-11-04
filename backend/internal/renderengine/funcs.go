@@ -1,7 +1,7 @@
 // Package renderengine is the deterministic template engine of Git render
-// bundles (ADR-021, contract RB-C04): the closed git-render-v1 helper set,
+// bundles (ADR-021, contract RB-C04): the closed template-v1 helper set,
 // bundle tree validation, the killable worker subprocess that executes
-// author templates and the score-k8s compatible set/delete patch semantics.
+// author templates and the template compatible set/delete patch semantics.
 package renderengine
 
 import (
@@ -13,29 +13,29 @@ import (
 	"text/template"
 )
 
-// FuncMap returns the closed git-render-v1 helper set. Every helper is
+// FuncMap returns the closed template-v1 helper set. Every helper is
 // deterministic: no environment, file, network, shell, clock or randomness.
 // Helpers return errors instead of panicking.
 func FuncMap() template.FuncMap {
 	return template.FuncMap{
-		"dict":        dict,
-		"list":        func(items ...any) []any { return append([]any{}, items...) },
-		"append":      appendList,
-		"get":         get,
-		"hasKey":      hasKey,
-		"set":         set,
-		"unset":       unset,
-		"merge":       merge,
-		"deepCopy":    deepCopy,
-		"keys":        keys,
-		"sortAlpha":   sortAlpha,
-		"toJson":      toJSON,
-		"fromJson":    fromJSON,
-		"quote":       quote,
-		"default":     defaultValue,
-		"required":    required,
-		"fail":        fail,
-		"escapeScore": escapeScore,
+		"dict":          dict,
+		"list":          func(items ...any) []any { return append([]any{}, items...) },
+		"append":        appendList,
+		"get":           get,
+		"hasKey":        hasKey,
+		"set":           set,
+		"unset":         unset,
+		"merge":         merge,
+		"deepCopy":      deepCopy,
+		"keys":          keys,
+		"sortAlpha":     sortAlpha,
+		"toJson":        toJSON,
+		"fromJson":      fromJSON,
+		"quote":         quote,
+		"default":       defaultValue,
+		"required":      required,
+		"fail":          fail,
+		"escapeBinding": escapeBinding,
 	}
 }
 
@@ -269,23 +269,23 @@ func required(message string, value any) (any, error) {
 
 func fail(message string) (string, error) { return "", errors.New(message) }
 
-// escapeScore escapes every literal $ exactly once, so Score placeholder
+// escapeBinding escapes every literal $ exactly once, so Workload placeholder
 // substitution restores the original text. Lists and objects are escaped
 // element by element; other scalars are returned unchanged.
-func escapeScore(v any) any {
+func escapeBinding(v any) any {
 	switch value := v.(type) {
 	case string:
 		return strings.ReplaceAll(value, "$", "$$")
 	case []any:
 		out := make([]any, len(value))
 		for i, item := range value {
-			out[i] = escapeScore(item)
+			out[i] = escapeBinding(item)
 		}
 		return out
 	case map[string]any:
 		out := make(map[string]any, len(value))
 		for k, item := range value {
-			out[k] = escapeScore(item)
+			out[k] = escapeBinding(item)
 		}
 		return out
 	default:

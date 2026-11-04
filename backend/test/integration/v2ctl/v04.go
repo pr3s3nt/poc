@@ -18,7 +18,7 @@ import (
 // V04 full-application runner commands. They never print a credential, a secret value, a kubeconfig or a
 // Redis/PostgreSQL password; they print names, counts, identities and verdicts only.
 func init() {
-	extra["v04-scores"] = v04Scores
+	extra["v04-scores"] = v04Workloads
 	extra["v04-output-refs"] = v04OutputRefs
 	extra["v04-output-inventory"] = v04OutputInventory
 	extra["v04-output-clean"] = v04OutputClean
@@ -178,9 +178,9 @@ func collectOutputRefs(value any, refs map[string]bool) {
 	}
 }
 
-func v04Scores(args []string) int {
+func v04Workloads(args []string) int {
 	fs := flag.NewFlagSet("v04-scores", flag.ExitOnError)
-	out := fs.String("out", "", "output directory for the Score documents (public evidence)")
+	out := fs.String("out", "", "output directory for the Workload documents (public evidence)")
 	frontend, frontendB, backend, worker := fs.String("frontend", "", ""), fs.String("frontend-b", "", "second frontend image for the update step"), fs.String("backend", "", ""), fs.String("worker", "", "")
 	app, env, run := fs.String("application", "", ""), fs.String("environment", "staging", ""), fs.String("run-id", "", "")
 	ttl := fs.Int("ttl", 30, "Redis key TTL seconds")
@@ -200,14 +200,14 @@ func v04Scores(args []string) int {
 			return fail("%v", err)
 		}
 	}
-	probe, _, err := v04run.ProbeScore(opts)
+	probe, _, err := v04run.ProbeWorkload(opts)
 	if err != nil {
 		return fail("%v", err)
 	}
 	if err := os.WriteFile(filepath.Join(*out, "probe.yaml"), []byte(probe), 0o600); err != nil {
 		return fail("%v", err)
 	}
-	e01, _, err := v04run.PreApplyProbeScore(opts)
+	e01, _, err := v04run.PreApplyProbeWorkload(opts)
 	if err != nil {
 		return fail("%v", err)
 	}
@@ -237,7 +237,7 @@ func v04Scores(args []string) int {
 	for _, w := range result.Workloads {
 		fmt.Printf("score %s sha256=%s source-sha256=%s\n", w.Name, w.Hash, w.SourceHash)
 	}
-	fmt.Printf("%d recorded differences from the repository Score source; %d preserved properties; %d configuration keys\n", len(result.Changes), len(result.Preserved), len(result.Config))
+	fmt.Printf("%d recorded differences from the repository Workload source; %d preserved properties; %d configuration keys\n", len(result.Changes), len(result.Preserved), len(result.Config))
 	return 0
 }
 

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	standardtemplates "orchestrator/template-sources"
 	"strings"
 
 	"orchestrator/internal/adapters/terraform/registry"
@@ -20,9 +21,9 @@ import (
 	"orchestrator/internal/ports/persistence"
 )
 
-// RenderBundleID is the score-k8s render bundle the seeded workload Definitions use (the real
+// TemplateSourceID is the template render bundle the seeded workload Definitions use (the real
 // renderer and the fake adapters both install a bundle of this ID).
-const RenderBundleID = "score-k8s-internal-v1"
+const TemplateSourceID = "template-internal-v1"
 
 // Catalog modes of Options.Catalog.
 const (
@@ -157,7 +158,7 @@ func Defaults() Options {
 }
 
 // ResourceTypes returns the Resource Type contracts used by the MVP (UC-02).
-// Inputs are the keys a Score document may pass as `params`.
+// Inputs are the keys a Workload document may pass as `params`.
 func ResourceTypes() []resource.Type { return ResourceTypesFor(Options{}) }
 
 // RedisType is the Redis Resource Type contract of the acceptance application.
@@ -388,15 +389,15 @@ func baseDefinitions(o Options, cloud CloudConfig, eksVariables map[string]any, 
 			Criteria: internalApp,
 		},
 		{
-			Key:             "workload-score-k8s",
-			Name:            "Mẫu dựng workload score-k8s",
+			Key:             "workload-template",
+			Name:            "Mẫu dựng workload template",
 			Version:         1,
 			ResourceTypeKey: "workload",
-			DriverType:      resource.DriverScoreK8s,
+			DriverType:      resource.DriverTemplate,
 			DriverInputs: driverInputs(map[string]any{
-				"render_bundle": RenderBundleID,
-				"namespace":     "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
-				"cluster":       "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}",
+				"template_source": standardtemplates.ID(o.OrganizationKey),
+				"namespace":       "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+				"cluster":         "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}",
 			}),
 			Criteria: internalApp,
 		},

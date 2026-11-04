@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 
-	"orchestrator/internal/domain/renderbundle"
+	"orchestrator/internal/domain/templatesource"
 )
 
 // Errors with stable public codes (contract RB-C07). Messages never quote a
@@ -15,15 +15,15 @@ import (
 var (
 	// ErrSourceInvalid: URL/path/ref syntax (RENDER_SOURCE_INVALID, 400).
 	ErrSourceInvalid = errors.New("renderregistry: the Git source is not valid")
-	// ErrBundleInvalid: the selected tree breaks version 1 (RENDER_BUNDLE_INVALID, 400).
+	// ErrBundleInvalid: the selected tree breaks version 1 (TEMPLATE_SOURCE_INVALID, 400).
 	ErrBundleInvalid = errors.New("renderregistry: the render bundle is not valid")
 	// ErrContractUnsupported: unsupported API/engine/renderer (RENDER_CONTRACT_UNSUPPORTED, 400).
 	ErrContractUnsupported = errors.New("renderregistry: the render bundle contract is not supported")
 	// ErrSourceUnavailable: Git could not be resolved or fetched (RENDER_SOURCE_UNAVAILABLE, 503).
 	ErrSourceUnavailable = errors.New("renderregistry: the Git source is not reachable")
-	// ErrBundleUnavailable: cache/runtime cannot serve the pin (RENDER_BUNDLE_UNAVAILABLE, 503).
+	// ErrBundleUnavailable: cache/runtime cannot serve the pin (TEMPLATE_SOURCE_UNAVAILABLE, 503).
 	ErrBundleUnavailable = errors.New("renderregistry: the render bundle is not available")
-	// ErrDrift: different content for an identical immutable pin (RENDER_BUNDLE_DRIFT, 409).
+	// ErrDrift: different content for an identical immutable pin (TEMPLATE_SOURCE_DRIFT, 409).
 	ErrDrift = errors.New("renderregistry: the render bundle content differs from its pin")
 	// ErrRenderFailed: a bundle stage failed or broke an invariant (RENDER_FAILED, 422).
 	ErrRenderFailed = errors.New("renderregistry: rendering failed")
@@ -41,10 +41,10 @@ type Registry interface {
 	// Inspect resolves the ref once, fetches the exact commit, validates and
 	// caches the whole selected directory and records the verified pin for
 	// the Organization. It creates no Definition and touches no provider.
-	Inspect(ctx context.Context, organizationKey string, req Inspection) (renderbundle.Bundle, error)
+	Inspect(ctx context.Context, organizationKey string, req Inspection) (templatesource.Bundle, error)
 	// Available reports whether the runtime can render the record from the
 	// verified cache with its engine and binary. It never fetches Git.
-	Available(ctx context.Context, b renderbundle.Bundle) error
+	Available(ctx context.Context, b templatesource.Bundle) error
 }
 
 // ZIPInspection uses the same on-disk bundle format as Git.
@@ -53,5 +53,14 @@ type ZIPInspection struct {
 	Data []byte
 }
 type ZIPInspector interface {
-	InspectZIP(context.Context, string, ZIPInspection) (renderbundle.Bundle, error)
+	InspectZIP(context.Context, string, ZIPInspection) (templatesource.Bundle, error)
+}
+
+// InlineInspection prepares the same immutable contract as Git and ZIP.
+type InlineInspection struct {
+	Name  string            `json:"name"`
+	Files map[string]string `json:"files"`
+}
+type InlineInspector interface {
+	InspectInline(context.Context, string, InlineInspection) (templatesource.Bundle, error)
 }

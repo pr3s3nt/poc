@@ -256,7 +256,7 @@ func TestDefinitionCatalog_AuroraNameIsBoundedAndEqualsTheNetworkIdentity(t *tes
 // Several managed resources of one Environment share ONE network node: the VPC is a resource reference, never repeated per
 // database or cache, and every managed resource orders after it.
 func TestDefinitionCatalog_TwoDatabasesAndTwoCachesShareOneVPCNode(t *testing.T) {
-	cp := catalogRequestWithScore(t, "A02", nil, func(doc map[string]any) {
+	cp := catalogRequestWithWorkload(t, "A02", nil, func(doc map[string]any) {
 		resources := doc["resources"].(map[string]any)
 		for name, copyOf := range map[string]string{"db2": "db", "cache2": "cache"} {
 			src := resources[copyOf].(map[string]any)

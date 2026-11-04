@@ -13,7 +13,7 @@ import (
 	"orchestrator/internal/ports/execution"
 )
 
-// Platform default container requests for a field whose Score declares neither
+// Platform default container requests for a field whose Workload declares neither
 // a request nor a limit (UC-06 BR-11). Limits have no default.
 const (
 	DefaultCPURequest    = "10m"
@@ -208,7 +208,7 @@ func vaultTemplate(bindings map[string]map[string]string) (string, string, error
 	return builder.String(), first, nil
 }
 
-// containerResources maps declared Score requirements onto Kubernetes container
+// containerResources maps declared Workload requirements onto Kubernetes container
 // resources without changing their values. Each request field is the declared
 // request, else the declared limit of the same field, else the platform
 // default; the limit fallback keeps a platform default from exceeding a

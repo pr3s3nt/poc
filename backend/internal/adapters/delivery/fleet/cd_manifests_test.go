@@ -18,7 +18,7 @@ func TestCDPackageOwnsVSOAndNonsecretAuxiliaries(t *testing.T) {
 	// A deliberately invalid kubectl path proves rendering does not touch a cluster.
 	renderer := &k8s.VSOSynchronizer{KubectlPath: "/must-not-run"}
 	bundle := execution.ConfigBundle{StoreKey: "vault", Address: "https://vault.internal", Mount: "kv", AuthMount: "kubernetes", Path: "orchestrator/apps/shop/envs/staging/values/revision", Role: "web", ServiceAccount: "web-vault", SecretName: "orch-revision", Keys: map[string]map[string]string{"main": {"PASSWORD": "main_PASSWORD"}}}
-	manifests, err := renderer.RenderBundle(context.Background(), i.Target, bundle)
+	manifests, err := renderer.TemplateSource(context.Background(), i.Target, bundle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestCDPackageOwnsVSOAndNonsecretAuxiliaries(t *testing.T) {
 	}
 	// Different revisions must not claim a shared VaultConnection release object.
 	bundle.SecretName = "orch-next-revision"
-	next, err := renderer.RenderBundle(context.Background(), i.Target, bundle)
+	next, err := renderer.TemplateSource(context.Background(), i.Target, bundle)
 	if err != nil {
 		t.Fatal(err)
 	}

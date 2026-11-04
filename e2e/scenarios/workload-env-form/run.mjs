@@ -1,4 +1,4 @@
-// Real kind acceptance: every product mutation is a UI click/fill. No Score import,
+// Real kind acceptance: every product mutation is a UI click/fill. No Workload import,
 // direct deploy API or kubectl workload apply. Only technical verification and a
 // port-forward use kubectl. Run-owned app remains for review, never touches older apps.
 import { chromium, expect } from '@playwright/test';
@@ -84,10 +84,10 @@ async function service() {
 }
 async function begin(name) {
   await click('+ Thêm Workload');
-  await page.getByRole('dialog', { name: 'Chọn loại workload', exact: true }).getByRole('button', { name: 'Tự cấu hình / nhập Score', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Chọn loại workload', exact: true }).getByRole('button', { name: 'Tự cấu hình / nhập Workload', exact: true }).click();
   await page.getByLabel('Tên Workload', { exact: true }).fill(name);
   await page.getByLabel('Ảnh Container', { exact: true }).fill(`acceptance-${name}:${tag}`);
-  check(`${name}: form entry, no Score import`);
+  check(`${name}: form entry, no Workload import`);
 }
 async function save(name) {
   await mark(`${name}: form complete`);
@@ -163,8 +163,8 @@ try {
   const desiredReply = await page.request.get(`${config.baseURL}/api/v1/applications/${appId}/environments/staging/workloads`);
   expect(desiredReply.status()).toBe(200);
   const desired = (await desiredReply.json()).workloads;
-  const apiResources = desired.find(item => item.id === 'backend').score.resources;
-  const workerResources = desired.find(item => item.id === 'worker').score.resources;
+  const apiResources = desired.find(item => item.id === 'backend').workload.resources;
+  const workerResources = desired.find(item => item.id === 'worker').workload.resources;
   for (const alias of ['db', 'cache']) {
     expect(apiResources[alias].id).toMatch(/^resource-[a-f0-9]{32}$/);
     expect(workerResources[alias]).toEqual(apiResources[alias]);

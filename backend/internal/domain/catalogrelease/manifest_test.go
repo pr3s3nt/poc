@@ -63,8 +63,8 @@ func TestSourceGuards(t *testing.T) {
 	}
 }
 func TestComponentDiffStable(t *testing.T) {
-	before := Release{Components: []VerifiedComponent{{Component: Component{ID: "same", Kind: TerraformModule}, SHA256: "a"}, {Component: Component{ID: "updated", Kind: RenderBundle}, SHA256: "a"}, {Component: Component{ID: "removed"}}}}
-	after := Release{Components: []VerifiedComponent{{Component: Component{ID: "same", Kind: TerraformModule}, SHA256: "a"}, {Component: Component{ID: "updated", Kind: RenderBundle}, SHA256: "b"}, {Component: Component{ID: "added"}}}}
+	before := Release{Components: []VerifiedComponent{{Component: Component{ID: "same", Kind: TerraformModule}, SHA256: "a"}, {Component: Component{ID: "updated", Kind: TemplateSource}, SHA256: "a"}, {Component: Component{ID: "removed"}}}}
+	after := Release{Components: []VerifiedComponent{{Component: Component{ID: "same", Kind: TerraformModule}, SHA256: "a"}, {Component: Component{ID: "updated", Kind: TemplateSource}, SHA256: "b"}, {Component: Component{ID: "added"}}}}
 	got := Compare(before, after)
 	want := []Difference{{"added", "added"}, {"removed", "removed"}, {"same", "no-change"}, {"updated", "update"}}
 	for i := range want {

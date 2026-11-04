@@ -99,7 +99,7 @@ func TestCredentialBackedTarget_RemovalAfterRestart(t *testing.T) {
 	statePath := filepath.Join(dir, "state.json")
 	creds := credentialmemory.New()
 	opts := seedtest.Defaults()
-	scores := seed.AcceptanceScores(opts)
+	scores := seed.AcceptanceWorkloads(opts)
 
 	first := startInstance(t, statePath, kubectl, creds)
 	registration := connection.NewService(first.app.Store)
@@ -123,7 +123,7 @@ func TestCredentialBackedTarget_RemovalAfterRestart(t *testing.T) {
 	if err := seedtest.PublishCatalog(ctx, first.app.Store, opts); err != nil {
 		t.Fatal(err)
 	}
-	deploy := appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", ScoreAfter: scores["backend"], Actor: "test"}
+	deploy := appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", WorkloadAfter: scores["backend"], Actor: "test"}
 	if _, err := first.app.Deployments.DeployWorkload(ctx, deploy); err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestCredentialBackedTarget_RemovalAfterRestart(t *testing.T) {
 	t.Setenv("STUB_DEPLOYMENT", `{"metadata":{"uid":"11111111-1111-4111-8111-111111111111",`+labels+`}}`)
 	t.Setenv("STUB_SERVICE", `{"metadata":{"uid":"22222222-2222-4222-8222-222222222222",`+labels+`}}`)
 	remove := deploy
-	remove.ScoreBefore, remove.ScoreAfter = scores["backend"], nil
+	remove.WorkloadBefore, remove.WorkloadAfter = scores["backend"], nil
 	if _, err := second.app.Deployments.DeployWorkload(ctx, remove); err != nil {
 		t.Fatal(err)
 	}

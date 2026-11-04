@@ -27,7 +27,7 @@ Console chọn source/module/version/mappings/provider ở Definition; Workload 
 ## Code impact để giao Claude
 
 - [backend/internal/planning](../../../../backend/internal/planning/)
-- [backend/internal/adapters/scorek8s](../../../../backend/internal/adapters/scorek8s/)
+- [backend/internal/adapters/scorek8s](../../../../backend/internal/adapters/templatedriver/)
 - [frontend/src/features/platform](../../../../frontend/src/features/platform/)
 - [frontend/src/features/workloads](../../../../frontend/src/features/workloads/)
 - [frontend/src/features/preview](../../../../frontend/src/features/preview/)

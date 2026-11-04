@@ -14,7 +14,7 @@ The acceptance gate uses real Fleet v0.15.2, PostgreSQL/Vault, Git HTTPS writer
 and reader, Terraform and Kubernetes. Product mutations use ordinary Console
 forms only, including source ZIP file inputs, typed module/rendering selectors,
 application/workload/dependency forms, CD discovery, Preview/Deploy and deletion.
-No JSON/Score/YAML editor or direct product mutation API substitutes for UI.
+No JSON/Workload/YAML editor or direct product mutation API substitutes for UI.
 Read-only technical checks verify commit/tree identity, object UIDs, data and
 cleanup; platform prerequisites (Fleet, Git server and scoped RBAC) are setup.
 
@@ -95,7 +95,7 @@ with no other active test applications. A platform author uploads a ZIP through
 Mẫu dựng ứng dụng, updating the owned staging renderer to add a real PostgreSQL
 migration Job, scheduled SQL-check CronJob and frontend HPA. Application workloads
 and a `/` public path still use ordinary forms. Source fixtures extend the
-standard bundle; no manifest/Score/JSON editor or product mutation API is used.
+standard bundle; no manifest/Workload/JSON editor or product mutation API is used.
 The migration has fixed approved database inputs, so an unrelated application
 configuration update does not change its immutable Pod template. The HPA owns
 replicas (renderer omits a fixed value), with minReplicas=2. Install the owned Metrics Server prerequisite and wait for

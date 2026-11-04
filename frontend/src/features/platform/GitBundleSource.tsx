@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
-import { parseRenderBundle, type RenderBundle } from './metadata';
+import { parseTemplateSource, type TemplateSource } from './metadata';
 import { t } from '../../shared/i18n';
 
 // Git render bundle source (ADR-021, UC-03 RB-01): HTTPS URL, directory and
@@ -14,7 +14,7 @@ type Props = {
   draft: GitSourceDraft;
   onDraftChange: (draft: GitSourceDraft) => void;
   disabled: boolean;
-  onResult: (bundle: RenderBundle | null) => void;
+  onResult: (bundle: TemplateSource | null) => void;
 };
 
 function inspectFailure(reason: unknown): string {
@@ -40,8 +40,8 @@ export function GitBundleSource({ draft, onDraftChange, disabled, onResult }: Pr
     const current = ++request.current;
     setBusy(true); setError(''); callback.current(null);
     try {
-      const response = await api<{ renderBundle: unknown }>('/render-bundles/inspect', { method: 'POST', body: JSON.stringify({ url: draft.url.trim(), path: draft.path.trim() || '.', ref: draft.ref.trim() }) });
-      const bundle = parseRenderBundle(response.renderBundle);
+      const response = await api<{ templateSource: unknown }>('/template-sources/inspect', { method: 'POST', body: JSON.stringify({ url: draft.url.trim(), path: draft.path.trim() || '.', ref: draft.ref.trim() }) });
+      const bundle = parseTemplateSource(response.templateSource);
       if (!bundle.source) throw new Error('invalid metadata');
       if (current !== request.current) return;
       callback.current(bundle);
@@ -54,7 +54,7 @@ export function GitBundleSource({ draft, onDraftChange, disabled, onResult }: Pr
 
   return <div className="catalog-fields" role="group" aria-label={t('platform.gitBundleSource.addFromGit')}>
     <div className="field-grid">
-      <label>Git HTTPS URL<input type="url" value={draft.url} disabled={disabled} spellCheck={false} placeholder="https://github.com/company/render-bundles.git" aria-describedby="git-bundle-help" onChange={(event) => change({ url: event.target.value })} /></label>
+      <label>Git HTTPS URL<input type="url" value={draft.url} disabled={disabled} spellCheck={false} placeholder="https://github.com/company/template-sources.git" aria-describedby="git-bundle-help" onChange={(event) => change({ url: event.target.value })} /></label>
       <label>{t('platform.gitBundleSource.bundleDirectory')}<input value={draft.path} disabled={disabled} spellCheck={false} placeholder="." onChange={(event) => change({ path: event.target.value })} /></label>
       <label>{t('platform.gitBundleSource.tagOrCommit')}<input value={draft.ref} disabled={disabled} spellCheck={false} placeholder={t('platform.gitBundleSource.refPlaceholder')} onChange={(event) => change({ ref: event.target.value })} /></label>
     </div>

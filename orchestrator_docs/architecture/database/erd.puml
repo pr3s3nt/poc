@@ -157,7 +157,7 @@ entity workload_drafts {
   * environment_id : uuid <<PK,FK>>
   * workload_id : text <<PK>>
   --
-  score_document : jsonb
+  workload_document : jsonb
   state : text
   updated_at : timestamptz
 }
@@ -465,7 +465,7 @@ Final V06.08 design: no Environment deployment-binding/transition fields.
 Implementation and acceptance gates tracked separately in CURRENT_STATE.
 Secret-store selection, owner/fence and original per-resource targets remain.
 end note
-entity render_bundles {
+entity template_sources {
  * id : uuid <<PK>>
  * organization_id : uuid <<FK>>
  --
@@ -480,8 +480,8 @@ entity render_bundles {
  contract : jsonb
  created_at : timestamptz
 }
-organizations ||--o{ render_bundles
-note right of render_bundles
+organizations ||--o{ template_sources
+note right of template_sources
 ADR-021 / ADR-026; immutable scoped Git or ZIP registry.
 Unique org/locator/path/revision/engine; content drift rejected.
 Definitions reference verified ID and supplied inputs in JSON.
@@ -593,7 +593,7 @@ Connection verification unchanged; Console read/insert/update, State no access.
 end note
 note as ExecutionExtension
 ADR-025: workloadExecution v1 in existing JSONB
-workload_drafts.score_document and deployment_sets.document module spec.
+workload_drafts.workload_document and deployment_sets.document module spec.
 No new column or database reset at domain checkpoint.
 end note
 ExecutionExtension .. workload_drafts

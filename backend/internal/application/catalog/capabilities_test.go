@@ -45,7 +45,7 @@ func TestListDefinitionCapabilities_PairsAndVariables(t *testing.T) {
 	for _, c := range caps {
 		keys = append(keys, c.ResourceType+"/"+c.DriverType+"/"+c.Module)
 	}
-	want := []string{"k8s-cluster/existing-cluster/", "k8s-cluster/terraform/eks", "k8s-namespace/terraform/k8s-namespace", "postgres/terraform/aurora", "postgres/terraform/postgres-k8s", "redis/terraform/elasticache", "redis/terraform/redis-k8s", "vpc/terraform/vpc", "workload/score-k8s/"}
+	want := []string{"k8s-cluster/existing-cluster/", "k8s-cluster/terraform/eks", "k8s-namespace/terraform/k8s-namespace", "postgres/terraform/aurora", "postgres/terraform/postgres-k8s", "redis/terraform/elasticache", "redis/terraform/redis-k8s", "vpc/terraform/vpc", "workload/template/"}
 	if !reflect.DeepEqual(keys, want) {
 		t.Fatalf("pairs %v, want %v", keys, want)
 	}
@@ -54,8 +54,8 @@ func TestListDefinitionCapabilities_PairsAndVariables(t *testing.T) {
 	// ADR-014: only verified registry modules are registrable; no static
 	// Kubernetes driver pair is advertised.
 	for key, c := range idx {
-		// score-k8s is the platform workload pair (ADR-016); existing-cluster needs a k8s-cluster Type that declares `cluster`.
-		if c.DriverType != "terraform" && c.DriverType != "score-k8s" && c.DriverType != "existing-cluster" {
+		// template is the platform workload pair (ADR-016); existing-cluster needs a k8s-cluster Type that declares `cluster`.
+		if c.DriverType != "terraform" && c.DriverType != "template" && c.DriverType != "existing-cluster" {
 			t.Errorf("%s: public metadata offers non-registry driver %q", key, c.DriverType)
 		}
 	}

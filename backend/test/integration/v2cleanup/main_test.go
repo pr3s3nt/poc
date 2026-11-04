@@ -30,7 +30,7 @@ func TestCleanupOptionsWireVaultDeliveryForEachAdapter(t *testing.T) {
 			h := v2run.CleanupHandles{
 				RunID: "a02-0001", OrganizationKey: "acme", ApplicationKey: "acceptance", EnvironmentKey: "staging",
 				NamespaceIdentity: "orch-v2-test-a02-0001", Owner: "codex", Adapters: tt.adapters,
-				Terraform: "/p/terraform", Kubectl: "/p/kubectl", ScoreK8s: "/p/score-k8s", Git: "/p/git",
+				Terraform: "/p/terraform", Kubectl: "/p/kubectl", Template: "/p/template", Git: "/p/git",
 				DatabaseURLFile: databaseURL, StateDatabaseURLFile: stateURL, StateKeyFile: "/p/state.key", StateKeyID: "v2-a02",
 				RecoveryDir: "/p/recovery", TerraformRoot: "/p/tfroot", PluginCacheDir: "/p/plugins", ModuleCacheDir: "/p/modules",
 				VaultAddress: "http://127.0.0.1:18200", VaultMount: "secret", ConnectionTokenFile: "/p/connection-token", OutputTokenFile: "/p/output-token",

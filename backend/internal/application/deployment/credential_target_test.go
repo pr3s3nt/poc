@@ -128,12 +128,12 @@ func TestCredentialBackedTarget_PropagatesOpaqueIdentityThroughDeployAndRemove(t
 	app, opts, executor, deployer := credentialBackedApp(t, application.ConnectionReady)
 	routes := &targetRoutes{}
 	app.Deployments.SetPublicRouteManager(routes, "example.com")
-	scores := seed.AcceptanceScores(opts)
+	scores := seed.AcceptanceWorkloads(opts)
 	// The second run updates the workload. The executor runs again for the
 	// same Active Resource identities; this proves identity propagation on a
 	// rerun, not that execution is skipped.
 	for _, before := range []map[string]any{nil, scores["backend"]} {
-		if _, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", ScoreBefore: before, ScoreAfter: scores["backend"], Actor: "test"}); err != nil {
+		if _, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", WorkloadBefore: before, WorkloadAfter: scores["backend"], Actor: "test"}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -170,7 +170,7 @@ func TestCredentialBackedTarget_PropagatesOpaqueIdentityThroughDeployAndRemove(t
 
 	// Removal in the same process rebuilds the target from TargetRef; the
 	// restart case is TestCredentialBackedTarget_RemovalAfterRestart.
-	if _, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", ScoreBefore: scores["backend"], Actor: "test"}); err != nil {
+	if _, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", WorkloadBefore: scores["backend"], Actor: "test"}); err != nil {
 		t.Fatal(err)
 	}
 	removed := deployer.targets[len(deployer.targets)-1]
@@ -190,8 +190,8 @@ func TestCredentialBackedTarget_PropagatesOpaqueIdentityThroughDeployAndRemove(t
 func TestCredentialBackedTarget_NotReadyConnectionFailsBeforeExecution(t *testing.T) {
 	ctx := context.Background()
 	app, opts, executor, deployer := credentialBackedApp(t, application.ConnectionVerifying)
-	scores := seed.AcceptanceScores(opts)
-	_, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", ScoreAfter: scores["backend"], Actor: "test"})
+	scores := seed.AcceptanceWorkloads(opts)
+	_, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", WorkloadAfter: scores["backend"], Actor: "test"})
 	if err == nil || !(strings.Contains(err.Error(), "unavailable") || strings.Contains(err.Error(), "not READY")) {
 		t.Fatalf("deploy with a non-READY connection: %v", err)
 	}

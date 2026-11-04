@@ -22,9 +22,9 @@ func TestSharedResourceAliasesSurviveDeployAndNoopPreview(t *testing.T) {
 	if result, err := svc.Deploy(ctx, opts.ApplicationKey, opts.EnvironmentKey, "test", preview.Token); err != nil || result.Status != "SUCCEEDED" {
 		t.Fatalf("deploy: %+v %v", result, err)
 	}
-	reopened := liveScore(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "api")
+	reopened := liveWorkload(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "api")
 	if reopened == nil || variablesOf(reopened)["PGHOST"] != "${resources.original_db.host}" || reopened["resources"].(map[string]any)["original_db"] == nil {
-		t.Fatalf("deployed Score lost its shared alias: %+v", reopened)
+		t.Fatalf("deployed Workload lost its shared alias: %+v", reopened)
 	}
 	if _, err := workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "api", reopened, preview.DraftVersion+1); err != nil {
 		t.Fatal(err)

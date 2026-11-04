@@ -64,17 +64,17 @@ func (s *Server) handleUpdateResourceDefinition(w http.ResponseWriter, r *http.R
 	writeJSON(w, http.StatusOK, updated)
 }
 
-func (s *Server) handleRenderBundles(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleTemplateSources(w http.ResponseWriter, r *http.Request) {
 	org, ok := s.platformActor(w, r)
 	if !ok {
 		return
 	}
-	bundles, err := s.catalog.ListRenderBundles(r.Context(), org)
+	bundles, err := s.catalog.ListTemplateSources(r.Context(), org)
 	if err != nil {
 		s.writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"renderBundles": bundles})
+	writeJSON(w, http.StatusOK, map[string]any{"templateSources": bundles})
 }
 
 func (s *Server) handleDefinitionCapabilities(w http.ResponseWriter, r *http.Request) {

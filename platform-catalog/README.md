@@ -18,7 +18,7 @@ backend Go, frontend, database, kubeconfig hay credential của platform.
     │   ├── eks/main.tf
     │   ├── aurora/main.tf
     │   └── elasticache/main.tf
-    └── render-bundles/
+    └── template-sources/
         └── standard/
             ├── bundle.yaml
             ├── defaults.yaml
@@ -54,7 +54,7 @@ platform; copy repo này không tự cấu hình các thành phần đó.
 
 ## Render bundle standard
 
-Source path: `backend/render-bundles/standard`.
+Source path: `backend/template-sources/standard`.
 Có năm templates: Frontend web, Backend API, Xử lý nền, Ứng dụng có dữ liệu,
 Tác vụ theo lịch. Deployment có persistent mount dùng Recreate; những workload
 khác giữ controller/rollout policy tương ứng. Không có credential trong bundle.

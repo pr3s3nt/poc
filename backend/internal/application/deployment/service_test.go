@@ -31,7 +31,7 @@ func newApp(t *testing.T, opts ...func(*bootstrap.Options)) (*bootstrap.App, see
 
 func deployAll(t *testing.T, app *bootstrap.App, seedOptions seed.Options) []*appsvc.DeployResult {
 	t.Helper()
-	scores := seed.AcceptanceScores(seedOptions)
+	scores := seed.AcceptanceWorkloads(seedOptions)
 	var results []*appsvc.DeployResult
 	for _, workload := range seed.AcceptanceOrder() {
 		result, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
@@ -39,7 +39,7 @@ func deployAll(t *testing.T, app *bootstrap.App, seedOptions seed.Options) []*ap
 			ApplicationKey:  seedOptions.ApplicationKey,
 			EnvironmentKey:  seedOptions.EnvironmentKey,
 			WorkloadID:      workload,
-			ScoreAfter:      scores[workload],
+			WorkloadAfter:   scores[workload],
 			Actor:           "test",
 		})
 		if err != nil {
@@ -183,17 +183,17 @@ func TestPublicRouteFollowsReadyWorkloadAndCanBeRemoved(t *testing.T) {
 	deployAll(t, app, opts)
 	routes := &recordingRoutes{}
 	app.Deployments.SetPublicRouteManager(routes, "example.com")
-	before := seed.AcceptanceScores(opts)["frontend"]
-	after := seed.AcceptanceScores(opts)["frontend"]
+	before := seed.AcceptanceWorkloads(opts)["frontend"]
+	after := seed.AcceptanceWorkloads(opts)["frontend"]
 	after["service"].(map[string]any)["publicRoutes"] = []any{map[string]any{"path": "/", "port": "http"}}
-	cmd := appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "frontend", ScoreBefore: before, ScoreAfter: after, Actor: "test"}
+	cmd := appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "frontend", WorkloadBefore: before, WorkloadAfter: after, Actor: "test"}
 	if _, err := app.Deployments.DeployWorkload(context.Background(), cmd); err != nil {
 		t.Fatal(err)
 	}
 	if len(routes.calls) != 1 || routes.calls[0].Host != "acceptance.example.com" || len(routes.calls[0].Paths) != 1 || routes.calls[0].Paths[0].PortName != "http" {
 		t.Fatalf("wrong public route: %+v", routes.calls)
 	}
-	cmd.ScoreBefore, cmd.ScoreAfter = after, before
+	cmd.WorkloadBefore, cmd.WorkloadAfter = after, before
 	if _, err := app.Deployments.DeployWorkload(context.Background(), cmd); err != nil {
 		t.Fatal(err)
 	}
@@ -223,13 +223,13 @@ func TestDeployWorkload_CommitsCurrentSetOnlyAfterReadiness(t *testing.T) {
 		t.Fatalf("get environment: %v", err)
 	}
 
-	scores := seed.AcceptanceScores(seedOptions)
+	scores := seed.AcceptanceWorkloads(seedOptions)
 	_, err = app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{
 		OrganizationKey: seedOptions.OrganizationKey,
 		ApplicationKey:  seedOptions.ApplicationKey,
 		EnvironmentKey:  seedOptions.EnvironmentKey,
 		WorkloadID:      "backend",
-		ScoreAfter:      scores["backend"],
+		WorkloadAfter:   scores["backend"],
 		Actor:           "test",
 	})
 	if !errors.Is(err, wantErr) {
@@ -289,11 +289,11 @@ func TestGetDeployment_ReturnsPersistedPlanAndStatuses(t *testing.T) {
 func TestGetDeployment_PlanningFailureHasNoInventedSnapshot(t *testing.T) {
 	ctx := context.Background()
 	app, opts := newApp(t)
-	score := seed.AcceptanceScores(opts)["backend"]
+	score := seed.AcceptanceWorkloads(opts)["backend"]
 	score["resources"].(map[string]any)["db"].(map[string]any)["type"] = "unsupported-resource"
 	_, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{
 		OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey,
-		EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", ScoreAfter: score, Actor: "test",
+		EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", WorkloadAfter: score, Actor: "test",
 	})
 	if err == nil {
 		t.Fatal("expected planning failure")
@@ -342,7 +342,7 @@ func TestGetDeployment_RedactsSecretOutputs(t *testing.T) {
 func TestDeployReviewRequestUUIDIsCaseInsensitive(t *testing.T) {
 	app, opts := newApp(t)
 	ctx := context.Background()
-	result, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "frontend", ScoreAfter: seed.AcceptanceScores(opts)["frontend"], Actor: "review-test", ReviewRequestID: "AABBCCDD-1111-4111-8111-111111111111"})
+	result, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "frontend", WorkloadAfter: seed.AcceptanceWorkloads(opts)["frontend"], Actor: "review-test", ReviewRequestID: "AABBCCDD-1111-4111-8111-111111111111"})
 	if err != nil {
 		t.Fatal(err)
 	}

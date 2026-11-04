@@ -8,7 +8,7 @@ import { bothConfigured } from '../../test/targets';
 import { typeFixture } from '../../test/types';
 
 const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
-type Saved = { score: Record<string, unknown>; version: number };
+type Saved = { workload: Record<string, unknown>; version: number };
 
 // Types are the recorded GET /resource-types of the product backend (classes included).
 function serve(options: { types?: () => Response | Promise<Response>; workloads?: Workload[]; calls?: string[] } = {}) {
@@ -25,7 +25,7 @@ function serve(options: { types?: () => Response | Promise<Response>; workloads?
 }
 afterEach(() => vi.unstubAllGlobals());
 const save = () => screen.getByRole('button', { name: 'Lưu draft Workload' });
-const resourcesOf = (saved: Saved | undefined) => saved?.score.resources as Record<string, Record<string, unknown>>;
+const resourcesOf = (saved: Saved | undefined) => saved?.workload.resources as Record<string, Record<string, unknown>>;
 
 async function newWorkload(user: ReturnType<typeof userEvent.setup>) {
   render(<WorkloadEditorPage application={application} environment="staging" />);
@@ -75,10 +75,10 @@ describe('UC-16 dependency class from authoritative metadata (I04-07)', () => {
     expect(sharedId).toEqual(expect.stringMatching(/^resource-/));
     expect(resourcesOf(puts[0])?.db).toEqual({ type: 'postgres', class: 'cloud-managed', id: sharedId, params: { database: 'appdb', username: 'appuser' } });
     // Opening the saved draft restores class, shared ID and params exactly.
-    const score = puts[0]?.score as Record<string, unknown>;
+    const workload = puts[0]?.workload as Record<string, unknown>;
     cleanup();
     vi.unstubAllGlobals();
-    const second = serve({ workloads: [{ id: 'api', ready: true, score }] });
+    const second = serve({ workloads: [{ id: 'api', ready: true, workload }] });
     render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
     expect(await screen.findByLabelText('Cách cung cấp (class) của db')).toHaveValue('cloud-managed');
     expect(screen.queryByLabelText(/ID dùng chung/)).not.toBeInTheDocument();
@@ -91,15 +91,15 @@ describe('UC-16 dependency class from authoritative metadata (I04-07)', () => {
 
   it('keeps a custom or imported class and a shared ID untouched, offering it as typed and never switching it', async () => {
     const user = userEvent.setup();
-    const score = { apiVersion: 'score.dev/v1b1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1' } },
+    const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1' } },
       resources: { cache: { type: 'redis', class: 'team-a', id: 'shared-cache' }, db: { type: 'postgres', class: 'default', id: 'orders-db', params: { database: 'appdb', username: 'appuser' } } } };
-    const { puts } = serve({ workloads: [{ id: 'api', ready: true, score }] });
+    const { puts } = serve({ workloads: [{ id: 'api', ready: true, workload }] });
     render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
     const cache = await screen.findByLabelText('Cách cung cấp (class) của cache');
     expect(cache).toHaveValue('team-a');
     expect(within(cache).getByRole('option', { name: 'team-a (đã nhập, giữ nguyên)' })).toBeInTheDocument();
     expect(screen.getByText(/Class "team-a" không nằm trong metadata của loại redis/)).toBeInTheDocument();
-    // "default" typed explicitly in the Score is a custom class name too, never remapped to a provider class.
+    // "default" typed explicitly in the Workload is a custom class name too, never remapped to a provider class.
     expect(screen.getByLabelText('Cách cung cấp (class) của db')).toHaveValue('default');
     await user.clear(screen.getByLabelText('Ảnh Container'));
     await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/api:v2');
@@ -224,16 +224,16 @@ describe('UC-16 dependency class from authoritative metadata (I04-07)', () => {
   });
 });
 
-describe('ADR-016 workload class (Score metadata.class)', () => {
+describe('ADR-016 workload class (Workload metadata.class)', () => {
   it('writes metadata.class only when chosen and leaves a missing class missing', async () => {
     const user = userEvent.setup();
     const { puts } = serve();
     await newWorkload(user);
     await user.click(save());
-    expect((puts[0]?.score as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api' });
+    expect((puts[0]?.workload as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api' });
     await user.type(screen.getByLabelText('Class Workload'), 'gold');
     await user.click(save());
-    expect((puts[1]?.score as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api', class: 'gold' });
+    expect((puts[1]?.workload as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api', class: 'gold' });
   });
 
   it('opens an imported class in the form, keeps it through an edit and never converts default', async () => {
@@ -241,14 +241,14 @@ describe('ADR-016 workload class (Score metadata.class)', () => {
     for (const className of ['gold', 'default']) {
       cleanup();
       vi.unstubAllGlobals();
-      const score = { apiVersion: 'score.dev/v1b1', metadata: { name: 'api', class: className }, containers: { main: { image: 'example.invalid/api:v1' } } };
-      const { puts } = serve({ workloads: [{ id: 'api', ready: true, score }] });
+      const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api', class: className }, containers: { main: { image: 'example.invalid/api:v1' } } };
+      const { puts } = serve({ workloads: [{ id: 'api', ready: true, workload }] });
       render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
       expect(await screen.findByLabelText('Class Workload')).toHaveValue(className);
       await user.clear(screen.getByLabelText('Ảnh Container'));
       await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/api:v2');
       await user.click(save());
-      expect((puts[0]?.score as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api', class: className });
+      expect((puts[0]?.workload as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api', class: className });
     }
   });
 
@@ -263,11 +263,11 @@ describe('ADR-016 workload class (Score metadata.class)', () => {
     expect(screen.getByLabelText('Class Workload')).toHaveValue('Gold Class');
   });
 
-  it('keeps a Score whose metadata.class is not a valid identifier in the advanced Score editor instead of rewriting it', async () => {
-    const score = { apiVersion: 'score.dev/v1b1', metadata: { name: 'api', class: 'Not Valid' }, containers: { main: { image: 'example.invalid/api:v1' } } };
-    serve({ workloads: [{ id: 'api', ready: true, score }] });
+  it('keeps a Workload whose metadata.class is not a valid identifier in the advanced Workload editor instead of rewriting it', async () => {
+    const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api', class: 'Not Valid' }, containers: { main: { image: 'example.invalid/api:v1' } } };
+    serve({ workloads: [{ id: 'api', ready: true, workload }] });
     render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
-    expect((await screen.findAllByText(/Nhập một file Score|Đã phân tích Workload/)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/Nhập một file Workload|Đã phân tích Workload/)).length).toBeGreaterThan(0);
     expect(screen.queryByLabelText('Class Workload')).not.toBeInTheDocument();
   });
 });
@@ -275,7 +275,7 @@ describe('ADR-016 workload class (Score metadata.class)', () => {
 it('reuses an existing shared database with a local alias and locks its configuration', async () => {
   const user = userEvent.setup();
   const spec = { type: 'postgres', class: 'in-cluster', id: 'existing-db', params: { database: 'appdb', username: 'appuser' } };
-  const { puts } = serve({ workloads: [{ id: 'backend', ready: true, score: { resources: { db: spec } } }] });
+  const { puts } = serve({ workloads: [{ id: 'backend', ready: true, workload: { resources: { db: spec } } }] });
   await newWorkload(user);
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   await user.type(screen.getByLabelText('Alias tài nguyên'), 'store');
@@ -298,9 +298,9 @@ it('supports explicit private scope in advanced controls and keeps it private on
   await user.click(screen.getByLabelText('Chỉ dùng cho workload này'));
   await user.click(save());
   expect(resourcesOf(puts[0])?.db).not.toHaveProperty('id');
-  const score = puts[0]!.score;
+  const workload = puts[0]!.workload;
   cleanup();
-  const second = serve({ workloads: [{ id: 'api', ready: true, score }] });
+  const second = serve({ workloads: [{ id: 'api', ready: true, workload }] });
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
   await screen.findByLabelText('Ảnh Container');
   await user.type(screen.getByLabelText('Ảnh Container'), '-updated');
@@ -342,7 +342,7 @@ it('retries a failed Save with the same generated resource identity', async () =
   expect(await screen.findByRole('alert')).toBeInTheDocument();
   await user.click(save());
   expect(puts).toHaveLength(1);
-  expect(puts[0]?.score.resources).toEqual((failed?.score as Record<string, unknown>).resources);
+  expect(puts[0]?.workload.resources).toEqual((failed?.workload as Record<string, unknown>).resources);
 });
 
 it('preserves scheduled execution and container overrides while editing an existing shared resource workload', async () => {
@@ -351,15 +351,15 @@ it('preserves scheduled execution and container overrides while editing an exist
     schedule: { expression: '0 1 * * *', timeZone: 'UTC', concurrencyPolicy: 'Forbid', suspend: true } };
   const container = { image: 'example.invalid/job:v1', command: ['/bin/sh'], args: ['-c', 'run-job'], workingDir: '/app', startupProbe: { path: '/health', port: 8080 } };
   const resource = { type: 'redis', class: 'in-cluster', id: 'shared-cache' };
-  const score = { apiVersion: 'score.dev/v1b1', metadata: { name: 'api' }, workloadExecution: execution, containers: { main: container }, resources: { cache: resource } };
-  const { puts } = serve({ workloads: [{ id: 'api', ready: true, score }] });
+  const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, workloadExecution: execution, containers: { main: container }, resources: { cache: resource } };
+  const { puts } = serve({ workloads: [{ id: 'api', ready: true, workload }] });
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
   await screen.findByLabelText('Ảnh Container');
   expect(screen.getByLabelText('Nguồn tài nguyên')).toHaveValue('current');
   await user.clear(screen.getByLabelText('Ảnh Container'));
   await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/job:v2');
   await user.click(save());
-  expect(puts[0]?.score.workloadExecution).toEqual(execution);
-  expect(puts[0]?.score.containers).toEqual({ main: { ...container, image: 'example.invalid/job:v2' } });
+  expect(puts[0]?.workload.workloadExecution).toEqual(execution);
+  expect(puts[0]?.workload.containers).toEqual({ main: { ...container, image: 'example.invalid/job:v2' } });
   expect(resourcesOf(puts[0])?.cache).toEqual(resource);
 });

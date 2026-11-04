@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 
+	"orchestrator/internal/planning/workloadspec"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -15,7 +17,7 @@ type parseWorkloadRequest struct {
 	Content string `json:"content"`
 }
 
-func (s *Server) handleParseWorkloadScore(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleParseWorkloadDocument(w http.ResponseWriter, r *http.Request) {
 	app, env, ok := s.authorizedConfiguration(w, r)
 	if !ok {
 		return
@@ -40,7 +42,12 @@ func (s *Server) handleParseWorkloadScore(w http.ResponseWriter, r *http.Request
 		s.writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"score": score})
+	parsed, err := workloadspec.FromMap(score)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"workload": parsed.Map()})
 }
 
 func (s *Server) handleListWorkloadDrafts(w http.ResponseWriter, r *http.Request) {
@@ -110,8 +117,8 @@ func requiredVersion(w http.ResponseWriter, version *int64) bool {
 }
 
 type saveWorkloadRequest struct {
-	Version *int64         `json:"version"`
-	Score   map[string]any `json:"score"`
+	Version  *int64         `json:"version"`
+	Workload map[string]any `json:"workload"`
 }
 
 func (s *Server) handleSaveWorkloadDraft(w http.ResponseWriter, r *http.Request) {
@@ -123,11 +130,11 @@ func (s *Server) handleSaveWorkloadDraft(w http.ResponseWriter, r *http.Request)
 	if !decodeStrict(w, r, 2<<20, &req) || !requiredVersion(w, req.Version) {
 		return
 	}
-	if req.Score == nil {
+	if req.Workload == nil {
 		writeCode(w, codeInvalidRequest, "")
 		return
 	}
-	view, err := s.workloads.Save(r.Context(), app, env, r.PathValue("workload"), req.Score, *req.Version)
+	view, err := s.workloads.Save(r.Context(), app, env, r.PathValue("workload"), req.Workload, *req.Version)
 	if err != nil {
 		s.writeError(w, err)
 		return

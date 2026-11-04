@@ -7,15 +7,15 @@ import (
 
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 	"orchestrator/internal/seed"
 )
 
-// backendScoreWithResources returns the seeded backend Score whose main
+// backendWorkloadWithResources returns the seeded backend Workload whose main
 // container declares the given requirements, replacing any sample value.
-func backendScoreWithResources(t *testing.T, resources map[string]any) *score.Document {
+func backendWorkloadWithResources(t *testing.T, resources map[string]any) *workloadspec.Document {
 	t.Helper()
-	raw := seed.AcceptanceScores(seedOptions())["backend"]
+	raw := seed.AcceptanceWorkloads(seedOptions())["backend"]
 	b, err := json.Marshal(raw)
 	if err != nil {
 		t.Fatal(err)
@@ -30,7 +30,7 @@ func backendScoreWithResources(t *testing.T, resources map[string]any) *score.Do
 	} else {
 		main["resources"] = resources
 	}
-	doc, err := score.FromMap(tree)
+	doc, err := workloadspec.FromMap(tree)
 	if err != nil {
 		t.Fatalf("score: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestPlan_PreservesContainerResourceRequirements(t *testing.T) {
 	want := `{"requests":{"cpu":"100m","memory":"128Mi"},"limits":{"cpu":"0.5","memory":"512Mi"}}`
 
 	req := testRequest(t, "internal-k8s", "backend")
-	req.After = backendScoreWithResources(t, declared)
+	req.After = backendWorkloadWithResources(t, declared)
 	plan, err := NewService(testBundles()).Plan(req)
 	if err != nil {
 		t.Fatalf("plan: %v", err)
@@ -84,9 +84,9 @@ func TestPlan_PreservesContainerResourceRequirements(t *testing.T) {
 // Resource Graph nodes or change graph identity.
 func TestPlan_ContainerResourcesAddNoGraphNodes(t *testing.T) {
 	without := testRequest(t, "internal-k8s", "backend")
-	without.After = backendScoreWithResources(t, nil)
+	without.After = backendWorkloadWithResources(t, nil)
 	with := testRequest(t, "internal-k8s", "backend")
-	with.After = backendScoreWithResources(t, map[string]any{
+	with.After = backendWorkloadWithResources(t, map[string]any{
 		"requests": map[string]any{"cpu": "100m", "memory": "128Mi"},
 		"limits":   map[string]any{"cpu": "500m", "memory": "512Mi"},
 	})
@@ -112,11 +112,11 @@ func TestPlan_ContainerResourcesAddNoGraphNodes(t *testing.T) {
 }
 
 // Changing one declared value produces a module-relative replace patch whose
-// value is the exact Score string.
+// value is the exact Workload string.
 func TestPlan_ContainerResourceChangeIsModuleRelativePatch(t *testing.T) {
 	svc := NewService(testBundles())
 	first := testRequest(t, "internal-k8s", "backend")
-	first.After = backendScoreWithResources(t, map[string]any{
+	first.After = backendWorkloadWithResources(t, map[string]any{
 		"requests": map[string]any{"cpu": "100m"},
 		"limits":   map[string]any{"memory": "512Mi"},
 	})
@@ -128,7 +128,7 @@ func TestPlan_ContainerResourceChangeIsModuleRelativePatch(t *testing.T) {
 	next := testRequest(t, "internal-k8s", "backend")
 	next.BaseSet = firstPlan.CandidateSet
 	next.Before = first.After
-	next.After = backendScoreWithResources(t, map[string]any{
+	next.After = backendWorkloadWithResources(t, map[string]any{
 		"requests": map[string]any{"cpu": "250m"},
 		"limits":   map[string]any{"memory": "512Mi", "cpu": "1"},
 	})

@@ -3,8 +3,8 @@ package registry
 import (
 	"context"
 	"orchestrator/internal/domain/catalogrelease"
-	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/templatesource"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/ports/catalogsource"
 	"orchestrator/internal/ports/gitaccess"
@@ -67,7 +67,7 @@ func (i CatalogInspector) InspectRelease(ctx context.Context, source catalogrele
 	}
 	sort.Slice(previous, func(a, b int) bool { return previous[a].Tag < previous[b].Tag })
 	modules := map[string]tfmodule.Bundle{}
-	renders := map[string]renderbundle.Bundle{}
+	renders := map[string]templatesource.Bundle{}
 	for _, c := range manifest.Components {
 		v := catalogrelease.VerifiedComponent{Component: c}
 		switch c.Kind {
@@ -94,7 +94,7 @@ func (i CatalogInspector) InspectRelease(ctx context.Context, source catalogrele
 			modules[c.ID] = b
 			v.BundleID = b.ID
 			v.SHA256 = b.Ref.ContentSHA256
-		case catalogrelease.RenderBundle:
+		case catalogrelease.TemplateSource:
 			if i.Rendering == nil {
 				return catalogrelease.Release{}, catalogrelease.ErrUnavailable
 			}
@@ -102,11 +102,11 @@ func (i CatalogInspector) InspectRelease(ctx context.Context, source catalogrele
 			if err != nil {
 				return catalogrelease.Release{}, catalogrelease.ErrInvalid
 			}
-			if repo, ok := i.Store.(persistence.RenderBundleRepository); ok {
+			if repo, ok := i.Store.(persistence.TemplateSourceRepository); ok {
 				for _, release := range previous {
 					for _, component := range release.Components {
 						if component.ID == c.ID && component.Kind == c.Kind && component.SHA256 == b.Source.ContentSHA256 {
-							old, err := repo.GetRenderBundle(ctx, source.Organization, component.BundleID)
+							old, err := repo.GetTemplateSource(ctx, source.Organization, component.BundleID)
 							if err != nil {
 								return catalogrelease.Release{}, catalogrelease.ErrUnavailable
 							}
@@ -158,7 +158,7 @@ func (i CatalogInspector) InspectRelease(ctx context.Context, source catalogrele
 			if _, err := tfmodule.ParseDriverInputs(d.DriverValues()); err != nil {
 				return catalogrelease.Release{}, catalogrelease.ErrInvalid
 			}
-		case resource.DriverScoreK8s:
+		case resource.DriverTemplate:
 			b, ok := renders[doc.Component]
 			if !ok {
 				return catalogrelease.Release{}, catalogrelease.ErrInvalid
@@ -171,7 +171,7 @@ func (i CatalogInspector) InspectRelease(ctx context.Context, source catalogrele
 			if !ok {
 				return catalogrelease.Release{}, catalogrelease.ErrInvalid
 			}
-			variables[resource.VariableRenderBundle] = b.ID
+			variables[resource.VariableTemplateSource] = b.ID
 		}
 		if doc.Binding != "" {
 			d.DriverAccount = source.AccountBindings[doc.Binding]

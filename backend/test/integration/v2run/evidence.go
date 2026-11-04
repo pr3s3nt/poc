@@ -78,7 +78,7 @@ type Assertion struct {
 
 var happyCommon = []string{
 	"ui.signin", "ui.connections.registered", "ui.types.registered", "ui.definitions.registered", "ui.environment.bound",
-	"ui.workloads.three-saved", "preview.pure", "preview.target", "preview.pins", "preview.graph", "preview.score-k8s-bundle",
+	"ui.workloads.three-saved", "preview.pure", "preview.target", "preview.pins", "preview.graph", "preview.template-bundle",
 	"deploy.terraform-stages", "ready.workloads", "ready.single-postgres", "ready.single-redis", "ready.bindings",
 	"job.completed-ui", "job.postgres-row", "cache.worker-write", "cache.backend-hit", "cache.ttl-expiry-miss", "cache.refill",
 	"job.reload-same-result", "evidence.no-secret-public",
@@ -92,7 +92,7 @@ var happyCommon = []string{
 var definitionAssertions = []string{
 	"aws.preflight-account-region-principal", "aws.egress-32", "aws.pod-capacity",
 	"ui.signin", "ui.account.ready", "ui.types.registered", "ui.definitions.registered", "ui.workloads.three-saved",
-	"preview.pure", "preview.accounts-regions", "preview.unknown-cluster-outputs", "preview.graph", "preview.pins", "preview.score-k8s-bundle", "preview.no-environment-target",
+	"preview.pure", "preview.accounts-regions", "preview.unknown-cluster-outputs", "preview.graph", "preview.pins", "preview.template-bundle", "preview.no-environment-target",
 	"deploy.terraform-stages", "deploy.cluster-ready-before-consumers",
 	"ready.ownership-recorded", "ready.aws-assets-tagged", "ready.workloads", "ready.nodes", "ready.shared-endpoints", "ready.bindings", "ready.target-identity", "persist.no-credential",
 	"app.rows-pass", "app.secret-row-not-configured",
@@ -105,7 +105,7 @@ var definitionAssertions = []string{
 var v05Assertions = []string{
 	"aws.preflight-account-region-principal", "aws.egress-32", "aws.pod-capacity",
 	"ui.signin", "ui.account.ready", "ui.types.registered", "ui.definitions.registered", "ui.workloads.three-saved",
-	"preview.pure", "preview.accounts-regions", "preview.unknown-cluster-outputs", "preview.graph", "preview.pins", "preview.score-k8s-bundle", "preview.no-environment-target",
+	"preview.pure", "preview.accounts-regions", "preview.unknown-cluster-outputs", "preview.graph", "preview.pins", "preview.template-bundle", "preview.no-environment-target",
 	"deploy.terraform-stages", "deploy.cluster-ready-before-consumers", "ready.ownership-recorded", "ready.aws-assets-tagged", "ready.workloads", "ready.nodes", "ready.shared-endpoints", "ready.bindings", "ready.target-identity", "persist.no-credential",
 	"app.rows-pass", "app.secret-row-not-configured", "job.completed-ui", "job.postgres-row", "job.no-duplicate", "cache.worker-write", "cache.backend-hit", "cache.ttl-expiry-miss", "cache.refill", "job.reload-same-result",
 	"update.data-and-worker-preserved", "update.config-rollout", "update.no-duplicate-infra", "restart.operation-after", "restart.target-unchanged", "restart.job-persisted", "restart.new-job",

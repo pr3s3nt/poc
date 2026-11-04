@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { WorkloadEditorPage } from './WorkloadEditorPage';
 import type { ConfigKey } from '../configuration/api';
-import type { ResourceType, Workload } from './api';
+import type { ResourceType, Workload as WorkloadItem } from './api';
 import type { Application } from '../../shared/types/application';
 import { bothConfigured } from '../../test/targets';
 
@@ -20,7 +20,7 @@ const postgres: ResourceType = { key: 'postgres', classes: [], inputs: [{ name: 
 type Call = { method: string; url: string; body?: Record<string, unknown> };
 type Options = {
   keys?: ConfigKey[];
-  workloads?: Workload[];
+  workloads?: WorkloadItem[];
   types?: ResourceType[];
   secretStoreKey?: string;
   stores?: { key: string; name: string; provider: string; status: string }[];
@@ -53,19 +53,19 @@ function serve(options: Options = {}) {
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: options.stores ?? [] });
     if (url.endsWith('/secret-store') && method === 'PUT') { store = String(body!.secretStoreKey); return Response.json({ environment: { key: 'staging', version: 3, secretStoreKey: store, targetGeneration: 0, draftVersion: 0 }, changed: true, copiedSecrets: 0 }); }
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: (options.types ?? []).map((type) => ({ classes: [], ...type })) });
-    if (url.endsWith('/workloads/parse')) return Response.json({ score: options.parse });
+    if (url.endsWith('/workloads/parse')) return Response.json({ workload: options.parse });
     if (method === 'PUT') return options.put ? options.put(calls.filter((call) => call.method === 'PUT').length) : Response.json({ draftVersion: 2, workloads: [] });
     return Response.json({ draftVersion: 1, workloads: options.workloads ?? [] });
   }));
   return {
     calls,
-    puts: () => calls.filter((call) => call.method === 'PUT').map((call) => call.body as { score: Score; version: number }),
+    puts: () => calls.filter((call) => call.method === 'PUT').map((call) => call.body as { workload: WorkloadDocument; version: number }),
     creates: () => calls.filter((call) => call.method === 'POST' && call.url.endsWith('/configuration/keys')),
     configurationChanged: () => calls.filter((call) => call.url.includes('/configuration/keys/')),
   };
 }
 
-type Score = { containers: Partial<Record<string, { variables?: Record<string, string> }>>; resources?: Record<string, unknown> };
+type WorkloadDocument = { containers: Partial<Record<string, { variables?: Record<string, string> }>>; resources?: Record<string, unknown> };
 const save = () => screen.getByRole('button', { name: 'Lưu draft Workload' });
 const table = (container = 'main') => within(screen.getByRole('region', { name: `Biến môi trường của container ${container}` }));
 const addButton = (container = 'main') => table(container).getByRole('button', { name: '+ Thêm biến' });
@@ -98,7 +98,7 @@ async function create(user: ReturnType<typeof userEvent.setup>, kind: string, ro
 afterEach(() => vi.unstubAllGlobals());
 type Gate = { resolve(response: Response): void };
 const gate = (gates: Gate[]) => new Promise<Response>((resolve) => gates.push({ resolve }));
-const dbWorkload: Workload = { id: 'db-api', ready: true, servicePorts: ['http'] };
+const dbWorkload: WorkloadItem = { id: 'db-api', ready: true, servicePorts: ['http'] };
 
 it('adds a directly editable name/value row without a source column and focuses its name', async () => {
   const api = serve(); const user = userEvent.setup(); await newWorkload(user);
@@ -124,7 +124,7 @@ it('projects literal, shared Variable/Secret, secret output and Service without 
   expect(table().getByLabelText('Bí mật, dòng 5')).toBeChecked();
   expect(document.body.textContent).not.toContain(SECRET_VALUE); expect(document.body.textContent).not.toContain(VARIABLE_VALUE);
   await user.click(save());
-  expect(api.puts()[0]!.score.containers.main?.variables).toEqual({ LOG:'debug', REGION:'${resources.env.API_URL}', TOKEN:'${resources.env.DATABASE_PASSWORD}', DB_HOST:'${resources.db.host}', DB_PASSWORD:'${resources.db.password}', BACKEND_URL:'${resources.svc_db-api_http.url}' });
+  expect(api.puts()[0]!.workload.containers.main?.variables).toEqual({ LOG:'debug', REGION:'${resources.env.API_URL}', TOKEN:'${resources.env.DATABASE_PASSWORD}', DB_HOST:'${resources.db.host}', DB_PASSWORD:'${resources.db.password}', BACKEND_URL:'${resources.svc_db-api_http.url}' });
   expect(api.creates()).toHaveLength(0); expect(api.configurationChanged()).toHaveLength(0);
 });
 
@@ -144,20 +144,20 @@ it('preserves an entered name, suggests only for a blank Application key and per
   const api=serve();const user=userEvent.setup();await newWorkload(user);
   await addRow(user,1,'');await reference(user,1,'Ứng dụng / API_URL');expect(table().getByLabelText('Tên biến, dòng 1')).toHaveValue('API_URL');
   await addRow(user,2,'ALIAS');await reference(user,2,'Ứng dụng / API_URL');await user.click(save());
-  expect(api.puts()[0]!.score.containers.main?.variables).toEqual({API_URL:'${resources.env.API_URL}',ALIAS:'${resources.env.API_URL}'});
+  expect(api.puts()[0]!.workload.containers.main?.variables).toEqual({API_URL:'${resources.env.API_URL}',ALIAS:'${resources.env.API_URL}'});
 });
 
 it('clears old source payload when returning to direct entry and leaves shared values untouched',async()=>{
   const api=serve();const user=userEvent.setup();await newWorkload(user);await addRow(user,1,'TOKEN');await reference(user,1,'Ứng dụng / DATABASE_PASSWORD Bí mật');
   const dialog=await picker(user);await user.click(dialog.getByRole('button',{name:'Nhập giá trị trực tiếp'}));
   expect(table().getByLabelText('Giá trị nhập, dòng 1')).toHaveValue('');await user.type(table().getByLabelText('Giá trị nhập, dòng 1'),'plain');await user.click(save());
-  expect(api.puts()[0]!.score.containers.main?.variables).toEqual({TOKEN:'plain'});expect(api.puts()[0]!.score.resources).toBeUndefined();expect(api.configurationChanged()).toHaveLength(0);
+  expect(api.puts()[0]!.workload.containers.main?.variables).toEqual({TOKEN:'plain'});expect(api.puts()[0]!.workload.resources).toBeUndefined();expect(api.configurationChanged()).toHaveLength(0);
 });
 
 it('removes one mapping without deleting the key or other aliases',async()=>{
   const api=serve();const user=userEvent.setup();await newWorkload(user);await addRow(user,1,'A');await reference(user,1,'Ứng dụng / API_URL');await addRow(user,2,'B');await reference(user,2,'Ứng dụng / API_URL');
   await user.click(table().getByRole('button',{name:'Xóa biến A, dòng 1'}));await user.click(save());
-  expect(api.puts()[0]!.score.containers.main?.variables).toEqual({B:'${resources.env.API_URL}'});expect(api.calls.some(c=>c.method==='DELETE')).toBe(false);
+  expect(api.puts()[0]!.workload.containers.main?.variables).toEqual({B:'${resources.env.API_URL}'});expect(api.calls.some(c=>c.method==='DELETE')).toBe(false);
 });
 
 it('creates a shared variable with create-only semantics and keeps the parent draft unsaved',async()=>{
@@ -171,7 +171,7 @@ it('opens masked Secret creation from the checkbox, retains app/env scope and ne
   const api=serve();const user=userEvent.setup();await newWorkload(user);await addRow(user,1,'API_TOKEN');await user.click(table().getByLabelText('Bí mật, dòng 1'));
   const dialog=within(screen.getByRole('dialog',{name:'Tạo bí mật'}));const value=dialog.getByLabelText('Giá trị bí mật');expect(value).toHaveAttribute('type','password');expect(value).toHaveValue('');
   await user.type(value,SECRET_VALUE);await user.click(dialog.getByRole('button',{name:'Tạo và chọn'}));await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());await user.click(save());
-  expect(api.creates()[0]!.body).toEqual({name:'API_TOKEN',kind:'SECRET',value:SECRET_VALUE,version:1});expect(api.puts()[0]!.score.containers.main?.variables).toEqual({API_TOKEN:'${resources.env.API_TOKEN}'});expect(JSON.stringify(api.puts())).not.toContain(SECRET_VALUE);expect(document.body.textContent).not.toContain(SECRET_VALUE);expect(api.calls.some(c=>c.method==='DELETE')).toBe(false);
+  expect(api.creates()[0]!.body).toEqual({name:'API_TOKEN',kind:'SECRET',value:SECRET_VALUE,version:1});expect(api.puts()[0]!.workload.containers.main?.variables).toEqual({API_TOKEN:'${resources.env.API_TOKEN}'});expect(JSON.stringify(api.puts())).not.toContain(SECRET_VALUE);expect(document.body.textContent).not.toContain(SECRET_VALUE);expect(api.calls.some(c=>c.method==='DELETE')).toBe(false);
 });
 
 it('Cancel Secret creation preserves the previous literal without publishing it as a Secret',async()=>{
@@ -191,7 +191,7 @@ it('Escape closes source search and returns focus without losing a typed value',
 });
 
 it('keeps unavailable imported references visible and blocks Save without retargeting',async()=>{
-  const api=serve({workloads:[{id:'api',ready:true,score:{apiVersion:'score.dev/v1b1',metadata:{name:'api'},containers:{main:{image:'i',variables:{MISSING:'${resources.env.REMOVED}',OUTPUT:'${resources.db.missing}'}}},resources:{env:{type:'environment'},db:{type:'postgres'}}}}],types:[postgres]});const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging" workloadId="api"/>);await screen.findByRole('heading',{name:'Thông tin cơ bản'});
+  const api=serve({workloads:[{id:'api',ready:true,workload:{apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'api'},containers:{main:{image:'i',variables:{MISSING:'${resources.env.REMOVED}',OUTPUT:'${resources.db.missing}'}}},resources:{env:{type:'environment'},db:{type:'postgres'}}}}],types:[postgres]});const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging" workloadId="api"/>);await screen.findByRole('heading',{name:'Thông tin cơ bản'});
   expect(table().getByRole('button',{name:'Đổi nguồn, dòng 1'})).toHaveTextContent('Ứng dụng / REMOVED');expect(table().getByRole('button',{name:'Đổi nguồn, dòng 2'})).toHaveTextContent('db.missing');await user.click(save());expect(api.puts()).toHaveLength(0);expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
 });
 
@@ -207,13 +207,13 @@ it('saves empty, whitespace and placeholder-looking values exactly and escapes $
   await user.paste('x ${resources.env.API_URL} y $${already}');
   expect(table().getByText(/Giá trị thường được lưu cùng cấu hình/)).toBeInTheDocument();
   await user.click(save());
-  expect(api.puts()[0]!.score.containers.main?.variables).toEqual({ EMPTY: '', PADDED: '  two  ', TEMPLATE: 'x $${resources.env.API_URL} y $$${already}' });
-  expect(api.puts()[0]!.score.resources).toBeUndefined();
+  expect(api.puts()[0]!.workload.containers.main?.variables).toEqual({ EMPTY: '', PADDED: '  two  ', TEMPLATE: 'x $${resources.env.API_URL} y $$${already}' });
+  expect(api.puts()[0]!.workload.resources).toBeUndefined();
 });
 
 
 it('shows a stored value back as typed and writes it unchanged when edited on the form', async () => {
-  const stored: Workload = { id: 'api', ready: true, score: { apiVersion: 'score.dev/v1b1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1', variables: { EMPTY: '', PADDED: '  two  ', TEMPLATE: 'x $${resources.env.API_URL} y' } } } } };
+  const stored: WorkloadItem = { id: 'api', ready: true, workload: { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1', variables: { EMPTY: '', PADDED: '  two  ', TEMPLATE: 'x $${resources.env.API_URL} y' } } } } };
   const api = serve({ workloads: [stored] });
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
@@ -223,7 +223,7 @@ it('shows a stored value back as typed and writes it unchanged when edited on th
   expect(table().getByLabelText('Giá trị nhập, dòng 3')).toHaveValue('x ${resources.env.API_URL} y');
   await user.type(screen.getByLabelText('Ảnh Container'), '1');
   await user.click(save());
-  expect(api.puts()[0]!.score.containers.main?.variables).toEqual(stored.score!.containers && (stored.score as unknown as Score).containers.main?.variables);
+  expect(api.puts()[0]!.workload.containers.main?.variables).toEqual(stored.workload!.containers && (stored.workload as unknown as WorkloadDocument).containers.main?.variables);
 });
 
 
@@ -239,14 +239,14 @@ it('blocks Save for a NUL character in a value without echoing it', async () => 
 });
 
 
-it('keeps a Score with text mixed into a reference on the advanced Score path instead of rewriting it', async () => {
-  const mixed = { apiVersion: 'score.dev/v1b1', metadata: { name: 'api' }, containers: { main: { image: 'i', variables: { URL: 'https://${resources.env.API_URL}/x' } } }, resources: { env: { type: 'environment' } } };
-  const api = serve({ workloads: [{ id: 'api', ready: true, score: mixed }] });
+it('keeps a Workload with text mixed into a reference on the advanced Workload path instead of rewriting it', async () => {
+  const mixed = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'i', variables: { URL: 'https://${resources.env.API_URL}/x' } } }, resources: { env: { type: 'environment' } } };
+  const api = serve({ workloads: [{ id: 'api', ready: true, workload: mixed }] });
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
   expect(await screen.findByText(/các trường mà form không thể giữ nguyên/)).toBeInTheDocument();
   await user.click(save());
-  expect(api.puts()[0]!.score).toEqual(mixed);
+  expect(api.puts()[0]!.workload).toEqual(mixed);
 });
 
 
@@ -265,11 +265,11 @@ it('allows one name in two containers but blocks Save for a duplicate inside a c
   await user.clear(table('container-2').getByLabelText('Tên biến, dòng 2'));
   await user.type(table('container-2').getByLabelText('Tên biến, dòng 2'), 'OTHER');
   await user.click(save());
-  expect(api.puts()[0]!.score.containers['container-2']?.variables).toEqual({ LEVEL: '', OTHER: '' });
+  expect(api.puts()[0]!.workload.containers['container-2']?.variables).toEqual({ LEVEL: '', OTHER: '' });
 });
 
 
-it('ignores a late Score import parse response from the previous Environment', async () => {
+it('ignores a late Workload import parse response from the previous Environment', async () => {
   const gates: Gate[] = [];
   serve();
   const fallback = vi.mocked(fetch).getMockImplementation()!;
@@ -277,14 +277,14 @@ it('ignores a late Score import parse response from the previous Environment', a
   const user = userEvent.setup();
   const view = render(<WorkloadEditorPage application={application} environment="staging" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
-  await user.click(screen.getByRole('button', { name: 'Nhập Score' }));
-  const content = 'apiVersion: score.dev/v1b1\n';
-  await user.upload(screen.getByLabelText('File Score'), Object.assign(new File([content], 'score.yaml'), { text: async () => content }));
+  await user.click(screen.getByRole('button', { name: 'Nhập Workload' }));
+  const content = 'apiVersion: orchestrator.dev/workload/v1\n';
+  await user.upload(screen.getByLabelText('File Workload'), Object.assign(new File([content], 'workload.yaml'), { text: async () => content }));
   await waitFor(() => expect(gates).toHaveLength(1));
   view.rerender(<WorkloadEditorPage application={application} environment="production" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
-  await act(async () => { gates[0]!.resolve(Response.json({ score: parsedScore })); await new Promise((resolve) => setTimeout(resolve, 0)); });
-  await user.click(screen.getByRole('button', { name: 'Nhập Score' }));
+  await act(async () => { gates[0]!.resolve(Response.json({ workload: parsedScore })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+  await user.click(screen.getByRole('button', { name: 'Nhập Workload' }));
   expect(screen.queryByText(/Đã phân tích Workload/)).not.toBeInTheDocument();
 });
 
@@ -479,7 +479,7 @@ function fireInput(element: HTMLInputElement, value: string) {
   act(() => { setter.call(element, value); element.dispatchEvent(new Event('input', { bubbles: true })); });
 }
 
-const parsedScore = { apiVersion: 'score.dev/v1b1', metadata: { name: 'importer' }, containers: { main: { image: 'example.invalid/i:v1', variables: { LEVEL: 'debug', PGPASSWORD: '${resources.env.DATABASE_PASSWORD}' } } }, resources: { env: { type: 'environment' } } };
+const parsedScore = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'importer' }, containers: { main: { image: 'example.invalid/i:v1', variables: { LEVEL: 'debug', PGPASSWORD: '${resources.env.DATABASE_PASSWORD}' } } }, resources: { env: { type: 'environment' } } };
 
 it('renders direct entry and the shared source picker in English', async () => {
   const { setCatalogs } = await import('../../shared/i18n');
@@ -502,15 +502,15 @@ it('renders direct entry and the shared source picker in English', async () => {
 });
 
 it('preserves imported literal and repeated shared references in the form', async () => {
-  const score = { ...parsedScore, containers: { main: { image: 'i', variables: { LEVEL: 'debug', A: '${resources.env.API_URL}', B: '${resources.env.API_URL}', TOKEN: '${resources.env.DATABASE_PASSWORD}' } } } };
-  const api = serve({ workloads: [{ id: 'importer', ready: true, score }] }); const user = userEvent.setup();
+  const workload = { ...parsedScore, containers: { main: { image: 'i', variables: { LEVEL: 'debug', A: '${resources.env.API_URL}', B: '${resources.env.API_URL}', TOKEN: '${resources.env.DATABASE_PASSWORD}' } } } };
+  const api = serve({ workloads: [{ id: 'importer', ready: true, workload }] }); const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="importer" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   expect(table().getByLabelText('Giá trị nhập, dòng 1')).toHaveValue('debug');
   expect(table().getByRole('button', { name: 'Đổi nguồn, dòng 2' })).toHaveTextContent('Ứng dụng / API_URL');
   expect(table().getByRole('button', { name: 'Đổi nguồn, dòng 3' })).toHaveTextContent('Ứng dụng / API_URL');
   expect(table().getByLabelText('Bí mật, dòng 4')).toBeChecked();
-  await user.click(save()); expect(api.puts()[0]!.score.containers.main?.variables).toEqual(score.containers.main.variables);
+  await user.click(save()); expect(api.puts()[0]!.workload.containers.main?.variables).toEqual(workload.containers.main.variables);
 });
 
 it('adds a dependency inline, explicitly selects its output and uses it from another container', async () => {
@@ -525,8 +525,8 @@ it('adds a dependency inline, explicitly selects its output and uses it from ano
   await user.click(screen.getByRole('button', { name: '+ Thêm Container' }));
   await user.type(screen.getAllByLabelText('Ảnh Container')[1]!, 'i');
   await addRow(user, 1, 'HOST', 'Giá trị nhập', 'container-2'); await reference(user, 1, 'db.host', 'container-2');
-  await user.click(save()); expect(api.puts()[0]!.score.containers['container-2']?.variables).toEqual({ HOST: '${resources.db.host}' });
-  expect(api.puts()[0]!.score.resources?.db).toMatchObject({ id: expect.stringMatching(/^resource-/) });
+  await user.click(save()); expect(api.puts()[0]!.workload.containers['container-2']?.variables).toEqual({ HOST: '${resources.db.host}' });
+  expect(api.puts()[0]!.workload.resources?.db).toMatchObject({ id: expect.stringMatching(/^resource-/) });
 });
 
 it('requires explicitly reselecting an output after changing dependency type', async () => {
@@ -553,7 +553,7 @@ it('serializes Object prototype names as own variables rather than dropping mapp
   const api = serve({ keys }); const user = userEvent.setup(); await newWorkload(user);
   for (const [i, key] of keys.entries()) { await addRow(user, i + 1, ''); await reference(user, i + 1, `Ứng dụng / ${key.name}`); }
   await user.click(save());
-  const variables = api.puts()[0]!.score.containers.main?.variables ?? {};
+  const variables = api.puts()[0]!.workload.containers.main?.variables ?? {};
   expect(Object.keys(variables)).toEqual(['__proto__', 'constructor', 'toString']);
   expect(Object.getOwnPropertyDescriptor(variables, '__proto__')?.value).toBe('${resources.env.__proto__}');
 });
@@ -577,7 +577,7 @@ it('does not leak a late catalog response from staging into production source se
 
 it('selects an existing shared resource inline without copying outputs or creating it', async () => {
   const spec = { type: 'postgres', id: 'app-db', params: { name: 'shared' } };
-  const api = serve({ types: [postgres], workloads: [{ id: 'backend', ready: true, score: { resources: { db: spec } } }] });
+  const api = serve({ types: [postgres], workloads: [{ id: 'backend', ready: true, workload: { resources: { db: spec } } }] });
   const user = userEvent.setup();
   await newWorkload(user);
   await addRow(user, 1, 'DB_HOST');
@@ -590,7 +590,7 @@ it('selects an existing shared resource inline without copying outputs or creati
   const outputs = within(screen.getByRole('dialog', { name: 'Chọn giá trị có sẵn' }));
   await user.click(outputs.getByRole('button', { name: 'db.host' }));
   await user.click(save());
-  expect(api.puts()[0]!.score.resources?.db).toEqual(spec);
-  expect(api.puts()[0]!.score.containers.main?.variables).toEqual({ DB_HOST: '${resources.db.host}' });
+  expect(api.puts()[0]!.workload.resources?.db).toEqual(spec);
+  expect(api.puts()[0]!.workload.containers.main?.variables).toEqual({ DB_HOST: '${resources.db.host}' });
   expect(api.calls.filter(call => call.method === 'POST')).toEqual([]);
 });

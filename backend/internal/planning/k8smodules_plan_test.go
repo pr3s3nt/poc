@@ -14,7 +14,7 @@ import (
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/planning"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 	"orchestrator/internal/seed"
 )
 
@@ -88,10 +88,10 @@ func k8sRequestWith(t *testing.T, annotations map[string]any, adjust func(*plann
 	if adjust != nil {
 		adjust(&catalog)
 	}
-	scoreMap := seed.AcceptanceScores(o)["backend"]
+	scoreMap := seed.AcceptanceWorkloads(o)["backend"]
 	resources := scoreMap["resources"].(map[string]any)
 	resources["cache"] = map[string]any{"type": "redis", "class": "default", "id": "acceptance-cache"}
-	doc, err := score.FromMap(scoreMap)
+	doc, err := workloadspec.FromMap(scoreMap)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -295,7 +295,7 @@ func TestConsoleAuthoredAcceptanceCatalogPlansTheDeletionFixtureGraph(t *testing
 		redisDef.Criteria = []resource.Criterion{{Class: "in-cluster"}}
 		c.Definitions = []resource.Definition{nsDef, pgDef, redisDef}
 		for _, d := range seed.ResourceDefinitions(seedtest.Defaults()) {
-			if d.Key == "cluster-internal" || d.Key == "workload-score-k8s" {
+			if d.Key == "cluster-internal" || d.Key == "workload-template" {
 				c.Definitions = append(c.Definitions, d)
 			}
 		}
@@ -312,9 +312,9 @@ func TestConsoleAuthoredAcceptanceCatalogPlansTheDeletionFixtureGraph(t *testing
 		}
 	})
 	o := seedtest.Defaults()
-	doc := seed.AcceptanceScoresRedis(o, "acceptance-cache", "in-cluster", "acceptance", "staging", "r1")["backend"]
+	doc := seed.AcceptanceWorkloadsRedis(o, "acceptance-cache", "in-cluster", "acceptance", "staging", "r1")["backend"]
 	doc["resources"].(map[string]any)["db"].(map[string]any)["class"] = "in-cluster"
-	after, err := score.FromMap(doc)
+	after, err := workloadspec.FromMap(doc)
 	if err != nil {
 		t.Fatal(err)
 	}

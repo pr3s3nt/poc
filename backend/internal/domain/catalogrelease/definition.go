@@ -54,11 +54,11 @@ func ParseDefinition(raw []byte) (DefinitionDocument, error) {
 		if _, exists := d.DriverValues()["source"]; exists {
 			return DefinitionDocument{}, ErrInvalid
 		}
-	case resource.DriverScoreK8s:
+	case resource.DriverTemplate:
 		if !ValidID(result.Component) || result.Binding != "" {
 			return DefinitionDocument{}, ErrInvalid
 		}
-		if _, exists := d.Variables()[resource.VariableRenderBundle]; exists {
+		if _, exists := d.Variables()[resource.VariableTemplateSource]; exists {
 			return DefinitionDocument{}, ErrInvalid
 		}
 	case resource.DriverExistingCluster:

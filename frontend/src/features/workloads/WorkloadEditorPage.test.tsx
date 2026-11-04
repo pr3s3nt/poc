@@ -9,7 +9,7 @@ const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'c
 
 afterEach(() => vi.unstubAllGlobals());
 
-it('saves an Application key as a Score reference, not a copied value', async () => {
+it('saves an Application key as a Workload reference, not a copied value', async () => {
   let saved: Record<string, unknown> | undefined;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
@@ -32,9 +32,9 @@ it('saves an Application key as a Score reference, not a copied value', async ()
   await user.click(screen.getByRole('button', { name: 'Ứng dụng / API_URL' }));
   await user.click(screen.getByRole('button', { name: 'Lưu draft Workload' }));
   expect(saved).toBeDefined();
-  const score = saved?.score as { containers: { main: { variables: Record<string, string> } }; resources: { env: { type: string } } };
-  expect(score.containers.main.variables).toEqual({ BACKEND_URL: '${resources.env.API_URL}' });
-  expect(score.resources.env.type).toBe('environment');
+  const workload = saved?.workload as { containers: { main: { variables: Record<string, string> } }; resources: { env: { type: string } } };
+  expect(workload.containers.main.variables).toEqual({ BACKEND_URL: '${resources.env.API_URL}' });
+  expect(workload.resources.env.type).toBe('environment');
   expect(JSON.stringify(saved)).not.toContain('https://internal.example');
 });
 
@@ -50,7 +50,7 @@ it('keeps edits after a save conflict, blocks Save until an explicit reload, and
       return puts.length === 1 ? Response.json({ error: 'workloads changed since they were loaded; reload and try again' }, { status: 409 }) : Response.json({ draftVersion: 6, workloads: [] });
     }
     lists += 1;
-    return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', draftVersion: lists === 1 ? 4 : 5, workloads: lists === 1 ? [] : [{ id: 'web', state: 'PENDING_UPSERT', ready: false, score: { metadata: { name: 'web' }, containers: { main: { image: 'other:v9' } } } }] });
+    return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', draftVersion: lists === 1 ? 4 : 5, workloads: lists === 1 ? [] : [{ id: 'web', state: 'PENDING_UPSERT', ready: false, workload: { metadata: { name: 'web' }, containers: { main: { image: 'other:v9' } } } }] });
   }));
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" />);
@@ -133,7 +133,7 @@ it('offers retry when the editor cannot load', async () => {
   expect(screen.getByRole('button', { name: 'Lưu draft Workload' })).toBeEnabled();
 });
 
-it('requires PostgreSQL inputs and saves them as Score resource params', async () => {
+it('requires PostgreSQL inputs and saves them as Workload resource params', async () => {
   let saved: Record<string, unknown> | undefined;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
@@ -157,8 +157,8 @@ it('requires PostgreSQL inputs and saves them as Score resource params', async (
   await user.type(screen.getByLabelText('Tham số username'), 'app');
   await user.click(screen.getByRole('button', { name: 'Lưu draft Workload' }));
   expect(saved).toBeDefined();
-  const score = saved?.score as { resources: { db: { type: string; params: Record<string, string> } } };
-  expect(score.resources.db).toEqual({ type: 'postgres', id: expect.stringMatching(/^resource-/), params: { database: 'catalog', username: 'app' } });
+  const workload = saved?.workload as { resources: { db: { type: string; params: Record<string, string> } } };
+  expect(workload.resources.db).toEqual({ type: 'postgres', id: expect.stringMatching(/^resource-/), params: { database: 'catalog', username: 'app' } });
 });
 
 it('preserves PostgreSQL params when editing a workload on the form', async () => {
@@ -168,7 +168,7 @@ it('preserves PostgreSQL params when editing a workload on the form', async () =
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres', classes: [], inputs: [{ name: 'database', type: 'string', required: true }, { name: 'username', type: 'string', required: true }], outputs: [] }] });
     if (init?.method === 'PUT') { saved = JSON.parse(String(init.body)) as Record<string, unknown>; return Response.json({ draftVersion: 2, workloads: [] }); }
-    return Response.json({ draftVersion: 1, workloads: [{ id: 'backend', score: { apiVersion: 'score.dev/v1b1', metadata: { name: 'backend' }, containers: { main: { image: 'example.invalid/backend:v1' } }, resources: { db: { type: 'postgres', params: { database: 'catalog', username: 'app' } } } } }] });
+    return Response.json({ draftVersion: 1, workloads: [{ id: 'backend', workload: { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'backend' }, containers: { main: { image: 'example.invalid/backend:v1' } }, resources: { db: { type: 'postgres', params: { database: 'catalog', username: 'app' } } } } }] });
   }));
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="backend" />);
@@ -177,8 +177,8 @@ it('preserves PostgreSQL params when editing a workload on the form', async () =
   await user.clear(screen.getByLabelText('Tham số database'));
   await user.type(screen.getByLabelText('Tham số database'), 'catalog_v2');
   await user.click(screen.getByRole('button', { name: 'Lưu draft Workload' }));
-  const score = saved?.score as { resources: { db: { params: Record<string, string> } } };
-  expect(score.resources.db.params).toEqual({ database: 'catalog_v2', username: 'app' });
+  const workload = saved?.workload as { resources: { db: { params: Record<string, string> } } };
+  expect(workload.resources.db.params).toEqual({ database: 'catalog_v2', username: 'app' });
 });
 
 it('shows a backend resource param rejection, keeps the form and does not report a saved draft', async () => {
@@ -187,7 +187,7 @@ it('shows a backend resource param rejection, keeps the form and does not report
     const url = String(input);
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres', classes: [], inputs: [{ name: 'database', type: 'string', required: true }], outputs: [{ name: 'host' }] }] });
-    if (init?.method === 'PUT') { puts.push(JSON.parse(String(init.body))); return Response.json({ error: 'workloadconfig: invalid input: resources.db.params.database is required by resource type postgres', code: 'INVALID_SCORE', params: { resourceType: 'postgres' } }, { status: 400 }); }
+    if (init?.method === 'PUT') { puts.push(JSON.parse(String(init.body))); return Response.json({ error: 'workloadconfig: invalid input: resources.db.params.database is required by resource type postgres', code: 'INVALID_WORKLOAD', params: { resourceType: 'postgres' } }, { status: 400 }); }
     return Response.json({ draftVersion: 3, workloads: [] });
   }));
   const user = userEvent.setup();
@@ -210,7 +210,7 @@ it('shows a backend resource param rejection, keeps the form and does not report
   expect(screen.getByRole('button', { name: 'Lưu draft Workload' })).toBeEnabled();
 });
 
-it('shows a Score import rejection without presenting the file as parsed', async () => {
+it('shows a Workload import rejection without presenting the file as parsed', async () => {
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
@@ -221,11 +221,11 @@ it('shows a Score import rejection without presenting the file as parsed', async
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
-  await user.click(screen.getByRole('button', { name: 'Nhập Score' }));
-  const content = 'apiVersion: score.dev/v1b1\nmetadata:\n  name: api\n';
+  await user.click(screen.getByRole('button', { name: 'Nhập Workload' }));
+  const content = 'apiVersion: orchestrator.dev/workload/v1\nmetadata:\n  name: api\n';
   // jsdom File has no text(); provide it so the page reads the upload.
-  const file = Object.assign(new File([content], 'score.yaml', { type: 'text/yaml' }), { text: async () => content });
-  await user.upload(screen.getByLabelText('File Score'), file);
+  const file = Object.assign(new File([content], 'workload.yaml', { type: 'text/yaml' }), { text: async () => content });
+  await user.upload(screen.getByLabelText('File Workload'), file);
   expect(await screen.findByRole('alert')).toHaveTextContent('Tên, giá trị hoặc tham chiếu biến không hợp lệ');
   expect(screen.queryByText(/Đã phân tích Workload/)).not.toBeInTheDocument();
 });
@@ -258,9 +258,9 @@ it('disables Save while an environment operation runs, keeps the typed text and 
 });
 
 // ---- T08: basic/advanced form, effective defaults, typed params, public route targets ----
-// Saved Score as the page sends it; tests read nested fields directly.
+// Saved Workload as the page sends it; tests read nested fields directly.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Saved = { score: Record<string, any>; version: number };
+type Saved = { workload: Record<string, any>; version: number };
 type Serve = { workloads?: unknown[]; types?: unknown[]; keys?: unknown[] };
 function serve(options: Serve = {}) {
   const puts: Saved[] = [];
@@ -303,10 +303,10 @@ it('keeps resources, class and target port in closed advanced sections with effe
   expect(note('Tóm tắt nâng cao tài nguyên cache')).toHaveTextContent('Lớp hiệu lực: default (mặc định)');
   expect(note('Tóm tắt nâng cao cổng http')).toHaveTextContent('Cổng đích hiệu lực: 8080 (theo cổng Service)');
   await user.click(saveButton());
-  const score = puts[0]!.score;
-  expect(score.containers.main).toEqual({ image: 'example.invalid/web:v1' });
-  expect(score.resources.cache).toEqual({ type: 'redis', id: expect.stringMatching(/^resource-/) });
-  expect(score.service).toEqual({ ports: { http: { port: 8080, targetPort: 8080 } } });
+  const workload = puts[0]!.workload;
+  expect(workload.containers.main).toEqual({ image: 'example.invalid/web:v1' });
+  expect(workload.resources.cache).toEqual({ type: 'redis', id: expect.stringMatching(/^resource-/) });
+  expect(workload.service).toEqual({ ports: { http: { port: 8080, targetPort: 8080 } } });
 });
 
 it('shows the effective request as explicit, else same-dimension limit, else default, and never adds a limit', async () => {
@@ -326,12 +326,12 @@ it('shows the effective request as explicit, else same-dimension limit, else def
   expect(screen.queryByLabelText('Giới hạn CPU')).not.toBeInTheDocument();
   expect(summary()).toHaveTextContent('CPU 100m (tường minh) · Bộ nhớ 64Mi (tường minh). Giới hạn: CPU 500m · Bộ nhớ chưa đặt.');
   await user.click(saveButton());
-  expect(puts[0]!.score.containers.main.resources).toEqual({ requests: { cpu: '100m', memory: '64Mi' }, limits: { cpu: '500m' } });
+  expect(puts[0]!.workload.containers.main.resources).toEqual({ requests: { cpu: '100m', memory: '64Mi' }, limits: { cpu: '500m' } });
 });
 
 it('keeps imported advanced overrides through collapse and basic edits and writes them back unchanged', async () => {
-  const score = { apiVersion: 'score.dev/v1b1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1', resources: { requests: { cpu: '250m' }, limits: { cpu: '1', memory: '256Mi' } } } }, resources: { db: { type: 'postgres', class: 'large', params: { database: 'shop' } } }, service: { ports: { http: { port: 80, targetPort: 9090 } } } };
-  const { puts } = serve({ workloads: [{ id: 'api', state: 'PENDING_UPSERT', score }], types: [{ key: 'postgres', classes: [], inputs: [{ name: 'database', type: 'string', required: true }], outputs: [] }] });
+  const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1', resources: { requests: { cpu: '250m' }, limits: { cpu: '1', memory: '256Mi' } } } }, resources: { db: { type: 'postgres', class: 'large', params: { database: 'shop' } } }, service: { ports: { http: { port: 80, targetPort: 9090 } } } };
+  const { puts } = serve({ workloads: [{ id: 'api', state: 'PENDING_UPSERT', workload }], types: [{ key: 'postgres', classes: [], inputs: [{ name: 'database', type: 'string', required: true }], outputs: [] }] });
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
   await screen.findByRole('heading', { name: 'Sửa api' });
@@ -346,7 +346,7 @@ it('keeps imported advanced overrides through collapse and basic edits and write
   await user.clear(screen.getByLabelText('Ảnh Container'));
   await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/api:v2');
   await user.click(saveButton());
-  expect(puts[0]!.score).toEqual({ ...score, containers: { main: { ...score.containers.main, image: 'example.invalid/api:v2' } } });
+  expect(puts[0]!.workload).toEqual({ ...workload, containers: { main: { ...workload.containers.main, image: 'example.invalid/api:v2' } } });
 });
 
 it('omits an empty class and writes a class only while it is set', async () => {
@@ -363,7 +363,7 @@ it('omits an empty class and writes a class only while it is set', async () => {
   await user.clear(screen.getByLabelText('Lớp tài nguyên'));
   expect(note('Tóm tắt nâng cao tài nguyên cache')).toHaveTextContent('Lớp hiệu lực: default (mặc định)');
   await user.click(saveButton());
-  expect(puts[0]!.score.resources.cache).toEqual({ type: 'redis', id: expect.stringMatching(/^resource-/) });
+  expect(puts[0]!.workload.resources.cache).toEqual({ type: 'redis', id: expect.stringMatching(/^resource-/) });
 });
 
 it('uses a per-Service target port override as a number and falls back to the Service port', async () => {
@@ -378,12 +378,12 @@ it('uses a per-Service target port override as a number and falls back to the Se
   await user.click(screen.getByRole('button', { name: 'Ẩn nâng cao cổng http' }));
   expect(note('Tóm tắt nâng cao cổng http')).toHaveTextContent('Cổng đích hiệu lực: 8080 (ghi đè)');
   await user.click(saveButton());
-  expect(puts[0]!.score.service.ports).toEqual({ http: { port: 80, targetPort: 8080 }, metrics: { port: 9100, targetPort: 9100 } });
+  expect(puts[0]!.workload.service.ports).toEqual({ http: { port: 80, targetPort: 8080 }, metrics: { port: 9100, targetPort: 9100 } });
 });
 
-it('keeps number and bool resource params typed, also when edited from an imported Score', async () => {
+it('keeps number and bool resource params typed, also when edited from an imported Workload', async () => {
   const types = [{ key: 'queue', inputs: [{ name: 'replicas', type: 'number' }, { name: 'durable', type: 'bool' }, { name: 'topic', type: 'string' }], outputs: [] }];
-  const { puts } = serve({ types, workloads: [{ id: 'q', state: 'PENDING_UPSERT', score: { apiVersion: 'score.dev/v1b1', metadata: { name: 'q' }, containers: { main: { image: 'example.invalid/q:v1' } }, resources: { jobs: { type: 'queue', params: { replicas: 3, durable: false, topic: '3' } } } } }] });
+  const { puts } = serve({ types, workloads: [{ id: 'q', state: 'PENDING_UPSERT', workload: { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'q' }, containers: { main: { image: 'example.invalid/q:v1' } }, resources: { jobs: { type: 'queue', params: { replicas: 3, durable: false, topic: '3' } } } } }] });
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="q" />);
   expect(await screen.findByLabelText('Tham số replicas')).toHaveValue(3);
@@ -392,7 +392,7 @@ it('keeps number and bool resource params typed, also when edited from an import
   await user.type(screen.getByLabelText('Tham số replicas'), '5');
   await user.selectOptions(screen.getByLabelText('Tham số durable'), 'true');
   await user.click(saveButton());
-  expect(puts[0]!.score.resources.jobs.params).toEqual({ replicas: 5, durable: true, topic: '3' });
+  expect(puts[0]!.workload.resources.jobs.params).toEqual({ replicas: 5, durable: true, topic: '3' });
 });
 
 it('never adds a public route on its own and selects a port only when exactly one is valid', async () => {
@@ -403,7 +403,7 @@ it('never adds a public route on its own and selects a port only when exactly on
   await addPort(user, 'http', '8080');
   expect(screen.queryByLabelText('Đường dẫn công khai')).not.toBeInTheDocument();
   await user.click(saveButton());
-  expect(puts[0]!.score.service.publicRoutes).toBeUndefined();
+  expect(puts[0]!.workload.service.publicRoutes).toBeUndefined();
 });
 
 it('selects the only valid Service port after Add public route, not before', async () => {
@@ -418,7 +418,7 @@ it('selects the only valid Service port after Add public route, not before', asy
   await addPort(user, 'metrics', '9100', 1);
   expect(routeSelect()).toHaveValue('http');
   await user.click(saveButton());
-  expect(puts[0]!.score.service.publicRoutes).toEqual([{ path: '/', port: 'http' }]);
+  expect(puts[0]!.workload.service.publicRoutes).toEqual([{ path: '/', port: 'http' }]);
 });
 
 it('requires an explicit choice when no or several Service ports are valid', async () => {
@@ -488,7 +488,7 @@ it('keeps the old route target when its port is renamed, removed or invalid, sho
   // an explicit choice repairs it
   await user.selectOptions(routeSelect(), 'other');
   await user.click(saveButton());
-  expect(puts[0]!.score.service.publicRoutes).toEqual([{ path: '/', port: 'other' }]);
+  expect(puts[0]!.workload.service.publicRoutes).toEqual([{ path: '/', port: 'other' }]);
 });
 
 it('does not add variables, keys or secrets on its own and sends no variables for an untouched table', async () => {
@@ -499,8 +499,8 @@ it('does not add variables, keys or secrets on its own and sends no variables fo
   expect(await screen.findByText('Chưa có biến môi trường')).toBeInTheDocument();
   expect(screen.queryByLabelText(/^Tên biến, dòng/)).not.toBeInTheDocument();
   await user.click(saveButton());
-  expect(puts[0]!.score.containers.main.variables).toBeUndefined();
-  expect(puts[0]!.score.resources).toBeUndefined();
+  expect(puts[0]!.workload.containers.main.variables).toBeUndefined();
+  expect(puts[0]!.workload.resources).toBeUndefined();
 });
 
 it('blocks Save with Vietnamese validation for an invalid Workload name and keeps the form', async () => {
@@ -516,14 +516,14 @@ it('blocks Save with Vietnamese validation for an invalid Workload name and keep
 });
 
 it('round-trips several publicRoutes unchanged and never serializes publicPort', async () => {
-  const score = { apiVersion: 'score.dev/v1b1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1' } }, service: { ports: { http: { port: 8080 }, admin: { port: 9000 } }, publicRoutes: [{ path: '/', port: 'http' }, { path: '/admin', port: 'admin' }] } };
-  const { puts } = serve({ workloads: [{ id: 'api', state: 'PENDING_UPSERT', score }] });
+  const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1' } }, service: { ports: { http: { port: 8080 }, admin: { port: 9000 } }, publicRoutes: [{ path: '/', port: 'http' }, { path: '/admin', port: 'admin' }] } };
+  const { puts } = serve({ workloads: [{ id: 'api', state: 'PENDING_UPSERT', workload }] });
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
   await screen.findByRole('heading', { name: 'Sửa api' });
   expect(screen.getAllByLabelText('Đường dẫn công khai')).toHaveLength(2);
   await user.click(saveButton());
-  expect(puts[0]!.score.service).toEqual(score.service);
+  expect(puts[0]!.workload.service).toEqual(workload.service);
   expect(JSON.stringify(puts[0])).not.toContain('publicPort');
 });
 
@@ -532,16 +532,16 @@ it('rejects an import with publicPort in Vietnamese, keeps the form and converts
     const url = String(input);
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
-    if (url.endsWith('/workloads/parse')) return Response.json({ error: 'raw SECRET', code: 'INVALID_SCORE', field: 'service.publicPort' }, { status: 400 });
+    if (url.endsWith('/workloads/parse')) return Response.json({ error: 'raw SECRET', code: 'INVALID_WORKLOAD', field: 'service.publicPort' }, { status: 400 });
     return Response.json({ draftVersion: 0, workloads: [] });
   }));
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
-  await user.click(screen.getByRole('button', { name: 'Nhập Score' }));
-  const content = '{"apiVersion":"score.dev/v1b1","metadata":{"name":"api"},"service":{"publicPort":"http"}}';
-  const file = Object.assign(new File([content], 'score.json', { type: 'application/json' }), { text: async () => content });
-  await user.upload(screen.getByLabelText('File Score'), file);
+  await user.click(screen.getByRole('button', { name: 'Nhập Workload' }));
+  const content = '{"apiVersion":"orchestrator.dev/workload/v1","metadata":{"name":"api"},"service":{"publicPort":"http"}}';
+  const file = Object.assign(new File([content], 'workload.json', { type: 'application/json' }), { text: async () => content });
+  await user.upload(screen.getByLabelText('File Workload'), file);
   const alert = await screen.findByRole('alert');
   expect(alert).toHaveTextContent('publicRoutes');
   expect(alert).not.toHaveTextContent('SECRET');
@@ -549,8 +549,8 @@ it('rejects an import with publicPort in Vietnamese, keeps the form and converts
 });
 
 it('does not open a draft that still declares publicPort and does not drop its route', async () => {
-  const score = { apiVersion: 'score.dev/v1b1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1' } }, service: { ports: { http: { port: 8080 } }, publicPort: 'http' } };
-  const { puts } = serve({ workloads: [{ id: 'api', state: 'PENDING_UPSERT', score }] });
+  const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1' } }, service: { ports: { http: { port: 8080 } }, publicPort: 'http' } };
+  const { puts } = serve({ workloads: [{ id: 'api', state: 'PENDING_UPSERT', workload }] });
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
   expect(await screen.findByRole('alert')).toHaveTextContent('publicRoutes');
   expect(screen.queryByLabelText('Đường dẫn công khai')).not.toBeInTheDocument();
@@ -573,6 +573,6 @@ it('saves a selected scheduled template with Service omitted and explicit schedu
  await user.type(screen.getByLabelText('Tên Workload'),'backup');await user.type(screen.getByLabelText('Ảnh Container'),'registry.example/backup:v1');
  await user.clear(screen.getByLabelText('Lịch cron'));await user.type(screen.getByLabelText('Lịch cron'),'0 1 * * *');
  await user.click(screen.getByLabelText('Tạm dừng lịch'));await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));
- const score = saved?.score as { workloadExecution: { kind: string; template: { sha256: string }; schedule: { expression: string; suspend: boolean } }; service?: unknown };
- expect(score.workloadExecution.kind).toBe('CronJob');expect(score.workloadExecution.template.sha256).toBe(digest);expect(score.workloadExecution.schedule).toMatchObject({expression:'0 1 * * *',suspend:true});expect(score.service).toBeUndefined();
+ const workload = saved?.workload as { workloadExecution: { kind: string; template: { sha256: string }; schedule: { expression: string; suspend: boolean } }; service?: unknown };
+ expect(workload.workloadExecution.kind).toBe('CronJob');expect(workload.workloadExecution.template.sha256).toBe(digest);expect(workload.workloadExecution.schedule).toMatchObject({expression:'0 1 * * *',suspend:true});expect(workload.service).toBeUndefined();
 });

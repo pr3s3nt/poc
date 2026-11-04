@@ -13,13 +13,13 @@ function canonical(value: unknown): string {
   return JSON.stringify(value) ?? '';
 }
 
-// Only safe authored Score is used here, never resource outputs or credentials.
+// Only safe authored Workload is used here, never resource outputs or credentials.
 // Workload-local references cannot be transplanted into another workload.
 export function sharedResources(workloads: Workload[], types: ResourceType[]): SharedResource[] {
   const found = new Map<string, SharedResource & { signature: string }>();
   for (const workload of workloads) {
     if (workload.state === 'PENDING_DELETE') continue;
-    const resources = workload.score?.resources;
+    const resources = workload.workload?.resources;
     if (!resources || typeof resources !== 'object' || Array.isArray(resources)) continue;
     for (const [alias, raw] of Object.entries(resources)) {
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;

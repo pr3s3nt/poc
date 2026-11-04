@@ -62,7 +62,7 @@ try {
     { id: 'run-postgres', type: 'postgres', module: 'postgres-k8s', presetNamespace: true, klass: 'in-cluster', clusterClass: 'internal' },
     { id: 'run-redis', type: 'redis', module: 'redis-k8s', presetNamespace: true, klass: 'in-cluster', clusterClass: 'internal' },
   ]) await registerK8sModuleDefinition(kit, spec);
-  await registerWorkloadTemplate(kit, { id: 'run-renderer', bundle: 'score-k8s-internal-v1' });
+  await registerWorkloadTemplate(kit, { id: 'run-renderer', bundle: 'template-internal-v1' });
   expect(browserErrors).toEqual([]);
   await page.screenshot({ path: `${evidenceDir}/catalog.png`, fullPage: true });
 } finally {

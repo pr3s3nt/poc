@@ -3,7 +3,7 @@ import { newSharedId, sharedResources, sharedSelectionProblem } from './sharedRe
 import type { ResourceType, Workload } from './api';
 
 const types: ResourceType[] = [{ key: 'postgres', inputs: [{ name: 'database', type: 'string' }, { name: 'replicas', type: 'number' }, { name: 'tls', type: 'bool' }], outputs: [] }];
-const workload = (id: string, resources: Record<string, unknown>, state?: Workload['state']): Workload => ({ id, ready: true, score: { resources }, state });
+const workload = (id: string, resources: Record<string, unknown>, state?: Workload['state']): Workload => ({ id, ready: true, workload: { resources }, state });
 
 it('offers shared resources once, excludes private and pending deletes, preserving authored typed params', () => {
   const spec = { id: 'database', type: 'postgres', params: { database: 'app', replicas: 2, tls: false } };

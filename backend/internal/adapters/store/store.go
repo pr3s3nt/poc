@@ -24,10 +24,10 @@ import (
 	"orchestrator/internal/domain/effectiveness"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/identity"
-	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/secretstore"
 	"orchestrator/internal/domain/telemetry"
+	"orchestrator/internal/domain/templatesource"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
@@ -87,9 +87,9 @@ type state struct {
 	ModuleBundles                   map[string]tfmodule.Bundle                    `json:"terraformModuleBundles"`
 	// Baselines are the append-only UC-17 versions, keyed by ID.
 	Baselines map[string]effectiveness.Baseline `json:"effectivenessBaselines"`
-	// RenderBundles are the verified Git render bundles (ADR-021), keyed by
+	// TemplateSources are the verified Git render bundles (ADR-021), keyed by
 	// ID. The key is optional so older complete snapshots still load.
-	RenderBundles map[string]renderbundle.Bundle `json:"renderBundles,omitempty"`
+	TemplateSources map[string]templatesource.Bundle `json:"templateSources,omitempty"`
 	// DiagnosticReports are the Infrastructure Account diagnostic reports
 	// (ADR-022), keyed by ID. The key is optional so older snapshots load.
 	DiagnosticReports map[string]diagnostics.Report `json:"diagnosticReports,omitempty"`
@@ -128,7 +128,7 @@ func newState() *state {
 		Operations:          map[string]environment.Operation{},
 		ModuleBundles:       map[string]tfmodule.Bundle{},
 		Baselines:           map[string]effectiveness.Baseline{},
-		RenderBundles:       map[string]renderbundle.Bundle{},
+		TemplateSources:     map[string]templatesource.Bundle{},
 		DiagnosticReports:   map[string]diagnostics.Report{},
 	}
 }
@@ -172,7 +172,7 @@ func (s *Store) SaveWorkloadDraft(ctx context.Context, expected int64, draft env
 	if env.DraftVersion != expected {
 		return persistence.ErrVersionConflict
 	}
-	if draft.WorkloadID == "" || (draft.State != environment.DraftUpsert && draft.State != environment.DraftDelete) || (draft.State == environment.DraftUpsert && draft.Score == nil) {
+	if draft.WorkloadID == "" || (draft.State != environment.DraftUpsert && draft.State != environment.DraftDelete) || (draft.State == environment.DraftUpsert && draft.Workload == nil) {
 		return fmt.Errorf("store: invalid workload draft")
 	}
 	s.state.WorkloadDrafts[draftKey(draft.ApplicationKey, draft.EnvironmentKey, draft.WorkloadID)] = cloneWorkloadDraft(draft)
@@ -205,9 +205,9 @@ func (s *Store) DeleteWorkloadDraft(ctx context.Context, app, envKeyName, worklo
 
 func cloneWorkloadDraft(in environment.WorkloadDraft) environment.WorkloadDraft {
 	out := in
-	if in.Score != nil {
-		b, _ := json.Marshal(in.Score)
-		_ = json.Unmarshal(b, &out.Score)
+	if in.Workload != nil {
+		b, _ := json.Marshal(in.Workload)
+		_ = json.Unmarshal(b, &out.Workload)
 	}
 	return out
 }
@@ -298,7 +298,7 @@ func (s *Store) commitDesiredRename(ctx context.Context, cmd persistence.Desired
 		return persistence.ErrImmutable
 	}
 	for _, draft := range cmd.Drafts {
-		if draft.ApplicationKey != cmd.ApplicationKey || draft.EnvironmentKey != cmd.EnvironmentKey || draft.WorkloadID == "" || draft.State != environment.DraftUpsert || draft.Score == nil {
+		if draft.ApplicationKey != cmd.ApplicationKey || draft.EnvironmentKey != cmd.EnvironmentKey || draft.WorkloadID == "" || draft.State != environment.DraftUpsert || draft.Workload == nil {
 			return fmt.Errorf("store: invalid rename draft")
 		}
 		// A pending delete is never rewritten or resurrected.

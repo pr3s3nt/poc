@@ -50,12 +50,12 @@ func PublishCatalog(ctx context.Context, st persistence.Store, o seed.Options) e
 		snapshot := d
 		components = append(components, catalogrelease.VerifiedComponent{Component: component, SHA256: catalogrelease.Digest(raw), Snapshot: &snapshot, Binding: binding})
 	}
-	renders, err := persistence.RenderBundlesOf(ctx, st, o.OrganizationKey)
+	renders, err := persistence.TemplateSourcesOf(ctx, st, o.OrganizationKey)
 	if err != nil {
 		return err
 	}
 	for _, b := range renders {
-		c := catalogrelease.Component{ID: fmt.Sprintf("render-%d", len(components)), Kind: catalogrelease.RenderBundle, Path: fmt.Sprintf("renders/%d", len(components))}
+		c := catalogrelease.Component{ID: fmt.Sprintf("render-%d", len(components)), Kind: catalogrelease.TemplateSource, Path: fmt.Sprintf("renders/%d", len(components))}
 		manifest.Components = append(manifest.Components, c)
 		components = append(components, catalogrelease.VerifiedComponent{Component: c, SHA256: b.Source.ContentSHA256, BundleID: b.ID})
 	}

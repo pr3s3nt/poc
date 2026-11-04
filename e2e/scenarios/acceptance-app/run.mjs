@@ -1,7 +1,7 @@
 // Deploys the acceptance application (frontend, backend, worker with one
 // shared PostgreSQL and one shared Redis) through the Web Console UI only:
 // the developer creates the Application, selects the Secret Store, saves the
-// Environment keys and the secret, imports three Score files, previews and
+// Environment keys and the secret, imports three Workload files, previews and
 // deploys. Every step is a click or an entry on the screen; results are read
 // from the screen. The deployed application is kept for the user.
 //
@@ -112,10 +112,10 @@ async function importScore(page, file, name, delayMs) {
     await page.waitForTimeout(delayMs);
   };
   await act(page.getByRole('button', { name: '+ Thêm Workload', exact: true }), 'click');
-  const custom = page.getByRole('button', { name: /Tự cấu hình \/ nhập Score/ });
+  const custom = page.getByRole('button', { name: /Tự cấu hình \/ nhập Workload/ });
   if (await custom.count()) await act(custom, 'click');
-  await act(page.getByRole('button', { name: 'Nhập Score', exact: true }), 'click');
-  await page.getByLabel('File Score', { exact: true }).setInputFiles(file);
+  await act(page.getByRole('button', { name: 'Nhập Workload', exact: true }), 'click');
+  await page.getByLabel('File Workload', { exact: true }).setInputFiles(file);
   await expect(page.getByText(`Đã phân tích Workload: ${name}`, { exact: false })).toBeVisible();
   await page.waitForTimeout(delayMs * 2);
   // Return to the product form to show the imported image, variables and dependencies.
@@ -129,16 +129,16 @@ async function importScore(page, file, name, delayMs) {
     const table = page.getByRole('table').first();
     if (await table.count()) { await table.scrollIntoViewIfNeeded(); await page.waitForTimeout(delayMs * 2); }
   } else {
-    // Older Consoles keep advanced Score fields in import mode. Read the actual
-    // parsed Score instead of forcing a lossy form conversion.
-    const score = page.locator('pre');
-    if (await score.count()) {
-      await score.scrollIntoViewIfNeeded();
-      await score.evaluate(node => { node.scrollTop = 0; });
+    // Older Consoles keep advanced Workload fields in import mode. Read the actual
+    // parsed Workload instead of forcing a lossy form conversion.
+    const workload = page.locator('pre');
+    if (await workload.count()) {
+      await workload.scrollIntoViewIfNeeded();
+      await workload.evaluate(node => { node.scrollTop = 0; });
       await page.waitForTimeout(delayMs * 2);
-      await score.evaluate(node => { node.scrollTop = node.scrollHeight / 2; });
+      await workload.evaluate(node => { node.scrollTop = node.scrollHeight / 2; });
       await page.waitForTimeout(delayMs * 2);
-      await score.evaluate(node => { node.scrollTop = node.scrollHeight; });
+      await workload.evaluate(node => { node.scrollTop = node.scrollHeight; });
       await page.waitForTimeout(delayMs * 2);
     }
   }
@@ -222,7 +222,7 @@ async function main() {
 
     for (const name of WORKLOADS) {
       await importScore(page, join(scoreDir, `${name}.yaml`), name, cfg.delayMs);
-      step(`Nhập Score ${name}`);
+      step(`Nhập Workload ${name}`);
     }
 
     await page.getByRole('button', { name: 'Xem trước thay đổi', exact: true }).click();

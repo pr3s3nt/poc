@@ -102,10 +102,10 @@ func (s *Store) fencedCommitDesiredRename(ctx context.Context, cmd persistence.D
 	}
 	scored := make([][]byte, len(cmd.Drafts))
 	for i, draft := range cmd.Drafts {
-		if draft.ApplicationKey != cmd.ApplicationKey || draft.EnvironmentKey != cmd.EnvironmentKey || draft.WorkloadID == "" || draft.State != environment.DraftUpsert || draft.Score == nil {
+		if draft.ApplicationKey != cmd.ApplicationKey || draft.EnvironmentKey != cmd.EnvironmentKey || draft.WorkloadID == "" || draft.State != environment.DraftUpsert || draft.Workload == nil {
 			return fmt.Errorf("postgres: invalid rename draft")
 		}
-		b, err := jsonBytes(draft.Score)
+		b, err := jsonBytes(draft.Workload)
 		if err != nil {
 			return err
 		}
@@ -148,7 +148,7 @@ func (s *Store) fencedCommitDesiredRename(ctx context.Context, cmd persistence.D
 			return translate(err)
 		}
 		for i, draft := range cmd.Drafts {
-			if _, err = s.q(ctx).Exec(ctx, `INSERT INTO workload_drafts(environment_id,workload_id,score_document,state) VALUES($1::uuid,$2,$3,$4) ON CONFLICT(environment_id,workload_id) DO UPDATE SET score_document=EXCLUDED.score_document,state=EXCLUDED.state,updated_at=now()`, envID, draft.WorkloadID, scored[i], draft.State); err != nil {
+			if _, err = s.q(ctx).Exec(ctx, `INSERT INTO workload_drafts(environment_id,workload_id,workload_document,state) VALUES($1::uuid,$2,$3,$4) ON CONFLICT(environment_id,workload_id) DO UPDATE SET workload_document=EXCLUDED.workload_document,state=EXCLUDED.state,updated_at=now()`, envID, draft.WorkloadID, scored[i], draft.State); err != nil {
 				return translate(err)
 			}
 		}
@@ -157,7 +157,7 @@ func (s *Store) fencedCommitDesiredRename(ctx context.Context, cmd persistence.D
 }
 
 func (s *Store) ListWorkloadDrafts(ctx context.Context, app, env string) ([]environment.WorkloadDraft, error) {
-	rows, err := s.q(ctx).Query(ctx, `SELECT w.workload_id,w.state,w.score_document FROM workload_drafts w JOIN environments e ON e.id=w.environment_id JOIN applications a ON a.id=e.application_id WHERE a.application_key=$1 AND e.environment_key=$2 ORDER BY w.workload_id`, app, env)
+	rows, err := s.q(ctx).Query(ctx, `SELECT w.workload_id,w.state,w.workload_document FROM workload_drafts w JOIN environments e ON e.id=w.environment_id JOIN applications a ON a.id=e.application_id WHERE a.application_key=$1 AND e.environment_key=$2 ORDER BY w.workload_id`, app, env)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func (s *Store) ListWorkloadDrafts(ctx context.Context, app, env string) ([]envi
 			return nil, err
 		}
 		if len(b) > 0 {
-			if err = unmarshalJSON(b, &v.Score); err != nil {
+			if err = unmarshalJSON(b, &v.Workload); err != nil {
 				return nil, err
 			}
 		}
@@ -181,12 +181,12 @@ func (s *Store) ListWorkloadDrafts(ctx context.Context, app, env string) ([]envi
 func (s *Store) GetWorkloadDraft(ctx context.Context, app, env, workload string) (environment.WorkloadDraft, error) {
 	v := environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: workload}
 	var b []byte
-	err := s.q(ctx).QueryRow(ctx, `SELECT w.state,w.score_document FROM workload_drafts w JOIN environments e ON e.id=w.environment_id JOIN applications a ON a.id=e.application_id WHERE a.application_key=$1 AND e.environment_key=$2 AND w.workload_id=$3`, app, env, workload).Scan(&v.State, &b)
+	err := s.q(ctx).QueryRow(ctx, `SELECT w.state,w.workload_document FROM workload_drafts w JOIN environments e ON e.id=w.environment_id JOIN applications a ON a.id=e.application_id WHERE a.application_key=$1 AND e.environment_key=$2 AND w.workload_id=$3`, app, env, workload).Scan(&v.State, &b)
 	if err != nil {
 		return v, translate(err)
 	}
 	if len(b) > 0 {
-		err = unmarshalJSON(b, &v.Score)
+		err = unmarshalJSON(b, &v.Workload)
 	}
 	return v, err
 }
@@ -195,18 +195,18 @@ func (s *Store) SaveWorkloadDraft(ctx context.Context, expected int64, v environ
 }
 
 func (s *Store) fencedSaveWorkloadDraft(ctx context.Context, expected int64, v environment.WorkloadDraft) error {
-	if v.WorkloadID == "" || (v.State != environment.DraftUpsert && v.State != environment.DraftDelete) || (v.State == environment.DraftUpsert && v.Score == nil) {
+	if v.WorkloadID == "" || (v.State != environment.DraftUpsert && v.State != environment.DraftDelete) || (v.State == environment.DraftUpsert && v.Workload == nil) {
 		return fmt.Errorf("postgres: invalid workload draft")
 	}
 	var score any
-	if v.Score != nil {
-		b, err := jsonBytes(v.Score)
+	if v.Workload != nil {
+		b, err := jsonBytes(v.Workload)
 		if err != nil {
 			return err
 		}
 		score = b
 	}
-	tag, err := s.q(ctx).Exec(ctx, `WITH bumped AS (UPDATE environments e SET draft_version=draft_version+1 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND e.draft_version=$3 AND (e.active_operation_id IS NULL OR e.active_operation_id=NULLIF($7,'')::uuid) RETURNING e.id) INSERT INTO workload_drafts(environment_id,workload_id,score_document,state) SELECT id,$4,$5,$6 FROM bumped ON CONFLICT(environment_id,workload_id) DO UPDATE SET score_document=EXCLUDED.score_document,state=EXCLUDED.state,updated_at=now()`, v.ApplicationKey, v.EnvironmentKey, expected, v.WorkloadID, score, v.State, ownerArg(ctx))
+	tag, err := s.q(ctx).Exec(ctx, `WITH bumped AS (UPDATE environments e SET draft_version=draft_version+1 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND e.draft_version=$3 AND (e.active_operation_id IS NULL OR e.active_operation_id=NULLIF($7,'')::uuid) RETURNING e.id) INSERT INTO workload_drafts(environment_id,workload_id,workload_document,state) SELECT id,$4,$5,$6 FROM bumped ON CONFLICT(environment_id,workload_id) DO UPDATE SET workload_document=EXCLUDED.workload_document,state=EXCLUDED.state,updated_at=now()`, v.ApplicationKey, v.EnvironmentKey, expected, v.WorkloadID, score, v.State, ownerArg(ctx))
 	if err != nil {
 		return translate(err)
 	}

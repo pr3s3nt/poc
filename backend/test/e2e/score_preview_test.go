@@ -12,23 +12,23 @@ import (
 	"orchestrator/internal/platform/password"
 )
 
-func previewScore(name string) map[string]any {
+func previewWorkload(name string) map[string]any {
 	return map[string]any{
-		"apiVersion": "score.dev/v1b1",
+		"apiVersion": "orchestrator.dev/workload/v1",
 		"metadata":   map[string]any{"name": name},
 		"containers": map[string]any{"main": map[string]any{"image": "example.invalid/" + name + ":v1", "variables": map[string]any{"PORT": "8080"}}},
 		"service":    map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}},
 	}
 }
 
-func TestUC05ScorePreviewHTTP(t *testing.T) {
+func TestUC05WorkloadPreviewHTTP(t *testing.T) {
 	server, _, app := newServerApp(t, "")
 	client := authenticatedClient(t, server.URL)
 	created := createConfiguredApplication(t, client, server.URL, "Preview Test", "preview-test", "internal-cluster")
 	key := created["application"].(map[string]any)["key"].(string)
 	base := server.URL + "/api/v1/applications/" + key + "/environments/staging"
-	endpoint := base + "/score-preview"
-	valid := map[string]any{"workloadId": "api", "action": "deploy", "runId": "run-http", "scoreAfter": previewScore("api")}
+	endpoint := base + "/workload-preview"
+	valid := map[string]any{"workloadId": "api", "action": "deploy", "runId": "run-http", "workloadAfter": previewWorkload("api")}
 	validJSON := toJSON(t, valid)
 	_, draftsBefore := requestJSON(t, client, http.MethodGet, base+"/workloads", nil)
 
@@ -74,18 +74,18 @@ func TestUC05ScorePreviewHTTP(t *testing.T) {
 			"trailing garbage":      validJSON + ` x`,
 			"malformed":             `{"workloadId":`,
 			"empty":                 ``,
-			"null before":           strings.Replace(validJSON, `"runId"`, `"scoreBefore":null,"runId"`, 1),
-			"array after":           `{"workloadId":"api","action":"deploy","runId":"r","scoreAfter":[]}`,
-			"string after":          `{"workloadId":"api","action":"deploy","runId":"r","scoreAfter":"api"}`,
-			"wrong type":            `{"workloadId":7,"action":"deploy","runId":"r","scoreAfter":{}}`,
+			"null before":           strings.Replace(validJSON, `"runId"`, `"workloadBefore":null,"runId"`, 1),
+			"array after":           `{"workloadId":"api","action":"deploy","runId":"r","workloadAfter":[]}`,
+			"string after":          `{"workloadId":"api","action":"deploy","runId":"r","workloadAfter":"api"}`,
+			"wrong type":            `{"workloadId":7,"action":"deploy","runId":"r","workloadAfter":{}}`,
 			"uppercase action":      strings.Replace(validJSON, `"deploy"`, `"DEPLOY"`, 1),
 			"blank workload":        strings.Replace(validJSON, `"workloadId":"api"`, `"workloadId":"  "`, 1),
 			"blank run":             strings.Replace(validJSON, `"run-http"`, `" "`, 1),
-			"missing run":           `{"workloadId":"api","action":"deploy","scoreAfter":` + toJSON(t, previewScore("api")) + `}`,
+			"missing run":           `{"workloadId":"api","action":"deploy","workloadAfter":` + toJSON(t, previewWorkload("api")) + `}`,
 			"update without before": strings.Replace(validJSON, `"deploy"`, `"update"`, 1),
 			"name mismatch":         strings.Replace(validJSON, `"workloadId":"api"`, `"workloadId":"web"`, 1),
-			"invalid Score":         `{"workloadId":"api","action":"deploy","runId":"r","scoreAfter":{"apiVersion":"score.dev/v1b1","metadata":{"name":"api"}}}`,
-			"remove absent":         `{"workloadId":"api","action":"remove","runId":"r","scoreBefore":` + toJSON(t, previewScore("api")) + `}`,
+			"invalid Workload":      `{"workloadId":"api","action":"deploy","runId":"r","workloadAfter":{"apiVersion":"orchestrator.dev/workload/v1","metadata":{"name":"api"}}}`,
+			"remove absent":         `{"workloadId":"api","action":"remove","runId":"r","workloadBefore":` + toJSON(t, previewWorkload("api")) + `}`,
 		} {
 			resp, out := call(t, client, http.MethodPost, endpoint, body)
 			if resp.StatusCode != http.StatusBadRequest {
@@ -96,7 +96,7 @@ func TestUC05ScorePreviewHTTP(t *testing.T) {
 				t.Errorf("%s has no actionable message", name)
 			}
 		}
-		huge := `{"workloadId":"api","action":"deploy","runId":"r","scoreAfter":{"pad":"` + strings.Repeat("x", 3<<20) + `"}}`
+		huge := `{"workloadId":"api","action":"deploy","runId":"r","workloadAfter":{"pad":"` + strings.Repeat("x", 3<<20) + `"}}`
 		if resp, _ := call(t, client, http.MethodPost, endpoint, huge); resp.StatusCode != http.StatusRequestEntityTooLarge {
 			t.Errorf("oversized body = %d", resp.StatusCode)
 		}
@@ -110,8 +110,8 @@ func TestUC05ScorePreviewHTTP(t *testing.T) {
 			t.Fatalf("anonymous = %d", resp.StatusCode)
 		}
 		for _, url := range []string{
-			server.URL + "/api/v1/applications/missing/environments/staging/score-preview",
-			server.URL + "/api/v1/applications/" + key + "/environments/dev/score-preview",
+			server.URL + "/api/v1/applications/missing/environments/staging/workload-preview",
+			server.URL + "/api/v1/applications/" + key + "/environments/dev/workload-preview",
 		} {
 			if resp, body := call(t, client, http.MethodPost, url, validJSON); resp.StatusCode != http.StatusNotFound {
 				t.Fatalf("%s = %d %s", url, resp.StatusCode, body)

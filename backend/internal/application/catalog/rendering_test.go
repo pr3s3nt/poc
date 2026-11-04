@@ -20,12 +20,12 @@ func TestRenderingRegistrationRejectsUnavailableOrInfrastructureInputs(t *testin
 	svc := catalog.NewService(st)
 	withClusterOutput(t, st, opts)
 	makeDef := func() resource.Definition {
-		return resource.Definition{Key: "workload-render", Name: "workload-render", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{}}, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "installed", "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}", "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"}}}}
+		return resource.Definition{Key: "workload-render", Name: "workload-render", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverTemplate, Criteria: []resource.Criterion{{}}, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"template_source": "installed", "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}", "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"}}}}
 	}
 	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, makeDef()); !errors.Is(err, catalog.ErrInvalid) {
 		t.Fatalf("unavailable renderer: %v", err)
 	}
-	svc.SetRenderBundles(map[string]resource.RenderBundle{"installed": {ID: "installed", Version: "0.15.0", BinaryDigest: "binary", Digest: "bundle"}})
+	svc.SetTemplateSources(map[string]resource.TemplateSource{"installed": {ID: "installed", Version: "0.15.0", BinaryDigest: "binary", Digest: "bundle"}})
 	for _, tc := range []struct {
 		name   string
 		mutate func(*resource.Definition)
@@ -33,7 +33,7 @@ func TestRenderingRegistrationRejectsUnavailableOrInfrastructureInputs(t *testin
 		{"wrong-type", func(d *resource.Definition) { d.ResourceTypeKey = "postgres" }},
 		{"driver account", func(d *resource.Definition) { d.DriverAccount = opts.ConnectionKey }},
 		{"unknown-bundle", func(d *resource.Definition) {
-			d.DriverInputs["values"].(map[string]any)["variables"].(map[string]any)["render_bundle"] = "https://mutable.invalid/template"
+			d.DriverInputs["values"].(map[string]any)["variables"].(map[string]any)["template_source"] = "https://mutable.invalid/template"
 		}},
 		{"extra-variable", func(d *resource.Definition) {
 			d.DriverInputs["values"].(map[string]any)["variables"].(map[string]any)["command"] = "do-something"

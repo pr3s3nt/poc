@@ -54,7 +54,7 @@ func TestDefinitionUpgradeCannotBypassDatabaseMigrationGuard(t *testing.T) {
 	if _, err := svc.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey); !errors.Is(err, pending.ErrInvalid) {
 		t.Fatal("database update bypassed Preview guard", err)
 	}
-	if _, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "api", ScoreBefore: raw, ScoreAfter: raw, Actor: "test"}); !errors.Is(err, appsvc.ErrStalePlan) {
+	if _, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "api", WorkloadBefore: raw, WorkloadAfter: raw, Actor: "test"}); !errors.Is(err, appsvc.ErrStalePlan) {
 		t.Fatal("direct deploy bypassed Environment upgrade", err)
 	}
 	after, _ := app.Store.GetDefinitionSelection(ctx, opts.ApplicationKey, opts.EnvironmentKey)

@@ -56,7 +56,7 @@ func (e *internalError) Error() string { return e.err.Error() }
 func (e *internalError) Unwrap() error { return e.err }
 
 type Service struct {
-	bundles map[string]resource.RenderBundle
+	bundles map[string]resource.TemplateSource
 	store   persistence.Store
 	// modules is the verified Terraform module registry: registration may
 	// verify (fetch/inspect) a pin; capability reads use metadata only.
@@ -82,7 +82,7 @@ func (s *Service) RegisterResourceType(ctx context.Context, organizationKey stri
 		return resource.Type{}, &invalidIDError{err: invalidField("type.key", fmt.Errorf("%w: %v", ErrInvalid, err))}
 	}
 	if reservedTypeKeys[typ.Key] {
-		return resource.Type{}, invalidField("type.key", fmt.Errorf("%w: resource type %q is a reserved virtual Score type", ErrInvalid, typ.Key))
+		return resource.Type{}, invalidField("type.key", fmt.Errorf("%w: resource type %q is a reserved virtual Workload type", ErrInvalid, typ.Key))
 	}
 	if err := typ.Validate(); err != nil {
 		return resource.Type{}, invalidField("type.schema", fmt.Errorf("%w: %v", ErrInvalid, err))
@@ -356,9 +356,9 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 			return nil, err
 		}
 		return nil, nil
-	case resource.DriverScoreK8s:
+	case resource.DriverTemplate:
 		if def.DriverAccount != "" {
-			return nil, invalidField("definition.driverAccount", fmt.Errorf("%w: score-k8s rendering takes no driver account", ErrInvalid))
+			return nil, invalidField("definition.driverAccount", fmt.Errorf("%w: template rendering takes no driver account", ErrInvalid))
 		}
 		if err := s.validateRenderSelection(ctx, org, def, typ); err != nil {
 			return nil, err
@@ -371,10 +371,10 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 		}
 		return &bundle, nil
 	default:
-		// UC-03 BR-08: only registry-verified Terraform modules and score-k8s
+		// UC-03 BR-08: only registry-verified Terraform modules and template
 		// rendering are registrable; the static Kubernetes driver and every
 		// other driver are not accepted by the public API.
-		return nil, invalidField("definition.driverType", fmt.Errorf("%w: driver %q is not registrable; use a verified Terraform module (Kubernetes resources included) or score-k8s for Workloads", ErrInvalid, def.DriverType))
+		return nil, invalidField("definition.driverType", fmt.Errorf("%w: driver %q is not registrable; use a verified Terraform module (Kubernetes resources included) or template for Workloads", ErrInvalid, def.DriverType))
 	}
 }
 
@@ -438,8 +438,8 @@ func validateReferences(def resource.Definition, types []resource.Type) error {
 	return nil
 }
 
-func (s *Service) SetRenderBundles(bundles map[string]resource.RenderBundle) {
-	s.bundles = resource.CopyRenderBundles(bundles)
+func (s *Service) SetTemplateSources(bundles map[string]resource.TemplateSource) {
+	s.bundles = resource.CopyTemplateSources(bundles)
 }
 
 // PrepareReleaseDefinition applies the normal Definition contract without

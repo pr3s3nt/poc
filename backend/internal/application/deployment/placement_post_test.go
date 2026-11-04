@@ -43,7 +43,7 @@ func (f *placedFixture) deployWorkload(id string, before, after map[string]any) 
 	}
 	_, err := f.app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
 		OrganizationKey: f.opts.OrganizationKey, ApplicationKey: f.appKey, EnvironmentKey: "staging", WorkloadID: id,
-		ScoreBefore: before, ScoreAfter: after, Actor: "test", RunID: "run-post-" + id,
+		WorkloadBefore: before, WorkloadAfter: after, Actor: "test", RunID: "run-post-" + id,
 	})
 	return err
 }

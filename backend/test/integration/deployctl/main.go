@@ -28,7 +28,7 @@ type deployRequest struct {
 	EnvironmentKey string         `json:"environmentKey"`
 	WorkloadID     string         `json:"workloadId"`
 	Actor          string         `json:"actor"`
-	Score          map[string]any `json:"score"`
+	Workload       map[string]any `json:"workload"`
 }
 
 type deployResponse struct {
@@ -70,7 +70,7 @@ func main() {
 		}
 		score, ok := samples.Samples[workload]
 		if !ok {
-			fmt.Fprintf(os.Stderr, "deployctl: the API has no Score sample for %q\n", workload)
+			fmt.Fprintf(os.Stderr, "deployctl: the API has no Workload sample for %q\n", workload)
 			os.Exit(1)
 		}
 		started := time.Now()
@@ -79,7 +79,7 @@ func main() {
 			EnvironmentKey: *environmentKey,
 			WorkloadID:     workload,
 			Actor:          *actor,
-			Score:          score,
+			Workload:       score,
 		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "deployctl: deploy %s: %v\n", workload, err)
@@ -103,7 +103,7 @@ func main() {
 }
 
 func fetchSamples(client *http.Client, base string) (*scoreSamples, error) {
-	resp, err := client.Get(base + "/api/v1/score-samples")
+	resp, err := client.Get(base + "/api/v1/workload-samples")
 	if err != nil {
 		return nil, fmt.Errorf("fetch score samples: %w", err)
 	}

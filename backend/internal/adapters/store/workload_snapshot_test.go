@@ -158,7 +158,7 @@ func TestDesiredRenameJSONReopen(t *testing.T) {
 	for _, d := range got.Drafts {
 		byID[d.WorkloadID] = d
 	}
-	if byID["gone"].State != environment.DraftDelete || byID["api"].State != environment.DraftUpsert || !strings.Contains(fmt.Sprint(byID["api"].Score), "resources.env.NEW") {
+	if byID["gone"].State != environment.DraftDelete || byID["api"].State != environment.DraftUpsert || !strings.Contains(fmt.Sprint(byID["api"].Workload), "resources.env.NEW") {
 		t.Fatalf("reopened drafts lost renamed reference or pending delete: %#v", got.Drafts)
 	}
 }
@@ -191,7 +191,7 @@ func TestDesiredRenameSnapshotFailureRollsBack(t *testing.T) {
 	for _, d := range after.Drafts {
 		byID[d.WorkloadID] = d
 	}
-	if byID["gone"].State != environment.DraftDelete || byID["api"].State != environment.DraftUpsert || !strings.Contains(fmt.Sprint(byID["api"].Score), "resources.env.OLD") || strings.Contains(fmt.Sprint(byID["api"].Score), "resources.env.NEW") {
+	if byID["gone"].State != environment.DraftDelete || byID["api"].State != environment.DraftUpsert || !strings.Contains(fmt.Sprint(byID["api"].Workload), "resources.env.OLD") || strings.Contains(fmt.Sprint(byID["api"].Workload), "resources.env.NEW") {
 		t.Fatalf("rollback did not keep the OLD reference and pending delete: %#v", after.Drafts)
 	}
 	if _, err := st.GetConfigurationRevision(context.Background(), fx.Command.Revision.ID); err == nil {

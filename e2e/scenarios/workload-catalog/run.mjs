@@ -38,8 +38,8 @@ try{
   if(!(await get('/resource-definitions')).resourceDefinitions.some(d=>d.key==='catalog-renderer')){
   await page.getByRole('link',{name:/(^|\s)Mẫu dựng ứng dụng$/}).click();
   await page.getByLabel('ID mẫu',{exact:true}).fill('catalog-renderer');await page.getByLabel('Tên hiển thị',{exact:true}).fill('Catalog workload');
-  await page.getByLabel('Git HTTPS URL',{exact:true}).fill(source.url);await page.getByLabel('Thư mục bundle',{exact:true}).fill('backend/render-bundles/standard');await page.getByLabel('Tag hoặc commit',{exact:true}).fill(source.ref);
-  const inspected=page.waitForResponse(r=>r.url().endsWith('/api/v1/render-bundles/inspect'),{timeout:180000});await page.getByRole('button',{name:'Kiểm tra bundle',exact:true}).click();const response=await inspected;if(!response.ok())throw new Error(`bundle inspect ${response.status()}`);
+  await page.getByLabel('Git HTTPS URL',{exact:true}).fill(source.url);await page.getByLabel('Thư mục bundle',{exact:true}).fill('backend/template-sources/standard');await page.getByLabel('Tag hoặc commit',{exact:true}).fill(source.ref);
+  const inspected=page.waitForResponse(r=>r.url().endsWith('/api/v1/template-sources/inspect'),{timeout:180000});await page.getByRole('button',{name:'Kiểm tra bundle',exact:true}).click();const response=await inspected;if(!response.ok())throw new Error(`bundle inspect ${response.status()}`);
   await page.getByRole('button',{name:'Dùng gợi ý namespace',exact:true}).click();await page.getByRole('button',{name:'Dùng gợi ý cluster',exact:true}).click();await page.getByRole('button',{name:'Đăng ký mẫu dựng ứng dụng',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Đã đăng ký mẫu dựng ứng dụng catalog-renderer.'})).toBeVisible();
   }
  }

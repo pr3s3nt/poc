@@ -153,7 +153,7 @@ func TestListDefinitionCapabilities_PlatformPairsExistingClusterAndWorkload(t *t
 		switch caps[i].DriverType {
 		case "existing-cluster":
 			cluster = &caps[i]
-		case "score-k8s":
+		case "template":
 			workload = &caps[i]
 		}
 	}
@@ -161,13 +161,13 @@ func TestListDefinitionCapabilities_PlatformPairsExistingClusterAndWorkload(t *t
 		t.Fatalf("existing-cluster capability = %+v", cluster)
 	}
 	if workload == nil {
-		t.Fatal("score-k8s capability missing")
+		t.Fatal("template capability missing")
 	}
 	names := map[string]catalog.CapabilityVariable{}
 	for _, v := range workload.Variables {
 		names[v.Name] = v
 	}
-	if !names["namespace"].Required || names["namespace"].Preset != catalog.NamespaceReferencePreset || !names["cluster"].Required || names["cluster"].Preset != catalog.ClusterReferencePreset || !names["render_bundle"].Required || len(names) != 3 {
+	if !names["namespace"].Required || names["namespace"].Preset != catalog.NamespaceReferencePreset || !names["cluster"].Required || names["cluster"].Preset != catalog.ClusterReferencePreset || !names["template_source"].Required || len(names) != 3 {
 		t.Fatalf("workload variables = %+v", workload.Variables)
 	}
 	if strings.Contains(catalog.ClusterReferencePreset, "kubeconfig") {
@@ -179,7 +179,7 @@ func TestWorkloadRegistration_TypedPlacementInputsAndCompanions(t *testing.T) {
 	ctx := context.Background()
 	st, svc, opts := seededCatalog(t, nil)
 	withClusterOutput(t, st, opts)
-	svc.SetRenderBundles(map[string]resource.RenderBundle{"installed": {ID: "installed", Version: "0.15.0", BinaryDigest: "binary", Digest: "bundle"}})
+	svc.SetTemplateSources(map[string]resource.TemplateSource{"installed": {ID: "installed", Version: "0.15.0", BinaryDigest: "binary", Digest: "bundle"}})
 	if err := st.SaveResourceType(ctx, opts.OrganizationKey, resource.Type{Key: "workload", Inputs: []resource.InputField{{Name: "backend_url", Type: "string"}, {Name: "replicas", Type: "number"}}}); err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +188,7 @@ func TestWorkloadRegistration_TypedPlacementInputsAndCompanions(t *testing.T) {
 		clRef = "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"
 	)
 	make := func(variables map[string]any) resource.Definition {
-		merged := map[string]any{"render_bundle": "installed", "namespace": nsRef, "cluster": clRef}
+		merged := map[string]any{"template_source": "installed", "namespace": nsRef, "cluster": clRef}
 		for k, v := range variables {
 			if v == nil {
 				delete(merged, k)
@@ -196,7 +196,7 @@ func TestWorkloadRegistration_TypedPlacementInputsAndCompanions(t *testing.T) {
 			}
 			merged[k] = v
 		}
-		return resource.Definition{Key: "workload-v03", Name: "workload", ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{}},
+		return resource.Definition{Key: "workload-v03", Name: "workload", ResourceTypeKey: "workload", DriverType: resource.DriverTemplate, Criteria: []resource.Criterion{{}},
 			DriverInputs: map[string]any{"values": map[string]any{"variables": merged}}}
 	}
 	bad := map[string]map[string]any{
@@ -238,10 +238,10 @@ func TestWorkloadRegistration_RequiredTypeInputIsRefusedAndRenderOnlyIsRefusedEv
 	ctx := context.Background()
 	st, svc, opts := seededCatalog(t, nil)
 	withClusterOutput(t, st, opts)
-	svc.SetRenderBundles(map[string]resource.RenderBundle{"installed": {ID: "installed", Version: "0.15.0", BinaryDigest: "binary", Digest: "bundle"}})
+	svc.SetTemplateSources(map[string]resource.TemplateSource{"installed": {ID: "installed", Version: "0.15.0", BinaryDigest: "binary", Digest: "bundle"}})
 	renderOnly := func(app string) resource.Definition {
-		return resource.Definition{Key: "workload-legacy", Name: "legacy", ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{ApplicationID: app}},
-			DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "installed"}}}}
+		return resource.Definition{Key: "workload-legacy", Name: "legacy", ResourceTypeKey: "workload", DriverType: resource.DriverTemplate, Criteria: []resource.Criterion{{ApplicationID: app}},
+			DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"template_source": "installed"}}}}
 	}
 	// A new Application has no Environment binding: it is Definition-placed, so render-only is refused for it.
 	created, err := appsvc.NewService(st).Create(ctx, appsvc.CreateCommand{OrganizationKey: opts.OrganizationKey, Name: "Placed", Subdomain: "placed"})
@@ -251,8 +251,8 @@ func TestWorkloadRegistration_RequiredTypeInputIsRefusedAndRenderOnlyIsRefusedEv
 	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, renderOnly(created.Application.Key)); !errors.Is(err, catalog.ErrInvalid) {
 		t.Fatalf("render-only for a Definition-placed Application: %v", err)
 	}
-	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, resource.Definition{Key: "workload-any", Name: "any", ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{}},
-		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "installed"}}}}); !errors.Is(err, catalog.ErrInvalid) {
+	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, resource.Definition{Key: "workload-any", Name: "any", ResourceTypeKey: "workload", DriverType: resource.DriverTemplate, Criteria: []resource.Criterion{{}},
+		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"template_source": "installed"}}}}); !errors.Is(err, catalog.ErrInvalid) {
 		t.Fatalf("render-only without an Application scope: %v", err)
 	}
 	// ADR-017: no Application is bound to an execution profile any more, so the render-only form is refused for every scope.
@@ -274,12 +274,12 @@ func TestWorkloadRegistration_TypeOutputsAreRefusedWithoutMutation(t *testing.T)
 	ctx := context.Background()
 	st, svc, opts := seededCatalog(t, nil)
 	withClusterOutput(t, st, opts)
-	svc.SetRenderBundles(map[string]resource.RenderBundle{"installed": {ID: "installed", Version: "0.15.0", BinaryDigest: "binary", Digest: "bundle"}})
+	svc.SetTemplateSources(map[string]resource.TemplateSource{"installed": {ID: "installed", Version: "0.15.0", BinaryDigest: "binary", Digest: "bundle"}})
 	if err := st.SaveResourceType(ctx, opts.OrganizationKey, resource.Type{Key: "workload", Outputs: []resource.OutputField{{Name: "url", Type: "string"}}}); err != nil {
 		t.Fatal(err)
 	}
-	def := resource.Definition{Key: "workload-out", Name: "w", ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{}},
-		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "installed",
+	def := resource.Definition{Key: "workload-out", Name: "w", ResourceTypeKey: "workload", DriverType: resource.DriverTemplate, Criteria: []resource.Criterion{{}},
+		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"template_source": "installed",
 			"namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}", "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"}}}}
 	before, _ := st.ListResourceDefinitions(ctx, opts.OrganizationKey)
 	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); !errors.Is(err, catalog.ErrInvalid) {

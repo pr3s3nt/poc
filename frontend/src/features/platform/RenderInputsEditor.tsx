@@ -4,7 +4,7 @@ import { checkValue, displayValue, inputFields, inputProblems, unknownInputs, ty
 import type { JsonObject } from './typedVariables';
 import { t } from '../../shared/i18n';
 
-// Schema-driven render_inputs form (UC-03 RB-03). An untouched field is
+// Schema-driven template_inputs form (UC-03 RB-03). An untouched field is
 // omitted and shows the bundle default as a hint; "Dùng mặc định" removes an
 // explicit value again. false, 0 and "" are explicit values. Numbers and JSON
 // fields keep their raw text until it parses, so nothing is coerced or lost.

@@ -23,7 +23,7 @@ import (
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/planning/placeholder"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 	"orchestrator/internal/platform/canon"
 	"orchestrator/internal/platform/clock"
 	"orchestrator/internal/platform/ids"
@@ -38,8 +38,8 @@ type DeployCommand struct {
 	ApplicationKey   string
 	EnvironmentKey   string
 	WorkloadID       string
-	ScoreBefore      map[string]any
-	ScoreAfter       map[string]any
+	WorkloadBefore   map[string]any
+	WorkloadAfter    map[string]any
 	Actor            string
 	Action           domain.Action
 	RunID            string
@@ -50,9 +50,9 @@ type DeployCommand struct {
 	// Environment state Preview validated: routes reconcile after the batch
 	// and this step may plan an intermediate Environment state.
 	DeferPublicRoutes bool
-	// AcceptLiterals is set only by the UC-16 pending batch when ScoreAfter is
+	// AcceptLiterals is set only by the UC-16 pending batch when WorkloadAfter is
 	// a saved, validated draft: its ordinary variable values are then recorded
-	// as proven in the resulting set (UC-16 BR-23). A direct Score deploy never
+	// as proven in the resulting set (UC-16 BR-23). A direct Workload deploy never
 	// sets it, so a literal it introduces or changes stays unreadable.
 	AcceptLiterals bool
 }
@@ -250,11 +250,11 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	app, env := snapshot.App, snapshot.Env
 	baseSet, baseSetID := snapshot.BaseSet, snapshot.BaseSetID
 
-	after, err := parseScore(cmd.ScoreAfter)
+	after, err := parseWorkload(cmd.WorkloadAfter)
 	if err != nil {
 		return nil, err
 	}
-	before, err := parseScore(cmd.ScoreBefore)
+	before, err := parseWorkload(cmd.WorkloadBefore)
 	if err != nil {
 		return nil, err
 	}
@@ -889,21 +889,36 @@ func (s *Service) applyWorkload(
 			storage[mount.Resource] = execution.StorageBinding{ClaimName: claimName, Namespace: namespace}
 		}
 	}
+	renderReferences := map[string]any{}
+	for name, expression := range plan.Rendering[workloadID].References {
+		binding, output, ok := resource.WorkloadReference(expression)
+		descriptor, bound := node.Bindings[binding]
+		if !ok || !bound || provisionResult.Secrets[descriptor][output] {
+			return fmt.Errorf("deployment: template reference is unavailable or secret")
+		}
+		resolver := bindingResolver{ctx: planCtx, bindings: node.Bindings, outputs: provisionResult.Outputs, set: plan.CandidateSet, namespace: target.Namespace}
+		value, err := resolver.ResolveResource(binding, output)
+		if err != nil {
+			return err
+		}
+		renderReferences[name] = value
+	}
 	manifests, err := s.renderer.Render(ctx, execution.RenderRequest{
-		Storage:          storage,
-		Selection:        plan.Rendering[workloadID],
-		WorkloadID:       workloadID,
-		Module:           module,
-		Namespace:        target.Namespace,
-		PlainEnv:         plainEnv,
-		SecretEnv:        secretEnv,
-		DeploymentID:     record.ID,
-		ImagePullSecret:  s.imagePullSecret,
-		Vault:            vaultInjection,
-		ConfigSecretName: configSecretName,
-		ConfigSecretKeys: configSecretKeys,
-		Labels:           map[string]string{"orchestrator.io/application": planCtx.App.Key, "orchestrator.io/environment": planCtx.Env.Key, "orchestrator.io/deployment-id": record.ID},
-		Services:         execution.ServicePortsOf(plan.CandidateSet.Modules),
+		ResourceReferences: renderReferences,
+		Storage:            storage,
+		Selection:          plan.Rendering[workloadID],
+		WorkloadID:         workloadID,
+		Module:             module,
+		Namespace:          target.Namespace,
+		PlainEnv:           plainEnv,
+		SecretEnv:          secretEnv,
+		DeploymentID:       record.ID,
+		ImagePullSecret:    s.imagePullSecret,
+		Vault:              vaultInjection,
+		ConfigSecretName:   configSecretName,
+		ConfigSecretKeys:   configSecretKeys,
+		Labels:             map[string]string{"orchestrator.io/application": planCtx.App.Key, "orchestrator.io/environment": planCtx.Env.Key, "orchestrator.io/deployment-id": record.ID},
+		Services:           execution.ServicePortsOf(plan.CandidateSet.Modules),
 	})
 	if err != nil {
 		return err
@@ -932,7 +947,7 @@ func (s *Service) applyWorkload(
 		ManifestDigest:          digest,
 		Status:                  domain.InstanceApplying,
 		ObservedAt:              s.clock.Now(),
-		ManifestReview:          deploymentreview.RenderedSnapshot(plan, workloadID, manifests),
+		ManifestReview:          renderingSnapshot(plan, workloadID, manifests, renderReferences),
 	}
 	if s.delivery != nil {
 		instance.TargetRef["deliveryMode"] = string(planCtx.Env.DesiredDelivery.Effective().Mode)
@@ -1400,11 +1415,11 @@ func (s *Service) fail(ctx context.Context, record domain.Deployment, cause erro
 	return cause
 }
 
-func parseScore(doc map[string]any) (*score.Document, error) {
+func parseWorkload(doc map[string]any) (*workloadspec.Document, error) {
 	if doc == nil {
 		return nil, nil
 	}
-	return score.FromMap(doc)
+	return workloadspec.FromMap(doc)
 }
 
 // bindsSecret reports whether a variable binds at least one secret output.
@@ -1581,4 +1596,11 @@ func legacyAuxiliaryTarget(target execution.Target, instance domain.WorkloadInst
 		target.Extra = copied
 	}
 	return target
+}
+
+// renderingSnapshot pins the exact nonsecret reference values alongside the applied artifacts.
+func renderingSnapshot(plan *planning.Plan, workloadID string, manifests []execution.Manifest, references map[string]any) map[string]any {
+	snapshot := deploymentreview.RenderedSnapshot(plan, workloadID, manifests)
+	snapshot["resourceReferences"] = references
+	return snapshot
 }

@@ -42,9 +42,9 @@ func TestExportedCatalogDocumentsUseReleaseLocalComponents(t *testing.T) {
 			if !ok || target.Kind != TerraformModule || target.ResourceType != doc.Definition.ResourceTypeKey {
 				t.Fatal("missing module", c.ID)
 			}
-		case resource.DriverScoreK8s:
+		case resource.DriverTemplate:
 			target, ok := components[doc.Component]
-			if !ok || target.Kind != RenderBundle {
+			if !ok || target.Kind != TemplateSource {
 				t.Fatal("missing renderer", c.ID)
 			}
 		}

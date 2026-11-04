@@ -5,11 +5,11 @@ import {readPrivateFile} from '../../lib/console.mjs';
 import {execFileSync} from 'node:child_process';
 
 // The platform author uploads a render bundle. Application users still use
-// ordinary workload forms; no manifest/Score/JSON editor or mutation API.
+// ordinary workload forms; no manifest/Workload/JSON editor or mutation API.
 export async function prepareSemantics({page,baseURL,run,state,saveState,retire=false}){
  const key=retire?'semanticRetirementPrepared':'semanticRendererPrepared';if(state[key])return;
  const dir=join(run,retire?'semantic-source-retired':'semantic-source');mkdirSync(dir,{recursive:true,mode:0o700});
- cpSync('backend/render-bundles/standard',join(dir,'bundle'),{recursive:true});
+ cpSync('backend/template-sources/standard',join(dir,'bundle'),{recursive:true});
  cpSync('e2e/scenarios/delivery-reconciliation/fixtures/lifecycle-resources.tpl',join(dir,'bundle/lifecycle-resources.tpl'));
  cpSync('e2e/scenarios/delivery-reconciliation/fixtures/lifecycle-patch.tpl',join(dir,'bundle/lifecycle-patch.tpl'));
  if(retire){const path=join(dir,'bundle/lifecycle-resources.tpl');writeFileSync(path,readFileSync(path,'utf8').replace(/- apiVersion: v1\n  kind: ConfigMap[\s\S]*?(?=\{\{- else if)/,''));}
@@ -18,7 +18,7 @@ export async function prepareSemantics({page,baseURL,run,state,saveState,retire=
  await page.goto(`${baseURL}/ui/platform/rendering-templates`);
  await page.getByRole('button',{name:'Sửa mẫu staging-k8s-4f-renderer',exact:true}).click();
  await page.getByRole('button',{name:'Tải ZIP',exact:true}).click();await page.getByLabel('Tệp ZIP',{exact:true}).setInputFiles(archive);await page.getByLabel('Thư mục trong ZIP',{exact:true}).fill('bundle');
- const inspected=page.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/render-bundles/upload'));
+ const inspected=page.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/template-sources/upload'));
  await page.getByRole('button',{name:'Tải lên và kiểm tra',exact:true}).click();expect((await inspected).status()).toBe(200);
  await expect(page.getByText('Đã xác minh ZIP.',{exact:true})).toBeVisible();
  const saved=page.waitForResponse(r=>r.request().method()==='PUT'&&new URL(r.url()).pathname.endsWith('/resource-definitions/staging-k8s-4f-renderer'));

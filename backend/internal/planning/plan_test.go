@@ -3,6 +3,7 @@ package planning
 import (
 	"errors"
 	"orchestrator/internal/seed/seedtest"
+	standardtemplates "orchestrator/template-sources"
 	"reflect"
 	"strings"
 	"testing"
@@ -11,7 +12,7 @@ import (
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 	"orchestrator/internal/seed"
 )
 
@@ -34,8 +35,8 @@ func catalogOf(o seed.Options) Catalog {
 	return catalog
 }
 
-func testBundles() map[string]resource.RenderBundle {
-	return map[string]resource.RenderBundle{seed.RenderBundleID: {ID: seed.RenderBundleID, Version: "0.15.0", BinaryDigest: "sha256:bin", Digest: "sha256:bundle"}}
+func testBundles() map[string]resource.TemplateSource {
+	return map[string]resource.TemplateSource{standardtemplates.ID(seedOptions().OrganizationKey): {ID: standardtemplates.ID(seedOptions().OrganizationKey), Version: "0.15.0", BinaryDigest: "sha256:bin", Digest: "sha256:bundle"}}
 }
 
 func testRequest(t *testing.T, profile string, workload string) Request {
@@ -46,7 +47,7 @@ func testRequest(t *testing.T, profile string, workload string) Request {
 		appKey, namespace = "acceptance-cloud", "app-acceptance-cloud-staging"
 	}
 
-	doc, err := score.FromMap(seed.AcceptanceScores(o)[workload])
+	doc, err := workloadspec.FromMap(seed.AcceptanceWorkloads(o)[workload])
 	if err != nil {
 		t.Fatalf("score: %v", err)
 	}
@@ -247,7 +248,7 @@ func matchOf(t *testing.T, plan *Plan, resourceType string) string {
 	return ""
 }
 
-func TestPlan_ScoreParamsBecomeResourceInputs(t *testing.T) {
+func TestPlan_WorkloadParamsBecomeResourceInputs(t *testing.T) {
 	plan, err := NewService(testBundles()).Plan(testRequest(t, "internal-k8s", "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
@@ -345,7 +346,7 @@ func TestPlan_RejectsPlanningFromStaleBeforeState(t *testing.T) {
 	second := testRequest(t, "internal-k8s", "backend")
 	second.BaseSet = first.CandidateSet
 	if _, err := svc.Plan(second); err == nil {
-		t.Fatal("expected an error when redeploying without a before Score")
+		t.Fatal("expected an error when redeploying without a before Workload")
 	}
 }
 
@@ -419,7 +420,7 @@ func TestPlan_CoProvisionAddsDependentAndMatchesDependents(t *testing.T) {
 	}
 }
 
-func TestPlan_RejectsBeforeScoreWithStaleSharedResource(t *testing.T) {
+func TestPlan_RejectsBeforeWorkloadWithStaleSharedResource(t *testing.T) {
 	svc := NewService(testBundles())
 	first, err := svc.Plan(testRequest(t, "internal-k8s", "backend"))
 	if err != nil {
@@ -476,7 +477,7 @@ func TestPlan_DropsSharedResourceWhenTheLastWorkloadStopsDeclaringIt(t *testing.
 	update.Before = update.After
 
 	stripped := *update.After
-	stripped.Resources = map[string]score.ResourceSpec{}
+	stripped.Resources = map[string]workloadspec.ResourceSpec{}
 	containers := map[string]environment.Container{}
 	for name, container := range stripped.Containers {
 		container.Variables = map[string]string{"PORT": "8080"}
@@ -518,7 +519,7 @@ func TestPlan_KeepsSharedResourceWhileAnotherWorkloadReferencesIt(t *testing.T) 
 	update.Before = update.After
 
 	stripped := *update.After
-	stripped.Resources = map[string]score.ResourceSpec{}
+	stripped.Resources = map[string]workloadspec.ResourceSpec{}
 	containers := map[string]environment.Container{}
 	for name, container := range stripped.Containers {
 		container.Variables = map[string]string{"PORT": "8080"}

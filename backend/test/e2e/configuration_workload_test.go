@@ -84,16 +84,16 @@ func TestUC12UC16HTTPDraftFlow(t *testing.T) {
 	if status != http.StatusOK || len(production["keys"].([]any)) != 0 {
 		t.Fatalf("production must be isolated: %d %v", status, production)
 	}
-	score := map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "frontend"}, "containers": map[string]any{"main": map[string]any{"image": "example.invalid/frontend:test", "variables": map[string]any{"TOKEN": "${resources.env.API_TOKEN}"}}}, "resources": map[string]any{"env": map[string]any{"type": "environment"}}}
+	score := map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": "frontend"}, "containers": map[string]any{"main": map[string]any{"image": "example.invalid/frontend:test", "variables": map[string]any{"TOKEN": "${resources.env.API_TOKEN}"}}}, "resources": map[string]any{"env": map[string]any{"type": "environment"}}}
 	status, parsed := requestJSON(t, client, http.MethodPost, base+"/workloads/parse", map[string]any{"content": toJSON(t, score)})
 	if status != http.StatusOK || parsed["score"] == nil {
-		t.Fatalf("Score import: %d %v", status, parsed)
+		t.Fatalf("Workload import: %d %v", status, parsed)
 	}
-	status, draft := requestJSON(t, client, http.MethodPut, base+"/workloads/frontend", map[string]any{"score": score, "version": 0})
+	status, draft := requestJSON(t, client, http.MethodPut, base+"/workloads/frontend", map[string]any{"workload": score, "version": 0})
 	if status != http.StatusOK || draft["draftVersion"] != float64(1) || strings.Contains(toJSON(t, draft), secret) {
 		t.Fatalf("draft save: %d %v", status, draft)
 	}
-	status, _ = requestJSON(t, client, http.MethodPut, base+"/workloads/frontend", map[string]any{"score": score, "version": 0})
+	status, _ = requestJSON(t, client, http.MethodPut, base+"/workloads/frontend", map[string]any{"workload": score, "version": 0})
 	if status != http.StatusConflict {
 		t.Fatalf("stale draft version must be 409, got %d", status)
 	}
@@ -157,13 +157,13 @@ func TestPendingDeployPartialFailureCanRetryOnlyRemainingWorkload(t *testing.T) 
 	created := createConfiguredApplication(t, client, server.URL, "Partial Test", "partial-test", "internal-cluster")
 	appKey := created["application"].(map[string]any)["key"].(string)
 	base := server.URL + "/api/v1/applications/" + appKey + "/environments/staging"
-	backend := map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "backend"}, "containers": map[string]any{"main": map[string]any{"image": "example.invalid/backend:test"}}, "service": map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}}}
-	frontend := map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "frontend"}, "containers": map[string]any{"main": map[string]any{"image": "example.invalid/frontend:test", "variables": map[string]any{"BACKEND_URL": "${resources.backend.url}"}}}, "resources": map[string]any{"backend": map[string]any{"type": "service", "params": map[string]any{"workload": "backend", "port": "http"}}}}
+	backend := map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": "backend"}, "containers": map[string]any{"main": map[string]any{"image": "example.invalid/backend:test"}}, "service": map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}}}
+	frontend := map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": "frontend"}, "containers": map[string]any{"main": map[string]any{"image": "example.invalid/frontend:test", "variables": map[string]any{"BACKEND_URL": "${resources.backend.url}"}}}, "resources": map[string]any{"backend": map[string]any{"type": "service", "params": map[string]any{"workload": "backend", "port": "http"}}}}
 	for i, item := range []struct {
 		name  string
 		score map[string]any
 	}{{"backend", backend}, {"frontend", frontend}} {
-		status, body := requestJSON(t, client, http.MethodPut, base+"/workloads/"+item.name, map[string]any{"score": item.score, "version": i})
+		status, body := requestJSON(t, client, http.MethodPut, base+"/workloads/"+item.name, map[string]any{"workload": item.score, "version": i})
 		if status != http.StatusOK {
 			t.Fatalf("save %s: %d %v", item.name, status, body)
 		}

@@ -30,11 +30,11 @@ func deployBackend(t *testing.T, eks bool) (*bootstrap.App, seed.Options, string
 		app  *bootstrap.App
 		opts seed.Options
 	)
-	score := func(o seed.Options) map[string]any { return seed.AcceptanceScores(o)["backend"] }
+	score := func(o seed.Options) map[string]any { return seed.AcceptanceWorkloads(o)["backend"] }
 	environment := ""
 	if eks {
 		app, opts = eksHarness(t, v2Registry{v2: &v2Executor{fake: fake.NewResourceExecutor()}, fake: fake.NewResourceExecutor()}, nil)
-		score = func(o seed.Options) map[string]any { return eksScore(o, "backend") }
+		score = func(o seed.Options) map[string]any { return eksWorkload(o, "backend") }
 		environment = eksEnv
 	} else {
 		opts = seedtest.Defaults()
@@ -50,7 +50,7 @@ func deployBackend(t *testing.T, eks bool) (*bootstrap.App, seed.Options, string
 		ApplicationKey:  opts.ApplicationKey,
 		EnvironmentKey:  environment,
 		WorkloadID:      "backend",
-		ScoreAfter:      score(opts),
+		WorkloadAfter:   score(opts),
 		Actor:           "test",
 		RunID:           "run-test",
 	})
@@ -97,7 +97,7 @@ func TestProvision_ReusesEnvironmentScopedVPCAndEKS(t *testing.T) {
 		ApplicationKey:  opts.ApplicationKey,
 		EnvironmentKey:  environment,
 		WorkloadID:      "worker",
-		ScoreAfter:      eksScore(opts, "worker"),
+		WorkloadAfter:   eksWorkload(opts, "worker"),
 		Actor:           "test",
 		RunID:           "run-test",
 	}); err != nil {

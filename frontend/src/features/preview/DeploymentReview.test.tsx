@@ -5,7 +5,7 @@ import { DeploymentReview, diffLines, type DeploymentReviewData } from './Deploy
 
 const review: DeploymentReviewData = { version: 1, planHash: 'plan', nodes: [
   { id: 'cluster', kind: 'resource', name: 'Cluster', resourceType: 'k8s-cluster', class: 'internal', ownership: 'PREEXISTING', intent: 'RETAIN', placement: { cluster: 'cluster', account: 'internal', source: 'existing' } },
-  { id: 'api', kind: 'workload', name: 'API', resourceType: 'workload', class: 'default', intent: 'UPDATE', renderer: 'score-k8s@0.15.0' },
+  { id: 'api', kind: 'workload', name: 'API', resourceType: 'workload', class: 'default', intent: 'UPDATE', renderer: 'template@0.15.0' },
 ], edges: [{ consumer: 'api', provider: 'cluster', reason: 'provider-binding' }], batches: [['cluster'], ['api']], artifacts: [{ id: 'api:deployment', nodeId: 'api', kind: 'kubernetes-manifest', path: 'Deployment/api', language: 'yaml', before: { availability: 'AVAILABLE', text: 'image: old\nreplicas: 1' }, after: { availability: 'PARTIAL', text: 'image: new\nreplicas: 2', redactedPaths: ['env.PASSWORD'], unknownPaths: [] } }] };
 
 it.each([

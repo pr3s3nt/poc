@@ -93,14 +93,14 @@ func TestDeployWorkload_RedeployWithoutChangePersistsEmptyDelta(t *testing.T) {
 	app, seedOptions := newApp(t)
 	deployAll(t, app, seedOptions)
 
-	score := seed.AcceptanceScores(seedOptions)["backend"]
+	score := seed.AcceptanceWorkloads(seedOptions)["backend"]
 	result, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{
 		OrganizationKey: seedOptions.OrganizationKey,
 		ApplicationKey:  seedOptions.ApplicationKey,
 		EnvironmentKey:  seedOptions.EnvironmentKey,
 		WorkloadID:      "backend",
-		ScoreBefore:     score,
-		ScoreAfter:      score,
+		WorkloadBefore:  score,
+		WorkloadAfter:   score,
 		Actor:           "test",
 	})
 	if err != nil {

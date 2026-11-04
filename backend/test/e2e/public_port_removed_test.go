@@ -9,7 +9,7 @@ import (
 )
 
 // T25: the removed service.publicPort is rejected over HTTP with a stable,
-// safe INVALID_SCORE and never changes drafts, versions or the current set.
+// safe INVALID_WORKLOAD and never changes drafts, versions or the current set.
 func TestHTTPRejectsRemovedPublicPortWithoutStateChange(t *testing.T) {
 	server, _, app := newServerApp(t, "")
 	client := authenticatedClient(t, server.URL)
@@ -22,7 +22,7 @@ func TestHTTPRejectsRemovedPublicPortWithoutStateChange(t *testing.T) {
 		if withRoutes {
 			service["publicRoutes"] = []any{map[string]any{"path": "/api", "port": "http"}}
 		}
-		return map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "api"}, "containers": map[string]any{"main": map[string]any{"image": "example.invalid/api:t25"}}, "service": service}
+		return map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": "api"}, "containers": map[string]any{"main": map[string]any{"image": "example.invalid/api:t25"}}, "service": service}
 	}
 	envBefore, err := app.Store.GetEnvironment(context.Background(), key, "staging")
 	if err != nil {
@@ -38,15 +38,15 @@ func TestHTTPRejectsRemovedPublicPortWithoutStateChange(t *testing.T) {
 			raw, _ := json.Marshal(doc)
 			for label, call := range map[string]func() (int, map[string]any){
 				"save": func() (int, map[string]any) {
-					return requestJSON(t, client, http.MethodPut, base+"/api", map[string]any{"score": doc, "version": 0})
+					return requestJSON(t, client, http.MethodPut, base+"/api", map[string]any{"workload": doc, "version": 0})
 				},
 				"parse": func() (int, map[string]any) {
 					return requestJSON(t, client, http.MethodPost, base+"/parse", map[string]any{"content": string(raw)})
 				},
 			} {
 				code, body := call()
-				if code != http.StatusBadRequest || body["code"] != "INVALID_SCORE" || body["field"] != "service.publicPort" || strings.Contains(toJSON(t, body), canary) || strings.Contains(toJSON(t, body), "environment:") {
-					t.Fatalf("%s %s routes=%v: want safe 400 INVALID_SCORE service.publicPort, got %d %v", label, name, withRoutes, code, body)
+				if code != http.StatusBadRequest || body["code"] != "INVALID_WORKLOAD" || body["field"] != "service.publicPort" || strings.Contains(toJSON(t, body), canary) || strings.Contains(toJSON(t, body), "environment:") {
+					t.Fatalf("%s %s routes=%v: want safe 400 INVALID_WORKLOAD service.publicPort, got %d %v", label, name, withRoutes, code, body)
 				}
 			}
 		}

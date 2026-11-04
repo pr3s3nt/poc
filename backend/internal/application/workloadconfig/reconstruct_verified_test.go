@@ -169,7 +169,7 @@ func TestReconstructVerifiedKeepsAdvancedFieldsServiceRefsAndSharedParams(t *tes
 }
 
 // Ordinary context references in resource params (for example
-// ${context.env.namespace}) are valid Score content: Score conversion leaves
+// ${context.env.namespace}) are valid Workload content: Workload conversion leaves
 // them unchanged, so reconstruction, redeploy and T30 rewriting keep them.
 func TestReconstructKeepsOrdinaryContextRefsInResourceParams(t *testing.T) {
 	set := environment.NewDocument()
@@ -178,7 +178,7 @@ func TestReconstructKeepsOrdinaryContextRefsInResourceParams(t *testing.T) {
 		map[string]environment.ResourceEntry{"own": {Type: "postgres", Class: "default", Params: map[string]any{"database": "${context.env.namespace}"}}})
 	set.Modules["api"] = module
 	for name, build := range map[string]func() (map[string]any, error){
-		"edit":     func() (map[string]any, error) { return ReconstructScore("api", module, set) },
+		"edit":     func() (map[string]any, error) { return ReconstructWorkload("api", module, set) },
 		"redeploy": func() (map[string]any, error) { return ReconstructForRedeploy("api", module, set) },
 		"verified": func() (map[string]any, error) { return ReconstructVerified("api", module, set, pgTypes()) },
 	} {
@@ -211,7 +211,7 @@ func TestReconstructKeepsOrdinaryContextRefsInResourceParams(t *testing.T) {
 	}
 	// A container variable with an ordinary context ref is still rejected (not an editor-safe reference).
 	bad := moduleWith(map[string]string{"A": "${context.env.namespace}"}, nil)
-	if _, err := ReconstructScore("api", bad, environment.NewDocument()); err == nil {
+	if _, err := ReconstructWorkload("api", bad, environment.NewDocument()); err == nil {
 		t.Fatal("container variable context literal accepted")
 	}
 	if _, err := ReconstructForRedeploy("api", bad, environment.NewDocument()); err == nil {
@@ -247,7 +247,7 @@ func TestVerifyRewrittenHonorsEscapedPlaceholders(t *testing.T) {
 	}
 }
 
-// ADR-016: an explicit Score metadata.class is rebuilt and verified unchanged;
+// ADR-016: an explicit Workload metadata.class is rebuilt and verified unchanged;
 // a module without a class never gains one.
 func TestReconstructKeepsExplicitWorkloadClass(t *testing.T) {
 	set := environment.NewDocument()

@@ -105,7 +105,7 @@ func (s *Server) handleUploadTerraformModule(w http.ResponseWriter, r *http.Requ
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"capability": capability})
 }
-func (s *Server) handleUploadRenderBundle(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleUploadTemplateSource(w http.ResponseWriter, r *http.Request) {
 	org, ok := s.platformActor(w, r)
 	if !ok {
 		return
@@ -116,10 +116,10 @@ func (s *Server) handleUploadRenderBundle(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	bundle, err := s.catalog.UploadRenderBundle(ctx, org, renderregistry.ZIPInspection{Path: fields["path"], Data: data})
+	bundle, err := s.catalog.UploadTemplateSource(ctx, org, renderregistry.ZIPInspection{Path: fields["path"], Data: data})
 	if err != nil {
 		s.writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"renderBundle": bundle})
+	writeJSON(w, http.StatusOK, map[string]any{"templateSource": bundle})
 }

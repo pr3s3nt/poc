@@ -43,7 +43,7 @@ func (s *Service) ChangeRevisionStatus(ctx context.Context, org, key, id string,
 }
 
 func (s *Service) recordRevision(ctx context.Context, org string, def resource.Definition, active bool) (resource.Definition, error) {
-	if def.DriverType == resource.DriverScoreK8s {
+	if def.DriverType == resource.DriverTemplate {
 		types, err := s.store.ListResourceTypes(ctx, org)
 		if err != nil {
 			return def, err
@@ -55,7 +55,7 @@ func (s *Service) recordRevision(ctx context.Context, org string, def resource.D
 				break
 			}
 		}
-		git, err := s.gitRenderBundles(ctx, org, def)
+		git, err := s.gitTemplateSources(ctx, org, def)
 		if err != nil {
 			return def, err
 		}

@@ -1,0 +1,31 @@
+@startuml
+actor Developer
+participant "Workload API" as API
+participant "Shared planner" as Planner
+participant "Definition matcher / dependency graph" as Graph
+participant "Immutable template source" as Source
+participant "Template Driver worker" as Renderer
+participant "Existing Terraform lifecycle" as Terraform
+participant "CD / Fleet" as CD
+database "Revision / delivery artifacts" as Revision
+Developer -> API: Save Generic Workload
+API -> API: Normalize / validate / CAS draft
+Developer -> API: Preview
+API -> Planner: Consistent snapshot
+Planner -> Graph: Match workload Definition / resolve references
+Graph --> Planner: Definition revision, graph, target, bindings
+Planner -> Source: Read verified immutable content/inputs
+Planner -> Renderer: Symbolic preview (no provider calls)
+Renderer --> API: Validated safe manifest review / token
+Developer -> API: Deploy(token)
+API -> Planner: Verify pinned snapshots
+API -> Terraform: Existing provider-first batches
+Terraform --> API: Resolved outputs / approved secret references
+API -> Renderer: Workload + pinned templates + resolved bindings
+Renderer -> Renderer: Bounded templates + semantic guards
+Renderer --> API: Namespaced manifests
+API -> Revision: Snapshot nonsecret bindings / manifest artifact + digest
+API -> CD: Existing manifest delivery interface
+CD --> API: Reconciliation / readiness
+API --> Developer: Deployment result
+@enduml

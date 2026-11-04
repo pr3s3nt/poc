@@ -11,7 +11,6 @@ services:
       - -run-id=${EC2_RUN_ID:-ec2-demo}
       - -owner=${EC2_OWNER:-ec2-operator}
       - -ttl=${EC2_RESOURCE_TTL:-24h}
-      - -score-k8s=/usr/local/bin/score-k8s
       - -terraform=/usr/local/bin/terraform
       - -terraform-root=/var/lib/orchestrator/tfroot
       - -terraform-plugin-cache=/var/lib/orchestrator/plugin-cache

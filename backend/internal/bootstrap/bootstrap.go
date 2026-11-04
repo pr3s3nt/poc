@@ -27,11 +27,11 @@ import (
 	"orchestrator/internal/adapters/fake"
 	k8s "orchestrator/internal/adapters/kubernetes"
 	pgstore "orchestrator/internal/adapters/postgres"
-	"orchestrator/internal/adapters/renderbundles"
-	"orchestrator/internal/adapters/scorek8s"
 	"orchestrator/internal/adapters/secrets"
 	"orchestrator/internal/adapters/statecipher"
 	"orchestrator/internal/adapters/store"
+	"orchestrator/internal/adapters/templatedriver"
+	"orchestrator/internal/adapters/templatesources"
 	moduleregistry "orchestrator/internal/adapters/terraform/registry"
 	"orchestrator/internal/adapters/vault"
 	"orchestrator/internal/application/appdeletion"
@@ -90,14 +90,13 @@ type Options struct {
 	Adapters      AdapterMode
 	KubectlPath   string
 	TerraformPath string
-	ScoreK8sPath  string
-	// RequireScoreRenderer is the product mode (UC-05 BR-09, UC-06 BR-17):
-	// every Workload needs exactly one compatible score-k8s Definition and an
+	// RequireTemplateRenderer is the product mode (UC-05 BR-09, UC-06 BR-17):
+	// every Workload needs exactly one compatible template Definition and an
 	// installed bundle on both profiles; there is no native renderer
 	// fallback. A missing binary makes every Workload plan fail before
 	// resources instead of rendering natively.
-	RequireScoreRenderer bool
-	TerraformRoot        string
+	RequireTemplateRenderer bool
+	TerraformRoot           string
 
 	// TerraformPluginCache keeps provider downloads shared between workspaces.
 	TerraformPluginCache string
@@ -119,10 +118,10 @@ type Options struct {
 	TerraformRetainedReleasesFile string
 	// GitPath is the git CLI used to resolve and fetch module commits.
 	GitPath string
-	// RenderBundleCacheDir is the durable private cache of verified Git
+	// TemplateSourceCacheDir is the durable private cache of verified Git
 	// render bundle content (ADR-021). Empty uses a private temporary
 	// directory removed on Close; production configures a volume.
-	RenderBundleCacheDir string
+	TemplateSourceCacheDir string
 	// RenderWorkerPath overrides the template worker executable; empty
 	// runs the product binary itself.
 	RenderWorkerPath string
@@ -253,8 +252,8 @@ type App struct {
 	// Diagnostics is the Infrastructure Account diagnostics service.
 	Diagnostics *accountdiag.Service
 	// RenderRegistry is the Git render bundle registry (ADR-021); nil
-	// without the score-k8s renderer.
-	RenderRegistry *renderbundles.Registry
+	// without the template renderer.
+	RenderRegistry *templatesources.Registry
 	// ConnectionCredentials is nil when no credential store is configured.
 	ConnectionCredentials credentials.Store
 	Store                 persistence.Store
@@ -452,45 +451,25 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		deployer = opts.DeployerOverride
 	}
 
-	var bundles map[string]resource.RenderBundle
-	useFakeRenderer := false
-	if fakeRenderer && opts.RendererOverride == nil && opts.ScoreK8sPath == "" && !opts.RequireScoreRenderer {
-		fake := fakeBundleRenderer{native: renderer}
-		bundles, renderer = fake.Bundles(), fake
-		opts.RequireScoreRenderer = true
-		useFakeRenderer = true
-	}
-	switch {
-	case useFakeRenderer:
-	case opts.RequireScoreRenderer && opts.ScoreK8sPath != "":
-		scoreRenderer, err := scorek8s.New(ctx, opts.ScoreK8sPath, nil)
-		if err != nil {
-			return nil, err
-		}
-		bundles = scoreRenderer.Bundles()
-		renderer = scoreRenderer
-	case opts.RequireScoreRenderer:
-		renderer = unavailableRenderer{}
-	case opts.ScoreK8sPath != "":
-		scoreRenderer, err := scorek8s.New(ctx, opts.ScoreK8sPath, renderer)
-		if err != nil {
-			return nil, err
-		}
-		bundles = scoreRenderer.Bundles()
-		renderer = scoreRenderer
-	}
-	var renderRegistry *renderbundles.Registry
-	if score, ok := renderer.(*scorek8s.Renderer); ok {
-		if renderRegistry, err = gitRenderRegistry(opts, st, score, closers); err != nil {
+	var bundles map[string]resource.TemplateSource
+	var renderRegistry *templatesources.Registry
+	if opts.RendererOverride == nil {
+		templateRenderer := templatedriver.New()
+		if renderRegistry, err = gitRenderRegistry(opts, st, templateRenderer, closers); err != nil {
 			return nil, err
 		}
 		if transport, ok := renderRegistry.Git.(*moduleregistry.GitCLI); ok {
 			transport.Access = gitAccess
 		}
-		score.SetGitBundles(renderRegistry, renderengine.Executor{Command: opts.RenderWorkerPath})
+		if _, err := renderRegistry.PrepareStandard(ctx, opts.Seed.OrganizationKey); err != nil {
+			return nil, err
+		}
+		templateRenderer.SetGitBundles(renderRegistry, renderengine.Executor{Command: opts.RenderWorkerPath})
+		renderer = templateRenderer
+		opts.RequireTemplateRenderer = true
 	}
 	planner := planning.NewService(bundles)
-	if opts.RequireScoreRenderer {
+	if opts.RequireTemplateRenderer {
 		planner = planning.NewRequiredRendererService(bundles)
 	}
 	prov := provisioning.NewService(st, registry, secretStore, c)
@@ -676,7 +655,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	gitTester.Access = gitAccess
 	catalogValidator := catalog.NewService(st, modules)
 	catalogValidator.SetRenderRegistry(renderPort)
-	catalogValidator.SetRenderBundles(bundles)
+	catalogValidator.SetTemplateSources(bundles)
 	catalogReleases := &catalogapp.Service{Store: st, Discovery: gitTester, Inspector: moduleregistry.CatalogInspector{Store: st, Definitions: catalogValidator, Git: gitTester, Modules: modules, Rendering: renderPort}}
 	if organizations, ok := st.(persistence.CatalogDiscoveryOrganizations); ok {
 		workerCtx, workerCancel := context.WithCancel(ctx)
@@ -694,7 +673,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		Delivery:              deliveryBindings,
 		Observability:         telemetryService,
 		Diagnostics:           diagnostics,
-		RenderBundles:         bundles,
+		TemplateSources:       bundles,
 		RenderRegistry:        renderPort,
 		Deployments:           deployments,
 		Queries:               queries,
@@ -752,20 +731,17 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 // gitRenderRegistry opens the verified Git render bundle registry (ADR-021):
 // the durable content cache and the hardened Git transport. Inspection needs
 // a store with the render bundle repository; rendering needs only the cache.
-func gitRenderRegistry(opts Options, st persistence.Store, score *scorek8s.Renderer, closers *[]func()) (*renderbundles.Registry, error) {
-	dir := opts.RenderBundleCacheDir
+func gitRenderRegistry(opts Options, st persistence.Store, score *templatedriver.Renderer, closers *[]func()) (*templatesources.Registry, error) {
+	dir := opts.TemplateSourceCacheDir
 	if dir == "" {
-		temp, err := os.MkdirTemp("", "orchestrator-render-bundles-")
+		temp, err := os.MkdirTemp("", "orchestrator-template-sources-")
 		if err != nil {
 			return nil, fmt.Errorf("bootstrap: create the private render bundle cache: %w", err)
 		}
 		*closers = append(*closers, func() { _ = os.RemoveAll(temp) })
 		dir = temp
 	}
-	if err := score.RetainTools(dir); err != nil {
-		return nil, err
-	}
-	cache, err := renderbundles.OpenCache(dir)
+	cache, err := templatesources.OpenCache(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -773,8 +749,8 @@ func gitRenderRegistry(opts Options, st persistence.Store, score *scorek8s.Rende
 	if err != nil {
 		return nil, err
 	}
-	registry := &renderbundles.Registry{Cache: cache, Git: git, Runtime: score}
-	if repo, ok := st.(persistence.RenderBundleRepository); ok {
+	registry := &templatesources.Registry{Cache: cache, Git: git, Runtime: score}
+	if repo, ok := st.(persistence.TemplateSourceRepository); ok {
 		registry.Store = repo
 	}
 	return registry, nil
@@ -907,13 +883,13 @@ func connectionCredentialStore(opts Options) (credentials.Store, error) {
 	return nil, fmt.Errorf("bootstrap: unknown connection credential store %q", opts.ConnectionCredentialStore)
 }
 
-// unavailableRenderer is the required-renderer mode without a score-k8s
+// unavailableRenderer is the required-renderer mode without a template
 // binary: planning already fails for every Workload; this refuses any render
 // that would otherwise bypass it.
 type unavailableRenderer struct{}
 
 func (unavailableRenderer) Render(context.Context, execution.RenderRequest) ([]execution.Manifest, error) {
-	return nil, errors.New("bootstrap: the score-k8s renderer is not installed")
+	return nil, errors.New("bootstrap: the template renderer is not installed")
 }
 
 // outputSecretStore builds the UC-08 output-secret store. The in-process
@@ -948,9 +924,9 @@ func outputSecretStore(opts Options, durableState bool) (execution.SecretStore, 
 	return nil, fmt.Errorf("bootstrap: unknown output secret store %q", opts.OutputSecretStore)
 }
 
-// FakeRenderBundleID is the render bundle the fake adapters install. It carries the
-// ID of the real score-k8s bundle so Definitions authored for either run unchanged.
-const FakeRenderBundleID = "score-k8s-internal-v1"
+// FakeTemplateSourceID is the render bundle the fake adapters install. It carries the
+// ID of the real template bundle so Definitions authored for either run unchanged.
+const FakeTemplateSourceID = "template-internal-v1"
 
 // clusterReadyTimeout bounds the usability proof of one completed cluster (ADR-017).
 const clusterReadyTimeout = 10 * time.Minute
@@ -965,12 +941,12 @@ func NewFakeBundleRenderer(native execution.WorkloadRenderer) execution.Workload
 	return fakeBundleRenderer{native: native}
 }
 
-func (fakeBundleRenderer) Bundles() map[string]resource.RenderBundle { return FakeRenderBundles() }
+func (fakeBundleRenderer) Bundles() map[string]resource.TemplateSource { return FakeTemplateSources() }
 
-// FakeRenderBundles is the bundle snapshot the fake adapters install; tests that build
+// FakeTemplateSources is the bundle snapshot the fake adapters install; tests that build
 // their own planner use it so plans pin the same bundle as the application's.
-func FakeRenderBundles() map[string]resource.RenderBundle {
-	return map[string]resource.RenderBundle{FakeRenderBundleID: {ID: FakeRenderBundleID, Version: "fake", BinaryDigest: "fake-binary", Digest: "fake-bundle"}}
+func FakeTemplateSources() map[string]resource.TemplateSource {
+	return map[string]resource.TemplateSource{FakeTemplateSourceID: {ID: FakeTemplateSourceID, Version: "fake", BinaryDigest: "fake-binary", Digest: "fake-bundle"}}
 }
 
 func (r fakeBundleRenderer) Render(ctx context.Context, req execution.RenderRequest) ([]execution.Manifest, error) {
@@ -978,7 +954,7 @@ func (r fakeBundleRenderer) Render(ctx context.Context, req execution.RenderRequ
 }
 
 func (fakeBundleRenderer) ValidateSelection(_ context.Context, selected resource.RenderingSelection) error {
-	if selected.Bundle.ID != FakeRenderBundleID || selected.DriverType != resource.DriverScoreK8s {
+	if selected.Bundle.ID != FakeTemplateSourceID || selected.DriverType != resource.DriverTemplate {
 		return errors.New("bootstrap: the fake renderer only serves its own bundle")
 	}
 	return nil

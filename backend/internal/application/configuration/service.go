@@ -15,7 +15,7 @@ import (
 	"orchestrator/internal/domain/configuration"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 	"orchestrator/internal/platform/ids"
 	configport "orchestrator/internal/ports/configuration"
 	"orchestrator/internal/ports/persistence"
@@ -368,17 +368,17 @@ func (s *Service) rewriteDrafts(ctx context.Context, app, env string, l loaded, 
 	}
 	var out []environment.WorkloadDraft
 	for id, draft := range byID {
-		if draft.State != environment.DraftUpsert || !workloadconfig.ReferencesEnvironmentKey(draft.Score, oldName) {
+		if draft.State != environment.DraftUpsert || !workloadconfig.ReferencesEnvironmentKey(draft.Workload, oldName) {
 			continue
 		}
-		rewritten, changed, err := workloadconfig.RewriteEnvironmentKey(draft.Score, oldName, newName)
+		rewritten, changed, err := workloadconfig.RewriteEnvironmentKey(draft.Workload, oldName, newName)
 		if err != nil || !changed {
 			return nil, ErrReferenceRewriteUnsafe
 		}
-		if _, err := score.FromMap(rewritten); err != nil {
+		if _, err := workloadspec.FromMap(rewritten); err != nil {
 			return nil, ErrReferenceRewriteUnsafe
 		}
-		out = append(out, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: id, State: environment.DraftUpsert, Score: rewritten})
+		out = append(out, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: id, State: environment.DraftUpsert, Workload: rewritten})
 	}
 	if l.env.CurrentDeploymentSetID != "" {
 		set, err := s.store.GetDeploymentSet(ctx, l.env.CurrentDeploymentSetID)
@@ -411,7 +411,7 @@ func (s *Service) rewriteDrafts(ctx context.Context, app, env string, l loaded, 
 			if err := workloadconfig.VerifyRewritten(id, rewritten, module, set.Document, types, oldName, newName); err != nil {
 				return nil, ErrReferenceRewriteUnsafe
 			}
-			out = append(out, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: id, State: environment.DraftUpsert, Score: rewritten})
+			out = append(out, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: id, State: environment.DraftUpsert, Workload: rewritten})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].WorkloadID < out[j].WorkloadID })
@@ -462,7 +462,7 @@ func (s *Service) affected(ctx context.Context, app, env, name string) ([]string
 	hasDraft := map[string]bool{}
 	for _, draft := range drafts {
 		hasDraft[draft.WorkloadID] = true
-		if draft.State == environment.DraftUpsert && workloadconfig.ReferencesEnvironmentKey(draft.Score, name) {
+		if draft.State == environment.DraftUpsert && workloadconfig.ReferencesEnvironmentKey(draft.Workload, name) {
 			seen[draft.WorkloadID] = true
 		}
 	}

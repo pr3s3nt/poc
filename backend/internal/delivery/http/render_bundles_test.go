@@ -19,7 +19,7 @@ import (
 	"orchestrator/internal/seed/seedtest"
 )
 
-func bundleTestServer(t *testing.T, bundles map[string]resource.RenderBundle) (*Server, *httptest.Server, *store.Store) {
+func bundleTestServer(t *testing.T, bundles map[string]resource.TemplateSource) (*Server, *httptest.Server, *store.Store) {
 	t.Helper()
 	st := store.New()
 	opts := seedtest.Defaults()
@@ -37,7 +37,7 @@ func bundleTestServer(t *testing.T, bundles map[string]resource.RenderBundle) (*
 			t.Fatal(err)
 		}
 	}
-	s := NewServer(Config{RenderBundles: bundles, Authentication: authentication.NewService(st), Store: st, ModuleRegistry: registrytest.Open(t, st), SeedOptions: opts})
+	s := NewServer(Config{TemplateSources: bundles, Authentication: authentication.NewService(st), Store: st, ModuleRegistry: registrytest.Open(t, st), SeedOptions: opts})
 	ts := httptest.NewServer(s)
 	t.Cleanup(ts.Close)
 	return s, ts, st
@@ -60,7 +60,7 @@ func bundleClient(t *testing.T, base, user string) *http.Client {
 
 func getBundles(t *testing.T, c *http.Client, base string) (int, string) {
 	t.Helper()
-	resp, err := c.Get(base + "/api/v1/render-bundles")
+	resp, err := c.Get(base + "/api/v1/template-sources")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,8 +77,8 @@ func getBundles(t *testing.T, c *http.Client, base string) (int, string) {
 	return resp.StatusCode, sb.String()
 }
 
-func TestRenderBundlesAuthAndRole(t *testing.T) {
-	_, ts, _ := bundleTestServer(t, map[string]resource.RenderBundle{"b": {ID: "b", Version: "1", Digest: "d", BinaryDigest: "bd"}})
+func TestTemplateSourcesAuthAndRole(t *testing.T) {
+	_, ts, _ := bundleTestServer(t, map[string]resource.TemplateSource{"b": {ID: "b", Version: "1", Digest: "d", BinaryDigest: "bd"}})
 	if code, _ := getBundles(t, &http.Client{}, ts.URL); code != http.StatusUnauthorized {
 		t.Fatalf("anonymous: %d", code)
 	}
@@ -93,18 +93,18 @@ func TestRenderBundlesAuthAndRole(t *testing.T) {
 	}
 }
 
-func TestRenderBundlesEmptyIsArray(t *testing.T) {
-	for name, in := range map[string]map[string]resource.RenderBundle{"nil": nil, "empty": {}, "all invalid": {"x": {ID: "x"}}} {
+func TestTemplateSourcesEmptyIsArray(t *testing.T) {
+	for name, in := range map[string]map[string]resource.TemplateSource{"nil": nil, "empty": {}, "all invalid": {"x": {ID: "x"}}} {
 		_, ts, _ := bundleTestServer(t, in)
 		code, body := getBundles(t, bundleClient(t, ts.URL, "platform-engineer"), ts.URL)
-		if code != http.StatusOK || strings.TrimSpace(body) != `{"renderBundles":[]}` {
+		if code != http.StatusOK || strings.TrimSpace(body) != `{"templateSources":[]}` {
 			t.Fatalf("%s: %d %s", name, code, body)
 		}
 	}
 }
 
-func TestRenderBundlesSortedSafeMetadataOnly(t *testing.T) {
-	bundles := map[string]resource.RenderBundle{
+func TestTemplateSourcesSortedSafeMetadataOnly(t *testing.T) {
+	bundles := map[string]resource.TemplateSource{
 		"zeta":      {ID: "zeta", Version: "2.0", Digest: "SECRET-DIGEST-Z", BinaryDigest: "SECRET-BIN-Z"},
 		"alpha":     {ID: "alpha", Version: "1.0", Digest: "SECRET-DIGEST-A", BinaryDigest: "SECRET-BIN-A"},
 		"mismatch":  {ID: "other", Version: "1", Digest: "d", BinaryDigest: "b"},
@@ -124,24 +124,24 @@ func TestRenderBundlesSortedSafeMetadataOnly(t *testing.T) {
 		}
 	}
 	var got struct {
-		RenderBundles []map[string]string `json:"renderBundles"`
+		TemplateSources []map[string]string `json:"templateSources"`
 	}
 	if err := json.Unmarshal([]byte(body), &got); err != nil {
 		t.Fatal(err)
 	}
 	want := []map[string]string{{"id": "alpha", "version": "1.0", "status": "AVAILABLE"}, {"id": "zeta", "version": "2.0", "status": "AVAILABLE"}}
-	if len(got.RenderBundles) != 2 {
+	if len(got.TemplateSources) != 2 {
 		t.Fatalf("got %s", body)
 	}
 	for i, w := range want {
-		if len(got.RenderBundles[i]) != 3 || got.RenderBundles[i]["id"] != w["id"] || got.RenderBundles[i]["version"] != w["version"] || got.RenderBundles[i]["status"] != "AVAILABLE" {
-			t.Fatalf("entry %d: %v", i, got.RenderBundles[i])
+		if len(got.TemplateSources[i]) != 3 || got.TemplateSources[i]["id"] != w["id"] || got.TemplateSources[i]["version"] != w["version"] || got.TemplateSources[i]["status"] != "AVAILABLE" {
+			t.Fatalf("entry %d: %v", i, got.TemplateSources[i])
 		}
 	}
 }
 
-func TestRenderBundlesReadOnlyAndRegistrationRevalidates(t *testing.T) {
-	s, ts, st := bundleTestServer(t, map[string]resource.RenderBundle{"b": {ID: "b", Version: "1", Digest: "d", BinaryDigest: "bd"}})
+func TestTemplateSourcesReadOnlyAndRegistrationRevalidates(t *testing.T) {
+	s, ts, st := bundleTestServer(t, map[string]resource.TemplateSource{"b": {ID: "b", Version: "1", Digest: "d", BinaryDigest: "bd"}})
 	pe := bundleClient(t, ts.URL, "platform-engineer")
 	before, err := st.ListResourceDefinitions(context.Background(), seedtest.Defaults().OrganizationKey)
 	if err != nil {
@@ -152,18 +152,18 @@ func TestRenderBundlesReadOnlyAndRegistrationRevalidates(t *testing.T) {
 			t.Fatal(code)
 		}
 	}
-	if resp, err := pe.Post(ts.URL+"/api/v1/render-bundles", "application/json", strings.NewReader(`{}`)); err != nil {
+	if resp, err := pe.Post(ts.URL+"/api/v1/template-sources", "application/json", strings.NewReader(`{}`)); err != nil {
 		t.Fatal(err)
 	} else if resp.Body.Close(); resp.StatusCode < 400 {
-		t.Fatalf("POST render-bundles: %d", resp.StatusCode)
+		t.Fatalf("POST template-sources: %d", resp.StatusCode)
 	}
 	after, _ := st.ListResourceDefinitions(context.Background(), seedtest.Defaults().OrganizationKey)
 	if len(after) != len(before) {
-		t.Fatal("GET render-bundles changed persisted Definitions")
+		t.Fatal("GET template-sources changed persisted Definitions")
 	}
 	// A listed bundle can become unavailable; registration still rejects it before insert.
-	s.catalog.SetRenderBundles(nil)
-	body := `{"key":"tpl-gone","resourceType":"workload","executionProfile":"internal-k8s","driverType":"score-k8s","driverInputs":{"values":{"variables":{"render_bundle":"b"}}},"criteria":[{}]}`
+	s.catalog.SetTemplateSources(nil)
+	body := `{"key":"tpl-gone","resourceType":"workload","executionProfile":"internal-k8s","driverType":"template","driverInputs":{"values":{"variables":{"template_source":"b"}}},"criteria":[{}]}`
 	resp, err := pe.Post(ts.URL+"/api/v1/resource-definitions", "application/json", strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)

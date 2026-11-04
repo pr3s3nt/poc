@@ -168,7 +168,7 @@ func EnvironmentOperations(t *testing.T, st persistence.Store) OperationFixture 
 	}
 
 	// Every foreign write is rejected as busy while claimed.
-	if err := st.SaveWorkloadDraft(ctx, 0, environment.WorkloadDraft{ApplicationKey: appID, EnvironmentKey: "staging", WorkloadID: "web", State: environment.DraftUpsert, Score: map[string]any{"apiVersion": "score.dev/v1b1"}}); !errors.Is(err, persistence.ErrEnvironmentBusy) {
+	if err := st.SaveWorkloadDraft(ctx, 0, environment.WorkloadDraft{ApplicationKey: appID, EnvironmentKey: "staging", WorkloadID: "web", State: environment.DraftUpsert, Workload: map[string]any{"apiVersion": "orchestrator.dev/workload/v1"}}); !errors.Is(err, persistence.ErrEnvironmentBusy) {
 		t.Fatalf("draft while busy: %v", err)
 	}
 	if err := st.CommitConfigurationRevision(ctx, 0, configuration.Revision{ID: ids.New(), ApplicationKey: appID, EnvironmentKey: "staging", Version: 1, Entries: map[string]configuration.Entry{"A": {Kind: configuration.Variable, Value: "1"}}}); !errors.Is(err, persistence.ErrEnvironmentBusy) {
@@ -192,7 +192,7 @@ func EnvironmentOperations(t *testing.T, st persistence.Store) OperationFixture 
 	if err := st.SetPublicRoutesPending(own, appID, "staging", true); err != nil {
 		t.Fatalf("owner routes flag: %v", err)
 	}
-	if err := st.SaveWorkloadDraft(own, 0, environment.WorkloadDraft{ApplicationKey: appID, EnvironmentKey: "staging", WorkloadID: "web", State: environment.DraftUpsert, Score: map[string]any{"apiVersion": "score.dev/v1b1"}}); err != nil {
+	if err := st.SaveWorkloadDraft(own, 0, environment.WorkloadDraft{ApplicationKey: appID, EnvironmentKey: "staging", WorkloadID: "web", State: environment.DraftUpsert, Workload: map[string]any{"apiVersion": "orchestrator.dev/workload/v1"}}); err != nil {
 		t.Fatalf("owner draft: %v", err)
 	}
 

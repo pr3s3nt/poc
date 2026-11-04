@@ -5,17 +5,17 @@ import (
 
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
-	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/templatesource"
 	"orchestrator/internal/platform/canon"
 )
 
-// renderMatcher narrows the Definition list to workload score-k8s Definitions.
+// renderMatcher narrows the Definition list to workload template Definitions.
 // Renderer definitions are separate from infrastructure matches and provision batches.
 func renderMatcher(ctx Context, matcher *definitionMatcher) *definitionMatcher {
 	rm := &definitionMatcher{ctx: ctx, defs: matcher.defs, accounts: matcher.accounts}
 	for _, def := range matcher.list {
-		if def.ResourceTypeKey == "workload" && def.DriverType == resource.DriverScoreK8s {
+		if def.ResourceTypeKey == "workload" && def.DriverType == resource.DriverTemplate {
 			rm.list = append(rm.list, def)
 		}
 	}
@@ -44,7 +44,7 @@ func (s *Service) pickWorkload(ctx Context, rm *definitionMatcher, node Node, ca
 		return resource.Definition{}, Match{}, false, err
 	}
 	def = rm.defs[match.DefinitionKey]
-	if _, _, err := resource.ResolveRenderDefinition(def, catalog.Types["workload"], s.bundles, catalog.RenderBundles, ctx.DefinitionPlaced()); err != nil {
+	if _, _, err := resource.ResolveRenderDefinition(def, catalog.Types["workload"], s.bundles, catalog.TemplateSources, ctx.DefinitionPlaced()); err != nil {
 		if s.requireRenderer {
 			return resource.Definition{}, Match{}, false, &StageError{Stage: StageCatalog, Reason: ReasonRendererUnavailable, Err: err}
 		}
@@ -73,16 +73,31 @@ func (s *Service) selectRendering(ctx Context, graph Graph, matcher *definitionM
 		if err != nil {
 			return nil, err
 		}
-		pin, inputs, err := resource.ResolveRenderDefinition(def, catalog.Types["workload"], s.bundles, catalog.RenderBundles, ctx.DefinitionPlaced())
+		pin, inputs, err := resource.ResolveRenderDefinition(def, catalog.Types["workload"], s.bundles, catalog.TemplateSources, ctx.DefinitionPlaced())
 		if err != nil {
 			return nil, &StageError{Stage: StageCatalog, Reason: ReasonRendererUnavailable, Err: err}
 		}
 		selection := resource.RenderingSelection{DefinitionKey: def.Key, DefinitionHash: hash, DriverType: def.DriverType, Class: node.Class, Bundle: pin}
+		if refs, ok := def.Variables()["resource_references"].(map[string]any); ok {
+			selection.References = map[string]string{}
+			for name, value := range refs {
+				selection.References[name], _ = value.(string)
+				binding, output, _ := resource.WorkloadReference(selection.References[name])
+				descriptor := node.Bindings[binding]
+				for _, provider := range graph.Nodes {
+					if provider.Descriptor == descriptor {
+						if field, ok := catalog.Types[provider.ResourceType].Output(output); ok && field.Secret {
+							return nil, &StageError{Stage: StageReference, Err: errors.New("template resource references cannot expose secret outputs")}
+						}
+					}
+				}
+			}
+		}
 		if pin.Git() {
 			// The effective inputs and their hash are pinned so a bundle- or
 			// input-only change is a pending workload update (UC-05 RB-01).
 			selection.Inputs = inputs
-			if selection.InputsHash, err = renderbundle.InputsHash(inputs); err != nil {
+			if selection.InputsHash, err = templatesource.InputsHash(inputs); err != nil {
 				return nil, err
 			}
 		}

@@ -9,7 +9,7 @@ import (
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/planning/jsonpatch"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 	"orchestrator/internal/platform/canon"
 )
 
@@ -25,7 +25,7 @@ type DeltaResult struct {
 
 // BuildHumanitecDelta replaces the contribution of one workload, diffs the
 // Candidate Set against current and proves current + delta = candidate.
-func (DeltaBuilder) BuildHumanitecDelta(current environment.Document, workloadID string, before, after *score.Fragment) (DeltaResult, error) {
+func (DeltaBuilder) BuildHumanitecDelta(current environment.Document, workloadID string, before, after *workloadspec.Fragment) (DeltaResult, error) {
 	candidate, err := buildCandidate(current, workloadID, before, after)
 	if err != nil {
 		return DeltaResult{}, err

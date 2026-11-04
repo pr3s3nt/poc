@@ -87,7 +87,7 @@ func TestCatalogReleaseDetailsAreScopedReadOnlyAlongsideEditors(t *testing.T) {
 	if len(before) != len(after) {
 		t.Fatal("detail mutated global Definitions")
 	}
-	for _, route := range []string{"resource-definitions", "render-bundles"} {
+	for _, route := range []string{"resource-definitions", "template-sources"} {
 		status, _ := request(t, pe, http.MethodGet, ts.URL+"/api/v1/"+route, "")
 		if status != http.StatusOK {
 			t.Fatalf("restored %s: %d", route, status)

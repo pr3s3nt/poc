@@ -11,14 +11,14 @@ const execution = { version: 1, kind: 'Deployment', template: { id: 'backend', v
 const storage: ResourceType = { key: 'persistent-storage', inputs: [{ name: 'storage', type: 'string' }], outputs: [{ name: 'claimName', type: 'string' }, { name: 'namespace', type: 'string' }], classes: ['default'] };
 const redis: ResourceType = { key: 'redis', inputs: [], outputs: [], classes: ['default'] };
 function setup({ types = [storage, redis], resources, others = [] }: { types?: ResourceType[]; resources?: Record<string, unknown>; others?: Workload[] } = {}) {
-  const puts: { score: Record<string, unknown> }[] = [];
-  const score = { apiVersion: 'score.dev/v1b1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/backend:v1' } }, workloadExecution: execution, ...(resources ? { resources } : {}) };
+  const puts: { workload: Record<string, unknown> }[] = [];
+  const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/backend:v1' } }, workloadExecution: execution, ...(resources ? { resources } : {}) };
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith('/configuration')) return Response.json({ version: 1, keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: types });
     if (init?.method === 'PUT') { puts.push(JSON.parse(String(init.body))); return Response.json({ workloads: [], draftVersion: 2 }); }
-    return Response.json({ draftVersion: 1, workloads: [{ id: 'api', ready: false, state: 'PENDING_UPSERT', score }, ...others] });
+    return Response.json({ draftVersion: 1, workloads: [{ id: 'api', ready: false, state: 'PENDING_UPSERT', workload }, ...others] });
   }));
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
   return { puts, user: userEvent.setup() };
@@ -44,18 +44,18 @@ it('adds storage and mount from Add volume mount, while Cancel keeps the local d
   expect(screen.getByLabelText('Mount path')).toHaveValue('/data');
   expect(puts).toHaveLength(0);
   await user.click(screen.getByRole('button', { name: 'Lưu draft Workload' }));
-  expect(puts[0]?.score.resources).toEqual({ data: { type: 'persistent-storage', id: expect.stringMatching(/^resource-/), params: { storage: '5Gi' } } });
-  expect(puts[0]?.score.workloadExecution).toMatchObject({ ...execution, mounts: [{ resource: 'data', container: 'main', path: '/data', readOnly: false }] });
+  expect(puts[0]?.workload.resources).toEqual({ data: { type: 'persistent-storage', id: expect.stringMatching(/^resource-/), params: { storage: '5Gi' } } });
+  expect(puts[0]?.workload.workloadExecution).toMatchObject({ ...execution, mounts: [{ resource: 'data', container: 'main', path: '/data', readOnly: false }] });
 });
 
 it('reuses an existing scoped storage resource from the mount dialog without creating a new identity', async () => {
-  const { puts, user } = setup({ others: [{ id: 'worker', ready: true, score: { resources: { volume: { type: 'persistent-storage', id: 'store-a', params: { storage: '2Gi' } } } } }] });
+  const { puts, user } = setup({ others: [{ id: 'worker', ready: true, workload: { resources: { volume: { type: 'persistent-storage', id: 'store-a', params: { storage: '2Gi' } } } } }] });
   await user.click(await screen.findByRole('button', { name: 'Thêm volume mount' }));
   const dialog = screen.getByRole('dialog', { name: 'Thêm tài nguyên lưu trữ' });
   await user.selectOptions(within(dialog).getByLabelText('Nguồn tài nguyên'), 'shared:store-a');
   await user.click(within(dialog).getByRole('button', { name: 'Thêm và chọn' }));
   await user.click(screen.getByRole('button', { name: 'Lưu draft Workload' }));
-  expect(puts[0]?.score.resources).toEqual({ data: { type: 'persistent-storage', id: 'store-a', params: { storage: '2Gi' } } });
+  expect(puts[0]?.workload.resources).toEqual({ data: { type: 'persistent-storage', id: 'store-a', params: { storage: '2Gi' } } });
 });
 
 it('chooses an unused alias and preserves a non-storage resource already called data', async () => {
@@ -65,7 +65,7 @@ it('chooses an unused alias and preserves a non-storage resource already called 
   expect(within(dialog).getByLabelText('Alias tài nguyên')).toHaveValue('data-2');
   await user.click(within(dialog).getByRole('button', { name: 'Thêm và chọn' }));
   await user.click(screen.getByRole('button', { name: 'Lưu draft Workload' }));
-  expect(puts[0]?.score.resources).toMatchObject({ data: { type: 'redis', id: 'cache-existing' }, 'data-2': { type: 'persistent-storage' } });
+  expect(puts[0]?.workload.resources).toMatchObject({ data: { type: 'redis', id: 'cache-existing' }, 'data-2': { type: 'persistent-storage' } });
 });
 
 it('explains unavailable storage and rejects secret or non-string storage capabilities', async () => {

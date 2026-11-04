@@ -32,7 +32,7 @@ import (
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 )
 
 // FixtureRoot is the read-only challenge bundle.
@@ -51,8 +51,8 @@ type caseManifest struct {
 	Spec struct {
 		Context              string   `yaml:"context"`
 		CurrentDeploymentSet string   `yaml:"currentDeploymentSet"`
-		BeforeScore          *string  `yaml:"beforeScore"`
-		AfterScore           *string  `yaml:"afterScore"`
+		BeforeWorkload       *string  `yaml:"beforeWorkload"`
+		AfterWorkload        *string  `yaml:"afterWorkload"`
 		ResourceTypes        []string `yaml:"resourceTypes"`
 		ResourceDefinitions  []string `yaml:"resourceDefinitions"`
 		ActiveResources      string   `yaml:"activeResources"`
@@ -107,11 +107,11 @@ func Load(root, name string) (*Case, error) {
 		}
 	}
 
-	before, err := readScore(dir, manifest.Spec.BeforeScore)
+	before, err := readWorkload(dir, manifest.Spec.BeforeWorkload)
 	if err != nil {
 		return nil, err
 	}
-	after, err := readScore(dir, manifest.Spec.AfterScore)
+	after, err := readWorkload(dir, manifest.Spec.AfterWorkload)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +232,7 @@ func IsSynthetic(descriptor string) bool {
 		strings.HasPrefix(descriptor, planning.TypeCluster+".")
 }
 
-func readScore(dir string, name *string) (*score.Document, error) {
+func readWorkload(dir string, name *string) (*workloadspec.Document, error) {
 	if name == nil || *name == "" {
 		return nil, nil
 	}
@@ -240,7 +240,7 @@ func readScore(dir string, name *string) (*score.Document, error) {
 	if err := readYAML(filepath.Join(dir, *name), &raw); err != nil {
 		return nil, err
 	}
-	return score.FromMap(raw)
+	return workloadspec.FromMap(raw)
 }
 
 func readResourceTypes(dir string, names []string) (map[string]resource.Type, error) {

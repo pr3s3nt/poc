@@ -1,4 +1,4 @@
-// Package preview implements the UC-05 standalone Score Preview (OC-06): a
+// Package preview implements the UC-05 standalone Workload Preview (OC-06): a
 // read-only planning run over one consistent snapshot, shared with UC-06.
 package preview
 
@@ -19,7 +19,7 @@ import (
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 	"orchestrator/internal/ports/persistence"
 )
 
@@ -30,8 +30,8 @@ import (
 var (
 	// ErrInvalidRequest reports a missing field or action/input combination.
 	ErrInvalidRequest = errors.New("preview: invalid request")
-	// ErrInvalidScore reports a Score or before-state the planner rejects.
-	ErrInvalidScore = errors.New("preview: invalid Score")
+	// ErrInvalidWorkload reports a Workload or before-state the planner rejects.
+	ErrInvalidWorkload = errors.New("preview: invalid Workload")
 	// ErrPlanningRejected reports a catalog-side planning failure.
 	ErrPlanningRejected = errors.New("preview: planning rejected")
 )
@@ -54,9 +54,9 @@ func public(kind error, format string, args ...any) error {
 }
 
 // Planner messages are never echoed (planning.PublicMessage). These stages
-// are caused by the caller's Score or before-state.
+// are caused by the caller's Workload or before-state.
 var (
-	callerStages = map[planning.Stage]bool{planning.StageScore: true, planning.StageBefore: true, planning.StageCandidate: true, planning.StageRoutes: true, planning.StageServiceRefs: true}
+	callerStages = map[planning.Stage]bool{planning.StageWorkload: true, planning.StageBefore: true, planning.StageCandidate: true, planning.StageRoutes: true, planning.StageServiceRefs: true}
 )
 
 // publicPlanningError maps a staged planner failure to a fixed sentence.
@@ -69,7 +69,7 @@ func publicPlanningError(err error) error {
 	message, _ := planning.PublicMessage(err)
 	kind := ErrPlanningRejected
 	if callerStages[stage.Stage] {
-		kind = ErrInvalidScore
+		kind = ErrInvalidWorkload
 	}
 	failure := public(kind, "%s", message).(*PublicError)
 	failure.Stage, failure.Reason = stage.Stage, stage.Reason
@@ -92,8 +92,8 @@ type PreviewDeploymentQuery struct {
 	WorkloadID      string
 	Action          string
 	RunID           string
-	ScoreBefore     map[string]any
-	ScoreAfter      map[string]any
+	WorkloadBefore  map[string]any
+	WorkloadAfter   map[string]any
 }
 
 // DeploymentPreview is the unredacted, immutable result of one Preview. Plan
@@ -200,7 +200,7 @@ func (s *Service) PreviewDeployment(ctx context.Context, q PreviewDeploymentQuer
 	}, nil
 }
 
-func validateQuery(q PreviewDeploymentQuery) (*score.Document, *score.Document, domain.Action, error) {
+func validateQuery(q PreviewDeploymentQuery) (*workloadspec.Document, *workloadspec.Document, domain.Action, error) {
 	if strings.TrimSpace(q.WorkloadID) == "" {
 		return nil, nil, "", public(ErrInvalidRequest, "workloadId is required")
 	}
@@ -211,40 +211,40 @@ func validateQuery(q PreviewDeploymentQuery) (*score.Document, *score.Document, 
 	switch q.Action {
 	case ActionDeploy:
 		action = domain.ActionDeploy
-		if q.ScoreAfter == nil || q.ScoreBefore != nil {
-			return nil, nil, "", public(ErrInvalidRequest, "deploy needs scoreAfter and no scoreBefore")
+		if q.WorkloadAfter == nil || q.WorkloadBefore != nil {
+			return nil, nil, "", public(ErrInvalidRequest, "deploy needs workloadAfter and no workloadBefore")
 		}
 	case ActionUpdate:
 		action = domain.ActionUpdate
-		if q.ScoreAfter == nil || q.ScoreBefore == nil {
-			return nil, nil, "", public(ErrInvalidRequest, "update needs scoreBefore and scoreAfter")
+		if q.WorkloadAfter == nil || q.WorkloadBefore == nil {
+			return nil, nil, "", public(ErrInvalidRequest, "update needs workloadBefore and workloadAfter")
 		}
 	case ActionRemove:
 		action = domain.ActionRemove
-		if q.ScoreBefore == nil || q.ScoreAfter != nil {
-			return nil, nil, "", public(ErrInvalidRequest, "remove needs scoreBefore and no scoreAfter")
+		if q.WorkloadBefore == nil || q.WorkloadAfter != nil {
+			return nil, nil, "", public(ErrInvalidRequest, "remove needs workloadBefore and no workloadAfter")
 		}
 	default:
 		return nil, nil, "", public(ErrInvalidRequest, "action must be deploy, update or remove")
 	}
-	before, err := parse("scoreBefore", q.ScoreBefore, q.WorkloadID)
+	before, err := parse("workloadBefore", q.WorkloadBefore, q.WorkloadID)
 	if err != nil {
 		return nil, nil, "", err
 	}
-	after, err := parse("scoreAfter", q.ScoreAfter, q.WorkloadID)
+	after, err := parse("workloadAfter", q.WorkloadAfter, q.WorkloadID)
 	if err != nil {
 		return nil, nil, "", err
 	}
 	return before, after, action, nil
 }
 
-func parse(field string, raw map[string]any, workloadID string) (*score.Document, error) {
+func parse(field string, raw map[string]any, workloadID string) (*workloadspec.Document, error) {
 	if raw == nil {
 		return nil, nil
 	}
-	doc, err := score.FromMap(raw)
+	doc, err := workloadspec.FromMap(raw)
 	if err != nil {
-		return nil, public(ErrInvalidScore, "%s: %s", field, err.Error())
+		return nil, public(ErrInvalidWorkload, "%s: %s", field, err.Error())
 	}
 	if doc.Metadata.Name != workloadID {
 		return nil, public(ErrInvalidRequest, "%s metadata.name %q does not match workloadId %q", field, doc.Metadata.Name, workloadID)

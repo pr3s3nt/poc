@@ -11,15 +11,15 @@ import (
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning/placeholder"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 	"orchestrator/internal/platform/canon"
 )
 
 // Service is the deterministic planning pipeline shared by UC-05, UC-06 and UC-07.
 type Service struct {
-	bundles map[string]resource.RenderBundle
+	bundles map[string]resource.TemplateSource
 	// requireRenderer is the product mode (UC-05 BR-09, UC-06 BR-17): every
-	// Workload needs exactly one compatible score-k8s Definition/bundle on
+	// Workload needs exactly one compatible template Definition/bundle on
 	// both profiles and there is no native renderer fallback. The default
 	// service keeps the additive planner-reference behavior.
 	requireRenderer bool
@@ -27,20 +27,20 @@ type Service struct {
 
 // NewService captures immutable rendering configuration. Planning performs no
 // I/O or side effects (OC-07).
-func NewService(bundles ...map[string]resource.RenderBundle) *Service {
+func NewService(bundles ...map[string]resource.TemplateSource) *Service {
 	s := &Service{}
 	if len(bundles) > 0 {
-		s.bundles = resource.CopyRenderBundles(bundles[0])
+		s.bundles = resource.CopyTemplateSources(bundles[0])
 	}
 	return s
 }
 
 // NewRequiredRendererService is the product planner: a Workload without
-// exactly one matching, available score-k8s Definition/bundle is rejected
+// exactly one matching, available template Definition/bundle is rejected
 // before any resource is provisioned. It never falls back to a native
 // renderer.
-func NewRequiredRendererService(bundles map[string]resource.RenderBundle) *Service {
-	return &Service{bundles: resource.CopyRenderBundles(bundles), requireRenderer: true}
+func NewRequiredRendererService(bundles map[string]resource.TemplateSource) *Service {
+	return &Service{bundles: resource.CopyTemplateSources(bundles), requireRenderer: true}
 }
 
 // Plan runs the full pipeline and returns an immutable Deployment Plan.
@@ -65,16 +65,16 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 
 	base := normalize(req.BaseSet)
 
-	var beforeFragment, afterFragment *score.Fragment
+	var beforeFragment, afterFragment *workloadspec.Fragment
 	var err error
 	if req.Before != nil {
 		if beforeFragment, err = req.Before.Fragment(req.Catalog.Types); err != nil {
-			return nil, stageErr(StageScore, err)
+			return nil, stageErr(StageWorkload, err)
 		}
 	}
 	if req.After != nil {
 		if afterFragment, err = req.After.Fragment(req.Catalog.Types); err != nil {
-			return nil, stageErr(StageScore, err)
+			return nil, stageErr(StageWorkload, err)
 		}
 	}
 	if err := validateBeforeState(base, req.WorkloadID, beforeFragment); err != nil {
@@ -205,12 +205,12 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 	}
 	plan.UnreferencedResources = unreferencedResources(ctx, graph, req.Active)
 	if req.Before != nil {
-		if plan.ScoreBefore, err = canon.Map(req.Before); err != nil {
+		if plan.WorkloadBefore, err = canon.Map(req.Before); err != nil {
 			return nil, err
 		}
 	}
 	if req.After != nil {
-		if plan.ScoreAfter, err = canon.Map(req.After); err != nil {
+		if plan.WorkloadAfter, err = canon.Map(req.After); err != nil {
 			return nil, err
 		}
 	}
@@ -263,11 +263,11 @@ func normalize(doc environment.Document) environment.Document {
 }
 
 // validateBeforeState proves the plan starts from the caller's snapshot (UC-07 MS-02).
-func validateBeforeState(base environment.Document, workloadID string, before *score.Fragment) error {
+func validateBeforeState(base environment.Document, workloadID string, before *workloadspec.Fragment) error {
 	current, exists := base.Modules[workloadID]
 	if before == nil {
 		if exists {
-			return beforeErr(ReasonWorkloadExists, "planning: workload %q already exists; a before Score is required", workloadID)
+			return beforeErr(ReasonWorkloadExists, "planning: workload %q already exists; a before Workload is required", workloadID)
 		}
 		return nil
 	}
@@ -275,7 +275,7 @@ func validateBeforeState(base environment.Document, workloadID string, before *s
 		return beforeErr(ReasonWorkloadNotCurrent, "planning: workload %q is not part of the current Deployment Set", workloadID)
 	}
 	if before.WorkloadID != workloadID {
-		return beforeErr(ReasonBeforeMismatch, "planning: before Score describes workload %q, not %q", before.WorkloadID, workloadID)
+		return beforeErr(ReasonBeforeMismatch, "planning: before Workload describes workload %q, not %q", before.WorkloadID, workloadID)
 	}
 	expected, err := canon.Map(before.Module)
 	if err != nil {
@@ -286,14 +286,14 @@ func validateBeforeState(base environment.Document, workloadID string, before *s
 		return err
 	}
 	if !reflect.DeepEqual(expected, actual) {
-		return beforeErr(ReasonBeforeMismatch, "planning: before Score does not match the current contribution of workload %q", workloadID)
+		return beforeErr(ReasonBeforeMismatch, "planning: before Workload does not match the current contribution of workload %q", workloadID)
 	}
-	// The shared contribution of the before Score must match the current set too,
+	// The shared contribution of the before Workload must match the current set too,
 	// otherwise the plan starts from a snapshot somebody else has already changed.
 	for _, id := range sortedKeys(before.Shared) {
 		current, exists := base.Shared[id]
 		if !exists {
-			return beforeErr(ReasonBeforeMismatch, "planning: before Score declares shared resource %q which is not in the current Deployment Set", id)
+			return beforeErr(ReasonBeforeMismatch, "planning: before Workload declares shared resource %q which is not in the current Deployment Set", id)
 		}
 		expectedShared, err := canon.Map(before.Shared[id])
 		if err != nil {
@@ -304,7 +304,7 @@ func validateBeforeState(base environment.Document, workloadID string, before *s
 			return err
 		}
 		if !reflect.DeepEqual(expectedShared, actualShared) {
-			return beforeErr(ReasonBeforeMismatch, "planning: before Score does not match the current shared resource %q", id)
+			return beforeErr(ReasonBeforeMismatch, "planning: before Workload does not match the current shared resource %q", id)
 		}
 	}
 	return nil
@@ -314,7 +314,7 @@ func validateBeforeState(base environment.Document, workloadID string, before *s
 // kept while at least one module still references it or while the fragment
 // being deployed declares it; nothing is ever destroyed implicitly
 // (UC-07 BR-03, UC-08 BR-05).
-func buildCandidate(base environment.Document, workloadID string, before, after *score.Fragment) (environment.Document, error) {
+func buildCandidate(base environment.Document, workloadID string, before, after *workloadspec.Fragment) (environment.Document, error) {
 	candidate := environment.NewDocument()
 	for id, m := range base.Modules {
 		candidate.Modules[id] = m
@@ -327,7 +327,7 @@ func buildCandidate(base environment.Document, workloadID string, before, after 
 		delete(candidate.Modules, workloadID)
 	} else {
 		if after.WorkloadID != workloadID {
-			return candidate, fmt.Errorf("planning: Score describes workload %q, not %q", after.WorkloadID, workloadID)
+			return candidate, fmt.Errorf("planning: Workload describes workload %q, not %q", after.WorkloadID, workloadID)
 		}
 		candidate.Modules[workloadID] = after.Module
 	}

@@ -200,10 +200,6 @@ func (b *graphBuilder) resolvePlacements(matches map[string]Match, matcher *defi
 		if err != nil {
 			return nil, err
 		}
-		cluster, err := b.referenced(node, def, resource.VariableCluster)
-		if err != nil {
-			return nil, err
-		}
 		if ns.ResourceType != TypeNamespace {
 			return nil, placementErr(StageGraph, "workload %s namespace reference is not a Kubernetes namespace", key)
 		}
@@ -211,8 +207,19 @@ func (b *graphBuilder) resolvePlacements(matches map[string]Match, matcher *defi
 		if !ok {
 			return nil, placementErr(StageGraph, "namespace %s has no Kubernetes provider cluster", ns.Descriptor)
 		}
-		if nsPlacement.Cluster != cluster.Descriptor {
-			return nil, placementErr(StageGraph, "workload %s cluster %s contradicts the provider cluster %s of its namespace", key, cluster.Descriptor, nsPlacement.Cluster)
+		cluster := b.nodes[nsPlacement.Cluster]
+		if _, explicit := def.Variables()[resource.VariableCluster]; explicit {
+			selected, err := b.referenced(node, def, resource.VariableCluster)
+			if err != nil {
+				return nil, err
+			}
+			if selected.Descriptor != nsPlacement.Cluster {
+				return nil, placementErr(StageGraph, "workload %s cluster contradicts its namespace provider", key)
+			}
+			cluster = selected
+		}
+		if cluster == nil {
+			return nil, placementErr(StageGraph, "namespace target is unavailable")
 		}
 		if err := place(key, cluster.Descriptor, ns.Descriptor, PlacementWorkloadReference); err != nil {
 			return nil, err

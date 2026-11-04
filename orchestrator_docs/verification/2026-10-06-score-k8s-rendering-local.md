@@ -75,7 +75,8 @@ require an explicitly provisioned CLI binary to enable this optional feature.
 [ADR-010](../architecture/decisions/ADR-010-score-k8s-workload-rendering.md),
 [rendering contract](../architecture/contracts/workload-rendering.md),
 [traceability](../traceability/matrix.md),
-[CLI adapter tests](../../backend/internal/adapters/scorek8s/renderer_test.go),
-[deployment integration](../../backend/internal/application/deployment/scorek8s_test.go),
+historical CLI adapter/deployment tests (retired 2026-11-04 by
+[ADR-035](../architecture/decisions/ADR-035-generic-workload-template-driver.md);
+[current replacement evidence](2026-11-04-generic-workload.md)),
 [pending integration](../../backend/internal/application/pending/rendering_test.go),
 HTTP flow (editor HTTP test retired 2026-11-02; see Catalog release verification).

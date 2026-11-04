@@ -17,8 +17,8 @@ import (
 	"orchestrator/internal/seed/seedtest"
 )
 
-func eksBackendScore(opts seed.Options) map[string]any {
-	score := seed.AcceptanceScores(opts)["backend"]
+func eksBackendWorkload(opts seed.Options) map[string]any {
+	score := seed.AcceptanceWorkloads(opts)["backend"]
 	score["resources"].(map[string]any)["db"].(map[string]any)["class"] = "in-cluster"
 	return score
 }
@@ -38,7 +38,7 @@ func TestProvision_EKSCreatedInTheSameExecutionDrivesNamespaceDatabaseAndWorkloa
 	bootstraptest.EKSCatalog(t, app, opts)
 	result, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
 		OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: "staging",
-		WorkloadID: "backend", ScoreAfter: eksBackendScore(opts), Actor: "test", RunID: "run-a",
+		WorkloadID: "backend", WorkloadAfter: eksBackendWorkload(opts), Actor: "test", RunID: "run-a",
 	})
 	if err != nil {
 		t.Fatalf("deploy: %v", err)
@@ -153,7 +153,7 @@ func TestProvision_EKSIsReusedNotDuplicatedByALaterDeployment(t *testing.T) {
 		t.Fatal(err)
 	}
 	bootstraptest.EKSCatalog(t, app, opts)
-	cmd := appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: "staging", WorkloadID: "backend", ScoreAfter: eksBackendScore(opts), Actor: "test", RunID: "run-a"}
+	cmd := appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: "staging", WorkloadID: "backend", WorkloadAfter: eksBackendWorkload(opts), Actor: "test", RunID: "run-a"}
 	if _, err := app.Deployments.DeployWorkload(context.Background(), cmd); err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestProvision_EKSIsReusedNotDuplicatedByALaterDeployment(t *testing.T) {
 	first, _ := app.Store.ListWorkloadInstancesFor(context.Background(), opts.ApplicationKey+"/"+"staging", env.TargetGeneration)
 	second := cmd
 	second.Action = "UPDATE"
-	second.ScoreBefore = cmd.ScoreAfter
+	second.WorkloadBefore = cmd.WorkloadAfter
 	second.RunID = "run-b"
 	if _, err := app.Deployments.DeployWorkload(context.Background(), second); err != nil {
 		t.Fatalf("update: %v", err)
@@ -195,9 +195,9 @@ func eksHarness(t *testing.T, reg v2Registry, proof *scriptedReadiness) (*bootst
 	return app, opts
 }
 
-// eksScore is an acceptance Score whose PostgreSQL runs in the cluster the plan creates.
-func eksScore(opts seed.Options, workload string) map[string]any {
-	score := seed.AcceptanceScores(opts)[workload]
+// eksWorkload is an acceptance Workload whose PostgreSQL runs in the cluster the plan creates.
+func eksWorkload(opts seed.Options, workload string) map[string]any {
+	score := seed.AcceptanceWorkloads(opts)[workload]
 	score["resources"].(map[string]any)["db"].(map[string]any)["class"] = "in-cluster"
 	return score
 }

@@ -2,7 +2,7 @@ import type { ConfigKey, KeyKind } from '../configuration/api';
 import { t } from '../../shared/i18n';
 
 // One row of the per-container "Biến môi trường" table (UC-16 BR-15). The source
-// is frontend state only: it is projected onto Score on Save and never sent as a field.
+// is frontend state only: it is projected onto Workload on Save and never sent as a field.
 //   LITERAL  ordinary string kept with the workload configuration
 //   VARIABLE application key of kind VARIABLE (UC-12)
 //   SECRET   application key of kind SECRET (UC-12); only the reference is kept
@@ -25,7 +25,7 @@ export const emptyBinding = (source: Source = 'LITERAL'): Binding => ({ id: newR
 export const changeSource = (binding: Binding, source: Source): Binding => ({ ...emptyBinding(source), id: binding.id, name: binding.name });
 
 export const REFERENCE = /^\$\{resources\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\}$/;
-// The Score expander resolves ${...} and turns $${...} into a literal ${...}.
+// The Workload expander resolves ${...} and turns $${...} into a literal ${...}.
 const PLACEHOLDER = /\$\$?\{[^}]*\}/g;
 
 export function hasUnescapedPlaceholder(value: string): boolean {
@@ -33,15 +33,15 @@ export function hasUnescapedPlaceholder(value: string): boolean {
 }
 
 // Form text is never interpreted as a placeholder: every ${...} (and $${...}) gets one more $,
-// which the Score expander removes again. escape/unescape are inverse for any text.
+// which the Workload expander removes again. escape/unescape are inverse for any text.
 export const escapeLiteral = (text: string): string => text.replace(PLACEHOLDER, (match) => `$${match}`);
 export const unescapeLiteral = (value: string): string => value.replace(PLACEHOLDER, (match) => (match.startsWith('$$') ? match.slice(1) : match));
 
 export type ResourceSpecs = Record<string, { type?: string; params?: Record<string, unknown> } | undefined>;
 
-// Reads one Score variable. It returns undefined for a value the table cannot hold
+// Reads one Workload variable. It returns undefined for a value the table cannot hold
 // without changing it (text mixed with a reference, a malformed reference): such a
-// Score keeps the advanced Score path instead of being rewritten.
+// Workload keeps the advanced Workload path instead of being rewritten.
 export function readBinding(name: string, raw: unknown, resources: ResourceSpecs): Binding | undefined {
   if (typeof raw !== 'string') return undefined;
   const base = { ...emptyBinding(), name };

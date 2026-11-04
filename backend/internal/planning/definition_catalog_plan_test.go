@@ -13,7 +13,7 @@ import (
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/planning"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 )
@@ -142,14 +142,14 @@ type catalogPlan struct {
 	req     planning.Request
 }
 
-// catalogRequest plans the backend workload of the acceptance Scores for one scenario with the authored catalog.
+// catalogRequest plans the backend workload of the acceptance Workloads for one scenario with the authored catalog.
 func catalogRequest(t *testing.T, scenario string, mutate func(defs []resource.Definition, accounts map[string]application.Connection) []resource.Definition) catalogPlan {
 	t.Helper()
-	return catalogRequestWithScore(t, scenario, mutate, nil)
+	return catalogRequestWithWorkload(t, scenario, mutate, nil)
 }
 
-// catalogRequestWithScore is catalogRequest with a last chance to reshape the backend Score document (extra resources).
-func catalogRequestWithScore(t *testing.T, scenario string, mutate func(defs []resource.Definition, accounts map[string]application.Connection) []resource.Definition, mutateScore func(doc map[string]any)) catalogPlan {
+// catalogRequestWithWorkload is catalogRequest with a last chance to reshape the backend Workload document (extra resources).
+func catalogRequestWithWorkload(t *testing.T, scenario string, mutate func(defs []resource.Definition, accounts map[string]application.Connection) []resource.Definition, mutateWorkload func(doc map[string]any)) catalogPlan {
 	t.Helper()
 	cat := loadDefinitionCatalog(t)
 	refs, err := registry.PackagedRefs()
@@ -171,12 +171,12 @@ func catalogRequestWithScore(t *testing.T, scenario string, mutate func(defs []r
 		defs = mutate(defs, accounts)
 	}
 	o := seedtest.Defaults()
-	doc := seed.AcceptanceScoresRedis(o, "acceptance-cache", cat.Classes[scenario]["redis"], "shop", "dev", "run-1")["backend"]
+	doc := seed.AcceptanceWorkloadsRedis(o, "acceptance-cache", cat.Classes[scenario]["redis"], "shop", "dev", "run-1")["backend"]
 	doc["resources"].(map[string]any)["db"].(map[string]any)["class"] = cat.Classes[scenario]["postgres"]
-	if mutateScore != nil {
-		mutateScore(doc)
+	if mutateWorkload != nil {
+		mutateWorkload(doc)
 	}
-	parsed, err := score.FromMap(doc)
+	parsed, err := workloadspec.FromMap(doc)
 	if err != nil {
 		t.Fatal(err)
 	}

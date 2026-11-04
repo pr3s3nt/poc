@@ -2,7 +2,7 @@ package planning
 
 import (
 	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 	"orchestrator/internal/platform/canon"
 	"strings"
 	"testing"
@@ -10,7 +10,7 @@ import (
 
 func TestRendererMatchingPinsContentAndPreservesInfrastructure(t *testing.T) {
 	req := testRequest(t, "internal-k8s", "backend")
-	bundle := resource.RenderBundle{ID: "installed", Version: "0.15.0", BinaryDigest: "binary", Digest: "bundle"}
+	bundle := resource.TemplateSource{ID: "installed", Version: "0.15.0", BinaryDigest: "binary", Digest: "bundle"}
 	bundles := testBundles()
 	bundles["installed"] = bundle
 	svc := NewService(bundles)
@@ -59,13 +59,13 @@ func TestRenderingBundleUpgradeKeepsDefinitionAndPinsInstalledBundle(t *testing.
 	def := renderDefinition("render", string("internal-k8s"))
 	def.SourceFingerpr = "bundle-a"
 	req.Catalog.Definitions = append(req.Catalog.Definitions, def)
-	a := resource.RenderBundle{ID: "installed", Version: "0.15.0", BinaryDigest: "binary-a", Digest: "bundle-a"}
-	b := resource.RenderBundle{ID: "installed", Version: "0.15.0", BinaryDigest: "binary-b", Digest: "bundle-b"}
-	planA, err := NewService(map[string]resource.RenderBundle{"installed": a}).Plan(req)
+	a := resource.TemplateSource{ID: "installed", Version: "0.15.0", BinaryDigest: "binary-a", Digest: "bundle-a"}
+	b := resource.TemplateSource{ID: "installed", Version: "0.15.0", BinaryDigest: "binary-b", Digest: "bundle-b"}
+	planA, err := NewService(map[string]resource.TemplateSource{"installed": a}).Plan(req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	planB, err := NewService(map[string]resource.RenderBundle{"installed": b}).Plan(req)
+	planB, err := NewService(map[string]resource.TemplateSource{"installed": b}).Plan(req)
 	if err != nil {
 		t.Fatalf("existing Definition rejected after bundle upgrade: %v", err)
 	}
@@ -86,14 +86,14 @@ func TestRenderingBundleUpgradeKeepsDefinitionAndPinsInstalledBundle(t *testing.
 		t.Fatal("registration fingerprint must stay in the Definition content hash")
 	}
 	// Unavailable selector ID still fails.
-	if _, err := NewService(map[string]resource.RenderBundle{"other": b}).Plan(req); err == nil {
+	if _, err := NewService(map[string]resource.TemplateSource{"other": b}).Plan(req); err == nil {
 		t.Fatal("unavailable bundle ID accepted")
 	}
 }
 
-func TestWorkloadRenderingTypeCannotBeScoreDependency(t *testing.T) {
+func TestWorkloadRenderingTypeCannotBeWorkloadDependency(t *testing.T) {
 	req := testRequest(t, "internal-k8s", "backend")
-	req.After.Resources["renderer"] = score.ResourceSpec{Type: "workload"}
+	req.After.Resources["renderer"] = workloadspec.ResourceSpec{Type: "workload"}
 	if _, err := NewService(testBundles()).Plan(req); err == nil {
 		t.Fatal("renderer became an infrastructure dependency")
 	}

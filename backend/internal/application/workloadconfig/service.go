@@ -12,9 +12,9 @@ import (
 
 	"orchestrator/internal/domain/configuration"
 	"orchestrator/internal/domain/environment"
-	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/domain/templatesource"
+	"orchestrator/internal/planning/workloadspec"
 	"orchestrator/internal/platform/canon"
 	"orchestrator/internal/ports/persistence"
 )
@@ -23,11 +23,11 @@ var ErrInvalid = errors.New("workloadconfig: invalid input")
 
 // ErrInvalidVariable refines ErrInvalid for a container variable or Resource
 // binding that cannot be accepted; ErrInvalidRequest refines it for a request
-// that is not a Score problem. Both still match ErrInvalid.
+// that is not a Workload problem. Both still match ErrInvalid.
 var (
 	ErrInvalidVariable = errors.New("workloadconfig: invalid variable binding")
 	ErrInvalidRequest  = errors.New("workloadconfig: invalid request")
-	// ErrUnknownResourceType refines ErrInvalid for a Score resource whose type is
+	// ErrUnknownResourceType refines ErrInvalid for a Workload resource whose type is
 	// not registered; the submitted type string is never carried.
 	ErrUnknownResourceType = errors.New("workloadconfig: resource type is not registered")
 )
@@ -80,7 +80,7 @@ type Item struct {
 
 	ID           string                 `json:"id"`
 	State        environment.DraftState `json:"state"`
-	Score        map[string]any         `json:"score,omitempty"`
+	Workload     map[string]any         `json:"workload,omitempty"`
 	Ready        bool                   `json:"ready"`
 	ServicePorts []string               `json:"servicePorts,omitempty"`
 }
@@ -116,8 +116,8 @@ func (s *Service) List(ctx context.Context, app, env string) (View, error) {
 	items := map[string]Item{}
 	for id, module := range set.Document.Modules {
 		item := Item{ID: id, Ready: true, ServicePorts: portNames(module.Spec.Service)}
-		if reconstructed, err := ReconstructScoreProven(id, module, set.Document, set.LiteralProofs.ProverFor(id), set.ResourceAliases[id]); err == nil {
-			item.Score = reconstructed
+		if reconstructed, err := ReconstructWorkloadProven(id, module, set.Document, set.LiteralProofs.ProverFor(id), set.ResourceAliases[id]); err == nil {
+			item.Workload = reconstructed
 		}
 		if e := module.Spec.Execution; e != nil {
 			item.Runtime = e.Kind
@@ -129,13 +129,13 @@ func (s *Service) List(ctx context.Context, app, env string) (View, error) {
 	}
 	for _, draft := range drafts {
 		if draft.State == environment.DraftUpsert {
-			if current, exists := items[draft.WorkloadID]; exists && current.Score != nil && sameVisibleScore(current.Score, draft.Score) {
+			if current, exists := items[draft.WorkloadID]; exists && current.Workload != nil && sameVisibleWorkload(current.Workload, draft.Workload) {
 				continue // a saved no-op is not a pending user-visible change
 			}
 		}
-		item := Item{ID: draft.WorkloadID, State: draft.State, Score: draft.Score, Ready: set.Document.Modules[draft.WorkloadID].Profile != ""}
+		item := Item{ID: draft.WorkloadID, State: draft.State, Workload: draft.Workload, Ready: set.Document.Modules[draft.WorkloadID].Profile != ""}
 		if draft.State == environment.DraftUpsert {
-			parsed, err := score.FromMap(draft.Score)
+			parsed, err := workloadspec.FromMap(draft.Workload)
 			if errors.Is(err, environment.ErrPublicPortRemoved) {
 				return View{}, err // an old draft is never shown with its route dropped
 			}
@@ -157,12 +157,12 @@ func (s *Service) List(ctx context.Context, app, env string) (View, error) {
 	return out, nil
 }
 
-func sameVisibleScore(current, draft map[string]any) bool {
-	a, err := score.FromMap(current)
+func sameVisibleWorkload(current, draft map[string]any) bool {
+	a, err := workloadspec.FromMap(current)
 	if err != nil {
 		return false
 	}
-	b, err := score.FromMap(draft)
+	b, err := workloadspec.FromMap(draft)
 	if err != nil {
 		return false
 	}
@@ -189,7 +189,7 @@ func portNames(service *environment.Service) []string {
 }
 
 func (s *Service) Save(ctx context.Context, app, env, workload string, raw map[string]any, expectedVersion int64) (View, error) {
-	doc, err := score.FromMap(raw)
+	doc, err := workloadspec.FromMap(raw)
 	if err != nil {
 		return View{}, err
 	}
@@ -206,7 +206,7 @@ func (s *Service) Save(ctx context.Context, app, env, workload string, raw map[s
 	if err := s.validateBindings(ctx, app, env, *doc); err != nil {
 		return View{}, err
 	}
-	if err := s.store.SaveWorkloadDraft(ctx, expectedVersion, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: workload, State: environment.DraftUpsert, Score: raw}); err != nil {
+	if err := s.store.SaveWorkloadDraft(ctx, expectedVersion, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: workload, State: environment.DraftUpsert, Workload: doc.Map()}); err != nil {
 		return View{}, err
 	}
 	return s.List(ctx, app, env)
@@ -217,7 +217,7 @@ func (s *Service) ValidateImport(ctx context.Context, app, env string, raw map[s
 	if _, err := s.store.GetEnvironment(ctx, app, env); err != nil {
 		return err
 	}
-	doc, err := score.FromMap(raw)
+	doc, err := workloadspec.FromMap(raw)
 	if err != nil {
 		return err
 	}
@@ -252,7 +252,7 @@ func (s *Service) Delete(ctx context.Context, app, env, workload string, expecte
 	}
 	draft := environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: workload, State: environment.DraftDelete}
 	if priorErr == nil && prior.State == environment.DraftUpsert {
-		draft.Score = prior.Score
+		draft.Workload = prior.Workload
 	}
 	if err := s.store.SaveWorkloadDraft(ctx, expectedVersion, draft); err != nil {
 		return View{}, err
@@ -275,7 +275,7 @@ func (s *Service) Undo(ctx context.Context, app, env, workload string, expectedV
 	if draft.State != environment.DraftDelete {
 		return View{}, refine(ErrInvalidRequest, "undo needs a pending delete")
 	}
-	if draft.Score != nil {
+	if draft.Workload != nil {
 		draft.State = environment.DraftUpsert
 		err = s.store.SaveWorkloadDraft(ctx, expectedVersion, draft)
 	} else {
@@ -287,26 +287,26 @@ func (s *Service) Undo(ctx context.Context, app, env, workload string, expectedV
 	return s.List(ctx, app, env)
 }
 
-func (s *Service) validateBindings(ctx context.Context, app, env string, doc score.Document) error {
+func (s *Service) validateBindings(ctx context.Context, app, env string, doc workloadspec.Document) error {
 	if doc.Execution != nil {
 		application, err := s.store.GetApplication(ctx, app)
 		if err != nil {
 			return err
 		}
-		records, err := persistence.RenderBundlesOf(ctx, s.store, application.OrganizationKey)
+		records, err := persistence.TemplateSourcesOf(ctx, s.store, application.OrganizationKey)
 		if err != nil {
 			return err
 		}
-		records, err = catalogapp.RenderBundles(ctx, s.store, application.OrganizationKey, app, env, records)
+		records, err = catalogapp.TemplateSources(ctx, s.store, application.OrganizationKey, app, env, records)
 		if err != nil {
 			return err
 		}
-		templates, err := renderbundle.TemplateCatalog(records)
+		templates, err := templatesource.TemplateCatalog(records)
 		if err != nil {
 			return fmt.Errorf("%w: template catalog conflict", ErrInvalidRequest)
 		}
 		e := doc.Execution
-		if _, _, err = renderbundle.MatchWorkloadTemplate(templates, e.Template.ID, e.Template.Version, e.Template.SHA256, e.Kind, e.Inputs); err != nil {
+		if _, _, err = templatesource.MatchWorkloadTemplate(templates, e.Template.ID, e.Template.Version, e.Template.SHA256, e.Kind, e.Inputs); err != nil {
 			return fmt.Errorf("%w: workload template unavailable or inputs invalid", ErrInvalidRequest)
 		}
 	}
@@ -401,9 +401,9 @@ func (s *Service) validateBindings(ctx context.Context, app, env string, doc sco
 
 // validateResourceParams checks every declared non-virtual resource, bound or
 // not, against the Organization Resource Type catalog (UC-16 BR-14). It uses
-// the Score planning input subset plus an explicit null rejection. Errors
+// the Workload planning input subset plus an explicit null rejection. Errors
 // name the field path, never the submitted value.
-func validateResourceParams(doc score.Document, types map[string]resource.Type) error {
+func validateResourceParams(doc workloadspec.Document, types map[string]resource.Type) error {
 	for _, alias := range doc.ResourceAliases() {
 		spec := doc.Resources[alias]
 		if spec.Type == "environment" || spec.Type == "service" {
@@ -441,7 +441,7 @@ func validateResourceParams(doc score.Document, types map[string]resource.Type) 
 	return nil
 }
 
-func (s *Service) validateService(ctx context.Context, app, env, source string, spec score.ResourceSpec) error {
+func (s *Service) validateService(ctx context.Context, app, env, source string, spec workloadspec.ResourceSpec) error {
 	workload, _ := spec.Params["workload"].(string)
 	portName, _ := spec.Params["port"].(string)
 	if workload == "" || portName == "" || strings.ContainsAny(workload, "/.") {
@@ -454,7 +454,7 @@ func (s *Service) validateService(ctx context.Context, app, env, source string, 
 		if draft.State == environment.DraftDelete {
 			return fmt.Errorf("%w: referenced service is pending deletion", ErrInvalid)
 		}
-		parsed, err := score.FromMap(draft.Score)
+		parsed, err := workloadspec.FromMap(draft.Workload)
 		if err != nil {
 			return fmt.Errorf("%w: referenced service has an invalid draft", ErrInvalid)
 		}

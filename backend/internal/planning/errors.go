@@ -14,7 +14,7 @@ type Stage string
 
 // Planning stages.
 const (
-	StageScore       Stage = "score"
+	StageWorkload    Stage = "workload"
 	StageBefore      Stage = "before-state"
 	StageCandidate   Stage = "candidate"
 	StageRoutes      Stage = "public-routes"
@@ -88,31 +88,31 @@ func beforeErr(reason, format string, args ...any) error {
 // Definition, Terraform module or other persisted module content.
 var (
 	beforeMessages = map[string]string{
-		ReasonWorkloadExists:     "the workload already exists in the current Deployment Set; use update with scoreBefore",
+		ReasonWorkloadExists:     "the workload already exists in the current Deployment Set; use update with workloadBefore",
 		ReasonWorkloadNotCurrent: "the workload is not part of the current Deployment Set; use deploy to add it",
-		ReasonBeforeMismatch:     "scoreBefore does not match the current Deployment Set for this workload; refresh it from the currently deployed Score",
+		ReasonBeforeMismatch:     "workloadBefore does not match the current Deployment Set for this workload; refresh it from the currently deployed Workload",
 	}
 	reasonMessages = map[string]string{
 		ReasonUnconfigured:        "a workload or resource placement cannot be resolved from Resource Definitions; ask a platform engineer to check the Definitions",
-		ReasonRendererNoMatch:     "no workload rendering template (score-k8s Definition) matches this workload for the Application and Environment; ask a platform engineer to register one",
-		ReasonRendererAmbiguous:   "several workload rendering templates (score-k8s Definitions) match this workload equally; ask a platform engineer to leave exactly one",
+		ReasonRendererNoMatch:     "no workload rendering template (template Definition) matches this workload for the Application and Environment; ask a platform engineer to register one",
+		ReasonRendererAmbiguous:   "several workload rendering templates (template Definitions) match this workload equally; ask a platform engineer to leave exactly one",
 		ReasonStorageImmutable:    "storage parameters cannot change without an explicit migration or verified expansion capability",
-		ReasonRendererUnavailable: "the workload rendering template needs a score-k8s bundle that is not installed; ask a platform engineer to check the platform release",
-		ReasonResourceNoMatch:     "a resource of this Score, or a resource it needs such as the Kubernetes cluster, matches no Resource Definition for this Application and Environment; ask a platform engineer to register one",
-		ReasonResourceAmbiguous:   "several Resource Definitions match a resource of this Score equally, so none was chosen; ask a platform engineer to leave exactly one most specific Definition",
-		ReasonResourceConflict:    "two Score or Definition sources declare the same resource with different params; make them identical or use different resource ids",
+		ReasonRendererUnavailable: "the workload rendering template needs a template bundle that is not installed; ask a platform engineer to check the platform release",
+		ReasonResourceNoMatch:     "a resource of this Workload, or a resource it needs such as the Kubernetes cluster, matches no Resource Definition for this Application and Environment; ask a platform engineer to register one",
+		ReasonResourceAmbiguous:   "several Resource Definitions match a resource of this Workload equally, so none was chosen; ask a platform engineer to leave exactly one most specific Definition",
+		ReasonResourceConflict:    "two Workload or Definition sources declare the same resource with different params; make them identical or use different resource ids",
 		ReasonPlacement:           "the workload or resource target cannot be resolved from Resource Definitions: a namespace or cluster reference is missing, contradictory or backed by an unavailable Driver Account; ask a platform engineer to check the Definitions",
 		ReasonRetiredTarget:       "this Environment carries a retired internal deployment connection from an older baseline; internal placement now comes from Resource Definitions, so the baseline must be recreated",
 		ReasonMultiCluster:        "this Environment resolves more than one Kubernetes cluster; multiple clusters in one Environment are not supported yet",
 	}
 	stageMessages = map[Stage]string{
-		StageScore:       "the Score does not satisfy the registered Resource Type contracts (unregistered type, invalid params or unknown resource output)",
-		StageBefore:      "scoreBefore does not match the current Deployment Set for this workload",
-		StageCandidate:   "the Candidate Deployment Set cannot be built from this Score, for example because a shared resource conflicts with the current one",
+		StageWorkload:    "the Workload does not satisfy the registered Resource Type contracts (unregistered type, invalid params or unknown resource output)",
+		StageBefore:      "workloadBefore does not match the current Deployment Set for this workload",
+		StageCandidate:   "the Candidate Deployment Set cannot be built from this Workload, for example because a shared resource conflicts with the current one",
 		StageRoutes:      "public routes of the resulting Environment are invalid: a duplicate path or an undeclared Service port",
 		StageServiceRefs: "a workload in the resulting Environment references a Service or Service port that would not exist; update or delete its consumers in the same change",
 		StageCatalog:     "the registered Resource Definitions cannot be used for planning; ask a platform engineer to check them",
-		StageGraph:       "the Resource Graph cannot be built or matched for this Score; check resource types, classes and ids against the registered Resource Definitions",
+		StageGraph:       "the Resource Graph cannot be built or matched for this Workload; check resource types, classes and ids against the registered Resource Definitions",
 		StageReference:   "a resource reference cannot be resolved against the matched Resource Definitions",
 		StageContract:    "a matched Resource Definition has an invalid Terraform contract; ask a platform engineer to check it",
 		StageSchedule:    "the Resource Graph has a dependency cycle",
@@ -126,7 +126,7 @@ func IsRendererReason(reason string) bool {
 
 // IsPublicMessage reports whether text is one of the fixed public sentences.
 func IsPublicMessage(text string) bool {
-	if text == "planning failed for this Score" {
+	if text == "planning failed for this Workload" {
 		return true
 	}
 	for _, message := range beforeMessages {
@@ -163,5 +163,5 @@ func PublicMessage(err error) (string, bool) {
 	if message, ok := stageMessages[stage.Stage]; ok {
 		return message, true
 	}
-	return "planning failed for this Score", true
+	return "planning failed for this Workload", true
 }

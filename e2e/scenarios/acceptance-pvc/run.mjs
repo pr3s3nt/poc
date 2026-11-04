@@ -42,7 +42,7 @@ try {
   };
   const initial = (await get(`${endpoint}/workloads`)).workloads;
   const backend = initial.find(w => w.id === 'backend');
-  if (!backend?.score?.containers?.main) throw Error('Existing acceptance backend/main required');
+  if (!backend?.workload?.containers?.main) throw Error('Existing acceptance backend/main required');
   if (initial.some(w => w.id !== 'backend' && w.state)) throw Error('Unrelated workload changes pending; refusing deployment');
   const others = initial.filter(w => w.id !== 'backend');
   const identities = Object.fromEntries(['frontend', 'worker'].map(name => [name, object('deployment', name).metadata.uid]));
@@ -58,17 +58,17 @@ try {
   check(`Catalog shows ${templates.length} real templates`);
   await page.keyboard.press('Escape');
 
-  const score = structuredClone(backend.score);
-  const alreadyMounted = score.workloadExecution?.mounts?.some(m => m.path === '/data' && m.container === 'main');
+  const workload = structuredClone(backend.workload);
+  const alreadyMounted = workload.workloadExecution?.mounts?.some(m => m.path === '/data' && m.container === 'main');
   if (!alreadyMounted) {
-    if (score.workloadExecution) throw Error('Existing custom execution requires explicit review');
-    score.workloadExecution = { version: 1, kind: template.kind, template: { id: template.id, version: template.version, sha256: template.sha256 }, inputs: template.defaults };
-    score.containers.main.variables.ACCEPTANCE_STORAGE_DIR = '/data';
+    if (workload.workloadExecution) throw Error('Existing custom execution requires explicit review');
+    workload.workloadExecution = { version: 1, kind: template.kind, template: { id: template.id, version: template.version, sha256: template.sha256 }, inputs: template.defaults };
+    workload.containers.main.variables.ACCEPTANCE_STORAGE_DIR = '/data';
     const file = join(temp, 'backend.json');
-    writeFileSync(file, JSON.stringify(score), { mode: 0o600 });
+    writeFileSync(file, JSON.stringify(workload), { mode: 0o600 });
     await page.goto(`${config.baseURL}/ui/applications/${appId}/environments/staging/workloads/backend`);
-    await page.getByRole('button', { name: 'Nhập Score', exact: true }).click();
-    await page.getByLabel('File Score', { exact: true }).setInputFiles(file);
+    await page.getByRole('button', { name: 'Nhập Workload', exact: true }).click();
+    await page.getByLabel('File Workload', { exact: true }).setInputFiles(file);
     await expect(page.getByText('Đã phân tích Workload: backend', { exact: false })).toBeVisible();
     await page.getByRole('button', { name: 'Nhập bằng form', exact: true }).click();
     await page.getByRole('button', { name: 'Thêm volume mount', exact: true }).click();
@@ -87,7 +87,7 @@ try {
   const draft = (await get(`${endpoint}/workloads`)).workloads;
   expect(draft.filter(w => w.id !== 'backend')).toEqual(others);
   const pending = draft.find(w => w.id === 'backend');
-  expect(pending.score.containers.main.variables.ACCEPTANCE_STORAGE_DIR).toBe('/data');
+  expect(pending.workload.containers.main.variables.ACCEPTANCE_STORAGE_DIR).toBe('/data');
   if (pending.state) {
     await page.goto(`${config.baseURL}/ui/applications/${appId}`);
     const [previewReply] = await Promise.all([

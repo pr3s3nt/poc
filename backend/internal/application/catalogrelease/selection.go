@@ -4,8 +4,8 @@ import (
 	"context"
 	"orchestrator/internal/application/definitionversions"
 	domain "orchestrator/internal/domain/catalogrelease"
-	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/templatesource"
 	"orchestrator/internal/ports/persistence"
 )
 
@@ -68,9 +68,9 @@ func (s *Service) Select(ctx context.Context, org, app, env, sourceID, tag strin
 	return out, err
 }
 
-// RenderBundles keeps authored bundles available and validates optional selected
+// TemplateSources keeps authored bundles available and validates optional selected
 // release artifacts before template discovery.
-func RenderBundles(ctx context.Context, st persistence.Store, org, app, env string, all map[string]renderbundle.Bundle) (map[string]renderbundle.Bundle, error) {
+func TemplateSources(ctx context.Context, st persistence.Store, org, app, env string, all map[string]templatesource.Bundle) (map[string]templatesource.Bundle, error) {
 	binding, err := st.GetCatalogEnvironment(ctx, app, env)
 	if err != nil {
 		return nil, err
@@ -85,12 +85,12 @@ func RenderBundles(ctx context.Context, st persistence.Store, org, app, env stri
 	if r.Fingerprint() != binding.Desired.Fingerprint {
 		return nil, domain.ErrIncomplete
 	}
-	out := map[string]renderbundle.Bundle{}
+	out := map[string]templatesource.Bundle{}
 	for id, b := range all {
 		out[id] = b
 	}
 	for _, component := range r.Components {
-		if component.Kind == domain.RenderBundle {
+		if component.Kind == domain.TemplateSource {
 			b, ok := all[component.BundleID]
 			if !ok || b.Source.ContentSHA256 != component.SHA256 {
 				return nil, domain.ErrIncomplete

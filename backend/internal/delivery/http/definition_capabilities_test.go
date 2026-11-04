@@ -106,7 +106,7 @@ func TestDefinitionCapabilitiesAuthShapeAndNoWrites(t *testing.T) {
 				t.Fatalf("%s must expose a required editable region", c.Module)
 			}
 		case "":
-			// existing-cluster and score-k8s carry no module; only the cluster needs its own Internal account.
+			// existing-cluster and template carry no module; only the cluster needs its own Internal account.
 			if want := c.DriverType == "existing-cluster"; c.Account.Required != want || (want && c.Account.Type != "INTERNAL") {
 				t.Fatalf("%s/%s account requirement = %+v", c.ResourceType, c.DriverType, c.Account)
 			}
@@ -116,7 +116,7 @@ func TestDefinitionCapabilitiesAuthShapeAndNoWrites(t *testing.T) {
 			}
 		}
 	}
-	if want := []string{"k8s-cluster/existing-cluster/", "k8s-cluster/terraform/eks", "k8s-namespace/terraform/k8s-namespace", "postgres/terraform/aurora", "postgres/terraform/postgres-k8s", "redis/terraform/elasticache", "redis/terraform/redis-k8s", "vpc/terraform/vpc", "workload/score-k8s/"}; !reflect.DeepEqual(pairs, want) {
+	if want := []string{"k8s-cluster/existing-cluster/", "k8s-cluster/terraform/eks", "k8s-namespace/terraform/k8s-namespace", "postgres/terraform/aurora", "postgres/terraform/postgres-k8s", "redis/terraform/elasticache", "redis/terraform/redis-k8s", "vpc/terraform/vpc", "workload/template/"}; !reflect.DeepEqual(pairs, want) {
 		t.Fatalf("pairs %v", pairs)
 	}
 	// Image defaults are public digest pins ("name@sha256:..."); an internal

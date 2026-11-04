@@ -13,7 +13,7 @@ import (
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning/placeholder"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 )
 
 var setReference = regexp.MustCompile(`\$\{(externals|shared)\.([A-Za-z0-9_-]+)\.([A-Za-z_][A-Za-z0-9_-]*)\}`)
@@ -25,27 +25,27 @@ var serviceReference = regexp.MustCompile(`\$\{context\.service\.([A-Za-z0-9_-]+
 // workload, alias, key or value content.
 var ErrReferenceRewriteUnsafe = errors.New("workloadconfig: references cannot be rewritten without losing configuration")
 
-// ReconstructScore exposes only reference-based workload configurations to the
+// ReconstructWorkload exposes only reference-based workload configurations to the
 // UC-16 editor. Legacy literals may contain secrets and are never returned.
-func ReconstructScore(workload string, module environment.Module, set environment.Document, aliases ...environment.WorkloadResourceAliases) (map[string]any, error) {
+func ReconstructWorkload(workload string, module environment.Module, set environment.Document, aliases ...environment.WorkloadResourceAliases) (map[string]any, error) {
 	return reconstruct(workload, module, set, false, nil, aliases...)
 }
 
-// ReconstructScoreProven is ReconstructScore that also returns ordinary
+// ReconstructWorkloadProven is ReconstructWorkload that also returns ordinary
 // literals the Deployment Set proves (UC-16 BR-23). Every other literal stays
 // hidden: a key name, image or draft never makes an unproven value readable.
-func ReconstructScoreProven(workload string, module environment.Module, set environment.Document, proven environment.Prover, aliases ...environment.WorkloadResourceAliases) (map[string]any, error) {
+func ReconstructWorkloadProven(workload string, module environment.Module, set environment.Document, proven environment.Prover, aliases ...environment.WorkloadResourceAliases) (map[string]any, error) {
 	return reconstruct(workload, module, set, false, proven, aliases...)
 }
 
-// ReconstructForRedeploy rebuilds a Score for an exact redeploy of an applied
+// ReconstructForRedeploy rebuilds a Workload for an exact redeploy of an applied
 // module (target transitions). Literal bindings are kept verbatim: they are
 // already what runs, are never shown to an editor and never leave the backend.
 func ReconstructForRedeploy(workload string, module environment.Module, set environment.Document, aliases ...environment.WorkloadResourceAliases) (map[string]any, error) {
 	return reconstruct(workload, module, set, true, nil, aliases...)
 }
 
-// ReconstructVerified rebuilds a reference-based Score and proves it is
+// ReconstructVerified rebuilds a reference-based Workload and proves it is
 // lossless: converting it back must give exactly the deployed module and the
 // shared resources it declares, and no shared resource of the set may be
 // unreferenced (its owner would be unknowable). Anything else fails with
@@ -72,7 +72,7 @@ func ReconstructVerifiedProven(workload string, module environment.Module, set e
 	return plain, nil
 }
 
-// VerifyRewritten proves a rewritten Score converts to the deployed module with
+// VerifyRewritten proves a rewritten Workload converts to the deployed module with
 // replace applied to every UC-12 reference, so a rewrite never changes anything
 // but the renamed key.
 func VerifyRewritten(workload string, rewritten map[string]any, module environment.Module, set environment.Document, types map[string]resource.Type, oldKey, newKey string) error {
@@ -84,7 +84,7 @@ func verifyRoundTrip(workload string, raw map[string]any, module environment.Mod
 	if orphanShared(set) {
 		return fmt.Errorf("%w: shared resource has no known owner", ErrReferenceRewriteUnsafe)
 	}
-	doc, err := score.FromMap(raw)
+	doc, err := workloadspec.FromMap(raw)
 	if err != nil {
 		return ErrReferenceRewriteUnsafe
 	}
@@ -262,7 +262,7 @@ func (b *rebuilder) declare(alias string, value map[string]any) error {
 	return nil
 }
 
-// mapString maps the Deployment Set placeholder form back to Score resources.
+// mapString maps the Deployment Set placeholder form back to Workload resources.
 // mapString maps container variables strictly: any placeholder it cannot map
 // is an error. Resource params are mapped leniently (see mapParams).
 func (b *rebuilder) mapString(value string) (string, error) { return b.mapText(value, true) }
@@ -298,7 +298,7 @@ func (b *rebuilder) mapReference(segments []string, raw string, strict bool) (st
 		if strict {
 			return "", fmt.Errorf("workloadconfig: unsupported deployed binding")
 		}
-		return raw, nil // params keep ordinary placeholders (for example ${context.env.namespace}) verbatim, as Score conversion does
+		return raw, nil // params keep ordinary placeholders (for example ${context.env.namespace}) verbatim, as Workload conversion does
 	}
 	switch segments[0] {
 	case placeholder.ScopeExternals:
@@ -339,7 +339,7 @@ func (b *rebuilder) mapReference(segments []string, raw string, strict bool) (st
 	case "resources":
 		return unsupported()
 	}
-	return raw, nil // other placeholders pass through Score conversion unchanged
+	return raw, nil // other placeholders pass through Workload conversion unchanged
 }
 
 func (b *rebuilder) mapTree(value any) (any, error) {
@@ -493,7 +493,7 @@ func reconstruct(workload string, module environment.Module, set environment.Doc
 		}
 		metadata["annotations"] = annotations
 	}
-	out := map[string]any{"apiVersion": "score.dev/v1b1", "metadata": metadata, "containers": containers}
+	out := map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": metadata, "containers": containers}
 	if len(b.resources) > 0 {
 		out["resources"] = b.resources
 	}

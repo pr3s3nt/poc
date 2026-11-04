@@ -15,9 +15,9 @@ import (
 // MaxPatchOperations bounds the operations one patch template may return.
 const MaxPatchOperations = 128
 
-// PatchOperation is one score-k8s 0.15.0 compatible patch operation: "set" or
+// PatchOperation is one template 0.15.0 compatible patch operation: "set" or
 // "delete" of a dotted path into the manifest array (tidwall/sjson syntax, as
-// pinned by score-k8s). It is not an RFC 6902 operation.
+// pinned by template). It is not an RFC 6902 operation.
 type PatchOperation struct {
 	Op          string `json:"op" yaml:"op"`
 	Path        string `json:"path" yaml:"path"`
@@ -44,7 +44,7 @@ func (e *PatchError) Error() string {
 func (e *PatchError) Is(target error) bool { return target == ErrPatch }
 
 // ParsePatchOutput decodes the YAML/JSON array a patch template returned
-// exactly like score-k8s (known fields only). Empty output is a no-op.
+// exactly like template (known fields only). Empty output is a no-op.
 func ParsePatchOutput(file, output string) ([]PatchOperation, error) {
 	trimmed := strings.TrimSpace(output)
 	if trimmed == "" {
@@ -63,7 +63,7 @@ func ParsePatchOutput(file, output string) ([]PatchOperation, error) {
 }
 
 // ApplyPatches applies operations in order to a copy of manifests with the
-// score-k8s semantics. Every path must address inside one existing manifest:
+// template semantics. Every path must address inside one existing manifest:
 // v1 neither inserts nor deletes objects at the array root.
 func ApplyPatches(file string, manifests []map[string]any, ops []PatchOperation) ([]map[string]any, error) {
 	document, err := json.Marshal(manifests)

@@ -123,8 +123,8 @@ services:
       - app-token:/run/app-token:ro
       - output-token:/run/output-token:ro
       - terraform-recovery:/var/lib/orchestrator/recovery
-      # Verified Git render bundle content (ADR-021); metadata alone cannot restore it.
-      - render-bundle-cache:/var/lib/orchestrator/render-bundle-cache
+      # Verified manifest template content (ADR-021); metadata alone cannot restore it.
+      - template-source-cache:/var/lib/orchestrator/template-source-cache
       - module-cache:/var/lib/orchestrator/module-cache
       - db-runtime-credentials:/run/orchestrator/runtime:ro
       - terraform-state-key:/run/orchestrator/state-key:ro
@@ -177,4 +177,4 @@ volumes:
   output-token:
   terraform-recovery:
   module-cache:
-  render-bundle-cache:
+  template-source-cache:

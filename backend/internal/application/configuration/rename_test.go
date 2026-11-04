@@ -13,7 +13,7 @@ import (
 	domain "orchestrator/internal/domain/configuration"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/planning/score"
+	"orchestrator/internal/planning/workloadspec"
 	"orchestrator/internal/ports/persistence"
 )
 
@@ -23,7 +23,7 @@ func scoreOf(name string, variables map[string]string, extra map[string]any) map
 		vars[k] = v
 	}
 	out := map[string]any{
-		"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": name},
+		"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": name},
 		"containers": map[string]any{"web": map[string]any{"image": "img", "variables": vars}},
 		"resources":  map[string]any{"env": map[string]any{"type": "environment"}},
 	}
@@ -42,13 +42,13 @@ func (f *fixture) types(t *testing.T) map[string]resource.Type {
 	return map[string]resource.Type{"postgres": typ}
 }
 
-// deploy installs the given Scores as the current Deployment Set (no runtime).
+// deploy installs the given Workloads as the current Deployment Set (no runtime).
 func (f *fixture) deploy(t *testing.T, env string, scores map[string]map[string]any) {
 	t.Helper()
 	types := f.types(t)
 	doc := environment.NewDocument()
 	for id, raw := range scores {
-		parsed, err := score.FromMap(raw)
+		parsed, err := workloadspec.FromMap(raw)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -85,7 +85,7 @@ func (f *fixture) draft(t *testing.T, env, id string, state environment.DraftSta
 	t.Helper()
 	ctx := context.Background()
 	current, _ := f.st.GetEnvironment(ctx, appKey, env)
-	if err := f.st.SaveWorkloadDraft(ctx, current.DraftVersion, environment.WorkloadDraft{ApplicationKey: appKey, EnvironmentKey: env, WorkloadID: id, State: state, Score: raw}); err != nil {
+	if err := f.st.SaveWorkloadDraft(ctx, current.DraftVersion, environment.WorkloadDraft{ApplicationKey: appKey, EnvironmentKey: env, WorkloadID: id, State: state, Workload: raw}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -191,13 +191,13 @@ func TestRenameWithReferencesRewritesDesiredWorkloadsAtomically(t *testing.T) {
 				t.Fatalf("view guards %+v", got)
 			}
 			drafts := draftByID(after.drafts)
-			api := variablesOf(t, drafts["api"].Score)
+			api := variablesOf(t, drafts["api"].Workload)
 			if api["A"] != "${resources.env."+tc.new+"}" || api["KEEP"] != "${resources.env.OTHER}" {
 				t.Fatalf("api rewrite: %v", api)
 			}
-			web := variablesOf(t, drafts["web"].Score)
-			if web["RENAMED_VAR"] != "${resources.env."+tc.new+"}" || web["N"] != "${resources.env.OTHER}" || drafts["web"].Score["replicas"] != float64(3) {
-				t.Fatalf("web rewrite: %v %v", web, drafts["web"].Score)
+			web := variablesOf(t, drafts["web"].Workload)
+			if web["RENAMED_VAR"] != "${resources.env."+tc.new+"}" || web["N"] != "${resources.env.OTHER}" || drafts["web"].Workload["replicas"] != float64(3) {
+				t.Fatalf("web rewrite: %v %v", web, drafts["web"].Workload)
 			}
 			if !reflect.DeepEqual(drafts["gone"], draftByID(before.drafts)["gone"]) || drafts["gone"].State != environment.DraftDelete {
 				t.Fatalf("pending delete changed: %+v", drafts["gone"])
@@ -312,7 +312,7 @@ func TestRenameWithReferencesFailsClosedOnUnsafeShapes(t *testing.T) {
 			})
 		},
 		"invalid draft": func(t *testing.T, f *fixture) {
-			f.draft(t, "staging", "api", environment.DraftUpsert, map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "api"},
+			f.draft(t, "staging", "api", environment.DraftUpsert, map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": "api"},
 				"containers": map[string]any{"web": map[string]any{"image": "i", "variables": map[string]any{"A": "${resources.env.DB_URL}"}, "bogus": 1}},
 				"resources":  map[string]any{"env": map[string]any{"type": "environment"}}})
 		},
@@ -360,7 +360,7 @@ func TestRenameWithReferencesPreservesAliasesManyToOneAndOtherFields(t *testing.
 	if _, err := f.svc.RenameKey(ctx, appKey, "staging", "DB_URL", "NEW", view.Version, guards); err != nil {
 		t.Fatal(err)
 	}
-	got := draftByID(f.state(t, "staging").drafts)["api"].Score
+	got := draftByID(f.state(t, "staging").drafts)["api"].Workload
 	want := scoreOf("api", map[string]string{"A": "${resources.env.NEW}", "H1": "${resources.db1.host}", "H2": "${resources.db2.host}", "O": "${resources.own.host}", "LIT": "$${resources.env.DB_URL}"}, extra)
 	want["resources"].(map[string]any)["db1"].(map[string]any)["params"] = map[string]any{"database": "${resources.env.NEW}"}
 	want["resources"].(map[string]any)["db2"].(map[string]any)["params"] = map[string]any{"database": "${resources.env.NEW}"}
@@ -407,7 +407,7 @@ func TestRenameDeployedModuleKeepsSharedExternalsServiceRefsAndParams(t *testing
 		t.Fatalf("drafts: %+v", after.drafts)
 	}
 	// The rewritten draft converts to the deployed module with only the key renamed.
-	parsed, err := score.FromMap(drafts["api"].Score)
+	parsed, err := workloadspec.FromMap(drafts["api"].Workload)
 	if err != nil {
 		t.Fatal(err)
 	}

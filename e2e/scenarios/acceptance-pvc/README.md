@@ -54,7 +54,7 @@ forward. `ORCH_ACCEPTANCE_URL` is the acceptance app, not the Console.
 ## Assertions and effects
 
 - Real catalog contains the verified Backend API template; save a screenshot.
-- Preserve backend's existing Score/resources/bindings; add the Backend API pin,
+- Preserve backend's existing Workload/resources/bindings; add the Backend API pin,
   literal `ACCEPTANCE_STORAGE_DIR=/data` and a 1Gi managed PVC through the mount
   form. An already mounted backend reuses its existing configuration.
 - No unrelated pending workload is accepted. Preview must affect **backend only**

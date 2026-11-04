@@ -1,6 +1,6 @@
 package environment
 
-// WorkloadResourceAliases preserves Score names erased by shared-ID planning.
+// WorkloadResourceAliases preserves Workload names erased by shared-ID planning.
 // It is private display metadata, never authority to reveal literal values.
 type WorkloadResourceAliases struct {
 	Shared     map[string]string `json:"shared"`

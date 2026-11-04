@@ -50,13 +50,12 @@ func main() {
 	terraformCache := flag.String("terraform-plugin-cache", os.Getenv("TF_PLUGIN_CACHE_DIR"), "Terraform provider cache directory")
 	terraformCLIConfig := flag.String("terraform-cli-config-file", os.Getenv("ORCHESTRATOR_TERRAFORM_CLI_CONFIG_FILE"), "absolute platform-owned Terraform CLI configuration file (provider mirror); never inherited from TF_CLI_CONFIG_FILE")
 	kubectlPath := flag.String("kubectl", "kubectl", "kubectl binary")
-	scorePath := flag.String("score-k8s", "", "path to the pinned score-k8s 0.15.0 renderer; required for Workload deployment (without it every Workload plan fails before resources, there is no native fallback)")
 	terraformPath := flag.String("terraform", "terraform", "terraform binary")
 	moduleCacheDir := flag.String("terraform-module-cache-dir", os.Getenv("ORCHESTRATOR_TERRAFORM_MODULE_CACHE_DIR"), "durable private absolute directory (0700, outside any Git work tree) caching verified Terraform modules; configure for Git module reuse across restarts")
 	modulePolicyFile := flag.String("terraform-module-policy-file", os.Getenv("ORCHESTRATOR_TERRAFORM_MODULE_POLICY_FILE"), "legacy HTTPS Git module policy and optional repository CA configuration (JSON); direct Git inspection does not require an allowlist")
 	retainedReleases := flag.String("terraform-retained-releases-file", os.Getenv("ORCHESTRATOR_TERRAFORM_RETAINED_RELEASES_FILE"), "JSON list of retained trusted historical platform releases ({release, terraformBinary}) so cleanup can run resources created before a release upgrade; empty retains none")
 	gitPath := flag.String("git", "git", "git binary used to resolve and fetch Terraform module and render bundle commits")
-	renderBundleCacheDir := flag.String("render-bundle-cache-dir", os.Getenv("ORCHESTRATOR_RENDER_BUNDLE_CACHE_DIR"), "durable private absolute directory (0700, outside any Git work tree) caching verified Git render bundles; empty uses a temporary cache lost on exit")
+	renderBundleCacheDir := flag.String("template-source-cache-dir", os.Getenv("ORCHESTRATOR_TEMPLATE_SOURCE_CACHE_DIR"), "durable private absolute directory (0700, outside any Git work tree) caching verified manifest template sources; empty uses a temporary cache lost on exit")
 	vaultDelivery := flag.String("vault-delivery", "auto", "UC-12 Kubernetes delivery: auto, vso or agent")
 	deliveryGitRoot := flag.String("delivery-git-root", os.Getenv("ORCHESTRATOR_DELIVERY_GIT_ROOT"), "private absolute directory outside Git for optional Environment CD publication; empty disables CD bindings")
 	gitopsRepoDir := flag.String("gitops-repo-dir", "", "writable local clone of the Fleet GitOps repository")
@@ -185,8 +184,7 @@ func main() {
 	}
 
 	app, err := bootstrap.Build(context.Background(), bootstrap.Options{
-		ScoreK8sPath:                  *scorePath,
-		RequireScoreRenderer:          true,
+		RequireTemplateRenderer:       true,
 		Seed:                          opts,
 		PublicRouteKind:               *publicRouteKind,
 		PublicGateway:                 *publicGateway,
@@ -205,7 +203,7 @@ func main() {
 		TerraformModulePolicyFile:     *modulePolicyFile,
 		TerraformRetainedReleasesFile: *retainedReleases,
 		GitPath:                       *gitPath,
-		RenderBundleCacheDir:          *renderBundleCacheDir,
+		TemplateSourceCacheDir:        *renderBundleCacheDir,
 		Region:                        *region,
 		Tags:                          tags,
 		VaultDelivery:                 *vaultDelivery,

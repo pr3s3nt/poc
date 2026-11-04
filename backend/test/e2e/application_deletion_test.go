@@ -133,7 +133,7 @@ func TestApplicationDeletionDestroysOwnedResourcesAndTombstones(t *testing.T) {
 	}
 
 	// Frozen while DELETING: mutations answer 409, reads still work.
-	if status, raw, _ := f.do(f.dev, http.MethodPut, f.base()+"/workloads/api", `{"version":0,"score":{}}`); status != http.StatusConflict || !strings.Contains(raw, "APPLICATION_DELETING") {
+	if status, raw, _ := f.do(f.dev, http.MethodPut, f.base()+"/workloads/api", `{"version":0,"workload":{}}`); status != http.StatusConflict || !strings.Contains(raw, "APPLICATION_DELETING") {
 		t.Fatalf("mutation while deleting = %d %s", status, raw)
 	}
 	if status, _, app := f.do(f.dev, http.MethodGet, f.appURL(), nil); status != http.StatusOK || app["application"].(map[string]any)["status"] != "DELETING" {

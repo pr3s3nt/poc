@@ -375,17 +375,17 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     expect(posted).toEqual([]);
   });
 
-  it('hides workload and lets authors select a Type before its first Git module exists', async () => {
+  it('includes workload and lets authors select a Type before its first Git module exists', async () => {
     const user = userEvent.setup();
     backend({ types: [...typeFixture, { key: 'cache', inputs: [], outputs: [], classes: [] }] });
     await ready();
     const select = field('Loại tài nguyên');
-    expect(within(select).queryByRole('option', { name: 'workload' })).not.toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: 'workload' })).toBeInTheDocument();
     const unsupported = within(select).getByRole('option', { name: 'cache (chưa có module đã kiểm chứng)' });
     expect(unsupported).not.toBeDisabled();
     await user.selectOptions(select, 'cache').catch(() => undefined);
     expect(select).toHaveValue('cache');
-    expect(screen.queryByRole('option', { name: /score-k8s|existing-cluster/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /template|existing-cluster/ })).not.toBeInTheDocument();
   });
 
   it('offers Git authoring when metadata has no verified installed pins', async () => {
@@ -461,16 +461,16 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
 const submitName = 'Đăng ký cấu hình tài nguyên';
 
 describe('UC-03 Definition form states and errors', () => {
-  it('lists definitions with Name, ID, version and account, hides workload ones and lists existing-cluster Definitions in the shared editable catalog', async () => {
+  it('lists definitions with Name, ID, version and account, includes workload ones and lists existing-cluster Definitions in the shared editable catalog', async () => {
     backend({ definitions: [
       { key: 'pg-fast', name: 'PostgreSQL nhanh', version: 4, resourceType: 'postgres', driverType: 'terraform', driverAccount: 'aws-account', criteria: [{}] },
-      { key: 'workload-score', name: 'Mẫu', version: 1, resourceType: 'workload', driverType: 'score-k8s', criteria: [{}] },
+      { key: 'workload-score', name: 'Mẫu', version: 1, resourceType: 'workload', driverType: 'template', criteria: [{}] },
       { key: 'cluster-existing', name: 'Cluster hệ thống', version: 1, resourceType: 'k8s-cluster', driverType: 'existing-cluster', criteria: [{}, {}] },
       { key: 'ns-shared', name: 'Namespace chung', version: 2, resourceType: 'k8s-namespace', driverType: 'terraform', criteria: [{}] },
     ] });
     render(<ResourceDefinitionsPage />);
     expect(await screen.findByText('PostgreSQL nhanh')).toBeInTheDocument();
-    expect(screen.queryByText('Mẫu')).not.toBeInTheDocument();
+    expect(screen.getByText('Mẫu')).toBeInTheDocument();
     expect(screen.getByText('PostgreSQL nhanh').nextElementSibling).toHaveTextContent('ID pg-fast · postgres · Terraform (module đã kiểm chứng) · tài khoản AWS chính (aws-account) · phiên bản 4 · 1 điều kiện áp dụng');
     // ADR-016/UI3-05: existing-cluster uses the same catalog and editor.
     expect(screen.getByText('Cluster hệ thống').nextElementSibling).toHaveTextContent('ID cluster-existing · k8s-cluster · Cluster có sẵn (existing-cluster) · phiên bản 1');
@@ -668,7 +668,7 @@ describe('UC-03 Definition form states and errors', () => {
       expect(posted).toEqual([]);
     });
 
-    it.each([['', 'missing'], ['workload', 'workload'], ['cache', 'unsupported custom type'], ['constructor', 'inherited property'], ['toString', 'inherited property'], ['VPC', 'wrong case'], ['unknown-type', 'unknown key'], ['vpc ', 'untrimmed key']])('leaves no selection for query %j (%s)', async (type) => {
+    it.each([['', 'missing'], ['cache', 'unsupported custom type'], ['constructor', 'inherited property'], ['toString', 'inherited property'], ['VPC', 'wrong case'], ['unknown-type', 'unknown key'], ['vpc ', 'untrimmed key']])('leaves no selection for query %j (%s)', async (type) => {
       const { posted } = backend({ types: [...typeFixture, ...extra] });
       renderDefinition(<ResourceDefinitionsPage initialResourceType={type} />);
       await screen.findByRole('option', { name: 'vpc' });

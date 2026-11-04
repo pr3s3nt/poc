@@ -134,6 +134,12 @@ bỏ điểm duyệt cuối và yêu cầu sửa/check/chạy lại khi scenario
 
 Kết quả và cleanup cuối: [bàn giao M04](verification/2026-10-16-m04-completion.md).
 
+## Generic Workload and Template Driver
+
+Approved replacement: [ADR-035](architecture/decisions/ADR-035-generic-workload-template-driver.md),
+[contract](architecture/contracts/generic-workload.md). Implementation is in progress;
+this route supersedes the Score/Render Bundle behavior below, not infrastructure.
+
 ## Git-owned Kubernetes manifest rendering
 
 For the requested change after infrastructure provisioning, start with

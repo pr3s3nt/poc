@@ -21,13 +21,13 @@ trước khi dùng. Credentials chỉ là đường dẫn file 0600/0400 ngoài 
 `console` và `developer`: URL, username, passwordFile. `platform`: Git scope/tokenFile,
 account/context/backend kubeconfig, Types, Git Catalog, Vault scoped token và CD.
 `application`: name/subdomain ổn định, Environment đích, variables, secretFiles,
-Score paths, image versions, Catalog tag và optional Definition revision IDs.
+Workload paths, image versions, Catalog tag và optional Definition revision IDs.
 `upgrade`: enabled (mặc định true), images/tag/revisions đích rõ ràng.
 `verification`: URL Tailscale, payload job cố định, timeout; optional local forward.
 `runtime`: mode, headless, timeout, host cluster kubeconfig, stateDir, reportDir.
 
 Definitions, Terraform modules và Rendering Templates đến từ Git Catalog đã pin.
-Config không chứa nội dung Definition/template. Score acceptance dùng chung từ
+Config không chứa nội dung Definition/template. Workload acceptance dùng chung từ
 `e2e/scenarios/acceptance-app/scores/` để tránh lệch fixture.
 
 ## Các chế độ

@@ -3,10 +3,10 @@
 Verify [UC-16](../../../orchestrator_docs/usecase/UC-16/specification.md) BR-15–30,
 [UC-12](../../../orchestrator_docs/usecase/UC-12/specification.md) and
 [acceptance app deployment](../../../orchestrator_docs/operations/acceptance-app-manual-k8s4f.md).
-The catalog picker uses **Tự cấu hình / nhập Score**, then the form; no Score
+The catalog picker uses **Tự cấu hình / nhập Workload**, then the form; no Workload
 file or editor is used. All application creation, variable/Secret creation, resource declarations,
 workload configuration, Preview, Deploy and update use Console controls. No
-Score file/import, direct mutation API or kubectl apply is used. Read-only
+Workload file/import, direct mutation API or kubectl apply is used. Read-only
 kubectl inventory and a port-forward verify the real runtime.
 
 ## Prerequisites

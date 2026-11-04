@@ -19,7 +19,7 @@ No shared cluster, cloud or company application is authorized by this runner.
 Run from repository root with the delivery runner's variables, a new
 `ORCH_RECON_STATE_FILE`, distinct `ORCH_RECON_APP_NAME`, and
 `ORCH_RECON_FOCUS=infrastructure`; leave `ORCH_RECON_OBSERVATIONS` unset. Product
-mutations use only ordinary Console buttons/dialogs; no Score/JSON/YAML input or
+mutations use only ordinary Console buttons/dialogs; no Workload/JSON/YAML input or
 product mutation API substitutes for UI. Technical reads verify acknowledgements.
 
 Assertions: a complete initial scan covers all managed resources, reports the

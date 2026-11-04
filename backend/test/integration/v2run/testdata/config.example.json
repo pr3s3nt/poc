@@ -8,7 +8,7 @@
   "cleanup": "120m",
   "binaries": {
     "terraform": { "path": "/opt/pinned/terraform", "sha256": "7386e89a97d0f24024955acc79ccf693b75b97f7c6383cb9d966e7d59aa5b223" },
-    "score-k8s": { "path": "/opt/pinned/score-k8s", "sha256": "<sha256 of the pinned score-k8s 0.15.0 binary>" },
+    "template": { "path": "/opt/pinned/template", "sha256": "<sha256 of the pinned template 0.15.0 binary>" },
     "kubectl": { "path": "/opt/pinned/kubectl", "sha256": "<sha256 of kubectl>" }
   },
   "nodeArch": "amd64",

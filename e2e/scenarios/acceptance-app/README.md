@@ -4,7 +4,7 @@
 
 Developer triển khai acceptance application hoàn toàn qua màn hình Web Console:
 frontend, backend, worker dùng chung một PostgreSQL và một Redis. Script tạo
-Application, chọn Secret Store, lưu biến và bí mật, nhập ba Score, xem trước,
+Application, chọn Secret Store, lưu biến và bí mật, nhập ba Workload, xem trước,
 triển khai và đọc kết quả trên màn hình. Liên quan:
 [UC-01](../../../orchestrator_docs/usecase/UC-01/README.md),
 [UC-05](../../../orchestrator_docs/usecase/UC-05/README.md),
@@ -57,7 +57,7 @@ npm run acceptance-app
 | `ORCH_SECRET_STORE_NAME` | `K8S-4F Vault` | Kho bí mật chọn cho staging |
 | `ORCH_KUBE_CONTEXT` | rỗng | Có giá trị thì mở trang ứng dụng qua port-forward để kiểm tra |
 | `ORCH_APP_NAMESPACE` | `app-<application-id>-staging` | Namespace của frontend khi port-forward |
-| `ORCH_WORKLOAD_DELAY_MS` | `2000` | Dừng trước/sau mỗi thao tác tạo workload; 0..10000 ms. Sau import, xem form nếu giữ được đầy đủ Score; nếu form khóa thì đọc cấu hình import |
+| `ORCH_WORKLOAD_DELAY_MS` | `2000` | Dừng trước/sau mỗi thao tác tạo workload; 0..10000 ms. Sau import, xem form nếu giữ được đầy đủ Workload; nếu form khóa thì đọc cấu hình import |
 | `ORCH_EVIDENCE_DIR` | rỗng | Thư mục rỗng ngoài repository để lưu video Console/app, ảnh cuối và result.json; giữ cả khi FAIL |
 | `ORCH_HEADLESS=1` | không | Chạy không hiện cửa sổ trình duyệt |
 
@@ -68,7 +68,7 @@ npm run acceptance-app
 3. Cài đặt môi trường staging: chọn Secret Store, lưu 8 biến và bí mật
    `ACCEPTANCE_SECRET` sinh ngẫu nhiên; biến `ACCEPTANCE_SECRET_SHA256` là
    SHA-256 của bí mật. Bí mật hiện trên trang thì FAIL.
-4. Nhập Score backend, worker, frontend từ [scores/](scores/) bằng ô chọn file.
+4. Nhập Workload backend, worker, frontend từ [scores/](scores/) bằng ô chọn file.
 5. Xem trước thay đổi: màn hình báo 3 Workload bị ảnh hưởng.
 6. Triển khai: màn hình báo Triển khai thành công và từng workload thành công.
 7. Có `ORCH_KUBE_CONTEXT`: mở trang acceptance app, chờ 5 dòng kiểm tra PASS

@@ -4,13 +4,10 @@ import (
 	"context"
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"orchestrator/internal/adapters/kubernetes"
-	"orchestrator/internal/adapters/scorek8s"
 	"orchestrator/internal/adapters/terraform/registry"
 	"orchestrator/internal/application/catalog"
 	catalogapp "orchestrator/internal/application/catalogrelease"
@@ -63,7 +60,7 @@ func (g *gitFixture) Open(_ context.Context, _ registry.GitSource, commit string
 
 func standardBundle(t *testing.T) registry.Tree {
 	t.Helper()
-	dir := "../../../render-bundles/standard"
+	dir := "../../../template-sources/standard"
 	out := registry.Tree{}
 	err := filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
@@ -99,22 +96,19 @@ func podOf(d map[string]any) map[string]any {
 }
 
 // UC-07 RB-01 / UC-05 RB-01..03: a Definition edit that only selects another
-// verified Git pin (or inputs) is a pending workload UPDATE with no Score
+// verified Git pin (or inputs) is a pending workload UPDATE with no Workload
 // draft; the old Preview is stale; Deploy renders B from the cache without a
 // Git fetch; re-selecting A restores A; unchanged intent is a no-op.
 func TestGitBundleOnlyChangeIsPendingUpdateWithoutGitFetch(t *testing.T) {
 	ctx := context.Background()
-	cli, err := exec.LookPath("score-k8s")
-	if err != nil {
-		t.Skip("local score-k8s unavailable")
-	}
+	var err error
 	opts := seedtest.Defaults()
-	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: opts, ScoreK8sPath: cli})
+	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: opts})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if app.RenderRegistry == nil {
-		t.Fatal("score-k8s runtime has no Git render registry")
+		t.Fatal("template runtime has no Git render registry")
 	}
 	commitA, commitB := strings.Repeat("a", 40), strings.Repeat("b", 40)
 	treeA := standardBundle(t)
@@ -124,27 +118,23 @@ func TestGitBundleOnlyChangeIsPendingUpdateWithoutGitFetch(t *testing.T) {
 	git := &gitFixture{trees: map[string]registry.Tree{commitA: treeA, commitB: treeB}}
 	app.RenderRegistry.Git = git
 
-	render, err := scorek8s.New(ctx, cli, kubernetes.NewRenderer())
-	if err != nil {
-		t.Fatal(err)
-	}
 	catalogSvc := catalog.NewService(app.Store)
-	catalogSvc.SetRenderBundles(render.Bundles())
+	catalogSvc.SetRenderRegistry(app.RenderRegistry)
 	catalogSvc.SetRenderRegistry(app.RenderRegistry)
 	url := "https://github.com/pr3s3nt/poc.git"
-	a, err := catalogSvc.InspectRenderBundle(ctx, opts.OrganizationKey, renderregistry.Inspection{URL: url, Path: "backend/render-bundles/standard", Ref: commitA})
+	a, err := catalogSvc.InspectTemplateSource(ctx, opts.OrganizationKey, renderregistry.Inspection{URL: url, Path: "backend/template-sources/standard", Ref: commitA})
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := catalogSvc.InspectRenderBundle(ctx, opts.OrganizationKey, renderregistry.Inspection{URL: url, Path: "backend/render-bundles/standard", Ref: commitB})
+	b, err := catalogSvc.InspectTemplateSource(ctx, opts.OrganizationKey, renderregistry.Inspection{URL: url, Path: "backend/template-sources/standard", Ref: commitB})
 	if err != nil {
 		t.Fatal(err)
 	}
 	disableSeededRenderers(t, app.Store, opts.OrganizationKey)
 	variables := func(id string) map[string]any {
-		return placedVariables(map[string]any{"render_bundle": id, "render_inputs": map[string]any{"team": "payments"}})
+		return placedVariables(map[string]any{"template_source": id, "template_inputs": map[string]any{"team": "payments"}})
 	}
-	def := resource.Definition{Key: "render-git", Name: "render-git", ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{ApplicationID: opts.ApplicationKey}}, DriverInputs: map[string]any{"values": map[string]any{"variables": variables(a.ID)}}}
+	def := resource.Definition{Key: "render-git", Name: "render-git", ResourceTypeKey: "workload", DriverType: resource.DriverTemplate, Criteria: []resource.Criterion{{ApplicationID: opts.ApplicationKey}}, DriverInputs: map[string]any{"values": map[string]any{"variables": variables(a.ID)}}}
 	saved, err := catalogSvc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def)
 	if err != nil {
 		t.Fatal(err)
@@ -153,7 +143,7 @@ func TestGitBundleOnlyChangeIsPendingUpdateWithoutGitFetch(t *testing.T) {
 		t.Fatal(err)
 	}
 	workloads := workloadconfig.NewService(app.Store)
-	svc := pending.NewSimulationService(app.Store, planning.NewService(render.Bundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
+	svc := pending.NewSimulationService(app.Store, planning.NewService(map[string]resource.TemplateSource{}), workloads, planning.RegistryInspector{Metadata: app.Modules})
 	svc.SetDeployer(app.Deployments)
 	fetches := git.calls
 
@@ -243,8 +233,8 @@ func TestGitBundleOnlyChangeIsPendingUpdateWithoutGitFetch(t *testing.T) {
 		t.Fatalf("deploy B: %+v %v", report, err)
 	}
 	// A rendering-only deployment must carry the proof from BaseProofs while
-	// selecting B from Catalog.RenderBundles; losing either merge side breaks it.
-	if got := variablesOf(liveScore(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "backend"))["LOG_LEVEL"]; got != "debug" {
+	// selecting B from Catalog.TemplateSources; losing either merge side breaks it.
+	if got := variablesOf(liveWorkload(t, workloads, opts.ApplicationKey, opts.EnvironmentKey, "backend"))["LOG_LEVEL"]; got != "debug" {
 		t.Fatalf("accepted literal lost after Git bundle update: %v", got)
 	}
 	second := appliedDeployment(t, app)

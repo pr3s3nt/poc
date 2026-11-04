@@ -215,7 +215,7 @@ const (
 
 // platformCapabilities lists the non-module registration pairs: a public
 // existing-cluster Definition with its own Internal Driver Account, and the
-// score-k8s workload with its typed namespace/cluster references only (no
+// template workload with its typed namespace/cluster references only (no
 // other workload variable is consumed at execution). Metadata only; nothing is executed.
 func platformCapabilities(types map[string]resource.Type) []Capability {
 	out := []Capability{}
@@ -231,12 +231,12 @@ func platformCapabilities(types map[string]resource.Type) []Capability {
 	}
 	if typ, ok := types["workload"]; ok {
 		variables := []CapabilityVariable{
-			{Name: resource.VariableRenderBundle, Type: "string", Required: true},
+			{Name: resource.VariableTemplateSource, Type: "string", Required: true},
 			{Name: resource.VariableNamespace, Type: "string", Required: true, Preset: NamespaceReferencePreset},
-			{Name: resource.VariableCluster, Type: "string", Required: true, Preset: ClusterReferencePreset},
+			{Name: resource.VariableCluster, Type: "string", Required: false, Preset: ClusterReferencePreset},
 		}
 		out = append(out, Capability{
-			ResourceType: typ.Key, DriverType: string(resource.DriverScoreK8s),
+			ResourceType: typ.Key, DriverType: string(resource.DriverTemplate),
 			Variables: variables, ExecutorOwned: []string{}, Bindings: []CapabilityBinding{}, Account: CapabilityAccount{},
 		})
 	}

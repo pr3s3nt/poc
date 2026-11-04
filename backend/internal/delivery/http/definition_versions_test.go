@@ -49,7 +49,7 @@ func TestRevisionAPIsSeparateProposedAndEnvironmentUpgrade(t *testing.T) {
 		t.Fatal("editor automatically promoted", out)
 	}
 	// Legacy frozen configuration still counts as pinned Usage even without an ID.
-	status, out = request(t, pe, http.MethodGet, base+"/workload-score-k8s/versions", "")
+	status, out = request(t, pe, http.MethodGet, base+"/workload-template/versions", "")
 	if status != 200 || !strings.Contains(out, `"environment":"staging"`) {
 		t.Fatal("legacy frozen Usage omitted", status, out)
 	}

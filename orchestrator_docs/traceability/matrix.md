@@ -1124,7 +1124,7 @@ records read-only Preview, metadata/history preservation and secret boundaries.
 
 | Requirements | Collaboration / persistence | Required validation |
 |---|---|---|
-| UC-06 RB-05; RB-C08 | `resources` stage → patches → open-set guard → ownership labels | [guard/stage tests](../../backend/internal/adapters/scorek8s/git_test.go) (`TestOpenObjectSetIsBundlePolicy`, `TestGuardRejectsOverridingExplicitIntent`); [Score annotations](../../backend/internal/planning/score/score.go) |
+| UC-06 RB-05; RB-C08 | `resources` stage → patches → open-set guard → ownership labels | [guard/stage tests](../../backend/internal/adapters/templatedriver/git_test.go) (`TestOpenObjectSetIsBundlePolicy`, `TestGuardRejectsOverridingExplicitIntent`); [Score annotations](../../backend/internal/planning/workloadspec/workload.go) |
 | UC-06 RB-06; RB-C09 | Discovery/ownership check, Jobs before rollout, inventory in `workload_instances.target_ref.objects`, UID prune | [inventory/order tests](../../backend/internal/application/deployment/inventory_test.go); [kind lifecycle test](../../backend/internal/adapters/kubernetes/objects_kind_test.go); WM-E04..E06 |
 | UC-06 RB-07 | `PublicRoutes` kind `httproute`, Gateway parent, base domain flags | [route tests](../../backend/internal/adapters/kubernetes/public_routes_test.go); WM-E05 browser through the Gateway |
 | UC-07 RB-03 | Inventory removal before fixed workload removal | WM-E07 objects absent; foreign object kept in the kind lifecycle test |
@@ -1140,13 +1140,13 @@ records read-only Preview, metadata/history preservation and secret boundaries.
 | UC-07 RB-01..02 | Pending/applied pins and original target removal; unchanged Terraform state | Restart/reuse/history tests; RB-E08/09/10; unchanged resource/PVC UIDs |
 | UC-03 UI / ADR-020 | Existing rendering route + Git inspect/typed inputs/VI-EN catalogs | Frontend checks, actual browser references and real end-user Playwright |
 
-Implemented tests: [domain](../../backend/internal/domain/renderbundle/renderbundle_test.go),
+Implemented tests: [domain](../../backend/internal/domain/templatesource/templatesource_test.go),
 [engine](../../backend/internal/renderengine/renderengine_test.go),
-[registry/cache](../../backend/internal/adapters/renderbundles/registry_test.go),
-[stage parity/guards/priority](../../backend/internal/adapters/scorek8s/git_test.go),
-[patch conformance](../../backend/internal/adapters/scorek8s/patch_conformance_test.go),
-[examples](../../backend/internal/adapters/scorek8s/examples_test.go),
-[PostgreSQL](../../backend/internal/adapters/postgres/renderbundles_integration_test.go),
+[registry/cache](../../backend/internal/adapters/templatesources/registry_test.go),
+[stage parity/guards/priority](../../backend/internal/adapters/templatedriver/git_test.go),
+[patch conformance](../../backend/internal/renderengine/renderengine_test.go),
+[examples](../../backend/internal/adapters/templatedriver/examples_test.go),
+[PostgreSQL](../../backend/internal/adapters/postgres/templatesources_integration_test.go),
 [HTTP](../../backend/internal/delivery/http/render_bundle_sources_test.go),
 [planner](../../backend/internal/planning/git_rendering_test.go),
 [pending A→B→A](../../backend/internal/application/pending/git_rendering_test.go),
@@ -1279,9 +1279,9 @@ Kubernetes PVC UID retention and CronJob owner/completion acceptance.
 Evidence: [default shared resources](../verification/2026-10-28-workload-shared-resources.md), including real kind API/worker shared PostgreSQL/Redis, two DONE jobs, retained UIDs and verified product/stack cleanup on 2026-10-29.
 
 WC-11 PVC Deployment rollout (2026-10-30): standard bundle
-[`execution.tpl`](../../backend/render-bundles/standard/patches/execution.tpl)
+[`execution.tpl`](../../backend/template-sources/standard/patches/execution.tpl)
 replaces strategy with Recreate for persistent mounts, accepting update downtime.
-[`execution_test.go`](../../backend/internal/adapters/scorek8s/execution_test.go)
+[`execution_test.go`](../../backend/internal/adapters/templatedriver/execution_test.go)
 checks Recreate without rollingUpdate, stateless/legacy/secret-only preservation
 and no Deployment strategy on StatefulSet/CronJob through real score-k8s rendering.
 
@@ -1398,3 +1398,18 @@ No schema change or live CD/VSO acceptance is implied by these local checks.
 
 Actual run outcomes belong in dated verification evidence; these runners alone
 do not establish real deployment or cleanup completion.
+
+## Generic Workload and Template Driver — ADR-035
+
+| Requirement | Design / implementation | Focused verification |
+|---|---|---|
+| GW-01 normalized workload and round-trip | `planning/workloadspec`, workloadconfig, existing ModuleSpec | `TestGenericWorkloadShorthandAndZeroReplicas`, workloadconfig round-trip tests |
+| GW-02 one Definition / immutable sources | Resource Definitions editor; templatesources registry; schema version 8 | TemplateDriverFields tests; source pin/cache tests; PostgreSQL upgrade tests |
+| GW-03 direct rendering and guards | Template Driver, existing isolated worker, standard manifest templates | `TestInlineEditorStartingTemplatesRenderWorkload`, execution/guard tests |
+| GW-03 Resource References | Existing graph scanning and binding resolver; nonsecret output restriction | `TestTemplateResourceReferencesAreInputData`; planning matching tests |
+| GW-04 revision and delivery | Pinned selection, nonsecret reference snapshot, existing encrypted CD artifacts | Definition-only pending/stale tests; deployment snapshot/CD tests |
+| GW-05 retirement / preserved infrastructure | Migration 008; no score-k8s executable; shared Terraform editor retained | Migration rollback/runtime grants; Definition form tests; focused real CD/Fleet E2E |
+
+Collaboration: [sequence](../architecture/components/generic-workload-sequence.puml).
+Actual baseline/update, exact Fleet commit/Bundle readiness and product cleanup:
+[execution record](../verification/2026-11-04-generic-workload.md).

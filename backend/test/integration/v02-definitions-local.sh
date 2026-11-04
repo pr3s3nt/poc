@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Retired by ADR-035; historical scenario body retained for provenance.
+printf "%s\n" "This Score rendering scenario is retired. Use e2e/scenarios/generic-workload/README.md." >&2
+exit 2
 # V02 Resource Definition local browser scenario: a Platform Engineer authors and
 # edits Resource Definitions through the Web Console (Name, Driver Account and
 # literal region, five-field AND/OR criteria), checks matching on the server

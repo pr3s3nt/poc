@@ -7,6 +7,23 @@ last_reviewed: 2026-11-04
 
 # Current project state
 
+## Generic Workload and Template Driver — 2026-11-04
+
+[ADR-035](architecture/decisions/ADR-035-generic-workload-template-driver.md)
+replaces Score/score-k8s/Render Bundle with Generic Workload, immutable template
+sources and direct Template Driver rendering. Resource Definitions now owns the
+workload editor, including Inline/Git/ZIP/Catalog sources, typed inputs, existing
+Resource References, criteria and version history. The separate Rendering
+Templates page/navigation and external renderer executable are removed.
+
+Focused local tests, real PostgreSQL schema-7-to-8 preservation/rollback/isolation,
+and browser deployment/update through CD/Fleet on k8s-4f passed. Task Application
+and namespace cleanup passed. Terraform and shared installation data were kept
+outside the acceptance stack. Schema 8 is hosted only on the dedicated Console
+port 3040; retained ports 3001/3031 were not upgraded by this task. See
+[implementation](implementation/generic-workload.md) and
+[verification/handoff](verification/2026-11-04-generic-workload.md).
+
 ## Simplified CD configuration — issue #31, 2026-11-04
 
 Dev Console port 3031 implements [ADR-034](architecture/decisions/ADR-034-simplified-cd-configuration.md):

@@ -1,6 +1,6 @@
 import type { JsonObject } from './typedVariables';
 
-// Typed render_inputs of a Git render bundle (ADR-021, contract RB-C03). The
+// Typed template_inputs of a Git render bundle (ADR-021, contract RB-C03). The
 // bundle's closed JSON Schema subset drives the form; the same rules as the
 // server apply: defaults only for absent keys (false, 0 and "" are explicit
 // values), no coercion, no unknown keys and no `${` references. The server

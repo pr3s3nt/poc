@@ -8,7 +8,7 @@
   "ui.definition.redis",
   "ui.definition.workload",
   "ui.config.secret-hidden",
-  "ui.score.imported",
+  "ui.workloadspec.imported",
   "graph.fixed-point",
   "graph.provider-first",
   "graph.edge-reasons",

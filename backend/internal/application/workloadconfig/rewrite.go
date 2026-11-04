@@ -8,7 +8,7 @@ import (
 )
 
 // EnvironmentAliases lists the aliases of virtual `environment` resources of a
-// raw Score tree. Only these aliases can reference UC-12 keys.
+// raw Workload tree. Only these aliases can reference UC-12 keys.
 func EnvironmentAliases(raw map[string]any) map[string]bool {
 	aliases := map[string]bool{}
 	resources, _ := raw["resources"].(map[string]any)
@@ -20,7 +20,7 @@ func EnvironmentAliases(raw map[string]any) map[string]bool {
 	return aliases
 }
 
-// ReferencesEnvironmentKey reports whether a Score tree binds key through an
+// ReferencesEnvironmentKey reports whether a Workload tree binds key through an
 // environment resource, in container variables or resource params.
 func ReferencesEnvironmentKey(raw map[string]any, key string) bool {
 	found := false
@@ -31,7 +31,7 @@ func ReferencesEnvironmentKey(raw map[string]any, key string) bool {
 	return found
 }
 
-// RewriteEnvironmentKey returns a copy of a Score tree in which every exact
+// RewriteEnvironmentKey returns a copy of a Workload tree in which every exact
 // `${resources.<environment alias>.<oldKey>}` is renamed to newKey. Aliases,
 // container names, variable names and every other field are kept. The input is
 // never modified; changed reports whether any reference was renamed.

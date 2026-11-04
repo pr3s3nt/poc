@@ -45,7 +45,7 @@ it is not merged into the submitted Score. `normalize` is exactly one entrypoint
 Provisioner/patch arrays establish priority/order; never infer order from the
 filesystem. Same file cannot occur twice in an array. No arbitrary command field.
 
-Publish the usable reference at `backend/render-bundles/standard/` (new code
+Publish the usable reference at `backend/template-sources/standard/` (new code
 artifact in the implementation task). Its defaults retain current 10m/32Mi CPU/
 memory fallbacks and replicas behavior. Provide a README and render fixtures
 there. Runtime must consume the selected Git cache, not silently read this

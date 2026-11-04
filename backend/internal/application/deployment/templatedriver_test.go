@@ -1,0 +1,127 @@
+package deployment_test
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	standardtemplates "orchestrator/template-sources"
+	"path/filepath"
+	"testing"
+
+	"orchestrator/internal/adapters/store"
+	"orchestrator/internal/application/catalog"
+	appsvc "orchestrator/internal/application/deployment"
+	"orchestrator/internal/application/preview"
+	"orchestrator/internal/bootstrap"
+	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
+)
+
+func TestTemplateDefinitionPreviewDeployAndSnapshot(t *testing.T) {
+	ctx := context.Background()
+	var err error
+	state := filepath.Join(t.TempDir(), "state.json")
+	app, opts := newApp(t, func(o *bootstrap.Options) { o.StatePath = state })
+	catalogSvc := catalog.NewService(app.Store)
+	catalogSvc.SetRenderRegistry(app.RenderRegistry)
+	def := resource.Definition{Key: "score-workloads", Name: "score-workloads", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverTemplate, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"template_source": standardtemplates.ID(opts.OrganizationKey), "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}", "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"}}}, Criteria: []resource.Criterion{{ApplicationID: opts.ApplicationKey, Class: "default"}}}
+	registered, err := catalogSvc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if registered.SourceFingerpr == "" {
+		t.Fatal("missing bundle pin")
+	}
+	if err := seedtest.PublishCatalog(ctx, app.Store, opts); err != nil {
+		t.Fatal(err)
+	}
+	scores := seed.AcceptanceWorkloads(opts)
+	for _, id := range seed.AcceptanceOrder() {
+		p, err := app.Previews.PreviewDeployment(ctx, preview.PreviewDeploymentQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: id, Action: "deploy", RunID: "render-test", WorkloadAfter: scores[id]})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p.Plan.Rendering[id].DefinitionKey != def.Key {
+			t.Fatalf("missing renderer selection for %s", id)
+		}
+		calls := len(app.FakeExec.Calls)
+		applies := len(app.FakeDeploy.Applied)
+		again, err := app.Previews.PreviewDeployment(ctx, preview.PreviewDeploymentQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: id, Action: "deploy", RunID: "render-test", WorkloadAfter: scores[id]})
+		if err != nil || again.Plan.PlanHash != p.Plan.PlanHash {
+			t.Fatal("preview is not deterministic", err)
+		}
+		if len(app.FakeExec.Calls) != calls || len(app.FakeDeploy.Applied) != applies {
+			t.Fatal("preview executed side effects")
+		}
+		result, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: id, WorkloadAfter: scores[id], RunID: "render-test", ExpectedPlanHash: p.Plan.PlanHash})
+		if err != nil {
+			t.Fatal(err)
+		}
+		reopened, err := store.NewWithSnapshot(state)
+		if err != nil {
+			t.Fatal(err)
+		}
+		snapshot, err := reopened.GetPlan(ctx, result.DeploymentID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		selections, _ := snapshot["rendering"].(map[string]any)
+		if selections[id] == nil {
+			t.Fatal("renderer pin lost on reopen")
+		}
+	}
+	active, err := app.Store.ListActiveResources(ctx, opts.OrganizationKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbs := 0
+	for _, a := range active {
+		if a.Descriptor.Type == "postgres" {
+			dbs++
+		}
+		if a.Descriptor.Type == "workload" {
+			t.Fatal("workload entered provisioning")
+		}
+	}
+	if dbs != 1 {
+		t.Fatalf("shared database count %d", dbs)
+	}
+	// A newly registered, more-specific rendering Definition invalidates a previously calculated plan.
+	id := "backend"
+	query := preview.PreviewDeploymentQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: id, Action: "update", RunID: "render-test", WorkloadBefore: scores[id], WorkloadAfter: scores[id]}
+	p, err := app.Previews.PreviewDeployment(ctx, query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	def.Key = "score-specific"
+	def.Criteria = []resource.Criterion{{ApplicationID: opts.ApplicationKey, EnvironmentID: opts.EnvironmentKey, Class: "default"}}
+	if _, err := catalogSvc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); err != nil {
+		t.Fatal(err)
+	}
+	if err := seedtest.PublishCatalog(ctx, app.Store, opts); err != nil {
+		t.Fatal(err)
+	}
+	calls := len(app.FakeExec.Calls)
+	applies := len(app.FakeDeploy.Applied)
+	_, err = app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: id, WorkloadBefore: scores[id], WorkloadAfter: scores[id], RunID: "render-test", ExpectedPlanHash: p.Plan.PlanHash})
+	if !errors.Is(err, appsvc.ErrStalePlan) {
+		t.Fatalf("expected stale plan: %v", err)
+	}
+	if len(app.FakeExec.Calls) != calls || len(app.FakeDeploy.Applied) != applies {
+		t.Fatal("stale plan caused effects")
+	}
+	for _, applied := range app.FakeDeploy.Applied {
+		for _, m := range applied.Manifests {
+			if m.Kind == "StatefulSet" || m.Kind == "PersistentVolumeClaim" || m.Kind == "Namespace" {
+				t.Fatal("renderer generated infrastructure")
+			}
+			if m.Kind == "Deployment" {
+				raw, _ := json.Marshal(m.Object)
+				if len(raw) == 0 {
+					t.Fatal("empty workload")
+				}
+			}
+		}
+	}
+}

@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"orchestrator/internal/adapters/templatedriver"
+	"orchestrator/internal/renderengine"
 	"strings"
 	"testing"
 	"time"
@@ -173,16 +175,18 @@ func TestCDOnlyDependencySecretsAndAuxiliaryCleanup(t *testing.T) {
 			coordinator := &deliveryapp.Coordinator{Store: repo, Registry: registry, Artifacts: &deliveryapp.Artifacts{Store: repo, Cipher: cipher}}
 			prov := provisioning.NewService(app.Store, fake.Registry{Executor: app.FakeExec}, app.Secrets, clock.System{})
 			prov.SetModuleVerifier(app.Modules)
-			svc := appsvc.NewService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), prov, bootstrap.NewFakeBundleRenderer(k8s.NewRenderer()), &rejectDirectApply{}, planning.RegistryInspector{Metadata: app.Modules}, clock.System{})
+			templateRenderer := templatedriver.New()
+			templateRenderer.SetGitBundles(app.RenderRegistry, renderengine.Executor{})
+			svc := appsvc.NewService(app.Store, planning.NewService(bootstrap.FakeTemplateSources()), prov, templateRenderer, &rejectDirectApply{}, planning.RegistryInspector{Metadata: app.Modules}, clock.System{})
 			svc.SetDelivery(coordinator)
 			private := &privateRegistry{}
 			svc.SetStoreRegistry(private)
 			if vso {
 				svc.SetConfigSecretSynchronizer(&k8s.VSOSynchronizer{KubectlPath: "/must-not-run"})
 			}
-			scores := seed.AcceptanceScores(opts)
+			scores := seed.AcceptanceWorkloads(opts)
 			score := scores["backend"]
-			result, err := svc.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", ScoreAfter: score, Actor: "test"})
+			result, err := svc.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", WorkloadAfter: score, Actor: "test"})
 			if err != nil {
 				t.Fatal(err)
 			}

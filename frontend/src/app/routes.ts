@@ -5,7 +5,6 @@ export type Route =
   | { name: 'applications' }
   | { name: 'resource-types' }
   | { name: 'resource-definitions'; resourceType?: string }
-  | { name: 'rendering-templates' }
   | { name: 'driver-accounts'; account?: string; tab?: 'diagnose'; purpose?: 'use-case'; report?: string }
   | { name: 'secret-stores' }
   | { name: 'platform-settings' }
@@ -19,7 +18,7 @@ export type Route =
   | { name: 'observability'; applicationId: string; environment: 'staging' | 'production'; tab: 'logs' | 'metrics'; query?: TelemetryRouteQuery }
   | { name: 'settings'; applicationId: string; environment?: 'staging' | 'production' }
   | { name: 'workload'; applicationId: string; environment: 'staging' | 'production'; workloadId?: string; template?: string }
-  | { name: 'score-preview'; applicationId: string; environment: 'staging' | 'production' }
+  | { name: 'workload-preview'; applicationId: string; environment: 'staging' | 'production' }
   | { name: 'deployments'; applicationId: string; environment: 'staging' | 'production' }
   | { name: 'deployment'; applicationId: string; environment: 'staging' | 'production'; deploymentId: string }
   | { name: 'resource'; applicationId: string; environment: 'staging' | 'production'; resourceId: string };
@@ -43,7 +42,7 @@ export function parseRoute(path = window.location.pathname): Route {
     const resourceType = new URLSearchParams(search).get('resourceType');
     return { name: 'resource-definitions', ...(resourceType ? { resourceType } : {}) };
   }
-  if (relative === '/platform/rendering-templates') return { name: 'rendering-templates' };
+  if (relative === '/platform/rendering-templates') return { name: 'resource-definitions', resourceType: 'workload' };
   if (relative === '/platform/connections') return { name: 'driver-accounts' };
   if (relative === '/platform/driver-accounts') {
     const query = new URLSearchParams(search);
@@ -86,7 +85,7 @@ export function parseRoute(path = window.location.pathname): Route {
   const resource = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/resources\/([^/]+)$/);
   if (resource?.[1] && resource[2] && resource[3]) return { name: 'resource', applicationId: decodeURIComponent(resource[1]), environment: resource[2] as 'staging' | 'production', resourceId: decodeURIComponent(resource[3]) };
   const scorePreview = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/preview$/);
-  if (scorePreview?.[1] && scorePreview[2]) return { name: 'score-preview', applicationId: decodeURIComponent(scorePreview[1]), environment: scorePreview[2] as 'staging' | 'production' };
+  if (scorePreview?.[1] && scorePreview[2]) return { name: 'workload-preview', applicationId: decodeURIComponent(scorePreview[1]), environment: scorePreview[2] as 'staging' | 'production' };
   const deployments = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/deployments$/);
   if (deployments?.[1] && deployments[2]) return { name: 'deployments', applicationId: decodeURIComponent(deployments[1]), environment: deployments[2] as 'staging' | 'production' };
   const match = relative.match(/^\/applications\/([^/]+)$/);
@@ -101,7 +100,6 @@ export function href(route: Route): string {
     case 'applications': return `${base}/applications`;
     case 'resource-types': return `${base}/platform/resource-types`;
     case 'resource-definitions': return `${base}/platform/resource-definitions${route.resourceType ? `?resourceType=${encodeURIComponent(route.resourceType)}` : ''}`;
-    case 'rendering-templates': return `${base}/platform/rendering-templates`;
     case 'driver-accounts': {
       if (!route.account) return `${base}/platform/driver-accounts`;
       const query = new URLSearchParams({ account: route.account });
@@ -133,7 +131,7 @@ export function href(route: Route): string {
     }
     case 'settings': return `${base}/applications/${encodeURIComponent(route.applicationId)}/settings${route.environment ? `?environment=${route.environment}` : ''}`;
     case 'workload': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/workloads/${route.workloadId ? encodeURIComponent(route.workloadId) : 'new'}${route.template && !route.workloadId ? `?template=${encodeURIComponent(route.template)}` : ''}`;
-    case 'score-preview': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/preview`;
+    case 'workload-preview': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/preview`;
     case 'deployments': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/deployments`;
     case 'resource': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/resources/${encodeURIComponent(route.resourceId)}`;
     case 'deployment': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/deployments/${encodeURIComponent(route.deploymentId)}`;

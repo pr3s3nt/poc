@@ -93,7 +93,7 @@ func TestSavedUndeployedDraftIsPlannedIntoExactRequirementsBeforeAnyProbe(t *tes
 				t.Fatal(err)
 			}
 			svc := catalog.NewService(app.Store, registrytest.Open(t, app.Store))
-			svc.SetRenderBundles(bootstrap.FakeRenderBundles())
+			svc.SetTemplateSources(bootstrap.FakeTemplateSources())
 			if _, err := svc.RegisterResourceDefinition(context.Background(), opts.OrganizationKey, draft.Definition()); err != nil {
 				t.Fatal(err)
 			}
@@ -115,8 +115,8 @@ func TestSavedUndeployedDraftIsPlannedIntoExactRequirementsBeforeAnyProbe(t *tes
 	key, version := account["key"].(string), int64(account["version"].(float64))
 	post("/resource-definitions", map[string]any{"key": "cluster-lab", "name": "Cluster lab", "resourceType": "k8s-cluster", "driverType": "existing-cluster", "driverAccount": key,
 		"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{}}}, "criteria": []any{map[string]any{"class": "internal", "app_id": opts.ApplicationKey}}})
-	post("/resource-definitions", map[string]any{"key": "workload-lab", "name": "Workload lab", "resourceType": "workload", "driverType": "score-k8s",
-		"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "score-k8s-internal-v1", "namespace": namespaceOutput, "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"}}},
+	post("/resource-definitions", map[string]any{"key": "workload-lab", "name": "Workload lab", "resourceType": "workload", "driverType": "template",
+		"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{"template_source": "template-internal-v1", "namespace": namespaceOutput, "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"}}},
 		"criteria":     []any{map[string]any{}}})
 	post("/resource-definitions", k8sModuleDefinition("ns-lab", "k8s-namespace", "k8s-namespace", map[string]any{"name": "${context.env.namespace}"}, nil, []string{"name"}, []any{map[string]any{}}))
 	post("/resource-definitions", postgresModuleDefinition("pg-fast", map[string]any{"image": "postgres:17-alpine", "storage": "2Gi", "storage_class": `"fast"`, "namespace": namespaceOutput}, []any{map[string]any{}}))
@@ -128,12 +128,12 @@ func TestSavedUndeployedDraftIsPlannedIntoExactRequirementsBeforeAnyProbe(t *tes
 		t.Fatal(err)
 	}
 	// A draft is saved and NOT deployed.
-	draft := map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "api"},
+	draft := map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": "api"},
 		"containers": map[string]any{"main": map[string]any{"image": "example.invalid/api:v1"}},
 		"service":    map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}, "publicRoutes": []any{map[string]any{"path": "/", "port": "http"}}},
 		"resources":  map[string]any{"db": map[string]any{"type": "postgres", "class": "default", "params": map[string]any{"database": "app", "username": "app"}}}}
 	base := api + "/applications/" + opts.ApplicationKey + "/environments/staging"
-	if status, out := requestJSON(t, pe, http.MethodPut, base+"/workloads/api", map[string]any{"score": draft, "version": 0}); status != http.StatusOK {
+	if status, out := requestJSON(t, pe, http.MethodPut, base+"/workloads/api", map[string]any{"workload": draft, "version": 0}); status != http.StatusOK {
 		t.Fatalf("save draft: %d %v", status, out)
 	}
 
@@ -208,11 +208,11 @@ func TestSavedUndeployedDraftIsPlannedIntoExactRequirementsBeforeAnyProbe(t *tes
 
 	// A draft whose resource no Definition implements is an observed FAIL with planner enums, not an empty context;
 	// a selection that needs no plan is not failed by it.
-	bad := map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "api"}, "containers": map[string]any{"main": map[string]any{"image": "x:1"}},
+	bad := map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": "api"}, "containers": map[string]any{"main": map[string]any{"image": "x:1"}},
 		"resources": map[string]any{"cache": map[string]any{"type": "redis", "class": "default"}}}
 	_, view := requestJSON(t, pe, http.MethodGet, base+"/workloads", nil)
 	draftVersion := int64(view["draftVersion"].(float64))
-	if status, out := requestJSON(t, pe, http.MethodPut, base+"/workloads/api", map[string]any{"score": bad, "version": draftVersion}); status != http.StatusOK {
+	if status, out := requestJSON(t, pe, http.MethodPut, base+"/workloads/api", map[string]any{"workload": bad, "version": draftVersion}); status != http.StatusOK {
 		t.Fatalf("save invalid draft: %d %v", status, out)
 	}
 	rejected := byID(start("database"))["uc.preview.requirements"]
