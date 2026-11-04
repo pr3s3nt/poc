@@ -1,7 +1,7 @@
 # Standard workload manifest templates
 
-This source implements [ADR-035](../../../orchestrator_docs/architecture/decisions/ADR-035-generic-workload-template-driver.md)
-and the [Generic Workload contract](../../../orchestrator_docs/architecture/contracts/generic-workload.md).
+This source implements [ADR-035](../../../../orchestrator_docs/architecture/decisions/ADR-035-generic-workload-template-driver.md)
+and the [Generic Workload contract](../../../../orchestrator_docs/architecture/contracts/generic-workload.md).
 It generates manifests directly using bounded Go templates; no external generator
 or provisioning stage runs. Register it through Resource Definitions → workload →
 Template, using Inline, Git, ZIP or Catalog. Git refs resolve to immutable commits;

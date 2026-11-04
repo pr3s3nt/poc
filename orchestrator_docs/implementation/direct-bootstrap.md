@@ -86,7 +86,7 @@ checks, resume/conflict behavior, retention and known limits.
 
 ## Standalone platform resource repository — approved 2026-11-04
 
-`platform-resources/` is the publishable Git-owned asset set: Terraform modules,
+`projects/platform-resources/` is the publishable Git-owned asset set: Terraform modules,
 workload templates and portable bootstrap Types/Definitions/Workloads/policy.
 Publishing its contents at a new repository root uses `terraform/`, `templates/`
 and `bootstrap/` paths. Company input points to that repository/full commits;

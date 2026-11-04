@@ -11,7 +11,7 @@ Không copy địa chỉ/IP/credential hoặc commit demo của cá nhân sang c
 | `parameters.targetClass` | Class cluster/workload và resource references tương ứng |
 | `parameters.environmentType` | Loại Environment để matching; preset là `staging` |
 | `parameters.backendStorage` | Dung lượng PVC backend, ví dụ `1Gi`; thay đổi sau deploy là thay đổi cấu hình, không tự upgrade |
-| `parameters.inputsRepository`, `inputsCommit` | HTTPS repo + full commit chứa `platform-resources/` |
+| `parameters.inputsRepository`, `inputsCommit` | HTTPS repo + full commit chứa `projects/platform-resources/` |
 | `parameters.modulesRepository`, `modulesCommit` | HTTPS repo + full commit chứa Terraform modules |
 | `parameters.templatesRepository`, `templatesCommit` | HTTPS repo + full commit chứa workload templates |
 | `parameters.*ModulePath` | Đường dẫn module trong repo; namespace/PostgreSQL/Redis/persistent-storage |

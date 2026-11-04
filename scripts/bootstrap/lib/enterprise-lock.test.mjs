@@ -15,7 +15,7 @@ test('enterprise locking reads exact local commits, derives pins, stays idempote
  const git=args=>execFileSync('git',['-C',root,...args],{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
  try{
   const copy=(name,content)=>{mkdirSync(dirname(join(root,name)),{recursive:true});writeFileSync(join(root,name),content);};
-  const visit=value=>{if(!value||typeof value!=='object')return;if(value.git){const name=value.git.path;copy(name,readFileSync(new URL('../../../platform-resources/'+name,import.meta.url)));}for(const v of Object.values(value))visit(v);};visit(raw);
+  const visit=value=>{if(!value||typeof value!=='object')return;if(value.git){const name=value.git.path;copy(name,readFileSync(new URL('../../../projects/platform-resources/'+name,import.meta.url)));}for(const v of Object.values(value))visit(v);};visit(raw);
   for(const kind of ['namespace','postgres','redis','storage'])copy(raw.parameters[kind+'ModulePath']+'/main.tf',`variable "namespace" {type=string}\n# ${kind}\n`);
   copy(raw.platform.templateSources[0].path+'/bundle.yaml','kind: TemplateSource\n');
   git(['init','--quiet']);git(['config','user.email','test@localhost']);git(['config','user.name','Bootstrap Test']);git(['remote','add','origin',raw.parameters.inputsRepository]);git(['add','.']);git(['commit','--quiet','-m','Fixture sources']);

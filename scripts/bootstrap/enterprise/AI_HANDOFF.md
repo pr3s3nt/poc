@@ -41,7 +41,7 @@ owner setup tách runtime; tuyệt đối không reset DB/chỉnh schema marker 
 1. Xem branch/diff và giữ công việc có sẵn. Dùng đúng release đã có Enterprise
    host/CA fix và source-summary UI fix. Kiểm tra tài liệu code-map/current-state.
 2. Đảm bảo root repo internal chứa `terraform/`, `templates/`, `bootstrap/`
-   (upload nội dung `platform-resources/`, không thêm tầng thư mục). Nếu chuyển
+   (upload nội dung `projects/platform-resources/`, không thêm tầng thư mục). Nếu chuyển
    nguồn sang path khác, cập nhật input tương ứng; commit
    bằng quy trình publish đã được cấp quyền. Không tự push ngoài scope.
 3. Nếu nhận source ZIP thì ZIP không có Git history: đưa nguồn vào repo nội bộ
