@@ -1973,3 +1973,10 @@ Removed the separate HTTPRoute Terraform module, Type/Definition and frontend
 resource declaration from publishable inputs. No automatic migration/deletion of
 previous remote objects, state or historical pins. Gateway/controller/DNS/TLS
 unchanged; staging remains Console-only. Render tests are not live Traefik proof.
+
+Live dev verification on 2026-11-05 confirmed the Git workload template's
+HTTPRoute is published through Fleet, Accepted/ResolvedRefs by Traefik, and
+reachable by real Tailscale DNS in Playwright and from Windows (HTTP 200).
+See [HTTPRoute domain verification](verification/2026-11-05-httproute-domain.md).
+A dedicated authorized dev Traefik/Gateway and test frontend remain for review;
+this is HTTP-only and does not establish company staging/HTTPS readiness.

@@ -130,3 +130,8 @@ the new scenario for this change; no bulk E2E migration is included.
 
 Git-only bootstrap, unchanged rerun and owned backend Pod recreation/PVC persistence:
 [bootstrap-git-pvc](scenarios/bootstrap-git-pvc/README.md).
+
+HTTPRoute through a real DNS domain and Traefik Gateway API:
+[httproute-domain](scenarios/httproute-domain/README.md). Uses a dedicated frontend,
+Playwright Console deployment, real Git/Fleet manifest and native route read-back;
+Gateway installation/exposure is a separately authorized dev prerequisite.
