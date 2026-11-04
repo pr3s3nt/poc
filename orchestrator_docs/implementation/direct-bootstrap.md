@@ -104,20 +104,15 @@ và load Git-only với các path root mới; đối chiếu 8 module snapshot g
 bytes; docs checker và diff whitespace pass. Không chạy lại backend/frontend
 suite vì không đổi runtime code; chưa chạy target staging/GHES công ty.
 
-## Company resource images and MySQL
+## Company infrastructure image inputs
 
-Enterprise inputs expose digest-pinned PostgreSQL, Redis and MySQL images.
-The publishable resource repository includes the existing MySQL Kubernetes
-module and a Git Definition, keeping the registered MySQL Type contract: image,
-database, username, existing auth Secret/key references and optional storage;
-outputs host/port/database/username/claimName/namespace. No password is passed
-through bootstrap parameters. Secret delivery and registry pull access are
-prerequisites, not implicit mutations. MySQL registration does not extend the
-PostgreSQL/Redis acceptance application or claim live MySQL verification.
-Released embedded backend modules remain unchanged.
+Enterprise input exposes `parameters.postgresImage` and `redisImage`, expanded
+into Definition Terraform variables. Both require digest-pinned images compatible
+with existing module entrypoints; registry host ports are supported. Pull access
+and registry CA on cluster nodes remain prerequisites. Embedded backend modules
+are unchanged. MySQL additions were withdrawn by the user; no MySQL module or
+Definition is included in the publishable folder. The preexisting Resource Type
+list is retained for compatibility.
 
-Validation for MySQL/images: 59 bootstrap tests passed (seven Definitions and
-company image/Secret interpolation); all three Terraform modules validated with
-Kubernetes provider 2.38.0; two mocked MySQL Terraform plans passed (image/Secret/
-PVC/outputs and mutable-image rejection). No target mutations or live MySQL
-connectivity claim; no backend/frontend code changed.
+Validation: bootstrap tests cover company image interpolation; PostgreSQL/Redis
+Terraform modules validated with Kubernetes provider 2.38.0. No staging mutations.

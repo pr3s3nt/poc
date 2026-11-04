@@ -3,7 +3,7 @@
 Đưa **nội dung thư mục này** lên root một repo GitHub Enterprise riêng:
 
 ```
-terraform/             # 9 Terraform modules
+terraform/             # 8 Terraform modules
 templates/standard/  # bộ template chuẩn
 bootstrap/             # Resource Types, Definitions, Workloads, policy
 README.md
@@ -13,7 +13,6 @@ AGENTS.md
 Không tạo thêm tầng `platform-resources/` trong repo mới. Definitions nằm ở
 `bootstrap/definitions/`; chúng tham chiếu module trong `terraform/` qua các
 tham số input. Preset staging dùng bốn module namespace/postgres/redis/storage;
-MySQL có thêm Definition riêng và yêu cầu Secret có sẵn trong namespace;
 các module AWS chỉ là mã nguồn bổ sung, không phải quyền triển khai AWS.
 
 ## Chuyển sang Git công ty
@@ -46,7 +45,6 @@ Các bản module/template embed trong backend Orchestrator được giữ để
 release đã phát hành. Thư mục này là bộ nguồn để publish Git; không sửa ngược
 các snapshot embed bất biến khi tùy chỉnh repo công ty.
 
-Image hạ tầng được điền tại `parameters.postgresImage`, `parameters.redisImage`,
-`parameters.mysqlImage` trong input riêng tư, dạng digest-pinned. Image của
-backend/worker/frontend tiếp tục nằm tại `application.images`. Với MySQL, xem
-`terraform/mysql/README.md` và các tham số Secret/storage trong INPUT_REFERENCE.
+Image PostgreSQL và Redis được điền tại `parameters.postgresImage` và
+`parameters.redisImage` trong input riêng tư, dạng digest-pinned. Image của
+backend/worker/frontend tiếp tục nằm tại `application.images`.

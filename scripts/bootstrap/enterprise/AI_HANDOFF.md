@@ -22,7 +22,7 @@ thiếu, không lấy địa chỉ mẫu làm địa chỉ thật:
   và target cluster được cấp quyền. Preset cơ bản dùng cùng cluster quản lý/target.
 - Vault backend/workload URLs, KV-v2/auth mounts, VSO, quyền tạo role/policy đúng
   app scope; không giả định Vault đã cấu hình Kubernetes auth.
-- Registry nội bộ, digest-pinned PostgreSQL/Redis/MySQL images và immutable acceptance images tương thích release và pull access
+- Registry nội bộ, digest-pinned PostgreSQL/Redis images và immutable acceptance images tương thích release và pull access
   của node/namespace. Bootstrap không build/push images hoặc tự lấy registry token.
 - URL/route/DNS cho acceptance frontend, TLS trust từ browser/Node, quyền tạo scoped
   Role/RoleBinding nếu `namespaceAccess.enabled` được bật.
@@ -65,12 +65,6 @@ hoặc workload TemplatePin đúng; Console inspection vẫn bắt buộc. Helpe
 chỉ nhận regular nonexecutable files; custom module/child modules/phụ thuộc ngoài
 cần được inspect và pin theo đúng policy, không bỏ validation để tiếp tục.
 
-MySQL là Definition thứ bảy, dùng module `terraform/mysql`; app nghiệm thu hiện
-vẫn dùng PostgreSQL/Redis. Điền các `parameters.*Image` và tên Secret/key MySQL
-theo INPUT_REFERENCE, chuẩn bị scoped Secret delivery và node registry pull
-access. Đừng coi đăng ký thành công là đã chạy MySQL thật; khi workload dùng
-MySQL, kiểm tra riêng kết nối/credentials/PVC theo phạm vi được cấp.
-
 ## 3. Preflight và chạy
 
 Từ root checkout, Node 24 và dependencies/Chromium đã cài:
@@ -87,7 +81,7 @@ không dùng insecure flags. Đảm bảo proxy/firewall cho runner, backend, Gi
 Fleet và image pull; thành công từ laptop không chứng minh container truy cập được.
 
 Khi target được cấp quyền và preflight pass, đổi mode sang `bootstrap` để seed
-platform. Kiểm tra Types, bảy Definitions, Git source pins, account, Secret Store,
+platform. Kiểm tra Types, sáu Definitions, Git source pins, account, Secret Store,
 verified Fleet binding và platform default. Nếu default hiện có khác input,
 bootstrap dừng; không ghi đè. Chỉ BOOTSTRAPPED chưa phải app nghiệm thu.
 

@@ -161,27 +161,6 @@
           "path": "bootstrap/definitions/workload.json",
           "sha256": "LOCK_WITH_HELPER"
         }
-      },
-      {
-        "git": {
-          "url": "${bootstrap.inputsRepository}",
-          "ref": "${bootstrap.inputsCommit}",
-          "path": "bootstrap/definitions/mysql.json",
-          "sha256": "LOCK_WITH_HELPER"
-        },
-        "source": {
-          "kind": "git",
-          "url": "${bootstrap.modulesRepository}",
-          "path": "${bootstrap.mysqlModulePath}",
-          "ref": "${bootstrap.modulesCommit}",
-          "pin": {
-            "sourceId": "${bootstrap.moduleSourceId}",
-            "moduleId": "${bootstrap.mysqlModuleId}",
-            "revision": "${bootstrap.modulesCommit}",
-            "subdirectory": "${bootstrap.mysqlModulePath}",
-            "contentSha256": "${bootstrap.mysqlModuleSHA256}"
-          }
-        }
       }
     ],
     "templateSources": [
@@ -297,17 +276,6 @@
     "storageModuleId": "LOCK_WITH_HELPER",
     "storageModuleSHA256": "LOCK_WITH_HELPER",
     "postgresImage": "registry.company.example/platform/postgres@sha256:REPLACE_64_HEX_DIGEST",
-    "redisImage": "registry.company.example/platform/redis@sha256:REPLACE_64_HEX_DIGEST",
-    "mysqlImage": "registry.company.example/platform/mysql@sha256:REPLACE_64_HEX_DIGEST",
-    "mysqlModulePath": "terraform/mysql",
-    "mysqlModuleId": "LOCK_WITH_HELPER",
-    "mysqlModuleSHA256": "LOCK_WITH_HELPER",
-    "mysqlDatabase": "acceptance",
-    "mysqlUsername": "app",
-    "mysqlAuthSecretName": "mysql-auth",
-    "mysqlRootPasswordKey": "root-password",
-    "mysqlUserPasswordKey": "user-password",
-    "mysqlStorage": "10Gi",
-    "mysqlStorageClass": ""
+    "redisImage": "registry.company.example/platform/redis@sha256:REPLACE_64_HEX_DIGEST"
   }
 }
