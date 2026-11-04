@@ -1433,3 +1433,7 @@ Issue #33 Git-only/PVC follow-up:
 | Git-owned Types, Definition/Workload documents, Terraform modules and template sources with immutable pins | `git-inputs.mjs`, `direct-config.mjs`, `git-targets/` | `git-inputs.test.mjs`; [real Git-only run](../verification/2026-11-04-git-bootstrap-pvc.md) |
 | Backend `/data` persistence and unchanged deploy identities after Pod recreation | `verification.mjs`, `e2e/scenarios/bootstrap-git-pvc/` | `backend-storage.test.mjs`; owned Pod/PVC/Deployment UID and file/hash read-back |
 | Retain only the final successful Playwright video | `video.mjs`, Git/PVC scenario | `video.test.mjs`; final 33.68-second workload recording visually checked |
+
+UC-03 SP-01–03 saved source identity: `SavedSourceSummary.tsx`, Definition and
+Template driver editors; regression tests in `SavedSourceSummary.test.tsx` and
+Catalog/Definition suites. [Browser/check evidence](../verification/2026-11-04-definition-source-provenance.md).

@@ -3802,5 +3802,13 @@
   "templateDriver.schema": "Input schema (JSON)",
   "templateDriver.defaults": "Defaults (YAML)",
   "templateDriver.outputs": "Output references (JSON)",
-  "templateDriver.inlineRenderSource": "Inline · {version}"
+  "templateDriver.inlineRenderSource": "Inline · {version}",
+  "sourceSummary.saved": "Saved source",
+  "sourceSummary.platform": "Platform module",
+  "sourceSummary.catalogSource": "Catalog source",
+  "sourceSummary.version": "Version",
+  "sourceSummary.repository": "Repository",
+  "sourceSummary.unavailable": "Repository metadata unavailable",
+  "sourceSummary.change": "Change source",
+  "sourceSummary.registered": "Registered sources"
 }

@@ -216,3 +216,8 @@ transport; it never persists settings or verified bundle data.
 [DV realization](definition-versions.md#realization) extends the existing Create/
 Update transaction with immutable revision storage and policy CAS. Runtime
 resolves Environment snapshots rather than mutable editing heads.
+
+Saved source provenance (SP-01–03): the Console resolves the stored exact pin
+against verified capability/template-source metadata, renders its origin read-only
+and keeps the existing save payload. Explicit Change source reveals preparation/
+selection; no GET or reopening causes source preparation or revision mutation.

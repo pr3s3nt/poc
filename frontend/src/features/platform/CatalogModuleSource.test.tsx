@@ -94,9 +94,12 @@ describe('Catalog module selection', () => {
     state.definitions = [{ ...posted[0]!, version: 1 }];
     render(<ResourceDefinitionsPage />);
     await user.click(await screen.findByRole('button', { name: 'Sửa cấu hình catalog-network' }));
+    const summary=screen.getByLabelText('Nguồn đã lưu');
+    expect(summary).toHaveTextContent('Catalog');expect(summary).toHaveTextContent('v1.0.0');
+    expect(screen.queryByLabelText('Module trong Catalog')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button',{name:'Đổi nguồn'}));
     await waitFor(() => expect(field('Module trong Catalog')).toHaveValue('network'));
     expect(field('Phiên bản Catalog')).toHaveValue('v1.0.0');
-    expect(screen.getByRole('button', { name: 'Catalog' })).toHaveAttribute('aria-pressed', 'true');
 
   });
 });

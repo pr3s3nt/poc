@@ -543,3 +543,15 @@ role/scope isolation, credential persistence, Test and Save behavior.
 
 [DV-01–07](definition-versions.md) supersedes mutable-global runtime upgrade behavior
 in CM-04. Existing Environments retain frozen revisions until explicitly upgraded.
+
+## Saved source provenance — user decision 2026-11-04
+
+- **SP-01:** Reopening a Definition displays its saved source kind (Git, Catalog,
+  ZIP, Inline or platform/registered source) from exact verified metadata, not
+  the fact that it is cached/registered. Git shows repository, path and pinned
+  full commit with safe HTTPS source links. Catalog shows source/version/module.
+- **SP-02:** Parameter-only edits preserve the exact module/template pin and
+  Catalog provenance. Source controls open only after explicit Change source;
+  missing metadata never selects a different available module or latest version.
+- **SP-03:** Template source selection is called Registered sources, not Catalog,
+  when it lists prepared Git/ZIP/Inline sources rather than Catalog releases.

@@ -271,3 +271,11 @@ Resource References. Existing placement may supply the cluster through namespace
 Inline uses named file editors; schema/default details remain collapsed.
 Workload authoring/import uses Generic Workload and keeps existing env/storage/
 scheduling controls and shared config/secret pickers. No shell/theme redesign.
+
+### Saved Definition source identity — 2026-11-04
+
+Use the existing module/template card and `pin-panel` definition list for the
+saved source summary (UC-03 SP-01–03). Source origin and immutable version stay
+visible; creation/replacement controls are progressive disclosure via Change
+source. Registration/cache status does not replace origin. Reuse current styles,
+buttons and VI/EN message catalogs; no shell/theme change.

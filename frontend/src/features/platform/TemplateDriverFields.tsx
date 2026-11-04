@@ -1,3 +1,4 @@
+import { SavedSourceSummary } from './SavedSourceSummary';
 import { deploymentTemplate, serviceTemplate } from "./inlineTemplates";
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../shared/api/client';
@@ -20,8 +21,9 @@ const initialFiles = JSON.stringify({
   'service.tpl': serviceTemplate,
 }, null, 2);
 
-export function TemplateDriverFields({ value, onChange, disabled }: { value: TemplateDriverDraft; onChange: (value: TemplateDriverDraft) => void; disabled: boolean }) {
-  const [mode, setMode] = useState<'inline' | 'git' | 'zip' | 'catalog'>('catalog');
+export function TemplateDriverFields({ value, onChange, disabled, editing=false }: { value: TemplateDriverDraft; onChange: (value: TemplateDriverDraft) => void; disabled: boolean; editing?: boolean }) {
+  const [changingSource, setChangingSource] = useState(false);
+  const [mode, setMode] = useState<'inline' | 'git' | 'zip' | 'registered'>('registered');
   const [sources, setSources] = useState<TemplateSource[]>([]);
   const [reload, setReload] = useState(0);
   const [git, setGit] = useState(emptyGitSource);
@@ -52,8 +54,11 @@ export function TemplateDriverFields({ value, onChange, disabled }: { value: Tem
   }
   return <>
     <section className="definition-card"><div className="definition-card-title"><h3>{t('templateDriver.manifests')}</h3><span className="definition-driver">Template</span></div>
+      {selected ? <SavedSourceSummary source={selected.source ?? {kind:'registered',revision:selected.version}} /> : null}
+      {editing && !changingSource ? <Button type="button" disabled={disabled || busy} onClick={() => setChangingSource(true)}>{t('sourceSummary.change')}</Button> : null}
+      {!editing || changingSource ? <>
       <div className="definition-segmented" role="group" aria-label={t('templateDriver.source')}>
-        {(['inline', 'git', 'zip', 'catalog'] as const).map((kind) => <Button key={kind} type="button" disabled={disabled || busy} aria-pressed={mode === kind} onClick={() => { request.current++; setMode(kind); setError(''); }}>{kind === 'inline' ? t('templateDriver.inline') : kind === 'git' ? 'Git' : kind === 'zip' ? 'ZIP' : 'Catalog'}</Button>)}
+        {(['inline', 'git', 'zip', 'registered'] as const).map((kind) => <Button key={kind} type="button" disabled={disabled || busy} aria-pressed={mode === kind} onClick={() => { request.current++; setMode(kind); setError(''); }}>{kind === 'inline' ? t('templateDriver.inline') : kind === 'git' ? 'Git' : kind === 'zip' ? 'ZIP' : t('sourceSummary.registered')}</Button>)}
       </div>
       {mode === 'inline' ? <>
         {templateNames.map((name) => <label key={name}>{name}<textarea aria-label={name} rows={9} spellCheck={false} disabled={disabled || busy} value={fileObject[name]} onChange={(event) => changeFile(name, event.target.value)} /></label>)}
@@ -63,6 +68,7 @@ export function TemplateDriverFields({ value, onChange, disabled }: { value: Tem
       {mode === 'git' ? <GitBundleSource draft={git} onDraftChange={setGit} disabled={disabled} onResult={accept} /> : null}
       {mode === 'zip' ? <ZIPSource endpoint="/template-sources/upload" disabled={disabled} parseResult={(response) => { if (typeof response !== 'object' || response === null || !('templateSource' in response)) throw new Error('invalid metadata'); return parseTemplateSource(response.templateSource); }} onResult={accept} /> : null}
       <label>{t('templateDriver.verifiedSource')}<select aria-label={t('templateDriver.verifiedSource')} value={value.source} disabled={disabled || busy} onChange={(event) => onChange({ ...value, source: event.target.value, inputs: {}, blocked: false })}><option value="">{t('templateDriver.chooseSource')}</option>{sources.map((source) => <option key={source.id} value={source.id} disabled={source.status !== 'AVAILABLE'}>{source.name ?? source.id} · {source.version}</option>)}</select></label>
+      </> : null}
       {selected?.source ? <details><summary>{t('templateDriver.pin')}</summary><code>{selected.source.revision}</code><p><code>{selected.source.contentSha256}</code></p></details> : null}
       {error ? <p role="alert" className="form-error">{error} {error === t('templateDriver.loadError') ? <Button type="button" onClick={() => setReload((value) => value + 1)}>{t('platform.resourceDefinitions.retry')}</Button> : null}</p> : null}
     </section>

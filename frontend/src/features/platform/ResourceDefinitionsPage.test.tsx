@@ -885,7 +885,7 @@ describe('UC-03 V02 Definition edit', () => {
     expect(field('Tên hiển thị')).toHaveValue('VPC chính');
     expect(field('Tài khoản hạ tầng')).toHaveValue('aws-account');
     expect(field('Vùng AWS')).toHaveValue('ap-southeast-1');
-    expect(field('Module đã kiểm chứng')).toBeDisabled();
+    expect(screen.queryByLabelText('Module đã kiểm chứng')).not.toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: /Điều kiện áp dụng/ }));
     expect(field('Điều kiện 1 ID ứng dụng')).toHaveValue('shop');
     expect(field('Điều kiện 1 ID môi trường')).toHaveValue('production');
@@ -1004,6 +1004,7 @@ describe('UC-03 V02 Definition edit', () => {
     await screen.findByText('PG chính');
     await waitFor(() => expect(screen.getByRole('option', { name: 'postgres', hidden: true })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: 'Sửa cấu hình pg-main' }));
+    await user.click(screen.getByRole('button',{name:'Đổi nguồn'}));
     expect(field('Module đã kiểm chứng')).toBeEnabled();
     expect(field('Loại tài nguyên')).toBeDisabled();
     expect(field('ID cấu hình (Definition ID)')).toHaveAttribute('readonly');

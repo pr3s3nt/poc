@@ -1,3 +1,4 @@
+import { SavedSourceSummary, moduleOrigin } from './SavedSourceSummary';
 import { TemplateDriverFields, emptyTemplateDriver, type TemplateDriverDraft } from "./TemplateDriverFields";
 import { DefinitionVersions } from './DefinitionVersions';
 import { CatalogModuleSource, type CatalogModuleSelection } from './CatalogModuleSource';
@@ -121,6 +122,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   const [review, setReview] = useState<Review>(null);
   // The stored module of an edited Definition is no longer verified: the replacement pin must then be chosen explicitly, never inferred.
   const [sourceLost, setSourceLost] = useState(false);
+  const [changingSource, setChangingSource] = useState(false);
   const formRef = useRef<HTMLElement | null>(null);
   useEffect(() => { if (view === 'editor') formRef.current?.closest('.page')?.scrollIntoView?.({ block: 'start' }); }, [view, editing?.key]);
 
@@ -143,7 +145,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   }, [typeList.loading, typeList.loadError, typeList.items, capabilityList.loading, capabilityList.loadError, capabilityList.items, initialResourceType]);
 
   // One verified pin is chosen for the user; several need an explicit choice.
-  const pin: Capability | undefined = isTemplate ? capabilityList.items.find((item) => item.resourceType === 'workload' && item.driverType === 'template') : existingCluster ? existingCapability : sourceMode !== 'installed' ? (gitPin?.resourceType === resourceType ? gitPin : undefined) : typePins.length === 1 && !sourceLost ? typePins[0] : typePins.find((candidate) => capabilityKey(candidate) === pinChoice);
+  const pin: Capability | undefined = isTemplate ? capabilityList.items.find((item) => item.resourceType === 'workload' && item.driverType === 'template') : existingCluster ? existingCapability : sourceMode !== 'installed' ? (gitPin?.resourceType === resourceType ? gitPin : undefined) : (!editing || changingSource) && typePins.length === 1 && !sourceLost ? typePins[0] : typePins.find((candidate) => capabilityKey(candidate) === pinChoice);
   const draftKey = pin ? capabilityKey(pin) : '';
   const draft = drafts[draftKey] ?? initialDraft();
   const patchDraft = (change: Partial<PairDraft>) => { if (draftKey) setDrafts((current) => ({ ...current, [draftKey]: { ...initialDraft(), ...current[draftKey], ...change } })); };
@@ -306,7 +308,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
 
     setView('editor');
     setTab('configuration'); setAdvancedOpen(false);
-    setSourceMode('installed'); setGitPin(null); setCatalogSelection(undefined); setInitialCatalogSelection(undefined);
+    setChangingSource(false); setSourceMode('installed'); setGitPin(null); setCatalogSelection(undefined); setInitialCatalogSelection(undefined);
     setClusterMethod(definition.driverType === 'existing-cluster' ? 'existing-cluster' : 'terraform');
     if (definition.driverType === 'existing-cluster') {
       const capability = capabilityList.items.find((item) => item.resourceType === definition.resourceType && item.driverType === 'existing-cluster');
@@ -416,6 +418,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
         return;
       }
       // Committed: stay on the edited Definition at its new version; the list reload is a separate, retryable GET.
+      setChangingSource(false);
       setEditing({ key: saved.key, version: saved.version ?? editing.version + 1 });
       setNotice(t('platform.resourceDefinitions.savedDefinitionKeyVersionValue', { key: saved.key, value: saved.version ?? editing.version + 1 }));
       setSaving(false);
@@ -459,7 +462,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   const reviewCriteria = draftToCriteria(criteriaDraft);
   const reviewProblem = reviewInputs.problem || reviewCriteria.problem;
   const reviewDocument = reviewProblem ? null : { key, name, resourceType, driverType: pin?.driverType ?? 'terraform', ...(accountRequired ? { driverAccount: chosenAccount } : {}), driverInputs: { values: reviewInputs.values, ...(sourceMode === 'catalog' && catalogSelection ? { catalog: catalogSelection } : {}) }, provision: reviewInputs.provision, criteria: reviewCriteria.criteria, ...(editing ? { version: editing.version } : {}) };
-  const saveDisabled = saving || types.length === 0 || !metadataReady || review !== null || (!isTemplate && !existingCluster && sourceMode !== 'installed' && !gitPin);
+  const saveDisabled = sourceLost || saving || types.length === 0 || !metadataReady || review !== null || (!isTemplate && !existingCluster && sourceMode !== 'installed' && !gitPin);
 
   const identityFields = <>
 <div className={`field-grid definition-identity-fields${editing ? ' definition-edit-identity' : ''}`}><label>{t('platform.resourceDefinitions.definitionID')}<input value={key} tabIndex={editing ? -1 : undefined} readOnly={editing !== null} aria-readonly={editing !== null ? true : undefined} aria-required="true" aria-invalid={idError ? true : undefined} aria-describedby={idError ? 'definition-id-hint definition-id-error' : 'definition-id-hint'} onChange={(event) => { setKey(event.target.value); setIdError(''); }} /></label>
@@ -502,10 +505,13 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
         <div className="definition-tab-intro"><h2>{t('platform.resourceDefinitions.provisioningMethod')}</h2><p>{t('platform.resourceDefinitions.chooseHowTheResourceIs')}</p></div>
         <div className="definition-layout"><div className="definition-main">
         {!editing ? <section className="definition-card definition-create-identity" aria-label={t('platform.resourceDefinitions.definitionDetails')}>{identityFields}</section> : null}
-        {resourceType === clusterType ? <section className="definition-card"><label>{t('platform.resourceDefinitions.clusterProvisioning')}<select value={clusterMethod} onChange={(event) => setClusterMethod(event.target.value as 'terraform' | 'existing-cluster')}><option value="terraform">{t('platform.resourceDefinitions.createAClusterWithTerraform')}</option><option value="existing-cluster" disabled={!existingCapability}>{t('platform.resourceDefinitions.useAnExistingCluster')}</option></select></label></section> : null}
-        {isTemplate ? <TemplateDriverFields key={editing?.key ?? 'new'} value={templateDraft} onChange={setTemplateDraft} disabled={saving} /> : null}
+        {resourceType === clusterType ? <section className="definition-card"><label>{t('platform.resourceDefinitions.clusterProvisioning')}<select value={clusterMethod} onChange={(event) => { setClusterMethod(event.target.value as 'terraform' | 'existing-cluster'); if(editing)setChangingSource(true); }}><option value="terraform">{t('platform.resourceDefinitions.createAClusterWithTerraform')}</option><option value="existing-cluster" disabled={!existingCapability}>{t('platform.resourceDefinitions.useAnExistingCluster')}</option></select></label></section> : null}
+        {isTemplate ? <TemplateDriverFields key={editing?.key ?? 'new'} value={templateDraft} onChange={setTemplateDraft} disabled={saving} editing={Boolean(editing)} /> : null}
         {existingCluster ? <section className="definition-card"><h3>{t('platform.resourceDefinitions.existingCluster')}</h3><p>{t('platform.resourceDefinitions.chooseAnInternalAccountRegistered')}</p></section> : null}
         <section hidden={existingCluster || isTemplate} className="definition-card definition-module" aria-label={t('platform.resourceDefinitions.terraformModule')}><div className="definition-card-title"><span className="definition-step">1</span><h3>{t('platform.resourceDefinitions.terraformModule')}</h3>{pin ? <span className="definition-verified">{t('platform.resourceDefinitions.verified')}</span> : null}</div>
+        {pin?.source ? <SavedSourceSummary source={moduleOrigin(pin.source)} catalog={catalogSelection} /> : null}
+        {editing && !changingSource && !sourceLost ? <Button type="button" disabled={saving} onClick={() => setChangingSource(true)}>{t('sourceSummary.change')}</Button> : null}
+        {!editing || changingSource || sourceLost ? <>
         <div className="definition-segmented" role="group" aria-label={t('platform.resourceDefinitions.terraformModuleSource')}><Button type="button" aria-pressed={sourceMode === 'git'} onClick={() => { if (sourceMode !== 'git') { setGitPin(null); setCatalogSelection(undefined); setSourceMode('git'); } }}>{t('platform.resourceDefinitions.addFromGit')}</Button><Button type="button" aria-pressed={sourceMode === 'zip'} onClick={() => { if (sourceMode !== 'zip') { setGitPin(null); setSourceMode('zip'); } }}>{t('platform.zipSource.uploadZIP')}</Button><Button type="button" aria-pressed={sourceMode === 'catalog'} onClick={() => { if (sourceMode !== 'catalog') { setGitPin(null); setCatalogSelection(undefined); setInitialCatalogSelection(undefined); setSourceMode('catalog'); } }}>{t('platform.catalogModule.title')}</Button><Button type="button" aria-pressed={sourceMode === 'installed'} onClick={() => setSourceMode('installed')}>{t('platform.resourceDefinitions.registeredModules')}</Button></div>
         {sourceMode === 'git' ? <GitModuleSource key={gitDraftVersion} resourceType={resourceType} active={sourceMode === 'git'} disabled={saving || !typesReady || !metadataReady} onResult={setGitPin} /> : null}
         {sourceMode === 'catalog' ? <CatalogModuleSource key={`${gitDraftVersion}-${resourceType}-${editing?.key ?? ''}-${JSON.stringify(initialCatalogSelection)}`} resourceType={resourceType} disabled={saving || !typesReady || !metadataReady} initialSelection={initialCatalogSelection} onResult={(capability, selection) => { setGitPin(capability); setCatalogSelection(selection); }} /> : null}
@@ -519,6 +525,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
             {typePins.length === 0 ? <option value="">{t('platform.resourceDefinitions.notSelectedChooseAType')}</option> : typePins.length > 1 || sourceLost ? <option value="">{t('platform.resourceDefinitions.chooseAModuleAndVersion')}</option> : null}
             {typePins.map((candidate) => <option key={capabilityKey(candidate)} value={capabilityKey(candidate)}>{pinLabel(candidate)}</option>)}</select></label>
           <label className="definition-sr-only">Driver Type<input aria-label="Driver Type" tabIndex={-1} readOnly value={pin ? own(driverLabels, pin.driverType) ?? pin.driverType : ''} placeholder={t('platform.resourceDefinitions.followsTheSelectedModule')} aria-describedby="driver-type-hint" /></label></div>
+        </> : null}
         <p id="driver-type-hint" className="definition-sr-only">{t('platform.resourceDefinitions.theDriverTypeComesFrom')}</p>
         {pin?.source ? <details><summary>{t('platform.resourceDefinitions.moduleTechnicalDetails')}</summary><dl className="pin-panel" aria-label={t('platform.resourceDefinitions.verifiedModulePin')}>
           <div><dt>Module</dt><dd><code>{pin.source.moduleId}</code></dd></div><div><dt>{t('platform.resourceDefinitions.source')}</dt><dd><code>{pin.source.sourceId}</code></dd></div>

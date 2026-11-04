@@ -3802,5 +3802,13 @@
   "templateDriver.schema": "Input schema (JSON)",
   "templateDriver.defaults": "Mặc định (YAML)",
   "templateDriver.outputs": "Tham chiếu output (JSON)",
-  "templateDriver.inlineRenderSource": "Inline · {version}"
+  "templateDriver.inlineRenderSource": "Inline · {version}",
+  "sourceSummary.saved": "Nguồn đã lưu",
+  "sourceSummary.platform": "Module nền tảng",
+  "sourceSummary.catalogSource": "Nguồn Catalog",
+  "sourceSummary.version": "Phiên bản",
+  "sourceSummary.repository": "Repository",
+  "sourceSummary.unavailable": "Chưa có thông tin repository",
+  "sourceSummary.change": "Đổi nguồn",
+  "sourceSummary.registered": "Nguồn đã đăng ký"
 }

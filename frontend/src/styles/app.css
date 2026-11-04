@@ -725,3 +725,8 @@ a { color: inherit; }
 .git-settings-fields .field { display: grid; gap: 7px; }
 .git-settings-fields details { margin: 1rem 0; }
 .git-settings-fields summary { cursor: pointer; font-weight: 600; margin-bottom: 1rem; }
+
+.saved-source-summary { margin:0; font-size:14px; }
+.saved-source-summary > div { display:grid; grid-template-columns:100px minmax(0,1fr); gap:12px; padding:7px 0; }
+.saved-source-summary dt { color:var(--muted); }
+.saved-source-summary dd { margin:0; min-width:0; overflow-wrap:anywhere; }

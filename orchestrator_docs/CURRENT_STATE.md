@@ -7,6 +7,15 @@ last_reviewed: 2026-11-04
 
 # Current project state
 
+## Saved Definition source identity — 2026-11-04
+
+Definitions show saved Git/Catalog/ZIP/Inline/platform provenance rather than
+registration status. Explicit Change source gates replacement controls; plain
+parameter edits retain the exact pin. Template prepared-source selection is
+labelled Registered sources. 129 relevant tests/typecheck/lint/build and real
+Tailscale browser pass; two historical Score scenario checks reproduce on base.
+[Evidence](verification/2026-11-04-definition-source-provenance.md).
+
 ## Direct Definition bootstrap — issue #33, 2026-11-04
 
 SchemaVersion 3 in `scripts/bootstrap/` accepts environment-specific input,

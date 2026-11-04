@@ -304,3 +304,13 @@ settings screen at `/ui/platform/settings`, separate from Definition authoring.
 selection. Compare shows changed configuration paths; full JSON remains an optional
 disclosure. Empty history, unknown applied evidence, loading/error/retry and stale
 selection keep distinct states. Busy scopes disable selection without replay.
+
+## Saved source summary — SP-01–03
+
+The existing module/template card shows a compact source summary on reopen. Git
+shows repository, path and full pinned commit with a safe repository/source link;
+ZIP/Inline/platform are named accurately, while Catalog retains source, version
+and component identity. Hashes remain in technical details. A Change source
+button reveals the existing Git/ZIP/Inline/Catalog/registered selectors. Plain
+parameter edits keep the saved pin; missing metadata stays blocked. Template
+prepared-source lists are labelled Registered sources, not Catalog.
