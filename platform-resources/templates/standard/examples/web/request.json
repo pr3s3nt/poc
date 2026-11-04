@@ -1,0 +1,20 @@
+{
+  "workloadId": "web",
+  "namespace": "app-shop-staging",
+  "labels": {"orchestrator.io/application": "shop", "orchestrator.io/environment": "staging", "orchestrator.io/deployment-id": "example-deployment"},
+  "inputs": {"team": "payments"},
+  "module": {
+    "profile": "score",
+    "spec": {
+      "containers": {
+        "main": {"image": "example/web:1.2.0", "args": ["--port", "8080"], "resources": {"requests": {"cpu": "50m"}}, "readinessProbe": {"path": "/healthz", "port": 8080}},
+        "sidecar": {"image": "example/agent:1", "resources": {"limits": {"memory": "96Mi"}}}
+      },
+      "service": {"ports": {"http": {"port": 80, "targetPort": 8080}}}
+    }
+  },
+  "plainEnv": {"main": {"PGHOST": "postgres.app-shop-staging.svc", "PRICE": "costs $5", "EMPTY": ""}},
+  "secretEnv": {"main": {"PGPASSWORD": "example-only-not-a-secret"}},
+  "configSecretName": "web-config",
+  "configSecretKeys": {"main": {"API_KEY": "main_API_KEY"}}
+}

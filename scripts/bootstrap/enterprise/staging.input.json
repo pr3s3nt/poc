@@ -30,7 +30,7 @@
       "git": {
         "url": "${bootstrap.inputsRepository}",
         "ref": "${bootstrap.inputsCommit}",
-        "path": "scripts/bootstrap/git-assets/portable/resource-types.json",
+        "path": "bootstrap/resource-types.json",
         "sha256": "LOCK_WITH_HELPER"
       }
     },
@@ -55,7 +55,7 @@
           "git": {
             "url": "${bootstrap.inputsRepository}",
             "ref": "${bootstrap.inputsCommit}",
-            "path": "scripts/bootstrap/git-assets/portable/fleet-access.json",
+            "path": "bootstrap/fleet-access.json",
             "sha256": "LOCK_WITH_HELPER"
           }
         }
@@ -66,7 +66,7 @@
         "git": {
           "url": "${bootstrap.inputsRepository}",
           "ref": "${bootstrap.inputsCommit}",
-          "path": "scripts/bootstrap/git-assets/portable/cluster.json",
+          "path": "bootstrap/definitions/cluster.json",
           "sha256": "LOCK_WITH_HELPER"
         }
       },
@@ -74,7 +74,7 @@
         "git": {
           "url": "${bootstrap.inputsRepository}",
           "ref": "${bootstrap.inputsCommit}",
-          "path": "scripts/bootstrap/git-assets/portable/k8s-namespace.json",
+          "path": "bootstrap/definitions/k8s-namespace.json",
           "sha256": "LOCK_WITH_HELPER"
         },
         "source": {
@@ -95,7 +95,7 @@
         "git": {
           "url": "${bootstrap.inputsRepository}",
           "ref": "${bootstrap.inputsCommit}",
-          "path": "scripts/bootstrap/git-assets/portable/postgres.json",
+          "path": "bootstrap/definitions/postgres.json",
           "sha256": "LOCK_WITH_HELPER"
         },
         "source": {
@@ -116,7 +116,7 @@
         "git": {
           "url": "${bootstrap.inputsRepository}",
           "ref": "${bootstrap.inputsCommit}",
-          "path": "scripts/bootstrap/git-assets/portable/redis.json",
+          "path": "bootstrap/definitions/redis.json",
           "sha256": "LOCK_WITH_HELPER"
         },
         "source": {
@@ -137,7 +137,7 @@
         "git": {
           "url": "${bootstrap.inputsRepository}",
           "ref": "${bootstrap.inputsCommit}",
-          "path": "scripts/bootstrap/git-assets/portable/storage.json",
+          "path": "bootstrap/definitions/storage.json",
           "sha256": "LOCK_WITH_HELPER"
         },
         "source": {
@@ -158,7 +158,7 @@
         "git": {
           "url": "${bootstrap.inputsRepository}",
           "ref": "${bootstrap.inputsCommit}",
-          "path": "scripts/bootstrap/git-assets/portable/workload.json",
+          "path": "bootstrap/definitions/workload.json",
           "sha256": "LOCK_WITH_HELPER"
         }
       }
@@ -168,7 +168,7 @@
         "name": "acceptance",
         "kind": "git",
         "url": "${bootstrap.templatesRepository}",
-        "path": "backend/template-sources/standard",
+        "path": "templates/standard",
         "ref": "${bootstrap.templatesCommit}",
         "pin": {
           "revision": "${bootstrap.templatesCommit}",
@@ -205,7 +205,7 @@
         "git": {
           "url": "${bootstrap.inputsRepository}",
           "ref": "${bootstrap.inputsCommit}",
-          "path": "scripts/bootstrap/git-assets/portable/backend.yaml",
+          "path": "bootstrap/workloads/backend.yaml",
           "sha256": "LOCK_WITH_HELPER"
         }
       },
@@ -213,7 +213,7 @@
         "git": {
           "url": "${bootstrap.inputsRepository}",
           "ref": "${bootstrap.inputsCommit}",
-          "path": "scripts/bootstrap/git-assets/portable/worker.yaml",
+          "path": "bootstrap/workloads/worker.yaml",
           "sha256": "LOCK_WITH_HELPER"
         }
       },
@@ -221,7 +221,7 @@
         "git": {
           "url": "${bootstrap.inputsRepository}",
           "ref": "${bootstrap.inputsCommit}",
-          "path": "scripts/bootstrap/git-assets/portable/frontend.yaml",
+          "path": "bootstrap/workloads/frontend.yaml",
           "sha256": "LOCK_WITH_HELPER"
         }
       }
@@ -263,16 +263,16 @@
     "templatesCommit": "REPLACE_FULL_COMMIT",
     "moduleSourceId": "LOCK_WITH_HELPER",
     "templateTreeSHA256": "LOCK_WITH_HELPER",
-    "namespaceModulePath": "backend/internal/adapters/terraform/modules/k8s-namespace",
+    "namespaceModulePath": "terraform/k8s-namespace",
     "namespaceModuleId": "LOCK_WITH_HELPER",
     "namespaceModuleSHA256": "LOCK_WITH_HELPER",
-    "postgresModulePath": "backend/internal/adapters/terraform/modules/postgres-k8s",
+    "postgresModulePath": "terraform/postgres",
     "postgresModuleId": "LOCK_WITH_HELPER",
     "postgresModuleSHA256": "LOCK_WITH_HELPER",
-    "redisModulePath": "backend/internal/adapters/terraform/modules/redis-k8s",
+    "redisModulePath": "terraform/redis",
     "redisModuleId": "LOCK_WITH_HELPER",
     "redisModuleSHA256": "LOCK_WITH_HELPER",
-    "storageModulePath": "backend/terraform-modules/persistent-storage",
+    "storageModulePath": "terraform/persistent-storage",
     "storageModuleId": "LOCK_WITH_HELPER",
     "storageModuleSHA256": "LOCK_WITH_HELPER"
   }

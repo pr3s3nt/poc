@@ -1123,7 +1123,7 @@ committed business documents. `verification.mjs` checks backend PVC/file identit
 its actual Chromium lifecycle.
 
 Enterprise bootstrap: `scripts/bootstrap/enterprise/` contains input and internal-AI
-setup docs; `git-assets/portable/`, `input-parameters.mjs`, `enterprise-lock.mjs` and
+setup docs; `platform-resources/`, `input-parameters.mjs`, `enterprise-lock.mjs` and
 `lock-enterprise-input.mjs` implement data portability/offline pinning. Enterprise
 host/API/CA inheritance is in `application/delivery/bindings.go`; repository API
 TLS trust is in `adapters/repositoryhosting/github/github.go`.

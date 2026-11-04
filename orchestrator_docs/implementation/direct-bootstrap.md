@@ -83,3 +83,23 @@ its public API. Repository-hosting HTTPS trusts the declared CA and never disabl
 TLS or forwards credentials through redirects. No staging mutation is authorized
 by a preset. The internal-AI handoff must list prerequisites, inputs, permissions,
 checks, resume/conflict behavior, retention and known limits.
+
+## Standalone platform resource repository — approved 2026-11-04
+
+`platform-resources/` is the publishable Git-owned asset set: Terraform modules,
+workload templates and portable bootstrap Types/Definitions/Workloads/policy.
+Publishing its contents at a new repository root uses `terraform/`, `templates/`
+and `bootstrap/` paths. Company input points to that repository/full commits;
+the existing offline locker recomputes source IDs, module IDs and content pins.
+No Orchestrator Go/React code or credentials belong in the resource repository.
+
+Embedded Terraform/template files under backend remain frozen runtime release
+assets required by Go embed and legacy pinned inputs. They are retained for
+compatibility, not the directory the company should publish. Packaging copies
+only tracked regular source assets and never runtime state/cache. Historical
+Git references pinned to old commits retain their original valid paths.
+
+Validation cho layout repo tài nguyên: 59 bootstrap tests pass, gồm offline lock
+và load Git-only với các path root mới; đối chiếu 8 module snapshot giữ nguyên
+bytes; docs checker và diff whitespace pass. Không chạy lại backend/frontend
+suite vì không đổi runtime code; chưa chạy target staging/GHES công ty.

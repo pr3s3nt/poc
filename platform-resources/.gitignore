@@ -1,0 +1,14 @@
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/terraform.tfvars
+**/terraform.tfvars.json
+**/*.auto.tfvars
+**/*.auto.tfvars.json
+.env
+.env.*
+node_modules/
+state/
+reports/
+secrets/
+*.kubeconfig

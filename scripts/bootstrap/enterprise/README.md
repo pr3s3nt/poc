@@ -10,7 +10,7 @@ Bắt đầu từ [bàn giao cho AI](AI_HANDOFF.md), [chú thích input](INPUT_R
 | File | Vai trò |
 |---|---|
 | `staging.input.json` | Mẫu input schema 3; thay các giá trị công ty và commit, không chứa secret |
-| `../git-assets/portable/` | Resource Types, sáu Definitions, ba Workloads và policy RBAC dùng chung, lưu trong Git nội bộ |
+| `../../../platform-resources/` | Resource Types, sáu Definitions, ba Workloads và policy RBAC dùng chung, lưu trong Git nội bộ |
 | `../lock-enterprise-input.mjs` | Tính pin/hash từ đúng commit đã có trong checkout, xuất file input riêng tư |
 | `INPUT_REFERENCE.md` | Giải thích trường cấu hình, giá trị nào cần thay |
 | `AI_HANDOFF.md` | Trình tự setup, kiểm tra, chạy, xử lý lỗi và bàn giao |
@@ -23,8 +23,9 @@ trước khi áp dụng tham số. Không dùng tham số cho mật khẩu/token
 
 ## Luồng chạy
 
-1. Đưa bộ tài liệu portable vào repo GitHub Enterprise của công ty; giữ chúng
-   trong cùng release với công cụ. Chọn commit đã review. Đây là công việc publish
+1. Đưa **nội dung** `platform-resources/` vào root repo GitHub Enterprise riêng:
+   root có `terraform/`, `templates/`, `bootstrap/`. Ba URL nguồn có thể cùng repo.
+   Dùng preset tương thích release công cụ, chọn commit đã review. Đây là công việc publish
    có quyền riêng; công cụ lock không tự push.
 2. Copy `staging.input.json` ra thư mục riêng tư, ví dụ `/var/lib/orch-bootstrap/staging/`.
    Điền URL, context/endpoint, đường dẫn credential, registry, Vault, access URL,
