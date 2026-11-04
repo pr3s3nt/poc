@@ -1,0 +1,19 @@
+{
+  "key": "git-staging-cluster",
+  "name": "Git staging cluster",
+  "resourceType": "k8s-cluster",
+  "driverType": "existing-cluster",
+  "driverInputs": {
+    "values": {
+      "variables": {}
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "production",
+      "class": "git-staging"
+    }
+  ],
+  "driverAccount": "${account.key}"
+}

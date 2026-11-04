@@ -1,0 +1,41 @@
+{
+  "key": "git-staging-redis",
+  "name": "Git staging redis",
+  "resourceType": "redis",
+  "driverType": "terraform",
+  "driverInputs": {
+    "values": {
+      "variables": {
+        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+      },
+      "source": {
+        "source_id": "git-7dc6fe0ec3a6493b6b784f69aed5acac5bb6ffb109cdf639f3c65f03",
+        "module_id": "redis-k8s",
+        "revision": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+        "subdirectory": "backend/internal/adapters/terraform/modules/redis-k8s",
+        "content_sha256": "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"
+      },
+      "input_mapping": {},
+      "output_mapping": {
+        "host": "host",
+        "password": "password",
+        "port": "port",
+        "tls": "tls",
+        "username": "username"
+      },
+      "provider_bindings": {
+        "kubernetes": {
+          "target": "resource",
+          "resource_ref": "k8s-cluster.git-staging#environments.@app.@env"
+        }
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "production",
+      "class": "in-cluster"
+    }
+  ]
+}

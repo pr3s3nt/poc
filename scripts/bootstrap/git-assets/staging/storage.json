@@ -1,0 +1,42 @@
+{
+  "key": "git-staging-storage",
+  "name": "Git staging backend storage",
+  "resourceType": "persistent-storage",
+  "driverType": "terraform",
+  "driverInputs": {
+    "values": {
+      "source": {
+        "source_id": "git-7dc6fe0ec3a6493b6b784f69aed5acac5bb6ffb109cdf639f3c65f03",
+        "module_id": "module-3cf4a61a6de996f329ba2f2548b123a7c",
+        "revision": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+        "subdirectory": "backend/terraform-modules/persistent-storage",
+        "content_sha256": "78353f77590598641291ecb4b7a740174ac48e3a6b04986c1286f8e7bce50bb7"
+      },
+      "variables": {
+        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+        "storage": "1Gi"
+      },
+      "input_mapping": {
+        "storage": {
+          "param": "storage"
+        }
+      },
+      "output_mapping": {
+        "claimName": "claimName",
+        "namespace": "namespace"
+      },
+      "provider_bindings": {
+        "kubernetes": {
+          "target": "resource",
+          "resource_ref": "k8s-cluster.git-staging#environments.@app.@env"
+        }
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "production"
+    }
+  ]
+}

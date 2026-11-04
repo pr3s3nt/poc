@@ -36,3 +36,21 @@ platform-only/full resume and unchanged rerun passed; see
 used Git templates and installed verified Terraform sources; ZIP/Inline and Git
 Terraform paths were not separately deployed. No Go/frontend product code or
 schema was changed. Task Application/data/forward are retained for review.
+
+## Approved Git-only and backend PVC follow-up
+
+User decision: fetch Definition documents, Resource Types, Terraform modules,
+workload template sources and acceptance workload documents from Git, without
+Application Catalog selection. Environment config and private credential references
+remain local inputs. Git-only mode requires HTTPS repository, full commit and
+SHA-256 for every input file; materialize verified regular files outside Git before
+any product mutation. No mutable-ref/latest/local/inline/installed fallback.
+Keep prior schema-3/file inputs compatible when gitOnly is absent.
+
+Acceptance includes backend managed storage at `/data` and
+`ACCEPTANCE_STORAGE_DIR=/data`, using existing product mount/resource contracts.
+The full bootstrap verifies the actual PVC/mount and browser file write/read;
+a separate ownership/UID-guarded Pod recreation proves persistence. Keep old
+Definitions/Application/data unchanged; use an isolated schema-8 Console and new
+acceptance Application for the Git-source run, then prove unchanged rerun.
+This extends operational inputs/acceptance, not renderer, schema or matching rules.

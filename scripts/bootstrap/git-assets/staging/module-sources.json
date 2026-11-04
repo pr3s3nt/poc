@@ -1,0 +1,54 @@
+{
+  "k8s-namespace.json": {
+    "kind": "git",
+    "url": "https://github.com/pr3s3nt/poc.git",
+    "path": "backend/internal/adapters/terraform/modules/k8s-namespace",
+    "ref": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+    "pin": {
+      "sourceId": "git-7dc6fe0ec3a6493b6b784f69aed5acac5bb6ffb109cdf639f3c65f03",
+      "moduleId": "k8s-namespace",
+      "revision": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+      "subdirectory": "backend/internal/adapters/terraform/modules/k8s-namespace",
+      "contentSha256": "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"
+    }
+  },
+  "postgres.json": {
+    "kind": "git",
+    "url": "https://github.com/pr3s3nt/poc.git",
+    "path": "backend/internal/adapters/terraform/modules/postgres-k8s",
+    "ref": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+    "pin": {
+      "sourceId": "git-7dc6fe0ec3a6493b6b784f69aed5acac5bb6ffb109cdf639f3c65f03",
+      "moduleId": "postgres-k8s",
+      "revision": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+      "subdirectory": "backend/internal/adapters/terraform/modules/postgres-k8s",
+      "contentSha256": "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"
+    }
+  },
+  "redis.json": {
+    "kind": "git",
+    "url": "https://github.com/pr3s3nt/poc.git",
+    "path": "backend/internal/adapters/terraform/modules/redis-k8s",
+    "ref": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+    "pin": {
+      "sourceId": "git-7dc6fe0ec3a6493b6b784f69aed5acac5bb6ffb109cdf639f3c65f03",
+      "moduleId": "redis-k8s",
+      "revision": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+      "subdirectory": "backend/internal/adapters/terraform/modules/redis-k8s",
+      "contentSha256": "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"
+    }
+  },
+  "storage.json": {
+    "kind": "git",
+    "url": "https://github.com/pr3s3nt/poc.git",
+    "path": "backend/terraform-modules/persistent-storage",
+    "ref": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+    "pin": {
+      "sourceId": "git-7dc6fe0ec3a6493b6b784f69aed5acac5bb6ffb109cdf639f3c65f03",
+      "moduleId": "module-3cf4a61a6de996f329ba2f2548b123a7c",
+      "revision": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+      "subdirectory": "backend/terraform-modules/persistent-storage",
+      "contentSha256": "78353f77590598641291ecb4b7a740174ac48e3a6b04986c1286f8e7bce50bb7"
+    }
+  }
+}

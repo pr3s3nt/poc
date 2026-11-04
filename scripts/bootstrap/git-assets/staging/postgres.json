@@ -1,0 +1,50 @@
+{
+  "key": "git-staging-postgres",
+  "name": "Git staging postgres",
+  "resourceType": "postgres",
+  "driverType": "terraform",
+  "driverInputs": {
+    "values": {
+      "variables": {
+        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+        "database": "acceptance",
+        "username": "app"
+      },
+      "source": {
+        "source_id": "git-7dc6fe0ec3a6493b6b784f69aed5acac5bb6ffb109cdf639f3c65f03",
+        "module_id": "postgres-k8s",
+        "revision": "c78243afdb0173535a02914e5907f9f7ef0b2bec",
+        "subdirectory": "backend/internal/adapters/terraform/modules/postgres-k8s",
+        "content_sha256": "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"
+      },
+      "input_mapping": {
+        "database": {
+          "param": "database"
+        },
+        "username": {
+          "param": "username"
+        }
+      },
+      "output_mapping": {
+        "database": "database",
+        "host": "host",
+        "password": "password",
+        "port": "port",
+        "username": "username"
+      },
+      "provider_bindings": {
+        "kubernetes": {
+          "target": "resource",
+          "resource_ref": "k8s-cluster.git-staging#environments.@app.@env"
+        }
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "production",
+      "class": "in-cluster"
+    }
+  ]
+}
