@@ -1127,3 +1127,8 @@ setup docs; `projects/platform-resources/`, `input-parameters.mjs`, `enterprise-
 `lock-enterprise-input.mjs` implement data portability/offline pinning. Enterprise
 host/API/CA inheritance is in `application/delivery/bindings.go`; repository API
 TLS trust is in `adapters/repositoryhosting/github/github.go`.
+
+Company Git resources: `projects/platform-resources/terraform/mysql/` and
+`bootstrap/definitions/mysql.json` expose the existing MySQL Type/Secret-ref
+contract; `scripts/bootstrap/enterprise/staging.input.json` carries all three
+infrastructure image references. No embedded backend release changes.

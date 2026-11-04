@@ -6,7 +6,8 @@
   "driverInputs": {
     "values": {
       "variables": {
-        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+        "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+        "image": "${bootstrap.redisImage}"
       },
       "source": {
         "source_id": "${bootstrap.moduleSourceId}",

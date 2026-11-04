@@ -27,7 +27,7 @@ variable "image" {
   type    = string
   default = "redis:7.4.7-alpine@sha256:02f2cc4882f8bf87c79a220ac958f58c700bdec0dfb9b9ea61b62fb0e8f1bfcf"
   validation {
-    condition     = can(regex("^[a-z0-9][a-z0-9._/-]*(:[A-Za-z0-9._-]{1,128})?@sha256:[0-9a-f]{64}$", var.image))
+    condition     = can(regex("^[a-z0-9][a-z0-9._:/-]*(:[A-Za-z0-9._-]{1,128})?@sha256:[0-9a-f]{64}$", var.image))
     error_message = "image must be a digest-pinned reference (name[:tag]@sha256:<64 hex>)."
   }
 }

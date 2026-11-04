@@ -8,7 +8,8 @@
       "variables": {
         "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
         "database": "acceptance",
-        "username": "app"
+        "username": "app",
+        "image": "${bootstrap.postgresImage}"
       },
       "source": {
         "source_id": "${bootstrap.moduleSourceId}",

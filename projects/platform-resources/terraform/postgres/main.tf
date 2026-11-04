@@ -43,7 +43,7 @@ variable "image" {
   type    = string
   default = "postgres:16.14-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777"
   validation {
-    condition     = can(regex("^[a-z0-9][a-z0-9._/-]*(:[A-Za-z0-9._-]{1,128})?@sha256:[0-9a-f]{64}$", var.image))
+    condition     = can(regex("^[a-z0-9][a-z0-9._:/-]*(:[A-Za-z0-9._-]{1,128})?@sha256:[0-9a-f]{64}$", var.image))
     error_message = "image must be a digest-pinned reference (name[:tag]@sha256:<64 hex>)."
   }
 }
