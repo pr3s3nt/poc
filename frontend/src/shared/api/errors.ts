@@ -196,7 +196,7 @@ export function messageFor(status: number, code?: string, params?: ErrorParams, 
 }
 
 const fieldLabels: Readonly<Record<string, string>> = Object.freeze({
-  name: t('shared.errors.name'), subdomain: 'Subdomain', connectionKey: t('shared.errors.connection'), expectedVersion: t('shared.errors.version'), expectedConfigVersion: t('shared.errors.configurationVersion'),
+  name: t('shared.errors.name'), connectionKey: t('shared.errors.connection'), expectedVersion: t('shared.errors.version'), expectedConfigVersion: t('shared.errors.configurationVersion'),
   secretStoreKey: t('shared.errors.secretStore'), destinationKey: t('shared.errors.targetConnection'), acknowledgeDowntime: t('shared.errors.stopTimeConfirmation'), priorExecutionStopped: t('shared.errors.confirmTheOperationHasStopped'),
   status: t('shared.errors.status'), resources: t('shared.errors.resourcesInTheScore'), workloadBefore: t('shared.errors.beforeScore'), workloadAfter: 'Workload sau', version: t('shared.errors.version'), token: 'Token', kubeconfig: 'Kubeconfig',
   'type.key': t('shared.errors.resourceTypeID'), 'type.schema': t('shared.errors.inputOutputStructureOfThe'), 'definition.schema': t('shared.errors.resourceDefinition'),

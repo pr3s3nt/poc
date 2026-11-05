@@ -60,23 +60,6 @@ func fragment(t *testing.T, doc map[string]any) *Fragment {
 	return f
 }
 
-func TestPublicServicePortMustExist(t *testing.T) {
-	doc := base()
-	doc["service"] = map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}, "publicRoutes": []any{map[string]any{"path": "/", "port": "missing"}}}
-	if _, err := FromMap(doc); err == nil {
-		t.Fatal("accepted undeclared public port")
-	}
-	doc["service"].(map[string]any)["publicRoutes"] = []any{map[string]any{"path": "/", "port": "http"}}
-	parsed, err := FromMap(doc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fragment, err := parsed.Fragment(types())
-	if err != nil || len(fragment.Module.Spec.Service.PublicRoutes) != 1 || fragment.Module.Spec.Service.PublicRoutes[0].Port != "http" {
-		t.Fatalf("public route was not preserved: %v", err)
-	}
-}
-
 func TestPublicPortIsRejectedEverywhere(t *testing.T) {
 	routes := []any{map[string]any{"path": "/api", "port": "http"}}
 	for name, publicPort := range map[string]any{"value": "http", "empty": "", "null": nil} {
@@ -96,23 +79,6 @@ func TestPublicPortIsRejectedEverywhere(t *testing.T) {
 	var service environment.Service
 	if err := json.Unmarshal([]byte(`{"ports":{"http":{"port":80}},"publicPort":null}`), &service); !errors.Is(err, environment.ErrPublicPortRemoved) {
 		t.Fatalf("stored projection decoded removed field: %v", err)
-	}
-}
-
-func TestPublicRoutesRejectInvalidAndDuplicatePaths(t *testing.T) {
-	doc := base()
-	service := map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}, "publicRoutes": []any{map[string]any{"path": "/api", "port": "http"}}}
-	doc["service"] = service
-	if _, err := FromMap(doc); err != nil {
-		t.Fatalf("valid public route rejected: %v", err)
-	}
-	service["publicRoutes"] = []any{map[string]any{"path": "/api?bad", "port": "http"}}
-	if _, err := FromMap(doc); err == nil {
-		t.Fatal("invalid path accepted")
-	}
-	service["publicRoutes"] = []any{map[string]any{"path": "/api", "port": "http"}, map[string]any{"path": "/api", "port": "http"}}
-	if _, err := FromMap(doc); err == nil {
-		t.Fatal("duplicate path accepted")
 	}
 }
 

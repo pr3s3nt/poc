@@ -137,7 +137,7 @@ func TestRequiredRendererMissingTieAndUnavailableFailBeforeResources(t *testing.
 		}, "equally"},
 		{"other-application", true, func(t *testing.T, app *bootstrap.App, b map[string]resource.TemplateSource, o seed.Options) {
 			// A renderer for another (different) Application never applies to this one.
-			other, err := appcreate.NewService(app.Store).Create(context.Background(), appcreate.CreateCommand{OrganizationKey: o.OrganizationKey, Name: "Other", Subdomain: "other"})
+			other, err := appcreate.NewService(app.Store).Create(context.Background(), appcreate.CreateCommand{OrganizationKey: o.OrganizationKey, Name: "Other"})
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -149,11 +149,6 @@ func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, act
 		}
 		return report, nil
 	}
-	if len(preview.Changes) > 0 {
-		if err := s.store.SetPublicRoutesPending(ctx, appKey, envKey, true); err != nil {
-			return report, err
-		}
-	}
 	expectedEnvVersion := preview.BaseVersion
 	expectedDraftVersion := preview.DraftVersion
 	for index, change := range preview.Changes {
@@ -208,11 +203,11 @@ func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, act
 			OrganizationKey: orgKey, ApplicationKey: appKey, EnvironmentKey: envKey,
 			WorkloadID: change.WorkloadID, WorkloadBefore: before, WorkloadAfter: after, Action: change.Action,
 			Actor: actor, RunID: preview.RunID,
-			ReviewRequestID:   lease.Operation.ReviewRequestID,
-			ExpectedPlanHash:  change.PlanHash,
-			ConfigRevisionID:  preview.ConfigRevisionID,
-			DeferPublicRoutes: true,
-			AcceptLiterals:    draftErr == nil && draft.State == environment.DraftUpsert,
+			ReviewRequestID:  lease.Operation.ReviewRequestID,
+			ExpectedPlanHash: change.PlanHash,
+			ConfigRevisionID: preview.ConfigRevisionID,
+			InBatch:          true,
+			AcceptLiterals:   draftErr == nil && draft.State == environment.DraftUpsert,
 		})
 		if deployErr != nil {
 			report.Results = append(report.Results, WorkloadResult{WorkloadID: change.WorkloadID, Action: change.Action, Status: "FAILED", Error: publicDeployError(deployErr)})
@@ -252,15 +247,6 @@ func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, act
 		}
 		report.Results = append(report.Results, WorkloadResult{WorkloadID: change.WorkloadID, Action: change.Action, Status: "SUCCEEDED", DeploymentID: result.DeploymentID})
 	}
-	if len(preview.Changes) > 0 || preview.RoutePending || preview.DeliveryPending {
-		if err := s.deployer.ReconcilePublicRoutes(ctx, appKey, envKey); err != nil {
-			report.Status = "PARTIAL"
-			return report, ErrRouteReconcile
-		}
-		if err := s.store.SetPublicRoutesPending(ctx, appKey, envKey, false); err != nil {
-			return report, err
-		}
-	}
 	if preview.DeliveryPending {
 		if err := s.deployer.ActivateDelivery(ctx, appKey, envKey); err != nil {
 			return report, err
@@ -271,10 +257,6 @@ func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, act
 
 // ErrInterrupted reports that the claim was lost; the owner stopped executing.
 var ErrInterrupted = errors.New("the operation was interrupted; preview changes again")
-
-// ErrRouteReconcile reports that workloads committed but public routes did not;
-// the route cause stays out of the public message.
-var ErrRouteReconcile = errors.New("pending: workloads were applied but public routes could not be reconciled; preview again to retry public routes")
 
 // publicDeployError is the per-workload text of the Deploy report: the same
 // safe summary the failed Deployment persists, never executor, driver,

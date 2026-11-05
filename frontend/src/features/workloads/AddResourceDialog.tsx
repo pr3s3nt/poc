@@ -8,8 +8,8 @@ import { sharedSelectionProblem, type SharedResource } from './sharedResources';
 
 // Adds one dependency from an environment-variable row or the storage entry.
 // It edits form state only: no HTTP call, no provisioning, no output chosen for the user.
-export function AddResourceDialog({ existing, types, choices = [], classMetadata, initialDependency, label, onReload, onAdd, onClose }: {
-  existing: Dependency[]; types: ResourceType[]; choices?: SharedResource[]; classMetadata: ClassMetadata;
+export function AddResourceDialog({ existing, types, choices = [], classMetadata, initialDependency, label, onReload, onAdd, onClose, servicePorts = [] }: {
+  existing: Dependency[]; types: ResourceType[]; choices?: SharedResource[]; classMetadata: ClassMetadata; servicePorts?: string[];
   initialDependency?: Dependency; label?: string;
   onReload(): void;
   onAdd(dependency: Dependency): void;
@@ -30,7 +30,7 @@ export function AddResourceDialog({ existing, types, choices = [], classMetadata
 
   return <Dialog label={label ?? t('workloads.addResource.title')} onClose={onClose}>
     <h2>{label ?? t('workloads.addResource.title')}</h2>
-    <DependencyFields index={0} dependency={draft} types={types} choices={choices} classMetadata={classMetadata} onChange={(patch) => { setDraft({ ...draft, ...patch }); setError(''); }} onReload={onReload} />
+    <DependencyFields index={0} dependency={draft} types={types} choices={choices} classMetadata={classMetadata} servicePorts={servicePorts} onChange={(patch) => { setDraft({ ...draft, ...patch }); setError(''); }} onReload={onReload} />
     {error ? <div className="form-error" role="alert">{error}</div> : null}
     <div className="form-actions"><Button type="button" onClick={onClose}>{t('workloads.addResource.cancel')}</Button><Button tone="primary" type="button" onClick={submit}>{t('workloads.addResource.submit')}</Button></div>
   </Dialog>;

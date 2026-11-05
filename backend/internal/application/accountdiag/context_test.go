@@ -29,7 +29,7 @@ func (p *fakePlanner) Desired(context.Context, string, string) (pending.Desired,
 
 func contextFixture(t *testing.T, envKey string) *fixture {
 	t.Helper()
-	f := newFixture(t, Config{BaseDomain: "example.com"})
+	f := newFixture(t, Config{})
 	ctx := context.Background()
 	must := func(err error) {
 		t.Helper()
@@ -37,7 +37,7 @@ func contextFixture(t *testing.T, envKey string) *fixture {
 			t.Fatal(err)
 		}
 	}
-	must(f.st.SaveApplication(ctx, application.Application{ID: "00000000-0000-4000-8000-000000000001", Key: "shop", OrganizationKey: "acme", Name: "Shop", Subdomain: "shop", Version: 1}))
+	must(f.st.SaveApplication(ctx, application.Application{ID: "00000000-0000-4000-8000-000000000001", Key: "shop", OrganizationKey: "acme", Name: "Shop", Version: 1}))
 	must(f.st.SaveDeploymentSet(ctx, environment.DeploymentSet{ID: "set-" + envKey, EnvironmentKey: envKey, Document: environment.NewDocument()}))
 	must(f.st.SaveEnvironment(ctx, environment.Environment{ID: "00000000-0000-4000-8000-000000000002", Key: envKey, ApplicationID: "00000000-0000-4000-8000-000000000001", ApplicationKey: "shop", Name: envKey, Type: "development", NamespaceIdentity: "shop-" + envKey, CurrentDeploymentSetID: "set-" + envKey, Version: 1}))
 	return f
@@ -47,12 +47,12 @@ func plannedDesired(envKey string) pending.Desired {
 	intent := planning.ResourceIntent{Descriptor: "postgres.default#modules.web.externals.db", ResourceType: "postgres", Class: "default", DefinitionKey: "pg", DriverType: "terraform", Intent: planning.IntentUnverified,
 		Module: &planning.IntentModule{Module: "postgres-k8s", SourceID: "packaged", Revision: "r1", ContentSHA256: "abc"}, Providers: []planning.IntentProvider{{Name: "kubernetes", Kind: "kubernetes", ConnectionKey: "k8s-a"}}}
 	doc := environment.NewDocument()
-	doc.Modules["web"] = environment.Module{Spec: environment.ModuleSpec{Service: &environment.Service{PublicRoutes: []environment.PublicPath{{Path: "/", Port: "http"}}}}}
+	doc.Modules["web"] = environment.Module{Spec: environment.ModuleSpec{Service: &environment.Service{Ports: map[string]environment.Port{"http": {Port: 80}}}}}
 	bundle := tfmodule.Bundle{Ref: tfmodule.SourceRef{ContentSHA256: "abc"}, Contract: tfmodule.Contract{SourceKind: tfmodule.SourceKindPackaged, Inputs: map[string]tfmodule.Input{"storage_class": {Type: "string", HasDefault: true, Default: ""}}}}
 	return pending.Desired{
-		Application:   application.Application{Key: "shop", OrganizationKey: "acme", Name: "Shop (snapshot)", Subdomain: "snap", Version: 7},
+		Application:   application.Application{Key: "shop", OrganizationKey: "acme", Name: "Shop (snapshot)", Version: 7},
 		Environment:   environment.Environment{Key: envKey, ApplicationKey: "shop", Type: "staging-type", NamespaceIdentity: "shop-" + envKey, CurrentDeploymentSetID: "set-" + envKey, Version: 5, DraftVersion: 9},
-		ConfigVersion: 4, Final: doc, Workloads: 1, PublicRoutes: 1,
+		ConfigVersion: 4, Final: doc, Workloads: 1,
 		Definitions: []resource.Definition{{Key: "pg", Name: "pg", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Version: 4}},
 		Bundles:     map[string]tfmodule.Bundle{intent.Descriptor: bundle},
 		Preview:     pending.Preview{Changes: []pending.Change{{ResourceIntents: []planning.ResourceIntent{intent}, Placements: []planning.Placement{{Node: intent.Descriptor, Account: "k8s-a", Namespace: "shop-" + envKey}}}}},
@@ -76,7 +76,7 @@ func TestContextIsPinnedFromTheSinglePlanningSnapshot(t *testing.T) {
 	if len(ref.Definitions) != 1 || ref.Definitions[0] != (domain.DefinitionPin{Key: "pg", Version: 4}) {
 		t.Fatalf("definition pins: %+v", ref.Definitions)
 	}
-	if !need.Resolved || need.Workloads != 1 || need.PublicRoutes != 1 || len(need.Resources) != 1 {
+	if !need.Resolved || need.Workloads != 1 || len(need.Resources) != 1 {
 		t.Fatalf("requirements: %+v", need)
 	}
 	r := need.Resources[0]
@@ -85,13 +85,8 @@ func TestContextIsPinnedFromTheSinglePlanningSnapshot(t *testing.T) {
 	}
 	// The outer reads (Subdomain "", name "Shop", type "development") were only
 	// used to validate the selection; every reported fact is the snapshot's.
-	if need.PublicHost != "staging.snap.example.com" || ref.ApplicationName != "Shop (snapshot)" || ref.EnvironmentType != "staging-type" || need.EnvironmentType != "staging-type" {
-		t.Fatalf("context facts must come from the planning snapshot: host=%q ref=%+v", need.PublicHost, ref)
-	}
-	prod := contextFixture(t, "production")
-	prod.svc.SetPlanner(&fakePlanner{desired: plannedDesired("production")})
-	if _, prodNeed, err := prod.svc.resolveContext(ctx, "acme", domain.Request{Application: "shop", Environment: "production"}); err != nil || prodNeed.PublicHost != "snap.example.com" {
-		t.Fatalf("production host: %+v %v", prodNeed, err)
+	if ref.ApplicationName != "Shop (snapshot)" || ref.EnvironmentType != "staging-type" || need.EnvironmentType != "staging-type" {
+		t.Fatalf("context facts must come from the planning snapshot: ref=%+v", ref)
 	}
 }
 
@@ -170,8 +165,8 @@ func TestSelectionWithoutPlanDependentWorkSkipsThePlanCheck(t *testing.T) {
 		}
 		return out
 	}
-	only := ids(domain.Scope{Purpose: domain.PurposeUseCase, UseCases: []string{"secrets", "https", "lifecycle"}})
-	if only["uc.preview.requirements"] || !only["uc.secrets.store"] || !only["uc.https.certificate"] {
+	only := ids(domain.Scope{Purpose: domain.PurposeUseCase, UseCases: []string{"secrets", "lifecycle"}})
+	if only["uc.preview.requirements"] || !only["uc.secrets.store"] || only["uc.https.certificate"] {
 		t.Errorf("secrets/https/lifecycle plan %v", only)
 	}
 	for _, use := range []string{"preview", "deploy", "database", "cache"} {
@@ -185,7 +180,7 @@ func TestSelectionWithoutPlanDependentWorkSkipsThePlanCheck(t *testing.T) {
 	rejected.Final = environment.NewDocument() // a rejected plan has no final document
 	f.svc.SetPlanner(&fakePlanner{desired: rejected})
 	_, need, err := f.svc.resolveContext(context.Background(), "acme", domain.Request{Application: "shop", Environment: "staging"})
-	if err != nil || need.Resolved || need.PublicRoutes != 1 || need.Workloads != 1 {
+	if err != nil || need.Resolved || need.Workloads != 1 {
 		t.Fatalf("routes of a rejected plan are still counted from the drafts and applied set: %+v %v", need, err)
 	}
 }

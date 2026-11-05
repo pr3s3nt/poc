@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sort"
 
-	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/domain/application"
 	domain "orchestrator/internal/domain/diagnostics"
@@ -86,10 +85,7 @@ func (s *Service) resolveContext(ctx context.Context, org string, req domain.Req
 	ref.EnvironmentVersion, ref.EnvironmentType, ref.CurrentDeploymentID = desired.Environment.Version, desired.Environment.Type, desired.Environment.CurrentDeploymentSetID
 	ref.DraftVersion, ref.ConfigVersion = desired.Environment.DraftVersion, desired.ConfigVersion
 	need.EnvironmentType, need.Namespace, need.SecretStoreKey = desired.Environment.Type, desired.Environment.Namespace(), desired.Environment.SecretStoreKey
-	if desired.Application.Subdomain != "" && s.cfg.BaseDomain != "" {
-		need.PublicHost = appsvc.PublicHost(desired.Application.Subdomain, desired.Environment.Key, s.cfg.BaseDomain)
-	}
-	need.Workloads, need.PublicRoutes = desired.Workloads, desired.PublicRoutes
+	need.Workloads = desired.Workloads
 	if desired.PlanErr != nil {
 		var staged *planning.StageError
 		switch {

@@ -6,7 +6,7 @@ import { bothConfigured } from '../../test/targets';
 import type { ResourceType, Workload } from './api';
 
 afterEach(() => vi.unstubAllGlobals());
-const application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
+const application = { id: 'catalog', name: 'Catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 const execution = { version: 1, kind: 'Deployment', template: { id: 'backend', version: '1.0.0', sha256: 'a'.repeat(64) } };
 const storage: ResourceType = { key: 'persistent-storage', inputs: [{ name: 'storage', type: 'string' }], outputs: [{ name: 'claimName', type: 'string' }, { name: 'namespace', type: 'string' }], classes: ['default'] };
 const redis: ResourceType = { key: 'redis', inputs: [], outputs: [], classes: ['default'] };

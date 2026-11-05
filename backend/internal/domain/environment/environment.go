@@ -46,7 +46,6 @@ type Environment struct {
 	CurrentDeploymentSetID string             `json:"currentDeploymentSetId"`
 	Version                int64              `json:"version"`
 	DraftVersion           int64              `json:"draftVersion,omitempty"`
-	PublicRoutesPending    bool               `json:"publicRoutesPending,omitempty"`
 	DesiredDelivery        delivery.Selection `json:"desiredDelivery"`
 	AppliedDelivery        delivery.Selection `json:"appliedDelivery"`
 	DeliveryConfigRevision int64              `json:"deliveryConfigRevision"`

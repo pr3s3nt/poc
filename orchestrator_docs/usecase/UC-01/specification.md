@@ -42,8 +42,8 @@ owns shared transition/admission/recovery design.
 
 ## Main success scenario
 
-1. **MS-01:** Developer nhập Name/Subdomain; không chọn đích ở cấp Application.
-2. **MS-02:** Validate tên và subdomain, uniqueness.
+1. **MS-01:** Developer nhập Name; không chọn đích ở cấp Application.
+2. **MS-02:** Validate tên và uniqueness.
 3. **MS-03:** Sinh system Application ID bất biến.
 4. **MS-04:** Tạo Application identity, không chọn provider/Connection mặc định.
 5. **MS-05:** Tạo staging/production với hai lựa chọn đích chưa cấu hình.
@@ -76,9 +76,9 @@ owns shared transition/admission/recovery design.
 ## Quy tắc nghiệp vụ
 
 - **BR-01:** System Application ID bất biến, unique; Name unique không phân biệt hoa thường trong Organization.
-- **BR-02:** Subdomain lowercase DNS label, unique trong platform base domain.
-- **BR-03:** Đúng staging/production; endpoints `<subdomain>.<base-domain>` và `staging.<subdomain>.<base-domain>`.
-- **BR-04:** Application chỉ giữ identity/config metadata hiện hành: ID/key, Organization, Name, Subdomain và version. Không lưu profile, Connection, region, runtime status hoặc configuration provider; không có Application-wide target/provider hay implicit fallback. Không backfill binding cũ từ Application; historical target snapshots vẫn giữ nguyên.
+- **BR-02:** Retired by [ADR-037](../../architecture/decisions/ADR-037-retire-public-routes.md): Application không có subdomain; địa chỉ public đến từ endpoint của workload.
+- **BR-03:** Đúng staging/production. Trang Application hiện URL endpoint thật của từng Environment; không suy địa chỉ từ Application.
+- **BR-04:** Application chỉ giữ identity/config metadata hiện hành: ID/key, Organization, Name và version. Không lưu profile, Connection, region, runtime status hoặc configuration provider; không có Application-wide target/provider hay implicit fallback. Không backfill binding cũ từ Application; historical target snapshots vẫn giữ nguyên.
 - **BR-05:** Hai Connection lựa chọn thuộc Environment, độc lập, cho phép thay đổi.
 - **BR-06:** Execution Connection chỉ READY Kubernetes/AWS đúng Organization;
   AWS cần region. Secret store chỉ READY supported store cùng Organization.
@@ -104,7 +104,7 @@ owns shared transition/admission/recovery design.
 - **BR-13:** Lỗi trước cutover giữ source authoritative, khôi phục writers/routes
   nếu có thể và báo trạng thái recovery thật. Cleanup source là thao tác riêng,
   chỉ generation cũ owned/unreferenced; không tự rollback dữ liệu sau cutover.
-- **BR-14:** Create vẫn chỉ Name/Subdomain; unknown connectionKey bị reject 400.
+- **BR-14:** Create chỉ nhận Name; `subdomain` và unknown connectionKey bị reject 400.
 
 ## Ngoài phạm vi
 
@@ -120,12 +120,12 @@ Bản set-once ADR-011 là hành vi lịch sử đang được thay thế.
 
 ## V03 internal Settings replacement
 
-[ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) supersedes the internal deployment Connection selector and deployment-transition flow above. Application create still takes Name/Subdomain only. Internal Environment Settings retain Secret Store/configuration, version/operation/error/reload states, but contain no deployment Connection picker. Internal Preview/Deploy resolve matched Definition references without a selected Environment Connection. Legacy deployment-target write fields/endpoints are rejected clearly after V03.10; do not silently accept or derive another target. AWS legacy consumers remain scoped to V05–V06, not newly exposed through an internal selector. Target versions and owner/fence checks remain necessary per resource. No migration required; startup never resets old data.
+[ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) supersedes the internal deployment Connection selector and deployment-transition flow above. Application create takes Name only (ADR-037). Internal Environment Settings retain Secret Store/configuration, version/operation/error/reload states, but contain no deployment Connection picker. Internal Preview/Deploy resolve matched Definition references without a selected Environment Connection. Legacy deployment-target write fields/endpoints are rejected clearly after V03.10; do not silently accept or derive another target. AWS legacy consumers remain scoped to V05–V06, not newly exposed through an internal selector. Target versions and owner/fence checks remain necessary per resource. No migration required; startup never resets old data.
 
 ## V04–V06 — final Settings and creation contract
 
 This extends the V03 replacement to AWS after the corresponding replacement
-gates. Application creation keeps Name/Subdomain, two independent Environments,
+gates. Application creation keeps Name, two independent Environments,
 empty Sets and no external side effects/default infrastructure. Environment
 Settings manage the Secret Store/configuration, version and operation state;
 they do not select a deployment Connection, executionProfile, account or region.

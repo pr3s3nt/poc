@@ -145,6 +145,8 @@ workload target and applied identity across restart/update/remove.
 
 ## T25 — Public route input
 
+Retired by [ADR-037](../../architecture/decisions/ADR-037-retire-public-routes.md); `publicRoutes` is now rejected like `publicPort`. Historical:
+
 Score parsing and public Deployment Set projection reject `service.publicPort`;
 only `publicRoutes` reaches Candidate validation and rendering. Multi-path,
 same-host ownership, declared-port validation and route-only retry remain intact.

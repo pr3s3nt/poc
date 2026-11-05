@@ -11,8 +11,8 @@ import { EffectivenessPage } from './EffectivenessPage';
 import { formatDuration, metricValue } from './labels';
 
 const applications: Application[] = [
-  { id: 'shop', name: 'Shop', subdomain: 'shop', environments: bothConfigured(), workloads: { staging: [], production: [] } },
-  { id: 'blog', name: 'Blog', subdomain: 'blog', environments: bothConfigured(), workloads: { staging: [], production: [] } },
+  { id: 'shop', name: 'Shop', environments: bothConfigured(), workloads: { staging: [], production: [] } },
+  { id: 'blog', name: 'Blog', environments: bothConfigured(), workloads: { staging: [], production: [] } },
 ];
 
 const notCollected = (id: string, group: Metric['group'], requiredSource: string): Metric => ({ id, group, unit: 'SECONDS', status: 'NOT_COLLECTED', requiredSource });

@@ -239,7 +239,6 @@
   },
   "application": {
     "name": "bootstrap-acceptance-company-staging",
-    "subdomain": "bootstrap-acceptance-company-staging",
     "environment": "production",
     "definitionRevisions": {},
     "workloadClass": "${bootstrap.targetClass}",
@@ -376,7 +375,6 @@
     "httprouteGatewayName": "REPLACE_GATEWAY_NAME",
     "httprouteGatewayNamespace": "REPLACE_GATEWAY_NAMESPACE",
     "httprouteGatewaySectionName": "REPLACE_LISTENER_NAME",
-    "httprouteEnabled": true,
     "endpointRootDomain": "staging.company.example",
     "endpointScheme": "https",
     "endpointName": "acceptance",

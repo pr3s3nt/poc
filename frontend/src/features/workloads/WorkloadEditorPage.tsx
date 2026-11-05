@@ -21,12 +21,11 @@ import { sharedResources, sharedSelectionProblem } from './sharedResources';
 type Probe = { path: string; port: number };
 type ContainerForm = { workingDir?: string; readinessProbe?: Probe; livenessProbe?: Probe; startupProbe?: Probe; command: string[]; args: string[]; name: string; image: string; cpuRequest: string; memoryRequest: string; cpuLimit: string; memoryLimit: string; bindings: Binding[] };
 type ServicePort = { name: string; port: string; targetPort: string };
-type PublicRoute = { path: string; port: string };
 // workloadClass is Workload metadata.class (ADR-016): empty means the default class, an explicit value is kept as written.
-type Form = { execution?: Execution; replicas?: number; name: string; workloadClass: string; containers: ContainerForm[]; dependencies: Dependency[]; servicePorts: ServicePort[]; publicRoutes: PublicRoute[] };
+type Form = { execution?: Execution; replicas?: number; name: string; workloadClass: string; containers: ContainerForm[]; dependencies: Dependency[]; servicePorts: ServicePort[] };
 
 const emptyContainer = (): ContainerForm => ({ command: [], args: [], name: 'main', image: '', cpuRequest: '', memoryRequest: '', cpuLimit: '', memoryLimit: '', bindings: [] });
-const emptyForm = (): Form => ({ name: '', workloadClass: '', containers: [emptyContainer()], dependencies: [], servicePorts: [], publicRoutes: [] });
+const emptyForm = (): Form => ({ name: '', workloadClass: '', containers: [emptyContainer()], dependencies: [], servicePorts: [] });
 
 function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): boolean {
   if (Object.keys(raw).some((key) => !['apiVersion', 'metadata', 'containers', 'resources', 'service', 'workloadExecution', 'replicas'].includes(key))) return true;
@@ -64,7 +63,7 @@ function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): 
   }
   if (Object.entries(resources).some(([alias, resource]) => (resource.type === 'service' || resource.type === 'environment') && !referenced.has(alias))) return true;
   if (Object.values(resources).some((resource) => resource.type === 'service' && (resource.class != null || Object.keys((resource.params ?? {}) as Record<string, unknown>).some((key) => !['workload', 'port'].includes(key))))) return true;
-  if (raw.service && Object.keys(raw.service as Record<string, unknown>).some((key) => key !== 'ports' && key !== 'publicRoutes')) return true;
+  if (raw.service && Object.keys(raw.service as Record<string, unknown>).some((key) => key !== 'ports')) return true;
   const ports = ((raw.service as { ports?: Record<string, Record<string, unknown>> } | undefined)?.ports ?? {});
   return Object.values(ports).some((port) => Object.keys(port).some((key) => !['port', 'targetPort'].includes(key)));
 }
@@ -116,7 +115,7 @@ function buildScore(form: Form, types: ResourceType[]): Record<string, unknown> 
   if (form.execution?.secretFiles?.length) resources.set('env', { type: 'environment' });
   const ports = new Map<string, unknown>();
   for (const port of form.servicePorts) if (port.name && Number(port.port) > 0) ports.set(port.name, { port: Number(port.port), targetPort: Number(port.targetPort || port.port) });
-  return { ...(form.execution ? { workloadExecution: form.execution } : {}), ...(form.replicas !== undefined ? { replicas: form.replicas } : {}), apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: form.name, ...(form.workloadClass ? { class: form.workloadClass } : {}) }, containers: Object.fromEntries(containers), ...(ports.size ? { service: { ports: Object.fromEntries(ports), ...(form.publicRoutes.length ? { publicRoutes: form.publicRoutes } : {}) } } : {}), ...(resources.size ? { resources: Object.fromEntries(resources) } : {}) };
+  return { ...(form.execution ? { workloadExecution: form.execution } : {}), ...(form.replicas !== undefined ? { replicas: form.replicas } : {}), apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: form.name, ...(form.workloadClass ? { class: form.workloadClass } : {}) }, containers: Object.fromEntries(containers), ...(ports.size ? { service: { ports: Object.fromEntries(ports) } } : {}), ...(resources.size ? { resources: Object.fromEntries(resources) } : {}) };
 }
 
 const DEFAULT_CPU_REQUEST = '10m';
@@ -140,13 +139,6 @@ function validPortNames(ports: ServicePort[]): Set<string> {
   return new Set(ports.filter((port) => port.name.trim() && counts.get(port.name) === 1 && validPortNumber(port.port)).map((port) => port.name));
 }
 
-// A route keeps its recorded target; a missing or no longer valid target is
-// reported, never replaced.
-function routeTargetProblem(route: PublicRoute, valid: ReadonlySet<string>): string | undefined {
-  if (!route.port) return t('workloads.workloadEditor.chooseAServicePortFor');
-  if (!valid.has(route.port)) return t('workloads.workloadEditor.servicePortPortIsNo', { port: route.port });
-  return undefined;
-}
 
 function readForm(workload: Record<string, unknown>): Form {
   const form = emptyForm();
@@ -161,7 +153,6 @@ function readForm(workload: Record<string, unknown>): Form {
   if (!form.containers.length) form.containers = [emptyContainer()];
   const ports = ((workload.service as { ports?: Record<string, { port: number; targetPort?: number }> } | undefined)?.ports ?? {});
   form.servicePorts = Object.entries(ports).map(([name, port]) => ({ name, port: String(port.port), targetPort: String(port.targetPort ?? port.port) }));
-  form.publicRoutes = [...((workload.service as { publicRoutes?: PublicRoute[] } | undefined)?.publicRoutes ?? [])];
   return form;
 }
 
@@ -312,13 +303,6 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
       containers: form.containers.map((container) => ({ ...container, bindings: container.bindings.map((row) => changed && row.source === 'RESOURCE' && row.alias === previous?.alias ? { ...row, resourceChanged: true } : row) })) });
   }
   function updatePort(index: number, patch: Partial<ServicePort>) { updateForm({ ...form, servicePorts: form.servicePorts.map((item, i) => i === index ? { ...item, ...patch } : item) }); }
-  function updateRoute(index: number, patch: Partial<PublicRoute>) { updateForm({ ...form, publicRoutes: form.publicRoutes.map((item, i) => i === index ? { ...item, ...patch } : item) }); }
-  // Adding a route never happens on its own. The target is chosen here only when
-  // exactly one Service port is valid; otherwise the user must choose.
-  function addRoute() {
-    const valid = [...validPortNames(form.servicePorts)];
-    updateForm({ ...form, publicRoutes: [...form.publicRoutes, { path: '', port: valid.length === 1 ? valid[0]! : '' }] });
-  }
   async function importFile(file: File) {
     const at = scope.current;
     setError('');
@@ -344,14 +328,6 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     if (environmentBusy) return;
     if (blocked || stale || templateInputProblems > 0) return;
     if (form.execution?.mounts?.some(mount => !form.dependencies.some(dep => dep.alias === mount.resource) || !form.containers.some(c => c.name === mount.container) || !mount.path.startsWith('/'))) { setError(t('workloads.templates.mountInvalid')); return; }
-    const seenPaths = new Set<string>();
-    const validPorts = validPortNames(form.servicePorts);
-    for (const route of form.publicRoutes) {
-      if (!/^\/(?:[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*)?$/.test(route.path) || seenPaths.has(route.path)) { setError(t('workloads.workloadEditor.aPublicRouteMustBe')); return; }
-      seenPaths.add(route.path);
-      const problem = routeTargetProblem(route, validPorts);
-      if (problem) { setError(t('workloads.workloadEditor.routePathProblem', { path: route.path, problem })); return; }
-    }
     if (mode === 'form' || dirty) {
       if (form.workloadClass && !validWorkloadClass(form.workloadClass)) { setError(t('workloads.workloadEditor.invalidWorkloadClassUseOnly')); return; }
       if (classMetadata !== 'ready' && form.dependencies.length > 0) { setError(classMetadata === 'loading' ? t('workloads.workloadEditor.classMetadataIsLoadingWait') : t('workloads.workloadEditor.theResourceClassMetadataIs')); return; }
@@ -381,7 +357,6 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     }
     finally { if (at === scope.current) setSaving(false); }
   }
-  const validPorts = validPortNames(form.servicePorts);
   const currentState = current?.state === 'absent' ? t('workloads.workloadEditor.none') : current?.state === 'deployed' ? t('workloads.workloadEditor.deployedNoPendingChanges') : current?.state === 'PENDING_DELETE' ? t('workloads.workloadEditor.pendingDeletion') : t('workloads.workloadEditor.hasPendingChanges');
 
   return <section className="page workload-editor">
@@ -409,7 +384,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
           onChange={(bindings) => updateContainer(ci, { ...container, bindings })} onCreateKey={openKeyDialog} onAddResource={(row) => setDialog({ type: 'resource', rowId: row.id })} />
         </section>)}
       <Button onClick={() => updateForm({ ...form, containers: [...form.containers, { ...emptyContainer(), name: `container-${form.containers.length + 1}` }] })}>{t('workloads.workloadEditor.addContainer')}</Button>
-      <section className="content-panel editor-grid"><div className="section-header"><div><h2>{t('workloads.workloadEditor.workloadResources')}</h2><p>{t('workloads.workloadEditor.chooseAnAvailableResourceType')}</p></div><div className="form-actions"><Button tone="quiet" onClick={() => void reloadClassMetadata()}>{t('workloads.workloadEditor.refreshClassMetadata')}</Button><Button onClick={() => updateForm({ ...form, dependencies: [...form.dependencies, emptyDependency()] })}>{t('workloads.workloadEditor.addResource')}</Button></div></div>{form.dependencies.map((dep, index) => <DependencyFields key={index} index={index} dependency={dep} types={types} choices={resourceChoices} classMetadata={classMetadata} disabled={saving} onChange={(patch) => updateDependency(index, patch)} onReload={() => void reloadClassMetadata()} onRemove={() => updateForm({ ...form, dependencies: form.dependencies.filter((_, i) => i !== index) })} />)}</section>
+      <section className="content-panel editor-grid"><div className="section-header"><div><h2>{t('workloads.workloadEditor.workloadResources')}</h2><p>{t('workloads.workloadEditor.chooseAnAvailableResourceType')}</p></div><div className="form-actions"><Button tone="quiet" onClick={() => void reloadClassMetadata()}>{t('workloads.workloadEditor.refreshClassMetadata')}</Button><Button onClick={() => updateForm({ ...form, dependencies: [...form.dependencies, emptyDependency()] })}>{t('workloads.workloadEditor.addResource')}</Button></div></div>{form.dependencies.map((dep, index) => <DependencyFields key={index} index={index} dependency={dep} types={types} choices={resourceChoices} classMetadata={classMetadata} disabled={saving} servicePorts={[...validPortNames(form.servicePorts)]} onChange={(patch) => updateDependency(index, patch)} onReload={() => void reloadClassMetadata()} onRemove={() => updateForm({ ...form, dependencies: form.dependencies.filter((_, i) => i !== index) })} />)}</section>
       <section className="content-panel editor-grid">
         {form.execution && form.servicePorts.length ? <label className="checkbox-row"><input type="checkbox" checked={form.execution.headless ?? false} onChange={e => updateForm({ ...form, execution: { ...form.execution!, headless: e.target.checked } })} />{t('workloads.templates.headless')}</label> : null}
         <div className="section-header"><div><h2>{t('workloads.workloadEditor.servicePorts')}</h2><p>{t('workloads.workloadEditor.internalAccessForOtherWorkloads', { environment })}</p></div><Button onClick={() => updateForm({ ...form, servicePorts: [...form.servicePorts, { name: '', port: '', targetPort: '' }] })}>{t('workloads.workloadEditor.addPort')}</Button></div>
@@ -418,9 +393,6 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
             <label>{t('workloads.workloadEditor.containerTargetPort')}<input aria-label={t('workloads.workloadEditor.containerTargetPort')} type="number" value={port.targetPort} placeholder={port.port || '8080'} onChange={(event) => updatePort(index, { targetPort: event.target.value })} /></label>
             <p>{t('workloads.workloadEditor.emptyMakesTheTargetPort')}</p>
           </Advanced></div>)}
-        <div className="section-header"><div><h3>{t('workloads.workloadEditor.publicRoutes')}</h3><p>{t('workloads.workloadEditor.exampleForTheFrontendAnd')}</p></div><Button onClick={addRoute}>{t('workloads.workloadEditor.addPublicRoute')}</Button></div>
-        {form.publicRoutes.map((route, index) => { const problem = routeTargetProblem(route, validPorts); const known = form.servicePorts.filter((port) => validPorts.has(port.name)); return <div className="editor-grid" key={index}><div className="binding-row"><input aria-label={t('workloads.workloadEditor.publicRoutes')} value={route.path} placeholder="/api" onChange={(event) => updateRoute(index, { path: event.target.value })} /><select aria-label={t('workloads.workloadEditor.publicServicePort')} aria-invalid={problem ? true : undefined} value={route.port} onChange={(event) => updateRoute(index, { port: event.target.value })}><option value="">{t('workloads.workloadEditor.chooseAPort')}</option>{route.port && !validPorts.has(route.port) ? <option value={route.port}>{t('workloads.workloadEditor.portInvalid', { port: route.port })}</option> : null}{known.map((port) => <option key={port.name} value={port.name}>{port.name} · {port.port}</option>)}</select><Button tone="quiet" onClick={() => updateForm({ ...form, publicRoutes: form.publicRoutes.filter((_, i) => i !== index) })}>{t('workloads.workloadEditor.remove')}</Button></div>{problem ? <p className="form-error">{problem}</p> : null}</div>; })}
-        <p>{t('workloads.workloadEditor.publicAccessIsAppliedOnly')}</p>
       </section>
     </>}
     {dialog?.type === 'key' && catalog.status === 'ready' ? <CreateKeyDialog application={application} environment={environment} kind={dialog.kind} suggestedName={dialog.suggested} catalog={catalog} onTargetChange={onTargetChange}
@@ -439,7 +411,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
         setForm(prev => ({ ...prev, dependencies: [...prev.dependencies, dependency], execution: prev.execution ? { ...prev.execution, mounts: [...(prev.execution.mounts ?? []), { resource: dependency.alias, container: prev.containers[0]?.name ?? '', path: '/data', readOnly: false }] } : undefined }));
         setDirty(true);
       })(scope.current)} /> : null}
-    {dialog?.type === 'resource' ? <AddResourceDialog existing={form.dependencies} types={types} choices={resourceChoices} classMetadata={classMetadata} onReload={() => void reloadClassMetadata()} onClose={closeDialog}
+    {dialog?.type === 'resource' ? <AddResourceDialog existing={form.dependencies} servicePorts={[...validPortNames(form.servicePorts)]} types={types} choices={resourceChoices} classMetadata={classMetadata} onReload={() => void reloadClassMetadata()} onClose={closeDialog}
       onAdd={((at, rowId) => (dependency: Dependency) => {
         if (at !== scope.current) return;
         setDialog(undefined);

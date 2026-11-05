@@ -45,7 +45,7 @@ func TestApplicationCreationPersistsCDPinsOnPostgres(t *testing.T) {
 	svc := appservice.NewService(st)
 	selection := domain.Selection{Mode: domain.CD, BindingID: b.ID, BindingVersion: b.Version}
 	svc.SetDeliveryDefaults(pinnedDefault{selection})
-	result, err := svc.Create(context.Background(), appservice.CreateCommand{OrganizationKey: "delivery-org", Name: "Pinned", Subdomain: "pinned"})
+	result, err := svc.Create(context.Background(), appservice.CreateCommand{OrganizationKey: "delivery-org", Name: "Pinned"})
 	if err != nil {
 		t.Fatal(err)
 	}

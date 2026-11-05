@@ -43,7 +43,7 @@ func twoBackends(t *testing.T) (*Store, *Store, string) {
 		}
 	}
 	appID := ids.New()
-	if err := a.SaveApplication(ctx, application.Application{ID: appID, Key: appID, OrganizationKey: "acme", Name: "Multi", Subdomain: "multi-" + appID[:8], Version: 1}); err != nil {
+	if err := a.SaveApplication(ctx, application.Application{ID: appID, Key: appID, OrganizationKey: "acme", Name: "Multi", Version: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.SaveEnvironment(ctx, environment.Environment{ID: ids.New(), Key: "staging", ApplicationID: appID, ApplicationKey: appID, Name: "s", Type: "staging", NamespaceIdentity: "app-" + appID + "-staging", Version: 1}); err != nil {

@@ -10,6 +10,7 @@ last_reviewed: 2026-11-05
 EP-01 (UC-03/16): `endpoint` is a private workload Resource Type. Developer params
 are `name` (one lowercase DNS label), `port` (named Service port), `path`
 (absolute prefix, default `/`). One endpoint per workload; shared IDs are refused.
+Endpoint is the only public address mechanism ([ADR-037](../decisions/ADR-037-retire-public-routes.md)).
 Outputs are nonsecret `hostname` and `url`. No Gateway fields in workload input.
 
 EP-02 (UC-03): built-in `endpoint` driver has no account or Terraform source.
@@ -23,23 +24,29 @@ before admitting endpoints; the database cannot detect unrelated cluster routes.
 
 EP-03 (UC-05/08): planning validates policy, port and path and exposes prospective
 hostname/url. Preview checks current reservations without writes; availability
-is advisory. Deploy atomically reserves hostname, globally within the database,
-for Organization/Application/Environment/generation/workload. Exactly one owner
-wins concurrent claims. Same-owner retries are idempotent. No automatic TTL.
+is advisory. Deploy atomically reserves the hostname, globally within the
+database, for Organization/Application/Environment/generation, and its path for
+one workload (EP-07). Exactly one owner wins concurrent claims. Same-owner retries
+are idempotent. No automatic TTL.
 
 EP-04 (UC-06): built-in routing emits HTTPRoute into the workload's normal manifest
 publication/inventory, using the actual rendered Service name and numeric port.
 No Terraform Kubernetes write and no second route publisher. Reject missing or
-ambiguous Services, legacy publicRoutes and template-generated routes when an
-endpoint is requested. Gateway must already allow the workload namespace.
+ambiguous Services and template-generated routes when an endpoint is requested. Gateway must already allow the workload namespace.
 
-EP-05 (UC-07): retain old and new hostname claims across failed/unknown delivery.
+EP-05 (UC-07): retain old and new hostname/path claims across failed/unknown delivery.
 Release obsolete claims only after successful replacement/pruning acknowledgement,
 or after confirmed workload removal. Removal failure never frees a hostname.
 A failed reservation may remain conservatively held until successful retry/removal;
-no automatic adoption or hostname transfer. Existing pinned legacy route templates
-continue working; migration requires an explicit workload/template change.
+no automatic adoption or hostname transfer. A hostname is released when its owner
+holds no path.
 
-EP-06: schema v9 adds endpoint_reservations; owner setup upgrades populated v8
-without changing existing product rows, installation identity, encrypted state or
-PVCs. Runtime performs no DDL. Console owns reservation CRUD; State has no access.
+EP-06: schema v9 added endpoint_reservations; schema v10 replaces it with
+endpoint_hosts and endpoint_paths (ADR-037). Owner setup upgrades populated data
+without changing installation identity, encrypted state or PVCs. Runtime performs
+no DDL. Console owns reservation CRUD; State has no access.
+
+EP-07 (UC-05/06): workloads of one Application Environment may share a hostname
+with distinct path prefixes. Another Environment/Application cannot use a held
+hostname; two workloads cannot claim the same hostname and path. Each workload
+emits its own HTTPRoute; the Gateway chooses the longest matching prefix.

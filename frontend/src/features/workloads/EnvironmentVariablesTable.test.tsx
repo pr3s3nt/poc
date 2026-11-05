@@ -7,7 +7,7 @@ import type { ResourceType, Workload as WorkloadItem } from './api';
 import type { Application } from '../../shared/types/application';
 import { bothConfigured } from '../../test/targets';
 
-const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog', name: 'Catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 const SECRET_VALUE = 'p4ss-never-shown';
 const VARIABLE_VALUE = 'https://internal.example';
 const catalogKeys: ConfigKey[] = [

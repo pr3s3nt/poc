@@ -89,6 +89,9 @@ func parse(b []byte) (*Document, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := rejectPublicRoutes(b); err != nil {
+		return nil, err
+	}
 	dec := json.NewDecoder(strings.NewReader(string(b)))
 	dec.DisallowUnknownFields()
 	var doc Document
@@ -282,16 +285,19 @@ func (d Document) Validate() error {
 			}
 		}
 	}
-	if d.Service != nil {
-		seen := map[string]bool{}
-		for _, route := range d.Service.PublicRoutes {
-			if !publicPathPattern.MatchString(route.Path) || seen[route.Path] {
-				return fmt.Errorf("workload: invalid or duplicate public path %q", route.Path)
-			}
-			seen[route.Path] = true
-			if _, ok := d.Service.Ports[route.Port]; !ok {
-				return fmt.Errorf("workload: public Service port %q is not declared", route.Port)
-			}
+	return nil
+}
+
+// rejectPublicRoutes refuses the retired service.publicRoutes of a new
+// Workload or draft (ADR-037); historical Deployment Sets are read elsewhere.
+func rejectPublicRoutes(b []byte) error {
+	var raw struct {
+		Service map[string]json.RawMessage `json:"service"`
+	}
+	if json.Unmarshal(b, &raw) == nil {
+		_, port := raw.Service["publicPort"]
+		if _, present := raw.Service["publicRoutes"]; present && !port {
+			return environment.ErrPublicRoutesRemoved // publicPort keeps its own error
 		}
 	}
 	return nil

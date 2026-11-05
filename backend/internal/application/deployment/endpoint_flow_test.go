@@ -73,7 +73,7 @@ func TestEndpointDeployReservesRoutesAndReleases(t *testing.T) {
 	owner := endpoint.Owner{Organization: opts.OrganizationKey, Application: opts.ApplicationKey, Environment: opts.EnvironmentKey, Generation: env.TargetGeneration, Workload: "frontend"}
 	foreign := owner
 	foreign.Workload = "backend"
-	if err := repo.CheckEndpoint(ctx, "shop.apps.example.com", foreign); !errors.Is(err, persistence.ErrHostnameTaken) {
+	if err := repo.CheckEndpoint(ctx, endpoint.Claim{Hostname: "shop.apps.example.com", Path: "/"}, foreign); !errors.Is(err, persistence.ErrHostnameTaken) {
 		t.Fatalf("hostname not reserved for frontend: %v", err)
 	}
 	last := app.FakeDeploy.Applied[len(app.FakeDeploy.Applied)-1]
@@ -96,10 +96,10 @@ func TestEndpointDeployReservesRoutesAndReleases(t *testing.T) {
 	if _, err := app.Deployments.DeployWorkload(ctx, cmd); err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.CheckEndpoint(ctx, "shop.apps.example.com", foreign); err != nil {
+	if err := repo.CheckEndpoint(ctx, endpoint.Claim{Hostname: "shop.apps.example.com", Path: "/"}, foreign); err != nil {
 		t.Fatalf("old hostname still held after rename: %v", err)
 	}
-	if err := repo.CheckEndpoint(ctx, "store.apps.example.com", foreign); !errors.Is(err, persistence.ErrHostnameTaken) {
+	if err := repo.CheckEndpoint(ctx, endpoint.Claim{Hostname: "store.apps.example.com", Path: "/"}, foreign); !errors.Is(err, persistence.ErrHostnameTaken) {
 		t.Fatalf("new hostname not reserved: %v", err)
 	}
 
@@ -108,7 +108,7 @@ func TestEndpointDeployReservesRoutesAndReleases(t *testing.T) {
 	if _, err := app.Deployments.DeployWorkload(ctx, cmd); err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.CheckEndpoint(ctx, "store.apps.example.com", foreign); err != nil {
+	if err := repo.CheckEndpoint(ctx, endpoint.Claim{Hostname: "store.apps.example.com", Path: "/"}, foreign); err != nil {
 		t.Fatalf("hostname still held after the endpoint was removed: %v", err)
 	}
 	pruned := false
@@ -131,7 +131,7 @@ func TestEndpointDeployRefusesHostnameHeldByAnotherOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 	other := endpoint.Owner{Organization: opts.OrganizationKey, Application: opts.ApplicationKey, Environment: opts.EnvironmentKey, Generation: env.TargetGeneration, Workload: "backend"}
-	if err := repo.ReserveEndpoint(ctx, "shop.apps.example.com", other); err != nil {
+	if err := repo.ReserveEndpoint(ctx, endpoint.Claim{Hostname: "shop.apps.example.com", Path: "/"}, other); err != nil {
 		t.Fatal(err)
 	}
 	base := seed.AcceptanceWorkloads(opts)["frontend"]
@@ -143,7 +143,7 @@ func TestEndpointDeployRefusesHostnameHeldByAnotherOwner(t *testing.T) {
 	if len(app.FakeDeploy.Applied) != applied {
 		t.Fatal("workload manifests were applied despite the reservation conflict")
 	}
-	if err := repo.CheckEndpoint(ctx, "shop.apps.example.com", other); err != nil {
+	if err := repo.CheckEndpoint(ctx, endpoint.Claim{Hostname: "shop.apps.example.com", Path: "/"}, other); err != nil {
 		t.Fatalf("original owner lost its reservation: %v", err)
 	}
 }

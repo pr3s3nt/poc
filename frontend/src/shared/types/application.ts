@@ -29,14 +29,17 @@ export interface EnvironmentTarget {
   targetGeneration: number;
   draftVersion: number;
   activeOperation?: EnvironmentOperation;
+  /** Actual public URLs of ready endpoint resources (ADR-037). */
+  endpoints?: readonly EnvironmentEndpoint[];
 }
+
+export type EnvironmentEndpoint = { workloadId: string; url: string };
 
 export const emptyEnvironment: EnvironmentTarget = { version: 1, secretStoreKey: '', targetGeneration: 0, draftVersion: 0 };
 
 export interface Application {
   id: string;
   name: string;
-  subdomain: string;
   environments: Record<EnvironmentKey, EnvironmentTarget>;
   /** Exact keys advertised by the API; absent only for older callers. */
   availableEnvironments?: readonly string[];
@@ -47,10 +50,7 @@ export interface Application {
   deletionOperationId?: string;
 }
 
-export const platformDomain = 'example.com';
-
-export function endpointFor(application: Application, environment: EnvironmentKey): string {
-  return environment === 'production'
-    ? `${application.subdomain}.${platformDomain}`
-    : `staging.${application.subdomain}.${platformDomain}`;
+/** The first actual endpoint URL of an Environment, if any (ADR-037). */
+export function endpointFor(application: Application, environment: EnvironmentKey): string | undefined {
+  return application.environments[environment]?.endpoints?.[0]?.url;
 }

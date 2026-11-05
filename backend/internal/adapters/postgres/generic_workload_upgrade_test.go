@@ -77,7 +77,7 @@ func TestGenericWorkloadUpgradePreservesInstallationAndRuntimeGrants(t *testing.
 	if _, err = c.Exec(ctx, `CREATE TABLE forbidden_ddl(id int)`); err == nil {
 		t.Fatal("runtime acquired DDL")
 	}
-	if scalar[int](t, owner, `SELECT max(version) FROM schema_upgrade_history`) != 9 {
+	if scalar[int](t, owner, `SELECT max(version) FROM schema_upgrade_history`) != 10 {
 		t.Fatal("history not advanced")
 	}
 }

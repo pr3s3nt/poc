@@ -24,7 +24,7 @@ func seedEnvironment(t *testing.T, st persistence.Store) string {
 		t.Fatal(err)
 	}
 	appID := ids.New()
-	if err := st.SaveApplication(ctx, application.Application{ID: appID, Key: appID, OrganizationKey: "acme", Name: "Fence", Subdomain: "fence-" + appID[:8], Version: 1}); err != nil {
+	if err := st.SaveApplication(ctx, application.Application{ID: appID, Key: appID, OrganizationKey: "acme", Name: "Fence", Version: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.SaveEnvironment(ctx, environment.Environment{ID: ids.New(), Key: "staging", ApplicationID: appID, ApplicationKey: appID, Name: "s", Type: "staging", NamespaceIdentity: "app-" + appID + "-staging", Version: 1}); err != nil {
@@ -101,7 +101,7 @@ func runFencing(t *testing.T, storeA, storeB persistence.Store, admissionDelay t
 	// Every owner-only write of the old owner is fenced, across both stores.
 	oldCtx, cancelOld := oldLease.Detached()
 	defer cancelOld()
-	if err := storeA.SetPublicRoutesPending(oldCtx, appKey, "staging", true); !errors.Is(err, persistence.ErrOperationLost) {
+	if err := fencedWrite(storeA, oldCtx, appKey); !errors.Is(err, persistence.ErrOperationLost) {
 		t.Fatalf("old owner write: %v", err)
 	}
 
@@ -111,7 +111,7 @@ func runFencing(t *testing.T, storeA, storeB persistence.Store, admissionDelay t
 	if _, err := oldManager.Begin(ctx, envops.Claim{ApplicationKey: appKey, EnvironmentKey: "staging", Kind: environment.OpDeploy}); !errors.Is(err, persistence.ErrEnvironmentBusy) {
 		t.Fatalf("concurrent execution after stale End: %v", err)
 	}
-	if err := storeB.SetPublicRoutesPending(newLease.Ctx, appKey, "staging", true); err != nil {
+	if err := fencedWrite(storeB, newLease.Ctx, appKey); err != nil {
 		t.Fatalf("new owner write: %v", err)
 	}
 
@@ -127,7 +127,7 @@ func runFencing(t *testing.T, storeA, storeB persistence.Store, admissionDelay t
 	if err != nil || second.Fence != recovered.Fence+1 {
 		t.Fatalf("second recovery: %+v %v", second, err)
 	}
-	if err := storeB.SetPublicRoutesPending(newLease.Ctx, appKey, "staging", false); !errors.Is(err, persistence.ErrOperationLost) {
+	if err := fencedWrite(storeB, newLease.Ctx, appKey); !errors.Is(err, persistence.ErrOperationLost) {
 		t.Fatalf("first recovery owner must be fenced by the second: %v", err)
 	}
 	finalLease := envops.NewManager(storeA).Adopt(ctx, second)
@@ -363,4 +363,13 @@ func TestStorageOutageStopsExecutionAndKeepsTheClaim(t *testing.T) {
 	if env, _ := inner.GetEnvironment(context.Background(), appKey, "staging"); !env.Busy() {
 		t.Fatal("the claim must stay held")
 	}
+}
+
+// fencedWrite is one owner-only Environment write (a draft upsert).
+func fencedWrite(st persistence.Store, ctx context.Context, appKey string) error {
+	env, err := st.GetEnvironment(ctx, appKey, "staging")
+	if err != nil {
+		return err
+	}
+	return st.SaveWorkloadDraft(ctx, env.DraftVersion, environment.WorkloadDraft{ApplicationKey: appKey, EnvironmentKey: "staging", WorkloadID: "fenced-probe", State: environment.DraftUpsert, Workload: map[string]any{"apiVersion": "orchestrator.dev/workload/v1"}})
 }

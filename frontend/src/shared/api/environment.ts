@@ -11,6 +11,7 @@ export type APIEnvironment = {
   targetGeneration?: number;
   draftVersion?: number;
   activeOperation?: EnvironmentOperation;
+  endpoints?: { workloadId: string; url: string }[];
 };
 
 export function toTarget(item: APIEnvironment): EnvironmentTarget {
@@ -22,6 +23,7 @@ export function toTarget(item: APIEnvironment): EnvironmentTarget {
     secretStoreName: item.secretStoreName,
     targetGeneration: item.targetGeneration ?? 0,
     draftVersion: item.draftVersion ?? 0,
+    endpoints: item.endpoints ?? [],
     activeOperation: item.activeOperation,
   };
 }

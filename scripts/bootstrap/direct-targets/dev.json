@@ -345,7 +345,6 @@
   },
   "application": {
     "name": "acceptance-direct-dev",
-    "subdomain": "acceptance-direct-dev",
     "environment": "staging",
     "definitionRevisions": {},
     "workloadClass": "bootstrap-dev",

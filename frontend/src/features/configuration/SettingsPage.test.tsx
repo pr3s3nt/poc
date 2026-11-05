@@ -6,7 +6,7 @@ import { SettingsPage } from './SettingsPage';
 import type { Application } from '../../shared/types/application';
 import { configuredTarget } from '../../test/targets';
 
-const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: { staging: configuredTarget( { secretStoreKey: 'vault-a', secretStoreName: 'Vault A' }), production: configuredTarget() }, workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog', name: 'Catalog', environments: { staging: configuredTarget( { secretStoreKey: 'vault-a', secretStoreName: 'Vault A' }), production: configuredTarget() }, workloads: { staging: [], production: [] } };
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 

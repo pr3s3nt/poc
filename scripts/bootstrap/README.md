@@ -24,7 +24,7 @@ trước khi dùng. Credentials chỉ là đường dẫn file 0600/0400 ngoài 
 
 `console` và `developer`: URL, username, passwordFile. `platform`: Git scope/tokenFile,
 account/context/backend kubeconfig, Types, Git Catalog, Vault scoped token và CD.
-`application`: name/subdomain ổn định, Environment đích, variables, secretFiles,
+`application`: name ổn định, Environment đích, variables, secretFiles,
 Workload paths, image versions, Catalog tag và optional Definition revision IDs.
 `upgrade`: enabled (mặc định true), images/tag/revisions đích rõ ràng.
 `verification`: URL Tailscale, payload job cố định, timeout; optional local forward.
@@ -167,7 +167,7 @@ V3 bỏ `platform.catalog` và `application.catalogTag`; dùng:
   xác minh; `${templateSources.acceptance}` trong `template_source` trỏ source
   đã pin. Resource expressions của sản phẩm được giữ nguyên.
 - `application.workloads`: ba Generic Workload files backend/worker/frontend,
-  cùng image pins, variables, secretFiles, name/subdomain và Environment đích.
+  cùng image pins, variables, secretFiles, name và Environment đích.
   Workload fixtures hiện hành được dùng chung, không có bước Score/render bundle.
 
 Inline hỗ trợ đúng bộ file Console cho phép sửa: `deployment.tpl`, `service.tpl`,

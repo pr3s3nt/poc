@@ -165,6 +165,8 @@ không hiện giá trị. Chuyển môi trường không nhận phản hồi c�
 
 ## T25 — Import đường dẫn công khai
 
+Retired by [ADR-037](../../../architecture/decisions/ADR-037-retire-public-routes.md); `publicRoutes` is now rejected like `publicPort`. Historical:
+
 Form chỉ serialize `service.publicRoutes`. Import có `service.publicPort` báo
 lỗi tiếng Việt theo `INVALID_SCORE`, giữ nội dung để sửa, không tạo route `/`
 và không tự lưu. Draft/current projection cũ chứa field này bị từ chối rõ;

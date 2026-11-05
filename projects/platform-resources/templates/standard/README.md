@@ -32,9 +32,5 @@ Focused renderer verification from `backend/`:
 go test ./internal/adapters/templatedriver -run 'TestStandardBundleExamples|TestExecutionRendersPrimaryControllersAndApprovedMounts'
 ```
 
-Optional `resources/httproute.tpl` emits a route only when Definition input
-httpRouteEnabled is true and the workload has routing.orchestrator.dev/hostname.
-Gateway/listener come from Definition inputs; hostname/path/named Service port
-come from workload annotations. It derives Service name, namespace and numeric
-port, and follows workload ownership/Fleet inventory. No Terraform route resource.
-See [HTTPRoute setup and migration](../../bootstrap/HTTPROUTE.md).
+The template renders no HTTPRoute/Ingress: public addresses come from the
+workload `endpoint` resource ([setup](../../bootstrap/HTTPROUTE.md), ADR-037).

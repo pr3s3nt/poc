@@ -5,7 +5,7 @@ import { WorkloadEditorPage } from './WorkloadEditorPage';
 import type { Application } from '../../shared/types/application';
 import { bothConfigured } from '../../test/targets';
 
-const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog', name: 'Catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -285,7 +285,6 @@ async function addPort(user: ReturnType<typeof userEvent.setup>, name: string, p
   if (name) await user.type(screen.getAllByLabelText('Tên cổng Service')[index]!, name);
   await user.type(screen.getAllByLabelText('Cổng Service', { exact: true })[index]!, port);
 }
-const routeSelect = () => screen.getByLabelText('Cổng Service công khai') as HTMLSelectElement;
 
 it('keeps resources, class and target port in closed advanced sections with effective defaults and writes nothing for them', async () => {
   const { puts } = serve({ types: [{ key: 'redis', inputs: [], outputs: [] }] });
@@ -406,90 +405,9 @@ it('never adds a public route on its own and selects a port only when exactly on
   expect(puts[0]!.workload.service.publicRoutes).toBeUndefined();
 });
 
-it('selects the only valid Service port after Add public route, not before', async () => {
-  const { puts } = serve();
-  const user = userEvent.setup();
-  render(<WorkloadEditorPage application={application} environment="staging" />);
-  await fillBasic(user);
-  await addPort(user, 'http', '8080');
-  await user.click(screen.getByRole('button', { name: '+ Thêm đường dẫn công khai' }));
-  expect(routeSelect()).toHaveValue('http');
-  await user.type(screen.getByLabelText('Đường dẫn công khai'), '/');
-  await addPort(user, 'metrics', '9100', 1);
-  expect(routeSelect()).toHaveValue('http');
-  await user.click(saveButton());
-  expect(puts[0]!.workload.service.publicRoutes).toEqual([{ path: '/', port: 'http' }]);
-});
 
-it('requires an explicit choice when no or several Service ports are valid', async () => {
-  const { puts } = serve();
-  const user = userEvent.setup();
-  render(<WorkloadEditorPage application={application} environment="staging" />);
-  await fillBasic(user);
-  await user.click(screen.getByRole('button', { name: '+ Thêm đường dẫn công khai' }));
-  expect(routeSelect()).toHaveValue('');
-  await user.type(screen.getByLabelText('Đường dẫn công khai'), '/');
-  await user.click(saveButton());
-  expect(screen.getByRole('alert')).toHaveTextContent('Hãy chọn một cổng Service');
-  await addPort(user, 'http', '8080');
-  await addPort(user, 'admin', '9000', 1);
-  await user.click(screen.getByRole('button', { name: '+ Thêm đường dẫn công khai' }));
-  expect(screen.getAllByLabelText('Cổng Service công khai')[1]).toHaveValue('');
-  expect(puts).toEqual([]);
-});
 
-it('does not count blank, duplicate or out-of-range Service ports as valid targets', async () => {
-  serve();
-  const user = userEvent.setup();
-  render(<WorkloadEditorPage application={application} environment="staging" />);
-  await fillBasic(user);
-  await addPort(user, 'ok', '8080');
-  await addPort(user, '', '81', 1);
-  await addPort(user, 'big', '70000', 2);
-  await addPort(user, 'dup', '82', 3);
-  await addPort(user, 'dup', '83', 4);
-  await user.click(screen.getByRole('button', { name: '+ Thêm đường dẫn công khai' }));
-  expect(routeSelect()).toHaveValue('ok');
-  expect(within(routeSelect()).getAllByRole('option').map((option) => option.textContent)).toEqual(['Chọn cổng', 'ok · 8080']);
-});
 
-it('keeps the old route target when its port is renamed, removed or invalid, shows it and blocks Save', async () => {
-  const { puts } = serve();
-  const user = userEvent.setup();
-  render(<WorkloadEditorPage application={application} environment="staging" />);
-  await fillBasic(user);
-  await addPort(user, 'http', '8080');
-  await addPort(user, 'other', '9000', 1);
-  await user.click(screen.getByRole('button', { name: '+ Thêm đường dẫn công khai' }));
-  await user.selectOptions(routeSelect(), 'http');
-  await user.type(screen.getByLabelText('Đường dẫn công khai'), '/');
-  // invalid number
-  await user.clear(screen.getAllByLabelText('Cổng Service', { exact: true })[0]!);
-  await user.type(screen.getAllByLabelText('Cổng Service', { exact: true })[0]!, '70000');
-  expect(routeSelect()).toHaveValue('http');
-  expect(screen.getByText(/Cổng Service "http" không còn hợp lệ/, { selector: 'p' })).toBeInTheDocument();
-  await user.click(saveButton());
-  expect(screen.getByRole('alert')).toHaveTextContent('Cổng Service "http" không còn hợp lệ');
-  // restore, then rename
-  await user.clear(screen.getAllByLabelText('Cổng Service', { exact: true })[0]!);
-  await user.type(screen.getAllByLabelText('Cổng Service', { exact: true })[0]!, '8080');
-  expect(screen.queryByText(/không còn hợp lệ/, { selector: 'p' })).not.toBeInTheDocument();
-  await user.type(screen.getAllByLabelText('Tên cổng Service')[0]!, '2');
-  expect(routeSelect()).toHaveValue('http');
-  expect(within(routeSelect()).getByRole('option', { name: 'http · không hợp lệ' })).toBeInTheDocument();
-  await user.click(saveButton());
-  expect(puts).toEqual([]);
-  // remove: still the old target, never the remaining valid port
-  await user.click(within(screen.getAllByLabelText('Tên cổng Service')[0]!.closest('.binding-row') as HTMLElement).getByRole('button', { name: 'Xóa' }));
-  expect(routeSelect()).toHaveValue('http');
-  expect(screen.getByText(/Cổng Service "http" không còn hợp lệ/, { selector: 'p' })).toBeInTheDocument();
-  await user.click(saveButton());
-  expect(puts).toEqual([]);
-  // an explicit choice repairs it
-  await user.selectOptions(routeSelect(), 'other');
-  await user.click(saveButton());
-  expect(puts[0]!.workload.service.publicRoutes).toEqual([{ path: '/', port: 'other' }]);
-});
 
 it('does not add variables, keys or secrets on its own and sends no variables for an untouched table', async () => {
   const { puts } = serve({ keys: [{ name: 'API_URL', kind: 'VARIABLE', configured: true, value: 'x', usedBy: [] }, { name: 'TOKEN', kind: 'SECRET', configured: true, value: 'y', usedBy: [] }] });
@@ -515,17 +433,6 @@ it('blocks Save with Vietnamese validation for an invalid Workload name and keep
   expect(puts).toEqual([]);
 });
 
-it('round-trips several publicRoutes unchanged and never serializes publicPort', async () => {
-  const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1' } }, service: { ports: { http: { port: 8080 }, admin: { port: 9000 } }, publicRoutes: [{ path: '/', port: 'http' }, { path: '/admin', port: 'admin' }] } };
-  const { puts } = serve({ workloads: [{ id: 'api', state: 'PENDING_UPSERT', workload }] });
-  const user = userEvent.setup();
-  render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
-  await screen.findByRole('heading', { name: 'Sửa api' });
-  expect(screen.getAllByLabelText('Đường dẫn công khai')).toHaveLength(2);
-  await user.click(saveButton());
-  expect(puts[0]!.workload.service).toEqual(workload.service);
-  expect(JSON.stringify(puts[0])).not.toContain('publicPort');
-});
 
 it('rejects an import with publicPort in Vietnamese, keeps the form and converts nothing', async () => {
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {

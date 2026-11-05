@@ -30,28 +30,31 @@ type Port struct {
 
 // Service exposes workload ports inside the cluster.
 type Service struct {
-	Ports        map[string]Port `json:"ports"`
-	PublicRoutes []PublicPath    `json:"publicRoutes,omitempty"`
-}
-
-// PublicPath maps a URL prefix on the Environment host to a named Service port.
-type PublicPath struct {
-	Path string `json:"path"`
-	Port string `json:"port"`
+	Ports map[string]Port `json:"ports"`
 }
 
 // ErrPublicPortRemoved reports a Service that declares the removed
-// `publicPort` field. Only `publicRoutes` is supported; the field is never
-// converted into a route and never silently dropped.
-var ErrPublicPortRemoved = errors.New("environment: service.publicPort is not supported; declare service.publicRoutes")
+// `publicPort` field; it is never converted into an address.
+var ErrPublicPortRemoved = errors.New("environment: service.publicPort is not supported; declare an endpoint resource")
 
-// UnmarshalJSON rejects any presence of `publicPort` (empty, null or next to
-// `publicRoutes`) so no decoder of a Workload, draft or Deployment Set drops it.
+// ErrPublicRoutesRemoved reports a new Workload or draft that declares the
+// retired `publicRoutes` field (ADR-037); use an endpoint resource instead.
+var ErrPublicRoutesRemoved = errors.New("environment: service.publicRoutes is retired; declare an endpoint resource")
+
+// UnmarshalJSON rejects any presence of `publicPort`. A retired `publicRoutes`
+// key is read without its value so immutable historical Deployment Sets stay
+// readable; new Workloads and drafts reject it before decoding (ADR-037).
 func (s *Service) UnmarshalJSON(b []byte) error {
 	var keys map[string]json.RawMessage
 	if err := json.Unmarshal(b, &keys); err == nil {
 		if _, present := keys["publicPort"]; present {
 			return ErrPublicPortRemoved
+		}
+		if _, present := keys["publicRoutes"]; present {
+			delete(keys, "publicRoutes")
+			if b, err = json.Marshal(keys); err != nil {
+				return err
+			}
 		}
 	}
 	// Strict like the Workload decoder: unknown keys at any depth are rejected.
@@ -68,8 +71,6 @@ func (s *Service) Canonical() *Service {
 		return nil
 	}
 	out := *s
-	out.PublicRoutes = append([]PublicPath(nil), s.PublicRoutes...)
-	sort.Slice(out.PublicRoutes, func(i, j int) bool { return out.PublicRoutes[i].Path < out.PublicRoutes[j].Path })
 	out.Ports = make(map[string]Port, len(s.Ports))
 	for name, port := range s.Ports {
 		if port.TargetPort == 0 {

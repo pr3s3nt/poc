@@ -632,7 +632,7 @@ func TestHTTPDeploymentReadsOnPostgres(t *testing.T) {
 // through the set-once endpoint, as a Developer would in Environment Settings.
 func createConfiguredApplication(t *testing.T, client *http.Client, baseURL, name, subdomain, connectionKey string) map[string]any {
 	t.Helper()
-	status, created := requestJSON(t, client, http.MethodPost, baseURL+"/api/v1/applications", map[string]any{"name": name, "subdomain": subdomain})
+	status, created := requestJSON(t, client, http.MethodPost, baseURL+"/api/v1/applications", map[string]any{"name": name})
 	if status != http.StatusCreated {
 		t.Fatalf("create Application: %d %v", status, created)
 	}
@@ -654,7 +654,7 @@ func createConfiguredApplication(t *testing.T, client *http.Client, baseURL, nam
 // the seeded workload rendering Definition, so a test registers its own rendering template.
 func createUnrenderedApplication(t *testing.T, client *http.Client, baseURL, name, subdomain string) map[string]any {
 	t.Helper()
-	status, created := requestJSON(t, client, http.MethodPost, baseURL+"/api/v1/applications", map[string]any{"name": name, "subdomain": subdomain})
+	status, created := requestJSON(t, client, http.MethodPost, baseURL+"/api/v1/applications", map[string]any{"name": name})
 	if status != http.StatusCreated {
 		t.Fatalf("create Application: %d %v", status, created)
 	}

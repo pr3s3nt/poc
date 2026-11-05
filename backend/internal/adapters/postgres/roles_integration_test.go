@@ -118,7 +118,7 @@ func newStateFixture(t *testing.T) stateFixture {
 		t.Fatal(err)
 	}
 	appID := ids.New()
-	if err := console.SaveApplication(ctx, application.Application{ID: appID, Key: "app", OrganizationKey: "acme", Name: "App", Subdomain: "app", Version: 1}); err != nil {
+	if err := console.SaveApplication(ctx, application.Application{ID: appID, Key: "app", OrganizationKey: "acme", Name: "App", Version: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if err := console.SaveEnvironment(ctx, environment.Environment{ID: ids.New(), Key: "staging", ApplicationID: appID, ApplicationKey: "app", Name: "staging", Type: "staging", NamespaceIdentity: "ns-app-staging", Version: 1}); err != nil {

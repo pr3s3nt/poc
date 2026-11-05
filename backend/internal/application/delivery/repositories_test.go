@@ -106,7 +106,7 @@ func TestApplicationPinsPlatformDefaultWithoutProvisioning(t *testing.T) {
 	defaults := NewBindings(st, nil)
 	svc := appservice.NewService(st)
 	svc.SetDeliveryDefaults(defaults)
-	if _, err := svc.Create(ctx, appservice.CreateCommand{OrganizationKey: "delivery-org", Name: "Missing", Subdomain: "missing"}); !errors.Is(err, ErrPlatformDefault) {
+	if _, err := svc.Create(ctx, appservice.CreateCommand{OrganizationKey: "delivery-org", Name: "Missing"}); !errors.Is(err, ErrPlatformDefault) {
 		t.Fatal(err)
 	}
 	apps, _ := st.ListApplications(ctx)
@@ -116,7 +116,7 @@ func TestApplicationPinsPlatformDefaultWithoutProvisioning(t *testing.T) {
 	if _, err := st.SetPlatformDeliveryDefault(ctx, domain.PlatformDefault{OrganizationID: b.OrganizationID, BindingID: b.ID, BindingVersion: 1}, 0); err != nil {
 		t.Fatal(err)
 	}
-	result, err := svc.Create(ctx, appservice.CreateCommand{OrganizationKey: "delivery-org", Name: "Managed", Subdomain: "managed"})
+	result, err := svc.Create(ctx, appservice.CreateCommand{OrganizationKey: "delivery-org", Name: "Managed"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestApplicationPinsPlatformDefaultWithoutProvisioning(t *testing.T) {
 	if existing.DesiredDelivery.BindingID != b.ID {
 		t.Fatal("default rewrote existing application")
 	}
-	newer, err := svc.Create(ctx, appservice.CreateCommand{OrganizationKey: "delivery-org", Name: "Newer", Subdomain: "newer"})
+	newer, err := svc.Create(ctx, appservice.CreateCommand{OrganizationKey: "delivery-org", Name: "Newer"})
 	if err != nil || newer.Environments[0].DesiredDelivery.BindingID != next.ID {
 		t.Fatal("new default ignored", err)
 	}

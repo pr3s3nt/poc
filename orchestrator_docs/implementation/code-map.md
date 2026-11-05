@@ -145,7 +145,7 @@ Canonical behavior: [UC-04 DIAG-01..14](../usecase/UC-04/specification.md#accoun
 | UC-07 final resource marking and Service-reference guards | [`deployment service`](../../backend/internal/application/deployment/service.go), [`planner`](../../backend/internal/planning/plan.go), [`Service validation`](../../backend/internal/planning/service_refs.go), [`PostgreSQL atomicity tests`](../../backend/internal/application/deployment/postgres_uc07_integration_test.go) |
 | UC-07 pending UI and human-paced recording | [`Application home`](../../frontend/src/features/applications/ApplicationHomePage.tsx), [`editor`](../../frontend/src/features/workloads/WorkloadEditorPage.tsx), [`Playwright`](../../frontend/test/e2e/uc07-video-local.mjs) and [`runner`](../../backend/test/integration/uc07-video-local.sh) |
 | Definition-selected workload rendering | [`catalog validation`](../../backend/internal/domain/resource/rendering.go), [`planner selection`](../../backend/internal/planning/rendering.go), [`CLI adapter`](../../backend/internal/adapters/templatedriver/), [`deployment wiring`](../../backend/internal/bootstrap/bootstrap.go), [`pending comparisons`](../../backend/internal/application/pending/preview.go), `HTTP flow tests` (editor HTTP test retired 2026-11-02; see Catalog release verification) |
-| ADR-024 open object set, inventory, Gateway routes | [`guard`](../../backend/internal/adapters/templatedriver/guard.go), [`resources stage`](../../backend/internal/adapters/templatedriver/git.go), [`object discovery/ownership/UID removal`](../../backend/internal/adapters/kubernetes/objects.go), [`inventory and apply order`](../../backend/internal/application/deployment/inventory.go), [`HTTPRoute`](../../backend/internal/adapters/kubernetes/public_routes.go), [`kind runner`](../../backend/test/integration/workload-manifests-kind.sh), [`browser scenario`](../../frontend/test/e2e/workload-manifests-kind.mjs) |
+| ADR-024 open object set, inventory, Gateway routes | [`guard`](../../backend/internal/adapters/templatedriver/guard.go), [`resources stage`](../../backend/internal/adapters/templatedriver/git.go), [`object discovery/ownership/UID removal`](../../backend/internal/adapters/kubernetes/objects.go), [`inventory and apply order`](../../backend/internal/application/deployment/inventory.go), [`kind runner`](../../backend/test/integration/workload-manifests-kind.sh), [`browser scenario`](../../frontend/test/e2e/workload-manifests-kind.mjs) |
 | V04 full reference/provision graph and safe blocked-consumer progress | [`planning graph`](../../backend/internal/planning/graph.go), [`blocked projection`](../../backend/internal/application/deployment/blocked.go), [`Console graph`](../../frontend/src/shared/ui/DependencyGraph.tsx) |
 | V04 full-app acceptance, private output cleanup and completed predecessor evidence | [`integrated runner`](../../backend/test/integration/v04-internal-full.sh), [`browser scenario`](../../frontend/test/e2e/v04-internal-full.mjs), [`operator inventory`](../../backend/test/integration/v2ctl/v04.go), [`admission proof`](../../backend/test/integration/v2run/v04_admission.go) |
 | V05 Definition-selected EKS, deferred cluster completion and per-resource fresh authentication | [`planner catalog contract`](../../backend/internal/planning/definition_catalog_plan_test.go), [`EKS completion`](../../backend/internal/application/provisioning/service.go), [`cluster readiness`](../../backend/internal/adapters/kubernetes/cluster_ready.go), [`restore target`](../../backend/internal/application/deployment/target_restore_test.go) |
@@ -168,7 +168,7 @@ Canonical behavior: [UC-04 DIAG-01..14](../usecase/UC-04/specification.md#accoun
 | Normalized PostgreSQL store and current fresh baseline | [`backend/internal/adapters/postgres`](../../backend/internal/adapters/postgres/) |
 | Fake walking-skeleton adapters | [`backend/internal/adapters/fake`](../../backend/internal/adapters/fake/) |
 | Kubernetes executor/deployer | [`backend/internal/adapters/kubernetes`](../../backend/internal/adapters/kubernetes/) |
-| Environment public-path validation, direct/Fleet Ingress reconciliation and route-only retry | [`backend/internal/planning/public_routes.go`](../../backend/internal/planning/public_routes.go), [`backend/internal/adapters/kubernetes/public_routes.go`](../../backend/internal/adapters/kubernetes/public_routes.go), [`backend/internal/adapters/gitops/public_routes.go`](../../backend/internal/adapters/gitops/public_routes.go), [`backend/internal/application/pending`](../../backend/internal/application/pending/), [`frontend/src/features/workloads/WorkloadEditorPage.tsx`](../../frontend/src/features/workloads/WorkloadEditorPage.tsx) |
+| Environment public-path validation and route reconciliation | Retired by [ADR-037](../architecture/decisions/ADR-037-retire-public-routes.md); see the endpoint resource rows. | — |
 | Optional Fleet GitRepo workload delivery (kind) | [`backend/internal/adapters/gitops`](../../backend/internal/adapters/gitops/), [`deploy/kind/fleet-poc-gitrepo.yaml`](../../deploy/kind/fleet-poc-gitrepo.yaml) |
 | Terraform executor/modules/inspection | [`backend/internal/adapters/terraform`](../../backend/internal/adapters/terraform/) |
 | Seed catalog and profiles | [`backend/internal/seed`](../../backend/internal/seed/) |
@@ -1204,3 +1204,15 @@ Focused real-renderer coverage: `company_httproute_test.go` in templatedriver.
   `features/preview/PreviewEndpoints.tsx`. Bootstrap: endpoint Type/Definition in
   `projects/platform-resources/bootstrap`, form filler in `direct-platform.mjs`.
 - E2E: `e2e/scenarios/endpoint-domain/`.
+
+## ADR-037 retirement
+
+- Removed: `planning/public_routes.go`, `adapters/kubernetes/public_routes.go`,
+  `adapters/gitops/public_routes.go`, `execution.PublicRoute*`, backend
+  `-public-*` flags, `SetPublicRoutesPending`, Application `Subdomain`.
+- `workloadspec` rejects new `service.publicRoutes`; `environment.Service`
+  decoding drops it from historical Deployment Sets.
+- Ledger: `adapters/postgres/endpoints.go` (hosts + paths), migration 010.
+- HTTP `environments[].endpoints` comes from READY endpoint Active Resources.
+- Console: `CreateApplicationPage` (name only), `DependencyFields` (private
+  endpoint, Service-port select), Application page endpoint list.

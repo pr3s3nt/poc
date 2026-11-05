@@ -41,7 +41,7 @@ func ManagedDelivery(t *testing.T, st ManagedDeliveryStore, b delivery.BindingVe
 	if _, err := st.GetPlatformDeliveryDefault(ctx, ids.New()); !errors.Is(err, persistence.ErrNotFound) {
 		t.Fatal("tenant default", err)
 	}
-	a := application.Application{ID: ids.New(), Key: ids.New(), OrganizationKey: "delivery-org", Name: "Managed", Subdomain: "managed", Version: 1}
+	a := application.Application{ID: ids.New(), Key: ids.New(), OrganizationKey: "delivery-org", Name: "Managed", Version: 1}
 	if err := st.SaveApplication(ctx, a); err != nil {
 		t.Fatal(err)
 	}

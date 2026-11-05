@@ -1,11 +1,15 @@
 ---
 id: RUNBOOK-PUBLIC-ROUTES
 artifact: operations-runbook
-status: current
+status: superseded
 last_reviewed: 2026-10-26
 ---
 
 # Public routes: Ingress or Gateway API HTTPRoute
+
+> Retired by [ADR-037](../architecture/decisions/ADR-037-retire-public-routes.md):
+> the flags and `orch-public` object below no longer exist. Use the
+> [endpoint resource](../../projects/platform-resources/bootstrap/HTTPROUTE.md).
 
 [ADR-024](../architecture/decisions/ADR-024-open-workload-objects.md) makes the
 Environment public route configurable at backend start. The platform owns one

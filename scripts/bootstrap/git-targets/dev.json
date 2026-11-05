@@ -177,7 +177,6 @@
   },
   "application": {
     "name": "acceptance-git-dev",
-    "subdomain": "acceptance-git-dev",
     "environment": "staging",
     "definitionRevisions": {},
     "workloadClass": "git-dev",

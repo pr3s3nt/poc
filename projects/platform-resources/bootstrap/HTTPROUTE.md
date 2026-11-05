@@ -31,57 +31,21 @@ kiến và báo nếu hostname đã bị workload khác giữ. HTTPRoute tên �
 `endpoint-<hash owner>`, trỏ Service đã render và port số của port có tên đó.
 Đổi name: hostname mới được giữ khi Deploy, hostname cũ chỉ nhả sau khi Deploy
 thành công; bỏ endpoint hoặc gỡ workload thì route bị prune và hostname được nhả.
-Không khai báo endpoint cùng `service.publicRoutes` hoặc template tự sinh route.
+Template không được tự sinh route cho workload có endpoint.
 Database không thấy route ngoài hệ thống: hãy giao riêng subdomain cho installation,
 hoặc liệt kê tên đã dùng trong `reservedNames` của Definition.
 
-## Route do template sinh (cách cũ)
+## Cách cũ đã bỏ
 
-Vẫn hỗ trợ cho workload đã dùng annotation; chuyển sang endpoint cần đổi workload
-có chủ đích. Frontend mẫu không còn dùng cách này.
-
-### Input
-
-| Tham số | Ý nghĩa |
-|---|---|
-| `parameters.httprouteEnabled` | Bật khả năng render route; đặt false nếu không cần |
-| `parameters.httprouteGatewayName` | Tên Gateway đang có |
-| `parameters.httprouteGatewayNamespace` | Namespace chứa Gateway |
-| `parameters.httprouteGatewaySectionName` | Tên listener, ví dụ https; rỗng để bỏ sectionName |
-
-Workload Definition truyền enabled/Gateway/listener vào template_inputs với
-các tên httpRouteEnabled, httpRouteGatewayName, httpRouteGatewayNamespace,
-httpRouteGatewaySectionName. Hostname/path/port nằm trên từng workload để một
-Definition dùng chung không vô tình tạo route cho mọi ứng dụng.
-
-Workload dùng ba annotation:
-
-```yaml
-metadata:
-  name: frontend
-  annotations:
-    routing.orchestrator.dev/hostname: web.staging.company.example
-    routing.orchestrator.dev/path: /
-    routing.orchestrator.dev/service-port: http
-service:
-  ports:
-    http:
-      port: 8080
-      targetPort: 8080
-```
-
-Đây là phần ghép vào Generic Workload, không phải manifest apply độc lập. Chỉ
-workload có annotation hostname và template bật httpRouteEnabled mới sinh
-HTTPRoute. Bỏ annotation hostname để không tạo route cho workload đó.
-Backend Service name và namespace lấy từ workload; port số lấy từ Service
-port có tên đã chọn, không lấy containerPort hoặc port listener của Gateway.
-Template chặn port không có trong Service và chặn khai báo đồng thời
-service.publicRoutes trên cùng workload. Không khai báo resources.public_http.
+Route do template sinh (annotation `routing.orchestrator.dev/*`, input
+`httpRoute*`), `service.publicRoutes` và flag route của backend đã bỏ theo
+[ADR-037](../../../orchestrator_docs/architecture/decisions/ADR-037-retire-public-routes.md).
+Nhiều workload cùng Environment dùng chung một `name` với `path` khác nhau, ví dụ
+frontend `/` và backend `/api`.
 
 ## Gateway có sẵn và kiểm tra
 
-Route do template sinh nằm trong namespace app, tên bằng workload (ví dụ frontend);
-route endpoint tên `endpoint-<hash>`. Cả hai
+Route endpoint nằm trong namespace app, tên `endpoint-<hash>`;
 parentRefs trỏ Gateway/listener được chỉ định. Gateway cần cho phép routes từ
 namespace ứng dụng; backendRefs chỉ tới Service cùng namespace. Không tạo
 ReferenceGrant hoặc sửa allowedRoutes của Gateway dùng chung.

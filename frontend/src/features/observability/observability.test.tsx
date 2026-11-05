@@ -20,7 +20,7 @@ it('preserves drill-down scope in routes without sending UI focus to the API', a
   expect(parseRoute(href(route))).toEqual(route);
   const requests: URL[] = [];
   vi.stubGlobal('fetch', vi.fn(async (input: string) => { requests.push(new URL(input, 'http://localhost')); return Response.json(fixture()); }));
-  render(<HistoryPage application={{ id: 'app/a', name: 'App', subdomain: 'app', environments: bothConfigured(), workloads: { staging: [], production: [] } }} environment="production" tab="logs" query={route.query} />);
+  render(<HistoryPage application={{ id: 'app/a', name: 'App', environments: bothConfigured(), workloads: { staging: [], production: [] } }} environment="production" tab="logs" query={route.query} />);
   expect(await screen.findByText('ERROR <script>plain text</script>')).toBeInTheDocument();
   expect(document.querySelector('script')).toBeNull();
   expect(requests[0]?.searchParams.get('focus')).toBeNull();
@@ -68,7 +68,7 @@ it('pauses at the latest followed interval without rewinding received logs', asy
     return Response.json({ ...original, from, to, logs: advanced ? [newer, ...original.logs] : original.logs, logCount: advanced ? 2 : 1 });
   }));
   const user = userEvent.setup();
-  render(<HistoryPage application={{ id: 'shop', name: 'Shop', subdomain: 'shop', environments: bothConfigured(), workloads: { staging: [], production: [] } }} environment="staging" tab="logs" />);
+  render(<HistoryPage application={{ id: 'shop', name: 'Shop', environments: bothConfigured(), workloads: { staging: [], production: [] } }} environment="staging" tab="logs" />);
   await screen.findByText(original.logs[0]!.message);
   now.mockReturnValue(stamp + 60000);
   await user.click(await screen.findByRole('button', { name: text('follow') }, { timeout: 10000 }));

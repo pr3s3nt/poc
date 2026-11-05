@@ -26,7 +26,7 @@ func newOperationApp(t *testing.T, st persistence.Store, org string) string {
 	t.Helper()
 	ctx := context.Background()
 	appID := ids.New()
-	if err := st.SaveApplication(ctx, application.Application{ID: appID, Key: appID, OrganizationKey: org, Name: "Ops " + appID[:6], Subdomain: "ops-" + appID[:8], Version: 1}); err != nil {
+	if err := st.SaveApplication(ctx, application.Application{ID: appID, Key: appID, OrganizationKey: org, Name: "Ops " + appID[:6], Version: 1}); err != nil {
 		t.Fatal(err)
 	}
 	for _, key := range []string{"staging", "production"} {
@@ -177,21 +177,15 @@ func EnvironmentOperations(t *testing.T, st persistence.Store) OperationFixture 
 	if _, err := st.SelectSecretStore(ctx, persistence.SecretStoreSelection{ApplicationKey: appID, EnvironmentKey: "staging", StoreKey: "vault-a", ExpectedVersion: 1}); !errors.Is(err, persistence.ErrEnvironmentBusy) {
 		t.Fatalf("store selection while busy: %v", err)
 	}
-	if err := st.SetPublicRoutesPending(ctx, appID, "staging", true); !errors.Is(err, persistence.ErrEnvironmentBusy) {
-		t.Fatalf("routes flag while busy: %v", err)
-	}
 	if err := st.CompareVersionAndSetCurrent(ctx, appID, "staging", 1, env.CurrentDeploymentSetID); !errors.Is(err, persistence.ErrEnvironmentBusy) {
 		t.Fatalf("set pointer while busy: %v", err)
 	}
-	if got, _ := st.GetEnvironment(ctx, appID, "staging"); got.Version != 1 || got.PublicRoutesPending {
+	if got, _ := st.GetEnvironment(ctx, appID, "staging"); got.Version != 1 {
 		t.Fatalf("rejected writes mutated: %+v", got)
 	}
 
 	// The owner may write; ctx carries the operation.
 	own := persistence.WithOwner(ctx, ownerOf(held))
-	if err := st.SetPublicRoutesPending(own, appID, "staging", true); err != nil {
-		t.Fatalf("owner routes flag: %v", err)
-	}
 	if err := st.SaveWorkloadDraft(own, 0, environment.WorkloadDraft{ApplicationKey: appID, EnvironmentKey: "staging", WorkloadID: "web", State: environment.DraftUpsert, Workload: map[string]any{"apiVersion": "orchestrator.dev/workload/v1"}}); err != nil {
 		t.Fatalf("owner draft: %v", err)
 	}
@@ -261,7 +255,7 @@ func EnvironmentOperations(t *testing.T, st persistence.Store) OperationFixture 
 	if err := st.HeartbeatOperation(ctx, ownerOf(held), "x", nil); !errors.Is(err, persistence.ErrOperationLost) {
 		t.Fatalf("stale owner heartbeat: %v", err)
 	}
-	if err := st.SetPublicRoutesPending(own, appID, "staging", false); !errors.Is(err, persistence.ErrOperationLost) {
+	if err := st.SaveWorkloadDraft(own, 1, environment.WorkloadDraft{ApplicationKey: appID, EnvironmentKey: "staging", WorkloadID: "web", State: environment.DraftDelete}); !errors.Is(err, persistence.ErrOperationLost) {
 		t.Fatalf("stale owner write: %v", err)
 	}
 

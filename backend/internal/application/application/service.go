@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -16,8 +15,6 @@ import (
 	"orchestrator/internal/ports/persistence"
 )
 
-var subdomainPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
-
 // Sentinel errors let delivery map UC-01 failures without parsing messages.
 var (
 	ErrInvalid      = errors.New("application: invalid input")
@@ -25,7 +22,7 @@ var (
 	ErrStaleVersion = errors.New("application: environment changed; reload it")
 )
 
-// FieldError names the Developer-editable field (name or subdomain) that failed.
+// FieldError names the Developer-editable field (name) that failed.
 type FieldError struct {
 	Field string
 	Err   error
@@ -42,7 +39,7 @@ func fieldError(field string, err error, msg string) error {
 // CreateCommand carries session-derived Organization and Developer input.
 // Create takes no Connection: placement comes from Resource Definitions (ADR-017).
 type CreateCommand struct {
-	OrganizationKey, Name, Subdomain, BaseDomain string
+	OrganizationKey, Name string
 }
 
 type Result struct {
@@ -62,12 +59,8 @@ func (s *Service) SetDeliveryDefaults(d DeliveryDefaults) { s.delivery = d }
 func NewService(store persistence.Store) *Service { return &Service{store: store} }
 func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error) {
 	cmd.Name = strings.TrimSpace(cmd.Name)
-	cmd.Subdomain = strings.ToLower(strings.TrimSpace(cmd.Subdomain))
 	if cmd.Name == "" {
 		return Result{}, fieldError("name", ErrInvalid, "application name is required")
-	}
-	if !subdomainPattern.MatchString(cmd.Subdomain) {
-		return Result{}, fieldError("subdomain", ErrInvalid, "subdomain must be a DNS label of lowercase letters, numbers and hyphens")
 	}
 	var result Result
 	err := s.store.Transact(ctx, func(ctx context.Context) error {
@@ -82,9 +75,6 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 			if existing.OrganizationKey == cmd.OrganizationKey && strings.EqualFold(existing.Name, cmd.Name) {
 				return fieldError("name", ErrDuplicate, "application name already exists in the organization")
 			}
-			if existing.Subdomain == cmd.Subdomain {
-				return fieldError("subdomain", ErrDuplicate, "subdomain is already in use")
-			}
 		}
 		var selection delivery.Selection
 		if s.delivery != nil {
@@ -94,12 +84,12 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 			}
 		}
 		appID := ids.New()
-		app := appdomain.Application{ID: appID, Key: appID, OrganizationKey: cmd.OrganizationKey, Name: cmd.Name, Subdomain: cmd.Subdomain}
+		app := appdomain.Application{ID: appID, Key: appID, OrganizationKey: cmd.OrganizationKey, Name: cmd.Name}
 		if err := app.Validate(); err != nil {
 			return err
 		}
 		if err := s.store.SaveApplication(ctx, app); err != nil {
-			// Unique Name/Subdomain constraints are the final duplicate guard.
+			// The unique Name constraint is the final duplicate guard.
 			if errors.Is(err, persistence.ErrImmutable) {
 				return fmt.Errorf("%w: %v", ErrDuplicate, err)
 			}

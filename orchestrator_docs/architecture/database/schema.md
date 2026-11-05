@@ -1326,3 +1326,17 @@ the State login has no privilege. The owner migration only creates the table on 
 populated version 8 database: no product row, installation identity, encrypted
 state or PVC changes. Released versions 1–8 are frozen. The final version-9
 structural comparison also proves the additive version-8 step of long chains.
+
+## Retire public routes and subdomains — ADR-037 (schema version 10)
+
+Version 10 replaces `endpoint_reservations` with `endpoint_hosts` (hostname
+primary key → Organization/Application/Environment/target generation) and
+`endpoint_paths` ((hostname, path) primary key → workload, FK to the host).
+Workloads of one Environment share a hostname by distinct paths (EP-07); a host
+row is deleted when its owner holds no path. Each version-9 reservation becomes
+one host plus the workload's `/` path. The migration drops
+`applications.subdomain` with `applications_subdomain_key`, drops
+`environments.public_routes_pending` and removes `service.publicRoutes` from
+stored workload drafts. Immutable Deployment Sets, plans and receipts are not
+rewritten. Console has SELECT/INSERT/UPDATE/DELETE on both endpoint tables; the
+State login has none. Released versions 1–9 are frozen.

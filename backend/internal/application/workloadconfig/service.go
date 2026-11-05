@@ -136,7 +136,7 @@ func (s *Service) List(ctx context.Context, app, env string) (View, error) {
 		item := Item{ID: draft.WorkloadID, State: draft.State, Workload: draft.Workload, Ready: set.Document.Modules[draft.WorkloadID].Profile != ""}
 		if draft.State == environment.DraftUpsert {
 			parsed, err := workloadspec.FromMap(draft.Workload)
-			if errors.Is(err, environment.ErrPublicPortRemoved) {
+			if errors.Is(err, environment.ErrPublicPortRemoved) || errors.Is(err, environment.ErrPublicRoutesRemoved) {
 				return View{}, err // an old draft is never shown with its route dropped
 			}
 			if err == nil {

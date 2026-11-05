@@ -108,14 +108,12 @@ của Environment đang chọn.
   Save kiểm Type schema; Preview/Deploy kiểm module mappings/constraints biết
   trước provision. Không module match/input lỗi thì chặn Deploy. Import giữ
   cấu trúc phức tạp và shared ID, không mất thông tin khi đổi controls.
-- **BR-12:** Mỗi workload có thể khai báo nhiều public route `{path, port}`;
-  `path` là URL prefix bắt đầu bằng `/`, `port` là tên Service port đã khai báo.
-  Preview kiểm tra path hợp lệ và không trùng trong toàn Environment; `/` và
-  `/api` được phép ở hai workload. Chỉ nhận `service.publicRoutes`; mọi field
-  `service.publicPort` bị từ chối, kể cả rỗng/null hoặc đi kèm publicRoutes,
-  không tự chuyển draft cũ. HTTP trả code ổn định `INVALID_SCORE` và không
-  thay đổi draft/version/current set/runtime. Save chỉ lưu desired state; Deploy mới
-  tạo/cập nhật hoặc gỡ route của Environment.
+- **BR-12:** Địa chỉ public khai báo bằng một resource `endpoint` riêng của
+  workload (`name`, `port` là tên Service port, `path`). Nhiều workload cùng
+  Environment có thể dùng chung `name` với path khác nhau (EP-07). `service.publicRoutes`
+  và `service.publicPort` bị từ chối với code `INVALID_SCORE`, không thay đổi
+  draft/version/current set/runtime ([ADR-037](../../architecture/decisions/ADR-037-retire-public-routes.md)). Form workload luôn tạo endpoint
+  ở phạm vi riêng và chọn port từ Service đã khai báo.
 - **BR-13:** Draft có nội dung ngữ nghĩa giống current Deployment Set không
   tạo thay đổi trong Preview; thay đổi revision UC-12 của key workload đang
   dùng vẫn là update. Mỗi Save vẫn tăng draft version theo BR-10.

@@ -132,7 +132,7 @@ func TestReconstructVerifiedKeepsAdvancedFieldsServiceRefsAndSharedParams(t *tes
 				Resources:      &environment.ContainerResourceRequirements{Requests: &environment.ComputeResources{CPU: "100m"}, Limits: &environment.ComputeResources{Memory: "64Mi"}},
 				LivenessProbe:  &environment.Probe{Path: "/live", Port: 8080},
 				ReadinessProbe: &environment.Probe{Path: "/ready", Port: 8080}}},
-			Service:  &environment.Service{Ports: map[string]environment.Port{"http": {Port: 80, TargetPort: 8080, Protocol: "TCP"}}, PublicRoutes: []environment.PublicPath{{Path: "/api", Port: "http"}}},
+			Service:  &environment.Service{Ports: map[string]environment.Port{"http": {Port: 80, TargetPort: 8080, Protocol: "TCP"}}},
 			Replicas: &replicas},
 		Externals: map[string]environment.ResourceEntry{"own": {Type: "postgres", Class: "default", Params: map[string]any{"database": "keep"}}}}
 	set.Modules["api"] = module
@@ -157,7 +157,7 @@ func TestReconstructVerifiedKeepsAdvancedFieldsServiceRefsAndSharedParams(t *tes
 	if vars["A"] != "${resources.env.N}" || vars["S"] != "${resources.svc_peer_http.url}" || vars["O"] != "${resources.own.host}" || vars["H"] != "${resources.shared_1.host}" {
 		t.Fatalf("variables %v", vars)
 	}
-	if rewritten["replicas"] != float64(3) || rewritten["service"].(map[string]any)["publicRoutes"] == nil {
+	if rewritten["replicas"] != float64(3) || rewritten["service"].(map[string]any)["publicRoutes"] != nil {
 		t.Fatalf("service/replicas %v", rewritten)
 	}
 	res := rewritten["resources"].(map[string]any)

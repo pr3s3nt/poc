@@ -14,6 +14,7 @@ import (
 	"orchestrator/internal/ports/renderregistry"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"orchestrator/internal/application/accountdiag"
@@ -298,12 +299,19 @@ type environmentView struct {
 	TargetGeneration int64          `json:"targetGeneration"`
 	DraftVersion     int64          `json:"draftVersion"`
 	ActiveOperation  *operationView `json:"activeOperation,omitempty"`
+	// Endpoints are the actual public addresses of ready endpoint resources
+	// (ADR-037); no address is derived from the Application.
+	Endpoints []endpointView `json:"endpoints,omitempty"`
+}
+
+type endpointView struct {
+	WorkloadID string `json:"workloadId"`
+	URL        string `json:"url"`
 }
 
 type applicationView struct {
 	Key          string            `json:"key"`
 	Name         string            `json:"name"`
-	Subdomain    string            `json:"subdomain"`
 	Environments []environmentView `json:"environments"`
 	// Status is the UC-18 lifecycle; DeletionID names a deletion in progress.
 	Status     string `json:"status"`
@@ -339,7 +347,28 @@ func (s *Server) environmentViewOf(ctx context.Context, organizationKey string, 
 			v.ActiveOperation = &view
 		}
 	}
+	v.Endpoints = s.endpointsOf(ctx, organizationKey, e)
 	return v
+}
+
+// endpointsOf lists the nonsecret URL outputs of READY workload endpoint
+// resources of the Environment's current target generation, by workload.
+func (s *Server) endpointsOf(ctx context.Context, organizationKey string, e environment.Environment) []endpointView {
+	active, err := s.store.ListActiveResources(ctx, organizationKey)
+	if err != nil {
+		return nil
+	}
+	prefix := environment.ScopeID(e.ApplicationKey, e.Key, e.TargetGeneration) + "."
+	var out []endpointView
+	for _, r := range active {
+		url, _ := r.Outputs["url"].(string)
+		if r.Descriptor.Type != "endpoint" || r.Status != resource.StatusReady || r.Scope.Type != resource.ScopeWorkload || !strings.HasPrefix(r.Scope.ID, prefix) || url == "" {
+			continue
+		}
+		out = append(out, endpointView{WorkloadID: strings.TrimPrefix(r.Scope.ID, prefix), URL: url})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].WorkloadID+out[i].URL < out[j].WorkloadID+out[j].URL })
+	return out
 }
 
 const sessionCookie = "orchestrator_session"
@@ -409,7 +438,7 @@ func (s *Server) handleApplications(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		view := applicationView{
-			Key: a.Key, Name: a.Name, Subdomain: a.Subdomain,
+			Key: a.Key, Name: a.Name,
 			Environments: make([]environmentView, 0, len(envs)),
 		}
 		lifecycleOf(&view, a)
@@ -422,8 +451,7 @@ func (s *Server) handleApplications(w http.ResponseWriter, r *http.Request) {
 }
 
 type createApplicationRequest struct {
-	Name      string `json:"name"`
-	Subdomain string `json:"subdomain"`
+	Name string `json:"name"`
 }
 
 func (s *Server) handleCreateApplication(w http.ResponseWriter, r *http.Request) {
@@ -432,7 +460,7 @@ func (s *Server) handleCreateApplication(w http.ResponseWriter, r *http.Request)
 		writeCode(w, codeUnauthorized, "")
 		return
 	}
-	// Only Name and Subdomain are accepted; Organization and role come from the
+	// Only Name is accepted (ADR-037); Organization and role come from the
 	// session. Placement comes from Resource Definitions, never from an Environment
 	// (ADR-017). Everything else, including connectionKey, is rejected.
 	var req createApplicationRequest
@@ -440,13 +468,13 @@ func (s *Server) handleCreateApplication(w http.ResponseWriter, r *http.Request)
 		writeCode(w, codeInvalidRequest, "")
 		return
 	}
-	cmd := appcreate.CreateCommand{OrganizationKey: identity.OrganizationKey, Name: req.Name, Subdomain: req.Subdomain, BaseDomain: s.seedOptions.BaseDomain}
+	cmd := appcreate.CreateCommand{OrganizationKey: identity.OrganizationKey, Name: req.Name}
 	result, err := s.applications.Create(r.Context(), cmd)
 	if err != nil {
 		s.writeError(w, err)
 		return
 	}
-	view := applicationView{Key: result.Application.Key, Name: result.Application.Name, Subdomain: result.Application.Subdomain}
+	view := applicationView{Key: result.Application.Key, Name: result.Application.Name}
 	lifecycleOf(&view, result.Application)
 	for _, env := range result.Environments {
 		view.Environments = append(view.Environments, s.environmentViewOf(r.Context(), identity.OrganizationKey, env))
@@ -495,7 +523,7 @@ func (s *Server) handleGetApplication(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, err)
 		return
 	}
-	view := applicationView{Key: app.Key, Name: app.Name, Subdomain: app.Subdomain}
+	view := applicationView{Key: app.Key, Name: app.Name}
 	lifecycleOf(&view, app)
 	for _, env := range envs {
 		view.Environments = append(view.Environments, s.environmentViewOf(r.Context(), app.OrganizationKey, env))

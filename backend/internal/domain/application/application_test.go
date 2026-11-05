@@ -10,7 +10,7 @@ import (
 // Application carries identity and current metadata only; execution and store
 // bindings belong to the Environment (T26).
 func TestApplicationSerializesIdentityOnly(t *testing.T) {
-	b, err := json.Marshal(Application{ID: "a", Key: "a", OrganizationKey: "acme", Name: "A", Subdomain: "a", Version: 2})
+	b, err := json.Marshal(Application{ID: "a", Key: "a", OrganizationKey: "acme", Name: "A", Version: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,20 +23,17 @@ func TestApplicationSerializesIdentityOnly(t *testing.T) {
 		got = append(got, k)
 	}
 	sort.Strings(got)
-	want := []string{"id", "key", "name", "organizationKey", "subdomain", "version"}
+	want := []string{"id", "key", "name", "organizationKey", "version"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("application JSON fields = %v, want %v", got, want)
 	}
 }
 
 func TestApplicationValidateIdentityOnly(t *testing.T) {
-	if err := (Application{Key: "ok", Subdomain: "ok"}).Validate(); err != nil {
+	if err := (Application{Key: "ok"}).Validate(); err != nil {
 		t.Fatal(err)
 	}
 	if err := (Application{Key: "Bad"}).Validate(); err == nil {
 		t.Fatal("invalid key accepted")
-	}
-	if err := (Application{Key: "ok", Subdomain: "-x"}).Validate(); err == nil {
-		t.Fatal("invalid subdomain accepted")
 	}
 }

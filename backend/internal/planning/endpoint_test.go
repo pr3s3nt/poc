@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning/workloadspec"
 )
@@ -50,14 +49,13 @@ func TestPlanRejectsInvalidEndpoints(t *testing.T) {
 		mutate func(*Request)
 		want   string
 	}{
-		"missing port":       {params: map[string]any{"name": "shop", "port": "grpc"}, want: "named Service port"},
-		"reserved name":      {params: map[string]any{"name": "www", "port": "http"}, want: "reserved"},
-		"policy override":    {params: map[string]any{"name": "shop", "port": "http", "gatewayName": "other"}, want: "does not declare input"},
-		"multi-label name":   {params: map[string]any{"name": "a.b", "port": "http"}, want: "DNS label"},
-		"relative path":      {params: map[string]any{"name": "shop", "port": "http", "path": "api"}, want: "absolute"},
-		"dot segment path":   {params: map[string]any{"name": "shop", "port": "http", "path": "/a/../b"}, want: "absolute"},
-		"no Service":         {params: map[string]any{"name": "shop", "port": "http"}, mutate: func(r *Request) { r.After.Service = nil }, want: "needs a Service"},
-		"legacy publicRoute": {params: map[string]any{"name": "shop", "port": "http"}, mutate: func(r *Request) { r.After.Service.PublicRoutes = []environment.PublicPath{{Path: "/", Port: "http"}} }, want: "legacy publicRoutes"},
+		"missing port":     {params: map[string]any{"name": "shop", "port": "grpc"}, want: "named Service port"},
+		"reserved name":    {params: map[string]any{"name": "www", "port": "http"}, want: "reserved"},
+		"policy override":  {params: map[string]any{"name": "shop", "port": "http", "gatewayName": "other"}, want: "does not declare input"},
+		"multi-label name": {params: map[string]any{"name": "a.b", "port": "http"}, want: "DNS label"},
+		"relative path":    {params: map[string]any{"name": "shop", "port": "http", "path": "api"}, want: "absolute"},
+		"dot segment path": {params: map[string]any{"name": "shop", "port": "http", "path": "/a/../b"}, want: "absolute"},
+		"no Service":       {params: map[string]any{"name": "shop", "port": "http"}, mutate: func(r *Request) { r.After.Service = nil }, want: "needs a Service"},
 		"wrong driver": {params: map[string]any{"name": "shop", "port": "http"}, mutate: func(r *Request) {
 			for i := range r.Catalog.Definitions {
 				if r.Catalog.Definitions[i].Key == "public-endpoint" {

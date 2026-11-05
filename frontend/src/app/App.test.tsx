@@ -10,7 +10,7 @@ type Handler = (url: string, init?: RequestInit) => Response | Promise<Response>
 
 let authenticated: boolean;
 type StubEnvironment = { key: string; version: number; secretStoreKey?: string; targetGeneration?: number; activeOperation?: { id: string; status: string } };
-type StubApplication = { key: string; name: string; subdomain: string; environments: StubEnvironment[] };
+type StubApplication = { key: string; name: string; environments: StubEnvironment[] };
 const environmentFixture = (key: string): StubEnvironment => ({ key, version: 1, secretStoreKey: '', targetGeneration: 0 });
 let applications: StubApplication[];
 let requests: { url: string; method: string; body?: string }[];
@@ -27,8 +27,8 @@ function stubBackend() {
     if (url.endsWith('/auth/sign-out')) { authenticated = false; return new Response(null, { status: 204 }); }
     if (!authenticated) return Response.json({ error: 'unauthorized' }, { status: 401 });
     if (url.endsWith('/applications') && init?.method === 'POST') {
-      const body = JSON.parse(String(init.body)) as { name: string; subdomain: string };
-      const created: StubApplication = { key: 'generated-id', name: body.name, subdomain: body.subdomain, environments: [environmentFixture('staging'), environmentFixture('production')] };
+      const body = JSON.parse(String(init.body)) as { name: string };
+      const created: StubApplication = { key: 'generated-id', name: body.name, environments: [environmentFixture('staging'), environmentFixture('production')] };
       applications.push(created);
       return Response.json({ application: created }, { status: 201 });
     }
@@ -52,7 +52,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/ui/sign-in');
     authenticated = false;
-    applications = [{ key: 'payment', name: 'Payment', subdomain: 'payment', environments: [environmentFixture('staging'), environmentFixture('production')] }];
+    applications = [{ key: 'payment', name: 'Payment', environments: [environmentFixture('staging'), environmentFixture('production')] }];
     requests = [];
     override = undefined;
     stubBackend();
@@ -110,8 +110,8 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
   it('lists several applications in returned order with Vietnamese card labels and deep links', async () => {
     authenticated = true;
     applications = [
-      { key: 'zeta', name: 'Zeta', subdomain: 'zeta', environments: [environmentFixture('staging'), environmentFixture('production')] },
-      { key: 'alpha', name: 'Alpha', subdomain: 'alpha', environments: [environmentFixture('staging'), environmentFixture('production')] },
+      { key: 'zeta', name: 'Zeta', environments: [environmentFixture('staging'), environmentFixture('production')] },
+      { key: 'alpha', name: 'Alpha', environments: [environmentFixture('staging'), environmentFixture('production')] },
     ];
     const user = userEvent.setup();
     render(<App />);
@@ -160,9 +160,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     await signIn(user);
     await user.click(screen.getAllByRole('button', { name: '+ Tạo ứng dụng' })[0]!);
     await user.type(screen.getByLabelText('Tên ứng dụng'), 'Catalog');
-    expect(screen.getByLabelText('Subdomain')).toHaveValue('catalog');
-    await user.clear(screen.getByLabelText('Subdomain'));
-    await user.type(screen.getByLabelText('Subdomain'), 'Catalog');
+    expect(screen.queryByLabelText('Subdomain')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Connection')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Kết nối')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Tạo ứng dụng' }));
@@ -172,7 +170,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Đã tạo ứng dụng.');
     expect(screen.getByRole('button', { name: /staging/ })).toHaveClass('tab-active');
     const create = requests.find((request) => request.method === 'POST' && request.url.endsWith('/applications'));
-    expect(JSON.parse(create?.body ?? '{}')).toEqual({ name: 'Catalog', subdomain: 'catalog' });
+    expect(JSON.parse(create?.body ?? '{}')).toEqual({ name: 'Catalog' });
 
     // ADR-017: Settings has no deployment Connection/profile/transition; resource Definitions select targets.
     await user.click(screen.getByRole('button', { name: 'Cài đặt môi trường' }));
@@ -441,7 +439,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
 
 it('keeps a legacy dev-only Application visible without requesting nonexistent staging data', async () => {
   authenticated = true;
-  applications = [{ key: 'legacy', name: 'Legacy Application', subdomain: 'legacy', environments: [environmentFixture('dev')] }];
+  applications = [{ key: 'legacy', name: 'Legacy Application', environments: [environmentFixture('dev')] }];
   window.history.replaceState({}, '', '/ui/applications/legacy');
   render(<App />);
   expect(await screen.findByRole('heading', { name: 'Môi trường chưa được Console hỗ trợ' })).toBeInTheDocument();

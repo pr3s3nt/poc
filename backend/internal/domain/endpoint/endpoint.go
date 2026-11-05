@@ -26,6 +26,21 @@ type Desired struct {
 	Policy   Policy `json:"policy"`
 }
 
+// Claim is one reserved hostname path (EP-07).
+type Claim struct {
+	Hostname string `json:"hostname"`
+	Path     string `json:"path"`
+}
+
+// Claim returns the reservation key of a resolved endpoint.
+func (d Desired) Claim() Claim { return Claim{Hostname: d.Hostname, Path: d.Path} }
+
+// SameHost reports whether two owners may share one hostname: the same
+// Organization, Application, Environment and target generation.
+func (o Owner) SameHost(other Owner) bool {
+	return o.Organization == other.Organization && o.Application == other.Application && o.Environment == other.Environment && o.Generation == other.Generation
+}
+
 // Owner includes generation; moving an endpoint to another target is explicit.
 type Owner struct {
 	Organization string `json:"organization"`

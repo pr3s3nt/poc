@@ -244,7 +244,7 @@ func TestWorkloadRegistration_RequiredTypeInputIsRefusedAndRenderOnlyIsRefusedEv
 			DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"template_source": "installed"}}}}
 	}
 	// A new Application has no Environment binding: it is Definition-placed, so render-only is refused for it.
-	created, err := appsvc.NewService(st).Create(ctx, appsvc.CreateCommand{OrganizationKey: opts.OrganizationKey, Name: "Placed", Subdomain: "placed"})
+	created, err := appsvc.NewService(st).Create(ctx, appsvc.CreateCommand{OrganizationKey: opts.OrganizationKey, Name: "Placed"})
 	if err != nil {
 		t.Fatal(err)
 	}

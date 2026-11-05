@@ -130,7 +130,7 @@ func TestSavedUndeployedDraftIsPlannedIntoExactRequirementsBeforeAnyProbe(t *tes
 	// A draft is saved and NOT deployed.
 	draft := map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": map[string]any{"name": "api"},
 		"containers": map[string]any{"main": map[string]any{"image": "example.invalid/api:v1"}},
-		"service":    map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}, "publicRoutes": []any{map[string]any{"path": "/", "port": "http"}}},
+		"service":    map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}},
 		"resources":  map[string]any{"db": map[string]any{"type": "postgres", "class": "default", "params": map[string]any{"database": "app", "username": "app"}}}}
 	base := api + "/applications/" + opts.ApplicationKey + "/environments/staging"
 	if status, out := requestJSON(t, pe, http.MethodPut, base+"/workloads/api", map[string]any{"workload": draft, "version": 0}); status != http.StatusOK {
@@ -171,7 +171,7 @@ func TestSavedUndeployedDraftIsPlannedIntoExactRequirementsBeforeAnyProbe(t *tes
 	probe.mu.Lock()
 	req := probe.seen
 	probe.mu.Unlock()
-	if req == nil || !req.Resolved || req.Workloads != 1 || req.PublicRoutes != 1 || len(req.Resources) == 0 {
+	if req == nil || !req.Resolved || req.Workloads != 1 || len(req.Resources) == 0 {
 		t.Fatalf("requirements: %+v", req)
 	}
 	var pg *probes.ResourceNeed

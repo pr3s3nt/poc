@@ -15,7 +15,7 @@ import (
 func endpointOwner(ctx planning.Context, workload string) endpoint.Owner {
 	return endpoint.Owner{Organization: ctx.OrganizationKey, Application: ctx.App.Key, Environment: ctx.Env.Key, Generation: ctx.Env.TargetGeneration, Workload: workload}
 }
-func (s *Service) retainEndpoints(ctx context.Context, owner endpoint.Owner, keep []string) error {
+func (s *Service) retainEndpoints(ctx context.Context, owner endpoint.Owner, keep []endpoint.Claim) error {
 	repo, ok := s.store.(persistence.EndpointRepository)
 	if !ok {
 		return nil

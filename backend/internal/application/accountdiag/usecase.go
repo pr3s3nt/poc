@@ -37,10 +37,6 @@ func platformChecks(scope domain.Scope, provider []probes.Check) []probes.Check 
 			out = append(out,
 				probes.Check{ID: "uc.secrets.store", Group: "usecase", DependsOn: []string{"uc.context"}, AffectedUseCases: []string{use}},
 				probes.Check{ID: "uc.secrets.workload", Group: "usecase", DependsOn: []string{"uc.secrets.store"}, AffectedUseCases: []string{use}})
-		case "https":
-			out = append(out,
-				probes.Check{ID: "uc.https.requirements", Group: "usecase", DependsOn: []string{"uc.context"}, AffectedUseCases: []string{use}},
-				probes.Check{ID: "uc.https.certificate", Group: "usecase", DependsOn: []string{"uc.https.requirements", "k8s.route.controller"}, AffectedUseCases: []string{use}})
 		}
 	}
 	return out
@@ -85,13 +81,12 @@ func (s *Service) evalPlatform(ctx context.Context, c probes.Check, scope domain
 	pass := func(reason string, facts map[string]string) domain.Finding {
 		return domain.Finding{Verdict: domain.VerdictPass, Reason: reason, Facts: facts}
 	}
-	na := func(reason string) domain.Finding { return domain.Finding{Verdict: domain.VerdictNA, Reason: reason} }
 	switch c.ID {
 	case "uc.context":
 		if gap != "" {
 			return unknownContext(gap)
 		}
-		return pass("CONTEXT_RESOLVED", map[string]string{"workloads": domain.Itoa(need.Workloads), "resources": domain.Itoa(len(need.Resources)), "publicRoutes": domain.Itoa(need.PublicRoutes), "pending": domain.Itoa(need.PendingChanges), "contextProvided": "true"})
+		return pass("CONTEXT_RESOLVED", map[string]string{"workloads": domain.Itoa(need.Workloads), "resources": domain.Itoa(len(need.Resources)), "pending": domain.Itoa(need.PendingChanges), "contextProvided": "true"})
 	case "uc.preview.requirements":
 		if gap != "" {
 			return unknownContext(gap)
@@ -129,31 +124,6 @@ func (s *Service) evalPlatform(ctx context.Context, c probes.Check, scope domain
 		// decided at deploy time inside the cluster: the platform runtime cannot
 		// observe it, so it is never reported as ready.
 		return domain.Finding{Verdict: domain.VerdictUnknown, Reason: "WORKLOAD_AUTH_UNOBSERVABLE", Facts: map[string]string{"evidence": "NONE"}}
-	case "uc.https.requirements":
-		if gap != "" {
-			return unknownContext(gap)
-		}
-		if f, bad := planGap(need); bad && need.PublicRoutes == 0 {
-			return f
-		}
-		if need.PublicRoutes == 0 {
-			return na("NO_PUBLIC_ROUTES")
-		}
-		return pass("ROUTES_DECLARED", map[string]string{"publicRoutes": domain.Itoa(need.PublicRoutes)})
-	case "uc.https.certificate":
-		if gap != "" {
-			return unknownContext(gap)
-		}
-		if need.PublicRoutes == 0 {
-			return na("NO_PUBLIC_ROUTES")
-		}
-		if need.PublicHost == "" {
-			return domain.Finding{Verdict: domain.VerdictUnknown, Reason: "PUBLIC_HOST_UNKNOWN", Remediation: "set-subdomain"}
-		}
-		if s.routes == nil {
-			return domain.Finding{Verdict: domain.VerdictUnknown, Reason: "ROUTE_INSPECTOR_UNAVAILABLE"}
-		}
-		return s.routes.Inspect(ctx, need.PublicHost)
 	case "uc.database.requirements", "uc.cache.requirements":
 		if gap != "" {
 			return unknownContext(gap)

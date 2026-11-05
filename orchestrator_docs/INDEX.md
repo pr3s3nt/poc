@@ -214,3 +214,4 @@ Company staging and GitHub Enterprise: [bootstrap setup kit](../scripts/bootstra
 and [internal-AI handoff](../scripts/bootstrap/enterprise/AI_HANDOFF.md).
 
 - [One Fleet GitRepo per Application](architecture/decisions/ADR-036-application-fleet-gitrepo.md).
+- [Retire public routes and Application subdomains](architecture/decisions/ADR-037-retire-public-routes.md).

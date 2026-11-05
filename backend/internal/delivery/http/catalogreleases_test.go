@@ -20,7 +20,7 @@ func TestCatalogSourcesRoleCASAndCredentialURLGuards(t *testing.T) {
 	if err := seedtest.Apply(context.Background(), st, opts); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.SaveApplication(context.Background(), application.Application{Key: opts.ApplicationKey, OrganizationKey: opts.OrganizationKey, Name: "Catalog", Subdomain: "catalog"}); err != nil {
+	if err := st.SaveApplication(context.Background(), application.Application{Key: opts.ApplicationKey, OrganizationKey: opts.OrganizationKey, Name: "Catalog"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.SaveEnvironment(context.Background(), environment.Environment{Key: "staging", ApplicationKey: opts.ApplicationKey, NamespaceIdentity: "catalog-staging"}); err != nil {

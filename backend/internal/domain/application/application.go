@@ -25,7 +25,6 @@ type Application struct {
 	Key             string `json:"key"`
 	OrganizationKey string `json:"organizationKey"`
 	Name            string `json:"name"`
-	Subdomain       string `json:"subdomain"`
 	Version         int64  `json:"version"`
 	// Status is the UC-18 lifecycle; empty reads as ACTIVE.
 	Status LifecycleStatus `json:"status,omitempty"`
@@ -138,9 +137,6 @@ func (a Application) Validate() error {
 	}
 	// Seeded planning fixtures predate UC-01 self-service creation and have no
 	// public endpoint. UC-01's creation service always requires it.
-	if a.Subdomain != "" && !dnsLabelPattern.MatchString(a.Subdomain) {
-		return fmt.Errorf("application: invalid subdomain %q", a.Subdomain)
-	}
 	return nil
 }
 

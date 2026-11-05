@@ -193,7 +193,7 @@ var publicErrors = map[string]publicError{
 // Trusted response fields. A field is echoed only when it is in this set:
 // request keys, aliases, names and values never are.
 var trustedFields = map[string]bool{
-	"name": true, "subdomain": true, "connectionKey": true, "expectedVersion": true, "expectedConfigVersion": true,
+	"name": true, "connectionKey": true, "expectedVersion": true, "expectedConfigVersion": true,
 	"secretStoreKey": true, "destinationKey": true, "acknowledgeDowntime": true, "priorExecutionStopped": true,
 	"resources": true, "status": true, "workloadBefore": true, "workloadAfter": true, "version": true, "token": true, "kubeconfig": true,
 	"username": true, "role": true, "password": true, "currentPassword": true, "newPassword": true, "confirmPassword": true,
@@ -442,8 +442,6 @@ func classify(err error) (failure, bool) {
 		return failure{code: codeSecretCopyFailed}, true
 	case errors.Is(err, persistence.ErrOperationLost):
 		return failure{code: codeOperationLost}, true
-	case errors.Is(err, pending.ErrRouteReconcile):
-		return failure{code: codeRouteReconcileFailed}, true
 	case errors.Is(err, persistence.ErrNotFound), errors.Is(err, catalog.ErrPreviewNotFound), errors.Is(err, catalog.ErrNotFound):
 		return failure{code: codeNotFound}, true
 	case errors.Is(err, authentication.ErrInvalidCredentials):
@@ -534,6 +532,8 @@ func classify(err error) (failure, bool) {
 		return failure{code: codeInvalidRequest}, true
 	case errors.Is(err, environment.ErrPublicPortRemoved):
 		return failure{code: codeInvalidWorkload, field: "service.publicPort"}, true
+	case errors.Is(err, environment.ErrPublicRoutesRemoved):
+		return failure{code: codeInvalidWorkload, field: "service.publicRoutes"}, true
 	case errors.Is(err, workloadconfig.ErrInvalid), errors.Is(err, workloadspec.ErrInvalid):
 		return failure{code: codeInvalidWorkload}, true
 	}

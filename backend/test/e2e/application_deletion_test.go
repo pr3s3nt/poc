@@ -167,7 +167,7 @@ func TestApplicationDeletionDestroysOwnedResourcesAndTombstones(t *testing.T) {
 		t.Fatal("instance history removed")
 	}
 	// The name and subdomain are free again.
-	if status, raw, _ := f.do(f.pe, http.MethodPost, f.server.URL+"/api/v1/applications", `{"name":"Payments","subdomain":"payments"}`); status != http.StatusCreated {
+	if status, raw, _ := f.do(f.pe, http.MethodPost, f.server.URL+"/api/v1/applications", `{"name":"Payments"}`); status != http.StatusCreated {
 		t.Fatalf("recreate = %d %s", status, raw)
 	}
 }

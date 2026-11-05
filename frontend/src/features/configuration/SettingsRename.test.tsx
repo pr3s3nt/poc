@@ -6,7 +6,7 @@ import type { Application } from '../../shared/types/application';
 import { configuredTarget } from '../../test/targets';
 import { messageFor } from '../../shared/api/errors';
 
-const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: { staging: configuredTarget( { secretStoreKey: 'vault-a', secretStoreName: 'Vault A' }), production: configuredTarget() }, workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog', name: 'Catalog', environments: { staging: configuredTarget( { secretStoreKey: 'vault-a', secretStoreName: 'Vault A' }), production: configuredTarget() }, workloads: { staging: [], production: [] } };
 const LABEL = 'Đổi tên và cập nhật tham chiếu';
 
 const view = (over: Record<string, unknown> = {}) => ({

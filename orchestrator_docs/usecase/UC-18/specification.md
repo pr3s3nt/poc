@@ -53,7 +53,7 @@ Cài đặt Application.
 
 1. **MS-01:** Hệ thống tạo deletion preview chỉ đọc cho cả hai Environment:
    workload đã áp dụng, draft đang chờ, instance owned theo mọi generation và
-   dependency, Vault refs, public routes. Liệt kê riêng phần **giữ lại**:
+   dependency, Vault refs, endpoint hostnames. Liệt kê riêng phần **giữ lại**:
    PREEXISTING cluster, Connection, Secret Store, Definition. Không gọi provider.
 2. **MS-02:** Preview trả blockers (PRE-03/PRE-04) và một token pin version
    Application, hai Environment, current Set, draft, configuration và từng instance.
@@ -64,7 +64,7 @@ Cài đặt Application.
    `DELETING`, ghi tiến trình xóa và trả `202` cùng operation ID. Mỗi stage sau
    đó nhận claim Environment qua operation hiện có của nó (DEPLOY, RESOURCE_CLEANUP).
 5. **MS-05:** Với mỗi Environment, `REMOVING_WORKLOADS`: áp dụng Deployment Set
-   rỗng theo UC-07 VAR-02 (inventory RB-03, VSO-01, public route), ghi một
+   rỗng theo UC-07 VAR-02 (inventory RB-03, VSO-01, endpoint route), ghi một
    Deployment REMOVE vào lịch sử, bỏ draft đang chờ.
 6. **MS-06:** `DESTROYING_RESOURCES`: destroy mọi instance trong confirmed scope
    theo thứ tự ngược dependency, dùng target/module/state gốc, owner/fence như
@@ -74,7 +74,7 @@ Cài đặt Application.
 8. **MS-08:** `PURGING_SECRETS`: xóa Vault values, delivery bundles và output
    secrets mà Application tham chiếu, theo đúng ref; xác nhận đã xóa.
 9. **MS-09:** Khi cả hai Environment `SUCCEEDED`, Application chuyển `DELETED`,
-   name/subdomain được giải phóng, Application biến khỏi danh sách.
+   name được giải phóng, hostname endpoint được nhả sau khi gỡ workload, Application biến khỏi danh sách.
 
 ## Biến thể
 
@@ -119,7 +119,7 @@ Cài đặt Application.
   cập được thì stage `FAILED`, không coi là đã xóa.
 - **BR-08:** Không rollback, không undo. Lỗi để Application `DELETING`, hiện
   stage và ID còn sót; chỉ báo thành công sau MS-07 và MS-08 xác minh.
-- **BR-09:** Name/subdomain chỉ được dùng lại khi `DELETED`. Application mới
+- **BR-09:** Name chỉ được dùng lại khi `DELETED`. Application mới
   luôn có ID, Environment ID, state key và namespace identity mới.
 - **BR-10:** Thu telemetry dừng tại admission. Dữ liệu telemetry đã lưu không
   hiển thị và hết hạn theo retention của ADR-023.

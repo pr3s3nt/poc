@@ -7,7 +7,7 @@ last_reviewed: 2026-10-28
 
 # UC-01 UI screens
 
-Create Application contains Name/Subdomain only. Home and Settings have staging/
+Create Application contains Name only (ADR-037). Home and Settings have staging/
 production tabs and separate target summaries. Settings includes independently
 editable Deployment Connection and Secret Store Connection selectors, safe names
 and explicit Save; no permanent lock. Ordinary variables work before store set.
@@ -42,16 +42,9 @@ recovery vẫn cần xác nhận operation cũ đã dừng. Không thay đổi A
 
 ## T09 — Tạo ứng dụng (APP-01, VI-02)
 
-Form chỉ có Tên ứng dụng và Subdomain; nhãn, hướng dẫn, nút, validation và
-aria-label dùng tiếng Việt. Gợi ý subdomain từ tên bằng slug lowercase DNS label
-(chuyển dấu tiếng Việt, gồm đ/Đ; gom ký tự phân cách thành dấu gạch ngang,
-bỏ gạch ngang đầu/cuối và giới hạn 63 ký tự). Tên không tạo được slug thì để
-gợi ý rỗng và yêu cầu nhập subdomain hợp lệ. Gợi ý chỉ hỗ trợ nhập liệu, không
-đảm bảo uniqueness; backend vẫn quyết định ID và kiểm tra trùng.
-
-Tên thay đổi cập nhật gợi ý đến khi người dùng sửa subdomain lần đầu, kể cả
-xóa trống; sau đó giữ nguyên lựa chọn thủ công. Preview hiển thị endpoints
-staging/production theo contract, không provision. Submit chỉ gửi name/subdomain;
+Form chỉ có Tên ứng dụng ([ADR-037](../../../architecture/decisions/ADR-037-retire-public-routes.md)); nhãn, nút, validation và aria-label
+dùng tiếng Việt. Backend quyết định ID và kiểm tra trùng tên. Không hiển thị địa
+chỉ dự kiến: địa chỉ public đến từ endpoint của workload. Submit chỉ gửi name;
 tạo thành công mở Application home staging. Không thêm lựa chọn đích/provider.
 
 ## T11 — Danh sách ứng dụng (VI-02/04/05)
@@ -107,3 +100,9 @@ The earlier target/transition screen descriptions are historical staged design.
 
 [Interaction design](delivery-reconciliation.md) defines the Environment opt-in, transition review
 and independent sync/health/drift presentation. Required design, not implemented UI.
+
+## Application endpoints — ADR-037
+
+Home shows, per Environment tab, the actual endpoint URLs (`workload · URL`) of
+ready endpoint resources, or nothing when none exist. No address is derived from
+the Application name or key.

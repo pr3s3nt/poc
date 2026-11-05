@@ -7,7 +7,7 @@ import { bothConfigured } from '../../test/targets';
 import { apiError, stubApi } from '../../test/api';
 import { detail, operation, preview, rootId, rootName, wire } from '../../test/resources';
 
-const application: Application = { id: 'shop', name: 'Shop', subdomain: 'shop', environments: bothConfigured(), workloads: { staging: [], production: [] } };
+const application: Application = { id: 'shop', name: 'Shop', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 const isDetail = (url: string) => url.endsWith(`/resources/${rootId}`);
 
 afterEach(() => vi.unstubAllGlobals());

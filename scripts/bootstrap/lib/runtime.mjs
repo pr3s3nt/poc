@@ -32,8 +32,11 @@ export function createRuntime(config) {
  const identity=JSON.parse(JSON.stringify(config.schemaVersion===3?{origin:config.console.baseURL,environment:config.environment,account:config.platform.account.name,context:config.platform.account.context,endpoint:config.platform.account.endpoint}:{origin:config.console.baseURL,environment:config.environment,subdomain:config.application?.subdomain??null}));
  if(state.identity && !equal(state.identity,identity)){unlinkSync(lock);throw new BootstrapError('State directory belongs to another target');}
  if(config.schemaVersion===3 && config.application) {
-  const acceptanceIdentity={name:config.application.name,subdomain:config.application.subdomain,environment:config.application.environment};
-  if(state.acceptanceIdentity && !equal(state.acceptanceIdentity,acceptanceIdentity)){unlinkSync(lock);throw new BootstrapError('Acceptance receipt belongs to another Application/Environment');}
+  const acceptanceIdentity={name:config.application.name,environment:config.application.environment};
+  // Application subdomains are retired (ADR-037); an older receipt keeps its
+  // name/Environment identity and is rewritten without the subdomain.
+  const recorded=state.acceptanceIdentity&&{name:state.acceptanceIdentity.name,environment:state.acceptanceIdentity.environment};
+  if(recorded && !equal(recorded,acceptanceIdentity)){unlinkSync(lock);throw new BootstrapError('Acceptance receipt belongs to another Application/Environment');}
   state.acceptanceIdentity=acceptanceIdentity;
  }
  const profile=executionProfile(config);

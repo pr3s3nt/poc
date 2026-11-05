@@ -35,20 +35,20 @@ test('matching workload reuses, baseline may upgrade, foreign/pending deletion i
  assert.equal(workloadAction(undefined,target),'CREATE');assert.equal(workloadAction({workload:target},target),'REUSE');assert.equal(workloadAction({workload:baseline},target,baseline),'UPDATE');assert.throws(()=>workloadAction({workload:{x:1}},target,baseline),/BLOCKED/);assert.throws(()=>workloadAction({workload:target,state:'PENDING_DELETE'},target),/BLOCKED/);
 });
 test('server matching Application needs explicit identity receipt, not just same name',async()=>{
- const app={key:'id',name:'acceptance',subdomain:'acceptance',environments:[{key:'staging'}]};
- const config={application:{name:'acceptance',subdomain:'acceptance',environment:'staging'},runtime:{timeoutMs:1000}};
+ const app={key:'id',name:'acceptance',environments:[{key:'staging'}]};
+ const config={application:{name:'acceptance',environment:'staging'},runtime:{timeoutMs:1000}};
  const rt={state:{},save(){},record(){}};
  const ui={get:async p=>p==='/applications'?{applications:[app]}:p.endsWith('/operations')?{operations:[]}:{application:app}};
  await assert.rejects(()=>ensureApplication(ui,config,rt),/ownership/);
  rt.state.appKey='id';assert.equal((await ensureApplication(ui,config,rt)).key,'id');
 });
 test('resume an unknown create only after intent and exact server identity match',async()=>{
- const app={key:'id',name:'acceptance',subdomain:'acceptance',environments:[{key:'staging'}]};
- const config={application:{name:'acceptance',subdomain:'acceptance',environment:'staging'},runtime:{timeoutMs:1000}};
+ const app={key:'id',name:'acceptance',environments:[{key:'staging'}]};
+ const config={application:{name:'acceptance',environment:'staging'},runtime:{timeoutMs:1000}};
  const rt={state:{applicationIntent:true},save(){},record(){}};
  const ui={get:async p=>p==='/applications'?{applications:[app]}:p.endsWith('/operations')?{}:{application:app}};
  await ensureApplication(ui,config,rt);assert.equal(rt.state.appKey,'id');assert.equal(rt.state.applicationIntent,false);
- app.subdomain='someone-else';await assert.rejects(()=>ensureApplication(ui,config,rt),/differs/);
+ app.status='DELETING';await assert.rejects(()=>ensureApplication(ui,config,rt),/differs/);
 });
 test('store reuse verifies target and workload Kubernetes auth, not just READY/name',()=>{
  const want={name:'vault',backendAddress:'http://vault:8200',workloadAddress:'http://vault:8200',mount:'kv',authMount:'kubernetes'};

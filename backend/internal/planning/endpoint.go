@@ -68,12 +68,10 @@ func planEndpoints(plan *Plan, catalog Catalog) (map[string]endpoint.Desired, er
 		if !ok || port.Port < 1 || port.Port > 65535 {
 			return nil, endpointErr(ReasonEndpointInvalid, fmt.Errorf("endpoint: named Service port does not exist"))
 		}
-		if len(service.PublicRoutes) > 0 {
-			return nil, endpointErr(ReasonEndpointInvalid, fmt.Errorf("endpoint: cannot combine endpoint with legacy publicRoutes"))
-		}
+		// EP-07: workloads of this Environment share a hostname by distinct paths.
 		for _, existing := range out {
-			if existing.Hostname == desired.Hostname {
-				return nil, endpointErr(ReasonEndpointInvalid, fmt.Errorf("endpoint: duplicate hostname in Candidate Set"))
+			if existing.Claim() == desired.Claim() {
+				return nil, endpointErr(ReasonEndpointInvalid, fmt.Errorf("endpoint: duplicate hostname path in Candidate Set"))
 			}
 		}
 		out[workload] = desired

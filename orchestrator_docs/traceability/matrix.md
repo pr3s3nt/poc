@@ -1126,7 +1126,7 @@ records read-only Preview, metadata/history preservation and secret boundaries.
 |---|---|---|
 | UC-06 RB-05; RB-C08 | `resources` stage → patches → open-set guard → ownership labels | [guard/stage tests](../../backend/internal/adapters/templatedriver/git_test.go) (`TestOpenObjectSetIsBundlePolicy`, `TestGuardRejectsOverridingExplicitIntent`); [Score annotations](../../backend/internal/planning/workloadspec/workload.go) |
 | UC-06 RB-06; RB-C09 | Discovery/ownership check, Jobs before rollout, inventory in `workload_instances.target_ref.objects`, UID prune | [inventory/order tests](../../backend/internal/application/deployment/inventory_test.go); [kind lifecycle test](../../backend/internal/adapters/kubernetes/objects_kind_test.go); WM-E04..E06 |
-| UC-06 RB-07 | `PublicRoutes` kind `httproute`, Gateway parent, base domain flags | [route tests](../../backend/internal/adapters/kubernetes/public_routes_test.go); WM-E05 browser through the Gateway |
+| UC-06 RB-07 | Retired by [ADR-037](../architecture/decisions/ADR-037-retire-public-routes.md) | Endpoint EP-04 rows |
 | UC-07 RB-03 | Inventory removal before fixed workload removal | WM-E07 objects absent; foreign object kept in the kind lifecycle test |
 | Review projection | Extra kinds with redacted spec/data | [projection test](../../backend/internal/application/deploymentreview/extra_test.go) |
 
@@ -1409,7 +1409,9 @@ do not establish real deployment or cleanup completion.
 | EP-03 Preview check, atomic reservation | pending Preview `checkEndpoint`; provisioning `ReserveEndpoint`; migration 009 | `TestPreviewShowsEndpointAndDeployReservesIt`, `TestEndpointReservationsArbitrateOwners` |
 | EP-04 HTTPRoute in workload inventory | `deployment/endpoint.go` | `TestEndpointManifest*`, endpoint-domain E2E |
 | EP-05 release after acknowledgement | `retainEndpoints` after Deploy/prune/removal | `TestEndpointDeployReservesRoutesAndReleases`, `TestEndpointDeployRefusesHostnameHeldByAnotherOwner` |
-| EP-06 schema 9 upgrade | `upgrade.go`, grants, `version-009.sql` | `TestEndpointUpgradeFromPopulatedVersionEight`, `TestEndpointUpgradeRollsBackOnGrantFailure`, live v8→v9 |
+| EP-06 schema 9/10 upgrades | `upgrade.go`, grants, `version-009/010.sql` | `TestRetirePublicRoutesUpgradeFromPopulatedVersionNine`, `TestRetirePublicRoutesUpgradeRollsBackOnGrantFailure`, live v8→v9 |
+| EP-07 shared hostname by path | `endpoint_hosts`/`endpoint_paths`, planner claim check | `TestEndpointLedgerSharesHostnamesByPath` |
+| ADR-037 retired routes/subdomains | workloadspec rejection, application create, Console forms | `TestCreateApplication_*`, `CreateApplicationPage.test.tsx`, `TestUC01CreateApplicationOverHTTP` |
 
 ## Generic Workload and Template Driver — ADR-035
 

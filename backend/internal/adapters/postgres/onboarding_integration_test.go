@@ -25,7 +25,7 @@ func TestCreateApplicationPersistsExactlyTwoEnvironmentsAndUniqueGuards(t *testi
 		t.Fatal(err)
 	}
 	suffix := strings.Split(ids.New(), "-")[0]
-	result, err := appcreate.NewService(first).Create(ctx, appcreate.CreateCommand{OrganizationKey: opts.OrganizationKey, Name: "Onboarding " + suffix, Subdomain: "onboarding-" + suffix})
+	result, err := appcreate.NewService(first).Create(ctx, appcreate.CreateCommand{OrganizationKey: opts.OrganizationKey, Name: "Onboarding " + suffix})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,10 +33,6 @@ func TestCreateApplicationPersistsExactlyTwoEnvironmentsAndUniqueGuards(t *testi
 	// The database unique constraints are the final duplicate guard.
 	clash := result.Application
 	clash.ID, clash.Key, clash.Name = ids.New(), ids.New(), "Other "+suffix
-	if err := first.SaveApplication(ctx, clash); !errors.Is(err, persistence.ErrImmutable) {
-		t.Fatalf("duplicate subdomain error = %v", err)
-	}
-	clash.Subdomain = "other-" + suffix
 	clash.Name = result.Application.Name
 	if err := first.SaveApplication(ctx, clash); !errors.Is(err, persistence.ErrImmutable) {
 		t.Fatalf("duplicate organization name error = %v", err)
@@ -55,7 +51,7 @@ func TestCreateApplicationPersistsExactlyTwoEnvironmentsAndUniqueGuards(t *testi
 	}
 	defer second.Close()
 	app, err := second.GetApplication(ctx, result.Application.Key)
-	if err != nil || app.Subdomain != "onboarding-"+suffix {
+	if err != nil || app.Name != result.Application.Name {
 		t.Fatalf("application after restart = %+v, %v", app, err)
 	}
 	envs, err := second.ListEnvironments(ctx, app.Key)
@@ -97,9 +93,8 @@ func TestBaselineCaseInsensitiveNameIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	suffix := strings.Split(ids.New(), "-")[0]
 	variant := app
-	variant.ID, variant.Key, variant.Name, variant.Subdomain = ids.New(), ids.New(), strings.ToUpper(app.Name), "variant-"+suffix
+	variant.ID, variant.Key, variant.Name = ids.New(), ids.New(), strings.ToUpper(app.Name)
 	if variant.Name == app.Name {
 		t.Fatalf("seed name %q has no case variant", app.Name)
 	}

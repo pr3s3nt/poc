@@ -9,7 +9,7 @@ Không copy địa chỉ/IP/credential hoặc commit demo của cá nhân sang c
 | `environment` | Danh tính target/state, ví dụ `company-staging`; đổi target phải dùng state khác |
 | `parameters.definitionPrefix`, `definitionName` | Prefix ID và tên hiển thị cho mười Definitions; chọn một lần rồi giữ nguyên |
 | `parameters.httprouteGatewayName`, `httprouteGatewayNamespace`, `httprouteGatewaySectionName` | Gateway/listener công ty có sẵn, dùng chung cho endpoint Definition; section rỗng để bỏ sectionName, không tạo Gateway |
-| `parameters.endpointRootDomain`, `endpointScheme` | Domain gốc (subdomain riêng cho installation này) và giao thức của listener; hostname app = `<endpointName>.<endpointRootDomain>` |
+| `parameters.endpointRootDomain`, `endpointScheme` | Domain gốc (miền con DNS riêng cho installation này) và giao thức của listener; hostname app = `<endpointName>.<endpointRootDomain>` |
 | `parameters.endpointName`, `endpointPath` | Nhãn DNS và PathPrefix của frontend mẫu; verification.url tự ghép từ nhóm endpoint |
 | `parameters.targetClass` | Class cluster/workload và resource references tương ứng |
 | `parameters.environmentType` | Loại Environment để matching; preset là `staging` |
@@ -37,7 +37,7 @@ Không copy địa chỉ/IP/credential hoặc commit demo của cá nhân sang c
 | `platform.delivery` | Tên Fleet binding, platform Git và default. `config` để discovery tự điền hoặc đặt đúng `workspace`/`targetCluster` nếu có nhiều lựa chọn |
 | `platform.resourceTypes`, `definitions`, `namespaceAccess.rulesFile` | Git document refs; prepare helper điền SHA-256 và `git.preparedFile` cho local documents; module/template vẫn Git |
 | `platform.templateSources` | Git path của template bundle, commit và tree digest |
-| `application.name`, `subdomain` | App nghiệm thu riêng, tránh đụng app đang có |
+| `application.name` | App nghiệm thu riêng, tránh đụng app đang có; không còn subdomain (ADR-037) |
 | `application.environment` | `staging` hoặc `production` của mô hình sản phẩm; không đồng nghĩa cấp quyền target |
 | `application.images` | Ba images từ registry nội bộ, immutable tag hoặc digest; không `latest` |
 | `application.variables`, `secretFiles` | Dữ liệu nghiệm thu và file secret; giữ đúng hợp đồng acceptance workload |
@@ -101,6 +101,5 @@ ResolvedRefs; chỉ báo browser checks nếu URL thực sự truy cập đượ
 Frontend mẫu khai báo `resources.public` kiểu `endpoint` (name/port/path).
 Definition `endpoint.json` giữ domain gốc/Gateway; Deploy giữ chỗ hostname trong
 database rồi sinh HTTPRoute vào manifest Git/Fleet của workload, không qua
-Terraform. Không còn annotation routing trên frontend mẫu; httprouteEnabled của
-template chỉ phục vụ workload cũ còn annotation. Đổi endpointName là đổi
+Terraform. Template không còn sinh route (ADR-037). Đổi endpointName là đổi
 hostname: hostname cũ chỉ được nhả sau khi Deploy thành công.

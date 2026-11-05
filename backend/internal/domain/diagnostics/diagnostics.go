@@ -51,7 +51,11 @@ const (
 )
 
 // UseCases are the supported selectable capabilities, in display order.
-var UseCases = []string{"preview", "deploy", "database", "cache", "secrets", "https", "lifecycle"}
+var UseCases = []string{"preview", "deploy", "database", "cache", "secrets", "lifecycle"}
+
+// RetiredUseCases stay readable in stored reports but are never selectable:
+// "https" checked the retired platform public route (ADR-037).
+var RetiredUseCases = []string{"https"}
 
 // Active reports whether the status holds the account's single active slot.
 func (s Status) Active() bool {
@@ -218,6 +222,16 @@ func supported(key string) bool {
 	return false
 }
 
+// known accepts selectable and retired use cases of persisted reports.
+func known(key string) bool {
+	for _, k := range RetiredUseCases {
+		if k == key {
+			return true
+		}
+	}
+	return supported(key)
+}
+
 // Fact limits keep every persisted document bounded.
 const (
 	MaxFacts      = 24
@@ -364,12 +378,12 @@ func (s Scope) validate(r Report) error {
 		if s.Mode != ModeConditions && s.Mode != ModeExecution {
 			return ErrInvalidReport
 		}
-		if len(s.UseCases) == 0 || len(s.UseCases) > len(UseCases) {
+		if len(s.UseCases) == 0 || len(s.UseCases) > len(UseCases)+len(RetiredUseCases) {
 			return ErrInvalidReport
 		}
 		seen := map[string]bool{}
 		for _, u := range s.UseCases {
-			if !supported(u) || seen[u] {
+			if !known(u) || seen[u] {
 				return ErrInvalidReport
 			}
 			seen[u] = true

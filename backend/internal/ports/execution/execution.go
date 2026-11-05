@@ -55,23 +55,6 @@ type KubeconfigSource interface {
 	ResolveKubeconfig(ctx context.Context, target Target) ([]byte, error)
 }
 
-// PublicRoute is the complete HTTP route set of one Environment.
-type PublicRoute struct {
-	ApplicationID, EnvironmentID, Host string
-	Paths                              []PublicPath
-}
-
-// PublicPath is one Workload public route; Port is the numeric Service port of
-// PortName (Gateway API backendRefs need a number).
-type PublicPath struct {
-	Path, WorkloadID, PortName string
-	Port                       int
-}
-
-type PublicRouteManager interface {
-	Reconcile(ctx context.Context, target Target, route PublicRoute) error
-}
-
 // ProvisionRequest is one resource node handed to an executor (UC-08 MS-05).
 type ProvisionRequest struct {
 	DeploymentID    string
@@ -313,10 +296,4 @@ type SecretStore interface {
 // RenderPreflight validates pinned renderer availability before infrastructure side effects.
 type RenderPreflight interface {
 	ValidateSelection(context.Context, resource.RenderingSelection) error
-}
-
-// PublicRouteRenderer emits the Environment route without applying it; optional
-// CD delivery publishes this artifact through the selected delivery adapter.
-type PublicRouteRenderer interface {
-	RenderRoute(target Target, route PublicRoute) ([]Manifest, error)
 }

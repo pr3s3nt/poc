@@ -85,6 +85,8 @@ remain unavailable. No generic bypass of reference/secret checks is permitted.
 
 ## T25 — Public routing boundary
 
+Retired by [ADR-037](../../architecture/decisions/ADR-037-retire-public-routes.md); `publicRoutes` is now rejected like `publicPort`. Historical:
+
 Save and ValidateImport accept only `service.publicRoutes`. Reject `publicPort`
 before writing a draft or advancing its version; the UI retains the import/error
 for correction without converting it to `/`. Current-set reconstruction and

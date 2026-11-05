@@ -112,9 +112,6 @@ func TestFleetRejectsCredentialBackedTargets(t *testing.T) {
 	if err := d.Remove(ctx, target, "api"); err == nil || !strings.Contains(err.Error(), "credential-backed") {
 		t.Fatalf("remove: %v", err)
 	}
-	if err := d.Reconcile(ctx, target, execution.PublicRoute{ApplicationID: "a", EnvironmentID: "staging"}); err == nil || !strings.Contains(err.Error(), "credential-backed") {
-		t.Fatalf("routes: %v", err)
-	}
 }
 
 // T22: every non-credential target (context-only, empty, explicit kubeconfig
@@ -137,7 +134,6 @@ func TestFleetRejectsAllTargetsBeforeAnySideEffect(t *testing.T) {
 			"wait":         d.WaitReady(ctx, target, []execution.WorkloadRef{{Kind: "Deployment", Name: "api"}}),
 			"wait no refs": d.WaitReady(ctx, target, nil),
 			"remove":       d.Remove(ctx, target, "api"),
-			"routes":       d.Reconcile(ctx, target, execution.PublicRoute{ApplicationID: "a", EnvironmentID: "staging"}),
 		} {
 			if !errors.Is(err, errFleetUnavailable) {
 				t.Errorf("%s %s: %v", label, name, err)

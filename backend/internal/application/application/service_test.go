@@ -45,7 +45,7 @@ func TestCreateApplication_CreatesUnconfiguredEnvironmentsWithoutAnyConnection(t
 	ctx := context.Background()
 	// No Connection exists at all: creation needs no default and binds nothing.
 	st := newTestStore(t, appdomain.Connection{Name: "unrelated", AuthenticationType: appdomain.AuthKubeconfig, ID: "c0", Key: "unrelated", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying})
-	result, err := NewService(st).Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "Payment", Subdomain: "Payment"})
+	result, err := NewService(st).Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "Payment"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,8 +56,11 @@ func TestCreateApplication_CreatesUnconfiguredEnvironmentsWithoutAnyConnection(t
 	if b, err := json.Marshal(app); err != nil || strings.Contains(string(b), "executionProfile") || strings.Contains(string(b), "connectionKey") || strings.Contains(string(b), "runtimeStatus") || strings.Contains(string(b), "region") || strings.Contains(string(b), "configurationProvider") {
 		t.Fatalf("application JSON carries retired fields: %s %v", b, err)
 	}
-	if !uuidPattern.MatchString(app.ID) || app.Key != app.ID || app.Subdomain != "payment" {
-		t.Fatalf("generated identity/subdomain = %q %q %q", app.ID, app.Key, app.Subdomain)
+	if !uuidPattern.MatchString(app.ID) || app.Key != app.ID {
+		t.Fatalf("generated identity = %q %q", app.ID, app.Key)
+	}
+	if b, _ := json.Marshal(app); strings.Contains(string(b), "subdomain") {
+		t.Fatalf("application carries the retired subdomain: %s", b)
 	}
 	envs, _ := st.ListEnvironments(ctx, app.Key)
 	if len(envs) != 2 {
@@ -73,7 +76,7 @@ func TestCreateApplication_CreatesUnconfiguredEnvironmentsWithoutAnyConnection(t
 func TestCreateApplication_CreatesStagingAndProductionWithEmptyDeploymentSets(t *testing.T) {
 	ctx := context.Background()
 	st := newTestStore(t)
-	result, err := NewService(st).Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "  Catalog  ", Subdomain: " catalog "})
+	result, err := NewService(st).Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "  Catalog  "})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,32 +117,28 @@ func TestCreateApplication_CreatesStagingAndProductionWithEmptyDeploymentSets(t 
 	}
 }
 
-func TestCreateApplication_RejectsInvalidOrDuplicateSubdomain(t *testing.T) {
+func TestCreateApplication_RejectsInvalidOrDuplicateName(t *testing.T) {
 	ctx := context.Background()
 	st := newTestStore(t)
 	svc := NewService(st)
-	if _, err := svc.Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "Catalog", Subdomain: "catalog"}); err != nil {
+	if _, err := svc.Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "Catalog"}); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct {
-		name, org, appName, subdomain, field string
-		want                                 error
+		name, org, appName, field string
+		want                      error
 	}{
-		{"empty name", "acme", " ", "other", "name", ErrInvalid},
-		{"invalid label", "acme", "Other", "bad_label", "subdomain", ErrInvalid},
-		{"leading hyphen", "acme", "Other", "-other", "subdomain", ErrInvalid},
-		{"too long", "acme", "Other", strings.Repeat("a", 64), "subdomain", ErrInvalid},
-		{"duplicate name in organization", "acme", "catalog", "other", "name", ErrDuplicate},
-		{"subdomain used by another organization", "globex", "Catalog", "CATALOG", "subdomain", ErrDuplicate},
+		{"empty name", "acme", " ", "name", ErrInvalid},
+		{"duplicate name in organization", "acme", "catalog", "name", ErrDuplicate},
 	} {
-		_, err := svc.Create(ctx, CreateCommand{OrganizationKey: tc.org, Name: tc.appName, Subdomain: tc.subdomain})
+		_, err := svc.Create(ctx, CreateCommand{OrganizationKey: tc.org, Name: tc.appName})
 		var fieldErr *FieldError
 		if !errors.Is(err, tc.want) || !errors.As(err, &fieldErr) || fieldErr.Field != tc.field {
 			t.Fatalf("%s: err = %v", tc.name, err)
 		}
 	}
-	if _, err := svc.Create(ctx, CreateCommand{OrganizationKey: "globex", Name: "Catalog", Subdomain: strings.Repeat("a", 63)}); err != nil {
-		t.Fatalf("same name in another organization and a 63-character label are valid: %v", err)
+	if _, err := svc.Create(ctx, CreateCommand{OrganizationKey: "globex", Name: "Catalog"}); err != nil {
+		t.Fatalf("same name in another organization is valid: %v", err)
 	}
 	apps, _ := st.ListApplications(ctx)
 	if len(apps) != 2 {
@@ -160,14 +159,14 @@ func (s failingEnvironmentStore) SaveEnvironment(ctx context.Context, env enviro
 func TestCreateApplication_RollsBackWhenAnyEnvironmentFails(t *testing.T) {
 	ctx := context.Background()
 	st := newTestStore(t)
-	result, err := NewService(failingEnvironmentStore{st}).Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "Catalog", Subdomain: "catalog"})
+	result, err := NewService(failingEnvironmentStore{st}).Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "Catalog"})
 	if err == nil {
 		t.Fatalf("create must fail, got %+v", result)
 	}
 	if apps, _ := st.ListApplications(ctx); len(apps) != 0 {
 		t.Fatalf("Application must roll back: %+v", apps)
 	}
-	if _, err := NewService(st).Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "Catalog", Subdomain: "catalog"}); err != nil {
-		t.Fatalf("rolled-back Name/Subdomain must stay available: %v", err)
+	if _, err := NewService(st).Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "Catalog"}); err != nil {
+		t.Fatalf("rolled-back Name must stay available: %v", err)
 	}
 }

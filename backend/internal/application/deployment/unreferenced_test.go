@@ -3,6 +3,7 @@ package deployment_test
 import (
 	"context"
 	"errors"
+	"orchestrator/internal/domain/environment"
 	"reflect"
 	"strings"
 	"testing"
@@ -247,13 +248,13 @@ func TestEnvironmentWritesDuringAdmittedDeployAreRejected(t *testing.T) {
 	env, _ := app.Store.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
 	var saveErr, draftErr error
 	deployer.onRemove = func() {
-		saveErr = app.Store.SetPublicRoutesPending(ctx, opts.ApplicationKey, opts.EnvironmentKey, true)
+		saveErr = app.Store.SaveWorkloadDraft(ctx, env.DraftVersion, environment.WorkloadDraft{ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "fenced-probe", State: environment.DraftDelete})
 		draftErr = app.Store.DeleteWorkloadDraft(ctx, opts.ApplicationKey, opts.EnvironmentKey, "backend", env.DraftVersion)
 	}
 	if _, err := uc07Deploy(t, app, opts, "backend", backend, nil); err != nil {
 		t.Fatalf("admitted deploy failed: %v", err)
 	}
-	for name, err := range map[string]error{"routes flag": saveErr, "draft": draftErr} {
+	for name, err := range map[string]error{"foreign draft": saveErr, "draft": draftErr} {
 		if !errors.Is(err, persistence.ErrEnvironmentBusy) {
 			t.Fatalf("%s during an admitted deploy: %v", name, err)
 		}

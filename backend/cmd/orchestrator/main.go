@@ -65,10 +65,6 @@ func main() {
 	harborRegistryHost := flag.String("harbor-registry", "", "Harbor registry host:port used in workload image references")
 	harborDockerConfigFile := flag.String("harbor-dockerconfig-file", "", "owner-only Docker config JSON for namespace imagePullSecret")
 	harborPullSecretName := flag.String("harbor-pull-secret", "harbor-pull", "namespace-local imagePullSecret name")
-	publicBaseDomain := flag.String("public-base-domain", envOr("ORCHESTRATOR_PUBLIC_BASE_DOMAIN", opts.BaseDomain), "base domain of Environment public hosts (<subdomain>.<base>, staging: staging.<subdomain>.<base>)")
-	publicRouteKind := flag.String("public-route-kind", envOr("ORCHESTRATOR_PUBLIC_ROUTE_KIND", "ingress"), "public route object: ingress or httproute (Gateway API, ADR-024)")
-	publicGateway := flag.String("public-gateway", os.Getenv("ORCHESTRATOR_PUBLIC_GATEWAY"), "parent Gateway of httproute public routes: namespace/name[/sectionName]")
-	publicIngressClass := flag.String("public-ingress-class", envOr("ORCHESTRATOR_PUBLIC_INGRESS_CLASS", "traefik"), "ingressClassName of ingress public routes")
 	connectionCredentialStore := flag.String("connection-credential-store", os.Getenv("ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE"), "UC-04 Connection credential store: none (upload registration unavailable), vault, or memory (fake adapters without persistent state only)")
 	connectionVaultAddress := flag.String("connection-vault-address", os.Getenv("ORCHESTRATOR_CONNECTION_VAULT_ADDR"), "Vault API address of the Connection credential store")
 	connectionVaultTokenFile := flag.String("connection-vault-token-file", os.Getenv("ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE"), "path to the scoped Vault token file of the Connection credential store")
@@ -154,7 +150,6 @@ func main() {
 	opts.Images.Frontend = *frontendImage
 	opts.Images.Backend = *backendImage
 	opts.Images.Worker = *workerImage
-	opts.BaseDomain = *publicBaseDomain
 
 	ownerTag := *owner
 	if ownerTag == "" {
@@ -186,9 +181,6 @@ func main() {
 	app, err := bootstrap.Build(context.Background(), bootstrap.Options{
 		RequireTemplateRenderer:       true,
 		Seed:                          opts,
-		PublicRouteKind:               *publicRouteKind,
-		PublicGateway:                 *publicGateway,
-		PublicIngressClass:            *publicIngressClass,
 		UIDir:                         *uiDir,
 		StatePath:                     *statePath,
 		DatabaseURL:                   databaseURL,

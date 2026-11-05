@@ -193,8 +193,6 @@ type EnvironmentRepository interface {
 	// SelectSecretStore replaces the secret-store selection with one versioned
 	// write; ErrVersionConflict when ExpectedVersion is stale, ErrEnvironmentBusy when another operation owns the Environment.
 	SelectSecretStore(ctx context.Context, s SecretStoreSelection) (environment.Environment, error)
-	// SetPublicRoutesPending changes only the route flag, without a version bump.
-	SetPublicRoutesPending(ctx context.Context, applicationKey, environmentKey string, pending bool) error
 	GetDeploymentSet(ctx context.Context, id string) (environment.DeploymentSet, error)
 	SaveDeploymentSet(ctx context.Context, set environment.DeploymentSet) error
 	// CompareVersionAndSetCurrent performs the optimistic final commit of UC-06 MS-12.

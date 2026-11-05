@@ -87,9 +87,6 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 	}
 	candidate := built.Candidate
 	if !req.AllowIntermediateEnvironmentState {
-		if err := ValidatePublicRoutes(candidate); err != nil {
-			return nil, stageErr(StageRoutes, err)
-		}
 		if err := ValidateServiceReferences(candidate); err != nil {
 			return nil, stageErr(StageServiceRefs, err)
 		}

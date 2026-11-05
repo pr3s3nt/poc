@@ -311,15 +311,15 @@ func TestUC01CreateApplicationRequiresExactlyOneJSONObject(t *testing.T) {
 	client := authenticatedClient(t, server.URL)
 	before, _ := app.Store.ListApplications(context.Background())
 	for _, body := range []string{
-		`{"name":"Evil","subdomain":"evil","organizationKey":"globex"}`,
-		`{"name":"Broken","subdomain":"broken"`,
+		`{"name":"Evil","organizationKey":"globex"}`,
+		`{"name":"Broken"`,
 		`not json`,
 		``,
 		`null`,
 		`["name","subdomain"]`,
-		`{"name":"Twice","subdomain":"twice"}{"name":"Again","subdomain":"again"}`,
-		`{"name":"Trailing","subdomain":"trailing"} []`,
-		`{"name":"Trailing","subdomain":"trailing"} x`,
+		`{"name":"Twice"}{"name":"Again"}`,
+		`{"name":"Trailing"} []`,
+		`{"name":"Trailing"} x`,
 	} {
 		resp, out := call(t, client, http.MethodPost, server.URL+"/api/v1/applications", body)
 		if resp.StatusCode != http.StatusBadRequest {
@@ -329,7 +329,7 @@ func TestUC01CreateApplicationRequiresExactlyOneJSONObject(t *testing.T) {
 	if apps, _ := app.Store.ListApplications(context.Background()); len(apps) != len(before) {
 		t.Fatalf("rejected bodies must not create Applications: %d -> %d", len(before), len(apps))
 	}
-	if resp, out := call(t, client, http.MethodPost, server.URL+"/api/v1/applications", " \n{\"name\":\"Ok\",\"subdomain\":\"ok\"}\n "); resp.StatusCode != http.StatusCreated {
+	if resp, out := call(t, client, http.MethodPost, server.URL+"/api/v1/applications", " \n{\"name\":\"Ok\"}\n "); resp.StatusCode != http.StatusCreated {
 		t.Fatalf("surrounding whitespace is valid: %d %s", resp.StatusCode, out)
 	}
 }
@@ -339,26 +339,26 @@ func TestUC01CreateApplicationOverHTTP(t *testing.T) {
 	client := authenticatedClient(t, server.URL)
 	deploymentsBefore := len(app.FakeDeploy.Applied)
 
-	if resp, _ := call(t, http.DefaultClient, http.MethodPost, server.URL+"/api/v1/applications", `{"name":"Anon","subdomain":"anon"}`); resp.StatusCode != http.StatusUnauthorized {
+	if resp, _ := call(t, http.DefaultClient, http.MethodPost, server.URL+"/api/v1/applications", `{"name":"Anon"}`); resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("anonymous create = %d", resp.StatusCode)
 	}
 	for _, body := range []string{
-		`{"name":"Evil","subdomain":"evil","organizationKey":"globex"}`,
-		`{"name":"Evil","subdomain":"evil","role":"ADMIN"}`,
-		`{"name":"Evil","subdomain":"evil","executionProfile":"aws-eks","connectionKey":"aws-account"}`,
+		`{"name":"Evil","organizationKey":"globex"}`,
+		`{"name":"Evil","role":"ADMIN"}`,
+		`{"name":"Evil","executionProfile":"aws-eks","connectionKey":"aws-account"}`,
 	} {
 		if resp, out := call(t, client, http.MethodPost, server.URL+"/api/v1/applications", body); resp.StatusCode != http.StatusBadRequest {
 			t.Fatalf("trusted field accepted: %s = %d %s", body, resp.StatusCode, out)
 		}
 	}
 
-	resp, body := call(t, client, http.MethodPost, server.URL+"/api/v1/applications", `{"name":"Catalog","subdomain":"Catalog"}`)
+	resp, body := call(t, client, http.MethodPost, server.URL+"/api/v1/applications", `{"name":"Catalog"}`)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("create = %d %s", resp.StatusCode, body)
 	}
 	created := decode(t, body)["application"].(map[string]any)
 	key := created["key"].(string)
-	if created["subdomain"] != "catalog" || created["executionProfile"] != nil || created["connectionKey"] != nil || created["runtimeStatus"] != nil || len(key) != 36 {
+	if created["subdomain"] != nil || created["executionProfile"] != nil || created["connectionKey"] != nil || created["runtimeStatus"] != nil || len(key) != 36 {
 		t.Fatalf("created application = %v", created)
 	}
 	assertEnvironments := func(view map[string]any) {
@@ -404,13 +404,13 @@ func TestUC01CreateApplicationOverHTTP(t *testing.T) {
 		body, field string
 		status      int
 	}{
-		{`{"name":"catalog","subdomain":"other"}`, "name", http.StatusConflict},
-		{`{"name":"Other","subdomain":"CATALOG"}`, "subdomain", http.StatusConflict},
-		{`{"name":"","subdomain":"other"}`, "name", http.StatusBadRequest},
-		{`{"name":"Other","subdomain":"not_a_label"}`, "subdomain", http.StatusBadRequest},
+		{`{"name":"catalog"}`, "name", http.StatusConflict},
+		{`{"name":""}`, "name", http.StatusBadRequest},
+		{`{"name":"Other","subdomain":"other"}`, "", http.StatusBadRequest}, // retired by ADR-037
 	} {
 		resp, out := call(t, client, http.MethodPost, server.URL+"/api/v1/applications", tc.body)
-		if resp.StatusCode != tc.status || decode(t, out)["field"] != tc.field {
+		field, _ := decode(t, out)["field"].(string)
+		if resp.StatusCode != tc.status || field != tc.field {
 			t.Fatalf("%s = %d %s", tc.body, resp.StatusCode, out)
 		}
 	}
@@ -442,7 +442,7 @@ func TestAuthenticationMiddleware_UsesSessionOrganizationAndRole(t *testing.T) {
 		}
 	}
 
-	resp, body := call(t, acme, http.MethodPost, server.URL+"/api/v1/applications", `{"name":"Catalog","subdomain":"catalog"}`)
+	resp, body := call(t, acme, http.MethodPost, server.URL+"/api/v1/applications", `{"name":"Catalog"}`)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("acme create = %d %s", resp.StatusCode, body)
 	}
@@ -457,7 +457,7 @@ func TestAuthenticationMiddleware_UsesSessionOrganizationAndRole(t *testing.T) {
 	}
 	// Creation needs no execution target: a Developer whose Organization default
 	// is not READY can still create, and the Environments stay UNCONFIGURED.
-	resp, body = call(t, globex, http.MethodPost, server.URL+"/api/v1/applications", `{"name":"Catalog","subdomain":"globex-catalog"}`)
+	resp, body = call(t, globex, http.MethodPost, server.URL+"/api/v1/applications", `{"name":"Catalog"}`)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("create without target = %d %s", resp.StatusCode, body)
 	}

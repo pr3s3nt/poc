@@ -8,6 +8,9 @@ related: [ADR-021, ADR-010, ADR-016]
 
 # ADR-024 — Open workload object set, object inventory and Gateway API routes
 
+> The public-route part (route kind, Gateway/base-domain flags, `orch-public`)
+> is superseded by [ADR-037](ADR-037-retire-public-routes.md); other rules stay.
+
 ## Decision and scope
 
 User decision 2026-10-25: a Git render bundle must be able to deploy a

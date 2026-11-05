@@ -93,13 +93,13 @@ func scopeOf(purpose domain.Purpose, mode domain.Mode, uses ...string) domain.Sc
 
 func TestPlanCreatesProbeObjectsOnlyForSelectedExecutableWork(t *testing.T) {
 	p := Diagnostics{}
-	secretsOnly := ids(p.Plan(scopeOf(domain.PurposeUseCase, domain.ModeExecution, "secrets", "https"), nil))
+	secretsOnly := ids(p.Plan(scopeOf(domain.PurposeUseCase, domain.ModeExecution, "secrets"), nil))
 	for _, forbidden := range []string{"k8s.exec.namespace", "k8s.exec.workload", "k8s.exec.volume", "k8s.exec.cleanup", "k8s.storage.classes", "k8s.nodes"} {
 		if secretsOnly[forbidden] {
 			t.Errorf("secrets/https execution plans %s", forbidden)
 		}
 	}
-	if !secretsOnly["k8s.exec.none"] || !secretsOnly["k8s.vso.crd"] || !secretsOnly["k8s.route.controller"] {
+	if !secretsOnly["k8s.exec.none"] || !secretsOnly["k8s.vso.crd"] || secretsOnly["k8s.route.controller"] {
 		t.Errorf("secrets/https plan %v", secretsOnly)
 	}
 	unresolved := ids(p.Plan(scopeOf(domain.PurposeUseCase, domain.ModeExecution, "database"), nil))

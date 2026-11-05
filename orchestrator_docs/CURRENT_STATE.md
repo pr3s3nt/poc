@@ -7,6 +7,19 @@ last_reviewed: 2026-11-05
 
 # Current project state
 
+## Public routes and subdomains retired — 2026-11-05
+
+[ADR-037](architecture/decisions/ADR-037-retire-public-routes.md): the endpoint
+resource is the only public address; workloads of one Environment share a
+hostname by path (EP-07). `service.publicRoutes`, the platform route manager and
+its backend flags, template-generated routes, `publicRoutesPending`, Application
+subdomains and the "https" diagnostics are removed. Schema 10 replaces the
+endpoint ledger and drops the retired columns. The Console create form takes a
+name only, the Application page lists actual endpoint URLs, the workload form
+keeps endpoints private with a Service-port choice. Focused backend, PostgreSQL,
+frontend and bootstrap checks pass; known pre-existing failures remain. No live
+run; the retained `application-fleet-live` stack still runs schema 9 images.
+
 ## Public endpoint resource — 2026-11-05
 
 `main` implements [EP-01–06](architecture/contracts/endpoint.md): built-in

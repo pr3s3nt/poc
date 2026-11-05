@@ -9,7 +9,7 @@ import { bothConfigured, configuredTarget } from '../../test/targets';
 // tests' request sequencing focused on workloads and deployment mutations.
 vi.mock('../observability/OverviewPanel', () => ({ OverviewPanel: () => null }));
 
-const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog', name: 'Catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -61,24 +61,6 @@ it('previews pending changes and deploys only after confirmation', async () => {
   expect(deployToken).toBe('pinned-preview');
 });
 
-it('offers route-only retry when workloads have already been applied', async () => {
-  let deployCalls = 0;
-  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
-    const url = String(input);
-    if (url.endsWith('/workloads')) return Response.json({ draftVersion: 2, workloads: [{ id: 'frontend', state: '', ready: true, workload: {} }] });
-    if (url.endsWith('/preview')) return Response.json({ token: 'route-retry', draftVersion: 2, routePending: true, changes: [] });
-    if (url.endsWith('/deploy')) { deployCalls += 1; return Response.json({ status: 'SUCCEEDED', results: [] }); }
-    return Response.json({}, { status: 404 });
-  }));
-  const user = userEvent.setup();
-  render(<ApplicationHomePage application={application} />);
-  await screen.findByText('frontend');
-  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
-  expect(await screen.findByText('Đường dẫn công khai cần được đồng bộ; Workload sẽ không khởi động lại.')).toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'Thử lại đường dẫn công khai' }));
-  expect(await screen.findByRole('heading', { name: 'Triển khai thành công' })).toBeInTheDocument();
-  expect(deployCalls).toBe(1);
-});
 
 const list = (env: string, workloads: unknown[], draftVersion = 1) => Response.json({ applicationKey: 'catalog', environmentKey: env, draftVersion, workloads });
 
@@ -431,7 +413,7 @@ it('ignores a late Deploy result after the same page is rerendered for another A
   await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
   await user.click(await screen.findByRole('button', { name: 'Triển khai các thay đổi này' }));
   expect(screen.getByRole('button', { name: 'Đang triển khai…' })).toBeDisabled();
-  view.rerender(<ApplicationHomePage application={{ ...application, id: 'other', name: 'Other', subdomain: 'other' }} />);
+  view.rerender(<ApplicationHomePage application={{ ...application, id: 'other', name: 'Other' }} />);
   expect(await screen.findByText('other-api')).toBeInTheDocument();
   await act(async () => { resolveDeploy(Response.json({ status: 'SUCCEEDED', results: [{ workloadId: 'api', action: 'UPDATE', status: 'SUCCEEDED', deploymentId: 'dep-old' }] })); });
   expect(screen.queryByLabelText('Kết quả triển khai')).not.toBeInTheDocument();

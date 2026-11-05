@@ -461,7 +461,7 @@ func (h *harness) seed() {
 	}
 	h.appID = ids.New()
 	h.appKey = h.appID
-	if err := h.store.SaveApplication(ctx, application.Application{ID: h.appID, Key: h.appKey, OrganizationKey: h.orgKey, Name: "App", Subdomain: "s-" + h.appID[:8], Version: 1}); err != nil {
+	if err := h.store.SaveApplication(ctx, application.Application{ID: h.appID, Key: h.appKey, OrganizationKey: h.orgKey, Name: "App", Version: 1}); err != nil {
 		h.t.Fatal(err)
 	}
 	h.envID = ids.New()

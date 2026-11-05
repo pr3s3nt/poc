@@ -13,7 +13,6 @@ import (
 	"time"
 
 	domain "orchestrator/internal/domain/diagnostics"
-	probes "orchestrator/internal/ports/diagnostics"
 )
 
 // Check dials hostPort and verifies its certificate for serverName against
@@ -68,16 +67,4 @@ func unreachable(notReady bool, notReadyReason, failReason string, facts map[str
 		return domain.Finding{Verdict: domain.VerdictUnknown, Reason: notReadyReason, Remediation: "deploy-first", Facts: facts}
 	}
 	return domain.Finding{Verdict: domain.VerdictFail, Reason: failReason, Remediation: "check-endpoint", Facts: facts}
-}
-
-// Routes inspects the public HTTPS host of an Application.
-type Routes struct{}
-
-var _ probes.RouteInspector = Routes{}
-
-// Inspect implements probes.RouteInspector: the certificate the host really
-// serves on 443. A host that does not resolve or accepts no connection is
-// UNKNOWN (not deployed yet), never PASS.
-func (Routes) Inspect(ctx context.Context, host string) domain.Finding {
-	return Check(ctx, net.JoinHostPort(host, "443"), host, nil, true)
 }

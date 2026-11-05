@@ -44,7 +44,7 @@ func TestPreviewShowsEndpointAndDeployReservesIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	other := endpoint.Owner{Organization: opts.OrganizationKey, Application: opts.ApplicationKey, Environment: opts.EnvironmentKey, Generation: env.TargetGeneration, Workload: "other"}
-	if err := repo.ReserveEndpoint(ctx, "shop.apps.example.com", other); err != nil {
+	if err := repo.ReserveEndpoint(ctx, endpoint.Claim{Hostname: "shop.apps.example.com", Path: "/"}, other); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := svc.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey); !errors.Is(err, pending.ErrInvalid) || !strings.Contains(err.Error(), "already reserved") {
@@ -62,13 +62,13 @@ func TestPreviewShowsEndpointAndDeployReservesIt(t *testing.T) {
 		t.Fatalf("endpoint missing from Preview: %+v", result.Changes)
 	}
 	// Preview never writes a reservation.
-	if err := repo.CheckEndpoint(ctx, "shop.apps.example.com", other); err != nil {
+	if err := repo.CheckEndpoint(ctx, endpoint.Claim{Hostname: "shop.apps.example.com", Path: "/"}, other); err != nil {
 		t.Fatalf("preview reserved the hostname: %v", err)
 	}
 	if _, err := svc.Deploy(ctx, opts.ApplicationKey, opts.EnvironmentKey, "test", result.Token); err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.CheckEndpoint(ctx, "shop.apps.example.com", other); !errors.Is(err, persistence.ErrHostnameTaken) {
+	if err := repo.CheckEndpoint(ctx, endpoint.Claim{Hostname: "shop.apps.example.com", Path: "/"}, other); !errors.Is(err, persistence.ErrHostnameTaken) {
 		t.Fatalf("deploy did not reserve the hostname: %v", err)
 	}
 }
