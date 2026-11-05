@@ -164,6 +164,9 @@ func NewServer(cfg Config) *Server {
 
 // ServeHTTP implements http.Handler.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if s.applicationAccessGuard(w, r) {
+		return
+	}
 	if s.lifecycleGuard(w, r) {
 		return
 	}
@@ -400,7 +403,7 @@ func (s *Server) handleApplications(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]applicationView, 0, len(apps))
 	for _, a := range apps {
-		if a.OrganizationKey != identity.OrganizationKey {
+		if !a.AccessibleBy(identity.OrganizationKey, identity.UserID, identity.Role) {
 			continue
 		}
 		envs, err := s.store.ListEnvironments(r.Context(), a.Key)
@@ -440,7 +443,7 @@ func (s *Server) handleCreateApplication(w http.ResponseWriter, r *http.Request)
 		writeCode(w, codeInvalidRequest, "")
 		return
 	}
-	cmd := appcreate.CreateCommand{OrganizationKey: identity.OrganizationKey, Name: req.Name, Subdomain: req.Subdomain, BaseDomain: s.seedOptions.BaseDomain}
+	cmd := appcreate.CreateCommand{OrganizationKey: identity.OrganizationKey, OwnerUserID: identity.UserID, Name: req.Name, Subdomain: req.Subdomain, BaseDomain: s.seedOptions.BaseDomain}
 	result, err := s.applications.Create(r.Context(), cmd)
 	if err != nil {
 		s.writeError(w, err)
@@ -486,7 +489,7 @@ func (s *Server) handleGetApplication(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, err)
 		return
 	}
-	if app.OrganizationKey != identity.OrganizationKey {
+	if !app.AccessibleBy(identity.OrganizationKey, identity.UserID, identity.Role) {
 		writeCode(w, codeNotFound, "")
 		return
 	}

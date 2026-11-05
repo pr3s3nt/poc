@@ -19,7 +19,7 @@ func (s *Server) authorizedConfiguration(w http.ResponseWriter, r *http.Request)
 	}
 	appKey, envKey := r.PathValue("id"), r.PathValue("env")
 	app, err := s.store.GetApplication(r.Context(), appKey)
-	if err != nil || app.OrganizationKey != identity.OrganizationKey || (envKey != "staging" && envKey != "production") {
+	if err != nil || !app.AccessibleBy(identity.OrganizationKey, identity.UserID, identity.Role) || (envKey != "staging" && envKey != "production") {
 		writeCode(w, codeNotFound, "")
 		return "", "", false
 	}

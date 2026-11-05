@@ -27,7 +27,7 @@ func TestObservabilityAuthenticatedStoredHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, user := range []struct{ name, org string }{{"telemetry-user", fixture.Scope.OrganizationKey}, {"foreign-user", "foreign"}} {
-		if err := st.SaveUserAccount(ctx, identity.UserAccount{ID: user.name, OrganizationKey: user.org, Username: user.name, PasswordHash: hash, Role: identity.RoleDeveloper, Status: identity.AccountActive}); err != nil {
+		if err := st.SaveUserAccount(ctx, identity.UserAccount{ID: user.name, OrganizationKey: user.org, Username: user.name, PasswordHash: hash, Role: identity.RolePlatformEngineer, Status: identity.AccountActive}); err != nil {
 			t.Fatal(err)
 		}
 	}

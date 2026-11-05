@@ -16,6 +16,7 @@ import (
 	"orchestrator/internal/domain/templatesource"
 	"orchestrator/internal/ports/catalogsource"
 	"orchestrator/internal/ports/persistence"
+	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 )
 
@@ -42,7 +43,7 @@ func setupService(t *testing.T) (*Service, *store.Store, domain.Source) {
 	if err := seedtest.Apply(context.Background(), st, opts); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.SaveApplication(context.Background(), application.Application{Key: opts.ApplicationKey, OrganizationKey: opts.OrganizationKey, Name: "Catalog test", Subdomain: "catalog-test"}); err != nil {
+	if err := st.SaveApplication(context.Background(), application.Application{Key: opts.ApplicationKey, OrganizationKey: opts.OrganizationKey, OwnerUserID: seed.FixedDeveloperAccountID, Name: "Catalog test", Subdomain: "catalog-test"}); err != nil {
 		t.Fatal(err)
 	}
 	for _, env := range []string{"staging", "production"} {

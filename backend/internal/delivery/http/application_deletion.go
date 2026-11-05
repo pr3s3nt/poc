@@ -124,7 +124,7 @@ func (s *Server) lifecycleGuard(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	app, err := s.store.GetApplication(r.Context(), id)
-	if err != nil || app.OrganizationKey != who.OrganizationKey {
+	if err != nil || !app.AccessibleBy(who.OrganizationKey, who.UserID, who.Role) {
 		return false
 	}
 	switch app.Lifecycle() {

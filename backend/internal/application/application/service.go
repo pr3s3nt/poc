@@ -42,7 +42,7 @@ func fieldError(field string, err error, msg string) error {
 // CreateCommand carries session-derived Organization and Developer input.
 // Create takes no Connection: placement comes from Resource Definitions (ADR-017).
 type CreateCommand struct {
-	OrganizationKey, Name, Subdomain, BaseDomain string
+	OrganizationKey, OwnerUserID, Name, Subdomain, BaseDomain string
 }
 
 type Result struct {
@@ -94,7 +94,7 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 			}
 		}
 		appID := ids.New()
-		app := appdomain.Application{ID: appID, Key: appID, OrganizationKey: cmd.OrganizationKey, Name: cmd.Name, Subdomain: cmd.Subdomain}
+		app := appdomain.Application{ID: appID, Key: appID, OrganizationKey: cmd.OrganizationKey, OwnerUserID: cmd.OwnerUserID, Name: cmd.Name, Subdomain: cmd.Subdomain}
 		if err := app.Validate(); err != nil {
 			return err
 		}

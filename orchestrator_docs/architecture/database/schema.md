@@ -1307,3 +1307,15 @@ render source records. It refuses retained deployed workloads or resource
 references to an obsolete Definition. Terraform Definitions, accounts,
 connections, installation identity and Terraform state are preserved. Released
 versions 1–7 are frozen. Runtime never performs DDL or this cleanup.
+
+
+## Schema 9 — Application owner
+
+`applications.owner_user_id uuid NULL` references
+`user_accounts(id, organization_id)` together with `organization_id`, enforcing
+same-Organization ownership. NULL is reserved for retained/seeded Applications;
+it never grants Developer access. The ID comes from the authenticated creator.
+The `application_owner_immutable` trigger rejects later owner changes. Console
+CRUD grants remain unchanged; State does not gain access to this column. Owner
+setup upgrades through immutable migration `009-application-ownership.sql` and
+complete reference `version-009.sql`, preserving retained IDs, data and grants.

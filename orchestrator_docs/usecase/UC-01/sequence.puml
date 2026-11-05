@@ -9,10 +9,13 @@ control ConfigurationService as Config
 database UnitOfWork as DB
 participant SecretStoreResolver as Stores
 Dev -> API: CreateApplication(name, subdomain)
-API -> Apps: Validate/create identity and two Environments
+API -> API: Derive Organization, User ID and role from session
+API -> Apps: Validate/create identity with owner User ID and two Environments
 Apps -> DB: Atomic create + empty Sets, no defaults or runtime
 DB --> Dev: Application identity + Environment metadata
 Dev -> API: Load Environment Settings
+API -> API: Authorize Organization + role + Application owner
+note right of API: Stop with 404 if hidden; 401 if not signed in
 API --> Dev: Secret Store, version and safe operation state
 Dev -> API: Change secret store(expectedVersion, configVersion)
 API -> Settings: Scoped validation and atomic operation claim

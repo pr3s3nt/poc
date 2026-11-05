@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"regexp"
 	"time"
+
+	"orchestrator/internal/domain/identity"
 )
 
 var keyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,40}$`)
@@ -24,6 +26,7 @@ type Application struct {
 	ID              string `json:"id"`
 	Key             string `json:"key"`
 	OrganizationKey string `json:"organizationKey"`
+	OwnerUserID     string `json:"ownerUserId,omitempty"`
 	Name            string `json:"name"`
 	Subdomain       string `json:"subdomain"`
 	Version         int64  `json:"version"`
@@ -31,6 +34,22 @@ type Application struct {
 	Status LifecycleStatus `json:"status,omitempty"`
 	// Deletion is the persisted progress of an admitted deletion (UC-18).
 	Deletion *Deletion `json:"deletion,omitempty"`
+}
+
+// AccessibleBy enforces Organization and creator ownership for Application
+// access. Historical Applications without an owner are platform-only.
+func (a Application) AccessibleBy(organizationKey, userID string, role identity.Role) bool {
+	if a.OrganizationKey != organizationKey {
+		return false
+	}
+	switch role {
+	case identity.RoleAdmin, identity.RolePlatformEngineer:
+		return true
+	case identity.RoleDeveloper:
+		return userID != "" && a.OwnerUserID == userID
+	default:
+		return false
+	}
 }
 
 // LifecycleStatus is the UC-18 Application lifecycle (ADR-025).

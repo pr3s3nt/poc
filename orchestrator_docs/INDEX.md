@@ -13,6 +13,8 @@ implementation status.
 
 ## Project entry points
 
+- [Application ownership verification](verification/2026-11-05-application-ownership.md)
+
 - [Repository overview](../README.md)
 - [AI agent workflow](../AGENTS.md)
 - [Current project state](CURRENT_STATE.md)

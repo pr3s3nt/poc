@@ -97,7 +97,7 @@ func (s *Server) handleRecoverOperation(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	app, err := s.store.GetApplication(r.Context(), appKey)
-	if err != nil || app.OrganizationKey != identity.OrganizationKey {
+	if err != nil || !app.AccessibleBy(identity.OrganizationKey, identity.UserID, identity.Role) {
 		s.writeError(w, persistence.ErrNotFound)
 		return
 	}

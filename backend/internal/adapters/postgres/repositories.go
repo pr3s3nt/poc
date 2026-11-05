@@ -184,9 +184,12 @@ func (s *Store) SaveApplication(ctx context.Context, v application.Application) 
 	if err != nil {
 		return err
 	}
-	_, err = s.q(ctx).Exec(ctx, `INSERT INTO applications(id,application_key,organization_id,name,subdomain,version,status,deletion) SELECT $1::uuid,$2,o.id,$4,$5,$6,$7,$8::jsonb FROM organizations o WHERE o.organization_key=$3 ON CONFLICT(id) DO UPDATE SET application_key=EXCLUDED.application_key,name=EXCLUDED.name,subdomain=EXCLUDED.subdomain,version=EXCLUDED.version,status=EXCLUDED.status,deletion=EXCLUDED.deletion`, v.ID, v.Key, v.OrganizationKey, v.Name, v.Subdomain, v.Version, string(v.Lifecycle()), deletion)
+	tag, err := s.q(ctx).Exec(ctx, `INSERT INTO applications(id,application_key,organization_id,name,subdomain,version,status,deletion,owner_user_id) SELECT $1::uuid,$2,o.id,$4,$5,$6,$7,$8::jsonb,NULLIF($9,'')::uuid FROM organizations o WHERE o.organization_key=$3 ON CONFLICT(id) DO UPDATE SET application_key=EXCLUDED.application_key,name=EXCLUDED.name,subdomain=EXCLUDED.subdomain,version=EXCLUDED.version,status=EXCLUDED.status,deletion=EXCLUDED.deletion,owner_user_id=EXCLUDED.owner_user_id WHERE applications.owner_user_id IS NOT DISTINCT FROM EXCLUDED.owner_user_id`, v.ID, v.Key, v.OrganizationKey, v.Name, v.Subdomain, v.Version, string(v.Lifecycle()), deletion, v.OwnerUserID)
 	if err != nil {
 		return fmt.Errorf("postgres: save application: %w", translate(err))
+	}
+	if tag.RowsAffected() == 0 {
+		return persistence.ErrImmutable
 	}
 	return nil
 }
@@ -196,14 +199,14 @@ func scanApp(row pgx.Row) (application.Application, error) {
 		status   string
 		deletion []byte
 	)
-	if err := row.Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Name, &v.Subdomain, &v.Version, &status, &deletion); err != nil {
+	if err := row.Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Name, &v.Subdomain, &v.Version, &status, &deletion, &v.OwnerUserID); err != nil {
 		return v, err
 	}
 	v.Status = application.LifecycleStatus(status)
 	return v, decodeDeletion(deletion, &v)
 }
 
-const appSelect = `SELECT a.id::text,a.application_key,o.organization_key,a.name,a.subdomain,a.version,a.status,a.deletion FROM applications a JOIN organizations o ON o.id=a.organization_id`
+const appSelect = `SELECT a.id::text,a.application_key,o.organization_key,a.name,a.subdomain,a.version,a.status,a.deletion,COALESCE(a.owner_user_id::text,'') FROM applications a JOIN organizations o ON o.id=a.organization_id`
 
 func (s *Store) GetApplication(ctx context.Context, key string) (application.Application, error) {
 	v, err := scanApp(s.q(ctx).QueryRow(ctx, appSelect+` WHERE a.application_key=$1`, key))

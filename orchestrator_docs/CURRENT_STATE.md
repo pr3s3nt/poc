@@ -2,10 +2,27 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-04
+last_reviewed: 2026-11-05
 ---
 
 # Current project state
+
+## Application owner access — 2026-11-05
+
+Developer Application visibility is restricted to the creator User ID in the
+same Organization. Platform Engineer/Admin retain access to every Application
+in their Organization. The list and all nested Application APIs enforce this
+rule before lifecycle handling. Creation derives ownership from the session;
+request JSON cannot select an owner. Retained ownerless Applications are
+platform-only; there is no inferred backfill or reassignment API.
+
+PostgreSQL schema 9 adds a same-Organization owner FK and immutable-owner guard;
+owner setup is required before starting this version on retained schema 8.
+Memory/snapshot persistence preserves and validates the same ownership.
+See [the UC-00 rule](usecase/UC-00/specification.md#application-ownership--2026-11-05)
+and [schema 9](architecture/database/schema.md#schema-9--application-owner).
+This change does not deliver general fine-grained RBAC or shared memberships.
+[Verification and broad-suite limits](verification/2026-11-05-application-ownership.md).
 
 ## Saved Definition source identity — 2026-11-04
 

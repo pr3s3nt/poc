@@ -7,6 +7,14 @@ last_reviewed: 2026-10-28
 
 # Design-to-code map
 
+## Application ownership
+
+- `domain/application.Application.AccessibleBy` owns the role/Organization/creator predicate.
+- `delivery/http/application_access.go` guards all nested Application APIs before lifecycle dispatch; `server.go` filters the list and passes the session creator to Application creation.
+- `application/application.CreateCommand.OwnerUserID` persists the creator atomically with Application/Environments.
+- `adapters/postgres/repositories.go`, schema 9 and `adapters/store` persist immutable ownership across reopen.
+- `delivery/http/application_access_test.go`, `domain/application/access_test.go`, `adapters/store/application_ownership_test.go` and `adapters/postgres/application_ownership_integration_test.go` verify isolation, role access, forgery refusal, retained ownerless records and upgrade safety.
+
 ## Controlled Definition upgrades
 
 [UC-03 DV-01–07](../usecase/UC-03/definition-versions.md) maps to immutable revision/Environment repositories, catalog resolution, Plan snapshots, fenced activation and the existing forms. See the [implementation route](definition-versions.md) for paths and supported tool-retention boundaries.

@@ -552,6 +552,15 @@ func (s *Store) GetApplication(ctx context.Context, key string) (application.App
 // SaveApplication inserts or updates an Application.
 func (s *Store) SaveApplication(ctx context.Context, app application.Application) error {
 	defer s.lock(ctx)()
+	if existing, ok := s.state.Applications[app.Key]; ok && existing.OwnerUserID != app.OwnerUserID {
+		return persistence.ErrImmutable
+	}
+	if app.OwnerUserID != "" {
+		owner, ok := s.state.UserAccounts[app.OwnerUserID]
+		if !ok || owner.OrganizationKey != app.OrganizationKey {
+			return persistence.ErrImmutable
+		}
+	}
 	if app.ID == "" {
 		app.ID = ids.New()
 	}

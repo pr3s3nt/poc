@@ -100,6 +100,12 @@ func (s *state) validateCurrent() error {
 		if _, ok := s.Organizations[app.OrganizationKey]; !ok {
 			return resetRequired("an Application has no Organization")
 		}
+		if app.OwnerUserID != "" {
+			owner, ok := s.UserAccounts[app.OwnerUserID]
+			if !ok || owner.OrganizationKey != app.OrganizationKey {
+				return resetRequired("an Application owner is not in its Organization")
+			}
+		}
 	}
 	for key, def := range s.Definitions {
 		org, _, ok := strings.Cut(key, "/")

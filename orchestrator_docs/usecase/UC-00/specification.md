@@ -76,4 +76,23 @@ Organization của họ.
 - **OOS-02:** MFA, self-service password reset (quên mật khẩu qua email) và
   email verification; Admin đặt lại password theo BR-11 nằm trong phạm vi.
 - **OOS-03:** OAuth, OIDC, SAML hoặc external IdP.
-- **OOS-04:** Fine-grained RBAC, audit login và account lockout.
+- **OOS-04:** General fine-grained RBAC, audit login và account lockout.
+  Application creator ownership below is implemented in scope.
+
+
+## Application ownership — 2026-11-05
+
+Each newly created Application stores `ownerUserID` from the authenticated
+session, never from request JSON. Developer access requires the same
+Organization and an exact, nonempty owner User ID match. Platform Engineer and
+Admin may access every Application in their Organization; no role may cross
+Organizations. Unknown roles fail closed. Apply this rule to the Application
+list and every Application route, including nested environments, workload,
+configuration, deployment, resource, observability and deletion endpoints.
+Unauthorized Application IDs return 404 before business logic or lifecycle
+information; unauthenticated calls return 401. Existing action-specific role
+checks remain in force. Ownership cannot be changed through ordinary saves.
+
+Retained Applications without an owner remain accessible only to Platform
+Engineer/Admin. Migration does not infer an owner from sessions, username or
+Organization. Reassignment and shared membership are outside this change.

@@ -9,6 +9,14 @@ last_reviewed: 2026-10-28
 
 Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, class/method, persistence/state và planned test. `OC-nn` tham chiếu `architecture/contracts/operation-contracts.md`.
 
+## Application ownership — UC-00/UC-01
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| Developer sees creator-owned Applications only; Platform Engineer/Admin see all in their Organization | `Application.AccessibleBy`, HTTP list filter and pre-dispatch guard | `TestApplicationAccess`, `TestApplicationOwnershipHTTP` |
+| Session-derived immutable creator; hidden nested APIs and lifecycle | HTTP creation command, all-Application route guard, SQL trigger and conditional upsert | `TestApplicationOwnershipHTTP`, `TestApplicationOwnerSurvivesSnapshotAndCannotChange` |
+| Preserve retained rows without inferring ownership; safe schema-8 upgrade, repeat/rollback and runtime grants | schema-9 migration/reference, version registry and same-Organization owner FK | `TestApplicationOwnershipUpgradeAndPersistence`, `TestApplicationOwnershipUpgradeRollsBack`, existing supported-source/state/privilege integration tests |
+
 ## Issue #23 — PostgreSQL upgrades
 
 ADR-027 source recognition, preservation, serialization, rollback, version/history validation and runtime isolation map to `postgres/upgrade.go`, `baseline.go`, `grants.go` and `upgrade_integration_test.go`. Active/frozen schema structural equivalence is enforced by `TestActiveBaselineMatchesFrozenVersion`; immutable release artifacts/version additions by `scripts/check_migrations.py` in Product CI. The deployment wrapper stops writers, backs up and gates startup on owner setup success.

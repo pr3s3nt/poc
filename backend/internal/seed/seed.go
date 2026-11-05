@@ -643,6 +643,10 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		Subdomain:       "acceptance",
 		Version:         1,
 	}
+	// New local/test fixtures have a known Developer; retained owners stay unchanged.
+	if AllowsFixedTestAccounts(o.Profile) {
+		internal.OwnerUserID = FixedDeveloperAccountID
+	}
 	if existing, err := store.GetApplication(ctx, internal.Key); err == nil {
 		internal = existing
 	} else if !errors.Is(err, persistence.ErrNotFound) {
@@ -724,6 +728,9 @@ func refreshSeededDefinitions(ctx context.Context, store persistence.Store, o Op
 // created through their respective Console steps.
 func applyFixtureApplication(ctx context.Context, store persistence.Store, o Options) error {
 	app := application.Application{ID: ids.New(), Key: o.ApplicationKey, OrganizationKey: o.OrganizationKey, Name: o.ApplicationName, Subdomain: "acceptance", Version: 1}
+	if AllowsFixedTestAccounts(o.Profile) {
+		app.OwnerUserID = FixedDeveloperAccountID
+	}
 	if existing, err := store.GetApplication(ctx, app.Key); err == nil {
 		app = existing
 	} else if !errors.Is(err, persistence.ErrNotFound) {

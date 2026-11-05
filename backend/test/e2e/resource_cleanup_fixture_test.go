@@ -248,7 +248,7 @@ func newRCFixture(t *testing.T, options ...fixtureOption) *rcFixture {
 	f.pe = f.signIn("platform-engineer", seed.FixedTestPassword)
 	// The Application (with its staging and production Environments) is made
 	// through the product API, exactly as a user creates one (UC-01).
-	if status, raw, _ := f.do(f.pe, http.MethodPost, server.URL+"/api/v1/applications", `{"name":"Payments","subdomain":"payments"}`); status != http.StatusCreated {
+	if status, raw, _ := f.do(f.dev, http.MethodPost, server.URL+"/api/v1/applications", `{"name":"Payments","subdomain":"payments"}`); status != http.StatusCreated {
 		t.Fatalf("create application = %d %s", status, raw)
 	}
 	apps, err := app.Store.ListApplications(context.Background())

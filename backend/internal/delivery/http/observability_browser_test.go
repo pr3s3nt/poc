@@ -31,7 +31,7 @@ func TestObservabilityConsoleHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := st.SaveUserAccount(ctx, identity.UserAccount{ID: "console-observer", Username: "console-observer", OrganizationKey: f.Scope.OrganizationKey, PasswordHash: hash, Role: identity.RoleDeveloper, Status: identity.AccountActive}); err != nil {
+	if err := st.SaveUserAccount(ctx, identity.UserAccount{ID: "console-observer", Username: "console-observer", OrganizationKey: f.Scope.OrganizationKey, PasswordHash: hash, Role: identity.RolePlatformEngineer, Status: identity.AccountActive}); err != nil {
 		t.Fatal(err)
 	}
 	// This represents an existing deployed workload; telemetry itself is the

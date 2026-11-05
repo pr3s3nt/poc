@@ -4,11 +4,13 @@ left to right direction
 class ApplicationController <<boundary>>
 class EnvironmentSettingsController <<boundary>>
 class ApplicationService <<control>> {
- +CreateApplication(name, subdomain)
+ +CreateApplication(sessionOrganization, sessionUserID, name, subdomain)
 }
 class EnvironmentSettingsService <<control>>
 class ConfigurationService <<control>>
 class Application <<entity>> {
+ +OwnerUserID
+ +AccessibleBy(organization, userID, role)
  +Identity
  +Version
 }

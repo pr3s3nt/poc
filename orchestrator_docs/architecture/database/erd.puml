@@ -112,6 +112,7 @@ entity environment_operations {
   review_request_id : uuid <<nullable,scoped unique>>
 }
 entity applications {
+  owner_user_id : uuid <<FK, nullable>>
   * id : uuid <<PK>>
   * organization_id : uuid <<FK>>
   --
@@ -314,6 +315,7 @@ user_accounts ||--o{ effectiveness_baselines : created_by
 organizations ||--o{ connections
 organizations ||--o{ user_accounts
 user_accounts ||--o{ sessions
+user_accounts |o--o{ applications : owner
 organizations ||--o{ applications
 organizations ||--o{ resource_types
 organizations ||--o{ resource_definitions

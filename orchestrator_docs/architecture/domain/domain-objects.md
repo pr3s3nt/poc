@@ -300,3 +300,11 @@ retain actual pins. Applied selection advances only after complete success.
 The [supplemental classes](catalog-releases.puml) ([PNG](catalog-releases.png)),
 [schema](../database/schema.md#catalog-releases--adr-031) and
 [contract](../contracts/catalog-releases.md) define these relationships.
+
+
+### Application owner access
+
+Application carries immutable `OwnerUserID` (creator account identity). Developer
+access requires this ID and Organization to match the session. Platform Engineer
+and Admin access all Applications within their Organization. Missing owner or
+unknown role denies Developer access; ownership is independent of username.

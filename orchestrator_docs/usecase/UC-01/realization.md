@@ -70,3 +70,13 @@ Canonical shared collaboration: [delivery sequence](../../architecture/component
 [infrastructure sequence](../../architecture/components/infrastructure-drift-sequence.puml).
 These supplement the existing direct-path diagrams for this new design slice;
 [CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.
+
+
+## Owner authorization
+
+Creation passes session User ID into the creation command and persists it in the
+same transaction as Application and Environments. HTTP authorization checks
+session Organization/role/User ID before lifecycle dispatch on all Application
+routes. The list uses the same domain predicate. PostgreSQL schema 9 stores a
+nullable owner FK scoped to Organization; historical NULL owners are restricted
+to Platform Engineer/Admin. Ordinary saves preserve immutable ownership.

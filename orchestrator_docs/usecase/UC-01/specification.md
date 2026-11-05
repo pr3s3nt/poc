@@ -45,7 +45,7 @@ owns shared transition/admission/recovery design.
 1. **MS-01:** Developer nhập Name/Subdomain; không chọn đích ở cấp Application.
 2. **MS-02:** Validate tên và subdomain, uniqueness.
 3. **MS-03:** Sinh system Application ID bất biến.
-4. **MS-04:** Tạo Application identity, không chọn provider/Connection mặc định.
+4. **MS-04:** Tạo Application identity và lưu owner User ID từ session, không chọn provider/Connection mặc định.
 5. **MS-05:** Tạo staging/production với hai lựa chọn đích chưa cấu hình.
 6. **MS-06:** Tạo empty Deployment Sets và namespace identity cơ sở.
 7. **MS-07:** Suy ra desired endpoints, chưa provision workload/hạ tầng/routes.
@@ -67,7 +67,7 @@ owns shared transition/admission/recovery design.
 
 ## Hậu điều kiện
 
-- **POST-01:** Application thuộc Organization; đúng hai Environment độc lập.
+- **POST-01:** Application thuộc Organization và User tạo app; đúng hai Environment độc lập.
 - **POST-02:** Initial create không có external side effects.
 - **POST-03:** Secret store change chỉ commit khi copy thành công. Migration chỉ
   đổi active runtime/current Set sau restore/readiness/cutover thành công.
@@ -78,7 +78,7 @@ owns shared transition/admission/recovery design.
 - **BR-01:** System Application ID bất biến, unique; Name unique không phân biệt hoa thường trong Organization.
 - **BR-02:** Subdomain lowercase DNS label, unique trong platform base domain.
 - **BR-03:** Đúng staging/production; endpoints `<subdomain>.<base-domain>` và `staging.<subdomain>.<base-domain>`.
-- **BR-04:** Application chỉ giữ identity/config metadata hiện hành: ID/key, Organization, Name, Subdomain và version. Không lưu profile, Connection, region, runtime status hoặc configuration provider; không có Application-wide target/provider hay implicit fallback. Không backfill binding cũ từ Application; historical target snapshots vẫn giữ nguyên.
+- **BR-04:** Application chỉ giữ identity/config metadata hiện hành: ID/key, Organization, immutable owner User ID, Name, Subdomain và version. Không lưu profile, Connection, region, runtime status hoặc configuration provider; không có Application-wide target/provider hay implicit fallback. Không backfill binding cũ từ Application; historical target snapshots vẫn giữ nguyên.
 - **BR-05:** Hai Connection lựa chọn thuộc Environment, độc lập, cho phép thay đổi.
 - **BR-06:** Execution Connection chỉ READY Kubernetes/AWS đúng Organization;
   AWS cần region. Secret store chỉ READY supported store cùng Organization.
@@ -165,3 +165,21 @@ metadata; it cannot select a target for a new or existing Environment.
 - **CD-03:** Self-heal is a separate explicit capability-gated option, initially
   off; enabling CD does not implicitly enable repair. Infrastructure behavior is
   independent. Busy, stale, unsupported and unknown-outcome states are explicit.
+
+
+## Application ownership — 2026-11-05
+
+Each newly created Application stores `ownerUserID` from the authenticated
+session, never from request JSON. Developer access requires the same
+Organization and an exact, nonempty owner User ID match. Platform Engineer and
+Admin may access every Application in their Organization; no role may cross
+Organizations. Unknown roles fail closed. Apply this rule to the Application
+list and every Application route, including nested environments, workload,
+configuration, deployment, resource, observability and deletion endpoints.
+Unauthorized Application IDs return 404 before business logic or lifecycle
+information; unauthenticated calls return 401. Existing action-specific role
+checks remain in force. Ownership cannot be changed through ordinary saves.
+
+Retained Applications without an owner remain accessible only to Platform
+Engineer/Admin. Migration does not infer an owner from sessions, username or
+Organization. Reassignment and shared membership are outside this change.
