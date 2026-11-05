@@ -22,6 +22,7 @@ import (
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/diagnostics"
 	"orchestrator/internal/domain/effectiveness"
+	"orchestrator/internal/domain/endpoint"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/identity"
 	"orchestrator/internal/domain/resource"
@@ -44,6 +45,7 @@ type deliveryExecutionRecord struct {
 }
 
 type state struct {
+	EndpointReservations            map[string]endpoint.Owner                     `json:"endpointReservations,omitempty"`
 	DefinitionHistories             map[string]persistence.DefinitionHistory      `json:"definitionHistories,omitempty"`
 	DefinitionSelections            map[string]persistence.DefinitionSelection    `json:"definitionSelections,omitempty"`
 	PlatformDeliveryDefaults        map[string]delivery.PlatformDefault           `json:"platformDeliveryDefaults,omitempty"`

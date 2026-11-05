@@ -278,3 +278,8 @@ as specified above.
   hoặc shared cũ giữ nguyên scope/ID/class/params; không tự chuyển resource đã
   tồn tại sang shared và không đổi direct Score/CI API. Chuyển scope là thao
   tác tường minh, không chuyển dữ liệu runtime; vẫn cần Save → Preview → Deploy.
+
+## Public endpoint resource
+
+[EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
+preview, atomic hostname reservation, manifest delivery and safe release.

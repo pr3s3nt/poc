@@ -18,6 +18,7 @@ const (
 	DriverExistingCluster DriverType = "existing-cluster"
 	DriverEcho            DriverType = "echo"
 	DriverTemplate        DriverType = "template"
+	DriverEndpoint        DriverType = "endpoint"
 )
 
 // MatchContext carries the values a Matching Criterion is evaluated against.
@@ -195,7 +196,7 @@ func (d Definition) Validate() error {
 		return fmt.Errorf("resource: definition %q has no positive version", d.Key)
 	}
 	switch d.DriverType {
-	case DriverTerraform, DriverKubernetes, DriverExistingCluster, DriverEcho, DriverTemplate:
+	case DriverTerraform, DriverKubernetes, DriverExistingCluster, DriverEcho, DriverTemplate, DriverEndpoint:
 	default:
 		return fmt.Errorf("resource: definition %q has unknown driver %q", d.Key, d.DriverType)
 	}

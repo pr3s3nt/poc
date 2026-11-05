@@ -10,6 +10,7 @@ import (
 	catalogapp "orchestrator/internal/application/catalogrelease"
 	"orchestrator/internal/application/definitionversions"
 	"orchestrator/internal/domain/application"
+	"orchestrator/internal/domain/endpoint"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
@@ -336,6 +337,20 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 		return nil, err
 	}
 	switch def.DriverType {
+	case resource.DriverEndpoint:
+		if def.ResourceTypeKey != "endpoint" || def.DriverAccount != "" {
+			return nil, fmt.Errorf("endpoint driver serves endpoint resources without a driver account")
+		}
+		if _, err := endpoint.ParsePolicy(variables); err != nil {
+			return nil, err
+		}
+		for _, name := range []string{"hostname", "url"} {
+			field, ok := typ.Output(name)
+			if !ok || field.Secret || field.Type != "string" {
+				return nil, fmt.Errorf("endpoint requires nonsecret string output %s", name)
+			}
+		}
+		return nil, nil
 	case resource.DriverExistingCluster:
 		// ADR-016: a public existing-cluster Definition is a k8s-cluster whose
 		// own READY Internal Driver Account supplies access. Authored inputs

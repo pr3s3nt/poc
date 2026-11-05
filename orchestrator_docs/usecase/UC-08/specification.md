@@ -255,3 +255,8 @@ Algorithm and API: [infrastructure drift contract](../../architecture/contracts/
 resolution, stale selection guards, conservative data migration admission,
 partial acknowledgement and legacy compatibility for this flow. It supplements
 this specification without changing resource/state identity or cleanup authority.
+
+## Public endpoint resource
+
+[EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
+preview, atomic hostname reservation, manifest delivery and safe release.

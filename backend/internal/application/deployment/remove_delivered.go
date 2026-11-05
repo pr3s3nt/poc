@@ -9,6 +9,7 @@ import (
 
 	"orchestrator/internal/application/envops"
 	domain "orchestrator/internal/domain/deployment"
+	"orchestrator/internal/domain/endpoint"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/ports/persistence"
@@ -123,6 +124,10 @@ func (s *Service) RemoveDelivered(ctx context.Context, organizationKey, applicat
 		if removeErr != nil {
 			w.Status = domain.InstanceFailed
 			_ = s.store.UpsertWorkloadInstance(lease.Ctx, w)
+			report.Failed = append(report.Failed, w.WorkloadID)
+			continue
+		}
+		if err := s.retainEndpoints(lease.Ctx, endpoint.Owner{Organization: organizationKey, Application: applicationKey, Environment: environmentKey, Generation: generation, Workload: w.WorkloadID}, nil); err != nil {
 			report.Failed = append(report.Failed, w.WorkloadID)
 			continue
 		}

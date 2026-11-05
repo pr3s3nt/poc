@@ -219,6 +219,13 @@ const (
 // other workload variable is consumed at execution). Metadata only; nothing is executed.
 func platformCapabilities(types map[string]resource.Type) []Capability {
 	out := []Capability{}
+	if _, ok := types["endpoint"]; ok {
+		out = append(out, Capability{ResourceType: "endpoint", DriverType: string(resource.DriverEndpoint), Variables: []CapabilityVariable{
+			{Name: "rootDomain", Type: "string", Required: true}, {Name: "scheme", Type: "string", Required: true},
+			{Name: "gatewayName", Type: "string", Required: true}, {Name: "gatewayNamespace", Type: "string", Required: true},
+			{Name: "gatewaySectionName", Type: "string"}, {Name: "reservedNames", Type: "list(string)"},
+		}, Outputs: []CapabilityOutput{{Name: "hostname", Type: "string"}, {Name: "url", Type: "string"}}, ExecutorOwned: []string{}, Bindings: []CapabilityBinding{}})
+	}
 	if typ, ok := types[resource.ClusterTargetType]; ok {
 		if field, declared := typ.Output(resource.ClusterTargetOutput); declared && !field.Secret {
 			out = append(out, Capability{

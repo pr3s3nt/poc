@@ -265,6 +265,9 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	if err == nil && match.DriverType == resource.DriverExistingCluster && (connection.Key != match.DriverAccount || connection.Version != match.AccountVersion) {
 		err = fmt.Errorf("the driver account changed after the plan; plan again")
 	}
+	if def.DriverType == resource.DriverEndpoint {
+		err = nil
+	}
 	if err != nil {
 		progress.Status = deployment.ResourceFailed
 		finished := s.clock.Now()
@@ -295,9 +298,12 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		}
 	}
 
-	executor, err := s.registry.Resolve(match.DriverType)
-	if err != nil {
-		return err
+	var executor execution.ResourceExecutor
+	if def.DriverType != resource.DriverEndpoint {
+		executor, err = s.registry.Resolve(match.DriverType)
+		if err != nil {
+			return err
+		}
 	}
 	var artifact *tfmodule.VerifiedArtifact
 	if verified, ok := executor.(execution.VerifiedModuleExecutor); ok && verified.RequiresVerifiedModule() && !selfVerifying {
@@ -355,7 +361,12 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		execReq.ProviderTargets = providerTargets(pins, result)
 		execReq.ProviderInstanceIDs = providerInstances(req.Plan.Graph, result, descriptor)
 	}
-	execResult, err := executor.Provision(ctx, execReq)
+	var execResult execution.ProvisionResult
+	if def.DriverType == resource.DriverEndpoint {
+		execResult, err = s.provisionEndpoint(ctx, req, node, def, params)
+	} else {
+		execResult, err = executor.Provision(ctx, execReq)
+	}
 	if err != nil {
 		progress.Status = deployment.ResourceFailed
 		finished := s.clock.Now()
