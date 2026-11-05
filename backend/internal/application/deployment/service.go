@@ -630,6 +630,9 @@ func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, 
 				return err
 			}
 		}
+		if err := s.retainEndpoints(ctx, endpointOwner(planCtx, workloadID), nil); err != nil {
+			return err
+		}
 		instance.Status = domain.InstanceRemoved
 		instance.AppliedConfigRevisionID = ""
 		instance.ObservedAt = s.clock.Now()
@@ -923,6 +926,13 @@ func (s *Service) applyWorkload(
 	if err != nil {
 		return err
 	}
+	if desired, ok := plan.Endpoints[workloadID]; ok {
+		route, err := endpointManifest(desired, endpointOwner(planCtx, workloadID), target.Namespace, record.ID, manifests)
+		if err != nil {
+			return err
+		}
+		manifests = append(manifests, route)
+	}
 	manifests = append(secretManifests, manifests...)
 	digest, err := manifestDigest(manifests)
 	if err != nil {
@@ -988,6 +998,13 @@ func (s *Service) applyWorkload(
 		}
 	}
 
+	keep := []string{}
+	if desired, ok := plan.Endpoints[workloadID]; ok {
+		keep = append(keep, desired.Hostname)
+	}
+	if err := s.retainEndpoints(ctx, endpointOwner(planCtx, workloadID), keep); err != nil {
+		return err
+	}
 	instance.TargetRef = withInventory(instance.TargetRef, rendered)
 	instance.Status = domain.InstanceReady
 	instance.ObservedAt = s.clock.Now()

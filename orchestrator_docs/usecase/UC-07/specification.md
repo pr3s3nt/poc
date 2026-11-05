@@ -302,3 +302,8 @@ artifacts and explicit data-migration blockers. Partial execution preserves actu
 per-resource evidence; changing a Definition does not silently upgrade this scope.
 
 - **CD-05:** Shared Fleet withdrawal removes only the receipted unit path and Bundle, preserving other workloads/Environments. Retire the owned application GitRepo only after its last unit is withdrawn; retain Git history and original UID guards per [ADR-036](../../architecture/decisions/ADR-036-application-fleet-gitrepo.md).
+
+## Public endpoint resource
+
+[EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
+preview, atomic hostname reservation, manifest delivery and safe release.

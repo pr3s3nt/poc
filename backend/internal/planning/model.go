@@ -9,6 +9,7 @@ import (
 
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/deployment"
+	"orchestrator/internal/domain/endpoint"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
@@ -197,6 +198,7 @@ type Classification struct {
 
 // Plan is the immutable planning artifact persisted with a Deployment.
 type Plan struct {
+	Endpoints                   map[string]endpoint.Desired            `json:"endpoints,omitempty"`
 	DefinitionSnapshots         []resource.Definition                  `json:"definitionSnapshots,omitempty"`
 	DefinitionSelectionRevision int64                                  `json:"definitionSelectionRevision,omitempty"`
 	CatalogSelection            *catalogrelease.Selection              `json:"catalogSelection,omitempty"`

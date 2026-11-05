@@ -175,6 +175,10 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		Target:         req.Env.Binding(),
 		Placements:     placements,
 	}
+	plan.Endpoints, err = planEndpoints(plan, req.Catalog)
+	if err != nil {
+		return nil, stageErr(StageRoutes, err)
+	}
 	if err := validateStorageIntent(base, candidate, req.Catalog); err != nil {
 		return nil, err
 	}

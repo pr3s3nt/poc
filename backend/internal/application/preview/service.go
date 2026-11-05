@@ -16,6 +16,7 @@ import (
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/deploymentreview"
 	domain "orchestrator/internal/domain/deployment"
+	"orchestrator/internal/domain/endpoint"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
@@ -177,6 +178,19 @@ func (s *Service) PreviewDeployment(ctx context.Context, q PreviewDeploymentQuer
 	if err != nil {
 		return nil, publicPlanningError(err)
 	}
+	for workload, desired := range plan.Endpoints {
+		repo, ok := s.store.(persistence.EndpointRepository)
+		if !ok {
+			return nil, public(ErrPlanningRejected, "Endpoint reservation service is unavailable.")
+		}
+		owner := endpoint.Owner{Organization: q.OrganizationKey, Application: snapshot.App.Key, Environment: snapshot.Env.Key, Generation: snapshot.Env.TargetGeneration, Workload: workload}
+		if err := repo.CheckEndpoint(ctx, desired.Hostname, owner); err != nil {
+			if errors.Is(err, persistence.ErrHostnameTaken) {
+				return nil, public(ErrInvalidWorkload, "The requested endpoint hostname is already reserved.")
+			}
+			return nil, err
+		}
+	}
 	if snapshot.CatalogPending {
 		if err := catalogapp.ValidateDataUpdates(plan, snapshot.Baselines.Reader(), snapshot.Types); err != nil {
 			return nil, publicPlanningError(err)
@@ -257,6 +271,7 @@ const RedactedValue = appsvc.RedactedValue
 
 // View is the explicit, sanitized HTTP projection of a DeploymentPreview.
 type View struct {
+	Endpoints      map[string]endpoint.Desired            `json:"endpoints,omitempty"`
 	Review         deploymentreview.Review                `json:"review"`
 	Rendering      map[string]resource.RenderingSelection `json:"rendering,omitempty"`
 	ApplicationKey string                                 `json:"applicationKey"`
@@ -326,6 +341,7 @@ func (p *DeploymentPreview) Public() (View, error) {
 		return View{}, err
 	}
 	view := View{
+		Endpoints:      p.Plan.Endpoints,
 		Review:         p.Review,
 		Rendering:      resource.CopyRendering(p.Plan.Rendering),
 		ApplicationKey: p.ApplicationKey, EnvironmentKey: p.EnvironmentKey,

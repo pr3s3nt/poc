@@ -555,3 +555,8 @@ in CM-04. Existing Environments retain frozen revisions until explicitly upgrade
   missing metadata never selects a different available module or latest version.
 - **SP-03:** Template source selection is called Registered sources, not Catalog,
   when it lists prepared Git/ZIP/Inline sources rather than Catalog releases.
+
+## Public endpoint resource
+
+[EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
+preview, atomic hostname reservation, manifest delivery and safe release.

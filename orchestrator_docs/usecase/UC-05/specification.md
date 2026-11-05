@@ -307,3 +307,8 @@ this specification without changing resource/state identity or cleanup authority
 Definition selection, Preview pins, all-success activation, retained historical
 artifacts and explicit data-migration blockers. Partial execution preserves actual
 per-resource evidence; changing a Definition does not silently upgrade this scope.
+
+## Public endpoint resource
+
+[EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
+preview, atomic hostname reservation, manifest delivery and safe release.
