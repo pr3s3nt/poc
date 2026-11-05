@@ -11,11 +11,10 @@ Bài thực hành đưa ba workload `backend`, `worker`, `frontend` lên môi tr
 `staging`. Bạn sẽ khai báo PostgreSQL, Redis, biến môi trường, Service nội bộ
 và đường dẫn công khai, sau đó kiểm tra một job từ đầu đến cuối.
 
-Bản này dành để duyệt nội dung. Nhãn nút và ảnh tham chiếu đã được đối chiếu trên
-Console thật bằng tài khoản DEV ngày 05-11-2026. Chưa chạy lại toàn bộ bài thực
-hành tạo mới/Deploy; ảnh ứng dụng đang chạy không chứng minh lượt triển khai mới.
-Ảnh dùng app `acceptance-git-dev-final` có sẵn; tên app trong bài là
-`acceptance-dev-guide`. Không sửa app có sẵn để làm theo bài.
+Bản này dành để duyệt nội dung. Ảnh được chụp theo thứ tự thao tác trên ứng dụng
+mới `acceptance-dev-guide`: tạo ứng dụng → chưa có workload → thêm backend →
+lưu bản nháp backend → thêm worker → thêm frontend. Không dùng ảnh app đã deploy
+để minh họa trạng thái tạo mới. Chưa thực hiện Preview/Deploy trong lượt chụp này.
 
 ## Trước khi bắt đầu
 
@@ -30,7 +29,8 @@ Nhờ Platform Engineer chuẩn bị cho ứng dụng/môi trường thực hàn
   dùng class `git-dev`, mẫu backend/frontend/worker phiên bản `1.0.0`.
 - Resource Definition cho workload, namespace, PostgreSQL và Redis; mẫu này dùng
   class `in-cluster` cho PostgreSQL/Redis.
-- Kết nối triển khai CD và kho secret của `staging` đã sẵn sàng.
+- Kết nối triển khai CD đã được platform chuẩn bị. Kho secret dùng cho bài này
+  là **Git dev Vault**; chọn và lưu kho khi tạo secret nếu app mới chưa có kho.
 - Domain/route truy cập nếu cần public frontend. DNS và TLS do platform chuẩn bị.
 
 Bạn không cần tự tạo cluster, Definition hoặc cấu hình CD trong bài này. Nếu
@@ -59,23 +59,22 @@ Backend và worker phải dùng cùng database, cache và các giá trị phân 
    một tên khác và dùng tên đó xuyên suốt bài.
 7. Nhấn **Tạo ứng dụng**.
 8. Trên trang ứng dụng, chọn tab **staging**.
-9. Nhờ Platform Engineer hoàn tất cấu hình riêng cho app mới nếu platform chưa
-   tự áp dụng. Kiểm tra đúng môi trường trước khi thêm workload.
+9. Kiểm tra dòng **Môi trường này chưa có Workload nào.**, phần tài nguyên chưa
+   có dữ liệu và chưa có lịch sử triển khai.
 
 **Kết quả:** trang ứng dụng có môi trường `staging` và `production`. Tạo ứng dụng
 chưa triển khai container nào.
 
-Ảnh dưới là app tham chiếu đã triển khai; app vừa tạo chưa có ba dòng workload.
+![Điền thông tin ứng dụng mới trước khi nhấn Tạo ứng dụng](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-00-create.png)
 
-![Trang ứng dụng thật với tab môi trường và các nút thao tác](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/01-home.png)
+![Ngay sau khi tạo: ứng dụng acceptance-dev-guide chưa có workload, tài nguyên hay triển khai](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-01-empty.png)
 
 ## 2. Thêm workload backend
 
 ### 2.1. Chọn mẫu và image
 
 1. Trên tab **staging**, nhấn **+ Thêm Workload**.
-2. Trong **Chọn loại workload**, chọn mẫu backend Deployment do platform cung
-   cấp. Nếu chưa có mẫu phù hợp, dừng và nhờ Platform Engineer chuẩn bị mẫu;
+2. Trong **Chọn loại workload**, nhấn **Backend API** (`Deployment · 1.0.0`). Nếu chưa có mẫu phù hợp, dừng và nhờ Platform Engineer chuẩn bị mẫu;
    không chọn mẫu tùy ý để tiếp tục.
 3. Ở **Thông tin cơ bản**, điền **Tên Workload** là `backend`.
 4. Điền **Class Workload (metadata.class)** theo thông tin platform; môi trường
@@ -86,13 +85,13 @@ chưa triển khai container nào.
 8. Nhấn **Hiện nâng cao** ngay dưới phần thông tin tài nguyên container.
 9. Điền **Yêu cầu CPU** `50m`, **Yêu cầu bộ nhớ** `64Mi`, **Giới hạn CPU**
    `500m`, **Giới hạn bộ nhớ** `256Mi`.
-10. Nếu mẫu hiển thị health check, đặt **Readiness HTTP path** `/readyz`,
-    **Liveness HTTP path** `/healthz`, **Cổng health check** `8080`.
+10. Giữ nguyên các trường khác trong phần nâng cao cho bước thực hành này.
 
-Ảnh backend tham chiếu có thêm Storage. Bài cơ bản này chưa bật kiểm tra volume;
-phần 8 hướng dẫn bổ sung storage sau khi luồng job hoạt động.
+![Chọn loại workload từ ứng dụng vẫn còn trống](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-02-template.png)
 
-![Editor backend thật: thông tin cơ bản, container, biến và mạng](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/02-backend.png)
+![Form Thêm Workload vừa mở: chưa có image, biến môi trường hay resource](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-03-backend-empty.png)
+
+![Đã nhập backend, image và CPU/RAM; chưa thêm resource hoặc biến](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-04-backend-basic.png)
 
 ### 2.2. Thêm resource PostgreSQL
 
@@ -110,6 +109,8 @@ phần 8 hướng dẫn bổ sung storage sau khi luồng job hoạt động.
 Alias `db` dùng để chọn output ở bước sau. Không cần tự nhập hostname hay mật
 khẩu database; Orchestrator lấy chúng từ tài nguyên được cấp.
 
+![Đã thêm riêng PostgreSQL, các bước biến môi trường và Redis chưa thực hiện](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-05-postgres.png)
+
 ### 2.3. Thêm resource Redis
 
 1. Nhấn **+ Thêm tài nguyên** lần nữa.
@@ -120,7 +121,7 @@ khẩu database; Orchestrator lấy chúng từ tài nguyên được cấp.
 6. Giữ chế độ dùng chung. Điền thêm input bắt buộc nếu platform của bạn công bố
    input khác; nếu khác mẫu bài này, nhờ platform xác nhận trước khi deploy.
 
-![Resource thật: Redis, storage và PostgreSQL; bài cơ bản chỉ cần cache và db](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/04-resources.png)
+![Sau khi thêm PostgreSQL và Redis: chỉ có db và cache, chưa thêm storage](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-06-resources.png)
 
 ### 2.4. Thêm biến môi trường từ resource
 
@@ -148,10 +149,7 @@ khẩu database; Orchestrator lấy chúng từ tài nguyên được cấp.
 Chọn output mật khẩu có nhãn **Bí mật**. Không sao chép mật khẩu vào ô giá trị
 thường. Nếu thiếu output cần dùng, kiểm tra lại alias/loại tài nguyên.
 
-Ảnh dưới minh họa cùng hộp chọn nguồn khi đang chọn cấu hình dùng chung. Nhập
-`db.host` trong ô tìm kiếm để chuyển sang output database.
-
-![Hộp chọn nguồn thực tế, không hiển thị giá trị secret](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/03-picker.png)
+![Đang chọn db.host cho PGHOST, ở bước thêm biến đầu tiên](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-07-output-picker.png)
 
 ### 2.5. Thêm biến có giá trị thường
 
@@ -180,13 +178,18 @@ Acceptance app cần `ACCEPTANCE_SECRET` và SHA-256 của nó để xác nhận
    SHA-256 tương ứng (hex chữ thường, 64 ký tự).
 2. Nhấn **+ Thêm biến**, nhập tên `ACCEPTANCE_SECRET`.
 3. Nhấn **Chọn từ…**, rồi **Tạo bí mật**.
-4. Trong hộp tạo secret, điền **Tên key** `ACCEPTANCE_SECRET`, nhập giá trị thử nghiệm
+4. Nếu hộp tạo secret có phần **Kho bí mật**, chọn **Git dev Vault** theo bài
+   thực hành, nhấn **Lưu kho bí mật**. Với môi trường khác, chọn đúng kho platform
+   đã cấp; không chọn tùy ý.
+5. Trong hộp tạo secret, điền **Tên key** `ACCEPTANCE_SECRET`, nhập giá trị thử nghiệm
    vào **Giá trị bí mật**, rồi nhấn **Tạo và chọn**. Không đưa giá trị này vào ảnh chụp.
-5. Sau khi tạo, kiểm tra dòng biến đang tham chiếu key `ACCEPTANCE_SECRET` và có
+6. Sau khi tạo, kiểm tra dòng biến đang tham chiếu key `ACCEPTANCE_SECRET` và có
    nhãn **Bí mật**. Nếu key đã tồn tại trong môi trường, chọn
    **Ứng dụng / ACCEPTANCE_SECRET** thay vì tạo lại.
-6. Thêm biến `ACCEPTANCE_SECRET_SHA256`, nhập chuỗi SHA-256 được cấp vào cột
+7. Thêm biến `ACCEPTANCE_SECRET_SHA256`, nhập chuỗi SHA-256 được cấp vào cột
    **Giá trị**. Hash này là giá trị thường.
+
+![Tạo secret trong app mới; giá trị được che bằng trường mật khẩu](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-08-secret.png)
 
 ### 2.7. Khai báo Service backend
 
@@ -203,9 +206,13 @@ Acceptance app cần `ACCEPTANCE_SECRET` và SHA-256 của nó để xác nhận
 **Kết quả:** quay về trang ứng dụng; backend có thay đổi chờ triển khai. Lưu draft
 chưa tạo database, cache hoặc container đang chạy.
 
+![Backend đã khai báo xong, trước khi lưu draft](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-09-backend-ready.png)
+
+![Sau khi lưu backend: chỉ có một workload chờ thay đổi, chưa triển khai](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-home-backend.png)
+
 ## 3. Thêm workload worker và dùng lại resource
 
-1. Nhấn **+ Thêm Workload**, chọn mẫu worker Deployment.
+1. Nhấn **+ Thêm Workload**, nhấn **Xử lý nền** (`Deployment · 1.0.0`).
 2. Điền tên `worker`, class giống backend, replica `1`.
 3. Điền container `main`, địa chỉ `WORKER_IMAGE` thật.
 4. Mở **Hiện nâng cao** của container; đặt yêu cầu bộ nhớ `48Mi`, giới hạn bộ
@@ -226,9 +233,13 @@ chưa tạo database, cache hoặc container đang chạy.
 **Kết quả:** danh sách có backend và worker. Hai workload cùng tham chiếu DB/cache;
 không xuất hiện một cặp resource riêng cho worker.
 
+![Form thêm worker dùng lại db và cache của backend](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-10-worker.png)
+
+![Sau khi lưu worker: có hai workload chờ thay đổi](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-home-worker.png)
+
 ## 4. Thêm workload frontend
 
-1. Nhấn **+ Thêm Workload**, chọn mẫu frontend Deployment.
+1. Nhấn **+ Thêm Workload**, nhấn **Frontend web** (`Deployment · 1.0.0`).
 2. Điền tên `frontend`, class như backend, replica `1`.
 3. Điền container `main`, địa chỉ `FRONTEND_IMAGE` thật.
 4. Trong **Biến môi trường**, thêm `PORT` với giá trị trực tiếp `8080`.
@@ -237,7 +248,7 @@ không xuất hiện một cặp resource riêng cho worker.
    Không nhập địa chỉ Pod hoặc địa chỉ máy đang chạy Console.
 7. Trong **Cổng Service**, nhấn **+ Thêm cổng**; tên `http`, cổng `8080`.
 8. Cổng đích để trống hoặc khai báo tường minh `8080` như backend.
-9. Nếu mẫu hiển thị health check, đặt readiness và liveness `/healthz`, port `8080`.
+9. Giữ nguyên các trường nâng cao còn lại của mẫu cho bài thực hành này.
 
 ### Public frontend nếu cần truy cập từ bên ngoài
 
@@ -250,7 +261,9 @@ Nếu chỉ dùng nội bộ, bỏ qua ba thao tác thêm public route và lưu 
 route chỉ có hiệu lực sau deploy; DNS/TLS không được cấu hình trong editor này.
 Dùng domain do Platform Engineer xác nhận, không suy từ tên app rằng DNS đã có.
 
-![Frontend thật: BACKEND_URL tham chiếu Service backend](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/05-frontend.png)
+![Form thêm frontend sau khi chọn backend / http và thêm public route /](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-11-frontend.png)
+
+![Sau khi lưu frontend: ba workload đều chờ thay đổi; tài nguyên và lịch sử triển khai vẫn trống](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-home-frontend.png)
 
 ## 5. Preview rồi triển khai
 
@@ -286,10 +299,8 @@ bổ sung ảnh sau khi có môi trường thực hành được phép deploy.
    `processed:HELLO-DEV` và `processed by` có tên worker.
 5. Nếu job chờ mãi, quay về Console kiểm tra worker và kết nối PostgreSQL/Redis.
 
-Ảnh dưới được chụp từ workload thật đã có sẵn; không phải kết quả vừa deploy
-bằng các bước trong bài.
-
-![Acceptance app thật và kết quả kiểm tra](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/06-app.png)
+Chưa có ảnh kết quả của app thực hành vì lượt này dừng ở lưu bản nháp. Không
+lấy ảnh job DONE của ứng dụng khác để minh họa kết quả bài này.
 
 ## 7. Cập nhật cấu hình đã triển khai
 
@@ -317,8 +328,9 @@ backend hỗ trợ mount. Đây là phần bổ sung, không bắt buộc cho b�
 5. Nhập **Mount path** `/data`, bỏ chọn **Chỉ đọc**.
 6. Trong **Biến môi trường**, thêm `ACCEPTANCE_STORAGE_DIR` bằng `/data`.
 7. **Lưu draft Workload** → **Xem trước thay đổi** → **Triển khai**.
-8. Trên frontend acceptance app, dùng chức năng ghi volume với dữ liệu công khai;
-   kiểm tra giá trị/hash đã lưu.
+8. Trên frontend acceptance app, trong **Persistent storage**, nhập `hello-volume`
+   vào **Test value**, nhấn **Write to volume**. Kiểm tra **Stored value** là
+   `hello-volume` và **SHA-256** có giá trị.
 
 Xóa workload có thể giữ lại storage. Kiểm tra tài nguyên được giữ trước khi kết
 thúc bài; không xóa volume dùng chung để dọn một workload riêng.
@@ -361,8 +373,7 @@ và thông báo lỗi đã che thông tin nhạy cảm.
   [application home](../../usecase/UC-01/ui/README.md).
 - [Generic workload contract](../../architecture/contracts/generic-workload.md).
 
-Ảnh và nhãn đã đối chiếu từ editor backend/frontend và app home hiện hành; không
-thay shell hoặc pattern UI. Nội dung trợ giúp tập trung tại bước cần dùng.
-Chưa bổ sung navigation Tài liệu/phân quyền trong Console ở bản nội dung này.
-Ảnh nằm ngoài Git theo quy tắc evidence; URL ảnh dành cho bản duyệt nội bộ,
-không phải địa chỉ image container hay domain cố định của sản phẩm.
+Ảnh được chụp từ app mới và form đang thao tác theo thứ tự; không thay shell hoặc
+pattern UI. Chưa bổ sung navigation Tài liệu/phân quyền trong Console ở bản nội
+dung này. Ảnh nằm ngoài Git theo quy tắc evidence; URL ảnh dành cho bản duyệt
+nội bộ, không phải địa chỉ image container hay domain cố định của sản phẩm.
