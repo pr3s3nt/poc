@@ -173,7 +173,7 @@ và committed-success/reload-failure vẫn tách biệt; scope đổi bỏ late 
 
 ## Navigation Hiệu quả platform (UC-17)
 
-Sidebar thêm mục “Hiệu quả platform” sau “Kho bí mật”, route
+Sidebar thêm mục “Hiệu quả platform” sau “Cấu hình kho bí mật”, route
 `/ui/platform/effectiveness`, cùng gate PLATFORM_ENGINEER/ADMIN như các mục
 platform. Developer không thấy mục và không render trang qua deep link. Mục
 “Lịch sử triển khai” vẫn disabled; chi tiết bản ghi mở lịch sử theo Environment
@@ -219,9 +219,12 @@ shared within the current app/environment; generated IDs stay out of basic
 controls. Existing-resource choices show alias, Type and source workload.
 Private scope is advanced. No shell/navigation or cross-Application scope change.
 
-## Platform settings — Git access
+## Git configuration — Git access
 
-Sidebar adds “Cài đặt nền tảng” at `/ui/platform/settings`, in the platform
+Nav/page labels (2026-11-05, user decision): “Cấu hình Git” (EN “Git configuration”)
+and “Cấu hình kho bí mật” (EN “Secret store configuration”). Routes unchanged.
+
+Sidebar adds “Cấu hình Git” at `/ui/platform/settings`, in the platform
 group with PLATFORM_ENGINEER/ADMIN gating. Reuse the existing Secret Stores
 form and shell. [UC-03](../../usecase/UC-03/git-access.md) owns fields/states.
 

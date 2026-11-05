@@ -35,7 +35,7 @@ it('registers with a concealed token, sends defaults, shows safe Vietnamese meta
   let created = false;
   stub(() => { created = true; return Response.json(store, { status: 201 }); }, () => Response.json({ secretStores: created ? [store] : [] }));
   const user = await open();
-  expect(screen.getByRole('heading', { level: 1, name: 'Kho bí mật' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { level: 1, name: 'Cấu hình kho bí mật' })).toBeInTheDocument();
   const token = screen.getByLabelText(/^Token/);
   expect(token).toHaveAttribute('type', 'password');
   await fill(user);

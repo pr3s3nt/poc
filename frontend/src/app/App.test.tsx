@@ -420,7 +420,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       expect(nav).toHaveTextContent('Ứng dụng');
       expect(nav).toHaveTextContent('Lịch sử triển khai');
       expect(nav).toHaveTextContent('Sắp có');
-      for (const name of [/Loại tài nguyên/, /Cấu hình tài nguyên/, /Mẫu dựng ứng dụng/, /Tài khoản hạ tầng/, /Kết nối/, /Kho bí mật/, /Hiệu quả platform/]) expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
+      for (const name of [/Loại tài nguyên/, /Cấu hình tài nguyên/, /Mẫu dựng ứng dụng/, /Tài khoản hạ tầng/, /Kết nối/, /Cấu hình kho bí mật/, /Hiệu quả platform/]) expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
       expect(screen.getByText('Nhà phát triển')).toBeInTheDocument();
       expect(screen.getByText('tester')).toBeInTheDocument();
     });
@@ -430,7 +430,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       override = asRole(role);
       render(<App />);
       await screen.findByRole('navigation', { name: 'Điều hướng chính' });
-      const expected: [RegExp, string][] = [[/Ứng dụng/, '/ui/applications'], [/Loại tài nguyên/, '/ui/platform/resource-types'], [/Cấu hình tài nguyên/, '/ui/platform/resource-definitions'], [/Tài khoản hạ tầng/, '/ui/platform/driver-accounts'], [/Kho bí mật/, '/ui/platform/secret-stores'], [/Hiệu quả platform/, '/ui/platform/effectiveness']];
+      const expected: [RegExp, string][] = [[/Ứng dụng/, '/ui/applications'], [/Loại tài nguyên/, '/ui/platform/resource-types'], [/Cấu hình tài nguyên/, '/ui/platform/resource-definitions'], [/Tài khoản hạ tầng/, '/ui/platform/driver-accounts'], [/Cấu hình kho bí mật/, '/ui/platform/secret-stores'], [/Hiệu quả platform/, '/ui/platform/effectiveness']];
       for (const [name, path] of expected) expect(screen.getByRole('link', { name })).toHaveAttribute('href', path);
       expect(screen.queryByRole('link', { name: 'Kết nối' })).not.toBeInTheDocument();
       expect(screen.getByText(label)).toBeInTheDocument();
