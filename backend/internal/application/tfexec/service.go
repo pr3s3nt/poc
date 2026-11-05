@@ -83,10 +83,11 @@ type Config struct {
 
 // Service implements execution.ResourceExecutor and the destroy engine.
 type Service struct {
-	cfg   Config
-	deps  Deps
-	now   func() time.Time
-	sleep func(context.Context, time.Duration) error
+	cfg            Config
+	deps           Deps
+	now            func() time.Time
+	sleep          func(context.Context, time.Duration) error
+	repairBindings RepairBindings
 }
 
 // New validates the dependencies. Every port is required: there is no

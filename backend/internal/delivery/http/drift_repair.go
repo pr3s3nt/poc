@@ -20,6 +20,7 @@ func (s *Server) handlePrepareDriftRepair(w http.ResponseWriter, r *http.Request
 		return
 	}
 	var body struct {
+		PreviousReviewID           string   `json:"previousReviewId"`
 		ScanID                     string   `json:"scanId"`
 		InstanceIDs                []string `json:"instanceIds"`
 		RequestID                  string   `json:"requestId"`
@@ -29,7 +30,7 @@ func (s *Server) handlePrepareDriftRepair(w http.ResponseWriter, r *http.Request
 		return
 	}
 	actor, _ := s.sessionIdentity(r)
-	view, err := s.drift.PrepareRepair(r.Context(), driftapp.PrepareRepairCommand{OrganizationKey: org, ApplicationKey: app, EnvironmentKey: env, ActorID: actor.UserID, ScanID: body.ScanID, InstanceIDs: body.InstanceIDs, RequestID: body.RequestID, ExpectedEnvironmentVersion: body.ExpectedEnvironmentVersion})
+	view, err := s.drift.PrepareRepair(r.Context(), driftapp.PrepareRepairCommand{OrganizationKey: org, ApplicationKey: app, EnvironmentKey: env, ActorID: actor.UserID, PreviousReviewID: body.PreviousReviewID, ScanID: body.ScanID, InstanceIDs: body.InstanceIDs, RequestID: body.RequestID, ExpectedEnvironmentVersion: body.ExpectedEnvironmentVersion})
 	if err != nil {
 		s.writeDriftError(w, err)
 		return
@@ -74,15 +75,16 @@ func (s *Server) handleConfirmDriftRepair(w http.ResponseWriter, r *http.Request
 		return
 	}
 	var body struct {
-		ReviewID    string `json:"reviewId"`
-		ReviewToken string `json:"reviewToken"`
-		RequestID   string `json:"requestId"`
+		ConfirmDestructive bool   `json:"confirmDestructive"`
+		ReviewID           string `json:"reviewId"`
+		ReviewToken        string `json:"reviewToken"`
+		RequestID          string `json:"requestId"`
 	}
 	if !decodeStrict(w, r, 2<<10, &body) {
 		return
 	}
 	actor, _ := s.sessionIdentity(r)
-	op, err := s.drift.ConfirmRepair(r.Context(), driftapp.ConfirmRepairCommand{OrganizationKey: org, ApplicationKey: app, EnvironmentKey: env, ActorID: actor.UserID, ReviewID: body.ReviewID, ReviewToken: body.ReviewToken, RequestID: body.RequestID})
+	op, err := s.drift.ConfirmRepair(r.Context(), driftapp.ConfirmRepairCommand{OrganizationKey: org, ApplicationKey: app, EnvironmentKey: env, ActorID: actor.UserID, ConfirmDestructive: body.ConfirmDestructive, ReviewID: body.ReviewID, ReviewToken: body.ReviewToken, RequestID: body.RequestID})
 	if err != nil {
 		s.writeDriftError(w, err)
 		return

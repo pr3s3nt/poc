@@ -102,3 +102,51 @@ func TestPrivateDigestIgnoresOnlyTopLevelPresentationMetadata(t *testing.T) {
 		}
 	}
 }
+
+func TestReviewedRepairAllowsReconciliationWithoutGrantingOwnershipChanges(t *testing.T) {
+	for _, actions := range []string{`["create"]`, `["delete"]`, `["update"]`, `["delete","create"]`, `["create","delete"]`} {
+		raw := strings.ReplaceAll(plan, `["update"]`, actions)
+		raw = strings.Replace(raw, `"output_changes":{}`, `"output_changes":{"host":{"actions":["update"],"after_unknown":true}}`, 1)
+		report, err := Parse([]byte(raw))
+		if err != nil || !report.Repairable() {
+			t.Fatalf("reviewed action rejected: %s %v", actions, err)
+		}
+		if !report.ChangesOutputs() {
+			t.Fatal("consumer impact hidden")
+		}
+	}
+	for _, actions := range []string{`["forget"]`, `["create","update"]`, `["delete","delete"]`} {
+		report, err := Parse([]byte(strings.ReplaceAll(plan, `["update"]`, actions)))
+		if err == nil && report.Repairable() {
+			t.Fatalf("ownership/invalid action admitted: %s", actions)
+		}
+	}
+	for _, marker := range []string{`"importing":{"id":"private-id"},`, `"importing":{"id":"private-id"},`} {
+		report, err := Parse([]byte(strings.Replace(plan, `"after_unknown":{},`, marker, 1)))
+		if err == nil && report.Repairable() {
+			t.Fatal("import admitted")
+		}
+	}
+	moved := strings.Replace(plan, `"address":"kubernetes_config_map_v1.config"`, `"previous_address":"kubernetes_config_map_v1.old","address":"kubernetes_config_map_v1.config"`, 1)
+	report, err := Parse([]byte(moved))
+	if err == nil && report.Repairable() {
+		t.Fatal("address move admitted")
+	}
+}
+
+func TestComparisonUsesCorrectiveDesiredAndHidesSensitiveOrArbitraryValues(t *testing.T) {
+	raw := `{"format_version":"1.2","resource_drift":[{"address":"aws_instance.app","mode":"managed","type":"aws_instance","change":{"actions":["update"],"before":{"instance_type":"t3.small","tags":{"owner":"old-secret"}},"after":{"instance_type":"t3.large","tags":{"owner":"new-secret"}}}}],"resource_changes":[{"address":"aws_instance.app","mode":"managed","type":"aws_instance","change":{"actions":["update"],"before":{"instance_type":"t3.large"},"after":{"instance_type":"t3.medium"}}}]}`
+	r, err := Parse([]byte(raw))
+	if err != nil || len(r.Comparisons) != 1 || r.Comparisons[0].Desired != "t3.medium" || r.Comparisons[0].Actual != "t3.large" {
+		t.Fatal("safe desired/actual comparison incorrect", err)
+	}
+	public, _ := json.Marshal(r)
+	if strings.Contains(string(public), "old-secret") || strings.Contains(string(public), "new-secret") {
+		t.Fatal("arbitrary tag values escaped")
+	}
+	secret := strings.Replace(raw, `"after":{"instance_type":"t3.medium"}`, `"after":{"instance_type":"t3.medium"},"after_sensitive":{"instance_type":true}`, 1)
+	r, err = Parse([]byte(secret))
+	if err != nil || len(r.Comparisons) != 0 {
+		t.Fatal("provider sensitivity ignored", err)
+	}
+}

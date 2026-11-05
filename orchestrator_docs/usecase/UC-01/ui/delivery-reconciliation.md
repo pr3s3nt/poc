@@ -2,7 +2,7 @@
 id: UC-01-UI-DELIVERY-RECONCILIATION
 artifact: use-case-ui-design
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-05
 related: [ADR-030, UC-01, UC-05, UC-09]
 ---
 
@@ -107,3 +107,16 @@ branch, root or CD selection is requested from the Application user. New creatio
 pins the platform default internally; missing setup is reported with an actionable
 platform-configuration message. Keep reconciliation observations on Home. No
 legacy migration/ownership-transfer editor is introduced for test Applications.
+
+## Full Terraform repair — issue #34
+
+Reuse InfrastructureDriftPanel, InfrastructureRepairDialog, Dialog, Button and
+plain-table styles. Preview lists all dependent instances and workload consumers,
+create/update/delete/replace actions and output names/unknown status. Destructive
+plans require a separate explicit data-loss/downtime acknowledgement. Deferred
+consumers show “Cần xem phương án tiếp theo”; partial completion never displays
+Repair succeeded. Offer the next Preview using the consumed review ID, including
+after reloading the page from the persisted operation. Failed/unknown mutations
+retain the existing recovery presentation. No Accept action, identity redesign or
+new navigation. Existing loading, blocked, stale, expiry and API-error states
+continue; all added labels use VI/EN message catalogs.

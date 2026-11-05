@@ -2,7 +2,7 @@
 id: UC-08-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-05
 ---
 
 # UC-08 — Use Case Realization
@@ -174,7 +174,7 @@ these records; no simulation timer, polling-triggered mutation or new scheduler.
 
 ## ADR-030 collaboration extension
 
-InfrastructureDriftService loads private immutable execution baselines, claims Environment then State lock, runs read-only copied-state plan and stores safe findings. Reviewed repair separately admits fresh equivalent plans through tfexec.
+InfrastructureDriftService loads private immutable execution baselines, claims Environment then State lock, runs read-only copied-state plan and stores safe findings. Reviewed repair separately admits fresh equivalent plans through tfexec. Issue #34 extends repair to create/update/delete/replace, orders the full dependent instance scope, records staged review continuations and refreshes pinned consumer configurations through provisioning/deployment. Ordinary UPDATE policy remains non-destructive; only an explicitly confirmed repair plan receives this broader authority.
 
 Canonical shared collaboration: [delivery sequence](../../architecture/components/delivery-reconciliation-sequence.puml),
 [participants](../../architecture/components/delivery-reconciliation-vopc.puml),

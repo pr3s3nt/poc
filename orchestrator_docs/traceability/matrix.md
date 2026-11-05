@@ -1302,7 +1302,7 @@ the user's request; fixture visual review is not runtime acceptance.
 | UC-01 CD-01..03; UC-04 CD-01..03; UC-05 CD-01..03 | Binding versions, desired/applied Environment selection; CDR-01/08, schema | R01/R05, E01/E06; CAS/role/scope and pure Preview tests |
 | UC-06 CD-01..07 | DeliveryCoordinator, provider/publisher ports, immutable revisions/intents; shared delivery sequence | R02–R05, E02–E06/E08; second-provider conformance, phase/revision/restart tests |
 | UC-07 CD-01..04; UC-18 CD-01..03 | Withdraw → UID remover → namespace cleanup; original receipts/union inventory | E07 and ownership/unknown-outcome tests |
-| UC-08 INF-01..04 | InfrastructureDriftService, private baseline/scan/repair reviews; infrastructure sequence | R06/R07, E09/E10; no-write scans and stale private-plan tests |
+| UC-08 INF-01..06 | InfrastructureDriftService, private baseline/scan/reviews, staged dependent repair, pinned consumer binding/refresh; infrastructure sequence | R06/R07, historical E09/E10; `TestRepairRealSavedPlanRecreatesAndReplacesWithChangedOutputs`, `TestRepairCoordinatorPersistsFullPlanConfirmationAndRescan`, `TestRepairStagesReviewConsumersWithoutReapplyingCompletedProvider`, `TestRepairRefreshesAppliedWorkloadConsumersWithoutChangingDesiredOrHistory`; [current evidence and limits](../verification/2026-11-05-infrastructure-drift-repair.md) |
 | UC-09 REC-01..04 | Leased observer → immutable observations → stored query; independent dimensions | E04/E05; freshness, completeness, secret-redaction and scope tests |
 
 All R/E IDs are defined in the [implementation plan](../implementation/delivery-reconciliation.md).

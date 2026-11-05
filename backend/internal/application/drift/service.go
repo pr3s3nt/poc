@@ -38,6 +38,7 @@ type Inspector interface {
 	InspectInstance(context.Context, string, string) (domain.Report, error)
 }
 type Service struct {
+	Consumers  RepairConsumers
 	Store      Store
 	Instances  Instances
 	Inspector  Inspector

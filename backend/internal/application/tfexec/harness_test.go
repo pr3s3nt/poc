@@ -280,9 +280,14 @@ type countingRunner struct {
 	// onDrift is an explicit FAKE private-plan observation used only to prove
 	// repair admission refuses changed values/actions before any Apply call.
 	onDrift func(drift.Report) (drift.Report, error)
+	// onLocalState simulates a provider observation on the disposable copy, never canonical State.
+	onLocalState func([]byte) []byte
 }
 
 func (c *countingRunner) Open(ctx context.Context, req terraformexec.SessionRequest) (terraformexec.Session, error) {
+	if c.onLocalState != nil && len(req.LocalState) > 0 {
+		req.LocalState = c.onLocalState(req.LocalState)
+	}
 	c.mu.Lock()
 	c.opens++
 	c.lastArtifact = req.Artifact

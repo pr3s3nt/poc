@@ -970,6 +970,16 @@ Fleet-specific [policy field ownership](../../backend/internal/adapters/delivery
 and [downstream release retirement](../../backend/internal/adapters/delivery/fleet/withdraw_wait.go)
 stay behind the provider port.
 
+Issue #34 full Repair extends [review coordination](../../backend/internal/application/drift/repair.go)
+with [scope/checkpoint ordering](../../backend/internal/application/drift/repair_scope.go),
+[applied input/output binding](../../backend/internal/application/provisioning/repair.go)
+and [consumer refresh](../../backend/internal/application/deployment/drift_repair.go).
+[Safe comparisons](../../backend/internal/domain/drift/comparison.go) expose only
+allowlisted non-sensitive operational scalars; arbitrary data remain private.
+The existing dialog adds destructive acknowledgement and staged continuation.
+[Verification and limits](../verification/2026-11-05-infrastructure-drift-repair.md)
+distinguish real Terraform/PostgreSQL checks from fixture browser/provider evidence.
+
 ADR-030 retention: [owner maintenance](../../backend/internal/adapters/postgres/drift_retention.go) is invoked by `-prune-drift-history`; exact catalog/role checks and schema triggers preserve active/recovery evidence without runtime DELETE privileges. [Historical dependency comparison](../../backend/internal/application/tfexec/drift_dependencies.go) retains original consumer inputs across stable-output acknowledgements.
 
 ## Versioned catalog releases — issue #28

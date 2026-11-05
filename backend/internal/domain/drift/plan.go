@@ -1,4 +1,5 @@
-// Package drift parses private Terraform plans into value-free findings. It is
+// Package drift parses private Terraform plans into safe findings and restricted
+// operational comparisons. It is
 // separate from the cleanup parser, whose disappeared-object contract remains.
 package drift
 
@@ -24,12 +25,13 @@ type Finding struct {
 	Paths   []string `json:"paths"`
 }
 type Report struct {
-	External       []Finding `json:"externalDrift"`
-	Proposed       []Finding `json:"proposedActions"`
-	OutputNames    []string  `json:"outputNames"`
-	Complete       bool      `json:"complete"`
-	OutputsUnknown bool      `json:"outputsUnknown"`
-	Applyable      bool      `json:"-"`
+	Comparisons    []Comparison `json:"comparisons,omitempty"`
+	External       []Finding    `json:"externalDrift"`
+	Proposed       []Finding    `json:"proposedActions"`
+	OutputNames    []string     `json:"outputNames"`
+	Complete       bool         `json:"complete"`
+	OutputsUnknown bool         `json:"outputsUnknown"`
+	Applyable      bool         `json:"-"`
 	// Only State runtime may persist/compare this secret-dependent digest. Never
 	// serialize it with public findings or send it to Console.
 	PrivateChangeDigest string `json:"-"`
@@ -242,6 +244,10 @@ func Parse(raw []byte) (Report, error) {
 		}
 	}
 	sort.Strings(report.OutputNames)
+	report.Comparisons = comparisons(doc, report)
+	if doc.Applyable == nil {
+		report.Applyable = len(report.Proposed) > 0 || len(report.OutputNames) > 0 || len(report.External) > 0
+	}
 	resources := append([]resourceChange(nil), doc.Resources...)
 	externalRaw := append([]resourceChange(nil), doc.Drift...)
 	sort.Slice(resources, func(i, j int) bool { return resources[i].Address < resources[j].Address })
@@ -280,4 +286,59 @@ func (r Report) InPlaceOnly() bool {
 		}
 	}
 	return true
+}
+
+// Repairable admits a complete normal plan for an explicitly reviewed repair.
+// Import, forget and address moves are ownership changes, not reconciliation.
+// No-op plans are useful for dependent inputs whose acknowledged pins advance.
+func (r Report) Repairable() bool {
+	if !r.Complete {
+		return false
+	}
+	for _, finding := range append(append([]Finding{}, r.External...), r.Proposed...) {
+		for _, path := range finding.Paths {
+			if path == "/<import>" || path == "/<identity>" {
+				return false
+			}
+		}
+		a := finding.Actions
+		if len(a) == 1 {
+			switch a[0] {
+			case "no-op", "read", "create", "update", "delete":
+				continue
+			}
+		}
+		if len(a) == 2 && ((a[0] == "create" && a[1] == "delete") || (a[0] == "delete" && a[1] == "create")) {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func (r Report) Destructive() bool {
+	for _, f := range r.Proposed {
+		for _, a := range f.Actions {
+			if a == "delete" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// ChangesOutputs is conservative for creates/replacements: computed outputs can
+// be absent from a public output diff until the provider has assigned identity.
+func (r Report) ChangesOutputs() bool {
+	if r.OutputsUnknown || len(r.OutputNames) > 0 {
+		return true
+	}
+	for _, f := range r.Proposed {
+		for _, a := range f.Actions {
+			if a == "create" || a == "delete" {
+				return true
+			}
+		}
+	}
+	return false
 }

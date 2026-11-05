@@ -4,19 +4,28 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"reflect"
 	"time"
 
 	"orchestrator/internal/domain/drift"
 	"orchestrator/internal/domain/tfresource"
 	"orchestrator/internal/platform/ids"
+	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/ports/terraformexec"
 	"orchestrator/internal/ports/terraformstate"
 )
 
 var ErrRepairStale = errors.New("tfexec: repair review is stale")
-var ErrRepairBlocked = errors.New("tfexec: repair requires normal deployment review")
+var ErrRepairBlocked = errors.New("tfexec: the plan cannot be admitted for reviewed repair")
+
+// RepairBindings bridges the State-private executor to the pinned applied
+// configuration and the existing Active Resource output/secret projection.
+type RepairBindings interface {
+	ResolveRepairInputs(context.Context, ExecuteRequest) (ExecuteRequest, error)
+	PublishRepairOutputs(context.Context, ExecuteRequest, Result) error
+}
+
+func (s *Service) SetRepairBindings(bindings RepairBindings) { s.repairBindings = bindings }
 
 type RepairPreparation struct {
 	InstanceID      string       `json:"instanceId"`
@@ -32,22 +41,36 @@ type privateRepairPlan struct {
 	Digest               string
 	Report               drift.Report
 	SavedPlan            []byte
+	Variables            map[string]any
+	Targets              map[string]execution.Target
 	CreatedAt, ExpiresAt time.Time
 }
 
 func (s *Service) PrepareInstanceRepair(ctx context.Context, org, instance string) (prepared RepairPreparation, err error) {
+	return s.prepareInstanceRepair(ctx, org, instance, false)
+}
+
+// PrepareRepairMember also records no-op dependency acknowledgements.
+func (s *Service) PrepareRepairMember(ctx context.Context, org, instance string) (RepairPreparation, error) {
+	return s.prepareInstanceRepair(ctx, org, instance, true)
+}
+func (s *Service) prepareInstanceRepair(ctx context.Context, org, instance string, allowNoop bool) (prepared RepairPreparation, err error) {
 	prepared.InstanceID = instance
 	prepared.Blockers = []string{}
 	repo, ok := s.deps.Baselines.(terraformstate.RepairArtifactRepository)
 	if !ok {
 		return prepared, ErrBaselineUnavailable
 	}
-	_, err = s.inspectInstance(ctx, org, instance, func(ctx context.Context, baseline inspectedBaseline, session terraformexec.Session, report drift.Report) error {
+	_, err = s.inspectWithInputs(ctx, org, instance, true, func(ctx context.Context, baseline inspectedBaseline, session terraformexec.Session, report drift.Report) error {
 		prepared.BaselineID, prepared.InstanceVersion = baseline.Baseline.ID, baseline.Instance.Version
 		prepared.Report = report
 		prepared.Report.PrivateChangeDigest = ""
-		if !report.InPlaceOnly() {
-			prepared.Blockers = append(prepared.Blockers, "IN_PLACE_STABLE_OUTPUTS_REQUIRED")
+		if !report.Repairable() || (!report.Applyable && (!allowNoop || len(report.Proposed) > 0 || len(report.OutputNames) > 0)) {
+			prepared.Blockers = append(prepared.Blockers, "COMPLETE_MANAGED_PLAN_REQUIRED")
+			return nil
+		}
+		if guardErr := s.guardRepairNamespaces(ctx, baseline, session, report); guardErr != nil {
+			prepared.Blockers = append(prepared.Blockers, "NAMESPACE_CONTENTS_UNVERIFIED")
 			return nil
 		}
 		plan, err := session.(terraformexec.DriftPlanSession).ReadSavedPlan(ctx)
@@ -55,7 +78,7 @@ func (s *Service) PrepareInstanceRepair(ctx context.Context, org, instance strin
 			return err
 		}
 		now := s.now()
-		payload, err := json.Marshal(privateRepairPlan{Baseline: baseline.Baseline, InstanceVersion: baseline.Instance.Version, Digest: report.PrivateChangeDigest, Report: report, SavedPlan: plan, CreatedAt: now, ExpiresAt: now.Add(10 * time.Minute)})
+		payload, err := json.Marshal(privateRepairPlan{Baseline: baseline.Baseline, InstanceVersion: baseline.Instance.Version, Digest: report.PrivateChangeDigest, Report: report, SavedPlan: plan, Variables: baseline.Input.Variables, Targets: baseline.Input.Request.Targets, CreatedAt: now, ExpiresAt: now.Add(2 * time.Hour)})
 		if err != nil {
 			return ErrArtifactEncoding
 		}
@@ -95,12 +118,15 @@ func (s *Service) RepairInstance(ctx context.Context, org, instance, artifactID 
 	if json.Unmarshal(plain, &review) != nil || review.Baseline.InstanceID != instance || review.Baseline.OrganizationID != org || !s.now().Before(review.ExpiresAt) || review.CreatedAt.After(s.now()) || len(review.SavedPlan) == 0 {
 		return ErrRepairStale
 	}
-	_, err = s.inspectInstance(ctx, org, instance, func(ctx context.Context, baseline inspectedBaseline, session terraformexec.Session, report drift.Report) error {
-		if !s.now().Before(review.ExpiresAt) || !sameBaseline(review.Baseline, baseline.Baseline) || review.InstanceVersion != baseline.Instance.Version || report.PrivateChangeDigest == "" || report.PrivateChangeDigest != review.Digest {
+	_, err = s.inspectWithInputs(ctx, org, instance, true, func(ctx context.Context, baseline inspectedBaseline, session terraformexec.Session, report drift.Report) error {
+		if !s.now().Before(review.ExpiresAt) || !sameBaseline(review.Baseline, baseline.Baseline) || review.InstanceVersion != baseline.Instance.Version || report.PrivateChangeDigest == "" || report.PrivateChangeDigest != review.Digest || !samePrivateJSON(review.Variables, baseline.Input.Variables) || !samePrivateJSON(review.Targets, baseline.Input.Request.Targets) {
 			return ErrRepairStale
 		}
-		if !report.InPlaceOnly() {
+		if !report.Repairable() {
 			return ErrRepairBlocked
+		}
+		if err := s.guardRepairNamespaces(ctx, baseline, session, report); err != nil {
+			return err
 		}
 		return s.applyInstanceRepair(ctx, baseline, session, report)
 	})
@@ -121,7 +147,7 @@ func (s *Service) applyInstanceRepair(ctx context.Context, baseline inspectedBas
 	if err != nil {
 		return err
 	}
-	st.attempt, err = s.deps.State.BeginAttempt(ctx, tfresource.Attempt{InstanceID: st.inst.ID, RunID: owner.OperationID, Action: tfresource.ActionUpdate, Ownership: tfresource.UpdatedByRun, Stage: "DRIFT_REPAIR", ModuleSnapshot: map[string]any{"bundleId": st.bundle.ID}, TargetSnapshot: st.inst.TargetRef, Deadline: s.now().Add(10 * time.Minute)})
+	st.attempt, err = s.deps.State.BeginAttempt(ctx, tfresource.Attempt{InstanceID: st.inst.ID, RunID: owner.OperationID, Action: tfresource.ActionUpdate, Ownership: tfresource.UpdatedByRun, Stage: "DRIFT_REPAIR", ModuleSnapshot: map[string]any{"bundleId": st.bundle.ID}, TargetSnapshot: st.inst.TargetRef, Deadline: s.now().Add(s.cfg.InvocationTimeout)})
 	if err != nil {
 		return err
 	}
@@ -148,7 +174,7 @@ func (s *Service) applyInstanceRepair(ctx context.Context, baseline inspectedBas
 	if err := s.setInstance(ctx, st, tfresource.InstanceProvisioning); err != nil {
 		return fail(StagePlanned, err)
 	}
-	token, _, err := s.deps.Tokens.IssueCapability(ctx, st.inst.ID, tfresource.CapabilityUpdate, 15*time.Minute)
+	token, _, err := s.deps.Tokens.IssueCapability(ctx, st.inst.ID, tfresource.CapabilityUpdate, s.cfg.InvocationTimeout+5*time.Minute)
 	if err != nil {
 		return fail(StagePlanned, err)
 	}
@@ -156,21 +182,20 @@ func (s *Service) applyInstanceRepair(ctx context.Context, baseline inspectedBas
 	if err := s.progressStrict(ctx, st, StageApplying); err != nil {
 		return fail(StagePlanned, err)
 	}
-	if err := session.Apply(ctx); err != nil {
-		return fail(StageApplying, err)
+	if report.Applyable {
+		if err := session.Apply(ctx); err != nil {
+			return fail(StageApplying, err)
+		}
 	}
 	outputs, err := session.Outputs(ctx)
 	if err != nil {
 		return fail(StageOutputs, err)
 	}
-	if !reflect.DeepEqual(outputs, baseline.Input.Outputs) {
-		return fail(StageOutputs, ErrRepairBlocked)
-	}
 	resources, err := session.StateResources(ctx)
 	if err != nil {
 		return fail(StageOutputs, err)
 	}
-	if !samePhysicalInventory(before, resources) {
+	if !reviewedInventory(before, resources, report) {
 		return fail(StageOutputs, ErrRepairBlocked)
 	}
 	checked, err := checkOutputs(st.bundle, st.req.OutputMapping, st.req.Type, outputs, s.executorOutputs(st, outputs))
@@ -188,8 +213,10 @@ func (s *Service) applyInstanceRepair(ctx context.Context, baseline inspectedBas
 	if err != nil || lock == nil || lock.OperationID != owner.OperationID || lock.Fence != owner.Fence {
 		return fail(StageApplied, persistence.ErrOperationLost)
 	}
-	if err := s.deps.StateWriter.Write(ctx, token, st.inst.StateKey, lock.LockID, state); err != nil {
-		return fail(StageApplied, err)
+	if report.Applyable {
+		if err := s.deps.StateWriter.Write(ctx, token, st.inst.StateKey, lock.LockID, state); err != nil {
+			return fail(StageApplied, err)
+		}
 	}
 	if err := s.finalizeAttempt(ctx, st, StageReady, tfresource.AttemptSucceeded, ""); err != nil {
 		return fail(StageApplied, err)
@@ -199,6 +226,30 @@ func (s *Service) applyInstanceRepair(ctx context.Context, baseline inspectedBas
 	}
 	if err := s.recordBaseline(ctx, st, invocationOutcome{outputs: outputs, resources: resources, applied: true}); err != nil {
 		return fail(StageApplied, err)
+	}
+	// The updated inventory is durable before readiness is advertised to consumers.
+	if s.repairBindings != nil {
+		result := Result{InstanceID: st.inst.ID, StateKey: st.inst.StateKey, Action: st.action, Outputs: checked.Module, Sensitive: checked.Sensitive, Resources: resources, Target: s.eksTarget(st, checked)}
+		if err := s.repairBindings.PublishRepairOutputs(ctx, st.req, result); err != nil {
+			return fail(StageApplied, err)
+		}
+	}
+	// Recreated namespaces need a new UID-bound provenance record for future cleanup.
+	for _, r := range resources {
+		if namespaceTypes[r.Type] {
+			for _, f := range report.Proposed {
+				if f.Address == r.Address {
+					for _, a := range f.Actions {
+						if a == "create" {
+							st.action = tfresource.ActionCreate
+							if err := s.captureNamespaceBaseline(ctx, st, resources); err != nil {
+								return fail(StageApplied, err)
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -225,4 +276,116 @@ func sameBaseline(a, b terraformstate.ExecutionBaseline) bool {
 	}
 	right, err := json.Marshal(b)
 	return err == nil && string(left) == string(right)
+}
+
+// Validate physical changes against the reviewed address/action set; broad repair
+// authority never permits an unexpected identity change on an unchanged resource.
+func reviewedInventory(before, after []terraformexec.StateResource, report drift.Report) bool {
+	old := map[string]terraformexec.StateResource{}
+	next := map[string]terraformexec.StateResource{}
+	actions := map[string]map[string]bool{}
+	for _, r := range before {
+		if _, duplicate := old[r.Address]; duplicate {
+			return false
+		}
+		old[r.Address] = r
+	}
+	for _, r := range after {
+		if _, duplicate := next[r.Address]; duplicate {
+			return false
+		}
+		next[r.Address] = r
+	}
+	for _, f := range report.Proposed {
+		actions[f.Address] = map[string]bool{}
+		for _, a := range f.Actions {
+			actions[f.Address][a] = true
+		}
+	}
+	for address, prior := range old {
+		current, exists := next[address]
+		a := actions[address]
+		if a["delete"] && !a["create"] {
+			if exists {
+				return false
+			}
+			continue
+		}
+		if !exists || current.Type != prior.Type {
+			return false
+		}
+		if !a["create"] && current != prior {
+			return false
+		}
+	}
+	for address := range next {
+		if _, exists := old[address]; !exists && !actions[address]["create"] {
+			return false
+		}
+	}
+	for address, a := range actions {
+		if a["create"] {
+			if _, exists := next[address]; !exists {
+				return false
+			}
+		}
+	}
+	return true
+}
+func (s *Service) guardRepairNamespaces(ctx context.Context, b inspectedBaseline, session terraformexec.Session, report drift.Report) error {
+	destructiveNamespace := false
+	for _, f := range report.Proposed {
+		if namespaceTypes[f.Type] {
+			for _, a := range f.Actions {
+				if a == "delete" {
+					destructiveNamespace = true
+				}
+			}
+		}
+	}
+	if !destructiveNamespace {
+		return nil
+	}
+	resources, err := session.StateResources(ctx)
+	if err != nil {
+		return ErrRepairBlocked
+	}
+	st := &execState{inst: b.Instance, req: b.Input.Request, env: b.Bound}
+	return s.inspectNamespaces(ctx, st, resources)
+}
+
+// AcknowledgedRepairResult is a private application-layer read. It restores the
+// exact validated output snapshot for binding consumers without exposing State.
+func (s *Service) AcknowledgedRepairResult(ctx context.Context, id string) (ExecuteRequest, Result, error) {
+	inst, err := s.deps.State.GetInstance(ctx, id)
+	if err != nil || (inst.Status != tfresource.InstanceReady && inst.Status != tfresource.InstanceUnreferenced) {
+		return ExecuteRequest{}, Result{}, ErrBaselineUnavailable
+	}
+	b, err := s.deps.Baselines.LatestExecutionBaseline(ctx, inst.Identity.OrganizationID, id)
+	if err != nil || b.InstanceVersion != inst.Version {
+		return ExecuteRequest{}, Result{}, ErrBaselineUnavailable
+	}
+	var state *tfresource.StateBlob
+	err = s.deps.State.Transact(ctx, func(ctx context.Context) error {
+		var e error
+		state, e = s.deps.State.StateForUpdate(ctx, id)
+		return e
+	})
+	if err != nil || state == nil || state.Version != b.StateVersion || state.Lineage != b.Lineage || state.Serial != b.Serial {
+		return ExecuteRequest{}, Result{}, ErrBaselineUnavailable
+	}
+	input, err := s.openExecutionBaseline(ctx, inst.Identity.OrganizationID, b)
+	if err != nil {
+		return ExecuteRequest{}, Result{}, err
+	}
+	bundle, err := s.deps.Modules.BundleByID(ctx, b.ModuleBundleID)
+	if err != nil {
+		return ExecuteRequest{}, Result{}, err
+	}
+	st := &execState{req: input.Request, inst: inst, bundle: bundle}
+	checked, err := checkOutputs(bundle, input.Request.OutputMapping, input.Request.Type, input.Outputs, s.executorOutputs(st, input.Outputs))
+	if err != nil {
+		return ExecuteRequest{}, Result{}, err
+	}
+	return input.Request, Result{InstanceID: id, StateKey: inst.StateKey, Outputs: checked.Module, Sensitive: checked.Sensitive, Target: s.eksTarget(st, checked)}, nil
 }

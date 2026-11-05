@@ -2,7 +2,7 @@
 id: UC-08-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-05
 ---
 
 # UC-08 — Provision Infrastructure and Application Resources
@@ -238,13 +238,27 @@ instances. Orphan import/recovery D12–D14 remain deferred.
 - **INF-02:** Scans are read-only to infrastructure and canonical state, fenced
   against deployment/cleanup, bounded and restart-observable. Detect attribute
   updates as well as missing resources; separate external drift from repair plan.
-- **INF-03:** No unattended Terraform apply. PE/Admin may review and confirm
-  exact in-place repair with fresh state/baseline guards. Changed scope/actions,
-  replacement/deletion/import, unknown consumer outputs or missing ownership
-  block repair; use an appropriate normal deployment/cleanup workflow instead.
-- **INF-04:** Successful repair acknowledges state/output contracts under existing
-  locks but does not rewrite deployment history or desired drafts. Unknown process
-  outcomes retain v2 holds. Secret/state/plan values never appear in reports.
+- **INF-03:** No unattended Terraform apply. PE/Admin reviews and confirms a
+  normal refreshed Terraform plan against the acknowledged pinned baseline.
+  Repair permits create/update/delete/replace, including recreation of missing
+  managed resources. Imports, ownership adoption, module upgrades and draft
+  desired changes remain excluded. Review identifies destructive actions,
+  possible downtime/data loss and the complete dependent resource/workload scope.
+- **INF-04:** Recheck private semantic plan changes, baseline/state/dependency
+  versions and scope before apply. A changed plan requires another review.
+  Acknowledge validated outputs, state and inventory under existing locks;
+  propagate changed outputs to consumers using their pinned applied configuration.
+  Do not report success with stale consumer bindings or rewrite old Deployment
+  history. Unknown process outcomes retain v2 holds; secrets stay private.
+- **INF-05:** When upstream outputs are only available after apply, record the
+  completed stage and require a fresh expiring Preview/confirmation for remaining
+  consumers. Reuse completed acknowledged stages without reapplying them. Known
+  stopped stages may release their operation for the next review; uncertain
+  effects retain the existing recovery hold. No automatic expanded action set.
+- **INF-06:** Desired State stays unchanged; Accept Drift is out of scope.
+  Ownership and namespace cascading-deletion guards still apply to destructive
+  plans. Never import, reset state, elevate provider permissions or affect another
+  Environment implicitly.
 
 Algorithm and API: [infrastructure drift contract](../../architecture/contracts/infrastructure-drift.md).
 

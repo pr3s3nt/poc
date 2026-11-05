@@ -2,10 +2,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { InfrastructureRepairDialog } from './InfrastructureRepairDialog';
-import type { DriftScan } from './InfrastructureDriftPanel';
+import type { DriftScan, InfrastructureReport } from './InfrastructureDriftPanel';
 
 afterEach(() => vi.unstubAllGlobals());
-const report = { externalDrift: [], proposedActions: [{ address: 'kubernetes_namespace.this', type: 'kubernetes_namespace', actions: ['update'], paths: ['/metadata/labels'] }], outputNames: [], complete: true, outputsUnknown: false };
+const report: InfrastructureReport = { externalDrift: [], proposedActions: [{ address: 'kubernetes_namespace.this', type: 'kubernetes_namespace', actions: ['update'], paths: ['/metadata/labels'] }], outputNames: [], complete: true, outputsUnknown: false };
 const scan: DriftScan = { id: 'scan', status: 'SUCCEEDED', result: 'DRIFTED', createdAt: new Date().toISOString(), findings: [{ instanceId: 'namespace', descriptor: 'namespace.default#app', result: 'DRIFTED', report }] };
 const ready = () => ({ review: { id: 'review', status: 'READY', expiresAt: new Date(Date.now() + 600_000).toISOString(), blockers: [] as string[], instances: [{ instanceId: 'namespace', report, blockers: [] as string[] }] }, reviewToken: 'private-confirmation-token' });
 
@@ -66,4 +66,56 @@ it('retries a lost confirmation with exactly the original review and request id'
   await userEvent.click(await screen.findByRole('button', { name: 'Gửi lại xác nhận' }));
   await waitFor(() => expect(commands).toHaveLength(2));
   expect(commands[1]).toEqual(commands[0]);
+});
+
+it('requires a separate acknowledgement for a replacement and sends it with confirmation', async () => {
+  const commands: Record<string, unknown>[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith('/applications/app')) return Response.json({ application: { environments: [{ key: 'staging', version: 9 }] } });
+    if (url.endsWith('/drift-repairs/preview')) {
+      const view = ready(); view.review.instances[0]!.report = { ...report, proposedActions: [{ address: 'aws_instance.backend', type: 'aws_instance', actions: ['delete', 'create'], paths: ['/instance_type'] }], outputNames: ['host'], outputsUnknown: true };
+      return Response.json(view, { status: 202 });
+    }
+    if (url.endsWith('/drift-repairs') && init?.method === 'POST') { commands.push(JSON.parse(String(init.body)) as Record<string, unknown>); return Response.json({ operationId: 'op' }, { status: 202 }); }
+    return Response.json({ operations: [{ id: 'op', status: 'SUCCEEDED' }] });
+  }));
+  render(<InfrastructureRepairDialog applicationId="app" environment="staging" scan={scan} onClose={vi.fn()} onComplete={vi.fn()} />);
+  await userEvent.click(screen.getByRole('button', { name: 'Chuẩn bị phương án' }));
+  expect(await screen.findByText('Thay thế')).toBeInTheDocument();
+  expect(screen.getByText(/Phương án có xóa hoặc thay thế/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('checkbox', { name: 'Tôi đã xem phương án sửa' }));
+  expect(screen.getByRole('button', { name: 'Xác nhận sửa' })).toBeDisabled();
+  await userEvent.click(screen.getByRole('checkbox', { name: 'Tôi chấp nhận việc xóa hoặc thay thế và rủi ro mất dữ liệu' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Xác nhận sửa' }));
+  await screen.findByText('Đã sửa hạ tầng và xác nhận trạng thái.');
+  expect(commands[0]?.confirmDestructive).toBe(true);
+});
+
+it('requests a new consumer preview after a partial stage and preserves the original roots', async () => {
+  const previews: Record<string, unknown>[] = [];
+  let confirms = 0;
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith('/applications/app')) return Response.json({ application: { environments: [{ key: 'staging', version: 9 }] } });
+    if (url.endsWith('/drift-repairs/preview')) {
+      previews.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      const view = { ...ready(), review: { ...ready().review, rootIds: ['namespace'], scanId: 'scan' } };
+      if (previews.length > 1) view.review.id = 'second-review';
+      return Response.json(view, { status: 202 });
+    }
+    if (url.endsWith('/drift-repairs') && init?.method === 'POST') { confirms++; return Response.json({ operationId: `op-${confirms}` }, { status: 202 }); }
+    return Response.json({ operations: [{ id: `op-${confirms}`, status: confirms === 1 ? 'FAILED' : 'SUCCEEDED', stage: confirms === 1 ? 'DRIFT_REPAIR_REVIEW_REQUIRED' : 'DRIFT_REPAIR_CHECKPOINT' }] });
+  }));
+  render(<InfrastructureRepairDialog applicationId="app" environment="staging" scan={scan} onClose={vi.fn()} onComplete={vi.fn()} />);
+  await userEvent.click(screen.getByRole('button', { name: 'Chuẩn bị phương án' }));
+  await userEvent.click(await screen.findByRole('checkbox', { name: 'Tôi đã xem phương án sửa' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Xác nhận sửa' }));
+  await screen.findByText(/Bước vừa duyệt đã hoàn tất/);
+  expect(screen.queryByText('Đã sửa hạ tầng và xác nhận trạng thái.')).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Xem phương án tiếp theo' }));
+  await screen.findByRole('checkbox', { name: 'Tôi đã xem phương án sửa' });
+  expect(previews[1]).toMatchObject({ previousReviewId: 'review', scanId: 'scan', instanceIds: ['namespace'] });
+  expect(previews[1]?.requestId).not.toEqual(previews[0]?.requestId);
+  expect(confirms).toBe(1);
 });

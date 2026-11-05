@@ -14,6 +14,9 @@ const (
 )
 
 type RepairInstance struct {
+	Completed       bool     `json:"completed,omitempty"`
+	Deferred        bool     `json:"deferred,omitempty"`
+	Descriptor      string   `json:"descriptor,omitempty"`
 	InstanceID      string   `json:"instanceId"`
 	InstanceVersion int64    `json:"instanceVersion"`
 	BaselineID      string   `json:"baselineId"`
@@ -22,21 +25,36 @@ type RepairInstance struct {
 	ArtifactID      string   `json:"-"`
 }
 type RepairReview struct {
-	ID                    string           `json:"id"`
-	OrganizationID        string           `json:"-"`
-	EnvironmentID         string           `json:"environmentId"`
-	ScanID                string           `json:"scanId"`
-	ActorID               string           `json:"-"`
-	RequestID             string           `json:"-"`
-	RequestDigest         string           `json:"-"`
-	EnvironmentVersion    int64            `json:"environmentVersion"`
-	Status                RepairStatus     `json:"status"`
-	Instances             []RepairInstance `json:"instances"`
-	Blockers              []string         `json:"blockers"`
-	ExpiresAt             time.Time        `json:"expiresAt"`
-	CreatedAt             time.Time        `json:"createdAt"`
-	OperationID           string           `json:"operationId"`
-	ConsumedOperationID   string           `json:"consumedOperationId,omitempty"`
-	ConfirmationRequestID string           `json:"-"`
-	Version               int64            `json:"-"`
+	Dependencies          map[string][]string `json:"dependencies,omitempty"`
+	PreviousReviewID      string              `json:"previousReviewId,omitempty"`
+	RootIDs               []string            `json:"rootIds,omitempty"`
+	Consumers             []RepairConsumer    `json:"consumers,omitempty"`
+	ID                    string              `json:"id"`
+	OrganizationID        string              `json:"-"`
+	EnvironmentID         string              `json:"environmentId"`
+	ScanID                string              `json:"scanId"`
+	ActorID               string              `json:"-"`
+	RequestID             string              `json:"-"`
+	RequestDigest         string              `json:"-"`
+	EnvironmentVersion    int64               `json:"environmentVersion"`
+	Status                RepairStatus        `json:"status"`
+	Instances             []RepairInstance    `json:"instances"`
+	Blockers              []string            `json:"blockers"`
+	ExpiresAt             time.Time           `json:"expiresAt"`
+	CreatedAt             time.Time           `json:"createdAt"`
+	OperationID           string              `json:"operationId"`
+	ConsumedOperationID   string              `json:"consumedOperationId,omitempty"`
+	ConfirmationRequestID string              `json:"-"`
+	Version               int64               `json:"-"`
+}
+
+// RepairConsumer pins one applied non-Terraform consumer configuration. Digests
+// describe existing safe metadata, never secret values or Terraform plan hashes.
+type RepairConsumer struct {
+	Completed      bool   `json:"completed,omitempty"`
+	Descriptor     string `json:"descriptor"`
+	WorkloadID     string `json:"workloadId,omitempty"`
+	DeploymentID   string `json:"deploymentId"`
+	Version        int64  `json:"version,omitempty"`
+	ManifestDigest string `json:"manifestDigest,omitempty"`
 }

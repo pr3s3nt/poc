@@ -2,7 +2,7 @@
 id: INFRASTRUCTURE-DRIFT-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-05
 related: [ADR-030, ADR-014, UC-08, UC-09]
 ---
 
@@ -51,8 +51,12 @@ Definition, uncommitted draft or live resources.
 4. Parse configuration changes **and all** `resource_drift` actions, including
    updates/deletes, plus output changes and coverage failures. Do not reuse the
    current cleanup parser's delete-only drift list as a complete report.
-5. Persist safe findings: resource address/type, action and field path, never raw
-   before/after values or provider diagnostics. Keep `externalDrift` distinct from
+5. Persist safe findings: resource address/type, action and field path. Arbitrary before/after values and provider diagnostics
+   remain private. Only an explicit allowlist of operational scalar fields on
+   known resource types may include Desired/Actual comparisons, after checking
+   both drift and corrective-plan sensitivity/unknown masks. Desired is taken
+   from the corrective plan, not assumed from old State; missing/unsafe values
+   remain undisclosed. Keep `externalDrift` distinct from
    `proposedActions`: an external edit can be accepted by ignore_changes and need
    no corrective action. Outputs-only/provider-computed changes are not silently
    hidden or automatically adopted. Report no-change only after a complete plan.
@@ -89,15 +93,41 @@ plan change digest**, excluding nondeterministic metadata. Changed values/action
 invalidate review even if the public summaries match. Apply the freshly verified
 saved plan only after this comparison; no unreviewed expanded action set.
 
-V1 repair permits in-place updates to existing acknowledged resources only.
-Create, delete, replace, import, missing-resource recreation, identity change or
-provider/module upgrade is blocked and routed to a separate existing reviewed
-deploy/replacement/cleanup procedure where supported. No automatic state import.
-Validate output contracts and dependency impact before admission; if outputs used
-by consumers would change or are unknown, require a normal deployment review
-that includes those consumers instead of applying a partial repair. Stable-output
-repair acknowledges state and updates observations without rewriting the current
-Deployment Set or old Deployment status. Failure retains existing v2 recovery hold.
+Issue #34 replaces the in-place-only restriction: normal Terraform create,
+update, delete and replace actions are reviewable. Imports, forget/adoption,
+resource address moves and provider/module upgrades remain refused. Namespace
+cascading deletion still requires the existing owned-content proof. Physical
+identity may change only through reviewed recreate/replace actions. Resource
+identity in Platform, state lineage, account/target scope and ownership remain
+fenced. Do not promise data recovery or zero downtime.
+
+Preparation computes the transitive dependent instance scope in provider-first
+order, plus consumers from pinned applied resource/workload plans. It never uses
+uncommitted drafts or current mutable Definitions. Consumers of a stage that can
+change outputs are deferred until that stage is acknowledged. The stored review
+shows the full scope and which stages need a subsequent preview. Confirmation
+binds every included baseline/version and consumer snapshot, not only selected
+roots. Each ready stage gets an exact encrypted plan and private digest; no
+consumer is applied using an unreviewed freshly expanded Terraform action set.
+
+A completed upstream stage is durably recorded in the operation. If remaining
+consumers need new inputs, the operation ends with `DRIFT_REPAIR_REVIEW_REQUIRED`
+and a continuation review is requested using `previousReviewId`. This is partial
+progress, never full Repair success. The safe Environment operation projection
+exposes only a validated `repairReviewId` and `repairPreparation` flag for Repair,
+so reloading the Console can restore continuation without exposing private Detail.
+The next preparation verifies the original
+actor, Environment version, scope, completed pins and remaining instance pins;
+completed instances are retained rather than applied twice. Original consumer
+inputs are resolved again only from their pinned applied plans and newly
+acknowledged provider outputs. Missing historical proof blocks continuation.
+
+After all Terraform stages, refresh affected resource/workload consumers through
+the existing provisioning/render/delivery paths with the original applied
+configuration and current validated outputs. Record new execution progress while
+preserving historical deployments and the current Desired State. A failure after
+mutation retains recovery evidence/hold rather than reporting success. Scan again
+only after the complete Repair succeeds.
 
 External changes between review and apply remain possible, as with normal
 Terraform execution; ownership checks/provider errors and saved-plan guards must
@@ -113,7 +143,7 @@ Use Environment prefix and error conventions from
 | POST `E/drift-scans` | PE/Admin, requestId + expectedEnvironmentVersion; queues read-only scan; 202 scanId |
 | GET `E/drift-scans` | All app roles, stored summaries, cursor/default50/max200 |
 | GET `E/drift-scans/{scanId}` | All app roles, safe results, completeness and timestamps |
-| POST `E/drift-repairs/preview` | PE/Admin, scanId, instanceIds, requestId and expected versions; 202 preparation operation |
+| POST `E/drift-repairs/preview` | PE/Admin, scanId, instanceIds, requestId and expected versions; optional previousReviewId for a staged continuation; 202 preparation operation |
 | GET `E/drift-repairs/{reviewId}` | PE/Admin, safe plan summary, blockers, expiry and review token when ready |
 | POST `E/drift-repairs` | PE/Admin, reviewId/token + requestId; fresh admission; 202 operationId |
 
@@ -128,8 +158,8 @@ under the original product state lock. State acknowledgement goes through the
 existing State service's scoped UPDATE capability, running attempt, lineage,
 serial and fence checks; the scan's PLAN capability cannot acknowledge state.
 A failed apply/output/inventory/readiness/acknowledgement keeps private recovery
-artifacts and the Environment hold. Compare stable root outputs and original
-physical inventory before acknowledging; no Deployment Set/history rewrite.
+artifacts and the Environment hold. Compare output contracts and resulting inventory before acknowledging;
+reviewed physical replacements are permitted; no Deployment Set/history rewrite.
 
 Background scan capability authorizes provider reads only; it cannot be used to
 submit apply/destroy or write Terraform state. A repair gets its own scoped

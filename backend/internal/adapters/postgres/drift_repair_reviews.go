@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -92,15 +93,15 @@ func (s *StateStore) UpdateRepairReview(ctx context.Context, row terraformstate.
 			return err
 		}
 		prior := current.Review
-		if prior.ScanID != r.ScanID || prior.ActorID != r.ActorID || prior.OperationID != r.OperationID || prior.EnvironmentVersion != r.EnvironmentVersion || len(prior.Instances) != len(r.Instances) {
+		if prior.ScanID != r.ScanID || prior.ActorID != r.ActorID || prior.OperationID != r.OperationID || prior.EnvironmentVersion != r.EnvironmentVersion || len(prior.Instances) != len(r.Instances) || prior.PreviousReviewID != r.PreviousReviewID || !reflect.DeepEqual(prior.RootIDs, r.RootIDs) || (len(prior.Consumers) != len(r.Consumers) || (len(r.Consumers) > 0 && !reflect.DeepEqual(prior.Consumers, r.Consumers))) || (len(prior.Dependencies) != len(r.Dependencies) || (len(r.Dependencies) > 0 && !reflect.DeepEqual(prior.Dependencies, r.Dependencies))) {
 			return persistence.ErrImmutable
 		}
 		for n, instance := range r.Instances {
 			pin := prior.Instances[n]
-			if pin.InstanceID != instance.InstanceID || pin.BaselineID != instance.BaselineID || pin.InstanceVersion != instance.InstanceVersion {
+			if pin.InstanceID != instance.InstanceID || pin.BaselineID != instance.BaselineID || pin.InstanceVersion != instance.InstanceVersion || pin.Completed != instance.Completed || pin.Descriptor != instance.Descriptor {
 				return persistence.ErrImmutable
 			}
-			if r.Status == drift.Ready && (len(r.Blockers) > 0 || len(instance.Blockers) > 0 || instance.ArtifactID == "" || !instance.Report.InPlaceOnly()) {
+			if r.Status == drift.Ready && (len(r.Blockers) > 0 || len(instance.Blockers) > 0 || (!(instance.Completed || instance.Deferred) && (instance.ArtifactID == "" || !instance.Report.Repairable()))) {
 				return persistence.ErrImmutable
 			}
 			if instance.ArtifactID != "" {

@@ -123,3 +123,14 @@ Current Fleet unavailability remains true until implementation/acceptance.
 - [Schema](../database/schema.md#delivery-and-drift--adr-027-required-design).
 - [Current state](../../CURRENT_STATE.md) and
   [IMP-039](../../implementation/deviations.md#imp-039--delivery-reconciliation-design-2026-10-28).
+
+## Issue #34 — reviewed full Terraform reconciliation (2026-11-05)
+
+The user-approved scope replaces the initial in-place/stable-output Repair limit
+with reviewed create/update/delete/replace against acknowledged pinned desired
+configuration. Accept Drift is excluded. Keep owner/fence/state/namespace guards,
+private semantic plan comparisons and recovery. Dependent resource/workload
+refresh uses applied plan snapshots; outputs only available after apply require
+another reviewed stage where needed, never automatic expanded Terraform actions.
+[UC-08 INF-03..06](../../usecase/UC-08/specification.md#infrastructure-drift--adr-030)
+and the [drift contract](../contracts/infrastructure-drift.md) own the behavior.

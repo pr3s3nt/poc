@@ -268,9 +268,18 @@ controller/Helm-release withdrawal timing fix. Explicit UID-proof removal
 recovery is implemented and passed through UI. Terraform encrypted input baseline
 capture and private-copy plan inspection passed real PostgreSQL/Terraform tests;
 scan queue, bounded scheduler, stored API and Console panel are implemented with
-platform opt-in (`-infrastructure-drift`, default off). Reviewed repair now has
-encrypted private plans, actor-bound single-use confirmation, private semantic
-comparison, stable-output/physical-inventory checks and a separate Console dialog.
+platform opt-in (`-infrastructure-drift`, default off). Reviewed repair has encrypted private plans, actor-bound single-use
+confirmation and private semantic comparison. Issue #34 on `features/drift`
+extends the former in-place/stable-output limit to reviewed create/update/delete/
+replace, safe operational comparisons, explicit destructive acknowledgement,
+provider-first dependent scope and durable next-review checkpoints. Applied plan
+snapshots rebind consumer inputs and refresh workload/resource consumers through
+the existing provisioning/render/delivery paths; old history and Desired State
+are retained. No PostgreSQL DDL/migration or additional runtime grant is needed:
+review metadata uses existing JSON columns. Current checks and limits are recorded
+in [issue #34 verification](verification/2026-11-05-infrastructure-drift-repair.md).
+The new full-repair cloud/Kubernetes runtime gate has not been run; historical
+E09/E10 below verifies only the earlier in-place slice.
 Real PostgreSQL review/fencing and real Terraform stale-private-value refusal
 checks pass. Actual UI E09/E10 passed on a fresh task-owned Compose database:
 controlled namespace drift, read-only scan, reviewed repair, full dependent scan,

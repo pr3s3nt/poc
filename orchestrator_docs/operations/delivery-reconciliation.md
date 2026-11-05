@@ -149,14 +149,31 @@ acknowledged state with original pinned inputs/credentials. They cannot apply or
 adopt state. Reports distinguish external drift from proposed corrective actions;
 provider-computed changes can remain visible with no proposed action.
 
-For an actionable in-place update choose **Xem phương án sửa**, select instances,
-prepare and inspect the safe action/field summary. Tick the review checkbox and
-confirm within ten minutes. Confirmation is actor-bound, single-use and re-plans
-before apply; a changed private value invalidates the review even when visible
-actions match. Creates/deletes/replacements, output changes and unknown consumer
-impact require a separate normal deployment review. Successful repair keeps the
-current Deployment Set/history and physical identity, acknowledges State through
-its scoped capability, then queues a fresh scan.
+Choose **Xem phương án sửa**, select the drifted instances and inspect the
+provider-first scope, create/update/delete/replace actions, changed output names
+and affected resources/workloads. Safe operational scalar comparisons appear
+where available; arbitrary strings/tags/config and sensitive values stay private.
+Deletion/replacement requires an additional explicit data-loss acknowledgement.
+No zero-downtime or backup-restore promise is made.
+
+The review window is ten minutes after preparation. Confirmation is actor-bound,
+single-use and re-plans before apply; changed private values invalidate the
+review even when visible actions match. Repair uses acknowledged module/inputs,
+not pending drafts or today's mutable Definition. Desired State and old Deployment
+history stay unchanged; new consumer refresh executions have their own records.
+Physical identity can change only through reviewed recreate/replace actions.
+
+If a provider's new outputs require another Terraform consumer plan, the operation
+records a checkpoint and reports **Cần xem phương án tiếp theo** rather than full
+success. Click **Xem phương án tiếp theo**, inspect and confirm the next stage.
+The pending action is restored from persisted operation/review records on reload;
+completed instance pins are rechecked and not applied again. A deployment or
+other change to those pins requires a fresh scan/review. Non-Terraform consumers
+run only once their reviewed providers complete; dependencies through workloads
+and template resources remain ordered. Final success queues a fresh scan.
+Imports, address moves/ownership adoption, unknown baselines and namespace
+cascading deletes without owned-content proof remain blocked. Broader Repair
+never grants additional cloud permissions. Accept Drift is not implemented.
 
 Stop and inspect an interrupted/unknown operation. Establish that the previous
 worker/process has stopped before using Settings recovery. Exact persisted

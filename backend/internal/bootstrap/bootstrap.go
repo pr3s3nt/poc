@@ -649,7 +649,11 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		if opts.InfrastructureDriftInterval != 0 && opts.InfrastructureDriftInterval < time.Minute {
 			return nil, fmt.Errorf("bootstrap: infrastructure drift cadence must be at least one minute")
 		}
+		repairConsumers := deployments.RepairConsumerCoordinator(terraformRuntime.executor)
+		repairBindings := repairConsumers.Bindings
+		terraformRuntime.executor.SetRepairBindings(repairBindings)
 		driftService = &driftapp.Service{Store: repo, Instances: terraformRuntime.repo, Inspector: terraformRuntime.executor, Operations: operations, Interval: opts.InfrastructureDriftInterval}
+		driftService.Consumers = repairConsumers
 		*closers = append(*closers, driftService.Start(ctx))
 	}
 	gitTester.Access = gitAccess

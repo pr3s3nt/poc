@@ -20,7 +20,7 @@ Service -> Lock: Release only after process exit confirmed
 User -> Trigger: Prepare repair(selected instances, scan)
 Trigger -> Service: Generate exact repair review
 Service -> Lock: Claim plan preparation
-Service -> TF: Plan baseline; validate stable consumer outputs
+Service -> TF: Plan pinned baseline; expand dependent scope
 TF --> Service: Saved plan, action set, private change digest
 Service -> DB: Encrypted plan + expiring review token
 Service -> Lock: Release after process stopped
@@ -30,20 +30,26 @@ Trigger -> Service: Admit exact reviewed scope
 Service -> Lock: Fresh owner + state locks
 Service -> DB: Recheck baseline/state/dependency versions
 note right of DB
-Stable-output dependency acknowledgements use
-exact original and latest encrypted baselines.
-No consumer input/draft substitution.
+Scans preserve original encrypted input baselines.
+Reviewed repair rebinds only from applied plans
+and newly acknowledged provider outputs.
+No draft or mutable Definition substitution.
 end note
 Service -> TF: Re-plan and compare full private changes
-alt stale / destructive / unknown consumer impact
+alt stale / ownership failure / unreviewed scope
   Service --> User: Require new review / normal deploy; no apply
-else equivalent in-place plan
+else equivalent reviewed plan
   Service -> TF: Apply verified saved plan
-  TF -> Provider: In-place update
-  TF --> Service: Pulled state + validated stable outputs/inventory
+  TF -> Provider: Reviewed create/update/delete/replace
+  TF --> Service: Pulled state + validated outputs/inventory
   Service -> State: Acknowledge with original lock/fence, attempt and capability
   State -> DB: Persist encrypted state and successful baseline
   Service -> DB: Persist execution result; retain deployment history
+  opt consumer inputs require new plan
+    Service --> User: Partial progress; Preview remaining consumers again
+    User -> Service: Confirm fresh consumer plan
+  end
+  Service -> Service: Refresh affected consumers using pinned applied configuration
 end
 Service -> Lock: Release only on confirmed terminal outcome
 note over Service, Lock

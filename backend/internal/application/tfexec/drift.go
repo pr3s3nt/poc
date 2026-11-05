@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"orchestrator/internal/domain/drift"
+	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/domain/tfresource"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
@@ -36,7 +37,15 @@ type inspectedBaseline struct {
 }
 
 func (s *Service) inspectInstance(ctx context.Context, org, instanceID string, after func(context.Context, inspectedBaseline, terraformexec.Session, drift.Report) error) (report drift.Report, err error) {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	return s.inspectWithInputs(ctx, org, instanceID, false, after)
+}
+
+func (s *Service) inspectWithInputs(ctx context.Context, org, instanceID string, repair bool, after func(context.Context, inspectedBaseline, terraformexec.Session, drift.Report) error) (report drift.Report, err error) {
+	duration := 10 * time.Minute
+	if repair {
+		duration = s.cfg.InvocationTimeout
+	}
+	ctx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
 	if s.deps.Baselines == nil || s.deps.Cipher == nil {
 		return report, ErrBaselineUnavailable
@@ -68,7 +77,44 @@ func (s *Service) inspectInstance(ctx context.Context, org, instanceID string, a
 	if json.Unmarshal(raw, &input) != nil || input.Request.Identity != instance.Identity || baseline.ModuleBundleID != instance.ModuleBundleID {
 		return report, ErrBaselineUnavailable
 	}
-	token, _, err := s.deps.Tokens.IssueCapability(ctx, instance.ID, tfresource.CapabilityPlan, 15*time.Minute)
+	// Only a reviewed repair may re-resolve dependency bindings, from the exact
+	// persisted applied plan. Scans keep comparing their acknowledged inputs.
+	if repair && s.repairBindings != nil {
+		resolved, resolveErr := s.repairBindings.ResolveRepairInputs(ctx, input.Request)
+		if resolveErr != nil || resolved.Identity != input.Request.Identity || !samePrivateJSON(resolved.Source, input.Request.Source) || !samePrivateJSON(resolved.Pins, input.Request.Pins) || !samePrivateJSON(resolved.OutputMapping, input.Request.OutputMapping) || !samePrivateJSON(resolved.Type, input.Request.Type) {
+			return report, ErrBaselineUnavailable
+		}
+		bundle, loadErr := s.deps.Modules.BundleByID(ctx, baseline.ModuleBundleID)
+		if loadErr != nil {
+			return report, ErrBaselineUnavailable
+		}
+		owned := map[string]bool{}
+		for _, name := range bundle.Contract.ExecutorOwned {
+			owned[name] = true
+		}
+		vars := map[string]any{}
+		for k, v := range input.Variables {
+			if owned[k] {
+				vars[k] = v
+			}
+		}
+		for k, v := range resolved.Inputs {
+			if owned[k] {
+				return report, ErrInput
+			}
+			declared, exists := bundle.Contract.Inputs[k]
+			if !exists {
+				return report, ErrInput
+			}
+			want, typeErr := tfmodule.ParseType(declared.Type)
+			if typeErr != nil || checkValue(want, v) != nil {
+				return report, ErrInput
+			}
+			vars[k] = v
+		}
+		input.Request, input.Variables = resolved, vars
+	}
+	token, _, err := s.deps.Tokens.IssueCapability(ctx, instance.ID, tfresource.CapabilityPlan, duration+5*time.Minute)
 	if err != nil {
 		return report, err
 	}
@@ -104,13 +150,16 @@ func (s *Service) inspectInstance(ctx context.Context, org, instanceID string, a
 			if state != nil {
 				version = state.Version
 			}
+			if provider.Identity.OrganizationID != org || provider.Identity.EnvironmentID != instance.Identity.EnvironmentID || state == nil || (provider.Status != tfresource.InstanceReady && provider.Status != tfresource.InstanceUnreferenced) {
+				return ErrBaselineUnavailable
+			}
 			if provider.Version != pin.Version || version != pin.StateVersion {
-				if !s.stableDependencyOutputs(ctx, org, pin, provider, state) {
+				if !(repair && s.repairBindings != nil) && !s.stableDependencyOutputs(ctx, org, pin, provider, state) {
 					return ErrBaselineUnavailable
 				}
 			}
 		}
-		inserted, err := s.deps.State.InsertLock(ctx, tfresource.Lock{InstanceID: instance.ID, LockID: lockID, OperationID: owner.OperationID, Owner: owner.Owner, Fence: owner.Fence, AcquiredAt: s.now(), Deadline: s.now().Add(10 * time.Minute)})
+		inserted, err := s.deps.State.InsertLock(ctx, tfresource.Lock{InstanceID: instance.ID, LockID: lockID, OperationID: owner.OperationID, Owner: owner.Owner, Fence: owner.Fence, AcquiredAt: s.now(), Deadline: s.now().Add(duration)})
 		if err != nil {
 			return err
 		}
@@ -166,7 +215,7 @@ func (s *Service) inspectInstance(ctx context.Context, org, instanceID string, a
 			_ = bound.Close()
 		}
 	}()
-	deadline := s.now().Add(10 * time.Minute)
+	deadline := s.now().Add(duration)
 	session, err := s.deps.Runner.Open(ctx, terraformexec.SessionRequest{Artifact: &art, LocalState: state, Variables: input.Variables, Env: bound.Env, Deadline: deadline})
 	if err != nil {
 		return report, err

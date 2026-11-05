@@ -58,3 +58,26 @@ it('retries an unconfirmed request with the same id and original version', async
   expect(commands).toHaveLength(2);
   expect(commands[1]).toEqual(commands[0]);
 });
+
+it('restores a staged repair after reload using only the safe operation handle', async () => {
+ const previewCommands: Record<string, unknown>[] = [];
+ vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+  const url = String(input);
+  if (url.includes('/drift-scans')) return Response.json({ scans: [{ id: 'new-scan', status: 'SUCCEEDED', result: 'UNKNOWN', findings: [], createdAt: new Date().toISOString() }] });
+  if (url.endsWith('/operations')) return Response.json({ operations: [{ kind: 'DRIFT_REPAIR', stage: 'DRIFT_REPAIR_PREVIEW', status: 'SUCCEEDED', repairPreparation: true }, { kind: 'DRIFT_REPAIR', stage: 'DRIFT_REPAIR_REVIEW_REQUIRED', status: 'FAILED', repairReviewId: 'prior-review' }] });
+  if (url.endsWith('/drift-repairs/prior-review')) return Response.json({ review: { id: 'prior-review', status: 'CONSUMED', rootIds: ['root'], scanId: 'original-scan', instances: [], blockers: [], expiresAt: new Date().toISOString() } });
+  if (url.endsWith('/applications/app')) return Response.json({ application: { environments: [{ key: 'staging', version: 9 }] } });
+  if (url.endsWith('/drift-repairs/preview')) {
+   previewCommands.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+   return Response.json({ review: { id: 'new-review', status: 'BLOCKED', instances: [], blockers: [], expiresAt: new Date().toISOString() } });
+  }
+  throw new Error('Unexpected fixture API request');
+ }));
+ render(<InfrastructureDriftPanel applicationId="app" environment="staging" canManage busy={false} />);
+ await userEvent.click(await screen.findByRole('button', { name: 'Xem phương án tiếp theo' }));
+ const dialog = await screen.findByRole('dialog');
+ await userEvent.click(await within(dialog).findByRole('button', { name: 'Xem phương án tiếp theo' }));
+ await within(dialog).findByText(/Hết hạn/);
+ expect(previewCommands).toHaveLength(1);
+ expect(previewCommands[0]).toMatchObject({ previousReviewId: 'prior-review', scanId: 'original-scan', instanceIds: ['root'], expectedEnvironmentVersion: 9 });
+});
