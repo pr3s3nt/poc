@@ -7,6 +7,15 @@ last_reviewed: 2026-10-28
 
 # Design-to-code map
 
+## Local API platform seed and kind Console
+
+Operator procedure: [runbook](../operations/platform-seed.md). Local CLI:
+`scripts/bootstrap/seed-api.mjs`; API orchestration, private input validation and
+rerun checks: `scripts/bootstrap/lib/api-seed.mjs`; focused tests beside it.
+Nonsecret Kubernetes installer manifests: `deploy/kind/console.mjs`; reuses
+`deploy/local/` credential/PostgreSQL/Vault scripts. Existing product registration
+services, HTTP authorization and schema stay unchanged.
+
 ## Controlled Definition upgrades
 
 [UC-03 DV-01–07](../usecase/UC-03/definition-versions.md) maps to immutable revision/Environment repositories, catalog resolution, Plan snapshots, fenced activation and the existing forms. See the [implementation route](definition-versions.md) for paths and supported tool-retention boundaries.

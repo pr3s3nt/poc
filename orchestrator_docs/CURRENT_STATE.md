@@ -2,10 +2,21 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-05
+last_reviewed: 2026-11-06
 ---
 
 # Current project state
+
+## Local API platform seed and kind Console — 2026-11-06
+
+A local YAML/file-based importer now provisions platform configuration through
+existing authenticated APIs, without browser or input uploads to Kubernetes.
+The isolated Orchestrator installation in `kind-k8s-4f` exposes Console port 3070;
+Git, Kubernetes/AWS accounts, Vault, Types, pinned Git templates/Definitions and
+verified default Fleet binding were seeded. Unchanged rerun, backend Pod restart
+persistence and browser reads passed. Workload Vault Kubernetes auth and app
+deployment were not configured/accepted by this run. [Evidence and limits](verification/2026-11-06-kind-console-api-seed.md),
+[procedure](operations/platform-seed.md). Existing installations remain intact.
 
 ## Public routes and subdomains retired — 2026-11-05
 
