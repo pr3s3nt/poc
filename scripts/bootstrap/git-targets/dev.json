@@ -28,9 +28,9 @@
     "resourceTypes": {
       "git": {
         "url": "https://github.com/pr3s3nt/poc.git",
-        "ref": "d181e7181d7080542b60f148c52d55e7b7119392",
+        "ref": "544caafa2b7013fad8d1e89c02f038826f830606",
         "path": "scripts/bootstrap/git-assets/dev/resource-types.json",
-        "sha256": "1175743fc3845109a11bc9044327eba5408e63391fc168b9082af6216c318155"
+        "sha256": "80ae6f72d4f72f0244b34c39303292ccaf63820a490ded89713318263a2029dd"
       }
     },
     "secretStore": {
@@ -52,9 +52,9 @@
         "rulesFile": {
           "git": {
             "url": "https://github.com/pr3s3nt/poc.git",
-            "ref": "d181e7181d7080542b60f148c52d55e7b7119392",
+            "ref": "544caafa2b7013fad8d1e89c02f038826f830606",
             "path": "scripts/bootstrap/applications/acceptance/fleet-access.json",
-            "sha256": "918dfbec0fc51d5e1a69f01c59f51828bbb9cf2326c70b7b2da2396f50be5072"
+            "sha256": "8eabf1bbba96313cd2dd77dafdae14b5b0571f2c37d952ba77a2b9b1f859ef34"
           }
         }
       }
@@ -159,6 +159,14 @@
           "path": "scripts/bootstrap/git-assets/dev/workload.json",
           "sha256": "3f5ada786d02d90448f60b9f7745072bfcdac50fa75c31de7fa1f11aaf82e71c"
         }
+      },
+      {
+        "git": {
+          "url": "https://github.com/pr3s3nt/poc.git",
+          "ref": "544caafa2b7013fad8d1e89c02f038826f830606",
+          "path": "scripts/bootstrap/git-assets/dev/endpoint.json",
+          "sha256": "b1624b2bb6574f68e31652dae8fccd0cff2e8c8d42b121dbbdfc9dee2776d1bb"
+        }
       }
     ],
     "templateSources": [
@@ -217,9 +225,9 @@
       "frontend": {
         "git": {
           "url": "https://github.com/pr3s3nt/poc.git",
-          "ref": "d181e7181d7080542b60f148c52d55e7b7119392",
+          "ref": "544caafa2b7013fad8d1e89c02f038826f830606",
           "path": "scripts/bootstrap/git-assets/dev/frontend.yaml",
-          "sha256": "9236930cd3975af7e92695f07d5cd140de541b41bed9217bbb750052a23bf302"
+          "sha256": "405fc41316983fa1cf4d78f3833cb92f4e9119c8412fcb5ab13aab25a35c200d"
         }
       }
     }
