@@ -55,6 +55,10 @@ const (
 	ReasonTargetChanged = "target-changed"
 	// ReasonRetiredTarget: the Environment still carries a retired internal deployment Connection.
 	ReasonRetiredTarget = "retired-target"
+	// Public endpoint (EP-01..03) reasons.
+	ReasonEndpointInvalid = "endpoint-invalid"
+	ReasonEndpointPolicy  = "endpoint-policy"
+	ReasonEndpointTaken   = "endpoint-hostname-taken"
 )
 
 // StageError wraps a planning failure with the stage that produced it. Its
@@ -104,6 +108,9 @@ var (
 		ReasonPlacement:           "the workload or resource target cannot be resolved from Resource Definitions: a namespace or cluster reference is missing, contradictory or backed by an unavailable Driver Account; ask a platform engineer to check the Definitions",
 		ReasonRetiredTarget:       "this Environment carries a retired internal deployment connection from an older baseline; internal placement now comes from Resource Definitions, so the baseline must be recreated",
 		ReasonMultiCluster:        "this Environment resolves more than one Kubernetes cluster; multiple clusters in one Environment are not supported yet",
+		ReasonEndpointInvalid:     "the public endpoint is invalid: use one lowercase DNS label not reserved by the platform as name, a named TCP port of this workload's Service as port and an absolute path prefix; a workload has at most one endpoint and cannot also declare publicRoutes or template routes",
+		ReasonEndpointPolicy:      "the endpoint Resource Definition has an invalid routing policy or driver; ask a platform engineer to check it",
+		ReasonEndpointTaken:       "the requested endpoint hostname is already reserved by another workload; choose another endpoint name",
 	}
 	stageMessages = map[Stage]string{
 		StageWorkload:    "the Workload does not satisfy the registered Resource Type contracts (unregistered type, invalid params or unknown resource output)",

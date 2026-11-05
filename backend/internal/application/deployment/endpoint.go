@@ -28,6 +28,7 @@ func (s *Service) retainEndpoints(ctx context.Context, owner endpoint.Owner, kee
 func endpointManifest(desired endpoint.Desired, owner endpoint.Owner, namespace, deploymentID string, manifests []execution.Manifest) (execution.Manifest, error) {
 	var service string
 	var port int
+	var serviceLabels map[string]any
 	for _, m := range manifests {
 		if m.Kind == "HTTPRoute" || m.Kind == "Ingress" {
 			return execution.Manifest{}, fmt.Errorf("endpoint: template must not also generate a public route")
@@ -73,6 +74,8 @@ func endpointManifest(desired endpoint.Desired, owner endpoint.Owner, namespace,
 			}
 			service = object.Metadata.Name
 			port = p.Port
+			metadata, _ := m.Object["metadata"].(map[string]any)
+			serviceLabels, _ = metadata["labels"].(map[string]any)
 		}
 	}
 	if service == "" || port < 1 || port > 65535 {
@@ -84,11 +87,25 @@ func endpointManifest(desired endpoint.Desired, owner endpoint.Owner, namespace,
 	if desired.Policy.GatewaySectionName != "" {
 		parent["sectionName"] = desired.Policy.GatewaySectionName
 	}
-	object := map[string]any{"apiVersion": "gateway.networking.k8s.io/v1", "kind": "HTTPRoute", "metadata": map[string]any{"name": name, "namespace": namespace, "labels": map[string]any{"orchestrator.io/application": owner.Application, "orchestrator.io/environment": owner.Environment, "orchestrator.io/deployment-id": deploymentID}}, "spec": map[string]any{
+	object := map[string]any{"apiVersion": "gateway.networking.k8s.io/v1", "kind": "HTTPRoute", "metadata": map[string]any{"name": name, "namespace": namespace, "labels": endpointLabels(serviceLabels, owner, deploymentID)}, "spec": map[string]any{
 		"parentRefs": []any{parent}, "hostnames": []any{desired.Hostname}, "rules": []any{map[string]any{
 			"matches":     []any{map[string]any{"path": map[string]any{"type": "PathPrefix", "value": desired.Path}}},
 			"backendRefs": []any{map[string]any{"group": "", "kind": "Service", "name": service, "port": port}},
 		}},
 	}}
 	return execution.Manifest{APIVersion: "gateway.networking.k8s.io/v1", Kind: "HTTPRoute", Name: name, Namespace: namespace, Object: object}, nil
+}
+
+// endpointLabels copies the rendered Service's ownership identity so the route
+// joins the same workload inventory (ADR-024): it is pruned with the endpoint
+// and removed with the workload, and foreign objects are never overwritten.
+func endpointLabels(service map[string]any, owner endpoint.Owner, deploymentID string) map[string]any {
+	labels := map[string]any{"app.kubernetes.io/managed-by": "orchestrator", "orchestrator.io/application": owner.Application, "orchestrator.io/environment": owner.Environment, "orchestrator.io/workload": owner.Workload}
+	for _, key := range []string{"orchestrator.io/application", "orchestrator.io/environment", "orchestrator.io/workload"} {
+		if value, ok := service[key].(string); ok && value != "" {
+			labels[key] = value
+		}
+	}
+	labels["orchestrator.io/deployment-id"] = deploymentID
+	return labels
 }

@@ -1307,3 +1307,22 @@ render source records. It refuses retained deployed workloads or resource
 references to an obsolete Definition. Terraform Definitions, accounts,
 connections, installation identity and Terraform state are preserved. Released
 versions 1–7 are frozen. Runtime never performs DDL or this cleanup.
+
+## Public endpoint reservations — EP-01..06 (schema version 9)
+
+Version 9 adds `endpoint_reservations`, the atomic hostname ledger of the
+[public endpoint contract](../contracts/endpoint.md). `hostname` (lowercase,
+multi-label DNS name, at most 253 characters) is the primary key, so one owner
+wins concurrent claims across Organizations and processes. Each row references
+the owning `organizations`, `applications` and `environments` rows and records
+`target_generation` and `workload_id`; an owner may hold several hostnames only
+while a rename or failed/unknown delivery still retains the old name. The index
+`endpoint_reservations_owner_idx` serves owner release.
+
+Rows are written only by Deploy (reserve, same-owner idempotent) and deleted
+only after acknowledged replacement, pruning or confirmed workload removal.
+Preview reads without writing. The Console login has SELECT/INSERT/UPDATE/DELETE;
+the State login has no privilege. The owner migration only creates the table on a
+populated version 8 database: no product row, installation identity, encrypted
+state or PVC changes. Released versions 1–8 are frozen. The final version-9
+structural comparison also proves the additive version-8 step of long chains.

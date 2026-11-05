@@ -20,6 +20,7 @@ import (
 	"orchestrator/internal/domain/configuration"
 	deliverydomain "orchestrator/internal/domain/delivery"
 	domain "orchestrator/internal/domain/deployment"
+	"orchestrator/internal/domain/endpoint"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
@@ -44,6 +45,9 @@ type Change struct {
 	// Placements are the safe per-workload/resource cluster and namespace pins.
 	Placements []planning.Placement `json:"placements"`
 	PlanHash   string               `json:"planHash"`
+	// Endpoint is this workload's prospective public address (EP-03). Its
+	// availability was checked without a write; Deploy reserves it atomically.
+	Endpoint *endpoint.Desired `json:"endpoint,omitempty"`
 }
 
 type Preview struct {
@@ -414,7 +418,14 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 				}
 			}
 		}
-		preview.Changes = append(preview.Changes, Change{Rendering: plan.Rendering[id], WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, ResourceIntents: plan.ResourceIntents(baselines.Reader()), Placements: plan.PlacementList(), PlanHash: plan.PlanHash})
+		change := Change{Rendering: plan.Rendering[id], WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, ResourceIntents: plan.ResourceIntents(baselines.Reader()), Placements: plan.PlacementList(), PlanHash: plan.PlanHash}
+		if desired, ok := plan.Endpoints[id]; ok {
+			if err := checkEndpoint(ctx, st, endpoint.Owner{Organization: app.OrganizationKey, Application: appKey, Environment: envKey, Generation: env.TargetGeneration, Workload: id}, desired.Hostname); err != nil {
+				return Preview{}, publicPlanningError(id, err)
+			}
+			change.Endpoint = &desired
+		}
+		preview.Changes = append(preview.Changes, change)
 		preview.lastPlan = plan
 		preview.lastIntents = plan.ResourceIntents(baselines.Reader())
 		base = plan.CandidateSet
@@ -440,6 +451,19 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 // publicPlanningError replaces a raw planner message, which may quote
 // catalog, Definition or other persisted content, with a fixed sentence.
 // Unstaged errors are internal and returned unchanged.
+// checkEndpoint is the advisory, read-only Preview availability check.
+func checkEndpoint(ctx context.Context, st persistence.Store, owner endpoint.Owner, hostname string) error {
+	repo, ok := st.(persistence.EndpointRepository)
+	if !ok {
+		return fmt.Errorf("pending: endpoint reservation service is unavailable")
+	}
+	err := repo.CheckEndpoint(ctx, hostname, owner)
+	if errors.Is(err, persistence.ErrHostnameTaken) {
+		return planning.EndpointTaken(hostname)
+	}
+	return err
+}
+
 func publicPlanningError(workloadID string, err error) error {
 	message, ok := planning.PublicMessage(err)
 	if !ok {

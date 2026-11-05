@@ -102,6 +102,7 @@ func consoleGrants() []grant {
 		grant{table: "effectiveness_baselines", privilege: "INSERT"},
 		grant{table: "template_sources", privilege: "SELECT"},
 		grant{table: "template_sources", privilege: "INSERT"},
+		grant{table: "endpoint_reservations", privilege: "SELECT"}, grant{table: "endpoint_reservations", privilege: "INSERT"}, grant{table: "endpoint_reservations", privilege: "UPDATE"}, grant{table: "endpoint_reservations", privilege: "DELETE"},
 		grant{table: "account_diagnostic_reports", privilege: "SELECT"},
 		grant{table: "account_diagnostic_reports", privilege: "INSERT"},
 		grant{table: "account_diagnostic_reports", privilege: "UPDATE"},
