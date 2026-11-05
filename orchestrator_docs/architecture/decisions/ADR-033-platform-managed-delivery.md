@@ -8,6 +8,10 @@ related: [ADR-032, ADR-030, ADR-027]
 
 # Platform-managed application delivery repositories
 
+Directory layout and managed Fleet controller granularity are superseded by
+[ADR-036](ADR-036-application-fleet-gitrepo.md). Repository allocation, immutable
+Application binding, retention and credential boundaries below remain current.
+
 ## Approved scope
 
 The user approved one deployment repository per Application, hidden from

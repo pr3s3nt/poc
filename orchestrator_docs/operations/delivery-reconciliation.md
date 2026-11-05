@@ -193,3 +193,27 @@ private evidence directory; setup/conformance is distinct from application
 acceptance. The [execution record](../verification/2026-10-29-delivery-ui-progress.md)
 distinguishes actual UI results, automated guards and remaining semantic gates.
 AWS verification needs its own authorization and the existing AWS runbook.
+
+## Application-scoped Fleet GitRepo — ADR-036
+
+New applications share one managed Fleet GitRepo across staging/production. Inspect
+`orchestrator.io/application-id` on GitRepo and its `orchestrator.io/unit-pins`
+annotation. Each active pin identifies a watched path, Environment ID, intent,
+revision and full manifest-tree digest. Bundle release identity selects a unit;
+the common SHA may be newer than its original receipt. Both must correlate with
+Bundle/BundleDeployment commits and live revision/readiness before success.
+
+The repository normally contains `environments/<env>/<workload>/<phase>/` with
+YAML/`fleet.yaml`, plus `metadata/<env>/<workload>/<phase>/revision.json` outside
+watched paths. Platform policy may choose a different Environment root. Phases
+are retained for prerequisite/Job gates; this is not one Helm chart or release.
+Do not manually change the shared pointer, force-sync it or remove a whole GitRepo
+to clean one Environment. Use product update/remove/deletion. Last-unit withdrawal
+UID-deletes the controller; repository history and metadata remain retained.
+
+Old test applications must complete product cleanup before using a fresh app with
+this layout. Observation/removal retain old receipt handling; deployment into a
+mixed layout is refused. Bootstrap-created app-scoped Role/RoleBinding objects are
+setup-owned: after workload/CD withdrawal, verify their exact application label
+and UID before removing them, then retry product namespace cleanup. Never bypass
+namespace foreign-object guards or remove shared/preexisting RBAC.

@@ -169,3 +169,5 @@ Giới hạn còn lại ở [IMP-038](../../implementation/deviations.md#imp-038
 - **CD-03:** Retry restores original receipts and checkpoints; provider unavailable
   leaves DELETING with remaining IDs. Do not destroy namespace while Fleet can
   recreate objects, or mark application deleted on Git path removal alone.
+
+- **CD-04:** Application deletion withdraws both Environment trees and retires the single owned Fleet GitRepo only after all admitted units are withdrawn; one Environment cleanup cannot remove the other Environment controller authority ([ADR-036](../../architecture/decisions/ADR-036-application-fleet-gitrepo.md)).

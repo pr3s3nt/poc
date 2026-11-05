@@ -151,6 +151,33 @@ func (c *Coordinator) Deploy(ctx context.Context, req DeployRequest) error {
 	if err != nil {
 		return err
 	}
+	if validator, ok := provider.(port.ReceiptLayoutValidator); ok {
+		environments, err := c.Store.ListEnvironments(ctx, req.ApplicationKey)
+		if err != nil {
+			return err
+		}
+		for _, env := range environments {
+			executions, err := c.Store.ListDeliveryExecutions(ctx, org.ID, env.ID)
+			if err != nil {
+				return err
+			}
+			workloads := map[string]bool{}
+			for _, record := range executions {
+				workloads[record.WorkloadID] = true
+			}
+			for workload := range workloads {
+				active, err := activeExecutions(executions, workload)
+				if err != nil {
+					return err
+				}
+				for _, record := range active {
+					if err := validator.ValidateDeliveryReceipt(b, record.Receipt); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
 	phases := map[domain.Phase][]execution.Manifest{}
 	for _, m := range req.Manifests {
 		if m.Secret || (m.Kind == "Secret" && !execution.PublicCertificateSecret(m.Object)) {

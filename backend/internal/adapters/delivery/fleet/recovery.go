@@ -29,7 +29,7 @@ func (p *Provider) RecoverSubmission(ctx context.Context, i port.Intent, prepare
 	if err != nil {
 		return r, err
 	}
-	if !found || published.Commit != r.Handle["commit"] || published.TreeDigest != r.PayloadDigest {
+	if !found || (r.Handle["layout"] != applicationLayout && published.Commit != r.Handle["commit"]) || published.TreeDigest != r.PayloadDigest {
 		return r, domain.ErrOutcomeUnknown
 	}
 	cli, close, cfg, err := p.Manager.open(ctx, i)
@@ -42,6 +42,10 @@ func (p *Provider) RecoverSubmission(ctx context.Context, i port.Intent, prepare
 	}
 	if cfg.GitRepoMode == "EXISTING" {
 		if r.Handle["gitrepo"] != cfg.ExistingGitRepo || r.Handle["path"] != pkg.Publication.Path || r.Handle["gitRepoMode"] != "EXISTING" {
+			return r, ErrOwnership
+		}
+	} else if r.Handle["layout"] == applicationLayout {
+		if cfg.ApplicationID == "" || r.Handle["gitrepo"] != applicationRepoName(i, cfg) || r.Handle["path"] != pkg.Publication.Path {
 			return r, ErrOwnership
 		}
 	} else if r.Handle["gitrepo"] != pkg.UnitName {
@@ -57,6 +61,16 @@ func (p *Provider) RecoverSubmission(ctx context.Context, i port.Intent, prepare
 	}
 	if cfg.GitRepoMode == "EXISTING" {
 		if _, err := checkExisting(ctx, cli, cfg); err != nil {
+			return r, err
+		}
+	} else if r.Handle["layout"] == applicationLayout {
+		pins, err := readUnitPins(repo)
+		if err != nil || !applicationOwns(repo, i, cfg) || !sharedReceiptMatches(pins, i, r) {
+			return r, ErrOwnership
+		}
+		spec, _ := repo["spec"].(map[string]any)
+		commit, _ := spec["revision"].(string)
+		if err := p.verifySharedTrees(ctx, i, commit, pins); err != nil {
 			return r, err
 		}
 	} else {

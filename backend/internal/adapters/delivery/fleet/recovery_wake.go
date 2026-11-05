@@ -40,7 +40,26 @@ func (p *Provider) wakePendingReceipt(ctx context.Context, cli k8s.CLI, cfg Conf
 	if name == "" {
 		return ErrOwnership
 	}
-	if cfg.GitRepoMode != "EXISTING" {
+	if r.Handle["layout"] == applicationLayout {
+		repo, found, err := cli.Get(ctx, cfg.Workspace, "gitrepos.fleet.cattle.io", r.Handle["gitrepo"])
+		if err != nil || !found {
+			return ErrController
+		}
+		pins, err := readUnitPins(repo)
+		md, _ := repo["metadata"].(map[string]any)
+		if err != nil || md["uid"] != r.Handle["gitrepoUID"] || !applicationOwns(repo, i, cfg) || !sharedReceiptMatches(pins, i, r) {
+			return ErrOwnership
+		}
+		spec, _ := repo["spec"].(map[string]any)
+		commit, _ := spec["revision"].(string)
+		if err := p.verifySharedTrees(ctx, i, commit, pins); err != nil {
+			return err
+		}
+		labels, _ := metadata["labels"].(map[string]any)
+		if !owns(matched[0], i, r.Handle["release"]) || labels["fleet.cattle.io/commit"] != commit {
+			return ErrOwnership
+		}
+	} else if cfg.GitRepoMode != "EXISTING" {
 		labels, _ := metadata["labels"].(map[string]any)
 		if !owns(matched[0], i, r.Handle["gitrepo"]) || labels["fleet.cattle.io/commit"] != r.Handle["commit"] {
 			return ErrOwnership

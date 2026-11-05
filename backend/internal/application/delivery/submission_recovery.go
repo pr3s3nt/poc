@@ -60,7 +60,7 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 		if record.Mutation.OperationID != owner.OperationID || record.Mutation.Status == domain.IntentAcknowledged {
 			continue
 		}
-		if record.Mutation.Action != domain.Submit || record.Receipt.IntentID != record.Mutation.ID {
+		if record.Mutation.Action != domain.Submit || (record.Receipt.IntentID != "" && record.Receipt.IntentID != record.Mutation.ID) {
 			return domain.ErrOutcomeUnknown
 		}
 		binding, provider, err := c.sourceProvider(ctx, record)
@@ -102,6 +102,22 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 		}
 		intent := port.Intent{ID: record.Mutation.ID, OrganizationKey: orgKey, Owner: port.Owner{OperationID: owner.OperationID, Instance: owner.Owner, Fence: owner.Fence}, Binding: binding, Revision: record.Revision, Target: record.Target, PolicyOnly: policyOnly}
 		intent.SourceInventory = append([]port.AppliedObject(nil), source.Inventory...)
+		if record.Receipt.IntentID == "" {
+			observer, ok := provider.(port.SubmissionReceiptRecovery)
+			if !ok {
+				return domain.ErrOutcomeUnknown
+			}
+			receipt, err := observer.RecoverReceipt(ctx, intent, port.Prepared{Revision: record.Revision, Payload: raw})
+			if err != nil {
+				return err
+			}
+			record.Receipt = receipt
+			record.UpdatedAt = time.Now().UTC()
+			record, err = c.Store.UpdateDeliveryExecution(ctx, record, record.Mutation.Version)
+			if err != nil {
+				return err
+			}
+		}
 		receipt, err := recoverer.RecoverSubmission(ctx, intent, port.Prepared{Revision: record.Revision, Payload: raw}, record.Receipt, source)
 		if err != nil {
 			return err

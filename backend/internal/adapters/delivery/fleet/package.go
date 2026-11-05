@@ -23,6 +23,7 @@ type Package struct {
 	ReleaseName string
 	Publication gitport.Intent
 	Objects     []execution.ObjectRef
+	Metadata    *gitport.Intent `json:",omitempty"`
 }
 
 func PackageUnit(intent port.Intent, manifests []execution.Manifest) (Package, error) {
@@ -42,12 +43,7 @@ func PackageUnit(intent port.Intent, manifests []execution.Manifest) (Package, e
 	if err := validateReplicaOwnership(manifests); err != nil {
 		return Package{}, err
 	}
-	identity, err := json.Marshal(intent.Revision.Scope)
-	if err != nil {
-		return Package{}, ErrConfig
-	}
-	sum := sha256.Sum256(identity)
-	name := "orch-" + hex.EncodeToString(sum[:])[:24]
+	name := unitReleaseName(intent.Revision.Scope)
 	files := map[string][]byte{}
 	objects := []execution.ObjectRef{}
 	seen := map[string]bool{}
@@ -125,6 +121,13 @@ func PackageUnit(intent port.Intent, manifests []execution.Manifest) (Package, e
 		// Include the API group in the filename to avoid collisions across CRDs.
 		keySum := sha256.Sum256([]byte(objectKey))
 		filename := strings.ToLower(m.Kind) + "-" + hex.EncodeToString(keySum[:])[:20] + ".yaml"
+		if cfg.ApplicationID != "" {
+			readableName := m.Name
+			if len(readableName) > 120 {
+				readableName = readableName[:120]
+			}
+			filename = strings.ToLower(m.Kind) + "-" + readableName + "-" + hex.EncodeToString(keySum[:])[:20] + ".yaml"
+		}
 		files[filename] = body
 		objects = append(objects, execution.ObjectRef{APIVersion: m.APIVersion, Kind: m.Kind, Name: m.Name})
 	}
@@ -132,6 +135,9 @@ func PackageUnit(intent port.Intent, manifests []execution.Manifest) (Package, e
 		return Package{}, ErrConfig
 	}
 	fleet := map[string]any{"defaultNamespace": cfg.ReleaseNamespace, "deleteNamespace": false, "keepResources": false, "correctDrift": map[string]any{"enabled": intent.Revision.Selection.SelfHeal, "force": false}, "serviceAccount": cfg.ServiceAccount, "helm": map[string]any{"releaseName": name, "takeOwnership": false, "force": false, "atomic": false, "waitForJobs": intent.Revision.Phase == domain.Job, "timeoutSeconds": 300}}
+	if cfg.ApplicationID != "" {
+		fleet["labels"] = ownerLabels(intent, name)
+	}
 	raw, err := yaml.Marshal(fleet)
 	if err != nil {
 		return Package{}, ErrConfig
@@ -139,7 +145,18 @@ func PackageUnit(intent port.Intent, manifests []execution.Manifest) (Package, e
 	files["fleet.yaml"] = raw
 	sort.Slice(objects, func(i, j int) bool { return objects[i].Key() < objects[j].Key() })
 	destination := sha256.Sum256([]byte(cfg.RepositoryURL + "\x00" + cfg.Branch))
-	return Package{UnitName: name, ReleaseName: name, Objects: objects, Publication: gitport.Intent{ID: intent.ID, DestinationKey: hex.EncodeToString(destination[:]), Branch: cfg.Branch, Path: path.Join(cfg.Root, name), Files: files, TreeDigest: gitport.Digest(files)}}, nil
+	pkg := Package{UnitName: name, ReleaseName: name, Objects: objects, Publication: gitport.Intent{ID: intent.ID, DestinationKey: hex.EncodeToString(destination[:]), Branch: cfg.Branch, Path: path.Join(cfg.Root, name), Files: files, TreeDigest: gitport.Digest(files)}}
+	if cfg.ApplicationID != "" {
+		relative, err := sharedUnitPath(intent)
+		if err != nil {
+			return Package{}, err
+		}
+		pkg.Publication.Path = path.Join(cfg.Root, relative)
+		metadata, _ := json.MarshalIndent(map[string]any{"applicationId": cfg.ApplicationID, "environmentId": intent.Revision.Scope.EnvironmentID, "environment": cfg.EnvironmentKey, "unit": intent.Revision.Scope.UnitKey, "revisionId": intent.Revision.ID, "intentId": intent.ID, "payloadDigest": pkg.Publication.TreeDigest, "bindingId": intent.Binding.ID, "bindingVersion": intent.Binding.Version}, "", "  ")
+		mf := map[string][]byte{"revision.json": append(metadata, '\n')}
+		pkg.Metadata = &gitport.Intent{ID: intent.ID + "-metadata", DestinationKey: pkg.Publication.DestinationKey, Branch: cfg.Branch, Path: path.Join("metadata", cfg.EnvironmentKey, relative), Files: mf, TreeDigest: gitport.Digest(mf)}
+	}
+	return pkg, nil
 }
 func validObjectName(s string) bool {
 	if len(s) == 0 || len(s) > 253 {

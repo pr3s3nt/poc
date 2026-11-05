@@ -806,3 +806,13 @@ real kind discovery/Verify/baseline/update/rollback/cleanup pass, along with VI/
 locale/browser checks and legacy local binding verification. Results are recorded in
 [verification](../verification/2026-11-04-rancher-fleet.md). The user explicitly
 selected kind-only acceptance; no real Rancher/downstream installation is claimed.
+
+## IMP-042 — Application-scoped Fleet controller runtime gate
+
+[ADR-036](../architecture/decisions/ADR-036-application-fleet-gitrepo.md) replaces
+per-phase GitRepos with one Application controller. Source/local contracts are
+implemented and historical test-app cleanup passed. Installed-Fleet acceptance
+of the shared layout is pending explicit external mutation authorization. Do not
+reuse prior six-controller evidence as proof of the new layout. Full backend
+suite baseline failures remain independently reproduced; see
+[verification](../verification/2026-11-05-application-fleet-gitrepo.md).

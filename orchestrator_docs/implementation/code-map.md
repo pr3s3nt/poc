@@ -1152,3 +1152,19 @@ Route ownership/lifecycle uses existing rendered workload inventory and Fleet.
 Setup/migration: `projects/platform-resources/bootstrap/HTTPROUTE.md`.
 No separate HTTPRoute Terraform module/Type/Definition in the publishable set.
 Focused real-renderer coverage: `company_httproute_test.go` in templatedriver.
+
+## Application-scoped Fleet delivery — ADR-036
+
+- Fleet `repositories.go` injects internal Application/Environment identity from the
+  durable allocation. `package.go` emits readable Environment/workload/phase YAML
+  paths and separate nonsecret revision metadata; the template driver is unchanged.
+- `adapters/delivery/fleet/application.go` owns the shared GitRepo's per-unit pins,
+  guarded pointer, sibling-tree verification, selective withdrawal and lost-receipt
+  observation. Legacy `manager.go` and EXISTING receipt handling remain for cleanup.
+- `provider.go`, `pending_prune.go`, `recovery.go`, `recovery_wake.go` select the exact
+  Bundle by release and verify its tree even after another unit advances the SHA.
+- `application/delivery/coordinator.go` rejects mixed legacy/shared live layouts;
+  `submission_recovery.go` can persist an observed lost receipt before recovery.
+- `adapters/gitpublication/git.go` verifies multiple retained trees with one fetch.
+- Bootstrap `fleet-verification.mjs` is shared with the HTTPRoute E2E assertion;
+  application identity replaces the old Environment GitRepo label/count assumption.

@@ -39,7 +39,8 @@ the run receipt. Use a dedicated state/report directory, never reset another run
 Assertions: one configured frontend, one app-owned HTTPRoute emitted by the
 Git template (correct source digest and rendering Definition), matching
 Gateway/listener/hostname/backend Service and Service port, current route
-Accepted/ResolvedRefs, Ready Deployment, exact pinned Fleet commit/Bundle Ready,
+Accepted/ResolvedRefs, Ready Deployment, exactly one Application Fleet GitRepo
+with every active unit Bundle Ready at its shared pinned commit,
 browser status 200 and nginx welcome page via the actual domain. It retains the
 app/namespace/Git repo/route and reports their safe identities for review.
 

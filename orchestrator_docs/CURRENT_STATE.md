@@ -7,6 +7,19 @@ last_reviewed: 2026-11-04
 
 # Current project state
 
+## One Fleet GitRepo per Application — 2026-11-05
+
+Source refactor implements [ADR-036](architecture/decisions/ADR-036-application-fleet-gitrepo.md):
+one managed application controller for staging/production, readable YAML paths,
+separate revision metadata, exact per-unit tree/Bundle observation and selective
+withdrawal with original UID guards. Template driver and Terraform ownership stay.
+Focused/race/build/bootstrap/docs checks pass. Full backend suite reproduces 61
+baseline failing test names. The old acceptance app was deleted through guarded
+product cleanup; unrelated apps/resources remain. New-layout live Fleet acceptance
+is pending explicit external-verification permission; no new app is ready for use.
+[Results and limits](verification/2026-11-05-application-fleet-gitrepo.md).
+
+
 ## Saved Definition source identity — 2026-11-04
 
 Definitions show saved Git/Catalog/ZIP/Inline/platform provenance rather than

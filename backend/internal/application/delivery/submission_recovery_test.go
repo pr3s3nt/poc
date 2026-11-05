@@ -224,3 +224,73 @@ func deployHistoricalDirect(c *Coordinator, provider port.Provider, ctx context.
 	}
 	return nil
 }
+
+type lostReceiptProvider struct {
+	*receiptRecoveryFake
+	lost         bool
+	receipt      port.Receipt
+	receiptReads int
+}
+
+func (p *lostReceiptProvider) Submit(ctx context.Context, i port.Intent, prepared port.Prepared) (port.Receipt, error) {
+	r, err := p.transferFake.Submit(ctx, i, prepared)
+	if err == nil && !p.lost && i.Revision.Phase == domain.Rollout {
+		p.lost = true
+		p.receipt = r
+		return port.Receipt{}, errors.New("submission acknowledgement lost")
+	}
+	return r, err
+}
+func (p *lostReceiptProvider) RecoverReceipt(ctx context.Context, i port.Intent, _ port.Prepared) (port.Receipt, error) {
+	if err := p.recoveryGuard(ctx, i); err != nil {
+		return port.Receipt{}, err
+	}
+	if p.receipt.IntentID != i.ID || p.receipt.RevisionID != i.Revision.ID {
+		return port.Receipt{}, domain.ErrOutcomeUnknown
+	}
+	p.receiptReads++
+	return p.receipt, nil
+}
+func TestSubmissionRecoveryReconstructsLostReceiptWithoutReplay(t *testing.T) {
+	c, original, ctx, req, _ := coordinatorFixture(t)
+	p := &lostReceiptProvider{receiptRecoveryFake: &receiptRecoveryFake{transferFake: &transferFake{neutralProvider: original, live: map[string]string{}}, recoveryGuard: c.GuardRecovery}}
+	c.Registry = port.NewRegistry()
+	if err := c.Registry.Register("fleet", p); err != nil {
+		t.Fatal(err)
+	}
+	for n := range req.Manifests {
+		m := &req.Manifests[n]
+		m.APIVersion, m.Name, m.Namespace = "v1", "app", "app"
+		if m.Kind == "Job" {
+			m.APIVersion = "batch/v1"
+		}
+		if m.Kind == "Deployment" {
+			m.APIVersion = "apps/v1"
+		}
+		m.Object = map[string]any{"apiVersion": m.APIVersion, "kind": m.Kind, "metadata": map[string]any{"name": m.Name, "namespace": m.Namespace}}
+	}
+	if err := c.Deploy(ctx, req); err == nil {
+		t.Fatal("lost acknowledgement reported as success")
+	}
+	submitted := len(p.order)
+	before, _ := json.Marshal(p.live)
+	owner, _ := persistence.OwnerFrom(ctx)
+	if err := c.Store.SuspendOperation(ctx, owner, "executor stopped"); err != nil {
+		t.Fatal(err)
+	}
+	op, err := c.Store.BeginRecovery(context.Background(), owner.OperationID, "receipt-recovery", "operator")
+	if err != nil {
+		t.Fatal(err)
+	}
+	recovery := persistence.WithOwner(context.Background(), persistence.Owner{OperationID: op.ID, Owner: op.Owner, Fence: op.Fence})
+	if err := c.RecoverSubmissions(recovery, req.OrganizationKey, req.Environment); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Deploy(recovery, req); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := json.Marshal(p.live)
+	if p.receiptReads != 1 || p.recoveries != 1 || len(p.order) != submitted || p.jobs != 1 || string(before) != string(after) {
+		t.Fatal("receipt recovery replayed submission or changed native identity")
+	}
+}

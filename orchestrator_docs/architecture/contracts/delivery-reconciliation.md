@@ -101,6 +101,14 @@ Argo/Flux may implement publication differently; the core does not require Git
 for every possible adapter. Raw provider status and arbitrary JSON patches are
 private adapter data, not public error messages or lifecycle decisions.
 
+## Application-scoped managed Fleet delivery — ADR-036
+
+[ADR-036](../decisions/ADR-036-application-fleet-gitrepo.md) supersedes the per-unit
+managed GitRepo identity/path/commit assumptions below for new applications.
+Units, immutable artifacts and phase receipts remain; a shared controller holds
+one admitted pointer plus per-unit tree pins. Both Environment trees share it.
+Historical per-unit and EXISTING receipts keep their original authority.
+
 ## CDR-03 — Approved intent, receipts and publication
 
 Identity: Organization + Environment + target generation + delivery epoch + unit.

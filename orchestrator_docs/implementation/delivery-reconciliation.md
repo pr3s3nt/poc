@@ -8,6 +8,16 @@ related: [ADR-030, UC-01, UC-04, UC-05, UC-06, UC-07, UC-08, UC-09, UC-18]
 
 # Delivery reconciliation — implementation handoff
 
+## One Application controller — 2026-11-05
+
+[ADR-036](../architecture/decisions/ADR-036-application-fleet-gitrepo.md) supersedes
+per-unit managed GitRepo identity in the historical sections below. The adapter
+retains phase/release receipts beneath one application pointer, checks sibling
+trees, and removes only the selected Bundle path. Legacy cleanup remains intact;
+the disposable old acceptance app was removed. Source tests and pending live gate
+are recorded in [verification](../verification/2026-11-05-application-fleet-gitrepo.md).
+
+
 ## Platform-managed repositories — 2026-11-02
 
 [ADR-033](../architecture/decisions/ADR-033-platform-managed-delivery.md) is current.

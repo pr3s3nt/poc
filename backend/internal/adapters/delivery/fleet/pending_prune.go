@@ -89,7 +89,13 @@ func (p *Provider) PrunePendingReleasedObjects(ctx context.Context, i port.Inten
 	if cfg.GitRepoMode != "MANAGED" {
 		return false, nil
 	}
-	if metadata["uid"] != r.Handle["gitrepoUID"] || !owns(repo, i, r.Handle["gitrepo"]) || controllerRevision(repo) != i.Revision.ID || spec["revision"] != r.Handle["commit"] {
+	commit, _ := spec["revision"].(string)
+	if r.Handle["layout"] == applicationLayout {
+		pins, err := readUnitPins(repo)
+		if err != nil || metadata["uid"] != r.Handle["gitrepoUID"] || !applicationOwns(repo, i, cfg) || !sharedReceiptMatches(pins, i, r) {
+			return false, ErrOwnership
+		}
+	} else if metadata["uid"] != r.Handle["gitrepoUID"] || !owns(repo, i, r.Handle["gitrepo"]) || controllerRevision(repo) != i.Revision.ID || commit != r.Handle["commit"] {
 		return false, ErrOwnership
 	}
 	raw, err := cli.Run(ctx, nil, "get", "bundles.fleet.cattle.io", "-n", cfg.Workspace, "-l", "fleet.cattle.io/repo-name="+r.Handle["gitrepo"], "-o", "json")
@@ -97,7 +103,13 @@ func (p *Provider) PrunePendingReleasedObjects(ctx context.Context, i port.Inten
 		return false, ErrController
 	}
 	var bundles struct{ Items []map[string]any }
-	if json.Unmarshal(raw, &bundles) != nil || len(bundles.Items) != 1 {
+	if json.Unmarshal(raw, &bundles) != nil {
+		return false, ErrController
+	}
+	if r.Handle["layout"] == applicationLayout {
+		bundles.Items = selectRelease(bundles.Items, r.Handle["release"])
+	}
+	if len(bundles.Items) != 1 {
 		return false, ErrController
 	}
 	cluster, found, err := cli.Get(ctx, cfg.Workspace, "clusters.fleet.cattle.io", cfg.TargetCluster)
@@ -121,7 +133,7 @@ func (p *Provider) PrunePendingReleasedObjects(ctx context.Context, i port.Inten
 	}
 	bs, _ := bd["spec"].(map[string]any)
 	status, _ := bd["status"].(map[string]any)
-	if bs["deploymentID"] == nil || bs["deploymentID"] != status["appliedDeploymentID"] || !controllerCommitMatches(r.Handle["commit"], bundles.Items[0], bd) {
+	if bs["deploymentID"] == nil || bs["deploymentID"] != status["appliedDeploymentID"] || !controllerCommitMatches(commit, bundles.Items[0], bd) {
 		return false, nil
 	}
 	modified, _ := status["modifiedStatus"].([]any)

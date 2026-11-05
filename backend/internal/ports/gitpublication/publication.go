@@ -25,6 +25,11 @@ type Intent struct {
 type TreeVerifier interface {
 	VerifyTree(context.Context, string, string, string, string) (bool, error)
 }
+
+// TreeSetVerifier checks sibling unit trees with one fetch of the repository.
+type TreeSetVerifier interface {
+	VerifyTrees(context.Context, string, string, map[string]string) (bool, error)
+}
 type Receipt struct{ IntentID, Commit, TreeDigest string }
 
 // Guard runs before every remote write. It verifies the durable publication

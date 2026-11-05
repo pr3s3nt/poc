@@ -236,16 +236,32 @@ func (w *Writer) Publish(ctx context.Context, i port.Intent, guard port.Guard) (
 }
 
 func (w *Writer) VerifyTree(ctx context.Context, branch, path, commit, digest string) (bool, error) {
-	if !branchShape.MatchString(branch) || !validPath(path) || (len(commit) != 40 && len(commit) != 64) || len(digest) != 64 {
+	return w.VerifyTrees(ctx, branch, commit, map[string]string{path: digest})
+}
+
+func (w *Writer) VerifyTrees(ctx context.Context, branch, commit string, trees map[string]string) (bool, error) {
+	if !branchShape.MatchString(branch) || (len(commit) != 40 && len(commit) != 64) || len(trees) == 0 {
 		return false, ErrInvalid
 	}
-	for _, v := range []string{commit, digest} {
-		for _, r := range v {
+	validHex := func(s string) bool {
+		for _, r := range s {
 			if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'f') {
-				return false, ErrInvalid
+				return false
 			}
 		}
+		return true
 	}
+	if !validHex(commit) {
+		return false, ErrInvalid
+	}
+	names := make([]string, 0, len(trees))
+	for path, digest := range trees {
+		if !validPath(path) || len(digest) != 64 || !validHex(digest) {
+			return false, ErrInvalid
+		}
+		names = append(names, path)
+	}
+	sort.Strings(names)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if err := w.fetch(ctx, branch); err != nil {
@@ -254,5 +270,11 @@ func (w *Writer) VerifyTree(ctx context.Context, branch, path, commit, digest st
 	if _, err := w.git(ctx, "merge-base", "--is-ancestor", commit, "FETCH_HEAD"); err != nil {
 		return false, ErrConflict
 	}
-	return w.treeMatches(ctx, commit, port.Intent{Path: path, TreeDigest: digest})
+	for _, path := range names {
+		matched, err := w.treeMatches(ctx, commit, port.Intent{Path: path, TreeDigest: trees[path]})
+		if err != nil || !matched {
+			return matched, err
+		}
+	}
+	return true, nil
 }

@@ -1,3 +1,4 @@
+import { verifyApplicationFleet } from './fleet-verification.mjs';
 import { isDevTest } from './execution-profile.mjs';
 import { openConsole, closeConsole, signInContext, signOutContext, readPrivateFile } from './console.mjs';
 import { createRuntime, makeUI, conflict, equal, waitIdle, digest } from './runtime.mjs';
@@ -43,15 +44,10 @@ export async function verifyDirectAcceptance(ui,config,app,rt) {
  }
  let snapshot={deploymentIds:deployments.map(d=>d.id).sort()};
  if(isDevTest(config)){
- const repos=kubectl(config,'get','gitrepos.fleet.cattle.io','-A').items.filter(r=>r.metadata.labels?.['orchestrator.io/environment-id']===detail.deployment.environmentId);
+ const repositories=kubectl(config,'get','gitrepos.fleet.cattle.io','-A').items;
  const bundles=kubectl(config,'get','bundles.fleet.cattle.io','-A').items;
- requireConfig(repos.length>0,'No acceptance Fleet repository');
- for(const repo of repos) {
-  requireConfig(/^[a-f0-9]{40}$/.test(repo.spec.revision)&&repo.status?.commit===repo.spec.revision,'Fleet commit does not match delivery pin');
-  const owned=bundles.filter(b=>b.metadata.namespace===repo.metadata.namespace&&b.metadata.labels?.['fleet.cattle.io/repo-name']===repo.metadata.name);
-  requireConfig(owned.length===1&&owned[0].metadata.labels['fleet.cattle.io/commit']===repo.spec.revision&&owned[0].status?.summary?.desiredReady===1&&owned[0].status.summary.ready===1,'Fleet Bundle not ready at pinned revision');
- }
- snapshot={deploymentIds:deployments.map(d=>d.id).sort(),fleet:repos.map(r=>({uid:r.metadata.uid,revision:r.spec.revision})).sort((a,b)=>a.uid.localeCompare(b.uid))};
+ const proof=verifyApplicationFleet(repositories,bundles,app.key,detail.deployment.environmentId);
+ snapshot={deploymentIds:deployments.map(d=>d.id).sort(),fleet:proof.repos.map(r=>({uid:r.metadata.uid,revision:r.spec.revision})),units:proof.units};
  }
  if(rt.state.acceptanceSnapshot)conflict(equal(snapshot,rt.state.acceptanceSnapshot),'Acceptance deployment/Fleet identities changed');
  rt.state.acceptanceSnapshot=snapshot;rt.save();rt.record(isDevTest(config)?'acceptance-cd-fleet':'acceptance-console','REUSED',snapshot);

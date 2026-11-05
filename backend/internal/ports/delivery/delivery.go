@@ -220,3 +220,15 @@ type ApplicationRepositoryBinding interface {
 	RepositoryPolicy(BindingVersion) (domain.RepositoryPolicy, error)
 	BindApplicationRepository(BindingVersion, domain.ApplicationRepository, string) (BindingVersion, error)
 }
+
+// ReceiptLayoutValidator rejects incompatible live controller layouts before new
+// publication. Historical receipts remain valid for observation and cleanup.
+type ReceiptLayoutValidator interface {
+	ValidateDeliveryReceipt(BindingVersion, Receipt) error
+}
+
+// SubmissionReceiptRecovery observes an already submitted controller after its
+// acknowledgement was lost. It must not publish, submit or create resources.
+type SubmissionReceiptRecovery interface {
+	RecoverReceipt(context.Context, Intent, Prepared) (Receipt, error)
+}
