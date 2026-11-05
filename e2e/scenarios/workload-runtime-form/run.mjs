@@ -30,10 +30,13 @@ try {
   dev = await signInContext(pe.browser, devConfig, { role: 'DEVELOPER' });
   const page = dev.page;
   const volumeSection = name => page.getByRole('group',{name:`Volume và file của ${name}`,exact:true});
-  async function addVolume(kind, container='main') {
+  const sourceKinds={storage:'Lưu trữ bền vững (PVC)',emptyDir:'Volume tạm (emptyDir)',configMap:'File cấu hình (ConfigMap)',hostPath:'Đường dẫn node (hostPath)',secret:'File bí mật'};
+  async function addVolume(kind, container='main', source) {
     await volumeSection(container).getByRole('button',{name:'Thêm volume hoặc file',exact:true}).click();
     const dialog=page.getByRole('dialog',{name:'Thêm volume hoặc file',exact:true});
-    await dialog.getByLabel('Loại',{exact:true}).selectOption(kind);
+    await dialog.getByLabel('Tìm nguồn',{exact:true}).waitFor();
+    if(source) await dialog.getByRole('button',{name:`Dùng ${source} · ${sourceKinds[kind]}`,exact:true}).click();
+    else {await dialog.getByRole('button',{name:'Tạo nguồn mới',exact:true}).click();await dialog.getByLabel('Loại',{exact:true}).selectOption(kind);}
     return dialog;
   }
   async function attachVolume() {
@@ -126,8 +129,7 @@ try {
     await volumeDialog.getByLabel('Giới hạn dung lượng',{exact:true}).fill('64Mi');
     await attachVolume();
     for (const container of ['container-2','container-3']) {
-      volumeDialog=await addVolume('emptyDir',container);
-      await volumeDialog.getByLabel('Nguồn',{exact:true}).selectOption('shared');
+      volumeDialog=await addVolume('emptyDir',container,'shared');
       await attachVolume();
     }
     volumeDialog=await addVolume('configMap');
@@ -166,8 +168,7 @@ try {
     await volumeDialog.getByLabel('Loại đường dẫn node',{exact:true}).selectOption('Directory');
     await attachVolume();
     for (const container of ['container-2','container-3']) {
-      volumeDialog=await addVolume('hostPath',container);
-      await volumeDialog.getByLabel('Nguồn',{exact:true}).selectOption('node-data');
+      volumeDialog=await addVolume('hostPath',container,'node-data');
       await attachVolume();
     }
     const reply = page.waitForResponse(r => r.request().method() === 'PUT' && new URL(r.url()).pathname === '/api/v1' + workloadPath);
@@ -176,6 +177,30 @@ try {
     workloads = (await json(dev.context, envBase + '/workloads')).workloads;
     receipt.stage = 'hostpath-saved'; record();
   }
+  // Reuse the first workload's PVC directly from the initial app-source list.
+  const originalStorage=workloads.find(w => w.id === 'app').workload.resources.data;
+  if (!workloads.some(w => w.id === 'reuse')) {
+    await page.goto(`${devConfig.baseURL}/ui/applications/${receipt.appKey}/environments/staging/workloads/new`);
+    await page.getByLabel('Tên Workload',{exact:true}).fill('reuse');
+    await page.getByLabel('Ảnh Container',{exact:true}).fill('busybox:1.36');
+    await page.getByRole('button',{name:'Hiện nâng cao Workload',exact:true}).click();
+    await page.getByRole('combobox',{name:'Class Workload',exact:true}).selectOption('chinhform');
+    await volumeSection('main').getByRole('button',{name:'Thêm volume hoặc file',exact:true}).click();
+    const picker=page.getByRole('dialog',{name:'Thêm volume hoặc file',exact:true});
+    await picker.getByLabel('Tìm nguồn',{exact:true}).fill('app');
+    assert.equal(await picker.getByLabel('Loại',{exact:true}).count(),0,'Creation controls must be opt-in');
+    await picker.getByRole('button',{name:'Dùng data · persistent-storage · app · Lưu trữ bền vững (PVC)',exact:true}).click();
+    await picker.getByLabel('Đường dẫn mount',{exact:true}).fill('/reused-data');
+    await attachVolume();
+    const reply=page.waitForResponse(r => r.request().method() === 'PUT' && new URL(r.url()).pathname === '/api/v1'+envBase+'/workloads/reuse');
+    await page.getByRole('button',{name:'Lưu draft Workload',exact:true}).click();
+    assert.equal((await reply).status(),200);
+    workloads=(await json(dev.context,envBase+'/workloads')).workloads;
+  }
+  const reused=workloads.find(w => w.id === 'reuse').workload;
+  assert.deepEqual(reused.resources.data,originalStorage,'Shared PVC identity or authored inputs changed');
+  assert.equal(reused.workloadExecution.mounts[0].path,'/reused-data');
+  receipt.reusedStorageId=originalStorage.id;record();
   const before = workloads.find(w => w.id === 'app').workload;
   assert.equal(before.containers['container-2'].role, 'init'); assert.equal(before.containers['container-3'].role, 'sidecar');
   assert.equal(before.workloadExecution.mounts.length, 1); assert.equal(before.workloadExecution.volumes.length, 3); assert.equal(before.workloadExecution.volumeMounts.length, 7); assert.equal(before.workloadExecution.secretFiles[0].ref, '${resources.env.RUNTIME_FILE}');
@@ -206,6 +231,12 @@ try {
   assert(pod.volumes.some(v => v.hostPath?.path === '/var/local/chinhform' && v.hostPath.type === 'Directory'), 'HostPath source missing');
   for (const c of [...pod.containers, ...pod.initContainers]) assert(c.volumeMounts.some(m => m.mountPath === '/node-data' && m.readOnly === true), 'HostPath read-only mount missing');
   assert(pod.volumes.some(v => v.persistentVolumeClaim), 'PVC source missing');
+  const reusedArtifact=preview.review.artifacts.find(a => a.path === 'Deployment/reuse');
+  assert(reusedArtifact?.after?.text,'Reusing workload Preview missing');
+  const reusedPod=parseYAML(reusedArtifact.after.text).spec.template.spec;
+  assert.equal(reusedPod.volumes.find(v => v.persistentVolumeClaim)?.persistentVolumeClaim.claimName,pod.volumes.find(v => v.persistentVolumeClaim).persistentVolumeClaim.claimName,'Preview split the shared storage claim');
+  assert(reusedPod.containers[0].volumeMounts.some(m => m.mountPath === '/reused-data'),'Reused container mount missing from Preview');
+
   assert(pod.volumes.some(v => v.emptyDir?.medium === 'Memory'), 'Memory emptyDir missing');
   assert(pod.volumes.some(v => v.configMap?.name), 'ConfigMap reference missing');
   assert(pod.volumes.some(v => v.secret?.secretName && v.secret.defaultMode === 256), 'Approved file Secret/mode missing');

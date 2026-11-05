@@ -4,6 +4,7 @@ import { Button } from '../../shared/ui/Button';
 import { Dialog } from '../../shared/ui/Dialog';
 import { VolumeSourceFields } from './VolumeSourceFields';
 import { validRuntimeIntent } from './runtimeIntent';
+import type { SharedResource } from './sharedResources';
 import type { Execution, PodVolume } from './templates';
 
 type Kind = 'storage' | 'emptyDir' | 'configMap' | 'hostPath' | 'secret';
@@ -20,7 +21,7 @@ function MountPath({ path, subPath, readOnly, locked, onChange }: { path: string
   </div>;
 }
 
-type Props = { value: Execution; onChange(value: Execution): void; container: string; storage: string[]; secrets: string[]; disabled: boolean; secretCatalogStatus: 'loading' | 'ready' | 'error'; storageReady: boolean; onAddStorage?: (mount: {path: string; subPath: string; readOnly: boolean}) => void; onCreateSecret?: (mount: {path: string; mode: number}) => void };
+type Props = { value: Execution; onChange(value: Execution): void; container: string; storage: string[]; secrets: string[]; disabled: boolean; secretCatalogStatus: 'loading' | 'ready' | 'error'; storageReady: boolean; storageStatus: 'ready' | 'loading' | 'error'; sharedStorage?: SharedResource[]; onUseStorage?: (id: string, mount: {path: string; subPath: string; readOnly: boolean}) => void; onAddStorage?: (mount: {path: string; subPath: string; readOnly: boolean}) => void; onCreateSecret?: (mount: {path: string; mode: number}) => void };
 export function ContainerVolumeFields(props: Props) {
   const {value, onChange, container, storage, secrets, disabled} = props;
   const [adding, setAdding] = useState(false);
@@ -61,9 +62,13 @@ export function ContainerVolumeFields(props: Props) {
   </fieldset>;
 }
 
-function AddVolumeDialog({ value, onChange, container, storage, secrets, disabled, storageReady, secretCatalogStatus, onAddStorage, onCreateSecret, onClose }: Props & {onClose(): void}) {
+function AddVolumeDialog({ value, onChange, container, storage, secrets, disabled, storageReady, storageStatus, secretCatalogStatus, sharedStorage = [], onUseStorage, onAddStorage, onCreateSecret, onClose }: Props & {onClose(): void}) {
+  type Choice = {id: string; name: string; kind: Kind; detail?: string; users: string[]; sharedId?: string};
+  const [creating,setCreating]=useState(false);
+  const [query,setQuery]=useState('');
+  const [filter,setFilter]=useState<Kind | 'all'>('all');
+  const [choiceId,setChoiceId]=useState('');
   const [kind,setKind]=useState<Kind>('emptyDir');
-  const [selected,setSelected]=useState('');
   const uniqueName = () => {let name='volume';for(let n=2;value.volumes?.some(v => v.name === name);n++) name=`volume-${n}`;return name;};
   const makeVolume = (k:Kind):PodVolume => ({name:uniqueName(),...(k === 'hostPath' ? {hostPath:{path:'',type:'Directory'}} : k === 'configMap' ? {configMap:{files:[{name:'app.conf',value:''}]}} : {emptyDir:{}})});
   const [draft,setDraft]=useState<PodVolume>(() => makeVolume('emptyDir'));
@@ -78,39 +83,57 @@ function AddVolumeDialog({ value, onChange, container, storage, secrets, disable
   const [subPath,setSubPath]=useState('');
   const [readOnly,setReadOnly]=useState(false);
   const [mode,setMode]=useState(256);
+  const users = (mounts: {container: string}[]) => [...new Set(mounts.map(m => m.container))];
+  const choices:Choice[] = [
+    ...storage.map(name => ({id:`storage:${name}`,name,kind:'storage' as const,users:users((value.mounts ?? []).filter(m => m.resource === name))})),
+    ...sharedStorage.filter(s => s.dependency).map(s => ({id:`shared:${s.id}`,name:s.dependency!.alias,kind:'storage' as const,detail:s.label,users:[],sharedId:s.id})),
+    ...(value.volumes ?? []).map(v => ({id:`volume:${v.name}`,name:v.name,kind:sourceKind(v),users:users((value.volumeMounts ?? []).filter(m => m.volume === v.name))})),
+    ...secrets.map(name => ({id:`secret:${name}`,name,kind:'secret' as const,users:users((value.secretFiles ?? []).filter(m => secretKey(m.ref) === name))})),
+  ];
+  const selectedChoice=choices.find(c => c.id === choiceId);
+  const selected=creating ? '' : selectedChoice?.name ?? '';
   const local=kind !== 'storage' && kind !== 'secret';
-  const source=local ? selected ? value.volumes?.find(v => v.name === selected) : draft : undefined;
-  const choices=kind === 'storage' ? storage : kind === 'secret' ? secrets : (value.volumes ?? []).filter(v => sourceKind(v) === kind).map(v => v.name);
+  const source=local ? creating ? draft : value.volumes?.find(v => v.name === selected) : undefined;
   const candidate:Execution={version:1,kind:'Deployment',...(kind === 'storage' ? {mounts:[{resource:selected,container,path,subPath,readOnly}]} : kind === 'secret' ? {secretFiles:[{ref:`\${resources.env.${selected}}`,container,path,mode}]} : source ? {volumes:[source],volumeMounts:[{volume:source.name,container,path,subPath,readOnly}]} : {})};
-  const valid=!!container && !!path && !existingPaths.some(p => overlaps(p,path)) && (local ? !!source && (!!selected || !value.volumes?.some(v => v.name === draft.name)) : choices.includes(selected)) && validRuntimeIntent([{name:container,image:'validation'}],candidate);
+  const ready=kind === 'storage' ? storageReady : kind === 'secret' ? secretCatalogStatus === 'ready' : true;
+  const valid=ready && !!container && !!path && !existingPaths.some(p => overlaps(p,path)) && (creating ? local && !!source && !value.volumes?.some(v => v.name === draft.name) : !!selectedChoice) && validRuntimeIntent([{name:container,image:'validation'}],candidate);
+  const visible=choices.filter(c => (filter === 'all' || c.kind === filter) && `${c.name} ${text(c.kind)} ${c.detail ?? ''} ${c.users.join(' ')}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  function changeKind(k:Kind) {setKind(k);setReadOnly(k === 'hostPath' || k === 'configMap' || k === 'secret');setSubPath('');setPath(defaultPath(k));}
   function attach() {
     if (!valid || disabled) return;
+    if (selectedChoice?.sharedId && !creating) {onUseStorage?.(selectedChoice.sharedId,{path,subPath,readOnly});onClose();return;}
     if (kind === 'storage') onChange({...value,mounts:[...(value.mounts ?? []),candidate.mounts![0]!]});
     else if (kind === 'secret') onChange({...value,secretFiles:[...(value.secretFiles ?? []),candidate.secretFiles![0]!]});
-    else onChange({...value,...(!selected ? {volumes:[...(value.volumes ?? []),draft]} : {}),volumeMounts:[...(value.volumeMounts ?? []),candidate.volumeMounts![0]!]});
+    else onChange({...value,...(creating ? {volumes:[...(value.volumes ?? []),draft]} : {}),volumeMounts:[...(value.volumeMounts ?? []),candidate.volumeMounts![0]!]});
     onClose();
   }
   return <Dialog label={text('add')} busy={disabled} onClose={onClose}>
     <h2>{text('add')}</h2>
     <fieldset disabled={disabled} className="editor-grid volume-fields">
-      <label>{text('kind')}<select aria-label={text('kind')} value={kind} onChange={e => {
-        const k=e.target.value as Kind;setKind(k);setDraft(makeVolume(k));setSelected(k === 'storage' ? storage[0] ?? '' : k === 'secret' ? secrets[0] ?? '' : '');setReadOnly(k === 'hostPath' || k === 'configMap' || k === 'secret');setSubPath('');setPath(defaultPath(k));
-      }}>{(['storage','emptyDir','configMap','hostPath','secret'] as const).map(k => <option key={k} value={k}>{text(k)}</option>)}</select></label>
-      <label>{text('source')}<select aria-label={text('source')} value={selected} disabled={kind === 'secret' && secretCatalogStatus !== 'ready' || kind === 'storage' && !storageReady} onChange={e => setSelected(e.target.value)}>
-        <option value="">{local ? text('createNew') : text('chooseSource')}</option>{choices.map(name => <option key={name} value={name}>{name}</option>)}
-      </select></label>
-      {local && !selected ? <VolumeSourceFields volume={draft} creating disabled={disabled} onChange={setDraft} /> : null}
-      {kind === 'hostPath' && selected ? <small className="muted">{volumeText('hostPathHelp')}</small> : null}
-      {kind === 'storage' ? <>
-        {onAddStorage ? <Button type="button" onClick={() => {onClose();onAddStorage({path,subPath,readOnly});}}>{text('createStorage')}</Button> : !storage.length && storageReady ? <small className="muted">{t('workloads.templates.storageUnavailable')}</small> : null}
-      </> : null}
-      {kind === 'secret' ? <>
-        {secretCatalogStatus === 'ready' ? onCreateSecret ? <Button type="button" onClick={() => {onClose();onCreateSecret({path,mode});}}>{volumeText('createSecret')}</Button> : null : <p role="status">{text(secretCatalogStatus === 'loading' ? 'loadingSecrets' : 'unavailableSecrets')}</p>}
-        {secretCatalogStatus === 'ready' && !secrets.length ? <small className="muted">{volumeText('noSecrets')}</small> : null}
-      </> : null}
-      {kind === 'secret' ? <div className="field-grid"><label>{t('workloads.templates.filePath')}<input value={path} onChange={e => setPath(e.target.value)} /></label><label>{t('workloads.templates.fileMode')}<select aria-label={t('workloads.templates.fileMode')} value={mode} onChange={e => setMode(Number(e.target.value))}><option value={256}>0400</option><option value={288}>0440</option></select></label></div> : <MountPath path={path} subPath={subPath} readOnly={readOnly} locked={kind === 'configMap'} onChange={p => {if(p.path !== undefined)setPath(p.path);if(p.subPath !== undefined)setSubPath(p.subPath);if(p.readOnly !== undefined)setReadOnly(p.readOnly);}} />}
+      {!creating ? <>
+        <div className="field-grid"><label>{text('search')}<input type="search" value={query} onChange={e => {setQuery(e.target.value);setChoiceId('');}} /></label>
+          <label>{text('filter')}<select aria-label={text('filter')} value={filter} onChange={e => {setFilter(e.target.value as Kind | 'all');setChoiceId('');}}><option value="all">{text('allTypes')}</option>{(['storage','emptyDir','configMap','hostPath','secret'] as const).map(k => <option key={k} value={k}>{text(k)}</option>)}</select></label></div>
+        {!storageReady ? <small role="status">{text(storageStatus === 'loading' ? 'loadingStorage' : 'unavailableStorage')}</small> : null}
+        {secretCatalogStatus !== 'ready' ? <small role="status">{text(secretCatalogStatus === 'loading' ? 'loadingSecrets' : 'unavailableSecrets')}</small> : null}
+        <div className="volume-source-list" aria-label={text('existing')}>
+          {visible.map(c => <button type="button" key={c.id} aria-label={text('useSource',{name:c.detail ?? c.name,kind:text(c.kind)})} aria-pressed={choiceId === c.id} disabled={disabled || c.kind === 'storage' && (!storageReady || !!c.sharedId && !onUseStorage) || c.kind === 'secret' && secretCatalogStatus !== 'ready'} onClick={() => {setChoiceId(c.id);changeKind(c.kind);}}>
+            <strong>{c.name}</strong><span>{text(c.kind)}</span>{c.detail ? <small>{c.detail}</small> : null}{c.users.length ? <small>{text('mountedIn',{names:c.users.join(', ')})}</small> : null}
+          </button>)}
+        </div>
+        {!visible.length && (choices.length || storageReady && secretCatalogStatus === 'ready') ? <p className="muted">{text(query.trim() || filter !== 'all' ? 'noMatches' : 'noSources')}</p> : null}
+        <Button type="button" onClick={() => {setCreating(true);changeKind('emptyDir');setDraft(makeVolume('emptyDir'));}}>{text('createNew')}</Button>
+        {choiceId && !selectedChoice ? <p role="alert">{text('missingSource')}</p> : null}
+      </> : <>
+        <Button type="button" tone="quiet" onClick={() => {setCreating(false);setChoiceId('');}}>{text('backToSources')}</Button>
+        <label>{text('kind')}<select aria-label={text('kind')} value={kind} onChange={e => {const k=e.target.value as Kind;changeKind(k);setDraft(makeVolume(k));}}>{(['storage','emptyDir','configMap','hostPath','secret'] as const).map(k => <option key={k} value={k}>{text(k)}</option>)}</select></label>
+        {local ? <VolumeSourceFields volume={draft} creating disabled={disabled} onChange={setDraft} /> : null}
+        {kind === 'storage' ? onAddStorage ? <Button type="button" onClick={() => {onClose();onAddStorage({path,subPath,readOnly});}}>{text('createStorage')}</Button> : <small className="muted">{t('workloads.templates.storageUnavailable')}</small> : null}
+        {kind === 'secret' ? secretCatalogStatus === 'ready' && onCreateSecret ? <Button type="button" onClick={() => {onClose();onCreateSecret({path,mode});}}>{volumeText('createSecret')}</Button> : <p role="status">{text(secretCatalogStatus === 'loading' ? 'loadingSecrets' : 'unavailableSecrets')}</p> : null}
+      </>}
+      {kind === 'hostPath' && !creating && selectedChoice ? <small className="muted">{volumeText('hostPathHelp')}</small> : null}
+      {creating || selectedChoice ? kind === 'secret' ? <div className="field-grid"><label>{t('workloads.templates.filePath')}<input value={path} onChange={e => setPath(e.target.value)} /></label><label>{t('workloads.templates.fileMode')}<select aria-label={t('workloads.templates.fileMode')} value={mode} onChange={e => setMode(Number(e.target.value))}><option value={256}>0400</option><option value={288}>0440</option></select></label></div> : <MountPath path={path} subPath={subPath} readOnly={readOnly} locked={kind === 'configMap'} onChange={p => {if(p.path !== undefined)setPath(p.path);if(p.subPath !== undefined)setSubPath(p.subPath);if(p.readOnly !== undefined)setReadOnly(p.readOnly);}} /> : null}
     </fieldset>
-    <div className="form-actions"><Button type="button" onClick={onClose}>{text('cancel')}</Button><Button type="button" tone="primary" disabled={!valid || disabled || kind === 'secret' && secretCatalogStatus !== 'ready' || kind === 'storage' && !storageReady} onClick={attach}>{text('attach')}</Button></div>
+    <div className="form-actions"><Button type="button" onClick={onClose}>{text('cancel')}</Button><Button type="button" tone="primary" disabled={!valid || disabled} onClick={attach}>{text('attach')}</Button></div>
   </Dialog>;
 }
 

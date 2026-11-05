@@ -47,3 +47,11 @@ WC-22: Source creation/reuse now goes through each container's Volumes & files
 section. One picker creates source + mount, preserving the target implicitly.
 The scenario verifies three container sections, no global source section,
 shared reuse, PVC/Secret creation and lossless Save/reopen/Preview.
+
+WC-23: The initial picker lists existing sources before explicit creation. The
+scenario creates all five source types and reuses local sources from that list.
+It also adds a second `reuse` workload, choosing the first workload's eligible
+shared PVC from the initial searchable app/environment source list, and verifies
+the same resource ID/typed inputs and the targeted mount. Both workloads remain
+in the receipt-owned app for manual testing; cleanup uses the same ownership/API
+boundaries above. No extra cluster/cloud mutation or storage provisioning occurs.

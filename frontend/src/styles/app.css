@@ -732,3 +732,12 @@ a { color: inherit; }
 .saved-source-summary dd { margin:0; min-width:0; overflow-wrap:anywhere; }
 
 fieldset.volume-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+
+.volume-source-list { display:grid; gap:8px; max-height:280px; overflow:auto; }
+.volume-source-list > button { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 12px; padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:inherit; text-align:left; cursor:pointer; }
+.volume-source-list > button small { grid-column:1 / -1; color:var(--muted); }
+.volume-source-list > button[aria-pressed=true] { border-color:var(--blue); background:#ddf4ff; }
+.volume-source-list > button:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+.volume-source-list > button:disabled { opacity:.6; cursor:default; }
+
+.volume-source-list > button strong { overflow-wrap:anywhere; }

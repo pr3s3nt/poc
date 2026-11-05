@@ -122,3 +122,15 @@ the workload stores the newly created scoped reference. Cancel makes no write.
   invoking container and retains existing scope/late-response guards. The global
   Storage, Pod volume sources, Container volume mounts and Secret files sections
   are removed. Existing API/data shape, source pins and Preview/Deploy are retained.
+
+- WC-23 (approved 2026-11-06): Add volume or file opens with reusable sources
+  first, searchable by name and filterable by type, with type and known mount
+  users shown. Include local storage dependencies, eligible shared PVC resources
+  from the current Application/Environment, current-workload named volumes and
+  scoped configured Secrets. Never offer another workload's Pod-local sources.
+  No source is auto-selected. Selecting a source exposes mount path/mode; creating
+  a new source is an explicit secondary flow. Reusing a shared PVC adds its
+  existing identity/typed inputs and mount atomically with a collision-free alias
+  and existing stale-selection guards. Missing/loading/failed metadata remains
+  distinct from empty/search-no-results. Cancel is write-free. JSON/API, source
+  identity, target-container and Preview/Deploy boundaries remain unchanged.

@@ -8,7 +8,7 @@ import type { Execution } from './templates';
 
 const application = { id: 'runtime', name: 'Runtime', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 afterEach(() => vi.unstubAllGlobals());
-function setup(workload?: Record<string, unknown>) {
+function setup(workload?: Record<string, unknown>, others: {id:string;ready:boolean;workload:Record<string,unknown>}[] = [], configurationFails = false) {
   const puts: { workload: Record<string, unknown> }[] = [];
   const creates: Record<string, unknown>[] = [];
   let keys = [{ name: 'TLS_KEY', kind: 'SECRET', configured: true, usedBy: [] as string[] }];
@@ -20,10 +20,10 @@ function setup(workload?: Record<string, unknown>) {
       keys = [...keys, { name: body.name, kind: 'SECRET', configured: true, usedBy: [] }];
       return Response.json(configuration(), { status: 201 });
     }
-    if (url.endsWith('/configuration')) return Response.json(configuration());
+    if (url.endsWith('/configuration')) {if(configurationFails) throw new Error('offline');return Response.json(configuration());}
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'storage', classes: [], inputs: [], outputs: [{ name: 'claimName', type: 'string' }, { name: 'namespace', type: 'string' }] }] });
     if (init?.method === 'PUT') { puts.push(JSON.parse(String(init.body))); return Response.json({ workloads: [], draftVersion: 2 }); }
-    return Response.json({ workloads: workload ? [{ id: 'app', ready: false, workload }] : [], draftVersion: 1 });
+    return Response.json({ workloads: [...(workload ? [{ id: 'app', ready: false, workload }] : []),...others], draftVersion: 1 });
   }));
   render(<WorkloadEditorPage application={application} environment="staging" workloadId={workload ? 'app' : undefined} />);
   return { puts, creates, user: userEvent.setup() };
@@ -35,12 +35,15 @@ async function basic(user: ReturnType<typeof userEvent.setup>) {
 const save = () => screen.getByRole('button', { name: 'Lưu draft Workload' });
 
 const volumeSection = (name = 'main') => screen.getByRole('group', {name:`Volume và file của ${name}`});
-async function openVolume(user: ReturnType<typeof userEvent.setup>, kind = 'emptyDir', container = 'main') {
+const sourceKinds:Record<string,string>={storage:'Lưu trữ bền vững (PVC)',emptyDir:'Volume tạm (emptyDir)',configMap:'File cấu hình (ConfigMap)',hostPath:'Đường dẫn node (hostPath)',secret:'File bí mật'};
+async function openVolume(user: ReturnType<typeof userEvent.setup>, kind = 'emptyDir', container = 'main', source?:string) {
   await user.click(within(volumeSection(container)).getByRole('button',{name:'Thêm volume hoặc file'}));
   const dialog=screen.getByRole('dialog',{name:'Thêm volume hoặc file'});
-  await user.selectOptions(within(dialog).getByLabelText('Loại'),kind);
+  if(source) await user.click(within(dialog).getByRole('button',{name:`Dùng ${source} · ${sourceKinds[kind]}`}));
+  else {await user.click(within(dialog).getByRole('button',{name:'Tạo nguồn mới'}));await user.selectOptions(within(dialog).getByLabelText('Loại'),kind);}
   return dialog;
 }
+
 async function attach(user:ReturnType<typeof userEvent.setup>) {
   await user.click(within(screen.getByRole('dialog',{name:'Thêm volume hoặc file'})).getByRole('button',{name:'Thêm vào container'}));
 }
@@ -58,15 +61,14 @@ it('authors custom init/sidecar, a shared emptyDir, ConfigMap and a Secret file,
   await user.selectOptions(within(dialog).getByLabelText('Nơi lưu volume tạm'),'Memory');
   await user.type(within(dialog).getByLabelText('Giới hạn dung lượng'),'64Mi');
   await attach(user);
-  dialog=await openVolume(user,'emptyDir','container-2');
-  await user.selectOptions(within(dialog).getByLabelText('Nguồn'),'shared');
+  dialog=await openVolume(user,'emptyDir','container-2','shared');
   await attach(user);
   dialog=await openVolume(user,'configMap');
   await user.type(within(dialog).getByLabelText('Nội dung (không chứa bí mật)'),'setting=true');
   await user.clear(within(dialog).getByLabelText('Đường dẫn mount'));await user.type(within(dialog).getByLabelText('Đường dẫn mount'),'/config/app.conf');
   await user.type(within(dialog).getByLabelText('Thư mục con / file (subPath)'),'app.conf');
   await attach(user);
-  await openVolume(user,'secret');await attach(user);
+  await openVolume(user,'secret','main','TLS_KEY');await attach(user);
   expect(document.body).not.toHaveTextContent('secret-file-sentinel');
   await user.click(save());
   expect(puts).toHaveLength(1);
@@ -205,4 +207,43 @@ it('keeps renamed-container mounts visible until their target is explicitly repa
   await user.click(save());expect(puts).toHaveLength(0);
   await user.selectOptions(screen.getByLabelText('Container đích'),'renamed');
   await user.click(save());expect((puts[0]?.workload.workloadExecution as Execution).volumeMounts?.[0]).toEqual({...workload.workloadExecution.volumeMounts[0],container:'renamed'});
+});
+
+it('opens with searchable reusable sources, no implicit selection or source-creation fields', async () => {
+  const workload={apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'app'},containers:{main:{image:'app'}},workloadExecution:{version:1,kind:'Deployment',volumes:[{name:'shared-cache',emptyDir:{}},{name:'node-logs',hostPath:{path:'/var/log',type:'Directory'}}],volumeMounts:[{volume:'shared-cache',container:'main',path:'/shared',readOnly:false}]}};
+  const {puts,user}=setup(workload,[{id:'other',ready:true,workload:{containers:{worker:{image:'worker'}},workloadExecution:{version:1,kind:'Deployment',volumes:[{name:'other-temporary',emptyDir:{}}]}}}]);
+  await screen.findByLabelText('Ảnh Container');
+  await user.click(within(volumeSection()).getByRole('button',{name:'Thêm volume hoặc file'}));
+  const dialog=screen.getByRole('dialog',{name:'Thêm volume hoặc file'});
+  expect(within(dialog).queryByLabelText('Tên volume')).not.toBeInTheDocument();
+  expect(within(dialog).getByRole('button',{name:'Thêm vào container'})).toBeDisabled();
+  expect(within(dialog).getByText('Đang mount trong: main')).toBeVisible();
+  expect(within(dialog).queryByRole('button',{name:/other-temporary/})).not.toBeInTheDocument();
+  await user.type(within(dialog).getByLabelText('Tìm nguồn'),'node');
+  expect(within(dialog).getByRole('button',{name:'Dùng node-logs · Đường dẫn node (hostPath)'})).toBeVisible();
+  expect(within(dialog).queryByRole('button',{name:/Dùng shared-cache/})).not.toBeInTheDocument();
+  await user.selectOptions(within(dialog).getByLabelText('Loại nguồn'),'emptyDir');
+  expect(within(dialog).getByText('Không có nguồn phù hợp.')).toBeVisible();
+  await user.clear(within(dialog).getByLabelText('Tìm nguồn'));
+  await user.click(within(dialog).getByRole('button',{name:'Dùng shared-cache · Volume tạm (emptyDir)'}));
+  expect(within(dialog).getByLabelText('Đường dẫn mount')).toHaveValue('/shared-2');
+  await user.type(within(dialog).getByLabelText('Tìm nguồn'),'node');
+  expect(within(dialog).getByRole('button',{name:'Thêm vào container'})).toBeDisabled();
+  await user.clear(within(dialog).getByLabelText('Tìm nguồn'));
+  await user.click(within(dialog).getByRole('button',{name:'Dùng shared-cache · Volume tạm (emptyDir)'}));
+  await attach(user);await user.click(save());
+  const execution=puts[0]!.workload.workloadExecution as Execution;
+  expect(execution.volumes).toEqual(workload.workloadExecution.volumes);
+  expect(execution.volumeMounts?.[1]).toMatchObject({volume:'shared-cache',container:'main',path:'/shared-2'});
+});
+
+it('keeps named sources usable when the Secret catalog fails and reports the failure instead of an empty catalog', async () => {
+  const workload={apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'app'},containers:{main:{image:'app'}},workloadExecution:{version:1,kind:'Deployment',volumes:[{name:'local-data',emptyDir:{}}]}};
+  const {user}=setup(workload,[],true);await screen.findByLabelText('Ảnh Container');
+  await user.click(within(volumeSection()).getByRole('button',{name:'Thêm volume hoặc file'}));
+  const dialog=screen.getByRole('dialog',{name:'Thêm volume hoặc file'});
+  expect(within(dialog).getByText('Không tải được bí mật. Đóng và thử tải lại key.')).toBeVisible();
+  expect(within(dialog).queryByText('Chưa có nguồn để dùng lại.')).not.toBeInTheDocument();
+  await user.click(within(dialog).getByRole('button',{name:'Dùng local-data · Volume tạm (emptyDir)'}));
+  expect(within(dialog).getByRole('button',{name:'Thêm vào container'})).toBeEnabled();
 });

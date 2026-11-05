@@ -98,3 +98,20 @@ and cluster policy can reject them. New mounts default read-only with an editabl
 checkbox; imported read-write intent remains unchanged. Keep empty/error/save
 states, existing shell/controls and translated VI/EN labels. Preview keeps
 path/type/mount mode visible. Do not add a node file browser or local file picker.
+
+## Reuse-first source picker — WC-23
+
+The initial Add volume or file view is a searchable list of reusable sources,
+with optional type filter, source/type labels and known mounted-in containers.
+Show current-workload named sources, local PVC dependencies, compatible shared
+PVC resources from the same app/environment and scoped configured Secrets.
+Sources are never selected implicitly. Selection shows mount controls; Add to
+container writes the local draft. Shared PVC selection adds the original shared
+identity with typed parameters through the existing dependency model.
+
+Create new source switches to the existing type/create controls, with a Back to
+existing sources action. No matching results and no sources are separate empty
+states. Catalog loading/error is explicit and does not masquerade as empty;
+unrelated eligible named sources remain usable. Do not copy other workloads'
+emptyDir, ConfigMap or hostPath sources into this list. Keep source bytes hidden,
+reuse shared Dialog/buttons/list styles, and preserve Cancel/focus/scope behavior.

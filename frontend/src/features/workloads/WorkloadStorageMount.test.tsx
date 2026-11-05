@@ -27,6 +27,7 @@ function setup({ types = [storage, redis], resources, others = [] }: { types?: R
 async function openStorage(user:ReturnType<typeof userEvent.setup>, path = '/data') {
   const add=await screen.findByRole('button',{name:'Thêm volume hoặc file'});
   await user.click(add);
+  await user.click(within(screen.getByRole('dialog',{name:'Thêm volume hoặc file'})).getByRole('button',{name:'Tạo nguồn mới'}));
   await user.selectOptions(within(screen.getByRole('dialog',{name:'Thêm volume hoặc file'})).getByLabelText('Loại'),'storage');
   const picker=screen.getByRole('dialog',{name:'Thêm volume hoặc file'});
   await user.clear(within(picker).getByLabelText('Đường dẫn mount'));await user.type(within(picker).getByLabelText('Đường dẫn mount'),path);
@@ -81,7 +82,23 @@ it('explains unavailable storage and rejects secret or non-string storage capabi
   const {user}=setup({ types: [redis, invalid] });
   await user.click(await screen.findByRole('button', { name: 'Thêm volume hoặc file' }));
   const dialog=screen.getByRole('dialog',{name:'Thêm volume hoặc file'});
+  await user.click(within(dialog).getByRole('button',{name:'Tạo nguồn mới'}));
   await user.selectOptions(within(dialog).getByLabelText('Loại'),'storage');
   expect(within(dialog).getByRole('button',{name:'Thêm vào container'})).toBeDisabled();
   expect(screen.getByText('Chưa có loại tài nguyên lưu trữ. Liên hệ quản trị nền tảng để đăng ký.')).toBeVisible();
+});
+
+it('lists app storage first and reuses its shared identity atomically with a collision-free alias', async () => {
+  const {puts,user}=setup({resources:{volume:{type:'redis',id:'cache-existing'}},others:[{id:'worker',ready:true,workload:{resources:{volume:{type:'persistent-storage',id:'store-a',params:{storage:'2Gi'}}}}}]});
+  await user.click(await screen.findByRole('button',{name:'Thêm volume hoặc file'}));
+  const dialog=screen.getByRole('dialog',{name:'Thêm volume hoặc file'});
+  expect(within(dialog).queryByLabelText('Loại')).not.toBeInTheDocument();
+  await user.type(within(dialog).getByLabelText('Tìm nguồn'),'worker');
+  await user.click(within(dialog).getByRole('button',{name:'Dùng volume · persistent-storage · worker · Lưu trữ bền vững (PVC)'}));
+  await user.clear(within(dialog).getByLabelText('Đường dẫn mount'));await user.type(within(dialog).getByLabelText('Đường dẫn mount'),'/reused');
+  await user.click(within(dialog).getByRole('button',{name:'Thêm vào container'}));
+  expect(puts).toHaveLength(0);
+  await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));
+  expect(puts[0]?.workload.resources).toEqual({volume:{type:'redis',id:'cache-existing'},'volume-2':{type:'persistent-storage',id:'store-a',params:{storage:'2Gi'}}});
+  expect(puts[0]?.workload.workloadExecution).toMatchObject({mounts:[{resource:'volume-2',container:'main',path:'/reused',readOnly:false}]});
 });

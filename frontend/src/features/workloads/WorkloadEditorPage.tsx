@@ -329,6 +329,20 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     for (let suffix = 2; form.dependencies.some(dependency => dependency.alias === alias); suffix += 1) alias = `data-${suffix}`;
     setDialog({ type: 'storage', container, mount, initial: { ...emptyDependency(), alias, type: storageTypes.length === 1 ? storageTypes[0]!.key : '' } });
   }
+  const reusableStorage = resourceChoices.filter(choice => choice.dependency && storageKeys.has(choice.dependency.type) && !form.dependencies.some(dep => dep.sharedId === choice.id));
+  function attachSharedStorage(id: string, container: string, mount: {path:string;subPath:string;readOnly:boolean}) {
+    const selected = reusableStorage.find(choice => choice.id === id)?.dependency;
+    if (!selected) return;
+    setForm(prev => {
+      if (!prev.containers.some(c => c.name === container)) return prev;
+      const existing=prev.dependencies.find(dep => dep.sharedId === selected.sharedId && dep.type === selected.type);
+      let alias=existing?.alias ?? selected.alias;
+      if (!existing) {const base=alias;for(let i=2;prev.dependencies.some(dep => dep.alias === alias);i++)alias=`${base}-${i}`;}
+      const dependency={...selected,alias,reuseId:id,params:{...selected.params}};
+      return {...prev,dependencies:existing ? prev.dependencies : [...prev.dependencies,dependency],execution:{...(prev.execution ?? customExecution()),mounts:[...(prev.execution?.mounts ?? []),{resource:alias,container,path:mount.path,readOnly:mount.readOnly,...(mount.subPath ? {subPath:mount.subPath} : {})}]}};
+    });
+    setDirty(true);
+  }
   const rowContext = buildRowContext(catalog, form.dependencies, types, workloads, form.name);
   async function save() {
     if (environmentBusy) return;
@@ -406,7 +420,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
         </Advanced>
         <EnvironmentVariablesTable container={container.name || String(ci + 1)} bindings={container.bindings} catalog={catalog} dependencies={form.dependencies} types={types} workloads={workloads} self={form.name} context={rowContext} disabled={saving} showIncomplete={showIncomplete} focus={focusRequest} onFocused={clearFocus}
           onChange={(bindings) => updateContainer(ci, { ...container, bindings })} onCreateKey={openKeyDialog} onAddResource={(row) => setDialog({ type: 'resource', rowId: row.id })} />
-        <ContainerVolumeFields value={form.execution ?? customExecution()} onChange={execution => updateForm({...form,execution})} container={container.name} storage={form.dependencies.filter(dep => storageKeys.has(dep.type)).map(dep => dep.alias)} secrets={catalog.status === 'ready' ? catalog.keys.filter(k => k.kind === 'SECRET' && k.configured).map(k => k.name) : []} secretCatalogStatus={catalog.status} storageReady={!loadFailed && classMetadata === 'ready'} disabled={saving} onAddStorage={storageTypes.length ? mount => openStorageResource(container.name,mount) : undefined} onCreateSecret={catalog.status === 'ready' ? mount => setDialog({type:'key',kind:'SECRET',rowId:'',suggested:'',file:true,container:container.name,mount}) : undefined} />
+        <ContainerVolumeFields value={form.execution ?? customExecution()} onChange={execution => updateForm({...form,execution})} container={container.name} storage={form.dependencies.filter(dep => storageKeys.has(dep.type)).map(dep => dep.alias)} secrets={catalog.status === 'ready' ? catalog.keys.filter(k => k.kind === 'SECRET' && k.configured).map(k => k.name) : []} secretCatalogStatus={catalog.status} storageReady={!loadFailed && classMetadata === 'ready'} storageStatus={loadFailed ? 'error' : classMetadata} sharedStorage={reusableStorage} onUseStorage={(id,mount) => attachSharedStorage(id,container.name,mount)} disabled={saving} onAddStorage={storageTypes.length ? mount => openStorageResource(container.name,mount) : undefined} onCreateSecret={catalog.status === 'ready' ? mount => setDialog({type:'key',kind:'SECRET',rowId:'',suggested:'',file:true,container:container.name,mount}) : undefined} />
         </section>)}
       {form.execution ? <UnassignedVolumeMounts value={form.execution} onChange={execution => updateForm({...form,execution})} containers={form.containers.map(c => c.name)} disabled={saving} /> : null}
       <Button onClick={() => updateForm({ ...form, containers: [...form.containers, { ...emptyContainer(), name: `container-${form.containers.length + 1}` }] })}>{t('workloads.workloadEditor.addContainer')}</Button>

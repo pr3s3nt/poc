@@ -1497,3 +1497,12 @@ inputs only. The four global storage/source/mount/Secret sections are removed.
 Mount paths/modes survive inline PVC/Secret creation; orphan targets are visible
 for explicit repair. API/JSON/backend contracts and runtime guards are unchanged.
 See WC-22 and [verification](../verification/2026-11-06-container-volume-ui.md) for checks and UI evidence.
+
+WC-23 — Reuse-first volume picker (2026-11-06): ContainerVolumeFields initially
+shows searchable/filterable sources with type and known mount users. It includes
+current-workload named sources, local storage dependencies, eligible shared PVC
+resources from the current app/environment and configured Secrets. New source
+creation is explicit. WorkloadEditorPage reuses shared PVC identity/typed params
+with a collision-free alias and existing reuse guards, adding dependency + mount
+atomically. Other workloads' Pod-local sources are excluded. No API/backend/schema
+change. [Verification](../verification/2026-11-06-reuse-first-volumes.md) records checks and real reuse/Preview.

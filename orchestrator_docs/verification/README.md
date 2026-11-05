@@ -171,3 +171,5 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [Dev bootstrap acceptance app on an endpoint — 2026-11-05](2026-11-05-dev-endpoint-bootstrap.md)
 
 - [Container volume/file UI — WC-22](2026-11-06-container-volume-ui.md).
+
+- [Existing volume sources before creation — WC-23](2026-11-06-reuse-first-volumes.md).

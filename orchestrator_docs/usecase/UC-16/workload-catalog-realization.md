@@ -60,3 +60,8 @@ mount in one local update; reuse points to the same workload source. Source
 editing remains shared and removal detaches only one mount. Existing storage/UC-12
 creation dialogs receive the invoking container and preserve scoped reply guards.
 Serialization and runtime pipeline remain unchanged; no API/schema change.
+
+WC-23 projects the existing workload/configuration catalogs into reusable source
+choices before opening creation controls. Shared PVC reuse resolves the existing
+validated sharedResource choice, preserving identity/params/reuse guard, then
+adds dependency + targeted mount in one local update. Runtime/persistence unchanged.
