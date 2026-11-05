@@ -145,3 +145,9 @@ test('runtime source refresh selects the available pin without adopting a retire
  const stale={state:{templateSources:{test:{id:retired.id,pin}}},save(){},record(){}};
  await assert.rejects(()=>ensureTemplateSources(ui,config,stale),/Recorded template source missing/);
 });
+
+test('endpoint Definition policy is normalized like the Console stores it',async()=>{
+ const {endpointVariables}=await import('./direct-platform.mjs');
+ assert.deepEqual(endpointVariables({rootDomain:'apps.example.com',scheme:'http',gatewayName:'gw',gatewayNamespace:'ns',gatewaySectionName:'',reservedNames:[]}),{rootDomain:'apps.example.com',scheme:'http',gatewayName:'gw',gatewayNamespace:'ns'});
+ assert.deepEqual(endpointVariables({rootDomain:'apps.example.com',scheme:'https',gatewayName:'gw',gatewayNamespace:'ns',gatewaySectionName:'web',reservedNames:['www']}),{rootDomain:'apps.example.com',scheme:'https',gatewayName:'gw',gatewayNamespace:'ns',gatewaySectionName:'web',reservedNames:['www']});
+});

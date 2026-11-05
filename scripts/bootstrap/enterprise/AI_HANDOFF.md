@@ -85,10 +85,10 @@ khác, không nâng quyền staging bootstrap. Không đổi profile trên state
 Rerun giữ nguyên input/state/identities; khác cấu hình thì BLOCKED, không reset,
 đổi tên resource hoặc xóa state để tiếp tục. Đây không phải general upgrade engine.
 
-Frontend mẫu có annotation hostname để template sinh HTTPRoute tới Gateway đã có. Điền nhóm tham số httproute,
-kiểm listener/DNS/TLS phù hợp hostname và quyền delivery/Fleet apply HTTPRoute trong namespace ứng dụng. Đọc
-`projects/platform-resources/bootstrap/HTTPROUTE.md`. HTTPRoute đi cùng workload manifest, không có Terraform Type/Definition/module
-riêng. Không tạo Gateway/controller hoặc sửa route web khác; không thêm publicRoutes trùng đích này.
+Frontend mẫu khai báo endpoint; Definition endpoint cấp hostname `<endpointName>.<endpointRootDomain>` qua Gateway đã có.
+Điền nhóm tham số httprouteGateway* và endpoint*, kiểm listener/DNS/TLS phù hợp domain gốc và quyền delivery/Fleet apply
+HTTPRoute trong namespace ứng dụng. Đọc `projects/platform-resources/bootstrap/HTTPROUTE.md`. HTTPRoute đi cùng workload
+manifest, không có Terraform module riêng. Không tạo Gateway/controller hoặc sửa route web khác; không thêm publicRoutes trùng đích này.
 
 ## 4. Lỗi và resume
 

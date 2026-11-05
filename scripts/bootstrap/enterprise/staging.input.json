@@ -213,6 +213,14 @@
             "contentSha256": "${bootstrap.mongodbModuleSHA256}"
           }
         }
+      },
+      {
+        "git": {
+          "url": "${bootstrap.inputsRepository}",
+          "ref": "${bootstrap.inputsCommit}",
+          "path": "bootstrap/definitions/endpoint.json",
+          "sha256": "LOCK_WITH_HELPER"
+        }
       }
     ],
     "templateSources": [
@@ -281,7 +289,7 @@
   },
   "verification": {
     "enabled": true,
-    "url": "https://${bootstrap.httprouteHostname}",
+    "url": "${bootstrap.endpointScheme}://${bootstrap.endpointName}.${bootstrap.endpointRootDomain}${bootstrap.endpointPath}",
     "jobPayload": "company-staging-persistent-job",
     "timeoutMs": 300000,
     "storage": {
@@ -368,9 +376,10 @@
     "httprouteGatewayName": "REPLACE_GATEWAY_NAME",
     "httprouteGatewayNamespace": "REPLACE_GATEWAY_NAMESPACE",
     "httprouteGatewaySectionName": "REPLACE_LISTENER_NAME",
-    "httprouteHostname": "acceptance.staging.company.example",
-    "httproutePath": "/",
     "httprouteEnabled": true,
-    "httprouteServicePort": "http"
+    "endpointRootDomain": "staging.company.example",
+    "endpointScheme": "https",
+    "endpointName": "acceptance",
+    "endpointPath": "/"
   }
 }

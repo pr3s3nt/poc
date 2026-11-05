@@ -10,7 +10,7 @@ Bắt đầu từ [bàn giao cho AI](AI_HANDOFF.md), [chú thích input](INPUT_R
 | File | Vai trò |
 |---|---|
 | `staging.input.json` | Mẫu input schema 3; thay các giá trị công ty và commit, không chứa secret |
-| `../../../projects/platform-resources/` | Resource Types, chín Definitions, ba Workloads và policy RBAC dùng chung, lưu trong Git nội bộ |
+| `../../../projects/platform-resources/` | Resource Types, mười Definitions, ba Workloads và policy RBAC dùng chung, lưu trong Git nội bộ |
 | `../prepare-enterprise-input.mjs` | Chuẩn bị local snapshot/pins không cần Git CLI; dùng cho staging Console |
 | `../lock-enterprise-input.mjs` | Tùy chọn cho quy trình dev/prepare có Git CLI, xác minh origin và exact Git objects |
 | `INPUT_REFERENCE.md` | Giải thích trường cấu hình, giá trị nào cần thay |

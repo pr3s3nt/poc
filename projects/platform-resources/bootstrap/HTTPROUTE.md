@@ -1,11 +1,46 @@
-# HTTPRoute của workload qua Gateway Traefik có sẵn
+# Địa chỉ public của workload qua Gateway Traefik có sẵn
 
-HTTPRoute nằm trong Git workload template, được render cùng Service và đưa
-vào Git manifest để Fleet apply/remove theo inventory của workload. Không có
-Resource Type/Definition/module Terraform riêng cho route và không có state
-Terraform mới. Gateway/controller/DNS/TLS vẫn do platform công ty quản lý.
+Cách khuyến nghị: workload khai báo resource `endpoint`; Definition `endpoint.json`
+(driver dựng sẵn `endpoint`) giữ chính sách domain gốc/Gateway. Deploy giữ chỗ
+hostname trong database (một owner trên toàn installation), rồi sinh HTTPRoute vào
+cùng manifest Git của workload để Fleet apply/remove theo inventory. Không có
+Terraform module/state cho route. Gateway/controller/DNS/TLS vẫn do platform quản lý.
+Hợp đồng: [EP-01–06](../../../orchestrator_docs/architecture/contracts/endpoint.md).
 
-## Input staging
+## Endpoint (khuyến nghị)
+
+| Tham số | Ý nghĩa |
+|---|---|
+| `parameters.endpointRootDomain` | Domain gốc dành riêng cho installation, ví dụ `staging.company.example` |
+| `parameters.endpointScheme` | `https` hoặc `http`, theo listener thật |
+| `parameters.httprouteGatewayName`, `httprouteGatewayNamespace`, `httprouteGatewaySectionName` | Gateway/listener có sẵn; section rỗng để bỏ sectionName |
+| `parameters.endpointName`, `endpointPath` | Nhãn DNS và PathPrefix của frontend mẫu |
+
+```yaml
+resources:
+  public:
+    type: endpoint
+    params:
+      name: acceptance   # → acceptance.<rootDomain>
+      port: http         # tên port trong service.ports
+      path: /
+```
+
+Developer chỉ chọn name/port/path; tham số khác bị từ chối. Preview hiện URL dự
+kiến và báo nếu hostname đã bị workload khác giữ. HTTPRoute tên ổn định
+`endpoint-<hash owner>`, trỏ Service đã render và port số của port có tên đó.
+Đổi name: hostname mới được giữ khi Deploy, hostname cũ chỉ nhả sau khi Deploy
+thành công; bỏ endpoint hoặc gỡ workload thì route bị prune và hostname được nhả.
+Không khai báo endpoint cùng `service.publicRoutes` hoặc template tự sinh route.
+Database không thấy route ngoài hệ thống: hãy giao riêng subdomain cho installation,
+hoặc liệt kê tên đã dùng trong `reservedNames` của Definition.
+
+## Route do template sinh (cách cũ)
+
+Vẫn hỗ trợ cho workload đã dùng annotation; chuyển sang endpoint cần đổi workload
+có chủ đích. Frontend mẫu không còn dùng cách này.
+
+### Input
 
 | Tham số | Ý nghĩa |
 |---|---|
@@ -13,16 +48,13 @@ Terraform mới. Gateway/controller/DNS/TLS vẫn do platform công ty quản l�
 | `parameters.httprouteGatewayName` | Tên Gateway đang có |
 | `parameters.httprouteGatewayNamespace` | Namespace chứa Gateway |
 | `parameters.httprouteGatewaySectionName` | Tên listener, ví dụ https; rỗng để bỏ sectionName |
-| `parameters.httprouteHostname` | Domain của frontend mẫu, không có scheme/path |
-| `parameters.httproutePath` | PathPrefix, mặc định / |
-| `parameters.httprouteServicePort` | Tên port khai báo trong Service của frontend, mặc định http |
 
 Workload Definition truyền enabled/Gateway/listener vào template_inputs với
 các tên httpRouteEnabled, httpRouteGatewayName, httpRouteGatewayNamespace,
 httpRouteGatewaySectionName. Hostname/path/port nằm trên từng workload để một
 Definition dùng chung không vô tình tạo route cho mọi ứng dụng.
 
-Frontend mẫu nhận ba annotation từ input:
+Workload dùng ba annotation:
 
 ```yaml
 metadata:
@@ -48,13 +80,15 @@ service.publicRoutes trên cùng workload. Không khai báo resources.public_htt
 
 ## Gateway có sẵn và kiểm tra
 
-HTTPRoute v1 nằm trong namespace app, tên bằng workload (ví dụ frontend),
+Route do template sinh nằm trong namespace app, tên bằng workload (ví dụ frontend);
+route endpoint tên `endpoint-<hash>`. Cả hai
 parentRefs trỏ Gateway/listener được chỉ định. Gateway cần cho phép routes từ
 namespace ứng dụng; backendRefs chỉ tới Service cùng namespace. Không tạo
 ReferenceGrant hoặc sửa allowedRoutes của Gateway dùng chung.
 
-Giữ DNS/TLS/listener phù hợp hostname. verification.url của preset dùng https;
-đổi thành http nếu listener thực sự chỉ phục vụ HTTP. Chuẩn bị lại input và
+Giữ DNS/TLS/listener phù hợp hostname. verification.url của preset ghép từ
+endpointScheme/endpointName/endpointRootDomain; đặt endpointScheme=http chỉ khi
+listener thật chỉ phục vụ HTTP. Chuẩn bị lại input và
 source/template pins sau khi publish commit; bootstrap qua Playwright/Console
 không cần Git/kubectl/gh CLI và không tự nâng quyền cluster.
 
