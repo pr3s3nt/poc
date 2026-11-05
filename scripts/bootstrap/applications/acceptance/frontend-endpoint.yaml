@@ -1,0 +1,34 @@
+apiVersion: orchestrator.dev/workload/v1
+containers:
+    main:
+        image: @@FRONTEND_IMAGE@@
+        livenessProbe:
+            path: /healthz
+            port: 8080
+        readinessProbe:
+            path: /healthz
+            port: 8080
+        variables:
+            BACKEND_URL: ${resources.svc_backend_http.url}
+            PORT: ${resources.env.PORT}
+metadata:
+    name: frontend
+resources:
+    svc_backend_http:
+        params:
+            port: http
+            workload: backend
+        type: service
+    env:
+        type: environment
+    public:
+        type: endpoint
+        params:
+            name: desktop-bdjp2rq-1
+            port: http
+            path: /
+service:
+    ports:
+        http:
+            port: 8080
+            targetPort: 8080

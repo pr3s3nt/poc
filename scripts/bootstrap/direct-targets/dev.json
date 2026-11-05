@@ -261,6 +261,40 @@
             "secret": false
           }
         ]
+      },
+      {
+        "key": "endpoint",
+        "inputs": [
+          {
+            "name": "name",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "port",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "path",
+            "type": "string",
+            "required": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "hostname",
+            "type": "string",
+            "required": true,
+            "secret": false
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "required": true,
+            "secret": false
+          }
+        ]
       }
     ],
     "secretStore": {
@@ -327,6 +361,9 @@
       },
       {
         "file": "../definitions/kind/workload.json"
+      },
+      {
+        "file": "../definitions/kind/endpoint.json"
       }
     ],
     "templateSources": [
@@ -368,7 +405,7 @@
     "workloads": {
       "backend": "../../../e2e/scenarios/acceptance-app/scores/backend.yaml",
       "worker": "../../../e2e/scenarios/acceptance-app/scores/worker.yaml",
-      "frontend": "../../../e2e/scenarios/acceptance-app/scores/frontend.yaml"
+      "frontend": "../applications/acceptance/frontend-endpoint.yaml"
     }
   },
   "verification": {
