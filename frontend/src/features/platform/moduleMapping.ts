@@ -26,6 +26,8 @@ export type MappingDraft = {
 
 export const emptyMapping = (): MappingDraft => ({ inputs: {}, outputs: {}, bindings: {} });
 export const clusterType = 'k8s-cluster';
+// The built-in public endpoint Resource Type (EP-01).
+export const endpointType = 'endpoint';
 // The EKS cluster node of the Environment, addressed by a class the catalog serves.
 export const clusterRef = (clusterClass: string) => `${clusterType}.${clusterClass}#environments.@app.@env`;
 const clusterRefPattern = /^k8s-cluster\.([^#]+)#environments\.@app\.@env$/;

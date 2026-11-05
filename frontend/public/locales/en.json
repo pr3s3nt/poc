@@ -3810,5 +3810,21 @@
   "sourceSummary.repository": "Repository",
   "sourceSummary.unavailable": "Repository metadata unavailable",
   "sourceSummary.change": "Change source",
-  "sourceSummary.registered": "Registered sources"
+  "sourceSummary.registered": "Registered sources",
+  "endpointDriver.title": "Public address",
+  "endpointDriver.driver": "Endpoint",
+  "endpointDriver.rootDomain": "Root domain",
+  "endpointDriver.scheme": "Scheme",
+  "endpointDriver.gatewayName": "Gateway name",
+  "endpointDriver.gatewayNamespace": "Gateway namespace",
+  "endpointDriver.listener": "Listener (optional)",
+  "endpointDriver.reservedNames": "Names used outside this installation (optional)",
+  "endpointDriver.address": "Application address:",
+  "endpointDriver.helpSummary": "How addresses are assigned",
+  "endpointDriver.help": "Developers choose only name, port and path. The hostname is reserved on Deploy and released after successful removal. Gateway, DNS and TLS are managed by infrastructure; the Gateway must allow routes from the application namespace.",
+  "endpointDriver.invalidDomain": "Enter a lowercase root domain with at least two labels, for example apps.company.example.",
+  "endpointDriver.invalidGateway": "Gateway name, namespace and listener use only lowercase letters, digits and hyphens.",
+  "endpointDriver.invalidReserved": "Each used name must be one lowercase DNS label, separated by commas.",
+  "endpointDriver.noModule": "No module needed",
+  "preview.endpoint": "Public address"
 }

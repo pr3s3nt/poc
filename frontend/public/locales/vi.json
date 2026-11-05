@@ -3810,5 +3810,21 @@
   "sourceSummary.repository": "Repository",
   "sourceSummary.unavailable": "Chưa có thông tin repository",
   "sourceSummary.change": "Đổi nguồn",
-  "sourceSummary.registered": "Nguồn đã đăng ký"
+  "sourceSummary.registered": "Nguồn đã đăng ký",
+  "endpointDriver.title": "Địa chỉ public",
+  "endpointDriver.driver": "Endpoint",
+  "endpointDriver.rootDomain": "Domain gốc",
+  "endpointDriver.scheme": "Giao thức",
+  "endpointDriver.gatewayName": "Tên Gateway",
+  "endpointDriver.gatewayNamespace": "Namespace của Gateway",
+  "endpointDriver.listener": "Listener (tùy chọn)",
+  "endpointDriver.reservedNames": "Tên đã dùng ngoài hệ thống (tùy chọn)",
+  "endpointDriver.address": "Địa chỉ ứng dụng:",
+  "endpointDriver.helpSummary": "Cách cấp địa chỉ",
+  "endpointDriver.help": "Developer chỉ chọn tên, port và path. Hostname được giữ chỗ khi Deploy và nhả sau khi gỡ thành công. Gateway, DNS và TLS do hạ tầng quản lý; Gateway phải cho phép route từ namespace ứng dụng.",
+  "endpointDriver.invalidDomain": "Nhập domain gốc gồm ít nhất hai phần, chữ thường, ví dụ apps.company.example.",
+  "endpointDriver.invalidGateway": "Tên Gateway, namespace và listener chỉ gồm chữ thường, số và dấu gạch ngang.",
+  "endpointDriver.invalidReserved": "Mỗi tên đã dùng phải là một nhãn DNS chữ thường, ngăn cách bằng dấu phẩy.",
+  "endpointDriver.noModule": "Không cần module",
+  "preview.endpoint": "Địa chỉ public"
 }
