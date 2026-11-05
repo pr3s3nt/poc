@@ -25,11 +25,8 @@
   {{- $resources := dict "requests" $requests -}}
   {{- if gt (len $declaredLimits) 0 }}{{ $_ := set $resources "limits" $declaredLimits }}{{ end -}}
   {{- $_ := set $out "resources" $resources -}}
-  {{- range $probe := list "readinessProbe" "livenessProbe" -}}
-    {{- if hasKey $c $probe -}}
-      {{- $p := get $c $probe -}}
-      {{- $_ := set $out $probe (dict "httpGet" (dict "path" $p.path "port" $p.port)) -}}
-    {{- end -}}
+  {{- range $probe := list "readinessProbe" "livenessProbe" "startupProbe" -}}
+    {{- if hasKey $c $probe }}{{ $_ := set $out $probe (get (get $.Input.probes $name) $probe) }}{{ end -}}
   {{- end -}}
   {{- $env := list -}}
   {{- range $b := get $.Input.bindings $name | default (list) -}}

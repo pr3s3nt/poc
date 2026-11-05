@@ -38,3 +38,19 @@ service -> applied WorkloadInstance/current generation + inventoried CronJob ->
 credential-bound Kubernetes reader. Reader verifies scope and deployment owner,
 then joins Job controller owner UID to the verified CronJob. Safe bounded rows
 return to the existing Dialog; log navigation reuses UC-09 stored history.
+
+## Custom workload expansion — GW-06 / WC-16..19
+
+The editor owns local role/order/volume/mount controls for every workload, not
+only selected presets. Save/parse validates the same domain intent and scoped
+Secret refs; existing desired JSON persists it under draft CAS. The planner
+checks the matched immutable source capabilities before executing dependencies.
+The renderer builds ordered init/sidecar specs, per-container mounts and owned
+nonsecret ConfigMaps; semantic guards verify all declarations and references.
+Existing applied snapshots, inventory and cleanup retain their current ownership
+boundaries. No separate volume/sidecar API, SQL column or runtime plugin is added.
+
+HostPath (WC-21) follows the existing named-volume flow: Editor → node path/type
+validation → draft CAS → selected source host-path-volumes-v1 capability gate →
+render path/type + per-container mode → semantic source/mount guard → safe Preview.
+It adds no Terraform resource, filesystem operation, scheduling or cleanup step.

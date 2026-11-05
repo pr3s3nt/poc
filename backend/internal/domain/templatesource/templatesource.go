@@ -66,9 +66,10 @@ func invalid(file, format string, args ...any) error {
 
 // Manifest is the strict bundle.yaml of version 1.
 type Manifest struct {
-	APIVersion string `yaml:"apiVersion" json:"apiVersion"`
-	Kind       string `yaml:"kind" json:"kind"`
-	Metadata   struct {
+	WorkloadCapabilities []string `yaml:"workloadCapabilities,omitempty" json:"workloadCapabilities,omitempty"`
+	APIVersion           string   `yaml:"apiVersion" json:"apiVersion"`
+	Kind                 string   `yaml:"kind" json:"kind"`
+	Metadata             struct {
 		Name string `yaml:"name" json:"name"`
 	} `yaml:"metadata" json:"metadata"`
 	Renderer struct {
@@ -138,6 +139,9 @@ func ParseManifest(raw []byte) (Manifest, error) {
 			}
 			seen[file] = true
 		}
+	}
+	if err := validateCapabilities(m.WorkloadCapabilities); err != nil {
+		return Manifest{}, err
 	}
 	if err := validateWorkloadTemplates(m.WorkloadTemplates); err != nil {
 		return Manifest{}, err
@@ -233,6 +237,9 @@ func (b Bundle) Validate() error {
 	case b.Contract.InputContract != InputContract || b.Contract.InputsSchema == nil || b.Contract.Defaults == nil:
 		return invalid("", "record contract is incomplete")
 	}
+	if err := validateCapabilities(b.Contract.Manifest.WorkloadCapabilities); err != nil {
+		return err
+	}
 	return validateWorkloadTemplates(b.Contract.Manifest.WorkloadTemplates)
 }
 
@@ -259,6 +266,7 @@ func (b Bundle) ShortRevision() string {
 // Clone returns an independent copy.
 func (b Bundle) Clone() Bundle {
 	out := b
+	out.Contract.Manifest.WorkloadCapabilities = append([]string(nil), b.Contract.Manifest.WorkloadCapabilities...)
 	if b.Contract.Manifest.WorkloadTemplates != nil {
 		out.Contract.Manifest.WorkloadTemplates = make([]WorkloadTemplate, len(b.Contract.Manifest.WorkloadTemplates))
 		for i, t := range b.Contract.Manifest.WorkloadTemplates {

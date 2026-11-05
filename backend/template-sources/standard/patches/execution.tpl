@@ -12,10 +12,27 @@
 {{- range $ci, $container := $pod.spec.containers -}}
 {{- if eq $container.name $mount.container -}}
 {{- $mounts := get $container "volumeMounts" | default (list) -}}
-{{- $_ := set $container "volumeMounts" (append $mounts (dict "name" $name "mountPath" $mount.path "readOnly" $mount.readOnly)) -}}
+{{- $_ := set $container "volumeMounts" (append $mounts (dict "name" $name "mountPath" $mount.path "readOnly" $mount.readOnly "subPath" (get $mount "subPath" | default ""))) -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
+{{- range $vi,$volume := get $e "volumes" | default (list) -}}
+{{- $name := printf "local-%d" $vi -}}
+{{- $v := dict "name" $name -}}
+{{- if hasKey $volume "hostPath" }}{{ $_ := set $v "hostPath" $volume.hostPath }}{{ end -}}
+{{- if hasKey $volume "emptyDir" }}{{ $_ := set $v "emptyDir" $volume.emptyDir }}{{ end -}}
+{{- if hasKey $volume "configMap" -}}
+{{- $c := get $in.configMaps $volume.name -}}
+{{- $_ := set $v "configMap" (dict "name" $c.name "defaultMode" $c.mode) -}}
+{{- end -}}
+{{- $volumes = append $volumes $v -}}
+{{- range $mount := get $e "volumeMounts" | default (list) -}}
+{{- if eq $mount.volume $volume.name -}}
+{{- range $container := $pod.spec.containers -}}
+{{- if eq $container.name $mount.container -}}
+{{- $mounts := get $container "volumeMounts" | default (list) -}}
+{{- $_ := set $container "volumeMounts" (append $mounts (dict "name" $name "mountPath" $mount.path "readOnly" $mount.readOnly "subPath" (get $mount "subPath" | default ""))) -}}
+{{- end -}}{{- end -}}{{- end -}}{{- end -}}{{- end -}}
 {{- range $fi,$file:=get $in "secretFiles" | default (list) -}}
 {{- $name:=printf "secret-file-%d" $fi -}}
 {{- $volumes = append $volumes (dict "name" $name "secret" (dict "secretName" $file.secretName "defaultMode" $file.mode "items" (list (dict "key" $file.secretKey "path" "value")))) -}}

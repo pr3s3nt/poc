@@ -10,7 +10,19 @@ import (
 func validateExecution(plan *Plan, catalog Catalog) error {
 	for id, module := range plan.CandidateSet.Modules {
 		e := module.Spec.Execution
-		if e == nil {
+		needsLifecycle := false
+		for _, c := range module.Spec.Containers {
+			needsLifecycle = needsLifecycle || c.Role == "init" || c.Role == "sidecar"
+		}
+		needsProbes := false
+		for _, c := range module.Spec.Containers {
+			for _, p := range []*environment.Probe{c.ReadinessProbe, c.LivenessProbe, c.StartupProbe} {
+				if p != nil && ((p.Type != "" && p.Type != "http") || p.Scheme != "" || p.InitialDelaySeconds != nil || p.TimeoutSeconds != nil || p.PeriodSeconds != nil || p.SuccessThreshold != nil || p.FailureThreshold != nil) {
+					needsProbes = true
+				}
+			}
+		}
+		if e == nil && !needsLifecycle && !needsProbes {
 			continue
 		}
 		selection, ok := plan.Rendering[id]
@@ -21,8 +33,14 @@ func validateExecution(plan *Plan, catalog Catalog) error {
 		if !ok {
 			return environment.ErrExecutionUnavailable
 		}
-		if _, _, err := templatesource.MatchWorkloadTemplate(bundle.Contract.Manifest.WorkloadTemplates, e.Template.ID, e.Template.Version, e.Template.SHA256, e.Kind, e.Inputs); err != nil {
+		if err := templatesource.ValidateWorkloadCapabilities(bundle.Contract.Manifest, module.Spec.Containers, e); err != nil {
+			return err
+		}
+		if _, err := templatesource.ExecutionInputs(bundle.Contract.Manifest, e); err != nil {
 			return environment.ErrExecutionUnavailable
+		}
+		if e == nil {
+			continue
 		}
 		var bindings map[string]string
 		for _, node := range plan.Graph.Nodes {

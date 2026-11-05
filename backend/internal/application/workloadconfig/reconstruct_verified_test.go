@@ -81,8 +81,8 @@ func TestReconstructVerifiedFailsClosed(t *testing.T) {
 			m.Spec.Containers["web"].Variables["X"] = "${externals.nope.host}"
 			d.Modules["api"] = m
 		},
-		"lossy replicas": func(d *environment.Document) {
-			zero := 0
+		"negative replicas": func(d *environment.Document) {
+			zero := -1
 			m := d.Modules["api"]
 			m.Spec.Replicas = &zero
 			d.Modules["api"] = m
@@ -269,5 +269,20 @@ func TestReconstructKeepsExplicitWorkloadClass(t *testing.T) {
 	}
 	if _, has := raw["metadata"].(map[string]any)["class"]; has {
 		t.Fatalf("a missing class must not be invented: %v", raw["metadata"])
+	}
+}
+
+func TestReconstructVerifiedPreservesExplicitZeroReplicas(t *testing.T) {
+	set := environment.NewDocument()
+	m := moduleWith(nil, nil)
+	zero := 0
+	m.Spec.Replicas = &zero
+	set.Modules["api"] = m
+	raw, err := ReconstructVerified("api", m, set, pgTypes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raw["replicas"] != float64(0) {
+		t.Fatalf("zero replicas lost: %v", raw["replicas"])
 	}
 }

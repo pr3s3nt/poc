@@ -72,3 +72,30 @@ shows loading/error/retry, bounded Kubernetes Job history and observation time;
 Pending/Running are observations, not rollout readiness. Empty history means no
 retained Job, not a successful run. Disclose history-limit/truncation semantics.
 Closing restores focus; changing app/environment drops late responses.
+
+## Custom containers and volumes — WC-16..19
+
+Custom and preset editors share the Storage/File sections. Each container keeps
+its current card and env table and adds a role dropdown; Init/Sidecar show an
+order control. The source section separates retained PVC mounts, named emptyDir
+volumes, ConfigMap data files, mounts and Secret files. Named volumes can be
+mounted in multiple containers. Use existing form fields, Add/Remove buttons
+and read-only checkboxes; no shell or navigation change. Secret file selection
+shows only approved key names, a container, path and read mode; missing keys
+remain visible invalid selections. Label ConfigMap content nonsecret. Local
+changes do not provision or deploy until explicit Save → Preview → Deploy.
+
+GW-07 uses per-container advanced port rows and probe controls (enable/type,
+HTTP path/scheme, TCP port or exec argv, plus optional timing). Service rows expose
+protocol; Workload advanced contains annotation name/value rows. Replicas is
+optional and supports zero for Deployment; no value is synthesized at Save.
+
+## HostPath — WC-21 (2026-11-06)
+
+Reuse the named volume source selector and mount rows. HostPath reveals node
+path and type (default Directory, optional unchecked type and all Kubernetes enum
+values). Show one short note that node files are exposed, paths differ by node
+and cluster policy can reject them. New mounts default read-only with an editable
+checkbox; imported read-write intent remains unchanged. Keep empty/error/save
+states, existing shell/controls and translated VI/EN labels. Preview keeps
+path/type/mount mode visible. Do not add a node file browser or local file picker.

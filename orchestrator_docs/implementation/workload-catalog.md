@@ -7,6 +7,20 @@ last_reviewed: 2026-10-29
 
 # Workload catalog — implementation entry, issue #24
 
+## Chinhform implementation — 2026-11-06
+
+The approved scope below is implemented on `features/chinhform`, including the
+reviewed companion fields. [GW-06/07](../architecture/contracts/generic-workload.md)
+and WC-16..21 own the final model. Source capabilities, custom execution without
+preset pins, ordered init/native-sidecar rendering, per-role mounts and safe
+Preview projection are in place; existing Definition/source pins still apply.
+No DDL/ERD migration or provider/cluster policy change was made.
+[Verification and retained Console](../verification/2026-11-06-chinhform-runtime.md)
+records real Save/reopen/Preview, checks, unrelated baseline failures and the
+external-runtime boundary. Earlier notes about the probe union/custom form gap
+are historical for this branch; resource-scoped database secret prerequisite
+automation remains a separate earlier limitation.
+
 ## Chinhform scope — 2026-11-05
 
 Current user authorization on `features/chinhform` extends authoring/platform
@@ -15,8 +29,8 @@ sidecar and init containers with per-container mounts. The ordinary custom form
 must expose these capabilities. This is not permission to mutate a cluster/cloud.
 Keep explicit Save → Preview → Deploy, stable resource identities, retention,
 approved versioned secret references and lossless edit/import. Broader projected,
-downwardAPI, token, inline CSI, generic ephemeral and hostPath volume authoring
-are outside this slice. Source contracts/realizations must be extended before
+downwardAPI, token, inline CSI and generic ephemeral volume authoring
+remain outside this slice. HostPath was added by WC-21 on 2026-11-06. Source contracts/realizations must be extended before
 implementing the new runtime intent; this handoff is not evidence of completion.
 
 An independently completed authoring change adds UC-16 BR-31/32: Workload class
@@ -155,3 +169,11 @@ renderengine package tests, `go build ./...`, documentation checker and whitespa
 checks passed. No frontend or unrelated backend full suite was rerun for this
 bundle-only behavior change. No Kubernetes/cloud mutation or Ceph live rollout
 was performed; installed immutable Git pins remain on their existing revision.
+
+HostPath extension WC-21 (2026-11-06) uses the same `PodVolume`/`LocalVolumeFields`
+flow: node path/type, per-container read mode/subPath, host-path-volumes-v1 source
+admission, standard execution template, invariant guards and safe Preview.
+Coverage: environment hostPath validation/clone, workloadconfig round-trip, planner
+capability admission, templatedriver multi-controller/source/mode invariants,
+deploymentreview projection, WorkloadRuntimeIntent UI and workload-runtime-form E2E.
+See [generic contract](../architecture/contracts/generic-workload.md) and the runtime verification record. Kubernetes execution remains unverified.

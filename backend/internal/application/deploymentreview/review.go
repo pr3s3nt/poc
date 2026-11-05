@@ -425,7 +425,7 @@ func ProjectManifests(manifests []execution.Manifest) map[string]Side {
 			out[m.Kind+"/"+m.Name] = unavailable("REDACTION_REQUIRED")
 			continue
 		}
-		side := Side{Availability: "PARTIAL", Text: string(encoded), RedactedPaths: []string{"metadata.annotations", "spec.template.metadata.annotations[vault.hashicorp.com/*]", "spec.template.spec.containers[*].env[*].value"}, UnknownPaths: []string{}}
+		side := Side{Availability: "PARTIAL", Text: string(encoded), RedactedPaths: []string{"metadata.annotations", "spec.template.metadata.annotations[vault.hashicorp.com/*]", "spec.template.spec.containers[*].env[*].value", "**.initContainers[*].env[*].value", "**.exec.command"}, UnknownPaths: []string{}}
 		if len(encoded) > MaxSideBytes {
 			side = unavailable("LIMIT_EXCEEDED")
 		}
@@ -532,6 +532,21 @@ func sanitizeManifest(m execution.Manifest) map[string]any {
 		result["spec"] = safe
 		return result
 	}
+	if m.Kind == "CronJob" {
+		safe := selectObject(spec, "schedule", "timeZone", "concurrencyPolicy", "suspend", "startingDeadlineSeconds", "successfulJobsHistoryLimit", "failedJobsHistoryLimit")
+		job, _ := spec["jobTemplate"].(map[string]any)
+		jobSpec, _ := job["spec"].(map[string]any)
+		pseudo := m
+		pseudo.Kind = "Deployment"
+		pseudo.Object = map[string]any{"spec": map[string]any{"template": jobSpec["template"]}}
+		projected := sanitizeManifest(pseudo)
+		podSpec, _ := projected["spec"].(map[string]any)
+		safeJob := selectObject(jobSpec, "activeDeadlineSeconds", "backoffLimit")
+		safeJob["template"] = podSpec["template"]
+		safe["jobTemplate"] = map[string]any{"spec": safeJob}
+		result["spec"] = safe
+		return result
+	}
 	safe := map[string]any{}
 	switch replicas := spec["replicas"].(type) {
 	case int, int32, int64, float64:
@@ -585,69 +600,17 @@ func sanitizeManifest(m execution.Manifest) map[string]any {
 			podSafe[field] = value
 		}
 	}
-	containers, _ := pod["containers"].([]any)
-	list := []any{}
-	for _, entry := range containers {
-		c, ok := entry.(map[string]any)
-		if !ok {
-			continue
+	for _, field := range []string{"containers", "initContainers"} {
+		if containers, ok := pod[field].([]any); ok {
+			podSafe[field] = projectContainers(containers)
 		}
-		clean := map[string]any{}
-		for _, field := range []string{"name", "image", "imagePullPolicy"} {
-			if value, ok := c[field].(string); ok {
-				clean[field] = value
-			}
-		}
-		if ports, ok := c["ports"].([]any); ok {
-			clean["ports"] = selectObjectList(ports, "name", "containerPort", "protocol")
-		}
-		if value := safeTree(c["securityContext"], 0); value != nil {
-			clean["securityContext"] = value
-		}
-		if resources, ok := c["resources"].(map[string]any); ok {
-			selected := map[string]any{}
-			for _, class := range []string{"requests", "limits"} {
-				if values, ok := resources[class].(map[string]any); ok {
-					selected[class] = selectObject(values, "cpu", "memory")
-				}
-			}
-			clean["resources"] = selected
-		}
-		for _, field := range []string{"readinessProbe", "livenessProbe", "startupProbe"} {
-			if probe, ok := c[field].(map[string]any); ok {
-				selected := selectObject(probe, "initialDelaySeconds", "periodSeconds", "timeoutSeconds", "failureThreshold", "successThreshold")
-				if get, ok := probe["httpGet"].(map[string]any); ok {
-					selected["httpGet"] = selectObject(get, "path", "port", "scheme")
-				}
-				clean[field] = selected
-			}
-		}
-		if env, ok := c["env"].([]any); ok {
-			safeEnv := []any{}
-			for _, e := range env {
-				v, ok := e.(map[string]any)
-				if !ok {
-					continue
-				}
-				name, valid := v["name"].(string)
-				if !valid || !safeLabel(name) {
-					continue
-				}
-				item := map[string]any{"name": name}
-				if ref, ok := v["valueFrom"].(map[string]any); ok {
-					if secret, ok := ref["secretKeyRef"].(map[string]any); ok {
-						item["valueFrom"] = map[string]any{"secretKeyRef": selectObject(secret, "name", "key", "optional")}
-					}
-				} else {
-					item["value"] = "<redacted>"
-				}
-				safeEnv = append(safeEnv, item)
-			}
-			clean["env"] = safeEnv
-		}
-		list = append(list, clean)
 	}
-	podSafe["containers"] = list
+	if volumes, ok := pod["volumes"].([]any); ok {
+		podSafe["volumes"] = projectVolumes(volumes)
+	}
+	if policy, ok := pod["restartPolicy"].(string); ok {
+		podSafe["restartPolicy"] = policy
+	}
 	template, _ := safe["template"].(map[string]any)
 	if template == nil {
 		template = map[string]any{}
@@ -853,6 +816,8 @@ func (a Assembler) manifests(ctx context.Context, plan *planning.Plan, descripto
 		tpl, _ := spec["template"].(map[string]any)
 		pod, _ := tpl["spec"].(map[string]any)
 		containers, _ := pod["containers"].([]any)
+		init, _ := pod["initContainers"].([]any)
+		containers = append(containers, init...)
 		for _, raw := range containers {
 			c, _ := raw.(map[string]any)
 			name, _ := c["name"].(string)

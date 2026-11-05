@@ -89,3 +89,72 @@ For example, a Definition's `resource_references.namespaceName` may contain
 Its template reads `.Resources.namespaceName`. This uses existing descriptors,
 graph dependencies and bindings; it does not introduce another reference syntax.
 The renderer validates explicit Workload intent before handing manifests to CD.
+
+## GW-06 — Container lifecycle and volumes (approved 2026-11-05)
+
+All containers retain the same named `containers` map, bindings and resource
+limits. Optional `role` is `app` (also the omitted default), `init`, or `sidecar`.
+Init/sidecar declare a unique positive `initOrder` (1..999); app has no order.
+At least one app is required. Init containers run to completion in order; native
+sidecars occupy that same ordered init sequence with `restartPolicy: Always`.
+Regular init containers cannot declare probes. Names are unique across roles.
+Changing a role must not change its env bindings, image, resource or mount intent.
+Native sidecar execution needs a Kubernetes target supporting that feature; the
+platform never silently converts it to an ordinary long-running container.
+See [Kubernetes sidecars](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/).
+
+Existing `workloadExecution.mounts` continues to describe retained managed PVC
+resource references. New `volumes[]` defines Pod-local named sources: exactly one
+of `emptyDir: {medium?: "Memory", sizeLimit?: quantity}`,
+`hostPath: {path: absoluteCleanLinuxPath, type?: ""|"Directory"|"DirectoryOrCreate"|"File"|"FileOrCreate"|"Socket"|"CharDevice"|"BlockDevice"}`, or
+`configMap: {files: [{name: fileName, value: literalNonsecretText}], defaultMode?: 256|288|292}`.
+Default ConfigMap mode is 0444 (292). ConfigMap data is explicitly nonsecret;
+values are literal, never resolved as secret/resource expressions. ConfigMaps are
+owned namespaced workload inventory. `volumeMounts[]` has volume, container,
+absolute path, readOnly and optional clean relative subPath. ConfigMap mounts
+are read-only; file subPaths must name an existing data key. emptyDir supports
+sharing the same volume among containers; its lifetime is the Pod, unlike PVC.
+PVC mounts accept optional clean relative subPath too. All roles can mount all
+five source kinds. Host paths use the scheduled node filesystem, not the
+Console client filesystem; no provisioning, retention, deletion, placement or
+permission changes are inferred. Source paths must be absolute, clean, bounded
+to 1024 bytes and exclude NUL, CR/LF and backslashes. The selected node/cluster
+policy owns path existence, permissions and admission. Form defaults are
+Directory and read-only mounting; explicit writable intent is preserved. See
+[Kubernetes hostPath](https://kubernetes.io/docs/concepts/storage/volumes/#hostpath).
+Reject duplicate/overlapping/protected paths, missing sources,
+invalid sizes, duplicate names and writable ConfigMap/Secret mounts. Secret files
+keep the existing scoped UC-12 reference/version delivery; never store bytes in
+the workload, ConfigMap, Preview or logs. File mounts remain revision-based,
+not a promise of automatic hot reload.
+
+Custom authoring may omit the execution template pin; partial pins are rejected.
+Such intent has version 1, an explicit kind and no template inputs. The matched
+Definition/source still owns and pins rendering; no renderer is auto-selected.
+Prepared sources advertise bounded `workloadCapabilities`: `custom-execution-v1`,
+`container-lifecycle-v1`, `pod-volumes-v1`, `container-probes-v1`,
+`host-path-volumes-v1` (required additionally for hostPath). Save validates syntax/preset pins;
+Preview requires the exact selected source to advertise each requested capability
+before provisioning, and rendering guards verify lifecycle, order, source data,
+mounts and approved Secret projection without dropping intent. Existing preset
+pins and their input validation remain mandatory when present. Standard source
+advertises these capabilities; old published sources require explicit source
+publication/selection, never silent mutation of existing pins.
+
+## GW-07 — Complete basic runtime authoring
+
+Container ports (name/containerPort/optional TCP, UDP or SCTP protocol), Service
+protocol, optional zero Deployment replicas and Workload metadata annotations
+are editable and round-trip in the form. Annotations remain template inputs,
+not arbitrary Pod annotations. Duplicate annotation/port names are errors.
+
+Probes retain the historical HTTP path/port shorthand. Optional `type` adds
+`http`, `tcp` and `exec`; exec uses command argv, TCP uses port, HTTP uses path,
+port and optional HTTP/HTTPS scheme. Exactly one action is represented.
+Optional initialDelaySeconds >= 0, timeoutSeconds/periodSeconds/failureThreshold/
+successThreshold >= 1 override source defaults. Liveness/startup successThreshold
+must be one. Regular init containers have no probes. Templates must preserve
+explicit action/timing; validate before Save/Preview and check again at render.
+
+Non-HTTP probes or explicit probe timing/scheme require `container-probes-v1`
+on the selected source before provisioning. Historical HTTP shorthand is unchanged.

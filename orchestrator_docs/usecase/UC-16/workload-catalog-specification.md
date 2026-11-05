@@ -65,3 +65,46 @@ behavior hiện hành cho tới khi contracts và implementation được nghi�
 
 Các IDs trên là planned coverage, không khẳng định đã implement. Owner specs
 được link tới extension này để review; không duplicate normative rules.
+
+## Approved custom workload expansion — 2026-11-05
+
+- WC-16: The custom form exposes PVC, emptyDir, hostPath, nonsecret ConfigMap files and
+  scoped Secret-file mounts without requiring a catalog preset. Preset editing
+  keeps its pin. Custom execution follows GW-06 and still uses Definition matching.
+- WC-17: Every container has App/Init/Sidecar selection. Init and sidecar share
+  explicit ordering. Preserve env/resources/command and mounts across role changes;
+  deleting/renaming a referenced container must be corrected before Save, never
+  silently retarget a mount. Reject regular init probes and an all-init workload.
+- WC-18: Developers define named temporary/config volumes and mount them in any
+  container. ConfigMap content is labelled nonsecret; Secret files select UC-12
+  keys only, with path/read mode and no readback. Existing file keys absent from
+  the catalog remain visible invalid choices until corrected. Catalog failure
+  preserves the draft and provides retry, not a fake empty list.
+- WC-19: Save/import/edit/applied reconstruction retain lifecycle, ordering,
+  source definitions and mounts losslessly. Preview shows those changes and
+  rejects a selected source without advertised capabilities before provisioning.
+  Existing PVC identity, retention and explicit delete rules remain unchanged.
+
+- WC-20: Complete the reviewed basic form gaps: per-container ports, Service
+  protocol, optional zero Deployment replicas, annotations in Workload advanced,
+  and HTTP/TCP/exec probes with explicit timing (GW-07). Keep omitted defaults
+  omitted and imported explicit values intact. Nonsecret annotation and command
+  fields do not add a secret-literal mode.
+
+Secret-file creation reuses UC-12 create-only semantics, optionally reading a
+UTF-8 local file up to 64 KiB into the masked create form. Read failure, NUL or
+invalid UTF-8 cannot silently alter data. Only the UC-12 request receives bytes;
+the workload stores the newly created scoped reference. Cancel makes no write.
+
+- WC-21 (approved 2026-11-06): Named hostPath sources accept an absolute clean
+  Linux node path and the Kubernetes type enum (omitted/empty, Directory,
+  DirectoryOrCreate, File, FileOrCreate, Socket, CharDevice, BlockDevice). Mounts
+  target app/init/sidecar with readOnly and optional clean relative subPath.
+  New form sources default to Directory; new hostPath mounts default read-only
+  but permit explicit read-write. Existing imported values remain unchanged.
+  Explain at source selection that the path belongs to the scheduled node,
+  exposes node files and may differ across nodes; cluster policy may reject it.
+  No node directory is read, created or removed by Save/Preview or cleanup.
+  A source must advertise host-path-volumes-v1 as well as pod-volumes-v1 before
+  provisioning. Preview exposes path/type/mount mode; guards reject changed
+  declared sources or mount intent. No new node scheduling or privilege control.

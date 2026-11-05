@@ -19,7 +19,7 @@ import (
 
 const Version = "1.0.0"
 
-//go:embed renderer.go git.go guard.go
+//go:embed renderer.go git.go guard.go pod_volumes.go
 var driverSource embed.FS
 
 // Renderer executes prepared content only. There is no native or executable fallback.
@@ -72,7 +72,7 @@ func (r *Renderer) BinaryDigest() string {
 	h := sha256.New()
 	h.Write([]byte(binary))
 	h.Write([]byte(templatesource.EngineContract + ":" + Version + ":" + renderengine.Fingerprint()))
-	for _, name := range []string{"renderer.go", "git.go", "guard.go"} {
+	for _, name := range []string{"renderer.go", "git.go", "guard.go", "pod_volumes.go"} {
 		source, _ := driverSource.ReadFile(name)
 		h.Write([]byte(name))
 		h.Write(source)

@@ -18,10 +18,13 @@ storage tests and browser fixture inspection pass. Lint has an existing warning
 in PlatformSettingsPage; existing async tests emit act warnings. Browser checks
 use fake API data and do not prove live deployment or Tailscale availability.
 
-The broader user-approved workload expansion (PVC, emptyDir, Secret/ConfigMap
-files, sidecar and init containers including mounts in the custom form) remains
-pending; the class change does not claim to implement it. See
-[scope handoff](implementation/workload-catalog.md#chinhform-scope--2026-11-05).
+The broader workload expansion is implemented on this task branch as of
+2026-11-06: PVC/emptyDir/hostPath/ConfigMap/Secret files, app/init/native-sidecar intent,
+custom form authoring, container ports/Service protocol, zero replicas, advanced
+annotations and HTTP/TCP/exec probes with timing. Save/reopen and real Preview
+are verified through Tailscale using the current backend and real PostgreSQL;
+source guards and render tests cover all controller kinds. No Kubernetes/cloud
+Deploy was performed. See [checks, baseline failures, runtime and limits](verification/2026-11-06-chinhform-runtime.md).
 
 ## Public routes and subdomains retired — 2026-11-05
 
@@ -2038,3 +2041,11 @@ reachable by real Tailscale DNS in Playwright and from Windows (HTTP 200).
 See [HTTPRoute domain verification](verification/2026-11-05-httproute-domain.md).
 A dedicated authorized dev Traefik/Gateway and test frontend remain for review;
 this is HTTP-only and does not establish company staging/HTTPS readiness.
+
+HostPath extension WC-21 (2026-11-06) uses the same `PodVolume`/`LocalVolumeFields`
+flow: node path/type, per-container read mode/subPath, host-path-volumes-v1 source
+admission, standard execution template, invariant guards and safe Preview.
+Coverage: environment hostPath validation/clone, workloadconfig round-trip, planner
+capability admission, templatedriver multi-controller/source/mode invariants,
+deploymentreview projection, WorkloadRuntimeIntent UI and workload-runtime-form E2E.
+See [generic contract](architecture/contracts/generic-workload.md) and the runtime verification record. Kubernetes execution remains unverified.

@@ -7,6 +7,19 @@ last_reviewed: 2026-10-28
 
 # Design-to-code map
 
+## Custom workload runtime authoring — GW-06/07
+
+`environment/volumes.go`, `probes.go`, `execution.go` and `workloadspec/workload.go`
+validate lifecycle/volumes/probes. `templatesource/workload_capabilities.go` and
+`planning/workload_execution.go` gate matched sources; `templatedriver/pod_volumes.go`
+and standard `container-lifecycle.tpl`, `execution.tpl`, `configmaps.tpl` render
+and guard intent. `deploymentreview/pod_projection.go` preserves safe review
+structure. Frontend `LocalVolumeFields`, `ProbeFields`, `ExecutionFields`,
+`runtimeIntent` and the existing editor/create dialog implement authoring.
+Tests include the runtime form component tests and
+`e2e/scenarios/workload-runtime-form/`. See
+[verification](../verification/2026-11-06-chinhform-runtime.md).
+
 ## Workload class authoring — UC-16 BR-31/32
 
 `frontend/src/features/workloads/WorkloadClassControl.tsx` reuses `Advanced` and
@@ -1224,3 +1237,11 @@ Focused real-renderer coverage: `company_httproute_test.go` in templatedriver.
 - HTTP `environments[].endpoints` comes from READY endpoint Active Resources.
 - Console: `CreateApplicationPage` (name only), `DependencyFields` (private
   endpoint, Service-port select), Application page endpoint list.
+
+HostPath extension WC-21 (2026-11-06) uses the same `PodVolume`/`LocalVolumeFields`
+flow: node path/type, per-container read mode/subPath, host-path-volumes-v1 source
+admission, standard execution template, invariant guards and safe Preview.
+Coverage: environment hostPath validation/clone, workloadconfig round-trip, planner
+capability admission, templatedriver multi-controller/source/mode invariants,
+deploymentreview projection, WorkloadRuntimeIntent UI and workload-runtime-form E2E.
+See [generic contract](../architecture/contracts/generic-workload.md) and the runtime verification record. Kubernetes execution remains unverified.

@@ -65,8 +65,7 @@
                     requests:
                         cpu: 50m
                         memory: 32Mi
-                - env: []
-                  image: example/agent:1
+                - image: example/agent:1
                   imagePullPolicy: IfNotPresent
                   name: sidecar
                   resources:

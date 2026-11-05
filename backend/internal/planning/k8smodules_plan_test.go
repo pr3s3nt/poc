@@ -1,8 +1,13 @@
 package planning_test
 
 import (
+	"context"
 	"errors"
+	"orchestrator/internal/adapters/templatedriver"
+	"orchestrator/internal/adapters/templatesources"
+	"orchestrator/internal/domain/templatesource"
 	"orchestrator/internal/seed/seedtest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -85,6 +90,22 @@ func k8sRequestWith(t *testing.T, annotations map[string]any, adjust func(*plann
 		k8sTerraformDefinition("postgres-k8s-module", "postgres", refs["postgres-k8s"], map[string]any{"namespace": nsOut}, []string{"database", "username"}, []string{"host", "port", "database", "username", "password"}),
 		k8sTerraformDefinition("redis-k8s-module", "redis", refs["redis-k8s"], redisVars, nil, []string{"host", "port", "username", "password", "tls"}),
 	)
+	// The selected workload Definition pins a prepared source, just like the
+	// real platform. An installed-name-only fixture is no longer sufficient.
+	sourceStore := store.New()
+	if err := sourceStore.SaveOrganization(context.Background(), application.Organization{Key: o.OrganizationKey, Name: o.OrganizationKey}); err != nil {
+		t.Fatal(err)
+	}
+	cache, err := templatesources.OpenCache(filepath.Join(t.TempDir(), "cache"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sources := &templatesources.Registry{Store: sourceStore, Cache: cache, Runtime: templatedriver.New()}
+	standard, err := sources.PrepareStandard(context.Background(), o.OrganizationKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog.TemplateSources = map[string]templatesource.Bundle{standard.ID: standard}
 	if adjust != nil {
 		adjust(&catalog)
 	}

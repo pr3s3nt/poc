@@ -9,6 +9,15 @@ last_reviewed: 2026-10-28
 
 Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, class/method, persistence/state và planned test. `OC-nn` tham chiếu `architecture/contracts/operation-contracts.md`.
 
+## Custom workload runtime — 2026-11-06
+
+| Requirement | Implementation | Validation |
+|---|---|---|
+| GW-06, WC-16..19: custom volumes/files/lifecycle and lossless state | environment/workloadspec/workloadconfig; LocalVolumeFields/ExecutionFields/editor | volumes/execution/round-trip tests; real runtime-form E2E Save/reopen with PostgreSQL |
+| GW-06: matched source capability, pin and semantic guards | templatesource/workload_capabilities; planning/workload_execution; templatedriver | planner capability and three-controller mount/lifecycle tests |
+| GW-07, WC-20: ports/protocol/zero replicas/annotations/probes | ProbeFields/editor/runtimeIntent; domain/probes and standard source | runtime component round-trip and probe render tests |
+| Safe Preview for all controller/container roles | deploymentreview/pod_projection | secret-redaction tests and parsed real Preview assertions |
+
 ## Workload class authoring — 2026-11-05
 
 | Requirement | Implementation | Validation |
@@ -1471,3 +1480,11 @@ shared-Git binding and repository-host HTTPS tests.
 | UC-07 CD-05; UC-18 CD-04 | Fleet unit withdrawal, shared controller pins, original UID cleanup | adapter sibling-preserving/last-unit/replaced-controller tests; original cleanup contracts retained |
 | Persisted recovery without replay | delivery `submission_recovery.go`; Fleet `RecoverReceipt`/`RecoverSubmission` | coordinator lost-receipt test; adapter lost-write-ack observation test; existing Job idempotency tests |
 | Native acceptance assertions | bootstrap `fleet-verification.mjs`; HTTPRoute scenario | shared-controller inventory/commit/Bundle tests; live evidence remains separately scoped |
+
+HostPath extension WC-21 (2026-11-06) uses the same `PodVolume`/`LocalVolumeFields`
+flow: node path/type, per-container read mode/subPath, host-path-volumes-v1 source
+admission, standard execution template, invariant guards and safe Preview.
+Coverage: environment hostPath validation/clone, workloadconfig round-trip, planner
+capability admission, templatedriver multi-controller/source/mode invariants,
+deploymentreview projection, WorkloadRuntimeIntent UI and workload-runtime-form E2E.
+See [generic contract](../architecture/contracts/generic-workload.md) and the runtime verification record. Kubernetes execution remains unverified.

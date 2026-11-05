@@ -12,16 +12,18 @@ import (
 )
 
 // WorkloadExecution is the versioned platform extension carried by desired and
-// applied workload snapshots. It never contains secret bytes or host paths.
+// applied workload snapshots. It never contains secret bytes; hostPath sources retain node path metadata only.
 type WorkloadExecution struct {
-	Version     int            `json:"version"`
-	Kind        string         `json:"kind"`
-	Template    TemplatePin    `json:"template"`
-	Schedule    *Schedule      `json:"schedule,omitempty"`
-	SecretFiles []SecretFile   `json:"secretFiles,omitempty"`
-	Mounts      []StorageMount `json:"mounts,omitempty"`
-	Inputs      map[string]any `json:"inputs,omitempty"`
-	Headless    bool           `json:"headless,omitempty"`
+	Volumes      []PodVolume    `json:"volumes,omitempty"`
+	VolumeMounts []VolumeMount  `json:"volumeMounts,omitempty"`
+	Version      int            `json:"version"`
+	Kind         string         `json:"kind"`
+	Template     TemplatePin    `json:"template,omitzero"`
+	Schedule     *Schedule      `json:"schedule,omitempty"`
+	SecretFiles  []SecretFile   `json:"secretFiles,omitempty"`
+	Mounts       []StorageMount `json:"mounts,omitempty"`
+	Inputs       map[string]any `json:"inputs,omitempty"`
+	Headless     bool           `json:"headless,omitempty"`
 }
 
 type TemplatePin struct {
@@ -48,10 +50,11 @@ type SecretFile struct {
 	Ref       string `json:"ref"`
 	Container string `json:"container"`
 	Path      string `json:"path"`
-	Mode      int    `json:"mode"`
+	Mode      int    `json:"mode,omitempty"`
 }
 
 type StorageMount struct {
+	SubPath   string `json:"subPath,omitempty"`
 	Resource  string `json:"resource"`
 	Container string `json:"container"`
 	Path      string `json:"path"`
@@ -73,7 +76,7 @@ func (e *WorkloadExecution) Validate(containers map[string]Container, replicas i
 	if e == nil {
 		return nil
 	}
-	if e.Version != 1 || !templateID.MatchString(e.Template.ID) || !versionID.MatchString(e.Template.Version) || !sha256ID.MatchString(e.Template.SHA256) {
+	if e.Version != 1 || (e.HasTemplate() && (!templateID.MatchString(e.Template.ID) || !versionID.MatchString(e.Template.Version) || !sha256ID.MatchString(e.Template.SHA256))) || (!e.HasTemplate() && len(e.Inputs) > 0) {
 		return ErrExecution
 	}
 	switch e.Kind {
@@ -122,7 +125,7 @@ func (e *WorkloadExecution) Validate(containers map[string]Container, replicas i
 		if _, ok := containers[file.Container]; !ok {
 			return ErrExecution
 		}
-		if file.Mode != 0400 && file.Mode != 0440 {
+		if file.Mode != 0 && file.Mode != 0400 && file.Mode != 0440 {
 			return ErrExecution
 		}
 		if !strings.HasPrefix(file.Path, "/") || file.Path == "/" || path.Clean(file.Path) != file.Path || strings.ContainsAny(file.Path, "\x00\r\n") {
@@ -143,7 +146,7 @@ func (e *WorkloadExecution) Validate(containers map[string]Container, replicas i
 			return ErrExecution
 		}
 	}
-	return nil
+	return e.validateVolumes(containers)
 }
 
 func (s Schedule) Validate() error {
@@ -175,6 +178,12 @@ func (e *WorkloadExecution) Clone() *WorkloadExecution {
 		return nil
 	}
 	out := *e
+	out.VolumeMounts = append([]VolumeMount(nil), e.VolumeMounts...)
+	if e.Volumes != nil {
+		b, _ := json.Marshal(e.Volumes)
+		out.Volumes = nil
+		_ = json.Unmarshal(b, &out.Volumes)
+	}
 	if e.Inputs != nil {
 		b, _ := json.Marshal(e.Inputs)
 		out.Inputs = nil

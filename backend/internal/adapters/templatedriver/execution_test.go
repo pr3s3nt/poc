@@ -2,6 +2,9 @@ package templatedriver
 
 import (
 	"context"
+	"fmt"
+	"orchestrator/internal/adapters/kubernetes"
+	"strings"
 	"testing"
 
 	"orchestrator/internal/domain/environment"
@@ -180,5 +183,162 @@ func TestTemplateResourceReferencesAreInputData(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("missing ConfigMap")
+	}
+}
+
+func TestCustomLifecycleAndAllVolumeSourcesAcrossControllers(t *testing.T) {
+	files := readBundle(t, standardDir)
+	renderer, selections := gitRenderer(t, map[string]map[string][]byte{"standard": files})
+	for _, kind := range []string{"Deployment", "StatefulSet", "CronJob"} {
+		t.Run(kind, func(t *testing.T) {
+			req := gitRequest(selections["standard"])
+			one := 1
+			req.Module.Spec.Replicas = &one
+			req.Module.Spec.Containers["aaa-prepare"] = environment.Container{Image: "busybox:1", Role: "init", InitOrder: 20, Command: []string{"sh", "-c"}, Args: []string{"cp /config/app.conf /shared/app.conf"}}
+			req.Module.Spec.Containers["zzz-agent"] = environment.Container{Image: "busybox:1", Role: "sidecar", InitOrder: 10, Args: []string{"sleep", "3600"}}
+			e := &environment.WorkloadExecution{Version: 1, Kind: kind, Volumes: []environment.PodVolume{{Name: "shared", EmptyDir: &environment.EmptyDirVolume{Medium: "Memory", SizeLimit: "64Mi"}}, {Name: "config", ConfigMap: &environment.ConfigMapVolume{Files: []environment.ConfigFile{{Name: "app.conf", Value: "literal\n${DO_NOT_EXPAND}"}}}}, {Name: "node", HostPath: &environment.HostPathVolume{Path: "/var/local/app", Type: "Directory"}}}}
+			if kind == "CronJob" {
+				e.Schedule = &environment.Schedule{Expression: "0 0 * * *", TimeZone: "UTC", ConcurrencyPolicy: "Forbid"}
+				req.Module.Spec.Service = nil
+			}
+			req.Module.Spec.Execution = e
+			req.Storage = map[string]execution.StorageBinding{"externals.data": {ClaimName: "kept-data", Namespace: req.Namespace}}
+			req.ConfigSecretKeys = map[string]map[string]string{}
+			req.ConfigSecretName = "approved-revision"
+			for i, name := range []string{"main", "aaa-prepare", "zzz-agent"} {
+				e.Mounts = append(e.Mounts, environment.StorageMount{Resource: "externals.data", Container: name, Path: "/data", SubPath: "files"})
+				e.VolumeMounts = append(e.VolumeMounts, environment.VolumeMount{Volume: "shared", Container: name, Path: "/shared"}, environment.VolumeMount{Volume: "config", Container: name, Path: "/config/app.conf", SubPath: "app.conf", ReadOnly: true}, environment.VolumeMount{Volume: "node", Container: name, Path: "/node", ReadOnly: i != 0})
+				e.SecretFiles = append(e.SecretFiles, environment.SecretFile{Ref: "${context.uc12.KEY}", Container: name, Path: "/keys/key", Mode: 0400})
+				req.ConfigSecretKeys[name] = map[string]string{fmt.Sprintf("orchestrator-file-%d", i): "approved-key"}
+			}
+			manifests, err := renderer.Render(context.Background(), req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var pod map[string]any
+			var configName string
+			for _, m := range manifests {
+				if m.Kind == "ConfigMap" {
+					configName = m.Name
+					if object(m.Object["data"])["app.conf"] != "literal\n${DO_NOT_EXPAND}" {
+						t.Fatal("config file changed")
+					}
+				}
+				if m.Kind == kind {
+					spec := object(m.Object["spec"])
+					if kind == "CronJob" {
+						spec = object(object(spec["jobTemplate"])["spec"])
+					}
+					pod = object(object(spec["template"])["spec"])
+				}
+			}
+			if configName == "" || pod == nil {
+				t.Fatal("missing owned ConfigMap or controller")
+			}
+			if len(list(pod["containers"])) != 1 {
+				t.Fatal("non-app containers leaked into app lifecycle")
+			}
+			init := list(pod["initContainers"])
+			if len(init) != 2 || object(init[0])["name"] != "zzz-agent" || object(init[0])["restartPolicy"] != "Always" || object(init[1])["name"] != "aaa-prepare" {
+				t.Fatal("init/sidecar order or lifecycle lost")
+			}
+			for _, raw := range podContainers(pod) {
+				c := object(raw)
+				if len(list(c["volumeMounts"])) != 5 {
+					t.Fatal("not all volume sources mounted")
+				}
+				for _, rawEnv := range list(c["env"]) {
+					if strings.HasPrefix(stringOrEmpty(object(rawEnv)["name"]), "orchestrator-file-") {
+						t.Fatal("file Secret became env variable")
+					}
+				}
+			}
+			changed := req
+			changed.Module.Spec.Execution = e.Clone()
+			changed.Module.Spec.Execution.Volumes[1].ConfigMap.Files[0].Value = "new config"
+			if object(configMaps(changed)["config"])["name"] == configName {
+				t.Fatal("config revision did not change Pod ref")
+			}
+			// Verify the guards against mutations of a successfully rendered primary Pod.
+			delivery, err := kubernetes.PrepareDelivery(context.Background(), req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var host map[string]any
+			for _, raw := range list(pod["volumes"]) {
+				if h := object(object(raw)["hostPath"]); h != nil {
+					host = h
+				}
+			}
+			if host == nil || host["path"] != "/var/local/app" || host["type"] != "Directory" {
+				t.Fatal("host path source lost")
+			}
+			for _, field := range []string{"path", "type"} {
+				old := host[field]
+				host[field] = "changed"
+				if guard(req, delivery, withoutAuxiliary(manifests)) == nil {
+					t.Fatalf("accepted changed host path %s", field)
+				}
+				host[field] = old
+			}
+			for _, c := range podContainers(pod) {
+				for _, raw := range list(object(c)["volumeMounts"]) {
+					m := object(raw)
+					if m["mountPath"] != "/node" {
+						continue
+					}
+					old := m["readOnly"]
+					m["readOnly"] = !old.(bool)
+					if guard(req, delivery, withoutAuxiliary(manifests)) == nil {
+						t.Fatal("accepted changed host mount mode")
+					}
+					m["readOnly"] = old
+				}
+			}
+			object(init[0])["restartPolicy"] = "Never"
+			if guard(req, delivery, withoutAuxiliary(manifests)) == nil {
+				t.Fatal("accepted changed sidecar lifecycle")
+			}
+		})
+	}
+}
+func withoutAuxiliary(in []execution.Manifest) []execution.Manifest {
+	out := []execution.Manifest{}
+	for _, m := range in {
+		if !m.Auxiliary {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+func TestExtendedProbeIntentOverridesDefaults(t *testing.T) {
+	files := readBundle(t, standardDir)
+	renderer, selections := gitRenderer(t, map[string]map[string][]byte{"standard": files})
+	req := gitRequest(selections["standard"])
+	zero, one, two := 0, 1, 2
+	c := req.Module.Spec.Containers["main"]
+	c.ReadinessProbe = &environment.Probe{Type: "tcp", Port: 5432, InitialDelaySeconds: &zero, PeriodSeconds: &two}
+	c.LivenessProbe = &environment.Probe{Type: "exec", Command: []string{"/bin/check", "--ready"}, TimeoutSeconds: &one}
+	c.StartupProbe = &environment.Probe{Path: "/start", Port: 8443, Scheme: "HTTPS", FailureThreshold: &two}
+	c.Ports = []environment.ContainerPort{{Name: "dns", ContainerPort: 5353, Protocol: "UDP"}}
+	req.Module.Spec.Containers["main"] = c
+	got, err := renderer.Render(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range got {
+		if m.Kind != "Deployment" {
+			continue
+		}
+		pod := object(object(object(m.Object["spec"])["template"])["spec"])
+		main := object(list(pod["containers"])[0])
+		p := object(main["readinessProbe"])
+		if toNumber(p["initialDelaySeconds"]) != 0 || toNumber(p["periodSeconds"]) != 2 || object(p["tcpSocket"])["port"] != float64(5432) {
+			t.Fatal("explicit TCP probe lost")
+		}
+		if object(main["livenessProbe"])["exec"] == nil || object(object(main["startupProbe"])["httpGet"])["scheme"] != "HTTPS" {
+			t.Fatal("probe actions lost")
+		}
 	}
 }

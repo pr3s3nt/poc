@@ -32,3 +32,20 @@ func TestWorkloadTemplateVersionsAndInputs(t *testing.T) {
 		t.Fatal("conflicting immutable version accepted")
 	}
 }
+
+func TestWorkloadCapabilitiesAreBoundedAndCloned(t *testing.T) {
+	if err := validateCapabilities([]string{CustomExecutionV1, ContainerLifecycleV1, PodVolumesV1, ContainerProbesV1}); err != nil {
+		t.Fatal(err)
+	}
+	for _, list := range [][]string{{"unknown"}, {PodVolumesV1, PodVolumesV1}} {
+		if validateCapabilities(list) == nil {
+			t.Fatal("accepted invalid capability")
+		}
+	}
+	b := Bundle{Contract: Contract{Manifest: Manifest{WorkloadCapabilities: []string{CustomExecutionV1}}}}
+	copy := b.Clone()
+	copy.Contract.Manifest.WorkloadCapabilities[0] = "changed"
+	if b.Contract.Manifest.WorkloadCapabilities[0] != CustomExecutionV1 {
+		t.Fatal("clone aliases capability list")
+	}
+}

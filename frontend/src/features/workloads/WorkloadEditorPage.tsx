@@ -11,30 +11,31 @@ import { CreateKeyDialog } from './CreateKeyDialog';
 import { DependencyFields, dependencyProblem, dependencyAliasesProblem, emptyDependency, type ClassMetadata, type Dependency } from './DependencyFields';
 import { EnvironmentVariablesTable, type FocusRequest } from './EnvironmentVariablesTable';
 import { ExecutionFields } from './ExecutionFields';
-import { getWorkloadTemplates, templateKey, type Execution, type WorkloadTemplate } from './templates';
+import { getWorkloadTemplates, templateKey, customExecution, type Execution, type WorkloadTemplate } from './templates';
 import { Advanced } from './Advanced';
+import { validRuntimeIntent } from './runtimeIntent';
 import { WorkloadClassControl } from './WorkloadClassControl';
 import { bindingProblem, changeSource, escapeLiteral, isKeySource, readBinding, serviceAlias, type Binding, type KeyCatalog, type ResourceSpecs } from './bindings';
 import { buildRowContext } from './rowContext';
 import { t } from '../../shared/i18n';
 import { sharedResources, sharedSelectionProblem } from './sharedResources';
 
-type Probe = { path: string; port: number };
-type ContainerForm = { workingDir?: string; readinessProbe?: Probe; livenessProbe?: Probe; startupProbe?: Probe; command: string[]; args: string[]; name: string; image: string; cpuRequest: string; memoryRequest: string; cpuLimit: string; memoryLimit: string; bindings: Binding[] };
-type ServicePort = { name: string; port: string; targetPort: string };
+import { ProbeFields, type Probe } from './ProbeFields';
+type ContainerForm = { ports?: {name: string; containerPort: number; protocol?: string}[]; role?: 'app' | 'init' | 'sidecar'; initOrder?: number; workingDir?: string; readinessProbe?: Probe; livenessProbe?: Probe; startupProbe?: Probe; command: string[]; args: string[]; name: string; image: string; cpuRequest: string; memoryRequest: string; cpuLimit: string; memoryLimit: string; bindings: Binding[] };
+type ServicePort = { protocol?: string; name: string; port: string; targetPort: string };
 // workloadClass is Workload metadata.class (ADR-016): empty means the default class, an explicit value is kept as written.
-type Form = { execution?: Execution; replicas?: number; name: string; workloadClass: string; containers: ContainerForm[]; dependencies: Dependency[]; servicePorts: ServicePort[] };
+type Form = { annotations: {name: string; value: string}[]; execution?: Execution; replicas?: number; name: string; workloadClass: string; containers: ContainerForm[]; dependencies: Dependency[]; servicePorts: ServicePort[] };
 
 const emptyContainer = (): ContainerForm => ({ command: [], args: [], name: 'main', image: '', cpuRequest: '', memoryRequest: '', cpuLimit: '', memoryLimit: '', bindings: [] });
-const emptyForm = (): Form => ({ name: '', workloadClass: '', containers: [emptyContainer()], dependencies: [], servicePorts: [] });
+const emptyForm = (): Form => ({ annotations: [], name: '', workloadClass: '', containers: [emptyContainer()], dependencies: [], servicePorts: [] });
 
 function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): boolean {
   if (Object.keys(raw).some((key) => !['apiVersion', 'metadata', 'containers', 'resources', 'service', 'workloadExecution', 'replicas'].includes(key))) return true;
-  if (Object.keys((raw.metadata ?? {}) as Record<string, unknown>).some((key) => key !== 'name' && key !== 'class')) return true;
+  if (Object.keys((raw.metadata ?? {}) as Record<string, unknown>).some((key) => key !== 'name' && key !== 'class' && key !== 'annotations')) return true;
   const declaredClass = (raw.metadata as { class?: unknown } | undefined)?.class;
   if (declaredClass !== undefined && (typeof declaredClass !== 'string' || !validWorkloadClass(declaredClass))) return true;
   const containers = (raw.containers ?? {}) as Record<string, Record<string, unknown>>;
-  if (Object.values(containers).some((container) => Object.keys(container).some((key) => !['image', 'variables', 'resources', 'command', 'args', 'workingDir', 'readinessProbe', 'livenessProbe', 'startupProbe'].includes(key)))) return true;
+  if (Object.values(containers).some((container) => Object.keys(container).some((key) => !['image', 'variables', 'resources', 'command', 'args', 'workingDir', 'readinessProbe', 'livenessProbe', 'startupProbe', 'role', 'initOrder', 'ports'].includes(key)))) return true;
   if (Object.values(containers).some((container) => Object.keys((container.resources ?? {}) as Record<string, unknown>).some((key) => !['requests', 'limits'].includes(key)))) return true;
   if (Object.values(containers).some((container) => Object.values((container.resources ?? {}) as Record<string, Record<string, unknown>>).some((quantity) => Object.keys(quantity).some((key) => !['cpu', 'memory'].includes(key))))) return true;
   const resources = (raw.resources ?? {}) as Record<string, Record<string, unknown>>;
@@ -66,7 +67,7 @@ function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): 
   if (Object.values(resources).some((resource) => resource.type === 'service' && (resource.class != null || Object.keys((resource.params ?? {}) as Record<string, unknown>).some((key) => !['workload', 'port'].includes(key))))) return true;
   if (raw.service && Object.keys(raw.service as Record<string, unknown>).some((key) => key !== 'ports')) return true;
   const ports = ((raw.service as { ports?: Record<string, Record<string, unknown>> } | undefined)?.ports ?? {});
-  return Object.values(ports).some((port) => Object.keys(port).some((key) => !['port', 'targetPort'].includes(key)));
+  return Object.values(ports).some((port) => Object.keys(port).some((key) => !['port', 'targetPort', 'protocol'].includes(key)));
 }
 
 // Workload class identifier: lowercase, no dot or space, at most 63 characters (backend resource.ValidClass).
@@ -111,12 +112,12 @@ function buildScore(form: Form, types: ResourceType[]): Record<string, unknown> 
     if (container.memoryRequest) requests.memory = container.memoryRequest;
     if (container.cpuLimit) limits.cpu = container.cpuLimit;
     if (container.memoryLimit) limits.memory = container.memoryLimit;
-    containers.set(container.name, { ...(container.workingDir ? { workingDir: container.workingDir } : {}), ...(container.readinessProbe ? { readinessProbe: container.readinessProbe } : {}), ...(container.livenessProbe ? { livenessProbe: container.livenessProbe } : {}), ...(container.startupProbe ? { startupProbe: container.startupProbe } : {}), ...(container.command.length ? { command: container.command } : {}), ...(container.args.length ? { args: container.args } : {}), image: container.image, ...(variables.length ? { variables: Object.fromEntries(variables) } : {}), ...(Object.keys(requests).length || Object.keys(limits).length ? { resources: { ...(Object.keys(requests).length ? { requests } : {}), ...(Object.keys(limits).length ? { limits } : {}) } } : {}) });
+    containers.set(container.name, { ...(container.ports?.length ? {ports: container.ports} : {}), ...(container.role ? {role: container.role} : {}), ...(container.initOrder !== undefined ? {initOrder: container.initOrder} : {}), ...(container.workingDir ? { workingDir: container.workingDir } : {}), ...(container.readinessProbe ? { readinessProbe: container.readinessProbe } : {}), ...(container.livenessProbe ? { livenessProbe: container.livenessProbe } : {}), ...(container.startupProbe ? { startupProbe: container.startupProbe } : {}), ...(container.command.length ? { command: container.command } : {}), ...(container.args.length ? { args: container.args } : {}), image: container.image, ...(variables.length ? { variables: Object.fromEntries(variables) } : {}), ...(Object.keys(requests).length || Object.keys(limits).length ? { resources: { ...(Object.keys(requests).length ? { requests } : {}), ...(Object.keys(limits).length ? { limits } : {}) } } : {}) });
   }
   if (form.execution?.secretFiles?.length) resources.set('env', { type: 'environment' });
   const ports = new Map<string, unknown>();
-  for (const port of form.servicePorts) if (port.name && Number(port.port) > 0) ports.set(port.name, { port: Number(port.port), targetPort: Number(port.targetPort || port.port) });
-  return { ...(form.execution ? { workloadExecution: form.execution } : {}), ...(form.replicas !== undefined ? { replicas: form.replicas } : {}), apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: form.name, ...(form.workloadClass ? { class: form.workloadClass } : {}) }, containers: Object.fromEntries(containers), ...(ports.size ? { service: { ports: Object.fromEntries(ports) } } : {}), ...(resources.size ? { resources: Object.fromEntries(resources) } : {}) };
+  for (const port of form.servicePorts) if (port.name && Number(port.port) > 0) ports.set(port.name, { ...(port.protocol ? {protocol: port.protocol} : {}), port: Number(port.port), targetPort: Number(port.targetPort || port.port) });
+  return { ...(form.execution ? { workloadExecution: form.execution } : {}), ...(form.replicas !== undefined ? { replicas: form.replicas } : {}), apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: form.name, ...(form.annotations.length ? { annotations: Object.fromEntries(form.annotations.map(a => [a.name, a.value])) } : {}), ...(form.workloadClass ? { class: form.workloadClass } : {}) }, containers: Object.fromEntries(containers), ...(ports.size ? { service: { ports: Object.fromEntries(ports) } } : {}), ...(resources.size ? { resources: Object.fromEntries(resources) } : {}) };
 }
 
 const DEFAULT_CPU_REQUEST = '10m';
@@ -144,16 +145,17 @@ function validPortNames(ports: ServicePort[]): Set<string> {
 function readForm(workload: Record<string, unknown>): Form {
   const form = emptyForm();
   form.execution = workload.workloadExecution as Execution | undefined;
+  form.annotations = Object.entries((workload.metadata as { annotations?: Record<string,string> })?.annotations ?? {}).map(([name,value]) => ({name,value}));
   form.replicas = workload.replicas as number | undefined;
   form.name = String((workload.metadata as { name?: string } | undefined)?.name ?? '');
   form.workloadClass = String((workload.metadata as { class?: string } | undefined)?.class ?? '');
   const resources = (workload.resources ?? {}) as Record<string, { type?: string; class?: string; id?: unknown; params?: Record<string, unknown> }>;
   form.dependencies = Object.entries(resources).filter(([, spec]) => spec.type !== 'environment' && spec.type !== 'service').map(([alias, spec]) => ({ existing: true, alias, type: spec.type ?? '', className: spec.class ?? '', sharedId: typeof spec.id === 'string' ? spec.id : '', params: Object.fromEntries(Object.entries(spec.params ?? {}).map(([key, value]) => [key, String(value)])) }));
-  const rawContainers = (workload.containers ?? {}) as Record<string, { workingDir?: string; readinessProbe?: Probe; livenessProbe?: Probe; startupProbe?: Probe; command?: string[]; args?: string[]; image?: string; variables?: Record<string, string>; resources?: { requests?: { cpu?: string; memory?: string }; limits?: { cpu?: string; memory?: string } } }>;
-  form.containers = Object.entries(rawContainers).map(([name, value]) => ({ workingDir: value.workingDir, readinessProbe: value.readinessProbe, livenessProbe: value.livenessProbe, startupProbe: value.startupProbe, command: value.command ?? [], args: value.args ?? [], name, image: value.image ?? '', cpuRequest: value.resources?.requests?.cpu ?? '', memoryRequest: value.resources?.requests?.memory ?? '', cpuLimit: value.resources?.limits?.cpu ?? '', memoryLimit: value.resources?.limits?.memory ?? '', bindings: Object.entries(value.variables ?? {}).flatMap(([envName, raw]) => readBinding(envName, raw, resources as ResourceSpecs) ?? []) }));
+  const rawContainers = (workload.containers ?? {}) as Record<string, { ports?: {name: string; containerPort: number; protocol?: string}[]; role?: 'app' | 'init' | 'sidecar'; initOrder?: number; workingDir?: string; readinessProbe?: Probe; livenessProbe?: Probe; startupProbe?: Probe; command?: string[]; args?: string[]; image?: string; variables?: Record<string, string>; resources?: { requests?: { cpu?: string; memory?: string }; limits?: { cpu?: string; memory?: string } } }>;
+  form.containers = Object.entries(rawContainers).map(([name, value]) => ({ ports: value.ports, role: value.role, initOrder: value.initOrder, workingDir: value.workingDir, readinessProbe: value.readinessProbe, livenessProbe: value.livenessProbe, startupProbe: value.startupProbe, command: value.command ?? [], args: value.args ?? [], name, image: value.image ?? '', cpuRequest: value.resources?.requests?.cpu ?? '', memoryRequest: value.resources?.requests?.memory ?? '', cpuLimit: value.resources?.limits?.cpu ?? '', memoryLimit: value.resources?.limits?.memory ?? '', bindings: Object.entries(value.variables ?? {}).flatMap(([envName, raw]) => readBinding(envName, raw, resources as ResourceSpecs) ?? []) }));
   if (!form.containers.length) form.containers = [emptyContainer()];
-  const ports = ((workload.service as { ports?: Record<string, { port: number; targetPort?: number }> } | undefined)?.ports ?? {});
-  form.servicePorts = Object.entries(ports).map(([name, port]) => ({ name, port: String(port.port), targetPort: String(port.targetPort ?? port.port) }));
+  const ports = ((workload.service as { ports?: Record<string, { port: number; targetPort?: number; protocol?: string }> } | undefined)?.ports ?? {});
+  form.servicePorts = Object.entries(ports).map(([name, port]) => ({ protocol: port.protocol, name, port: String(port.port), targetPort: String(port.targetPort ?? port.port) }));
   return form;
 }
 
@@ -199,7 +201,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   const [current, setCurrent] = useState<{ version: number; workload?: Record<string, unknown>; state?: string }>();
   const [reloadError, setReloadError] = useState('');
   // Inline creation (UC-16 BR-21/22): one dialog at a time, bound to the row (stable id) that opened it.
-  const [dialog, setDialog] = useState<{ type: 'key'; kind: KeyKind; rowId: string; suggested: string } | { type: 'resource'; rowId: string } | { type: 'storage'; initial: Dependency }>();
+  const [dialog, setDialog] = useState<{ type: 'key'; kind: KeyKind; rowId: string; suggested: string; file?: boolean } | { type: 'resource'; rowId: string } | { type: 'storage'; initial: Dependency }>();
   const [focusRequest, setFocusRequest] = useState<FocusRequest>();
   // After a failed Save the table also reports rows that are not filled in yet.
   const [showIncomplete, setShowIncomplete] = useState(false);
@@ -332,6 +334,8 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     if (blocked || stale || templateInputProblems > 0) return;
     if (form.execution?.mounts?.some(mount => !form.dependencies.some(dep => dep.alias === mount.resource) || !form.containers.some(c => c.name === mount.container) || !mount.path.startsWith('/'))) { setError(t('workloads.templates.mountInvalid')); return; }
     if (mode === 'form' || dirty) {
+      if (new Set(form.annotations.map(a => a.name)).size !== form.annotations.length || form.annotations.some(a => !a.name)) { setError(t('workloads.volumes.invalid')); return; }
+      if (!validRuntimeIntent(form.containers, form.execution, catalog.status === 'ready' ? catalog.keys.filter(k => k.kind === 'SECRET' && k.configured).map(k => k.name) : undefined)) { setError(t('workloads.volumes.invalid')); return; }
       if (form.workloadClass && !validWorkloadClass(form.workloadClass)) { setError(t('workloads.workloadEditor.invalidWorkloadClassUseOnly')); return; }
       if (classMetadata !== 'ready' && form.dependencies.length > 0) { setError(classMetadata === 'loading' ? t('workloads.workloadEditor.classMetadataIsLoadingWait') : t('workloads.workloadEditor.theResourceClassMetadataIs')); return; }
       const aliasesIssue = dependencyAliasesProblem(form.dependencies, form.containers.flatMap((container) => container.bindings.filter((row) => row.source === 'SERVICE').map((row) => row.alias || serviceAlias(row.workload, row.port))));
@@ -341,7 +345,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
         if (dependencyIssue) { setError(dependencyIssue); return; }
       }
       // The key catalog is only needed when a row references an Application key.
-      const usesKeys = form.containers.some((container) => container.bindings.some((row) => isKeySource(row.source)));
+      const usesKeys = !!form.execution?.secretFiles?.length || form.containers.some((container) => container.bindings.some((row) => isKeySource(row.source)));
       if (usesKeys && catalog.status !== 'ready') { setError(catalog.status === 'loading' ? t('workloads.workloadEditor.applicationVariablesAndSecretsAre') : t('workloads.workloadEditor.couldNotLoadApplicationVariables')); return; }
       const problem = bindingProblem(form.containers, rowContext);
       if (problem) { setError(problem); setShowIncomplete(true); return; }
@@ -371,16 +375,32 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     {stale ? <div className="form-error" role="alert" aria-label={t('workloads.workloadEditor.workloadDraftIsStale')}>{t('workloads.workloadEditor.workloadsIn')}{' '} {environment} {' '}{t('workloads.workloadEditor.changedAfterThisPageWas')}{' '} <Button disabled={reloading} onClick={() => void reloadCurrent()}>{reloading ? t('workloads.workloadEditor.reloading') : t('workloads.workloadEditor.reloadCurrentState')}</Button>{reloadError ? <p>{reloadError}</p> : null}</div> : null}
     {current ? <div className="form-info" role="status">{t('workloads.workloadEditor.reloadedDraftVersion')}{' '} {current.version}{t('workloads.workloadEditor.currentStateOfThisWorkload')}{' '} {currentState}{t('workloads.workloadEditor.theEditsBelowAreUnchanged')}{current.workload ? <details><summary>{t('workloads.workloadEditor.currentScore')}</summary><pre className="workload-preview">{JSON.stringify(current.workload, null, 2)}</pre></details> : null}</div> : null}
     {loading ? <p>{t('workloads.workloadEditor.loadingWorkloadOptions')}</p> : mode === 'import' ? <section className="content-panel"><h2>{t('workloads.workloadEditor.importAScoreFile')}</h2><p>{t('workloads.workloadEditor.yAMLOrJSONTheSame')}</p><input aria-label={t('workloads.workloadEditor.scoreFile')} type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} />{imported ? <><p>{t('workloads.workloadEditor.parsedWorkload')}{' '} <strong>{String((imported.metadata as { name?: string } | undefined)?.name ?? '')}</strong></p><pre className="workload-preview">{JSON.stringify(imported, null, 2)}</pre></> : null}</section> : <>
-      <section className="content-panel editor-grid"><h2>{t('workloads.workloadEditor.basicInformation')}</h2><label>{t('workloads.workloadEditor.workloadName')}<input value={form.name} disabled={Boolean(workloadId)} onChange={(event) => updateForm({ ...form, name: event.target.value })} placeholder="frontend" /></label><WorkloadClassControl value={form.workloadClass} classes={workloadClasses} metadata={classMetadata} disabled={saving} onChange={workloadClass => updateForm({ ...form, workloadClass })} onReload={() => void reloadClassMetadata()} /></section>
-      {form.execution && form.execution.kind !== 'CronJob' ? <section className="content-panel editor-grid"><label>{t('workloads.templates.replicas')}<input type="number" min="1" max={form.execution.kind === 'StatefulSet' ? 1 : undefined} value={form.replicas ?? 1} onChange={e => updateForm({ ...form, replicas: Number(e.target.value) })} /></label></section> : null}
-      {form.execution ? <ExecutionFields value={form.execution} onChange={execution => updateForm({ ...form, execution })} containers={form.containers.map(c => c.name)} storage={form.dependencies.filter(dep => storageKeys.has(dep.type)).map(dep => dep.alias)} onAddStorage={storageTypes.length ? openStorageResource : undefined} catalogReady={!loadFailed && classMetadata === 'ready'} metadata={templateMetadata} secrets={catalog.status === 'ready' ? catalog.keys.filter(key => key.kind === 'SECRET').map(key => key.name) : []} disabled={saving} onRawProblems={setTemplateInputProblems} /> : null}
+      <section className="content-panel editor-grid"><h2>{t('workloads.workloadEditor.basicInformation')}</h2><label>{t('workloads.workloadEditor.workloadName')}<input value={form.name} disabled={Boolean(workloadId)} onChange={(event) => updateForm({ ...form, name: event.target.value })} placeholder="frontend" /></label><WorkloadClassControl value={form.workloadClass} classes={workloadClasses} metadata={classMetadata} disabled={saving} onChange={workloadClass => updateForm({ ...form, workloadClass })} onReload={() => void reloadClassMetadata()}>
+        <div className="section-header"><h3>{t('workloads.annotations.title')}</h3><Button onClick={() => updateForm({ ...form, annotations: [...form.annotations, {name: '', value: ''}] })}>{t('workloads.annotations.add')}</Button></div>
+        {form.annotations.map((annotation, index) => <div className="field-grid" key={index}><label>{t('workloads.annotations.name')}<input value={annotation.name} onChange={event => updateForm({ ...form, annotations: form.annotations.map((a, i) => i === index ? {...a, name: event.target.value} : a) })} /></label><label>{t('workloads.annotations.value')}<input value={annotation.value} onChange={event => updateForm({ ...form, annotations: form.annotations.map((a, i) => i === index ? {...a, value: event.target.value} : a) })} /></label><Button tone="quiet" onClick={() => updateForm({ ...form, annotations: form.annotations.filter((_,i) => i !== index) })}>{t('workloads.annotations.remove')}</Button></div>)}
+      </WorkloadClassControl></section>
+      {form.execution?.kind !== 'CronJob' ? <section className="content-panel editor-grid"><label>{t('workloads.templates.replicas')}<input type="number" min={form.execution?.kind === 'StatefulSet' ? 1 : 0} max={form.execution?.kind === 'StatefulSet' ? 1 : undefined} value={form.replicas ?? ''} placeholder="1" onChange={e => updateForm({ ...form, replicas: e.target.value === '' ? undefined : Number(e.target.value) })} /></label></section> : null}
+      {<ExecutionFields value={form.execution ?? customExecution()} onChange={execution => updateForm({ ...form, execution })} containers={form.containers.map(c => c.name)} storage={form.dependencies.filter(dep => storageKeys.has(dep.type)).map(dep => dep.alias)} onAddStorage={storageTypes.length ? openStorageResource : undefined} catalogReady={!loadFailed && classMetadata === 'ready'} metadata={templateMetadata} secretCatalogStatus={catalog.status} onCreateFileSecret={catalog.status === 'ready' ? () => setDialog({ type: 'key', kind: 'SECRET', rowId: '', suggested: '', file: true }) : undefined} secrets={catalog.status === 'ready' ? catalog.keys.filter(key => key.kind === 'SECRET' && key.configured).map(key => key.name) : []} disabled={saving} onRawProblems={setTemplateInputProblems} />}
       {catalog.status === 'error' ? <div className="form-error" role="alert">{t('workloads.workloadEditor.couldNotLoadApplicationVariables2')}{' '} {catalog.message} {' '}{t('workloads.workloadEditor.yourSelectionsAreKept')}{' '} <Button onClick={() => setCatalogAttempt((value) => value + 1)}>{t('workloads.workloadEditor.retryLoadingKeys')}</Button></div> : null}
       {form.containers.map((container, ci) => <section className="content-panel editor-grid" key={ci}><div className="section-header"><h2>Container {ci + 1}</h2>{form.containers.length > 1 ? <Button tone="danger" onClick={() => updateForm({ ...form, containers: form.containers.filter((_, index) => index !== ci) })}>{t('workloads.workloadEditor.remove')}</Button> : null}</div><div className="field-grid"><label>{t('workloads.workloadEditor.containerName')}<input value={container.name} onChange={(event) => updateContainer(ci, { ...container, name: event.target.value })} /></label><label>{t('workloads.workloadEditor.containerImage')}<input value={container.image} onChange={(event) => updateContainer(ci, { ...container, image: event.target.value })} placeholder="registry.example/app:tag" /></label></div>
+        <div className="field-grid"><label>{t('workloads.containers.role')}<select aria-label={t('workloads.containers.roleOf', {name: container.name || ci + 1})} value={container.role ?? 'app'} onChange={event => {
+          const role = event.target.value as 'app' | 'init' | 'sidecar';
+          const order = Math.max(0, ...form.containers.map(c => c.initOrder ?? 0)) + 1;
+          updateContainer(ci, { ...container, role, initOrder: role === 'app' ? undefined : container.initOrder ?? order });
+        }}>{(['app', 'init', 'sidecar'] as const).map(role => <option key={role} value={role}>{t(`workloads.containers.${role}`)}</option>)}</select></label>
+        {container.role === 'init' || container.role === 'sidecar' ? <label>{t('workloads.containers.initOrder')}<input type="number" min="1" max="999" value={container.initOrder ?? ''} onChange={event => updateContainer(ci, { ...container, initOrder: Number(event.target.value) })} /></label> : null}</div>
         <Advanced label={`Container ${ci + 1}`} summary={t('workloads.workloadEditor.effectiveRequestsCPUEffectiveRequestMemory', { effectiveRequest: effectiveRequest(container.cpuRequest, container.cpuLimit, DEFAULT_CPU_REQUEST), effectiveRequest2: effectiveRequest(container.memoryRequest, container.memoryLimit, DEFAULT_MEMORY_REQUEST), value: container.cpuLimit || t('workloads.workloadEditor.notSet'), value2: container.memoryLimit || t('workloads.workloadEditor.notSet') })}>
           <div className="field-grid field-grid-four"><label>{t('workloads.workloadEditor.cPURequest')}<input value={container.cpuRequest} onChange={(event) => updateContainer(ci, { ...container, cpuRequest: event.target.value })} placeholder="100m" /></label><label>{t('workloads.workloadEditor.memoryRequest')}<input value={container.memoryRequest} onChange={(event) => updateContainer(ci, { ...container, memoryRequest: event.target.value })} placeholder="128Mi" /></label><label>{t('workloads.workloadEditor.cPULimit')}<input value={container.cpuLimit} onChange={(event) => updateContainer(ci, { ...container, cpuLimit: event.target.value })} /></label><label>{t('workloads.workloadEditor.memoryLimit')}<input value={container.memoryLimit} onChange={(event) => updateContainer(ci, { ...container, memoryLimit: event.target.value })} /></label></div>
           <div className="field-grid"><label>{t('workloads.templates.command')}<textarea aria-label={t('workloads.templates.command')} value={container.command.join('\n')} onChange={e => updateContainer(ci, { ...container, command: e.target.value === '' ? [] : e.target.value.split('\n') })} /></label><label>{t('workloads.templates.args')}<textarea aria-label={t('workloads.templates.args')} value={container.args.join('\n')} onChange={e => updateContainer(ci, { ...container, args: e.target.value === '' ? [] : e.target.value.split('\n') })} /></label></div>
           <label>{t('workloads.templates.workingDir')}<input value={container.workingDir ?? ''} onChange={e => updateContainer(ci, { ...container, workingDir: e.target.value })} /></label>
-          {(['readinessProbe', 'livenessProbe', 'startupProbe'] as const).map(probe => <div className="field-grid" key={probe}><label>{t(`workloads.templates.${probe}`)}<input placeholder="/health" value={container[probe]?.path ?? ''} onChange={e => updateContainer(ci, { ...container, [probe]: e.target.value === '' ? undefined : { path: e.target.value, port: container[probe]?.port ?? 8080 } })} /></label>{container[probe] ? <label>{t('workloads.templates.probePort')}<input type="number" min="1" max="65535" value={container[probe]?.port} onChange={e => updateContainer(ci, { ...container, [probe]: { ...container[probe]!, port: Number(e.target.value) } })} /></label> : null}</div>)}
+          <div className="section-header"><h3>{t('workloads.containerPorts.title')}</h3><Button onClick={() => updateContainer(ci, {...container, ports: [...(container.ports ?? []), {name: '', containerPort: 8080}]})}>{t('workloads.containerPorts.add')}</Button></div>
+          {(container.ports ?? []).map((port, pi) => <div className="field-grid" key={pi}>
+            <label>{t('workloads.containerPorts.name')}<input value={port.name} onChange={e => updateContainer(ci, {...container, ports: container.ports!.map((p,i) => i === pi ? {...p, name: e.target.value} : p)})} /></label>
+            <label>{t('workloads.containerPorts.port')}<input type="number" min="1" max="65535" value={port.containerPort} onChange={e => updateContainer(ci, {...container, ports: container.ports!.map((p,i) => i === pi ? {...p, containerPort: Number(e.target.value)} : p)})} /></label>
+            <label>{t('workloads.containerPorts.protocol')}<select aria-label={t('workloads.containerPorts.protocol')} value={port.protocol ?? 'TCP'} onChange={e => updateContainer(ci, {...container, ports: container.ports!.map((p,i) => i === pi ? {...p, protocol: e.target.value || undefined} : p)})}><option value="TCP">TCP</option><option value="UDP">UDP</option><option value="SCTP">SCTP</option></select></label>
+            <Button tone="quiet" onClick={() => updateContainer(ci, {...container, ports: container.ports!.filter((_,i) => i !== pi)})}>{t('workloads.containerPorts.remove')}</Button>
+          </div>)}
+          {(['readinessProbe', 'livenessProbe', 'startupProbe'] as const).map(probe => <ProbeFields key={probe} label={t(`workloads.templates.${probe}`)} value={container[probe]} disabled={saving} onChange={value => updateContainer(ci, {...container, [probe]: value})} />)}
           <p>{t('workloads.workloadEditor.anEmptyRequestUsesThe', { DEFAULT_CPU_REQUEST, DEFAULT_MEMORY_REQUEST })}</p>
         </Advanced>
         <EnvironmentVariablesTable container={container.name || String(ci + 1)} bindings={container.bindings} catalog={catalog} dependencies={form.dependencies} types={types} workloads={workloads} self={form.name} context={rowContext} disabled={saving} showIncomplete={showIncomplete} focus={focusRequest} onFocused={clearFocus}
@@ -391,7 +411,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
       <section className="content-panel editor-grid">
         {form.execution && form.servicePorts.length ? <label className="checkbox-row"><input type="checkbox" checked={form.execution.headless ?? false} onChange={e => updateForm({ ...form, execution: { ...form.execution!, headless: e.target.checked } })} />{t('workloads.templates.headless')}</label> : null}
         <div className="section-header"><div><h2>{t('workloads.workloadEditor.servicePorts')}</h2><p>{t('workloads.workloadEditor.internalAccessForOtherWorkloads', { environment })}</p></div><Button onClick={() => updateForm({ ...form, servicePorts: [...form.servicePorts, { name: '', port: '', targetPort: '' }] })}>{t('workloads.workloadEditor.addPort')}</Button></div>
-        {form.servicePorts.map((port, index) => <div className="editor-grid" key={index}><div className="binding-row"><input aria-label={t('workloads.workloadEditor.servicePortName')} value={port.name} placeholder="http" onChange={(event) => updatePort(index, { name: event.target.value })} /><input aria-label={t('workloads.workloadEditor.servicePorts')} type="number" value={port.port} placeholder="80" onChange={(event) => updatePort(index, { port: event.target.value })} /><Button tone="quiet" onClick={() => updateForm({ ...form, servicePorts: form.servicePorts.filter((_, i) => i !== index) })}>{t('workloads.workloadEditor.remove')}</Button></div>
+        {form.servicePorts.map((port, index) => <div className="editor-grid" key={index}><div className="binding-row"><input aria-label={t('workloads.workloadEditor.servicePortName')} value={port.name} placeholder="http" onChange={(event) => updatePort(index, { name: event.target.value })} /><input aria-label={t('workloads.workloadEditor.servicePorts')} type="number" value={port.port} placeholder="80" onChange={(event) => updatePort(index, { port: event.target.value })} /><label>{t('workloads.containerPorts.protocol')}<select aria-label={t('workloads.containerPorts.protocol')} value={port.protocol ?? 'TCP'} onChange={e => updatePort(index, {protocol: e.target.value || undefined})}><option value="TCP">TCP</option><option value="UDP">UDP</option><option value="SCTP">SCTP</option></select></label><Button tone="quiet" onClick={() => updateForm({ ...form, servicePorts: form.servicePorts.filter((_, i) => i !== index) })}>{t('workloads.workloadEditor.remove')}</Button></div>
           <Advanced label={t('workloads.workloadEditor.portValue', { value: port.name || index + 1 })} summary={t('workloads.workloadEditor.effectiveTargetPortValueValue2', { value: port.targetPort || port.port || t('workloads.workloadEditor.none2'), value2: port.targetPort ? t('workloads.workloadEditor.override') : t('workloads.workloadEditor.fromServicePort') })}>
             <label>{t('workloads.workloadEditor.containerTargetPort')}<input aria-label={t('workloads.workloadEditor.containerTargetPort')} type="number" value={port.targetPort} placeholder={port.port || '8080'} onChange={(event) => updatePort(index, { targetPort: event.target.value })} /></label>
             <p>{t('workloads.workloadEditor.emptyMakesTheTargetPort')}</p>
@@ -400,18 +420,22 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     </>}
     {dialog?.type === 'key' && catalog.status === 'ready' ? <CreateKeyDialog application={application} environment={environment} kind={dialog.kind} suggestedName={dialog.suggested} catalog={catalog} onTargetChange={onTargetChange}
       onConfiguration={acceptConfiguration(scope.current)} onClose={closeDialog}
-      onCreated={((at, rowId, kind) => (key: string) => {
+      onCreated={((at, rowId, kind, file) => (key: string) => {
         if (at !== scope.current) return;
         setDialog(undefined);
+        if (file) {
+          setForm(prev => ({ ...prev, execution: { ...(prev.execution ?? customExecution()), secretFiles: [...(prev.execution?.secretFiles ?? []), { ref: `\${resources.env.${key}}`, container: prev.containers[0]?.name ?? '', path: '/keys/value', mode: 256 }] } }));
+          setDirty(true); return;
+        }
         // Select the key on the row that opened the dialog; a row removed meanwhile is left alone. The name is only suggested while empty.
         changeRow(rowId, (row) => ({ ...changeSource(row, kind), key, ...(row.name === '' ? { name: key } : {}) }));
         setFocusRequest({ rowId, field: 'key' });
-      })(scope.current, dialog.rowId, dialog.kind)} /> : null}
+      })(scope.current, dialog.rowId, dialog.kind, dialog.file)} /> : null}
     {dialog?.type === 'storage' ? <AddResourceDialog label={t('workloads.templates.addStorage')} initialDependency={dialog.initial} existing={form.dependencies} types={storageTypes} choices={resourceChoices.filter(choice => choice.dependency && storageKeys.has(choice.dependency.type))} classMetadata={classMetadata} onReload={() => void reloadClassMetadata()} onClose={closeDialog}
       onAdd={((at) => (dependency: Dependency) => {
         if (at !== scope.current) return;
         setDialog(undefined);
-        setForm(prev => ({ ...prev, dependencies: [...prev.dependencies, dependency], execution: prev.execution ? { ...prev.execution, mounts: [...(prev.execution.mounts ?? []), { resource: dependency.alias, container: prev.containers[0]?.name ?? '', path: '/data', readOnly: false }] } : undefined }));
+        setForm(prev => ({ ...prev, dependencies: [...prev.dependencies, dependency], execution: { ...(prev.execution ?? customExecution()), mounts: [...(prev.execution?.mounts ?? []), { resource: dependency.alias, container: prev.containers[0]?.name ?? '', path: '/data', readOnly: false }] } }));
         setDirty(true);
       })(scope.current)} /> : null}
     {dialog?.type === 'resource' ? <AddResourceDialog existing={form.dependencies} servicePorts={[...validPortNames(form.servicePorts)]} types={types} choices={resourceChoices} classMetadata={classMetadata} onReload={() => void reloadClassMetadata()} onClose={closeDialog}
