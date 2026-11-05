@@ -27,6 +27,10 @@ implementation status.
 - [Rancher-compatible Fleet discovery and kind verification](verification/2026-11-04-rancher-fleet.md)
 - [Platform-managed delivery verification](verification/2026-11-02-platform-managed-cd.md)
 
+## Hướng dẫn sử dụng
+
+- [DEV — triển khai acceptance app từng bước (bản nháp)](guides/dev/acceptance-app.md).
+
 ## Route by task
 
 | Task | Read first |
