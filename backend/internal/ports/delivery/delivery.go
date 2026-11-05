@@ -227,8 +227,16 @@ type ReceiptLayoutValidator interface {
 	ValidateDeliveryReceipt(BindingVersion, Receipt) error
 }
 
-// SubmissionReceiptRecovery observes an already submitted controller after its
-// acknowledgement was lost. It must not publish, submit or create resources.
+// SubmissionReceiptRecovery reconstructs the original acknowledgement. A provider
+// may finish an exact published first admission under explicit recovery; it must
+// not republish Git, replay an execution or adopt a different controller UID.
 type SubmissionReceiptRecovery interface {
 	RecoverReceipt(context.Context, Intent, Prepared) (Receipt, error)
+}
+
+// SubmissionAbsenceRecovery is read-only proof that a first prerequisite was not
+// published/admitted and has no native effects. Uncertainty must return false.
+// It never applies to Jobs and never authorizes replay of the original request.
+type SubmissionAbsenceRecovery interface {
+	ObserveSubmissionAbsent(context.Context, Intent, Prepared) (bool, error)
 }

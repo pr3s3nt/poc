@@ -13,6 +13,7 @@ import (
 	"time"
 
 	publication "orchestrator/internal/adapters/gitpublication"
+	domain "orchestrator/internal/domain/delivery"
 	port "orchestrator/internal/ports/delivery"
 	"orchestrator/internal/ports/execution"
 	gitport "orchestrator/internal/ports/gitpublication"
@@ -54,6 +55,18 @@ func TestApplicationFleetTransport(t *testing.T) {
 			os.Exit(2)
 		}
 		md := repo["metadata"].(map[string]any)
+		if args[0] == "replace" {
+			if _, err := os.Stat(filepath.Join(dir, "reject-once")); err == nil {
+				os.Remove(filepath.Join(dir, "reject-once"))
+				old := read("repo.json")
+				omd := old["metadata"].(map[string]any)
+				omd["resourceVersion"] = omd["resourceVersion"].(string) + "1"
+				raw, _ := json.Marshal(old)
+				os.WriteFile(filepath.Join(dir, "repo.json"), raw, 0600)
+				fmt.Fprintln(os.Stderr, "Error from server (Conflict): object has been modified")
+				os.Exit(1)
+			}
+		}
 		if args[0] == "create" {
 			if _, err := os.Stat(filepath.Join(dir, "repo.json")); err == nil {
 				os.Exit(2)
@@ -130,6 +143,9 @@ func TestApplicationFleetTransport(t *testing.T) {
 			}
 			emit(map[string]any{"items": items})
 		case "secrets":
+			if _, err := os.Stat(filepath.Join(dir, "release-secret")); err == nil {
+				fmt.Print("orphan-release-uid")
+			}
 			os.Exit(0)
 		}
 	}
@@ -422,5 +438,175 @@ func TestApplicationSubmitPublishesManifestAndMetadataAndRejectsPathTakeover(t *
 	after, _ := exec.Command("git", "--git-dir", filepath.Join(dir, "remote.git"), "rev-parse", "main").Output()
 	if string(before) != string(after) {
 		t.Fatal("path conflict mutated Git before rejection")
+	}
+}
+
+func TestApplicationControllerRetriesStatusWriteConflict(t *testing.T) {
+	p, w, dir, intent := applicationFixture(t)
+	publishApplicationUnit(t, p, w, dir, intent("staging", "backend"))
+	i, pkg, _ := applicationPackage(t, intent("production", "frontend"))
+	git, err := w.Publish(context.Background(), pkg.Publication, func(context.Context) error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(dir, "reject-once"), nil, 0600)
+	if _, err = p.submitApplication(context.Background(), i, pkg, git); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(filepath.Join(dir, "repo.json"))
+	var repo map[string]any
+	json.Unmarshal(raw, &repo)
+	pins, err := readUnitPins(repo)
+	if err != nil || len(pins) != 2 {
+		t.Fatal("lost sibling during retry", err)
+	}
+}
+func TestApplicationRecoversPublishedButUnadmittedNewUnit(t *testing.T) {
+	p, w, dir, intent := applicationFixture(t)
+	publishApplicationUnit(t, p, w, dir, intent("staging", "backend"))
+	i, pkg, _ := applicationPackage(t, intent("production", "frontend"))
+	ctx := context.Background()
+	for _, pub := range []gitport.Intent{pkg.Publication, *pkg.Metadata} {
+		if _, err := w.Publish(ctx, pub, func(context.Context) error { return nil }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	headBefore, err := exec.Command("git", "-C", w.Dir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(pkg)
+	prepared := port.Prepared{Revision: i.Revision, Payload: raw}
+	r, err := p.RecoverReceipt(ctx, i, prepared)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.IntentID != i.ID || r.Handle["gitrepoUID"] != "owned-repo-uid" {
+		t.Fatal("wrong recovery receipt", r)
+	}
+	headAfter, _ := exec.Command("git", "-C", w.Dir, "rev-parse", "HEAD").Output()
+	if string(headBefore) != string(headAfter) {
+		t.Fatal("recovery republished Git")
+	}
+	repoRaw, _ := os.ReadFile(filepath.Join(dir, "repo.json"))
+	var repo map[string]any
+	json.Unmarshal(repoRaw, &repo)
+	pins, _ := readUnitPins(repo)
+	if len(pins) != 2 {
+		t.Fatal("recovery changed sibling")
+	}
+	// Reconstructing the now admitted acknowledgement is strictly read-only.
+	if _, err = p.RecoverReceipt(ctx, i, prepared); err != nil {
+		t.Fatal(err)
+	}
+	again, _ := os.ReadFile(filepath.Join(dir, "repo.json"))
+	if string(again) != string(repoRaw) {
+		t.Fatal("repeated recovery wrote controller")
+	}
+}
+func TestApplicationRecoveryRequiresExactMetadataAndNoNativeAdoption(t *testing.T) {
+	p, w, dir, intent := applicationFixture(t)
+	publishApplicationUnit(t, p, w, dir, intent("staging", "backend"))
+	i, pkg, _ := applicationPackage(t, intent("production", "frontend"))
+	ctx := context.Background()
+	w.Publish(ctx, pkg.Publication, func(context.Context) error { return nil })
+	raw, _ := json.Marshal(pkg)
+	prepared := port.Prepared{Revision: i.Revision, Payload: raw}
+	before, _ := os.ReadFile(filepath.Join(dir, "repo.json"))
+	if _, err := p.RecoverReceipt(ctx, i, prepared); err == nil {
+		t.Fatal("missing metadata admitted")
+	}
+	w.Publish(ctx, *pkg.Metadata, func(context.Context) error { return nil })
+	live := map[string]any{"metadata": map[string]any{"uid": "foreign"}}
+	body, _ := json.Marshal(live)
+	os.WriteFile(filepath.Join(dir, "live-app-production-frontend-config.json"), body, 0600)
+	if _, err := p.RecoverReceipt(ctx, i, prepared); err == nil {
+		t.Fatal("foreign native object adopted")
+	}
+	after, _ := os.ReadFile(filepath.Join(dir, "repo.json"))
+	if string(before) != string(after) {
+		t.Fatal("failed recovery changed controller")
+	}
+}
+
+func TestApplicationAdmissionRequiresTheObservedControllerIncarnation(t *testing.T) {
+	p, w, dir, intent := applicationFixture(t)
+	publishApplicationUnit(t, p, w, dir, intent("staging", "backend"))
+	i, pkg, _ := applicationPackage(t, intent("production", "frontend"))
+	git, err := w.Publish(context.Background(), pkg.Publication, func(context.Context) error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(filepath.Join(dir, "repo.json"))
+	if _, err = p.submitApplicationAttempt(context.Background(), i, pkg, git, 0, "different-uid"); err != ErrOwnership {
+		t.Fatal("foreign controller accepted", err)
+	}
+	after, _ := os.ReadFile(filepath.Join(dir, "repo.json"))
+	if string(before) != string(after) {
+		t.Fatal("foreign controller changed")
+	}
+	os.Remove(filepath.Join(dir, "repo.json"))
+	if _, err = p.submitApplicationAttempt(context.Background(), i, pkg, git, 0, "owned-repo-uid"); err != ErrOwnership {
+		t.Fatal("missing controller recreated", err)
+	}
+	if _, err = os.Stat(filepath.Join(dir, "repo.json")); !os.IsNotExist(err) {
+		t.Fatal("controller recreated during recovery")
+	}
+}
+
+func TestApplicationWithdrawalRetriesStatusConflictWithoutRepublishing(t *testing.T) {
+	p, w, dir, intent := applicationFixture(t)
+	i, _, r := publishApplicationUnit(t, p, w, dir, intent("staging", "backend"))
+	publishApplicationUnit(t, p, w, dir, intent("production", "frontend"))
+	beforeRaw, _ := exec.Command("git", "-C", w.Dir, "rev-list", "--count", "HEAD").Output()
+	os.WriteFile(filepath.Join(dir, "reject-once"), nil, 0600)
+	proof, err := p.Withdraw(context.Background(), i, r)
+	if err != nil || !proof.ManagementStopped {
+		t.Fatal("withdrawal conflict", err)
+	}
+	afterRaw, _ := exec.Command("git", "-C", w.Dir, "rev-list", "--count", "HEAD").Output()
+	var before, after int
+	fmt.Sscan(string(beforeRaw), &before)
+	fmt.Sscan(string(afterRaw), &after)
+	if after != before+1 {
+		t.Fatalf("withdrawal republished Git: %d -> %d", before, after)
+	}
+	raw, _ := os.ReadFile(filepath.Join(dir, "repo.json"))
+	var repo map[string]any
+	json.Unmarshal(raw, &repo)
+	pins, _ := readUnitPins(repo)
+	if len(sharedPaths(pins)) != 1 || !pins[r.Handle["release"]].Removed {
+		t.Fatal("withdrawal changed sibling pins")
+	}
+}
+
+func TestApplicationFirstPrerequisiteAbsenceRecoveryIsReadOnlyAndConservative(t *testing.T) {
+	p, w, dir, intent := applicationFixture(t)
+	i := intent("staging", "backend")
+	i.Revision.Phase = domain.Prerequisite
+	i.Revision.Scope.UnitKey = "backend/PREREQUISITE"
+	i, pkg, _ := applicationPackage(t, i)
+	raw, _ := json.Marshal(pkg)
+	prepared := port.Prepared{Revision: i.Revision, Payload: raw}
+	ctx := context.Background()
+	absent, err := p.ObserveSubmissionAbsent(ctx, i, prepared)
+	if err != nil || !absent {
+		t.Fatal("exact absent prerequisite", absent, err)
+	}
+	if _, err = os.Stat(filepath.Join(dir, "repo.json")); !os.IsNotExist(err) {
+		t.Fatal("absence observation created a controller")
+	}
+	os.WriteFile(filepath.Join(dir, "release-secret"), nil, 0600)
+	if absent, err = p.ObserveSubmissionAbsent(ctx, i, prepared); err != nil || absent {
+		t.Fatal("orphan release treated as absent", absent, err)
+	}
+	os.Remove(filepath.Join(dir, "release-secret"))
+	w.Publish(ctx, pkg.Publication, func(context.Context) error { return nil })
+	if absent, err = p.ObserveSubmissionAbsent(ctx, i, prepared); err != nil || absent {
+		t.Fatal("published unit treated as absent", absent, err)
+	}
+	i.Revision.Phase = domain.Job
+	if absent, err = p.ObserveSubmissionAbsent(ctx, i, prepared); err != nil || absent {
+		t.Fatal("Job absence inferred", absent, err)
 	}
 }

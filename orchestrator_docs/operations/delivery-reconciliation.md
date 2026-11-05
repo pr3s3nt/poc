@@ -211,6 +211,28 @@ Do not manually change the shared pointer, force-sync it or remove a whole GitRe
 to clean one Environment. Use product update/remove/deletion. Last-unit withdrawal
 UID-deletes the controller; repository history and metadata remain retained.
 
+For an interrupted first unit whose exact manifests and intent metadata reached
+Git but were not admitted to the owned existing controller, explicit stopped-owner
+Settings recovery may complete that original admission. It verifies both remote
+trees, controller UID, absence of preexisting native objects, every sibling tree
+and the recovered publication lease/fence. It never pushes Git or recreates a
+missing controller. Missing/mismatched proof stays held; wait for Fleet to expose
+the exact Bundle before retrying observation. Do not clear receipts or submit a
+new deploy while the prior operation remains held.
+
+If the first prerequisite was never published and the Application controller,
+Bundle/downstream manager, Helm release and proposed native objects are all absent,
+Settings recovery may observe that absence and settle only that attempt FAILED.
+The intent and publication lease are settled atomically; a new deploy still needs
+its own Preview. Jobs and uncertain/partial publications cannot use this proof.
+Acknowledged withdrawal is no longer active source ownership when recreating a unit.
+
+A backend executable upgrade changes template runtime identity. Register the same
+pinned template content for the new binary, review/promote its Definition revision
+and explicitly select it for the affected Environment before Preview/Deploy.
+The isolated E2E setup helper is documented in
+[application Fleet acceptance](../../e2e/scenarios/application-fleet-gitrepo/README.md).
+
 Old test applications must complete product cleanup before using a fresh app with
 this layout. Observation/removal retain old receipt handling; deployment into a
 mixed layout is refused. Bootstrap-created app-scoped Role/RoleBinding objects are

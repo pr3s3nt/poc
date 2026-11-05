@@ -269,16 +269,12 @@ func (c *Coordinator) Deploy(ctx context.Context, req DeployRequest) error {
 			continue
 		}
 		intent, unit := phaseIntent(req, org.ID, owner, b, phase)
-		existing, err := c.Store.ListDeliveryExecutions(ctx, org.ID, req.Environment.ID)
-		if err != nil {
-			return err
-		}
-		var newest time.Time
-		for _, e := range existing {
-			if e.UnitID == unit && e.Mutation.Status == domain.IntentAcknowledged && (e.Mutation.Action == domain.Submit || e.Mutation.Action == domain.Adopt) && e.CreatedAt.After(newest) {
+		// Only the latest acknowledged, still-active unit owns a source.
+		// A newer withdrawal must fence out older successful Submit receipts.
+		for _, e := range active {
+			if e.UnitID == unit {
 				intent.ExpectedRevision = e.Revision.ID
 				intent.SourceInventory = append([]port.AppliedObject(nil), e.Inventory...)
-				newest = e.CreatedAt
 			}
 		}
 

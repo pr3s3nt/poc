@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-04
+last_reviewed: 2026-11-05
 ---
 
 # Current project state
@@ -13,10 +13,15 @@ Source refactor implements [ADR-036](architecture/decisions/ADR-036-application-
 one managed application controller for staging/production, readable YAML paths,
 separate revision metadata, exact per-unit tree/Bundle observation and selective
 withdrawal with original UID guards. Template driver and Terraform ownership stay.
-Focused/race/build/bootstrap/docs checks pass. Full backend suite reproduces 61
-baseline failing test names. The old acceptance app was deleted through guarded
-product cleanup; unrelated apps/resources remain. New-layout live Fleet acceptance
-is pending explicit external-verification permission; no new app is ready for use.
+Focused/race/build/bootstrap/docs checks pass. An earlier full-suite comparison recorded 61
+baseline failing test names; continuation checks remain focused on changed paths. The old acceptance app was deleted through guarded
+product cleanup; unrelated apps/resources remain. Live acceptance is complete on isolated `application-fleet-live` schema 8 / dev
+kind k8s-4f. Both Environments share one actual GitRepo with 12 ready Bundles.
+Scale preserved production; selective withdrawals removed the final controller;
+restoration reused the same Git repository and all data UIDs. Browser business,
+original job/PVC-file and unchanged Preview checks pass through verified Tailscale
+URLs. The retained schema-7 `deploy-main` installation and 15 unrelated Fleet
+controllers were preserved. No main merge is implied by this task-branch result.
 [Results and limits](verification/2026-11-05-application-fleet-gitrepo.md).
 
 

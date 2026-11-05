@@ -52,7 +52,7 @@ func (s *Store) CheckGitPublication(ctx context.Context, l persistence.GitPublic
 	return nil
 }
 func (s *Store) ReleaseGitPublication(ctx context.Context, l persistence.GitPublicationLease) error {
-	return s.Transact(ctx, func(ctx context.Context) error {
+	return s.deliveryTransaction(ctx, func(ctx context.Context) error {
 		if err := s.publicationOwner(ctx, l); err != nil {
 			return err
 		}

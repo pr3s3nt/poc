@@ -82,7 +82,7 @@ async function prepareSource(ui,source,rt,{template=false,type}={}) {
 export async function ensureTemplateSources(ui,config,rt) {
  const result={};
  for(const source of config.platform.templateSources) {
-  let matches=(await ui.get('/template-sources')).templateSources.filter(s=>sourceMatches(s.source,source));
+  let matches=(await ui.get('/template-sources')).templateSources.filter(s=>s.status==='AVAILABLE'&&sourceMatches(s.source,source));
   const recorded=rt.state.templateSources?.[source.name];
   if(recorded) {conflict(samePin(recorded.pin,source.pin),'Template input pin changed');matches=matches.filter(s=>s.id===recorded.id);}
   conflict(matches.length<=1,'Ambiguous template source pin');
@@ -196,7 +196,7 @@ export async function preflightDirect(ui,config,rt) {
  const registered=(await ui.get('/template-sources')).templateSources;
  const sources={};
  for(const source of config.platform.templateSources) {
-  const matches=registered.filter(s=>sourceMatches(s.source,source));
+  const matches=registered.filter(s=>s.status==='AVAILABLE'&&sourceMatches(s.source,source));
   conflict(matches.length<=1,'Ambiguous prepared template source');
   if(matches.length){requireConfig(matches[0].status==='AVAILABLE','Pinned template source unavailable');sources[source.name]=matches[0];}
   if(source.kind==='installed')requireConfig(matches.length===1,'Installed template source missing');

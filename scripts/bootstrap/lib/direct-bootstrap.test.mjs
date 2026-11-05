@@ -133,3 +133,15 @@ test('environment and Git-owned Definition values expand explicitly without repl
   delete f.raw.parameters.prefix;assert.throws(f.load,/Missing bootstrap parameter/);
  }finally{f.close();}
 });
+
+test('runtime source refresh selects the available pin without adopting a retired recorded engine',async()=>{
+ const pin={revision:'a'.repeat(40),contentSha256:'b'.repeat(64)};
+ const source={...pin,kind:'git',url:'https://git.example/repo',path:'.'};
+ const retired={id:'old-runtime',source,status:'UNAVAILABLE'},current={id:'current-runtime',source,status:'AVAILABLE'};
+ const config={platform:{templateSources:[{name:'test',kind:'git',url:source.url,path:'.',pin}]}};
+ const ui={get:async()=>({templateSources:[retired,current]})};
+ const rt={state:{},save(){},record(){}};
+ assert.equal((await ensureTemplateSources(ui,config,rt)).test.id,current.id);
+ const stale={state:{templateSources:{test:{id:retired.id,pin}}},save(){},record(){}};
+ await assert.rejects(()=>ensureTemplateSources(ui,config,stale),/Recorded template source missing/);
+});

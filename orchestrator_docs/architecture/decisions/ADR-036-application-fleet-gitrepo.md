@@ -60,6 +60,24 @@ preconditions only when its last admitted unit is withdrawn. Keep Git repository
 history per ADR-033. Unknown outcomes retain the operation hold and are retried
 by observation with the original receipt.
 
+For a first submission interrupted after Git publication but before controller
+admission, explicit stopped-operation recovery may finish that same admission.
+It must observe both exact generated manifest and intent metadata trees at one
+remote commit, prove an owned existing Application controller with no pin for
+that release, reject existing target objects, verify every retained sibling tree,
+and use the recovered operation fence/publication lease before a UID and
+resourceVersion guarded write. It never republishes Git, creates a missing
+controller, replaces a prior unit revision or repeats an acknowledged Job.
+A first prerequisite submission may instead be settled FAILED by explicit
+read-only recovery when its exact candidate Git trees are not published, the
+Application controller and every proposed native object are absent, and target
+identity plus the recovered fence/lease are verified. It cannot infer absence
+for Jobs, publish content or create a controller; any uncertainty stays held.
+Acknowledged withdrawal is terminal source ownership: recreation has no prior
+active revision/inventory.
+Ordinary controller writes retry bounded API rejections after rereading and
+revalidating ownership; uncertain transport outcomes remain held.
+
 ## Compatibility and validation
 
 No database schema change or reset is required. Preserve historical per-unit and

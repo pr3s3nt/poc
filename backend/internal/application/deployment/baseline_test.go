@@ -5,8 +5,11 @@ import (
 	"errors"
 	"testing"
 
+	"encoding/json"
 	"orchestrator/internal/adapters/store"
 	appsvc "orchestrator/internal/application/deployment"
+	domain "orchestrator/internal/domain/deployment"
+	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/ports/persistence"
@@ -149,4 +152,73 @@ func mustDescriptor(t *testing.T, text string) resource.Descriptor {
 		t.Fatal(err)
 	}
 	return d
+}
+
+type retainedHistoryView struct {
+	persistence.Store
+	records map[string]domain.Deployment
+	sets    map[string]environment.DeploymentSet
+}
+
+func (v *retainedHistoryView) GetDeployment(_ context.Context, id string) (domain.Deployment, error) {
+	d, ok := v.records[id]
+	if !ok {
+		return d, persistence.ErrNotFound
+	}
+	return d, nil
+}
+func (v *retainedHistoryView) GetDeploymentSet(_ context.Context, id string) (environment.DeploymentSet, error) {
+	s, ok := v.sets[id]
+	if !ok {
+		return s, persistence.ErrNotFound
+	}
+	return s, nil
+}
+func TestRetainedDataBaselineFollowsOnlySuccessfulRemovalBaseSetLineage(t *testing.T) {
+	ctx := context.Background()
+	st, a, node := baselineFixture(t)
+	a.Status = resource.StatusUnreferenced
+	a.LastDeploymentID = "remove"
+	node.Kind = planning.NodeResource
+	node.ResourceType = "redis"
+	original := planning.Plan{Graph: planning.Graph{Nodes: []planning.Node{node}}, Matches: map[string]planning.Match{node.Descriptor: {DefinitionKey: "def", DriverType: resource.DriverTerraform}}, Terraform: []planning.TerraformContract{{Descriptor: node.Descriptor, Fingerprint: "exact-module"}}, IntentEvidence: map[string]string{node.Descriptor: "authored-pin"}}
+	raw, _ := json.Marshal(original)
+	var document map[string]any
+	json.Unmarshal(raw, &document)
+	st.SavePlan(ctx, "executed", document)
+	st.SavePlan(ctx, "remove", map[string]any{"workloadId": "removed"})
+	view := &retainedHistoryView{Store: st, records: map[string]domain.Deployment{"remove": {OrganizationKey: "org", EnvironmentID: "env", Action: domain.ActionRemove, Status: domain.StatusSucceeded, BaseDeploymentSetID: "base"}, "executed": {OrganizationKey: "org", EnvironmentID: "env", Action: domain.ActionDeploy, Status: domain.StatusSucceeded}}, sets: map[string]environment.DeploymentSet{"base": {EnvironmentID: "env", CreatedByDeploymentID: "executed"}}}
+	captured, err := appsvc.CaptureBaselines(ctx, view, "org", []resource.ActiveResource{a})
+	if err != nil {
+		t.Fatal(err)
+	}
+	intents := original.ResourceIntents(captured.Reader())
+	if len(intents) != 1 || intents[0].Intent != planning.IntentRetain {
+		t.Fatal("retained data lost its exact execution evidence", intents)
+	}
+	original.Terraform[0].Fingerprint = "changed-module"
+	if original.ResourceIntents(captured.Reader())[0].Intent != planning.IntentUpdate {
+		t.Fatal("real module change hidden")
+	}
+	// A non-removal hop, another Environment, or missing evidence cannot inherit it.
+	for _, mode := range []string{"not-removal", "other-environment", "cycle"} {
+		d := view.records["remove"]
+		d.Action = domain.ActionRemove
+		view.records["remove"] = d
+		view.sets["base"] = environment.DeploymentSet{EnvironmentID: "env", CreatedByDeploymentID: "executed"}
+		if mode == "not-removal" {
+			d.Action = domain.ActionDeploy
+			view.records["remove"] = d
+		}
+		if mode == "other-environment" {
+			view.sets["base"] = environment.DeploymentSet{EnvironmentID: "foreign", CreatedByDeploymentID: "executed"}
+		}
+		if mode == "cycle" {
+			view.sets["base"] = environment.DeploymentSet{EnvironmentID: "env", CreatedByDeploymentID: "remove"}
+		}
+		b, err := appsvc.CaptureBaselines(ctx, view, "org", []resource.ActiveResource{a})
+		if err != nil || b.Reader()(node) != nil {
+			t.Fatalf("unsafe history %s: %v", mode, err)
+		}
+	}
 }

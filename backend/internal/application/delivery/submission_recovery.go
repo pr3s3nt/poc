@@ -2,6 +2,7 @@ package delivery
 
 import (
 	"context"
+	"log"
 	domain "orchestrator/internal/domain/delivery"
 	"orchestrator/internal/domain/environment"
 	port "orchestrator/internal/ports/delivery"
@@ -30,9 +31,42 @@ func (c *Coordinator) GuardRecovery(ctx context.Context, i port.Intent) error {
 	if e.Mutation.OperationID != owner.OperationID || e.Mutation.Owner != owner.Owner || e.Mutation.Fence != owner.Fence || e.Mutation.Action != domain.Submit || (e.Mutation.Status != domain.IntentRunning && e.Mutation.Status != domain.IntentUnknown) {
 		return domain.ErrOutcomeUnknown
 	}
+	provider, err := c.Registry.Resolve(providerKind(i.Revision.Selection, i.Binding))
+	if err != nil {
+		return err
+	}
+	if publication, ok := provider.(port.PublicationIdentity); ok {
+		destination, err := publication.PublicationDestination(i.Binding)
+		if err != nil {
+			return err
+		}
+		return c.Store.CheckGitPublication(ctx, persistence.GitPublicationLease{Destination: destination, OrganizationID: i.Binding.OrganizationID, Owner: owner})
+	}
 	return nil
 }
-func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env environment.Environment) error {
+func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env environment.Environment) (resultErr error) {
+	stage := "initialize"
+	defer func() {
+		if resultErr != nil {
+			code := "UNCLASSIFIED"
+			// Only fixed messages are eligible; arbitrary provider output stays private.
+			known := map[string]string{
+				"fleet: controller ownership or incarnation mismatch":          "OWNERSHIP",
+				"fleet: controller operation could not be confirmed":           "CONTROLLER",
+				"fleet: invalid binding configuration":                         "CONFIG",
+				"fleet: controller or registered target could not be verified": "TARGET",
+				"delivery: prior mutation outcome must be resolved":            "UNKNOWN",
+				"gitpublication: operation failed":                             "GIT",
+				"gitpublication: generated path changed concurrently":          "GIT_CONFLICT",
+				"gitpublication: invalid generated publication":                "GIT_INVALID",
+			}
+			if v, ok := known[resultErr.Error()]; ok {
+				code = v
+			}
+			log.Printf("delivery submission recovery stopped: stage=%s code=%s type=%T", stage, code, resultErr)
+		}
+	}()
+
 	repo, ok := c.Store.(persistence.DeliveryRecoveryRepository)
 	if !ok {
 		return ErrUnavailable
@@ -57,12 +91,13 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 		return err
 	}
 	for _, record := range records {
-		if record.Mutation.OperationID != owner.OperationID || record.Mutation.Status == domain.IntentAcknowledged {
+		if record.Mutation.OperationID != owner.OperationID || (record.Mutation.Status == domain.IntentAcknowledged || record.Mutation.Status == domain.IntentFailed) {
 			continue
 		}
 		if record.Mutation.Action != domain.Submit || (record.Receipt.IntentID != "" && record.Receipt.IntentID != record.Mutation.ID) {
 			return domain.ErrOutcomeUnknown
 		}
+		stage = "binding"
 		binding, provider, err := c.sourceProvider(ctx, record)
 		if err != nil {
 			return err
@@ -77,14 +112,17 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 			if err != nil {
 				return err
 			}
+			stage = "publication-lease"
 			if err = repo.RecoverGitPublication(ctx, org.ID, destination); err != nil {
 				return err
 			}
 		}
+		stage = "rebind"
 		record, err = repo.RebindDeliverySubmission(ctx, org.ID, record.Mutation.ID, record.Mutation.Version)
 		if err != nil {
 			return err
 		}
+		stage = "artifact"
 		raw, err := c.providerArtifact(ctx, record)
 		if err != nil {
 			return err
@@ -92,21 +130,49 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 		var previous *persistence.DeliveryExecution
 		for index := range records {
 			source := &records[index]
-			if source.UnitID == record.UnitID && source.Mutation.Status == domain.IntentAcknowledged && (source.Mutation.Action == domain.Submit || source.Mutation.Action == domain.Adopt) && (previous == nil || source.CreatedAt.After(previous.CreatedAt)) {
+			if source.UnitID == record.UnitID && source.Mutation.Status == domain.IntentAcknowledged && (previous == nil || source.CreatedAt.After(previous.CreatedAt)) {
 				previous = source
 			}
 		}
 		source := port.TransferSource{}
-		if previous != nil {
+		if previous != nil && (previous.Mutation.Action == domain.Submit || previous.Mutation.Action == domain.Adopt) {
 			source = port.TransferSource{Revision: previous.Revision, Receipt: previous.Receipt, Inventory: previous.Inventory}
 		}
 		intent := port.Intent{ID: record.Mutation.ID, OrganizationKey: orgKey, Owner: port.Owner{OperationID: owner.OperationID, Instance: owner.Owner, Fence: owner.Fence}, Binding: binding, Revision: record.Revision, Target: record.Target, PolicyOnly: policyOnly}
 		intent.SourceInventory = append([]port.AppliedObject(nil), source.Inventory...)
 		if record.Receipt.IntentID == "" {
+			if absentObserver, ok := provider.(port.SubmissionAbsenceRecovery); ok {
+				stage = "absence"
+				absent, err := absentObserver.ObserveSubmissionAbsent(ctx, intent, port.Prepared{Revision: record.Revision, Payload: raw})
+				if err != nil {
+					return err
+				}
+				if absent {
+					old := record.Mutation.Version
+					record.Mutation, err = record.Mutation.Advance(domain.IntentFailed, true)
+					if err != nil {
+						return err
+					}
+					record.UpdatedAt = time.Now().UTC()
+					if err = c.Store.Transact(ctx, func(tx context.Context) error {
+						if _, err := c.Store.UpdateDeliveryExecution(tx, record, old); err != nil {
+							return err
+						}
+						if destination != "" {
+							return c.Store.ReleaseGitPublication(tx, persistence.GitPublicationLease{Destination: destination, OrganizationID: org.ID, Owner: owner})
+						}
+						return nil
+					}); err != nil {
+						return err
+					}
+					continue
+				}
+			}
 			observer, ok := provider.(port.SubmissionReceiptRecovery)
 			if !ok {
 				return domain.ErrOutcomeUnknown
 			}
+			stage = "receipt"
 			receipt, err := observer.RecoverReceipt(ctx, intent, port.Prepared{Revision: record.Revision, Payload: raw})
 			if err != nil {
 				return err
@@ -118,6 +184,7 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 				return err
 			}
 		}
+		stage = "submission"
 		receipt, err := recoverer.RecoverSubmission(ctx, intent, port.Prepared{Revision: record.Revision, Payload: raw}, record.Receipt, source)
 		if err != nil {
 			return err
@@ -131,6 +198,7 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 		}
 		wait, cancel := context.WithTimeout(ctx, deadline)
 		for {
+			stage = "observe"
 			observed, observeErr := provider.Observe(wait, intent, receipt)
 			if observeErr != nil {
 				cancel()

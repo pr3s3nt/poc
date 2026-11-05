@@ -77,16 +77,9 @@ func (c *Coordinator) withdrawExecution(ctx context.Context, orgKey string, sour
 	if !ok {
 		return persistence.ErrOperationLost
 	}
-	selection := source.Revision.Selection.Effective()
-	var b domain.BindingVersion
-	var err error
-	if selection.Mode == domain.CD {
-		b, err = c.Store.GetDeliveryBinding(ctx, source.OrganizationID, selection.BindingID, selection.BindingVersion)
-		if err != nil {
-			return err
-		}
-	}
-	provider, err := c.Registry.Resolve(providerKind(selection, b))
+	// Resolve the same durable per-Application repository/Environment binding
+	// that admitted the source receipt; the platform policy has no clone URL.
+	b, provider, err := c.sourceProvider(ctx, source)
 	if err != nil {
 		return err
 	}

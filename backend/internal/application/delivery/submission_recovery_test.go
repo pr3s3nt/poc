@@ -294,3 +294,65 @@ func TestSubmissionRecoveryReconstructsLostReceiptWithoutReplay(t *testing.T) {
 		t.Fatal("receipt recovery replayed submission or changed native identity")
 	}
 }
+
+type absentSubmissionProvider struct {
+	*neutralProvider
+	recoveryGuard     func(context.Context, port.Intent) error
+	reads, recoveries int
+}
+
+func (p *absentSubmissionProvider) ObserveSubmissionAbsent(ctx context.Context, i port.Intent, _ port.Prepared) (bool, error) {
+	if err := p.recoveryGuard(ctx, i); err != nil {
+		return false, err
+	}
+	p.reads++
+	return i.Revision.Phase == domain.Prerequisite, nil
+}
+func (p *absentSubmissionProvider) RecoverSubmission(context.Context, port.Intent, port.Prepared, port.Receipt, port.TransferSource) (port.Receipt, error) {
+	p.recoveries++
+	return port.Receipt{}, domain.ErrUnsupported
+}
+func TestRecoverySettlesProvenAbsentSubmissionWithoutReplayingIt(t *testing.T) {
+	c, original, ctx, req, _ := coordinatorFixture(t)
+	p := &absentSubmissionProvider{neutralProvider: original, recoveryGuard: c.GuardRecovery}
+	c.Registry = port.NewRegistry()
+	c.Registry.Register("fleet", p)
+	original.submitError = errors.New("before publication")
+	if err := c.Deploy(ctx, req); err == nil {
+		t.Fatal("missing failed submission")
+	}
+	owner, _ := persistence.OwnerFrom(ctx)
+	if err := c.Store.SuspendOperation(ctx, owner, "prior worker stopped"); err != nil {
+		t.Fatal(err)
+	}
+	op, err := c.Store.BeginRecovery(context.Background(), owner.OperationID, "absence-recovery", "operator")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx = persistence.WithOwner(context.Background(), persistence.Owner{OperationID: op.ID, Owner: op.Owner, Fence: op.Fence})
+	if err = c.RecoverSubmissions(ctx, req.OrganizationKey, req.Environment); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.RecoverSubmissions(ctx, req.OrganizationKey, req.Environment); err != nil {
+		t.Fatal("terminal absence replayed", err)
+	}
+	org, _ := c.Store.GetOrganization(ctx, req.OrganizationKey)
+	records, _ := c.Store.ListDeliveryExecutions(ctx, org.ID, req.Environment.ID)
+	if len(records) != 1 || records[0].Mutation.Status != domain.IntentFailed || p.reads != 1 || p.recoveries != 0 || len(p.order) != 1 {
+		t.Fatal("absence did not settle without replay", p.reads, p.recoveries, p.order)
+	}
+	owner, _ = persistence.OwnerFrom(ctx)
+	if err = c.Store.ReleaseOperation(ctx, owner, environment.OpRecovered, ""); err != nil {
+		t.Fatal(err)
+	}
+	op, err = c.Store.ClaimEnvironment(context.Background(), persistence.OperationClaim{ID: ids.New(), ApplicationKey: req.ApplicationKey, EnvironmentKey: req.Environment.Key, Owner: "fresh-review", Kind: environment.OpDeploy, Deadline: time.Now().Add(time.Minute)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx = persistence.WithOwner(context.Background(), persistence.Owner{OperationID: op.ID, Owner: op.Owner, Fence: op.Fence})
+	req.DeploymentID = ids.New()
+	original.submitError = nil
+	if err = c.Deploy(ctx, req); err != nil {
+		t.Fatal("new deployment after observed absence", err)
+	}
+}

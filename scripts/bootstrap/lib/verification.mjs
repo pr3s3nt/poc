@@ -128,6 +128,7 @@ export async function verifyBackendStorage(page,config,rt) {
  if(rt.state.backendStorage)conflict(equal(rt.state.backendStorage,identity),'Backend PVC/file identity changed');
  const stored=page.locator('#storage-hash');
  if(!await stored.count()) {
+  requireConfig(!rt.state.backendStorage,'Baseline file missing after upgrade');
   requireConfig(!rt.state.storageWriteIntent,'Unknown storage write result; inspect before retry');
   rt.state.storageWriteIntent=true;rt.save();
   await page.getByLabel('Test value',{exact:true}).fill(config.verification.storage.value);
