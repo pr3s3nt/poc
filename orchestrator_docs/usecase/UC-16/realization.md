@@ -112,6 +112,12 @@ admission. UI giữ custom/imported class và metadata request/scope guards;
 server Preview/Deploy remains authoritative. Payload/role/failure contract ở
 [UI mapping](ui/api-mapping.md#metadata-class-và-source--i04-07).
 
+UC-16 BR-31/32: the same query also supplies `resourceTypes[key=workload].classes`
+to the editor's collapsed Workload advanced section. Keep these names separate
+from dependency Types. The boundary retains the current class independently of
+metadata refresh, including unavailable values; selecting the default omits the
+field. This changes authoring controls only, without a new participant or API.
+
 ## ENV-UX — direct-entry table (2026-10-27)
 
 The boundary renders Name/Value first. One scoped reference picker projects

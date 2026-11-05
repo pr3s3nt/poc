@@ -9,6 +9,12 @@ last_reviewed: 2026-10-28
 
 Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, class/method, persistence/state và planned test. `OC-nn` tham chiếu `architecture/contracts/operation-contracts.md`.
 
+## Workload class authoring — 2026-11-05
+
+| Requirement | Implementation | Validation |
+|---|---|---|
+| UC-16 BR-31/32: advanced dropdown from workload Type metadata, default/retained class and retry | `frontend/src/features/workloads/WorkloadClassControl.tsx`, `WorkloadEditorPage.tsx`; existing GET resource-types | `WorkloadClassMetadata.test.tsx`; browser using fixture data |
+
 ## Issue #23 — PostgreSQL upgrades
 
 ADR-027 source recognition, preservation, serialization, rollback, version/history validation and runtime isolation map to `postgres/upgrade.go`, `baseline.go`, `grants.go` and `upgrade_integration_test.go`. Active/frozen schema structural equivalence is enforced by `TestActiveBaselineMatchesFrozenVersion`; immutable release artifacts/version additions by `scripts/check_migrations.py` in Product CI. The deployment wrapper stops writers, backs up and gates startup on owner setup success.

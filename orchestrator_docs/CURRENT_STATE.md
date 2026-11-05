@@ -7,6 +7,22 @@ last_reviewed: 2026-11-05
 
 # Current project state
 
+## Workload class dropdown — 2026-11-05
+
+Task branch `features/chinhform`: UC-16 BR-31/32 replaces free-text workload class
+with a collapsed advanced dropdown from the published `workload` Type classes.
+Default omission, explicit historical default and unpublished saved classes are
+preserved; refresh failures lock selection and allow GET retry. Existing matching
+and Preview/Deploy are unchanged. Typecheck/lint/build, 49 focused editor/class/
+storage tests and browser fixture inspection pass. Lint has an existing warning
+in PlatformSettingsPage; existing async tests emit act warnings. Browser checks
+use fake API data and do not prove live deployment or Tailscale availability.
+
+The broader user-approved workload expansion (PVC, emptyDir, Secret/ConfigMap
+files, sidecar and init containers including mounts in the custom form) remains
+pending; the class change does not claim to implement it. See
+[scope handoff](implementation/workload-catalog.md#chinhform-scope--2026-11-05).
+
 ## Public routes and subdomains retired — 2026-11-05
 
 [ADR-037](architecture/decisions/ADR-037-retire-public-routes.md): the endpoint

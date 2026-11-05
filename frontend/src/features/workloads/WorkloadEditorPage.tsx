@@ -13,6 +13,7 @@ import { EnvironmentVariablesTable, type FocusRequest } from './EnvironmentVaria
 import { ExecutionFields } from './ExecutionFields';
 import { getWorkloadTemplates, templateKey, type Execution, type WorkloadTemplate } from './templates';
 import { Advanced } from './Advanced';
+import { WorkloadClassControl } from './WorkloadClassControl';
 import { bindingProblem, changeSource, escapeLiteral, isKeySource, readBinding, serviceAlias, type Binding, type KeyCatalog, type ResourceSpecs } from './bindings';
 import { buildRowContext } from './rowContext';
 import { t } from '../../shared/i18n';
@@ -176,6 +177,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   const [catalog, setCatalog] = useState<KeyCatalog>({ status: 'loading' });
   const [catalogAttempt, setCatalogAttempt] = useState(0);
   const [types, setTypes] = useState<ResourceType[]>([]);
+  const [workloadClasses, setWorkloadClasses] = useState<string[]>([]);
   // Class choices come from GET /resource-types; while they reload or fail the class controls lock, edits stay and nothing is guessed.
   const [classMetadata, setClassMetadata] = useState<ClassMetadata>('ready');
   const [workloads, setWorkloads] = useState<Workload[]>([]);
@@ -212,6 +214,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   // over (a pending reload's finally ignores the new scope by design).
   useEffect(() => {
     scope.current += 1;
+    setWorkloadClasses([]);
     setTemplateMetadata(undefined); setTemplateInputProblems(0); setForm(emptyForm()); setImported(undefined); setDirty(false); setMode('form'); setAdvancedScore(false); setBlocked(false); setSaving(false); setReloading(false); setWorkloads([]); setDialog(undefined); setFocusRequest(undefined); setShowIncomplete(false);
   }, [application.id, environment, workloadId, selectedTemplate]);
 
@@ -221,7 +224,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     setLoading(true); setLoadFailed(false); setError('');
     Promise.all([getWorkloads(application.id, environment), getResourceTypes()]).then(async ([list, catalog]) => {
       if (cancelled) return;
-      setWorkloads(list.workloads); setTypes(catalog.resourceTypes.filter((type) => type.key !== 'workload')); setClassMetadata('ready'); setVersion(list.draftVersion);
+      setWorkloads(list.workloads); setTypes(catalog.resourceTypes.filter((type) => type.key !== 'workload')); setWorkloadClasses((catalog.resourceTypes.find(type => type.key === 'workload')?.classes ?? []).filter(validWorkloadClass)); setClassMetadata('ready'); setVersion(list.draftVersion);
       const existing = list.workloads.find((item) => item.id === workloadId);
       if (existing?.workload && hasRemovedPublicPort(existing.workload)) { setForm({ ...emptyForm(), name: workloadId ?? '' }); setBlocked(true); setError(removedPublicPortMessage); }
       else if (existing?.workload) { setForm(readForm(existing.workload)); setImported(existing.workload); setBlocked(false); const advanced = needsScoreEditor(existing.workload, catalog.resourceTypes); setAdvancedScore(advanced); if (advanced) setMode('import'); }
@@ -275,7 +278,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     try {
       const catalog = await getResourceTypes();
       if (at !== scope.current || request !== metadataRequest.current) return;
-      setTypes(catalog.resourceTypes.filter((type) => type.key !== 'workload')); setClassMetadata('ready');
+      setTypes(catalog.resourceTypes.filter((type) => type.key !== 'workload')); setWorkloadClasses((catalog.resourceTypes.find(type => type.key === 'workload')?.classes ?? []).filter(validWorkloadClass)); setClassMetadata('ready');
     } catch {
       if (at === scope.current && request === metadataRequest.current) setClassMetadata('error');
     }
@@ -368,7 +371,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     {stale ? <div className="form-error" role="alert" aria-label={t('workloads.workloadEditor.workloadDraftIsStale')}>{t('workloads.workloadEditor.workloadsIn')}{' '} {environment} {' '}{t('workloads.workloadEditor.changedAfterThisPageWas')}{' '} <Button disabled={reloading} onClick={() => void reloadCurrent()}>{reloading ? t('workloads.workloadEditor.reloading') : t('workloads.workloadEditor.reloadCurrentState')}</Button>{reloadError ? <p>{reloadError}</p> : null}</div> : null}
     {current ? <div className="form-info" role="status">{t('workloads.workloadEditor.reloadedDraftVersion')}{' '} {current.version}{t('workloads.workloadEditor.currentStateOfThisWorkload')}{' '} {currentState}{t('workloads.workloadEditor.theEditsBelowAreUnchanged')}{current.workload ? <details><summary>{t('workloads.workloadEditor.currentScore')}</summary><pre className="workload-preview">{JSON.stringify(current.workload, null, 2)}</pre></details> : null}</div> : null}
     {loading ? <p>{t('workloads.workloadEditor.loadingWorkloadOptions')}</p> : mode === 'import' ? <section className="content-panel"><h2>{t('workloads.workloadEditor.importAScoreFile')}</h2><p>{t('workloads.workloadEditor.yAMLOrJSONTheSame')}</p><input aria-label={t('workloads.workloadEditor.scoreFile')} type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} />{imported ? <><p>{t('workloads.workloadEditor.parsedWorkload')}{' '} <strong>{String((imported.metadata as { name?: string } | undefined)?.name ?? '')}</strong></p><pre className="workload-preview">{JSON.stringify(imported, null, 2)}</pre></> : null}</section> : <>
-      <section className="content-panel editor-grid"><h2>{t('workloads.workloadEditor.basicInformation')}</h2><label>{t('workloads.workloadEditor.workloadName')}<input value={form.name} disabled={Boolean(workloadId)} onChange={(event) => updateForm({ ...form, name: event.target.value })} placeholder="frontend" /></label><label>{t('workloads.workloadEditor.workloadClassMetadataClass')}<input aria-label={t('workloads.workloadEditor.workloadClass')} value={form.workloadClass} onChange={(event) => updateForm({ ...form, workloadClass: event.target.value })} placeholder="default" /></label>{form.workloadClass && !validWorkloadClass(form.workloadClass) ? <small role="note">{t('workloads.workloadEditor.classUsesOnlyLowercaseLetters')}</small> : <small className="muted">{t('workloads.workloadEditor.emptyMeansDefaultTheClass')}</small>}</section>
+      <section className="content-panel editor-grid"><h2>{t('workloads.workloadEditor.basicInformation')}</h2><label>{t('workloads.workloadEditor.workloadName')}<input value={form.name} disabled={Boolean(workloadId)} onChange={(event) => updateForm({ ...form, name: event.target.value })} placeholder="frontend" /></label><WorkloadClassControl value={form.workloadClass} classes={workloadClasses} metadata={classMetadata} disabled={saving} onChange={workloadClass => updateForm({ ...form, workloadClass })} onReload={() => void reloadClassMetadata()} /></section>
       {form.execution && form.execution.kind !== 'CronJob' ? <section className="content-panel editor-grid"><label>{t('workloads.templates.replicas')}<input type="number" min="1" max={form.execution.kind === 'StatefulSet' ? 1 : undefined} value={form.replicas ?? 1} onChange={e => updateForm({ ...form, replicas: Number(e.target.value) })} /></label></section> : null}
       {form.execution ? <ExecutionFields value={form.execution} onChange={execution => updateForm({ ...form, execution })} containers={form.containers.map(c => c.name)} storage={form.dependencies.filter(dep => storageKeys.has(dep.type)).map(dep => dep.alias)} onAddStorage={storageTypes.length ? openStorageResource : undefined} catalogReady={!loadFailed && classMetadata === 'ready'} metadata={templateMetadata} secrets={catalog.status === 'ready' ? catalog.keys.filter(key => key.kind === 'SECRET').map(key => key.name) : []} disabled={saving} onRawProblems={setTemplateInputProblems} /> : null}
       {catalog.status === 'error' ? <div className="form-error" role="alert">{t('workloads.workloadEditor.couldNotLoadApplicationVariables2')}{' '} {catalog.message} {' '}{t('workloads.workloadEditor.yourSelectionsAreKept')}{' '} <Button onClick={() => setCatalogAttempt((value) => value + 1)}>{t('workloads.workloadEditor.retryLoadingKeys')}</Button></div> : null}

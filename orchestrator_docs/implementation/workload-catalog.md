@@ -7,6 +7,36 @@ last_reviewed: 2026-10-29
 
 # Workload catalog — implementation entry, issue #24
 
+## Chinhform scope — 2026-11-05
+
+Current user authorization on `features/chinhform` extends authoring/platform
+support to PVC, emptyDir, Secret files and nonsecret ConfigMap files, plus app,
+sidecar and init containers with per-container mounts. The ordinary custom form
+must expose these capabilities. This is not permission to mutate a cluster/cloud.
+Keep explicit Save → Preview → Deploy, stable resource identities, retention,
+approved versioned secret references and lossless edit/import. Broader projected,
+downwardAPI, token, inline CSI, generic ephemeral and hostPath volume authoring
+are outside this slice. Source contracts/realizations must be extended before
+implementing the new runtime intent; this handoff is not evidence of completion.
+
+An independently completed authoring change adds UC-16 BR-31/32: Workload class
+is a published-metadata dropdown under collapsed advanced controls, retaining
+old values. No backend API or matching change. UI reference: current AppShell,
+shared Advanced/Button and editor styles; Playwright inspected the actual editor
+before/after using fake API data (screenshots outside Git under `/tmp/chinhform-class-*`).
+The lengthy class explanation is removed from the basic form; only the effective
+class summary and necessary unpublished/error information remain visible.
+No live workload/Tailscale handoff is claimed.
+
+Validation: typecheck, lint (one pre-existing PlatformSettingsPage warning), build,
+49 focused editor/class/storage tests and documentation/whitespace checks pass.
+Existing asynchronous class tests emit act warnings. No unrelated frontend/backend
+full suite or database/Kubernetes/cloud mutation was run for this UI-only change.
+
+Other reviewed form gaps remain tracked in this conversation: container ports,
+Service protocol, annotations, explicit zero replicas and richer probes. They
+must not be reported as implemented by the class dropdown change.
+
 Issue: https://github.com/pr3s3nt/poc/issues/24. Branch:
 `features/24-workload-catalog`. User authorized implementation, existing local
 kind and merge to main **after** acceptance. No data migration/adoption or changes

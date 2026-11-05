@@ -227,11 +227,17 @@ describe('UC-16 dependency class from authoritative metadata (I04-07)', () => {
 describe('ADR-016 workload class (Workload metadata.class)', () => {
   it('writes metadata.class only when chosen and leaves a missing class missing', async () => {
     const user = userEvent.setup();
-    const { puts } = serve();
+    const { puts } = serve({ types: () => Response.json({ resourceTypes: [...typeFixture.filter(type => type.key !== 'workload'), { key: 'workload', inputs: [], outputs: [], classes: ['gold', 'default', 'worker'] }] }) });
     await newWorkload(user);
+    expect(screen.queryByRole('combobox', { name: 'Class Workload' })).not.toBeInTheDocument();
     await user.click(save());
     expect((puts[0]?.workload as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api' });
-    await user.type(screen.getByLabelText('Class Workload'), 'gold');
+    await user.click(screen.getByRole('button', { name: 'Hiện nâng cao Workload' }));
+    const select = screen.getByRole('combobox', { name: 'Class Workload' });
+    expect(within(select).getAllByRole('option').map(option => option.textContent)).toEqual(['Mặc định (default)', 'gold', 'worker']);
+    await user.selectOptions(select, 'gold');
+    await user.click(screen.getByRole('button', { name: 'Ẩn nâng cao Workload' }));
+    expect(screen.getByRole('note', { name: 'Tóm tắt nâng cao Workload' })).toHaveTextContent('gold');
     await user.click(save());
     expect((puts[1]?.workload as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api', class: 'gold' });
   });
@@ -244,7 +250,11 @@ describe('ADR-016 workload class (Workload metadata.class)', () => {
       const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api', class: className }, containers: { main: { image: 'example.invalid/api:v1' } } };
       const { puts } = serve({ workloads: [{ id: 'api', ready: true, workload }] });
       render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
-      expect(await screen.findByLabelText('Class Workload')).toHaveValue(className);
+      await screen.findByLabelText('Ảnh Container');
+      expect(screen.getByRole('note', { name: 'Tóm tắt nâng cao Workload' })).toHaveTextContent(className);
+      await user.click(screen.getByRole('button', { name: 'Hiện nâng cao Workload' }));
+      expect(screen.getByRole('combobox', { name: 'Class Workload' })).toHaveValue(className);
+      expect(within(screen.getByRole('combobox', { name: 'Class Workload' })).getByRole('option', { name: `${className} (đã lưu)` })).toBeInTheDocument();
       await user.clear(screen.getByLabelText('Ảnh Container'));
       await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/api:v2');
       await user.click(save());
@@ -252,15 +262,43 @@ describe('ADR-016 workload class (Workload metadata.class)', () => {
     }
   });
 
-  it('refuses an invalid class before saving and keeps the typed value', async () => {
+  it('keeps the selected class when refresh fails, retries by GET, and retains a withdrawn choice', async () => {
     const user = userEvent.setup();
-    const { puts } = serve();
+    let result: 'ready' | 'error' | 'empty' = 'ready';
+    const calls: string[] = [];
+    const { puts } = serve({ calls, types: () => result === 'error'
+      ? Response.json({ code: 'INTERNAL_ERROR' }, { status: 500 })
+      : Response.json({ resourceTypes: [{ key: 'workload', inputs: [], outputs: [], classes: result === 'empty' ? [] : ['gold'] }] }) });
     await newWorkload(user);
-    await user.type(screen.getByLabelText('Class Workload'), 'Gold Class');
+    await user.click(screen.getByRole('button', { name: 'Hiện nâng cao Workload' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Class Workload' }), 'gold');
+    result = 'error';
+    await user.click(screen.getByRole('button', { name: 'Làm mới metadata class' }));
+    await screen.findByText('Không tải được class Workload.');
+    const select = screen.getByRole('combobox', { name: 'Class Workload' });
+    expect(select).toBeDisabled();
+    expect(select).toHaveValue('gold');
+    result = 'empty';
+    await user.click(screen.getByRole('button', { name: 'Thử lại tải metadata class' }));
+    await vi.waitFor(() => expect(select).toBeEnabled());
+    expect(select).toHaveValue('gold');
+    expect(within(select).getByRole('option', { name: 'gold (đã lưu)' })).toBeInTheDocument();
+    expect(calls.every(call => call.startsWith('GET'))).toBe(true);
     await user.click(save());
-    expect(await screen.findByRole('alert')).toHaveTextContent('Class Workload không hợp lệ');
-    expect(puts).toEqual([]);
-    expect(screen.getByLabelText('Class Workload')).toHaveValue('Gold Class');
+    expect((puts[0]?.workload.metadata as Record<string, unknown>).class).toBe('gold');
+    await user.selectOptions(select, '');
+    await user.click(save());
+    expect(puts[1]?.workload.metadata).toEqual({ name: 'api' });
+  });
+
+  it('offers default when no workload classes are published, without using dependency classes', async () => {
+    const user = userEvent.setup();
+    serve();
+    await newWorkload(user);
+    await user.click(screen.getByRole('button', { name: 'Hiện nâng cao Workload' }));
+    const select = screen.getByRole('combobox', { name: 'Class Workload' });
+    expect(within(select).getAllByRole('option')).toHaveLength(1);
+    expect(select).toHaveValue('');
   });
 
   it('keeps a Workload whose metadata.class is not a valid identifier in the advanced Workload editor instead of rewriting it', async () => {

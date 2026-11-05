@@ -3826,5 +3826,11 @@
   "endpointDriver.invalidGateway": "Gateway name, namespace and listener use only lowercase letters, digits and hyphens.",
   "endpointDriver.invalidReserved": "Each used name must be one lowercase DNS label, separated by commas.",
   "endpointDriver.noModule": "No module needed",
-  "preview.endpoint": "Public address"
+  "preview.endpoint": "Public address",
+  "workloads.workloadClass.summary": "Workload class: {value}",
+  "workloads.workloadClass.default": "Default (default)",
+  "workloads.workloadClass.retained": "{value} (saved)",
+  "workloads.workloadClass.unpublished": "The saved class is not in the published list. Preview checks availability.",
+  "workloads.workloadClass.loading": "Loading workload classes…",
+  "workloads.workloadClass.unavailable": "Could not load workload classes."
 }

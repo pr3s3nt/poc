@@ -7,6 +7,14 @@ last_reviewed: 2026-10-28
 
 # Design-to-code map
 
+## Workload class authoring — UC-16 BR-31/32
+
+`frontend/src/features/workloads/WorkloadClassControl.tsx` reuses `Advanced` and
+the published `workload` Type classes retained by `WorkloadEditorPage.tsx`.
+`WorkloadClassMetadata.test.tsx` covers default omission, authoritative choices,
+retained classes, metadata failure/retry and withdrawal without mutation.
+Backend matching/API/persistence contracts are unchanged.
+
 ## Controlled Definition upgrades
 
 [UC-03 DV-01–07](../usecase/UC-03/definition-versions.md) maps to immutable revision/Environment repositories, catalog resolution, Plan snapshots, fenced activation and the existing forms. See the [implementation route](definition-versions.md) for paths and supported tool-retention boundaries.

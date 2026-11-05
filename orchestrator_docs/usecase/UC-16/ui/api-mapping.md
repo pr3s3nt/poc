@@ -47,6 +47,11 @@ không nhận computed `classes`.
 
 ## Unified sources — DEVEX-ENV
 
+Workload class BR-31/32 reuses the `classes` array of the `workload` Type from
+the same GET, preserving it before excluding workload from dependency choices.
+No new endpoint or payload field: Save still writes optional `metadata.class`.
+The dropdown does not claim the published class matches the current context.
+
 Canonical mappings and create-only payload/errors are in
 [OC-12/OC-16](../../../architecture/contracts/operation-contracts.md).
 Reuse GET configuration, GET resource-types, GET workloads, existing workload

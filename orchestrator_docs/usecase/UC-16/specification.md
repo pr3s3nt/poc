@@ -277,6 +277,21 @@ as specified above.
   tồn tại sang shared và không đổi direct Score/CI API. Chuyển scope là thao
   tác tường minh, không chuyển dữ liệu runtime; vẫn cần Save → Preview → Deploy.
 
+## Workload class selection — 2026-11-05
+
+- **BR-31:** Workload `metadata.class` belongs in the collapsed Workload advanced
+  section. Use a dropdown populated from the `workload` Resource Type's published
+  `classes` in the authenticated GET resource-types projection. Never require
+  free-text entry or use dependency classes as workload choices. The default
+  option omits `metadata.class`; explicit historical `default` stays explicit
+  until the user changes it. Show the effective class in the collapsed summary.
+- **BR-32:** Preserve a valid imported/current class absent from metadata as a
+  labelled retained option. Closing advanced controls, saving unrelated edits,
+  refreshing metadata or receiving an empty list must not replace that value.
+  Loading/error disables class selection, preserves edits and offers GET retry;
+  it never appears as an authoritative empty list. Metadata is authoring guidance;
+  Preview/Deploy matching and stale-token enforcement remain authoritative.
+
 ## Public endpoint resource
 
 [EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,

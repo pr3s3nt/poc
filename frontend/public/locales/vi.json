@@ -3826,5 +3826,11 @@
   "endpointDriver.invalidGateway": "Tên Gateway, namespace và listener chỉ gồm chữ thường, số và dấu gạch ngang.",
   "endpointDriver.invalidReserved": "Mỗi tên đã dùng phải là một nhãn DNS chữ thường, ngăn cách bằng dấu phẩy.",
   "endpointDriver.noModule": "Không cần module",
-  "preview.endpoint": "Địa chỉ public"
+  "preview.endpoint": "Địa chỉ public",
+  "workloads.workloadClass.summary": "Class Workload: {value}",
+  "workloads.workloadClass.default": "Mặc định (default)",
+  "workloads.workloadClass.retained": "{value} (đã lưu)",
+  "workloads.workloadClass.unpublished": "Class đã lưu chưa có trong danh sách công bố. Xem trước sẽ kiểm tra khả năng sử dụng.",
+  "workloads.workloadClass.loading": "Đang tải class Workload…",
+  "workloads.workloadClass.unavailable": "Không tải được class Workload."
 }
