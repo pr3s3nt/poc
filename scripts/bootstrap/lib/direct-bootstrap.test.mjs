@@ -21,7 +21,7 @@ function fixture() {
  return {raw,load,dir,close(){rmSync(dir,{force:true,recursive:true});}};
 }
 test('direct full input validates without Catalog or upgrade and retains Generic Workload paths',()=>{
- const f=fixture();try{const c=f.load();assert.equal(c.schemaVersion,3);assert.equal(c.platform.catalog,undefined);assert.equal(c.upgrade.enabled,false);assert.equal(c.application.scores.backend,c.application.workloads.backend);assert.equal(c.platform.definitions.length,5);}finally{f.close();}
+ const f=fixture();try{const c=f.load();assert.equal(c.schemaVersion,3);assert.equal(c.platform.catalog,undefined);assert.equal(c.upgrade.enabled,false);assert.equal(c.application.scores.backend,c.application.workloads.backend);assert.equal(c.platform.definitions.length,6);}finally{f.close();}
 });
 test('platform-only input has no Application/developer/images/workloads/verification dependency',()=>{
  const f=fixture();try{f.raw.runtime.mode='bootstrap';delete f.raw.application;delete f.raw.developer;delete f.raw.verification;const c=f.load();assert.equal(c.application,undefined);const rt=createRuntime(c);rt.save();rt.close('BOOTSTRAPPED');f.raw.environment='staging';assert.throws(()=>createRuntime(f.load()),/another target/);}finally{f.close();}
