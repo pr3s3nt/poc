@@ -108,3 +108,17 @@ the workload stores the newly created scoped reference. Cancel makes no write.
   A source must advertise host-path-volumes-v1 as well as pod-volumes-v1 before
   provisioning. Preview exposes path/type/mount mode; guards reject changed
   declared sources or mount intent. No new node scheduling or privilege control.
+
+- WC-22 (approved 2026-11-06): Each app/init/sidecar container owns one
+  Volumes & files section with Add volume or file. The picker offers PVC, emptyDir,
+  ConfigMap, hostPath and Secret, creating a named source and its first mount
+  together or reusing an existing workload source. The container is implicit.
+  Cancel/Escape leaves all desired state unchanged. Source settings are shared;
+  editing a source is explicitly labelled and updates its existing users. Removing
+  a mount never deletes a shared source, retained PVC dependency or Secret.
+  Existing imports/unused sources remain lossless and reusable. Mounts whose
+  target container was renamed/deleted remain visibly repairable before Save,
+  rather than hidden or silently reassigned. Secret/storage creation targets the
+  invoking container and retains existing scope/late-response guards. The global
+  Storage, Pod volume sources, Container volume mounts and Secret files sections
+  are removed. Existing API/data shape, source pins and Preview/Deploy are retained.

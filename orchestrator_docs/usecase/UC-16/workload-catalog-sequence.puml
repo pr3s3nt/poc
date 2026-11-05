@@ -12,7 +12,7 @@ Developer -> Home: Add Workload
 Home -> UI: Open picker
 UI -> Catalog: Scoped immutable template versions
 Catalog --> UI: Schema/defaults/capabilities
-Developer -> UI: Select preset or custom; configure roles/order/volumes (including hostPath path/type)
+Developer -> UI: Select preset or custom; configure roles/order; add/reuse volume or file inside container
 UI -> Config: Save Generic Workload + workloadExecution v1
 Config -> Config: Validate optional preset pin, roles/order, volume and secret refs
 Config -> Store: CAS draft

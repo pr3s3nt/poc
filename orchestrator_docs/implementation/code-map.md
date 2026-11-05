@@ -14,7 +14,7 @@ validate lifecycle/volumes/probes. `templatesource/workload_capabilities.go` and
 `planning/workload_execution.go` gate matched sources; `templatedriver/pod_volumes.go`
 and standard `container-lifecycle.tpl`, `execution.tpl`, `configmaps.tpl` render
 and guard intent. `deploymentreview/pod_projection.go` preserves safe review
-structure. Frontend `LocalVolumeFields`, `ProbeFields`, `ExecutionFields`,
+structure. Frontend `ContainerVolumeFields` / `VolumeSourceFields`, `ProbeFields`, `ExecutionFields`,
 `runtimeIntent` and the existing editor/create dialog implement authoring.
 Tests include the runtime form component tests and
 `e2e/scenarios/workload-runtime-form/`. See
@@ -1238,10 +1238,19 @@ Focused real-renderer coverage: `company_httproute_test.go` in templatedriver.
 - Console: `CreateApplicationPage` (name only), `DependencyFields` (private
   endpoint, Service-port select), Application page endpoint list.
 
-HostPath extension WC-21 (2026-11-06) uses the same `PodVolume`/`LocalVolumeFields`
+HostPath extension WC-21 (2026-11-06) uses the same `PodVolume`/`ContainerVolumeFields` / `VolumeSourceFields`
 flow: node path/type, per-container read mode/subPath, host-path-volumes-v1 source
 admission, standard execution template, invariant guards and safe Preview.
 Coverage: environment hostPath validation/clone, workloadconfig round-trip, planner
 capability admission, templatedriver multi-controller/source/mode invariants,
 deploymentreview projection, WorkloadRuntimeIntent UI and workload-runtime-form E2E.
 See [generic contract](../architecture/contracts/generic-workload.md) and the runtime verification record. Kubernetes execution remains unverified.
+
+WC-22 — Container volume/file authoring (2026-11-06): WorkloadEditorPage now
+places ContainerVolumeFields in every app/init/sidecar card. Add volume or file
+creates/attaches a source atomically or reuses an existing source; VolumeSourceFields
+provides shared source settings. ExecutionFields owns runtime/schedule/preset
+inputs only. The four global storage/source/mount/Secret sections are removed.
+Mount paths/modes survive inline PVC/Secret creation; orphan targets are visible
+for explicit repair. API/JSON/backend contracts and runtime guards are unchanged.
+See WC-22 and [verification](../verification/2026-11-06-container-volume-ui.md) for checks and UI evidence.

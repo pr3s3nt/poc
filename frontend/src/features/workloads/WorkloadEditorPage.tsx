@@ -11,6 +11,7 @@ import { CreateKeyDialog } from './CreateKeyDialog';
 import { DependencyFields, dependencyProblem, dependencyAliasesProblem, emptyDependency, type ClassMetadata, type Dependency } from './DependencyFields';
 import { EnvironmentVariablesTable, type FocusRequest } from './EnvironmentVariablesTable';
 import { ExecutionFields } from './ExecutionFields';
+import { ContainerVolumeFields, UnassignedVolumeMounts } from './ContainerVolumeFields';
 import { getWorkloadTemplates, templateKey, customExecution, type Execution, type WorkloadTemplate } from './templates';
 import { Advanced } from './Advanced';
 import { validRuntimeIntent } from './runtimeIntent';
@@ -201,7 +202,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   const [current, setCurrent] = useState<{ version: number; workload?: Record<string, unknown>; state?: string }>();
   const [reloadError, setReloadError] = useState('');
   // Inline creation (UC-16 BR-21/22): one dialog at a time, bound to the row (stable id) that opened it.
-  const [dialog, setDialog] = useState<{ type: 'key'; kind: KeyKind; rowId: string; suggested: string; file?: boolean } | { type: 'resource'; rowId: string } | { type: 'storage'; initial: Dependency }>();
+  const [dialog, setDialog] = useState<{ type: 'key'; kind: KeyKind; rowId: string; suggested: string; file?: boolean; container?: string; mount?: {path: string; mode: number} } | { type: 'resource'; rowId: string } | { type: 'storage'; initial: Dependency; container: string; mount: {path: string; subPath: string; readOnly: boolean} }>();
   const [focusRequest, setFocusRequest] = useState<FocusRequest>();
   // After a failed Save the table also reports rows that are not filled in yet.
   const [showIncomplete, setShowIncomplete] = useState(false);
@@ -298,7 +299,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   }, []);
   const clearFocus = useCallback(() => setFocusRequest(undefined), []);
   function openKeyDialog(kind: KeyKind, row: Binding) { setDialog({ type: 'key', kind, rowId: row.id, suggested: row.name }); }
-  function closeDialog() { if (dialog && dialog.type !== 'storage') setFocusRequest({ rowId: dialog.rowId, field: 'key' }); setDialog(undefined); }
+  function closeDialog() { if (dialog && dialog.type !== 'storage' && dialog.rowId) setFocusRequest({ rowId: dialog.rowId, field: 'key' }); setDialog(undefined); }
   // A configuration reply of the scope the dialog opened in refreshes the catalog; any other scope drops it.
   function acceptConfiguration(at: number) { return (config: Configuration) => { if (at === scope.current) setCatalog(readyCatalog(config)); }; }
   function updateDependency(index: number, patch: Partial<Dependency>) {
@@ -323,10 +324,10 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   const resourceChoices = sharedResources(workloads, types);
   const storageTypes = types.filter(type => ['claimName', 'namespace'].every(name => (type.outputs ?? []).some(field => field.name === name && field.type === 'string' && !field.secret)));
   const storageKeys = new Set(storageTypes.map(type => type.key));
-  function openStorageResource() {
+  function openStorageResource(container: string, mount: {path: string; subPath: string; readOnly: boolean}) {
     let alias = 'data';
     for (let suffix = 2; form.dependencies.some(dependency => dependency.alias === alias); suffix += 1) alias = `data-${suffix}`;
-    setDialog({ type: 'storage', initial: { ...emptyDependency(), alias, type: storageTypes.length === 1 ? storageTypes[0]!.key : '' } });
+    setDialog({ type: 'storage', container, mount, initial: { ...emptyDependency(), alias, type: storageTypes.length === 1 ? storageTypes[0]!.key : '' } });
   }
   const rowContext = buildRowContext(catalog, form.dependencies, types, workloads, form.name);
   async function save() {
@@ -380,7 +381,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
         {form.annotations.map((annotation, index) => <div className="field-grid" key={index}><label>{t('workloads.annotations.name')}<input value={annotation.name} onChange={event => updateForm({ ...form, annotations: form.annotations.map((a, i) => i === index ? {...a, name: event.target.value} : a) })} /></label><label>{t('workloads.annotations.value')}<input value={annotation.value} onChange={event => updateForm({ ...form, annotations: form.annotations.map((a, i) => i === index ? {...a, value: event.target.value} : a) })} /></label><Button tone="quiet" onClick={() => updateForm({ ...form, annotations: form.annotations.filter((_,i) => i !== index) })}>{t('workloads.annotations.remove')}</Button></div>)}
       </WorkloadClassControl></section>
       {form.execution?.kind !== 'CronJob' ? <section className="content-panel editor-grid"><label>{t('workloads.templates.replicas')}<input type="number" min={form.execution?.kind === 'StatefulSet' ? 1 : 0} max={form.execution?.kind === 'StatefulSet' ? 1 : undefined} value={form.replicas ?? ''} placeholder="1" onChange={e => updateForm({ ...form, replicas: e.target.value === '' ? undefined : Number(e.target.value) })} /></label></section> : null}
-      {<ExecutionFields value={form.execution ?? customExecution()} onChange={execution => updateForm({ ...form, execution })} containers={form.containers.map(c => c.name)} storage={form.dependencies.filter(dep => storageKeys.has(dep.type)).map(dep => dep.alias)} onAddStorage={storageTypes.length ? openStorageResource : undefined} catalogReady={!loadFailed && classMetadata === 'ready'} metadata={templateMetadata} secretCatalogStatus={catalog.status} onCreateFileSecret={catalog.status === 'ready' ? () => setDialog({ type: 'key', kind: 'SECRET', rowId: '', suggested: '', file: true }) : undefined} secrets={catalog.status === 'ready' ? catalog.keys.filter(key => key.kind === 'SECRET' && key.configured).map(key => key.name) : []} disabled={saving} onRawProblems={setTemplateInputProblems} />}
+      {form.execution ? <ExecutionFields value={form.execution} onChange={execution => updateForm({ ...form, execution })} metadata={templateMetadata} disabled={saving} onRawProblems={setTemplateInputProblems} /> : null}
       {catalog.status === 'error' ? <div className="form-error" role="alert">{t('workloads.workloadEditor.couldNotLoadApplicationVariables2')}{' '} {catalog.message} {' '}{t('workloads.workloadEditor.yourSelectionsAreKept')}{' '} <Button onClick={() => setCatalogAttempt((value) => value + 1)}>{t('workloads.workloadEditor.retryLoadingKeys')}</Button></div> : null}
       {form.containers.map((container, ci) => <section className="content-panel editor-grid" key={ci}><div className="section-header"><h2>Container {ci + 1}</h2>{form.containers.length > 1 ? <Button tone="danger" onClick={() => updateForm({ ...form, containers: form.containers.filter((_, index) => index !== ci) })}>{t('workloads.workloadEditor.remove')}</Button> : null}</div><div className="field-grid"><label>{t('workloads.workloadEditor.containerName')}<input value={container.name} onChange={(event) => updateContainer(ci, { ...container, name: event.target.value })} /></label><label>{t('workloads.workloadEditor.containerImage')}<input value={container.image} onChange={(event) => updateContainer(ci, { ...container, image: event.target.value })} placeholder="registry.example/app:tag" /></label></div>
         <div className="field-grid"><label>{t('workloads.containers.role')}<select aria-label={t('workloads.containers.roleOf', {name: container.name || ci + 1})} value={container.role ?? 'app'} onChange={event => {
@@ -405,7 +406,9 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
         </Advanced>
         <EnvironmentVariablesTable container={container.name || String(ci + 1)} bindings={container.bindings} catalog={catalog} dependencies={form.dependencies} types={types} workloads={workloads} self={form.name} context={rowContext} disabled={saving} showIncomplete={showIncomplete} focus={focusRequest} onFocused={clearFocus}
           onChange={(bindings) => updateContainer(ci, { ...container, bindings })} onCreateKey={openKeyDialog} onAddResource={(row) => setDialog({ type: 'resource', rowId: row.id })} />
+        <ContainerVolumeFields value={form.execution ?? customExecution()} onChange={execution => updateForm({...form,execution})} container={container.name} storage={form.dependencies.filter(dep => storageKeys.has(dep.type)).map(dep => dep.alias)} secrets={catalog.status === 'ready' ? catalog.keys.filter(k => k.kind === 'SECRET' && k.configured).map(k => k.name) : []} secretCatalogStatus={catalog.status} storageReady={!loadFailed && classMetadata === 'ready'} disabled={saving} onAddStorage={storageTypes.length ? mount => openStorageResource(container.name,mount) : undefined} onCreateSecret={catalog.status === 'ready' ? mount => setDialog({type:'key',kind:'SECRET',rowId:'',suggested:'',file:true,container:container.name,mount}) : undefined} />
         </section>)}
+      {form.execution ? <UnassignedVolumeMounts value={form.execution} onChange={execution => updateForm({...form,execution})} containers={form.containers.map(c => c.name)} disabled={saving} /> : null}
       <Button onClick={() => updateForm({ ...form, containers: [...form.containers, { ...emptyContainer(), name: `container-${form.containers.length + 1}` }] })}>{t('workloads.workloadEditor.addContainer')}</Button>
       <section className="content-panel editor-grid"><div className="section-header"><div><h2>{t('workloads.workloadEditor.workloadResources')}</h2><p>{t('workloads.workloadEditor.chooseAnAvailableResourceType')}</p></div><div className="form-actions"><Button tone="quiet" onClick={() => void reloadClassMetadata()}>{t('workloads.workloadEditor.refreshClassMetadata')}</Button><Button onClick={() => updateForm({ ...form, dependencies: [...form.dependencies, emptyDependency()] })}>{t('workloads.workloadEditor.addResource')}</Button></div></div>{form.dependencies.map((dep, index) => <DependencyFields key={index} index={index} dependency={dep} types={types} choices={resourceChoices} classMetadata={classMetadata} disabled={saving} servicePorts={[...validPortNames(form.servicePorts)]} onChange={(patch) => updateDependency(index, patch)} onReload={() => void reloadClassMetadata()} onRemove={() => updateForm({ ...form, dependencies: form.dependencies.filter((_, i) => i !== index) })} />)}</section>
       <section className="content-panel editor-grid">
@@ -420,24 +423,24 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     </>}
     {dialog?.type === 'key' && catalog.status === 'ready' ? <CreateKeyDialog application={application} environment={environment} kind={dialog.kind} suggestedName={dialog.suggested} catalog={catalog} onTargetChange={onTargetChange}
       onConfiguration={acceptConfiguration(scope.current)} onClose={closeDialog}
-      onCreated={((at, rowId, kind, file) => (key: string) => {
+      onCreated={((at, rowId, kind, file, targetContainer, targetMount) => (key: string) => {
         if (at !== scope.current) return;
         setDialog(undefined);
         if (file) {
-          setForm(prev => ({ ...prev, execution: { ...(prev.execution ?? customExecution()), secretFiles: [...(prev.execution?.secretFiles ?? []), { ref: `\${resources.env.${key}}`, container: prev.containers[0]?.name ?? '', path: '/keys/value', mode: 256 }] } }));
+          setForm(prev => !prev.containers.some(c => c.name === targetContainer) ? prev : ({ ...prev, execution: { ...(prev.execution ?? customExecution()), secretFiles: [...(prev.execution?.secretFiles ?? []), { ref: `\${resources.env.${key}}`, container: targetContainer!, path: targetMount?.path ?? '/keys/value', mode: targetMount?.mode ?? 256 }] } }));
           setDirty(true); return;
         }
         // Select the key on the row that opened the dialog; a row removed meanwhile is left alone. The name is only suggested while empty.
         changeRow(rowId, (row) => ({ ...changeSource(row, kind), key, ...(row.name === '' ? { name: key } : {}) }));
         setFocusRequest({ rowId, field: 'key' });
-      })(scope.current, dialog.rowId, dialog.kind, dialog.file)} /> : null}
+      })(scope.current, dialog.rowId, dialog.kind, dialog.file, dialog.container, dialog.mount)} /> : null}
     {dialog?.type === 'storage' ? <AddResourceDialog label={t('workloads.templates.addStorage')} initialDependency={dialog.initial} existing={form.dependencies} types={storageTypes} choices={resourceChoices.filter(choice => choice.dependency && storageKeys.has(choice.dependency.type))} classMetadata={classMetadata} onReload={() => void reloadClassMetadata()} onClose={closeDialog}
-      onAdd={((at) => (dependency: Dependency) => {
+      onAdd={((at, targetContainer, targetMount) => (dependency: Dependency) => {
         if (at !== scope.current) return;
         setDialog(undefined);
-        setForm(prev => ({ ...prev, dependencies: [...prev.dependencies, dependency], execution: { ...(prev.execution ?? customExecution()), mounts: [...(prev.execution?.mounts ?? []), { resource: dependency.alias, container: prev.containers[0]?.name ?? '', path: '/data', readOnly: false }] } }));
+        setForm(prev => !prev.containers.some(c => c.name === targetContainer) ? prev : ({ ...prev, dependencies: [...prev.dependencies, dependency], execution: { ...(prev.execution ?? customExecution()), mounts: [...(prev.execution?.mounts ?? []), { resource: dependency.alias, container: targetContainer, path: targetMount.path, readOnly: targetMount.readOnly, ...(targetMount.subPath ? {subPath:targetMount.subPath} : {}) }] } }));
         setDirty(true);
-      })(scope.current)} /> : null}
+      })(scope.current, dialog.container, dialog.mount)} /> : null}
     {dialog?.type === 'resource' ? <AddResourceDialog existing={form.dependencies} servicePorts={[...validPortNames(form.servicePorts)]} types={types} choices={resourceChoices} classMetadata={classMetadata} onReload={() => void reloadClassMetadata()} onClose={closeDialog}
       onAdd={((at, rowId) => (dependency: Dependency) => {
         if (at !== scope.current) return;

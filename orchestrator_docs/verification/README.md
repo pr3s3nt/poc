@@ -169,3 +169,5 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [HTTPRoute real domain through Traefik — 2026-11-05](2026-11-05-httproute-domain.md)
 - [Public endpoint real domain, rename and schema 9 — 2026-11-05](2026-11-05-endpoint-domain.md)
 - [Dev bootstrap acceptance app on an endpoint — 2026-11-05](2026-11-05-dev-endpoint-bootstrap.md)
+
+- [Container volume/file UI — WC-22](2026-11-06-container-volume-ui.md).

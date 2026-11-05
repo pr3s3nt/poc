@@ -54,3 +54,9 @@ HostPath (WC-21) follows the existing named-volume flow: Editor → node path/ty
 validation → draft CAS → selected source host-path-volumes-v1 capability gate →
 render path/type + per-container mode → semantic source/mount guard → safe Preview.
 It adds no Terraform resource, filesystem operation, scheduling or cleanup step.
+
+WC-22 places the source/mount picker in each container. Create local source +
+mount in one local update; reuse points to the same workload source. Source
+editing remains shared and removal detaches only one mount. Existing storage/UC-12
+creation dialogs receive the invoking container and preserve scoped reply guards.
+Serialization and runtime pipeline remain unchanged; no API/schema change.

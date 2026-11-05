@@ -42,3 +42,8 @@ Directory source `/var/local/chinhform` mounted in all three roles. Save/reopen
 and parsed Preview must keep the exact source and modes. No node path is inspected
 or created; this does not claim hostPath runtime acceptance. The prepared source
 must advertise host-path-volumes-v1 in addition to the earlier capabilities.
+
+WC-22: Source creation/reuse now goes through each container's Volumes & files
+section. One picker creates source + mount, preserving the target implicitly.
+The scenario verifies three container sections, no global source section,
+shared reuse, PVC/Secret creation and lossless Save/reopen/Preview.

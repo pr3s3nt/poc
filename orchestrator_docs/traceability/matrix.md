@@ -13,7 +13,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 
 | Requirement | Implementation | Validation |
 |---|---|---|
-| GW-06, WC-16..19: custom volumes/files/lifecycle and lossless state | environment/workloadspec/workloadconfig; LocalVolumeFields/ExecutionFields/editor | volumes/execution/round-trip tests; real runtime-form E2E Save/reopen with PostgreSQL |
+| GW-06, WC-16..19: custom volumes/files/lifecycle and lossless state | environment/workloadspec/workloadconfig; ContainerVolumeFields / VolumeSourceFields/ExecutionFields/editor | volumes/execution/round-trip tests; real runtime-form E2E Save/reopen with PostgreSQL |
 | GW-06: matched source capability, pin and semantic guards | templatesource/workload_capabilities; planning/workload_execution; templatedriver | planner capability and three-controller mount/lifecycle tests |
 | GW-07, WC-20: ports/protocol/zero replicas/annotations/probes | ProbeFields/editor/runtimeIntent; domain/probes and standard source | runtime component round-trip and probe render tests |
 | Safe Preview for all controller/container roles | deploymentreview/pod_projection | secret-redaction tests and parsed real Preview assertions |
@@ -1481,10 +1481,19 @@ shared-Git binding and repository-host HTTPS tests.
 | Persisted recovery without replay | delivery `submission_recovery.go`; Fleet `RecoverReceipt`/`RecoverSubmission` | coordinator lost-receipt test; adapter lost-write-ack observation test; existing Job idempotency tests |
 | Native acceptance assertions | bootstrap `fleet-verification.mjs`; HTTPRoute scenario | shared-controller inventory/commit/Bundle tests; live evidence remains separately scoped |
 
-HostPath extension WC-21 (2026-11-06) uses the same `PodVolume`/`LocalVolumeFields`
+HostPath extension WC-21 (2026-11-06) uses the same `PodVolume`/`ContainerVolumeFields` / `VolumeSourceFields`
 flow: node path/type, per-container read mode/subPath, host-path-volumes-v1 source
 admission, standard execution template, invariant guards and safe Preview.
 Coverage: environment hostPath validation/clone, workloadconfig round-trip, planner
 capability admission, templatedriver multi-controller/source/mode invariants,
 deploymentreview projection, WorkloadRuntimeIntent UI and workload-runtime-form E2E.
 See [generic contract](../architecture/contracts/generic-workload.md) and the runtime verification record. Kubernetes execution remains unverified.
+
+WC-22 — Container volume/file authoring (2026-11-06): WorkloadEditorPage now
+places ContainerVolumeFields in every app/init/sidecar card. Add volume or file
+creates/attaches a source atomically or reuses an existing source; VolumeSourceFields
+provides shared source settings. ExecutionFields owns runtime/schedule/preset
+inputs only. The four global storage/source/mount/Secret sections are removed.
+Mount paths/modes survive inline PVC/Secret creation; orphan targets are visible
+for explicit repair. API/JSON/backend contracts and runtime guards are unchanged.
+See WC-22 and [verification](../verification/2026-11-06-container-volume-ui.md) for checks and UI evidence.

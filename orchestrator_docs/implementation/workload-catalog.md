@@ -170,10 +170,19 @@ checks passed. No frontend or unrelated backend full suite was rerun for this
 bundle-only behavior change. No Kubernetes/cloud mutation or Ceph live rollout
 was performed; installed immutable Git pins remain on their existing revision.
 
-HostPath extension WC-21 (2026-11-06) uses the same `PodVolume`/`LocalVolumeFields`
+HostPath extension WC-21 (2026-11-06) uses the same `PodVolume`/`ContainerVolumeFields` / `VolumeSourceFields`
 flow: node path/type, per-container read mode/subPath, host-path-volumes-v1 source
 admission, standard execution template, invariant guards and safe Preview.
 Coverage: environment hostPath validation/clone, workloadconfig round-trip, planner
 capability admission, templatedriver multi-controller/source/mode invariants,
 deploymentreview projection, WorkloadRuntimeIntent UI and workload-runtime-form E2E.
 See [generic contract](../architecture/contracts/generic-workload.md) and the runtime verification record. Kubernetes execution remains unverified.
+
+WC-22 — Container volume/file authoring (2026-11-06): WorkloadEditorPage now
+places ContainerVolumeFields in every app/init/sidecar card. Add volume or file
+creates/attaches a source atomically or reuses an existing source; VolumeSourceFields
+provides shared source settings. ExecutionFields owns runtime/schedule/preset
+inputs only. The four global storage/source/mount/Secret sections are removed.
+Mount paths/modes survive inline PVC/Secret creation; orphan targets are visible
+for explicit repair. API/JSON/backend contracts and runtime guards are unchanged.
+See WC-22 and [verification](../verification/2026-11-06-container-volume-ui.md) for checks and UI evidence.

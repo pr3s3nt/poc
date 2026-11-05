@@ -730,3 +730,5 @@ a { color: inherit; }
 .saved-source-summary > div { display:grid; grid-template-columns:100px minmax(0,1fr); gap:12px; padding:7px 0; }
 .saved-source-summary dt { color:var(--muted); }
 .saved-source-summary dd { margin:0; min-width:0; overflow-wrap:anywhere; }
+
+fieldset.volume-fields { border: 0; padding: 0; margin: 0; min-width: 0; }

@@ -24,8 +24,7 @@ trả focus về nút. Save quay về danh sách pending; Preview/Deploy vẫn �
 | Mạng | Service toggle, ClusterIP/headless, ports table, public route tới Service port |
 | Biến môi trường | Name/Value, Chọn từ… và secret create dialog hiện hành |
 | Tài nguyên | Typed dependency, class/shared identity, inputs theo Type schema, new/reuse |
-| Storage | New/reuse managed resource, container, mount path/readOnly, size/class/access mode theo capability |
-| File bí mật | Chọn approved key, container/path/mode; không hiển thị bytes |
+| Volume và file (trong từng container) | Một nút thêm; PVC, emptyDir, ConfigMap, hostPath hoặc Secret; tạo mới/dùng lại nguồn; path/mode; container đích ngầm định |
 | Lịch | Cron expression, IANA timezone, suspend, concurrency; chỉ scheduled |
 | Nâng cao | command/args riêng, workingDir, probes, requests/limits; Job retry/deadline/history |
 
@@ -34,14 +33,11 @@ có public route hoặc backend có DB; hiển thị theo capability. Cấu hìn
 support phải hiện rõ/giữ advanced, không biến mất. Retain/delete hậu quả ở nơi
 quyết định. Không bắt người dùng nhập state/provider/token/UID trong form.
 
-Thêm volume mount vẫn bấm được khi chưa có dependency nếu catalog có loại
-storage hợp lệ. Mở shared resource Dialog, chỉ hiện loại có outputs string công
-khai `claimName`/`namespace` và reuse phù hợp; một loại duy nhất được chọn sẵn,
-alias mới không trùng. Thêm và chọn đưa dependency cùng mount `/data` của
-container đầu tiên vào local form; người dùng sửa path/container trước Save.
-Hủy/Escape không thay đổi form và trả focus về nút. Khi đã có dependency storage,
-nút thêm dòng mount như hiện hành. Nếu không có loại storage hợp lệ thì khóa nút
-kèm thông báo ngắn yêu cầu quản trị nền tảng đăng ký loại lưu trữ.
+Trong từng container, “Thêm volume hoặc file” mở shared Dialog chọn loại và
+nguồn mới/đã có. Với PVC mới, chuyển sang resource Dialog hiện hành; xác nhận
+thêm dependency và mount của đúng container đã mở. Secret mới dùng UC-12 Dialog
+hiện hành. Không lồng hai Dialog. Hủy/Escape giữ draft và trả focus. Nguồn
+emptyDir/ConfigMap/hostPath mới cùng mount được thêm nguyên tử tại xác nhận.
 
 ## Trạng thái và detail
 
@@ -75,15 +71,18 @@ Closing restores focus; changing app/environment drops late responses.
 
 ## Custom containers and volumes — WC-16..19
 
-Custom and preset editors share the Storage/File sections. Each container keeps
-its current card and env table and adds a role dropdown; Init/Sidecar show an
-order control. The source section separates retained PVC mounts, named emptyDir
-volumes, ConfigMap data files, mounts and Secret files. Named volumes can be
-mounted in multiple containers. Use existing form fields, Add/Remove buttons
-and read-only checkboxes; no shell or navigation change. Secret file selection
-shows only approved key names, a container, path and read mode; missing keys
-remain visible invalid selections. Label ConfigMap content nonsecret. Local
-changes do not provision or deploy until explicit Save → Preview → Deploy.
+Custom and preset editors use one Volumes & files section within each container.
+App/init/sidecar share the same controls. A single Add volume or file opens type
+(PVC/emptyDir/ConfigMap/hostPath/Secret), source (new/existing), mount path and
+mode. Do not show a container selector. Named sources remain workload-wide, so
+other containers can reuse them. Inline mount cards expose source settings under
+a disclosure, labelled shared when multiple mounts reference them. Removing a
+mount does not delete its source, dependency or Secret. Preserve unused imported
+sources in the existing-source picker. If a container rename/removal leaves an
+unassigned mount, show a compact repair row with target selection and Remove.
+The four previous workload-level volume/file sections are retired. Keep shared
+Dialog/Button/field-grid patterns, short VI/EN labels and existing catalog error,
+CAS/BUSY/scope behavior. Source/type errors remain visible and must not drop intent.
 
 GW-07 uses per-container advanced port rows and probe controls (enable/type,
 HTTP path/scheme, TCP port or exec argv, plus optional timing). Service rows expose

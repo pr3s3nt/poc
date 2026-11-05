@@ -29,6 +29,19 @@ async function json(context, path, method = 'GET', data) {
 try {
   dev = await signInContext(pe.browser, devConfig, { role: 'DEVELOPER' });
   const page = dev.page;
+  const volumeSection = name => page.getByRole('group',{name:`Volume và file của ${name}`,exact:true});
+  async function addVolume(kind, container='main') {
+    await volumeSection(container).getByRole('button',{name:'Thêm volume hoặc file',exact:true}).click();
+    const dialog=page.getByRole('dialog',{name:'Thêm volume hoặc file',exact:true});
+    await dialog.getByLabel('Loại',{exact:true}).selectOption(kind);
+    return dialog;
+  }
+  async function attachVolume() {
+    const dialog=page.getByRole('dialog',{name:'Thêm volume hoặc file',exact:true});
+    await dialog.getByRole('button',{name:'Thêm vào container',exact:true}).click();
+    await dialog.waitFor({state:'hidden'});
+  }
+
   if (!receipt.appKey) {
     const name = `chinhform-${receipt.run}`;
     assert(!(await json(dev.context, '/applications')).applications.some(a => a.name === name), 'Application outcome needs reconciliation');
@@ -99,30 +112,31 @@ try {
       await page.getByLabel('Ảnh Container', { exact: true }).nth(n - 1).fill('busybox:1.36');
       await page.getByRole('combobox', { name: `Vai trò container container-${n}`, exact: true }).selectOption(role);
     }
-    await page.getByRole('button', { name: 'Thêm volume mount', exact: true }).click();
+    await addVolume('storage');
+    await page.getByRole('button',{name:'Tạo hoặc chọn lưu trữ',exact:true}).click();
     const storageDialog = page.getByRole('dialog', { name: 'Thêm tài nguyên lưu trữ', exact: true });
     await storageDialog.getByLabel('Loại tài nguyên', { exact: true }).selectOption('persistent-storage');
     const storageInput = storageDialog.getByLabel('Tham số storage', { exact: true });
     if (await storageInput.count()) await storageInput.fill('1Gi');
     await storageDialog.getByRole('button', { name: 'Thêm và chọn', exact: true }).click();
     await storageDialog.waitFor({ state: 'hidden' });
-    await page.getByRole('button', { name: 'Thêm volume', exact: true }).click();
-    await page.getByLabel('Tên volume', { exact: true }).fill('shared');
-    await page.getByLabel('Nơi lưu volume tạm', { exact: true }).selectOption('Memory');
-    await page.getByLabel('Giới hạn dung lượng', { exact: true }).fill('64Mi');
-    for (let i = 0; i < 3; i++) {
-      await page.getByRole('button', { name: 'Thêm mount volume', exact: true }).click();
-      await page.getByLabel('Container đích', { exact: true }).nth(i).selectOption(i ? `container-${i + 1}` : 'main');
+    let volumeDialog=await addVolume('emptyDir');
+    await volumeDialog.getByLabel('Tên volume',{exact:true}).fill('shared');
+    await volumeDialog.getByLabel('Nơi lưu volume tạm',{exact:true}).selectOption('Memory');
+    await volumeDialog.getByLabel('Giới hạn dung lượng',{exact:true}).fill('64Mi');
+    await attachVolume();
+    for (const container of ['container-2','container-3']) {
+      volumeDialog=await addVolume('emptyDir',container);
+      await volumeDialog.getByLabel('Nguồn',{exact:true}).selectOption('shared');
+      await attachVolume();
     }
-    await page.getByRole('button', { name: 'Thêm volume', exact: true }).click();
-    await page.getByLabel('Loại volume', { exact: true }).nth(1).selectOption('configMap');
-    await page.getByLabel('Nội dung (không chứa bí mật)', { exact: true }).fill('enabled=true\n');
-    await page.getByRole('button', { name: 'Thêm mount volume', exact: true }).click();
-    await page.getByLabel('Volume', { exact: true }).nth(3).selectOption('volume');
-    await page.getByLabel('Đường dẫn mount', { exact: true }).nth(3).fill('/config/app.conf');
-    // One PVC subPath control precedes local mount controls.
-    await page.getByLabel('Thư mục con / file (subPath)', { exact: true }).nth(4).fill('app.conf');
-    await page.getByRole('button', { name: 'Tạo bí mật cho file', exact: true }).click();
+    volumeDialog=await addVolume('configMap');
+    await volumeDialog.getByLabel('Nội dung (không chứa bí mật)',{exact:true}).fill('enabled=true\n');
+    await volumeDialog.getByLabel('Đường dẫn mount',{exact:true}).fill('/config/app.conf');
+    await volumeDialog.getByLabel('Thư mục con / file (subPath)',{exact:true}).fill('app.conf');
+    await attachVolume();
+    await addVolume('secret');
+    await page.getByRole('button',{name:'Tạo bí mật cho file',exact:true}).click();
     const dialog = page.getByRole('dialog', { name: 'Tạo bí mật', exact: true });
     await dialog.getByText('Đang tải kho bí mật…', { exact: true }).waitFor({ state: 'hidden' });
     const store = dialog.getByRole('combobox', { name: 'Kho bí mật', exact: true });
@@ -146,16 +160,15 @@ try {
   }
   if (!workloads.find(w => w.id === 'app').workload.workloadExecution.volumes.some(v => v.hostPath)) {
     await page.goto(editorURL);
-    await page.getByRole('button', { name: 'Thêm volume', exact: true }).click();
-    await page.getByLabel('Loại volume', { exact: true }).last().selectOption('hostPath');
-    await page.getByLabel('Tên volume', { exact: true }).last().fill('node-data');
-    await page.getByLabel('Đường dẫn trên node', { exact: true }).fill('/var/local/chinhform');
-    await page.getByLabel('Loại đường dẫn node', { exact: true }).selectOption('Directory');
-    for (const container of ['main', 'container-2', 'container-3']) {
-      await page.getByRole('button', { name: 'Thêm mount volume', exact: true }).click();
-      await page.getByLabel('Volume', { exact: true }).last().selectOption('node-data');
-      await page.getByLabel('Container đích', { exact: true }).last().selectOption(container);
-      await page.getByLabel('Đường dẫn mount', { exact: true }).last().fill('/node-data');
+    let volumeDialog=await addVolume('hostPath');
+    await volumeDialog.getByLabel('Tên volume',{exact:true}).fill('node-data');
+    await volumeDialog.getByLabel('Đường dẫn trên node',{exact:true}).fill('/var/local/chinhform');
+    await volumeDialog.getByLabel('Loại đường dẫn node',{exact:true}).selectOption('Directory');
+    await attachVolume();
+    for (const container of ['container-2','container-3']) {
+      volumeDialog=await addVolume('hostPath',container);
+      await volumeDialog.getByLabel('Nguồn',{exact:true}).selectOption('node-data');
+      await attachVolume();
     }
     const reply = page.waitForResponse(r => r.request().method() === 'PUT' && new URL(r.url()).pathname === '/api/v1' + workloadPath);
     await page.getByRole('button', { name: 'Lưu draft Workload', exact: true }).click();
@@ -166,7 +179,10 @@ try {
   const before = workloads.find(w => w.id === 'app').workload;
   assert.equal(before.containers['container-2'].role, 'init'); assert.equal(before.containers['container-3'].role, 'sidecar');
   assert.equal(before.workloadExecution.mounts.length, 1); assert.equal(before.workloadExecution.volumes.length, 3); assert.equal(before.workloadExecution.volumeMounts.length, 7); assert.equal(before.workloadExecution.secretFiles[0].ref, '${resources.env.RUNTIME_FILE}');
-  await page.goto(editorURL); await page.getByRole('combobox', { name: 'Vai trò container container-2', exact: true }).waitFor();
+  await page.goto(editorURL);
+  await page.getByRole('combobox', { name: 'Vai trò container container-2', exact: true }).waitFor();
+  assert.equal(await page.getByRole('heading',{name:'Pod volume sources',exact:true}).count(),0);
+  assert.equal(await page.getByRole('heading',{name:'Volume và file',exact:true}).count(),3);
   await page.screenshot({ path: join(evidence, 'editor.png'), fullPage: true });
   const resave = page.waitForResponse(r => r.request().method() === 'PUT' && new URL(r.url()).pathname === '/api/v1' + workloadPath);
   await page.getByRole('button', { name: 'Lưu draft Workload', exact: true }).click(); assert.equal((await resave).status(), 200);
