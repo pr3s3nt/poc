@@ -82,13 +82,16 @@ func TestManagedRepositoryProvisioningRequiresOwnerAndConvergesAcrossEnvironment
 	if err != nil {
 		t.Fatal(err)
 	}
-	if staging.Config["branch"] != "trunk" || staging.Config["root"] != "environments/staging/manifests" {
+	if staging.Config["branch"] != "trunk" || staging.Config["root"] != "environments/staging" {
 		t.Fatal("destination not bound")
 	}
 	prod, _ := st.GetEnvironment(ctx, "delivery-app", "production")
 	production, err := svc.Resolve(context.Background(), b, provider, prod, false)
-	if err != nil || production.Config["repositoryURL"] != staging.Config["repositoryURL"] || production.Config["root"] != "environments/production/manifests" {
+	if err != nil || production.Config["repositoryURL"] != staging.Config["repositoryURL"] || production.Config["root"] != "environments/production" {
 		t.Fatal("environment isolation", err)
+	}
+	if staging.Config["applicationID"] != app.ID || production.Config["applicationID"] != app.ID || staging.Config["environmentKey"] != "staging" || production.Config["environmentKey"] != "production" {
+		t.Fatal("Application controller identity is not shared across Environments")
 	}
 	if host.calls != 2 {
 		t.Fatal("read/observe provisioned repo")

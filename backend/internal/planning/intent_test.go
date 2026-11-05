@@ -164,3 +164,22 @@ func TestResourceIntentRetainsEmptyMapsAfterPlanPersistence(t *testing.T) {
 		t.Fatalf("real param change must remain UPDATE: %s", got)
 	}
 }
+
+func TestResourceIntentRetainsEmptySecretOutputsAfterPlanPersistence(t *testing.T) {
+	fresh := intentPlan(func(p *Plan) { p.Terraform[0].SecretOutputs = []string{} })
+	raw, err := json.Marshal(fresh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var persisted Plan
+	if err = json.Unmarshal(raw, &persisted); err != nil {
+		t.Fatal(err)
+	}
+	if got := intentOf(t, fresh, &persisted); got != IntentRetain {
+		t.Fatalf("unchanged nonsecret module after persistence: %s", got)
+	}
+	changed := intentPlan(func(p *Plan) { p.Terraform[0].SecretOutputs = []string{"password"} })
+	if got := intentOf(t, changed, &persisted); got != IntentUpdate {
+		t.Fatalf("changed secret output contract: %s", got)
+	}
+}

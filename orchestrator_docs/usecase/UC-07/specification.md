@@ -300,3 +300,5 @@ this specification without changing resource/state identity or cleanup authority
 Definition selection, Preview pins, all-success activation, retained historical
 artifacts and explicit data-migration blockers. Partial execution preserves actual
 per-resource evidence; changing a Definition does not silently upgrade this scope.
+
+- **CD-05:** Shared Fleet withdrawal removes only the receipted unit path and Bundle, preserving other workloads/Environments. Retire the owned application GitRepo only after its last unit is withdrawn; retain Git history and original UID guards per [ADR-036](../../architecture/decisions/ADR-036-application-fleet-gitrepo.md).

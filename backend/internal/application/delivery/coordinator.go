@@ -151,6 +151,33 @@ func (c *Coordinator) Deploy(ctx context.Context, req DeployRequest) error {
 	if err != nil {
 		return err
 	}
+	if validator, ok := provider.(port.ReceiptLayoutValidator); ok {
+		environments, err := c.Store.ListEnvironments(ctx, req.ApplicationKey)
+		if err != nil {
+			return err
+		}
+		for _, env := range environments {
+			executions, err := c.Store.ListDeliveryExecutions(ctx, org.ID, env.ID)
+			if err != nil {
+				return err
+			}
+			workloads := map[string]bool{}
+			for _, record := range executions {
+				workloads[record.WorkloadID] = true
+			}
+			for workload := range workloads {
+				active, err := activeExecutions(executions, workload)
+				if err != nil {
+					return err
+				}
+				for _, record := range active {
+					if err := validator.ValidateDeliveryReceipt(b, record.Receipt); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
 	phases := map[domain.Phase][]execution.Manifest{}
 	for _, m := range req.Manifests {
 		if m.Secret || (m.Kind == "Secret" && !execution.PublicCertificateSecret(m.Object)) {
@@ -242,16 +269,12 @@ func (c *Coordinator) Deploy(ctx context.Context, req DeployRequest) error {
 			continue
 		}
 		intent, unit := phaseIntent(req, org.ID, owner, b, phase)
-		existing, err := c.Store.ListDeliveryExecutions(ctx, org.ID, req.Environment.ID)
-		if err != nil {
-			return err
-		}
-		var newest time.Time
-		for _, e := range existing {
-			if e.UnitID == unit && e.Mutation.Status == domain.IntentAcknowledged && (e.Mutation.Action == domain.Submit || e.Mutation.Action == domain.Adopt) && e.CreatedAt.After(newest) {
+		// Only the latest acknowledged, still-active unit owns a source.
+		// A newer withdrawal must fence out older successful Submit receipts.
+		for _, e := range active {
+			if e.UnitID == unit {
 				intent.ExpectedRevision = e.Revision.ID
 				intent.SourceInventory = append([]port.AppliedObject(nil), e.Inventory...)
-				newest = e.CreatedAt
 			}
 		}
 

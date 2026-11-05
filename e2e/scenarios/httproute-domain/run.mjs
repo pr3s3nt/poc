@@ -1,3 +1,4 @@
+import { verifyApplicationFleet } from '../../../scripts/bootstrap/lib/fleet-verification.mjs';
 import assert from 'node:assert/strict';
 import {parseArgs} from 'node:util';
 import {readFileSync,writeFileSync,statSync} from 'node:fs';
@@ -87,10 +88,10 @@ try{
  assert.equal(route.spec.hostnames[0],url.hostname);assert.equal(route.spec.parentRefs[0].sectionName,input.gateway.listener);
  assert.equal(route.spec.rules[0].backendRefs[0].name,'frontend');assert.equal(route.spec.rules[0].backendRefs[0].port,80);
  const service=kube('-n',namespace,'get','service','frontend'),deployment=kube('-n',namespace,'get','deployment','frontend');assert(deployment.status.availableReplicas>=1);assert.equal(service.spec.ports[0].port,80);
- const repos=kube('get','gitrepos.fleet.cattle.io','-A').items.filter(r=>r.metadata.labels?.['orchestrator.io/environment-id']===detail.deployment.environmentId);assert(repos.length);
- const bundles=kube('get','bundles.fleet.cattle.io','-A').items;
+ const proof=verifyApplicationFleet(kube('get','gitrepos.fleet.cattle.io','-A').items,kube('get','bundles.fleet.cattle.io','-A').items,app.key,detail.deployment.environmentId);
+ const repos=proof.repos;
  let publishedRoute;
- for(const repo of repos){assert.match(repo.spec.revision,/^[a-f0-9]{40}$/);assert.equal(repo.status.commit,repo.spec.revision);const owned=bundles.filter(b=>b.metadata.namespace===repo.metadata.namespace&&b.metadata.labels?.['fleet.cattle.io/repo-name']===repo.metadata.name);assert.equal(owned.length,1);assert.equal(owned[0].metadata.labels['fleet.cattle.io/commit'],repo.spec.revision);assert.equal(owned[0].status.summary.ready,1);assert.equal(owned[0].status.summary.desiredReady,1);const routeFile=owned[0].spec.resources?.find(file=>file.content?.includes('HTTPRoute')&&file.content.includes(url.hostname));if(routeFile)publishedRoute={bundle:owned[0].metadata.name,namespace:owned[0].metadata.namespace,file:routeFile.name,commit:repo.spec.revision};}
+ for(const bundle of proof.bundles){const routeFile=bundle.spec.resources?.find(file=>file.content?.includes('HTTPRoute')&&file.content.includes(url.hostname));if(routeFile)publishedRoute={bundle:bundle.metadata.name,namespace:bundle.metadata.namespace,file:routeFile.name,commit:repos[0].spec.revision};}
  assert(publishedRoute,'HTTPRoute must be present in the actual Fleet-published manifest');
  evidence=await openWorkloadEvidence(session.browser,config,'httproute-domain');const page=evidence.page;
  const response=await page.goto(input.url);assert.equal(response.status(),200);await page.getByRole('heading',{name:'Welcome to nginx!',exact:true}).waitFor();assert.equal(new URL(page.url()).hostname,url.hostname);

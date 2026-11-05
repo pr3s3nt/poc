@@ -73,3 +73,5 @@ ZIP source upload: [ADR-026](ADR-026-zip-source-upload.md).
 - [ADR-034 — Simplified CD configuration with reusable connections](ADR-034-simplified-cd-configuration.md).
 
 - [ADR-035 — Generic Workload and Template Driver](ADR-035-generic-workload-template-driver.md)
+
+- [ADR-036 — One Fleet GitRepo per Application](ADR-036-application-fleet-gitrepo.md).

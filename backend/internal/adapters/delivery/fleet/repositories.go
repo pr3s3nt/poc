@@ -1,7 +1,9 @@
 package fleet
 
 import (
+	"errors"
 	domain "orchestrator/internal/domain/delivery"
+	port "orchestrator/internal/ports/delivery"
 	"path"
 )
 
@@ -23,9 +25,20 @@ func (p *Provider) BindApplicationRepository(b domain.BindingVersion, r domain.A
 	b = b.Clone()
 	b.Config["repositoryURL"] = r.CloneURL
 	b.Config["branch"] = r.Branch
-	b.Config["root"] = path.Join(policy.Root, env, "manifests")
+	b.Config["root"] = path.Join(policy.Root, env)
 	b.Config["gitRepoMode"] = "MANAGED"
+	b.Config["applicationID"] = r.ApplicationID
+	b.Config["environmentKey"] = env
 	delete(b.Config, "existingGitRepo")
 	delete(b.Config, "existingGitRepoUID")
 	return b, nil
 }
+
+func (p *Provider) ValidateDeliveryReceipt(b domain.BindingVersion, r port.Receipt) error {
+	if b.Config["applicationID"] != "" && r.Handle["layout"] != applicationLayout && r.Handle["completionOnly"] != "true" {
+		return ErrLegacyApplication
+	}
+	return nil
+}
+
+var ErrLegacyApplication = errors.New("fleet: remove the legacy test Application before deploying with the shared Application GitRepo layout")

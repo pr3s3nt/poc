@@ -1152,3 +1152,38 @@ Route ownership/lifecycle uses existing rendered workload inventory and Fleet.
 Setup/migration: `projects/platform-resources/bootstrap/HTTPROUTE.md`.
 No separate HTTPRoute Terraform module/Type/Definition in the publishable set.
 Focused real-renderer coverage: `company_httproute_test.go` in templatedriver.
+
+## Application-scoped Fleet delivery — ADR-036
+
+- Fleet `repositories.go` injects internal Application/Environment identity from the
+  durable allocation. `package.go` emits readable Environment/workload/phase YAML
+  paths and separate nonsecret revision metadata; the template driver is unchanged.
+- `adapters/delivery/fleet/application.go` owns the shared GitRepo's per-unit pins,
+  guarded pointer, sibling-tree verification, selective withdrawal, lost-receipt
+  observation and exact first-unit admission during explicit recovery. Legacy `manager.go` and EXISTING receipt handling remain for cleanup.
+- `provider.go`, `pending_prune.go`, `recovery.go`, `recovery_wake.go` select the exact
+  Bundle by release and verify its tree even after another unit advances the SHA.
+- `application/delivery/coordinator.go` rejects mixed legacy/shared live layouts;
+  `submission_recovery.go` can persist an observed lost receipt before recovery;
+  `removal.go` resolves the same allocated Application repository before withdrawal.
+- `adapters/gitpublication/git.go` verifies multiple retained trees with one fetch.
+- Bootstrap `fleet-verification.mjs` is shared with the HTTPRoute E2E assertion;
+  application identity replaces the old Environment GitRepo label/count assumption.
+
+- `planning/intent.go` normalizes an empty secret-output contract before comparing
+  persisted execution intent; regression tests keep unchanged namespace/storage
+  RETAIN while a real secret-output contract change remains UPDATE.
+- `e2e/scenarios/application-fleet-gitrepo/` contains checkpointed dual-Environment
+  acceptance plus exact-operation recovery and runtime-pin refresh helpers.
+
+- `ports/delivery.SubmissionAbsenceRecovery` allows only read-only proof of an
+  unsubmitted first prerequisite. The coordinator atomically settles its FAILED
+  intent and publication lease; in-memory execution/lease methods compose inside
+  an existing transaction, matching PostgreSQL. No Job absence is inferred.
+- Coordinator normal/recovery source selection respects the latest acknowledged
+  withdrawal, so a restored unit does not inherit the retired revision/inventory.
+
+- `application/deployment/baseline.go` follows only immutable, successful removal
+  base-set lineage for UNREFERENCED resources whose latest removal plan omits
+  their execution evidence. It preserves cleanup ownership, snapshot isolation,
+  exact scope matching and fail-closed behavior for missing/foreign/cyclic history.

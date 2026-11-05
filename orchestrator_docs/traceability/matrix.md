@@ -1443,3 +1443,12 @@ portable Git documents and Enterprise preset; `input-parameters.test.mjs`,
 `enterprise-lock.test.mjs` and direct-bootstrap tests. Enterprise host/API/CA:
 shared-Git binding and repository-host HTTPS tests.
 [Evidence/limits](../verification/2026-11-04-enterprise-bootstrap.md).
+
+## One Fleet GitRepo per Application — 2026-11-05
+
+| Requirement | Realization/code | Validation |
+|---|---|---|
+| UC-06 CD-08; ADR-036 | Fleet `application.go`, `package.go`, `repositories.go`; shared delivery sequence | `application_test.go`: common controller across staging/production, retained-tree proof, foreign-tree refusal, isolated update |
+| UC-07 CD-05; UC-18 CD-04 | Fleet unit withdrawal, shared controller pins, original UID cleanup | adapter sibling-preserving/last-unit/replaced-controller tests; original cleanup contracts retained |
+| Persisted recovery without replay | delivery `submission_recovery.go`; Fleet `RecoverReceipt`/`RecoverSubmission` | coordinator lost-receipt test; adapter lost-write-ack observation test; existing Job idempotency tests |
+| Native acceptance assertions | bootstrap `fleet-verification.mjs`; HTTPRoute scenario | shared-controller inventory/commit/Bundle tests; live evidence remains separately scoped |

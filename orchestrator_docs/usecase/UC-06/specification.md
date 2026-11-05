@@ -427,3 +427,5 @@ this specification without changing resource/state identity or cleanup authority
 Definition selection, Preview pins, all-success activation, retained historical
 artifacts and explicit data-migration blockers. Partial execution preserves actual
 per-resource evidence; changing a Definition does not silently upgrade this scope.
+
+- **CD-08:** New managed application delivery uses one application-scoped Fleet GitRepo for both Environments per [ADR-036](../../architecture/decisions/ADR-036-application-fleet-gitrepo.md). Publishing one unit preserves every other admitted tree; readiness validates its exact tree and Bundle even after the shared commit advances.

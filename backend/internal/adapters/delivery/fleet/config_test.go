@@ -51,3 +51,23 @@ func TestPlatformPolicyContainsNoApplicationDestination(t *testing.T) {
 		t.Fatal("invalid platform CA")
 	}
 }
+
+func TestApplicationLayoutReservesMetadataOutsideWatchedPaths(t *testing.T) {
+	config := validConfig()
+	config["applicationID"] = "app-id"
+	config["environmentKey"] = "staging"
+	config["gitRepoMode"] = "MANAGED"
+	config["root"] = "environments/staging"
+	if _, err := ParseConfig(config); err != nil {
+		t.Fatal(err)
+	}
+	config["root"] = "metadata/staging"
+	if _, err := ParseConfig(config); err != ErrConfig {
+		t.Fatal("metadata can overwrite watched manifests", err)
+	}
+	config["root"] = "environments/staging"
+	config["environmentKey"] = ""
+	if _, err := ParseConfig(config); err != ErrConfig {
+		t.Fatal("unscoped application layout accepted", err)
+	}
+}

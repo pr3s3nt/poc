@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/ports/persistence"
@@ -36,17 +37,18 @@ func CaptureBaselines(ctx context.Context, view persistence.Store, organizationK
 		if id == "" {
 			continue
 		}
-		if _, seen := b.plans[id]; seen {
-			continue
-		}
-		snapshot, err := view.GetPlan(ctx, id)
-		switch {
-		case errors.Is(err, persistence.ErrNotFound):
-			b.plans[id] = nil
-		case err != nil:
+		plan, err := b.loadPlan(ctx, view, id)
+		if err != nil {
 			return nil, err
-		default:
-			b.plans[id] = decodePlan(snapshot)
+		}
+		if a.Status == resource.StatusUnreferenced && plan != nil && !planContainsResource(plan, a) {
+			id, err = b.retainedPlan(ctx, view, a)
+			if err != nil {
+				return nil, err
+			}
+			captured := a
+			captured.LastDeploymentID = id
+			b.byKey[a.LogicalKey()] = captured
 		}
 	}
 	return b, nil
@@ -81,4 +83,83 @@ func (b *Baselines) Reader() func(planning.Node) *planning.Plan {
 		}
 		return b.plans[found.LastDeploymentID]
 	}
+}
+
+func (b *Baselines) loadPlan(ctx context.Context, view persistence.Store, id string) (*planning.Plan, error) {
+	if p, ok := b.plans[id]; ok {
+		return p, nil
+	}
+	raw, err := view.GetPlan(ctx, id)
+	if errors.Is(err, persistence.ErrNotFound) {
+		b.plans[id] = nil
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	b.plans[id] = decodePlan(raw)
+	return b.plans[id], nil
+}
+func planContainsResource(p *planning.Plan, a resource.ActiveResource) bool {
+	for _, n := range p.Graph.Nodes {
+		if n.Kind == planning.NodeResource && n.Descriptor == a.Descriptor.String() && n.Scope == a.Scope {
+			return true
+		}
+	}
+	return false
+}
+
+// UNREFERENCED records point at the removal that established cleanup ownership.
+// Follow only its immutable successful base-set lineage for execution evidence;
+// never rewrite that ownership marker or search arbitrary historical plans.
+func (b *Baselines) retainedPlan(ctx context.Context, view persistence.Store, a resource.ActiveResource) (string, error) {
+	id, environmentID := a.LastDeploymentID, ""
+	seen := map[string]bool{}
+	for depth := 0; id != "" && depth < 128; depth++ {
+		if seen[id] {
+			return "", nil
+		}
+		seen[id] = true
+		d, err := view.GetDeployment(ctx, id)
+		if errors.Is(err, persistence.ErrNotFound) {
+			return "", nil
+		}
+		if err != nil {
+			return "", err
+		}
+		if d.OrganizationKey != b.organization || d.EnvironmentID == "" || d.Status != domain.StatusSucceeded {
+			return "", nil
+		}
+		if environmentID == "" {
+			environmentID = d.EnvironmentID
+		}
+		if d.EnvironmentID != environmentID {
+			return "", nil
+		}
+		p, err := b.loadPlan(ctx, view, id)
+		if err != nil {
+			return "", err
+		}
+		if p == nil {
+			return "", nil
+		}
+		if planContainsResource(p, a) {
+			return id, nil
+		}
+		if d.Action != domain.ActionRemove || d.BaseDeploymentSetID == "" {
+			return "", nil
+		}
+		base, err := view.GetDeploymentSet(ctx, d.BaseDeploymentSetID)
+		if errors.Is(err, persistence.ErrNotFound) {
+			return "", nil
+		}
+		if err != nil {
+			return "", err
+		}
+		if base.EnvironmentID != environmentID {
+			return "", nil
+		}
+		id = base.CreatedByDeploymentID
+	}
+	return "", nil
 }

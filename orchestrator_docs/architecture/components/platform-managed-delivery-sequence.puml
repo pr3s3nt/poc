@@ -19,8 +19,8 @@ Orchestrator -> PostgreSQL : Admit operation and reserve application repository
 Orchestrator -> Git : Observe deterministic repo; create private if absent
 Git --> Orchestrator : Exact repository ID / branch
 Orchestrator -> PostgreSQL : Acknowledge allocation (CAS)
-Orchestrator -> Git : Publish environments/<env>/manifests units
-Orchestrator -> Fleet : Submit exact revision
+Orchestrator -> Git : Publish <root>/<env>/<workload>/<phase> + metadata
+Orchestrator -> Fleet : CAS one Application GitRepo SHA; preserve sibling tree pins
 Fleet --> Orchestrator : Observation / UID inventory
 Orchestrator -> PostgreSQL : Acknowledge admitted revision
 @enduml

@@ -220,3 +220,23 @@ type ApplicationRepositoryBinding interface {
 	RepositoryPolicy(BindingVersion) (domain.RepositoryPolicy, error)
 	BindApplicationRepository(BindingVersion, domain.ApplicationRepository, string) (BindingVersion, error)
 }
+
+// ReceiptLayoutValidator rejects incompatible live controller layouts before new
+// publication. Historical receipts remain valid for observation and cleanup.
+type ReceiptLayoutValidator interface {
+	ValidateDeliveryReceipt(BindingVersion, Receipt) error
+}
+
+// SubmissionReceiptRecovery reconstructs the original acknowledgement. A provider
+// may finish an exact published first admission under explicit recovery; it must
+// not republish Git, replay an execution or adopt a different controller UID.
+type SubmissionReceiptRecovery interface {
+	RecoverReceipt(context.Context, Intent, Prepared) (Receipt, error)
+}
+
+// SubmissionAbsenceRecovery is read-only proof that a first prerequisite was not
+// published/admitted and has no native effects. Uncertainty must return false.
+// It never applies to Jobs and never authorizes replay of the original request.
+type SubmissionAbsenceRecovery interface {
+	ObserveSubmissionAbsent(context.Context, Intent, Prepared) (bool, error)
+}

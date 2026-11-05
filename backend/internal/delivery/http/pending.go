@@ -1,8 +1,10 @@
 package http
 
 import (
+	"log"
 	"net/http"
 	"orchestrator/internal/platform/ids"
+	"strings"
 )
 
 type previewPendingRequest struct{}
@@ -23,6 +25,14 @@ func (s *Server) handlePreviewPending(w http.ResponseWriter, r *http.Request) {
 	}
 	preview, err := s.pending.Preview(r.Context(), app, env)
 	if err != nil {
+		reason := "UNCLASSIFIED"
+		for _, marker := range []string{"cannot be rebuilt", "cannot be updated", "legacy literal binding", "catalog update of database or persistent storage", "image must come from the configured Harbor registry", "Service reference cycle", "apply or discard workload changes", "template"} {
+			if strings.Contains(err.Error(), marker) {
+				reason = marker
+				break
+			}
+		}
+		log.Printf("pending preview rejected: reason=%s type=%T", reason, err)
 		s.writeError(w, err)
 		return
 	}

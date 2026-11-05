@@ -119,7 +119,7 @@ func (s *Store) ListDeliveryExecutions(ctx context.Context, org, env string) ([]
 	return out, nil
 }
 func (s *Store) UpdateDeliveryExecution(ctx context.Context, e persistence.DeliveryExecution, expected int64) (out persistence.DeliveryExecution, err error) {
-	err = s.Transact(ctx, func(ctx context.Context) error {
+	err = s.deliveryTransaction(ctx, func(ctx context.Context) error {
 		if err := s.deliveryOwner(ctx, e); err != nil {
 			return err
 		}
@@ -188,4 +188,12 @@ func (s *Store) GetDeliveryArtifact(ctx context.Context, org, id string) (persis
 	a.Nonce = append([]byte(nil), a.Nonce...)
 	a.Ciphertext = append([]byte(nil), a.Ciphertext...)
 	return a, nil
+}
+
+// Compose terminal intent acknowledgement and lease release in one transaction.
+func (s *Store) deliveryTransaction(ctx context.Context, fn func(context.Context) error) error {
+	if s.inTx(ctx) {
+		return fn(ctx)
+	}
+	return s.Transact(ctx, fn)
 }

@@ -212,3 +212,5 @@ final-success video](verification/2026-11-04-git-bootstrap-pvc.md).
 
 Company staging and GitHub Enterprise: [bootstrap setup kit](../scripts/bootstrap/enterprise/README.md)
 and [internal-AI handoff](../scripts/bootstrap/enterprise/AI_HANDOFF.md).
+
+- [One Fleet GitRepo per Application](architecture/decisions/ADR-036-application-fleet-gitrepo.md).

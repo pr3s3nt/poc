@@ -41,7 +41,7 @@ else ordinary delivery
       Provider -> Cluster: GET exact binding-version Secret; verify ownership
       Provider -> Cluster: Create/refresh private credentials under admission fence
     end
-    Provider -> Cluster: Submit pinned revision on exact target\nFresh Git render generation per new non-Job intent
+    Provider -> Cluster: CAS shared Application GitRepo SHA + unit tree pin\nVerify every retained unit; never force-sync shared Jobs
     Provider --> Deploy: Receipt
     Deploy -> DB: Persist receipt / union inventory
     Deploy -> Provider: Observe exact revision and readiness
@@ -69,7 +69,7 @@ end note
 User -> API: Confirm workload/application removal
 API -> Deploy: Admit original applied owner/inventory
 Deploy -> Provider: Withdraw(retain)
-Provider -> Cluster: Stop management and retire owned control metadata
+Provider -> Cluster: Withdraw only unit path/Bundle; preserve siblings\nDelete shared GitRepo only after last unit
 Provider --> Deploy: Proven withdrawal (otherwise hold)
 Deploy -> Remove: Confirmed inventory + original target + UID proofs
 Remove -> Cluster: GET ownership; DELETE with UID preconditions

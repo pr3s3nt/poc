@@ -105,11 +105,17 @@ func (p *Plan) intentFingerprints() map[string]string {
 		if len(bindings) == 0 {
 			bindings = nil
 		}
+		// An omitted empty secret-output list decodes as nil. Both express the
+		// same module contract; persistence must not turn a retain into an update.
+		secretOutputs := contract.SecretOutputs
+		if len(secretOutputs) == 0 {
+			secretOutputs = nil
+		}
 		hash, err := canon.Hash(map[string]any{
 			"definition": match.DefinitionKey, "driver": match.DriverType, "account": match.DriverAccount, "accountVersion": match.AccountVersion,
 			"type": node.ResourceType, "class": node.Class, "params": params, "bindings": bindings,
 			"authored": evidence, "fingerprint": contract.Fingerprint, "bundle": contract.BundleID, "terraform": contract.TerraformVersion, "lock": contract.ProviderLockDigest,
-			"source": contract.Source, "inputs": contract.Inputs, "outputs": contract.OutputMapping, "secretOutputs": contract.SecretOutputs, "providers": contract.ProviderBindings,
+			"source": contract.Source, "inputs": contract.Inputs, "outputs": contract.OutputMapping, "secretOutputs": secretOutputs, "providers": contract.ProviderBindings,
 		})
 		if err == nil {
 			out[node.Descriptor+"|"+node.Scope.Key()] = hash

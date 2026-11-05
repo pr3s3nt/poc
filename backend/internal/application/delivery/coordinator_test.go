@@ -371,3 +371,35 @@ func TestSharedEnterpriseGitDerivesScopedHostAndAPI(t *testing.T) {
 		t.Fatal("enterprise identity was not inherited")
 	}
 }
+
+type freshAfterWithdrawalProvider struct {
+	*neutralProvider
+	fresh bool
+}
+
+func (p *freshAfterWithdrawalProvider) Submit(ctx context.Context, i port.Intent, prepared port.Prepared) (port.Receipt, error) {
+	if p.fresh && (i.ExpectedRevision != "" || len(i.SourceInventory) != 0) {
+		return port.Receipt{}, domain.ErrStale
+	}
+	return p.neutralProvider.Submit(ctx, i, prepared)
+}
+func TestCoordinatorRedeployAfterWithdrawalHasNoActiveSourceRevision(t *testing.T) {
+	c, original, ctx, req, _ := coordinatorFixture(t)
+	p := &freshAfterWithdrawalProvider{neutralProvider: original}
+	c.Registry = port.NewRegistry()
+	c.Registry.Register("fleet", p)
+	if err := c.Deploy(ctx, req); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.RemoveWorkload(ctx, req.OrganizationKey, req.Environment.ID, req.WorkloadID); err != nil {
+		t.Fatal(err)
+	}
+	p.fresh = true
+	req.DeploymentID = ids.New()
+	if err := c.Deploy(ctx, req); err != nil {
+		t.Fatal("withdrawn source reused on recreation", err)
+	}
+	if len(p.order) != 6 {
+		t.Fatal("recreated phases missing", p.order)
+	}
+}

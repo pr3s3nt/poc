@@ -59,3 +59,12 @@ App và dữ liệu được giữ để thử/resume. Cleanup khi được yêu
 remove/Preview/Deploy và Application deletion, kiểm tra đúng receipt app key,
 namespace UID và ownership; scoped Role/RoleBinding chỉ xóa bằng UID preconditions.
 Không xóa tài nguyên shared hoặc preexisting để làm trống platform.
+
+## Shared Application Fleet controller
+
+Fresh managed applications use [ADR-036](../../../orchestrator_docs/architecture/decisions/ADR-036-application-fleet-gitrepo.md):
+one GitRepo across staging/production, with phase Bundles and readable Environment
+paths. Native reuse verification checks the exact application controller, all
+active unit pins and Bundle commits/readiness. Historical many-GitRepo acceptance
+state is not converted or reset; use a fresh app after separately authorized
+product cleanup. Console-only profile retains its existing evidence boundary.

@@ -117,3 +117,13 @@ Canonical shared collaboration: [delivery sequence](../../architecture/component
 [infrastructure sequence](../../architecture/components/infrastructure-drift-sequence.puml).
 These supplement the existing direct-path diagrams for this new design slice;
 [CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.
+
+## Shared application Fleet controller — ADR-036
+
+[ADR-036](../../architecture/decisions/ADR-036-application-fleet-gitrepo.md) keeps
+the delivery coordinator's persisted units/phases and original target/UID checks.
+The Fleet adapter now shares one application controller across both Environment
+trees. It verifies retained unit trees before moving the common SHA and correlates
+observations to the receipted Bundle/release. Withdrawal removes only its unit;
+last-unit cleanup retires the owned GitRepo. See the updated
+[shared sequence](../../architecture/components/platform-managed-delivery-sequence.puml).

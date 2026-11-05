@@ -32,7 +32,7 @@ func (p *Provider) ValidateConfiguration(b port.BindingVersion) error {
 	if b.Config["readSecretMode"] == "MANAGED" && b.Config["readSecret"] != managedReaderName(b) {
 		return ErrConfig
 	}
-	if b.Config["repositoryURL"] != "" || b.Config["branch"] != "" || b.Config["existingGitRepo"] != "" || b.Config["existingGitRepoUID"] != "" || b.Config["gitRepoMode"] == "EXISTING" {
+	if b.Config["applicationID"] != "" || b.Config["environmentKey"] != "" || b.Config["repositoryURL"] != "" || b.Config["branch"] != "" || b.Config["existingGitRepo"] != "" || b.Config["existingGitRepoUID"] != "" || b.Config["gitRepoMode"] == "EXISTING" {
 		return ErrConfig
 	}
 	_, err := ParseConfig(b.Config)
@@ -106,6 +106,11 @@ func (p *Provider) Submit(ctx context.Context, i port.Intent, prepared port.Prep
 	if err != nil {
 		return port.Receipt{}, err
 	}
+	if cfg.ApplicationID != "" {
+		if err := p.validateApplicationSubmission(ctx, i, pkg, cfg); err != nil {
+			return port.Receipt{}, err
+		}
+	}
 	if cfg.GitRepoMode == "EXISTING" {
 		cli, close, _, err := p.Manager.open(ctx, i)
 		if err != nil {
@@ -128,6 +133,17 @@ func (p *Provider) Submit(ctx context.Context, i port.Intent, prepared port.Prep
 	if err != nil {
 		return port.Receipt{}, err
 	}
+	if cfg.ApplicationID != "" {
+		if pkg.Metadata == nil {
+			return port.Receipt{}, ErrConfig
+		}
+		metadata, err := publisher.Publish(ctx, *pkg.Metadata, func(ctx context.Context) error { return p.Manager.Guard(ctx, i) })
+		if err != nil {
+			return port.Receipt{}, err
+		}
+		git.Commit = metadata.Commit
+		return p.submitApplication(ctx, i, pkg, git)
+	}
 	return p.Manager.Submit(ctx, i, pkg, git)
 }
 func (p *Provider) Withdraw(ctx context.Context, i port.Intent, r port.Receipt) (port.WithdrawalProof, error) {
@@ -142,6 +158,9 @@ func (p *Provider) Withdraw(ctx context.Context, i port.Intent, r port.Receipt) 
 	}
 	if p.Manager == nil {
 		return port.WithdrawalProof{}, ErrController
+	}
+	if r.Handle["layout"] == applicationLayout {
+		return p.withdrawApplication(ctx, i, r)
 	}
 	cfg, err := ParseConfig(i.Binding.Config)
 	if err != nil {
@@ -190,12 +209,25 @@ func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (
 		if _, err := checkExisting(ctx, cli, cfg); err != nil {
 			return out, err
 		}
+	} else if r.Handle["layout"] == applicationLayout {
+		pins, err := readUnitPins(repo)
+		if err != nil || !applicationOwns(repo, i, cfg) || md["deletionTimestamp"] != nil || md["uid"] != r.Handle["gitrepoUID"] || !sharedReceiptMatches(pins, i, r) {
+			return out, ErrOwnership
+		}
 	} else if !owns(repo, i, r.Handle["gitrepo"]) || md["uid"] != r.Handle["gitrepoUID"] || controllerRevision(repo) != i.Revision.ID {
 		return out, ErrOwnership
 	}
 	status, _ := repo["status"].(map[string]any)
+	if r.Handle["layout"] == applicationLayout {
+		spec, _ := repo["spec"].(map[string]any)
+		if status["commit"] != spec["revision"] {
+			out.Sync, out.Health = domain.Pending, domain.Progressing
+			return out, nil
+		}
+	}
 	commitMatches := status["commit"] == r.Handle["commit"]
-	if cfg.GitRepoMode == "EXISTING" {
+	if cfg.GitRepoMode == "EXISTING" || r.Handle["layout"] == applicationLayout {
+		commitMatches = false
 		commit, _ := status["commit"].(string)
 		if commit != "" {
 			publisher, err := p.Publishers.ResolvePublisher(ctx, i.Binding)
@@ -227,14 +259,8 @@ func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (
 	if json.Unmarshal(raw, &bundles) != nil {
 		return out, ErrController
 	}
-	if cfg.GitRepoMode == "EXISTING" {
-		matched := []map[string]any{}
-		for _, candidate := range bundles.Items {
-			if bundleRelease(candidate) == r.Handle["release"] {
-				matched = append(matched, candidate)
-			}
-		}
-		bundles.Items = matched
+	if cfg.GitRepoMode == "EXISTING" || r.Handle["layout"] == applicationLayout {
+		bundles.Items = selectRelease(bundles.Items, r.Handle["release"])
 	}
 	if len(bundles.Items) != 1 {
 		return out, nil

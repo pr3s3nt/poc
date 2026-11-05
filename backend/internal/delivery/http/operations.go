@@ -103,7 +103,7 @@ func (s *Server) handleRecoverOperation(w http.ResponseWriter, r *http.Request) 
 	}
 	// Generic workload recovery cannot release an unresolved CD mutation. A
 	// transfer uses its dedicated forward protocol below; ordinary submissions
-	// remain held until exact provider outcome recovery is implemented.
+	// require exact provider outcome recovery, including provider-verified receipt reconstruction.
 	if transfer, _ := op.Detail["deliveryTransfer"].(bool); !transfer && !policyRecovery {
 		if repo, ok := s.store.(persistence.DeliveryExecutionRepository); ok {
 			organization, lookupErr := s.store.GetOrganization(r.Context(), app.OrganizationKey)
@@ -123,7 +123,7 @@ func (s *Server) handleRecoverOperation(w http.ResponseWriter, r *http.Request) 
 			}
 			for _, record := range records {
 				if record.Mutation.OperationID == op.ID && (record.Mutation.Status == deliverydomain.IntentRunning || record.Mutation.Status == deliverydomain.IntentUnknown) {
-					submission := record.Mutation.Action == deliverydomain.Submit && record.Receipt.IntentID == record.Mutation.ID
+					submission := record.Mutation.Action == deliverydomain.Submit && (record.Receipt.IntentID == "" || record.Receipt.IntentID == record.Mutation.ID)
 					removal := record.Mutation.Action == deliverydomain.Withdraw && record.Receipt.IntentID != "" && len(record.Inventory) > 0
 					if !submission && !removal {
 						writeCode(w, codeRecoveryIncomplete, "")
