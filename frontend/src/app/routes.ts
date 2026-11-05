@@ -3,6 +3,7 @@ export type TelemetryRouteQuery = { from?: string; to?: string; workload?: strin
 export type Route =
   | { name: 'sign-in' }
   | { name: 'applications' }
+  | { name: 'guides' }
   | { name: 'resource-types' }
   | { name: 'resource-definitions'; resourceType?: string }
   | { name: 'driver-accounts'; account?: string; tab?: 'diagnose'; purpose?: 'use-case'; report?: string }
@@ -35,6 +36,7 @@ export function parseRoute(path = window.location.pathname): Route {
   const search = queryAt === -1 ? (path === window.location.pathname ? window.location.search : '') : path.slice(queryAt);
   const relative = pathname.startsWith(base) ? pathname.slice(base.length) || '/' : pathname;
   if (relative === '/' || relative === '/sign-in') return { name: 'sign-in' };
+  if (relative === '/guides') return { name: 'guides' };
   if (relative === '/applications') return { name: 'applications' };
   if (relative === '/platform/resource-types') return { name: 'resource-types' };
   if (relative === '/platform/resource-definitions') {
@@ -97,6 +99,7 @@ export function parseRoute(path = window.location.pathname): Route {
 export function href(route: Route): string {
   switch (route.name) {
     case 'sign-in': return `${base}/sign-in`;
+    case 'guides': return `${base}/guides`;
     case 'applications': return `${base}/applications`;
     case 'resource-types': return `${base}/platform/resource-types`;
     case 'resource-definitions': return `${base}/platform/resource-definitions${route.resourceType ? `?resourceType=${encodeURIComponent(route.resourceType)}` : ''}`;

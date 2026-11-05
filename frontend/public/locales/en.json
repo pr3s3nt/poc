@@ -3810,5 +3810,13 @@
   "sourceSummary.repository": "Repository",
   "sourceSummary.unavailable": "Repository metadata unavailable",
   "sourceSummary.change": "Change source",
-  "sourceSummary.registered": "Registered sources"
+  "sourceSummary.registered": "Registered sources",
+  "guides.title": "User guide",
+  "guides.contents": "On this page",
+  "guides.openImage": "View image: {caption}",
+  "guides.closeImage": "Close image",
+  "guides.imageError": "Could not load this illustration.",
+  "guides.retryImage": "Retry image",
+  "guides.empty": "No guides are available for your role.",
+  "guides.vietnameseContent": "This guide is currently available in Vietnamese."
 }

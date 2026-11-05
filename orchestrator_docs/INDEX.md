@@ -29,7 +29,9 @@ implementation status.
 
 ## Hướng dẫn sử dụng
 
-- [DEV — triển khai acceptance app từng bước (bản nháp)](guides/dev/acceptance-app.md).
+- [DEV — triển khai acceptance app từng bước](guides/dev/acceptance-app.md).
+
+[Hướng dẫn trong Console: scope, navigation và vai trò](architecture/ui/user-guides.md).
 
 ## Route by task
 

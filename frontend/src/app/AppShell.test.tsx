@@ -54,3 +54,10 @@ it('keeps CD, platform Git and user administration navigation together after int
   expect(screen.getByRole('link', { name: 'Người dùng' })).toHaveAttribute('href', '/ui/platform/users');
   expect(screen.getByRole('button', { name: 'Đổi mật khẩu' })).toBeVisible();
 });
+
+ it.each(['DEVELOPER', 'PLATFORM_ENGINEER', 'ADMIN'])('keeps the guide link named and active in the collapsed sidebar for %s', role => {
+  window.localStorage.setItem('orchestrator.sidebar.collapsed', 'true');
+  render(<AppShell {...props} role={role} activeRoute="guides">Content</AppShell>);
+  expect(screen.getByRole('link', { name: 'Hướng dẫn sử dụng' })).toHaveAttribute('href', '/ui/guides');
+  expect(screen.getByRole('link', { name: 'Hướng dẫn sử dụng' })).toHaveAttribute('aria-current', 'page');
+});

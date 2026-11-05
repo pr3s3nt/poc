@@ -2,10 +2,24 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-04
+last_reviewed: 2026-11-05
 ---
 
 # Current project state
+
+## Console user guide — 2026-11-05
+
+Sidebar **Hướng dẫn sử dụng** opens the Developer acceptance app article inside
+Console at `/ui/guides`. Developer, Platform Engineer and Admin can read it;
+no Platform Engineer-only articles are authored in this scope. The single
+Markdown source and 15 reviewed same-origin illustrations are packaged at build;
+section links, screenshot viewer and image retry use the existing shell/Dialog.
+See [shared design](architecture/ui/user-guides.md) and
+[implementation map](implementation/code-map.md#console-user-guides--guide-0105).
+This integration does not execute the tutorial's deploy steps. Browser checks
+pass with real DEV/PE accounts. Typecheck/lint/build pass; full frontend tests
+retain three base failures and one loading-related failure that passes focused.
+[Verification, retained Console link and limits](verification/2026-11-05-console-user-guide.md).
 
 ## Saved Definition source identity — 2026-11-04
 

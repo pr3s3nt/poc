@@ -1,7 +1,7 @@
 ---
 id: GUIDE-DEV-ACCEPTANCE-APP
 artifact: user-guide
-status: draft
+status: current
 last_reviewed: 2026-11-05
 ---
 
@@ -11,10 +11,8 @@ Bài thực hành đưa ba workload `backend`, `worker`, `frontend` lên môi tr
 `staging`. Bạn sẽ khai báo PostgreSQL, Redis, biến môi trường, Service nội bộ
 và đường dẫn công khai, sau đó kiểm tra một job từ đầu đến cuối.
 
-Bản này dành để duyệt nội dung. Ảnh được chụp theo thứ tự thao tác trên ứng dụng
-mới `acceptance-dev-guide`: tạo ứng dụng → chưa có workload → thêm backend →
-lưu bản nháp backend → thêm worker → thêm frontend. Không dùng ảnh app đã deploy
-để minh họa trạng thái tạo mới. Chưa thực hiện Preview/Deploy trong lượt chụp này.
+Ảnh minh họa theo ứng dụng `acceptance-dev-guide`, từ lúc chưa có workload
+đến khi lưu ba bản nháp. Các ảnh dừng trước bước Preview/Deploy.
 
 ## Trước khi bắt đầu
 
@@ -65,9 +63,9 @@ Backend và worker phải dùng cùng database, cache và các giá trị phân 
 **Kết quả:** trang ứng dụng có môi trường `staging` và `production`. Tạo ứng dụng
 chưa triển khai container nào.
 
-![Điền thông tin ứng dụng mới trước khi nhấn Tạo ứng dụng](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-00-create.png)
+![Điền thông tin ứng dụng mới trước khi nhấn Tạo ứng dụng](../../../frontend/public/guides/acceptance-app/new-00-create.png)
 
-![Ngay sau khi tạo: ứng dụng acceptance-dev-guide chưa có workload, tài nguyên hay triển khai](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-01-empty.png)
+![Ngay sau khi tạo: ứng dụng acceptance-dev-guide chưa có workload, tài nguyên hay triển khai](../../../frontend/public/guides/acceptance-app/new-01-empty.png)
 
 ## 2. Thêm workload backend
 
@@ -87,11 +85,11 @@ chưa triển khai container nào.
    `500m`, **Giới hạn bộ nhớ** `256Mi`.
 10. Giữ nguyên các trường khác trong phần nâng cao cho bước thực hành này.
 
-![Chọn loại workload từ ứng dụng vẫn còn trống](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-02-template.png)
+![Chọn loại workload từ ứng dụng vẫn còn trống](../../../frontend/public/guides/acceptance-app/new-02-template.png)
 
-![Form Thêm Workload vừa mở: chưa có image, biến môi trường hay resource](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-03-backend-empty.png)
+![Form Thêm Workload vừa mở: chưa có image, biến môi trường hay resource](../../../frontend/public/guides/acceptance-app/new-03-backend-empty.png)
 
-![Đã nhập backend, image và CPU/RAM; chưa thêm resource hoặc biến](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-04-backend-basic.png)
+![Đã nhập backend, image và CPU/RAM; chưa thêm resource hoặc biến](../../../frontend/public/guides/acceptance-app/new-04-backend-basic.png)
 
 ### 2.2. Thêm resource PostgreSQL
 
@@ -109,7 +107,7 @@ chưa triển khai container nào.
 Alias `db` dùng để chọn output ở bước sau. Không cần tự nhập hostname hay mật
 khẩu database; Orchestrator lấy chúng từ tài nguyên được cấp.
 
-![Đã thêm riêng PostgreSQL, các bước biến môi trường và Redis chưa thực hiện](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-05-postgres.png)
+![Đã thêm riêng PostgreSQL, các bước biến môi trường và Redis chưa thực hiện](../../../frontend/public/guides/acceptance-app/new-05-postgres.png)
 
 ### 2.3. Thêm resource Redis
 
@@ -121,7 +119,7 @@ khẩu database; Orchestrator lấy chúng từ tài nguyên được cấp.
 6. Giữ chế độ dùng chung. Điền thêm input bắt buộc nếu platform của bạn công bố
    input khác; nếu khác mẫu bài này, nhờ platform xác nhận trước khi deploy.
 
-![Sau khi thêm PostgreSQL và Redis: chỉ có db và cache, chưa thêm storage](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-06-resources.png)
+![Sau khi thêm PostgreSQL và Redis: chỉ có db và cache, chưa thêm storage](../../../frontend/public/guides/acceptance-app/new-06-resources.png)
 
 ### 2.4. Thêm biến môi trường từ resource
 
@@ -149,7 +147,7 @@ khẩu database; Orchestrator lấy chúng từ tài nguyên được cấp.
 Chọn output mật khẩu có nhãn **Bí mật**. Không sao chép mật khẩu vào ô giá trị
 thường. Nếu thiếu output cần dùng, kiểm tra lại alias/loại tài nguyên.
 
-![Đang chọn db.host cho PGHOST, ở bước thêm biến đầu tiên](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-07-output-picker.png)
+![Đang chọn db.host cho PGHOST, ở bước thêm biến đầu tiên](../../../frontend/public/guides/acceptance-app/new-07-output-picker.png)
 
 ### 2.5. Thêm biến có giá trị thường
 
@@ -189,7 +187,7 @@ Acceptance app cần `ACCEPTANCE_SECRET` và SHA-256 của nó để xác nhận
 7. Thêm biến `ACCEPTANCE_SECRET_SHA256`, nhập chuỗi SHA-256 được cấp vào cột
    **Giá trị**. Hash này là giá trị thường.
 
-![Tạo secret trong app mới; giá trị được che bằng trường mật khẩu](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-08-secret.png)
+![Tạo secret trong app mới; giá trị được che bằng trường mật khẩu](../../../frontend/public/guides/acceptance-app/new-08-secret.png)
 
 ### 2.7. Khai báo Service backend
 
@@ -206,9 +204,9 @@ Acceptance app cần `ACCEPTANCE_SECRET` và SHA-256 của nó để xác nhận
 **Kết quả:** quay về trang ứng dụng; backend có thay đổi chờ triển khai. Lưu draft
 chưa tạo database, cache hoặc container đang chạy.
 
-![Backend đã khai báo xong, trước khi lưu draft](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-09-backend-ready.png)
+![Backend đã khai báo xong, trước khi lưu draft](../../../frontend/public/guides/acceptance-app/new-09-backend-ready.png)
 
-![Sau khi lưu backend: chỉ có một workload chờ thay đổi, chưa triển khai](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-home-backend.png)
+![Sau khi lưu backend: chỉ có một workload chờ thay đổi, chưa triển khai](../../../frontend/public/guides/acceptance-app/new-home-backend.png)
 
 ## 3. Thêm workload worker và dùng lại resource
 
@@ -233,9 +231,9 @@ chưa tạo database, cache hoặc container đang chạy.
 **Kết quả:** danh sách có backend và worker. Hai workload cùng tham chiếu DB/cache;
 không xuất hiện một cặp resource riêng cho worker.
 
-![Form thêm worker dùng lại db và cache của backend](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-10-worker.png)
+![Form thêm worker dùng lại db và cache của backend](../../../frontend/public/guides/acceptance-app/new-10-worker.png)
 
-![Sau khi lưu worker: có hai workload chờ thay đổi](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-home-worker.png)
+![Sau khi lưu worker: có hai workload chờ thay đổi](../../../frontend/public/guides/acceptance-app/new-home-worker.png)
 
 ## 4. Thêm workload frontend
 
@@ -261,9 +259,9 @@ Nếu chỉ dùng nội bộ, bỏ qua ba thao tác thêm public route và lưu 
 route chỉ có hiệu lực sau deploy; DNS/TLS không được cấu hình trong editor này.
 Dùng domain do Platform Engineer xác nhận, không suy từ tên app rằng DNS đã có.
 
-![Form thêm frontend sau khi chọn backend / http và thêm public route /](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-11-frontend.png)
+![Form thêm frontend sau khi chọn backend / http và thêm public route /](../../../frontend/public/guides/acceptance-app/new-11-frontend.png)
 
-![Sau khi lưu frontend: ba workload đều chờ thay đổi; tài nguyên và lịch sử triển khai vẫn trống](http://desktop-bdjp2rq-1.tail342836.ts.net:5173/new-home-frontend.png)
+![Sau khi lưu frontend: ba workload đều chờ thay đổi; tài nguyên và lịch sử triển khai vẫn trống](../../../frontend/public/guides/acceptance-app/new-home-frontend.png)
 
 ## 5. Preview rồi triển khai
 
@@ -374,6 +372,6 @@ và thông báo lỗi đã che thông tin nhạy cảm.
 - [Generic workload contract](../../architecture/contracts/generic-workload.md).
 
 Ảnh được chụp từ app mới và form đang thao tác theo thứ tự; không thay shell hoặc
-pattern UI. Chưa bổ sung navigation Tài liệu/phân quyền trong Console ở bản nội
-dung này. Ảnh nằm ngoài Git theo quy tắc evidence; URL ảnh dành cho bản duyệt
-nội bộ, không phải địa chỉ image container hay domain cố định của sản phẩm.
+pattern UI. Bài được tích hợp vào mục **Hướng dẫn sử dụng** của Console. Ảnh minh họa đã
+duyệt được đóng gói thành static product assets trong `frontend/public/guides/`;
+capture gốc, session và evidence vẫn nằm ngoài Git.

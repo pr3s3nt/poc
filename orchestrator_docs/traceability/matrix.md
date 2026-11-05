@@ -9,6 +9,18 @@ last_reviewed: 2026-10-28
 
 Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, class/method, persistence/state và planned test. `OC-nn` tham chiếu `architecture/contracts/operation-contracts.md`.
 
+## Shared user guide — GUIDE-01–05
+
+Owner: [Console user guides](../architecture/ui/user-guides.md).
+
+| Requirement | Implementation | Validation |
+|---|---|---|
+| GUIDE-01 navigation and deep link | AppShell, routes, App, UserGuidePage | AppShell/routes/App tests; read-only browser scenario |
+| GUIDE-02 Developer guide visible to DEV/PE/Admin | content audience policy and authenticated App route | UserGuidePage role cases; real DEV/PE sign-in and signed-out deep link |
+| GUIDE-03 ordered tutorial and screenshot viewer | canonical Markdown, contents anchors, GuideImage and shared Dialog | same-origin empty-state image, anchors, Escape/focus tests; browser loads all 15 images |
+| GUIDE-04 packaged text and illustrations | Markdown raw import and frontend/public/guides assets | typecheck/build; browser verifies same-origin image URLs |
+| GUIDE-05 existing shell, localization and failure state | guides.css, VI/EN catalogs, image retry | component retry/keyboard tests; visual review against existing shell |
+
 ## Issue #23 — PostgreSQL upgrades
 
 ADR-027 source recognition, preservation, serialization, rollback, version/history validation and runtime isolation map to `postgres/upgrade.go`, `baseline.go`, `grants.go` and `upgrade_integration_test.go`. Active/frozen schema structural equivalence is enforced by `TestActiveBaselineMatchesFrozenVersion`; immutable release artifacts/version additions by `scripts/check_migrations.py` in Product CI. The deployment wrapper stops writers, backs up and gates startup on owner setup success.

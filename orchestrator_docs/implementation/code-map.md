@@ -7,6 +7,19 @@ last_reviewed: 2026-10-28
 
 # Design-to-code map
 
+## Console user guides — GUIDE-01–05
+
+[Shared design](../architecture/ui/user-guides.md) maps to
+`frontend/src/features/guides/`, AppShell/routes/App and VI/EN catalogs.
+The Developer Markdown source remains `orchestrator_docs/guides/dev/acceptance-app.md`;
+Vite imports it as raw text, excluding metadata/maintainer references. Only the
+public guide directory is added to Vite's frontend filesystem allowlist.
+Reviewed product illustrations ship under `frontend/public/guides/acceptance-app/`;
+original captures/session evidence remain outside Git. Dependencies:
+`react-markdown` (HTML disabled) and `remark-gfm` for tables.
+Coverage: UserGuidePage/App/AppShell/routes tests and
+`e2e/scenarios/user-guide/` with real Developer/Platform Engineer sessions.
+
 ## Controlled Definition upgrades
 
 [UC-03 DV-01–07](../usecase/UC-03/definition-versions.md) maps to immutable revision/Environment repositories, catalog resolution, Plan snapshots, fenced activation and the existing forms. See the [implementation route](definition-versions.md) for paths and supported tool-retention boundaries.

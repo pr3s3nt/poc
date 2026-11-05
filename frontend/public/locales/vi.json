@@ -3810,5 +3810,13 @@
   "sourceSummary.repository": "Repository",
   "sourceSummary.unavailable": "Chưa có thông tin repository",
   "sourceSummary.change": "Đổi nguồn",
-  "sourceSummary.registered": "Nguồn đã đăng ký"
+  "sourceSummary.registered": "Nguồn đã đăng ký",
+  "guides.title": "Hướng dẫn sử dụng",
+  "guides.contents": "Trong bài này",
+  "guides.openImage": "Xem ảnh: {caption}",
+  "guides.closeImage": "Đóng ảnh",
+  "guides.imageError": "Không tải được ảnh minh họa.",
+  "guides.retryImage": "Thử tải lại ảnh",
+  "guides.empty": "Chưa có hướng dẫn cho vai trò của bạn.",
+  "guides.vietnameseContent": "Bài hướng dẫn hiện có bằng tiếng Việt."
 }

@@ -135,3 +135,6 @@ HTTPRoute through a real DNS domain and Traefik Gateway API:
 [httproute-domain](scenarios/httproute-domain/README.md). Uses a dedicated frontend,
 Playwright Console deployment, real Git/Fleet manifest and native route read-back;
 Gateway installation/exposure is a separately authorized dev prerequisite.
+
+Read-only Console help navigation and the Developer tutorial for DEV/Platform Engineer:
+[user-guide](scenarios/user-guide/README.md). No application or infrastructure mutations.

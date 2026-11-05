@@ -5,6 +5,8 @@ describe('console routes', () => {
   it('parses the public application routes under the UI base path', () => {
     expect(parseRoute('/ui/sign-in')).toEqual({ name: 'sign-in' });
     expect(parseRoute('/ui/applications')).toEqual({ name: 'applications' });
+    expect(parseRoute('/ui/guides')).toEqual({ name: 'guides' });
+    expect(href({ name: 'guides' })).toBe('/ui/guides');
     expect(parseRoute('/ui/applications/new')).toEqual({ name: 'create-application' });
     expect(parseRoute('/ui/applications/payment%20api')).toEqual({ name: 'application', applicationId: 'payment api' });
     expect(parseRoute('/ui/applications/payment%20api/settings')).toEqual({ name: 'settings', applicationId: 'payment api' });

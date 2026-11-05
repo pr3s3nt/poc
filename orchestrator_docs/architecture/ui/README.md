@@ -90,6 +90,12 @@ readable status labels, state badges, selected/focus outlines and error treatmen
 remain authoritative. Node and inspector use the same icon/type palette; icons
 are native SVG and always accompanied by the existing resource labels.
 
+## Hướng dẫn sử dụng — 2026-11-05
+
+[Thiết kế và scope](user-guides.md) thêm mục Hướng dẫn sử dụng trong shell và
+bài DEV acceptance app; DEV/Platform Engineer/Admin cùng đọc bài DEV. Các bài
+platform có audience riêng khi được bổ sung, không tạo nội dung trống ở task này.
+
 ## Shared interaction rules
 
 - Primary actions are blue; destructive actions require a clear confirmation in

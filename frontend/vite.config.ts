@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
 
 // The console is served by the Go backend under /ui/ and calls /api/v1 on the
 // same origin. In development Vite proxies /api to the orchestrator process.
@@ -10,6 +11,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: '127.0.0.1',
+    fs: { allow: [fileURLToPath(new URL('.', import.meta.url)), fileURLToPath(new URL('../orchestrator_docs/guides/', import.meta.url))] },
     port: 5173,
     proxy: { '/api': { target: apiOrigin, changeOrigin: false } },
   },

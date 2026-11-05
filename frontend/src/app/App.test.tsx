@@ -59,6 +59,21 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
+  it('opens the guide from navigation without mutating applications and restores its deep link', async () => {
+    authenticated = true;
+    const user = userEvent.setup();
+    const view = render(<App />);
+    await screen.findByRole('heading', { name: 'Ứng dụng của bạn' });
+    await user.click(screen.getByRole('link', { name: 'Hướng dẫn sử dụng' }));
+    expect(window.location.pathname).toBe('/ui/guides');
+    expect(await screen.findByRole('heading', { name: 'DEV — Triển khai acceptance app từng bước' })).toBeVisible();
+    expect(requests.every(request => request.method === 'GET')).toBe(true);
+    view.unmount();
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: 'DEV — Triển khai acceptance app từng bước' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Hướng dẫn sử dụng' })).toHaveAttribute('aria-current', 'page');
+  });
+
   it('signs in to the applications home', async () => {
     const user = userEvent.setup();
     render(<App />);
