@@ -151,3 +151,12 @@ test('endpoint Definition policy is normalized like the Console stores it',async
  assert.deepEqual(endpointVariables({rootDomain:'apps.example.com',scheme:'http',gatewayName:'gw',gatewayNamespace:'ns',gatewaySectionName:'',reservedNames:[]}),{rootDomain:'apps.example.com',scheme:'http',gatewayName:'gw',gatewayNamespace:'ns'});
  assert.deepEqual(endpointVariables({rootDomain:'apps.example.com',scheme:'https',gatewayName:'gw',gatewayNamespace:'ns',gatewaySectionName:'web',reservedNames:['www']}),{rootDomain:'apps.example.com',scheme:'https',gatewayName:'gw',gatewayNamespace:'ns',gatewaySectionName:'web',reservedNames:['www']});
 });
+
+test('a schema-3 receipt without the optional account endpoint reopens',async()=>{
+ const {createRuntime}=await import('./runtime.mjs');
+ const {mkdtempSync}=await import('node:fs');const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const dir=mkdtempSync(join(tmpdir(),'rt-'));
+ const config={schemaVersion:3,environment:'dev',console:{baseURL:'http://console.example'},platform:{account:{name:'a',context:'c'}},runtime:{stateDir:join(dir,'s'),reportDir:join(dir,'r'),profile:'dev-test'}};
+ let rt=createRuntime(config);rt.save();rt.close('CHECKED');
+ rt=createRuntime(config);rt.close('CHECKED');
+});

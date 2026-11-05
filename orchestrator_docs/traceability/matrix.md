@@ -1400,6 +1400,17 @@ No schema change or live CD/VSO acceptance is implied by these local checks.
 Actual run outcomes belong in dated verification evidence; these runners alone
 do not establish real deployment or cleanup completion.
 
+## Public endpoint resource — EP-01..06
+
+| Requirement | Design / implementation | Focused verification |
+|---|---|---|
+| EP-01 developer params, one per workload | `domain/endpoint`, `planning/endpoint.go` | `TestResolve`, `TestPlanRejectsInvalidEndpoints`, `TestPlanRejectsSecondEndpointOnOneWorkload` |
+| EP-02 built-in driver policy | catalog validation/capability; `EndpointDriverFields` | `TestParsePolicy`, `EndpointDefinition.test.tsx` |
+| EP-03 Preview check, atomic reservation | pending Preview `checkEndpoint`; provisioning `ReserveEndpoint`; migration 009 | `TestPreviewShowsEndpointAndDeployReservesIt`, `TestEndpointReservationsArbitrateOwners` |
+| EP-04 HTTPRoute in workload inventory | `deployment/endpoint.go` | `TestEndpointManifest*`, endpoint-domain E2E |
+| EP-05 release after acknowledgement | `retainEndpoints` after Deploy/prune/removal | `TestEndpointDeployReservesRoutesAndReleases`, `TestEndpointDeployRefusesHostnameHeldByAnotherOwner` |
+| EP-06 schema 9 upgrade | `upgrade.go`, grants, `version-009.sql` | `TestEndpointUpgradeFromPopulatedVersionEight`, `TestEndpointUpgradeRollsBackOnGrantFailure`, live v8→v9 |
+
 ## Generic Workload and Template Driver — ADR-035
 
 | Requirement | Design / implementation | Focused verification |

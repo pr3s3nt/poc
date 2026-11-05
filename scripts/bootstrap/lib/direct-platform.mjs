@@ -45,7 +45,7 @@ export function endpointVariables(variables) {
 }
 async function fillEndpoint(page,variables) {
  await page.getByLabel('Domain gốc',{exact:true}).fill(variables.rootDomain);
- await page.getByLabel('Giao thức',{exact:true}).selectOption(variables.scheme);
+ await page.getByRole('combobox',{name:/^Giao thức/}).selectOption(variables.scheme);
  await page.getByLabel('Tên Gateway',{exact:true}).fill(variables.gatewayName);
  await page.getByLabel('Namespace của Gateway',{exact:true}).fill(variables.gatewayNamespace);
  await page.getByLabel('Listener (tùy chọn)',{exact:true}).fill(variables.gatewaySectionName??'');

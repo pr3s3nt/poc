@@ -1187,3 +1187,20 @@ Focused real-renderer coverage: `company_httproute_test.go` in templatedriver.
   base-set lineage for UNREFERENCED resources whose latest removal plan omits
   their execution evidence. It preserves cleanup ownership, snapshot isolation,
   exact scope matching and fail-closed behavior for missing/foreign/cyclic history.
+
+## Public endpoint resource — EP-01..06
+
+- `domain/endpoint` parses the Definition policy and resolves name/port/path to
+  hostname/url; `planning/endpoint.go` plans one endpoint per workload with fixed
+  public reasons (`ReasonEndpoint*`).
+- `application/pending/preview.go` exposes `changes[].endpoint` and checks the
+  ledger read-only; `application/provisioning/endpoint.go` reserves on Deploy.
+- `application/deployment/endpoint.go` emits the `endpoint-<hash>` HTTPRoute with
+  the rendered Service's ownership labels; `retainEndpoints` releases after
+  acknowledged Deploy, prune or removal.
+- `adapters/postgres/endpoints.go` + migration `009-endpoint-reservations.sql`;
+  `adapters/store/endpoints.go` is the in-memory twin.
+- Console: `features/platform/EndpointDriverFields.tsx`,
+  `features/preview/PreviewEndpoints.tsx`. Bootstrap: endpoint Type/Definition in
+  `projects/platform-resources/bootstrap`, form filler in `direct-platform.mjs`.
+- E2E: `e2e/scenarios/endpoint-domain/`.

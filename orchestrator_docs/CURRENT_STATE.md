@@ -7,6 +7,17 @@ last_reviewed: 2026-11-05
 
 # Current project state
 
+## Public endpoint resource — 2026-11-05
+
+`main` implements [EP-01–06](architecture/contracts/endpoint.md): built-in
+`endpoint` driver, Console Definition form and Preview address, schema-9
+hostname ledger with atomic reservation and post-acknowledgement release, and a
+workload-owned HTTPRoute delivered through Fleet. Bootstrap ships the endpoint
+Type/Definition and the sample frontend uses it. Live acceptance passed on dev
+kind (publish, rename, restore on a real Tailscale domain) after an in-place
+v8 → v9 upgrade of `application-fleet-live`. HTTPS and company staging are not
+verified. [Results and limits](verification/2026-11-05-endpoint-domain.md).
+
 ## One Fleet GitRepo per Application — 2026-11-05
 
 Source refactor implements [ADR-036](architecture/decisions/ADR-036-application-fleet-gitrepo.md):
