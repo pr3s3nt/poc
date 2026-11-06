@@ -7,6 +7,14 @@ last_reviewed: 2026-11-06
 
 # Current project state
 
+## Retained issue #37 Console — Git template source, 2026-11-06
+
+The authoring test Application now selects its own Git-backed workload Definition
+in staging and production: repository `pr3s3nt/poc`, directory
+`backend/template-sources/standard`, pinned commit `b6ab5bd4`. Real Git inspection,
+Definition/browser/API read-back and unchanged desired/default checks pass. No
+application deployment occurred. [Verification](verification/2026-11-06-workload-git-source.md).
+
 ## Workload default select choices — 2026-11-06
 
 The inherited hint remains muted in the closed control and is hidden from the
