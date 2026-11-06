@@ -107,7 +107,7 @@ See [credential design](../connection-credentials.md).
 | Column | Type | Constraint |
 |---|---|---|
 | `id` | uuid | PK |
-| `application_key` | text | stable API lookup key, UNIQUE, NOT NULL; generated Applications use the same UUID text as `id`, local seed may use a readable alias |
+| `application_key` | text | stable API lookup key, UNIQUE, NOT NULL; new Applications use `idp-<org>-<app>-<random6>` per ADR-038, historical UUID keys and seed aliases remain valid |
 | `organization_id` | uuid | FK organizations |
 | `name` | text | NOT NULL |
 | `subdomain` | text | normalized DNS label, NOT NULL |
@@ -117,6 +117,11 @@ See [credential design](../connection-credentials.md).
 Organization without regard to case, enforced by a unique index on
 `(organization_id, lower(name))`. `subdomain` is normalized to lowercase and
 unique globally within the configured platform base domain.
+
+[ADR-038](../decisions/ADR-038-readable-idp-names.md) changes generated key values
+only, with no schema migration. The existing global unique key also prevents
+generated-key collisions and reserves deleted Application keys. Recreating a
+deleted display name allocates a fresh random suffix without reusing old keys.
 
 T26 removes all Application execution/provider columns. Old Application-bound
 state is unsupported and must fail startup with a safe reset-required error,
@@ -1361,7 +1366,7 @@ filesystem provisioning, deletion or retention owner is introduced.
 Existing JSONB workload drafts, Deployment Sets, plans and applied snapshots carry
 [the optional runtime extension](../contracts/workload-defaults.md), including
 the immutable template pin and verified `templateDefaults` environment/profile.
-ADR-038 removes the backend defaults policy; old task test data is deleted by
+ADR-039 removes the backend defaults policy; old task test data is deleted by
 explicit user authorization. No SQL DDL or released migration edits are required.
 No columns, relationships, grants, schema version or released SQL reference change.
 The [ERD](erd.puml) is unchanged. Retained StatefulSet-generated claims are not

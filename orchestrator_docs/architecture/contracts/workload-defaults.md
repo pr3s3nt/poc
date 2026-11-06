@@ -27,9 +27,9 @@ privilege escalation true and Unconfined are rejected by the standard policy.
 PDB quantities are nonnegative integers or percentage strings, with exactly one
 minAvailable/maxUnavailable when enabled. StatefulSet remains one replica.
 
-## Template-owned defaults — ADR-038
+## Template-owned defaults — ADR-039
 
-[ADR-038](../decisions/ADR-038-template-owned-workload-defaults.md) replaces the
+[ADR-039](../decisions/ADR-039-template-owned-workload-defaults.md) replaces the
 removed backend policy contract. `workloadExecution.defaults` is rejected; the old
 test data is deleted with user authorization. There is no legacy policy reader or
 automatic migration of its numerical values. No SQL DDL is needed.

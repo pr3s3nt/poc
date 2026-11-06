@@ -8,7 +8,7 @@ last_reviewed: 2026-11-06
 # Hướng dẫn sử dụng trang Thêm Workload
 
 Hướng dẫn áp dụng cho trang Thêm/Sửa Workload của issue #37, với default lấy từ
-template Git theo [ADR-038](../architecture/decisions/ADR-038-template-owned-workload-defaults.md).
+template Git theo [ADR-039](../architecture/decisions/ADR-039-template-owned-workload-defaults.md).
 Tên nút tiếng Anh được ghi ở những bước chính để đối chiếu khi Console dùng English.
 
 ## 1. Chọn ứng dụng, môi trường và template

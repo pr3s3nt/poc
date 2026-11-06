@@ -21,6 +21,12 @@ related: [ADR-030, UC-01, UC-04, UC-05, UC-06, UC-07, UC-09, UC-18]
 
 # Optional workload CD and reconciliation
 
+Application naming follows [ADR-038](../decisions/ADR-038-readable-idp-names.md).
+For new IDP Applications the bound internal Fleet configuration includes the
+persisted `applicationRepoName`, identical to the delivery repository name.
+It is not a user-authored CD field. Missing historical names keep UUID/hash
+resolution. Names do not replace UID/marker/receipt ownership checks.
+
 Required design, not an available API. Behavior belongs to the linked use-case
 specifications; persistence belongs to [schema](../database/schema.md#delivery-and-drift--adr-027-required-design).
 Architecture: [ADR-030](../decisions/ADR-030-delivery-reconciliation.md).

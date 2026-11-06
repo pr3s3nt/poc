@@ -254,6 +254,6 @@ show its existing replica/storage prerequisite help; correcting the form retries
 resolution automatically without discarding edits.
 ServiceAccount is managed/read-only unless a published allowed choice exists.
 
-ADR-038: remove the defaults-policy selector and policy-version summary entirely.
+ADR-039: remove the defaults-policy selector and policy-version summary entirely.
 Template pin and its resolved profile determine default hints; no template means no
 new backend authoring profile. Retain controller-specific schedule/claim controls.

@@ -49,7 +49,7 @@ Checks and runtime procedures:
 
 [Verification and runtime limits](../verification/2026-11-06-workload-defaults.md).
 
-[ADR-038](../architecture/decisions/ADR-038-template-owned-workload-defaults.md)
+[ADR-039](../architecture/decisions/ADR-039-template-owned-workload-defaults.md)
 removes backend v1 policy interpretation. Profile values, environment variants and
 conditional defaults reside in bundle 1.1.0. `template_defaults.go` performs only
 generic merging; runtime_policy.go retains validation guards. Old test workload

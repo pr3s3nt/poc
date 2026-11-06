@@ -421,6 +421,10 @@ artifacts and explicit data-migration blockers. Partial execution preserves actu
 per-resource evidence; changing a Definition does not silently upgrade this scope.
 
 - **CD-08:** New managed application delivery uses one application-scoped Fleet GitRepo for both Environments per [ADR-036](../../architecture/decisions/ADR-036-application-fleet-gitrepo.md). Publishing one unit preserves every other admitted tree; readiness validates its exact tree and Bundle even after the shared commit advances.
+- **CD-09:** New IDP-named Applications use `idp-<org>-<app>-deploy-<random6>` for both
+  the allocated Git repository and its Fleet GitRepo, per
+  [ADR-038](../../architecture/decisions/ADR-038-readable-idp-names.md). Existing
+  allocations/controller names and original ownership guards remain unchanged.
 
 ## Public endpoint resource
 

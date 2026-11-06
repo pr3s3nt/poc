@@ -229,6 +229,11 @@ These supplement the existing direct-path diagrams for this new design slice;
 
 ## Shared application Fleet controller — ADR-036
 
+For ADR-038 Applications, Repositories.Resolve allocates `idp-<org>-<app>-deploy-<random6>`
+and Fleet.BindApplicationRepository carries that persisted name into the local
+provider configuration. Submit/Observe/recovery/withdrawal use it for the shared
+controller; historical allocations continue to derive their original hash name.
+
 [ADR-036](../../architecture/decisions/ADR-036-application-fleet-gitrepo.md) keeps
 the delivery coordinator's persisted units/phases and original target/UID checks.
 The Fleet adapter now shares one application controller across both Environment

@@ -10,7 +10,7 @@ last_reviewed: 2026-11-06
 Approved scope: [issue #37](https://github.com/pr3s3nt/poc/issues/37).
 This extends [UC-16](specification.md); implementation/evidence are separate.
 
-Latest user decision (2026-11-06), [ADR-038](../../architecture/decisions/ADR-038-template-owned-workload-defaults.md):
+Latest user decision (2026-11-06), [ADR-039](../../architecture/decisions/ADR-039-template-owned-workload-defaults.md):
 all default values belong to pinned templates; remove backend policy selection and
 its old test data with authorization. There is no old-policy migration/reader.
 

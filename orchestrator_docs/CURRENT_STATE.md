@@ -32,7 +32,7 @@ and no-op Save verified. [Verification](verification/2026-11-06-workload-default
 
 ## Template-owned workload defaults — 2026-11-06
 
-[ADR-038](architecture/decisions/ADR-038-template-owned-workload-defaults.md)
+[ADR-039](architecture/decisions/ADR-039-template-owned-workload-defaults.md)
 removes the backend `workload-defaults-v1` policy and its selector. Template 1.1.0
 profiles own every authoring default and named environment variant; backend only
 merges/validates. Verified `templateDefaults` snapshot metadata and template pins
@@ -43,7 +43,7 @@ explicitly authorized for deletion, not migrated. Security/storage guards remain
 ## Issue #37 implementation history — 2026-11-06
 
 The backend-policy descriptions and older authoring links below are superseded by
-ADR-038 and the template-only verification above. Their dated evidence is retained.
+ADR-039 and the template-only verification above. Their dated evidence is retained.
 
 Branch `features/bo_sung_default` implements the seven runtime configuration gaps,
 backend versioned defaults/provenance, scoped authoring groups, immutable template
@@ -88,6 +88,32 @@ annotations and HTTP/TCP/exec probes with timing. Save/reopen and real Preview
 are verified through Tailscale using the current backend and real PostgreSQL;
 source guards and render tests cover all controller kinds. No Kubernetes/cloud
 Deploy was performed. See [checks, baseline failures, runtime and limits](verification/2026-11-06-chinhform-runtime.md).
+
+## Local API platform seed and kind Console — 2026-11-06
+
+A local YAML/file-based importer now provisions platform configuration through
+existing authenticated APIs, without browser or input uploads to Kubernetes.
+The isolated Orchestrator installation in `kind-k8s-4f` exposes Console port 3070;
+Git, Kubernetes/AWS accounts, Vault, Types, pinned Git templates/Definitions and
+verified default Fleet binding were seeded. Unchanged rerun, backend Pod restart
+persistence and browser reads passed. Workload Vault Kubernetes auth and app
+deployment were not configured/accepted by this run. [Evidence and limits](verification/2026-11-06-kind-console-api-seed.md),
+[procedure](operations/platform-seed.md). Existing installations remain intact.
+
+## Readable IDP names with an immutable suffix — 2026-11-06
+
+[ADR-038](architecture/decisions/ADR-038-readable-idp-names.md) is implemented
+for newly created Applications: readable Organization/app slug plus one persisted
+six-character random suffix, shared by repository, Fleet GitRepo, namespace and
+infrastructure stems. The suffix stays at the end of each generated name and is
+stable across retries, display-name edits and restart. Recreating a deleted app
+gets fresh identities; active duplicate display names remain rejected. Existing
+Applications, allocations, controller names and original target/cleanup pins keep
+their names. No schema migration or live resource rename is introduced.
+Focused Go/race, real PostgreSQL, HTTP create/delete/recreate, build and docs/
+migration guards pass; broad-suite baseline failures and PostgreSQL timeout are
+recorded in [verification](verification/2026-11-06-idp-naming.md). No live
+GitHub/Fleet/cloud deployment or Console UI change was performed in this task.
 
 ## Public routes and subdomains retired — 2026-11-05
 

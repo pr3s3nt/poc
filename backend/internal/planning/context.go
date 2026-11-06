@@ -40,6 +40,9 @@ func (c Context) DefinitionPlaced() bool {
 
 // InfraName is the cloud-name stem of VPC/EKS/Aurora: `<app>-<env>` (ADR-011).
 func (c Context) InfraName() string {
+	if name, ok := application.ManagedResourceName(c.App.Key, c.Env.Key); ok {
+		return name
+	}
 	return c.App.Key + "-" + c.Env.Key
 }
 
@@ -51,7 +54,23 @@ func (c Context) InfraName() string {
 // `-writer` and `-cluster` stay inside the IAM (64) and Aurora (63) limits.
 // The run ID is provenance only and never part of a physical name: a redeploy
 // in a later run must not rename, and so replace, an existing object.
+// ADR-038 Applications use their readable IDP key and Environment instead;
+// subsequent generations keep a bounded prefix and generation/digest suffix.
 func (c Context) ResourceName() string {
+	if name, ok := application.ManagedResourceName(c.App.Key, c.Env.Key); ok {
+		if c.Env.TargetGeneration <= 0 {
+			return name
+		}
+		// Keep the existing provider limit and a unique generation suffix.
+		name = environment.NamespaceFor(name, c.Env.TargetGeneration)
+		if len(name) > 49 {
+			// Keep the complete generation/digest suffix within the stricter
+			// infrastructure budget.
+			suffix := name[strings.LastIndex(name, "-g"):]
+			name = strings.TrimRight(name[:49-len(suffix)], "-") + suffix
+		}
+		return name
+	}
 	identity := c.App.Key + "\x00" + c.Env.Key
 	if c.Env.TargetGeneration > 0 {
 		// A later target generation must never reuse a provider-visible name.

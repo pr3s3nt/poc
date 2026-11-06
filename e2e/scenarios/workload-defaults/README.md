@@ -51,7 +51,15 @@ On success it explicitly deletes the owned claim by UID, then the namespace by U
 On failure it retains the namespace for diagnosis. This adapter acceptance is
 separate from the browser/CD flow and does not stand in for it.
 
-ADR-038: current source templates are 1.1.0 and carry defaults; no backend policy
+ADR-039: current source templates are 1.1.0 and carry defaults; no backend policy
 field is authored. Use a fresh private run receipt/name after deleting old policy
 test data. Definitions are scoped with the task Application key to avoid reusing
 a prior run's app criteria.
+
+Merge integration with readable IDP names reads the namespace identity returned by
+Application/Environment APIs, scopes Definition keys with the unique application
+suffix, and verifies the readable Fleet repository name plus its stable Application
+ID label. Import waits for the new parse response and matching template pin before
+Save, rather than accepting the previous document's parsed-status text. A retained
+successful legacy Deploy can resume with native verification without redeploying an
+unchanged document.

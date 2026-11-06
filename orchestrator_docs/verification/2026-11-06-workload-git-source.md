@@ -11,7 +11,7 @@ User requested converting the retained test Console from Inline to Git. Starting
 commit `b6ab5bd4`, clean `features/bo_sung_default`. This is an operational source/
 Definition configuration change, with no product code, schema or default changes.
 Source semantics follow [ADR-035](../architecture/decisions/ADR-035-generic-workload-template-driver.md)
-and [ADR-038](../architecture/decisions/ADR-038-template-owned-workload-defaults.md).
+and [ADR-039](../architecture/decisions/ADR-039-template-owned-workload-defaults.md).
 
 ## Selected source and scope
 

@@ -26,8 +26,10 @@ const assertNamespace=()=>{const ns=json(['get','namespace',namespace]);assert.e
 async function importWorkload(document,existing){
  await page.goto(config.baseURL+`/ui/applications/${app.key}/environments/staging/workloads/${existing?'web':'new'}`);
  await page.getByRole('button',{name:'Nhập Workload',exact:true}).click();
- const file=join(dir,'workload.json');writeFileSync(file,JSON.stringify(document),{mode:0o600});await page.getByLabel('File Workload',{exact:true}).setInputFiles(file);await page.getByText('Đã phân tích Workload: web',{exact:false}).waitFor();
+ const file=join(dir,'workload.json');writeFileSync(file,JSON.stringify(document),{mode:0o600});const parsed=response(base+'/workloads/parse','POST');await page.getByLabel('File Workload',{exact:true}).setInputFiles(file);assert((await parsed).ok(),'Workload parsing failed');await page.getByText('Đã phân tích Workload: web',{exact:false}).waitFor();
+ if(document.workloadExecution?.template)await page.locator('.workload-preview').filter({hasText:document.workloadExecution.template.sha256}).waitFor();
  await submit(base+'/workloads/web','PUT',page.getByRole('button',{name:'Lưu draft Workload',exact:true}));
+ const saved=(await get(base+'/workloads')).workloads.find(w=>w.id==='web').workload;assert.deepEqual(saved.workloadExecution?.template,document.workloadExecution?.template,'Saved template differs from parsed intent');
 }
 async function deploy(phase){
  await page.goto(config.baseURL+`/ui/applications/${app.key}?environment=staging`);
@@ -44,7 +46,7 @@ async function deploy(phase){
 function verifyWeb(replicas,policy){
  const d=json(['-n',namespace,'get','deployment','web']);assert.equal(d.spec.replicas,replicas);assert.equal(d.status.availableReplicas,replicas);state.deploymentUid??=d.metadata.uid;assert.equal(d.metadata.uid,state.deploymentUid);
  if(policy){const pod=d.spec.template.spec;const c=pod.containers[0];assert.equal(pod.automountServiceAccountToken,false);assert.equal(c.securityContext.readOnlyRootFilesystem,true);assert.equal(c.securityContext.runAsNonRoot,true);assert.equal(d.spec.revisionHistoryLimit,0);assert.deepEqual(d.spec.strategy,{type:'RollingUpdate',rollingUpdate:{maxUnavailable:0,maxSurge:1}});assert.equal(c.resources.requests.cpu,'100m');assert.equal(c.resources.requests.memory,'128Mi');assert.equal(c.resources.limits.memory,'512Mi');assert.equal(c.resources.limits.cpu,undefined);assert.equal(c.volumeMounts.length,2)}
- const repos=json(['get','gitrepos.fleet.cattle.io','-A']).items.filter(r=>r.metadata.labels?.['orchestrator.io/application']===app.key||r.metadata.labels?.['orchestrator.io/application-id']===app.key);assert(repos.length>0,'Fleet repository missing');state.repositories=repos.map(r=>({name:r.metadata.name,namespace:r.metadata.namespace,uid:r.metadata.uid,commit:r.status?.commit}));save();
+ const repos=json(['get','gitrepos.fleet.cattle.io','-A']).items.filter(r=>r.metadata.labels?.['orchestrator.io/application']===app.key||r.metadata.labels?.['orchestrator.io/application-id']===app.key||(app.key.startsWith('idp-')&&r.metadata.name===app.key.replace(/-([a-z2-7]{6})$/,'-deploy-$1')&&Boolean(r.metadata.labels?.['orchestrator.io/application-id'])));assert(repos.length>0,'Fleet repository missing');for(const repo of repos){const id=repo.metadata.labels?.['orchestrator.io/application-id'];state.applicationId??=id;assert.equal(id,state.applicationId,'Fleet Application ID changed')}state.repositories=repos.map(r=>({name:r.metadata.name,namespace:r.metadata.namespace,uid:r.metadata.uid,commit:r.status?.commit}));save();
 }
 try{
  app=(await get('/applications')).applications.find(a=>a.name===name);
@@ -53,10 +55,10 @@ try{
  }
  if(mode==='cleanup'&&!app&&state.cleanupPassed){console.log('PASS recorded cleanup');}
  else{
- assert(app?.key);if(state.app)assert.equal(app.key,state.app);state.app=app.key;save();base=`/applications/${app.key}/environments/staging`;namespace=`app-${app.key}-staging`;
+ assert(app?.key);if(state.app)assert.equal(app.key,state.app);state.app=app.key;save();app=(await get(`/applications/${app.key}`)).application;base=`/applications/${app.key}/environments/staging`;namespace=app.environments.find(e=>e.key==='staging')?.namespaceIdentity;assert(namespace,'Application must publish its namespace identity');
  if(mode==='run'){
  const definitions=(await get('/resource-definitions')).resourceDefinitions;
- const definitionPrefix=`issue37-${app.key.split('-')[0]}`;
+ const definitionPrefix=`issue37-${app.key.split('-').at(-1)}`;
  const register=async draft=>{const existing=definitions.find(d=>d.key===draft.key);if(!existing)await post('/resource-definitions',draft);else if(draft.resourceType==='workload'&&existing.driverInputs.values.variables.template_source!==draft.driverInputs.values.variables.template_source){const r=await page.request.put(config.baseURL+'/api/v1/resource-definitions/'+draft.key,{data:{...draft,version:existing.version}});assert(r.ok(),'Explicit template source publication failed');state.definitionUpgrade=await r.json();save()}};
  await register({key:definitionPrefix+'-cluster',name:'Issue 37 cluster',resourceType:'k8s-cluster',driverType:'existing-cluster',driverAccount:account,driverInputs:{values:{variables:{}}},criteria:[{app_id:app.key,class:'issue37'}]});
  const cap=(await get('/resource-definition-capabilities')).capabilities.find(c=>c.resourceType==='k8s-namespace'&&c.source);assert(cap);const p=cap.source;
@@ -71,6 +73,7 @@ try{
   const r=await page.request.put(config.baseURL+'/api/v1'+base+'/definition-versions',{data:{definitionKey:row.key,revisionId:latest.id,expectedRevision:versions.revision,expectedEnvironmentVersion:versions.environmentVersion}});
   assert(r.ok(),'Explicit Environment Definition selection failed');state.selectedRevision=latest.id;save();
  }
+ if(!state.legacyPassed&&state.lastDeploy?.phase==='legacy'&&state.lastDeploy.result?.status==='SUCCEEDED'){verifyWeb(1,false);state.legacyPassed=true;save()}
  if(!state.legacyPassed){await importWorkload({apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'web'},replicas:1,containers:{main:{image:'nginx:1.27-alpine'}},service:{ports:{http:{port:80,targetPort:80}}}},false);await deploy('legacy');verifyWeb(1,false);state.legacyPassed=true;save()}
  if(!state.noopPassed){const before=(await get(base+'/workloads')).workloads.find(w=>w.id==='web').workload;await page.goto(config.baseURL+`/ui/applications/${app.key}/environments/staging/workloads/web`);await submit(base+'/workloads/web','PUT',page.getByRole('button',{name:'Lưu draft Workload',exact:true}));const after=(await get(base+'/workloads')).workloads.find(w=>w.id==='web').workload;assert.deepEqual(after,before);await page.goto(config.baseURL+`/ui/applications/${app.key}?environment=staging`);const preview=await submit(base+'/preview','POST',page.getByRole('button',{name:'Xem trước thay đổi',exact:true}));assert.equal(preview.changes.length,0);state.noopPassed=true;save()}
  if(!state.templatePassed){const template=(await get(base+'/workload-templates')).templates.find(t=>t.id==='nginx-readonly');assert(template);state.profile=template;save();await importWorkload({apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'web'},replicas:2,containers:{main:{}},workloadExecution:{version:1,kind:'Deployment',template:{id:template.id,version:template.version,sha256:template.sha256},automountServiceAccountToken:false,revisionHistoryLimit:0,podDisruptionBudget:{enabled:true,maxUnavailable:1,unhealthyPodEvictionPolicy:'AlwaysAllow'}}},true);await deploy('policy');verifyWeb(2,true);assert.equal(json(['-n',namespace,'get','pdb','web']).spec.maxUnavailable,1);assert.match(JSON.stringify(state.preview),/EffectiveConfig/);state.templatePassed=true;save()}

@@ -146,6 +146,6 @@ effective values. The same pure resolver feeds template rendering/semantic guard
 and Preview. Existing draft/config/source pins fence Deploy and preserve rollback.
 See [contract](../../architecture/contracts/workload-defaults.md).
 
-ADR-038 replaces backend policy defaulting with a generic merge of verified
+ADR-039 replaces backend policy defaulting with a generic merge of verified
 template `runtimeDefaults`. Admission freezes `templateDefaults`; no platform
 policy values or selector remain.

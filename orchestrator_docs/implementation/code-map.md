@@ -28,6 +28,28 @@ the published `workload` Type classes retained by `WorkloadEditorPage.tsx`.
 retained classes, metadata failure/retry and withdrawal without mutation.
 Backend matching/API/persistence contracts are unchanged.
 
+## Local API platform seed and kind Console
+
+Operator procedure: [runbook](../operations/platform-seed.md). Local CLI:
+`scripts/bootstrap/seed-api.mjs`; API orchestration, private input validation and
+rerun checks: `scripts/bootstrap/lib/api-seed.mjs`; focused tests beside it.
+Nonsecret Kubernetes installer manifests: `deploy/kind/console.mjs`; reuses
+`deploy/local/` credential/PostgreSQL/Vault scripts. Existing product registration
+services, HTTP authorization and schema stay unchanged.
+
+## Readable IDP application names
+
+[ADR-038](../architecture/decisions/ADR-038-readable-idp-names.md), UC-01 BR-15
+and UC-06 CD-09 map to `domain/application/naming.go`, the Application creation
+transaction, `application/delivery/repositories.go`, Fleet allocation binding/
+configuration/controller identity, and `planning/context.go` infrastructure names.
+UUID persistence and existing globally unique application keys are unchanged.
+Service, PostgreSQL concurrency/reopen, HTTP creation, planner-name and Fleet
+two-Environment lifecycle tests cover the new rule and historical identities.
+The shared name helper places the one persisted random suffix after the purpose
+or Environment; generated-key collision retries happen before writes. HTTP/real
+PostgreSQL deletion/recreation confirms fresh identities with the same display name.
+
 ## Controlled Definition upgrades
 
 [UC-03 DV-01–07](../usecase/UC-03/definition-versions.md) maps to immutable revision/Environment repositories, catalog resolution, Plan snapshots, fenced activation and the existing forms. See the [implementation route](definition-versions.md) for paths and supported tool-retention boundaries.
@@ -1278,7 +1300,7 @@ Frontend `RuntimePolicyFields.tsx`, `ExecutionFields.tsx` and `WorkloadEditorPag
 reuse current shell/controls. Tests cover typed round-trip, legacy behavior,
 source precedence/reset, JSONB and owned-kind/browser acceptance.
 
-ADR-038: `environment/template_defaults.go` owns generic template/environment
+ADR-039: `environment/template_defaults.go` owns generic template/environment
 profile merging and frozen metadata. `runtime_policy.go` owns constraints only;
 no backend defaults policy remains. Standard profiles live in source `bundle.yaml`.
 

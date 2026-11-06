@@ -1,11 +1,11 @@
 ---
-id: ADR-038
+id: ADR-039
 artifact: architecture-decision
 status: current
 last_reviewed: 2026-11-06
 ---
 
-# ADR-038 — Template-owned workload defaults
+# ADR-039 — Template-owned workload defaults
 
 User decision 2026-11-06 supersedes the backend `workload-defaults-v1` policy from
 issue #37. Default values belong to the selected immutable template. A separate

@@ -36,6 +36,9 @@ func unitReleaseName(scope domain.Scope) string {
 }
 
 func applicationRepoName(i port.Intent, cfg Config) string {
+	if cfg.ApplicationRepoName != "" {
+		return cfg.ApplicationRepoName
+	}
 	sum := sha256.Sum256([]byte(i.Binding.OrganizationID + "\x00" + cfg.ApplicationID))
 	return "orch-app-" + hex.EncodeToString(sum[:12])
 }

@@ -11,7 +11,7 @@ Scope: user decision on `features/bo_sung_default`, starting from clean commit
 `ad80f333`: remove the backend defaults policy and leave values in templates.
 User explicitly authorized deletion of the old task test data. This record
 supersedes earlier backend-policy behavior and authoring links; historical records
-are retained. Canonical sources are [ADR-038](../architecture/decisions/ADR-038-template-owned-workload-defaults.md),
+are retained. Canonical sources are [ADR-039](../architecture/decisions/ADR-039-template-owned-workload-defaults.md),
 [WD specification](../usecase/UC-16/workload-defaults-specification.md) and
 [contract](../architecture/contracts/workload-defaults.md).
 

@@ -32,7 +32,7 @@ implementation status.
 | Task | Read first |
 |---|---|
 | Bàn giao ứng dụng/UI/preview để người dùng mở thử | [Tailscale handoff](operations/tailscale-handoff.md) và quy tắc trong `AGENTS.md` |
-| Bootstrap/seed cấu hình platform để sử dụng | [Bootstrap guide](../scripts/bootstrap/README.md) |
+| Bootstrap/seed cấu hình platform để sử dụng | [Bootstrap guide](../scripts/bootstrap/README.md), [local API seed on kind](operations/platform-seed.md) |
 | Thêm/sửa kịch bản hoặc setup E2E | [E2E script guide](../e2e/README.md), rồi use case và runbook liên quan |
 | Hiểu scope, mức hoàn thành hoặc limitation | [Current project state](CURRENT_STATE.md) |
 | Tra cứu thuật ngữ | [Glossary](GLOSSARY.md) |
@@ -224,4 +224,5 @@ Complete workload configuration/defaults (issue #37):
 
 [Issue #37 verification and runtime limits](verification/2026-11-06-workload-defaults.md).
 
-Template-only workload defaults: [ADR-038](architecture/decisions/ADR-038-template-owned-workload-defaults.md).
+Template-only workload defaults: [ADR-039](architecture/decisions/ADR-039-template-owned-workload-defaults.md).
+- [Readable IDP application/repository/resource names](architecture/decisions/ADR-038-readable-idp-names.md).
