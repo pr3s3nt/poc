@@ -71,33 +71,56 @@ Không đánh dấu “sẵn sàng để thử” bằng cách gửi một URL l
 ## Bản thử của tính năng
 
 Quyết định người dùng ngày 2026-11-06: mỗi tính năng chạy một stack Docker riêng
-và mở qua Tailscale trên Windows bằng một port riêng. MagicDNS chỉ cấp một tên
-cho mỗi node nên link phân biệt theo port, không theo tên tính năng.
+và có link `http://<tinh-nang>.<domain>:8088/ui/`. MagicDNS không có tên con nên
+`<domain>` mặc định là tên sslip.io chứa IP Tailscale của WSL. Dùng domain riêng
+thì trỏ wildcard DNS về IP đó và đổi `FEATURE_DOMAIN`. Link chỉ mở được trong
+tailnet và dùng HTTP. Docker trên máy phát triển chạy rootless, không bind được IP
+Tailscale, nên proxy nghe ở loopback và `socat` chuyển tiếp từ IP Tailscale.
 
-Chạy trong WSL từ checkout của nhánh tính năng. `PORT` là port trống đầu tiên từ
-8101; lệnh `ss` phải không in gì, vì port có thể đang thuộc dịch vụ khác.
+Chạy trong WSL từ checkout của nhánh tính năng. `FEATURE` là tên nhánh bỏ
+`features/`, viết thường, thay `_` bằng `-`, vì đây là một nhãn DNS.
 
 ```bash
 FEATURE=ten-tinh-nang
-PORT=8101
-TS="/mnt/c/Program Files/Tailscale/tailscale.exe"
+TS_IP=$(ip -4 -o addr show tailscale0 | awk '{print $4}' | cut -d/ -f1)
+FEATURE_DOMAIN=${TS_IP//./-}.sslip.io
 
-ss -ltn | grep -E ":($PORT|$((PORT + 1000))) "
-"$TS" serve status
+# Proxy và forward dùng chung, chạy một lần cho cả máy
+docker compose -f deploy/local/compose.feature-proxy.yml up -d
+ss -ltn | grep -q "$TS_IP:8088 " || setsid nohup socat \
+  "TCP4-LISTEN:8088,bind=$TS_IP,reuseaddr,fork" TCP4:127.0.0.1:8088 \
+  >/dev/null 2>&1 </dev/null &
 
-FRONTEND_PORT=$PORT BACKEND_PORT=$((PORT + 1000)) \
-  docker compose -p "poc-$FEATURE" up -d --build
-"$TS" serve --bg --http=$PORT http://127.0.0.1:$PORT
-"$TS" serve status
+FEATURE=$FEATURE FEATURE_DOMAIN=$FEATURE_DOMAIN \
+BACKEND_IMAGE=poc-feature-backend:$FEATURE \
+FRONTEND_IMAGE=poc-feature-frontend:$FEATURE \
+  docker compose -p "poc-$FEATURE" -f docker-compose.yml \
+  -f deploy/local/compose.feature-url.yml up -d --build
+
+# Stack mới chưa có tài khoản: tạo admin, mật khẩu chỉ lưu ngoài Git
+PW=~/.config/poc-feature/$FEATURE-admin-password
+mkdir -p -m 700 "$(dirname "$PW")"
+(umask 077; openssl rand -base64 18 | tr -d '/+=' > "$PW")
+docker exec -i "poc-$FEATURE-backend-1" sh -c 'umask 077; cat > /tmp/admin-password' < "$PW"
+docker exec "poc-$FEATURE-backend-1" sh -c '/usr/local/bin/orchestrator -bootstrap-admin \
+  -bootstrap-admin-password-file /tmp/admin-password; rc=$?; rm -f /tmp/admin-password; exit $rc'
 ```
 
-Lấy URL từ `serve status`, ghép `/ui/` và kiểm tra theo mục trên. `-p` giữ
-container, network và volume của mỗi tính năng tách biệt. Sau khi đóng issue,
-gỡ port và stack; `-v` xóa dữ liệu của riêng stack đó:
+Kiểm tra link theo mục trên, gồm đăng nhập bằng `admin`. `-p` và image riêng giữ
+các tính năng tách biệt, và stack không mở port trên máy nên chạy song song được.
+`socat` không tự chạy lại sau khi khởi động lại WSL; khi đó chạy lại phần proxy.
+
+Sau khi đóng issue, gỡ stack, image và mật khẩu; `-v` xóa dữ liệu của riêng stack
+đó. Dùng cùng các biến ở trên:
 
 ```bash
-"$TS" serve --http=$PORT off
-docker compose -p "poc-$FEATURE" down -v
+FEATURE=$FEATURE FEATURE_DOMAIN=$FEATURE_DOMAIN \
+BACKEND_IMAGE=poc-feature-backend:$FEATURE \
+FRONTEND_IMAGE=poc-feature-frontend:$FEATURE \
+  docker compose -p "poc-$FEATURE" -f docker-compose.yml \
+  -f deploy/local/compose.feature-url.yml down -v
+docker image rm "poc-feature-backend:$FEATURE" "poc-feature-frontend:$FEATURE"
+rm -f ~/.config/poc-feature/$FEATURE-admin-password
 ```
 
 ## Nội dung bàn giao

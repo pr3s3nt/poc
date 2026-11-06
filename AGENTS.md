@@ -34,22 +34,29 @@ dùng yêu cầu rõ cách truy cập khác.
 ## Quản lý công việc bằng GitHub issue — quyết định người dùng 2026-11-06
 
 Mỗi tính năng có một issue và một nhánh `features/<ten_tinh_nang>` tạo từ
-`origin/main`. Người dùng được trao quyền cho agent tạo/comment/đóng issue, push
-nhánh task và merge vào `main` theo quy trình này; quyền không mở rộng sang
-deploy hoặc mutation cluster/cloud.
+`origin/main`. Người dùng cho phép mọi agent tạo/comment/đóng issue và push nhánh
+task theo quy trình này. Agent không được merge khi người dùng chưa nghiệm thu;
+quyền không mở rộng sang deploy hoặc mutation cluster/cloud.
 
 1. Trước khi code, tạo issue gồm: Mục tiêu, Phạm vi, Không làm, Tiêu chí nghiệm
    thu, Giai đoạn.
-2. Xong mỗi giai đoạn: commit task-only, push, rồi comment commit SHA, đã làm, đã
-   kiểm tra và việc còn lại/trở ngại.
-3. Xong tính năng có giao diện: chạy stack Docker riêng, mở qua port Tailscale
-   riêng theo [runbook](orchestrator_docs/operations/tailscale-handoff.md#bản-thử-của-tính-năng),
-   kiểm tra rồi ghi link vào issue.
-4. Đạt mọi tiêu chí thì tự merge vào `main`, không cần hỏi lại. Không ghi
-   `Closes`/`Fixes` trong commit hoặc PR để issue không tự đóng khi merge; dùng
-   `Refs #N`. PR không bắt buộc.
-5. Test trên `main` theo tiêu chí và comment kết quả. Đạt thì đóng issue và gỡ
-   stack/port; chưa đạt thì giữ issue mở và sửa tiếp.
+2. Trong khi code, chỉ chạy unit test và integration test của vùng bị thay đổi,
+   không chạy cả bộ. Xong mỗi giai đoạn: commit task-only, push, rồi comment commit
+   SHA, đã làm, đã kiểm tra và việc còn lại/trở ngại.
+3. Xong tính năng có giao diện: chạy stack Docker riêng, mở bằng link
+   `<tinh-nang>.<domain>` qua Tailscale và kiểm tra theo
+   [runbook](orchestrator_docs/operations/tailscale-handoff.md#bản-thử-của-tính-năng).
+4. Xong tính năng, chạy test full. Trong thời gian Product CI còn đỏ, không chờ CI:
+   test full là chạy test trên cụm kind theo [runbook](orchestrator_docs/operations/kind.md),
+   và người dùng cho phép việc này trong namespace riêng, dọn sạch sau khi chạy. Khi
+   test pass, báo cáo người dùng kết quả và link để nghiệm thu, rồi dừng. Có commit
+   mới sau đó thì chạy lại test full trước khi merge. Link chứa IP Tailscale nên
+   chỉ gửi trong báo cáo, không ghi vào issue public.
+5. Chỉ sau khi người dùng nghiệm thu mới merge vào `main`, rồi xóa nhánh feature
+   cả local lẫn remote. Không ghi `Closes`/`Fixes` trong commit hoặc PR để issue
+   không tự đóng khi merge; dùng `Refs #N`. PR không bắt buộc.
+6. Test trên `main` theo tiêu chí và comment kết quả. Đạt thì đóng issue và gỡ
+   stack; chưa đạt thì giữ issue mở và sửa tiếp trên nhánh mới.
 
 CI đỏ sẵn trên `main` không tính là đạt: ghi rõ job/test nào fail và so với
 `main` để chứng minh task không gây thêm lỗi. Repo public: comment không chứa
