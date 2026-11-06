@@ -11,6 +11,7 @@ import { t } from '../../shared/i18n';
 export type FocusField = 'name' | 'key' | 'output';
 export type FocusRequest = { rowId: string; field: FocusField };
 type Props = {
+  grouped?: boolean;
   container: string; bindings: Binding[]; catalog: KeyCatalog; dependencies: Dependency[];
   types: ResourceType[]; workloads: Workload[]; self: string; context: RowContext;
   disabled: boolean; showIncomplete: boolean; focus?: FocusRequest; onFocused(): void;
@@ -21,7 +22,7 @@ type Choice = { id: string; label: string; group: 'shared' | 'resources' | 'serv
 
 // Direct values stay in the workload. Only scoped Application keys, declared
 // outputs and other Services are candidates: local rows are never source data.
-export function EnvironmentVariablesTable({ container, bindings, catalog, dependencies, types, workloads, self, context, disabled, showIncomplete, focus, onFocused, onChange, onCreateKey, onAddResource }: Props) {
+export function EnvironmentVariablesTable({ grouped, container, bindings, catalog, dependencies, types, workloads, self, context, disabled, showIncomplete, focus, onFocused, onChange, onCreateKey, onAddResource }: Props) {
   const fields = useRef(new Map<string, HTMLElement>());
   const [added, setAdded] = useState<string>();
   const [choosing, setChoosing] = useState<string>();
@@ -82,7 +83,7 @@ export function EnvironmentVariablesTable({ container, bindings, catalog, depend
     onCreateKey(kind, row);
   }
   return <section className="env-variables" aria-label={t('workloads.envTable.region', { container })}>
-    <div className="section-header"><h3>{t('workloads.envTable.title')}</h3></div>
+    {!grouped?<div className="section-header"><h3>{t('workloads.envTable.title')}</h3></div>:null}
     {bindings.length === 0 ? <p className="muted">{t('workloads.envTable.empty')}</p> : <div className="env-table-scroll"><table className="env-table env-entry-table">
       <thead><tr><th scope="col">{t('workloads.envTable.columnName')}</th><th scope="col">{t('workloads.envEntry.value')}</th><th scope="col"><span className="definition-sr-only">{t('workloads.envTable.columnActions')}</span></th></tr></thead>
       <tbody>{bindings.map((binding, index) => {

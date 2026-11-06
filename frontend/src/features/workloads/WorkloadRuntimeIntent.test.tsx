@@ -15,6 +15,7 @@ function setup(workload?: Record<string, unknown>, others: {id:string;ready:bool
   const configuration = () => ({ version: 1, secretStoreKey: 'vault', keys });
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration/keys') && init?.method === 'POST') {
       const body = JSON.parse(String(init.body)); creates.push(body);
       keys = [...keys, { name: body.name, kind: 'SECRET', configured: true, usedBy: [] }];
@@ -136,10 +137,12 @@ it('keeps zero replicas, annotations, container/Service protocols and extended p
     service: { ports: { dns: { port: 53, targetPort: 5353, protocol: 'UDP' } } } };
   const { puts, user } = setup(workload);
   await screen.findByLabelText('Ảnh Container');
+  await user.click(screen.getByText('Mở rộng & cập nhật',{exact:true}));
   expect(screen.getByLabelText('Số replica')).toHaveValue(0);
   await user.click(screen.getByRole('button', { name: 'Hiện nâng cao Workload' }));
   expect(screen.getByLabelText('Tên annotation')).toHaveValue('example.com/owner');
-  await user.click(screen.getByRole('button', { name: 'Hiện nâng cao Container 1' }));
+  await user.click(screen.getByText('Cổng container', {exact:true}));
+  await user.click(screen.getByText('Kiểm tra sức khỏe', {exact:true}));
   expect(screen.getByLabelText('Tên cổng container')).toHaveValue('dns');
   expect(screen.getAllByRole('combobox', { name: 'Giao thức' }).every(select => (select as HTMLSelectElement).value === 'UDP')).toBe(true);
   expect(screen.getByLabelText('Lệnh kiểm tra (mỗi đối số một dòng)')).toHaveValue('check');
@@ -196,7 +199,7 @@ it('keeps canceled sources local and restores focus to the invoking container', 
   const dialog=await openVolume(user,'hostPath');
   await user.type(within(dialog).getByLabelText('Đường dẫn trên node'),'/var/local/cancel');
   await user.keyboard('{Escape}');expect(add).toHaveFocus();
-  await user.click(save());expect(puts[0]?.workload.workloadExecution).toBeUndefined();
+  await user.click(save());expect(puts[0]?.workload.workloadExecution).toEqual({version:1,kind:'Deployment',defaults:{version:'workload-defaults-v1',environment:'staging'}});
 });
 
 it('keeps renamed-container mounts visible until their target is explicitly repaired', async () => {
@@ -246,4 +249,11 @@ it('keeps named sources usable when the Secret catalog fails and reports the fai
   expect(within(dialog).queryByText('Chưa có nguồn để dùng lại.')).not.toBeInTheDocument();
   await user.click(within(dialog).getByRole('button',{name:'Dùng local-data · Volume tạm (emptyDir)'}));
   expect(within(dialog).getByRole('button',{name:'Thêm vào container'})).toBeEnabled();
+});
+
+it('defers template image admission to the backend while resolver metadata is refreshing',()=>{
+ const container=[{name:'main',image:''}];
+ expect(validRuntimeIntent(container)).toBe(false);
+ expect(validRuntimeIntent(container,undefined,undefined,true)).toBe(true);
+ expect(validRuntimeIntent([{name:'',image:''}],undefined,undefined,true)).toBe(false);
 });

@@ -21,13 +21,13 @@ function MountPath({ path, subPath, readOnly, locked, onChange }: { path: string
   </div>;
 }
 
-type Props = { value: Execution; onChange(value: Execution): void; container: string; storage: string[]; secrets: string[]; disabled: boolean; secretCatalogStatus: 'loading' | 'ready' | 'error'; storageReady: boolean; storageStatus: 'ready' | 'loading' | 'error'; sharedStorage?: SharedResource[]; onUseStorage?: (id: string, mount: {path: string; subPath: string; readOnly: boolean}) => void; onAddStorage?: (mount: {path: string; subPath: string; readOnly: boolean}) => void; onCreateSecret?: (mount: {path: string; mode: number}) => void };
+type Props = { grouped?: boolean; value: Execution; onChange(value: Execution): void; container: string; storage: string[]; secrets: string[]; disabled: boolean; secretCatalogStatus: 'loading' | 'ready' | 'error'; storageReady: boolean; storageStatus: 'ready' | 'loading' | 'error'; sharedStorage?: SharedResource[]; onUseStorage?: (id: string, mount: {path: string; subPath: string; readOnly: boolean}) => void; onAddStorage?: (mount: {path: string; subPath: string; readOnly: boolean}) => void; onCreateSecret?: (mount: {path: string; mode: number}) => void };
 export function ContainerVolumeFields(props: Props) {
   const {value, onChange, container, storage, secrets, disabled} = props;
   const [adding, setAdding] = useState(false);
   const count = [...(value.mounts ?? []), ...(value.volumeMounts ?? []), ...(value.secretFiles ?? [])].filter(m => m.container === container).length;
   return <fieldset disabled={disabled} className="editor-grid volume-fields" aria-label={text('sectionOf', {name: container})}>
-    <div className="section-header"><h3>{text('title')}</h3><Button type="button" onClick={() => setAdding(true)}>{text('add')}</Button></div>
+    <div className="section-header">{!props.grouped?<h3>{text('title')}</h3>:null}<Button type="button" onClick={() => setAdding(true)}>{text('add')}</Button></div>
     {!count ? <small className="muted">{text('empty')}</small> : null}
     {(value.mounts ?? []).map((mount, index) => mount.container !== container ? null : <div className="content-panel editor-grid" key={`storage-${index}`}>
       <div className="section-header"><strong>{text('storage')}</strong><Button type="button" tone="quiet" onClick={() => onChange({...value, mounts: value.mounts!.filter((_, i) => i !== index)})}>{text('remove')}</Button></div>

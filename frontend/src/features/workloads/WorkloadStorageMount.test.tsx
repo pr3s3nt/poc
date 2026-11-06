@@ -15,6 +15,7 @@ function setup({ types = [storage, redis], resources, others = [] }: { types?: R
   const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/backend:v1' } }, workloadExecution: execution, ...(resources ? { resources } : {}) };
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ version: 1, keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: types });
     if (init?.method === 'PUT') { puts.push(JSON.parse(String(init.body))); return Response.json({ workloads: [], draftVersion: 2 }); }

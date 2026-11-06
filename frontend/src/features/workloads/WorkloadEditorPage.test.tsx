@@ -13,6 +13,7 @@ it('saves an Application key as a Workload reference, not a copied value', async
   let saved: Record<string, unknown> | undefined;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [{ name: 'API_URL', kind: 'VARIABLE', value: 'https://internal.example', configured: true, usedBy: [] }] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
     if (init?.method === 'PUT') {
@@ -43,6 +44,7 @@ it('keeps edits after a save conflict, blocks Save until an explicit reload, and
   let lists = 0;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
     if (init?.method === 'PUT') {
@@ -74,6 +76,7 @@ it('keeps edits after a save conflict, blocks Save until an explicit reload, and
 it('does not treat ENVIRONMENT_BUSY (409) as a stale draft: edits stay, no stale panel, Save stays available', async () => {
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
     if (init?.method === 'PUT') return Response.json({ error: 'busy', code: 'ENVIRONMENT_BUSY' }, { status: 409 });
@@ -95,6 +98,7 @@ it('keeps the stale panel and retry when reloading the current state fails', asy
   let lists = 0;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
     if (init?.method === 'PUT') return Response.json({ error: 'conflict' }, { status: 409 });
@@ -119,8 +123,9 @@ it('keeps the stale panel and retry when reloading the current state fails', asy
 
 it('offers retry when the editor cannot load', async () => {
   let calls = 0;
-  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     calls += 1;
@@ -137,6 +142,7 @@ it('requires PostgreSQL inputs and saves them as Workload resource params', asyn
   let saved: Record<string, unknown> | undefined;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres', classes: [], inputs: [{ name: 'database', type: 'string', required: true }, { name: 'username', type: 'string', required: true }], outputs: [{ name: 'host' }] }] });
     if (init?.method === 'PUT') { saved = JSON.parse(String(init.body)) as Record<string, unknown>; return Response.json({ draftVersion: 1, workloads: [] }); }
@@ -165,6 +171,7 @@ it('preserves PostgreSQL params when editing a workload on the form', async () =
   let saved: Record<string, unknown> | undefined;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres', classes: [], inputs: [{ name: 'database', type: 'string', required: true }, { name: 'username', type: 'string', required: true }], outputs: [] }] });
     if (init?.method === 'PUT') { saved = JSON.parse(String(init.body)) as Record<string, unknown>; return Response.json({ draftVersion: 2, workloads: [] }); }
@@ -185,6 +192,7 @@ it('shows a backend resource param rejection, keeps the form and does not report
   const puts: unknown[] = [];
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres', classes: [], inputs: [{ name: 'database', type: 'string', required: true }], outputs: [{ name: 'host' }] }] });
     if (init?.method === 'PUT') { puts.push(JSON.parse(String(init.body))); return Response.json({ error: 'workloadconfig: invalid input: resources.db.params.database is required by resource type postgres', code: 'INVALID_WORKLOAD', params: { resourceType: 'postgres' } }, { status: 400 }); }
@@ -211,8 +219,9 @@ it('shows a backend resource param rejection, keeps the form and does not report
 });
 
 it('shows a Workload import rejection without presenting the file as parsed', async () => {
-  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
     if (url.endsWith('/workloads/parse')) return Response.json({ error: 'workloadconfig: invalid input: resources.cache.type is not a registered resource type', code: 'INVALID_VARIABLE' }, { status: 400 });
@@ -234,6 +243,7 @@ it('disables Save while an environment operation runs, keeps the typed text and 
   const puts: string[] = [];
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (init?.method === 'PUT') { puts.push(url); return Response.json({ draftVersion: 1, workloads: [] }); }
     if (url.endsWith('/configuration')) return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
@@ -247,7 +257,7 @@ it('disables Save while an environment operation runs, keeps the typed text and 
   await user.type(screen.getByLabelText('Ảnh Container'), 'mine:v1');
   view.rerender(<WorkloadEditorPage application={busyApp} environment="staging" />);
   expect(screen.getByRole('button', { name: 'Lưu draft Workload' })).toBeDisabled();
-  expect(screen.getByRole('status')).toHaveTextContent('đang chạy');
+  expect(screen.getAllByRole('status').some(element=>element.textContent?.includes('đang chạy'))).toBe(true);
   expect(screen.getByLabelText('Ảnh Container')).toHaveValue('mine:v1');
   expect(puts).toEqual([]);
   view.rerender(<WorkloadEditorPage application={application} environment="staging" />);
@@ -266,6 +276,7 @@ function serve(options: Serve = {}) {
   const puts: Saved[] = [];
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ version: 1, keys: options.keys ?? [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: (options.types ?? []).map((type) => ({ classes: [], ...(type as object) })) });
     if (init?.method === 'PUT') { puts.push(JSON.parse(String(init.body)) as Saved); return Response.json({ draftVersion: 2, workloads: [] }); }
@@ -291,6 +302,7 @@ it('keeps resources, class and target port in closed advanced sections with effe
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await fillBasic(user);
+  await user.selectOptions(screen.getByLabelText('Chính sách mặc định'),'');
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   await user.type(screen.getByLabelText('Alias tài nguyên'), 'cache');
   await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'redis');
@@ -298,7 +310,7 @@ it('keeps resources, class and target port in closed advanced sections with effe
   expect(screen.queryByLabelText('Yêu cầu CPU')).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Lớp tài nguyên')).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Cổng đích của Container')).not.toBeInTheDocument();
-  expect(note('Tóm tắt nâng cao Container 1')).toHaveTextContent('Yêu cầu hiệu lực: CPU 10m (mặc định) · Bộ nhớ 32Mi (mặc định). Giới hạn: CPU chưa đặt · Bộ nhớ chưa đặt.');
+  expect(screen.getByText('Tài nguyên tính toán', {exact:true}).closest('summary')!).toHaveTextContent('Yêu cầu hiệu lực: CPU 10m (mặc định) · Bộ nhớ 32Mi (mặc định). Giới hạn: CPU chưa đặt · Bộ nhớ chưa đặt.');
   expect(note('Tóm tắt nâng cao tài nguyên cache')).toHaveTextContent('Lớp hiệu lực: default (mặc định)');
   expect(note('Tóm tắt nâng cao cổng http')).toHaveTextContent('Cổng đích hiệu lực: 8080 (theo cổng Service)');
   await user.click(saveButton());
@@ -313,15 +325,16 @@ it('shows the effective request as explicit, else same-dimension limit, else def
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await fillBasic(user);
-  const summary = () => note('Tóm tắt nâng cao Container 1');
-  await user.click(screen.getByRole('button', { name: 'Hiện nâng cao Container 1' }));
+  await user.selectOptions(screen.getByLabelText('Chính sách mặc định'),'');
+  const summary = () => screen.getByText('Tài nguyên tính toán', {exact:true}).closest('summary')!;
+  await user.click(screen.getByText('Tài nguyên tính toán', {exact:true}));
   await user.type(screen.getByLabelText('Giới hạn CPU'), '500m');
   expect(summary()).toHaveTextContent('CPU 500m (theo limit) · Bộ nhớ 32Mi (mặc định). Giới hạn: CPU 500m · Bộ nhớ chưa đặt.');
   await user.type(screen.getByLabelText('Yêu cầu bộ nhớ'), '64Mi');
   expect(summary()).toHaveTextContent('Bộ nhớ 64Mi (tường minh)');
   await user.type(screen.getByLabelText('Yêu cầu CPU'), '100m');
   expect(summary()).toHaveTextContent('CPU 100m (tường minh)');
-  await user.click(screen.getByRole('button', { name: 'Ẩn nâng cao Container 1' }));
+  await user.click(screen.getByText('Tài nguyên tính toán', {exact:true}));
   expect(screen.queryByLabelText('Giới hạn CPU')).not.toBeInTheDocument();
   expect(summary()).toHaveTextContent('CPU 100m (tường minh) · Bộ nhớ 64Mi (tường minh). Giới hạn: CPU 500m · Bộ nhớ chưa đặt.');
   await user.click(saveButton());
@@ -334,7 +347,7 @@ it('keeps imported advanced overrides through collapse and basic edits and write
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
   await screen.findByRole('heading', { name: 'Sửa api' });
-  expect(note('Tóm tắt nâng cao Container 1')).toHaveTextContent('CPU 250m (tường minh) · Bộ nhớ 256Mi (theo limit). Giới hạn: CPU 1 · Bộ nhớ 256Mi.');
+  expect(screen.getByText('Tài nguyên tính toán', {exact:true}).closest('summary')!).toHaveTextContent('CPU 250m (tường minh) · Bộ nhớ 256Mi (theo limit). Giới hạn: CPU 1 · Bộ nhớ 256Mi.');
   expect(note('Tóm tắt nâng cao tài nguyên db')).toHaveTextContent('Lớp hiệu lực: large (tường minh)');
   expect(note('Tóm tắt nâng cao cổng http')).toHaveTextContent('Cổng đích hiệu lực: 9090 (ghi đè)');
   await user.click(screen.getByRole('button', { name: 'Hiện nâng cao tài nguyên db' }));
@@ -435,8 +448,9 @@ it('blocks Save with Vietnamese validation for an invalid Workload name and keep
 
 
 it('rejects an import with publicPort in Vietnamese, keeps the form and converts nothing', async () => {
-  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
     if (url.endsWith('/workloads/parse')) return Response.json({ error: 'raw SECRET', code: 'INVALID_WORKLOAD', field: 'service.publicPort' }, { status: 400 });
@@ -469,6 +483,7 @@ it('saves a selected scheduled template with Service omitted and explicit schedu
  const digest = 'a'.repeat(64);let saved: Record<string, unknown> | undefined;
  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
   const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
   if (url.endsWith('/configuration')) return Response.json({ version: 1, keys: [] });
   if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
   if (url.endsWith('/workload-templates')) return Response.json({ templates: [{ id: 'scheduled', version: '1.0.0', sha256: digest, kind: 'CronJob', labels: { vi: 'Theo lịch' }, inputsSchema: { type: 'object', properties: {}, additionalProperties: false }, defaults: {} }] });

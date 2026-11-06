@@ -228,3 +228,15 @@ resource shared, hiện trạng thái rỗng ngắn. Resource không thể sao c
 hiện unavailable. Trong nâng cao, **Chỉ dùng cho workload này** chỉ hiện cho
 resource tự cấu hình; tóm tắt scope vẫn hiện khi đóng. Edit/import giữ nguyên
 private/shared, không tự migrate. Dialog thêm resource dùng đúng controls này.
+
+## WD — Runtime groups and inherited values
+
+Use the current shell/cards/controls. Workload groups: General, Containers,
+Networking, Dependencies, Pod security, Scaling & updates; CronJob adds Schedule,
+StatefulSet adds Storage. Container groups: Startup, Environment, Volumes & files,
+Compute resources, Health checks, Container security, Ports. Each group collapses
+with a useful summary, labels and keyboard controls. Common startup fields show
+first. Error groups open for correction. No giant combined Advanced section.
+Effective fields show source; Reset removes override and returns to inheritance.
+Loading/failure keeps draft, shows retry and never substitutes guessed defaults.
+ServiceAccount is managed/read-only unless a published allowed choice exists.

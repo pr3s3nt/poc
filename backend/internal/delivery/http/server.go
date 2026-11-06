@@ -214,6 +214,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/workload-templates", s.handleWorkloadTemplates)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/workloads", s.handleListWorkloadDrafts)
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/workloads/parse", s.handleParseWorkloadDocument)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/workloads/resolve-defaults", s.handleResolveWorkloadDefaults)
 	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/workloads/{workload}", s.handleSaveWorkloadDraft)
 	s.mux.HandleFunc("DELETE /api/v1/applications/{id}/environments/{env}/workloads/{workload}", s.handleDeleteWorkloadDraft)
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/workloads/{workload}/undo", s.handleUndoWorkloadDraft)

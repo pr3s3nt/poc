@@ -218,6 +218,21 @@ func (r *Renderer) renderGit(ctx context.Context, req execution.RenderRequest) (
 	if err != nil {
 		return nil, err
 	}
+	if e := req.Module.Spec.Execution; req.Vault != nil && e != nil && e.AutomountServiceAccountToken != nil && !*e.AutomountServiceAccountToken {
+		return nil, environment.ErrExecution
+	}
+	var profile *environment.RuntimeDefaults
+	if e := req.Module.Spec.Execution; e.HasTemplate() {
+		for _, t := range bundle.Contract.Manifest.WorkloadTemplates {
+			if t.ID == e.Template.ID && t.Version == e.Template.Version && t.SHA256() == e.Template.SHA256 {
+				profile = t.RuntimeDefaults
+			}
+		}
+	}
+	req.Module.Spec, _ = req.Module.Spec.ResolveDefaults(profile)
+	if err := req.Module.Spec.ValidateComputePolicy(); err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	if err := templatesource.ValidateWorkloadCapabilities(bundle.Contract.Manifest, req.Module.Spec.Containers, req.Module.Spec.Execution); err != nil {
@@ -254,6 +269,20 @@ func (r *Renderer) renderGit(ctx context.Context, req execution.RenderRequest) (
 		}
 		req.Module.Spec.Execution = e.Clone()
 		req.Module.Spec.Execution.Inputs = inputs
+	}
+	if e := req.Module.Spec.Execution; e != nil {
+		if e.ServiceAccountName != "" && e.ServiceAccountName != delivery.ServiceAccount {
+			return nil, environment.ErrExecution
+		}
+		// Agent-based Vault auth needs the Pod token. VSO file delivery does not.
+		if req.Vault != nil {
+			if e.AutomountServiceAccountToken != nil && !*e.AutomountServiceAccountToken && e.Defaults == nil {
+				return nil, environment.ErrExecution
+			}
+			// Desired explicit false is checked before inherited policy is resolved.
+			token := true
+			e.AutomountServiceAccountToken = &token
+		}
 	}
 	input, err := neutralInput(req, delivery)
 	if err != nil {

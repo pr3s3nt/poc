@@ -1355,3 +1355,13 @@ emptyDir/configMap. Path is the Linux node path; type is the optional Kubernetes
 HostPathType enum. Draft, deployment-set and applied ModuleSpec snapshots retain
 it with existing CAS and deep-copy rules. No relational column, migration, node
 filesystem provisioning, deletion or retention owner is introduced.
+
+## Workload defaults policy metadata — issue #37
+
+Existing JSONB workload drafts, Deployment Sets, plans and applied snapshots carry
+[the optional runtime extension](../contracts/workload-defaults.md), including
+immutable policy version/environment and verified frozen template defaults.
+No columns, relationships, grants, schema version or released SQL reference change.
+The [ERD](erd.puml) is unchanged. Retained StatefulSet-generated claims are not
+standalone Terraform resource instances; their live namespace inventory remains
+subject to the existing UID/content deletion guard.

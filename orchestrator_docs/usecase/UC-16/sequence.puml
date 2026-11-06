@@ -7,6 +7,7 @@ control "Reference catalog" as Catalog
 control "UC-12 Configuration" as Keys
 control "UC-01 Environment" as Env
 control "Workload configuration" as Config
+control "Versioned defaults resolver" as Defaults
 database "Desired configuration store" as Store
 
 Dev -> UI: Open Application/Environment workload [MS-01..03]
@@ -43,11 +44,18 @@ opt Add resource inline [BR-22]
   UI -> UI: Validate and add dependency to local draft only
   Dev -> UI: Select output explicitly
 end
+opt Edit runtime/default policy [WD-01..10]
+ UI -> Defaults: Resolve desired overrides + policy/environment + pinned template
+ Defaults -> Catalog: Verify immutable profile metadata (no Secret values)
+ Defaults --> UI: Independent effective configuration + field provenance
+ Dev -> UI: Reset removes override; policy adoption is explicit
+end
 Dev -> UI: Save workload [MS-06..07]
 UI -> UI: Validate names/sources; encode ordinary literal strings
 UI -> Config: Save Score with draft version
 Config -> Catalog: Validate Type params and references
-Config -> Store: CAS desired draft + trusted ordinary-value provenance
+Config -> Defaults: Validate and freeze verified policy/profile metadata
+Config -> Store: CAS desired overrides + frozen policy + trusted ordinary-value provenance
 Store --> UI: Pending status
 UI --> Dev: Explicit Preview then Deploy available
 note over Config,Store

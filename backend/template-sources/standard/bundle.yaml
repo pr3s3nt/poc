@@ -10,12 +10,17 @@ inputsSchema: inputs.schema.json
 defaults: defaults.yaml
 normalize: normalize/workload.tpl
 workloadCapabilities:
+  - workload-defaults-v1
+  - runtime-security-v1
+  - controller-policy-v1
+  - stateful-claims-v1
   - custom-execution-v1
   - container-lifecycle-v1
   - pod-volumes-v1
   - host-path-volumes-v1
   - container-probes-v1
 resources:
+  - resources/pdb.tpl
   - resources/configmaps.tpl
   - resources/deployment.tpl
   - resources/service.tpl
@@ -25,6 +30,7 @@ patches:
   - patches/service.tpl
   - patches/execution.tpl
   - patches/container-lifecycle.tpl
+  - patches/runtime-policy.tpl
 workloadTemplates:
   - id: frontend
     version: 1.0.0
@@ -81,3 +87,53 @@ workloadTemplates:
       additionalProperties: false
       properties: {}
     defaults: {}
+  - id: nginx-readonly
+    version: 1.0.0
+    kind: Deployment
+    labels:
+      vi: Nginx chỉ đọc
+      en: Read-only Nginx
+    descriptions:
+      vi: Nginx non-root, cổng 8080, cache và tmp tách riêng.
+      en: Non-root Nginx on port 8080 with separate cache and tmp volumes.
+    inputsSchema:
+      type: object
+      additionalProperties: false
+      properties: {}
+    defaults: {}
+    runtimeDefaults:
+      multiReplicaSafe: true
+      productionReplicas: 2
+      image: nginxinc/nginx-unprivileged:1.27-alpine
+      ports:
+        - name: http
+          containerPort: 8080
+      readinessProbe:
+        path: /
+        port: 8080
+      containerSecurityContext:
+        runAsNonRoot: true
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+      service:
+        ports:
+          http:
+            port: 80
+            targetPort: 8080
+      volumes:
+        - name: nginx-cache
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: nginx-tmp
+          emptyDir:
+            sizeLimit: 256Mi
+      volumeMounts:
+        - volume: nginx-cache
+          container: main
+          path: /var/cache/nginx
+          readOnly: false
+        - volume: nginx-tmp
+          container: main
+          path: /tmp
+          readOnly: false

@@ -73,6 +73,9 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		}
 	}
 	if req.After != nil {
+		if e := req.After.Execution; e != nil && e.Defaults != nil && e.Defaults.Environment != req.Env.Key {
+			return nil, stageErr(StageWorkload, environment.ErrExecution)
+		}
 		if afterFragment, err = req.After.Fragment(req.Catalog.Types); err != nil {
 			return nil, stageErr(StageWorkload, err)
 		}

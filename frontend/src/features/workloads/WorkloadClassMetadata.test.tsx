@@ -15,6 +15,7 @@ function serve(options: { types?: () => Response | Promise<Response>; workloads?
   const puts: Saved[] = [];
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     options.calls?.push(`${init?.method ?? 'GET'} ${url.replace('/api/v1', '')}`);
     if (url.endsWith('/configuration')) return Response.json({ version: 1, keys: [] });
     if (url.endsWith('/resource-types')) return options.types ? options.types() : Response.json({ resourceTypes: typeFixture });

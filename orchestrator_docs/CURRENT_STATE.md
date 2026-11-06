@@ -2,10 +2,22 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-05
+last_reviewed: 2026-11-06
 ---
 
 # Current project state
+
+## Complete workload runtime policy — issue #37, 2026-11-06
+
+Branch `features/bo_sung_default` implements the seven runtime configuration gaps,
+backend versioned defaults/provenance, scoped authoring groups, immutable template
+profiles, Preview effective artifacts and server admission. Existing workloads keep
+legacy behavior until explicit adoption. Real PostgreSQL, kind storage retention/
+reuse and browser/Fleet legacy-to-policy deployment/PDB prune passed.
+The runtime acceptance Application was removed through product cleanup; a separate
+authoring-only draft remains available in the verified Console. No DDL or AWS
+changes. See [implementation](implementation/workload-defaults.md) and
+[verification, baseline failures and retained Console](verification/2026-11-06-workload-defaults.md).
 
 ## Workload class dropdown — 2026-11-05
 

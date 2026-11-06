@@ -8,14 +8,14 @@ import (
 
 // PodVolume defines named Pod sources. Managed persistent storage remains a resource.
 type PodVolume struct {
-	Name      string           `json:"name"`
-	EmptyDir  *EmptyDirVolume  `json:"emptyDir,omitempty"`
-	ConfigMap *ConfigMapVolume `json:"configMap,omitempty"`
-	HostPath  *HostPathVolume  `json:"hostPath,omitempty"`
+	Name      string           `json:"name" yaml:"name"`
+	EmptyDir  *EmptyDirVolume  `json:"emptyDir,omitempty" yaml:"emptyDir,omitempty"`
+	ConfigMap *ConfigMapVolume `json:"configMap,omitempty" yaml:"configMap,omitempty"`
+	HostPath  *HostPathVolume  `json:"hostPath,omitempty" yaml:"hostPath,omitempty"`
 }
 type HostPathVolume struct {
-	Path string `json:"path"`
-	Type string `json:"type,omitempty"`
+	Path string `json:"path" yaml:"path"`
+	Type string `json:"type,omitempty" yaml:"type,omitempty"`
 }
 
 func (h *HostPathVolume) valid() bool {
@@ -30,19 +30,19 @@ func (h *HostPathVolume) valid() bool {
 }
 
 type EmptyDirVolume struct {
-	Medium    string `json:"medium,omitempty"`
-	SizeLimit string `json:"sizeLimit,omitempty"`
+	Medium    string `json:"medium,omitempty" yaml:"medium,omitempty"`
+	SizeLimit string `json:"sizeLimit,omitempty" yaml:"sizeLimit,omitempty"`
 }
 type ConfigMapVolume struct {
-	Files       []ConfigFile `json:"files"`
-	DefaultMode int          `json:"defaultMode,omitempty"`
+	Files       []ConfigFile `json:"files" yaml:"files"`
+	DefaultMode int          `json:"defaultMode,omitempty" yaml:"defaultMode,omitempty"`
 }
 type VolumeMount struct {
-	Volume    string `json:"volume"`
-	Container string `json:"container"`
-	Path      string `json:"path"`
-	ReadOnly  bool   `json:"readOnly"`
-	SubPath   string `json:"subPath,omitempty"`
+	Volume    string `json:"volume" yaml:"volume"`
+	Container string `json:"container" yaml:"container"`
+	Path      string `json:"path" yaml:"path"`
+	ReadOnly  bool   `json:"readOnly" yaml:"readOnly"`
+	SubPath   string `json:"subPath,omitempty" yaml:"subPath,omitempty"`
 }
 
 var volumeName = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
@@ -191,8 +191,8 @@ func (e *WorkloadExecution) validateVolumes(containers map[string]Container) err
 }
 
 type ConfigFile struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
+	Name  string `json:"name" yaml:"name"`
+	Value string `json:"value" yaml:"value"`
 }
 
 func (c *ConfigMapVolume) Values() map[string]string {

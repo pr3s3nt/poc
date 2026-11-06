@@ -60,10 +60,10 @@ func planEndpoints(plan *Plan, catalog Catalog) (map[string]endpoint.Desired, er
 			return nil, endpointErr(ReasonEndpointInvalid, err)
 		}
 		module, ok := plan.CandidateSet.Modules[workload]
-		if !ok || module.Spec.Service == nil {
+		if !ok || module.Spec.EffectiveService() == nil {
 			return nil, endpointErr(ReasonEndpointInvalid, fmt.Errorf("endpoint: workload needs a Service"))
 		}
-		service := module.Spec.Service
+		service := module.Spec.EffectiveService()
 		port, ok := service.Ports[desired.Port]
 		if !ok || port.Port < 1 || port.Port > 65535 {
 			return nil, endpointErr(ReasonEndpointInvalid, fmt.Errorf("endpoint: named Service port does not exist"))

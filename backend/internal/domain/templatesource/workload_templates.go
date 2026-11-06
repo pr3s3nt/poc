@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"orchestrator/internal/domain/environment"
 	"regexp"
 	"sort"
 )
@@ -11,18 +12,30 @@ import (
 // WorkloadTemplate is immutable authoring metadata owned by a verified Git
 // bundle. It never chooses infrastructure or embeds executable UI code.
 type WorkloadTemplate struct {
-	ID           string            `yaml:"id" json:"id"`
-	Version      string            `yaml:"version" json:"version"`
-	Kind         string            `yaml:"kind" json:"kind"`
-	Labels       map[string]string `yaml:"labels" json:"labels"`
-	Descriptions map[string]string `yaml:"descriptions,omitempty" json:"descriptions,omitempty"`
-	InputsSchema map[string]any    `yaml:"inputsSchema" json:"inputsSchema"`
-	Defaults     map[string]any    `yaml:"defaults" json:"defaults"`
+	RuntimeDefaults *environment.RuntimeDefaults `yaml:"runtimeDefaults,omitempty" json:"runtimeDefaults,omitempty"`
+	ID              string                       `yaml:"id" json:"id"`
+	Version         string                       `yaml:"version" json:"version"`
+	Kind            string                       `yaml:"kind" json:"kind"`
+	Labels          map[string]string            `yaml:"labels" json:"labels"`
+	Descriptions    map[string]string            `yaml:"descriptions,omitempty" json:"descriptions,omitempty"`
+	InputsSchema    map[string]any               `yaml:"inputsSchema" json:"inputsSchema"`
+	Defaults        map[string]any               `yaml:"defaults" json:"defaults"`
 }
 
 var templateVersion = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 
 func (t WorkloadTemplate) Validate() error {
+	if p := t.RuntimeDefaults; p != nil {
+		if err := p.ContainerSecurityContext.Validate(); err != nil {
+			return err
+		}
+		if p.ProductionReplicas != nil && (*p.ProductionReplicas < 0 || *p.ProductionReplicas > 1 && !p.MultiReplicaSafe) {
+			return invalid(ManifestFile, "production replicas need explicit compatibility")
+		}
+		if p.Replicas != nil && (*p.Replicas < 0 || *p.Replicas > 1 && !p.MultiReplicaSafe) {
+			return invalid(ManifestFile, "replica profile needs multi-replica compatibility")
+		}
+	}
 	if !namePattern.MatchString(t.ID) || !templateVersion.MatchString(t.Version) || len(t.Labels) == 0 || len(t.Labels) > 16 || len(t.Descriptions) > 16 {
 		return invalid(ManifestFile, "workload template metadata is invalid")
 	}

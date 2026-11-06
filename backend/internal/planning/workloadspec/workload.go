@@ -102,6 +102,9 @@ func parse(b []byte) (*Document, error) {
 		return nil, fmt.Errorf("workload: trailing input")
 	}
 	doc.replicaSet = replicaSet
+	if err := validateRuntimeFields(b); err != nil {
+		return nil, err
+	}
 	if err := validateContainerResources(b); err != nil {
 		return nil, err
 	}
@@ -268,7 +271,7 @@ func (d Document) Validate() error {
 				return err
 			}
 		}
-		if d.Containers[name].Image == "" {
+		if d.Containers[name].Image == "" && !(d.Execution.HasTemplate() && d.Execution.Defaults != nil) {
 			return fmt.Errorf("workload: container %q has no image", name)
 		}
 	}
@@ -285,8 +288,18 @@ func (d Document) Validate() error {
 	if replicas == 0 && !d.replicaSet {
 		replicas = 1
 	}
-	if err := d.Execution.Validate(d.Containers, replicas, d.Service != nil && len(d.Service.Ports) > 0, resources); err != nil {
+	effective, _ := (environment.ModuleSpec{Execution: d.Execution, Containers: d.Containers, Service: d.Service}).ResolveDefaults()
+	if err := effective.ValidateComputePolicy(); err != nil && !(d.Execution.HasTemplate() && d.Execution.Defaults != nil) {
 		return err
+	}
+	if d.Execution.HasTemplate() && d.Execution.Defaults != nil && d.Execution.Kind == "Deployment" && !d.replicaSet {
+		replicas = -1
+	}
+	if err := effective.Execution.Validate(effective.Containers, replicas, d.Service != nil && len(d.Service.Ports) > 0, resources); err != nil {
+		return err
+	}
+	if d.Execution != nil && d.Execution.ServiceEnabled != nil && !*d.Execution.ServiceEnabled && d.Service != nil && len(d.Service.Ports) > 0 {
+		return environment.ErrExecution
 	}
 	if d.Execution != nil {
 		for _, file := range d.Execution.SecretFiles {

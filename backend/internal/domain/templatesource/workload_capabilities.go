@@ -3,6 +3,10 @@ package templatesource
 import "orchestrator/internal/domain/environment"
 
 const (
+	WorkloadDefaultsV1   = "workload-defaults-v1"
+	RuntimeSecurityV1    = "runtime-security-v1"
+	ControllerPolicyV1   = "controller-policy-v1"
+	StatefulClaimsV1     = "stateful-claims-v1"
 	ContainerProbesV1    = "container-probes-v1"
 	CustomExecutionV1    = "custom-execution-v1"
 	ContainerLifecycleV1 = "container-lifecycle-v1"
@@ -13,7 +17,7 @@ const (
 func validateCapabilities(names []string) error {
 	seen := map[string]bool{}
 	for _, name := range names {
-		if seen[name] || (name != CustomExecutionV1 && name != ContainerLifecycleV1 && name != PodVolumesV1 && name != ContainerProbesV1 && name != HostPathVolumesV1) {
+		if seen[name] || (name != WorkloadDefaultsV1 && name != RuntimeSecurityV1 && name != ControllerPolicyV1 && name != StatefulClaimsV1 && name != CustomExecutionV1 && name != ContainerLifecycleV1 && name != PodVolumesV1 && name != ContainerProbesV1 && name != HostPathVolumesV1) {
 			return invalid(ManifestFile, "unsupported or duplicate workload capability")
 		}
 		seen[name] = true
@@ -26,6 +30,9 @@ func ValidateWorkloadCapabilities(m Manifest, containers map[string]environment.
 		available[name] = true
 	}
 	for _, c := range containers {
+		if c.SecurityContext != nil && !available[RuntimeSecurityV1] {
+			return environment.ErrExecutionUnavailable
+		}
 		for _, p := range []*environment.Probe{c.ReadinessProbe, c.LivenessProbe, c.StartupProbe} {
 			if p != nil && ((p.Type != "" && p.Type != "http") || p.Scheme != "" || p.InitialDelaySeconds != nil || p.TimeoutSeconds != nil || p.PeriodSeconds != nil || p.SuccessThreshold != nil || p.FailureThreshold != nil) && !available[ContainerProbesV1] {
 				return environment.ErrExecutionUnavailable
@@ -37,6 +44,18 @@ func ValidateWorkloadCapabilities(m Manifest, containers map[string]environment.
 	}
 	if e == nil {
 		return nil
+	}
+	if e.Defaults != nil && !available[WorkloadDefaultsV1] {
+		return environment.ErrExecutionUnavailable
+	}
+	if (e.PodSecurityContext != nil || e.AutomountServiceAccountToken != nil || e.ServiceAccountName != "") && !available[RuntimeSecurityV1] {
+		return environment.ErrExecutionUnavailable
+	}
+	if (e.UpdateStrategy != nil || e.RevisionHistoryLimit != nil || e.PodDisruptionBudget != nil) && !available[ControllerPolicyV1] {
+		return environment.ErrExecutionUnavailable
+	}
+	if (len(e.VolumeClaimTemplates) > 0 || len(e.ClaimMounts) > 0 || e.ClaimRetention != nil) && !available[StatefulClaimsV1] {
+		return environment.ErrExecutionUnavailable
 	}
 	if !e.HasTemplate() && !available[CustomExecutionV1] {
 		return environment.ErrExecutionUnavailable

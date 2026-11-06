@@ -115,7 +115,7 @@ func (s *Service) List(ctx context.Context, app, env string) (View, error) {
 	}
 	items := map[string]Item{}
 	for id, module := range set.Document.Modules {
-		item := Item{ID: id, Ready: true, ServicePorts: portNames(module.Spec.Service)}
+		item := Item{ID: id, Ready: true, ServicePorts: portNames(module.Spec.EffectiveService())}
 		if reconstructed, err := ReconstructWorkloadProven(id, module, set.Document, set.LiteralProofs.ProverFor(id), set.ResourceAliases[id]); err == nil {
 			item.Workload = reconstructed
 		}
@@ -140,7 +140,8 @@ func (s *Service) List(ctx context.Context, app, env string) (View, error) {
 				return View{}, err // an old draft is never shown with its route dropped
 			}
 			if err == nil {
-				item.ServicePorts = portNames(parsed.Service)
+				spec := environment.ModuleSpec{Execution: parsed.Execution, Containers: parsed.Containers, Service: parsed.Service}
+				item.ServicePorts = portNames(spec.EffectiveService())
 				if e := parsed.Execution; e != nil {
 					item.Runtime = e.Kind
 					item.Schedule = e.Clone().Schedule
@@ -205,6 +206,14 @@ func (s *Service) Save(ctx context.Context, app, env, workload string, raw map[s
 	}
 	if err := s.validateBindings(ctx, app, env, *doc); err != nil {
 		return View{}, err
+	}
+	if doc.Execution != nil && doc.Execution.Defaults != nil && doc.Execution.HasTemplate() {
+		resolved, _, err := s.ResolveDefaults(ctx, app, env, doc.Map())
+		if err != nil {
+			return View{}, err
+		}
+		e := resolved["workloadExecution"].(*environment.WorkloadExecution)
+		doc.Execution.Defaults = e.Defaults
 	}
 	if err := s.store.SaveWorkloadDraft(ctx, expectedVersion, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: workload, State: environment.DraftUpsert, Workload: doc.Map()}); err != nil {
 		return View{}, err
@@ -288,6 +297,14 @@ func (s *Service) Undo(ctx context.Context, app, env, workload string, expectedV
 }
 
 func (s *Service) validateBindings(ctx context.Context, app, env string, doc workloadspec.Document) error {
+	if doc.Execution != nil && doc.Execution.Defaults != nil && doc.Execution.Defaults.Environment != env {
+		return fmt.Errorf("%w: defaults environment differs from target", ErrInvalidRequest)
+	}
+	if doc.Execution != nil && doc.Execution.Defaults != nil {
+		if _, _, err := s.ResolveDefaults(ctx, app, env, doc.Map()); err != nil {
+			return err
+		}
+	}
 	if doc.Execution.HasTemplate() {
 		application, err := s.store.GetApplication(ctx, app)
 		if err != nil {
@@ -475,8 +492,8 @@ func (s *Service) validateService(ctx context.Context, app, env, source string, 
 	if err != nil {
 		return err
 	}
-	if module, ok := set.Document.Modules[workload]; ok && module.Spec.Service != nil {
-		if _, ok := module.Spec.Service.Ports[portName]; ok {
+	if module, ok := set.Document.Modules[workload]; ok && module.Spec.EffectiveService() != nil {
+		if _, ok := module.Spec.EffectiveService().Ports[portName]; ok {
 			return nil
 		}
 	}

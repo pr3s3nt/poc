@@ -65,10 +65,10 @@ func checkServiceRefs(set environment.Document, consumer, value string) error {
 		if !ok {
 			return fmt.Errorf("planning: workload %q references a Service of workload %q, which is not in the resulting Environment", consumer, target)
 		}
-		if provider.Spec.Service == nil {
+		if provider.Spec.EffectiveService() == nil {
 			return fmt.Errorf("planning: workload %q references a Service of workload %q, which declares no Service", consumer, target)
 		}
-		if _, ok := provider.Spec.Service.Ports[port]; !ok {
+		if _, ok := provider.Spec.EffectiveService().Ports[port]; !ok {
 			return fmt.Errorf("planning: workload %q references a Service port of workload %q that is not declared", consumer, target)
 		}
 	}

@@ -39,6 +39,7 @@ function serve(options: Options = {}) {
   const configuration = () => ({ applicationKey: 'catalog', environmentKey: 'staging', version, secretStoreKey: store || undefined, keys });
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     const method = init?.method ?? 'GET';
     const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : undefined;
     calls.push({ method, url, body });

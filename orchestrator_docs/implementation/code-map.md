@@ -1263,3 +1263,16 @@ creation is explicit. WorkloadEditorPage reuses shared PVC identity/typed params
 with a collision-free alias and existing reuse guards, adding dependency + mount
 atomically. Other workloads' Pod-local sources are excluded. No API/backend/schema
 change. [Verification](../verification/2026-11-06-reuse-first-volumes.md) records checks and real reuse/Preview.
+
+## Workload defaults v1 — WD-01–10
+
+[Field/contract/UI/render map](workload-defaults.md). Domain resolution and typed
+runtime policy live in `backend/internal/domain/environment/runtime_policy.go`;
+scoped metadata validation/freezing in `application/workloadconfig/defaults.go`.
+`planning/workload_execution.go` gates profiles/capabilities;
+`templatedriver/runtime_policy.go` guards semantics. Kubernetes runtime admission
+uses `adapters/kubernetes/runtime_policy.go` before direct/Fleet publication.
+`deploymentreview/defaults.go` projects safe effective values/provenance.
+Frontend `RuntimePolicyFields.tsx`, `ExecutionFields.tsx` and `WorkloadEditorPage.tsx`
+reuse current shell/controls. Tests cover typed round-trip, legacy behavior,
+source precedence/reset, JSONB and owned-kind/browser acceptance.

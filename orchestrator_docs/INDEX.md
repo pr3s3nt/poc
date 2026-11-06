@@ -215,3 +215,11 @@ and [internal-AI handoff](../scripts/bootstrap/enterprise/AI_HANDOFF.md).
 
 - [One Fleet GitRepo per Application](architecture/decisions/ADR-036-application-fleet-gitrepo.md).
 - [Retire public routes and Application subdomains](architecture/decisions/ADR-037-retire-public-routes.md).
+
+Complete workload configuration/defaults (issue #37):
+[WD specification](usecase/UC-16/workload-defaults-specification.md),
+[contract](architecture/contracts/workload-defaults.md).
+
+[Hướng dẫn Add/Edit Workload và mặc định](operations/workload-authoring.md).
+
+[Issue #37 verification and runtime limits](verification/2026-11-06-workload-defaults.md).
