@@ -111,7 +111,7 @@ gồm đăng nhập bằng `admin`. `-p` và image riêng giữ
 các tính năng tách biệt, và stack không mở port trên máy nên chạy song song được.
 `socat` không tự chạy lại sau khi khởi động lại WSL; khi đó chạy lại phần proxy.
 
-Sau khi đóng issue, gỡ stack, image và mật khẩu; `-v` xóa dữ liệu của riêng stack
+Sau khi merge, gỡ stack, image và mật khẩu; `-v` xóa dữ liệu của riêng stack
 đó. Dùng cùng các biến ở trên:
 
 ```bash

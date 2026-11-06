@@ -36,7 +36,8 @@ dùng yêu cầu rõ cách truy cập khác.
 Mỗi tính năng có một issue và một nhánh `features/<ten_tinh_nang>` tạo từ
 `origin/main`. Người dùng cho phép mọi agent tạo/comment/đóng issue và push nhánh
 task theo quy trình này. Agent không được merge khi người dùng chưa nghiệm thu;
-quyền không mở rộng sang deploy hoặc mutation cluster/cloud.
+quyền deploy chỉ gồm bước triển khai lên `kind-k8s-4f` ở dưới, không mở rộng sang
+cloud hoặc cluster khác.
 
 1. Trước khi code, tạo issue gồm: Mục tiêu, Phạm vi, Không làm, Tiêu chí nghiệm
    thu, Giai đoạn.
@@ -53,10 +54,13 @@ quyền không mở rộng sang deploy hoặc mutation cluster/cloud.
    mới sau đó thì chạy lại test full trước khi merge. Link chứa IP Tailscale nên
    chỉ gửi trong báo cáo, không ghi vào issue public.
 5. Chỉ sau khi người dùng nghiệm thu mới merge vào `main`, rồi xóa nhánh feature
-   cả local lẫn remote. Không ghi `Closes`/`Fixes` trong commit hoặc PR để issue
-   không tự đóng khi merge; dùng `Refs #N`. PR không bắt buộc.
-6. Test trên `main` theo tiêu chí và comment kết quả. Đạt thì đóng issue và gỡ
-   stack; chưa đạt thì giữ issue mở và sửa tiếp trên nhánh mới.
+   cả local lẫn remote và dừng stack local của tính năng. Không ghi `Closes`/`Fixes`
+   trong commit hoặc PR để issue không tự đóng khi merge; dùng `Refs #N`. PR không
+   bắt buộc.
+6. Triển khai `main` lên cụm `kind-k8s-4f`, test theo tiêu chí trên link Tailscale
+   của cụm và comment kết quả; thay đổi chỉ gồm tài liệu hoặc cấu hình chạy thử
+   local thì bỏ qua bước triển khai. Đạt thì đóng issue; chưa đạt thì giữ issue mở
+   và sửa tiếp trên nhánh mới.
 
 CI đỏ sẵn trên `main` không tính là đạt: ghi rõ job/test nào fail và so với
 `main` để chứng minh task không gây thêm lỗi. Repo public: comment không chứa
