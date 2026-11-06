@@ -1,4 +1,4 @@
-import { openWorkloadGroup } from '../../test/workloadGroups';
+import { openAdvancedFields, openWorkloadGroup } from '../../test/workloadGroups';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -33,7 +33,7 @@ async function newWorkload(user: ReturnType<typeof userEvent.setup>) {
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   await user.type(screen.getByLabelText('Tên Workload'), 'api');
-  await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/api:test');
+  await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/api:test');await openAdvancedFields(user);
 }
 async function addDependency(user: ReturnType<typeof userEvent.setup>, alias: string, type: string) {
   await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
@@ -241,11 +241,11 @@ describe('ADR-016 workload class (Workload metadata.class)', () => {
     expect(screen.queryByRole('combobox', { name: 'Class Workload' })).not.toBeInTheDocument();
     await user.click(save());
     expect((puts[0]?.workload as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api' });
-    await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
+    await openAdvancedFields(user);await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
     const select = screen.getByRole('combobox', { name: 'Class Workload' });
     expect(within(select).getAllByRole('option').map(option => option.textContent)).toEqual(['Mặc định (default)', 'gold', 'worker']);
     await user.selectOptions(select, 'gold');
-    await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
+    await openAdvancedFields(user);await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
     expect(screen.getByText('Cấu hình ít thay đổi',{exact:true}).closest('summary')!).toHaveTextContent('gold');
     await user.click(save());
     expect((puts[1]?.workload as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api', class: 'gold' });
@@ -262,7 +262,7 @@ describe('ADR-016 workload class (Workload metadata.class)', () => {
     await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
       await screen.findByLabelText('Ảnh Container');
       expect(screen.getByText('Cấu hình ít thay đổi',{exact:true}).closest('summary')!).toHaveTextContent(className);
-      await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
+      await openAdvancedFields(user);await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
       expect(screen.getByRole('combobox', { name: 'Class Workload' })).toHaveValue(className);
       expect(within(screen.getByRole('combobox', { name: 'Class Workload' })).getByRole('option', { name: `${className} (đã lưu)` })).toBeInTheDocument();
       await user.clear(screen.getByLabelText('Ảnh Container'));
@@ -280,7 +280,7 @@ describe('ADR-016 workload class (Workload metadata.class)', () => {
       ? Response.json({ code: 'INTERNAL_ERROR' }, { status: 500 })
       : Response.json({ resourceTypes: [{ key: 'workload', inputs: [], outputs: [], classes: result === 'empty' ? [] : ['gold'] }] }) });
     await newWorkload(user);
-    await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
+    await openAdvancedFields(user);await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
     await user.selectOptions(screen.getByRole('combobox', { name: 'Class Workload' }), 'gold');
     result = 'error';
     await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
@@ -306,7 +306,7 @@ describe('ADR-016 workload class (Workload metadata.class)', () => {
     const user = userEvent.setup();
     serve();
     await newWorkload(user);
-    await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
+    await openAdvancedFields(user);await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
     const select = screen.getByRole('combobox', { name: 'Class Workload' });
     expect(within(select).getAllByRole('option')).toHaveLength(1);
     expect(select).toHaveValue('');

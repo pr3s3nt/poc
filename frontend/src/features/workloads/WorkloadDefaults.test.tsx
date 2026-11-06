@@ -1,4 +1,4 @@
-import { openWorkloadGroup } from '../../test/workloadGroups';
+import { openAdvancedFields, openWorkloadGroup } from '../../test/workloadGroups';
 import { render,screen,within,waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach,expect,it,vi } from 'vitest';
@@ -21,33 +21,33 @@ function serve(failure=false,responseWorkload: Record<string,unknown>=effective,
  return Response.json({draftVersion:1,workloads:[]});
  }));return {saved,recover(){fail=false}};
 }
-async function author(){const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging"/>);await user.type(await screen.findByLabelText('Tên Workload'),'web');await user.type(screen.getByLabelText('Ảnh Container'),'nginx:1');return user}
+async function author(){const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging"/>);await user.type(await screen.findByLabelText('Tên Workload'),'web');await user.type(screen.getByLabelText('Ảnh Container'),'nginx:1');await openAdvancedFields(user);return user}
 it('displays backend effective values and saves inherited values as omissions',async()=>{
- const {saved}=serve();const user=await author();await waitFor(()=>expect(screen.getByText(/CPU 100m \(Theo môi trường\)/)).toBeInTheDocument());
+ const {saved}=serve();const user=await author();await waitFor(()=>expect(screen.getByText(/CPU 100m · RAM 128Mi/)).toBeInTheDocument());
  await user.click(screen.getByText('Tài nguyên tính toán',{exact:true}));const cpu=screen.getByLabelText('Yêu cầu CPU');expect(cpu).toHaveValue('');expect(cpu).toHaveAttribute('placeholder','100m');expect(screen.getByLabelText('Giới hạn bộ nhớ')).toHaveAttribute('placeholder','512Mi');
  await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(saved).toHaveLength(1);expect(saved[0]!.workload.containers).toEqual({main:{image:'nginx:1'}});expect((saved[0]!.workload.workloadExecution as Execution).defaults?.version).toBe('workload-defaults-v1');
 });
 it('keeps explicit false and zero and reset removes the history override',async()=>{
  const {saved}=serve();const user=await author();await user.click(screen.getByText('Bảo mật Pod',{exact:true}));await user.selectOptions(screen.getByLabelText('automountServiceAccountToken'),'false');
- await user.click(screen.getByText('Mở rộng & cập nhật',{exact:true}));const history=screen.getByLabelText('revisionHistoryLimit');await user.type(history,'0');expect(history).toHaveValue(0);
+ await openWorkloadGroup(user,'Mở rộng & cập nhật');const history=screen.getByLabelText('revisionHistoryLimit');await user.type(history,'0');expect(history).toHaveValue(0);
  await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect((saved[0]!.workload.workloadExecution as Execution).revisionHistoryLimit).toBe(0);expect((saved[0]!.workload.workloadExecution as Execution).automountServiceAccountToken).toBe(false);
  await user.click(within(history.closest('label')!).getByRole('button',{name:'Khôi phục mặc định'}));await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect((saved[1]!.workload.workloadExecution as Execution).revisionHistoryLimit).toBeUndefined();
 });
 it('preserves draft and prevents save when default metadata fails, then retries safely',async()=>{
- const mock=serve(true);const user=await author();await waitFor(()=>expect(screen.getByText(/Chưa tải được cấu hình hiệu lực/)).toBeInTheDocument());await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(mock.saved).toHaveLength(0);expect(screen.getByLabelText('Ảnh Container')).toHaveValue('nginx:1');mock.recover();await user.click(screen.getByRole('button',{name:'Thử lại'}));await waitFor(()=>expect(screen.getByText(/CPU 100m \(Theo môi trường\)/)).toBeInTheDocument());await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(mock.saved).toHaveLength(1);
+ const mock=serve(true);const user=await author();await waitFor(()=>expect(screen.getByText(/Chưa tải được cấu hình hiệu lực/)).toBeInTheDocument());await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(mock.saved).toHaveLength(0);expect(screen.getByLabelText('Ảnh Container')).toHaveValue('nginx:1');mock.recover();await user.click(screen.getByRole('button',{name:'Thử lại'}));await waitFor(()=>expect(screen.getByText(/CPU 100m · RAM 128Mi/)).toBeInTheDocument());await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(mock.saved).toHaveLength(1);
 });
 
 it('shows inherited template mounts, ports and readiness without saving them as overrides',async()=>{
  const {saved}=serve(false,{...effective,containers:{main:{...effective.containers.main,ports:[{name:'http',containerPort:8080}],readinessProbe:{type:'http',path:'/',port:8080}}},workloadExecution:{...effective.workloadExecution,volumeMounts:[{volume:'cache',container:'main',path:'/var/cache/nginx',readOnly:false},{volume:'tmp',container:'main',path:'/tmp',readOnly:false}]}});
  const user=await author();await openWorkloadGroup(user,'Volumes & files');await screen.findByText(/cache → \/var\/cache\/nginx, tmp → \/tmp/);
- await user.click(screen.getByText('Kiểm tra sức khỏe',{exact:true}));expect(screen.getByText(/Theo template · http :8080 \/$/)).toBeInTheDocument();
+ await user.click(screen.getByText('Kiểm tra sức khỏe',{exact:true}));expect(screen.getByText(/http :8080 \/$/)).toBeInTheDocument();
  await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(saved[0]!.workload.containers).toEqual({main:{image:'nginx:1'}});expect((saved[0]!.workload.workloadExecution as Execution).volumeMounts).toBeUndefined();
 });
 
 it('keeps a template-provided image omitted when editing runtime policy',async()=>{
  const template:WorkloadTemplate={id:'nginx',version:'1.0.0',sha256:'a'.repeat(64),kind:'Deployment',labels:{vi:'Nginx'},inputsSchema:{type:'object',properties:{}},defaults:{},runtimeDefaults:{image:'nginx:1'}};
- const {saved}=serve(false,effective,template);const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging" selectedTemplate={templateKey(template)}/>);await user.type(await screen.findByLabelText('Tên Workload'),'web');await waitFor(()=>expect(screen.getByLabelText('Ảnh Container')).toHaveAttribute('placeholder','nginx:1'));
- await user.click(screen.getByText('Mở rộng & cập nhật',{exact:true}));await user.selectOptions(screen.getByLabelText('PodDisruptionBudget'),'off');await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(saved).toHaveLength(1);expect(saved[0]!.workload.containers).toEqual({main:{}});expect((saved[0]!.workload.workloadExecution as Execution).podDisruptionBudget).toEqual({enabled:false});
+ const {saved}=serve(false,effective,template);const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging" selectedTemplate={templateKey(template)}/>);await user.type(await screen.findByLabelText('Tên Workload'),'web');await openAdvancedFields(user);await waitFor(()=>expect(screen.getByLabelText('Ảnh Container')).toHaveAttribute('placeholder','nginx:1'));
+ await openWorkloadGroup(user,'Mở rộng & cập nhật');await user.selectOptions(screen.getByLabelText('PodDisruptionBudget'),'off');await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(saved).toHaveLength(1);expect(saved[0]!.workload.containers).toEqual({main:{}});expect((saved[0]!.workload.workloadExecution as Execution).podDisruptionBudget).toEqual({enabled:false});
 });
 
 it('waits for the required image of a generic template instead of reporting resolver failure',async()=>{
@@ -56,7 +56,20 @@ it('waits for the required image of a generic template instead of reporting reso
  await screen.findAllByText('Nhập image cho container để tính cấu hình hiệu lực.');expect(screen.queryByRole('alert')).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'Thử lại'})).not.toBeInTheDocument();
  const resolutionCalls=()=>vi.mocked(fetch).mock.calls.filter(([input])=>String(input).endsWith('/resolve-defaults'));
  expect(resolutionCalls()).toHaveLength(0);await user.type(screen.getByLabelText('Tên Workload'),'web');await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(saved).toHaveLength(0);expect(resolutionCalls()).toHaveLength(0);
- await user.type(screen.getByLabelText('Ảnh Container'),'nginx:1');await waitFor(()=>expect(screen.getByText(/CPU 100m \(Theo môi trường\)/)).toBeInTheDocument());
+ await user.type(screen.getByLabelText('Ảnh Container'),'nginx:1');await waitFor(()=>expect(screen.getByText(/CPU 100m · RAM 128Mi/)).toBeInTheDocument());
  expect(resolutionCalls().length).toBeGreaterThan(0);for(const [,init] of resolutionCalls()){const request=JSON.parse(String(init?.body));expect(request.workload.containers.main.image).toBe('nginx:1')}
  await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(saved).toHaveLength(1);expect(saved[0]!.workload.containers).toEqual({main:{image:'nginx:1'}});expect((saved[0]!.workload.workloadExecution as Execution).template?.id).toBe('backend');
+});
+
+it('keeps the basic form small and lets typing replace a muted default without deleting it',async()=>{
+ const {saved}=serve();const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging"/>);
+ await user.type(await screen.findByLabelText('Tên Workload'),'web');await user.type(screen.getByLabelText('Ảnh Container'),'nginx:1');
+ expect(screen.getByRole('button',{name:'+ Thêm biến'})).toBeVisible();
+ for(const title of ['Tài nguyên tính toán','Volumes & files','Bảo mật Pod','Mở rộng & cập nhật','Cấu hình ít thay đổi'])expect(screen.queryByText(title,{exact:true})).not.toBeInTheDocument();
+ await user.click(screen.getByRole('button',{name:'Hiện nâng cao Container main'}));await openWorkloadGroup(user,'Tài nguyên tính toán');
+ const cpu=screen.getByLabelText('Yêu cầu CPU');await waitFor(()=>expect(cpu).toHaveAttribute('placeholder','100m'));expect(cpu).toHaveValue('');
+ expect(screen.queryByText('Theo môi trường',{exact:true})).not.toBeInTheDocument();expect(screen.queryByText('Theo nền tảng',{exact:true})).not.toBeInTheDocument();
+ await user.type(cpu,'250m');expect(cpu).toHaveValue('250m');await user.click(screen.getByRole('button',{name:'Ẩn nâng cao Container main'}));await user.click(screen.getByRole('button',{name:'Hiện nâng cao Container main'}));expect(cpu).toHaveValue('250m');
+ await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(saved).toHaveLength(1);expect(saved[0]!.workload.containers).toEqual({main:{image:'nginx:1',resources:{requests:{cpu:'250m'}}}});
+ expect((saved[0]!.workload.workloadExecution as Execution).revisionHistoryLimit).toBeUndefined();
 });

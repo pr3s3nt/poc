@@ -1,4 +1,4 @@
-import { openWorkloadGroup } from '../../test/workloadGroups';
+import { openAdvancedFields, openWorkloadGroup } from '../../test/workloadGroups';
 import { cleanup, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -32,7 +32,7 @@ function setup(workload?: Record<string, unknown>, others: {id:string;ready:bool
 }
 async function basic(user: ReturnType<typeof userEvent.setup>) {
   await user.type(await screen.findByLabelText('Tên Workload'), 'app');
-  await user.type(screen.getByLabelText('Ảnh Container'), 'example/app:1');
+  await user.type(screen.getByLabelText('Ảnh Container'), 'example/app:1');await openAdvancedFields(user);
 }
 const save = () => screen.getByRole('button', { name: 'Lưu draft Workload' });
 
@@ -144,7 +144,7 @@ it('keeps zero replicas, annotations, container/Service protocols and extended p
     service: { ports: { dns: { port: 53, targetPort: 5353, protocol: 'UDP' } } } };
   const { puts, user } = setup(workload);
   await screen.findByLabelText('Ảnh Container');
-  await user.click(screen.getByText('Mở rộng & cập nhật',{exact:true}));
+  await openWorkloadGroup(user,'Mở rộng & cập nhật');
   expect(screen.getByLabelText('Số replica')).toHaveValue(0);
   await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
   expect(screen.getByLabelText('Tên annotation')).toHaveValue('example.com/owner');

@@ -29,6 +29,11 @@ A generic template without an image now waits for required input before resolvin
 instead of showing an invalid/unavailable error on initial open. Published image
 profiles retain inheritance. See [template image defect verification](verification/2026-11-06-template-image-resolution.md).
 
+The latest authoring simplification keeps name/image/environment in the basic
+view and scopes other fields under Show advanced. Defaults remain muted hints,
+with no per-field provenance labels and no automatic override materialization.
+See [compact form/default hint verification](verification/2026-11-06-workload-simple-default-hints.md).
+
 ## Workload class dropdown — 2026-11-05
 
 Task branch `features/chinhform`: UC-16 BR-31/32 replaces free-text workload class

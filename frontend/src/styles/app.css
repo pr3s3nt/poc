@@ -745,3 +745,9 @@ fieldset.volume-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 .runtime-config-group > summary { cursor: pointer; padding: .65rem 0; }
 .runtime-config-group > .editor-grid { padding: .75rem 0; }
 .runtime-config-group label > small { display: block; font-weight: normal; }
+
+/* Inherited values are hints, never authored input. */
+.workload-editor input::placeholder,.workload-editor textarea::placeholder { color:#6e7781; opacity:.8; font-weight:400; }
+.workload-editor select.inherited-default { color:#6e7781; font-weight:400; }
+.workload-editor select.inherited-default option { color:var(--ink); }
+.workload-advanced-fields > .button { margin-top:10px; }

@@ -60,12 +60,13 @@ This extends [UC-16](specification.md); implementation/evidence are separate.
   Asia/Bangkok unless an explicit timezone is stored, Forbid, backoff 0, success/
   failure history 3; omitted deadlines stay absent. Explicit zero is retained.
 - **WD-09:** Metadata/default load errors preserve edits and permit read retry;
-  no guessed fallback. Reset removes the override. Display effective value/source
-  without serializing it as an override. Groups belong to workload/container scope,
+  no guessed fallback. Reset removes the override. Display effective values as muted placeholders without serializing them as
+  overrides; source labels stay out of the form (user decision 2026-11-06). Groups belong to workload/container scope,
   collapse with useful summaries, reveal errors and support keyboard and VI/EN.
   Order common image/environment/compute edits above infrequently changed startup,
   rollout/security/default policy fields; replicas belong to Scaling & updates.
-  Only environment variables and the conditional CronJob schedule open initially.
+  Only name/image/environment variables and conditional CronJob schedule show
+  initially; other groups belong to scoped Show advanced disclosures.
 - **WD-10:** Preview is read-only; expose effective config/provenance, Pod rights,
   rollout/history, PDB, claim templates/retention and resource changes. Pin policy,
   template and target with existing stale admission. Deploy alone applies changes.

@@ -1,4 +1,4 @@
-import { openWorkloadGroup } from '../../test/workloadGroups';
+import { openAdvancedFields, openWorkloadGroup } from '../../test/workloadGroups';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -293,7 +293,7 @@ const note = (name: string) => screen.getByRole('note', { name });
 async function fillBasic(user: ReturnType<typeof userEvent.setup>, name = 'web') {
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   await user.type(screen.getByLabelText('Tên Workload'), name);
-  await user.type(screen.getByLabelText('Ảnh Container'), `example.invalid/${name}:v1`);
+  await user.type(screen.getByLabelText('Ảnh Container'), `example.invalid/${name}:v1`);await openAdvancedFields(user);
 }
 async function addPort(user: ReturnType<typeof userEvent.setup>, name: string, port: string, index = 0) {
   await openWorkloadGroup(user,'Service & kết nối');
@@ -317,7 +317,7 @@ it('keeps resources, class and target port in closed advanced sections with effe
   expect(screen.queryByLabelText('Yêu cầu CPU')).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Lớp tài nguyên')).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Cổng đích của Container')).not.toBeInTheDocument();
-  expect(screen.getByText('Tài nguyên tính toán', {exact:true}).closest('summary')!).toHaveTextContent('Yêu cầu hiệu lực: CPU 10m (mặc định) · Bộ nhớ 32Mi (mặc định). Giới hạn: CPU chưa đặt · Bộ nhớ chưa đặt.');
+  expect(screen.getByText('Tài nguyên tính toán', {exact:true}).closest('summary')!).toHaveTextContent('CPU 10m · RAM 32Mi');
   expect(note('Tóm tắt nâng cao tài nguyên cache')).toHaveTextContent('Lớp hiệu lực: default (mặc định)');
   expect(note('Tóm tắt nâng cao cổng http')).toHaveTextContent('Cổng đích hiệu lực: 8080 (theo cổng Service)');
   await user.click(saveButton());
@@ -337,14 +337,14 @@ it('shows the effective request as explicit, else same-dimension limit, else def
   const summary = () => screen.getByText('Tài nguyên tính toán', {exact:true}).closest('summary')!;
   await user.click(screen.getByText('Tài nguyên tính toán', {exact:true}));
   await user.type(screen.getByLabelText('Giới hạn CPU'), '500m');
-  expect(summary()).toHaveTextContent('CPU 500m (theo limit) · Bộ nhớ 32Mi (mặc định). Giới hạn: CPU 500m · Bộ nhớ chưa đặt.');
+  expect(summary()).toHaveTextContent('CPU 500m · RAM 32Mi');
   await user.type(screen.getByLabelText('Yêu cầu bộ nhớ'), '64Mi');
-  expect(summary()).toHaveTextContent('Bộ nhớ 64Mi (tường minh)');
+  expect(summary()).toHaveTextContent('RAM 64Mi');
   await user.type(screen.getByLabelText('Yêu cầu CPU'), '100m');
-  expect(summary()).toHaveTextContent('CPU 100m (tường minh)');
+  expect(summary()).toHaveTextContent('CPU 100m');
   await user.click(screen.getByText('Tài nguyên tính toán', {exact:true}));
   expect(screen.queryByLabelText('Giới hạn CPU')).not.toBeInTheDocument();
-  expect(summary()).toHaveTextContent('CPU 100m (tường minh) · Bộ nhớ 64Mi (tường minh). Giới hạn: CPU 500m · Bộ nhớ chưa đặt.');
+  expect(summary()).toHaveTextContent('CPU 100m · RAM 64Mi');
   await user.click(saveButton());
   expect(puts[0]!.workload.containers.main.resources).toEqual({ requests: { cpu: '100m', memory: '64Mi' }, limits: { cpu: '500m' } });
 });
@@ -356,7 +356,7 @@ it('keeps imported advanced overrides through collapse and basic edits and write
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
     await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await screen.findByRole('heading', { name: 'Sửa api' });
-  expect(screen.getByText('Tài nguyên tính toán', {exact:true}).closest('summary')!).toHaveTextContent('CPU 250m (tường minh) · Bộ nhớ 256Mi (theo limit). Giới hạn: CPU 1 · Bộ nhớ 256Mi.');
+  expect(screen.getByText('Tài nguyên tính toán', {exact:true}).closest('summary')!).toHaveTextContent('CPU 250m · RAM 256Mi');
   expect(note('Tóm tắt nâng cao tài nguyên db')).toHaveTextContent('Lớp hiệu lực: large (tường minh)');
   await openWorkloadGroup(user,'Service & kết nối');
   expect(note('Tóm tắt nâng cao cổng http')).toHaveTextContent('Cổng đích hiệu lực: 9090 (ghi đè)');

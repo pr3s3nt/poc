@@ -231,17 +231,17 @@ private/shared, không tự migrate. Dialog thêm resource dùng đúng controls
 
 ## WD — Runtime groups and inherited values
 
-Use the current shell/cards/controls. Approved frequency-based layout (2026-11-06):
-workload name, Containers, Service/networking, Dependencies, CronJob Schedule,
-Scaling & updates (replicas included; not CronJob), StatefulSet Storage, Pod security,
-then Infrequent configuration (execution kind, defaults policy, class, annotations).
-Container name/image remain first, followed by Environment, Compute resources,
-Volumes & files, Ports, Health checks, Startup overrides (role/order, command/args,
-working directory), then Container security. Environment opens initially; other
-container groups collapse. CronJob Schedule opens initially, with concurrency/retry/
-history behind its own disclosure. Other workload groups collapse with useful
-current-value summaries. Error groups open for correction. Reordering never adopts
-new defaults or copies effective values into overrides.
-Effective fields show source; Reset removes override and returns to inheritance.
-Loading/failure keeps draft, shows retry and never substitutes guessed defaults.
+Use the current shell/cards/controls. Latest approved simplification (2026-11-06):
+show workload name and each container's name/image/environment variables. Put other
+container groups behind Show advanced per container, and Service/dependencies/
+scaling/storage/Pod security/execution/default policy/class/annotations behind a
+workload Show advanced. CronJob schedule remains visible when applicable. Advanced
+sections preserve mounted edits after first opening and open for validation errors.
+Defaults appear as muted placeholders in empty inputs, never as authored values.
+Typing starts a fresh override without deleting default text. For select controls,
+the empty selection displays the resolved default in muted text. Do not show source
+labels (platform/template/environment/custom) on the form; backend provenance and
+Preview remain available. Reset/clearing removes overrides. Unknown/missing defaults
+stay unconfigured; do not invent example values that look like defaults.
+Loading/failure keeps draft and provides retry for actual resolution errors.
 ServiceAccount is managed/read-only unless a published allowed choice exists.

@@ -26,8 +26,9 @@ hiển thị image kế thừa và không ghi nó thành override khi chỉ mở
 ## Giá trị hiệu lực và mặc định
 
 Workload mới từ form dùng `workload-defaults-v1`. Workload cũ giữ policy cũ tới
-khi chủ động đổi. Giá trị hiển thị lấy từ backend: Tùy chỉnh > Theo template >
-Theo môi trường/nền tảng. Khôi phục mặc định xóa override; không ghi một bản sao
+khi chủ động đổi. Backend ưu tiên giá trị bạn nhập, rồi defaults template,
+rồi policy môi trường/nền tảng. Form không hiển thị nhãn nguồn. Giá trị mặc định
+hiện mờ trong ô trống; gõ trực tiếp để đặt giá trị riêng, không cần xóa default. Khôi phục mặc định xóa override; không ghi một bản sao
 của giá trị hiện tại. Metadata lỗi thì giữ draft, chỉnh trường lỗi và thử lại.
 Không đổi template/policy để chữa một lỗi runtime mà chưa kiểm tra Preview.
 
@@ -103,10 +104,10 @@ Import chỉ nhận Generic Workload YAML/JSON; manifest Kubernetes tùy ý khô
 retention và diff trước Deploy. Nâng Definition/source cho Environment là hành
 động riêng trong Settings → Phiên bản tài nguyên; workload đang chạy giữ pin cũ.
 
-## Thứ tự form theo tần suất chỉnh sửa
+## Form cơ bản và nâng cao
 
-Image và biến môi trường nằm đầu phần container; tiếp theo là CPU/RAM, volumes,
-cổng, health checks, khởi chạy nâng cao và bảo mật. Replica nằm trong Mở rộng &
-cập nhật. Kiểu thực thi, policy defaults, class và annotations nằm trong Cấu hình
-ít thay đổi ở cuối form. Biến môi trường mở sẵn; CronJob có thêm Lịch chạy mở sẵn.
-Các nhóm còn lại thu gọn với tóm tắt, mở ra khi cần chỉnh hoặc khi có lỗi.
+Tên workload, tên/image container và biến môi trường hiện ở phần cơ bản. Các nhóm
+CPU/RAM, volumes, cổng, probes, khởi chạy và bảo mật nằm trong Hiện nâng cao của
+container. Service, dependencies, replica/cập nhật, Pod security và cấu hình ít
+thay đổi nằm trong Hiện nâng cao Workload. CronJob vẫn hiện Lịch chạy ở ngoài.
+Đóng/mở nâng cao giữ phần đang nhập; lỗi validation mở phần cần sửa.
