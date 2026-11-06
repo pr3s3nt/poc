@@ -8,6 +8,7 @@ import (
 	"orchestrator/internal/domain/monitoring"
 	"orchestrator/internal/ports/execution"
 	obs "orchestrator/internal/ports/observability"
+	"sort"
 )
 
 func (r *TelemetryReader) MonitoringTarget(ctx context.Context, source obs.Source) (monitoring.Target, error) {
@@ -58,6 +59,83 @@ func (r *TelemetryReader) MonitoringTarget(ctx context.Context, source obs.Sourc
 		return out, ErrCredentialTarget
 	}
 	out = monitoring.Target{Scope: monitoring.Scope{Organization: source.OrganizationKey, Application: source.ApplicationKey, Environment: source.EnvironmentKey, Generation: source.Generation, ClusterUID: ns.Metadata.UID, Namespace: source.Target.Namespace}, Workload: source.WorkloadID, Kind: source.MonitoringController.Kind, Name: source.MonitoringController.Name, UID: object.Metadata.UID}
+	selector := "app.kubernetes.io/name=" + source.WorkloadID + ",orchestrator.io/application=" + source.ApplicationKey + ",orchestrator.io/environment=" + source.EnvironmentKey
+	query := url.Values{"labelSelector": {selector}, "limit": {"64"}}
+	owners := map[string]bool{object.Metadata.UID: true}
+	if out.Kind == "Deployment" {
+		rsRaw, err := cli.RunBounded(ctx, 2<<20, "get", "--raw", "/apis/apps/v1/namespaces/"+url.PathEscape(source.Target.Namespace)+"/replicasets?"+query.Encode(), "--request-timeout=8s")
+		if err != nil {
+			return out, err
+		}
+		var sets struct {
+			Metadata struct {
+				Continue string `json:"continue"`
+			} `json:"metadata"`
+			Items []struct {
+				Metadata telemetryMeta `json:"metadata"`
+			} `json:"items"`
+		}
+		if json.Unmarshal(rsRaw, &sets) != nil || sets.Metadata.Continue != "" || len(sets.Items) > 64 {
+			return out, ErrCredentialTarget
+		}
+		owners = map[string]bool{}
+		for _, rs := range sets.Items {
+			for _, owner := range rs.Metadata.Owners {
+				if owner.Controller && owner.Kind == "Deployment" && owner.UID == object.Metadata.UID {
+					owners[rs.Metadata.UID] = true
+				}
+			}
+		}
+	}
+	podsRaw, err := cli.RunBounded(ctx, 2<<20, "get", "--raw", "/api/v1/namespaces/"+url.PathEscape(source.Target.Namespace)+"/pods?"+query.Encode(), "--request-timeout=8s")
+	if err != nil {
+		return out, err
+	}
+	var pods struct {
+		Metadata struct {
+			Continue string `json:"continue"`
+		} `json:"metadata"`
+		Items []telemetryPod `json:"items"`
+	}
+	if json.Unmarshal(podsRaw, &pods) != nil || pods.Metadata.Continue != "" || len(pods.Items) > 64 {
+		return out, ErrCredentialTarget
+	}
+	cpu, memory := 0.0, 0.0
+	completeCPU, completeMemory := true, true
+	names := map[string]bool{}
+	out.PodUIDs = []string{}
+	for _, pod := range pods.Items {
+		owned := false
+		for _, owner := range pod.Metadata.Owners {
+			if owner.Controller && owners[owner.UID] {
+				owned = true
+			}
+		}
+		if !owned || pod.Metadata.UID == "" {
+			continue
+		}
+		out.PodUIDs = append(out.PodUIDs, pod.Metadata.UID)
+		for _, container := range pod.Spec.Containers {
+			names[container.Name] = true
+			v, ok := quantity(container.Resources.Limits["cpu"], true)
+			completeCPU = completeCPU && ok
+			cpu += v
+			v, ok = quantity(container.Resources.Limits["memory"], false)
+			completeMemory = completeMemory && ok
+			memory += v
+		}
+	}
+	sort.Strings(out.PodUIDs)
+	for name := range names {
+		out.Containers = append(out.Containers, name)
+	}
+	sort.Strings(out.Containers)
+	if len(out.PodUIDs) > 0 && completeCPU {
+		out.CPULimitMilli = &cpu
+	}
+	if len(out.PodUIDs) > 0 && completeMemory {
+		out.MemoryLimitBytes = &memory
+	}
 	return out, out.Validate()
 }
 

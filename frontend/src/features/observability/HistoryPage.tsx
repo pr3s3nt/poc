@@ -1,3 +1,4 @@
+import { ExternalMonitoring } from './ExternalMonitoring';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { t } from '../../shared/i18n';
 import { navigate, type TelemetryRouteQuery } from '../../app/routes';
@@ -17,7 +18,7 @@ const localDateInput = (raw: string) => { const date = new Date(raw); if (!Numbe
 const knownRanges = [15, 60, 360, 1440, 10080, 21600];
 function preset(filters: Filters): string { if (!filters.from || !filters.to) return '60'; const duration = (Date.parse(filters.to) - Date.parse(filters.from)) / 60000; return String(knownRanges.find(minutes => Math.abs(minutes - duration) < 0.05) ?? 'custom'); }
 
-export function HistoryPage({ application, environment, tab, query = {} }: { application: Application; environment: EnvironmentKey; tab: 'logs' | 'metrics'; query?: TelemetryRouteQuery }) {
+function NativeHistoryPage({ application, environment, tab, query = {} }: { application: Application; environment: EnvironmentKey; tab: 'logs' | 'metrics'; query?: TelemetryRouteQuery }) {
   const routeKey = JSON.stringify(query);
   const initial = useMemo(() => { const input = JSON.parse(routeKey) as TelemetryRouteQuery; return { ...interval(60), ...Object.fromEntries(Object.entries(input).filter(([key, value]) => key !== 'focus' && value !== undefined)), limit: 100 } as Filters; }, [routeKey]);
   const [filters, setFilters] = useState<Filters>(initial);
@@ -91,10 +92,15 @@ export function HistoryPage({ application, environment, tab, query = {} }: { app
         <div className="obs-metric-table-heading"><h3>{text('latestValues')}</h3><span>{text('metricInterval', { seconds: data.stepSeconds })}</span></div>
         <div className="obs-table-scroll"><table className="obs-metric-table"><thead><tr><th>{text('workload')}</th><th>{text('cpu')} <small>(mCPU)</small></th><th>{text('memory')} <small>(MiB)</small></th><th>{text('restarts')}</th><th>{text('pods')}</th><th /></tr></thead><tbody>{data.latest.map(sample => <tr key={sample.workloadId}><td><span className="obs-workload-label"><i style={{ background: color(sample.workloadId, workloads) }} />{sample.workloadId}</span><small className="obs-sample-time">{text('sourceTimestamp', { time: dateTime(sample.metricsAt ?? sample.timestamp) })}</small></td><td>{sample.cpuMilli === null ? '—' : displayValue('cpu', sample.cpuMilli)}</td><td>{sample.memoryBytes === null ? '—' : displayValue('memory', sample.memoryBytes)}</td><td>{number(sample.restarts)}</td><td><Status tone={data.state === 'RECEIVING' && sample.readyPods === sample.totalPods && sample.totalPods > 0 ? 'good' : 'neutral'}>{`${sample.readyPods} / ${sample.totalPods}`}</Status></td><td><Button tone="quiet" onClick={() => navigate({ name: 'observability', applicationId: application.id, environment, tab: 'logs', query: { from: logFrom(filters.from), to: filters.to, workload: sample.workloadId } })}>{text('viewLogs')} →</Button></td></tr>)}</tbody></table>{!data.latest.length ? <p className="obs-stamp">{text('emptyPeriod')}</p> : null}</div>
       </>}
-      <div className="obs-explorer-footer"><small>{text('retention')}</small><small>{text('timezoneName', { zone: timezone() })}</small></div>
+      <div className="obs-explorer-footer"><small>{data?.source === 'loki' ? t('monitoring.lokiRetentionNotice', { days: data.logsRetentionDays }) : text('retention')}</small><small>{text('timezoneName', { zone: timezone() })}</small></div>
     </section>
     <dialog ref={dialog} className="obs-detail-dialog" aria-labelledby="native-log-title" onCancel={() => setDetail(null)} onClick={event => { if (event.target === event.currentTarget) setDetail(null); }}>
       {detail ? <><header><h2 id="native-log-title">{text('detail')}</h2><Button tone="quiet" aria-label={text('close')} onClick={() => setDetail(null)}>×</Button></header><dl><div><dt>{text('timeColumn')}</dt><dd>{dateTime(detail.timestamp)}</dd></div><div><dt>Environment</dt><dd>{environment}</dd></div><div><dt>{text('workload')}</dt><dd>{detail.workloadId}</dd></div><div><dt>{text('container')}</dt><dd>{detail.container}</dd></div><div className="obs-full-row"><dt>{text('pod')}</dt><dd>{detail.podName}<small className="obs-sample-time">UID: {detail.podUid}</small></dd></div><div><dt>{text('level')}</dt><dd>{detail.level}</dd></div><div><dt>{text('restarts')}</dt><dd>{detail.restartIndex}</dd></div></dl><pre>{detail.message}</pre><footer><span role="status">{copyState}</span><Button onClick={() => { if (!navigator.clipboard) { setCopyState(text('copyFail')); return; } void navigator.clipboard.writeText(detail.message).then(() => setCopyState(text('copied'))).catch(() => setCopyState(text('copyFail'))); }}>{text('copy')}</Button></footer></> : null}
     </dialog>
   </section>;
+}
+
+export function HistoryPage(props: { application: Application; environment: EnvironmentKey; tab: 'logs' | 'metrics'; query?: TelemetryRouteQuery }) {
+ if (props.tab === 'metrics' && props.query?.source !== 'native') return <ExternalMonitoring applicationId={props.application.id} environment={props.environment} historyName={props.application.name} initialQuery={props.query} nativeFallback={<NativeHistoryPage {...props} />} />;
+ return <NativeHistoryPage {...props} />;
 }

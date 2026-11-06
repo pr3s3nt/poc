@@ -75,10 +75,10 @@ alloy:
       loki.process "logs" {
         forward_to = [loki.write.default.receiver]
         stage.regex {
-          expression = "^(?P<level>ERROR|ERR|FATAL|PANIC|WARN|WARNING|INFO|DEBUG|TRACE)\\b"
+          expression = "(?i)^\\[?(?P<level>ERROR|ERR|FATAL|PANIC|WARN|WARNING|INFO|DEBUG|TRACE)\\b"
         }
         stage.json {
-          expressions = { level = "level", severity = "severity" }
+          expressions = { level = "level || severity || \"log.level\"" }
         }
         stage.template {
           source = "level"
@@ -95,7 +95,11 @@ alloy:
         }
         // Bounded, representative redaction; applications must not print secrets.
         stage.replace {
-          expression = "(?i)(authorization|password|token|secret)([\\\" =:]+)([^\\\" ,}]+)"
+          expression = "(?i)(?:authorization[\\\" =:]+)(?:(?:bearer|basic)[ ]+)?([^\\\" ,}]+)"
+          replace = "[REDACTED]"
+        }
+        stage.replace {
+          expression = "(?i)(?:password|token|secret)[\\\" =:]+([^\\\" ,}]+)"
           replace = "[REDACTED]"
         }
       }

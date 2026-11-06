@@ -23,9 +23,37 @@ Alertmanager webhook bodies, inspectable at `/receipts`. No mock provider respon
 or synthetic notification receipts are used. These endpoints are test-only and
 must stay on the isolated cluster/private forwards.
 
-Live procedure and assertions are being added. No completed deployment, alert,
-persistence or lifecycle acceptance is claimed by the existence of this fixture.
-Runtime credentials, ownership receipts and browser evidence must remain outside
-Git. Cluster UID and resource UID checks precede cleanup. Retain the isolated
-cluster/feature stack while the authorized verification is in progress; teardown
-must not remove shared/preexisting resources or another agent's services.
+Run from the repository root with the shared Console environment variables,
+`ORCH_TEST_RUN_DIR` (existing owner-only directory outside Git), unique
+`ORCH_TEST_NAME`, and `ORCH_CLUSTER_KUBECONFIG_FILE`. The isolated platform must
+have a READY account named `obs35-kind` and an already verified default Fleet
+binding. `prepare` creates one owned Application, app-scoped Definitions from the
+packaged namespace module/current standard templates, and configures the recorded
+real connection/profile/binding through Console. It asserts NOT_DEPLOYED.
+
+```sh
+node e2e/scenarios/observability-capabilities/run.mjs prepare
+ORCH_TEST_ACCESS_FILE=/private/namespace-access.json \
+  node e2e/scenarios/observability-capabilities/run.mjs deploy
+node e2e/scenarios/observability-capabilities/run.mjs observe
+# After a backend rebuild, re-inspect identical content and select its new pin:
+node e2e/scenarios/observability-capabilities/run.mjs refresh-renderer
+# Each configuration update must be followed by deploy, observe and noop:
+node e2e/scenarios/observability-capabilities/run.mjs profile-update
+node e2e/scenarios/observability-capabilities/run.mjs noop
+```
+
+`deploy` imports a Generic Workload through Console and uses Preview/Deploy.
+Namespace RBAC setup uses the shared helper only after product namespace creation;
+its rules must include PrometheusRule/PodMonitor alongside ordinary workload access.
+`observe` reads the real scoped monitoring API and opens Console. A lost deployment
+response is retained as pending and must be diagnosed before any retry. Receipts
+pin app/namespace identity; same-name unrecorded applications are never adopted.
+
+Traffic/failure, notifications, persistence and lifecycle acceptance procedures
+are still being completed; these phases alone do not prove those gates. Runtime
+credentials, ownership receipts and browser evidence remain outside Git. Record
+cluster/resource UIDs before cleanup. Retain the isolated cluster/feature stack
+while verification is in progress. Withdraw workloads using product delivery,
+remove only recorded namespace RBAC/collector allowlist entries, then delete the
+owned Application. Never delete shared/preexisting resources or another session.

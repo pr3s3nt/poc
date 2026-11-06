@@ -137,6 +137,7 @@ func TestMonitoringVerificationRejectsConcurrentConfigRevision(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
+	c.Name = "Changed source name"
 	next, e := m.Save(ctx, "acme", c, c.Revision, "")
 	if e != nil {
 		t.Fatal(e)
@@ -215,5 +216,123 @@ func TestMonitoringFirstDeploymentVerifiesPhysicalCluster(t *testing.T) {
 	m.Native.reader = desiredClusterFixture{"foreign-cluster"}
 	if _, e = m.PlanRules(ctx, "acme", "shop", env, target, "web", manifests); !errors.Is(e, monitoring.ErrInvalid) {
 		t.Fatal("foreign physical destination accepted", e)
+	}
+}
+
+func TestMonitoringUnchangedConfigAndBindingAreNoops(t *testing.T) {
+	ctx := context.Background()
+	m, st, scope := monitoringFixture(t)
+	server := monitoringProvider(t, false)
+	defer server.Close()
+	c, e := m.Save(ctx, "acme", connectionFixture(server.URL), 0, "")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = m.Test(ctx, "acme", c.ID); e != nil {
+		t.Fatal(e)
+	}
+	c, e = st.GetMonitoringConnection(ctx, "acme", c.ID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	same, e := m.Save(ctx, "acme", c, c.Revision, "")
+	if e != nil || same.Revision != c.Revision || same.VerifiedAt == nil {
+		t.Fatal("same config invalidated verification", e)
+	}
+	first, e := m.Bind(ctx, scope, c.ID, 0)
+	if e != nil {
+		t.Fatal(e)
+	}
+	second, e := m.Bind(ctx, scope, c.ID, first.Revision)
+	if e != nil || second.Revision != first.Revision {
+		t.Fatal("same binding bumped revision", e)
+	}
+}
+
+type failingDeleteCredentials struct {
+	durableCredentialFixture
+	fail bool
+}
+
+func (f *failingDeleteCredentials) Delete(ctx context.Context, org, key, ref string) error {
+	if f.fail {
+		return errors.New("provider unavailable")
+	}
+	return f.Store.Delete(ctx, org, key, ref)
+}
+func TestMonitoringCredentialRotationAndDeletionAreRecoverable(t *testing.T) {
+	ctx := context.Background()
+	m, st, scope := monitoringFixture(t)
+	creds := &failingDeleteCredentials{durableCredentialFixture: durableCredentialFixture{credentialmemory.New()}}
+	m.Credentials = creds
+	c, e := m.SaveWithTokens(ctx, "acme", connectionFixture("https://metrics.example.test"), 0, "", map[string]string{"prometheus": "old-token"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, old := c.Credential("prometheus")
+	creds.fail = true
+	c, e = m.SaveWithTokens(ctx, "acme", c, c.Revision, "", map[string]string{"prometheus": "new-token"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if len(c.RetiredCredentials) != 1 || c.RetiredCredentials[0].Reference != old {
+		t.Fatal("lost cleanup receipt")
+	}
+	if _, e = m.client(ctx, c, "prometheus"); e != nil {
+		t.Fatal("new token unavailable", e)
+	}
+	creds.fail = false
+	rev := c.Revision
+	c, e = m.Save(ctx, "acme", c, c.Revision, "")
+	if e != nil || c.Revision != rev || len(c.RetiredCredentials) != 0 {
+		t.Fatal("retry changed config or lost receipt", e)
+	}
+	if _, e = creds.Get(ctx, "acme", c.Key+"-prometheus", old); e == nil {
+		t.Fatal("superseded credential retained")
+	}
+	changed := c
+	changed.PrometheusURL = "https://new.example.test"
+	if _, e = m.Save(ctx, "acme", changed, c.Revision, ""); !errors.Is(e, monitoring.ErrCredentialChange) {
+		t.Fatal("endpoint reused credential", e)
+	}
+	creds.fail = true
+	if e = m.Delete(ctx, "acme", c.ID, c.Revision); !errors.Is(e, ErrUnavailable) {
+		t.Fatal(e)
+	}
+	saved, e := st.GetMonitoringConnection(ctx, "acme", c.ID)
+	if e != nil || !saved.Deleting {
+		t.Fatal("failed deletion lost tombstone", e)
+	}
+	if _, e = m.Save(ctx, "acme", c, c.Revision, ""); !errors.Is(e, monitoring.ErrInUse) {
+		t.Fatal("reactivated deleting connection", e)
+	}
+	if _, e = m.Test(ctx, "acme", c.ID); !errors.Is(e, monitoring.ErrInUse) {
+		t.Fatal("tested deleting connection", e)
+	}
+	if _, e = m.BindSources(ctx, scope, c.ID, 0, "native", "native"); !errors.Is(e, monitoring.ErrInUse) {
+		t.Fatal("bound deleting connection", e)
+	}
+	creds.fail = false
+	if e = m.Delete(ctx, "acme", c.ID, c.Revision); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = st.GetMonitoringConnection(ctx, "acme", c.ID); !errors.Is(e, persistence.ErrNotFound) {
+		t.Fatal("retry did not finish deletion", e)
+	}
+}
+func TestMonitoringEndpointChangeRequiresExplicitCredentialClear(t *testing.T) {
+	ctx := context.Background()
+	m, _, _ := monitoringFixture(t)
+	c, e := m.SaveWithTokens(ctx, "acme", connectionFixture("https://old.example.test"), 0, "", map[string]string{"prometheus": "token"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	c.PrometheusURL = "https://new.example.test"
+	c, e = m.SaveWithTokens(ctx, "acme", c, c.Revision, "", map[string]string{"prometheus": ""})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, ref := c.Credential("prometheus"); ref != "" {
+		t.Fatal("explicit clear failed")
 	}
 }

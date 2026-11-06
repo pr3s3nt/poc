@@ -3832,7 +3832,7 @@
   "monitoring.deployments": "Triển khai",
   "monitoring.grafana": "Mở Grafana",
   "monitoring.coverage": "Phạm vi dữ liệu",
-  "monitoring.coverageHelp": "OOM là trạng thái kết thúc gần nhất, không phải lịch sử đầy đủ. Logs dùng nguồn native. Khoảng trống là dữ liệu thiếu; Grafana có quyền truy cập riêng.",
+  "monitoring.coverageHelp": "CPU/RAM dùng UID pod hiện tại; trước khi thay pod có thể có khoảng trống. OOM là trạng thái kết thúc gần nhất, không phải lịch sử đầy đủ. Giá trị trống không bằng 0. Lịch sử native và quyền Grafana độc lập.",
   "monitoring.NOT_DEPLOYED": "Chưa triển khai",
   "monitoring.RECEIVING": "Đang nhận dữ liệu",
   "monitoring.PARTIAL": "Thiếu dữ liệu",
@@ -4081,5 +4081,11 @@
   "monitoring.NOT_CONFIGURED": "Chưa cấu hình",
   "monitoring.active": "Đang xử lý",
   "monitoring.suppressed": "Đã chặn",
-  "monitoring.unprocessed": "Chưa xử lý"
+  "monitoring.unprocessed": "Chưa xử lý",
+  "monitoring.lokiRetention": "Retention Loki đã cấu hình (ngày)",
+  "monitoring.lokiRetentionNotice": "Loki: retention đã cấu hình {days} ngày; dữ liệu cũ hơn có thể không còn.",
+  "monitoring.customRange": "Khoảng đã chọn",
+  "monitoring.nativeMetricHistory": "Lịch sử metrics native",
+  "monitoring.settings": "Cài đặt môi trường",
+  "monitoring.staleBinding": "Cấu hình giám sát đã đổi. Kiểm tra kết nối và cập nhật binding trước khi triển khai."
 }

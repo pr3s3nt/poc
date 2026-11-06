@@ -22,3 +22,19 @@ func TestTypedProfileRejectsQueriesAndUnboundedCollection(t *testing.T) {
 		t.Fatal("unbounded cardinality")
 	}
 }
+
+func TestRatioRequiresActualDenominatorAndBoundedMatchers(t *testing.T) {
+	p := WorkloadProfile{Port: "metrics", Path: "/metrics", IntervalSeconds: 30, SampleLimit: 500, Metrics: []MetricDefinition{{Key: "error_ratio", Metric: "http_requests_total", Aggregation: "rate_ratio", DenominatorMetric: "http_requests_total", MinimumDenominator: 0.1, Matchers: map[string]string{"code": "5.."}, Unit: "ratio"}}}
+	if p.Validate() != nil {
+		t.Fatal("typed error ratio rejected")
+	}
+	p.Metrics[0].MinimumDenominator = 0
+	if p.Validate() == nil {
+		t.Fatal("no-traffic ratio accepted")
+	}
+	p.Metrics[0].MinimumDenominator = 0.1
+	p.Metrics[0].Matchers = map[string]string{"namespace": ".*"}
+	if p.Validate() == nil {
+		t.Fatal("ratio escaped trusted identity")
+	}
+}

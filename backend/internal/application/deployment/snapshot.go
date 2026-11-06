@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	catalogapp "orchestrator/internal/application/catalogrelease"
+	"orchestrator/internal/domain/monitoring"
 
 	"orchestrator/internal/application/deploymentreview"
 	"orchestrator/internal/application/target"
@@ -67,6 +68,7 @@ func PublicFailure(err error) string {
 // point in time (UC-05 BR-01, OC-06/07). UC-05 Preview and UC-06 Deploy share
 // it so both plan from identical input semantics.
 type PlanningSnapshot struct {
+	Monitoring                  monitoring.Pin
 	DefinitionsPending          bool
 	DefinitionSelectionRevision int64
 	CatalogPending              bool
@@ -112,6 +114,10 @@ func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 			return fmt.Errorf("deployment: application %q: %w", applicationKey, persistence.ErrNotFound)
 		}
 		env, err := view.GetEnvironment(ctx, applicationKey, environmentKey)
+		if err != nil {
+			return err
+		}
+		monitoringPin, err := persistence.ReadMonitoringPin(ctx, view, organizationKey, applicationKey, environmentKey, env.TargetGeneration)
 		if err != nil {
 			return err
 		}
@@ -164,7 +170,7 @@ func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 		if err != nil {
 			return err
 		}
-		out = PlanningSnapshot{
+		out = PlanningSnapshot{Monitoring: monitoringPin,
 			DefinitionsPending: selection.Pending(), DefinitionSelectionRevision: selection.Revision,
 			CatalogPending: catalogBinding.Desired != nil && (catalogBinding.Applied == nil || catalogBinding.Desired.Digest() != catalogBinding.Applied.Digest()),
 			App:            app, Env: env,

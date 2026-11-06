@@ -145,3 +145,9 @@ physical cluster identity directly from the admitted execution target before
 rendering desired observability configuration; query discovery continues using
 live owned controller UIDs. The source-specific adapters perform bounded reads,
 and only Prometheus/Alertmanager evaluate/send alerts. See the extended contract.
+
+Monitoring pins flow from the consistent planning snapshot through plan hash,
+pending Preview token and Environment operation claim. Successful delivery records
+the applied signature in workload target metadata. Pending planning compares this
+signature independently of Workload/configuration changes, so profile-only updates
+and native-source withdrawal use the ordinary fenced delivery/pruning path.

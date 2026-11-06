@@ -312,3 +312,13 @@ per-resource evidence; changing a Definition does not silently upgrade this scop
 
 [EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
 preview, atomic hostname reservation, manifest delivery and safe release.
+
+
+## External observability configuration pins — issue #35
+
+The [external observability contract](../../architecture/contracts/external-observability.md#preview-and-operation-fencing)
+extends immutable Preview/admission snapshots with nonsecret monitoring connection
+and binding revisions. Profile-only changes produce ordinary pending UPDATEs;
+unchanged saves do not. Admission rejects stale pins before provider effects and
+configuration mutation respects held referencing Environment operations. Removal
+uses retained owned delivery receipts even when the external query source is stale.

@@ -154,3 +154,30 @@ keeps Pod UID as structured metadata and uses a representative redaction rule.
 It does not guarantee removal of all secrets printed by an application. Helm
 renders the embedded Alloy template before `alloy validate`; validate the rendered
 configuration, not its Helm-escaped source.
+
+### Upgrade, backup và gỡ cài đặt
+
+- Trước upgrade: lưu config, values, chart hashes, private receipts và `helm history`;
+  ghi UID/PVC và consumers của từng release. Chạy plan với bản mới và đọc manifest
+  diff. Operator/CRD upgrade cần procedure riêng theo upstream, không chỉ đổi pin.
+- Backup dữ liệu bằng cơ chế snapshot/backup của storage backend. Bao gồm PVC của
+  Prometheus, Loki, Grafana và Alertmanager; backup Secrets/config riêng có mã hóa.
+  Với PostgreSQL, dùng backup DB nhất quán và kiểm tra restore; exporter không
+  chứa bản sao DB. Restart giữ PVC chỉ chứng minh persistence, chưa chứng minh restore.
+- Restore thử ở cluster/namespace riêng trước khi dùng backup cho phục hồi. Đối
+  chiếu metric ở timestamp cũ, log cũ, dashboard/annotation, silence và DB marker;
+  kiểm tra nguồn mới vẫn ingest. Không copy receipt sang cluster có UID khác để
+  tiếp tục apply: cluster đích phải có installation/state mới và inventory riêng.
+- Rollback chỉ release mình sở hữu sau khi đối chiếu chart/config và tương thích
+  dữ liệu/CRD. Không tự chạy `helm rollback` rồi coi receipt vẫn hợp lệ. Cần plan
+  cấu hình đích và đối soát live state; nếu receipt lệch thì giữ nguyên để xử lý,
+  không xóa state nhằm bypass guard.
+- Khi uninstall: chuyển/gỡ product bindings và app-owned collection trước; đối
+  chiếu shared consumers, backup và UID, rồi operator gỡ từng release mình sở hữu.
+  Giữ PVC theo quyết định retention. Không xóa reused releases, shared CRDs hoặc
+  namespace chung. Bộ cài không tự thực hiện bước phá hủy này.
+
+Dashboard `dashboards/workloads.json` dùng datasource Prometheus và tham số
+`cluster_uid`, `namespace`, `workload`. Import vào Grafana mình quản lý hoặc đưa
+qua sidecar ConfigMap theo quy trình của stack; bộ cài không sửa Grafana reuse.
+Nó là dashboard dev đại diện, không phải bộ dashboard chuẩn công ty.

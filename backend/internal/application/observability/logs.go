@@ -81,6 +81,10 @@ func (m *Monitoring) QueryLogs(ctx context.Context, scope telemetry.Scope, p Par
 	}
 	sort.Strings(ns)
 	out.Source = "loki"
+	out.LogsDays = c.LokiRetentionDays
+	if out.LogsDays == 0 {
+		out.LogsDays = 3
+	}
 	out.Data = telemetry.EmptyData()
 	out.Sources = []SourceHealth{}
 	out.State = "WAITING"

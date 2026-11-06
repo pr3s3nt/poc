@@ -3,6 +3,7 @@ package planning
 import (
 	"errors"
 	"fmt"
+	"orchestrator/internal/domain/monitoring"
 	"reflect"
 	"sort"
 	"strings"
@@ -45,6 +46,9 @@ func NewRequiredRendererService(bundles map[string]resource.TemplateSource) *Ser
 
 // Plan runs the full pipeline and returns an immutable Deployment Plan.
 func (s *Service) Plan(req Request) (*Plan, error) {
+	if req.Monitoring.Stale && req.After != nil {
+		return nil, monitoring.ErrStaleBinding
+	}
 	if err := req.App.Validate(); err != nil {
 		return nil, err
 	}
@@ -245,6 +249,11 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 	}
 	if len(plan.IntentEvidence) > 0 {
 		hashInput["intentEvidence"] = plan.IntentEvidence
+	}
+	if req.Monitoring.BindingRevision > 0 {
+		pin := req.Monitoring
+		plan.Monitoring = &pin
+		hashInput["monitoring"] = pin
 	}
 	hash, err := canon.Hash(hashInput)
 	if err != nil {

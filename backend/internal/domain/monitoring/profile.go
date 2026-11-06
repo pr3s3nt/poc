@@ -1,6 +1,8 @@
 package monitoring
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"math"
 	"regexp"
@@ -21,14 +23,19 @@ type WorkloadProfile struct {
 	Metrics         []MetricDefinition `json:"metrics"`
 }
 type MetricDefinition struct {
-	Key         string            `json:"key"`
-	Metric      string            `json:"metric"`
-	Aggregation string            `json:"aggregation"`
-	Unit        string            `json:"unit"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Alert       *MetricThreshold  `json:"alert,omitempty"`
+	Matchers           map[string]string `json:"matchers,omitempty"`
+	DenominatorMetric  string            `json:"denominatorMetric,omitempty"`
+	DenominatorLabels  map[string]string `json:"denominatorLabels,omitempty"`
+	MinimumDenominator float64           `json:"minimumDenominator,omitempty"`
+	Key                string            `json:"key"`
+	Metric             string            `json:"metric"`
+	Aggregation        string            `json:"aggregation"`
+	Unit               string            `json:"unit"`
+	Labels             map[string]string `json:"labels,omitempty"`
+	Alert              *MetricThreshold  `json:"alert,omitempty"`
 }
 type MetricThreshold struct {
+	Comparison string  `json:"comparison,omitempty"`
 	Above      float64 `json:"above"`
 	ForSeconds int     `json:"forSeconds"`
 	Severity   string  `json:"severity"`
@@ -61,7 +68,7 @@ func (p WorkloadProfile) Validate() error {
 		}
 		seen[m.Key] = true
 		switch m.Aggregation {
-		case "gauge", "rate", "p95":
+		case "gauge", "rate", "p95", "rate_ratio", "gauge_ratio":
 		default:
 			return ErrInvalid
 		}
@@ -75,6 +82,34 @@ func (p WorkloadProfile) Validate() error {
 				return ErrInvalid
 			}
 		}
+		if len(m.Labels)+len(m.Matchers)+len(m.DenominatorLabels) > 8 {
+			return ErrInvalid
+		}
+		for _, labels := range []map[string]string{m.Matchers, m.DenominatorLabels} {
+			for k, v := range labels {
+				if !labelIdentifier.MatchString(k) || strings.HasPrefix(k, "orchestrator_") || k == "cluster_uid" || k == "namespace" || len(v) > 120 {
+					return ErrInvalid
+				}
+			}
+		}
+		for k, pattern := range m.Matchers {
+			if _, exists := m.Labels[k]; exists {
+				return ErrInvalid
+			}
+			if _, err := regexp.Compile(pattern); err != nil {
+				return ErrInvalid
+			}
+		}
+		if m.Aggregation == "rate_ratio" || m.Aggregation == "gauge_ratio" {
+			if !metricIdentifier.MatchString(m.DenominatorMetric) || m.MinimumDenominator <= 0 || m.MinimumDenominator > 1e15 || math.IsNaN(m.MinimumDenominator) || math.IsInf(m.MinimumDenominator, 0) {
+				return ErrInvalid
+			}
+		} else if m.DenominatorMetric != "" || len(m.DenominatorLabels) > 0 || m.MinimumDenominator != 0 {
+			return ErrInvalid
+		}
+		if m.Alert != nil && m.Alert.Comparison != "" && m.Alert.Comparison != "above" && m.Alert.Comparison != "below" {
+			return ErrInvalid
+		}
 		if m.Alert != nil && (math.IsNaN(m.Alert.Above) || math.IsInf(m.Alert.Above, 0) || m.Alert.Above < 0 || m.Alert.Above > 1e15 || m.Alert.ForSeconds < 0 || m.Alert.ForSeconds > 86400 || (m.Alert.Severity != "warning" && m.Alert.Severity != "critical")) {
 			return ErrInvalid
 		}
@@ -86,4 +121,42 @@ func CloneBinding(b Binding) Binding { // JSON metadata contains mutable overrid
 	var out Binding
 	_ = json.Unmarshal(raw, &out)
 	return out
+}
+
+// Pin contains only nonsecret configuration identities used by Preview/admission.
+type Pin struct {
+	ConnectionID             string `json:"connectionId,omitempty"`
+	ConnectionRevision       int64  `json:"connectionRevision,omitempty"`
+	PinnedConnectionRevision int64  `json:"pinnedConnectionRevision,omitempty"`
+	BindingRevision          int64  `json:"bindingRevision,omitempty"`
+	Generation               int64  `json:"generation,omitempty"`
+	MetricsSource            string `json:"metricsSource,omitempty"`
+	LogsSource               string `json:"logsSource,omitempty"`
+	Stale                    bool   `json:"stale,omitempty"`
+}
+
+func (p Pin) Signature() string {
+	if p.BindingRevision == 0 || (p.MetricsSource == "native" && p.LogsSource == "native") {
+		return ""
+	}
+	raw, _ := json.Marshal(p)
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
+}
+
+func NewPin(b Binding, c Connection, generation int64) Pin {
+	metrics := b.MetricsSource
+	if metrics == "" {
+		metrics = "native"
+		if c.PrometheusURL != "" {
+			metrics = "prometheus"
+		}
+	}
+	logs := b.LogsSource
+	if logs == "" {
+		logs = "native"
+	}
+	p := Pin{ConnectionID: c.ID, ConnectionRevision: c.Revision, PinnedConnectionRevision: b.ConnectionRevision, BindingRevision: b.Revision, Generation: b.Generation, MetricsSource: metrics, LogsSource: logs}
+	p.Stale = b.Generation != generation || ((metrics != "native" || logs != "native") && c.Revision != b.ConnectionRevision)
+	return p
 }

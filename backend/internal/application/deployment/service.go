@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	catalogapp "orchestrator/internal/application/catalogrelease"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -205,7 +206,7 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	lease, err := s.operations().Begin(ctx, envops.Claim{
 		ApplicationKey: cmd.ApplicationKey, EnvironmentKey: cmd.EnvironmentKey, Kind: environment.OpDeploy,
 		ReviewRequestID: cmd.ReviewRequestID,
-		Pins: environment.OperationPins{
+		Pins: environment.OperationPins{CheckMonitoring: true, Monitoring: snapshot.Monitoring,
 			CheckEnvVersion: true, EnvVersion: snapshot.Env.Version,
 			CheckSet: true, CurrentSetID: snapshot.Env.CurrentDeploymentSetID,
 			CheckBinding: true, Binding: snapshot.Env.Binding(),
@@ -307,7 +308,7 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	catalog, types, definitions, active := snapshot.Catalog, snapshot.Types, snapshot.Definitions, snapshot.Active
 
 	// MS-02..MS-08: planning pipeline.
-	plan, err := s.planner.Plan(planning.Request{
+	plan, err := s.planner.Plan(planning.Request{Monitoring: snapshot.Monitoring,
 		OrganizationKey: cmd.OrganizationKey,
 		App:             app,
 		Env:             env,
@@ -997,6 +998,11 @@ func (s *Service) applyWorkload(
 		return err
 	}
 	instance.TargetRef = withInventory(instance.TargetRef, rendered)
+	if plan.Monitoring != nil && plan.Monitoring.Signature() != "" {
+		instance.TargetRef["monitoringRevision"] = plan.Monitoring.Signature()
+	} else {
+		delete(instance.TargetRef, "monitoringRevision")
+	}
 	instance.Status = domain.InstanceReady
 	instance.ObservedAt = s.clock.Now()
 	return s.store.UpsertWorkloadProgress(ctx, instance)
@@ -1270,7 +1276,11 @@ func restoreTarget(target *execution.Target, ref map[string]any, organizationKey
 }
 
 func (s *Service) fail(ctx context.Context, record domain.Deployment, cause error) error {
-	log.Printf("deployment failure id=%s type=%T", record.ID, cause)
+	_, _, line, _ := runtime.Caller(1)
+	log.Printf("deployment failure id=%s site=deployment/service.go:%d type=%T", record.ID, line, cause)
+	for nested := errors.Unwrap(cause); nested != nil; nested = errors.Unwrap(nested) {
+		log.Printf("deployment failure cause type=%T", nested)
+	}
 	var stage *planning.StageError
 	if errors.As(cause, &stage) {
 		log.Printf("deployment planning failure stage=%s reason=%s type=%T", stage.Stage, stage.Reason, stage.Err)

@@ -4,6 +4,7 @@ package planning
 
 import (
 	"orchestrator/internal/domain/catalogrelease"
+	"orchestrator/internal/domain/monitoring"
 	"orchestrator/internal/domain/templatesource"
 	"sort"
 
@@ -198,6 +199,7 @@ type Classification struct {
 
 // Plan is the immutable planning artifact persisted with a Deployment.
 type Plan struct {
+	Monitoring                  *monitoring.Pin                        `json:"monitoring,omitempty"`
 	Endpoints                   map[string]endpoint.Desired            `json:"endpoints,omitempty"`
 	DefinitionSnapshots         []resource.Definition                  `json:"definitionSnapshots,omitempty"`
 	DefinitionSelectionRevision int64                                  `json:"definitionSelectionRevision,omitempty"`
@@ -306,6 +308,7 @@ type ModuleVariable struct {
 
 // Request is the input of one planning run.
 type Request struct {
+	Monitoring monitoring.Pin
 	// AllowIntermediateEnvironmentState skips the complete-Environment rules
 	// (public routes, Service references; UC-07 BR-08) for one step of a
 	// multi-workload pending batch whose FINAL state the caller has already

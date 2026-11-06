@@ -111,7 +111,7 @@ func Read(ctx context.Context, c Transport, q Query) (Page, error) {
 			if at.Before(q.From) || !at.Before(end) {
 				return out, prometheus.ErrResponse
 			}
-			uid := ""
+			uid := l["pod_uid"]
 			if len(pair) == 3 {
 				var metadata map[string]string
 				if json.Unmarshal(pair[2], &metadata) != nil {
@@ -123,7 +123,7 @@ func Read(ctx context.Context, c Transport, q Query) (Page, error) {
 			if q.Level != "" && q.Level != "ALL" && l["level"] != q.Level {
 				return out, prometheus.ErrResponse
 			}
-			log := telemetry.Log{ID: telemetry.Hash(stamp, l["namespace"], l["pod"], l["container"], line), WorkloadID: l["workload"], Timestamp: at, PodUID: uid, PodName: l["pod"], Container: l["container"], Level: level, Message: line}
+			log := telemetry.Log{ID: telemetry.Hash(stamp, l["namespace"], l["pod"], uid, l["container"], line), WorkloadID: l["workload"], Timestamp: at, PodUID: uid, PodName: l["pod"], Container: l["container"], Level: level, Message: line}
 			if telemetry.Older(log, q.Before) && !seen[log.ID] {
 				out.Logs = append(out.Logs, log)
 				seen[log.ID] = true

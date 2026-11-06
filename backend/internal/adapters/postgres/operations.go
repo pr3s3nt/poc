@@ -174,6 +174,11 @@ func (s *Store) claimEnvironment(ctx context.Context, claim persistence.Operatio
 	}
 	var out environment.Operation
 	err := s.Transact(ctx, func(ctx context.Context) error {
+		if claim.Pins.CheckMonitoring {
+			if _, err := s.q(ctx).Exec(ctx, `SELECT pg_advisory_xact_lock_shared($1)`, monitoringConfigLock); err != nil {
+				return translate(err)
+			}
+		}
 		var envID string
 		if err := s.q(ctx).QueryRow(ctx, `SELECT e.id::text FROM environments e JOIN applications a ON a.id=e.application_id WHERE a.application_key=$1 AND e.environment_key=$2 FOR UPDATE OF e`, claim.ApplicationKey, claim.EnvironmentKey).Scan(&envID); err != nil {
 			return translate(err)
@@ -188,6 +193,19 @@ func (s *Store) claimEnvironment(ctx context.Context, claim persistence.Operatio
 		scope, err := s.GetConfigurationScope(ctx, claim.ApplicationKey, claim.EnvironmentKey)
 		if err != nil {
 			return err
+		}
+		if claim.Pins.CheckMonitoring {
+			app, err := s.GetApplication(ctx, claim.ApplicationKey)
+			if err != nil {
+				return err
+			}
+			current, err := persistence.ReadMonitoringPin(ctx, s, app.OrganizationKey, claim.ApplicationKey, claim.EnvironmentKey, env.TargetGeneration)
+			if err != nil {
+				return err
+			}
+			if current != claim.Pins.Monitoring {
+				return persistence.ErrVersionConflict
+			}
 		}
 		pins := claim.Pins
 		if (pins.CheckEnvVersion && env.Version != pins.EnvVersion) ||

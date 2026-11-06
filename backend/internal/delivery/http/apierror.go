@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	catalogdomain "orchestrator/internal/domain/catalogrelease"
+	"orchestrator/internal/domain/monitoring"
 	"regexp"
 
 	"orchestrator/internal/adapters/configmemory"
@@ -135,6 +136,8 @@ var publicErrors = map[string]publicError{
 	codeInvalidVariable:                 {http.StatusBadRequest, "a variable name, value or reference is not valid"},
 	codeInvalidWorkload:                 {http.StatusBadRequest, "the Workload or its resource parameters are not valid"},
 	codePlanningRejected:                {http.StatusBadRequest, "the change cannot be planned"},
+	"MONITORING_CREDENTIAL_REQUIRED":    {http.StatusBadRequest, "endpoint change requires explicit credentials"},
+	"MONITORING_STALE_BINDING":          {http.StatusConflict, "monitoring binding needs refresh"},
 	"MONITORING_IN_USE":                 {http.StatusConflict, "monitoring configuration is still referenced by a binding or active workload"},
 	codeDuplicate:                       {http.StatusConflict, "an item with this identity already exists"},
 	codeUnauthorized:                    {http.StatusUnauthorized, "sign-in is required"},
@@ -429,6 +432,8 @@ func classify(err error) (failure, bool) {
 		return failure{code: codePlanningRejected, params: map[string]string{"reason": planning.ReasonTargetChanged}}, true
 	case errors.Is(err, persistence.ErrEnvironmentBusy):
 		return failure{code: codeEnvironmentBusy}, true
+	case errors.Is(err, monitoring.ErrStaleBinding):
+		return failure{code: "MONITORING_STALE_BINDING"}, true
 	case errors.Is(err, persistence.ErrVersionConflict), errors.Is(err, catalog.ErrVersionConflict), errors.Is(err, appcreate.ErrStaleVersion):
 		return failure{code: codeStaleVersion}, true
 	case errors.Is(err, pending.ErrStalePreview):

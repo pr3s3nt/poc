@@ -1,6 +1,9 @@
 package environment
 
-import "time"
+import (
+	"orchestrator/internal/domain/monitoring"
+	"time"
+)
 
 // OperationKind names what owns an Environment.
 type OperationKind string
@@ -67,18 +70,20 @@ type Operation struct {
 // OperationPins are the versions and identities verified in the claim
 // transaction. A Check flag selects the corresponding field.
 type OperationPins struct {
-	CheckEnvVersion    bool    `json:"checkEnvVersion,omitempty"`
-	EnvVersion         int64   `json:"envVersion,omitempty"`
-	CheckDraftVersion  bool    `json:"checkDraftVersion,omitempty"`
-	DraftVersion       int64   `json:"draftVersion,omitempty"`
-	CheckConfigVersion bool    `json:"checkConfigVersion,omitempty"`
-	ConfigVersion      int64   `json:"configVersion,omitempty"`
-	CheckSet           bool    `json:"checkSet,omitempty"`
-	CurrentSetID       string  `json:"currentSetId,omitempty"`
-	CheckRevision      bool    `json:"checkRevision,omitempty"`
-	DesiredRevisionID  string  `json:"desiredRevisionId,omitempty"`
-	CheckBinding       bool    `json:"checkBinding,omitempty"`
-	Binding            Binding `json:"binding,omitempty"`
-	CheckStore         bool    `json:"checkStore,omitempty"`
-	SecretStoreKey     string  `json:"secretStoreKey,omitempty"`
+	CheckMonitoring    bool           `json:"checkMonitoring,omitempty"`
+	Monitoring         monitoring.Pin `json:"monitoring,omitzero"`
+	CheckEnvVersion    bool           `json:"checkEnvVersion,omitempty"`
+	EnvVersion         int64          `json:"envVersion,omitempty"`
+	CheckDraftVersion  bool           `json:"checkDraftVersion,omitempty"`
+	DraftVersion       int64          `json:"draftVersion,omitempty"`
+	CheckConfigVersion bool           `json:"checkConfigVersion,omitempty"`
+	ConfigVersion      int64          `json:"configVersion,omitempty"`
+	CheckSet           bool           `json:"checkSet,omitempty"`
+	CurrentSetID       string         `json:"currentSetId,omitempty"`
+	CheckRevision      bool           `json:"checkRevision,omitempty"`
+	DesiredRevisionID  string         `json:"desiredRevisionId,omitempty"`
+	CheckBinding       bool           `json:"checkBinding,omitempty"`
+	Binding            Binding        `json:"binding,omitempty"`
+	CheckStore         bool           `json:"checkStore,omitempty"`
+	SecretStoreKey     string         `json:"secretStoreKey,omitempty"`
 }

@@ -14,6 +14,7 @@ import (
 	"orchestrator/internal/ports/execution"
 	obs "orchestrator/internal/ports/observability"
 	"orchestrator/internal/ports/persistence"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -32,6 +33,9 @@ func NewMonitoring(native *Service, st persistence.Store, creds credentials.Stor
 	return &Monitoring{Native: native, Store: st, Repo: repo, Credentials: creds}
 }
 func (m *Monitoring) client(ctx context.Context, c monitoring.Connection, provider string) (*prometheus.Client, error) {
+	if c.Deleting {
+		return nil, monitoring.ErrInUse
+	}
 	endpoint := ""
 	switch provider {
 	case "prometheus":
@@ -73,14 +77,20 @@ func (m *Monitoring) SaveWithTokens(ctx context.Context, org string, c monitorin
 	}
 	c.Organization = org
 	c.Name = strings.TrimSpace(c.Name)
-	if c.Name == "" || len(c.Name) > 120 || c.Rules.Validate() != nil || c.Profile.Validate() != nil || c.ClusterUID == "" || (c.PrometheusURL == "" && c.LokiURL == "") || monitoring.ValidateRuleLabels(c.RuleLabels) != nil || len(c.CA) > 1<<20 || len(token) > 8192 {
+	if c.LokiURL != "" && c.LokiRetentionDays == 0 {
+		c.LokiRetentionDays = 3
+	}
+	if c.LokiRetentionDays < 0 || c.LokiRetentionDays > 7 {
+		return c, monitoring.ErrInvalid
+	}
+	if c.Name == "" || len(c.Name) > 120 || c.Rules.Validate() != nil || c.Profile.Validate() != nil || c.ClusterUID == "" || (c.PrometheusURL == "" && c.LokiURL == "") || monitoring.ValidateRuleLabels(c.RuleLabels) != nil || len(c.CA) > 1<<20 || len(token) > 8192 || strings.ContainsAny(token, "\r\n") {
 		return c, monitoring.ErrInvalid
 	}
 	for _, endpoint := range []string{c.PrometheusURL, c.AlertmanagerURL, c.GrafanaURL, c.LokiURL} {
 		if endpoint == "" {
 			continue
 		}
-		if _, e := prometheus.Endpoint(endpoint); e != nil {
+		if _, e := prometheus.Endpoint(endpoint); e != nil || len(endpoint) > 2048 {
 			return c, monitoring.ErrInvalid
 		}
 	}
@@ -92,18 +102,44 @@ func (m *Monitoring) SaveWithTokens(ctx context.Context, org string, c monitorin
 			return c, monitoring.ErrInvalid
 		}
 	}
+	var prior monitoring.Connection
+	c.Deleting = false
+	c.RetiredCredentials = nil
 	if expected == 0 {
 		c.CredentialRef = ""
 		c.CredentialRefs = map[string]string{}
 		c.ID = ids.New()
 		c.Key = "monitor-" + c.ID
 	} else {
-		prior, e := m.Repo.GetMonitoringConnection(ctx, org, c.ID)
+		var e error
+		prior, e = m.Repo.GetMonitoringConnection(ctx, org, c.ID)
 		if e != nil {
 			return c, e
 		}
+		if prior.Deleting {
+			return c, monitoring.ErrInUse
+		}
 		if prior.Revision != expected {
 			return c, persistence.ErrVersionConflict
+		}
+		for provider, pair := range map[string][2]string{"prometheus": {prior.PrometheusURL, c.PrometheusURL}, "alertmanager": {prior.AlertmanagerURL, c.AlertmanagerURL}, "loki": {prior.LokiURL, c.LokiURL}} {
+			credentialKey, ref := prior.Credential(provider)
+			_, explicit := tokens[provider]
+			if pair[0] != pair[1] && ref != "" && !(token != "" && credentialKey == prior.Key) && !explicit {
+				return c, monitoring.ErrCredentialChange
+			}
+		}
+		m.cleanupRetired(ctx, &prior)
+		if len(prior.RetiredCredentials) >= 64 {
+			return c, ErrUnavailable
+		}
+		c.RetiredCredentials = append([]monitoring.CredentialReceipt(nil), prior.RetiredCredentials...)
+		if c.Profile.Version == prior.Profile.Version && c.Profile.Version != "" && !reflect.DeepEqual(c.Profile, prior.Profile) {
+			return c, monitoring.ErrInvalid
+		}
+		if token == "" && len(tokens) == 0 && sameConnectionConfiguration(c, prior) {
+			m.cleanupRetired(ctx, &prior)
+			return prior, nil
 		}
 		c.Key = prior.Key
 		c.CredentialRef = prior.CredentialRef
@@ -155,6 +191,21 @@ func (m *Monitoring) SaveWithTokens(ctx context.Context, org string, c monitorin
 		c.CredentialRefs[provider] = ref
 		created = append(created, privateRef{providerKey, ref})
 	}
+	// Persist superseded references with the new configuration before cleanup.
+	active := map[monitoring.CredentialReceipt]bool{}
+	for _, r := range currentCredentialReceipts(c) {
+		active[r] = true
+	}
+	seen := map[monitoring.CredentialReceipt]bool{}
+	for _, r := range c.RetiredCredentials {
+		seen[r] = true
+	}
+	for _, r := range currentCredentialReceipts(prior) {
+		if !active[r] && !seen[r] {
+			c.RetiredCredentials = append(c.RetiredCredentials, r)
+			seen[r] = true
+		}
+	}
 	// On an uncertain commit keep private credentials for operator reconciliation.
 	e := m.Store.Transact(ctx, func(ctx context.Context) error { return m.Repo.PutMonitoringConnection(ctx, c, expected) })
 	if e != nil {
@@ -168,6 +219,7 @@ func (m *Monitoring) SaveWithTokens(ctx context.Context, org string, c monitorin
 		}
 		return c, e
 	}
+	m.cleanupRetired(ctx, &c)
 	return c, nil
 }
 
@@ -190,6 +242,9 @@ func (m *Monitoring) Test(ctx context.Context, org, id string) (Coverage, error)
 	c, e := m.Repo.GetMonitoringConnection(ctx, org, id)
 	if e != nil {
 		return out, e
+	}
+	if c.Deleting {
+		return out, monitoring.ErrInUse
 	}
 	v := monitoring.Verification{Revision: c.Revision, Connectivity: map[string]bool{}, Identity: map[string]bool{}, Coverage: map[string]bool{}, ConfigSync: "UNVERIFIED"}
 	allConnected := true
@@ -278,6 +333,9 @@ func (m *Monitoring) BindProfiles(ctx context.Context, scope telemetry.Scope, id
 	if e != nil {
 		return out, e
 	}
+	if c.Deleting {
+		return out, monitoring.ErrInUse
+	}
 	if metricsSource == "" {
 		metricsSource = "native"
 		if c.PrometheusURL != "" {
@@ -322,6 +380,13 @@ func (m *Monitoring) BindProfiles(ctx context.Context, scope telemetry.Scope, id
 		}
 	}
 	out = monitoring.Binding{ProfileVersion: c.Profile.Version, WorkloadProfiles: profiles, Organization: scope.OrganizationKey, Application: scope.ApplicationKey, Environment: scope.EnvironmentKey, ConnectionID: id, ConnectionRevision: c.Revision, ClusterUID: c.ClusterUID, Generation: env.TargetGeneration, Revision: expected + 1, MetricsSource: metricsSource, LogsSource: logsSource}
+	if prior, err := m.Repo.GetMonitoringBinding(ctx, scope.OrganizationKey, scope.ApplicationKey, scope.EnvironmentKey); err == nil && prior.Revision == expected {
+		candidate := monitoring.CloneBinding(out)
+		candidate.Revision = prior.Revision
+		if reflect.DeepEqual(candidate, prior) {
+			return prior, nil
+		}
+	}
 	e = m.Store.Transact(ctx, func(ctx context.Context) error { return m.Repo.PutMonitoringBinding(ctx, out, expected) })
 	return out, e
 }
@@ -358,6 +423,8 @@ type WorkloadObservation struct {
 	State              string                         `json:"state"`
 	MetricsAt          *time.Time                     `json:"metricsAt,omitempty"`
 	Metrics            map[string][]prometheus.Series `json:"metrics"`
+	Limits             map[string]*float64            `json:"limits"`
+	HistoryCoverage    string                         `json:"historyCoverage"`
 	Configuration      string                         `json:"configuration"`
 	ProfileVersion     string                         `json:"profileVersion,omitempty"`
 	ApplicationMetrics map[string]MetricObservation   `json:"applicationMetrics"`
@@ -368,6 +435,7 @@ type MetricObservation struct {
 	Series []prometheus.Series `json:"series"`
 }
 type MonitoringView struct {
+	LogsSource        string                         `json:"logsSource"`
 	AlertmanagerState string                         `json:"alertmanagerState"`
 	Notifications     []prometheus.NotificationState `json:"notifications"`
 	Source            string                         `json:"source"`
@@ -382,7 +450,7 @@ type MonitoringView struct {
 func (m *Monitoring) Read(ctx context.Context, scope telemetry.Scope, p Params) (MonitoringView, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	out := MonitoringView{Source: "prometheus", State: "NOT_CONFIGURED", Workloads: []WorkloadObservation{}}
+	out := MonitoringView{AlertmanagerState: "UNVERIFIED", Source: "prometheus", State: "NOT_CONFIGURED", Workloads: []WorkloadObservation{}}
 	if m.Repo == nil || m.Native == nil {
 		return out, ErrUnavailable
 	}
@@ -401,6 +469,7 @@ func (m *Monitoring) Read(ctx context.Context, scope telemetry.Scope, p Params) 
 	if e != nil {
 		return out, e
 	}
+	out.LogsSource = b.LogsSource
 	if b.Generation != env.TargetGeneration {
 		return out, monitoring.ErrInvalid
 	}
@@ -460,6 +529,8 @@ func (m *Monitoring) Read(ctx context.Context, scope telemetry.Scope, p Params) 
 			return out, e
 		}
 		w := WorkloadObservation{Workload: t.Workload, Kind: t.Kind, UID: t.UID, State: "RECEIVING", Metrics: map[string][]prometheus.Series{}}
+		w.Limits = map[string]*float64{"cpu": t.CPULimitMilli, "memory": t.MemoryLimitBytes}
+		w.HistoryCoverage = "CURRENT_POD_UIDS"
 		w.Configuration = "UNVERIFIED"
 		w.ProfileVersion = c.Profile.Version
 		w.ApplicationMetrics = map[string]MetricObservation{}
@@ -474,7 +545,7 @@ func (m *Monitoring) Read(ctx context.Context, scope telemetry.Scope, p Params) 
 					return out, err
 				}
 				state := "RECEIVING"
-				if len(data) == 0 {
+				if !seriesHaveValues(data) {
 					state = "MISSING"
 				}
 				w.ApplicationMetrics[metric.Key] = MetricObservation{Unit: metric.Unit, State: state, Series: data}
@@ -556,7 +627,21 @@ func (m *Monitoring) Read(ctx context.Context, scope telemetry.Scope, p Params) 
 			}
 		}
 	}
-	out.GrafanaURL = scopedGrafanaURL(c, scope, b.Generation, out.From, out.To, p.Workload)
+	namespace := ""
+	selectedWorkload := p.Workload
+	if selectedWorkload == "" && len(out.Workloads) == 1 {
+		selectedWorkload = out.Workloads[0].Workload
+	}
+	for _, t := range targets {
+		if selectedWorkload == "" || t.Workload == selectedWorkload {
+			if namespace != "" && namespace != t.Scope.Namespace {
+				namespace = ""
+				break
+			}
+			namespace = t.Scope.Namespace
+		}
+	}
+	out.GrafanaURL = scopedGrafanaURL(c, scope, b.Generation, out.From, out.To, selectedWorkload, namespace)
 	return out, nil
 }
 
@@ -678,7 +763,7 @@ func (m *Monitoring) Unbind(ctx context.Context, scope telemetry.Scope, expected
 	if env.Busy() {
 		return persistence.Busy(scope.ApplicationKey, scope.EnvironmentKey)
 	}
-	instances, e := m.Store.ListWorkloadInstancesFor(ctx, scope.ApplicationKey+"/"+scope.EnvironmentKey, env.TargetGeneration)
+	instances, e := m.Store.ListWorkloadInstances(ctx, scope.ApplicationKey+"/"+scope.EnvironmentKey)
 	if e != nil {
 		return e
 	}
@@ -729,28 +814,20 @@ func (m *Monitoring) Delete(ctx context.Context, org, id string, expected int64)
 	if c.Revision != expected {
 		return persistence.ErrVersionConflict
 	}
-	e = m.Store.Transact(ctx, func(ctx context.Context) error { return m.Repo.DeleteMonitoringConnection(ctx, org, id, expected) })
-	if e != nil {
+	if e = m.Repo.MarkMonitoringDeleting(ctx, org, id, expected); e != nil {
 		return e
 	}
-	if m.Credentials != nil {
-		if c.CredentialRef != "" {
-			if err := m.Credentials.Delete(ctx, org, c.Key, c.CredentialRef); err != nil {
-				return ErrUnavailable
-			}
-		}
-		for provider, ref := range c.CredentialRefs {
-			if ref != "" {
-				if err := m.Credentials.Delete(ctx, org, c.Key+"-"+provider, ref); err != nil {
-					return ErrUnavailable
-				}
-			}
-		}
+	refs := append(currentCredentialReceipts(c), c.RetiredCredentials...)
+	if e = m.deleteCredentialReceipts(ctx, org, refs); e != nil {
+		return e
 	}
-	return nil
+	return m.Store.Transact(ctx, func(ctx context.Context) error { return m.Repo.DeleteMonitoringConnection(ctx, org, id, expected) })
 }
 
 func sourceVerified(c monitoring.Connection, provider string) bool {
+	if c.Deleting {
+		return false
+	}
 	if c.Verification.Revision == c.Revision {
 		return c.Verification.Connectivity[provider] && c.Verification.Identity[provider]
 	}
@@ -808,7 +885,7 @@ func monitoringObjects(c monitoring.Connection, b monitoring.Binding, t monitori
 	return out, nil
 }
 
-func scopedGrafanaURL(c monitoring.Connection, scope telemetry.Scope, generation int64, from, to time.Time, workload string) string {
+func scopedGrafanaURL(c monitoring.Connection, scope telemetry.Scope, generation int64, from, to time.Time, workload, namespace string) string {
 	if c.GrafanaURL == "" {
 		return ""
 	}
@@ -820,7 +897,7 @@ func scopedGrafanaURL(c monitoring.Connection, scope telemetry.Scope, generation
 		u.Path = strings.TrimRight(u.Path, "/") + "/d/" + url.PathEscape(c.DashboardUID)
 	}
 	q := u.Query()
-	for k, v := range map[string]string{"var-cluster_uid": c.ClusterUID, "var-organization": scope.OrganizationKey, "var-application": scope.ApplicationKey, "var-environment": scope.EnvironmentKey, "var-generation": strconv.FormatInt(generation, 10), "var-workload": workload, "from": strconv.FormatInt(from.UnixMilli(), 10), "to": strconv.FormatInt(to.UnixMilli(), 10)} {
+	for k, v := range map[string]string{"var-cluster_uid": c.ClusterUID, "var-organization": scope.OrganizationKey, "var-application": scope.ApplicationKey, "var-environment": scope.EnvironmentKey, "var-generation": strconv.FormatInt(generation, 10), "var-workload": workload, "var-namespace": namespace, "from": strconv.FormatInt(from.UnixMilli(), 10), "to": strconv.FormatInt(to.UnixMilli(), 10)} {
 		q.Set(k, v)
 	}
 	u.RawQuery = q.Encode()
@@ -840,4 +917,80 @@ func kubernetesCoverage(facts []prometheus.Series) bool {
 		}
 	}
 	return true
+}
+
+func sameConnectionConfiguration(a, b monitoring.Connection) bool {
+	strip := func(c monitoring.Connection) monitoring.Connection {
+		c.ID = ""
+		c.Organization = ""
+		c.Key = ""
+		c.Revision = 0
+		c.CredentialRef = ""
+		c.CredentialRefs = nil
+		c.Deleting = false
+		c.RetiredCredentials = nil
+		c.VerifiedAt = nil
+		c.Verification = monitoring.Verification{}
+		return c
+	}
+	return reflect.DeepEqual(strip(a), strip(b))
+}
+
+func seriesHaveValues(data []prometheus.Series) bool {
+	for _, series := range data {
+		if series.Value != nil && series.Value.Value != nil {
+			return true
+		}
+		for _, point := range series.Values {
+			if point.Value != nil {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func currentCredentialReceipts(c monitoring.Connection) []monitoring.CredentialReceipt {
+	out := []monitoring.CredentialReceipt{}
+	if c.CredentialRef != "" {
+		out = append(out, monitoring.CredentialReceipt{Key: c.Key, Reference: c.CredentialRef})
+	}
+	for provider, ref := range c.CredentialRefs {
+		if ref != "" {
+			out = append(out, monitoring.CredentialReceipt{Key: c.Key + "-" + provider, Reference: ref})
+		}
+	}
+	return out
+}
+func (m *Monitoring) deleteCredentialReceipts(ctx context.Context, org string, refs []monitoring.CredentialReceipt) error {
+	if len(refs) == 0 {
+		return nil
+	}
+	if m.Credentials == nil {
+		return ErrUnavailable
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	seen := map[monitoring.CredentialReceipt]bool{}
+	for _, r := range refs {
+		if r.Reference == "" || seen[r] {
+			continue
+		}
+		seen[r] = true
+		if e := m.Credentials.Delete(ctx, org, r.Key, r.Reference); e != nil {
+			return ErrUnavailable
+		}
+	}
+	return nil
+}
+func (m *Monitoring) cleanupRetired(ctx context.Context, c *monitoring.Connection) {
+	if len(c.RetiredCredentials) == 0 {
+		return
+	}
+	if m.deleteCredentialReceipts(ctx, c.Organization, c.RetiredCredentials) != nil {
+		return
+	}
+	if m.Repo.ClearRetiredMonitoringCredentials(ctx, c.Organization, c.ID, c.Revision) == nil {
+		c.RetiredCredentials = nil
+	}
 }

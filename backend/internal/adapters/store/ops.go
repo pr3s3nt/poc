@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"orchestrator/internal/domain/monitoring"
 	"sort"
 	"strings"
 	"time"
@@ -127,6 +128,19 @@ func (s *Store) ClaimEnvironment(ctx context.Context, claim persistence.Operatio
 	}
 	if env.ActiveOperationID != "" {
 		return environment.Operation{}, persistence.Busy(claim.ApplicationKey, claim.EnvironmentKey)
+	}
+	if claim.Pins.CheckMonitoring {
+		current := monitoring.Pin{}
+		if b, ok := s.state.MonitoringBindings[key]; ok {
+			c, exists := s.state.MonitoringConnections[b.ConnectionID]
+			if !exists {
+				return environment.Operation{}, persistence.ErrVersionConflict
+			}
+			current = monitoring.NewPin(b, c, env.TargetGeneration)
+		}
+		if current != claim.Pins.Monitoring {
+			return environment.Operation{}, persistence.ErrVersionConflict
+		}
 	}
 	pins := claim.Pins
 	scope := s.state.ConfigScopes[key]

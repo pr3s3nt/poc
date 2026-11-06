@@ -1311,7 +1311,7 @@ fields. `WorkloadDefaults.test.tsx` covers distinct choices and sparse reset/Sav
 
 ## External Kubernetes monitoring Slice 1 WIP — issue #35
 
-ADR-040 / UC-09 OBS: `application/observability/monitoring.go`,
+ADR-040 / UC-09 EXT-OBS: `application/observability/monitoring.go`,
 `domain/monitoring/`, `adapters/prometheus/`, Kubernetes `monitoring.go`,
 PostgreSQL `monitoring.go` and `migrations/011-monitoring.sql` with frozen
 `version-011.sql`; owner setup upgrades released schema 10 to 11. Existing
@@ -1346,3 +1346,11 @@ PodMonitor/metric rules. `application/observability/logs.go` and `adapters/loki/
 add retained external log reads behind the existing authorized history route.
 Kubernetes `MonitoringConfiguration` compares owned live artifact specs. These
 collection/lifecycle additions remain WIP pending end-to-end live verification.
+
+
+Monitoring configuration pins are read through `persistence.ReadMonitoringPin`
+inside the shared planning snapshot. `planning.Plan` hashes the optional pin;
+pending planning compares the applied `monitoringRevision` target metadata.
+PostgreSQL `monitoring_guard.go` serializes metadata mutation with atomic
+Environment claim admission; memory stores perform the same pin/busy checks.
+These additions use existing JSON metadata and require no relational migration.

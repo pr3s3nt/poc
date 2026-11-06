@@ -60,16 +60,56 @@ func TestMonitoringRepositoryRevisionAndReferences(t *testing.T) {
 	if e = st.PutMonitoringBinding(ctx, b, 0); e != nil {
 		t.Fatal(e)
 	}
+	oldPin, e := persistence.ReadMonitoringPin(ctx, st, "observe", "shop", "staging", env.TargetGeneration)
+	if e != nil {
+		t.Fatal(e)
+	}
+	b.Revision = 2
+	if e = st.PutMonitoringBinding(ctx, b, 1); e != nil {
+		t.Fatal(e)
+	}
+	claim := persistence.OperationClaim{ApplicationKey: "shop", EnvironmentKey: "staging", Owner: "monitoring-test", Kind: environment.OpDeploy, Deadline: time.Now().Add(time.Minute), Pins: environment.OperationPins{CheckMonitoring: true, Monitoring: oldPin}}
+	if _, e = st.ClaimEnvironment(ctx, claim); !errors.Is(e, persistence.ErrVersionConflict) {
+		t.Fatal("stale monitoring claim", e)
+	}
+	current, e := persistence.ReadMonitoringPin(ctx, st, "observe", "shop", "staging", env.TargetGeneration)
+	if e != nil {
+		t.Fatal(e)
+	}
+	claim.Pins.Monitoring = current
+	op, e := st.ClaimEnvironment(ctx, claim)
+	if e != nil {
+		t.Fatal(e)
+	}
+	changed := make(chan error, 1)
+	update := c
+	update.Revision = 2
+	go func() { changed <- st.PutMonitoringConnection(ctx, update, 1) }()
+	select {
+	case e = <-changed:
+		if !errors.Is(e, persistence.ErrEnvironmentBusy) {
+			t.Fatal("writer bypassed admitted monitoring pin", e)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("monitoring guard deadlocked")
+	}
+
+	if e = st.DeleteMonitoringBinding(ctx, "observe", "shop", "staging", 2); !errors.Is(e, persistence.ErrEnvironmentBusy) {
+		t.Fatal("busy unbind", e)
+	}
+	if e = st.ReleaseOperation(ctx, persistence.Owner{OperationID: op.ID, Owner: op.Owner, Fence: op.Fence}, environment.OpSucceeded, ""); e != nil {
+		t.Fatal(e)
+	}
 	if e = st.DeleteMonitoringConnection(ctx, "observe", c.ID, 1); !errors.Is(e, monitoring.ErrInUse) {
 		t.Fatal("referenced deletion", e)
 	}
-	if e = st.DeleteMonitoringBinding(ctx, "observe", "shop", "staging", 2); !errors.Is(e, persistence.ErrVersionConflict) {
+	if e = st.DeleteMonitoringBinding(ctx, "observe", "shop", "staging", 3); !errors.Is(e, persistence.ErrVersionConflict) {
 		t.Fatal("stale delete", e)
 	}
-	if e = st.DeleteMonitoringBinding(ctx, "foreign", "shop", "staging", 1); !errors.Is(e, persistence.ErrNotFound) {
+	if e = st.DeleteMonitoringBinding(ctx, "foreign", "shop", "staging", 2); !errors.Is(e, persistence.ErrNotFound) {
 		t.Fatal("foreign delete", e)
 	}
-	if e = st.DeleteMonitoringBinding(ctx, "observe", "shop", "staging", 1); e != nil {
+	if e = st.DeleteMonitoringBinding(ctx, "observe", "shop", "staging", 2); e != nil {
 		t.Fatal(e)
 	}
 	c.Revision = 2

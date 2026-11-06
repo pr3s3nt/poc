@@ -23,7 +23,7 @@ func (s *Server) monitoringRoutes() {
 	s.mux.HandleFunc("DELETE /api/v1/applications/{id}/environments/{env}/monitoring/binding", s.handleMonitoringBinding)
 }
 func publicMonitoring(c monitoring.Connection) map[string]any {
-	return map[string]any{"profile": c.Profile, "id": c.ID, "key": c.Key, "name": c.Name, "revision": c.Revision, "prometheusUrl": c.PrometheusURL, "alertmanagerUrl": c.AlertmanagerURL, "grafanaUrl": c.GrafanaURL, "dashboardUid": c.DashboardUID, "clusterUid": c.ClusterUID, "ruleLabels": c.RuleLabels, "rules": c.Rules, "verifiedAt": c.VerifiedAt, "lokiUrl": c.LokiURL, "ca": c.CA, "verification": c.Verification, "credentialsConfigured": map[string]bool{"prometheus": credentialSet(c, "prometheus"), "alertmanager": credentialSet(c, "alertmanager"), "loki": credentialSet(c, "loki")}, "credentialConfigured": c.CredentialRef != ""}
+	return map[string]any{"deleting": c.Deleting, "credentialCleanupPending": len(c.RetiredCredentials) > 0, "profile": c.Profile, "id": c.ID, "key": c.Key, "name": c.Name, "revision": c.Revision, "prometheusUrl": c.PrometheusURL, "alertmanagerUrl": c.AlertmanagerURL, "grafanaUrl": c.GrafanaURL, "dashboardUid": c.DashboardUID, "clusterUid": c.ClusterUID, "ruleLabels": c.RuleLabels, "rules": c.Rules, "verifiedAt": c.VerifiedAt, "lokiUrl": c.LokiURL, "lokiRetentionDays": c.LokiRetentionDays, "ca": c.CA, "verification": c.Verification, "credentialsConfigured": map[string]bool{"prometheus": credentialSet(c, "prometheus"), "alertmanager": credentialSet(c, "alertmanager"), "loki": credentialSet(c, "loki")}, "credentialConfigured": c.CredentialRef != ""}
 }
 func monitoringBody(w http.ResponseWriter, r *http.Request, v any) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, 2<<20)
@@ -38,6 +38,8 @@ func monitoringBody(w http.ResponseWriter, r *http.Request, v any) bool {
 func (s *Server) monitoringError(w http.ResponseWriter, e error) {
 	var field *observability.FieldError
 	switch {
+	case errors.Is(e, monitoring.ErrCredentialChange):
+		writeCode(w, "MONITORING_CREDENTIAL_REQUIRED", "")
 	case errors.Is(e, monitoring.ErrInUse):
 		writeCode(w, "MONITORING_IN_USE", "")
 	case errors.Is(e, monitoring.ErrInvalid), errors.As(e, &field):

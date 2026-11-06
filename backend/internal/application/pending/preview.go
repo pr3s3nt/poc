@@ -7,6 +7,7 @@ import (
 	"fmt"
 	catalogapp "orchestrator/internal/application/catalogrelease"
 	catalogdomain "orchestrator/internal/domain/catalogrelease"
+	"orchestrator/internal/domain/monitoring"
 	"sort"
 	"strings"
 
@@ -51,6 +52,7 @@ type Change struct {
 }
 
 type Preview struct {
+	Monitoring                    monitoring.Pin                         `json:"monitoring,omitzero"`
 	DefinitionRevision            int64                                  `json:"definitionRevision"`
 	DefinitionsPending            bool                                   `json:"definitionsPending"`
 	DefinitionSnapshots           []resource.Definition                  `json:"-"`
@@ -187,6 +189,10 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	if err != nil {
 		return Preview{}, err
 	}
+	monitoringPin, err := persistence.ReadMonitoringPin(ctx, st, app.OrganizationKey, appKey, envKey, env.TargetGeneration)
+	if err != nil {
+		return Preview{}, err
+	}
 	deliveryPending := env.DesiredDelivery.Effective() != env.AppliedDelivery.Effective()
 
 	set, err := st.GetDeploymentSet(ctx, env.CurrentDeploymentSetID)
@@ -288,7 +294,11 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		if err != nil {
 			return Preview{}, err
 		}
-		if policyOnly && !changed {
+		monitoringChanged := monitoringPin.Signature() != instanceByID[id].TargetRef["monitoringRevision"]
+		if monitoringPin.Signature() == "" && instanceByID[id].TargetRef["monitoringRevision"] == nil {
+			monitoringChanged = false
+		}
+		if policyOnly && !changed && !monitoringChanged {
 			continue
 		}
 		selected, err := s.planner.SelectWorkloadRendering(app, env, id, module.WorkloadClass(), catalog)
@@ -299,7 +309,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		if err != nil {
 			return Preview{}, err
 		}
-		if !changed && unchangedRenderer && (!deliveryPending || transferRequired || policyOnly) {
+		if !changed && !monitoringChanged && unchangedRenderer && (!deliveryPending || transferRequired || policyOnly) {
 			continue
 		}
 		raw, err := workloadconfig.ReconstructWorkloadProven(id, module, set.Document, set.LiteralProofs.ProverFor(id), set.ResourceAliases[id])
@@ -328,7 +338,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	if err != nil {
 		return Preview{}, err
 	}
-	preview := Preview{DefinitionRevision: definitionSelection.Revision, DefinitionsPending: definitionsPending, DefinitionSnapshots: append([]resource.Definition{}, definitions...), DesiredCatalog: catalogBinding.Desired, AppliedCatalog: catalogBinding.Applied, CatalogPin: releasePin, CatalogRevision: catalogBinding.Revision, CatalogPending: catalogPending, DeliveryTransfer: transferRequired, DeliveryPending: deliveryPending, DeliveryBindingPin: deliveryPin, ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, ConfigRevisionID: scope.DesiredRevisionID,
+	preview := Preview{Monitoring: monitoringPin, DefinitionRevision: definitionSelection.Revision, DefinitionsPending: definitionsPending, DefinitionSnapshots: append([]resource.Definition{}, definitions...), DesiredCatalog: catalogBinding.Desired, AppliedCatalog: catalogBinding.Applied, CatalogPin: releasePin, CatalogRevision: catalogBinding.Revision, CatalogPending: catalogPending, DeliveryTransfer: transferRequired, DeliveryPending: deliveryPending, DeliveryBindingPin: deliveryPin, ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, ConfigRevisionID: scope.DesiredRevisionID,
 		DesiredDelivery: env.DesiredDelivery.Effective(), AppliedDelivery: env.AppliedDelivery.Effective(), DeliveryConfigurationRevision: env.DeliveryConfigRevision, ConfigVersion: scope.Version, Binding: env.Binding(), SecretStoreKey: env.SecretStoreKey, Changes: []Change{}, previous: reviewBaselines}
 	preview.DeliveryPolicyOnly = policyOnly
 	if transferRequired || policyOnly {
@@ -376,7 +386,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		} else if before != nil {
 			action = domain.ActionUpdate
 		}
-		plan, err := s.planner.Plan(planning.Request{OrganizationKey: app.OrganizationKey, App: app, Env: env, BaseSet: base, Before: before, After: after, WorkloadID: id, Action: action, Catalog: catalog, Active: active, Terraform: s.terraform, RunID: preview.RunID,
+		plan, err := s.planner.Plan(planning.Request{Monitoring: monitoringPin, OrganizationKey: app.OrganizationKey, App: app, Env: env, BaseSet: base, Before: before, After: after, WorkloadID: id, Action: action, Catalog: catalog, Active: active, Terraform: s.terraform, RunID: preview.RunID,
 			// Each step may be intermediate; the final batch state is validated below.
 			AllowIntermediateEnvironmentState: true})
 		if err != nil {
@@ -397,7 +407,11 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 				if err != nil {
 					return Preview{}, err
 				}
-				if !changed {
+				monitoringChanged := monitoringPin.Signature() != instanceByID[id].TargetRef["monitoringRevision"]
+				if monitoringPin.Signature() == "" && instanceByID[id].TargetRef["monitoringRevision"] == nil {
+					monitoringChanged = false
+				}
+				if !changed && !monitoringChanged {
 					sameRenderer, err := sameRendering(ctx, st, instanceByID[id].LastDeploymentID, id, plan.Rendering[id])
 					if err != nil {
 						return Preview{}, err

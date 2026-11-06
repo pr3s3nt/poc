@@ -13,6 +13,8 @@ import (
 )
 
 var ErrInvalid = errors.New("monitoring: invalid configuration")
+var ErrCredentialChange = errors.New("monitoring: endpoint change requires explicit credentials")
+var ErrStaleBinding = errors.New("monitoring: binding needs refresh")
 var ErrInUse = errors.New("monitoring: configuration still in use")
 var namePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$`)
 
@@ -37,6 +39,10 @@ func (s Scope) Validate() error {
 type Target struct {
 	Scope                     Scope
 	Workload, Kind, Name, UID string
+	PodUIDs                   []string
+	Containers                []string
+	CPULimitMilli             *float64
+	MemoryLimitBytes          *float64
 }
 
 func (t Target) Validate() error {
@@ -93,26 +99,33 @@ func RuleName(t Target) string {
 }
 
 // Connection stores only nonsecret metadata and a private opaque reference.
+type CredentialReceipt struct {
+	Key       string `json:"key"`
+	Reference string `json:"reference"`
+}
 type Connection struct {
-	Profile         Profile           `json:"profile"`
-	ID              string            `json:"id"`
-	Organization    string            `json:"organization"`
-	Key             string            `json:"key"`
-	Name            string            `json:"name"`
-	Revision        int64             `json:"revision"`
-	LokiURL         string            `json:"lokiUrl,omitempty"`
-	CredentialRefs  map[string]string `json:"credentialRefs,omitempty"`
-	Verification    Verification      `json:"verification"`
-	PrometheusURL   string            `json:"prometheusUrl"`
-	AlertmanagerURL string            `json:"alertmanagerUrl"`
-	GrafanaURL      string            `json:"grafanaUrl"`
-	DashboardUID    string            `json:"dashboardUid"`
-	CredentialRef   string            `json:"credentialRef,omitempty"`
-	CA              string            `json:"ca,omitempty"`
-	ClusterUID      string            `json:"clusterUid"`
-	RuleLabels      map[string]string `json:"ruleLabels"`
-	Rules           RulesConfig       `json:"rules"`
-	VerifiedAt      *time.Time        `json:"verifiedAt,omitempty"`
+	Deleting           bool                `json:"deleting,omitempty"`
+	RetiredCredentials []CredentialReceipt `json:"retiredCredentials,omitempty"`
+	Profile            Profile             `json:"profile"`
+	ID                 string              `json:"id"`
+	Organization       string              `json:"organization"`
+	Key                string              `json:"key"`
+	Name               string              `json:"name"`
+	Revision           int64               `json:"revision"`
+	LokiRetentionDays  int                 `json:"lokiRetentionDays,omitempty"`
+	LokiURL            string              `json:"lokiUrl,omitempty"`
+	CredentialRefs     map[string]string   `json:"credentialRefs,omitempty"`
+	Verification       Verification        `json:"verification"`
+	PrometheusURL      string              `json:"prometheusUrl"`
+	AlertmanagerURL    string              `json:"alertmanagerUrl"`
+	GrafanaURL         string              `json:"grafanaUrl"`
+	DashboardUID       string              `json:"dashboardUid"`
+	CredentialRef      string              `json:"credentialRef,omitempty"`
+	CA                 string              `json:"ca,omitempty"`
+	ClusterUID         string              `json:"clusterUid"`
+	RuleLabels         map[string]string   `json:"ruleLabels"`
+	Rules              RulesConfig         `json:"rules"`
+	VerifiedAt         *time.Time          `json:"verifiedAt,omitempty"`
 }
 type Binding struct {
 	ProfileVersion     string                     `json:"profileVersion,omitempty"`
@@ -150,6 +163,7 @@ func (c Connection) Credential(provider string) (string, string) {
 }
 
 func CloneConnection(c Connection) Connection {
+	c.RetiredCredentials = append([]CredentialReceipt(nil), c.RetiredCredentials...)
 	b, _ := json.Marshal(c)
 	var out Connection
 	_ = json.Unmarshal(b, &out)

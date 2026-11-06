@@ -161,7 +161,7 @@ func (s *Service) PreviewDeployment(ctx context.Context, q PreviewDeploymentQuer
 			return nil, err
 		}
 	}
-	plan, err := s.planner.Plan(planning.Request{
+	plan, err := s.planner.Plan(planning.Request{Monitoring: snapshot.Monitoring,
 		OrganizationKey: q.OrganizationKey,
 		App:             snapshot.App,
 		Env:             snapshot.Env,

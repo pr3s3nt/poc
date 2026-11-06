@@ -263,3 +263,14 @@ no download, Terraform CLI/provider call or secret resolution. Descriptor/Delta/
 weighted criteria/topological semantics and reference fixtures remain unchanged.
 V2 tests thuộc M04; không sửa read-only fixtures hoặc dùng harness source
 map/renderer behavior để bỏ qua current product contracts.
+
+
+## External observation pins — issue #35 extension
+
+Current product planning optionally includes a monitoring configuration pin in its
+immutable hash. Unbound reference fixtures retain their original hash input and
+conversion behavior. The planning snapshot supplies metadata only; no telemetry
+or provider query runs during Preview. See the
+[contract](../architecture/contracts/external-observability.md#preview-and-operation-fencing)
+and UC-09 EXT-OBS requirements. This product extension does not change the
+read-only challenge/reference implementation.

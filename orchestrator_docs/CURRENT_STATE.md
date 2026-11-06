@@ -19,15 +19,17 @@ preexisting releases. Existing CRDs require explicit compatibility-reviewed reus
 Local contract tests and pinned Helm rendering are supplemented by a real owned
 kind installation: metrics followed by logging with partial existing-component
 reuse; repeated applies are NOOP, and real Prometheus/Loki data is present.
-Console connection creation/test works against that isolated stack. Full stage 0
-(exporters, notifications, persistence) and stages 1–5 remain in progress; no
+Console connection creation/test works against that isolated stack. PostgreSQL/blackbox/ingress sources, isolated firing/resolved notifications and
+five-component restart persistence now have live proof. Stages 0–5 still have
+open gates (resource/dependency product mapping, complete lifecycle and final
+validation); no
 stage-6 or MCP-specific acceptance is claimed. See the
 [capability checkpoints](verification/2026-11-07-observability-capabilities.md).
 
 ## Issue #35 branch integration — 2026-11-06
 
 `features/loggingandmonitoring` integrates main at `b2d605f9`; external monitoring
-remains Slice 1 WIP, not accepted or deployed. Its observability decision is now ADR-040
+remains feature WIP, not accepted or deployed to the retained main cluster. Its observability decision is now ADR-040
 and monitoring schema 11 follows main's immutable schema 9/10. The retained
 monitoring-only WIP schema-9 database needs a reviewed compatibility migration
 before reuse with this branch; it was not reset or upgraded. See the

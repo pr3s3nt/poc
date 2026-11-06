@@ -79,3 +79,48 @@ func TestTypedPodMonitorAndApplicationQueryIdentity(t *testing.T) {
 		}
 	}
 }
+
+func TestLiveContainerQueriesPinVerifiedPodUIDsAndRulesStayDynamic(t *testing.T) {
+	target := ownedTarget()
+	target.PodUIDs = []string{"11111111-2222-4333-8444-555555555555"}
+	target.Containers = []string{"main"}
+	q, e := WorkloadQueries(target)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if !strings.Contains(q["cpu"], `id=~".*pod(11111111[-_]2222[-_]4333[-_]8444[-_]555555555555).*"`) || !strings.Contains(q["memory"], `container=~"main"`) || !strings.Contains(q["restarts"], `uid=~"11111111-2222-4333-8444-555555555555"`) {
+		t.Fatal("live reads lack pod identity")
+	}
+	doc, e := RuleDocument(target, monitoring.DevRules())
+	if e != nil {
+		t.Fatal(e)
+	}
+	raw, _ := json.Marshal(doc)
+	if strings.Contains(string(raw), target.PodUIDs[0]) {
+		t.Fatal("rule became pinned to disposable pods")
+	}
+	target.PodUIDs = nil
+	q, e = WorkloadQueries(target)
+	if e != nil || !strings.Contains(q["cpu"], `id=~"$^"`) {
+		t.Fatal("empty pod inventory broadened query", e)
+	}
+}
+
+func TestRatioThresholdAppliesToRatioAfterTrafficGate(t *testing.T) {
+	metric := monitoring.MetricDefinition{Key: "errors", Metric: "http_requests_total", Matchers: map[string]string{"code": "5.."}, Aggregation: "rate_ratio", DenominatorMetric: "http_requests_total", MinimumDenominator: 0.1, Unit: "ratio", Alert: &monitoring.MetricThreshold{Above: 0.05, ForSeconds: 30, Severity: "warning"}}
+	target := ownedTarget()
+	query := MetricQuery(target, metric)
+	if !strings.HasPrefix(query, "((") || !strings.HasSuffix(query, "))") || !strings.Contains(query, `code=~"5.."`) || !strings.Contains(query, "and on()") || !strings.Contains(query, ">= 0.1") {
+		t.Fatal("wrong ratio precedence/traffic gate", query)
+	}
+	doc, e := RuleDocument(target, monitoring.DevRules())
+	if e != nil {
+		t.Fatal(e)
+	}
+	AddMetricRules(doc, target, monitoring.WorkloadProfile{Metrics: []monitoring.MetricDefinition{metric}}, "test-ratio-v1")
+	rules := doc["spec"].(map[string]any)["groups"].([]any)[0].(map[string]any)["rules"].([]any)
+	expr := rules[len(rules)-1].(map[string]any)["expr"].(string)
+	if !strings.HasSuffix(expr, ")) > 0.05") {
+		t.Fatal("threshold compared the denominator instead of ratio")
+	}
+}

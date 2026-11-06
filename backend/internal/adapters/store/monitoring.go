@@ -35,12 +35,25 @@ func (s *Store) PutMonitoringConnection(ctx context.Context, c monitoring.Connec
 		return persistence.ErrNotFound
 	}
 	old, ok := s.state.MonitoringConnections[c.ID]
+	if ok && old.Deleting {
+		return monitoring.ErrInUse
+	}
 	if (expected == 0 && ok) || (expected > 0 && (!ok || old.Organization != c.Organization || old.Key != c.Key || old.Revision != expected)) {
 		return persistence.ErrVersionConflict
 	}
 	for id, prior := range s.state.MonitoringConnections {
 		if id != c.ID && prior.Organization == c.Organization && prior.Key == c.Key {
 			return persistence.ErrVersionConflict
+		}
+	}
+	if expected > 0 {
+		for _, b := range s.state.MonitoringBindings {
+			if b.ConnectionID == c.ID {
+				env := s.state.Environments[envKey(b.Application, b.Environment)]
+				if env.Busy() && env.ActiveOperationID != persistence.OperationFrom(ctx) {
+					return persistence.Busy(b.Application, b.Environment)
+				}
+			}
 		}
 	}
 	s.state.MonitoringConnections[c.ID] = monitoring.CloneConnection(c)
@@ -106,7 +119,7 @@ func (s *Store) PutMonitoringBinding(ctx context.Context, b monitoring.Binding, 
 		return persistence.ErrVersionConflict
 	}
 	c, ok := s.state.MonitoringConnections[b.ConnectionID]
-	if !ok || c.Organization != b.Organization || c.Revision != b.ConnectionRevision {
+	if !ok || c.Organization != b.Organization || c.Revision != b.ConnectionRevision || c.Deleting {
 		return persistence.ErrVersionConflict
 	}
 	old, ok := s.state.MonitoringBindings[envKey(b.Application, b.Environment)]
@@ -137,5 +150,37 @@ func (s *Store) DeleteMonitoringBinding(ctx context.Context, org, app, env strin
 		return persistence.ErrVersionConflict
 	}
 	delete(s.state.MonitoringBindings, envKey(app, env))
+	return nil
+}
+
+func (s *Store) MarkMonitoringDeleting(ctx context.Context, org, id string, expected int64) error {
+	defer s.lock(ctx)()
+	c, ok := s.state.MonitoringConnections[id]
+	if !ok || c.Organization != org {
+		return persistence.ErrNotFound
+	}
+	if c.Revision != expected {
+		return persistence.ErrVersionConflict
+	}
+	for _, b := range s.state.MonitoringBindings {
+		if b.ConnectionID == id {
+			return monitoring.ErrInUse
+		}
+	}
+	c.Deleting = true
+	s.state.MonitoringConnections[id] = monitoring.CloneConnection(c)
+	return nil
+}
+func (s *Store) ClearRetiredMonitoringCredentials(ctx context.Context, org, id string, expected int64) error {
+	defer s.lock(ctx)()
+	c, ok := s.state.MonitoringConnections[id]
+	if !ok || c.Organization != org {
+		return persistence.ErrNotFound
+	}
+	if c.Revision != expected {
+		return persistence.ErrVersionConflict
+	}
+	c.RetiredCredentials = nil
+	s.state.MonitoringConnections[id] = monitoring.CloneConnection(c)
 	return nil
 }

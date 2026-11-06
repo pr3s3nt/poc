@@ -41,7 +41,7 @@ func (s *Store) GetMonitoringConnection(ctx context.Context, org, id string) (mo
 	}
 	return c, nil
 }
-func (s *Store) PutMonitoringConnection(ctx context.Context, c monitoring.Connection, expected int64) error {
+func (s *Store) putMonitoringConnection(ctx context.Context, c monitoring.Connection, expected int64) error {
 	if c.ID == "" || c.Organization == "" || c.Revision != expected+1 {
 		return monitoring.ErrInvalid
 	}
@@ -59,7 +59,7 @@ func (s *Store) PutMonitoringConnection(ctx context.Context, c monitoring.Connec
 		}
 		return nil
 	}
-	tag, e := s.q(ctx).Exec(ctx, `UPDATE monitoring_connections m SET revision=$4,document=$5 FROM organizations o WHERE o.id=m.organization_id AND o.organization_key=$2 AND m.id::text=$1 AND m.revision=$3 AND m.connection_key=$6`, c.ID, c.Organization, expected, c.Revision, b, c.Key)
+	tag, e := s.q(ctx).Exec(ctx, `UPDATE monitoring_connections m SET revision=$4,document=$5 FROM organizations o WHERE o.id=m.organization_id AND o.organization_key=$2 AND m.id::text=$1 AND m.revision=$3 AND m.connection_key=$6 AND COALESCE((m.document->>'deleting')::boolean,false)=false`, c.ID, c.Organization, expected, c.Revision, b, c.Key)
 	if e != nil {
 		return translate(e)
 	}
@@ -68,7 +68,7 @@ func (s *Store) PutMonitoringConnection(ctx context.Context, c monitoring.Connec
 	}
 	return nil
 }
-func (s *Store) DeleteMonitoringConnection(ctx context.Context, org, id string, expected int64) error {
+func (s *Store) deleteMonitoringConnection(ctx context.Context, org, id string, expected int64) error {
 	tag, e := s.q(ctx).Exec(ctx, `DELETE FROM monitoring_connections m USING organizations o WHERE o.id=m.organization_id AND o.organization_key=$1 AND m.id::text=$2 AND m.revision=$3`, org, id, expected)
 	if e != nil {
 		var pgErr *pgconn.PgError
@@ -94,7 +94,7 @@ func (s *Store) GetMonitoringBinding(ctx context.Context, org, app, env string) 
 	}
 	return out, nil
 }
-func (s *Store) PutMonitoringBinding(ctx context.Context, b monitoring.Binding, expected int64) error {
+func (s *Store) putMonitoringBinding(ctx context.Context, b monitoring.Binding, expected int64) error {
 	if b.Revision != expected+1 {
 		return monitoring.ErrInvalid
 	}
@@ -113,7 +113,7 @@ func (s *Store) PutMonitoringBinding(ctx context.Context, b monitoring.Binding, 
 		if e != nil {
 			return monitoring.ErrInvalid
 		}
-		tag, e := s.q(ctx).Exec(ctx, `INSERT INTO monitoring_bindings(environment_id,organization_id,connection_id,revision,document) SELECT e.id,o.id,c.id,$5,$6 FROM environments e JOIN applications a ON a.id=e.application_id JOIN organizations o ON o.id=a.organization_id JOIN monitoring_connections c ON c.organization_id=o.id AND c.id::text=$4 AND c.revision=$8 WHERE o.organization_key=$1 AND a.application_key=$2 AND e.environment_key=$3 AND (e.active_operation_id IS NULL OR e.active_operation_id=NULLIF($9,'')::uuid) AND e.target_generation=$10 AND ($7=0 OR EXISTS(SELECT 1 FROM monitoring_bindings b WHERE b.environment_id=e.id AND b.revision=$7)) ON CONFLICT(environment_id) DO UPDATE SET connection_id=EXCLUDED.connection_id,revision=EXCLUDED.revision,document=EXCLUDED.document WHERE monitoring_bindings.revision=$7`, b.Organization, b.Application, b.Environment, b.ConnectionID, b.Revision, raw, expected, b.ConnectionRevision, persistence.OperationFrom(ctx), b.Generation)
+		tag, e := s.q(ctx).Exec(ctx, `INSERT INTO monitoring_bindings(environment_id,organization_id,connection_id,revision,document) SELECT e.id,o.id,c.id,$5,$6 FROM environments e JOIN applications a ON a.id=e.application_id JOIN organizations o ON o.id=a.organization_id JOIN monitoring_connections c ON c.organization_id=o.id AND c.id::text=$4 AND c.revision=$8 AND COALESCE((c.document->>'deleting')::boolean,false)=false WHERE o.organization_key=$1 AND a.application_key=$2 AND e.environment_key=$3 AND (e.active_operation_id IS NULL OR e.active_operation_id=NULLIF($9,'')::uuid) AND e.target_generation=$10 AND ($7=0 OR EXISTS(SELECT 1 FROM monitoring_bindings b WHERE b.environment_id=e.id AND b.revision=$7)) ON CONFLICT(environment_id) DO UPDATE SET connection_id=EXCLUDED.connection_id,revision=EXCLUDED.revision,document=EXCLUDED.document WHERE monitoring_bindings.revision=$7`, b.Organization, b.Application, b.Environment, b.ConnectionID, b.Revision, raw, expected, b.ConnectionRevision, persistence.OperationFrom(ctx), b.Generation)
 		if e != nil {
 			return translate(e)
 		}
@@ -146,7 +146,7 @@ func (s *Store) VerifyMonitoringConnection(ctx context.Context, c monitoring.Con
 	}
 	return nil
 }
-func (s *Store) DeleteMonitoringBinding(ctx context.Context, org, app, env string, expected int64) error {
+func (s *Store) deleteMonitoringBinding(ctx context.Context, org, app, env string, expected int64) error {
 	return s.fenced(ctx, func(ctx context.Context) error {
 		application, e := s.GetApplication(ctx, app)
 		if e != nil || application.OrganizationKey != org {

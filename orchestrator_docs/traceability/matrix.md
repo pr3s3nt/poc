@@ -1529,3 +1529,18 @@ ADR-039 / WD-02–03: template-only values → RuntimeDefaults/TemplateDefaultsS
 → workloadconfig scoped admission → generic resolver / renderer / Preview →
 arbitrary-value merge, forged-profile, no-policy and real Fleet/PVC acceptance.
 See [verification](../verification/2026-11-06-template-only-defaults.md).
+
+
+## External observability capabilities — issue #35
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| ADR-040 portable setup | scripts/observability Bash/Helm installer, values and receipts | 25 command-contract cases; real fresh/partial kind setup and NOOP reruns |
+| UC-09 EXT-OBS-01/07/08 | source-specific connections, operational verification, predeploy binding, PostgreSQL/memory CAS | monitoring service/HTTP/real PostgreSQL tests; Console connection/binding |
+| UC-09 EXT-OBS-02/05/09/13 | cluster/current-Pod UID-scoped Prometheus queries; retained Loki adapter; explicit native history | provider bounds/isolation tests; live collection/query checkpoints |
+| UC-09 EXT-OBS-03/06/14 | Prometheus evaluation, Alertmanager processing projection, scoped Console drill-down | real firing and resolved webhook receipts; browser checks in progress |
+| UC-09 EXT-OBS-04/10–12/15; UC-05–08 observation pins | typed profile/PodMonitor/rules; plan/Preview/claim pins; applied workload signature | profile-only/stale/noop tests; real PostgreSQL admission/config fencing; live lifecycle in progress |
+
+Implementation status and limits are recorded in
+[capability verification](../verification/2026-11-07-observability-capabilities.md);
+this trace does not claim stage-6 or MCP-specific acceptance.

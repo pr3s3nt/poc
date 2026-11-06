@@ -25,8 +25,32 @@ func MetricQuery(t monitoring.Target, m monitoring.MetricDefinition) string {
 	for _, k := range keys {
 		pairs = append(pairs, k+"="+strconv.Quote(labels[k]))
 	}
+	matcherKeys := []string{}
+	for k := range m.Matchers {
+		matcherKeys = append(matcherKeys, k)
+	}
+	sort.Strings(matcherKeys)
+	for _, k := range matcherKeys {
+		pairs = append(pairs, k+"=~"+strconv.Quote(m.Matchers[k]))
+	}
 	selector := m.Metric + "{" + strings.Join(pairs, ",") + "}"
 	switch m.Aggregation {
+	case "rate_ratio", "gauge_ratio":
+		aggregation := "rate"
+		if m.Aggregation == "gauge_ratio" {
+			aggregation = "gauge"
+		}
+		numerator := m
+		numerator.Aggregation = aggregation
+		numerator.DenominatorMetric = ""
+		numerator.DenominatorLabels = nil
+		numerator.MinimumDenominator = 0
+		denominator := numerator
+		denominator.Metric = m.DenominatorMetric
+		denominator.Labels = m.DenominatorLabels
+		denominator.Matchers = nil
+		n, d := MetricQuery(t, numerator), MetricQuery(t, denominator)
+		return "((" + n + " / " + d + ") and on() (" + d + " >= " + strconv.FormatFloat(m.MinimumDenominator, 'g', -1, 64) + "))"
 	case "rate":
 		return "sum(rate(" + selector + "[5m]))"
 	case "p95":
@@ -61,7 +85,11 @@ func AddMetricRules(doc map[string]any, t monitoring.Target, p monitoring.Worklo
 		labels := IdentityLabels(t)
 		labels["severity"] = m.Alert.Severity
 		labels["metric_key"] = m.Key
-		rules = append(rules, map[string]any{"alert": "OrchestratorMetricThreshold", "expr": MetricQuery(t, m) + " > " + strconv.FormatFloat(m.Alert.Above, 'g', -1, 64), "for": fmt.Sprintf("%ds", m.Alert.ForSeconds), "labels": labels, "annotations": map[string]string{"summary": "Configured metric threshold exceeded: " + m.Key, "configuration_source": version}})
+		comparison := " > "
+		if m.Alert.Comparison == "below" {
+			comparison = " < "
+		}
+		rules = append(rules, map[string]any{"alert": "OrchestratorMetricThreshold", "expr": MetricQuery(t, m) + comparison + strconv.FormatFloat(m.Alert.Above, 'g', -1, 64), "for": fmt.Sprintf("%ds", m.Alert.ForSeconds), "labels": labels, "annotations": map[string]string{"summary": "Configured metric threshold exceeded: " + m.Key, "configuration_source": version}})
 	}
 	group["rules"] = rules
 }

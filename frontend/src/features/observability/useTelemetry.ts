@@ -6,7 +6,7 @@ import { text } from './model';
 
 export function useTelemetry(app: string, env: EnvironmentKey, kind: 'overview' | 'logs' | 'metrics', filters: Filters, pollMs = 0, relativeMinutes?: number, refreshKey = '') {
   const key = JSON.stringify(filters), scope = `${app}/${env}/${kind}/${key}/${relativeMinutes ?? ''}`;
-  const [record, setRecord] = useState<{ scope: string; value: Snapshot }>();
+  const [record, setRecord] = useState<{ scope: string; identity: string; filters: Filters; value: Snapshot }>();
   const [failure, setFailure] = useState<{ scope: string; message: string }>();
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
@@ -21,7 +21,7 @@ export function useTelemetry(app: string, env: EnvironmentKey, kind: 'overview' 
       try {
         const query = relativeMinutes ? { ...selected, ...interval(relativeMinutes) } : selected;
         const value = await readTelemetry(app, env, kind, query, controller.signal);
-        if (current === sequence.current && !controller.signal.aborted) { setRecord({ scope, value }); setFailure(undefined); }
+        if (current === sequence.current && !controller.signal.aborted) { setRecord({ scope, identity: `${app}/${env}/${kind}`, filters: { ...query, from: value.from, to: value.to }, value }); setFailure(undefined); }
       } catch (error) {
         if (current === sequence.current && !controller.signal.aborted) setFailure({ scope, message: describeError(error, text('errorText')) });
       } finally {
@@ -33,5 +33,6 @@ export function useTelemetry(app: string, env: EnvironmentKey, kind: 'overview' 
     const timer = pollMs ? window.setInterval(() => void load(), pollMs) : undefined;
     return () => { controller.abort(); if (timer) window.clearInterval(timer); };
   }, [app, env, kind, key, scope, pollMs, relativeMinutes, refreshKey, attempt]);
-  return { data: record?.scope === scope ? record.value : undefined, error: failure?.scope === scope ? failure.message : '', loading, reload: () => setAttempt(value => value + 1) };
+  const samePausedWindow = !relativeMinutes && record?.identity === `${app}/${env}/${kind}` && [...new Set([...Object.keys(record.filters), ...Object.keys(filters)])].every(key => record.filters[key as keyof Filters] === filters[key as keyof Filters]);
+  return { data: record?.scope === scope || samePausedWindow ? record?.value : undefined, error: failure?.scope === scope ? failure.message : '', loading, reload: () => setAttempt(value => value + 1) };
 }

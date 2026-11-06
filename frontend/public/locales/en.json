@@ -3832,7 +3832,7 @@
   "monitoring.deployments": "Deployments",
   "monitoring.grafana": "Open Grafana",
   "monitoring.coverage": "Data coverage",
-  "monitoring.coverageHelp": "OOM is a last-termination observation, not a complete history. Logs use native data. Gaps represent missing data; Grafana uses separate access control.",
+  "monitoring.coverageHelp": "CPU/memory use current pod UIDs; earlier replacement history may have gaps. OOM is a last-termination observation, not complete history. Missing values are not zero. Native history and Grafana access are independent.",
   "monitoring.NOT_DEPLOYED": "Not deployed",
   "monitoring.RECEIVING": "Receiving",
   "monitoring.PARTIAL": "Partial",
@@ -4081,5 +4081,11 @@
   "monitoring.NOT_CONFIGURED": "Not configured",
   "monitoring.active": "Processing",
   "monitoring.suppressed": "Suppressed",
-  "monitoring.unprocessed": "Unprocessed"
+  "monitoring.unprocessed": "Unprocessed",
+  "monitoring.lokiRetention": "Configured Loki retention (days)",
+  "monitoring.lokiRetentionNotice": "Loki: configured retention {days} days; older data may be unavailable.",
+  "monitoring.customRange": "Selected interval",
+  "monitoring.nativeMetricHistory": "Native metric history",
+  "monitoring.settings": "Environment settings",
+  "monitoring.staleBinding": "Monitoring configuration changed. Test the connection and refresh the binding before deployment."
 }

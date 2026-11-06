@@ -60,7 +60,7 @@ func (s *Service) DeployWithReview(ctx context.Context, appKey, envKey, actor, t
 	lease, err := s.operations().Begin(ctx, envops.Claim{
 		ApplicationKey: appKey, EnvironmentKey: envKey, Kind: environment.OpDeploy,
 		ReviewRequestID: reviewRequestID,
-		Pins: environment.OperationPins{
+		Pins: environment.OperationPins{CheckMonitoring: true, Monitoring: preview.Monitoring,
 			CheckEnvVersion: true, EnvVersion: preview.BaseVersion,
 			CheckDraftVersion: true, DraftVersion: preview.DraftVersion,
 			CheckConfigVersion: true, ConfigVersion: preview.ConfigVersion,

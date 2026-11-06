@@ -59,6 +59,8 @@ const messageTable = {
   RECOVERY_INCOMPLETE: t('shared.errors.recoveryIsIncompleteTheEnvironment'),
   OPERATION_LOST: t('shared.errors.theOperationWasInterruptedCheck'),
   ROUTE_RECONCILE_FAILED: t('shared.errors.theWorkloadWasAppliedBut'),
+  MONITORING_CREDENTIAL_REQUIRED: t('monitoring.credentialRequired'),
+  MONITORING_STALE_BINDING: t('monitoring.staleBinding'),
   MONITORING_IN_USE: t('monitoring.inUse'),
   SERVICE_UNAVAILABLE: t('shared.errors.aRequiredServiceIsNot'),
   INTERNAL_ERROR: t('shared.errors.theServerHitAnUnknown'),

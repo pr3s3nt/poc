@@ -156,3 +156,44 @@ a current Pod UID is not used to erase retained history. A generation change doe
 not silently expose an earlier generation's logs. Native history remains available
 through explicit `source=native`; source changes never delete it. Loki paging is
 bounded and reports truncation when timestamp ties exceed the provider page bound.
+
+### Preview and operation fencing
+
+The read-only planning snapshot includes a nonsecret monitoring pin (connection
+identity/config revision, binding revision, generation and signal selection).
+It participates in the plan hash and pending Preview token. Each successful
+workload delivery stores the applied monitoring signature in its existing target
+metadata. A profile/binding change therefore produces an UPDATE through ordinary
+Preview/Deploy even when the Workload document is unchanged. Identical config or
+binding saves are no-ops and preserve verification/revisions.
+
+Environment admission compares the pin atomically with the operation claim;
+connection edits and binding changes cannot race a held referencing operation.
+PostgreSQL serializes monitoring metadata mutations against claim admission using
+a short advisory transaction guard, then enforces Environment ownership/busy/CAS
+checks. It never holds that guard across Kubernetes or provider reads. Retesting
+connectivity does not change config pins. Workload removal remains possible with
+stale external source configuration; it uses retained owned delivery receipts.
+No released migration/reference is changed for these JSON metadata additions.
+
+Typed observations also support `rate_ratio` (HTTP errors/requests) and
+`gauge_ratio` (for example active/max connections). They name a denominator metric
+and its bounded labels; `minimumDenominator` must be positive. No traffic or an
+absent denominator produces missing data, never a zero error ratio. At most eight
+validated RE2 label matchers may refine source-provided classifications, always
+inside the trusted target identity. Threshold comparison is explicitly `above`
+(default) or `below` (for availability/probe success); windows remain fixed and
+configuration/provenance are version-pinned. This is not arbitrary PromQL.
+
+### Credential rotation and deletion recovery
+
+Endpoint changes cannot silently forward a stored credential to a different URL:
+PE must explicitly supply or clear that source's credential. Superseded opaque
+references are retained privately as bounded cleanup receipts until deletion is
+confirmed; cleanup does not change the configuration revision. Public API exposes
+only a cleanup-pending flag. Connection deletion first records a nonselectable
+DELETING state under the reference/CAS guard, then removes private credential
+objects, then removes metadata. Provider failure keeps the tombstone/receipts for
+safe retry; Save/Test/Bind cannot reactivate or select it. No DB transaction spans
+credential-provider calls. New and legacy immutable references remain scoped to
+their organization/connection keys; credentials never enter manifests or links.
