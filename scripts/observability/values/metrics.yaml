@@ -1,0 +1,66 @@
+# Small-cluster starting point, not company production policy. Chart: 92.18.0.
+# Component switches and storage class are supplied by setup.sh from config.
+defaultRules:
+  create: true
+prometheus:
+  prometheusSpec:
+    retention: 3d
+    retentionSize: 4GB
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    resources:
+      requests: {cpu: 200m, memory: 512Mi}
+      limits: {cpu: '2', memory: 2Gi}
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests: {storage: 8Gi}
+alertmanager:
+  config:
+    route: {receiver: discard}
+    receivers: [{name: discard}]
+  alertmanagerSpec:
+    retention: 72h
+    resources:
+      requests: {cpu: 25m, memory: 64Mi}
+      limits: {cpu: 250m, memory: 256Mi}
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests: {storage: 1Gi}
+grafana:
+  # Prefer admin.existingSecret in company values. Never put credentials in Git.
+  persistence: {enabled: true, size: 1Gi}
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+  sidecar:
+    dashboards:
+      resources:
+        requests: {cpu: 10m, memory: 32Mi}
+        limits: {cpu: 100m, memory: 128Mi}
+    datasources:
+      resources:
+        requests: {cpu: 10m, memory: 32Mi}
+        limits: {cpu: 100m, memory: 128Mi}
+kube-state-metrics:
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 300m, memory: 256Mi}
+prometheus-node-exporter:
+  resources:
+    requests: {cpu: 25m, memory: 32Mi}
+    limits: {cpu: 200m, memory: 128Mi}
+prometheusOperator:
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+# Review these switches for the destination distribution; no routing changes.
+kubeControllerManager: {enabled: false}
+kubeScheduler: {enabled: false}
+kubeEtcd: {enabled: false}
+kubeProxy: {enabled: false}

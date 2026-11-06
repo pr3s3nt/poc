@@ -1322,3 +1322,15 @@ and `ExternalMonitoring`. The `e2e/scenarios/kubernetes-monitoring/` runner
 currently covers only connection/binding checkpoints. See the
 [handoff](external-observability-s1.md) for missing lifecycle/live acceptance and
 compatibility limits of the retained pre-merge WIP database.
+
+
+## Portable observability operator setup — issue #35 stage 0
+
+ADR-040 operator setup extension maps to `scripts/observability/setup.sh`, JSON
+examples and chart values. Runtime deps: Linux Bash/Helm/kubectl/jq, no custom
+Go/Node/Python runtime. Contract tests: `scripts/observability/test/run.sh`.
+The [standalone guide](../../scripts/observability/README.md) and
+[runbook](../operations/observability-installation.md) cover ownership, reuse,
+chart pins, partial failure, retained state and live verification limits.
+Historical `e2e/setup/observability-stack/` remains the dev acceptance fixture;
+no new platform installer is placed in scenario setup or platform seed tooling.

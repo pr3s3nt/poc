@@ -1,5 +1,11 @@
 # Slice 1 development observability stack
 
+For portable operator installation and partial existing stacks, use the
+[Bash/Helm installer](../../../scripts/observability/README.md) and
+[runbook](../../../orchestrator_docs/operations/observability-installation.md).
+This folder retains the historical dev acceptance fixture/receiver; do not copy
+its kind-specific values/identity generator as a general cluster installer.
+
 Operator setup for [ADR-040](../../../orchestrator_docs/architecture/decisions/ADR-040-external-observability.md)
 and [UC-09 OBS](../../../orchestrator_docs/usecase/UC-09/specification.md#external-kubernetes-monitoring-and-alerts--obs).
 Installation is not product acceptance. Requires explicit cluster mutation permission,

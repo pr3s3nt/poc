@@ -154,3 +154,15 @@ Validation for main integration:
   PlantUML container; changed ERD/sequence syntax checks passed separately.
 - No full product suite, browser acceptance, cluster deployment, DNS repair,
   failure injection or notification send was performed for this merge.
+
+
+## Capability stage 0 tooling — 2026-11-06
+
+User approved Bash + Helm instead of a custom installer runtime. The
+[portable installer](../../scripts/observability/README.md) now supports explicit
+install/reuse/skip, partial existing stacks, chart pins, identity/ownership receipts
+and unchanged-input NOOP behavior. This is separate from platform connection/query
+implementation and does not upgrade the retained prototype database. Local
+[tooling verification](../verification/2026-11-06-observability-installer.md) is not
+live stack or product acceptance; stage 0 remains unticked pending an authorized
+available target and real installation/re-run/data/notification/persistence checks.

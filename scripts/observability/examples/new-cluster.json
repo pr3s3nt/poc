@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "installationId": "team-observability",
+  "context": "CHANGE_ME_CONTEXT",
+  "namespace": "observability-tools",
+  "createNamespace": true,
+  "storageClass": "CHANGE_ME_STORAGE_CLASS",
+  "timeout": "15m",
+  "crds": "install",
+  "components": {
+    "operator": {"mode": "install"},
+    "prometheus": {"mode": "install"},
+    "alertmanager": {"mode": "install"},
+    "grafana": {"mode": "install"},
+    "kubeStateMetrics": {"mode": "install"},
+    "nodeExporter": {"mode": "install"},
+    "loki": {"mode": "install"},
+    "alloy": {"mode": "install"},
+    "postgresExporter": {"mode": "skip", "reason": "DB target and monitoring credential not supplied"},
+    "blackboxExporter": {"mode": "skip", "reason": "Probe endpoints not supplied"}
+  },
+  "releases": [
+    {
+      "id": "metrics", "name": "obs-metrics",
+      "chart": {
+        "name": "kube-prometheus-stack", "version": "92.18.0",
+        "url": "https://github.com/prometheus-community/helm-charts/releases/download/kube-prometheus-stack-92.18.0/kube-prometheus-stack-92.18.0.tgz",
+        "sha256": "58d901b4a4e914d17e656d7da4d03ed38220a1d724b9e5e86018e032d2fbb4bb"
+      },
+      "valuesFile": "../values/metrics.yaml"
+    },
+    {
+      "id": "loki", "name": "obs-loki",
+      "chart": {
+        "name": "loki", "version": "7.5.0",
+        "url": "https://github.com/grafana/helm-charts/releases/download/helm-loki-7.5.0/loki-7.5.0.tgz",
+        "sha256": "bb8b254a57afc6b31ab23a6061216760c91c8ad3499d340442398b88ec603ca8"
+      },
+      "valuesFile": "../values/loki.yaml"
+    },
+    {
+      "id": "alloy", "name": "obs-alloy",
+      "chart": {
+        "name": "alloy", "version": "1.15.0",
+        "url": "https://github.com/grafana/helm-charts/releases/download/alloy-1.15.0/alloy-1.15.0.tgz",
+        "sha256": "2ecc96c05004cc01a45ab23cb390194ad5259ec9d02b42bf148d4468d013aaa3"
+      },
+      "valuesFile": "../values/alloy.yaml"
+    }
+  ]
+}

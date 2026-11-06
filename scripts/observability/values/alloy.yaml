@@ -1,0 +1,51 @@
+# Chart 1.15.0. API-based log collection restricted to an explicit namespace list.
+# Replace both CHANGE_ME values; review authorization before adding namespaces.
+crds:
+  create: false
+rbac:
+  create: true
+  namespaces: ["CHANGE_ME_LOG_NAMESPACE"]
+  rules:
+    - apiGroups: [""]
+      resources: ["pods", "pods/log"]
+      verbs: ["get", "list", "watch"]
+  clusterRules: []
+controller:
+  type: deployment
+  replicas: 1
+alloy:
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+  configMap:
+    content: |
+      discovery.kubernetes "pods" {
+        role = "pod"
+        namespaces {
+          names = ["CHANGE_ME_LOG_NAMESPACE"]
+        }
+      }
+      discovery.relabel "logs" {
+        targets = discovery.kubernetes.pods.targets
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "container"
+        }
+      }
+      loki.source.kubernetes "pods" {
+        targets    = discovery.relabel.logs.output
+        forward_to = [loki.write.default.receiver]
+      }
+      loki.write "default" {
+        endpoint {
+          url = "CHANGE_ME_LOKI_PUSH_URL"
+        }
+      }

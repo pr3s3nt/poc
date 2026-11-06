@@ -184,3 +184,5 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [Container volume/file UI — WC-22](2026-11-06-container-volume-ui.md).
 
 - [Existing volume sources before creation — WC-23](2026-11-06-reuse-first-volumes.md).
+
+- [2026-11-06 — portable observability installer tooling](2026-11-06-observability-installer.md): contract/render/config checks; live installation pending.

@@ -1,0 +1,17 @@
+# Optional. Fill out using a least-privilege monitoring account before enabling.
+# See chart values for datasource.host/user and passwordSecret name/key.
+# Do not use an existing application's owner credential.
+config:
+  datasource:
+    host: CHANGE_ME_DATABASE_HOST
+    user: CHANGE_ME_MONITORING_USER
+    database: CHANGE_ME_DATABASE_NAME
+    sslmode: verify-full
+    passwordSecret:
+      name: CHANGE_ME_MONITORING_SECRET
+      key: password
+serviceMonitor:
+  enabled: false
+resources:
+  requests: {cpu: 10m, memory: 32Mi}
+  limits: {cpu: 100m, memory: 128Mi}

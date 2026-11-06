@@ -2,14 +2,15 @@
 id: ADR-040
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-11-05
+last_reviewed: 2026-11-06
 related: [ADR-023, ADR-036, UC-04, UC-09]
 ---
 
 # ADR-040 — External Kubernetes monitoring and alerts
 
-Accepted by the user on 2026-11-05 for Slice 1 of issue #35. Implement only this
-slice; later application, database and dependency instrumentation remain deferred.
+Initially accepted by the user on 2026-11-05 for Slice 1 of issue #35. Product
+implementation remains WIP; capability-based installation tooling was subsequently
+approved on 2026-11-06 as recorded below.
 The user authorized the shared dev stack on kind `k8s-4f`, an isolated test
 receiver, and controlled failure/recovery on owned test workloads. Shared apps,
 production receivers and retained platform installations are outside that mutation scope.
@@ -69,3 +70,26 @@ complete Slice 1.
 
 [External contract](../contracts/external-observability.md) owns bounds and API.
 [UC-09](../../usecase/UC-09/specification.md) owns required product behavior.
+
+
+## Capability stages and portable installation — decision 2026-11-06
+
+Issue #35 now proceeds by capability: installation, connections/bindings,
+collection/configuration, investigation, alerts, lifecycle and overall acceptance.
+The user requested a portable, idempotent operator installer for another cluster
+including partial existing stacks. This extends operator tooling, not Console
+provisioning or permission to mutate an unspecified cluster.
+
+Use a standalone Bash + Helm installer with jq configuration (no custom Go/Node
+runtime). The installer must require an explicit context and physical cluster UID on apply.
+It plans all releases before mutation; archives are version/checksum pinned.
+Operators explicitly choose install, reuse or skip for each signal component.
+Reuse is read-only and identity-pinned; existing Helm releases/resources are never
+adopted. Only installer-owned releases may be updated. Existing shared CRDs are
+reused explicitly, never force-replaced. Unchanged deployed releases are no-ops;
+failed/pending or ambiguous ownership requires reconciliation rather than reset.
+Runtime receipts live outside Git and survive partial failure. No automatic
+uninstall, namespace/PVC deletion or data reset is included. The
+[installation runbook](../../operations/observability-installation.md) defines
+configuration, validation and recovery. Installation readiness does not establish
+telemetry coverage, notification delivery or application acceptance.

@@ -226,3 +226,7 @@ Complete workload configuration/defaults (issue #37):
 
 Template-only workload defaults: [ADR-039](architecture/decisions/ADR-039-template-owned-workload-defaults.md).
 - [Readable IDP application/repository/resource names](architecture/decisions/ADR-038-readable-idp-names.md).
+
+Portable observability installation (issue #35 stage 0):
+[operator runbook](operations/observability-installation.md),
+[standalone Bash/Helm installer](../scripts/observability/README.md).

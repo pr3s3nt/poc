@@ -86,3 +86,5 @@ ZIP source preparation: [module and render-bundle upload](zip-source-upload.md).
 PostgreSQL versioned upgrades: [runbook](postgres-upgrades.md).
 
 [Optional CD and drift reconciliation](delivery-reconciliation.md) — runtime flags, verified binding/Environment flow, reviewed repair, owner-only retention and recovery boundaries.
+
+- [Portable observability installation](observability-installation.md) — Bash/Helm, explicit ownership/reuse, stage-0 tooling.

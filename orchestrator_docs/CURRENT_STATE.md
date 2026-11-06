@@ -7,6 +7,21 @@ last_reviewed: 2026-11-06
 
 # Current project state
 
+## Issue #35 portable installation tooling — 2026-11-06
+
+Stage-0 operator tooling is implemented on `features/loggingandmonitoring`:
+[standalone Bash/Helm installer](../scripts/observability/README.md), explicit
+install/reuse/skip, chart version/SHA pins, per-cluster receipts, ownership and
+unchanged-input NOOP checks. It does not provision through Console or adopt
+preexisting releases. Existing CRDs require explicit compatibility-reviewed reuse.
+[Runbook](operations/observability-installation.md) owns operational limits.
+
+Local contract tests, pinned Helm chart lint/render and Alloy config validation
+are tooling checks only. Live installation/re-run on a fresh or partial cluster
+has not been accepted; the historical dev context is unavailable in this session.
+Stage 0 and overall issue #35 remain incomplete. See
+[verification](verification/2026-11-06-observability-installer.md).
+
 ## Issue #35 branch integration — 2026-11-06
 
 `features/loggingandmonitoring` integrates main at `b2d605f9`; external monitoring

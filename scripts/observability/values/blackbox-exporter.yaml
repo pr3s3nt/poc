@@ -1,0 +1,14 @@
+# Optional. Targets/scrape discovery belong to the collection stage.
+config:
+  modules:
+    http_2xx:
+      prober: http
+      timeout: 5s
+      http:
+        preferred_ip_protocol: ip4
+        follow_redirects: false
+serviceMonitor:
+  enabled: false
+resources:
+  requests: {cpu: 10m, memory: 32Mi}
+  limits: {cpu: 100m, memory: 128Mi}
