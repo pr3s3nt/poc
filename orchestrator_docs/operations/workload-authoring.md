@@ -18,6 +18,11 @@ cấu hình. Nhập tên và image nếu template chưa cung cấp. Save chỉ l
 Preview rồi Deploy là hai bước riêng. Variable/Secret tạo bằng hộp thoại riêng
 được commit ngay; Cancel workload không xóa chúng.
 
+Template Backend API không cung cấp image mặc định. Nhập image của ứng dụng vào
+container trước khi tính cấu hình hiệu lực. Form hiển thị yêu cầu bổ sung image,
+không yêu cầu Retry cho trường còn thiếu. Template có image được công bố sẵn vẫn
+hiển thị image kế thừa và không ghi nó thành override khi chỉ mở/lưu.
+
 ## Giá trị hiệu lực và mặc định
 
 Workload mới từ form dùng `workload-defaults-v1`. Workload cũ giữ policy cũ tới

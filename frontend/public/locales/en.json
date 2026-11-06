@@ -3983,5 +3983,6 @@
   "workloads.defaults.service": "Service",
   "workloads.defaults.networking": "Service & networking",
   "workloads.defaults.dependencies": "Dependencies",
-  "workloads.defaults.infrequent": "Infrequent configuration"
+  "workloads.defaults.infrequent": "Infrequent configuration",
+  "workloads.defaults.imageRequiredForDefaults": "Enter a container image to calculate effective configuration."
 }

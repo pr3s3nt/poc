@@ -25,6 +25,10 @@ the bottom. CronJob schedule stays separately visible. Real VI/EN browser checks
 and no-op Save pass; the runtime image now includes timezone data. See
 [layout verification](verification/2026-11-06-workload-frequency-layout.md).
 
+A generic template without an image now waits for required input before resolving,
+instead of showing an invalid/unavailable error on initial open. Published image
+profiles retain inheritance. See [template image defect verification](verification/2026-11-06-template-image-resolution.md).
+
 ## Workload class dropdown — 2026-11-05
 
 Task branch `features/chinhform`: UC-16 BR-31/32 replaces free-text workload class

@@ -4,16 +4,17 @@ import userEvent from '@testing-library/user-event';
 import { afterEach,expect,it,vi } from 'vitest';
 import { WorkloadEditorPage } from './WorkloadEditorPage';
 import { bothConfigured } from '../../test/targets';
-import type { Execution } from './templates';
+import { templateKey, type Execution, type WorkloadTemplate } from './templates';
 const application={id:'defaults',name:'Defaults',environments:bothConfigured(),workloads:{staging:[],production:[]}};
 afterEach(()=>vi.unstubAllGlobals());
 // Nonsecret resolver response recorded from the real backend policy endpoint.
 const effective={apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'web'},containers:{main:{image:'nginx:1',resources:{requests:{cpu:'100m',memory:'128Mi'},limits:{memory:'512Mi'}}}},workloadExecution:{version:1,kind:'Deployment',defaults:{version:'workload-defaults-v1',environment:'staging'},automountServiceAccountToken:false,revisionHistoryLimit:3,updateStrategy:{type:'RollingUpdate',rollingUpdate:{maxUnavailable:0,maxSurge:1}}}};
-function serve(failure=false,responseWorkload: Record<string,unknown>=effective){
+function serve(failure=false,responseWorkload: Record<string,unknown>=effective,template?:WorkloadTemplate){
  const saved:{workload:Record<string,unknown>}[]=[];let fail=failure;
  vi.stubGlobal('fetch',vi.fn(async(input:string|Request|URL,init?:RequestInit)=>{
  const url=String(input);
  if(url.endsWith('/resolve-defaults'))return fail?Response.json({code:'UNAVAILABLE'},{status:503}):Response.json({workload:responseWorkload,sources:{'containers.main.resources.requests.cpu':'environment','containers.main.resources.requests.memory':'environment','containers.main.resources.limits.memory':'platform','workloadExecution.automountServiceAccountToken':'platform','workloadExecution.revisionHistoryLimit':'environment','workloadExecution.updateStrategy.type':'platform'}});
+ if(url.endsWith('/workload-templates'))return Response.json({templates:template?[template]:[]});
  if(url.endsWith('/configuration'))return Response.json({version:1,keys:[]});
  if(url.endsWith('/resource-types'))return Response.json({resourceTypes:[]});
  if(init?.method==='PUT'){saved.push(JSON.parse(String(init.body)));return Response.json({draftVersion:2,workloads:[]})}
@@ -44,6 +45,18 @@ it('shows inherited template mounts, ports and readiness without saving them as 
 });
 
 it('keeps a template-provided image omitted when editing runtime policy',async()=>{
- const {saved}=serve();const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging"/>);await user.type(await screen.findByLabelText('Tên Workload'),'web');await waitFor(()=>expect(screen.getByLabelText('Ảnh Container')).toHaveAttribute('placeholder','nginx:1'));
+ const template:WorkloadTemplate={id:'nginx',version:'1.0.0',sha256:'a'.repeat(64),kind:'Deployment',labels:{vi:'Nginx'},inputsSchema:{type:'object',properties:{}},defaults:{},runtimeDefaults:{image:'nginx:1'}};
+ const {saved}=serve(false,effective,template);const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging" selectedTemplate={templateKey(template)}/>);await user.type(await screen.findByLabelText('Tên Workload'),'web');await waitFor(()=>expect(screen.getByLabelText('Ảnh Container')).toHaveAttribute('placeholder','nginx:1'));
  await user.click(screen.getByText('Mở rộng & cập nhật',{exact:true}));await user.selectOptions(screen.getByLabelText('PodDisruptionBudget'),'off');await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(saved).toHaveLength(1);expect(saved[0]!.workload.containers).toEqual({main:{}});expect((saved[0]!.workload.workloadExecution as Execution).podDisruptionBudget).toEqual({enabled:false});
+});
+
+it('waits for the required image of a generic template instead of reporting resolver failure',async()=>{
+ const template:WorkloadTemplate={id:'backend',version:'1.0.0',sha256:'b'.repeat(64),kind:'Deployment',labels:{vi:'Backend API'},inputsSchema:{type:'object',properties:{}},defaults:{}};
+ const {saved}=serve(false,effective,template);const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging" selectedTemplate={templateKey(template)}/>);
+ await screen.findAllByText('Nhập image cho container để tính cấu hình hiệu lực.');expect(screen.queryByRole('alert')).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'Thử lại'})).not.toBeInTheDocument();
+ const resolutionCalls=()=>vi.mocked(fetch).mock.calls.filter(([input])=>String(input).endsWith('/resolve-defaults'));
+ expect(resolutionCalls()).toHaveLength(0);await user.type(screen.getByLabelText('Tên Workload'),'web');await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(saved).toHaveLength(0);expect(resolutionCalls()).toHaveLength(0);
+ await user.type(screen.getByLabelText('Ảnh Container'),'nginx:1');await waitFor(()=>expect(screen.getByText(/CPU 100m \(Theo môi trường\)/)).toBeInTheDocument());
+ expect(resolutionCalls().length).toBeGreaterThan(0);for(const [,init] of resolutionCalls()){const request=JSON.parse(String(init?.body));expect(request.workload.containers.main.image).toBe('nginx:1')}
+ await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(saved).toHaveLength(1);expect(saved[0]!.workload.containers).toEqual({main:{image:'nginx:1'}});expect((saved[0]!.workload.workloadExecution as Execution).template?.id).toBe('backend');
 });

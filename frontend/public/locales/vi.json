@@ -3983,5 +3983,6 @@
   "workloads.defaults.service": "Service",
   "workloads.defaults.networking": "Service & kết nối",
   "workloads.defaults.dependencies": "Tài nguyên phụ thuộc",
-  "workloads.defaults.infrequent": "Cấu hình ít thay đổi"
+  "workloads.defaults.infrequent": "Cấu hình ít thay đổi",
+  "workloads.defaults.imageRequiredForDefaults": "Nhập image cho container để tính cấu hình hiệu lực."
 }
