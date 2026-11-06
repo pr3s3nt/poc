@@ -1,0 +1,23 @@
+# Shared proxy for feature trial stacks: it routes <feature>.<domain> to the stack
+# that declares it. Docker is rootless on the dev machine and cannot bind the
+# Tailscale address, so the proxy stays on loopback behind a socat forward.
+# See orchestrator_docs/operations/tailscale-handoff.md.
+name: poc-feature-proxy
+
+services:
+  traefik:
+    image: traefik:v3.6.4
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=poc-feature-proxy
+      - --entrypoints.web.address=:80
+    ports: ["127.0.0.1:${FEATURE_PROXY_PORT:-8088}:80"]
+    volumes:
+      - ${XDG_RUNTIME_DIR:?}/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    networks: [feature-proxy]
+
+networks:
+  feature-proxy:
+    name: poc-feature-proxy
