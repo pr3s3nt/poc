@@ -1,5 +1,22 @@
 # Bootstrap platform và acceptance app
 
+## Local API seed (không browser)
+
+Cho Console chạy trong `kind-k8s-4f`, dùng [runbook](../../orchestrator_docs/operations/platform-seed.md)
+và [YAML mẫu](api-dev.example.yaml). Copy input/credentials ra ngoài Git, đặt quyền
+0600, rồi chạy từ checkout này:
+
+```sh
+node scripts/bootstrap/seed-api.mjs --config /private/dev.yaml
+```
+
+Lệnh đọc file local, gọi API backend, tạo mục thiếu và thoát. Không tạo seed Job
+hay upload input thành ConfigMap/Secret; credential vẫn được backend lưu vào Vault
+để sử dụng sau đó. Chạy lại tái sử dụng dữ liệu khớp, khác thì CONFLICT, không tự
+ghi đè hoặc rotate. API seed platform không tạo app/deploy workload. AWS cần file
+credential riêng; không dùng EC2 instance role trên kind. Các workflow Console và
+acceptance bên dưới giữ nguyên.
+
 Luồng [Definitions trực tiếp — issue #33](#definitions-trực-tiếp--issue-33-schemaversion-3)
 nhận config schemaVersion 3 theo môi trường, có tính lũy đẳng và deploy acceptance
 app ở cuối. Dùng `direct-targets/dev.json` làm mẫu; input thực tế nằm ngoài Git.

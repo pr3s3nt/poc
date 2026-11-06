@@ -14,6 +14,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 | Date | Scope | Record |
 |---|---|---|
 | 2026-11-06 | Custom workload volume/file/lifecycle authoring, real PostgreSQL/Secret creation/Preview and Tailscale handoff | [Chinhform runtime form](2026-11-06-chinhform-runtime.md) |
+| 2026-11-06 | In-cluster Console, Tailscale port 3070, local API platform seed, unchanged rerun and backend restart persistence | [Record](2026-11-06-kind-console-api-seed.md) |
 | 2026-11-05 | One Fleet GitRepo per Application: source checks and legacy test cleanup; new-layout live gate pending | [Record](2026-11-05-application-fleet-gitrepo.md) |
 | 2026-11-04 | Issue #33 Git-only inputs, backend PVC retention, unchanged reruns and final-success video | [Git bootstrap/PVC](2026-11-04-git-bootstrap-pvc.md) |
 | 2026-11-04 | Rancher-compatible Fleet discovery/Verify, opaque registration identity, version/schema gates; user-selected kind-only runtime acceptance | [Rancher Fleet](2026-11-04-rancher-fleet.md) |
