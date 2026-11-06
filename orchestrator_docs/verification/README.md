@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-06 | Readable IDP names and stable random suffix: local Go/race, real PostgreSQL, HTTP recreation; baseline limits, no live deploy | [Naming checks](2026-11-06-idp-naming.md) |
 | 2026-11-05 | One Fleet GitRepo per Application: source checks and legacy test cleanup; new-layout live gate pending | [Record](2026-11-05-application-fleet-gitrepo.md) |
 | 2026-11-04 | Issue #33 Git-only inputs, backend PVC retention, unchanged reruns and final-success video | [Git bootstrap/PVC](2026-11-04-git-bootstrap-pvc.md) |
 | 2026-11-04 | Rancher-compatible Fleet discovery/Verify, opaque registration identity, version/schema gates; user-selected kind-only runtime acceptance | [Rancher Fleet](2026-11-04-rancher-fleet.md) |

@@ -2,10 +2,25 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-05
+last_reviewed: 2026-11-06
 ---
 
 # Current project state
+
+## Readable IDP names with an immutable suffix — 2026-11-06
+
+[ADR-038](architecture/decisions/ADR-038-readable-idp-names.md) is implemented
+for newly created Applications: readable Organization/app slug plus one persisted
+six-character random suffix, shared by repository, Fleet GitRepo, namespace and
+infrastructure stems. The suffix stays at the end of each generated name and is
+stable across retries, display-name edits and restart. Recreating a deleted app
+gets fresh identities; active duplicate display names remain rejected. Existing
+Applications, allocations, controller names and original target/cleanup pins keep
+their names. No schema migration or live resource rename is introduced.
+Focused Go/race, real PostgreSQL, HTTP create/delete/recreate, build and docs/
+migration guards pass; broad-suite baseline failures and PostgreSQL timeout are
+recorded in [verification](verification/2026-11-06-idp-naming.md). No live
+GitHub/Fleet/cloud deployment or Console UI change was performed in this task.
 
 ## Public routes and subdomains retired — 2026-11-05
 

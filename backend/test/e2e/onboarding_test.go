@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"orchestrator/internal/bootstrap/bootstraptest"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -358,7 +359,7 @@ func TestUC01CreateApplicationOverHTTP(t *testing.T) {
 	}
 	created := decode(t, body)["application"].(map[string]any)
 	key := created["key"].(string)
-	if created["subdomain"] != nil || created["executionProfile"] != nil || created["connectionKey"] != nil || created["runtimeStatus"] != nil || len(key) != 36 {
+	if created["subdomain"] != nil || created["executionProfile"] != nil || created["connectionKey"] != nil || created["runtimeStatus"] != nil || !regexp.MustCompile(`^idp-acme-catalog-[a-z2-7]{6}$`).MatchString(key) {
 		t.Fatalf("created application = %v", created)
 	}
 	assertEnvironments := func(view map[string]any) {
@@ -368,7 +369,7 @@ func TestUC01CreateApplicationOverHTTP(t *testing.T) {
 		for _, raw := range envs {
 			env := raw.(map[string]any)
 			keys = append(keys, env["key"].(string))
-			if env["currentDeploymentSetId"] == "" || env["namespaceIdentity"] == "" {
+			if env["currentDeploymentSetId"] == "" || env["namespaceIdentity"] != "idp-acme-catalog-"+env["key"].(string)+"-"+key[len(key)-6:] {
 				t.Fatalf("environment = %v", env)
 			}
 		}
@@ -413,6 +414,11 @@ func TestUC01CreateApplicationOverHTTP(t *testing.T) {
 		if resp.StatusCode != tc.status || field != tc.field {
 			t.Fatalf("%s = %d %s", tc.body, resp.StatusCode, out)
 		}
+	}
+	// Equal normalized slugs are distinct applications when display names differ.
+	resp, body = call(t, client, http.MethodPost, server.URL+"/api/v1/applications", `{"name":"Catalog!"}`)
+	if resp.StatusCode != http.StatusCreated || decode(t, body)["application"].(map[string]any)["key"] == key {
+		t.Fatalf("normalized alias did not get a fresh identity: %d %s", resp.StatusCode, body)
 	}
 }
 

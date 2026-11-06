@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"orchestrator/internal/domain/application"
 	domain "orchestrator/internal/domain/delivery"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/platform/ids"
@@ -56,7 +57,11 @@ func (s *Repositories) Resolve(ctx context.Context, b domain.BindingVersion, p p
 			return b, persistence.ErrOperationLost
 		}
 		id := ids.New()
-		allocation, err = s.Store.ReserveApplicationDeliveryRepository(ctx, domain.ApplicationRepository{ID: id, OrganizationID: org.ID, ApplicationID: app.ID, BindingID: b.ID, BindingVersion: b.Version, Name: policy.Prefix + strings.ReplaceAll(app.ID, "-", ""), Marker: "orchestrator application " + app.ID + " allocation " + id, Status: "PENDING", Revision: 1, CreatedAt: time.Now().UTC().Truncate(time.Microsecond)})
+		name := policy.Prefix + strings.ReplaceAll(app.ID, "-", "")
+		if readable, ok := application.ManagedResourceName(app.Key, "deploy"); ok {
+			name = readable
+		}
+		allocation, err = s.Store.ReserveApplicationDeliveryRepository(ctx, domain.ApplicationRepository{ID: id, OrganizationID: org.ID, ApplicationID: app.ID, BindingID: b.ID, BindingVersion: b.Version, Name: name, Marker: "orchestrator application " + app.ID + " allocation " + id, Status: "PENDING", Revision: 1, CreatedAt: time.Now().UTC().Truncate(time.Microsecond)})
 	}
 	if err != nil {
 		return b, err

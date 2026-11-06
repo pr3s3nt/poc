@@ -7,6 +7,19 @@ last_reviewed: 2026-10-28
 
 # Design-to-code map
 
+## Readable IDP application names
+
+[ADR-038](../architecture/decisions/ADR-038-readable-idp-names.md), UC-01 BR-15
+and UC-06 CD-09 map to `domain/application/naming.go`, the Application creation
+transaction, `application/delivery/repositories.go`, Fleet allocation binding/
+configuration/controller identity, and `planning/context.go` infrastructure names.
+UUID persistence and existing globally unique application keys are unchanged.
+Service, PostgreSQL concurrency/reopen, HTTP creation, planner-name and Fleet
+two-Environment lifecycle tests cover the new rule and historical identities.
+The shared name helper places the one persisted random suffix after the purpose
+or Environment; generated-key collision retries happen before writes. HTTP/real
+PostgreSQL deletion/recreation confirms fresh identities with the same display name.
+
 ## Controlled Definition upgrades
 
 [UC-03 DV-01–07](../usecase/UC-03/definition-versions.md) maps to immutable revision/Environment repositories, catalog resolution, Plan snapshots, fenced activation and the existing forms. See the [implementation route](definition-versions.md) for paths and supported tool-retention boundaries.

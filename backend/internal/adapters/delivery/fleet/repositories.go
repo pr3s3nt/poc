@@ -28,6 +28,11 @@ func (p *Provider) BindApplicationRepository(b domain.BindingVersion, r domain.A
 	b.Config["root"] = path.Join(policy.Root, env)
 	b.Config["gitRepoMode"] = "MANAGED"
 	b.Config["applicationID"] = r.ApplicationID
+	// Historical allocations retain their original hashed Fleet identity.
+	delete(b.Config, "applicationRepoName")
+	if applicationRepositoryPattern.MatchString(r.Name) {
+		b.Config["applicationRepoName"] = r.Name
+	}
 	b.Config["environmentKey"] = env
 	delete(b.Config, "existingGitRepo")
 	delete(b.Config, "existingGitRepoUID")

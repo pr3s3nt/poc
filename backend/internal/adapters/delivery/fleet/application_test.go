@@ -246,13 +246,30 @@ func publishApplicationUnit(t *testing.T, p *Provider, w *publication.Writer, di
 	return i, pkg, r
 }
 func TestApplicationControllerSharesEnvironmentsAndPreservesSiblingOnWithdrawal(t *testing.T) {
-	p, w, dir, intent := applicationFixture(t)
+	for _, name := range []string{"", "idp-nangcap-order-management-deploy-abc234"} {
+		t.Run("repository="+name, func(t *testing.T) { testApplicationControllerLifecycle(t, name) })
+	}
+}
+
+func testApplicationControllerLifecycle(t *testing.T, name string) {
+	t.Helper()
+	p, w, dir, makeIntent := applicationFixture(t)
+	intent := func(env, workload string) port.Intent {
+		i := makeIntent(env, workload)
+		if name != "" {
+			i.Binding.Config["applicationRepoName"] = name
+		}
+		return i
+	}
 	ctx := context.Background()
 	staging, pkg, sr := publishApplicationUnit(t, p, w, dir, intent("staging", "backend"))
 	prod, _, pr := publishApplicationUnit(t, p, w, dir, intent("production", "backend"))
 	worker, _, wr := publishApplicationUnit(t, p, w, dir, intent("staging", "worker"))
 	if sr.Handle["gitrepo"] != pr.Handle["gitrepo"] || sr.Handle["gitrepoUID"] != wr.Handle["gitrepoUID"] {
 		t.Fatal("controller not shared")
+	}
+	if name != "" && sr.Handle["gitrepo"] != name {
+		t.Fatalf("Fleet name %q does not match Git repository %q", sr.Handle["gitrepo"], name)
 	}
 	if pkg.Publication.Path != "environments/staging/backend/rollout" || pkg.Metadata.Path != "metadata/staging/backend/rollout" {
 		t.Fatal("unreadable publication layout")
