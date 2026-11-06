@@ -40,13 +40,17 @@ quyền không mở rộng sang deploy hoặc mutation cluster/cloud.
 
 1. Trước khi code, tạo issue gồm: Mục tiêu, Phạm vi, Không làm, Tiêu chí nghiệm
    thu, Giai đoạn.
-2. Xong mỗi giai đoạn: commit task-only, push, rồi comment commit SHA, đã làm, đã
-   kiểm tra và việc còn lại/trở ngại.
+2. Trong khi code, chỉ chạy unit test và integration test của vùng bị thay đổi,
+   không chạy cả bộ. Xong mỗi giai đoạn: commit task-only, push, rồi comment commit
+   SHA, đã làm, đã kiểm tra và việc còn lại/trở ngại.
 3. Xong tính năng có giao diện: chạy stack Docker riêng, mở bằng link
    `<tinh-nang>.<domain>` qua Tailscale và kiểm tra theo
    [runbook](orchestrator_docs/operations/tailscale-handoff.md#bản-thử-của-tính-năng).
-4. Khi test pass, báo cáo người dùng kết quả và link để nghiệm thu, rồi dừng. Link
-   chứa IP Tailscale nên chỉ gửi trong báo cáo, không ghi vào issue public.
+4. Xong tính năng, chạy test full: Product CI và Documentation trên commit cuối
+   của nhánh, hoặc mọi lệnh tương đương ở mục Validation. Khi test pass, báo cáo
+   người dùng kết quả và link để nghiệm thu, rồi dừng. Có commit mới sau đó thì
+   chạy lại test full trước khi merge. Link chứa IP Tailscale nên chỉ gửi trong báo
+   cáo, không ghi vào issue public.
 5. Chỉ sau khi người dùng nghiệm thu mới merge vào `main`, rồi xóa nhánh feature
    cả local lẫn remote. Không ghi `Closes`/`Fixes` trong commit hoặc PR để issue
    không tự đóng khi merge; dùng `Refs #N`. PR không bắt buộc.
