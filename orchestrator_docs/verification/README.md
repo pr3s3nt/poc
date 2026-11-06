@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-06 | Issue #37 merge, naming/ADR integration, real kind/Fleet/SQL gate, verified backup and retained Console main upgrade | [Main merge verification](2026-11-06-workload-defaults-main-merge.md) |
 | 2026-11-06 | Effective runtime validation 400, actionable PDB feedback, preserved draft and real VI/EN correction/retry | [Resolution errors](2026-11-06-workload-resolution-errors.md) |
 | 2026-11-06 | Retained issue #37 Console switched to pinned Git source; scoped Definition, both Environment selections and real browser/API checks | [Git template source](2026-11-06-workload-git-source.md) |
 | 2026-11-06 | Distinct workload select choices, muted inherited hints, explicit reset and real VI/EN no-op Save | [Default select choices](2026-11-06-workload-default-selects.md) |

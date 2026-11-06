@@ -7,6 +7,17 @@ last_reviewed: 2026-11-06
 
 # Current project state
 
+## Issue #37 merged into main — 2026-11-06
+
+User-approved merge `18b902c9` integrates template-owned defaults, compact
+workload authoring, distinct select choices, runtime validation feedback and the
+step-by-step guide. ADR-039 owns template defaults; ADR-038 remains readable IDP
+names. Feature branch and local preview are retired; private volumes/evidence
+remain. The retained kind Console runs main images after verified backup/restore
+and owner setup. Existing data/PVC identities are preserved. See
+[merge and post-upgrade verification](verification/2026-11-06-workload-defaults-main-merge.md).
+Older feature-preview links below are historical and no longer active.
+
 ## Workload effective-configuration error handling — 2026-11-06
 
 Resolved runtime validation errors now return 400 INVALID_WORKLOAD rather than an
