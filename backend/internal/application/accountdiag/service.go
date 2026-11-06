@@ -52,9 +52,7 @@ type Config struct {
 	SweepEvery time.Duration
 	// SecretDelivery is the platform's workload secret delivery mode.
 	SecretDelivery string
-	// BaseDomain forms the public host of an Application (subdomain.base).
-	BaseDomain string
-	Now        func() time.Time
+	Now            func() time.Time
 }
 
 func (c Config) withDefaults() Config {
@@ -95,7 +93,6 @@ type Service struct {
 	context   ContextStore
 	planner   Planner
 	stores    probes.StoreInspector
-	routes    probes.RouteInspector
 	providers map[string]probes.Provider
 	cfg       Config
 
@@ -115,8 +112,8 @@ func New(repo Repository, accounts Accounts, store ContextStore, providers map[s
 func (s *Service) SetPlanner(p Planner) { s.planner = p }
 
 // SetInspectors wires the real secret-store and public-route evidence readers.
-func (s *Service) SetInspectors(stores probes.StoreInspector, routes probes.RouteInspector) {
-	s.stores, s.routes = stores, routes
+func (s *Service) SetInspectors(stores probes.StoreInspector) {
+	s.stores = stores
 }
 
 // StartCommand is the validated input of a run.

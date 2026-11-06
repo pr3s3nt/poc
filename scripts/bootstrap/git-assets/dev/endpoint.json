@@ -1,0 +1,23 @@
+{
+  "key": "git-dev-endpoint",
+  "name": "Git dev public endpoint",
+  "resourceType": "endpoint",
+  "driverType": "endpoint",
+  "driverInputs": {
+    "values": {
+      "variables": {
+        "rootDomain": "tail342836.ts.net",
+        "scheme": "http",
+        "gatewayName": "httproute-domain-gateway",
+        "gatewayNamespace": "httproute-domain-test",
+        "gatewaySectionName": "web"
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "staging"
+    }
+  ]
+}

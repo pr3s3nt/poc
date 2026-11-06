@@ -15,6 +15,10 @@ Trước khi thêm runner E2E/setup mới, dùng [quy ước thư mục E2E](../
 Scripts nằm dưới `e2e/`; procedure vẫn ở index này và evidence ở `verification/`.
 Các runner hiện có giữ đường dẫn cho tới migration/refactor liên quan.
 
+[Hướng dẫn trang Thêm/Sửa Workload](workload-authoring.md) đi từ chọn template,
+giá trị mờ, container/Service/storage/CronJob tới lưu draft → Preview → Deploy;
+bao gồm xử lý lỗi và cách quản lý default qua Git.
+
 [Generic Terraform resource completion on kind](terraform-completion-kind.md)
 verifies UC-08 BR-10 with real Git modules and the full application, including
 shared/private resources, valid updates and product cleanup.
@@ -34,6 +38,7 @@ observations separate from authorized Kubernetes lifecycle verification.
 | Personal-machine containers | [Docker Compose](docker-local.md) | Local Docker volumes; cluster mutation only on explicit deploy |
 | UC-09 review video | [Human-paced local recording](local.md#uc-09-human-paced-review-recording) | Local browser/display only; publish reviewed evidence separately |
 | Existing kind cluster | [kind verification](kind.md) | Creates a run-specific namespace and workloads |
+| Console on `kind-k8s-4f` | [Manifests and upgrade](../../deploy/kind-k8s-4f/README.md) | Retained namespace and data; deploys and upgrades only by explicit step |
 | Persistent Preview Console | [Preview on kind](preview-kind.md) | Separate local services; deployment is explicit |
 | AWS | [AWS verification](aws.md) | Creates paid VPC/EKS/Aurora/ECR resources, then destroys them |
 

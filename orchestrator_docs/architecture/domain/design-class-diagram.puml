@@ -182,6 +182,39 @@ package "Domain" {
   }
   class ModuleDelta <<value>>
   class JSONPatchOperation <<value>>
+  class Container <<value>> {
+    +Role: app | init | sidecar
+    +InitOrder: int
+    +Image: string
+    +ValidateRoles()
+  }
+  class WorkloadExecution <<value>> {
+    +Kind: Deployment | StatefulSet | CronJob
+    +OptionalTemplatePin
+    +Validate()
+  }
+  class PodVolume <<value>> {
+    +Name: string
+    +EmptyDir | ConfigMap | HostPath
+    +HostPath.Path: absolute node path
+    +HostPath.Type: optional Kubernetes type
+  }
+  class VolumeMount <<value>> {
+    +Container: string
+    +Volume: string
+    +Path: string
+    +ReadOnly: bool
+    +SubPath: string
+  }
+  class SecretFile <<value>> {
+    +ScopedReference: string
+    +Path: string
+    +ReadMode: int
+  }
+  class Probe <<value>> {
+    +Type: HTTP | TCP | exec
+    +OptionalTimingOverrides
+  }
   class ContainerResourceRequirements <<value>> {
     +Requests: ComputeResources
     +Limits: ComputeResources
@@ -280,6 +313,14 @@ ActiveResource --> ResourceDefinition
 Environment "1" o-- "0..*" WorkloadInstance
 WorkloadRenderer ..> ContainerResourceRequirements
 ContainerResourceRequirements *-- ComputeResources
+Container *-- ContainerResourceRequirements
+Container *-- Probe
+DeploymentSet *-- Container
+DeploymentSet *-- WorkloadExecution
+WorkloadExecution *-- PodVolume
+WorkloadExecution *-- VolumeMount
+WorkloadExecution *-- SecretFile
+WorkloadRenderer ..> WorkloadExecution
 
 ApplicationService --> ApplicationRepository
 ApplicationService --> EnvironmentRepository

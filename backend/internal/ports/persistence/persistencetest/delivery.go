@@ -102,7 +102,7 @@ func DeliverySelections(t *testing.T, st interface {
 }, b delivery.BindingVersion) {
 	t.Helper()
 	ctx := context.Background()
-	a := application.Application{ID: ids.New(), Key: "delivery-app", OrganizationKey: "delivery-org", Name: "Delivery App", Subdomain: "delivery-app", Version: 1}
+	a := application.Application{ID: ids.New(), Key: "delivery-app", OrganizationKey: "delivery-org", Name: "Delivery App", Version: 1}
 	if err := st.SaveApplication(ctx, a); err != nil {
 		t.Fatal(err)
 	}

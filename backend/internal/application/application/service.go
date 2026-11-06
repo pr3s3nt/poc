@@ -4,8 +4,6 @@ package application
 import (
 	"context"
 	"errors"
-	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -16,8 +14,6 @@ import (
 	"orchestrator/internal/ports/persistence"
 )
 
-var subdomainPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
-
 // Sentinel errors let delivery map UC-01 failures without parsing messages.
 var (
 	ErrInvalid      = errors.New("application: invalid input")
@@ -25,7 +21,7 @@ var (
 	ErrStaleVersion = errors.New("application: environment changed; reload it")
 )
 
-// FieldError names the Developer-editable field (name or subdomain) that failed.
+// FieldError names the Developer-editable field (name) that failed.
 type FieldError struct {
 	Field string
 	Err   error
@@ -42,7 +38,7 @@ func fieldError(field string, err error, msg string) error {
 // CreateCommand carries session-derived Organization and Developer input.
 // Create takes no Connection: placement comes from Resource Definitions (ADR-017).
 type CreateCommand struct {
-	OrganizationKey, Name, Subdomain, BaseDomain string
+	OrganizationKey, Name string
 }
 
 type Result struct {
@@ -55,19 +51,18 @@ type DeliveryDefaults interface {
 type Service struct {
 	store    persistence.Store
 	delivery DeliveryDefaults
+	newKey   func(string, string) (string, error)
 }
 
 func (s *Service) SetDeliveryDefaults(d DeliveryDefaults) { s.delivery = d }
 
-func NewService(store persistence.Store) *Service { return &Service{store: store} }
+func NewService(store persistence.Store) *Service {
+	return &Service{store: store, newKey: appdomain.NewKey}
+}
 func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error) {
 	cmd.Name = strings.TrimSpace(cmd.Name)
-	cmd.Subdomain = strings.ToLower(strings.TrimSpace(cmd.Subdomain))
 	if cmd.Name == "" {
 		return Result{}, fieldError("name", ErrInvalid, "application name is required")
-	}
-	if !subdomainPattern.MatchString(cmd.Subdomain) {
-		return Result{}, fieldError("subdomain", ErrInvalid, "subdomain must be a DNS label of lowercase letters, numbers and hyphens")
 	}
 	var result Result
 	err := s.store.Transact(ctx, func(ctx context.Context) error {
@@ -82,9 +77,10 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 			if existing.OrganizationKey == cmd.OrganizationKey && strings.EqualFold(existing.Name, cmd.Name) {
 				return fieldError("name", ErrDuplicate, "application name already exists in the organization")
 			}
-			if existing.Subdomain == cmd.Subdomain {
-				return fieldError("subdomain", ErrDuplicate, "subdomain is already in use")
-			}
+		}
+		appKey, err := s.availableKey(ctx, cmd.OrganizationKey, cmd.Name)
+		if err != nil {
+			return err
 		}
 		var selection delivery.Selection
 		if s.delivery != nil {
@@ -94,21 +90,22 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 			}
 		}
 		appID := ids.New()
-		app := appdomain.Application{ID: appID, Key: appID, OrganizationKey: cmd.OrganizationKey, Name: cmd.Name, Subdomain: cmd.Subdomain}
+		app := appdomain.Application{ID: appID, Key: appKey, OrganizationKey: cmd.OrganizationKey, Name: cmd.Name}
 		if err := app.Validate(); err != nil {
 			return err
 		}
 		if err := s.store.SaveApplication(ctx, app); err != nil {
-			// Unique Name/Subdomain constraints are the final duplicate guard.
+			// Unique Name/key constraints are the final concurrent creation guard.
 			if errors.Is(err, persistence.ErrImmutable) {
-				return fmt.Errorf("%w: %v", ErrDuplicate, err)
+				return fieldError("name", ErrDuplicate, "application name or code already exists; choose a different name")
 			}
 			return err
 		}
 		for _, key := range []string{"staging", "production"} {
 			envID := ids.New()
 			set := environment.DeploymentSet{ID: ids.New(), EnvironmentID: envID, EnvironmentKey: app.Key + "/" + key, Document: environment.NewDocument(), DocumentHash: "empty", CreatedAt: time.Now().UTC()}
-			env := environment.Environment{DesiredDelivery: selection, AppliedDelivery: selection, ID: envID, Key: key, ApplicationID: app.ID, ApplicationKey: app.Key, Name: strings.Title(key), Type: key, NamespaceIdentity: "app-" + app.Key + "-" + key, CurrentDeploymentSetID: set.ID, Version: 1, InfrastructureScope: environment.ScopeEnvironment}
+			namespace, _ := appdomain.ManagedResourceName(app.Key, key)
+			env := environment.Environment{DesiredDelivery: selection, AppliedDelivery: selection, ID: envID, Key: key, ApplicationID: app.ID, ApplicationKey: app.Key, Name: strings.Title(key), Type: key, NamespaceIdentity: namespace, CurrentDeploymentSetID: set.ID, Version: 1, InfrastructureScope: environment.ScopeEnvironment}
 			if err := s.store.SaveDeploymentSet(ctx, set); err != nil {
 				return err
 			}
@@ -121,4 +118,20 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 		return nil
 	})
 	return result, err
+}
+
+func (s *Service) availableKey(ctx context.Context, org, name string) (string, error) {
+	for attempt := 0; attempt < 8; attempt++ {
+		key, err := s.newKey(org, name)
+		if err != nil {
+			return "", fieldError("name", ErrInvalid, err.Error())
+		}
+		// Existing keys, including tombstones, never grant reuse authority.
+		if _, err := s.store.GetApplication(ctx, key); errors.Is(err, persistence.ErrNotFound) {
+			return key, nil
+		} else if err != nil {
+			return "", err
+		}
+	}
+	return "", fieldError("name", ErrDuplicate, "could not allocate an application code; retry creation")
 }

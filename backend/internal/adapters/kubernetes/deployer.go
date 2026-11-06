@@ -39,6 +39,9 @@ func (d *Deployer) Apply(ctx context.Context, target execution.Target, manifests
 	if err := checkApply(ctx, newDiscovery(cli), target, manifests); err != nil {
 		return err
 	}
+	if err := ValidateRuntimeObjects(ctx, cli, target, manifests); err != nil {
+		return err
+	}
 	return cli.Apply(ctx, objects)
 }
 

@@ -85,6 +85,8 @@ remain unavailable. No generic bypass of reference/secret checks is permitted.
 
 ## T25 — Public routing boundary
 
+Retired by [ADR-037](../../architecture/decisions/ADR-037-retire-public-routes.md); `publicRoutes` is now rejected like `publicPort`. Historical:
+
 Save and ValidateImport accept only `service.publicRoutes`. Reject `publicPort`
 before writing a draft or advancing its version; the UI retains the import/error
 for correction without converting it to `/`. Current-set reconstruction and
@@ -110,6 +112,12 @@ admission. UI giữ custom/imported class và metadata request/scope guards;
 server Preview/Deploy remains authoritative. Payload/role/failure contract ở
 [UI mapping](ui/api-mapping.md#metadata-class-và-source--i04-07).
 
+UC-16 BR-31/32: the same query also supplies `resourceTypes[key=workload].classes`
+to the editor's collapsed Workload advanced section. Keep these names separate
+from dependency Types. The boundary retains the current class independently of
+metadata refresh, including unavailable values; selecting the default omits the
+field. This changes authoring controls only, without a new participant or API.
+
 ## ENV-UX — direct-entry table (2026-10-27)
 
 The boundary renders Name/Value first. One scoped reference picker projects
@@ -128,3 +136,16 @@ list, deduplicates IDs and rejects conflicting or non-lossless projections.
 Selection copies authored Type/class/params/ID only; local alias and references
 remain local. Private is an advanced explicit choice. Current/imported Score
 keeps its identity. HTTP, planner scopes and persistence schema are unchanged.
+
+## WD collaboration — issue #37
+
+The editor sends desired overrides and an immutable template pin to the backend
+resolver. The resolver returns a separate effective document plus field sources;
+Save persists only desired intent. Workload admission validates both intent and
+effective values. The same pure resolver feeds template rendering/semantic guards
+and Preview. Existing draft/config/source pins fence Deploy and preserve rollback.
+See [contract](../../architecture/contracts/workload-defaults.md).
+
+ADR-039 replaces backend policy defaulting with a generic merge of verified
+template `runtimeDefaults`. Admission freezes `templateDefaults`; no platform
+policy values or selector remain.

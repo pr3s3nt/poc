@@ -171,37 +171,6 @@ func TestProvision_ProviderOutputsFeedConsumerInputs(t *testing.T) {
 
 type failingDeployer struct{ err error }
 
-type recordingRoutes struct{ calls []execution.PublicRoute }
-
-func (r *recordingRoutes) Reconcile(_ context.Context, _ execution.Target, route execution.PublicRoute) error {
-	r.calls = append(r.calls, route)
-	return nil
-}
-
-func TestPublicRouteFollowsReadyWorkloadAndCanBeRemoved(t *testing.T) {
-	app, opts := newApp(t)
-	deployAll(t, app, opts)
-	routes := &recordingRoutes{}
-	app.Deployments.SetPublicRouteManager(routes, "example.com")
-	before := seed.AcceptanceWorkloads(opts)["frontend"]
-	after := seed.AcceptanceWorkloads(opts)["frontend"]
-	after["service"].(map[string]any)["publicRoutes"] = []any{map[string]any{"path": "/", "port": "http"}}
-	cmd := appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "frontend", WorkloadBefore: before, WorkloadAfter: after, Actor: "test"}
-	if _, err := app.Deployments.DeployWorkload(context.Background(), cmd); err != nil {
-		t.Fatal(err)
-	}
-	if len(routes.calls) != 1 || routes.calls[0].Host != "acceptance.example.com" || len(routes.calls[0].Paths) != 1 || routes.calls[0].Paths[0].PortName != "http" {
-		t.Fatalf("wrong public route: %+v", routes.calls)
-	}
-	cmd.WorkloadBefore, cmd.WorkloadAfter = after, before
-	if _, err := app.Deployments.DeployWorkload(context.Background(), cmd); err != nil {
-		t.Fatal(err)
-	}
-	if len(routes.calls) != 2 || len(routes.calls[1].Paths) != 0 {
-		t.Fatalf("public route was not removed: %+v", routes.calls)
-	}
-}
-
 func (f failingDeployer) Apply(context.Context, execution.Target, []execution.Manifest) error {
 	return f.err
 }

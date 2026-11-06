@@ -78,7 +78,7 @@ func gateService(t *testing.T) (*Service, *spies) {
 	if err := st.SaveOrganization(ctx, application.Organization{ID: "org-id", Key: "acme", Name: "Acme"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.SaveApplication(ctx, application.Application{ID: "app-id", Key: "shop", OrganizationKey: "acme", Name: "Shop", Subdomain: "shop", Version: 1}); err != nil {
+	if err := st.SaveApplication(ctx, application.Application{ID: "app-id", Key: "shop", OrganizationKey: "acme", Name: "Shop", Version: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.SaveEnvironment(ctx, environment.Environment{ID: "env-id", Key: "staging", ApplicationID: "app-id", ApplicationKey: "shop", Name: "staging", Type: "staging", Version: 1}); err != nil {

@@ -12,10 +12,6 @@ containers:
       BACKEND_URL: ${resources.svc_backend_http.url}
       PORT: ${resources.env.PORT}
 metadata:
-  annotations:
-    routing.orchestrator.dev/hostname: ${bootstrap.httprouteHostname}
-    routing.orchestrator.dev/path: ${bootstrap.httproutePath}
-    routing.orchestrator.dev/service-port: ${bootstrap.httprouteServicePort}
   name: frontend
   class: ${bootstrap.targetClass}
 resources:
@@ -26,6 +22,12 @@ resources:
     type: service
   env:
     type: environment
+  public:
+    type: endpoint
+    params:
+      name: ${bootstrap.endpointName}
+      port: http
+      path: ${bootstrap.endpointPath}
 service:
   ports:
     http:

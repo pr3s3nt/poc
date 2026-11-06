@@ -42,7 +42,10 @@ Discovery fills controller/registration identities where uniquely provable.
 ## Repository allocation
 
 The first admitted Deploy reserves one durable allocation before contacting Git.
-Its deterministic name uses the immutable Application UUID, not the display name.
+For new Applications, [ADR-038](ADR-038-readable-idp-names.md) uses the immutable
+readable Application identity with `-deploy` before its short random suffix;
+existing allocations retain their names.
+Historical Applications use the immutable Application UUID, not the display name.
 Creation is private and initialized. Staging and production share this repository
 and its acknowledged default branch; each uses `environments/<env>/manifests`.
 Neither application DTOs nor their forms expose the repository's private identity.

@@ -135,10 +135,10 @@ func TestRetiredOrUnknownFieldsAreRejected(t *testing.T) {
 	cases := map[string]func(map[string]json.RawMessage){
 		"unknown top-level": func(f map[string]json.RawMessage) { f["legacyThing"] = json.RawMessage(`{}`) },
 		"application target": func(f map[string]json.RawMessage) {
-			f["applications"] = json.RawMessage(`{"old":{"id":"a1","key":"old","organizationKey":"acme","name":"Old","subdomain":"old","executionProfile":"internal-k8s","version":1}}`)
+			f["applications"] = json.RawMessage(`{"old":{"id":"a1","key":"old","organizationKey":"acme","name":"Old","executionProfile":"internal-k8s","version":1}}`)
 		},
 		"application empty retired": func(f map[string]json.RawMessage) {
-			f["applications"] = json.RawMessage(`{"old":{"id":"a1","key":"old","organizationKey":"acme","name":"Old","subdomain":"old","runtimeStatus":"UNCONFIGURED","version":1}}`)
+			f["applications"] = json.RawMessage(`{"old":{"id":"a1","key":"old","organizationKey":"acme","name":"Old","runtimeStatus":"UNCONFIGURED","version":1}}`)
 		},
 		"trailing data": nil,
 	}

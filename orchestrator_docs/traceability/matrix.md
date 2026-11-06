@@ -9,6 +9,21 @@ last_reviewed: 2026-10-28
 
 Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, class/method, persistence/state và planned test. `OC-nn` tham chiếu `architecture/contracts/operation-contracts.md`.
 
+## Custom workload runtime — 2026-11-06
+
+| Requirement | Implementation | Validation |
+|---|---|---|
+| GW-06, WC-16..19: custom volumes/files/lifecycle and lossless state | environment/workloadspec/workloadconfig; ContainerVolumeFields / VolumeSourceFields/ExecutionFields/editor | volumes/execution/round-trip tests; real runtime-form E2E Save/reopen with PostgreSQL |
+| GW-06: matched source capability, pin and semantic guards | templatesource/workload_capabilities; planning/workload_execution; templatedriver | planner capability and three-controller mount/lifecycle tests |
+| GW-07, WC-20: ports/protocol/zero replicas/annotations/probes | ProbeFields/editor/runtimeIntent; domain/probes and standard source | runtime component round-trip and probe render tests |
+| Safe Preview for all controller/container roles | deploymentreview/pod_projection | secret-redaction tests and parsed real Preview assertions |
+
+## Workload class authoring — 2026-11-05
+
+| Requirement | Implementation | Validation |
+|---|---|---|
+| UC-16 BR-31/32: advanced dropdown from workload Type metadata, default/retained class and retry | `frontend/src/features/workloads/WorkloadClassControl.tsx`, `WorkloadEditorPage.tsx`; existing GET resource-types | `WorkloadClassMetadata.test.tsx`; browser using fixture data |
+
 ## Issue #23 — PostgreSQL upgrades
 
 ADR-027 source recognition, preservation, serialization, rollback, version/history validation and runtime isolation map to `postgres/upgrade.go`, `baseline.go`, `grants.go` and `upgrade_integration_test.go`. Active/frozen schema structural equivalence is enforced by `TestActiveBaselineMatchesFrozenVersion`; immutable release artifacts/version additions by `scripts/check_migrations.py` in Product CI. The deployment wrapper stops writers, backs up and gates startup on owner setup success.
@@ -1126,7 +1141,7 @@ records read-only Preview, metadata/history preservation and secret boundaries.
 |---|---|---|
 | UC-06 RB-05; RB-C08 | `resources` stage → patches → open-set guard → ownership labels | [guard/stage tests](../../backend/internal/adapters/templatedriver/git_test.go) (`TestOpenObjectSetIsBundlePolicy`, `TestGuardRejectsOverridingExplicitIntent`); [Score annotations](../../backend/internal/planning/workloadspec/workload.go) |
 | UC-06 RB-06; RB-C09 | Discovery/ownership check, Jobs before rollout, inventory in `workload_instances.target_ref.objects`, UID prune | [inventory/order tests](../../backend/internal/application/deployment/inventory_test.go); [kind lifecycle test](../../backend/internal/adapters/kubernetes/objects_kind_test.go); WM-E04..E06 |
-| UC-06 RB-07 | `PublicRoutes` kind `httproute`, Gateway parent, base domain flags | [route tests](../../backend/internal/adapters/kubernetes/public_routes_test.go); WM-E05 browser through the Gateway |
+| UC-06 RB-07 | Retired by [ADR-037](../architecture/decisions/ADR-037-retire-public-routes.md) | Endpoint EP-04 rows |
 | UC-07 RB-03 | Inventory removal before fixed workload removal | WM-E07 objects absent; foreign object kept in the kind lifecycle test |
 | Review projection | Extra kinds with redacted spec/data | [projection test](../../backend/internal/application/deploymentreview/extra_test.go) |
 
@@ -1358,6 +1373,18 @@ No schema change or live CD/VSO acceptance is implied by these local checks.
 
 ## Platform-managed delivery repositories — ADR-033
 
+Naming extension: UC-01 BR-15 / UC-06 CD-09 and
+[ADR-038](../architecture/decisions/ADR-038-readable-idp-names.md) map to
+`domain/application/naming.go`, Application creation, repository allocation,
+Fleet application controller configuration and planner infrastructure names.
+Validation: `naming_test.go`, `service_test.go`,
+`postgres/idp_naming_integration_test.go`, `delivery/repositories_test.go`,
+`fleet/application_test.go`, `fleet/config_test.go`, `planning/idp_naming_test.go`
+and the updated UC-01 HTTP onboarding and UC-18 delete/recreate assertions.
+The random suffix is generated once per app and remains at the end of each
+resource name; generated-key collisions retry before writes. Original UUIDs, historical
+allocations, receipts and UID cleanup remain authoritative.
+
 | Approved behavior | Implementation | Validation |
 |---|---|---|
 | Application knows no deployment repo | Application Create/Settings, removed delivery PUT/panel | HTTP retired-route/role tests; Console component/browser review |
@@ -1399,6 +1426,19 @@ No schema change or live CD/VSO acceptance is implied by these local checks.
 
 Actual run outcomes belong in dated verification evidence; these runners alone
 do not establish real deployment or cleanup completion.
+
+## Public endpoint resource — EP-01..06
+
+| Requirement | Design / implementation | Focused verification |
+|---|---|---|
+| EP-01 developer params, one per workload | `domain/endpoint`, `planning/endpoint.go` | `TestResolve`, `TestPlanRejectsInvalidEndpoints`, `TestPlanRejectsSecondEndpointOnOneWorkload` |
+| EP-02 built-in driver policy | catalog validation/capability; `EndpointDriverFields` | `TestParsePolicy`, `EndpointDefinition.test.tsx` |
+| EP-03 Preview check, atomic reservation | pending Preview `checkEndpoint`; provisioning `ReserveEndpoint`; migration 009 | `TestPreviewShowsEndpointAndDeployReservesIt`, `TestEndpointReservationsArbitrateOwners` |
+| EP-04 HTTPRoute in workload inventory | `deployment/endpoint.go` | `TestEndpointManifest*`, endpoint-domain E2E |
+| EP-05 release after acknowledgement | `retainEndpoints` after Deploy/prune/removal | `TestEndpointDeployReservesRoutesAndReleases`, `TestEndpointDeployRefusesHostnameHeldByAnotherOwner` |
+| EP-06 schema 9/10 upgrades | `upgrade.go`, grants, `version-009/010.sql` | `TestRetirePublicRoutesUpgradeFromPopulatedVersionNine`, `TestRetirePublicRoutesUpgradeRollsBackOnGrantFailure`, live v8→v9 |
+| EP-07 shared hostname by path | `endpoint_hosts`/`endpoint_paths`, planner claim check | `TestEndpointLedgerSharesHostnamesByPath` |
+| ADR-037 retired routes/subdomains | workloadspec rejection, application create, Console forms | `TestCreateApplication_*`, `CreateApplicationPage.test.tsx`, `TestUC01CreateApplicationOverHTTP` |
 
 ## Generic Workload and Template Driver — ADR-035
 
@@ -1452,3 +1492,40 @@ shared-Git binding and repository-host HTTPS tests.
 | UC-07 CD-05; UC-18 CD-04 | Fleet unit withdrawal, shared controller pins, original UID cleanup | adapter sibling-preserving/last-unit/replaced-controller tests; original cleanup contracts retained |
 | Persisted recovery without replay | delivery `submission_recovery.go`; Fleet `RecoverReceipt`/`RecoverSubmission` | coordinator lost-receipt test; adapter lost-write-ack observation test; existing Job idempotency tests |
 | Native acceptance assertions | bootstrap `fleet-verification.mjs`; HTTPRoute scenario | shared-controller inventory/commit/Bundle tests; live evidence remains separately scoped |
+
+HostPath extension WC-21 (2026-11-06) uses the same `PodVolume`/`ContainerVolumeFields` / `VolumeSourceFields`
+flow: node path/type, per-container read mode/subPath, host-path-volumes-v1 source
+admission, standard execution template, invariant guards and safe Preview.
+Coverage: environment hostPath validation/clone, workloadconfig round-trip, planner
+capability admission, templatedriver multi-controller/source/mode invariants,
+deploymentreview projection, WorkloadRuntimeIntent UI and workload-runtime-form E2E.
+See [generic contract](../architecture/contracts/generic-workload.md) and the runtime verification record. Kubernetes execution remains unverified.
+
+WC-22 — Container volume/file authoring (2026-11-06): WorkloadEditorPage now
+places ContainerVolumeFields in every app/init/sidecar card. Add volume or file
+creates/attaches a source atomically or reuses an existing source; VolumeSourceFields
+provides shared source settings. ExecutionFields owns runtime/schedule/preset
+inputs only. The four global storage/source/mount/Secret sections are removed.
+Mount paths/modes survive inline PVC/Secret creation; orphan targets are visible
+for explicit repair. API/JSON/backend contracts and runtime guards are unchanged.
+See WC-22 and [verification](../verification/2026-11-06-container-volume-ui.md) for checks and UI evidence.
+
+WC-23 — Reuse-first volume picker (2026-11-06): ContainerVolumeFields initially
+shows searchable/filterable sources with type and known mount users. It includes
+current-workload named sources, local storage dependencies, eligible shared PVC
+resources from the current app/environment and configured Secrets. New source
+creation is explicit. WorkloadEditorPage reuses shared PVC identity/typed params
+with a collision-free alias and existing reuse guards, adding dependency + mount
+atomically. Other workloads' Pod-local sources are excluded. No API/backend/schema
+change. [Verification](../verification/2026-11-06-reuse-first-volumes.md) records checks and real reuse/Preview.
+
+WD-01–10 — [workload configuration/default policy](../usecase/UC-16/workload-defaults-specification.md):
+[contract](../architecture/contracts/workload-defaults.md),
+[field-to-code matrix](../implementation/workload-defaults.md),
+`runtime_policy_test.go`, `defaults_test.go`, `WorkloadDefaults.test.tsx`, JSONB
+reopen tests and [owned runtime/browser scenario](../../e2e/scenarios/workload-defaults/README.md).
+
+ADR-039 / WD-02–03: template-only values → RuntimeDefaults/TemplateDefaultsSnapshot
+→ workloadconfig scoped admission → generic resolver / renderer / Preview →
+arbitrary-value merge, forged-profile, no-policy and real Fleet/PVC acceptance.
+See [verification](../verification/2026-11-06-template-only-defaults.md).

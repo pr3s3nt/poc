@@ -77,7 +77,7 @@ func selectedTargetApp(t *testing.T, definitionConnection string) (*bootstrap.Ap
 // carries no deployment Connection.
 func newApplication(t *testing.T, store persistence.Store, organizationKey, name, subdomain string) string {
 	t.Helper()
-	created, err := application.NewService(store).Create(context.Background(), application.CreateCommand{OrganizationKey: organizationKey, Name: name, Subdomain: subdomain})
+	created, err := application.NewService(store).Create(context.Background(), application.CreateCommand{OrganizationKey: organizationKey, Name: name})
 	if err != nil {
 		t.Fatal(err)
 	}

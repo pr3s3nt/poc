@@ -28,6 +28,8 @@ export function CreateKeyDialog({ application, environment, kind, suggestedName,
   const [name, setName] = useState(NAME.test(suggestedName) ? suggestedName : '');
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
+  const [fileReading, setFileReading] = useState(false);
+  const fileReadVersion = useRef(0);
   const [error, setError] = useState('');
   // reviewed: a GET after a duplicate / unknown outcome has shown the current keys.
   const [reviewed, setReviewed] = useState(false);
@@ -66,7 +68,7 @@ export function CreateKeyDialog({ application, environment, kind, suggestedName,
   }
 
   async function submit() {
-    if (busy || needsStore || trimmedProblem) return;
+    if (fileReading || busy || needsStore || trimmedProblem) return;
     setBusy(true); setError(''); setUnknown(false); setReviewed(false);
     try {
       const result = await createKey(application.id, environment, name, kind, value, catalog.version);
@@ -86,7 +88,7 @@ export function CreateKeyDialog({ application, environment, kind, suggestedName,
   }
 
   async function saveStore() {
-    if (busy || !picked) return;
+    if (fileReading || busy || !picked) return;
     setBusy(true); setError(''); setStoreNotice('');
     try {
       const result = await setSecretStore(application.id, environment, picked, application.environments[environment].version, catalog.version);
@@ -104,12 +106,32 @@ export function CreateKeyDialog({ application, environment, kind, suggestedName,
     }
   }
 
+  async function readSecretFile(file?: File) {
+    if (!file) return;
+    const at = ++fileReadVersion.current;
+    if (file.size > 65536) { setError(t('workloads.volumes.fileReadError')); return; }
+    setFileReading(true); setError('');
+    try {
+      const content = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => { try { resolve(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(reader.result as ArrayBuffer)); } catch { reject(new Error('invalid text file')); } };
+        reader.onerror = () => reject(new Error('file read failed'));
+        reader.readAsArrayBuffer(file);
+      });
+      if (alive.current && at === fileReadVersion.current) setValue(content);
+    } catch {
+      if (alive.current && at === fileReadVersion.current) setError(t('workloads.volumes.fileReadError'));
+    } finally {
+      if (alive.current && at === fileReadVersion.current) setFileReading(false);
+    }
+  }
+
   const title = secret ? t('workloads.createKey.titleSecret') : t('workloads.createKey.titleVariable');
   const canUseExisting = reviewed && existing?.kind === kind;
-  return <Dialog label={title} busy={busy} onClose={onClose}>
+  return <Dialog label={title} busy={busy || fileReading} onClose={onClose}>
     <h2>{title}</h2>
     <p className="muted">{t('workloads.createKey.scope', { application: application.name, environment })}</p>
-    {needsStore ? <fieldset className="form-fieldset" disabled={busy}>
+    {needsStore ? <fieldset className="form-fieldset" disabled={busy || fileReading}>
       <legend>{t('workloads.createKey.storeLegend')}</legend>
       {stores.status === 'loading' ? <p role="status" aria-busy="true">{t('workloads.createKey.storesLoading')}</p> : null}
       {stores.status === 'error' ? <div className="form-error" role="alert">{t('workloads.createKey.storesError')} <Button type="button" onClick={() => setStoreAttempt((value) => value + 1)}>{t('workloads.createKey.retry')}</Button></div> : null}
@@ -120,16 +142,17 @@ export function CreateKeyDialog({ application, environment, kind, suggestedName,
       </> : null}
     </fieldset> : null}
     {secret && catalog.secretStoreKey ? <p className="muted" role="note">{storeNotice || t('workloads.createKey.storeSelected', { store: catalog.secretStoreKey })}</p> : null}
-    <label className="field">{t('workloads.createKey.nameLabel')}<input value={name} disabled={busy} autoComplete="off" spellCheck={false} onChange={(event) => { setName(event.target.value); setReviewed(false); }} /></label>
-    <label className="field">{secret ? t('workloads.createKey.secretValueLabel') : t('workloads.createKey.valueLabel')}<input type={secret ? 'password' : 'text'} value={value} disabled={busy} autoComplete={secret ? 'new-password' : 'off'} spellCheck={false} onChange={(event) => setValue(event.target.value)} /></label>
+    <label className="field">{t('workloads.createKey.nameLabel')}<input value={name} disabled={busy || fileReading} autoComplete="off" spellCheck={false} onChange={(event) => { setName(event.target.value); setReviewed(false); }} /></label>
+    <label className="field">{secret ? t('workloads.createKey.secretValueLabel') : t('workloads.createKey.valueLabel')}<input type={secret ? 'password' : 'text'} value={value} disabled={busy || fileReading} autoComplete={secret ? 'new-password' : 'off'} spellCheck={false} onChange={(event) => { fileReadVersion.current += 1; setValue(event.target.value); }} /></label>
+    {secret ? <label className="field">{t('workloads.volumes.readFile')}<input type="file" disabled={busy || fileReading} onChange={event => void readSecretFile(event.target.files?.[0])} /></label> : null}
     <p className="muted">{t('workloads.createKey.boundary', { environment })}</p>
     {error ? <div className="form-error" role="alert">{error}</div> : null}
-    {unknown ? <div className="form-actions"><Button type="button" disabled={busy} onClick={() => void review()}>{t('workloads.createKey.reviewConfig')}</Button></div> : null}
+    {unknown ? <div className="form-actions"><Button type="button" disabled={busy || fileReading} onClick={() => void review()}>{t('workloads.createKey.reviewConfig')}</Button></div> : null}
     {reviewed && existing && existing.kind !== kind ? <div className="form-info" role="status">{t('workloads.createKey.otherKind', { name })}</div> : null}
     <div className="form-actions">
-      <Button type="button" disabled={busy} onClick={onClose}>{t('workloads.createKey.cancel')}</Button>
-      {canUseExisting ? <Button type="button" disabled={busy} onClick={() => onCreated(name)}>{t('workloads.createKey.useExisting')}</Button> : null}
-      <Button tone="primary" type="button" disabled={busy || needsStore || Boolean(trimmedProblem) || unknown && !reviewed} aria-describedby={trimmedProblem ? 'create-key-problem' : undefined} onClick={() => void submit()}>{busy ? t('workloads.createKey.creating') : t('workloads.createKey.submit')}</Button>
+      <Button type="button" disabled={busy || fileReading} onClick={onClose}>{t('workloads.createKey.cancel')}</Button>
+      {canUseExisting ? <Button type="button" disabled={busy || fileReading} onClick={() => onCreated(name)}>{t('workloads.createKey.useExisting')}</Button> : null}
+      <Button tone="primary" type="button" disabled={busy || fileReading || needsStore || Boolean(trimmedProblem) || unknown && !reviewed} aria-describedby={trimmedProblem ? 'create-key-problem' : undefined} onClick={() => void submit()}>{busy ? t('workloads.createKey.creating') : t('workloads.createKey.submit')}</Button>
     </div>
     {trimmedProblem && (name || value) ? <small id="create-key-problem" className="muted">{trimmedProblem}</small> : null}
   </Dialog>;

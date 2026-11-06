@@ -23,7 +23,7 @@ replacement section below.
 | UI action | HTTP contract | Result/error |
 |---|---|---|
 | Applications home | `GET /api/v1/applications` | Session-scoped apps with Environment summaries/targets. |
-| Create | `POST /api/v1/applications` body `{name, subdomain}` only | Application plus two UNCONFIGURED Environments. Unknown `connectionKey` rejected 400; Name/Subdomain validation and duplicate guards remain. |
+| Create | `POST /api/v1/applications` body `{name}` only (ADR-037; `subdomain` rejected) | Application plus two UNCONFIGURED Environments. Unknown `connectionKey` rejected 400; Name/Subdomain validation and duplicate guards remain. |
 | App home | `GET /api/v1/applications/{app}` | Environment entries include safe connectionKey, executionProfile, region, runtimeStatus, infrastructureScope and version; empty target reports UNCONFIGURED. No shared Application target. |
 | Connection choices | `GET /api/v1/application-connections` | Existing safe scoped READY choices and eligible default marker retained, now consumed in Environment Settings. Default never persisted automatically. |
 | Set/change before runtime | `PUT /api/v1/applications/{app}/environments/{env}/connection` body `{connectionKey, expectedVersion}` | Scoped CAS; 409 STALE_VERSION/ENVIRONMENT_BUSY, safe 422 unavailable Connection. Runtime changes use explicit transition flow. |
@@ -61,7 +61,7 @@ không tự replay mutation; lỗi tải lại không phủ nhận kết quả �
 
 After V06.08, Application/Environment reads omit retired deployment
 Connection/profile/region/runtime selection fields; no synthetic defaults.
-Create still accepts name/subdomain only. Deployment choice/set/transition
+Create accepts name only. Deployment choice/set/transition
 commands in the historical table are retired, not silently accepted or mapped to
 a new target. Secret Store/configuration and operation APIs retain their existing
 scope/version/owner/error contracts. Placement comes from matched Definition and

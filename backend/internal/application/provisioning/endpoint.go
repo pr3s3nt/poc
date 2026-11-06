@@ -37,7 +37,7 @@ func (s *Service) provisionEndpoint(ctx context.Context, req Request, node plann
 	if !ok {
 		return out, fmt.Errorf("endpoint: reservation repository unavailable")
 	}
-	if err := repo.ReserveEndpoint(ctx, desired.Hostname, owner); err != nil {
+	if err := repo.ReserveEndpoint(ctx, desired.Claim(), owner); err != nil {
 		return out, err
 	}
 	out.Outputs = map[string]any{"hostname": desired.Hostname, "url": desired.URL}

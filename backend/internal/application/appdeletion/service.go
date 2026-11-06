@@ -637,7 +637,7 @@ func (r *runner) removeWorkloads(ctx context.Context, i int, env string) string 
 		return FailWorkloadRemoval
 	}
 	deploymentID := ""
-	if len(preview.Changes) > 0 || preview.RoutePending {
+	if len(preview.Changes) > 0 {
 		report, err := r.s.pending.Deploy(ctx, r.appKey, env, r.actor, preview.Token)
 		if err != nil || report.Status != "SUCCEEDED" {
 			log.Printf("appdeletion: deploy removal %s/%s: status=%s err=%v", r.appKey, env, report.Status, err)

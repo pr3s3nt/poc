@@ -36,6 +36,9 @@ func unitReleaseName(scope domain.Scope) string {
 }
 
 func applicationRepoName(i port.Intent, cfg Config) string {
+	if cfg.ApplicationRepoName != "" {
+		return cfg.ApplicationRepoName
+	}
 	sum := sha256.Sum256([]byte(i.Binding.OrganizationID + "\x00" + cfg.ApplicationID))
 	return "orch-app-" + hex.EncodeToString(sum[:12])
 }
@@ -577,6 +580,9 @@ func (p *Provider) ObserveSubmissionAbsent(ctx context.Context, i port.Intent, p
 	}
 	if err := p.Manager.RecoveryGuard(ctx, i); err != nil {
 		return false, err
+	}
+	if i.ExpectedRevision != "" && len(i.SourceInventory) > 0 {
+		return p.observeUnpublishedUpdate(ctx, i, prepared)
 	}
 	if i.Revision.Phase != domain.Prerequisite || i.ExpectedRevision != "" || len(i.SourceInventory) != 0 {
 		return false, nil

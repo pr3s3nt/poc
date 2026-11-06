@@ -28,7 +28,7 @@ import { toTarget, type APIEnvironment } from '../shared/api/environment';
 import { Button } from '../shared/ui/Button';
 import { t } from '../shared/i18n';
 
-type APIApplication = { key: string; name: string; subdomain: string; environments?: APIEnvironment[]; status?: string; deletionOperationId?: string };
+type APIApplication = { key: string; name: string; environments?: APIEnvironment[]; status?: string; deletionOperationId?: string };
 type ApplicationsResponse = { applications: APIApplication[] };
 type SessionResponse = { user: { Username?: string; Role?: string } };
 
@@ -49,7 +49,7 @@ export function App() {
       const item = application.environments?.find((env) => env.key === key);
       return item ? toTarget(item) : emptyEnvironment;
     };
-    return { id: application.key, name: application.name, subdomain: application.subdomain, availableEnvironments: application.environments?.map(env => env.key), environments: { staging: target('staging'), production: target('production') }, workloads: { staging: [], production: [] }, status: application.status, deletionOperationId: application.deletionOperationId };
+    return { id: application.key, name: application.name, availableEnvironments: application.environments?.map(env => env.key), environments: { staging: target('staging'), production: target('production') }, workloads: { staging: [], production: [] }, status: application.status, deletionOperationId: application.deletionOperationId };
   }
   // The authoritative Environment target replaces the cached one after a set or a conflict.
   // UC-18: a started deletion freezes the Application; a finished one removes it from the list.
@@ -75,7 +75,7 @@ export function App() {
   // context ends here and the sign-in page shows the password-changed notice.
   function passwordWasChanged() { setPasswordChanged(true); endSession(false); }
   async function signIn(username: string, password: string) { const response = await api<SessionResponse>('/auth/sign-in', { method: 'POST', body: JSON.stringify({ username, password }) }); setIdentity({ username: response.user.Username ?? username, role: response.user.Role ?? 'DEVELOPER' }); setSessionEnded(false); setPasswordChanged(false); setSession('signed-in'); navigate({ name: 'applications' }); void loadApplications(); }
-  async function createApplication(name: string, subdomain: string) { const response = await api<{ application: APIApplication }>('/applications', { method: 'POST', body: JSON.stringify({ name, subdomain }) }); const application = mapApplication(response.application); setApplications((current) => [...current, application]); setCreatedApplicationId(application.id); return application.id; }
+  async function createApplication(name: string) { const response = await api<{ application: APIApplication }>('/applications', { method: 'POST', body: JSON.stringify({ name }) }); const application = mapApplication(response.application); setApplications((current) => [...current, application]); setCreatedApplicationId(application.id); return application.id; }
   if (session === 'restoring') return <div className="page" role="status" aria-busy="true">{t('app.app.loadingOrchestrator')}</div>;
   if (session !== 'signed-in' || route.name === 'sign-in') return <SignInPage onSuccess={signIn} notice={passwordChanged ? t('auth.changePassword.passwordChangedSignIn') : sessionEnded ? t('app.app.yourSessionHasEndedSign') : undefined} />;
   const application = 'applicationId' in route ? applications.find((item) => item.id === route.applicationId) : undefined;

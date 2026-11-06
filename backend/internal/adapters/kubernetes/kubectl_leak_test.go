@@ -72,7 +72,13 @@ func TestCredentialTarget_KubectlFailuresNeverEchoOutput(t *testing.T) {
 				}},
 			{"get", " get ", "Error from server (InternalError): echo", ErrRequestRejected,
 				func(ctx context.Context, kubectl string, source execution.KubeconfigSource) error {
-					return (&PublicRoutes{KubectlPath: kubectl, Credentials: source}).Reconcile(ctx, credentialTarget(), execution.PublicRoute{ApplicationID: "a", EnvironmentID: "staging"})
+					cli, cleanup, err := OpenCLI(ctx, kubectl, source, credentialTarget())
+					if err != nil {
+						return err
+					}
+					defer cleanup()
+					_, err = cli.Run(ctx, nil, "get", "namespace", "staging", "-o", "json")
+					return err
 				}},
 			{"delete", " delete ", "Unable to connect to the server: dial tcp 10.0.0.1:443: connect: connection refused", ErrUnreachable,
 				func(ctx context.Context, kubectl string, source execution.KubeconfigSource) error {

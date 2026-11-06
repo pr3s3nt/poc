@@ -32,3 +32,35 @@ func TestWorkloadTemplateVersionsAndInputs(t *testing.T) {
 		t.Fatal("conflicting immutable version accepted")
 	}
 }
+
+func TestWorkloadCapabilitiesAreBoundedAndCloned(t *testing.T) {
+	if err := validateCapabilities([]string{CustomExecutionV1, ContainerLifecycleV1, PodVolumesV1, ContainerProbesV1}); err != nil {
+		t.Fatal(err)
+	}
+	for _, list := range [][]string{{"unknown"}, {PodVolumesV1, PodVolumesV1}} {
+		if validateCapabilities(list) == nil {
+			t.Fatal("accepted invalid capability")
+		}
+	}
+	b := Bundle{Contract: Contract{Manifest: Manifest{WorkloadCapabilities: []string{CustomExecutionV1}}}}
+	copy := b.Clone()
+	copy.Contract.Manifest.WorkloadCapabilities[0] = "changed"
+	if b.Contract.Manifest.WorkloadCapabilities[0] != CustomExecutionV1 {
+		t.Fatal("clone aliases capability list")
+	}
+}
+
+// Reading immutable retired source metadata must not break unrelated Preview.
+func TestRetiredPolicySourceIsReadableButCannotAuthorOrExecute(t *testing.T) {
+	manifest := Manifest{WorkloadCapabilities: []string{"workload-defaults-v1"}, WorkloadTemplates: []WorkloadTemplate{testTemplate()}}
+	if err := validateCapabilities(manifest.WorkloadCapabilities); err != nil {
+		t.Fatal("retired registry metadata unreadable", err)
+	}
+	catalog, err := TemplateCatalog(map[string]Bundle{"old": {Contract: Contract{Manifest: manifest}}})
+	if err != nil || len(catalog) != 0 {
+		t.Fatal("retired source offered for authoring", catalog, err)
+	}
+	if err := ValidateWorkloadCapabilities(manifest, nil, nil); err == nil {
+		t.Fatal("retired source executable")
+	}
+}

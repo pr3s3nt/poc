@@ -76,7 +76,6 @@ func startInstance(t *testing.T, statePath, kubectl string, creds *credentialmem
 	}
 	resolver := connection.NewCredentialResolver(app.Store, creds)
 	deployer.Credentials = resolver
-	app.Deployments.SetPublicRouteManager(&kubernetes.PublicRoutes{KubectlPath: kubectl, Credentials: resolver}, "example.com")
 	return restartInstance{app: app, executor: executor}
 }
 

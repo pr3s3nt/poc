@@ -13,7 +13,7 @@ last_reviewed: 2026-10-28
 |---|---|---|---|
 | User Account | `UserAccount` | password hash, Organization identity, role, status | Username unique; chỉ `ACTIVE` account được authenticate; plaintext password không persist. |
 | Session | `Session` | token hash, expiry, lifecycle status | Opaque token chỉ tồn tại ở browser/request memory; token hash unique và session revoked/expired không authenticate được. |
-| Application | `Application` | system ID/key, Organization, name, subdomain, version | ID do hệ thống sinh; không có target/provider fields; Secret Store binding thuộc Environment; deployment targets/account/region theo từng resource/workload, không backfill từ Application (T26/ADR-017). |
+| Application | `Application` | system ID/key, Organization, name, version | ID do hệ thống sinh; không có target/provider fields; Secret Store binding thuộc Environment; deployment targets/account/region theo từng resource/workload, không backfill từ Application (T26/ADR-017). |
 | Environment | `Environment` | namespace identity, versioned Secret Store/configuration, identity generation/scope, operation owner, current-set pointer, public-route pending flag | Thuộc một Application; UC-01 tạo đúng `staging` và `production`; desired endpoint được suy ra từ Application Subdomain và Environment key; current Deployment Set chỉ đổi trong final deployment transaction. Route pending cho phép retry sau lỗi Fleet mà không restart workload. |
 | Resource Type | `ResourceType` | input/output schema | Contract độc lập implementation. |
 | Resource Definition | `ResourceDefinition` | Name, version, Driver Account, Matching Criteria, driver inputs, provision rules | UC-03 V02: immutable ID/type, CAS edits; five-field matching without profile filter; compatible account/region per Definition. |
@@ -23,8 +23,9 @@ last_reviewed: 2026-10-28
 | Active Resource | `ActiveResource` | executor state, outputs | Logical identity unique theo Organization + descriptor + scope. |
 | Workload Instance | `WorkloadInstance` | manifest digest/status | Unique theo Environment + workload ID. |
 
-`DeploymentSet.modules.<workload>.spec.service.publicRoutes` is an optional
-orchestrator extension mapping public URL paths to declared Service ports.
+`DeploymentSet.modules.<workload>.spec.service.publicRoutes` is retired by
+ADR-037; public addresses are endpoint resources. Historical text follows:
+it was an orchestrator extension mapping public URL paths to declared Service ports.
 Paths are unique across the Environment; `publicPort` is rejected, with no alias
 conversion or route fallback.
 The resulting Environment-owned Ingress is runtime state of the internal-kind
@@ -37,7 +38,7 @@ separate database aggregate.
 |---|---|---|
 | Entity | `UserAccount`, `Session`, `Application`, `Environment`, `Connection`, `ResourceType`, `ResourceDefinition`, `DeploymentSet`, `DeploymentDeltaSnapshot`, `Deployment`, `DeploymentPlan`, `ActiveResource`, `WorkloadInstance` | Dedicated tables. |
 | Child entity | `MatchingCriterion`, `DeploymentResource`, `DeploymentWorkload` | Dedicated child/join tables. |
-| Value object | `NamespaceIdentity`, `ResourceDescriptor`, `ResourceScope`, `DeploymentStatus`, `ResourceStatus`, `DriverType`, `OutputBinding`, `DeploymentTarget`, `ModuleDelta`, `JSONPatchOperation`, `ContainerResourceRequirements`, `ComputeResources`, `RenderBundle`, `RenderingSelection` | Scalar/JSONB columns; validated at construction. |
+| Value object | `NamespaceIdentity`, `ResourceDescriptor`, `ResourceScope`, `DeploymentStatus`, `ResourceStatus`, `DriverType`, `OutputBinding`, `DeploymentTarget`, `ModuleDelta`, `JSONPatchOperation`, `Container`, `WorkloadExecution`, `PodVolume`, `VolumeMount`, `SecretFile`, `Probe`, `ContainerResourceRequirements`, `ComputeResources`, `RenderBundle`, `RenderingSelection` | Scalar/JSONB columns; validated at construction. |
 | Planning document | `WorkloadFragment`, `CandidateDeploymentSet`, `ResourceGraph`, `ProvisionBatch` | Immutable JSONB snapshot in `deployment_plans`; typed Go model in memory. |
 | Result | `ProvisionResult`, `DeploymentResult`, `DeploymentPreview`, `DeploymentView` | DTO/read model, not aggregate roots. |
 | UC-17 | `EffectivenessBaseline` (entity, append-only versions); `Run`, `WorkItem`, `MetricResult` (read model derived from Deployment/cleanup history, not persisted) | `effectiveness_baselines`; read model only. |
@@ -300,3 +301,20 @@ retain actual pins. Applied selection advances only after complete success.
 The [supplemental classes](catalog-releases.puml) ([PNG](catalog-releases.png)),
 [schema](../database/schema.md#catalog-releases--adr-031) and
 [contract](../contracts/catalog-releases.md) define these relationships.
+
+## Generic Workload runtime intent — GW-06/07 (2026-11-06)
+
+Container role/order, probes and volume/mount/file declarations are validated
+value objects owned by the existing desired/applied Workload JSONB documents.
+PVC references retain resource identity/retention; emptyDir and nonsecret
+ConfigMaps are Pod/workload intent, not infrastructure aggregates. SecretFile
+contains scoped UC-12 refs and read mode only. Prepared source capabilities
+gate matching before provisioning; the matched Definition/source is still pinned
+for custom authoring without a preset. See [contract](../contracts/generic-workload.md).
+
+HostPath extension (WC-21, 2026-11-06): WorkloadExecution.volumes retains the
+existing JSON shape with an exclusive hostPath source {path, type?}, alongside
+emptyDir/configMap. Path is the Linux node path; type is the optional Kubernetes
+HostPathType enum. Draft, deployment-set and applied ModuleSpec snapshots retain
+it with existing CAS and deep-copy rules. No relational column, migration, node
+filesystem provisioning, deletion or retention owner is introduced.

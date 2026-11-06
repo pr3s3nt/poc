@@ -12,7 +12,7 @@ import { ensureAccess, verifyAcceptance, kubectl } from './verification.mjs';
 
 export function acceptanceInputHash(config) {
  const app=config.application;
- const value={name:app.name,subdomain:app.subdomain,environment:app.environment,variables:app.variables,workloads:desiredScores(config,app),secretHashes:Object.fromEntries(Object.entries(app.secretFiles).map(([name,file])=>[name,digest(readPrivateFile(file,'application secret'))])),jobPayload:config.verification.jobPayload,storage:config.verification.storage??null};
+ const value={name:app.name,environment:app.environment,variables:app.variables,workloads:desiredScores(config,app),secretHashes:Object.fromEntries(Object.entries(app.secretFiles).map(([name,file])=>[name,digest(readPrivateFile(file,'application secret'))])),jobPayload:config.verification.jobPayload,storage:config.verification.storage??null};
  const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
  return digest(JSON.stringify(canonical(value)));
 }

@@ -1,3 +1,4 @@
+import { openAdvancedFields, openWorkloadGroup } from '../../test/workloadGroups';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -5,7 +6,7 @@ import { WorkloadEditorPage } from './WorkloadEditorPage';
 import type { Application } from '../../shared/types/application';
 import { bothConfigured } from '../../test/targets';
 
-const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog', name: 'Catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -13,6 +14,7 @@ it('saves an Application key as a Workload reference, not a copied value', async
   let saved: Record<string, unknown> | undefined;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [{ name: 'API_URL', kind: 'VARIABLE', value: 'https://internal.example', configured: true, usedBy: [] }] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
     if (init?.method === 'PUT') {
@@ -43,6 +45,7 @@ it('keeps edits after a save conflict, blocks Save until an explicit reload, and
   let lists = 0;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
     if (init?.method === 'PUT') {
@@ -74,6 +77,7 @@ it('keeps edits after a save conflict, blocks Save until an explicit reload, and
 it('does not treat ENVIRONMENT_BUSY (409) as a stale draft: edits stay, no stale panel, Save stays available', async () => {
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
     if (init?.method === 'PUT') return Response.json({ error: 'busy', code: 'ENVIRONMENT_BUSY' }, { status: 409 });
@@ -95,6 +99,7 @@ it('keeps the stale panel and retry when reloading the current state fails', asy
   let lists = 0;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
     if (init?.method === 'PUT') return Response.json({ error: 'conflict' }, { status: 409 });
@@ -119,8 +124,9 @@ it('keeps the stale panel and retry when reloading the current state fails', asy
 
 it('offers retry when the editor cannot load', async () => {
   let calls = 0;
-  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     calls += 1;
@@ -137,6 +143,7 @@ it('requires PostgreSQL inputs and saves them as Workload resource params', asyn
   let saved: Record<string, unknown> | undefined;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres', classes: [], inputs: [{ name: 'database', type: 'string', required: true }, { name: 'username', type: 'string', required: true }], outputs: [{ name: 'host' }] }] });
     if (init?.method === 'PUT') { saved = JSON.parse(String(init.body)) as Record<string, unknown>; return Response.json({ draftVersion: 1, workloads: [] }); }
@@ -147,6 +154,7 @@ it('requires PostgreSQL inputs and saves them as Workload resource params', asyn
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   await user.type(screen.getByLabelText('Tên Workload'), 'backend');
   await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/backend:test');
+  await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   await user.type(screen.getByLabelText('Alias tài nguyên'), 'db');
   await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'postgres');
@@ -165,6 +173,7 @@ it('preserves PostgreSQL params when editing a workload on the form', async () =
   let saved: Record<string, unknown> | undefined;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres', classes: [], inputs: [{ name: 'database', type: 'string', required: true }, { name: 'username', type: 'string', required: true }], outputs: [] }] });
     if (init?.method === 'PUT') { saved = JSON.parse(String(init.body)) as Record<string, unknown>; return Response.json({ draftVersion: 2, workloads: [] }); }
@@ -172,6 +181,7 @@ it('preserves PostgreSQL params when editing a workload on the form', async () =
   }));
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="backend" />);
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   expect(await screen.findByLabelText('Tham số database')).toHaveValue('catalog');
   expect(screen.getByLabelText('Tham số username')).toHaveValue('app');
   await user.clear(screen.getByLabelText('Tham số database'));
@@ -185,6 +195,7 @@ it('shows a backend resource param rejection, keeps the form and does not report
   const puts: unknown[] = [];
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres', classes: [], inputs: [{ name: 'database', type: 'string', required: true }], outputs: [{ name: 'host' }] }] });
     if (init?.method === 'PUT') { puts.push(JSON.parse(String(init.body))); return Response.json({ error: 'workloadconfig: invalid input: resources.db.params.database is required by resource type postgres', code: 'INVALID_WORKLOAD', params: { resourceType: 'postgres' } }, { status: 400 }); }
@@ -195,6 +206,7 @@ it('shows a backend resource param rejection, keeps the form and does not report
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   await user.type(screen.getByLabelText('Tên Workload'), 'backend');
   await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/backend:test');
+  await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   await user.type(screen.getByLabelText('Alias tài nguyên'), 'db');
   await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'postgres');
@@ -211,8 +223,9 @@ it('shows a backend resource param rejection, keeps the form and does not report
 });
 
 it('shows a Workload import rejection without presenting the file as parsed', async () => {
-  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
     if (url.endsWith('/workloads/parse')) return Response.json({ error: 'workloadconfig: invalid input: resources.cache.type is not a registered resource type', code: 'INVALID_VARIABLE' }, { status: 400 });
@@ -234,6 +247,7 @@ it('disables Save while an environment operation runs, keeps the typed text and 
   const puts: string[] = [];
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (init?.method === 'PUT') { puts.push(url); return Response.json({ draftVersion: 1, workloads: [] }); }
     if (url.endsWith('/configuration')) return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
@@ -247,7 +261,7 @@ it('disables Save while an environment operation runs, keeps the typed text and 
   await user.type(screen.getByLabelText('Ảnh Container'), 'mine:v1');
   view.rerender(<WorkloadEditorPage application={busyApp} environment="staging" />);
   expect(screen.getByRole('button', { name: 'Lưu draft Workload' })).toBeDisabled();
-  expect(screen.getByRole('status')).toHaveTextContent('đang chạy');
+  expect(screen.getAllByRole('status').some(element=>element.textContent?.includes('đang chạy'))).toBe(true);
   expect(screen.getByLabelText('Ảnh Container')).toHaveValue('mine:v1');
   expect(puts).toEqual([]);
   view.rerender(<WorkloadEditorPage application={application} environment="staging" />);
@@ -266,6 +280,7 @@ function serve(options: Serve = {}) {
   const puts: Saved[] = [];
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ version: 1, keys: options.keys ?? [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: (options.types ?? []).map((type) => ({ classes: [], ...(type as object) })) });
     if (init?.method === 'PUT') { puts.push(JSON.parse(String(init.body)) as Saved); return Response.json({ draftVersion: 2, workloads: [] }); }
@@ -278,20 +293,21 @@ const note = (name: string) => screen.getByRole('note', { name });
 async function fillBasic(user: ReturnType<typeof userEvent.setup>, name = 'web') {
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   await user.type(screen.getByLabelText('Tên Workload'), name);
-  await user.type(screen.getByLabelText('Ảnh Container'), `example.invalid/${name}:v1`);
+  await user.type(screen.getByLabelText('Ảnh Container'), `example.invalid/${name}:v1`);await openAdvancedFields(user);
 }
 async function addPort(user: ReturnType<typeof userEvent.setup>, name: string, port: string, index = 0) {
+  await openWorkloadGroup(user,'Service & kết nối');
   await user.click(screen.getByRole('button', { name: '+ Thêm cổng' }));
   if (name) await user.type(screen.getAllByLabelText('Tên cổng Service')[index]!, name);
   await user.type(screen.getAllByLabelText('Cổng Service', { exact: true })[index]!, port);
 }
-const routeSelect = () => screen.getByLabelText('Cổng Service công khai') as HTMLSelectElement;
 
 it('keeps resources, class and target port in closed advanced sections with effective defaults and writes nothing for them', async () => {
   const { puts } = serve({ types: [{ key: 'redis', inputs: [], outputs: [] }] });
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await fillBasic(user);
+  await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   await user.type(screen.getByLabelText('Alias tài nguyên'), 'cache');
   await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'redis');
@@ -299,7 +315,7 @@ it('keeps resources, class and target port in closed advanced sections with effe
   expect(screen.queryByLabelText('Yêu cầu CPU')).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Lớp tài nguyên')).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Cổng đích của Container')).not.toBeInTheDocument();
-  expect(note('Tóm tắt nâng cao Container 1')).toHaveTextContent('Yêu cầu hiệu lực: CPU 10m (mặc định) · Bộ nhớ 32Mi (mặc định). Giới hạn: CPU chưa đặt · Bộ nhớ chưa đặt.');
+  expect(screen.getByText('Tài nguyên tính toán', {exact:true}).closest('summary')!).toHaveTextContent('CPU Chưa cấu hình · RAM Chưa cấu hình');
   expect(note('Tóm tắt nâng cao tài nguyên cache')).toHaveTextContent('Lớp hiệu lực: default (mặc định)');
   expect(note('Tóm tắt nâng cao cổng http')).toHaveTextContent('Cổng đích hiệu lực: 8080 (theo cổng Service)');
   await user.click(saveButton());
@@ -314,17 +330,17 @@ it('shows the effective request as explicit, else same-dimension limit, else def
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await fillBasic(user);
-  const summary = () => note('Tóm tắt nâng cao Container 1');
-  await user.click(screen.getByRole('button', { name: 'Hiện nâng cao Container 1' }));
+  const summary = () => screen.getByText('Tài nguyên tính toán', {exact:true}).closest('summary')!;
+  await user.click(screen.getByText('Tài nguyên tính toán', {exact:true}));
   await user.type(screen.getByLabelText('Giới hạn CPU'), '500m');
-  expect(summary()).toHaveTextContent('CPU 500m (theo limit) · Bộ nhớ 32Mi (mặc định). Giới hạn: CPU 500m · Bộ nhớ chưa đặt.');
+  expect(summary()).toHaveTextContent('CPU 500m · RAM Chưa cấu hình');
   await user.type(screen.getByLabelText('Yêu cầu bộ nhớ'), '64Mi');
-  expect(summary()).toHaveTextContent('Bộ nhớ 64Mi (tường minh)');
+  expect(summary()).toHaveTextContent('RAM 64Mi');
   await user.type(screen.getByLabelText('Yêu cầu CPU'), '100m');
-  expect(summary()).toHaveTextContent('CPU 100m (tường minh)');
-  await user.click(screen.getByRole('button', { name: 'Ẩn nâng cao Container 1' }));
+  expect(summary()).toHaveTextContent('CPU 100m');
+  await user.click(screen.getByText('Tài nguyên tính toán', {exact:true}));
   expect(screen.queryByLabelText('Giới hạn CPU')).not.toBeInTheDocument();
-  expect(summary()).toHaveTextContent('CPU 100m (tường minh) · Bộ nhớ 64Mi (tường minh). Giới hạn: CPU 500m · Bộ nhớ chưa đặt.');
+  expect(summary()).toHaveTextContent('CPU 100m · RAM 64Mi');
   await user.click(saveButton());
   expect(puts[0]!.workload.containers.main.resources).toEqual({ requests: { cpu: '100m', memory: '64Mi' }, limits: { cpu: '500m' } });
 });
@@ -334,9 +350,11 @@ it('keeps imported advanced overrides through collapse and basic edits and write
   const { puts } = serve({ workloads: [{ id: 'api', state: 'PENDING_UPSERT', workload }], types: [{ key: 'postgres', classes: [], inputs: [{ name: 'database', type: 'string', required: true }], outputs: [] }] });
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await screen.findByRole('heading', { name: 'Sửa api' });
-  expect(note('Tóm tắt nâng cao Container 1')).toHaveTextContent('CPU 250m (tường minh) · Bộ nhớ 256Mi (theo limit). Giới hạn: CPU 1 · Bộ nhớ 256Mi.');
+  expect(screen.getByText('Tài nguyên tính toán', {exact:true}).closest('summary')!).toHaveTextContent('CPU 250m · RAM 256Mi');
   expect(note('Tóm tắt nâng cao tài nguyên db')).toHaveTextContent('Lớp hiệu lực: large (tường minh)');
+  await openWorkloadGroup(user,'Service & kết nối');
   expect(note('Tóm tắt nâng cao cổng http')).toHaveTextContent('Cổng đích hiệu lực: 9090 (ghi đè)');
   await user.click(screen.getByRole('button', { name: 'Hiện nâng cao tài nguyên db' }));
   expect(screen.getByLabelText('Lớp tài nguyên')).toHaveValue('large');
@@ -354,6 +372,7 @@ it('omits an empty class and writes a class only while it is set', async () => {
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await fillBasic(user);
+  await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   await user.type(screen.getByLabelText('Alias tài nguyên'), 'cache');
   await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'redis');
@@ -386,6 +405,7 @@ it('keeps number and bool resource params typed, also when edited from an import
   const { puts } = serve({ types, workloads: [{ id: 'q', state: 'PENDING_UPSERT', workload: { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'q' }, containers: { main: { image: 'example.invalid/q:v1' } }, resources: { jobs: { type: 'queue', params: { replicas: 3, durable: false, topic: '3' } } } } }] });
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="q" />);
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   expect(await screen.findByLabelText('Tham số replicas')).toHaveValue(3);
   expect(screen.getByLabelText('Tham số durable')).toHaveValue('false');
   await user.clear(screen.getByLabelText('Tham số replicas'));
@@ -406,90 +426,9 @@ it('never adds a public route on its own and selects a port only when exactly on
   expect(puts[0]!.workload.service.publicRoutes).toBeUndefined();
 });
 
-it('selects the only valid Service port after Add public route, not before', async () => {
-  const { puts } = serve();
-  const user = userEvent.setup();
-  render(<WorkloadEditorPage application={application} environment="staging" />);
-  await fillBasic(user);
-  await addPort(user, 'http', '8080');
-  await user.click(screen.getByRole('button', { name: '+ Thêm đường dẫn công khai' }));
-  expect(routeSelect()).toHaveValue('http');
-  await user.type(screen.getByLabelText('Đường dẫn công khai'), '/');
-  await addPort(user, 'metrics', '9100', 1);
-  expect(routeSelect()).toHaveValue('http');
-  await user.click(saveButton());
-  expect(puts[0]!.workload.service.publicRoutes).toEqual([{ path: '/', port: 'http' }]);
-});
 
-it('requires an explicit choice when no or several Service ports are valid', async () => {
-  const { puts } = serve();
-  const user = userEvent.setup();
-  render(<WorkloadEditorPage application={application} environment="staging" />);
-  await fillBasic(user);
-  await user.click(screen.getByRole('button', { name: '+ Thêm đường dẫn công khai' }));
-  expect(routeSelect()).toHaveValue('');
-  await user.type(screen.getByLabelText('Đường dẫn công khai'), '/');
-  await user.click(saveButton());
-  expect(screen.getByRole('alert')).toHaveTextContent('Hãy chọn một cổng Service');
-  await addPort(user, 'http', '8080');
-  await addPort(user, 'admin', '9000', 1);
-  await user.click(screen.getByRole('button', { name: '+ Thêm đường dẫn công khai' }));
-  expect(screen.getAllByLabelText('Cổng Service công khai')[1]).toHaveValue('');
-  expect(puts).toEqual([]);
-});
 
-it('does not count blank, duplicate or out-of-range Service ports as valid targets', async () => {
-  serve();
-  const user = userEvent.setup();
-  render(<WorkloadEditorPage application={application} environment="staging" />);
-  await fillBasic(user);
-  await addPort(user, 'ok', '8080');
-  await addPort(user, '', '81', 1);
-  await addPort(user, 'big', '70000', 2);
-  await addPort(user, 'dup', '82', 3);
-  await addPort(user, 'dup', '83', 4);
-  await user.click(screen.getByRole('button', { name: '+ Thêm đường dẫn công khai' }));
-  expect(routeSelect()).toHaveValue('ok');
-  expect(within(routeSelect()).getAllByRole('option').map((option) => option.textContent)).toEqual(['Chọn cổng', 'ok · 8080']);
-});
 
-it('keeps the old route target when its port is renamed, removed or invalid, shows it and blocks Save', async () => {
-  const { puts } = serve();
-  const user = userEvent.setup();
-  render(<WorkloadEditorPage application={application} environment="staging" />);
-  await fillBasic(user);
-  await addPort(user, 'http', '8080');
-  await addPort(user, 'other', '9000', 1);
-  await user.click(screen.getByRole('button', { name: '+ Thêm đường dẫn công khai' }));
-  await user.selectOptions(routeSelect(), 'http');
-  await user.type(screen.getByLabelText('Đường dẫn công khai'), '/');
-  // invalid number
-  await user.clear(screen.getAllByLabelText('Cổng Service', { exact: true })[0]!);
-  await user.type(screen.getAllByLabelText('Cổng Service', { exact: true })[0]!, '70000');
-  expect(routeSelect()).toHaveValue('http');
-  expect(screen.getByText(/Cổng Service "http" không còn hợp lệ/, { selector: 'p' })).toBeInTheDocument();
-  await user.click(saveButton());
-  expect(screen.getByRole('alert')).toHaveTextContent('Cổng Service "http" không còn hợp lệ');
-  // restore, then rename
-  await user.clear(screen.getAllByLabelText('Cổng Service', { exact: true })[0]!);
-  await user.type(screen.getAllByLabelText('Cổng Service', { exact: true })[0]!, '8080');
-  expect(screen.queryByText(/không còn hợp lệ/, { selector: 'p' })).not.toBeInTheDocument();
-  await user.type(screen.getAllByLabelText('Tên cổng Service')[0]!, '2');
-  expect(routeSelect()).toHaveValue('http');
-  expect(within(routeSelect()).getByRole('option', { name: 'http · không hợp lệ' })).toBeInTheDocument();
-  await user.click(saveButton());
-  expect(puts).toEqual([]);
-  // remove: still the old target, never the remaining valid port
-  await user.click(within(screen.getAllByLabelText('Tên cổng Service')[0]!.closest('.binding-row') as HTMLElement).getByRole('button', { name: 'Xóa' }));
-  expect(routeSelect()).toHaveValue('http');
-  expect(screen.getByText(/Cổng Service "http" không còn hợp lệ/, { selector: 'p' })).toBeInTheDocument();
-  await user.click(saveButton());
-  expect(puts).toEqual([]);
-  // an explicit choice repairs it
-  await user.selectOptions(routeSelect(), 'other');
-  await user.click(saveButton());
-  expect(puts[0]!.workload.service.publicRoutes).toEqual([{ path: '/', port: 'other' }]);
-});
 
 it('does not add variables, keys or secrets on its own and sends no variables for an untouched table', async () => {
   const { puts } = serve({ keys: [{ name: 'API_URL', kind: 'VARIABLE', configured: true, value: 'x', usedBy: [] }, { name: 'TOKEN', kind: 'SECRET', configured: true, value: 'y', usedBy: [] }] });
@@ -515,21 +454,11 @@ it('blocks Save with Vietnamese validation for an invalid Workload name and keep
   expect(puts).toEqual([]);
 });
 
-it('round-trips several publicRoutes unchanged and never serializes publicPort', async () => {
-  const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1' } }, service: { ports: { http: { port: 8080 }, admin: { port: 9000 } }, publicRoutes: [{ path: '/', port: 'http' }, { path: '/admin', port: 'admin' }] } };
-  const { puts } = serve({ workloads: [{ id: 'api', state: 'PENDING_UPSERT', workload }] });
-  const user = userEvent.setup();
-  render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
-  await screen.findByRole('heading', { name: 'Sửa api' });
-  expect(screen.getAllByLabelText('Đường dẫn công khai')).toHaveLength(2);
-  await user.click(saveButton());
-  expect(puts[0]!.workload.service).toEqual(workload.service);
-  expect(JSON.stringify(puts[0])).not.toContain('publicPort');
-});
 
 it('rejects an import with publicPort in Vietnamese, keeps the form and converts nothing', async () => {
-  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
     if (url.endsWith('/workloads/parse')) return Response.json({ error: 'raw SECRET', code: 'INVALID_WORKLOAD', field: 'service.publicPort' }, { status: 400 });
@@ -562,6 +491,7 @@ it('saves a selected scheduled template with Service omitted and explicit schedu
  const digest = 'a'.repeat(64);let saved: Record<string, unknown> | undefined;
  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
   const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
   if (url.endsWith('/configuration')) return Response.json({ version: 1, keys: [] });
   if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
   if (url.endsWith('/workload-templates')) return Response.json({ templates: [{ id: 'scheduled', version: '1.0.0', sha256: digest, kind: 'CronJob', labels: { vi: 'Theo lịch' }, inputsSchema: { type: 'object', properties: {}, additionalProperties: false }, defaults: {} }] });
@@ -569,7 +499,7 @@ it('saves a selected scheduled template with Service omitted and explicit schedu
   return Response.json({ workloads: [], draftVersion: 0 });
  }));
  const user = userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging" selectedTemplate={`scheduled@1.0.0:${digest}`} />);
- await screen.findByRole('heading',{name:'Kiểu thực thi'});
+ await openWorkloadGroup(user,'Cấu hình ít thay đổi');await screen.findByRole('heading',{name:'Kiểu thực thi'});
  await user.type(screen.getByLabelText('Tên Workload'),'backup');await user.type(screen.getByLabelText('Ảnh Container'),'registry.example/backup:v1');
  await user.clear(screen.getByLabelText('Lịch cron'));await user.type(screen.getByLabelText('Lịch cron'),'0 1 * * *');
  await user.click(screen.getByLabelText('Tạm dừng lịch'));await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));

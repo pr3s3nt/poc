@@ -22,7 +22,6 @@ import (
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/diagnostics"
 	"orchestrator/internal/domain/effectiveness"
-	"orchestrator/internal/domain/endpoint"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/identity"
 	"orchestrator/internal/domain/resource"
@@ -45,7 +44,7 @@ type deliveryExecutionRecord struct {
 }
 
 type state struct {
-	EndpointReservations            map[string]endpoint.Owner                     `json:"endpointReservations,omitempty"`
+	EndpointReservations            map[string]endpointReservation                `json:"endpointReservations,omitempty"`
 	DefinitionHistories             map[string]persistence.DefinitionHistory      `json:"definitionHistories,omitempty"`
 	DefinitionSelections            map[string]persistence.DefinitionSelection    `json:"definitionSelections,omitempty"`
 	PlatformDeliveryDefaults        map[string]delivery.PlatformDefault           `json:"platformDeliveryDefaults,omitempty"`
@@ -781,22 +780,6 @@ func (s *Store) SelectSecretStore(ctx context.Context, sel persistence.SecretSto
 	env.Version++
 	s.state.Environments[key] = env
 	return env, nil
-}
-
-// SetPublicRoutesPending changes only the route flag.
-func (s *Store) SetPublicRoutesPending(ctx context.Context, applicationKey, environmentKey string, pending bool) error {
-	defer s.lock(ctx)()
-	key := envKey(applicationKey, environmentKey)
-	env, ok := s.state.Environments[key]
-	if !ok {
-		return fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
-	}
-	if err := s.ownerCheck(ctx, env); err != nil {
-		return err
-	}
-	env.PublicRoutesPending = pending
-	s.state.Environments[key] = env
-	return nil
 }
 
 // GetDeploymentSet reads one immutable Deployment Set.

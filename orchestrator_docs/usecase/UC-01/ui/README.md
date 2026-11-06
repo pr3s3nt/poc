@@ -11,7 +11,7 @@ related: UC-01, UC-05, UC-07, UC-09, UC-16
 ## UX outcome
 
 Developer lands on Applications home after sign-in, creates an Application with
-Name/Subdomain, then sees a single Application home with `staging` and
+Name, then sees a single Application home with `staging` and
 `production` tabs. The selected Environment displays its Workloads and recent
 deployments. Execution and Secret Store Connections are independently editable in each Environment Settings with version checks and explicit transitions; see [screens](screens.md).
 

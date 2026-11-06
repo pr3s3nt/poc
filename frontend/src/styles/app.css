@@ -20,8 +20,8 @@ a { color: inherit; }
 .inline-editor { max-width:650px; }
 .inline-editor label,.editor-grid label { display:grid; gap:6px; font-size:14px; font-weight:600; }
 .inline-editor input,.editor-grid input,.editor-grid select,.binding-row input,.binding-row select { min-width:0; width:100%; border:1px solid var(--border); border-radius:6px; padding:8px 10px; background:var(--surface); color:var(--ink); font:inherit; }
-.inline-editor label.checkbox-row { display:flex; align-items:center; gap:8px; font-weight:400; }
-.inline-editor label.checkbox-row input[type=checkbox] { flex:0 0 auto; width:auto; margin:0; padding:0; border:0; }
+.inline-editor label.checkbox-row,.workload-editor .editor-grid label.checkbox-row { display:flex; align-items:center; gap:8px; font-weight:400; }
+.inline-editor label.checkbox-row input[type=checkbox],.workload-editor .editor-grid label.checkbox-row input[type=checkbox] { flex:0 0 auto; width:auto; margin:0; padding:0; border:0; }
 .inline-editor input:focus,.editor-grid input:focus,.editor-grid select:focus,.binding-row input:focus,.binding-row select:focus { outline:2px solid var(--blue); outline-offset:-1px; }
 .warning-text { border-left:3px solid #d4a72c; background:#fff8c5; padding:12px; color:#633c01; line-height:1.5; }
 .field-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
@@ -730,3 +730,24 @@ a { color: inherit; }
 .saved-source-summary > div { display:grid; grid-template-columns:100px minmax(0,1fr); gap:12px; padding:7px 0; }
 .saved-source-summary dt { color:var(--muted); }
 .saved-source-summary dd { margin:0; min-width:0; overflow-wrap:anywhere; }
+
+fieldset.volume-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+
+.volume-source-list { display:grid; gap:8px; max-height:280px; overflow:auto; }
+.volume-source-list > button { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 12px; padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:inherit; text-align:left; cursor:pointer; }
+.volume-source-list > button small { grid-column:1 / -1; color:var(--muted); }
+.volume-source-list > button[aria-pressed=true] { border-color:var(--blue); background:#ddf4ff; }
+.volume-source-list > button:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+.volume-source-list > button:disabled { opacity:.6; cursor:default; }
+
+.volume-source-list > button strong { overflow-wrap:anywhere; }
+
+.runtime-config-group > summary { cursor: pointer; padding: .65rem 0; }
+.runtime-config-group > .editor-grid { padding: .75rem 0; }
+.runtime-config-group label > small { display: block; font-weight: normal; }
+
+/* Inherited values are hints, never authored input. */
+.workload-editor input::placeholder,.workload-editor textarea::placeholder { color:#6e7781; opacity:.8; font-weight:400; }
+.workload-editor select.inherited-default { color:#6e7781; font-weight:400; }
+.workload-editor select.inherited-default option { color:var(--ink); }
+.workload-advanced-fields > .button { margin-top:10px; }

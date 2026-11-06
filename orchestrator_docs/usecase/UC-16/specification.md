@@ -108,14 +108,12 @@ của Environment đang chọn.
   Save kiểm Type schema; Preview/Deploy kiểm module mappings/constraints biết
   trước provision. Không module match/input lỗi thì chặn Deploy. Import giữ
   cấu trúc phức tạp và shared ID, không mất thông tin khi đổi controls.
-- **BR-12:** Mỗi workload có thể khai báo nhiều public route `{path, port}`;
-  `path` là URL prefix bắt đầu bằng `/`, `port` là tên Service port đã khai báo.
-  Preview kiểm tra path hợp lệ và không trùng trong toàn Environment; `/` và
-  `/api` được phép ở hai workload. Chỉ nhận `service.publicRoutes`; mọi field
-  `service.publicPort` bị từ chối, kể cả rỗng/null hoặc đi kèm publicRoutes,
-  không tự chuyển draft cũ. HTTP trả code ổn định `INVALID_SCORE` và không
-  thay đổi draft/version/current set/runtime. Save chỉ lưu desired state; Deploy mới
-  tạo/cập nhật hoặc gỡ route của Environment.
+- **BR-12:** Địa chỉ public khai báo bằng một resource `endpoint` riêng của
+  workload (`name`, `port` là tên Service port, `path`). Nhiều workload cùng
+  Environment có thể dùng chung `name` với path khác nhau (EP-07). `service.publicRoutes`
+  và `service.publicPort` bị từ chối với code `INVALID_SCORE`, không thay đổi
+  draft/version/current set/runtime ([ADR-037](../../architecture/decisions/ADR-037-retire-public-routes.md)). Form workload luôn tạo endpoint
+  ở phạm vi riêng và chọn port từ Service đã khai báo.
 - **BR-13:** Draft có nội dung ngữ nghĩa giống current Deployment Set không
   tạo thay đổi trong Preview; thay đổi revision UC-12 của key workload đang
   dùng vẫn là update. Mỗi Save vẫn tăng draft version theo BR-10.
@@ -279,7 +277,27 @@ as specified above.
   tồn tại sang shared và không đổi direct Score/CI API. Chuyển scope là thao
   tác tường minh, không chuyển dữ liệu runtime; vẫn cần Save → Preview → Deploy.
 
+## Workload class selection — 2026-11-05
+
+- **BR-31:** Workload `metadata.class` belongs in the collapsed Workload advanced
+  section. Use a dropdown populated from the `workload` Resource Type's published
+  `classes` in the authenticated GET resource-types projection. Never require
+  free-text entry or use dependency classes as workload choices. The default
+  option omits `metadata.class`; explicit historical `default` stays explicit
+  until the user changes it. Show the effective class in the collapsed summary.
+- **BR-32:** Preserve a valid imported/current class absent from metadata as a
+  labelled retained option. Closing advanced controls, saving unrelated edits,
+  refreshing metadata or receiving an empty list must not replace that value.
+  Loading/error disables class selection, preserves edits and offers GET retry;
+  it never appears as an authoritative empty list. Metadata is authoring guidance;
+  Preview/Deploy matching and stale-token enforcement remain authoritative.
+
 ## Public endpoint resource
 
 [EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
 preview, atomic hostname reservation, manifest delivery and safe release.
+
+## Complete runtime configuration and defaults — issue #37
+
+[WD-01–10](workload-defaults-specification.md) extend runtime authoring, immutable
+policy selection, storage ownership, compatibility and effective-value display.

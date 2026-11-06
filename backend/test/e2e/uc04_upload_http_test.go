@@ -213,7 +213,7 @@ func TestProductSeedClusterIsVerifyingAndApplicationCreateStillWorks(t *testing.
 		t.Fatalf("Organization metadata = %+v, %v", org, err)
 	}
 	dev := authenticatedClient(t, server.URL)
-	resp, body := call(t, dev, http.MethodPost, server.URL+"/api/v1/applications", `{"name":"Seeded Cluster App","subdomain":"seeded-app"}`)
+	resp, body := call(t, dev, http.MethodPost, server.URL+"/api/v1/applications", `{"name":"Seeded Cluster App"}`)
 	if resp.StatusCode != http.StatusCreated || strings.Contains(body, `"configured":true`) {
 		t.Fatalf("create application: %d %s", resp.StatusCode, body)
 	}

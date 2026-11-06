@@ -21,8 +21,10 @@ app. No live conversion or data migration is required; unrelated apps remain.
 
 ## Publication and controller identity
 
-Use an application-scoped controller identity derived from Organization and
-immutable Application ID, independent of Environment, generation and delivery epoch.
+Use an application-scoped controller identity independent of Environment,
+generation and delivery epoch. [ADR-038](ADR-038-readable-idp-names.md) names new
+IDP Application controllers after their persisted delivery repository; historical
+controllers retain the identity derived from Organization and Application UUID.
 Both Environments retain the application's immutable binding/target pins.
 The repository contains `<root>/<environment>/<workload>/<phase>/` directories,
 where `<root>` is the existing platform policy root (normally `environments`).

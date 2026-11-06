@@ -47,6 +47,11 @@ không nhận computed `classes`.
 
 ## Unified sources — DEVEX-ENV
 
+Workload class BR-31/32 reuses the `classes` array of the `workload` Type from
+the same GET, preserving it before excluding workload from dependency choices.
+No new endpoint or payload field: Save still writes optional `metadata.class`.
+The dropdown does not claim the published class matches the current context.
+
 Canonical mappings and create-only payload/errors are in
 [OC-12/OC-16](../../../architecture/contracts/operation-contracts.md).
 Reuse GET configuration, GET resource-types, GET workloads, existing workload
@@ -89,3 +94,11 @@ for reuse, preserving scalar Type params and excluding unsafe projections.
 New form resources receive a generated Score `resources.<alias>.id`; explicit
 private omits it. Import/direct Score retain existing semantics. No endpoint,
 output, password or cross-application lookup is introduced.
+
+## Effective runtime validation — issue #37
+
+POST workloads/resolve-defaults reports rejected resolved runtime/compute intent as
+400 INVALID_WORKLOAD, like import/Save validation. Domain ErrExecution is never an
+internal 500 merely because the invalid combination emerged after template merge.
+Response text stays fixed and safe; Console uses its allowlisted code messages.
+Actual source/network/server failures retain retry and preserve the local draft.

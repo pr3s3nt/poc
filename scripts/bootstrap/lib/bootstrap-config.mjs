@@ -80,15 +80,15 @@ export function loadBootstrapConfig(file) {
   p.delivery.namespaceAccess.rulesFile=businessFile(p.delivery.namespaceAccess.rulesFile);
   const policy=JSON.parse(readFileSync(p.delivery.namespaceAccess.rulesFile,'utf8'));
   onlyKeys(policy,['rules'],'namespaceAccess policy');
-  requireConfig(Array.isArray(policy.rules)&&policy.rules.every(r=>Array.isArray(r.apiGroups)&&r.apiGroups.every(v=>['','apps','batch','secrets.hashicorp.com','networking.k8s.io'].includes(v))&&Array.isArray(r.resources)&&r.resources.every(v=>['configmaps','secrets','services','serviceaccounts','pods','persistentvolumeclaims','deployments','replicasets','statefulsets','jobs','cronjobs','vaultauths','vaultconnections','vaultstaticsecrets','ingresses'].includes(v))&&Array.isArray(r.verbs)&&r.verbs.every(v=>['get','list','watch','create','update','patch','delete'].includes(v))), 'Only bounded namespaced workload rules allowed');
+  requireConfig(Array.isArray(policy.rules)&&policy.rules.every(r=>Array.isArray(r.apiGroups)&&r.apiGroups.every(v=>['','apps','batch','secrets.hashicorp.com','networking.k8s.io','gateway.networking.k8s.io'].includes(v))&&Array.isArray(r.resources)&&r.resources.every(v=>['configmaps','secrets','services','serviceaccounts','pods','persistentvolumeclaims','deployments','replicasets','statefulsets','jobs','cronjobs','vaultauths','vaultconnections','vaultstaticsecrets','ingresses','httproutes'].includes(v))&&Array.isArray(r.verbs)&&r.verbs.every(v=>['get','list','watch','create','update','patch','delete'].includes(v))), 'Only bounded namespaced workload rules allowed');
  }
  if (p.delivery.usePlatformGit) requireConfig(p.gitAccess, 'Shared CD requires gitAccess');
  else if(!p.delivery.config.gitConnectionKey) { requireConfig(typeof p.delivery.writerURL==='string' && p.delivery.writerURL.startsWith('https://'),'delivery.writerURL must name the Git account/group scope'); p.delivery.writerPasswordFile=path(p.delivery.writerPasswordFile); readPrivateFile(p.delivery.writerPasswordFile,'CD credential'); }
  if (platformOnly) { requireConfig(!raw.upgrade, 'Direct bootstrap does not perform upgrades'); config.gitInputReceipts=gitInputs?.receipts??[]; return config; }
- onlyKeys(raw.application,['name','subdomain','expectedKey','environment','variables','secretFiles','scores','workloadClass','images','catalogTag','definitionRevisions',...(direct?['workloads']:[])],'application');
+ onlyKeys(raw.application,['name','expectedKey','environment','variables','secretFiles','scores','workloadClass','images','catalogTag','definitionRevisions',...(direct?['workloads']:[])],'application');
  const app=config.application;
  if (direct) { requireConfig(app.catalogTag === undefined && app.scores === undefined && !raw.upgrade, 'Direct acceptance uses workloads and no Catalog/upgrade'); requireConfig(Object.keys(app.definitionRevisions??{}).length===0,'Direct bootstrap does not select upgrade revisions'); app.scores = app.workloads; }
- requireConfig(text(app.name) && /^[a-z0-9][a-z0-9-]{0,62}$/.test(app.subdomain) && ['staging','production'].includes(app.environment),'application identity/environment invalid');
+ requireConfig(text(app.name) && ['staging','production'].includes(app.environment),'application identity/environment invalid');
  requireConfig(obj(app.variables) && Object.values(app.variables).every(v=>typeof v==='string') && obj(app.secretFiles),'variables/secretFiles required');
  for (const [k,v] of Object.entries(app.secretFiles)) { app.secretFiles[k]=path(v); readPrivateFile(app.secretFiles[k],'application secret'); }
  requireConfig(obj(app.scores) && ['backend','worker','frontend'].every(k=>text(app.scores[k])||direct&&obj(app.scores[k])), 'Three acceptance Workload paths required');

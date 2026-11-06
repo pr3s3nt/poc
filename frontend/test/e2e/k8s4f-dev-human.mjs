@@ -181,7 +181,7 @@ try {
     caption(`Connection ${connectionName} (${connectionKey}) và Secret store ${storeName} (${storeKey}) đã đăng ký từ lần chạy trước, dùng lại`);
     await h.click(page.getByRole('link', { name: /(^|\s)Kết nối$/ }));
     await h.pause(READ);
-    await h.click(page.getByRole('link', { name: /(^|\s)Kho bí mật$/ }));
+    await h.click(page.getByRole('link', { name: /(^|\s)Cấu hình kho bí mật$/ }));
     await h.pause(READ);
     mark('connection-ready');
     await signOut();
@@ -240,8 +240,8 @@ try {
   }
 
   caption('Bước 4: Platform → Secret stores: đăng ký Vault riêng của cụm mới (token dán vào ô mật khẩu, luôn bị che)');
-  await h.click(page.getByRole('link', { name: /(^|\s)Kho bí mật$/ }));
-  await expect(page.getByRole('heading', { name: 'Kho bí mật', level: 1 })).toBeVisible();
+  await h.click(page.getByRole('link', { name: /(^|\s)Cấu hình kho bí mật$/ }));
+  await expect(page.getByRole('heading', { name: 'Cấu hình kho bí mật', level: 1 })).toBeVisible();
   await h.pause(SHORT_READ);
   await h.type(page.getByLabel('Tên kho', { exact: true }), storeName);
   await h.type(page.getByRole('textbox', { name: 'Địa chỉ backend' }), env.ORCH_E2E_STORE_BACKEND);

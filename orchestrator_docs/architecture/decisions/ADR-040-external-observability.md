@@ -1,12 +1,12 @@
 ---
-id: ADR-037
+id: ADR-040
 artifact: architecture-decision
 status: current
 last_reviewed: 2026-11-05
 related: [ADR-023, ADR-036, UC-04, UC-09]
 ---
 
-# ADR-037 — External Kubernetes monitoring and alerts
+# ADR-040 — External Kubernetes monitoring and alerts
 
 Accepted by the user on 2026-11-05 for Slice 1 of issue #35. Implement only this
 slice; later application, database and dependency instrumentation remain deferred.

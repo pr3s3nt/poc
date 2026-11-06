@@ -8,7 +8,7 @@ last_reviewed: 2026-10-30
 # Platform Git access
 
 GA-01. Platform Engineer and Admin manage one Organization-scoped Git access
-setting at **Nền tảng → Cài đặt nền tảng → Truy cập Git**. Developer has neither
+setting at **Nền tảng → Cấu hình Git → Truy cập Git**. Developer has neither
 navigation nor API access. User administration remains Admin-only.
 
 GA-02. Configure an HTTPS URL scope, anonymous or username/token authentication,

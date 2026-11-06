@@ -9,7 +9,7 @@ import { configuredTarget } from '../../test/targets';
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
-const app = (staging: EnvironmentTarget): Application => ({ id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: { staging, production: emptyEnvironment }, workloads: { staging: [], production: [] } });
+const app = (staging: EnvironmentTarget): Application => ({ id: 'catalog', name: 'Catalog', environments: { staging, production: emptyEnvironment }, workloads: { staging: [], production: [] } });
 const envJson = (t: EnvironmentTarget) => ({ key: 'staging', version: t.version, secretStoreKey: t.secretStoreKey, targetGeneration: t.targetGeneration, activeOperation: t.activeOperation });
 const stores = [{ key: 'vault-a', name: 'Vault A', provider: 'VAULT_KV_V2', status: 'READY' }, { key: 'vault-b', name: 'Vault B', provider: 'VAULT_KV_V2', status: 'READY' }];
 

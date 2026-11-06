@@ -165,6 +165,8 @@ không hiện giá trị. Chuyển môi trường không nhận phản hồi c�
 
 ## T25 — Import đường dẫn công khai
 
+Retired by [ADR-037](../../../architecture/decisions/ADR-037-retire-public-routes.md); `publicRoutes` is now rejected like `publicPort`. Historical:
+
 Form chỉ serialize `service.publicRoutes`. Import có `service.publicPort` báo
 lỗi tiếng Việt theo `INVALID_SCORE`, giữ nội dung để sửa, không tạo route `/`
 và không tự lưu. Draft/current projection cũ chứa field này bị từ chối rõ;
@@ -180,6 +182,15 @@ hoặc delete có thể để reference thiếu và Preview phải chặn Deploy
 runtime/current set hoặc Environment khác khi lưu.
 
 ## Class và metadata dependency
+
+Workload class (`metadata.class`) is a dropdown under the collapsed **Workload**
+advanced section (BR-31/32), separate from dependency class controls below.
+Its summary shows the effective class, including `default`. Choices come only
+from the published `workload` Type classes; the default choice omits the field.
+Retain imported/custom and explicit historical `default` values as labelled
+options when absent from the list. Refresh never changes the selection.
+Disable selection while metadata loads/fails and show a retry action; an empty
+successful list still permits the default and a retained current value.
 
 Keep the unified environment-variable table and Save draft → Xem trước thay đổi → Triển khai flow.
 Each Redis/PostgreSQL dependency displays “Cách cung cấp / Class” beside its
@@ -217,3 +228,32 @@ resource shared, hiện trạng thái rỗng ngắn. Resource không thể sao c
 hiện unavailable. Trong nâng cao, **Chỉ dùng cho workload này** chỉ hiện cho
 resource tự cấu hình; tóm tắt scope vẫn hiện khi đóng. Edit/import giữ nguyên
 private/shared, không tự migrate. Dialog thêm resource dùng đúng controls này.
+
+## WD — Runtime groups and inherited values
+
+Use the current shell/cards/controls. Latest approved simplification (2026-11-06):
+show workload name and each container's name/image/environment variables. Put other
+container groups behind Show advanced per container, and Service/dependencies/
+scaling/storage/Pod security/execution/class/annotations behind a
+workload Show advanced. CronJob schedule remains visible when applicable. Advanced
+sections preserve mounted edits after first opening and open for validation errors.
+Defaults appear as muted placeholders in empty inputs, never as authored values.
+Typing starts a fresh override without deleting default text. For select controls,
+the empty selection displays the resolved default in muted text. This hint is a
+disabled hidden placeholder, not another menu choice: each actual value appears
+once when the menu opens. After an explicit choice, a Reset action restores
+omission/inheritance without adding a duplicate or source-labelled option. Apply
+this consistently to Service, security, rollout, PDB and schedule selects. Do not show source
+labels (platform/template/environment/custom) on the form; backend provenance and
+Preview remain available. Reset/clearing removes overrides. Unknown/missing defaults
+stay unconfigured; do not invent example values that look like defaults.
+Loading/failure keeps draft and provides retry for actual resolution errors.
+Use safe validation messages for rejected fields rather than calling every failure
+unavailable metadata. If an enabled PDB has fewer than two effective replicas,
+show its existing replica/storage prerequisite help; correcting the form retries
+resolution automatically without discarding edits.
+ServiceAccount is managed/read-only unless a published allowed choice exists.
+
+ADR-039: remove the defaults-policy selector and policy-version summary entirely.
+Template pin and its resolved profile determine default hints; no template means no
+new backend authoring profile. Retain controller-specific schedule/claim controls.

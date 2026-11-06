@@ -59,6 +59,7 @@ func TestWriteErrorCodesStatusesAndFields(t *testing.T) {
 		field  string
 	}{
 		{"catalog selection required", catalogdomain.ErrRequired, 409, "CATALOG_REQUIRED", ""},
+		{"resolved runtime invalid", fmt.Errorf("runtime: %s: %w", canary, environment.ErrExecution), 400, "INVALID_WORKLOAD", ""},
 		{"score invalid", fmt.Errorf("score: %s bad: %w", canary, workloadspec.ErrInvalid), 400, "INVALID_WORKLOAD", ""},
 		{"removed publicPort", fmt.Errorf("score: service.publicPort: %w", environment.ErrPublicPortRemoved), 400, "INVALID_WORKLOAD", "service.publicPort"},
 		{"workload score", fmt.Errorf("%w: %s", workloadconfig.ErrInvalid, canary), 400, "INVALID_WORKLOAD", ""},
@@ -67,7 +68,7 @@ func TestWriteErrorCodesStatusesAndFields(t *testing.T) {
 		{"rewrite unsafe", fmt.Errorf("%s: %w", canary, appconfig.ErrReferenceRewriteUnsafe), 422, "REFERENCE_REWRITE_UNSAFE", ""},
 		{"config conflict", fmt.Errorf("%s: %w", canary, appconfig.ErrConflict), 409, "DUPLICATE", ""},
 		{"catalog duplicate", fmt.Errorf("%w: %q", catalog.ErrDuplicate, canary), 409, "DUPLICATE", ""},
-		{"app duplicate field", &appcreate.FieldError{Field: "subdomain", Err: appcreate.ErrDuplicate}, 409, "DUPLICATE", "subdomain"},
+		{"app duplicate field", &appcreate.FieldError{Field: "name", Err: appcreate.ErrDuplicate}, 409, "DUPLICATE", "name"},
 		{"app invalid field", &appcreate.FieldError{Field: "name", Err: appcreate.ErrInvalid}, 400, "INVALID_REQUEST", "name"},
 		{"app unknown field dropped", &appcreate.FieldError{Field: canary, Err: appcreate.ErrInvalid}, 400, "INVALID_REQUEST", ""},
 		{"catalog id", fmt.Errorf("%w: %q", catalog.ErrInvalid, canary), 400, "INVALID_REQUEST", ""},
@@ -81,7 +82,6 @@ func TestWriteErrorCodesStatusesAndFields(t *testing.T) {
 		{"store unavailable", configport.ErrStoreUnavailable, 422, "SECRET_STORE_UNAVAILABLE", "secretStoreKey"},
 		{"copy failed", fmt.Errorf("%w: %s", appconfig.ErrStoreCopy, canary), 502, "SECRET_COPY_FAILED", ""},
 		{"operation lost", persistence.ErrOperationLost, 409, "OPERATION_LOST", ""},
-		{"route reconcile", pending.ErrRouteReconcile, 502, "ROUTE_RECONCILE_FAILED", ""},
 		{"verification generic", fmt.Errorf("%w: %s", connectionapp.ErrVerification, canary), 422, "VERIFICATION_FAILED", ""},
 		{"secret store verification", fmt.Errorf("%w: %s", secretstores.ErrVerification, canary), 422, "VERIFICATION_FAILED", ""},
 		{"credential store", connectionapp.ErrCredentialStore, 503, "SERVICE_UNAVAILABLE", ""},

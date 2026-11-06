@@ -186,7 +186,7 @@ TEL adds separate application telemetry queries backed by a background collector
 ## External Kubernetes monitoring and alerts — OBS
 
 Accepted 2026-11-05 for issue #35 Slice 1:
-[ADR-037](../../architecture/decisions/ADR-037-external-observability.md) and
+[ADR-040](../../architecture/decisions/ADR-040-external-observability.md) and
 [contract](../../architecture/contracts/external-observability.md).
 
 - **OBS-01:** A verified Environment binding selects Prometheus metrics explicitly;

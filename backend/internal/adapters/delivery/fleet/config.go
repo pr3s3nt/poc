@@ -15,12 +15,14 @@ const Version = "v0.15.2"
 
 var ErrConfig = errors.New("fleet: invalid binding configuration")
 var label = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
+var applicationRepositoryPattern = regexp.MustCompile(`^idp-[a-z0-9-]+-deploy-[a-z2-7]{6}$`)
 var gitRef = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$`)
 
 // Config contains nonsecret controller and publication topology only. The target
 // is independently resolved from resource Definitions, never selected by Fleet.
 type Config struct {
 	ApplicationID, EnvironmentKey                                                string
+	ApplicationRepoName                                                          string
 	ControllerKind, ControllerVersion, AgentKind, AgentName, TargetKubeSystemUID string
 	NativeServiceAccount                                                         bool
 	ManagedReadSecret                                                            bool
@@ -46,12 +48,16 @@ type Config struct {
 func ParseConfig(raw map[string]string) (Config, error) {
 	keys := map[string]bool{"applicationID": true, "environmentKey": true, "controllerKind": true, "controllerVersion": true, "agentKind": true, "agentName": true, "targetKubeSystemUID": true, "serviceAccountMode": true, "gitRepoMode": true, "existingGitRepo": true, "existingGitRepoUID": true, "agentNamespace": true, "workspace": true, "controllerNamespace": true, "controllerName": true, "targetCluster": true, "targetClusterUID": true, "targetAccountKey": true, "gitConnectionKey": true, "readSecretMode": true, "repositoryURL": true, "branch": true, "root": true, "readSecret": true, "serviceAccount": true, "caBundle": true, "releaseNamespace": true, "repositoryOwner": true, "repositoryAPI": true, "repositoryHost": true, "repositoryPrefix": true}
 	for k := range raw {
-		if !keys[k] {
+		if !keys[k] && k != "applicationRepoName" {
 			return Config{}, ErrConfig
 		}
 	}
 	c := Config{ApplicationID: raw["applicationID"], EnvironmentKey: raw["environmentKey"], ControllerKind: raw["controllerKind"], ControllerVersion: raw["controllerVersion"], AgentKind: raw["agentKind"], AgentName: raw["agentName"], TargetKubeSystemUID: raw["targetKubeSystemUID"], NativeServiceAccount: raw["serviceAccountMode"] == "NATIVE", GitRepoMode: raw["gitRepoMode"], ExistingGitRepo: raw["existingGitRepo"], ExistingGitRepoUID: raw["existingGitRepoUID"], Workspace: raw["workspace"], ControllerNamespace: raw["controllerNamespace"], AgentNamespace: raw["agentNamespace"], ControllerName: raw["controllerName"], TargetCluster: raw["targetCluster"], TargetClusterUID: raw["targetClusterUID"], TargetAccountKey: raw["targetAccountKey"], RepositoryURL: raw["repositoryURL"], Branch: raw["branch"], Root: raw["root"], ReadSecret: raw["readSecret"], ServiceAccount: raw["serviceAccount"], CABundle: raw["caBundle"], ReleaseNamespace: raw["releaseNamespace"]}
 	if (c.ApplicationID == "") != (c.EnvironmentKey == "") || (c.ApplicationID != "" && (!label.MatchString(c.ApplicationID) || (c.EnvironmentKey != "staging" && c.EnvironmentKey != "production") || c.GitRepoMode != "MANAGED")) {
+		return Config{}, ErrConfig
+	}
+	c.ApplicationRepoName = raw["applicationRepoName"]
+	if c.ApplicationRepoName != "" && (c.ApplicationID == "" || !label.MatchString(c.ApplicationRepoName) || !applicationRepositoryPattern.MatchString(c.ApplicationRepoName)) {
 		return Config{}, ErrConfig
 	}
 	if c.ApplicationID != "" && (c.Root == "metadata" || strings.HasPrefix(c.Root, "metadata/")) {

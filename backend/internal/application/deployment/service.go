@@ -19,6 +19,7 @@ import (
 	"orchestrator/internal/domain/configuration"
 	deliverydomain "orchestrator/internal/domain/delivery"
 	domain "orchestrator/internal/domain/deployment"
+	"orchestrator/internal/domain/endpoint"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
@@ -46,10 +47,10 @@ type DeployCommand struct {
 	ReviewRequestID  string
 	ExpectedPlanHash string
 	ConfigRevisionID string
-	// DeferPublicRoutes is set only by the UC-16 pending batch, whose final
-	// Environment state Preview validated: routes reconcile after the batch
+	// InBatch is set only by the UC-16 pending batch, whose final
+	// Environment state Preview validated: Environment-level finalization runs after the batch
 	// and this step may plan an intermediate Environment state.
-	DeferPublicRoutes bool
+	InBatch bool
 	// AcceptLiterals is set only by the UC-16 pending batch when WorkloadAfter is
 	// a saved, validated draft: its ordinary variable values are then recorded
 	// as proven in the resulting set (UC-16 BR-23). A direct Workload deploy never
@@ -81,8 +82,6 @@ type Service struct {
 	ops             *envops.Manager
 	imagePullSecret string
 	configSync      execution.ConfigSecretSynchronizer
-	publicRoutes    execution.PublicRouteManager
-	baseDomain      string
 	instanceMarker  InstanceMarker
 	reviewer        deploymentreview.Assembler
 }
@@ -157,9 +156,6 @@ func (s *Service) operations() *envops.Manager {
 func (s *Service) SetImagePullSecret(name string) { s.imagePullSecret = name }
 func (s *Service) SetConfigSecretSynchronizer(sync execution.ConfigSecretSynchronizer) {
 	s.configSync = sync
-}
-func (s *Service) SetPublicRouteManager(manager execution.PublicRouteManager, baseDomain string) {
-	s.publicRoutes, s.baseDomain = manager, baseDomain
 }
 
 // NewService wires UC-06 with its collaborators.
@@ -324,14 +320,14 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		Catalog:         catalog,
 		Active:          active,
 		Terraform:       s.terraform,
-		// Only the pending batch sets DeferPublicRoutes, after validating its
+		// Only the pending batch sets InBatch, after validating its
 		// final Environment state; direct deploys keep full validation.
-		AllowIntermediateEnvironmentState: cmd.DeferPublicRoutes,
+		AllowIntermediateEnvironmentState: cmd.InBatch,
 	})
 	if err != nil {
 		return nil, s.fail(ctx, record, err)
 	}
-	if snapshot.DefinitionsPending && !cmd.DeferPublicRoutes {
+	if snapshot.DefinitionsPending && !cmd.InBatch {
 		return nil, s.fail(ctx, record, ErrStalePlan)
 	}
 	if snapshot.CatalogPending || snapshot.DefinitionsPending {
@@ -478,18 +474,13 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 			return nil, s.fail(ctx, record, err)
 		}
 	}
-	if !cmd.DeferPublicRoutes {
-		if err := s.reconcileRoutes(ctx, app, env, plan.CandidateSet); err != nil {
-			return nil, s.fail(ctx, record, err)
-		}
-	}
 
 	// Transaction B: optimistic commit of the current Deployment Set (MS-12).
 	if err := s.store.Transact(ctx, func(ctx context.Context) error {
 		if err := s.store.CompareVersionAndSetCurrent(ctx, app.Key, env.Key, record.BaseEnvironmentVersion, candidateSet.ID); err != nil {
 			return err
 		}
-		if env.DesiredDelivery.Effective().Mode == deliverydomain.CD && !cmd.DeferPublicRoutes {
+		if env.DesiredDelivery.Effective().Mode == deliverydomain.CD && !cmd.InBatch {
 			if err := s.delivery.Activate(ctx, app.Key, env); err != nil {
 				return err
 			}
@@ -497,7 +488,7 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		if err := s.markUnreferenced(ctx, cmd.OrganizationKey, record.ID, plan.UnreferencedResources); err != nil {
 			return err
 		}
-		if !cmd.DeferPublicRoutes {
+		if !cmd.InBatch {
 			if err := s.store.ApplyDefinitionSelection(ctx, app.Key, env.Key, snapshot.DefinitionSelectionRevision, plan.DefinitionSnapshots, plan.CatalogPin); err != nil {
 				return err
 			}
@@ -998,9 +989,9 @@ func (s *Service) applyWorkload(
 		}
 	}
 
-	keep := []string{}
+	keep := []endpoint.Claim{}
 	if desired, ok := plan.Endpoints[workloadID]; ok {
-		keep = append(keep, desired.Hostname)
+		keep = append(keep, desired.Claim())
 	}
 	if err := s.retainEndpoints(ctx, endpointOwner(planCtx, workloadID), keep); err != nil {
 		return err
@@ -1010,62 +1001,6 @@ func (s *Service) applyWorkload(
 	instance.ObservedAt = s.clock.Now()
 	return s.store.UpsertWorkloadProgress(ctx, instance)
 }
-
-// PublicHost is the canonical public host of an Environment: staging has its own
-// host, every other Environment uses the Application's.
-func PublicHost(subdomain, env, baseDomain string) string {
-	if env == "staging" {
-		return "staging." + subdomain + "." + baseDomain
-	}
-	return subdomain + "." + baseDomain
-}
-
-// ReconcilePublicRoutes applies the complete current Environment route set.
-// Pending Deploy calls this once after every workload in the batch is ready.
-func (s *Service) ReconcilePublicRoutes(ctx context.Context, appKey, envKey string) error {
-	if s.publicRoutes == nil {
-		return nil
-	}
-	app, err := s.store.GetApplication(ctx, appKey)
-	if err != nil {
-		return err
-	}
-	env, err := s.store.GetEnvironment(ctx, appKey, envKey)
-	if err != nil {
-		return err
-	}
-	set, err := s.store.GetDeploymentSet(ctx, env.CurrentDeploymentSetID)
-	if err != nil {
-		return err
-	}
-	return s.reconcileRoutes(ctx, app, env, set.Document)
-}
-
-func (s *Service) reconcileRoutes(ctx context.Context, app appdomain.Application, env environment.Environment, set environment.Document) error {
-	return s.routesFor(ctx, app, env, set, false)
-}
-
-// ReconcileRoutesFor applies the complete Environment-owned route set of one
-// target generation from a Deployment Set (transition cutover).
-func (s *Service) ReconcileRoutesFor(ctx context.Context, appKey string, env environment.Environment, set environment.Document) error {
-	app, err := s.store.GetApplication(ctx, appKey)
-	if err != nil {
-		return err
-	}
-	return s.routesFor(ctx, app, env, set, false)
-}
-
-// RemoveRoutesFor deletes the Environment-owned Ingress at one generation.
-func (s *Service) RemoveRoutesFor(ctx context.Context, appKey string, env environment.Environment) error {
-	app, err := s.store.GetApplication(ctx, appKey)
-	if err != nil {
-		return err
-	}
-	return s.routesFor(ctx, app, env, environment.NewDocument(), true)
-}
-
-// RoutesManaged reports whether a public route manager is configured.
-func (s *Service) RoutesManaged() bool { return s.publicRoutes != nil }
 
 // GenerationTarget rebuilds the execution target of one generation from its
 // persisted workload instance, or from the Connection when none exists yet.
@@ -1086,95 +1021,6 @@ func (s *Service) GenerationTarget(ctx context.Context, app appdomain.Applicatio
 		}
 	}
 	return execution.Target{}, fmt.Errorf("deployment: no persisted workload target exists for this generation")
-}
-
-func (s *Service) routesFor(ctx context.Context, app appdomain.Application, env environment.Environment, set environment.Document, remove bool) error {
-	if s.publicRoutes == nil {
-		return nil
-	}
-	route := execution.PublicRoute{ApplicationID: app.Key, EnvironmentID: env.Key, Host: PublicHost(app.Subdomain, env.Key, s.baseDomain)}
-	if !remove {
-		if err := planning.ValidatePublicRoutes(set); err != nil {
-			return err
-		}
-		for _, id := range set.ModuleIDs() {
-			var paths []environment.PublicPath
-			if service := set.Modules[id].Spec.Service; service != nil {
-				paths = service.PublicRoutes
-			}
-			for _, path := range paths {
-				port := 0
-				if service := set.Modules[id].Spec.Service; service != nil {
-					port = service.Ports[path.Port].Port
-				}
-				route.Paths = append(route.Paths, execution.PublicPath{Path: path.Path, WorkloadID: id, PortName: path.Port, Port: port})
-			}
-		}
-	}
-	instances, err := s.store.ListWorkloadInstancesFor(ctx, app.Key+"/"+env.Key, env.TargetGeneration)
-	if err != nil {
-		return err
-	}
-	if len(instances) == 0 {
-		return nil
-	}
-	base := execution.Target{Namespace: env.Namespace(), Extra: map[string]string{"application": app.Key, "environment": env.Key}}
-	target := base
-	for _, instance := range instances {
-		candidate := base
-		candidate.Extra = map[string]string{"application": app.Key, "environment": env.Key}
-		if err := restoreEnvironmentTarget(&candidate, instance.TargetRef, app.OrganizationKey, env); err != nil {
-			return err
-		}
-		target = candidate
-		if candidate.Explicit() {
-			break
-		}
-	}
-	// Compatibility cleanup for routes predating durable delivery records. This
-	// branch can only remove (empty route set), never create/update a manifest.
-	if remove && env.AppliedDelivery.Effective().Mode == deliverydomain.Direct {
-		repo, ok := s.store.(persistence.DeliveryExecutionRepository)
-		if !ok {
-			return deliveryapp.ErrUnavailable
-		}
-		org, err := s.store.GetOrganization(ctx, app.OrganizationKey)
-		if err != nil {
-			return err
-		}
-		records, err := repo.ListDeliveryExecutions(ctx, org.ID, env.ID)
-		if err != nil {
-			return err
-		}
-		recorded := false
-		for _, record := range records {
-			if record.WorkloadID == "_routes" && record.Revision.Scope.TargetGeneration == env.TargetGeneration {
-				recorded = true
-			}
-		}
-		if !recorded {
-			return s.publicRoutes.Reconcile(ctx, target, route)
-		}
-	}
-
-	if !s.simulation || env.DesiredDelivery.Effective().Mode == deliverydomain.CD || s.delivery != nil {
-		if s.delivery == nil {
-			return deliveryapp.ErrUnavailable
-		}
-		renderer, ok := s.publicRoutes.(execution.PublicRouteRenderer)
-		if !ok {
-			return deliverydomain.ErrUnsupported
-		}
-		manifests, err := renderer.RenderRoute(target, route)
-		if err != nil {
-			return err
-		}
-		if len(manifests) == 0 {
-			return s.delivery.RemoveWorkload(ctx, app.OrganizationKey, env.ID, "_routes")
-		}
-		return s.delivery.Deploy(ctx, deliveryapp.DeployRequest{OrganizationKey: app.OrganizationKey, ApplicationKey: app.Key, Environment: env, WorkloadID: "_routes", DeploymentID: persistence.OperationFrom(ctx), Target: target, Manifests: manifests})
-	}
-	return s.publicRoutes.Reconcile(ctx, target, route)
 }
 
 // withPlacement pins the nonsecret placement of an applied workload (cluster
@@ -1424,6 +1270,11 @@ func restoreTarget(target *execution.Target, ref map[string]any, organizationKey
 }
 
 func (s *Service) fail(ctx context.Context, record domain.Deployment, cause error) error {
+	log.Printf("deployment failure id=%s type=%T", record.ID, cause)
+	var stage *planning.StageError
+	if errors.As(cause, &stage) {
+		log.Printf("deployment planning failure stage=%s reason=%s type=%T", stage.Stage, stage.Reason, stage.Err)
+	}
 	finished := s.clock.Now()
 	record.Status = domain.StatusFailed
 	record.FailureReason = PublicFailure(cause)
@@ -1518,10 +1369,10 @@ func (r bindingResolver) ResolveContext(path string) (any, error) {
 			return nil, fmt.Errorf("deployment: invalid Service reference")
 		}
 		module, ok := r.set.Modules[parts[1]]
-		if !ok || module.Spec.Service == nil {
+		if !ok || module.Spec.EffectiveService() == nil {
 			return nil, fmt.Errorf("deployment: referenced Service does not exist")
 		}
-		port, ok := module.Spec.Service.Ports[parts[2]]
+		port, ok := module.Spec.EffectiveService().Ports[parts[2]]
 		if !ok || port.Port < 1 {
 			return nil, fmt.Errorf("deployment: referenced Service port does not exist")
 		}

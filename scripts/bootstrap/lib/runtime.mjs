@@ -28,11 +28,15 @@ export function createRuntime(config) {
  const file=join(stateDir,'identity.json');
  let state={};
  try { state=JSON.parse(readFileSync(file,'utf8')); } catch(e) { if(e.code!=='ENOENT'){unlinkSync(lock);throw new BootstrapError('Invalid state receipt');} }
- const identity=config.schemaVersion===3?{origin:config.console.baseURL,environment:config.environment,account:config.platform.account.name,context:config.platform.account.context,endpoint:config.platform.account.endpoint}:{origin:config.console.baseURL,environment:config.environment,subdomain:config.application?.subdomain??null};
+ // Compare in persisted form: an omitted optional field must match its saved receipt.
+ const identity=JSON.parse(JSON.stringify(config.schemaVersion===3?{origin:config.console.baseURL,environment:config.environment,account:config.platform.account.name,context:config.platform.account.context,endpoint:config.platform.account.endpoint}:{origin:config.console.baseURL,environment:config.environment,subdomain:config.application?.subdomain??null}));
  if(state.identity && !equal(state.identity,identity)){unlinkSync(lock);throw new BootstrapError('State directory belongs to another target');}
  if(config.schemaVersion===3 && config.application) {
-  const acceptanceIdentity={name:config.application.name,subdomain:config.application.subdomain,environment:config.application.environment};
-  if(state.acceptanceIdentity && !equal(state.acceptanceIdentity,acceptanceIdentity)){unlinkSync(lock);throw new BootstrapError('Acceptance receipt belongs to another Application/Environment');}
+  const acceptanceIdentity={name:config.application.name,environment:config.application.environment};
+  // Application subdomains are retired (ADR-037); an older receipt keeps its
+  // name/Environment identity and is rewritten without the subdomain.
+  const recorded=state.acceptanceIdentity&&{name:state.acceptanceIdentity.name,environment:state.acceptanceIdentity.environment};
+  if(recorded && !equal(recorded,acceptanceIdentity)){unlinkSync(lock);throw new BootstrapError('Acceptance receipt belongs to another Application/Environment');}
   state.acceptanceIdentity=acceptanceIdentity;
  }
  const profile=executionProfile(config);

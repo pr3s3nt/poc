@@ -10,8 +10,9 @@ export type Purpose = 'GENERAL' | 'USE_CASE';
 export type Mode = 'CONDITIONS' | 'EXECUTION';
 export type RunStatus = 'QUEUED' | 'RUNNING' | 'CANCELLING' | 'COMPLETED' | 'CANCELLED' | 'INTERRUPTED';
 export const verdicts: Verdict[] = ['PASS', 'FAIL', 'BLOCKED', 'UNKNOWN', 'NA'];
-export const useCaseKeys = ['preview', 'deploy', 'database', 'cache', 'secrets', 'https', 'lifecycle'] as const;
-export type UseCase = (typeof useCaseKeys)[number];
+// 'https' stays readable in stored reports but is no longer selectable (ADR-037).
+export const useCaseKeys = ['preview', 'deploy', 'database', 'cache', 'secrets', 'lifecycle'] as const;
+export type UseCase = (typeof useCaseKeys)[number] | 'https';
 
 export type Counts = { pass: number; fail: number; blocked: number; unknown: number; na: number; pending: number };
 export type Scope = {

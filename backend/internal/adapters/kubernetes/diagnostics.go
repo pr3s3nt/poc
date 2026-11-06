@@ -107,9 +107,6 @@ func (Diagnostics) Plan(scope domain.Scope, req *probes.Requirements) []probes.C
 			probes.Check{ID: "k8s.vso.crd", Group: groupPlatf, DependsOn: []string{"k8s.auth"}, AffectedUseCases: []string{"secrets"}},
 			probes.Check{ID: "k8s.vso.controller", Group: groupPlatf, DependsOn: []string{"k8s.vso.crd"}, AffectedUseCases: []string{"secrets"}})
 	}
-	if selected["https"] {
-		checks = append(checks, probes.Check{ID: "k8s.route.controller", Group: groupPlatf, DependsOn: []string{"k8s.auth"}, AffectedUseCases: []string{"https"}})
-	}
 	if scope.Mode == domain.ModeExecution {
 		switch {
 		case !any("deploy", "lifecycle", "database", "cache"):
@@ -294,8 +291,6 @@ func (s *kubeSession) Run(ctx context.Context, c probes.Check, prior map[string]
 		return s.vsoCRD(ctx, req)
 	case "k8s.vso.controller":
 		return s.deploymentReady(ctx, "app.kubernetes.io/name=vault-secrets-operator", "VSO_CONTROLLER_READY", "VSO_CONTROLLER_NOT_READY", "install-vso")
-	case "k8s.route.controller":
-		return s.routeController(ctx, req)
 	case "k8s.exec.namespace":
 		return s.execNamespace(ctx, rec)
 	case "k8s.exec.workload":
@@ -709,20 +704,6 @@ func (s *kubeSession) deploymentReady(ctx context.Context, selector, okReason, b
 		return finding(domain.VerdictFail, badReason, remediation, fact("found", domain.Itoa(len(ds.Items)), "replicasReady", "0"))
 	}
 	return finding(domain.VerdictPass, okReason, "", fact("found", domain.Itoa(len(ds.Items))))
-}
-
-func (s *kubeSession) routeController(ctx context.Context, req *probes.Requirements) domain.Finding {
-	if req != nil && req.Resolved && req.PublicRoutes == 0 {
-		return finding(domain.VerdictNA, "NO_PUBLIC_ROUTES", "", nil)
-	}
-	// The platform's public Ingress always uses the "traefik" class.
-	if _, err := s.cli.Run(ctx, nil, "get", "ingressclass", "traefik", "-o", "name"); err != nil {
-		if errors.Is(err, ErrObjectNotFound) {
-			return finding(domain.VerdictFail, "INGRESS_CLASS_MISSING", "install-ingress", fact("ingressClasses", "none"))
-		}
-		return readFailure(err)
-	}
-	return s.deploymentReady(ctx, "app.kubernetes.io/name=traefik", "ROUTE_CONTROLLER_READY", "ROUTE_CONTROLLER_NOT_READY", "install-ingress")
 }
 
 func sortedSet(m map[string]bool) []string {

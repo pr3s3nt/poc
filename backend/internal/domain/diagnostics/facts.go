@@ -150,7 +150,7 @@ func (f Finding) Validate() error {
 		}
 	}
 	for _, u := range f.AffectedUseCases {
-		if !supported(u) {
+		if !known(u) {
 			return ErrInvalidReport
 		}
 	}

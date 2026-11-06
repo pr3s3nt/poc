@@ -1,7 +1,6 @@
 package fake
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -16,7 +15,6 @@ type Cluster struct {
 
 	Counts     map[string]int
 	Databases  map[string]*Database
-	Routes     map[string]execution.PublicRoute
 	Namespaces map[string]bool
 	// Fail injects a named fake route operation failure.
 	Fail   map[string]error
@@ -33,7 +31,7 @@ type Database struct {
 
 // NewCluster returns an empty cluster.
 func NewCluster() *Cluster {
-	return &Cluster{Counts: map[string]int{}, Databases: map[string]*Database{}, Routes: map[string]execution.PublicRoute{}, Namespaces: map[string]bool{}, Fail: map[string]error{}, failAt: map[string]map[int]error{}, counts: map[string]int{}}
+	return &Cluster{Counts: map[string]int{}, Databases: map[string]*Database{}, Namespaces: map[string]bool{}, Fail: map[string]error{}, failAt: map[string]map[int]error{}, counts: map[string]int{}}
 }
 
 func clusterKey(t execution.Target, parts ...string) string {
@@ -129,26 +127,6 @@ func (c *Cluster) ReplicasOf(target execution.Target, workload string) (int, boo
 	n, ok := c.Counts[clusterKey(target, workload)]
 	return n, ok
 }
-
-// Routes ---------------------------------------------------------------
-
-// Reconcile implements execution.PublicRouteManager over the fake cluster.
-func (c *Cluster) Reconcile(_ context.Context, target execution.Target, route execution.PublicRoute) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.logf("route %s paths=%d", target.Namespace, len(route.Paths))
-	if err := c.failure("route"); err != nil {
-		return err
-	}
-	if len(route.Paths) == 0 {
-		delete(c.Routes, clusterKey(target))
-		return nil
-	}
-	c.Routes[clusterKey(target)] = route
-	return nil
-}
-
-var _ execution.PublicRouteManager = (*Cluster)(nil)
 
 // EnsureDatabase creates an empty database when none exists; it never resets one.
 func (c *Cluster) EnsureDatabase(target execution.Target, name string) {

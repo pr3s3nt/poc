@@ -1,0 +1,24 @@
+# Overlay for one feature trial stack behind compose.feature-proxy.yml: no host
+# ports, so stacks run side by side, and one hostname per feature.
+services:
+  # db-setup shares the backend image; building it twice races on the tag.
+  db-setup:
+    build: !reset null
+    pull_policy: never
+
+  backend:
+    ports: !reset []
+
+  frontend:
+    ports: !reset []
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${FEATURE:?}.rule=Host(`${FEATURE:?}.${FEATURE_DOMAIN:?}`)
+      - traefik.http.routers.${FEATURE:?}.entrypoints=web
+      - traefik.http.services.${FEATURE:?}.loadbalancer.server.port=8080
+    networks: [orchestrator-net, feature-proxy]
+
+networks:
+  feature-proxy:
+    name: poc-feature-proxy
+    external: true

@@ -33,7 +33,7 @@ it('restores the rail preference and preserves Developer navigation gates', () =
   expect(container.firstChild).toHaveClass('app-shell-collapsed');
   expect(screen.getByRole('link', { name: 'Ứng dụng' })).toBeVisible();
   expect(screen.queryByRole('link', { name: 'Loại tài nguyên' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('link', { name: 'Kho bí mật' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Cấu hình kho bí mật' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Đăng xuất' })).toBeVisible();
 });
 
@@ -50,7 +50,7 @@ it('keeps CD, platform Git and user administration navigation together after int
   render(<AppShell {...props} role="ADMIN" activeRoute="cd-providers">Content</AppShell>);
   expect(screen.getByRole('link', { name: 'Cấu hình CD' })).toHaveAttribute('href', '/ui/platform/cd-providers');
   expect(screen.getByRole('link', { name: 'Cấu hình CD' })).toHaveAttribute('aria-current', 'page');
-  expect(screen.getByRole('link', { name: 'Cài đặt nền tảng' })).toHaveAttribute('href', '/ui/platform/settings');
+  expect(screen.getByRole('link', { name: 'Cấu hình Git' })).toHaveAttribute('href', '/ui/platform/settings');
   expect(screen.getByRole('link', { name: 'Người dùng' })).toHaveAttribute('href', '/ui/platform/users');
   expect(screen.getByRole('button', { name: 'Đổi mật khẩu' })).toBeVisible();
 });

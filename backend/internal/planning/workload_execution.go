@@ -3,14 +3,27 @@ package planning
 import (
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/templatesource"
+	"reflect"
 )
 
 // validateExecution proves that the selected renderer implements every explicit
 // runtime intent before any provisioning can begin.
-func validateExecution(plan *Plan, catalog Catalog) error {
+func validateExecution(plan *Plan, catalog Catalog, env string) error {
 	for id, module := range plan.CandidateSet.Modules {
 		e := module.Spec.Execution
-		if e == nil {
+		needsLifecycle := false
+		for _, c := range module.Spec.Containers {
+			needsLifecycle = needsLifecycle || c.SecurityContext != nil || c.Role == "init" || c.Role == "sidecar"
+		}
+		needsProbes := false
+		for _, c := range module.Spec.Containers {
+			for _, p := range []*environment.Probe{c.ReadinessProbe, c.LivenessProbe, c.StartupProbe} {
+				if p != nil && ((p.Type != "" && p.Type != "http") || p.Scheme != "" || p.InitialDelaySeconds != nil || p.TimeoutSeconds != nil || p.PeriodSeconds != nil || p.SuccessThreshold != nil || p.FailureThreshold != nil) {
+					needsProbes = true
+				}
+			}
+		}
+		if e == nil && !needsLifecycle && !needsProbes {
 			continue
 		}
 		selection, ok := plan.Rendering[id]
@@ -21,8 +34,43 @@ func validateExecution(plan *Plan, catalog Catalog) error {
 		if !ok {
 			return environment.ErrExecutionUnavailable
 		}
-		if _, _, err := templatesource.MatchWorkloadTemplate(bundle.Contract.Manifest.WorkloadTemplates, e.Template.ID, e.Template.Version, e.Template.SHA256, e.Kind, e.Inputs); err != nil {
+		if err := templatesource.ValidateWorkloadCapabilities(bundle.Contract.Manifest, module.Spec.Containers, e); err != nil {
+			return err
+		}
+		if _, err := templatesource.ExecutionInputs(bundle.Contract.Manifest, e); err != nil {
 			return environment.ErrExecutionUnavailable
+		}
+		var profile *environment.RuntimeDefaults
+		if e.HasTemplate() {
+			for _, t := range bundle.Contract.Manifest.WorkloadTemplates {
+				if t.ID == e.Template.ID && t.Version == e.Template.Version && t.SHA256() == e.Template.SHA256 {
+					profile = t.RuntimeDefaults.ForEnvironment(env)
+				}
+			}
+		}
+		if e.HasTemplate() && profile != nil && (e.TemplateDefaults == nil || e.TemplateDefaults.Environment != env || !reflect.DeepEqual(e.TemplateDefaults.Profile, profile)) {
+			return environment.ErrExecutionUnavailable
+		}
+		effective, _ := module.Spec.ResolveDefaults(profile)
+		resources := map[string]bool{}
+		if e != nil {
+			for _, m := range e.Mounts {
+				resources[m.Resource] = true
+			}
+		}
+		if err := effective.ValidateComputePolicy(); err != nil {
+			return err
+		}
+		if err := effective.Execution.ValidateResolved(effective.Containers, effective.ReplicaCount(), effective.Service != nil && len(effective.Service.Ports) > 0, resources); err != nil {
+			return err
+		}
+		for _, c := range effective.Containers {
+			if c.Image == "" {
+				return environment.ErrExecution
+			}
+		}
+		if e == nil {
+			continue
 		}
 		var bindings map[string]string
 		for _, node := range plan.Graph.Nodes {

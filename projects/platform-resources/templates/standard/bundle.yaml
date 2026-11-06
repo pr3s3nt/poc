@@ -13,7 +13,6 @@ resources:
   - resources/deployment.tpl
   - resources/service.tpl
   - resources/identity.tpl
-  - resources/httproute.tpl
 patches:
   - patches/deployment.tpl
   - patches/service.tpl

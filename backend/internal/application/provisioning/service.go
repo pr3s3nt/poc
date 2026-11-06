@@ -266,7 +266,9 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		err = fmt.Errorf("the driver account changed after the plan; plan again")
 	}
 	if def.DriverType == resource.DriverEndpoint {
-		err = nil
+		// The built-in endpoint driver is a database reservation: it has no
+		// Driver Account, Connection or cluster access (EP-02).
+		connection, err = appdomain.Connection{}, nil
 	}
 	if err != nil {
 		progress.Status = deployment.ResourceFailed

@@ -145,6 +145,8 @@ workload target and applied identity across restart/update/remove.
 
 ## T25 — Public route input
 
+Retired by [ADR-037](../../architecture/decisions/ADR-037-retire-public-routes.md); `publicRoutes` is now rejected like `publicPort`. Historical:
+
 Score parsing and public Deployment Set projection reject `service.publicPort`;
 only `publicRoutes` reaches Candidate validation and rendering. Multi-path,
 same-host ownership, declared-port validation and route-only retry remain intact.
@@ -226,6 +228,11 @@ These supplement the existing direct-path diagrams for this new design slice;
 [CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.
 
 ## Shared application Fleet controller — ADR-036
+
+For ADR-038 Applications, Repositories.Resolve allocates `idp-<org>-<app>-deploy-<random6>`
+and Fleet.BindApplicationRepository carries that persisted name into the local
+provider configuration. Submit/Observe/recovery/withdrawal use it for the shared
+controller; historical allocations continue to derive their original hash name.
 
 [ADR-036](../../architecture/decisions/ADR-036-application-fleet-gitrepo.md) keeps
 the delivery coordinator's persisted units/phases and original target/UID checks.

@@ -107,7 +107,7 @@ See [credential design](../connection-credentials.md).
 | Column | Type | Constraint |
 |---|---|---|
 | `id` | uuid | PK |
-| `application_key` | text | stable API lookup key, UNIQUE, NOT NULL; generated Applications use the same UUID text as `id`, local seed may use a readable alias |
+| `application_key` | text | stable API lookup key, UNIQUE, NOT NULL; new Applications use `idp-<org>-<app>-<random6>` per ADR-038, historical UUID keys and seed aliases remain valid |
 | `organization_id` | uuid | FK organizations |
 | `name` | text | NOT NULL |
 | `subdomain` | text | normalized DNS label, NOT NULL |
@@ -117,6 +117,11 @@ See [credential design](../connection-credentials.md).
 Organization without regard to case, enforced by a unique index on
 `(organization_id, lower(name))`. `subdomain` is normalized to lowercase and
 unique globally within the configured platform base domain.
+
+[ADR-038](../decisions/ADR-038-readable-idp-names.md) changes generated key values
+only, with no schema migration. The existing global unique key also prevents
+generated-key collisions and reserves deleted Application keys. Recreating a
+deleted display name allocates a fresh random suffix without reusing old keys.
 
 T26 removes all Application execution/provider columns. Old Application-bound
 state is unsupported and must fail startup with a safe reset-required error,
@@ -1055,6 +1060,14 @@ ADR-028 template registry reuses `render_bundles.contract.manifest.workloadTempl
 with immutable verified source content. Typed template inputs and content pin live
 in the execution JSONB extension. No dedicated template DDL or staging reset.
 
+GW-06/07 (2026-11-06) adds optional container role/initOrder/extended probe/port
+fields and execution volumes/volumeMounts to these same normalized JSONB documents.
+Custom execution may omit the authoring preset pin, while plans still pin the
+matched Definition/source. Source capabilities are immutable members of
+`template_sources.contract.manifest`. No relational column, DDL, migration or ERD
+change; existing immutable snapshots are not rewritten. See the
+[Generic Workload contract](../contracts/generic-workload.md).
+
 ## Application lifecycle — ADR-025
 
 Required by [ADR-025](../decisions/ADR-025-application-deletion.md) and
@@ -1308,7 +1321,59 @@ references to an obsolete Definition. Terraform Definitions, accounts,
 connections, installation identity and Terraform state are preserved. Released
 versions 1–7 are frozen. Runtime never performs DDL or this cleanup.
 
-## External monitoring — ADR-037 / schema 9
+## Public endpoint reservations — EP-01..06 (schema version 9)
+
+Version 9 adds `endpoint_reservations`, the atomic hostname ledger of the
+[public endpoint contract](../contracts/endpoint.md). `hostname` (lowercase,
+multi-label DNS name, at most 253 characters) is the primary key, so one owner
+wins concurrent claims across Organizations and processes. Each row references
+the owning `organizations`, `applications` and `environments` rows and records
+`target_generation` and `workload_id`; an owner may hold several hostnames only
+while a rename or failed/unknown delivery still retains the old name. The index
+`endpoint_reservations_owner_idx` serves owner release.
+
+Rows are written only by Deploy (reserve, same-owner idempotent) and deleted
+only after acknowledged replacement, pruning or confirmed workload removal.
+Preview reads without writing. The Console login has SELECT/INSERT/UPDATE/DELETE;
+the State login has no privilege. The owner migration only creates the table on a
+populated version 8 database: no product row, installation identity, encrypted
+state or PVC changes. Released versions 1–8 are frozen. The final version-9
+structural comparison also proves the additive version-8 step of long chains.
+
+## Retire public routes and subdomains — ADR-037 (schema version 10)
+
+Version 10 replaces `endpoint_reservations` with `endpoint_hosts` (hostname
+primary key → Organization/Application/Environment/target generation) and
+`endpoint_paths` ((hostname, path) primary key → workload, FK to the host).
+Workloads of one Environment share a hostname by distinct paths (EP-07); a host
+row is deleted when its owner holds no path. Each version-9 reservation becomes
+one host plus the workload's `/` path. The migration drops
+`applications.subdomain` with `applications_subdomain_key`, drops
+`environments.public_routes_pending` and removes `service.publicRoutes` from
+stored workload drafts. Immutable Deployment Sets, plans and receipts are not
+rewritten. Console has SELECT/INSERT/UPDATE/DELETE on both endpoint tables; the
+State login has none. Released versions 1–9 are frozen.
+
+HostPath extension (WC-21, 2026-11-06): WorkloadExecution.volumes retains the
+existing JSON shape with an exclusive hostPath source {path, type?}, alongside
+emptyDir/configMap. Path is the Linux node path; type is the optional Kubernetes
+HostPathType enum. Draft, deployment-set and applied ModuleSpec snapshots retain
+it with existing CAS and deep-copy rules. No relational column, migration, node
+filesystem provisioning, deletion or retention owner is introduced.
+
+## Workload template defaults snapshot — issue #37
+
+Existing JSONB workload drafts, Deployment Sets, plans and applied snapshots carry
+[the optional runtime extension](../contracts/workload-defaults.md), including
+the immutable template pin and verified `templateDefaults` environment/profile.
+ADR-039 removes the backend defaults policy; old task test data is deleted by
+explicit user authorization. No SQL DDL or released migration edits are required.
+No columns, relationships, grants, schema version or released SQL reference change.
+The [ERD](erd.puml) is unchanged. Retained StatefulSet-generated claims are not
+standalone Terraform resource instances; their live namespace inventory remains
+subject to the existing UID/content deletion guard.
+
+## External monitoring — ADR-040 / schema 11
 
 `monitoring_connections` belongs to one organization, with UUID id, unique
 organization/key, positive revision and JSON document for nonsecret endpoint,
@@ -1321,6 +1386,6 @@ revision and verified physical cluster UID, target generation, with a positive
 optimistic revision and nonsecret JSON document. Unique Environment identity;
 composite organization/connection FK prevents cross-organization links. Connection
 deletion is restricted while bound. Runtime writes use Environment fencing.
-Console has CRUD; State has no table privileges. Owner upgrade 8 -> 9 creates
+Console has CRUD; State has no table privileges. Owner upgrade 10 -> 11 creates
 these empty tables and preserves all installation/domain/state identities. Frozen
-schema 8 remains unchanged; runtime never performs migration DDL.
+schemas 1–10 remain unchanged; runtime never performs migration DDL.

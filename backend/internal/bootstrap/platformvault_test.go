@@ -222,7 +222,7 @@ func TestPlatformVaultTokenReplacementRefreshesManagedStoresInEveryOrganization(
 			t.Fatal(err)
 		}
 		appID := ids.New()
-		if err := base.Store.SaveApplication(ctx, application.Application{ID: appID, Key: appID, OrganizationKey: org, Name: org + " app", Subdomain: "s-" + appID[:8], Version: 1}); err != nil {
+		if err := base.Store.SaveApplication(ctx, application.Application{ID: appID, Key: appID, OrganizationKey: org, Name: org + " app", Version: 1}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -274,7 +274,7 @@ func TestPlatformVaultTokenReplacementRefreshesManagedStoresInEveryOrganization(
 		t.Fatal(err)
 	}
 	appID := ids.New()
-	_ = app.Store.SaveApplication(ctx, application.Application{ID: appID, Key: appID, OrganizationKey: "umbrella", Name: "u", Subdomain: "u-" + appID[:8], Version: 1})
+	_ = app.Store.SaveApplication(ctx, application.Application{ID: appID, Key: appID, OrganizationKey: "umbrella", Name: "u", Version: 1})
 	umbrellaRef, err := creds.Put(ctx, "umbrella", "ss-platform-vault", []byte("user-token"))
 	if err != nil {
 		t.Fatal(err)

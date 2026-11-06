@@ -1,5 +1,22 @@
 # Bootstrap platform và acceptance app
 
+## Local API seed (không browser)
+
+Cho Console chạy trong `kind-k8s-4f`, dùng [runbook](../../orchestrator_docs/operations/platform-seed.md)
+và [YAML mẫu](api-dev.example.yaml). Copy input/credentials ra ngoài Git, đặt quyền
+0600, rồi chạy từ checkout này:
+
+```sh
+node scripts/bootstrap/seed-api.mjs --config /private/dev.yaml
+```
+
+Lệnh đọc file local, gọi API backend, tạo mục thiếu và thoát. Không tạo seed Job
+hay upload input thành ConfigMap/Secret; credential vẫn được backend lưu vào Vault
+để sử dụng sau đó. Chạy lại tái sử dụng dữ liệu khớp, khác thì CONFLICT, không tự
+ghi đè hoặc rotate. API seed platform không tạo app/deploy workload. AWS cần file
+credential riêng; không dùng EC2 instance role trên kind. Các workflow Console và
+acceptance bên dưới giữ nguyên.
+
 Luồng [Definitions trực tiếp — issue #33](#definitions-trực-tiếp--issue-33-schemaversion-3)
 nhận config schemaVersion 3 theo môi trường, có tính lũy đẳng và deploy acceptance
 app ở cuối. Dùng `direct-targets/dev.json` làm mẫu; input thực tế nằm ngoài Git.
@@ -24,7 +41,7 @@ trước khi dùng. Credentials chỉ là đường dẫn file 0600/0400 ngoài 
 
 `console` và `developer`: URL, username, passwordFile. `platform`: Git scope/tokenFile,
 account/context/backend kubeconfig, Types, Git Catalog, Vault scoped token và CD.
-`application`: name/subdomain ổn định, Environment đích, variables, secretFiles,
+`application`: name ổn định, Environment đích, variables, secretFiles,
 Workload paths, image versions, Catalog tag và optional Definition revision IDs.
 `upgrade`: enabled (mặc định true), images/tag/revisions đích rõ ràng.
 `verification`: URL Tailscale, payload job cố định, timeout; optional local forward.
@@ -167,7 +184,7 @@ V3 bỏ `platform.catalog` và `application.catalogTag`; dùng:
   xác minh; `${templateSources.acceptance}` trong `template_source` trỏ source
   đã pin. Resource expressions của sản phẩm được giữ nguyên.
 - `application.workloads`: ba Generic Workload files backend/worker/frontend,
-  cùng image pins, variables, secretFiles, name/subdomain và Environment đích.
+  cùng image pins, variables, secretFiles, name và Environment đích.
   Workload fixtures hiện hành được dùng chung, không có bước Score/render bundle.
 
 Inline hỗ trợ đúng bộ file Console cho phép sửa: `deployment.tpl`, `service.tpl`,

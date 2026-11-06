@@ -55,23 +55,6 @@ type KubeconfigSource interface {
 	ResolveKubeconfig(ctx context.Context, target Target) ([]byte, error)
 }
 
-// PublicRoute is the complete HTTP route set of one Environment.
-type PublicRoute struct {
-	ApplicationID, EnvironmentID, Host string
-	Paths                              []PublicPath
-}
-
-// PublicPath is one Workload public route; Port is the numeric Service port of
-// PortName (Gateway API backendRefs need a number).
-type PublicPath struct {
-	Path, WorkloadID, PortName string
-	Port                       int
-}
-
-type PublicRouteManager interface {
-	Reconcile(ctx context.Context, target Target, route PublicRoute) error
-}
-
 // ProvisionRequest is one resource node handed to an executor (UC-08 MS-05).
 type ProvisionRequest struct {
 	DeploymentID    string
@@ -231,11 +214,11 @@ type RenderRequest struct {
 func ServicePortsOf(modules map[string]environment.Module) map[string]map[string]int {
 	out := map[string]map[string]int{}
 	for id, module := range modules {
-		if module.Spec.Service == nil || len(module.Spec.Service.Ports) == 0 {
+		if module.Spec.EffectiveService() == nil || len(module.Spec.EffectiveService().Ports) == 0 {
 			continue
 		}
 		ports := map[string]int{}
-		for name, port := range module.Spec.Service.Ports {
+		for name, port := range module.Spec.EffectiveService().Ports {
 			ports[name] = port.Port
 		}
 		out[id] = ports
@@ -313,10 +296,4 @@ type SecretStore interface {
 // RenderPreflight validates pinned renderer availability before infrastructure side effects.
 type RenderPreflight interface {
 	ValidateSelection(context.Context, resource.RenderingSelection) error
-}
-
-// PublicRouteRenderer emits the Environment route without applying it; optional
-// CD delivery publishes this artifact through the selected delivery adapter.
-type PublicRouteRenderer interface {
-	RenderRoute(target Target, route PublicRoute) ([]Manifest, error)
 }

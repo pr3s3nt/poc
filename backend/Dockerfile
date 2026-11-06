@@ -39,7 +39,7 @@ ARG TARGETARCH=amd64
 # Disable SSL verification for apk and wget (development only)
 RUN echo "http://dl-cdn.alpinelinux.org/alpine/v3.22/main" > /etc/apk/repositories \
  && echo "http://dl-cdn.alpinelinux.org/alpine/v3.22/community" >> /etc/apk/repositories \
- && apk add --no-cache ca-certificates git \
+ && apk add --no-cache ca-certificates git tzdata \
  && wget --no-check-certificate -q -O /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" \
  && wget --no-check-certificate -q -O /tmp/kubectl.sha256 "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl.sha256" \
  && echo "$(cat /tmp/kubectl.sha256)  /usr/local/bin/kubectl" | sha256sum -c - \

@@ -178,6 +178,8 @@ func neutralInput(req execution.RenderRequest, delivery kubernetes.Delivery) (ma
 		"bindings":    bindings,
 		"storage":     req.Storage,
 		"secretFiles": delivery.Files,
+		"configMaps":  configMaps(req),
+		"probes":      probeIntents(req),
 		"target":      map[string]any{"namespace": req.Namespace},
 		"identity": map[string]any{
 			"workload":    req.WorkloadID,
@@ -216,19 +218,74 @@ func (r *Renderer) renderGit(ctx context.Context, req execution.RenderRequest) (
 	if err != nil {
 		return nil, err
 	}
+	if e := req.Module.Spec.Execution; req.Vault != nil && e != nil && e.AutomountServiceAccountToken != nil && !*e.AutomountServiceAccountToken {
+		return nil, environment.ErrExecution
+	}
+	var profile *environment.RuntimeDefaults
+	if e := req.Module.Spec.Execution; e.HasTemplate() {
+		for _, t := range bundle.Contract.Manifest.WorkloadTemplates {
+			if t.ID == e.Template.ID && t.Version == e.Template.Version && t.SHA256() == e.Template.SHA256 {
+				profile = t.RuntimeDefaults
+				if e.TemplateDefaults != nil {
+					profile = profile.ForEnvironment(e.TemplateDefaults.Environment)
+				}
+			}
+		}
+	}
+	req.Module.Spec, _ = req.Module.Spec.ResolveDefaults(profile)
+	if err := req.Module.Spec.ValidateComputePolicy(); err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+	if err := templatesource.ValidateWorkloadCapabilities(bundle.Contract.Manifest, req.Module.Spec.Containers, req.Module.Spec.Execution); err != nil {
+		return nil, err
+	}
+	if err := environment.ValidateContainerRoles(req.Module.Spec.Containers); err != nil {
+		return nil, err
+	}
+	for _, c := range req.Module.Spec.Containers {
+		for _, p := range []struct {
+			probe  *environment.Probe
+			single bool
+		}{{c.ReadinessProbe, false}, {c.LivenessProbe, true}, {c.StartupProbe, true}} {
+			if err := p.probe.Validate(p.single); err != nil {
+				return nil, err
+			}
+		}
+	}
+	storageKeys := map[string]bool{}
+	for key := range req.Storage {
+		storageKeys[key] = true
+	}
+	if err := req.Module.Spec.Execution.ValidateResolved(req.Module.Spec.Containers, req.Module.Spec.ReplicaCount(), req.Module.Spec.Service != nil && len(req.Module.Spec.Service.Ports) > 0, storageKeys); err != nil {
+		return nil, err
+	}
 	delivery, err := kubernetes.PrepareDelivery(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 	if e := req.Module.Spec.Execution; e != nil {
-		_, inputs, err := templatesource.MatchWorkloadTemplate(bundle.Contract.Manifest.WorkloadTemplates, e.Template.ID, e.Template.Version, e.Template.SHA256, e.Kind, e.Inputs)
+		inputs, err := templatesource.ExecutionInputs(bundle.Contract.Manifest, e)
 		if err != nil {
 			return nil, environment.ErrExecutionUnavailable
 		}
 		req.Module.Spec.Execution = e.Clone()
 		req.Module.Spec.Execution.Inputs = inputs
+	}
+	if e := req.Module.Spec.Execution; e != nil {
+		if e.ServiceAccountName != "" && e.ServiceAccountName != delivery.ServiceAccount {
+			return nil, environment.ErrExecution
+		}
+		// Agent-based Vault auth needs the Pod token. VSO file delivery does not.
+		if req.Vault != nil {
+			if e.AutomountServiceAccountToken != nil && !*e.AutomountServiceAccountToken && e.TemplateDefaults == nil {
+				return nil, environment.ErrExecution
+			}
+			// Desired explicit false is checked before inherited policy is resolved.
+			token := true
+			e.AutomountServiceAccountToken = &token
+		}
 	}
 	input, err := neutralInput(req, delivery)
 	if err != nil {

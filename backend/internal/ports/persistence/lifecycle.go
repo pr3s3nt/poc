@@ -14,8 +14,7 @@ type ApplicationLifecycleRepository interface {
 	// progress of an Application if and only if its stored version equals
 	// expectedVersion, increments the version and returns the stored record.
 	// ErrNotFound for a missing key, ErrVersionConflict when stale. Name,
-	// subdomain and identity never change. A DELETED Application stops
-	// reserving its name and subdomain.
+	// identity never change. A DELETED Application stops reserving its name.
 	TransitionApplication(ctx context.Context, key string, expectedVersion int64, status application.LifecycleStatus, deletion *application.Deletion) (application.Application, error)
 	// ListConfigurationRevisions returns every configuration revision of one
 	// Environment, oldest first. It reads metadata and references only.

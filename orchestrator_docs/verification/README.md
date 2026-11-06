@@ -13,6 +13,18 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-06 | Issue #37 merge, naming/ADR integration, real kind/Fleet/SQL gate, verified backup and retained Console main upgrade | [Main merge verification](2026-11-06-workload-defaults-main-merge.md) |
+| 2026-11-06 | Effective runtime validation 400, actionable PDB feedback, preserved draft and real VI/EN correction/retry | [Resolution errors](2026-11-06-workload-resolution-errors.md) |
+| 2026-11-06 | Retained issue #37 Console switched to pinned Git source; scoped Definition, both Environment selections and real browser/API checks | [Git template source](2026-11-06-workload-git-source.md) |
+| 2026-11-06 | Distinct workload select choices, muted inherited hints, explicit reset and real VI/EN no-op Save | [Default select choices](2026-11-06-workload-default-selects.md) |
+| 2026-11-06 | Remove backend default policy; template-owned values, real SQL/Fleet/kind, authorized test cleanup and verified replacement Console link | [Template-only defaults](2026-11-06-template-only-defaults.md) |
+| 2026-11-06 | Compact workload form, muted default hints, scoped advanced and unchanged desired Save | [Simple default hints](2026-11-06-workload-simple-default-hints.md) |
+| 2026-11-06 | Generic template missing-image wait/resolution and inherited image regression | [Template image resolution](2026-11-06-template-image-resolution.md) |
+| 2026-11-06 | Frequency-based workload layout, VI/EN real Console/no-op Save and timezone dependency | [Layout follow-up](2026-11-06-workload-frequency-layout.md) |
+| 2026-11-06 | Issue #37: versioned runtime defaults, real PostgreSQL, browser/Fleet and kind PVC retention/reuse | [Workload defaults](2026-11-06-workload-defaults.md) |
+| 2026-11-06 | Custom workload volume/file/lifecycle authoring, real PostgreSQL/Secret creation/Preview and Tailscale handoff | [Chinhform runtime form](2026-11-06-chinhform-runtime.md) |
+| 2026-11-06 | In-cluster Console, Tailscale port 3070, local API platform seed, unchanged rerun and backend restart persistence | [Record](2026-11-06-kind-console-api-seed.md) |
+| 2026-11-06 | Readable IDP names and stable random suffix: local Go/race, real PostgreSQL, HTTP recreation; baseline limits, no live deploy | [Naming checks](2026-11-06-idp-naming.md) |
 | 2026-11-05 | One Fleet GitRepo per Application: source checks and legacy test cleanup; new-layout live gate pending | [Record](2026-11-05-application-fleet-gitrepo.md) |
 | 2026-11-04 | Issue #33 Git-only inputs, backend PVC retention, unchanged reruns and final-success video | [Git bootstrap/PVC](2026-11-04-git-bootstrap-pvc.md) |
 | 2026-11-04 | Rancher-compatible Fleet discovery/Verify, opaque registration identity, version/schema gates; user-selected kind-only runtime acceptance | [Rancher Fleet](2026-11-04-rancher-fleet.md) |
@@ -166,3 +178,9 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [Direct Definition bootstrap and acceptance — 2026-11-04](2026-11-04-direct-bootstrap.md).
 
 - [HTTPRoute real domain through Traefik — 2026-11-05](2026-11-05-httproute-domain.md)
+- [Public endpoint real domain, rename and schema 9 — 2026-11-05](2026-11-05-endpoint-domain.md)
+- [Dev bootstrap acceptance app on an endpoint — 2026-11-05](2026-11-05-dev-endpoint-bootstrap.md)
+
+- [Container volume/file UI — WC-22](2026-11-06-container-volume-ui.md).
+
+- [Existing volume sources before creation — WC-23](2026-11-06-reuse-first-volumes.md).

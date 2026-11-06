@@ -124,7 +124,7 @@ Canonical shared collaboration: [delivery sequence](../../architecture/component
 These supplement the existing direct-path diagrams for this new design slice;
 [CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.
 
-## External observability — ADR-037
+## External observability — ADR-040
 
 The authorized query service loads the selected Environment binding, restores
 owned current-generation targets, verifies cluster identity, and asks the bounded

@@ -49,15 +49,14 @@ CREATE TABLE connections (
 -- Application is identity and current metadata only; execution and store
 -- binding belong to the Environment.
 -- UC-18/ADR-025: a DELETED Application is a retained tombstone that no longer
--- reserves its name or subdomain.
+-- reserves its name.
 CREATE TABLE applications (
   id uuid PRIMARY KEY, application_key text UNIQUE NOT NULL, organization_id uuid NOT NULL REFERENCES organizations(id),
-  name text NOT NULL, subdomain text NOT NULL, version bigint NOT NULL,
+  name text NOT NULL, version bigint NOT NULL,
   status text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DELETING','DELETED')),
   deletion jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(deletion)='object')
 );
 CREATE UNIQUE INDEX applications_organization_lower_name_key ON applications(organization_id, lower(name)) WHERE status <> 'DELETED';
-CREATE UNIQUE INDEX applications_subdomain_key ON applications(subdomain) WHERE status <> 'DELETED';
 
 CREATE TABLE secret_store_connections (
   id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES organizations(id),
@@ -74,7 +73,6 @@ CREATE TABLE environments (
   environment_key text NOT NULL, name text NOT NULL, environment_type text NOT NULL,
   namespace_identity text NOT NULL, current_deployment_set_id uuid,
   version bigint NOT NULL, draft_version bigint NOT NULL DEFAULT 0,
-  public_routes_pending boolean NOT NULL DEFAULT false,
  desired_delivery jsonb NOT NULL DEFAULT '{"mode":"DIRECT","selfHeal":false}' CHECK(jsonb_typeof(desired_delivery)='object'),
  applied_delivery jsonb NOT NULL DEFAULT '{"mode":"DIRECT","selfHeal":false}' CHECK(jsonb_typeof(applied_delivery)='object'),
  delivery_config_revision bigint NOT NULL DEFAULT 0 CHECK(delivery_config_revision>=0),
@@ -962,6 +960,26 @@ BEGIN
 END;
 $$;
 CREATE TRIGGER definition_revision_immutable BEFORE UPDATE OR DELETE ON resource_definition_versions FOR EACH ROW EXECUTE FUNCTION definition_revision_immutable_guard();
+
+-- Public endpoint hostname owners and path claims (EP-03/05/06/07, ADR-037).
+CREATE TABLE endpoint_hosts (
+ hostname text CONSTRAINT endpoint_hosts_pkey PRIMARY KEY
+  CONSTRAINT endpoint_hosts_hostname_check CHECK (length(hostname) <= 253 AND hostname ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$'),
+ organization_id uuid NOT NULL CONSTRAINT endpoint_hosts_organization_id_fkey REFERENCES organizations(id),
+ application_id uuid NOT NULL CONSTRAINT endpoint_hosts_application_id_fkey REFERENCES applications(id),
+ environment_id uuid NOT NULL CONSTRAINT endpoint_hosts_environment_id_fkey REFERENCES environments(id),
+ target_generation bigint NOT NULL CONSTRAINT endpoint_hosts_target_generation_check CHECK (target_generation >= 0),
+ reserved_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX endpoint_hosts_owner_idx ON endpoint_hosts(environment_id, target_generation);
+CREATE TABLE endpoint_paths (
+ hostname text NOT NULL CONSTRAINT endpoint_paths_hostname_fkey REFERENCES endpoint_hosts(hostname),
+ path text NOT NULL CONSTRAINT endpoint_paths_path_check CHECK (length(path) <= 1024 AND path ~ '^/'),
+ workload_id text NOT NULL CONSTRAINT endpoint_paths_workload_id_check CHECK (length(workload_id) BETWEEN 1 AND 253),
+ reserved_at timestamptz NOT NULL DEFAULT now(),
+ CONSTRAINT endpoint_paths_pkey PRIMARY KEY (hostname, path)
+);
+CREATE INDEX endpoint_paths_workload_idx ON endpoint_paths(workload_id);
 
 CREATE TABLE monitoring_connections (
  id uuid PRIMARY KEY,

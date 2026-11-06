@@ -6,7 +6,7 @@ import { WorkloadPreviewPage } from './WorkloadPreviewPage';
 import { parseScoreText } from './parseScore';
 import { bothConfigured } from '../../test/targets';
 
-const application: Application = { id: 'shop', name: 'Shop', subdomain: 'shop', environments: bothConfigured(), workloads: { staging: [], production: [] } };
+const application: Application = { id: 'shop', name: 'Shop', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 const yamlScore = 'apiVersion: orchestrator.dev/workload/v1\nmetadata:\n  name: api\ncontainers:\n  main:\n    image: example.invalid/api:v1\n';
 const result = (overrides: Record<string, unknown> = {}) => ({
   applicationKey: 'shop', environmentKey: 'staging', baseSetId: 'set-1', baseVersion: 3, runId: 'run-7', workloadId: 'api', action: 'deploy',

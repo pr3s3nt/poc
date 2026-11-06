@@ -1,0 +1,23 @@
+{
+  "key": "${bootstrap.definitionPrefix}-endpoint",
+  "name": "${bootstrap.definitionName} public endpoint",
+  "resourceType": "endpoint",
+  "driverType": "endpoint",
+  "driverInputs": {
+    "values": {
+      "variables": {
+        "rootDomain": "${bootstrap.endpointRootDomain}",
+        "scheme": "${bootstrap.endpointScheme}",
+        "gatewayName": "${bootstrap.httprouteGatewayName}",
+        "gatewayNamespace": "${bootstrap.httprouteGatewayNamespace}",
+        "gatewaySectionName": "${bootstrap.httprouteGatewaySectionName}"
+      }
+    }
+  },
+  "provision": {},
+  "criteria": [
+    {
+      "env_type": "${bootstrap.environmentType}"
+    }
+  ]
+}

@@ -241,9 +241,6 @@ func (s *Server) handleRecoverOperation(w http.ResponseWriter, r *http.Request) 
 			}
 		}
 	}
-	if err == nil {
-		err = s.store.SetPublicRoutesPending(lease.Ctx, app.Key, envKey, true)
-	}
 	if err != nil {
 		reason := fmt.Sprintf("recovery could not complete (%T); the Environment remains held", err)
 		_ = lease.Suspend(reason)

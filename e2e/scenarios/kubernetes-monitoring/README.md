@@ -1,11 +1,11 @@
 # External Kubernetes monitoring — issue #35 Slice 1
 
 Validates [UC-09 OBS](../../../orchestrator_docs/usecase/UC-09/specification.md#external-kubernetes-monitoring-and-alerts--obs),
-[ADR-037](../../../orchestrator_docs/architecture/decisions/ADR-037-external-observability.md)
+[ADR-040](../../../orchestrator_docs/architecture/decisions/ADR-040-external-observability.md)
 and the [external contract](../../../orchestrator_docs/architecture/contracts/external-observability.md).
 
 Requires explicit dev cluster/Git/notification mutation authorization, a dedicated
-schema-9 Console and bootstrap-owned acceptance app, actual pinned dev stack and
+schema-11 Console and bootstrap-owned acceptance app, actual pinned dev stack and
 test receiver from [setup](../../setup/observability-stack/README.md), Node 22+,
 Playwright dependencies in e2e and scripts/bootstrap, kubectl and accessible
 backend endpoints. Config/session/credentials/evidence remain outside Git.

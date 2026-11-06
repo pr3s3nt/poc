@@ -20,7 +20,7 @@ func TestApplicationIdentityOnlyFreshAndReopen(t *testing.T) {
 	if err := st.SaveOrganization(ctx, application.Organization{ID: "55555555-5555-4555-8555-555555555555", Key: "acme", Name: "Acme"}); err != nil {
 		t.Fatal(err)
 	}
-	fresh := application.Application{ID: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", Key: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", OrganizationKey: "acme", Name: "Fresh", Subdomain: "fresh", Version: 1}
+	fresh := application.Application{ID: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", Key: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", OrganizationKey: "acme", Name: "Fresh", Version: 1}
 	if err := st.SaveApplication(ctx, fresh); err != nil {
 		t.Fatal(err)
 	}

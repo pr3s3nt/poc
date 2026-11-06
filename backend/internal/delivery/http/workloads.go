@@ -176,3 +176,27 @@ func (s *Server) handleWorkloadDraftAction(w http.ResponseWriter, r *http.Reques
 	}
 	writeJSON(w, http.StatusOK, view)
 }
+
+// Pure resolution shares authorization and import validation with draft authoring.
+func (s *Server) handleResolveWorkloadDefaults(w http.ResponseWriter, r *http.Request) {
+	app, env, ok := s.authorizedConfiguration(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		Workload map[string]any `json:"workload"`
+	}
+	if !decodeStrict(w, r, 2<<20, &req) {
+		return
+	}
+	if req.Workload == nil {
+		writeCode(w, codeInvalidRequest, "workload")
+		return
+	}
+	out, sources, err := s.workloads.ResolveDefaults(r.Context(), app, env, req.Workload)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"workload": out, "sources": sources})
+}

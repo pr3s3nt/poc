@@ -109,7 +109,7 @@ func (f *fixture) seed(org string, envs ...string) string {
 		}
 	}
 	appID := ids.New()
-	if err := f.store.SaveApplication(ctx, application.Application{ID: appID, Key: appID, OrganizationKey: org, Name: "App " + appID[:8], Subdomain: "s-" + appID[:8], Version: 1}); err != nil {
+	if err := f.store.SaveApplication(ctx, application.Application{ID: appID, Key: appID, OrganizationKey: org, Name: "App " + appID[:8], Version: 1}); err != nil {
 		f.t.Fatal(err)
 	}
 	for _, env := range envs {

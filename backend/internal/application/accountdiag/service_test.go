@@ -243,7 +243,7 @@ func TestMissingContextIsUnknownNeverPass(t *testing.T) {
 	f.prov.run = func(context.Context, probes.Check, map[string]domain.Finding, probes.Recorder) domain.Finding {
 		return pass("API_ANSWERED")
 	}
-	rep, err := f.start(t, domain.Request{Purpose: domain.PurposeUseCase, UseCases: []string{"database", "secrets", "https", "deploy"}})
+	rep, err := f.start(t, domain.Request{Purpose: domain.PurposeUseCase, UseCases: []string{"database", "secrets", "deploy"}})
 	if err != nil {
 		t.Fatal(err)
 	}

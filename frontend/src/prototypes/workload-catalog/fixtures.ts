@@ -1,7 +1,7 @@
 import { emptyEnvironment, type Application } from '../../shared/types/application';
 
 export const application: Application = {
-  id: 'passbolt', name: 'Passbolt', subdomain: 'passbolt',
+  id: 'passbolt', name: 'Passbolt',
   environments: { staging: emptyEnvironment, production: emptyEnvironment },
   workloads: { staging: [], production: [] },
 };

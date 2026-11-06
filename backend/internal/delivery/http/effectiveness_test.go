@@ -53,8 +53,8 @@ func effectivenessServer(t *testing.T) (string, *store.Store) {
 	s.effectiveness.SetClock(func() time.Time { return effectivenessDay.Add(4 * time.Hour) })
 	ctx := context.Background()
 	for _, app := range []application.Application{
-		{ID: "a-shop", Key: "shop", OrganizationKey: "acme", Name: "Shop", Subdomain: "shop", Version: 1},
-		{ID: "a-foreign", Key: "foreign", OrganizationKey: "other-org", Name: "Foreign", Subdomain: "foreign", Version: 1},
+		{ID: "a-shop", Key: "shop", OrganizationKey: "acme", Name: "Shop", Version: 1},
+		{ID: "a-foreign", Key: "foreign", OrganizationKey: "other-org", Name: "Foreign", Version: 1},
 	} {
 		if err := st.SaveApplication(ctx, app); err != nil {
 			t.Fatal(err)

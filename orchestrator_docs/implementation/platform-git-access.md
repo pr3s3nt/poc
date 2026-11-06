@@ -16,7 +16,7 @@ ADMIN, at `/ui/platform/settings`. Developer cannot use these API endpoints.
 
 1. Deploy the new version through the existing owner database setup flow. Schema
    v2 adds settings metadata only. Preserve database, Vault and bundle caches.
-2. As Platform Engineer/Admin, open Cài đặt nền tảng → Truy cập Git.
+2. As Platform Engineer/Admin, open Cấu hình Git → Truy cập Git.
 3. Enter the company Git HTTPS host/group or repository scope, read username and
    token. Add CA PEM under Nâng cao when the server uses an internal CA.
 4. For a group/host scope, enter an actual Repo kiểm tra within that scope and

@@ -32,7 +32,24 @@ export function resolveDefinition(entry, accountKey, sources) {
   const name=variables.template_source.match(/^\$\{templateSources\.([a-z0-9-]+)\}$/)?.[1];
   requireConfig(sources[name], 'Template source unresolved');variables.template_source=sources[name].id;
  }
+ if(definition.driverType==='endpoint')definition.driverInputs.values.variables=endpointVariables(definition.driverInputs.values.variables);
  return definitionDocument(definition);
+}
+// The Console stores only set optional endpoint fields (EP-02); normalize the
+// declared document the same way so the read-back comparison stays exact.
+export function endpointVariables(variables) {
+ const out={rootDomain:variables.rootDomain,scheme:variables.scheme,gatewayName:variables.gatewayName,gatewayNamespace:variables.gatewayNamespace};
+ if(variables.gatewaySectionName)out.gatewaySectionName=variables.gatewaySectionName;
+ if(Array.isArray(variables.reservedNames)&&variables.reservedNames.length)out.reservedNames=variables.reservedNames;
+ return out;
+}
+async function fillEndpoint(page,variables) {
+ await page.getByLabel('Domain gốc',{exact:true}).fill(variables.rootDomain);
+ await page.getByRole('combobox',{name:/^Giao thức/}).selectOption(variables.scheme);
+ await page.getByLabel('Tên Gateway',{exact:true}).fill(variables.gatewayName);
+ await page.getByLabel('Namespace của Gateway',{exact:true}).fill(variables.gatewayNamespace);
+ await page.getByLabel('Listener (tùy chọn)',{exact:true}).fill(variables.gatewaySectionName??'');
+ await page.getByLabel('Tên đã dùng ngoài hệ thống (tùy chọn)',{exact:true}).fill((variables.reservedNames??[]).join(', '));
 }
 export async function openDefinition(ui,type) {
  await ui.page.goto(ui.baseURL+'/ui/platform/resource-definitions?resourceType='+encodeURIComponent(type));
@@ -173,6 +190,7 @@ export async function ensureDirectDefinitions(ui,config,account,sources,rt) {
    await page.getByRole('textbox',{name:/^Tham chiếu output \(JSON\)/}).fill(JSON.stringify(values.resource_references??{}));
    if(Object.keys(want.provision).length){await page.locator('details').filter({has:page.getByText('Tài nguyên đi kèm',{exact:true})}).locator('summary').click();await page.getByLabel('Quy tắc tạo tài nguyên liên quan (JSON object)',{exact:true}).fill(JSON.stringify(want.provision));}
   }
+  if(want.driverType==='endpoint')await fillEndpoint(page,want.driverInputs.values.variables);
   await page.getByLabel('ID cấu hình (Definition ID)',{exact:true}).fill(want.key);
   await page.getByLabel('Tên hiển thị',{exact:true}).fill(want.name);
   await fillCriteria(page,want.criteria);

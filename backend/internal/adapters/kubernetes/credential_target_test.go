@@ -372,10 +372,6 @@ func TestCredentialTarget_FailsClosedWithoutHostFallback(t *testing.T) {
 		if err := deployer.Remove(ctx, target, "api"); !errors.Is(err, ErrCredentialTarget) {
 			t.Fatalf("%s remove: %v", name, err)
 		}
-		routes := &PublicRoutes{KubectlPath: kubectl, Credentials: source}
-		if err := routes.Reconcile(ctx, target, execution.PublicRoute{ApplicationID: "a", EnvironmentID: "staging"}); !errors.Is(err, ErrCredentialTarget) {
-			t.Fatalf("%s routes: %v", name, err)
-		}
 		vso := &VSOSynchronizer{KubectlPath: kubectl, Credentials: source}
 		bundle := execution.ConfigBundle{StoreKey: "store-a", AuthMount: "kubernetes", Address: "http://vault", Mount: "kv", Path: "p", Role: "r", ServiceAccount: "sa", SecretName: "orch-x", Keys: map[string]map[string]string{"main": {"A": "main_A"}}}
 		if err := vso.Sync(ctx, target, bundle); !errors.Is(err, ErrCredentialTarget) {
@@ -391,14 +387,11 @@ func TestCredentialTarget_FailsClosedWithoutHostFallback(t *testing.T) {
 	}
 }
 
-func TestCredentialTarget_RoutesVSOAndExecutorUseScopedCredential(t *testing.T) {
+func TestCredentialTarget_VSOAndExecutorUseScopedCredential(t *testing.T) {
 	kubectl, logPath := installStub(t)
 	ctx := context.Background()
 	resolver := &stubResolver{document: normalized(t)}
 	target := credentialTarget()
-	if err := (&PublicRoutes{KubectlPath: kubectl, Credentials: resolver}).Reconcile(ctx, target, execution.PublicRoute{ApplicationID: "a", EnvironmentID: "staging"}); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := (&Executor{KubectlPath: kubectl, Credentials: resolver}).Provision(ctx, execution.ProvisionRequest{ResourceType: "k8s-namespace", Descriptor: "ns", Inputs: map[string]any{"name": "team-a"}, Target: target}); err != nil {
 		t.Fatal(err)
 	}
@@ -408,7 +401,7 @@ func TestCredentialTarget_RoutesVSOAndExecutorUseScopedCredential(t *testing.T) 
 		t.Fatal(err)
 	}
 	assertPrivateAndRemoved(t, readLog(t, logPath))
-	if len(resolver.targets) != 3 {
+	if len(resolver.targets) != 2 {
 		t.Fatalf("resolver calls: %d", len(resolver.targets))
 	}
 }

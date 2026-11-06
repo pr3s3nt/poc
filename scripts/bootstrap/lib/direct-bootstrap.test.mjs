@@ -21,7 +21,7 @@ function fixture() {
  return {raw,load,dir,close(){rmSync(dir,{force:true,recursive:true});}};
 }
 test('direct full input validates without Catalog or upgrade and retains Generic Workload paths',()=>{
- const f=fixture();try{const c=f.load();assert.equal(c.schemaVersion,3);assert.equal(c.platform.catalog,undefined);assert.equal(c.upgrade.enabled,false);assert.equal(c.application.scores.backend,c.application.workloads.backend);assert.equal(c.platform.definitions.length,5);}finally{f.close();}
+ const f=fixture();try{const c=f.load();assert.equal(c.schemaVersion,3);assert.equal(c.platform.catalog,undefined);assert.equal(c.upgrade.enabled,false);assert.equal(c.application.scores.backend,c.application.workloads.backend);assert.equal(c.platform.definitions.length,6);}finally{f.close();}
 });
 test('platform-only input has no Application/developer/images/workloads/verification dependency',()=>{
  const f=fixture();try{f.raw.runtime.mode='bootstrap';delete f.raw.application;delete f.raw.developer;delete f.raw.verification;const c=f.load();assert.equal(c.application,undefined);const rt=createRuntime(c);rt.save();rt.close('BOOTSTRAPPED');f.raw.environment='staging';assert.throws(()=>createRuntime(f.load()),/another target/);}finally{f.close();}
@@ -144,4 +144,30 @@ test('runtime source refresh selects the available pin without adopting a retire
  assert.equal((await ensureTemplateSources(ui,config,rt)).test.id,current.id);
  const stale={state:{templateSources:{test:{id:retired.id,pin}}},save(){},record(){}};
  await assert.rejects(()=>ensureTemplateSources(ui,config,stale),/Recorded template source missing/);
+});
+
+test('endpoint Definition policy is normalized like the Console stores it',async()=>{
+ const {endpointVariables}=await import('./direct-platform.mjs');
+ assert.deepEqual(endpointVariables({rootDomain:'apps.example.com',scheme:'http',gatewayName:'gw',gatewayNamespace:'ns',gatewaySectionName:'',reservedNames:[]}),{rootDomain:'apps.example.com',scheme:'http',gatewayName:'gw',gatewayNamespace:'ns'});
+ assert.deepEqual(endpointVariables({rootDomain:'apps.example.com',scheme:'https',gatewayName:'gw',gatewayNamespace:'ns',gatewaySectionName:'web',reservedNames:['www']}),{rootDomain:'apps.example.com',scheme:'https',gatewayName:'gw',gatewayNamespace:'ns',gatewaySectionName:'web',reservedNames:['www']});
+});
+
+test('a schema-3 receipt without the optional account endpoint reopens',async()=>{
+ const {createRuntime}=await import('./runtime.mjs');
+ const {mkdtempSync}=await import('node:fs');const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const dir=mkdtempSync(join(tmpdir(),'rt-'));
+ const config={schemaVersion:3,environment:'dev',console:{baseURL:'http://console.example'},platform:{account:{name:'a',context:'c'}},runtime:{stateDir:join(dir,'s'),reportDir:join(dir,'r'),profile:'dev-test'}};
+ let rt=createRuntime(config);rt.save();rt.close('CHECKED');
+ rt=createRuntime(config);rt.close('CHECKED');
+});
+
+test('an older acceptance receipt with a retired subdomain reopens by name and Environment',async()=>{
+ const {createRuntime}=await import('./runtime.mjs');
+ const {mkdtempSync,writeFileSync,mkdirSync,readFileSync}=await import('node:fs');const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const dir=mkdtempSync(join(tmpdir(),'rt-'));const stateDir=join(dir,'s');mkdirSync(stateDir,{recursive:true,mode:0o700});
+ const config={schemaVersion:3,environment:'dev',console:{baseURL:'http://console.example'},platform:{account:{name:'a',context:'c'}},application:{name:'app',environment:'staging'},runtime:{stateDir,reportDir:join(dir,'r'),profile:'dev-test'}};
+ writeFileSync(join(stateDir,'identity.json'),JSON.stringify({identity:{origin:'http://console.example',environment:'dev',account:'a',context:'c'},acceptanceIdentity:{name:'app',subdomain:'old-sub',environment:'staging'},executionProfile:'dev-test'}),{mode:0o600});
+ const rt=createRuntime(config);rt.save();rt.close('CHECKED');
+ assert.deepEqual(JSON.parse(readFileSync(join(stateDir,'identity.json'),'utf8')).acceptanceIdentity,{name:'app',environment:'staging'});
+ config.application.name='other';assert.throws(()=>createRuntime(config),/another Application/);
 });

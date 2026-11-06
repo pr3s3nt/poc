@@ -2,10 +2,163 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-05
+last_reviewed: 2026-11-06
 ---
 
 # Current project state
+
+## Issue #35 branch integration — 2026-11-06
+
+`features/loggingandmonitoring` integrates main at `b2d605f9`; external monitoring
+remains Slice 1 WIP, not accepted or deployed. Its observability decision is now ADR-040
+and monitoring schema 11 follows main's immutable schema 9/10. The retained
+monitoring-only WIP schema-9 database needs a reviewed compatibility migration
+before reuse with this branch; it was not reset or upgraded. See the
+[branch handoff](implementation/external-observability-s1.md#main-integration--2026-11-06)
+for remaining product/live gates and validation limits.
+
+## Issue #37 merged into main — 2026-11-06
+
+User-approved merge `18b902c9` integrates template-owned defaults, compact
+workload authoring, distinct select choices, runtime validation feedback and the
+step-by-step guide. ADR-039 owns template defaults; ADR-038 remains readable IDP
+names. Feature branch and local preview are retired; private volumes/evidence
+remain. The retained kind Console runs main images after verified backup/restore
+and owner setup. Existing data/PVC identities are preserved. See
+[merge and post-upgrade verification](verification/2026-11-06-workload-defaults-main-merge.md).
+Older feature-preview links below are historical and no longer active.
+
+## Workload effective-configuration error handling — 2026-11-06
+
+Resolved runtime validation errors now return 400 INVALID_WORKLOAD rather than an
+unclassified 500. Console preserves edits, presents safe validation feedback and
+explains enabled PDB requirements for fewer than two known effective replicas.
+Saved Git-source draft loads successfully; exact original unsaved trigger remains
+unconfirmed. [Diagnosis and verification](verification/2026-11-06-workload-resolution-errors.md).
+
+## Retained issue #37 Console — Git template source, 2026-11-06
+
+The authoring test Application now selects its own Git-backed workload Definition
+in staging and production: repository `pr3s3nt/poc`, directory
+`backend/template-sources/standard`, pinned commit `b6ab5bd4`. Real Git inspection,
+Definition/browser/API read-back and unchanged desired/default checks pass. No
+application deployment occurred. [Verification](verification/2026-11-06-workload-git-source.md).
+
+## Workload default select choices — 2026-11-06
+
+The inherited hint remains muted in the closed control and is hidden from the
+menu. Service, security, rollout, PDB and schedule choices no longer repeat the
+default value; Restore defaults removes an explicit selection. Real VI/EN Console
+and no-op Save verified. [Verification](verification/2026-11-06-workload-default-selects.md).
+
+## Template-owned workload defaults — 2026-11-06
+
+[ADR-039](architecture/decisions/ADR-039-template-owned-workload-defaults.md)
+removes the backend `workload-defaults-v1` policy and its selector. Template 1.1.0
+profiles own every authoring default and named environment variant; backend only
+merges/validates. Verified `templateDefaults` snapshot metadata and template pins
+preserve Save/reopen/Preview/Deploy consistency. Old task test workload data was
+explicitly authorized for deletion, not migrated. Security/storage guards remain.
+[Template-only verification](verification/2026-11-06-template-only-defaults.md).
+
+## Issue #37 implementation history — 2026-11-06
+
+The backend-policy descriptions and older authoring links below are superseded by
+ADR-039 and the template-only verification above. Their dated evidence is retained.
+
+Branch `features/bo_sung_default` implements the seven runtime configuration gaps,
+backend versioned defaults/provenance, scoped authoring groups, immutable template
+profiles, Preview effective artifacts and server admission. Existing workloads keep
+legacy behavior until explicit adoption. Real PostgreSQL, kind storage retention/
+reuse and browser/Fleet legacy-to-policy deployment/PDB prune passed.
+The runtime acceptance Application was removed through product cleanup; a separate
+authoring-only draft remains available in the verified Console. No DDL or AWS
+changes. See [implementation](implementation/workload-defaults.md) and
+[verification, baseline failures and retained Console](verification/2026-11-06-workload-defaults.md).
+
+The approved frequency-based layout follow-up places image/environment controls
+first, moves replica into Scaling & updates, and collapses rare configuration at
+the bottom. CronJob schedule stays separately visible. Real VI/EN browser checks
+and no-op Save pass; the runtime image now includes timezone data. See
+[layout verification](verification/2026-11-06-workload-frequency-layout.md).
+
+A generic template without an image now waits for required input before resolving,
+instead of showing an invalid/unavailable error on initial open. Published image
+profiles retain inheritance. See [template image defect verification](verification/2026-11-06-template-image-resolution.md).
+
+The latest authoring simplification keeps name/image/environment in the basic
+view and scopes other fields under Show advanced. Defaults remain muted hints,
+with no per-field provenance labels and no automatic override materialization.
+See [compact form/default hint verification](verification/2026-11-06-workload-simple-default-hints.md).
+
+## Workload class dropdown — 2026-11-05
+
+Task branch `features/chinhform`: UC-16 BR-31/32 replaces free-text workload class
+with a collapsed advanced dropdown from the published `workload` Type classes.
+Default omission, explicit historical default and unpublished saved classes are
+preserved; refresh failures lock selection and allow GET retry. Existing matching
+and Preview/Deploy are unchanged. Typecheck/lint/build, 49 focused editor/class/
+storage tests and browser fixture inspection pass. Lint has an existing warning
+in PlatformSettingsPage; existing async tests emit act warnings. Browser checks
+use fake API data and do not prove live deployment or Tailscale availability.
+
+The broader workload expansion is implemented on this task branch as of
+2026-11-06: PVC/emptyDir/hostPath/ConfigMap/Secret files, app/init/native-sidecar intent,
+custom form authoring, container ports/Service protocol, zero replicas, advanced
+annotations and HTTP/TCP/exec probes with timing. Save/reopen and real Preview
+are verified through Tailscale using the current backend and real PostgreSQL;
+source guards and render tests cover all controller kinds. No Kubernetes/cloud
+Deploy was performed. See [checks, baseline failures, runtime and limits](verification/2026-11-06-chinhform-runtime.md).
+
+## Local API platform seed and kind Console — 2026-11-06
+
+A local YAML/file-based importer now provisions platform configuration through
+existing authenticated APIs, without browser or input uploads to Kubernetes.
+The isolated Orchestrator installation in `kind-k8s-4f` exposes Console port 3070;
+Git, Kubernetes/AWS accounts, Vault, Types, pinned Git templates/Definitions and
+verified default Fleet binding were seeded. Unchanged rerun, backend Pod restart
+persistence and browser reads passed. Workload Vault Kubernetes auth and app
+deployment were not configured/accepted by this run. [Evidence and limits](verification/2026-11-06-kind-console-api-seed.md),
+[procedure](operations/platform-seed.md). Existing installations remain intact.
+
+## Readable IDP names with an immutable suffix — 2026-11-06
+
+[ADR-038](architecture/decisions/ADR-038-readable-idp-names.md) is implemented
+for newly created Applications: readable Organization/app slug plus one persisted
+six-character random suffix, shared by repository, Fleet GitRepo, namespace and
+infrastructure stems. The suffix stays at the end of each generated name and is
+stable across retries, display-name edits and restart. Recreating a deleted app
+gets fresh identities; active duplicate display names remain rejected. Existing
+Applications, allocations, controller names and original target/cleanup pins keep
+their names. No schema migration or live resource rename is introduced.
+Focused Go/race, real PostgreSQL, HTTP create/delete/recreate, build and docs/
+migration guards pass; broad-suite baseline failures and PostgreSQL timeout are
+recorded in [verification](verification/2026-11-06-idp-naming.md). No live
+GitHub/Fleet/cloud deployment or Console UI change was performed in this task.
+
+## Public routes and subdomains retired — 2026-11-05
+
+[ADR-037](architecture/decisions/ADR-037-retire-public-routes.md): the endpoint
+resource is the only public address; workloads of one Environment share a
+hostname by path (EP-07). `service.publicRoutes`, the platform route manager and
+its backend flags, template-generated routes, `publicRoutesPending`, Application
+subdomains and the "https" diagnostics are removed. Schema 10 replaces the
+endpoint ledger and drops the retired columns. The Console create form takes a
+name only, the Application page lists actual endpoint URLs, the workload form
+keeps endpoints private with a Service-port choice. Focused backend, PostgreSQL,
+frontend and bootstrap checks pass; known pre-existing failures remain. No live
+run; the retained `application-fleet-live` stack still runs schema 9 images.
+
+## Public endpoint resource — 2026-11-05
+
+`main` implements [EP-01–06](architecture/contracts/endpoint.md): built-in
+`endpoint` driver, Console Definition form and Preview address, schema-9
+hostname ledger with atomic reservation and post-acknowledgement release, and a
+workload-owned HTTPRoute delivered through Fleet. Bootstrap ships the endpoint
+Type/Definition and the sample frontend uses it. Live acceptance passed on dev
+kind (publish, rename, restore on a real Tailscale domain) after an in-place
+v8 → v9 upgrade of `application-fleet-live`. HTTPS and company staging are not
+verified. [Results and limits](verification/2026-11-05-endpoint-domain.md).
 
 ## One Fleet GitRepo per Application — 2026-11-05
 
@@ -1998,3 +2151,29 @@ reachable by real Tailscale DNS in Playwright and from Windows (HTTP 200).
 See [HTTPRoute domain verification](verification/2026-11-05-httproute-domain.md).
 A dedicated authorized dev Traefik/Gateway and test frontend remain for review;
 this is HTTP-only and does not establish company staging/HTTPS readiness.
+
+HostPath extension WC-21 (2026-11-06) uses the same `PodVolume`/`ContainerVolumeFields` / `VolumeSourceFields`
+flow: node path/type, per-container read mode/subPath, host-path-volumes-v1 source
+admission, standard execution template, invariant guards and safe Preview.
+Coverage: environment hostPath validation/clone, workloadconfig round-trip, planner
+capability admission, templatedriver multi-controller/source/mode invariants,
+deploymentreview projection, WorkloadRuntimeIntent UI and workload-runtime-form E2E.
+See [generic contract](architecture/contracts/generic-workload.md) and the runtime verification record. Kubernetes execution remains unverified.
+
+WC-22 — Container volume/file authoring (2026-11-06): WorkloadEditorPage now
+places ContainerVolumeFields in every app/init/sidecar card. Add volume or file
+creates/attaches a source atomically or reuses an existing source; VolumeSourceFields
+provides shared source settings. ExecutionFields owns runtime/schedule/preset
+inputs only. The four global storage/source/mount/Secret sections are removed.
+Mount paths/modes survive inline PVC/Secret creation; orphan targets are visible
+for explicit repair. API/JSON/backend contracts and runtime guards are unchanged.
+See WC-22 and [verification](verification/2026-11-06-container-volume-ui.md) for checks and UI evidence.
+
+WC-23 — Reuse-first volume picker (2026-11-06): ContainerVolumeFields initially
+shows searchable/filterable sources with type and known mount users. It includes
+current-workload named sources, local storage dependencies, eligible shared PVC
+resources from the current app/environment and configured Secrets. New source
+creation is explicit. WorkloadEditorPage reuses shared PVC identity/typed params
+with a collision-free alias and existing reuse guards, adding dependency + mount
+atomically. Other workloads' Pod-local sources are excluded. No API/backend/schema
+change. [Verification](verification/2026-11-06-reuse-first-volumes.md) records checks and real reuse/Preview.

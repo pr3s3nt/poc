@@ -12,16 +12,29 @@ import (
 )
 
 // WorkloadExecution is the versioned platform extension carried by desired and
-// applied workload snapshots. It never contains secret bytes or host paths.
+// applied workload snapshots. It never contains secret bytes; hostPath sources retain node path metadata only.
 type WorkloadExecution struct {
-	Version     int            `json:"version"`
-	Kind        string         `json:"kind"`
-	Template    TemplatePin    `json:"template"`
-	Schedule    *Schedule      `json:"schedule,omitempty"`
-	SecretFiles []SecretFile   `json:"secretFiles,omitempty"`
-	Mounts      []StorageMount `json:"mounts,omitempty"`
-	Inputs      map[string]any `json:"inputs,omitempty"`
-	Headless    bool           `json:"headless,omitempty"`
+	ServiceEnabled               *bool                     `json:"serviceEnabled,omitempty"`
+	TemplateDefaults             *TemplateDefaultsSnapshot `json:"templateDefaults,omitempty"`
+	PodSecurityContext           *PodSecurityContext       `json:"podSecurityContext,omitempty"`
+	AutomountServiceAccountToken *bool                     `json:"automountServiceAccountToken,omitempty"`
+	ServiceAccountName           string                    `json:"serviceAccountName,omitempty"`
+	UpdateStrategy               *UpdateStrategy           `json:"updateStrategy,omitempty"`
+	RevisionHistoryLimit         *int32                    `json:"revisionHistoryLimit,omitempty"`
+	PodDisruptionBudget          *PodDisruptionBudget      `json:"podDisruptionBudget,omitempty"`
+	VolumeClaimTemplates         []ClaimTemplate           `json:"volumeClaimTemplates,omitempty"`
+	ClaimMounts                  []ClaimMount              `json:"claimMounts,omitempty"`
+	ClaimRetention               *ClaimRetention           `json:"persistentVolumeClaimRetentionPolicy,omitempty"`
+	Volumes                      []PodVolume               `json:"volumes,omitempty"`
+	VolumeMounts                 []VolumeMount             `json:"volumeMounts,omitempty"`
+	Version                      int                       `json:"version"`
+	Kind                         string                    `json:"kind"`
+	Template                     TemplatePin               `json:"template,omitzero"`
+	Schedule                     *Schedule                 `json:"schedule,omitempty"`
+	SecretFiles                  []SecretFile              `json:"secretFiles,omitempty"`
+	Mounts                       []StorageMount            `json:"mounts,omitempty"`
+	Inputs                       map[string]any            `json:"inputs,omitempty"`
+	Headless                     bool                      `json:"headless,omitempty"`
 }
 
 type TemplatePin struct {
@@ -31,15 +44,15 @@ type TemplatePin struct {
 }
 
 type Schedule struct {
-	Expression                 string `json:"expression"`
-	TimeZone                   string `json:"timeZone"`
-	Suspend                    bool   `json:"suspend"`
-	ConcurrencyPolicy          string `json:"concurrencyPolicy"`
-	StartingDeadlineSeconds    *int64 `json:"startingDeadlineSeconds,omitempty"`
-	ActiveDeadlineSeconds      *int64 `json:"activeDeadlineSeconds,omitempty"`
-	BackoffLimit               *int32 `json:"backoffLimit,omitempty"`
-	SuccessfulJobsHistoryLimit *int32 `json:"successfulJobsHistoryLimit,omitempty"`
-	FailedJobsHistoryLimit     *int32 `json:"failedJobsHistoryLimit,omitempty"`
+	Expression                 string `json:"expression" yaml:"expression"`
+	TimeZone                   string `json:"timeZone,omitempty" yaml:"timeZone,omitempty"`
+	Suspend                    bool   `json:"suspend" yaml:"suspend"`
+	ConcurrencyPolicy          string `json:"concurrencyPolicy,omitempty" yaml:"concurrencyPolicy,omitempty"`
+	StartingDeadlineSeconds    *int64 `json:"startingDeadlineSeconds,omitempty" yaml:"startingDeadlineSeconds,omitempty"`
+	ActiveDeadlineSeconds      *int64 `json:"activeDeadlineSeconds,omitempty" yaml:"activeDeadlineSeconds,omitempty"`
+	BackoffLimit               *int32 `json:"backoffLimit,omitempty" yaml:"backoffLimit,omitempty"`
+	SuccessfulJobsHistoryLimit *int32 `json:"successfulJobsHistoryLimit,omitempty" yaml:"successfulJobsHistoryLimit,omitempty"`
+	FailedJobsHistoryLimit     *int32 `json:"failedJobsHistoryLimit,omitempty" yaml:"failedJobsHistoryLimit,omitempty"`
 }
 
 // Resource is a desired resource alias, not a PVC name. Planning resolves it
@@ -48,10 +61,11 @@ type SecretFile struct {
 	Ref       string `json:"ref"`
 	Container string `json:"container"`
 	Path      string `json:"path"`
-	Mode      int    `json:"mode"`
+	Mode      int    `json:"mode,omitempty"`
 }
 
 type StorageMount struct {
+	SubPath   string `json:"subPath,omitempty"`
 	Resource  string `json:"resource"`
 	Container string `json:"container"`
 	Path      string `json:"path"`
@@ -70,10 +84,19 @@ var sha256ID = regexp.MustCompile(`^[0-9a-f]{64}$`)
 // Validate checks the execution policy without I/O. Cron syntax is validated by
 // the numeric five-field grammar below before admission, plus the timezone.
 func (e *WorkloadExecution) Validate(containers map[string]Container, replicas int, hasPorts bool, resources map[string]bool) error {
+	return e.validate(containers, replicas, hasPorts, resources, false)
+}
+func (e *WorkloadExecution) ValidateResolved(containers map[string]Container, replicas int, hasPorts bool, resources map[string]bool) error {
+	return e.validate(containers, replicas, hasPorts, resources, true)
+}
+func (e *WorkloadExecution) validate(containers map[string]Container, replicas int, hasPorts bool, resources map[string]bool, resolved bool) error {
+	if err := e.validateRuntime(containers, replicas, resolved); err != nil {
+		return err
+	}
 	if e == nil {
 		return nil
 	}
-	if e.Version != 1 || !templateID.MatchString(e.Template.ID) || !versionID.MatchString(e.Template.Version) || !sha256ID.MatchString(e.Template.SHA256) {
+	if e.Version != 1 || (e.HasTemplate() && (!templateID.MatchString(e.Template.ID) || !versionID.MatchString(e.Template.Version) || !sha256ID.MatchString(e.Template.SHA256))) || (!e.HasTemplate() && len(e.Inputs) > 0) {
 		return ErrExecution
 	}
 	switch e.Kind {
@@ -89,10 +112,13 @@ func (e *WorkloadExecution) Validate(containers map[string]Container, replicas i
 		if e.Schedule == nil || hasPorts || replicas > 1 {
 			return ErrExecution
 		}
-		if err := e.Schedule.Validate(); err != nil {
+		if err := e.Schedule.validate(!resolved && e.HasTemplate()); err != nil {
 			return err
 		}
 	default:
+		return ErrExecution
+	}
+	if e.ServiceEnabled != nil && *e.ServiceEnabled && !hasPorts && (!e.HasTemplate() || e.TemplateDefaults == nil) {
 		return ErrExecution
 	}
 	if e.Headless && !hasPorts {
@@ -122,7 +148,7 @@ func (e *WorkloadExecution) Validate(containers map[string]Container, replicas i
 		if _, ok := containers[file.Container]; !ok {
 			return ErrExecution
 		}
-		if file.Mode != 0400 && file.Mode != 0440 {
+		if file.Mode != 0 && file.Mode != 0400 && file.Mode != 0440 {
 			return ErrExecution
 		}
 		if !strings.HasPrefix(file.Path, "/") || file.Path == "/" || path.Clean(file.Path) != file.Path || strings.ContainsAny(file.Path, "\x00\r\n") {
@@ -143,22 +169,29 @@ func (e *WorkloadExecution) Validate(containers map[string]Container, replicas i
 			return ErrExecution
 		}
 	}
-	return nil
+	return e.validateVolumes(containers)
 }
 
-func (s Schedule) Validate() error {
-	if !validCron(s.Expression) || len(s.Expression) > 256 || s.TimeZone == "" || strings.ContainsAny(s.Expression, "\r\n") {
+func (s Schedule) Validate() error { return s.validate(false) }
+func (s Schedule) validate(partial bool) error {
+	if !validCron(s.Expression) || len(s.Expression) > 256 || (!partial && s.TimeZone == "") || strings.ContainsAny(s.Expression, "\r\n") {
 		return ErrExecution
 	}
 	// Local depends on the host; published policies must identify a real timezone.
 	if s.TimeZone == "Local" {
 		return ErrExecution
 	}
-	if _, err := time.LoadLocation(s.TimeZone); err != nil {
-		return ErrExecution
+	if s.TimeZone != "" {
+		if _, err := time.LoadLocation(s.TimeZone); err != nil {
+			return ErrExecution
+		}
 	}
 	switch s.ConcurrencyPolicy {
 	case "Allow", "Forbid", "Replace":
+	case "":
+		if !partial {
+			return ErrExecution
+		}
 	default:
 		return ErrExecution
 	}
@@ -174,37 +207,9 @@ func (e *WorkloadExecution) Clone() *WorkloadExecution {
 	if e == nil {
 		return nil
 	}
-	out := *e
-	if e.Inputs != nil {
-		b, _ := json.Marshal(e.Inputs)
-		out.Inputs = nil
-		_ = json.Unmarshal(b, &out.Inputs)
-	}
-	out.SecretFiles = append([]SecretFile(nil), e.SecretFiles...)
-	out.Mounts = append([]StorageMount(nil), e.Mounts...)
-	if e.Schedule != nil {
-		schedule := *e.Schedule
-		copyInt64 := func(p *int64) *int64 {
-			if p == nil {
-				return nil
-			}
-			v := *p
-			return &v
-		}
-		copyInt32 := func(p *int32) *int32 {
-			if p == nil {
-				return nil
-			}
-			v := *p
-			return &v
-		}
-		schedule.StartingDeadlineSeconds = copyInt64(schedule.StartingDeadlineSeconds)
-		schedule.ActiveDeadlineSeconds = copyInt64(schedule.ActiveDeadlineSeconds)
-		schedule.BackoffLimit = copyInt32(schedule.BackoffLimit)
-		schedule.SuccessfulJobsHistoryLimit = copyInt32(schedule.SuccessfulJobsHistoryLimit)
-		schedule.FailedJobsHistoryLimit = copyInt32(schedule.FailedJobsHistoryLimit)
-		out.Schedule = &schedule
-	}
+	raw, _ := json.Marshal(e)
+	var out WorkloadExecution
+	_ = json.Unmarshal(raw, &out)
 	return &out
 }
 

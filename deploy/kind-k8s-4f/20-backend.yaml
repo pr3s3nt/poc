@@ -1,0 +1,115 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: orchestrator-dev-3070
+  labels:
+    app.kubernetes.io/part-of: orchestrator-dev-3070
+    app.kubernetes.io/managed-by: poc-local-installer
+spec:
+  selector:
+    app: backend
+  ports:
+  - port: 8080
+    targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: orchestrator-dev-3070
+  labels:
+    app.kubernetes.io/part-of: orchestrator-dev-3070
+    app.kubernetes.io/managed-by: poc-local-installer
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+        app.kubernetes.io/part-of: orchestrator-dev-3070
+        app.kubernetes.io/managed-by: poc-local-installer
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: backend
+        image: orchestrator-backend:IMAGE_TAG
+        imagePullPolicy: Never
+        env:
+        - name: ORCHESTRATOR_LISTEN_ADDR
+          value: 0.0.0.0:8080
+        - name: ORCHESTRATOR_ADAPTERS
+          value: kubernetes
+        - name: ORCHESTRATOR_DATABASE_URL_FILE
+          value: /run/runtime/console-database-url
+        - name: ORCHESTRATOR_TERRAFORM_STATE_DATABASE_URL_FILE
+          value: /run/runtime/state-database-url
+        - name: ORCHESTRATOR_TERRAFORM_STATE_KEY_FILE
+          value: /run/state-key/key
+        - name: ORCHESTRATOR_TERRAFORM_STATE_KEY_ID
+          value: dev-3070-key-1
+        - name: ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE
+          value: vault
+        - name: ORCHESTRATOR_CONNECTION_VAULT_ADDR
+          value: http://vault:8200
+        - name: ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE
+          value: /run/connection-token/token
+        - name: ORCHESTRATOR_OUTPUT_SECRET_STORE
+          value: vault
+        - name: ORCHESTRATOR_OUTPUT_SECRET_VAULT_ADDR
+          value: http://vault:8200
+        - name: ORCHESTRATOR_OUTPUT_SECRET_VAULT_TOKEN_FILE
+          value: /run/output-token/token
+        - name: ORCHESTRATOR_TERRAFORM_RECOVERY_DIR
+          value: /var/lib/orchestrator/recovery
+        - name: ORCHESTRATOR_TERRAFORM_MODULE_CACHE_DIR
+          value: /var/lib/orchestrator/module-cache
+        - name: ORCHESTRATOR_TEMPLATE_SOURCE_CACHE_DIR
+          value: /var/lib/orchestrator/template-source-cache
+        - name: ORCHESTRATOR_DELIVERY_GIT_ROOT
+          value: /var/lib/orchestrator/delivery-git
+        volumeMounts:
+        - name: storage
+          mountPath: /run/runtime
+          subPath: runtime
+          readOnly: true
+        - name: storage
+          mountPath: /run/state-key
+          subPath: state-key
+          readOnly: true
+        - name: storage
+          mountPath: /run/connection-token
+          subPath: connection-token
+          readOnly: true
+        - name: storage
+          mountPath: /run/output-token
+          subPath: output-token
+          readOnly: true
+        - name: storage
+          mountPath: /var/lib/orchestrator
+          subPath: backend-data
+          readOnly: false
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -ec
+            - wget -q -O /dev/null http://127.0.0.1:8080/api/v1/healthz
+          periodSeconds: 5
+          timeoutSeconds: 4
+          failureThreshold: 24
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 2Gi
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: platform-storage

@@ -3,7 +3,7 @@ id: IMPLEMENTATION-EXTERNAL-OBSERVABILITY-S1
 artifact: implementation-handoff
 status: draft
 last_reviewed: 2026-11-06
-related: [ADR-037, UC-04, UC-09]
+related: [ADR-040, UC-04, UC-09]
 ---
 
 # Issue #35 Slice 1 — work in progress
@@ -17,12 +17,12 @@ production notification channel is included.
 
 Canonical ADR/specification/contract/UI-state/sequence and schema/ERD extensions;
 new bounded Prometheus reads/query/rule generation; physical target inspection;
-PostgreSQL connection/binding repository and immutable schema 9 upgrade; PE
+PostgreSQL connection/binding repository and immutable schema 11 upgrade; PE
 connection/test and Environment-binding APIs; preliminary Console forms and scoped
 metrics/alerts; delivery rule hook and scoped Fleet PrometheusRule support.
 These remain under review and are not all running in the isolated runtime yet.
 
-Schema 8 files were preserved. A disposable PostgreSQL test passed populated
+Before main integration, schema 8 files were preserved and a disposable PostgreSQL test passed populated
 8 -> 9 installation/app identity preservation, repeated setup, rollback and runtime
 privilege checks. More repository/security/target/lifecycle tests and retained state
 coverage are required before release. No retained product database was upgraded.
@@ -97,3 +97,60 @@ the earlier successful upgrade/rollback checks above remain the recorded evidenc
 Original staged files `INDEX.md`,
 `backlog/observability-integration-design.md`, `usecase/UC-09/README.md` remain
 user-owned and must not be staged/committed with this task without authorization.
+
+
+## Main integration — 2026-11-06
+
+Merged `origin/main` at `b2d605f9` into `features/loggingandmonitoring` at the
+user's request. This integrates endpoint delivery, retired public routes,
+readable IDP names, template-owned workload defaults and the updated agent workflow.
+It does not complete Slice 1 or authorize deployment of this branch.
+
+Main already released schema 9 (endpoint reservations) and 10 (route retirement).
+Their migrations and frozen references are preserved byte-for-byte. The WIP
+monitoring migration moves from 9 to 11, with a complete schema-11 reference,
+owner upgrade from released schema 10, and current version/history checks.
+External observability is now ADR-040; ADR-037/038/039 retain main's decisions.
+Both translation sets and both sides of the schema/ERD were retained.
+
+The retained isolated `observability-s1-live` database used the earlier WIP
+monitoring-only schema 9. It is **not** main's released schema 9 and is not an
+accepted source for the new upgrade chain. Preserve its volumes and receipts;
+do not restart it on the merged binary, reset it or rewrite its marker/checksums.
+A separately reviewed compatibility migration is required before reusing that
+retained database. No retained database or cluster was changed by this merge.
+
+Slice 1 still needs pre-deploy/new-workload binding, configuration lifecycle and
+removal UI, source coverage/scoped Grafana mapping, deployed rules and the real
+firing/notification/recovery/isolation/cleanup gates listed above. The DNS blocker
+is historical checkpoint evidence and was not rechecked in this merge task.
+
+
+Validation for main integration:
+
+- Go 1.25.14 from the existing Go image: product `go build ./...` passed;
+  complete observability application, delivery application, Fleet and Prometheus
+  package tests passed, plus focused HTTP/Kubernetes monitoring checks.
+- Disposable PostgreSQL 17 (`max_locks_per_transaction=256`): fresh setup/reopen,
+  active/frozen schema equivalence, populated 8 -> 11 and 10 -> 11, repeated setup,
+  migration rollback, runtime privilege checks, populated endpoint 9 -> 11 and
+  generic-workload identity/grant preservation passed. All eight retained-state
+  and runtime-isolation upgrade cases passed after updating their disposable
+  historical-schema fixture to remove the two new monitoring tables.
+- Frontend typecheck/lint/build passed (one existing effect-ref lint warning and
+  the large-chunk build warning). Five focused files: 70 passed, one failed.
+  `App.test.tsx`'s workload resource-type deep-link assertion fails identically
+  on unmodified main `b2d605f9`; its implementation was not changed by this merge.
+- `TestBaselineEnforcesCurrentConstraints` still inserts the retired `subdomain`
+  column and fails identically on unmodified main. The initial combined
+  PostgreSQL selection also exceeded its 180-second budget; focused integration
+  groups were rerun independently with appropriate bounded timeouts. All 11
+  supported populated-source cases then passed (175.50s), including concurrent
+  owner setup, repeated execution and retained application/session data. Do not
+  describe the overall test suite as green.
+- Documentation checker, migration immutability guard against `origin/main`,
+  merged translation-preservation checks, shell/runner syntax and diff checks
+  passed. ERD PNG was regenerated from the merged source with the available
+  PlantUML container; changed ERD/sequence syntax checks passed separately.
+- No full product suite, browser acceptance, cluster deployment, DNS repair,
+  failure injection or notification send was performed for this merge.

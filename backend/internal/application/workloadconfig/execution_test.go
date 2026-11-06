@@ -1,6 +1,7 @@
 package workloadconfig
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"strings"
@@ -80,5 +81,44 @@ func TestExecutionMountAliasSurvivesSharedResourceRoundTrip(t *testing.T) {
 	}
 	if parsed.Execution.Mounts[0].Resource != "photos" {
 		t.Fatalf("alias lost: %v", parsed.Execution.Mounts)
+	}
+}
+
+func TestCustomVolumeAndLifecycleSaveImportAndAppliedRoundTrip(t *testing.T) {
+	svc, _ := testWorkloadService(t)
+	raw := testWorkload("api", nil, nil)
+	raw["containers"] = map[string]any{"main": map[string]any{"image": "app:1"}, "prepare": map[string]any{"image": "init:1", "role": "init", "initOrder": 2}, "agent": map[string]any{"image": "agent:1", "role": "sidecar", "initOrder": 1}}
+	raw["workloadExecution"] = map[string]any{"version": 1, "kind": "Deployment", "volumes": []any{map[string]any{"name": "shared", "emptyDir": map[string]any{"medium": "Memory", "sizeLimit": "128Mi"}}, map[string]any{"name": "config", "configMap": map[string]any{"files": []any{map[string]any{"name": "app.conf", "value": "line one\n${LITERAL}"}}}}}, "volumeMounts": []any{map[string]any{"volume": "shared", "container": "prepare", "path": "/shared", "readOnly": false}, map[string]any{"volume": "config", "container": "agent", "path": "/config/app.conf", "readOnly": true, "subPath": "app.conf"}}}
+	executionIntent := raw["workloadExecution"].(map[string]any)
+	executionIntent["volumes"] = append(executionIntent["volumes"].([]any), map[string]any{"name": "node-data", "hostPath": map[string]any{"path": "/var/local/app", "type": "Directory"}})
+	for _, name := range []string{"main", "prepare", "agent"} {
+		executionIntent["volumeMounts"] = append(executionIntent["volumeMounts"].([]any), map[string]any{"volume": "node-data", "container": name, "path": "/node", "readOnly": name != "main"})
+	}
+	if _, err := svc.Save(context.Background(), "app", "staging", "api", raw, 0); err != nil {
+		t.Fatal(err)
+	}
+	view, err := svc.List(context.Background(), "app", "staging")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := workloadspec.FromMap(view.Workloads[0].Workload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fragment, err := doc.Fragment(map[string]resource.Type{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := environment.Document{Modules: map[string]environment.Module{"api": fragment.Module}}
+	restored, err := ReconstructWorkload("api", fragment.Module, set)
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := workloadspec.FromMap(restored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(again.Execution, doc.Execution) || !reflect.DeepEqual(again.Containers, doc.Containers) {
+		t.Fatalf("round-trip changed runtime intent")
 	}
 }

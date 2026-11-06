@@ -13,17 +13,12 @@ import (
 
 // TestOpenObjectLifecycleOnKind exercises ADR-024 against a real cluster:
 // discovery and ownership checks before apply, Job-then-rollout readiness,
-// inventory removal by UID and the Gateway API public route. It runs only
-// with ORCHESTRATOR_KIND_KUBECONFIG naming a disposable cluster that serves
-// Gateway API and has a Gateway ORCHESTRATOR_KIND_GATEWAY (namespace/name).
+// and inventory removal by UID. It runs only with ORCHESTRATOR_KIND_KUBECONFIG
+// naming a disposable cluster.
 func TestOpenObjectLifecycleOnKind(t *testing.T) {
 	kubeconfig := os.Getenv("ORCHESTRATOR_KIND_KUBECONFIG")
 	if kubeconfig == "" {
 		t.Skip("ORCHESTRATOR_KIND_KUBECONFIG is not set")
-	}
-	gateway, err := ParseGatewayRef(os.Getenv("ORCHESTRATOR_KIND_GATEWAY"))
-	if err != nil {
-		t.Fatal(err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
 	defer cancel()
@@ -95,29 +90,6 @@ func TestOpenObjectLifecycleOnKind(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	routes := &PublicRoutes{KubectlPath: "kubectl", Kind: RouteKindHTTPRoute, Gateway: gateway}
-	route := execution.PublicRoute{ApplicationID: "shop", EnvironmentID: "staging", Host: "staging.shop.kind.test", Paths: []execution.PublicPath{{Path: "/", WorkloadID: "web", PortName: "http", Port: 80}}}
-	if err := routes.Reconcile(ctx, target, route); err != nil {
-		t.Fatal(err)
-	}
-	accepted := false
-	for deadline := time.Now().Add(90 * time.Second); time.Now().Before(deadline) && !accepted; time.Sleep(2 * time.Second) {
-		object, found, err := cli.Get(ctx, namespace, httpRouteObject.resource, publicRouteName)
-		if err != nil || !found {
-			continue
-		}
-		status, _ := object["status"].(map[string]any)
-		for _, parent := range asList(status["parents"]) {
-			for _, condition := range asList(parent.(map[string]any)["conditions"]) {
-				c := condition.(map[string]any)
-				accepted = accepted || (c["type"] == "Accepted" && c["status"] == "True")
-			}
-		}
-	}
-	if !accepted {
-		t.Fatal("the Gateway did not accept the platform HTTPRoute")
-	}
-
 	// Inventory removal: ownership + UID, every object gone; the foreign object stays.
 	var refs []execution.ObjectRef
 	for _, m := range manifests {
@@ -137,12 +109,6 @@ func TestOpenObjectLifecycleOnKind(t *testing.T) {
 	}
 	if _, found, err := cli.Get(ctx, namespace, "configmap", "foreign"); err != nil || !found {
 		t.Fatalf("foreign object must stay: %v", err)
-	}
-	if err := routes.Reconcile(ctx, target, execution.PublicRoute{ApplicationID: "shop", EnvironmentID: "staging", Host: route.Host}); err != nil {
-		t.Fatal(err)
-	}
-	if _, found, err := cli.Get(ctx, namespace, httpRouteObject.resource, publicRouteName); err != nil || found {
-		t.Fatalf("an empty route set removes the HTTPRoute: %v", err)
 	}
 }
 

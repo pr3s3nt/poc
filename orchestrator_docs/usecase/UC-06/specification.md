@@ -129,17 +129,10 @@ Triển khai Score workload qua matched Definition và references, chuẩn bị 
   Trước khi chuyển sang `PROVISIONING`, Snapshot bất biến phải được lưu và gắn
   vào Deployment. Mọi trạng thái `PROVISIONING`, `DEPLOYING`, `SUCCEEDED` phải
   có Snapshot; một association đã thiết lập không được xóa hoặc đổi.
-  Host staging là
-  `staging.<subdomain>.<base-domain>`, production là
-  `<subdomain>.<base-domain>`. Route không được coi là truy cập được từ bên ngoài cho tới khi DNS và
-  đường vào Ingress Controller được cấu hình; TLS/cloud ingress nằm ngoài MVP.
-  `service.publicRoutes` là extension của orchestrator trên Score subset hiện tại,
-  không phải khẳng định field chuẩn của Score. `service.publicPort` không được nhận
-  ở Score hoặc public Deployment Set projection, không rewrite hay fallback sang route `/`.
-- **BR-15:** Nếu workload trong batch đã apply nhưng route reconcile lỗi,
-  Environment giữ trạng thái `publicRoutesPending`. Preview kế tiếp cho phép
-  retry riêng route từ current Deployment Set, không redeploy/restart workload;
-  chỉ xóa trạng thái pending sau khi route được quan sát thành công.
+  Địa chỉ public chỉ đến từ endpoint resource ([EP-01–07](../../architecture/contracts/endpoint.md));
+  `service.publicRoutes` và `service.publicPort` bị từ chối ([ADR-037](../../architecture/decisions/ADR-037-retire-public-routes.md)).
+- **BR-15:** Retired by [ADR-037](../../architecture/decisions/ADR-037-retire-public-routes.md): không còn route reconcile riêng, `publicRoutesPending`
+  hay retry route; HTTPRoute của endpoint đi cùng manifest workload.
 
 ## Luồng nội bộ
 
@@ -371,9 +364,8 @@ in PRE-02, MS-05, VAR-01, POST-02/03 and BR-03 as V05 is implemented.
   before rollout objects are applied; rollout status covers every Deployment,
   StatefulSet and DaemonSet. The applied object inventory is persisted and
   objects dropped by a successful update are deleted by UID.
-- **RB-07:** Public routes use the configured kind: Ingress (default) or a
-  platform-owned Gateway API HTTPRoute attached to the configured Gateway, with
-  the configured base domain.
+- **RB-07:** Retired by [ADR-037](../../architecture/decisions/ADR-037-retire-public-routes.md): no platform route manager, route kind,
+  base domain or `orch-public` object; endpoint HTTPRoutes are workload objects.
 
 Exact stages and validation: [Git contract](../../architecture/contracts/git-render-bundles.md).
 
@@ -410,8 +402,8 @@ availability is recorded in CURRENT_STATE.
 - **CD-06:** Direct ↔ Fleet changes on an occupied Environment execute the
   explicit CDR-07 transition. Preserve data/target identity and Job completion;
   prove release before adoption, retain checkpoints/hold on unknown outcomes.
-- **CD-07:** Public routes use the selected delivery manager and independent
-  revision receipt, preserving route-only retry and the complete Candidate Set.
+- **CD-07:** Retired by [ADR-037](../../architecture/decisions/ADR-037-retire-public-routes.md): no `_routes` delivery unit is produced; phase
+  `ROUTE` remains readable only for historical receipts.
 
 
 ## Catalog release extension — ADR-031
@@ -429,6 +421,10 @@ artifacts and explicit data-migration blockers. Partial execution preserves actu
 per-resource evidence; changing a Definition does not silently upgrade this scope.
 
 - **CD-08:** New managed application delivery uses one application-scoped Fleet GitRepo for both Environments per [ADR-036](../../architecture/decisions/ADR-036-application-fleet-gitrepo.md). Publishing one unit preserves every other admitted tree; readiness validates its exact tree and Bundle even after the shared commit advances.
+- **CD-09:** New IDP-named Applications use `idp-<org>-<app>-deploy-<random6>` for both
+  the allocated Git repository and its Fleet GitRepo, per
+  [ADR-038](../../architecture/decisions/ADR-038-readable-idp-names.md). Existing
+  allocations/controller names and original ownership guards remain unchanged.
 
 ## Public endpoint resource
 

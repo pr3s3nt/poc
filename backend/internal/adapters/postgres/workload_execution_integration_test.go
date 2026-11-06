@@ -46,3 +46,39 @@ func TestWorkloadExecutionJSONBSurvivesRuntimeReopen(t *testing.T) {
 		t.Fatalf("execution lost across runtime reopen: %#v", got.Document.Modules["backup"].Spec.Execution)
 	}
 }
+
+func TestWorkloadTemplateDefaultsAndFalseZeroSurviveJSONBReopen(t *testing.T) {
+	ctx := context.Background()
+	st, url := openFresh(t)
+	opts := seed.Defaults()
+	opts.EnvironmentKey = "staging"
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
+		t.Fatal(err)
+	}
+	env, err := st.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zero := int32(0)
+	no := false
+	policy := &environment.WorkloadExecution{Version: 1, Kind: "Deployment", Template: environment.TemplatePin{ID: "example", Version: "1.0.0", SHA256: strings.Repeat("a", 64)}, TemplateDefaults: &environment.TemplateDefaultsSnapshot{Environment: "staging", Profile: &environment.RuntimeDefaults{Resources: &environment.ContainerResourceRequirements{Requests: &environment.ComputeResources{CPU: "357m"}}}}, AutomountServiceAccountToken: &no, RevisionHistoryLimit: &zero, PodDisruptionBudget: &environment.PodDisruptionBudget{Enabled: false}}
+	doc := environment.NewDocument()
+	doc.Modules["web"] = environment.Module{Profile: environment.ModuleProfile, Spec: environment.ModuleSpec{Execution: policy, Containers: map[string]environment.Container{"main": {Image: "example:v1", SecurityContext: &environment.ContainerSecurityContext{RunAsNonRoot: &no}}}}}
+	set := environment.DeploymentSet{ID: ids.New(), EnvironmentID: env.ID, EnvironmentKey: opts.ApplicationKey + "/staging", Document: doc, DocumentHash: "defaults-snapshot", CreatedAt: time.Now().UTC()}
+	if err := st.SaveDeploymentSet(ctx, set); err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+	again, err := Open(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer again.Close()
+	got, err := again.GetDeploymentSet(ctx, set.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got.Document, doc) {
+		t.Fatal("policy/false/zero changed across JSONB and runtime reopen")
+	}
+}

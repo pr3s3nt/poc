@@ -1,0 +1,15 @@
+# Keep this PVC: it holds PostgreSQL, Vault, credentials and caches.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: platform-storage
+  namespace: orchestrator-dev-3070
+  labels:
+    app.kubernetes.io/part-of: orchestrator-dev-3070
+    app.kubernetes.io/managed-by: poc-local-installer
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi

@@ -184,7 +184,7 @@ func (s *Store) SaveApplication(ctx context.Context, v application.Application) 
 	if err != nil {
 		return err
 	}
-	_, err = s.q(ctx).Exec(ctx, `INSERT INTO applications(id,application_key,organization_id,name,subdomain,version,status,deletion) SELECT $1::uuid,$2,o.id,$4,$5,$6,$7,$8::jsonb FROM organizations o WHERE o.organization_key=$3 ON CONFLICT(id) DO UPDATE SET application_key=EXCLUDED.application_key,name=EXCLUDED.name,subdomain=EXCLUDED.subdomain,version=EXCLUDED.version,status=EXCLUDED.status,deletion=EXCLUDED.deletion`, v.ID, v.Key, v.OrganizationKey, v.Name, v.Subdomain, v.Version, string(v.Lifecycle()), deletion)
+	_, err = s.q(ctx).Exec(ctx, `INSERT INTO applications(id,application_key,organization_id,name,version,status,deletion) SELECT $1::uuid,$2,o.id,$4,$5,$6,$7::jsonb FROM organizations o WHERE o.organization_key=$3 ON CONFLICT(id) DO UPDATE SET application_key=EXCLUDED.application_key,name=EXCLUDED.name,version=EXCLUDED.version,status=EXCLUDED.status,deletion=EXCLUDED.deletion`, v.ID, v.Key, v.OrganizationKey, v.Name, v.Version, string(v.Lifecycle()), deletion)
 	if err != nil {
 		return fmt.Errorf("postgres: save application: %w", translate(err))
 	}
@@ -196,14 +196,14 @@ func scanApp(row pgx.Row) (application.Application, error) {
 		status   string
 		deletion []byte
 	)
-	if err := row.Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Name, &v.Subdomain, &v.Version, &status, &deletion); err != nil {
+	if err := row.Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Name, &v.Version, &status, &deletion); err != nil {
 		return v, err
 	}
 	v.Status = application.LifecycleStatus(status)
 	return v, decodeDeletion(deletion, &v)
 }
 
-const appSelect = `SELECT a.id::text,a.application_key,o.organization_key,a.name,a.subdomain,a.version,a.status,a.deletion FROM applications a JOIN organizations o ON o.id=a.organization_id`
+const appSelect = `SELECT a.id::text,a.application_key,o.organization_key,a.name,a.version,a.status,a.deletion FROM applications a JOIN organizations o ON o.id=a.organization_id`
 
 func (s *Store) GetApplication(ctx context.Context, key string) (application.Application, error) {
 	v, err := scanApp(s.q(ctx).QueryRow(ctx, appSelect+` WHERE a.application_key=$1`, key))
@@ -249,7 +249,7 @@ func (s *Store) fencedSaveEnvironment(ctx context.Context, v environment.Environ
 	}
 	desired, _ := json.Marshal(v.DesiredDelivery.Effective())
 	applied, _ := json.Marshal(v.AppliedDelivery.Effective())
-	tag, err := s.q(ctx).Exec(ctx, `INSERT INTO environments(id,application_id,environment_key,name,environment_type,namespace_identity,current_deployment_set_id,version,draft_version,public_routes_pending,desired_delivery,applied_delivery) SELECT $1::uuid,a.id,$3,$4,$5,$6,NULLIF($7,'')::uuid,$8,$9,$10,$12,$13 FROM applications a WHERE a.application_key=$2 ON CONFLICT(application_id,environment_key) DO UPDATE SET name=EXCLUDED.name,environment_type=EXCLUDED.environment_type,namespace_identity=EXCLUDED.namespace_identity,current_deployment_set_id=EXCLUDED.current_deployment_set_id,version=EXCLUDED.version,draft_version=EXCLUDED.draft_version,public_routes_pending=EXCLUDED.public_routes_pending WHERE environments.active_operation_id IS NULL OR environments.active_operation_id=NULLIF($11,'')::uuid`, v.ID, v.ApplicationKey, v.Key, v.Name, v.Type, v.NamespaceIdentity, v.CurrentDeploymentSetID, v.Version, v.DraftVersion, v.PublicRoutesPending, persistence.OperationFrom(ctx), desired, applied)
+	tag, err := s.q(ctx).Exec(ctx, `INSERT INTO environments(id,application_id,environment_key,name,environment_type,namespace_identity,current_deployment_set_id,version,draft_version,desired_delivery,applied_delivery) SELECT $1::uuid,a.id,$3,$4,$5,$6,NULLIF($7,'')::uuid,$8,$9,$11,$12 FROM applications a WHERE a.application_key=$2 ON CONFLICT(application_id,environment_key) DO UPDATE SET name=EXCLUDED.name,environment_type=EXCLUDED.environment_type,namespace_identity=EXCLUDED.namespace_identity,current_deployment_set_id=EXCLUDED.current_deployment_set_id,version=EXCLUDED.version,draft_version=EXCLUDED.draft_version WHERE environments.active_operation_id IS NULL OR environments.active_operation_id=NULLIF($10,'')::uuid`, v.ID, v.ApplicationKey, v.Key, v.Name, v.Type, v.NamespaceIdentity, v.CurrentDeploymentSetID, v.Version, v.DraftVersion, persistence.OperationFrom(ctx), desired, applied)
 	if err != nil {
 		return fmt.Errorf("postgres: save environment: %w", translate(err))
 	}
@@ -259,12 +259,12 @@ func (s *Store) fencedSaveEnvironment(ctx context.Context, v environment.Environ
 	return nil
 }
 
-const envSelect = `SELECT e.id::text,e.environment_key,a.id::text,a.application_key,e.name,e.environment_type,e.namespace_identity,COALESCE(e.current_deployment_set_id::text,''),e.version,e.draft_version,e.public_routes_pending,e.infrastructure_scope,e.target_generation,COALESCE(ss.store_key,''),COALESCE(e.active_operation_id::text,''),e.desired_delivery,e.applied_delivery,e.delivery_config_revision,e.delivery_epoch FROM environments e JOIN applications a ON a.id=e.application_id LEFT JOIN secret_store_connections ss ON ss.id=e.secret_store_id`
+const envSelect = `SELECT e.id::text,e.environment_key,a.id::text,a.application_key,e.name,e.environment_type,e.namespace_identity,COALESCE(e.current_deployment_set_id::text,''),e.version,e.draft_version,e.infrastructure_scope,e.target_generation,COALESCE(ss.store_key,''),COALESCE(e.active_operation_id::text,''),e.desired_delivery,e.applied_delivery,e.delivery_config_revision,e.delivery_epoch FROM environments e JOIN applications a ON a.id=e.application_id LEFT JOIN secret_store_connections ss ON ss.id=e.secret_store_id`
 
 func scanEnv(row pgx.Row) (environment.Environment, error) {
 	var v environment.Environment
 	var desired, applied []byte
-	err := row.Scan(&v.ID, &v.Key, &v.ApplicationID, &v.ApplicationKey, &v.Name, &v.Type, &v.NamespaceIdentity, &v.CurrentDeploymentSetID, &v.Version, &v.DraftVersion, &v.PublicRoutesPending, &v.InfrastructureScope, &v.TargetGeneration, &v.SecretStoreKey, &v.ActiveOperationID, &desired, &applied, &v.DeliveryConfigRevision, &v.DeliveryEpoch)
+	err := row.Scan(&v.ID, &v.Key, &v.ApplicationID, &v.ApplicationKey, &v.Name, &v.Type, &v.NamespaceIdentity, &v.CurrentDeploymentSetID, &v.Version, &v.DraftVersion, &v.InfrastructureScope, &v.TargetGeneration, &v.SecretStoreKey, &v.ActiveOperationID, &desired, &applied, &v.DeliveryConfigRevision, &v.DeliveryEpoch)
 	if err == nil {
 		if json.Unmarshal(desired, &v.DesiredDelivery) != nil || json.Unmarshal(applied, &v.AppliedDelivery) != nil {
 			return v, delivery.ErrInvalid
@@ -344,25 +344,6 @@ AND e.version=$4 AND (e.active_operation_id IS NULL OR e.active_operation_id=NUL
 		return environment.Environment{}, fmt.Errorf("%w: secret store %q", persistence.ErrNotFound, sel.StoreKey)
 	}
 	return s.GetEnvironment(ctx, sel.ApplicationKey, sel.EnvironmentKey)
-}
-
-// SetPublicRoutesPending changes only the route flag.
-func (s *Store) SetPublicRoutesPending(ctx context.Context, app, key string, pending bool) error {
-	return s.fenced(ctx, func(ctx context.Context) error { return s.fencedSetPublicRoutesPending(ctx, app, key, pending) })
-}
-
-func (s *Store) fencedSetPublicRoutesPending(ctx context.Context, app, key string, pending bool) error {
-	tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET public_routes_pending=$3 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND (e.active_operation_id IS NULL OR e.active_operation_id=NULLIF($4,'')::uuid)`, app, key, pending, ownerArg(ctx))
-	if err != nil {
-		return translate(err)
-	}
-	if tag.RowsAffected() == 0 {
-		if err := s.classifyEnvWrite(ctx, app, key, 0, false); err != nil {
-			return err
-		}
-		return fmt.Errorf("%w: environment %s/%s", persistence.ErrNotFound, app, key)
-	}
-	return nil
 }
 
 func (s *Store) CompareVersionAndSetCurrent(ctx context.Context, app, key string, expected int64, setID string) error {

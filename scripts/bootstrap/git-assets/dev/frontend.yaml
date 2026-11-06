@@ -22,6 +22,12 @@ resources:
     type: service
   env:
     type: environment
+  public:
+    type: endpoint
+    params:
+      name: desktop-bdjp2rq-1
+      port: http
+      path: /
 service:
   ports:
     http:

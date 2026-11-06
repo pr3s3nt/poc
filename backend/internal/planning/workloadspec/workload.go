@@ -89,6 +89,9 @@ func parse(b []byte) (*Document, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := rejectPublicRoutes(b); err != nil {
+		return nil, err
+	}
 	dec := json.NewDecoder(strings.NewReader(string(b)))
 	dec.DisallowUnknownFields()
 	var doc Document
@@ -99,6 +102,9 @@ func parse(b []byte) (*Document, error) {
 		return nil, fmt.Errorf("workload: trailing input")
 	}
 	doc.replicaSet = replicaSet
+	if err := validateRuntimeFields(b); err != nil {
+		return nil, err
+	}
 	if err := validateContainerResources(b); err != nil {
 		return nil, err
 	}
@@ -240,6 +246,9 @@ func (d Document) Validate() error {
 	if d.Metadata.Name == "" {
 		return fmt.Errorf("workload: metadata.name is required")
 	}
+	if err := environment.ValidateContainerRoles(d.Containers); err != nil {
+		return err
+	}
 	if len(d.Containers) == 0 {
 		return fmt.Errorf("workload: workload %q declares no container", d.Metadata.Name)
 	}
@@ -249,12 +258,20 @@ func (d Document) Validate() error {
 	for _, name := range sortedKeys(d.Containers) {
 		seenPorts := map[string]bool{}
 		for _, port := range d.Containers[name].Ports {
-			if port.Name == "" || seenPorts[port.Name] || port.ContainerPort < 1 || port.ContainerPort > 65535 {
+			if port.Name == "" || seenPorts[port.Name] || (port.Protocol != "" && port.Protocol != "TCP" && port.Protocol != "UDP" && port.Protocol != "SCTP") || port.ContainerPort < 1 || port.ContainerPort > 65535 {
 				return fmt.Errorf("workload: invalid or duplicate container port")
 			}
 			seenPorts[port.Name] = true
 		}
-		if d.Containers[name].Image == "" {
+		for _, probe := range []struct {
+			value  *environment.Probe
+			single bool
+		}{{d.Containers[name].ReadinessProbe, false}, {d.Containers[name].LivenessProbe, true}, {d.Containers[name].StartupProbe, true}} {
+			if err := probe.value.Validate(probe.single); err != nil {
+				return err
+			}
+		}
+		if d.Containers[name].Image == "" && !(d.Execution.HasTemplate()) {
 			return fmt.Errorf("workload: container %q has no image", name)
 		}
 	}
@@ -271,8 +288,18 @@ func (d Document) Validate() error {
 	if replicas == 0 && !d.replicaSet {
 		replicas = 1
 	}
-	if err := d.Execution.Validate(d.Containers, replicas, d.Service != nil && len(d.Service.Ports) > 0, resources); err != nil {
+	effective, _ := (environment.ModuleSpec{Execution: d.Execution, Containers: d.Containers, Service: d.Service}).ResolveDefaults()
+	if err := effective.ValidateComputePolicy(); err != nil && !(d.Execution.HasTemplate()) {
 		return err
+	}
+	if d.Execution.HasTemplate() && d.Execution.Kind == "Deployment" && !d.replicaSet {
+		replicas = -1
+	}
+	if err := effective.Execution.Validate(effective.Containers, replicas, d.Service != nil && len(d.Service.Ports) > 0, resources); err != nil {
+		return err
+	}
+	if d.Execution != nil && d.Execution.ServiceEnabled != nil && !*d.Execution.ServiceEnabled && d.Service != nil && len(d.Service.Ports) > 0 {
+		return environment.ErrExecution
 	}
 	if d.Execution != nil {
 		for _, file := range d.Execution.SecretFiles {
@@ -282,16 +309,19 @@ func (d Document) Validate() error {
 			}
 		}
 	}
-	if d.Service != nil {
-		seen := map[string]bool{}
-		for _, route := range d.Service.PublicRoutes {
-			if !publicPathPattern.MatchString(route.Path) || seen[route.Path] {
-				return fmt.Errorf("workload: invalid or duplicate public path %q", route.Path)
-			}
-			seen[route.Path] = true
-			if _, ok := d.Service.Ports[route.Port]; !ok {
-				return fmt.Errorf("workload: public Service port %q is not declared", route.Port)
-			}
+	return nil
+}
+
+// rejectPublicRoutes refuses the retired service.publicRoutes of a new
+// Workload or draft (ADR-037); historical Deployment Sets are read elsewhere.
+func rejectPublicRoutes(b []byte) error {
+	var raw struct {
+		Service map[string]json.RawMessage `json:"service"`
+	}
+	if json.Unmarshal(b, &raw) == nil {
+		_, port := raw.Service["publicPort"]
+		if _, present := raw.Service["publicRoutes"]; present && !port {
+			return environment.ErrPublicRoutesRemoved // publicPort keeps its own error
 		}
 	}
 	return nil

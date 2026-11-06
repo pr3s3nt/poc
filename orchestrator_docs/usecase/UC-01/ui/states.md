@@ -9,7 +9,7 @@ last_reviewed: 2026-10-23
 
 | Screen | State | Behavior |
 |---|---|---|
-| Create | Loading/validation/submitting/error | Name/Subdomain only; retain input; no target request. |
+| Create | Loading/validation/submitting/error | Name only; retain input; no target request. |
 | Settings | Unconfigured/configured | Two editable scoped Connection selectors; explicit Save, no permanent lock/default auto-select. |
 | Choices | Loading/error/empty | Disable corresponding Save; retry or ask PE to register READY target. |
 | Save | Submitting/transfer | Disable duplicate action; show stage, scope and affected workloads without secret bytes. |
@@ -33,13 +33,13 @@ last_reviewed: 2026-10-23
 - Loading/error/empty/stale/copy failure/progress/confirmation và aria-label dùng
   tiếng Việt; IDs/enums/payload không dịch. VI-03 áp dụng contract lỗi T20.
 
-## T09 — Gợi ý subdomain và tạo ứng dụng
+## T09 — Tạo ứng dụng
 
-- Draft chưa sửa subdomain: thay tên cập nhật gợi ý; không gọi API.
-- Subdomain đã sửa: thay tên không ghi đè, kể cả khi subdomain bị xóa trống.
-- Empty/invalid: lỗi field tiếng Việt, không POST; preview giữ endpoint draft.
+Subdomain đã bỏ theo [ADR-037](../../../architecture/decisions/ADR-037-retire-public-routes.md).
+
+- Empty/invalid tên: lỗi field tiếng Việt, không POST.
 - Submitting: khóa form và chặn submit lặp; không tự chọn Connection/provider.
-- Duplicate name/subdomain: lỗi đúng field tiếng Việt, giữ nội dung để sửa/retry.
+- Duplicate name: lỗi đúng field tiếng Việt, giữ nội dung để sửa/retry.
 - Lỗi khác: fallback tiếng Việt an toàn, giữ form; retry chỉ khi người dùng submit.
 - Success: điều hướng ứng dụng mới ở staging; staging/production, IDs và payload
   giữ nguyên. Không hiển thị raw backend errors; mapping tổng thể theo contract lỗi T20.

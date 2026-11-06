@@ -7,9 +7,10 @@ Không copy địa chỉ/IP/credential hoặc commit demo của cá nhân sang c
 | Trường | Cần điền / ý nghĩa |
 |---|---|
 | `environment` | Danh tính target/state, ví dụ `company-staging`; đổi target phải dùng state khác |
-| `parameters.definitionPrefix`, `definitionName` | Prefix ID và tên hiển thị cho chín Definitions; chọn một lần rồi giữ nguyên |
-| `parameters.httprouteGatewayName`, `httprouteGatewayNamespace`, `httprouteGatewaySectionName` | Gateway/listener công ty có sẵn; section rỗng để bỏ sectionName, không tạo Gateway |
-| `parameters.httprouteHostname`, `httproutePath` | Hostname và PathPrefix web mới; frontend mẫu trỏ Service frontend:8080; verification.url phải dùng đúng scheme listener |
+| `parameters.definitionPrefix`, `definitionName` | Prefix ID và tên hiển thị cho mười Definitions; chọn một lần rồi giữ nguyên |
+| `parameters.httprouteGatewayName`, `httprouteGatewayNamespace`, `httprouteGatewaySectionName` | Gateway/listener công ty có sẵn, dùng chung cho endpoint Definition; section rỗng để bỏ sectionName, không tạo Gateway |
+| `parameters.endpointRootDomain`, `endpointScheme` | Domain gốc (miền con DNS riêng cho installation này) và giao thức của listener; hostname app = `<endpointName>.<endpointRootDomain>` |
+| `parameters.endpointName`, `endpointPath` | Nhãn DNS và PathPrefix của frontend mẫu; verification.url tự ghép từ nhóm endpoint |
 | `parameters.targetClass` | Class cluster/workload và resource references tương ứng |
 | `parameters.environmentType` | Loại Environment để matching; preset là `staging` |
 | `parameters.postgresImage`, `redisImage` | Image PostgreSQL/Redis từ registry công ty, dạng `registry:port/path@sha256:<64 hex>`; không dùng tag trần/latest |
@@ -36,7 +37,7 @@ Không copy địa chỉ/IP/credential hoặc commit demo của cá nhân sang c
 | `platform.delivery` | Tên Fleet binding, platform Git và default. `config` để discovery tự điền hoặc đặt đúng `workspace`/`targetCluster` nếu có nhiều lựa chọn |
 | `platform.resourceTypes`, `definitions`, `namespaceAccess.rulesFile` | Git document refs; prepare helper điền SHA-256 và `git.preparedFile` cho local documents; module/template vẫn Git |
 | `platform.templateSources` | Git path của template bundle, commit và tree digest |
-| `application.name`, `subdomain` | App nghiệm thu riêng, tránh đụng app đang có |
+| `application.name` | App nghiệm thu riêng, tránh đụng app đang có; không còn subdomain (ADR-037) |
 | `application.environment` | `staging` hoặc `production` của mô hình sản phẩm; không đồng nghĩa cấp quyền target |
 | `application.images` | Ba images từ registry nội bộ, immutable tag hoặc digest; không `latest` |
 | `application.variables`, `secretFiles` | Dữ liệu nghiệm thu và file secret; giữ đúng hợp đồng acceptance workload |
@@ -97,8 +98,8 @@ Cần HTTPRoute v1 CRD và quyền delivery/Fleet apply route trong namespace. S
 không dùng kubectl hoặc sửa Gateway. Render/Fleet apply không tự chứng minh Accepted/
 ResolvedRefs; chỉ báo browser checks nếu URL thực sự truy cập được.
 
-HTTPRoute nay do workload template render vào manifest Git/Fleet, không phải
-Terraform. httprouteEnabled bật tính năng; httprouteServicePort là tên port của
-Service (mặc định http). Hostname/path được đưa vào metadata.annotations của
-frontend; chỉ workload có hostname mới sinh route. Sau khi đổi template phải
-prepare lại source pin và review revision, không tự migrate state/route cũ.
+Frontend mẫu khai báo `resources.public` kiểu `endpoint` (name/port/path).
+Definition `endpoint.json` giữ domain gốc/Gateway; Deploy giữ chỗ hostname trong
+database rồi sinh HTTPRoute vào manifest Git/Fleet của workload, không qua
+Terraform. Template không còn sinh route (ADR-037). Đổi endpointName là đổi
+hostname: hostname cũ chỉ được nhả sau khi Deploy thành công.

@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"orchestrator/internal/adapters/tlsprobe"
 	"orchestrator/internal/application/accountdiag"
 	"orchestrator/internal/application/catalog"
 	catalogapp "orchestrator/internal/application/catalogrelease"
@@ -147,11 +146,6 @@ type Options struct {
 	DiagnosticConfigOverride    *accountdiag.Config
 	HarborDockerConfigFile      string
 	HarborPullSecretName        string
-	// PublicRouteKind selects the Environment public route object:
-	// "ingress" (default) or "httproute" with PublicGateway (ADR-024).
-	PublicRouteKind    string
-	PublicGateway      string
-	PublicIngressClass string
 
 	// ConnectionCredentialStore selects the UC-04 Connection credential
 	// store: "" (none; upload registration fails closed with 503), "vault"
@@ -488,13 +482,6 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		deployments = appsvc.NewSimulationService(st, planner, prov, renderer, deployer, inspector, c)
 	}
 	deployments.SetReviewer(reviewer)
-	if opts.Adapters == AdapterKubernetes {
-		routes, err := publicRoutes(opts, kubeconfigSource)
-		if err != nil {
-			return nil, err
-		}
-		deployments.SetPublicRouteManager(routes, opts.Seed.BaseDomain)
-	}
 	if opts.DeliveryGitRoot != "" && opts.HarborPullSecretName != "" {
 		deployments.SetImagePullSecret(opts.HarborPullSecretName)
 	}
@@ -597,7 +584,6 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		fakeCluster = fake.NewCluster()
 		fakeDep.AttachCluster(fakeCluster)
 		fakeExec.AttachCluster(fakeCluster)
-		deployments.SetPublicRouteManager(fakeCluster, opts.Seed.BaseDomain)
 	}
 
 	resourceCleanup := resourcecleanup.New(st, operations)
@@ -983,10 +969,10 @@ func buildDiagnostics(opts Options, st persistence.Store, creds credentials.Stor
 	if opts.DiagnosticConfigOverride != nil {
 		cfg = *opts.DiagnosticConfigOverride
 	}
-	cfg.SecretDelivery, cfg.BaseDomain = secretDelivery, opts.Seed.BaseDomain
+	cfg.SecretDelivery = secretDelivery
 	svc := accountdiag.New(repo, connection.NewService(st), st, providers, cfg)
 	svc.SetPlanner(planner)
-	svc.SetInspectors(vault.StoreInspector{Stores: st, Credentials: creds}, tlsprobe.Routes{})
+	svc.SetInspectors(vault.StoreInspector{Stores: st, Credentials: creds})
 	sweepCtx, stop := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -999,22 +985,4 @@ func buildDiagnostics(opts Options, st persistence.Store, creds credentials.Stor
 		svc.Close()
 	})
 	return svc, nil
-}
-
-// publicRoutes configures the Kubernetes public route manager (ADR-024).
-func publicRoutes(opts Options, credentials execution.KubeconfigSource) (*k8s.PublicRoutes, error) {
-	routes := &k8s.PublicRoutes{KubectlPath: opts.KubectlPath, Credentials: credentials, IngressClass: opts.PublicIngressClass}
-	switch opts.PublicRouteKind {
-	case "", k8s.RouteKindIngress:
-		routes.Kind = k8s.RouteKindIngress
-	case k8s.RouteKindHTTPRoute:
-		gateway, err := k8s.ParseGatewayRef(opts.PublicGateway)
-		if err != nil {
-			return nil, fmt.Errorf("bootstrap: -public-route-kind httproute needs -public-gateway: %w", err)
-		}
-		routes.Kind, routes.Gateway = k8s.RouteKindHTTPRoute, gateway
-	default:
-		return nil, fmt.Errorf("bootstrap: -public-route-kind must be ingress or httproute")
-	}
-	return routes, nil
 }

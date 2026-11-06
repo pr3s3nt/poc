@@ -75,8 +75,6 @@ type Requirements struct {
 	// Workloads is the number of workloads in the desired final state and
 	// PendingChanges the number of workload changes that deploy would apply.
 	Workloads, PendingChanges int
-	PublicRoutes              int
-	PublicHost                string
 	SecretStoreKey            string
 	// SecretDelivery is the platform's workload secret delivery mode.
 	SecretDelivery string
@@ -115,11 +113,6 @@ func (r *Requirements) StorageClassesNeeded(resources []ResourceNeed) (classes [
 // reads a workload secret value.
 type StoreInspector interface {
 	Inspect(ctx context.Context, org, storeKey string) domain.Finding
-}
-
-// RouteInspector reads real TLS evidence of a public application host.
-type RouteInspector interface {
-	Inspect(ctx context.Context, host string) domain.Finding
 }
 
 // Recorder persists run-owned resources the moment a probe intends or

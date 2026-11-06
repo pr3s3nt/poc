@@ -1,0 +1,57 @@
+# Copy outside Git, chmod 600, and replace the target/file references.
+schemaVersion: 1
+console:
+  url: https://your-console.example
+  username: platform-engineer
+  passwordFile: ./credentials/console-password
+  expectedOrganization: acme
+git:
+  url: https://github.com/your-organization
+  username: your-bot
+  tokenFile: ./credentials/git-token
+accounts:
+  - name: k8s-dev
+    kind: kubernetes
+    context: kind-k8s-4f
+    endpoint: https://kubernetes.default.svc:443
+    kubeconfigFile: ./credentials/workload-kubeconfig
+  # Optional AWS registration verifies access; it does not create AWS resources.
+  # - name: aws-staging
+  #   kind: aws
+  #   verificationRegions: [ap-southeast-1]
+  #   accessKeyIdFile: ./credentials/aws-access-key-id
+  #   secretAccessKeyFile: ./credentials/aws-secret-access-key
+  # ec2-role instead takes roleArn and verificationRegions, no access-key files;
+  # it requires the backend to run on EC2 with the selected instance role.
+gitAccounts:
+  - name: dev-git
+    url: https://github.com/your-organization
+    username: your-bot
+    tokenFile: ./credentials/git-token
+vaults:
+  - name: Dev Vault
+    backendAddress: http://vault:8200
+    workloadAddress: http://vault.orchestrator-dev-3070.svc:8200
+    mount: kv
+    authMount: kubernetes
+    tokenFile: ./credentials/vault-scoped-token
+resourceTypes:
+  - key: persistent-storage
+    inputs: [{name: storage, type: string}]
+    outputs:
+      - {name: claimName, type: string, required: true}
+      - {name: namespace, type: string, required: true}
+# Template entry: name, HTTPS url, path, full 40-character ref and contentSha256.
+# Definitions can be inline product JSON/YAML or {file: ./definitions/example.json}.
+# Terraform definitions can add inspect: {url, path, ref, resourceType}.
+# Use ${accounts.k8s-dev} and ${templateSources.NAME} in Definition values.
+templateSources: []
+definitions: []
+delivery:
+  - name: dev-fleet
+    account: k8s-dev
+    usePlatformGit: true
+    config:
+      workspace: fleet-local
+      targetCluster: local
+    setDefault: true

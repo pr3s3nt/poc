@@ -184,7 +184,7 @@ func (s *Service) PreviewDeployment(ctx context.Context, q PreviewDeploymentQuer
 			return nil, public(ErrPlanningRejected, "Endpoint reservation service is unavailable.")
 		}
 		owner := endpoint.Owner{Organization: q.OrganizationKey, Application: snapshot.App.Key, Environment: snapshot.Env.Key, Generation: snapshot.Env.TargetGeneration, Workload: workload}
-		if err := repo.CheckEndpoint(ctx, desired.Hostname, owner); err != nil {
+		if err := repo.CheckEndpoint(ctx, desired.Claim(), owner); err != nil {
 			if errors.Is(err, persistence.ErrHostnameTaken) {
 				return nil, public(ErrInvalidWorkload, "The requested endpoint hostname is already reserved.")
 			}

@@ -74,13 +74,6 @@ func (d *targetDeployer) Remove(ctx context.Context, target execution.Target, wo
 	return d.WorkloadDeployer.Remove(ctx, target, workloadID)
 }
 
-type targetRoutes struct{ targets []execution.Target }
-
-func (r *targetRoutes) Reconcile(_ context.Context, target execution.Target, _ execution.PublicRoute) error {
-	r.targets = append(r.targets, target)
-	return nil
-}
-
 // credentialBackedApp registers a READY KUBECONFIG Connection and an
 // existing-cluster Definition matching only the acceptance Application
 // (UC-03 consumption). The seed Definition and Organization default stay as
@@ -126,8 +119,6 @@ func credentialBackedApp(t *testing.T, status application.ConnectionStatus) (*bo
 func TestCredentialBackedTarget_PropagatesOpaqueIdentityThroughDeployAndRemove(t *testing.T) {
 	ctx := context.Background()
 	app, opts, executor, deployer := credentialBackedApp(t, application.ConnectionReady)
-	routes := &targetRoutes{}
-	app.Deployments.SetPublicRouteManager(routes, "example.com")
 	scores := seed.AcceptanceWorkloads(opts)
 	// The second run updates the workload. The executor runs again for the
 	// same Active Resource identities; this proves identity propagation on a
@@ -176,14 +167,6 @@ func TestCredentialBackedTarget_PropagatesOpaqueIdentityThroughDeployAndRemove(t
 	removed := deployer.targets[len(deployer.targets)-1]
 	if removed.Connection != "lab" || removed.Organization != opts.OrganizationKey || removed.Context != "lab" {
 		t.Fatalf("remove target: %#v", removed)
-	}
-	if len(routes.targets) == 0 {
-		t.Fatal("public routes were not reconciled")
-	}
-	for _, target := range routes.targets {
-		if target.Connection != "lab" {
-			t.Fatalf("route target lost identity: %#v", target)
-		}
 	}
 }
 

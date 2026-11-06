@@ -20,6 +20,7 @@ import (
 	"orchestrator/internal/domain/configuration"
 	deliverydomain "orchestrator/internal/domain/delivery"
 	domain "orchestrator/internal/domain/deployment"
+	"orchestrator/internal/domain/endpoint"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
@@ -44,6 +45,9 @@ type Change struct {
 	// Placements are the safe per-workload/resource cluster and namespace pins.
 	Placements []planning.Placement `json:"placements"`
 	PlanHash   string               `json:"planHash"`
+	// Endpoint is this workload's prospective public address (EP-03). Its
+	// availability was checked without a write; Deploy reserves it atomically.
+	Endpoint *endpoint.Desired `json:"endpoint,omitempty"`
 }
 
 type Preview struct {
@@ -79,7 +83,6 @@ type Preview struct {
 	ConfigVersion    int64               `json:"configVersion"`
 	Binding          environment.Binding `json:"binding"`
 	SecretStoreKey   string              `json:"secretStoreKey,omitempty"`
-	RoutePending     bool                `json:"routePending,omitempty"`
 	ConfigRevisionID string              `json:"configRevisionId,omitempty"`
 	RunID            string              `json:"runId"`
 	Changes          []Change            `json:"changes"`
@@ -325,7 +328,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	if err != nil {
 		return Preview{}, err
 	}
-	preview := Preview{DefinitionRevision: definitionSelection.Revision, DefinitionsPending: definitionsPending, DefinitionSnapshots: append([]resource.Definition{}, definitions...), DesiredCatalog: catalogBinding.Desired, AppliedCatalog: catalogBinding.Applied, CatalogPin: releasePin, CatalogRevision: catalogBinding.Revision, CatalogPending: catalogPending, DeliveryTransfer: transferRequired, DeliveryPending: deliveryPending, DeliveryBindingPin: deliveryPin, ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, RoutePending: env.PublicRoutesPending, ConfigRevisionID: scope.DesiredRevisionID,
+	preview := Preview{DefinitionRevision: definitionSelection.Revision, DefinitionsPending: definitionsPending, DefinitionSnapshots: append([]resource.Definition{}, definitions...), DesiredCatalog: catalogBinding.Desired, AppliedCatalog: catalogBinding.Applied, CatalogPin: releasePin, CatalogRevision: catalogBinding.Revision, CatalogPending: catalogPending, DeliveryTransfer: transferRequired, DeliveryPending: deliveryPending, DeliveryBindingPin: deliveryPin, ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, ConfigRevisionID: scope.DesiredRevisionID,
 		DesiredDelivery: env.DesiredDelivery.Effective(), AppliedDelivery: env.AppliedDelivery.Effective(), DeliveryConfigurationRevision: env.DeliveryConfigRevision, ConfigVersion: scope.Version, Binding: env.Binding(), SecretStoreKey: env.SecretStoreKey, Changes: []Change{}, previous: reviewBaselines}
 	preview.DeliveryPolicyOnly = policyOnly
 	if transferRequired || policyOnly {
@@ -414,15 +417,19 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 				}
 			}
 		}
-		preview.Changes = append(preview.Changes, Change{Rendering: plan.Rendering[id], WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, ResourceIntents: plan.ResourceIntents(baselines.Reader()), Placements: plan.PlacementList(), PlanHash: plan.PlanHash})
+		change := Change{Rendering: plan.Rendering[id], WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, ResourceIntents: plan.ResourceIntents(baselines.Reader()), Placements: plan.PlacementList(), PlanHash: plan.PlanHash}
+		if desired, ok := plan.Endpoints[id]; ok {
+			if err := checkEndpoint(ctx, st, endpoint.Owner{Organization: app.OrganizationKey, Application: appKey, Environment: envKey, Generation: env.TargetGeneration, Workload: id}, desired); err != nil {
+				return Preview{}, publicPlanningError(id, err)
+			}
+			change.Endpoint = &desired
+		}
+		preview.Changes = append(preview.Changes, change)
 		preview.lastPlan = plan
 		preview.lastIntents = plan.ResourceIntents(baselines.Reader())
 		base = plan.CandidateSet
 	}
-	// Route and Service-reference rules apply to the final batch state only.
-	if err := planning.ValidatePublicRoutes(base); err != nil {
-		return Preview{}, publicPlanningError("", &planning.StageError{Stage: planning.StageRoutes, Err: err})
-	}
+	// Service-reference rules apply to the final batch state only.
 	if err := planning.ValidateServiceReferences(base); err != nil {
 		return Preview{}, publicPlanningError("", &planning.StageError{Stage: planning.StageServiceRefs, Err: err})
 	}
@@ -440,6 +447,19 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 // publicPlanningError replaces a raw planner message, which may quote
 // catalog, Definition or other persisted content, with a fixed sentence.
 // Unstaged errors are internal and returned unchanged.
+// checkEndpoint is the advisory, read-only Preview availability check.
+func checkEndpoint(ctx context.Context, st persistence.Store, owner endpoint.Owner, desired endpoint.Desired) error {
+	repo, ok := st.(persistence.EndpointRepository)
+	if !ok {
+		return fmt.Errorf("pending: endpoint reservation service is unavailable")
+	}
+	err := repo.CheckEndpoint(ctx, desired.Claim(), owner)
+	if errors.Is(err, persistence.ErrHostnameTaken) {
+		return planning.EndpointTaken(desired.Hostname)
+	}
+	return err
+}
+
 func publicPlanningError(workloadID string, err error) error {
 	message, ok := planning.PublicMessage(err)
 	if !ok {
@@ -626,9 +646,9 @@ type Desired struct {
 	// Bundles are the verified module bundles behind the planned resources,
 	// keyed by resource descriptor.
 	Bundles map[string]tfmodule.Bundle
-	// Workloads and PublicRoutes count the final desired state (drafts on top of
-	// the applied set) whether or not planning accepted it.
-	Workloads, PublicRoutes int
+	// Workloads counts the final desired state (drafts on top of the applied
+	// set) whether or not planning accepted it.
+	Workloads int
 	// PlanErr is the planner's rejection of the desired state, if any; the
 	// remaining fields still describe the same snapshot.
 	PlanErr error
@@ -658,13 +678,10 @@ func (s *Service) Desired(ctx context.Context, appKey, envKey string) (Desired, 
 			return err
 		}
 		out = Desired{Application: app, Environment: env, ConfigVersion: scope.Version, Definitions: defs, Bundles: map[string]tfmodule.Bundle{}}
-		routes := map[string]int{}
+		workloads := map[string]bool{}
 		if applied, err := view.GetDeploymentSet(ctx, env.CurrentDeploymentSetID); err == nil {
-			for id, module := range applied.Document.Modules {
-				routes[id] = 0
-				if module.Spec.Service != nil {
-					routes[id] = len(module.Spec.Service.PublicRoutes)
-				}
+			for id := range applied.Document.Modules {
+				workloads[id] = true
 			}
 		} else if !errors.Is(err, persistence.ErrNotFound) {
 			return err
@@ -675,18 +692,12 @@ func (s *Service) Desired(ctx context.Context, appKey, envKey string) (Desired, 
 		}
 		for _, d := range drafts {
 			if d.State == environment.DraftDelete {
-				delete(routes, d.WorkloadID)
+				delete(workloads, d.WorkloadID)
 				continue
 			}
-			routes[d.WorkloadID] = 0
-			if doc, err := workloadspec.FromMap(d.Workload); err == nil && doc.Service != nil {
-				routes[d.WorkloadID] = len(doc.Service.PublicRoutes)
-			}
+			workloads[d.WorkloadID] = true
 		}
-		out.Workloads = len(routes)
-		for _, n := range routes {
-			out.PublicRoutes += n
-		}
+		out.Workloads = len(workloads)
 		preview, perr := s.previewIn(ctx, view, appKey, envKey, true)
 		if perr != nil {
 			var staged *planning.StageError

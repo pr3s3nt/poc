@@ -55,6 +55,6 @@ MySQL, MariaDB và MongoDB cũng có `<db>Image`, `<db>AuthSecretName`, tên key
 storage và pull Secret trong input. Xem [hướng dẫn database](bootstrap/DATABASES.md).
 
 HTTPRoute nằm trong workload template, cùng manifest Git/Fleet với Service.
-Điền nhóm `parameters.httproute*`; frontend mẫu nhận hostname/path qua annotations,
-route trỏ Service của chính workload. Không tạo Gateway/controller/state Terraform.
+Điền nhóm `parameters.httprouteGateway*` và `endpoint*`; frontend mẫu khai báo
+resource `endpoint`, Deploy giữ chỗ hostname và route trỏ Service của chính workload. Không tạo Gateway/controller/state Terraform.
 Xem [HTTPRoute setup](bootstrap/HTTPROUTE.md).

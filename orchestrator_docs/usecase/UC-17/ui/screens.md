@@ -10,7 +10,7 @@ last_reviewed: 2026-10-23
 Route `/ui/platform/effectiveness?application=&workload=&days=` (`days` 7, 30
 hoặc 90; mặc định 30, bỏ khỏi URL). Query giữ phạm vi/kỳ khi reload hoặc chia
 sẻ link; Console tính `from/to` theo ngày hiện tại ở giờ Việt Nam. Sidebar: mục “Hiệu quả platform”
-sau “Kho bí mật”, chỉ PE/Admin; Developer không thấy mục và deep link không
+sau “Cấu hình kho bí mật”, chỉ PE/Admin; Developer không thấy mục và deep link không
 render trang. Mục “Lịch sử triển khai” vẫn disabled.
 
 ## Trang “Hiệu quả platform”

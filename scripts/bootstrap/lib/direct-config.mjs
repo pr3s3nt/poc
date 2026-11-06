@@ -52,7 +52,11 @@ export function parseDirectPlatform(platform, path, businessFile=path, gitOnly=f
   const definition=expand(JSON.parse(readFileSync(entry.file,'utf8')));
   onlyKeys(definition,['key','name','resourceType','driverType','driverAccount','driverInputs','provision','criteria'],'Definition');
   requireConfig(/^[a-z0-9][a-z0-9-]*$/.test(definition.key??'')&&typeof definition.name==='string'&&definition.name.length>0&&typeof definition.resourceType==='string'&&object(definition.driverInputs?.values)&&Array.isArray(definition.criteria)&&definition.criteria.length>0,'Invalid Definition document');
-  requireConfig(['terraform','existing-cluster','template'].includes(definition.driverType),'Unsupported Definition driver');
+  requireConfig(['terraform','existing-cluster','template','endpoint'].includes(definition.driverType),'Unsupported Definition driver');
+  if(definition.driverType==='endpoint') {
+   const v=definition.driverInputs.values.variables;
+   requireConfig(definition.resourceType==='endpoint'&&!definition.driverAccount&&object(v)&&Object.keys(v).every(k=>['rootDomain','scheme','gatewayName','gatewayNamespace','gatewaySectionName','reservedNames'].includes(k))&&['http','https'].includes(v.scheme)&&['rootDomain','gatewayName','gatewayNamespace'].every(k=>typeof v[k]==='string'&&v[k].length>0),'Invalid endpoint Definition policy');
+  }
   requireConfig(definition.criteria.every(rule=>object(rule)&&Object.entries(rule).every(([k,v])=>['env_type','app_id','env_id','res_id','class'].includes(k)&&typeof v==='string'&&v.length>0)),'Invalid Definition criteria');
   if(definition.driverType==='existing-cluster')requireConfig(definition.resourceType==='k8s-cluster'&&typeof definition.driverAccount==='string','Existing cluster requires an account');
   if(definition.driverType==='terraform') {

@@ -11,7 +11,11 @@
 {{- $labels := merge $policy $in.identity.labels -}}
 {{- $replicas := get $inputs "defaultReplicas" | default 1 -}}
 {{- if hasKey $in.workload.spec "replicas" }}{{ $replicas = $in.workload.spec.replicas }}{{ end -}}
-{{- $first := index (keys $in.workload.spec.containers) 0 -}}
+{{- $first := "" -}}
+{{- range $name := keys $in.workload.spec.containers -}}
+{{- $c := get $in.workload.spec.containers $name -}}
+{{- if and (eq $first "") (or (not (get $c "role")) (eq $c.role "app")) }}{{ $first = $name }}{{ end -}}
+{{- end -}}
 {{- $ports := list -}}
 {{- if hasKey $in.workload.spec "service" -}}
   {{- $declared := get $in.workload.spec.service "ports" | default (dict) -}}
@@ -59,11 +63,6 @@
   path: "{{ $i }}.spec.template.spec.containers.{{ $ci }}.workingDir"
   value: {{ toJson $declared.workingDir }}
 {{- end }}
-{{- if hasKey $declared "startupProbe" }}
-- op: set
-  path: "{{ $i }}.spec.template.spec.containers.{{ $ci }}.startupProbe"
-  value: {{ toJson (merge (dict "httpGet" (dict "path" $declared.startupProbe.path "port" $declared.startupProbe.port)) $d.probe) }}
-{{- end }}
 - op: set
   path: "{{ $i }}.spec.template.spec.containers.{{ $ci }}.imagePullPolicy"
   value: {{ toJson $d.imagePullPolicy }}
@@ -72,15 +71,15 @@
   path: "{{ $i }}.spec.template.spec.containers.{{ $ci }}.securityContext"
   value: {{ toJson $d.containerSecurityContext }}
 {{- end }}
-{{- if and (eq $c.name $first) (gt (len $ports) 0) }}
+{{- if and (eq $c.name $first) (gt (len $ports) 0) (not (hasKey $declared "ports")) }}
 - op: set
   path: "{{ $i }}.spec.template.spec.containers.{{ $ci }}.ports"
   value: {{ toJson $ports }}
 {{- end }}
-{{- range $probe := list "readinessProbe" "livenessProbe" }}{{ if hasKey $c $probe }}
+{{- range $probe := list "readinessProbe" "livenessProbe" "startupProbe" }}{{ if hasKey $c $probe }}
 - op: set
   path: "{{ $i }}.spec.template.spec.containers.{{ $ci }}.{{ $probe }}"
-  value: {{ toJson (merge (dict "httpGet" (get (get $c $probe) "httpGet")) $d.probe) }}
+  value: {{ toJson (merge $d.probe (get (get $in.probes $c.name) $probe)) }}
 {{- end }}{{ end }}
 {{- range $ei, $e := get $c "env" | default (list) }}{{ if and (not (hasKey $e "value")) (not (hasKey $e "valueFrom")) }}
 - op: set

@@ -10,7 +10,7 @@
 3. Qua Console: dùng lại cấu hình khớp, tạo phần thiếu; khác thì BLOCKED.
 4. Definitions/modules/rendering templates được lấy từ Git Catalog, pin tag rõ.
 5. Kiểm tra Vault Kubernetes auth; cấu hình CD binding và default trước tạo app.
-6. Tìm app bằng key đã ghi nhận hoặc name + subdomain ổn định; xác minh identity.
+6. Tìm app bằng key đã ghi nhận hoặc name ổn định; xác minh identity.
 7. Chọn store/release, bổ sung biến/secret/workload. Không ghi đè pending khác.
 8. Theo dõi operation đang chạy; Preview/Deploy chỉ khi có thay đổi hợp lệ.
 9. Kiểm tra app/job thật qua URL Tailscale; giữ app, dữ liệu và access service.

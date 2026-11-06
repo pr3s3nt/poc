@@ -73,6 +73,9 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		}
 	}
 	if req.After != nil {
+		if e := req.After.Execution; e != nil && e.TemplateDefaults != nil && e.TemplateDefaults.Environment != req.Env.Key {
+			return nil, stageErr(StageWorkload, environment.ErrExecution)
+		}
 		if afterFragment, err = req.After.Fragment(req.Catalog.Types); err != nil {
 			return nil, stageErr(StageWorkload, err)
 		}
@@ -87,9 +90,6 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 	}
 	candidate := built.Candidate
 	if !req.AllowIntermediateEnvironmentState {
-		if err := ValidatePublicRoutes(candidate); err != nil {
-			return nil, stageErr(StageRoutes, err)
-		}
 		if err := ValidateServiceReferences(candidate); err != nil {
 			return nil, stageErr(StageServiceRefs, err)
 		}
@@ -204,7 +204,7 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 			}
 		}
 	}
-	if err := validateExecution(plan, req.Catalog); err != nil {
+	if err := validateExecution(plan, req.Catalog, req.Env.Key); err != nil {
 		return nil, &StageError{Stage: StageCatalog, Reason: ReasonRendererUnavailable, Err: err}
 	}
 	plan.UnreferencedResources = unreferencedResources(ctx, graph, req.Active)
