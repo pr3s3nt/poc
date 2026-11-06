@@ -248,6 +248,10 @@ labels (platform/template/environment/custom) on the form; backend provenance an
 Preview remain available. Reset/clearing removes overrides. Unknown/missing defaults
 stay unconfigured; do not invent example values that look like defaults.
 Loading/failure keeps draft and provides retry for actual resolution errors.
+Use safe validation messages for rejected fields rather than calling every failure
+unavailable metadata. If an enabled PDB has fewer than two effective replicas,
+show its existing replica/storage prerequisite help; correcting the form retries
+resolution automatically without discarding edits.
 ServiceAccount is managed/read-only unless a published allowed choice exists.
 
 ADR-038: remove the defaults-policy selector and policy-version summary entirely.

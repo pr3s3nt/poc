@@ -179,6 +179,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   // Environment operations hold draft writes: Save stays disabled, text is kept.
   const environmentBusy = useEnvironmentBusy(application, environment, onTargetChange);
   const [resolution,setResolution]=useState<Resolution>();
+  const [resolutionProblem,setResolutionProblem]=useState('');
   const [resolutionState,setResolutionState]=useState<'loading'|'ready'|'error'|'incomplete'>('loading');
   const [resolutionAttempt,setResolutionAttempt]=useState(0);
   const [templateMetadata, setTemplateMetadata] = useState<WorkloadTemplate>();
@@ -259,6 +260,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     if(loading)return;
     if(missingTemplateImage){setResolution(undefined);setResolutionState('incomplete');return;}
     let cancelled=false;
+    setResolutionProblem('');
     setResolutionState('loading');
     const timer=window.setTimeout(()=>{
       let document: Record<string,unknown>;
@@ -268,10 +270,19 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
       if(execution?.schedule&&!execution.schedule.expression)document={...document,workloadExecution:{...execution,schedule:{...execution.schedule,expression:'0 0 * * *'}}};
       api<Resolution>(`/applications/${encodeURIComponent(application.id)}/environments/${environment}/workloads/resolve-defaults`,{method:'POST',body:JSON.stringify({workload:document})})
        .then(result=>{if(!result.workload||!result.sources)throw new Error('Invalid resolution');if(!cancelled){setResolution(result);setResolutionState('ready')}})
-       .catch(()=>{if(!cancelled){setResolution(undefined);setResolutionState('error')}});
+       .catch((reason:unknown)=>{
+         if(cancelled)return;
+         setResolution(undefined);
+         const profile=templateMetadata?.runtimeDefaults;
+         const replicas=form.replicas??form.execution?.templateDefaults?.profile.replicas??profile?.environments?.[environment]?.replicas??profile?.replicas;
+         const invalidRequest=reason instanceof ApiError&&reason.status===400;
+         const pdbProblem=invalidRequest&&form.execution?.podDisruptionBudget?.enabled&&typeof replicas==='number'&&replicas<2;
+         setResolutionProblem(pdbProblem?wd('pdbHelp'):reason instanceof ApiError&&reason.status<500?describeError(reason,wd('resolutionError')):wd('resolutionError'));
+         setResolutionState('error');
+       });
     },250);
     return ()=>{cancelled=true;window.clearTimeout(timer)};
-  },[application.id,environment,form,types,loading,resolutionAttempt,missingTemplateImage]);
+  },[application.id,environment,form,types,loading,resolutionAttempt,missingTemplateImage,templateMetadata]);
 
   // The Application key catalog loads on its own so a failure is shown as a
   // retryable state in the picker, never as an empty key list.
@@ -422,7 +433,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     {current ? <div className="form-info" role="status">{t('workloads.workloadEditor.reloadedDraftVersion')}{' '} {current.version}{t('workloads.workloadEditor.currentStateOfThisWorkload')}{' '} {currentState}{t('workloads.workloadEditor.theEditsBelowAreUnchanged')}{current.workload ? <details><summary>{t('workloads.workloadEditor.currentScore')}</summary><pre className="workload-preview">{JSON.stringify(current.workload, null, 2)}</pre></details> : null}</div> : null}
     {loading ? <p>{t('workloads.workloadEditor.loadingWorkloadOptions')}</p> : mode === 'import' ? <section className="content-panel"><h2>{t('workloads.workloadEditor.importAScoreFile')}</h2><p>{t('workloads.workloadEditor.yAMLOrJSONTheSame')}</p><input aria-label={t('workloads.workloadEditor.scoreFile')} type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} />{imported ? <><p>{t('workloads.workloadEditor.parsedWorkload')}{' '} <strong>{String((imported.metadata as { name?: string } | undefined)?.name ?? '')}</strong></p><pre className="workload-preview">{JSON.stringify(imported, null, 2)}</pre></> : null}</section> : <>
       <section className="content-panel editor-grid"><h2>{t('workloads.workloadEditor.basicInformation')}</h2><label>{t('workloads.workloadEditor.workloadName')}<input value={form.name} disabled={Boolean(workloadId)} onChange={(event) => updateForm({ ...form, name: event.target.value })} placeholder="frontend" /></label>
-      {resolutionState==='error'?<div role="alert" className="form-error">{wd('resolutionError')}<Button onClick={()=>setResolutionAttempt(v=>v+1)}>{t('workloads.workloadEditor.retry')}</Button></div>:resolutionState==='incomplete'?<p role="status">{wd('imageRequiredForDefaults')}</p>:resolutionState==='loading'?<p role="status">{wd('resolving')}</p>:null}
+      {resolutionState==='error'?<div role="alert" className="form-error">{resolutionProblem||wd('resolutionError')}<Button onClick={()=>setResolutionAttempt(v=>v+1)}>{t('workloads.workloadEditor.retry')}</Button></div>:resolutionState==='incomplete'?<p role="status">{wd('imageRequiredForDefaults')}</p>:resolutionState==='loading'?<p role="status">{wd('resolving')}</p>:null}
 </section>
       {catalog.status === 'error' ? <div className="form-error" role="alert">{t('workloads.workloadEditor.couldNotLoadApplicationVariables2')}{' '} {catalog.message} {' '}{t('workloads.workloadEditor.yourSelectionsAreKept')}{' '} <Button onClick={() => setCatalogAttempt((value) => value + 1)}>{t('workloads.workloadEditor.retryLoadingKeys')}</Button></div> : null}
       {form.containers.map((container, ci) => <section className="content-panel editor-grid" key={ci}><div className="section-header"><h2>Container {ci + 1}</h2>{form.containers.length > 1 ? <Button tone="danger" onClick={() => updateForm({ ...form, containers: form.containers.filter((_, index) => index !== ci) })}>{t('workloads.workloadEditor.remove')}</Button> : null}</div><div className="field-grid"><label>{t('workloads.workloadEditor.containerName')}<input value={container.name} onChange={(event) => updateContainer(ci, { ...container, name: event.target.value })} /></label><label>{t('workloads.workloadEditor.containerImage')}<input value={container.image} onChange={(event) => updateContainer(ci, { ...container, image: event.target.value })} placeholder={String(fieldValue(resolution,`containers.${container.name}.image`)??'')} /></label></div>

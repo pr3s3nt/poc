@@ -122,3 +122,24 @@ it('shows inherited concurrency for a reopened sparse CronJob without an overrid
  expect(onChange.mock.lastCall?.[0].schedule.concurrencyPolicy).toBe('Allow');
  expect(execution.schedule?.concurrencyPolicy).toBeUndefined();
 });
+
+
+it('explains a rejected single-replica PDB and recovers after correcting replicas without losing edits',async()=>{
+ const template:WorkloadTemplate={...backendTemplate,runtimeDefaults:{replicas:1}};
+ const mock=serve(false,effective,template);
+ const fetcher=vi.mocked(fetch).getMockImplementation()!;
+ vi.mocked(fetch).mockImplementation(async(input,init)=>{
+  if(String(input).endsWith('/resolve-defaults')){
+   const raw=JSON.parse(String(init?.body)).workload;
+   if(raw.workloadExecution?.podDisruptionBudget?.enabled && (raw.replicas??1)<2)return Response.json({code:'INVALID_WORKLOAD',error:'raw SECRET'}, {status:400});
+  }
+  return fetcher(input,init);
+ });
+ const user=await author();await openWorkloadGroup(user,'Mở rộng & cập nhật');
+ await user.selectOptions(screen.getByLabelText('PodDisruptionBudget'),'on');
+ await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('Cần ít nhất 2 replica'));
+ expect(screen.getByLabelText('Ảnh Container')).toHaveValue('nginx:1');expect(screen.queryByText(/SECRET/)).not.toBeInTheDocument();
+ await user.type(screen.getByLabelText('Số replica'),'2');await waitFor(()=>expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+ await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));
+ expect(mock.saved).toHaveLength(1);expect(mock.saved[0]!.workload.replicas).toBe(2);expect((mock.saved[0]!.workload.workloadExecution as Execution).podDisruptionBudget).toEqual({enabled:true});
+});

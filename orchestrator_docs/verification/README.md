@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-06 | Effective runtime validation 400, actionable PDB feedback, preserved draft and real VI/EN correction/retry | [Resolution errors](2026-11-06-workload-resolution-errors.md) |
 | 2026-11-06 | Retained issue #37 Console switched to pinned Git source; scoped Definition, both Environment selections and real browser/API checks | [Git template source](2026-11-06-workload-git-source.md) |
 | 2026-11-06 | Distinct workload select choices, muted inherited hints, explicit reset and real VI/EN no-op Save | [Default select choices](2026-11-06-workload-default-selects.md) |
 | 2026-11-06 | Remove backend default policy; template-owned values, real SQL/Fleet/kind, authorized test cleanup and verified replacement Console link | [Template-only defaults](2026-11-06-template-only-defaults.md) |

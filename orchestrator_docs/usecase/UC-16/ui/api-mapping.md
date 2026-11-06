@@ -94,3 +94,11 @@ for reuse, preserving scalar Type params and excluding unsafe projections.
 New form resources receive a generated Score `resources.<alias>.id`; explicit
 private omits it. Import/direct Score retain existing semantics. No endpoint,
 output, password or cross-application lookup is introduced.
+
+## Effective runtime validation — issue #37
+
+POST workloads/resolve-defaults reports rejected resolved runtime/compute intent as
+400 INVALID_WORKLOAD, like import/Save validation. Domain ErrExecution is never an
+internal 500 merely because the invalid combination emerged after template merge.
+Response text stays fixed and safe; Console uses its allowlisted code messages.
+Actual source/network/server failures retain retry and preserve the local draft.

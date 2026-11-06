@@ -7,6 +7,14 @@ last_reviewed: 2026-11-06
 
 # Current project state
 
+## Workload effective-configuration error handling — 2026-11-06
+
+Resolved runtime validation errors now return 400 INVALID_WORKLOAD rather than an
+unclassified 500. Console preserves edits, presents safe validation feedback and
+explains enabled PDB requirements for fewer than two known effective replicas.
+Saved Git-source draft loads successfully; exact original unsaved trigger remains
+unconfirmed. [Diagnosis and verification](verification/2026-11-06-workload-resolution-errors.md).
+
 ## Retained issue #37 Console — Git template source, 2026-11-06
 
 The authoring test Application now selects its own Git-backed workload Definition
