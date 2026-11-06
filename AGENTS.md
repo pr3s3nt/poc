@@ -31,6 +31,31 @@ dùng yêu cầu rõ cách truy cập khác.
   lại và phạm vi dữ liệu được giữ. Nếu Tailscale chưa hoạt động, xử lý phần kết
   nối trong scope hoặc báo rõ trở ngại; chưa được tuyên bố sẵn sàng mở thử.
 
+## Quản lý công việc bằng GitHub issue — quyết định người dùng 2026-11-06
+
+Mỗi tính năng có một issue và một nhánh `features/<ten_tinh_nang>` tạo từ
+`origin/main`. Người dùng được trao quyền cho agent tạo/comment/đóng issue, push
+nhánh task và merge vào `main` theo quy trình này; quyền không mở rộng sang
+deploy hoặc mutation cluster/cloud.
+
+1. Trước khi code, tạo issue gồm: Mục tiêu, Phạm vi, Không làm, Tiêu chí nghiệm
+   thu, Giai đoạn.
+2. Xong mỗi giai đoạn: commit task-only, push, rồi comment commit SHA, đã làm, đã
+   kiểm tra và việc còn lại/trở ngại.
+3. Xong tính năng có giao diện: chạy stack Docker riêng, mở qua port Tailscale
+   riêng theo [runbook](orchestrator_docs/operations/tailscale-handoff.md#bản-thử-của-tính-năng),
+   kiểm tra rồi ghi link vào issue.
+4. Đạt mọi tiêu chí thì tự merge vào `main`, không cần hỏi lại. Không ghi
+   `Closes`/`Fixes` trong commit hoặc PR để issue không tự đóng khi merge; dùng
+   `Refs #N`. PR không bắt buộc.
+5. Test trên `main` theo tiêu chí và comment kết quả. Đạt thì đóng issue và gỡ
+   stack/port; chưa đạt thì giữ issue mở và sửa tiếp.
+
+CI đỏ sẵn trên `main` không tính là đạt: ghi rõ job/test nào fail và so với
+`main` để chứng minh task không gây thêm lỗi. Repo public: comment không chứa
+secret, credential hoặc thông tin hạ tầng nội bộ. Vẫn dừng hỏi người dùng khi
+thiếu quyết định theo mục "Starting a task".
+
 ## Starting a task
 
 Trước khi sửa file:
@@ -156,7 +181,7 @@ lên staging/Kubernetes/cloud; tiếp tục áp dụng quyền external và owne
    xác minh cleanup theo `orchestrator_docs/operations/aws.md`.
 5. Không commit `node_modules`, `dist`, coverage, binary, kubeconfig, local
    snapshot hoặc Terraform state.
-6. Commit/push theo authorization của task hoặc quy trình Codex/Claude bên dưới; không commit thay đổi ngoài task.
+6. Commit/push theo authorization của task, quy trình GitHub issue ở trên hoặc quy trình Codex/Claude bên dưới; không commit thay đổi ngoài task.
 
 ## Validation
 

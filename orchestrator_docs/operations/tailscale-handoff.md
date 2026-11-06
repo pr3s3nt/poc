@@ -2,7 +2,7 @@
 id: OPS-TAILSCALE-HANDOFF
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-11-02
+last_reviewed: 2026-11-06
 ---
 
 # Bàn giao ứng dụng để người dùng thử qua Tailscale
@@ -67,6 +67,38 @@ Không dọn forward vừa tạo nếu đó là đường truy cập duy nhất 
 Nếu chưa xác định được endpoint, Serve trỏ sai upstream, browser/API lỗi hoặc
 thiếu khả năng cấu hình kết nối, xử lý phần được phép và báo rõ trở ngại thực tế.
 Không đánh dấu “sẵn sàng để thử” bằng cách gửi một URL loopback hoặc URL chưa kiểm tra.
+
+## Bản thử của tính năng
+
+Quyết định người dùng ngày 2026-11-06: mỗi tính năng chạy một stack Docker riêng
+và mở qua Tailscale trên Windows bằng một port riêng. MagicDNS chỉ cấp một tên
+cho mỗi node nên link phân biệt theo port, không theo tên tính năng.
+
+Chạy trong WSL từ checkout của nhánh tính năng. `PORT` là port trống đầu tiên từ
+8101; lệnh `ss` phải không in gì, vì port có thể đang thuộc dịch vụ khác.
+
+```bash
+FEATURE=ten-tinh-nang
+PORT=8101
+TS="/mnt/c/Program Files/Tailscale/tailscale.exe"
+
+ss -ltn | grep -E ":($PORT|$((PORT + 1000))) "
+"$TS" serve status
+
+FRONTEND_PORT=$PORT BACKEND_PORT=$((PORT + 1000)) \
+  docker compose -p "poc-$FEATURE" up -d --build
+"$TS" serve --bg --http=$PORT http://127.0.0.1:$PORT
+"$TS" serve status
+```
+
+Lấy URL từ `serve status`, ghép `/ui/` và kiểm tra theo mục trên. `-p` giữ
+container, network và volume của mỗi tính năng tách biệt. Sau khi đóng issue,
+gỡ port và stack; `-v` xóa dữ liệu của riêng stack đó:
+
+```bash
+"$TS" serve --http=$PORT off
+docker compose -p "poc-$FEATURE" down -v
+```
 
 ## Nội dung bàn giao
 
