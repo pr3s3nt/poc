@@ -39,8 +39,9 @@ task theo quy trình này. Agent không được merge khi người dùng chưa 
 quyền deploy chỉ gồm bước triển khai lên `kind-k8s-4f` ở dưới, không mở rộng sang
 cloud hoặc cluster khác.
 
-1. Trước khi code, tạo issue gồm: Mục tiêu, Phạm vi, Không làm, Tiêu chí nghiệm
-   thu, Giai đoạn.
+1. Trước khi code, tìm issue và nhánh của công việc. Tiếp tục việc dang dở thì dùng
+   lại issue và nhánh đó, đọc comment tiến độ để biết chỗ dừng. Chỉ khi chưa có mới
+   tạo issue gồm: Mục tiêu, Phạm vi, Không làm, Tiêu chí nghiệm thu, Giai đoạn.
 2. Trong khi code, chỉ chạy unit test và integration test của vùng bị thay đổi,
    không chạy cả bộ. Xong mỗi giai đoạn: commit task-only, push, rồi comment commit
    SHA, đã làm, đã kiểm tra và việc còn lại/trở ngại.
