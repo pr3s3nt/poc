@@ -51,8 +51,8 @@ type caseManifest struct {
 	Spec struct {
 		Context              string   `yaml:"context"`
 		CurrentDeploymentSet string   `yaml:"currentDeploymentSet"`
-		BeforeWorkload       *string  `yaml:"beforeWorkload"`
-		AfterWorkload        *string  `yaml:"afterWorkload"`
+		BeforeWorkload       *string  `yaml:"beforeScore"`
+		AfterWorkload        *string  `yaml:"afterScore"`
 		ResourceTypes        []string `yaml:"resourceTypes"`
 		ResourceDefinitions  []string `yaml:"resourceDefinitions"`
 		ActiveResources      string   `yaml:"activeResources"`
@@ -240,6 +240,9 @@ func readWorkload(dir string, name *string) (*workloadspec.Document, error) {
 	if err := readYAML(filepath.Join(dir, *name), &raw); err != nil {
 		return nil, err
 	}
+	// The read-only reference fixtures keep the Score apiVersion the product
+	// no longer accepts; their workload body is the same shape.
+	raw["apiVersion"] = workloadspec.SupportedAPIVersion
 	return workloadspec.FromMap(raw)
 }
 
