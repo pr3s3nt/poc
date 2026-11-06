@@ -1,3 +1,4 @@
+import { openWorkloadGroup } from '../../test/workloadGroups';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -153,6 +154,7 @@ it('requires PostgreSQL inputs and saves them as Workload resource params', asyn
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   await user.type(screen.getByLabelText('Tên Workload'), 'backend');
   await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/backend:test');
+  await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   await user.type(screen.getByLabelText('Alias tài nguyên'), 'db');
   await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'postgres');
@@ -179,6 +181,7 @@ it('preserves PostgreSQL params when editing a workload on the form', async () =
   }));
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="backend" />);
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   expect(await screen.findByLabelText('Tham số database')).toHaveValue('catalog');
   expect(screen.getByLabelText('Tham số username')).toHaveValue('app');
   await user.clear(screen.getByLabelText('Tham số database'));
@@ -203,6 +206,7 @@ it('shows a backend resource param rejection, keeps the form and does not report
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   await user.type(screen.getByLabelText('Tên Workload'), 'backend');
   await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/backend:test');
+  await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   await user.type(screen.getByLabelText('Alias tài nguyên'), 'db');
   await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'postgres');
@@ -292,6 +296,7 @@ async function fillBasic(user: ReturnType<typeof userEvent.setup>, name = 'web')
   await user.type(screen.getByLabelText('Ảnh Container'), `example.invalid/${name}:v1`);
 }
 async function addPort(user: ReturnType<typeof userEvent.setup>, name: string, port: string, index = 0) {
+  await openWorkloadGroup(user,'Service & kết nối');
   await user.click(screen.getByRole('button', { name: '+ Thêm cổng' }));
   if (name) await user.type(screen.getAllByLabelText('Tên cổng Service')[index]!, name);
   await user.type(screen.getAllByLabelText('Cổng Service', { exact: true })[index]!, port);
@@ -302,7 +307,9 @@ it('keeps resources, class and target port in closed advanced sections with effe
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await fillBasic(user);
+  await openWorkloadGroup(user,'Cấu hình ít thay đổi');
   await user.selectOptions(screen.getByLabelText('Chính sách mặc định'),'');
+  await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   await user.type(screen.getByLabelText('Alias tài nguyên'), 'cache');
   await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'redis');
@@ -325,6 +332,7 @@ it('shows the effective request as explicit, else same-dimension limit, else def
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await fillBasic(user);
+  await openWorkloadGroup(user,'Cấu hình ít thay đổi');
   await user.selectOptions(screen.getByLabelText('Chính sách mặc định'),'');
   const summary = () => screen.getByText('Tài nguyên tính toán', {exact:true}).closest('summary')!;
   await user.click(screen.getByText('Tài nguyên tính toán', {exact:true}));
@@ -346,9 +354,11 @@ it('keeps imported advanced overrides through collapse and basic edits and write
   const { puts } = serve({ workloads: [{ id: 'api', state: 'PENDING_UPSERT', workload }], types: [{ key: 'postgres', classes: [], inputs: [{ name: 'database', type: 'string', required: true }], outputs: [] }] });
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await screen.findByRole('heading', { name: 'Sửa api' });
   expect(screen.getByText('Tài nguyên tính toán', {exact:true}).closest('summary')!).toHaveTextContent('CPU 250m (tường minh) · Bộ nhớ 256Mi (theo limit). Giới hạn: CPU 1 · Bộ nhớ 256Mi.');
   expect(note('Tóm tắt nâng cao tài nguyên db')).toHaveTextContent('Lớp hiệu lực: large (tường minh)');
+  await openWorkloadGroup(user,'Service & kết nối');
   expect(note('Tóm tắt nâng cao cổng http')).toHaveTextContent('Cổng đích hiệu lực: 9090 (ghi đè)');
   await user.click(screen.getByRole('button', { name: 'Hiện nâng cao tài nguyên db' }));
   expect(screen.getByLabelText('Lớp tài nguyên')).toHaveValue('large');
@@ -366,6 +376,7 @@ it('omits an empty class and writes a class only while it is set', async () => {
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await fillBasic(user);
+  await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   await user.type(screen.getByLabelText('Alias tài nguyên'), 'cache');
   await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'redis');
@@ -398,6 +409,7 @@ it('keeps number and bool resource params typed, also when edited from an import
   const { puts } = serve({ types, workloads: [{ id: 'q', state: 'PENDING_UPSERT', workload: { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'q' }, containers: { main: { image: 'example.invalid/q:v1' } }, resources: { jobs: { type: 'queue', params: { replicas: 3, durable: false, topic: '3' } } } } }] });
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="q" />);
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   expect(await screen.findByLabelText('Tham số replicas')).toHaveValue(3);
   expect(screen.getByLabelText('Tham số durable')).toHaveValue('false');
   await user.clear(screen.getByLabelText('Tham số replicas'));
@@ -491,7 +503,7 @@ it('saves a selected scheduled template with Service omitted and explicit schedu
   return Response.json({ workloads: [], draftVersion: 0 });
  }));
  const user = userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging" selectedTemplate={`scheduled@1.0.0:${digest}`} />);
- await screen.findByRole('heading',{name:'Kiểu thực thi'});
+ await openWorkloadGroup(user,'Cấu hình ít thay đổi');await screen.findByRole('heading',{name:'Kiểu thực thi'});
  await user.type(screen.getByLabelText('Tên Workload'),'backup');await user.type(screen.getByLabelText('Ảnh Container'),'registry.example/backup:v1');
  await user.clear(screen.getByLabelText('Lịch cron'));await user.type(screen.getByLabelText('Lịch cron'),'0 1 * * *');
  await user.click(screen.getByLabelText('Tạm dừng lịch'));await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));

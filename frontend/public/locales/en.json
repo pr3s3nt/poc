@@ -3980,5 +3980,8 @@
   "workloads.defaults.sourceEnvironment": "From environment",
   "workloads.defaults.controller": "Execution kind",
   "workloads.defaults.schedule": "Schedule",
-  "workloads.defaults.service": "Service"
+  "workloads.defaults.service": "Service",
+  "workloads.defaults.networking": "Service & networking",
+  "workloads.defaults.dependencies": "Dependencies",
+  "workloads.defaults.infrequent": "Infrequent configuration"
 }

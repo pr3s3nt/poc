@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-06 | Frequency-based workload layout, VI/EN real Console/no-op Save and timezone dependency | [Layout follow-up](2026-11-06-workload-frequency-layout.md) |
 | 2026-11-06 | Issue #37: versioned runtime defaults, real PostgreSQL, browser/Fleet and kind PVC retention/reuse | [Workload defaults](2026-11-06-workload-defaults.md) |
 | 2026-11-06 | Custom workload volume/file/lifecycle authoring, real PostgreSQL/Secret creation/Preview and Tailscale handoff | [Chinhform runtime form](2026-11-06-chinhform-runtime.md) |
 | 2026-11-05 | One Fleet GitRepo per Application: source checks and legacy test cleanup; new-layout live gate pending | [Record](2026-11-05-application-fleet-gitrepo.md) |

@@ -19,10 +19,11 @@ export type RuntimePolicy = {
 };
 export type Resolution = {workload: Record<string, unknown>; sources: Record<string,string>};
 export const wd = (key: string) => t(`workloads.defaults.${key}`);
-export function ConfigGroup({title,summary,children,invalid=false,initialOpen=false}: {title: string; summary?: ReactNode; children: ReactNode; invalid?: boolean; initialOpen?: boolean}) {
+export function ConfigGroup({title,summary,children,invalid=false,initialOpen=false,keepMounted=false}: {title: string; summary?: ReactNode; children: ReactNode; invalid?: boolean; initialOpen?: boolean; keepMounted?: boolean}) {
  const [open,setOpen]=useState(initialOpen);
- useEffect(()=>{if(invalid)setOpen(true)},[invalid]);
- return <details className="runtime-config-group" open={open} onToggle={event=>setOpen(event.currentTarget.open)}><summary><strong>{title}</strong>{summary ? <span className="muted"> · {summary}</span> : null}</summary><div className="editor-grid">{open?children:null}</div></details>;
+ const [hasOpened,setHasOpened]=useState(initialOpen);
+ useEffect(()=>{if(invalid){setOpen(true);setHasOpened(true)}},[invalid]);
+ return <details className="runtime-config-group" open={open} onToggle={event=>{setOpen(event.currentTarget.open);if(event.currentTarget.open)setHasOpened(true)}}><summary><strong>{title}</strong>{summary ? <span className="muted"> · {summary}</span> : null}</summary><div className="editor-grid" hidden={!open} style={open?undefined:{display:'none'}}>{open||(keepMounted&&hasOpened)?children:null}</div></details>;
 }
 export function fieldValue(resolution: Resolution|undefined,path: string): unknown {return path.split('.').reduce<unknown>((value,key)=>value!==null&&typeof value==='object' ? (value as Record<string,unknown>)[key] : undefined,resolution?.workload)}
 export function FieldSource({resolution,path}: {resolution?: Resolution;path: string}) {
@@ -54,11 +55,7 @@ export function RuntimePolicyFields({value,onChange,resolution,replicas,onReplic
  const strategy=value.updateStrategy;
  const pdb=value.podDisruptionBudget;
  return <>
- <section className="content-panel"><ConfigGroup title={wd('podSecurity')} summary={value.serviceAccountName??wd('managed')} invalid={invalid}>
- <label>ServiceAccount<input readOnly value={value.serviceAccountName??wd('managed')}/><small className="muted">{wd('identityHelp')}</small></label>
- <OptionalBoolean label="automountServiceAccountToken" value={value.automountServiceAccountToken} onChange={v=>set('automountServiceAccountToken',v)} resolution={resolution} path="workloadExecution.automountServiceAccountToken"/>
- <SecurityFields pod value={value.podSecurityContext} onChange={v=>set('podSecurityContext',v)} resolution={resolution} path="workloadExecution.podSecurityContext"/>
- </ConfigGroup></section>
+
  {value.kind!=='CronJob'?<section className="content-panel"><ConfigGroup title={wd('scaling')} summary={strategy?.type??String(fieldValue(resolution,'workloadExecution.updateStrategy.type')??wd('inherit'))} invalid={invalid}>
  <OptionalNumber label={t('workloads.templates.replicas')} value={replicas} onChange={onReplicas} resolution={resolution} path="replicas"/>
  <label>{wd('strategy')}<select value={strategy?.type??''} onChange={e=>set('updateStrategy',e.target.value?{type:e.target.value}:undefined)}><option value="">{wd('inherit')}</option><option>RollingUpdate</option><option>{value.kind==='StatefulSet'?'OnDelete':'Recreate'}</option></select><FieldSource resolution={resolution} path="workloadExecution.updateStrategy.type"/></label>
@@ -74,5 +71,10 @@ export function RuntimePolicyFields({value,onChange,resolution,replicas,onReplic
  {(value.claimMounts??[]).map((mount,index)=><div className="field-grid" key={index}><label>{wd('claimName')}<select value={mount.claim} onChange={e=>set('claimMounts',value.claimMounts!.map((m,i)=>i===index?{...m,claim:e.target.value}:m))}><option value="">—</option>{value.volumeClaimTemplates?.map(c=><option key={c.name}>{c.name}</option>)}</select></label><label>Container<select value={mount.container} onChange={e=>set('claimMounts',value.claimMounts!.map((m,i)=>i===index?{...m,container:e.target.value}:m))}>{containers.map(c=><option key={c}>{c}</option>)}</select></label>{(['path','subPath'] as const).map(key=><label key={key}>{key}<input value={mount[key]??''} onChange={e=>set('claimMounts',value.claimMounts!.map((m,i)=>i===index?{...m,[key]:e.target.value}:m))}/></label>)}<label><input type="checkbox" checked={mount.readOnly} onChange={e=>set('claimMounts',value.claimMounts!.map((m,i)=>i===index?{...m,readOnly:e.target.checked}:m))}/>{wd('readOnly')}</label><Button tone="quiet" onClick={()=>set('claimMounts',value.claimMounts!.filter((_,i)=>i!==index))}>{wd('removeMount')}</Button></div>)}
  <Button disabled={!value.volumeClaimTemplates?.length} onClick={()=>set('claimMounts',[...(value.claimMounts??[]),{claim:value.volumeClaimTemplates?.[0]?.name??'',container:containers[0]??'',path:'',readOnly:false}])}>{wd('addClaimMount')}</Button>
  </ConfigGroup></section>:null}
+ <section className="content-panel"><ConfigGroup title={wd('podSecurity')} summary={value.serviceAccountName??wd('managed')} invalid={invalid}>
+ <label>ServiceAccount<input readOnly value={value.serviceAccountName??wd('managed')}/><small className="muted">{wd('identityHelp')}</small></label>
+ <OptionalBoolean label="automountServiceAccountToken" value={value.automountServiceAccountToken} onChange={v=>set('automountServiceAccountToken',v)} resolution={resolution} path="workloadExecution.automountServiceAccountToken"/>
+ <SecurityFields pod value={value.podSecurityContext} onChange={v=>set('podSecurityContext',v)} resolution={resolution} path="workloadExecution.podSecurityContext"/>
+ </ConfigGroup></section>
  </>;
 }

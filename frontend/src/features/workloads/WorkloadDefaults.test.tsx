@@ -1,3 +1,4 @@
+import { openWorkloadGroup } from '../../test/workloadGroups';
 import { render,screen,within,waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach,expect,it,vi } from 'vitest';
@@ -37,7 +38,7 @@ it('preserves draft and prevents save when default metadata fails, then retries 
 
 it('shows inherited template mounts, ports and readiness without saving them as overrides',async()=>{
  const {saved}=serve(false,{...effective,containers:{main:{...effective.containers.main,ports:[{name:'http',containerPort:8080}],readinessProbe:{type:'http',path:'/',port:8080}}},workloadExecution:{...effective.workloadExecution,volumeMounts:[{volume:'cache',container:'main',path:'/var/cache/nginx',readOnly:false},{volume:'tmp',container:'main',path:'/tmp',readOnly:false}]}});
- const user=await author();await screen.findByText(/cache → \/var\/cache\/nginx, tmp → \/tmp/);
+ const user=await author();await openWorkloadGroup(user,'Volumes & files');await screen.findByText(/cache → \/var\/cache\/nginx, tmp → \/tmp/);
  await user.click(screen.getByText('Kiểm tra sức khỏe',{exact:true}));expect(screen.getByText(/Theo template · http :8080 \/$/)).toBeInTheDocument();
  await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(saved[0]!.workload.containers).toEqual({main:{image:'nginx:1'}});expect((saved[0]!.workload.workloadExecution as Execution).volumeMounts).toBeUndefined();
 });

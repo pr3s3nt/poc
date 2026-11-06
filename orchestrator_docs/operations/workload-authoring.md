@@ -97,3 +97,11 @@ Import chỉ nhận Generic Workload YAML/JSON; manifest Kubernetes tùy ý khô
 định dạng nhập. Preview cần kiểm giá trị/nguồn, rollout, quyền Pod, PDB, claim,
 retention và diff trước Deploy. Nâng Definition/source cho Environment là hành
 động riêng trong Settings → Phiên bản tài nguyên; workload đang chạy giữ pin cũ.
+
+## Thứ tự form theo tần suất chỉnh sửa
+
+Image và biến môi trường nằm đầu phần container; tiếp theo là CPU/RAM, volumes,
+cổng, health checks, khởi chạy nâng cao và bảo mật. Replica nằm trong Mở rộng &
+cập nhật. Kiểu thực thi, policy defaults, class và annotations nằm trong Cấu hình
+ít thay đổi ở cuối form. Biến môi trường mở sẵn; CronJob có thêm Lịch chạy mở sẵn.
+Các nhóm còn lại thu gọn với tóm tắt, mở ra khi cần chỉnh hoặc khi có lỗi.

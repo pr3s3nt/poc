@@ -3980,5 +3980,8 @@
   "workloads.defaults.sourceEnvironment": "Theo môi trường",
   "workloads.defaults.controller": "Kiểu thực thi",
   "workloads.defaults.schedule": "Lịch chạy",
-  "workloads.defaults.service": "Service"
+  "workloads.defaults.service": "Service",
+  "workloads.defaults.networking": "Service & kết nối",
+  "workloads.defaults.dependencies": "Tài nguyên phụ thuộc",
+  "workloads.defaults.infrequent": "Cấu hình ít thay đổi"
 }

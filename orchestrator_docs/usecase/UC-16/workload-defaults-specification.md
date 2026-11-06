@@ -63,6 +63,9 @@ This extends [UC-16](specification.md); implementation/evidence are separate.
   no guessed fallback. Reset removes the override. Display effective value/source
   without serializing it as an override. Groups belong to workload/container scope,
   collapse with useful summaries, reveal errors and support keyboard and VI/EN.
+  Order common image/environment/compute edits above infrequently changed startup,
+  rollout/security/default policy fields; replicas belong to Scaling & updates.
+  Only environment variables and the conditional CronJob schedule open initially.
 - **WD-10:** Preview is read-only; expose effective config/provenance, Pod rights,
   rollout/history, PDB, claim templates/retention and resource changes. Pin policy,
   template and target with existing stale admission. Deploy alone applies changes.

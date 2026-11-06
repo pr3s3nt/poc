@@ -19,6 +19,12 @@ authoring-only draft remains available in the verified Console. No DDL or AWS
 changes. See [implementation](implementation/workload-defaults.md) and
 [verification, baseline failures and retained Console](verification/2026-11-06-workload-defaults.md).
 
+The approved frequency-based layout follow-up places image/environment controls
+first, moves replica into Scaling & updates, and collapses rare configuration at
+the bottom. CronJob schedule stays separately visible. Real VI/EN browser checks
+and no-op Save pass; the runtime image now includes timezone data. See
+[layout verification](verification/2026-11-06-workload-frequency-layout.md).
+
 ## Workload class dropdown — 2026-11-05
 
 Task branch `features/chinhform`: UC-16 BR-31/32 replaces free-text workload class
