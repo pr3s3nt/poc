@@ -40,6 +40,10 @@ case "$1" in
    else cat "$MOCK_ROOT/releases.json"; fi ;;
  show) printf 'name: kube-prometheus-stack\nversion: 1.0.0\n' ;;
  template)
+   if [[ $2 == values-projection ]]; then
+     cat "$MOCK_ROOT/projected-values.json"
+     exit 0
+   fi
    printf '%s\n' "$@" > "$MOCK_ROOT/template-args"
    [[ ! -f $MOCK_ROOT/render-failure ]] || { echo 'PRIVATE-ERROR' >&2; exit 1; }
    echo 'apiVersion: v1' ;;
@@ -232,4 +236,29 @@ touch "$MOCK_ROOT/install-failure"
 reject apply --cluster-uid cluster-1
 jq -e '.releases.metrics.phase=="intent" and .releases.metrics.previous.phase=="done" and (.releases.metrics.previous.valuesHash|length>0)' "$MOCK_ROOT/state/state.json" >/dev/null
 pass 'failed upgrade retains the previous completed receipt for reconciliation'
+new_fixture
+invoke apply --cluster-uid cluster-1
+echo 'example: changed' > "$MOCK_ROOT/values.yaml"
+touch "$MOCK_ROOT/install-failure"
+reject apply --cluster-uid cluster-1
+rm "$MOCK_ROOT/install-failure"
+jq 'map(.status="deployed")' "$MOCK_ROOT/releases.json" > "$MOCK_ROOT/next"; mv "$MOCK_ROOT/next" "$MOCK_ROOT/releases.json"
+echo '{"example":"changed"}' > "$MOCK_ROOT/live-values.json"
+echo '{"example":"changed"}' > "$MOCK_ROOT/projected-values.json"
+reject reconcile
+invoke reconcile --cluster-uid cluster-1
+jq -e '.releases.metrics.phase=="done"' "$MOCK_ROOT/state/state.json" >/dev/null
+[[ $(wc -l < "$MOCK_ROOT/mutations") == 2 ]]
+invoke apply --cluster-uid cluster-1
+[[ $(wc -l < "$MOCK_ROOT/mutations") == 2 ]]
+pass 'reviewed repair reconciles only matching saved intent and never mutates releases'
+echo 'example: different' > "$MOCK_ROOT/values.yaml"
+touch "$MOCK_ROOT/install-failure"
+reject apply --cluster-uid cluster-1
+rm "$MOCK_ROOT/install-failure"
+jq 'map(.status="deployed")' "$MOCK_ROOT/releases.json" > "$MOCK_ROOT/next"; mv "$MOCK_ROOT/next" "$MOCK_ROOT/releases.json"
+echo '{"example":"foreign"}' > "$MOCK_ROOT/live-values.json"
+reject reconcile --cluster-uid cluster-1
+jq -e '.releases.metrics.phase=="intent"' "$MOCK_ROOT/state/state.json" >/dev/null
+pass 'reconciliation refuses repaired values differing from intent'
 printf '%s contract cases passed (simulated cluster, not live acceptance).\n' "$count"

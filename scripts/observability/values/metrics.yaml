@@ -19,7 +19,7 @@ prometheus:
             requests: {storage: 8Gi}
 alertmanager:
   config:
-    route: {receiver: discard}
+    route: {receiver: discard, routes: []}
     receivers: [{name: discard}]
   alertmanagerSpec:
     retention: 72h
@@ -47,7 +47,16 @@ grafana:
       resources:
         requests: {cpu: 10m, memory: 32Mi}
         limits: {cpu: 100m, memory: 128Mi}
+# Required for local-query cluster isolation. Replace with kube-system UID.
+kubelet:
+  serviceMonitor:
+    metricRelabelings:
+      - {action: replace, targetLabel: cluster_uid, replacement: CHANGE_ME_CLUSTER_UID}
 kube-state-metrics:
+  prometheus:
+    monitor:
+      metricRelabelings:
+        - {action: replace, targetLabel: cluster_uid, replacement: CHANGE_ME_CLUSTER_UID}
   resources:
     requests: {cpu: 50m, memory: 64Mi}
     limits: {cpu: 300m, memory: 256Mi}

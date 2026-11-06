@@ -1,5 +1,5 @@
 # Chart 1.15.0. API-based log collection restricted to an explicit namespace list.
-# Replace both CHANGE_ME values; review authorization before adding namespaces.
+# Replace every CHANGE_ME value; review authorization before adding namespaces.
 crds:
   create: false
 rbac:
@@ -39,10 +39,65 @@ alloy:
           source_labels = ["__meta_kubernetes_pod_container_name"]
           target_label  = "container"
         }
+        rule {
+          target_label = "cluster_uid"
+          replacement = "CHANGE_ME_CLUSTER_UID"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_orchestrator_io_organization"]
+          target_label = "organization"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_orchestrator_io_application"]
+          target_label = "application"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_orchestrator_io_environment"]
+          target_label = "environment"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_orchestrator_io_generation"]
+          target_label = "generation"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+          target_label = "workload"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_uid"]
+          target_label = "pod_uid"
+        }
       }
       loki.source.kubernetes "pods" {
         targets    = discovery.relabel.logs.output
+        forward_to = [loki.process.logs.receiver]
+      }
+      loki.process "logs" {
         forward_to = [loki.write.default.receiver]
+        stage.regex {
+          expression = "^(?P<level>ERROR|ERR|FATAL|PANIC|WARN|WARNING|INFO|DEBUG|TRACE)\\b"
+        }
+        stage.json {
+          expressions = { level = "level", severity = "severity" }
+        }
+        stage.template {
+          source = "level"
+          template = `{{`{{ $v := ToUpper (printf "%v" .Value) }}{{ if or (eq $v "ERROR") (eq $v "ERR") (eq $v "FATAL") (eq $v "PANIC") }}ERROR{{ else if or (eq $v "WARN") (eq $v "WARNING") }}WARN{{ else if or (eq $v "INFO") (eq $v "INFORMATION") }}INFO{{ else if or (eq $v "DEBUG") (eq $v "TRACE") }}DEBUG{{ else }}UNKNOWN{{ end }}`}}`
+        }
+        stage.labels {
+          values = { level = "level" }
+        }
+        stage.structured_metadata {
+          values = { pod_uid = "pod_uid" }
+        }
+        stage.label_drop {
+          values = ["pod_uid"]
+        }
+        // Bounded, representative redaction; applications must not print secrets.
+        stage.replace {
+          expression = "(?i)(authorization|password|token|secret)([\\\" =:]+)([^\\\" ,}]+)"
+          replace = "[REDACTED]"
+        }
       }
       loki.write "default" {
         endpoint {

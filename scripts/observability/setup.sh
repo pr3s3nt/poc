@@ -6,10 +6,11 @@ root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 usage() {
   cat <<'HELP'
-Usage: setup.sh plan|apply|verify --config FILE --state-dir DIR [--cluster-uid UID]
+Usage: setup.sh plan|apply|verify|reconcile --config FILE --state-dir DIR [--cluster-uid UID]
 Requires Bash 4.4+, Helm 3.19.x, kubectl, jq, curl, sha256sum, flock and realpath (Linux).
 plan: read cluster and prepare private local artifacts; no cluster writes.
 apply: preflight all releases, then install/update owned releases; UID required.
+reconcile: validate an already repaired deployed release against saved intent; UID required.
 verify: read-only workload readiness; does not prove telemetry/notification delivery.
 See README.md for reuse, partial failure and CRD/upgrade boundaries.
 HELP
@@ -17,7 +18,7 @@ HELP
 (( BASH_VERSINFO[0]>4 || (BASH_VERSINFO[0]==4 && BASH_VERSINFO[1]>=4) )) || fail 'Bash 4.4+ required'
 [[ $# -gt 0 ]] || { usage; exit 1; }
 action=$1; shift
-case "$action" in plan|apply|verify) ;; -h|--help) usage; exit 0 ;; *) fail 'Unknown command' ;; esac
+case "$action" in plan|apply|verify|reconcile) ;; -h|--help) usage; exit 0 ;; *) fail 'Unknown command' ;; esac
 config='' state_dir='' expected_cluster=''
 while (($#)); do
   (($# >= 2)) || fail 'Option requires a value'
@@ -93,7 +94,7 @@ state="$state_dir/state.json"
 kube_version=$(k version -o json | jq -er '.serverVersion.gitVersion|select(length>0)')
 cluster=$(k get namespace kube-system -o json | jq -er '.metadata.uid|select(length>0)')
 [[ -z $expected_cluster || $cluster == "$expected_cluster" ]] || fail 'Physical cluster UID does not match'
-[[ $action != apply || $expected_cluster == "$cluster" ]] || fail 'apply requires --cluster-uid from plan'
+[[ ( $action != apply && $action != reconcile ) || $expected_cluster == "$cluster" ]] || fail 'apply/reconcile requires --cluster-uid from plan'
 if [[ -f $state ]]; then
   jq -e --arg id "$installation" --arg cluster "$cluster" --arg ns "$namespace" '
     .schemaVersion==1 and .installationId==$id and .clusterUID==$cluster and .namespace==$ns
@@ -272,14 +273,26 @@ for id in "${ids[@]}"; do
     h get values "$name" -n "$namespace" -o json > "$work/$id.live-values.json"
     live_hash=$(jq -Sc . "$work/$id.live-values.json" | sha256sum | cut -d' ' -f1)
     recorded_hash=$(jq -r '.valuesHash // ""' <<<"$receipt")
-    [[ -n $recorded_hash && $recorded_hash == "$live_hash" ]] || fail "Live Helm values changed or prior attempt incomplete: $name; reconcile first"
+    if [[ $action == reconcile && $(jq -r .phase <<<"$receipt") == intent ]]; then
+      [[ $(jq -r .digest <<<"$receipt") == "$digest" ]] || fail "Reconciliation config differs from saved intent: $name"
+      # Project only user-supplied values through Helm itself, preserving YAML types.
+      mkdir -p "$work/values-projection/templates"
+      printf 'apiVersion: v2\nname: values-projection\nversion: 0.1.0\n' > "$work/values-projection/Chart.yaml"
+      printf '{{ .Values | toJson }}\n' > "$work/values-projection/templates/values.json"
+      h template values-projection "$work/values-projection" -f "$work/$id.user-values.yaml" "${set_args[@]}" > "$work/$id.projected.yaml"
+      desired_hash=$(sed -n '/^{/p' "$work/$id.projected.yaml" | jq -Sc . | sha256sum | cut -d' ' -f1)
+      [[ $desired_hash == "$live_hash" ]] || fail "Repaired live values do not match saved intent: $name"
+      mutate_state --arg id "$id" --arg hash "$live_hash" '.releases[$id].phase="done" | .releases[$id].valuesHash=$hash'
+    else
+      [[ -n $recorded_hash && $recorded_hash == "$live_hash" ]] || fail "Live Helm values changed or prior attempt incomplete: $name; reconcile first"
+    fi
     [[ $(jq -r .chart <<<"$existing") == "$(jq -r .chart <<<"$receipt")" ]] || fail "Live chart changed outside installer: $name"
     if [[ $(jq -r .digest <<<"$receipt") == "$digest" ]]; then operation=NOOP; fi
   fi
   if [[ $id == metrics && $receipt != null && $operation == UPDATE && $crds == install && $(jq -r .chart <<<"$receipt") != "$chart_name-$chart_version" ]]; then
     fail 'Operator/CRD version upgrade requires separate compatibility review; automatic CRD upgrades disabled'
   fi
-  if [[ $action == verify && $operation != NOOP ]]; then fail "Configuration not applied: $name ($operation)"; fi
+  if [[ ( $action == verify || $action == reconcile ) && $operation != NOOP ]]; then fail "Configuration not applied: $name ($operation)"; fi
   h template "$name" "$archive" -n "$namespace" --include-crds --kube-version "$kube_version" -f "$work/$id.user-values.yaml" "${set_args[@]}" > "$work/$id.rendered.yaml"
   jq -n --arg operation "$operation" --arg id "$id" --arg name "$name" --arg digest "$digest" --arg archive "$archive" --arg chart "$chart_name-$chart_version" --argjson components "$enabled_components" \
     '{operation:$operation,id:$id,name:$name,digest:$digest,archive:$archive,chart:$chart,components:$components}' > "$work/$id.plan.json"
@@ -378,4 +391,5 @@ for id in "${ids[@]}"; do
     sleep 2
   done
 done
+if [[ $action == reconcile ]]; then save_state; fi
 printf 'Workload readiness verified. Telemetry coverage, retention and notifications require separate live checks.\n'

@@ -16,11 +16,13 @@ unchanged-input NOOP checks. It does not provision through Console or adopt
 preexisting releases. Existing CRDs require explicit compatibility-reviewed reuse.
 [Runbook](operations/observability-installation.md) owns operational limits.
 
-Local contract tests, pinned Helm chart lint/render and Alloy config validation
-are tooling checks only. Live installation/re-run on a fresh or partial cluster
-has not been accepted; the historical dev context is unavailable in this session.
-Stage 0 and overall issue #35 remain incomplete. See
-[verification](verification/2026-11-06-observability-installer.md).
+Local contract tests and pinned Helm rendering are supplemented by a real owned
+kind installation: metrics followed by logging with partial existing-component
+reuse; repeated applies are NOOP, and real Prometheus/Loki data is present.
+Console connection creation/test works against that isolated stack. Full stage 0
+(exporters, notifications, persistence) and stages 1–5 remain in progress; no
+stage-6 or MCP-specific acceptance is claimed. See the
+[capability checkpoints](verification/2026-11-07-observability-capabilities.md).
 
 ## Issue #35 branch integration — 2026-11-06
 

@@ -105,8 +105,11 @@ cho một process; dùng một writer duy nhất cho cùng installation/release.
   release failed/pending hoặc outcome không rõ: dừng để đối soát.
 - Intent được ghi trước Helm, giữ receipt hoàn tất trước đó trong `previous` khi upgrade. Không tự retry/reset sau lỗi; giữ logs/receipts,
   kiểm tra `helm status/history`, tài nguyên/PVC và xác nhận outcome. Không xóa
-  state để chạy lại. Recovery thất bại cần operator xử lý có review; chưa có lệnh
-  tự recovery/adopt trong phiên bản này.
+  state để chạy lại. Operator sửa nguyên nhân và reconcile Helm release đã sở hữu.
+  Sau khi release `deployed` và live values khớp chính xác saved intent, chạy
+  `reconcile --config ... --state-dir ... --cluster-uid ...` để kiểm tra chart,
+  ownership, values và readiness rồi hoàn tất receipt. Lệnh này chỉ đọc cluster;
+  không sửa release, nhận ownership, bỏ qua drift hoặc thay inputs của intent.
 - Không tự gỡ component đã quản lý hoặc orphan release khỏi config. Cần kế hoạch
   migration/removal riêng. Operator/CRD version upgrades cũng cần review riêng.
 - Helm giữ kiểm tra ownership mặc định; không dùng `--take-ownership`, `--force`,
@@ -137,3 +140,17 @@ Không có auto-uninstall. Trước cleanup/upgrade: inventory, ownership/UID, b
 shared consumers, PVC retention và CRD dependencies phải được đối soát. Xem
 [operator runbook](../../orchestrator_docs/operations/observability-installation.md)
 khi dùng trong repository; standalone bundle sử dụng hướng dẫn trong file này.
+
+### Cluster identity in collected samples
+
+Replace `CHANGE_ME_CLUSTER_UID` in the metrics and Alloy values with the selected
+cluster's kube-system UID. The metrics values label kube-state-metrics and
+kubelet/cAdvisor samples; Prometheus external labels alone do not scope local
+queries. Reused stacks need equivalent operator-reviewed relabeling. Preserve
+existing filtering/redaction rules when adding this label.
+
+The Alloy example maps trusted Kubernetes pod labels to bounded scope labels,
+keeps Pod UID as structured metadata and uses a representative redaction rule.
+It does not guarantee removal of all secrets printed by an application. Helm
+renders the embedded Alloy template before `alloy validate`; validate the rendered
+configuration, not its Helm-escaped source.
