@@ -7,6 +7,14 @@ last_reviewed: 2026-10-28
 
 # UC-01 — Use Case Realization
 
+For new creation, ApplicationService normalizes Name and Organization key under
+[ADR-038](../../architecture/decisions/ADR-038-readable-idp-names.md), checks the
+global generated key (including tombstones) inside the creation transaction and
+persists `idp-<org>-<app>-<random6>` independently of the generated UUID. Retry
+generated-key collisions before writes; active display-name uniqueness still has
+the final database guard. Staging/production insert the Environment before the
+same persisted suffix; display-name edits never regenerate identities.
+
 Current delivery flow: [ADR-033](../../architecture/decisions/ADR-033-platform-managed-delivery.md)
 supersedes per-Application destination authoring and old-app transfer below.
 Platform default → Application pins binding → Preview without Git writes → first

@@ -7,6 +7,7 @@ package e2e
 // acceptance runbook for that).
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
@@ -166,9 +167,32 @@ func TestApplicationDeletionDestroysOwnedResourcesAndTombstones(t *testing.T) {
 	if n := f.count(`SELECT count(*) FROM terraform_resource_instances WHERE id=$1::uuid`, f.root.ID); n != 1 {
 		t.Fatal("instance history removed")
 	}
-	// The name and subdomain are free again.
-	if status, raw, _ := f.do(f.pe, http.MethodPost, f.server.URL+"/api/v1/applications", `{"name":"Payments"}`); status != http.StatusCreated {
+	// Reusing the display name creates a new app/suffix and namespace identities.
+	status, raw, created := f.do(f.pe, http.MethodPost, f.server.URL+"/api/v1/applications", `{"name":"Payments"}`)
+	if status != http.StatusCreated {
 		t.Fatalf("recreate = %d %s", status, raw)
+	}
+	newKey := created["application"].(map[string]any)["key"].(string)
+	if newKey == f.appKey || !strings.HasPrefix(newKey, "idp-"+f.orgKey+"-payments-") {
+		t.Fatalf("recreated app reused or lost the readable identity: %s", newKey)
+	}
+	newApp, err := f.app.Store.GetApplication(context.Background(), newKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldApp, err := f.app.Store.GetApplication(context.Background(), f.appKey)
+	if err != nil || newApp.ID == oldApp.ID {
+		t.Fatalf("recreated app reused UUID: %v", err)
+	}
+	for _, key := range []string{"staging", "production"} {
+		before, err := f.app.Store.GetEnvironment(context.Background(), f.appKey, key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		after, err := f.app.Store.GetEnvironment(context.Background(), newKey, key)
+		if err != nil || before.ID == after.ID || before.NamespaceIdentity == after.NamespaceIdentity || !strings.HasSuffix(after.NamespaceIdentity, newKey[len(newKey)-6:]) {
+			t.Fatalf("recreated app reused environment/namespace: %+v %v", after, err)
+		}
 	}
 }
 

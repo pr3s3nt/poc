@@ -76,3 +76,4 @@ ZIP source upload: [ADR-026](ADR-026-zip-source-upload.md).
 
 - [ADR-036 — One Fleet GitRepo per Application](ADR-036-application-fleet-gitrepo.md).
 - [ADR-037 — Retire public routes and Application subdomains](ADR-037-retire-public-routes.md).
+- [ADR-038 — Readable names for IDP-managed resources](ADR-038-readable-idp-names.md).

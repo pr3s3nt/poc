@@ -105,6 +105,13 @@ owns shared transition/admission/recovery design.
   nếu có thể và báo trạng thái recovery thật. Cleanup source là thao tác riêng,
   chỉ generation cũ owned/unreferenced; không tự rollback dữ liệu sau cutover.
 - **BR-14:** Create chỉ nhận Name; `subdomain` và unknown connectionKey bị reject 400.
+- **BR-15:** New Applications derive and persist an immutable readable key and
+  namespace identities using [ADR-038](../../architecture/decisions/ADR-038-readable-idp-names.md).
+  Invalid/overlong normalized names fail on Name. A short random suffix is
+  generated once and shared across derived resource names; recreated deleted
+  apps get a fresh suffix and identities. Active duplicate display names still
+  fail on Name; normalized aliases may coexist with different suffixes.
+  Existing Application keys and namespaces remain unchanged.
 
 ## Ngoài phạm vi
 

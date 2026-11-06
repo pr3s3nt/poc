@@ -6,6 +6,7 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 
 	"orchestrator/internal/adapters/store"
@@ -56,7 +57,7 @@ func TestCreateApplication_CreatesUnconfiguredEnvironmentsWithoutAnyConnection(t
 	if b, err := json.Marshal(app); err != nil || strings.Contains(string(b), "executionProfile") || strings.Contains(string(b), "connectionKey") || strings.Contains(string(b), "runtimeStatus") || strings.Contains(string(b), "region") || strings.Contains(string(b), "configurationProvider") {
 		t.Fatalf("application JSON carries retired fields: %s %v", b, err)
 	}
-	if !uuidPattern.MatchString(app.ID) || app.Key != app.ID {
+	if !uuidPattern.MatchString(app.ID) || !regexp.MustCompile(`^idp-acme-payment-[a-z2-7]{6}$`).MatchString(app.Key) {
 		t.Fatalf("generated identity = %q %q", app.ID, app.Key)
 	}
 	if b, _ := json.Marshal(app); strings.Contains(string(b), "subdomain") {
@@ -94,6 +95,9 @@ func TestCreateApplication_CreatesStagingAndProductionWithEmptyDeploymentSets(t 
 	keys := map[string]bool{}
 	for _, env := range envs {
 		keys[env.Key] = true
+		if env.NamespaceIdentity != "idp-acme-catalog-"+env.Key+"-"+result.Application.Key[len(result.Application.Key)-6:] {
+			t.Fatalf("unreadable namespace: %s", env.NamespaceIdentity)
+		}
 		namespaces[env.NamespaceIdentity] = true
 		if env.ApplicationKey != result.Application.Key || env.CurrentDeploymentSetID == "" {
 			t.Fatalf("environment = %+v", env)
@@ -114,6 +118,112 @@ func TestCreateApplication_CreatesStagingAndProductionWithEmptyDeploymentSets(t 
 	}
 	if deployments, err := st.ListDeployments(ctx, result.Application.Key, ""); err != nil || len(deployments) != 0 {
 		t.Fatalf("create must not deploy: %v %v", deployments, err)
+	}
+}
+
+func TestCreateApplicationNormalizedKeysAndTombstones(t *testing.T) {
+	ctx := context.Background()
+	st := newTestStore(t)
+	svc := NewService(st)
+	first, err := svc.Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "Quản lý đơn hàng"})
+	if err != nil || !regexp.MustCompile(`^idp-acme-quan-ly-don-hang-[a-z2-7]{6}$`).MatchString(first.Application.Key) {
+		t.Fatalf("Vietnamese identity: %+v %v", first, err)
+	}
+	for _, name := range []string{"Quan ly don hang", "quan---ly don_hang"} {
+		alias, err := svc.Create(ctx, CreateCommand{OrganizationKey: "acme", Name: name})
+		if err != nil || alias.Application.Key == first.Application.Key {
+			t.Fatalf("normalized alias did not get its own suffix %q: %v", name, err)
+		}
+	}
+	// Display-name edits preserve the persisted code and both namespaces.
+	app := first.Application
+	app.Name = "Renamed"
+	if err := st.SaveApplication(ctx, app); err != nil {
+		t.Fatal(err)
+	}
+	for _, env := range first.Environments {
+		got, err := st.GetEnvironment(ctx, app.Key, env.Key)
+		if err != nil || got.NamespaceIdentity != env.NamespaceIdentity {
+			t.Fatalf("display rename changed namespace: %+v %v", got, err)
+		}
+	}
+	app.Status = appdomain.StatusDeleted
+	if err := st.SaveApplication(ctx, app); err != nil {
+		t.Fatal(err)
+	}
+	recreated, err := svc.Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "Quản lý đơn hàng"})
+	if err != nil || recreated.Application.Key == app.Key || recreated.Application.ID == app.ID {
+		t.Fatalf("recreated app reused tombstone identity: %+v %v", recreated, err)
+	}
+	for i, env := range recreated.Environments {
+		if env.ID == first.Environments[i].ID || env.NamespaceIdentity == first.Environments[i].NamespaceIdentity {
+			t.Fatalf("recreated app reused environment: %+v", env)
+		}
+	}
+}
+
+func TestConcurrentApplicationDisplayNameHasOneWinner(t *testing.T) {
+	ctx := context.Background()
+	st := newTestStore(t)
+	svc := NewService(st)
+	var wg sync.WaitGroup
+	results := make(chan error, 2)
+	for _, name := range []string{"Order Management", "ORDER MANAGEMENT"} {
+		wg.Add(1)
+		go func(name string) {
+			defer wg.Done()
+			_, err := svc.Create(ctx, CreateCommand{OrganizationKey: "acme", Name: name})
+			results <- err
+		}(name)
+	}
+	wg.Wait()
+	close(results)
+	winners, conflicts := 0, 0
+	for err := range results {
+		switch {
+		case err == nil:
+			winners++
+		case errors.Is(err, ErrDuplicate):
+			conflicts++
+		default:
+			t.Fatal(err)
+		}
+	}
+	apps, _ := st.ListApplications(ctx)
+	if winners != 1 || conflicts != 1 || len(apps) != 1 {
+		t.Fatalf("winners=%d conflicts=%d apps=%d", winners, conflicts, len(apps))
+	}
+}
+
+func TestCreateApplicationRetriesGeneratedKeyCollisionBeforeWriting(t *testing.T) {
+	ctx := context.Background()
+	st := newTestStore(t)
+	svc := NewService(st)
+	first, err := svc.Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "Orders"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	generate := svc.newKey
+	calls := 0
+	svc.newKey = func(org, name string) (string, error) {
+		calls++
+		if calls == 1 {
+			return first.Application.Key, nil
+		}
+		return generate(org, name)
+	}
+	second, err := svc.Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "Other"})
+	if err != nil || calls != 2 || second.Application.Key == first.Application.Key {
+		t.Fatalf("collision was not retried safely: calls=%d %+v %v", calls, second, err)
+	}
+	calls = 0
+	svc.newKey = func(string, string) (string, error) { calls++; return first.Application.Key, nil }
+	if _, err := svc.Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "Third"}); !errors.Is(err, ErrDuplicate) || calls != 8 {
+		t.Fatalf("collision retries were not bounded: calls=%d %v", calls, err)
+	}
+	apps, _ := st.ListApplications(ctx)
+	if len(apps) != 2 {
+		t.Fatalf("collision left partial applications: %d", len(apps))
 	}
 }
 

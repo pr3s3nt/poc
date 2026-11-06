@@ -1373,6 +1373,18 @@ No schema change or live CD/VSO acceptance is implied by these local checks.
 
 ## Platform-managed delivery repositories — ADR-033
 
+Naming extension: UC-01 BR-15 / UC-06 CD-09 and
+[ADR-038](../architecture/decisions/ADR-038-readable-idp-names.md) map to
+`domain/application/naming.go`, Application creation, repository allocation,
+Fleet application controller configuration and planner infrastructure names.
+Validation: `naming_test.go`, `service_test.go`,
+`postgres/idp_naming_integration_test.go`, `delivery/repositories_test.go`,
+`fleet/application_test.go`, `fleet/config_test.go`, `planning/idp_naming_test.go`
+and the updated UC-01 HTTP onboarding and UC-18 delete/recreate assertions.
+The random suffix is generated once per app and remains at the end of each
+resource name; generated-key collisions retry before writes. Original UUIDs, historical
+allocations, receipts and UID cleanup remain authoritative.
+
 | Approved behavior | Implementation | Validation |
 |---|---|---|
 | Application knows no deployment repo | Application Create/Settings, removed delivery PUT/panel | HTTP retired-route/role tests; Console component/browser review |

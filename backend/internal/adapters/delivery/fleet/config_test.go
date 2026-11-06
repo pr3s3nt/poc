@@ -1,6 +1,9 @@
 package fleet
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func validConfig() map[string]string {
 	return map[string]string{"agentNamespace": "cattle-fleet-system", "workspace": "fleet-local", "controllerNamespace": "cattle-fleet-system", "controllerName": "fleet-controller", "targetCluster": "local", "targetClusterUID": "cluster-uid", "targetAccountKey": "kind-reconciliation", "repositoryURL": "https://example.com/generated.git", "branch": "main", "root": "generated", "readSecret": "git-read", "serviceAccount": "workload-delivery", "releaseNamespace": "fleet-releases"}
@@ -69,5 +72,24 @@ func TestApplicationLayoutReservesMetadataOutsideWatchedPaths(t *testing.T) {
 	config["environmentKey"] = ""
 	if _, err := ParseConfig(config); err != ErrConfig {
 		t.Fatal("unscoped application layout accepted", err)
+	}
+}
+
+func TestApplicationRepositoryNameRequiresValidApplicationScope(t *testing.T) {
+	for _, name := range []string{"idp-nangcap-orders-deploy-abc234", "../foreign", "orch-app-abc", "idp-orders", "idp-" + strings.Repeat("a", 64) + "-deploy-abc234"} {
+		config := validConfig()
+		config["applicationID"] = "app-id"
+		config["environmentKey"] = "staging"
+		config["gitRepoMode"] = "MANAGED"
+		config["applicationRepoName"] = name
+		_, err := ParseConfig(config)
+		if (err == nil) != (name == "idp-nangcap-orders-deploy-abc234") {
+			t.Fatalf("repository name %q: %v", name, err)
+		}
+		delete(config, "applicationID")
+		delete(config, "environmentKey")
+		if _, err := ParseConfig(config); err == nil {
+			t.Fatal("unscoped named application controller accepted")
+		}
 	}
 }

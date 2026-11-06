@@ -93,6 +93,9 @@ func TestManagedRepositoryProvisioningRequiresOwnerAndConvergesAcrossEnvironment
 	if staging.Config["applicationID"] != app.ID || production.Config["applicationID"] != app.ID || staging.Config["environmentKey"] != "staging" || production.Config["environmentKey"] != "production" {
 		t.Fatal("Application controller identity is not shared across Environments")
 	}
+	if staging.Config["applicationRepoName"] != "" || production.Config["applicationRepoName"] != "" {
+		t.Fatal("historical application controller was renamed")
+	}
 	if host.calls != 2 {
 		t.Fatal("read/observe provisioned repo")
 	}
@@ -169,4 +172,65 @@ func TestRepositoryLostOwnerCannotAcknowledge(t *testing.T) {
 	if _, err := svc.Resolve(ctx, b, &fleet.Provider{}, req.Environment, true); !errors.Is(err, persistence.ErrOperationLost) {
 		t.Fatal("lost owner acknowledged", err)
 	}
+}
+
+func TestIDPRepositoryNameIsPersistedSharedAndIndependentOfDisplayName(t *testing.T) {
+	c, _, ctx, req, _ := coordinatorFixture(t)
+	st := c.Store.(*store.Store)
+	org, _ := st.GetOrganization(ctx, "delivery-org")
+	b, err := st.GetDeliveryBinding(ctx, org.ID, req.Environment.DesiredDelivery.BindingID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The new rule also applies with a previously pinned platform prefix.
+	b.Config = map[string]string{"repositoryOwner": "platform", "repositoryAPI": "https://api.github.com", "repositoryHost": "https://github.com", "repositoryPrefix": "orch-app-", "root": "environments"}
+	result, err := appservice.NewService(st).Create(context.Background(), appservice.CreateCommand{OrganizationKey: "delivery-org", Name: "Orders"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := result.Application
+	op, err := st.ClaimEnvironment(context.Background(), persistence.OperationClaim{ID: ids.New(), ApplicationKey: app.Key, EnvironmentKey: "staging", Owner: "naming", Kind: environment.OpDeploy, Deadline: time.Now().Add(time.Minute)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx = persistence.WithOwner(context.Background(), persistence.Owner{OperationID: op.ID, Owner: op.Owner, Fence: op.Fence})
+	stage, _ := st.GetEnvironment(ctx, app.Key, "staging")
+	prod, _ := st.GetEnvironment(ctx, app.Key, "production")
+	host := &repositoryHost{fail: true}
+	svc := &Repositories{Store: st, Hosts: repositoryFactory{host}}
+	provider := &fleet.Provider{}
+	if _, err := svc.Resolve(ctx, b, provider, stage, true); !errors.Is(err, hosting.ErrUnavailable) {
+		t.Fatal(err)
+	}
+	pending, err := st.GetApplicationDeliveryRepository(ctx, org.ID, app.ID)
+	if err != nil || pending.Name != "idp-delivery-org-orders-deploy-"+app.Key[len(app.Key)-6:] {
+		t.Fatalf("unreadable reservation: %+v %v", pending, err)
+	}
+	app.Name = "Changed display name"
+	if err := st.SaveApplication(ctx, app); err != nil {
+		t.Fatal(err)
+	}
+	host.fail = false
+	staging, err := svc.Resolve(ctx, b, provider, stage, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	production, err := svc.Resolve(context.Background(), b, provider, prod, false)
+	if err != nil || staging.Config["applicationRepoName"] != pending.Name || production.Config["applicationRepoName"] != pending.Name || staging.Config["repositoryURL"] != production.Config["repositoryURL"] {
+		t.Fatalf("names drifted across environments/rename: %v", err)
+	}
+	for _, binding := range []domain.BindingVersion{staging, production} {
+		cfg, err := fleet.ParseConfig(mergeFleetTestConfig(binding.Config))
+		if err != nil || cfg.ApplicationRepoName != pending.Name {
+			t.Fatalf("bound controller name not parseable: %v", err)
+		}
+	}
+}
+
+func mergeFleetTestConfig(bound map[string]string) map[string]string {
+	config := map[string]string{"workspace": "fleet-local", "controllerNamespace": "fleet-system", "controllerName": "fleet-controller", "agentNamespace": "fleet-system", "targetCluster": "local", "targetClusterUID": "uid", "targetAccountKey": "cluster", "serviceAccount": "delivery", "releaseNamespace": "fleet-releases"}
+	for k, v := range bound {
+		config[k] = v
+	}
+	return config
 }

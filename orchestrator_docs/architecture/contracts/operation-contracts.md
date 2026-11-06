@@ -19,6 +19,14 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 
 ## OC-01 `ApplicationService.CreateApplication`
 
+Current naming: UC-01 BR-15 and [ADR-038](../decisions/ADR-038-readable-idp-names.md).
+Create takes Name only (ADR-037); the generated UUID remains internal, while the
+immutable globally unique key is `idp-<org>-<app>-<random6>`. Empty/overlong slugs
+return a Name validation error; active duplicate display names return a Name
+conflict. Create retries generated-key collisions (including tombstones) and
+persists both Environments atomically with the same suffix at each name's end.
+The historical subdomain/Connection passages below do not change this contract.
+
 - Use case: UC-01 MS-01–MS-08.
 - Preconditions: authenticated Developer and Organization; valid unique name/subdomain; no default Connection required.
 - Input: name/subdomain only; unknown create connectionKey rejected 400.
