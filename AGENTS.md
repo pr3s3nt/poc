@@ -46,11 +46,12 @@ quyền không mở rộng sang deploy hoặc mutation cluster/cloud.
 3. Xong tính năng có giao diện: chạy stack Docker riêng, mở bằng link
    `<tinh-nang>.<domain>` qua Tailscale và kiểm tra theo
    [runbook](orchestrator_docs/operations/tailscale-handoff.md#bản-thử-của-tính-năng).
-4. Xong tính năng, chạy test full: Product CI và Documentation trên commit cuối
-   của nhánh, hoặc mọi lệnh tương đương ở mục Validation. Khi test pass, báo cáo
-   người dùng kết quả và link để nghiệm thu, rồi dừng. Có commit mới sau đó thì
-   chạy lại test full trước khi merge. Link chứa IP Tailscale nên chỉ gửi trong báo
-   cáo, không ghi vào issue public.
+4. Xong tính năng, chạy test full. Trong thời gian Product CI còn đỏ, không chờ CI:
+   test full là chạy test trên cụm kind theo [runbook](orchestrator_docs/operations/kind.md),
+   và người dùng cho phép việc này trong namespace riêng, dọn sạch sau khi chạy. Khi
+   test pass, báo cáo người dùng kết quả và link để nghiệm thu, rồi dừng. Có commit
+   mới sau đó thì chạy lại test full trước khi merge. Link chứa IP Tailscale nên
+   chỉ gửi trong báo cáo, không ghi vào issue public.
 5. Chỉ sau khi người dùng nghiệm thu mới merge vào `main`, rồi xóa nhánh feature
    cả local lẫn remote. Không ghi `Closes`/`Fixes` trong commit hoặc PR để issue
    không tự đóng khi merge; dùng `Refs #N`. PR không bắt buộc.
