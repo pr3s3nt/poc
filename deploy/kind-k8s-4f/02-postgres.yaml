@@ -1,0 +1,143 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: orchestrator-dev-3070
+  labels:
+    app.kubernetes.io/part-of: orchestrator-dev-3070
+    app.kubernetes.io/managed-by: poc-local-installer
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: orchestrator-dev-3070
+  labels:
+    app.kubernetes.io/part-of: orchestrator-dev-3070
+    app.kubernetes.io/managed-by: poc-local-installer
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+        app.kubernetes.io/part-of: orchestrator-dev-3070
+        app.kubernetes.io/managed-by: poc-local-installer
+    spec:
+      automountServiceAccountToken: false
+      initContainers:
+      - name: prepare
+        image: postgres:16-alpine
+        command:
+        - sh
+        - -ec
+        - |-
+          set -eu; umask 077
+          for dir in postgres role-passwords owner runtime state-key vault-data vault-bootstrap connection-token app-token output-token backend-data; do mkdir -p /storage/$dir; done
+          if [ ! -s /storage/superuser ]; then
+            test ! -e /storage/postgres/PG_VERSION
+            test ! -e /storage/postgres/pgdata/PG_VERSION
+            od -An -N24 -tx1 /dev/urandom | tr -d ' \n' > /storage/superuser
+          fi
+          chown $(id -u postgres):$(id -g postgres) /storage/postgres /storage/superuser
+          chmod 700 /storage/postgres
+          mkdir -p /storage/backend-data/recovery /storage/backend-data/delivery-git /storage/backend-data/module-cache /storage/backend-data/template-source-cache /storage/backend-data/tfroot
+          chown -R 65532:65532 /storage/backend-data
+          chmod 700 /storage/backend-data /storage/backend-data/*
+        volumeMounts:
+        - name: storage
+          mountPath: /storage
+      - name: credentials
+        image: postgres:16-alpine
+        command:
+        - sh
+        - /local/init-db-credentials.sh
+        volumeMounts:
+        - name: scripts
+          mountPath: /local
+          readOnly: true
+        - name: storage
+          mountPath: /role-passwords
+          subPath: role-passwords
+          readOnly: false
+        - name: storage
+          mountPath: /owner
+          subPath: owner
+          readOnly: false
+        - name: storage
+          mountPath: /runtime
+          subPath: runtime
+          readOnly: false
+        - name: storage
+          mountPath: /state-key
+          subPath: state-key
+          readOnly: false
+        - name: storage
+          mountPath: /pgdata
+          subPath: postgres
+          readOnly: true
+      containers:
+      - name: postgres
+        securityContext:
+          runAsUser: 0
+        image: postgres:16-alpine
+        env:
+        - name: POSTGRES_DB
+          value: orchestrator
+        - name: POSTGRES_USER
+          value: orchestrator
+        - name: POSTGRES_PASSWORD_FILE
+          value: /run/postgres-superuser
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: storage
+          mountPath: /var/lib/postgresql/data
+          subPath: postgres
+          readOnly: false
+        - name: storage
+          mountPath: /run/orchestrator/role-passwords
+          subPath: role-passwords
+          readOnly: true
+        - name: storage
+          mountPath: /run/postgres-superuser
+          subPath: superuser
+          readOnly: true
+        - name: scripts
+          mountPath: /docker-entrypoint-initdb.d/10-orchestrator-roles.sh
+          subPath: postgres-init-roles.sh
+          readOnly: true
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -ec
+            - pg_isready -U orchestrator -d orchestrator
+          periodSeconds: 5
+          timeoutSeconds: 4
+          failureThreshold: 24
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            memory: 768Mi
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: platform-storage
+      - name: scripts
+        configMap:
+          name: installation-scripts
+          defaultMode: 292
