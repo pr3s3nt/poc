@@ -24,11 +24,11 @@ Manifest dùng `imagePullPolicy: Never`, nên image phải có sẵn trong node 
 ```bash
 docker build -t "orchestrator-backend:$TAG" backend
 docker build -t "orchestrator-frontend:$TAG" frontend
-docker save "orchestrator-backend:$TAG" "orchestrator-frontend:$TAG" |
-  wsl.exe -d Ubuntu -- docker exec -i k8s-4f-control-plane ctr -n k8s.io images import -
+for image in backend frontend; do
+  docker save "orchestrator-$image:$TAG" |
+    wsl.exe -d Ubuntu -- docker exec -i k8s-4f-control-plane ctr -n k8s.io images import -
+done
 ```
-
-Lệnh nạp image chưa được chạy thử; kiểm tra image trong node ở lần triển khai đầu.
 
 ## Cài mới
 
@@ -84,10 +84,8 @@ lại máy, chạy lại cả hai lệnh, rồi mở link bằng browser để k
 
 ```bash
 TS_IP=$(ip -4 -o addr show tailscale0 | awk '{print $4}' | cut -d/ -f1)
-tmux new-session -d -s orch3070-cluster "while :; do kubectl --context kind-k8s-4f \
+tmux new-session -d -s orch3070-cluster "while :; do KUBECONFIG=$KUBECONFIG kubectl --context kind-k8s-4f \
   -n orchestrator-dev-3070 port-forward --address 127.0.0.1 svc/frontend 13070:8080; sleep 2; done"
 tmux has-session -t orch3070-tailnet 2>/dev/null || tmux new-session -d -s orch3070-tailnet \
   "socat TCP4-LISTEN:3070,bind=$TS_IP,reuseaddr,fork TCP4:127.0.0.1:13070"
 ```
-
-Lệnh `tmux` đầu dùng `KUBECONFIG` đã export ở trên.
