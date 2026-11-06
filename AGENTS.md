@@ -41,7 +41,9 @@ cloud hoặc cluster khác.
 
 1. Trước khi code, tìm issue và nhánh của công việc. Tiếp tục việc dang dở thì dùng
    lại issue và nhánh đó, đọc comment tiến độ để biết chỗ dừng. Chỉ khi chưa có mới
-   tạo issue gồm: Mục tiêu, Phạm vi, Không làm, Tiêu chí nghiệm thu, Giai đoạn.
+   tạo issue gồm: Mục tiêu, Phạm vi, Không làm, Tiêu chí nghiệm thu, Giai đoạn. Việc
+   đơn giản, ví dụ sửa nhỏ làm xong trong một commit, không cần issue; các bước còn
+   lại, gồm nhánh riêng và nghiệm thu trước khi merge, vẫn áp dụng.
 2. Trong khi code, chỉ chạy unit test và integration test của vùng bị thay đổi,
    không chạy cả bộ. Xong mỗi giai đoạn: commit task-only, push, rồi comment commit
    SHA, đã làm, đã kiểm tra và việc còn lại/trở ngại.
