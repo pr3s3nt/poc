@@ -184,9 +184,9 @@ export async function registerWorkloadTemplate(kit, { id, bundle, companion, clu
   await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng', level: 1, exact: true })).toBeVisible();
   await h.type(form('ID mẫu'), id);
   await h.type(form('Tên hiển thị'), 'Mẫu dựng ứng dụng đầy đủ (score-k8s)');
-  const verified = page.getByRole('button', { name: 'Bundle đã xác minh', exact: true });
+  const verified = page.getByRole('button', { name: 'Template đã xác minh', exact: true });
   if (await verified.count()) await h.click(verified);
-  await kit.choose(form('Bundle dựng ứng dụng'), bundle);
+  await kit.choose(form('Template dựng ứng dụng'), bundle);
   await h.click(page.getByRole('button', { name: 'Dùng gợi ý namespace', exact: true }));
   if (clusterRef) {
     // An EKS cluster the plan itself creates: the author states the reference to the cluster RESOURCE of class eks.

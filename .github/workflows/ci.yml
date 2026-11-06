@@ -123,6 +123,8 @@ jobs:
         run: |
           npm ci --prefix scripts/bootstrap
           npm ci --prefix e2e
+      - name: Install Chromium for the video evidence test
+        run: npm exec --prefix scripts/bootstrap -- playwright install --with-deps chromium
       - name: Check bootstrap entrypoint and shared helpers
         run: |
           node scripts/bootstrap/run.mjs --help

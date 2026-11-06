@@ -132,10 +132,10 @@ export async function registerAwsWorkloadTemplate(kit) {
     ref: '9d5b31be06f3b0b7d4051296e98f4176514ee5fc',
   };
   await h.type(page.getByLabel('Git HTTPS URL', { exact: true }), bundleSource.url);
-  await h.type(page.getByLabel('Thư mục bundle', { exact: true }), bundleSource.path);
+  await h.type(page.getByLabel('Thư mục template', { exact: true }), bundleSource.path);
   await h.type(page.getByLabel('Tag hoặc commit', { exact: true }), bundleSource.ref, { replace: true });
   const inspection = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/v1/render-bundles/inspect', { timeout: 180_000 });
-  await h.click(page.getByRole('button', { name: 'Kiểm tra bundle', exact: true }));
+  await h.click(page.getByRole('button', { name: 'Kiểm tra template', exact: true }));
   const inspected = await inspection;
   expect(inspected.status()).toBe(200);
   const bundlePin = (await inspected.json()).renderBundle;

@@ -127,7 +127,7 @@ export function makeKit(ctx) {
   const mark = ctx.mark ?? (() => {});
   const nav = (name) => page.getByRole('link', { name: new RegExp(`(^|\\s)${name}$`) });
   const get = async (path) => requiredJSON(await page.request.get(`${baseURL}/api/v1${path}`), path);
-  const wrapped = new Set(['Loại tài nguyên', 'Module đã kiểm chứng', 'Tài khoản hạ tầng', 'Bundle dựng ứng dụng', 'Cách cung cấp cluster', 'Nhóm cluster của provider kubernetes', 'Tài khoản Internal của cluster']);
+  const wrapped = new Set(['Loại tài nguyên', 'Module đã kiểm chứng', 'Tài khoản hạ tầng', 'Template dựng ứng dụng', 'Cách cung cấp cluster', 'Nhóm cluster của provider kubernetes', 'Tài khoản Internal của cluster']);
   // Match the beginning of a wrapping label, not text inside its <option>s:
   // a Type awaiting its first module says "chưa có module đã kiểm chứng" and
   // must not turn the Type selector into the module selector.
@@ -210,7 +210,7 @@ export function makeKit(ctx) {
   }
   const leaveSettings = (name = input.applicationName) => h.click(page.getByRole('button', { name: `← ${name}` }));
   const importScore = async (file, expectName) => {
-    await h.click(page.getByRole('button', { name: 'Nhập Score', exact: true }));
+    await h.click(page.getByRole('button', { name: 'Nhập Workload', exact: true }));
     const chooser = page.waitForEvent('filechooser');
     chooser.catch(() => {});
     await h.click(page.getByLabel('File Score', { exact: true }));
@@ -233,7 +233,7 @@ export function makeKit(ctx) {
   };
   // The Score Preview page (UC-05) shows the plan of the SAME Score and Environment snapshot: graph edges, matches, batches and pins.
   const scorePreview = async (scoreFile, workloadId, tag) => {
-    await h.click(page.getByRole('button', { name: 'Xem trước Score', exact: true }));
+    await h.click(page.getByRole('button', { name: 'Xem trước Workload', exact: true }));
     await h.type(page.getByLabel('ID Workload', { exact: true }), workloadId, { replace: true });
     await h.type(page.getByLabel('ID lần chạy', { exact: true }), `${tag}-${Date.now() % 100000}`, { replace: true });
     await h.paste(page.getByLabel(/Score sau/), readFileSync(scoreFile, 'utf8'));

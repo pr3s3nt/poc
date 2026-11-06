@@ -130,12 +130,12 @@ export const SCENARIOS = {
       'the application secret was stored through the Environment secret store; its value is never visible; only its SHA-256 is a public key');
     for (const name of ['backend', 'worker', 'frontend']) await kit.addWorkloadFromScore(`${input.scoreDir}/${name}.yaml`, name);
     const drafts = (await get(`${appPath}/workloads`)).workloads ?? [];
-    rec.record('ui.score.imported', 'PREVIEW', 'ui', ['backend', 'worker', 'frontend'].every((n) => drafts.some((w) => w.id === n)) && drafts.find((w) => w.id === 'frontend')?.score?.containers?.main?.image === input.images.frontendA.ref,
+    rec.record('ui.workloadspec.imported', 'PREVIEW', 'ui', ['backend', 'worker', 'frontend'].every((n) => drafts.some((w) => w.id === n)) && drafts.find((w) => w.id === 'frontend')?.workload?.containers?.main?.image === input.images.frontendA.ref,
       `three Score drafts saved; Score sha256 backend ${scoresRecord.workloads.find((w) => w.name === 'backend').sha256.slice(0, 16)} worker ${scoresRecord.workloads.find((w) => w.name === 'worker').sha256.slice(0, 16)} frontend ${scoresRecord.workloads.find((w) => w.name === 'frontend').sha256.slice(0, 16)}; ${scoresRecord.changes.length} recorded differences from the repository Score source`);
     await backToApplication();
     const planned = await kit.scorePreview(`${input.scoreDir}/backend.yaml`, 'backend', 'plan');
     const plan = planned.body;
-    await h.moveTo(page.getByLabel('Kết quả xem trước Score'));
+    await h.moveTo(page.getByLabel('Kết quả xem trước Workload'));
     await h.pause(SHORT_READ);
     const backendNode = 'workload.default#modules.backend';
     const nodes = (plan.graph?.nodes ?? []).map((n) => n.descriptor);

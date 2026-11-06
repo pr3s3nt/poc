@@ -303,7 +303,15 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       expect(requests.filter((request) => request.method === 'POST')).toEqual([]);
     });
 
-    it.each(['/ui/platform/resource-definitions', '/ui/platform/resource-definitions?resourceType=workload', '/ui/platform/resource-definitions?resourceType=nope'])('selects nothing for deep link %s', async (path) => {
+    it('selects the ordinary workload type for its deep link (ADR-035)', async () => {
+      authenticated = true;
+      window.history.replaceState({}, '', '/ui/platform/resource-definitions?resourceType=workload');
+      override = catalog;
+      render(<App />);
+      await waitFor(() => expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('workload'));
+    });
+
+    it.each(['/ui/platform/resource-definitions', '/ui/platform/resource-definitions?resourceType=nope'])('selects nothing for deep link %s', async (path) => {
       authenticated = true;
       window.history.replaceState({}, '', path);
       override = catalog;
