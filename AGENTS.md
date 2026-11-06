@@ -67,6 +67,10 @@ CI đỏ sẵn trên `main` không tính là đạt: ghi rõ job/test nào fail 
 secret, credential hoặc thông tin hạ tầng nội bộ. Vẫn dừng hỏi người dùng khi
 thiếu quyết định theo mục "Starting a task".
 
+Commit và merge của mọi agent mang tên user của máy agent đang chạy, không dùng tên
+agent. Trước khi commit, kiểm tra `git config user.name` trùng `id -un`; nếu khác,
+dùng `git -c user.name="$(id -un)" commit` và tương tự cho merge.
+
 ## Starting a task
 
 Trước khi sửa file:
