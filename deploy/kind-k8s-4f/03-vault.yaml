@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault
+  namespace: orchestrator-dev-3070
+  labels:
+    app.kubernetes.io/part-of: orchestrator-dev-3070
+    app.kubernetes.io/managed-by: poc-local-installer
+spec:
+  selector:
+    app: vault
+  ports:
+  - port: 8200
+    targetPort: 8200
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault
+  namespace: orchestrator-dev-3070
+  labels:
+    app.kubernetes.io/part-of: orchestrator-dev-3070
+    app.kubernetes.io/managed-by: poc-local-installer
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: vault
+  template:
+    metadata:
+      labels:
+        app: vault
+        app.kubernetes.io/part-of: orchestrator-dev-3070
+        app.kubernetes.io/managed-by: poc-local-installer
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: vault
+        image: hashicorp/vault:1.21
+        securityContext:
+          runAsUser: 0
+        command:
+        - sh
+        - /local/start-vault.sh
+        env:
+        - name: VAULT_ADDR
+          value: http://127.0.0.1:8200
+        volumeMounts:
+        - name: scripts
+          mountPath: /local
+          readOnly: true
+        - name: storage
+          mountPath: /vault/data
+          subPath: vault-data
+          readOnly: false
+        - name: storage
+          mountPath: /vault/bootstrap
+          subPath: vault-bootstrap
+          readOnly: false
+        - name: storage
+          mountPath: /connection-token
+          subPath: connection-token
+          readOnly: false
+        - name: storage
+          mountPath: /app-token
+          subPath: app-token
+          readOnly: false
+        - name: storage
+          mountPath: /output-token
+          subPath: output-token
+          readOnly: false
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -ec
+            - test -f /tmp/vault-ready && vault status >/dev/null 2>&1
+          periodSeconds: 5
+          timeoutSeconds: 4
+          failureThreshold: 24
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            memory: 768Mi
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: platform-storage
+      - name: scripts
+        configMap:
+          name: installation-scripts
+          defaultMode: 292
