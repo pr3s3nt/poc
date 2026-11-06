@@ -7,6 +7,25 @@ last_reviewed: 2026-11-05
 
 # Current project state
 
+## Workload class dropdown — 2026-11-05
+
+Task branch `features/chinhform`: UC-16 BR-31/32 replaces free-text workload class
+with a collapsed advanced dropdown from the published `workload` Type classes.
+Default omission, explicit historical default and unpublished saved classes are
+preserved; refresh failures lock selection and allow GET retry. Existing matching
+and Preview/Deploy are unchanged. Typecheck/lint/build, 49 focused editor/class/
+storage tests and browser fixture inspection pass. Lint has an existing warning
+in PlatformSettingsPage; existing async tests emit act warnings. Browser checks
+use fake API data and do not prove live deployment or Tailscale availability.
+
+The broader workload expansion is implemented on this task branch as of
+2026-11-06: PVC/emptyDir/hostPath/ConfigMap/Secret files, app/init/native-sidecar intent,
+custom form authoring, container ports/Service protocol, zero replicas, advanced
+annotations and HTTP/TCP/exec probes with timing. Save/reopen and real Preview
+are verified through Tailscale using the current backend and real PostgreSQL;
+source guards and render tests cover all controller kinds. No Kubernetes/cloud
+Deploy was performed. See [checks, baseline failures, runtime and limits](verification/2026-11-06-chinhform-runtime.md).
+
 ## Public routes and subdomains retired — 2026-11-05
 
 [ADR-037](architecture/decisions/ADR-037-retire-public-routes.md): the endpoint
@@ -2022,3 +2041,29 @@ reachable by real Tailscale DNS in Playwright and from Windows (HTTP 200).
 See [HTTPRoute domain verification](verification/2026-11-05-httproute-domain.md).
 A dedicated authorized dev Traefik/Gateway and test frontend remain for review;
 this is HTTP-only and does not establish company staging/HTTPS readiness.
+
+HostPath extension WC-21 (2026-11-06) uses the same `PodVolume`/`ContainerVolumeFields` / `VolumeSourceFields`
+flow: node path/type, per-container read mode/subPath, host-path-volumes-v1 source
+admission, standard execution template, invariant guards and safe Preview.
+Coverage: environment hostPath validation/clone, workloadconfig round-trip, planner
+capability admission, templatedriver multi-controller/source/mode invariants,
+deploymentreview projection, WorkloadRuntimeIntent UI and workload-runtime-form E2E.
+See [generic contract](architecture/contracts/generic-workload.md) and the runtime verification record. Kubernetes execution remains unverified.
+
+WC-22 — Container volume/file authoring (2026-11-06): WorkloadEditorPage now
+places ContainerVolumeFields in every app/init/sidecar card. Add volume or file
+creates/attaches a source atomically or reuses an existing source; VolumeSourceFields
+provides shared source settings. ExecutionFields owns runtime/schedule/preset
+inputs only. The four global storage/source/mount/Secret sections are removed.
+Mount paths/modes survive inline PVC/Secret creation; orphan targets are visible
+for explicit repair. API/JSON/backend contracts and runtime guards are unchanged.
+See WC-22 and [verification](verification/2026-11-06-container-volume-ui.md) for checks and UI evidence.
+
+WC-23 — Reuse-first volume picker (2026-11-06): ContainerVolumeFields initially
+shows searchable/filterable sources with type and known mount users. It includes
+current-workload named sources, local storage dependencies, eligible shared PVC
+resources from the current app/environment and configured Secrets. New source
+creation is explicit. WorkloadEditorPage reuses shared PVC identity/typed params
+with a collision-free alias and existing reuse guards, adding dependency + mount
+atomically. Other workloads' Pod-local sources are excluded. No API/backend/schema
+change. [Verification](verification/2026-11-06-reuse-first-volumes.md) records checks and real reuse/Preview.

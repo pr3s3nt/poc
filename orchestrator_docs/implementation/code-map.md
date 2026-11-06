@@ -7,6 +7,27 @@ last_reviewed: 2026-10-28
 
 # Design-to-code map
 
+## Custom workload runtime authoring — GW-06/07
+
+`environment/volumes.go`, `probes.go`, `execution.go` and `workloadspec/workload.go`
+validate lifecycle/volumes/probes. `templatesource/workload_capabilities.go` and
+`planning/workload_execution.go` gate matched sources; `templatedriver/pod_volumes.go`
+and standard `container-lifecycle.tpl`, `execution.tpl`, `configmaps.tpl` render
+and guard intent. `deploymentreview/pod_projection.go` preserves safe review
+structure. Frontend `ContainerVolumeFields` / `VolumeSourceFields`, `ProbeFields`, `ExecutionFields`,
+`runtimeIntent` and the existing editor/create dialog implement authoring.
+Tests include the runtime form component tests and
+`e2e/scenarios/workload-runtime-form/`. See
+[verification](../verification/2026-11-06-chinhform-runtime.md).
+
+## Workload class authoring — UC-16 BR-31/32
+
+`frontend/src/features/workloads/WorkloadClassControl.tsx` reuses `Advanced` and
+the published `workload` Type classes retained by `WorkloadEditorPage.tsx`.
+`WorkloadClassMetadata.test.tsx` covers default omission, authoritative choices,
+retained classes, metadata failure/retry and withdrawal without mutation.
+Backend matching/API/persistence contracts are unchanged.
+
 ## Controlled Definition upgrades
 
 [UC-03 DV-01–07](../usecase/UC-03/definition-versions.md) maps to immutable revision/Environment repositories, catalog resolution, Plan snapshots, fenced activation and the existing forms. See the [implementation route](definition-versions.md) for paths and supported tool-retention boundaries.
@@ -1216,3 +1237,29 @@ Focused real-renderer coverage: `company_httproute_test.go` in templatedriver.
 - HTTP `environments[].endpoints` comes from READY endpoint Active Resources.
 - Console: `CreateApplicationPage` (name only), `DependencyFields` (private
   endpoint, Service-port select), Application page endpoint list.
+
+HostPath extension WC-21 (2026-11-06) uses the same `PodVolume`/`ContainerVolumeFields` / `VolumeSourceFields`
+flow: node path/type, per-container read mode/subPath, host-path-volumes-v1 source
+admission, standard execution template, invariant guards and safe Preview.
+Coverage: environment hostPath validation/clone, workloadconfig round-trip, planner
+capability admission, templatedriver multi-controller/source/mode invariants,
+deploymentreview projection, WorkloadRuntimeIntent UI and workload-runtime-form E2E.
+See [generic contract](../architecture/contracts/generic-workload.md) and the runtime verification record. Kubernetes execution remains unverified.
+
+WC-22 — Container volume/file authoring (2026-11-06): WorkloadEditorPage now
+places ContainerVolumeFields in every app/init/sidecar card. Add volume or file
+creates/attaches a source atomically or reuses an existing source; VolumeSourceFields
+provides shared source settings. ExecutionFields owns runtime/schedule/preset
+inputs only. The four global storage/source/mount/Secret sections are removed.
+Mount paths/modes survive inline PVC/Secret creation; orphan targets are visible
+for explicit repair. API/JSON/backend contracts and runtime guards are unchanged.
+See WC-22 and [verification](../verification/2026-11-06-container-volume-ui.md) for checks and UI evidence.
+
+WC-23 — Reuse-first volume picker (2026-11-06): ContainerVolumeFields initially
+shows searchable/filterable sources with type and known mount users. It includes
+current-workload named sources, local storage dependencies, eligible shared PVC
+resources from the current app/environment and configured Secrets. New source
+creation is explicit. WorkloadEditorPage reuses shared PVC identity/typed params
+with a collision-free alias and existing reuse guards, adding dependency + mount
+atomically. Other workloads' Pod-local sources are excluded. No API/backend/schema
+change. [Verification](../verification/2026-11-06-reuse-first-volumes.md) records checks and real reuse/Preview.

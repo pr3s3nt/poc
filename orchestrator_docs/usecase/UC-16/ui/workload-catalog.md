@@ -24,8 +24,7 @@ trả focus về nút. Save quay về danh sách pending; Preview/Deploy vẫn �
 | Mạng | Service toggle, ClusterIP/headless, ports table, public route tới Service port |
 | Biến môi trường | Name/Value, Chọn từ… và secret create dialog hiện hành |
 | Tài nguyên | Typed dependency, class/shared identity, inputs theo Type schema, new/reuse |
-| Storage | New/reuse managed resource, container, mount path/readOnly, size/class/access mode theo capability |
-| File bí mật | Chọn approved key, container/path/mode; không hiển thị bytes |
+| Volume và file (trong từng container) | Một nút thêm; PVC, emptyDir, ConfigMap, hostPath hoặc Secret; tạo mới/dùng lại nguồn; path/mode; container đích ngầm định |
 | Lịch | Cron expression, IANA timezone, suspend, concurrency; chỉ scheduled |
 | Nâng cao | command/args riêng, workingDir, probes, requests/limits; Job retry/deadline/history |
 
@@ -34,14 +33,11 @@ có public route hoặc backend có DB; hiển thị theo capability. Cấu hìn
 support phải hiện rõ/giữ advanced, không biến mất. Retain/delete hậu quả ở nơi
 quyết định. Không bắt người dùng nhập state/provider/token/UID trong form.
 
-Thêm volume mount vẫn bấm được khi chưa có dependency nếu catalog có loại
-storage hợp lệ. Mở shared resource Dialog, chỉ hiện loại có outputs string công
-khai `claimName`/`namespace` và reuse phù hợp; một loại duy nhất được chọn sẵn,
-alias mới không trùng. Thêm và chọn đưa dependency cùng mount `/data` của
-container đầu tiên vào local form; người dùng sửa path/container trước Save.
-Hủy/Escape không thay đổi form và trả focus về nút. Khi đã có dependency storage,
-nút thêm dòng mount như hiện hành. Nếu không có loại storage hợp lệ thì khóa nút
-kèm thông báo ngắn yêu cầu quản trị nền tảng đăng ký loại lưu trữ.
+Trong từng container, “Thêm volume hoặc file” mở shared Dialog chọn loại và
+nguồn mới/đã có. Với PVC mới, chuyển sang resource Dialog hiện hành; xác nhận
+thêm dependency và mount của đúng container đã mở. Secret mới dùng UC-12 Dialog
+hiện hành. Không lồng hai Dialog. Hủy/Escape giữ draft và trả focus. Nguồn
+emptyDir/ConfigMap/hostPath mới cùng mount được thêm nguyên tử tại xác nhận.
 
 ## Trạng thái và detail
 
@@ -72,3 +68,50 @@ shows loading/error/retry, bounded Kubernetes Job history and observation time;
 Pending/Running are observations, not rollout readiness. Empty history means no
 retained Job, not a successful run. Disclose history-limit/truncation semantics.
 Closing restores focus; changing app/environment drops late responses.
+
+## Custom containers and volumes — WC-16..19
+
+Custom and preset editors use one Volumes & files section within each container.
+App/init/sidecar share the same controls. A single Add volume or file opens type
+(PVC/emptyDir/ConfigMap/hostPath/Secret), source (new/existing), mount path and
+mode. Do not show a container selector. Named sources remain workload-wide, so
+other containers can reuse them. Inline mount cards expose source settings under
+a disclosure, labelled shared when multiple mounts reference them. Removing a
+mount does not delete its source, dependency or Secret. Preserve unused imported
+sources in the existing-source picker. If a container rename/removal leaves an
+unassigned mount, show a compact repair row with target selection and Remove.
+The four previous workload-level volume/file sections are retired. Keep shared
+Dialog/Button/field-grid patterns, short VI/EN labels and existing catalog error,
+CAS/BUSY/scope behavior. Source/type errors remain visible and must not drop intent.
+
+GW-07 uses per-container advanced port rows and probe controls (enable/type,
+HTTP path/scheme, TCP port or exec argv, plus optional timing). Service rows expose
+protocol; Workload advanced contains annotation name/value rows. Replicas is
+optional and supports zero for Deployment; no value is synthesized at Save.
+
+## HostPath — WC-21 (2026-11-06)
+
+Reuse the named volume source selector and mount rows. HostPath reveals node
+path and type (default Directory, optional unchecked type and all Kubernetes enum
+values). Show one short note that node files are exposed, paths differ by node
+and cluster policy can reject them. New mounts default read-only with an editable
+checkbox; imported read-write intent remains unchanged. Keep empty/error/save
+states, existing shell/controls and translated VI/EN labels. Preview keeps
+path/type/mount mode visible. Do not add a node file browser or local file picker.
+
+## Reuse-first source picker — WC-23
+
+The initial Add volume or file view is a searchable list of reusable sources,
+with optional type filter, source/type labels and known mounted-in containers.
+Show current-workload named sources, local PVC dependencies, compatible shared
+PVC resources from the same app/environment and scoped configured Secrets.
+Sources are never selected implicitly. Selection shows mount controls; Add to
+container writes the local draft. Shared PVC selection adds the original shared
+identity with typed parameters through the existing dependency model.
+
+Create new source switches to the existing type/create controls, with a Back to
+existing sources action. No matching results and no sources are separate empty
+states. Catalog loading/error is explicit and does not masquerade as empty;
+unrelated eligible named sources remain usable. Do not copy other workloads'
+emptyDir, ConfigMap or hostPath sources into this list. Keep source bytes hidden,
+reuse shared Dialog/buttons/list styles, and preserve Cancel/focus/scope behavior.

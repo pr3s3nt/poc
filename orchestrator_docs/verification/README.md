@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-06 | Custom workload volume/file/lifecycle authoring, real PostgreSQL/Secret creation/Preview and Tailscale handoff | [Chinhform runtime form](2026-11-06-chinhform-runtime.md) |
 | 2026-11-05 | One Fleet GitRepo per Application: source checks and legacy test cleanup; new-layout live gate pending | [Record](2026-11-05-application-fleet-gitrepo.md) |
 | 2026-11-04 | Issue #33 Git-only inputs, backend PVC retention, unchanged reruns and final-success video | [Git bootstrap/PVC](2026-11-04-git-bootstrap-pvc.md) |
 | 2026-11-04 | Rancher-compatible Fleet discovery/Verify, opaque registration identity, version/schema gates; user-selected kind-only runtime acceptance | [Rancher Fleet](2026-11-04-rancher-fleet.md) |
@@ -168,3 +169,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [HTTPRoute real domain through Traefik — 2026-11-05](2026-11-05-httproute-domain.md)
 - [Public endpoint real domain, rename and schema 9 — 2026-11-05](2026-11-05-endpoint-domain.md)
 - [Dev bootstrap acceptance app on an endpoint — 2026-11-05](2026-11-05-dev-endpoint-bootstrap.md)
+
+- [Container volume/file UI — WC-22](2026-11-06-container-volume-ui.md).
+
+- [Existing volume sources before creation — WC-23](2026-11-06-reuse-first-volumes.md).

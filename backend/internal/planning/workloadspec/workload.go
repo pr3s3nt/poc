@@ -243,6 +243,9 @@ func (d Document) Validate() error {
 	if d.Metadata.Name == "" {
 		return fmt.Errorf("workload: metadata.name is required")
 	}
+	if err := environment.ValidateContainerRoles(d.Containers); err != nil {
+		return err
+	}
 	if len(d.Containers) == 0 {
 		return fmt.Errorf("workload: workload %q declares no container", d.Metadata.Name)
 	}
@@ -252,10 +255,18 @@ func (d Document) Validate() error {
 	for _, name := range sortedKeys(d.Containers) {
 		seenPorts := map[string]bool{}
 		for _, port := range d.Containers[name].Ports {
-			if port.Name == "" || seenPorts[port.Name] || port.ContainerPort < 1 || port.ContainerPort > 65535 {
+			if port.Name == "" || seenPorts[port.Name] || (port.Protocol != "" && port.Protocol != "TCP" && port.Protocol != "UDP" && port.Protocol != "SCTP") || port.ContainerPort < 1 || port.ContainerPort > 65535 {
 				return fmt.Errorf("workload: invalid or duplicate container port")
 			}
 			seenPorts[port.Name] = true
+		}
+		for _, probe := range []struct {
+			value  *environment.Probe
+			single bool
+		}{{d.Containers[name].ReadinessProbe, false}, {d.Containers[name].LivenessProbe, true}, {d.Containers[name].StartupProbe, true}} {
+			if err := probe.value.Validate(probe.single); err != nil {
+				return err
+			}
 		}
 		if d.Containers[name].Image == "" {
 			return fmt.Errorf("workload: container %q has no image", name)

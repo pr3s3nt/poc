@@ -9,7 +9,14 @@ inputContract: orchestrator.dev/template-input/v1
 inputsSchema: inputs.schema.json
 defaults: defaults.yaml
 normalize: normalize/workload.tpl
+workloadCapabilities:
+  - custom-execution-v1
+  - container-lifecycle-v1
+  - pod-volumes-v1
+  - host-path-volumes-v1
+  - container-probes-v1
 resources:
+  - resources/configmaps.tpl
   - resources/deployment.tpl
   - resources/service.tpl
   - resources/identity.tpl
@@ -17,6 +24,7 @@ patches:
   - patches/deployment.tpl
   - patches/service.tpl
   - patches/execution.tpl
+  - patches/container-lifecycle.tpl
 workloadTemplates:
   - id: frontend
     version: 1.0.0

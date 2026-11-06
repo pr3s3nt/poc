@@ -122,6 +122,9 @@ func guard(req execution.RenderRequest, delivery kubernetes.Delivery, objects []
 	if err := guardWorkload(req, delivery, workloadKind, workload); err != nil {
 		return err
 	}
+	if err := guardConfigMaps(req, objects); err != nil {
+		return err
+	}
 	if service != nil {
 		return guardService(req, delivery, service)
 	}
@@ -303,7 +306,7 @@ func guardWorkload(req execution.RenderRequest, delivery kubernetes.Delivery, ki
 				return violated("storage binding unavailable")
 			}
 			found := false
-			for _, raw := range list(pod["containers"]) {
+			for _, raw := range podContainers(pod) {
 				c := object(raw)
 				if c["name"] != mount.Container {
 					continue
@@ -312,7 +315,7 @@ func guardWorkload(req execution.RenderRequest, delivery kubernetes.Delivery, ki
 					v := object(rawMount)
 					name, _ := v["name"].(string)
 					readOnly, _ := v["readOnly"].(bool)
-					if v["mountPath"] == mount.Path && claims[name] == binding.ClaimName && readOnly == mount.ReadOnly {
+					if v["mountPath"] == mount.Path && claims[name] == binding.ClaimName && readOnly == mount.ReadOnly && stringOrEmpty(v["subPath"]) == mount.SubPath {
 						found = true
 					}
 				}
@@ -335,7 +338,7 @@ func guardWorkload(req execution.RenderRequest, delivery kubernetes.Delivery, ki
 				if item["key"] != file.SecretKey {
 					continue
 				}
-				for _, rawContainer := range list(pod["containers"]) {
+				for _, rawContainer := range podContainers(pod) {
 					container := object(rawContainer)
 					if container["name"] != file.Container {
 						continue
@@ -353,8 +356,14 @@ func guardWorkload(req execution.RenderRequest, delivery kubernetes.Delivery, ki
 			return violated("approved secret file projection must be kept")
 		}
 	}
+	if err := guardLifecycle(req, pod); err != nil {
+		return err
+	}
+	if err := guardLocalMounts(req, pod); err != nil {
+		return err
+	}
 	containers := map[string]map[string]any{}
-	for _, raw := range list(pod["containers"]) {
+	for _, raw := range podContainers(pod) {
 		c := object(raw)
 		name, _ := c["name"].(string)
 		if _, dup := containers[name]; dup || name == "" {
@@ -424,16 +433,31 @@ func guardContainer(c map[string]any, declared environment.Container, bindings [
 		if want == nil {
 			continue
 		}
-		get := object(object(c[probe])["httpGet"])
-		if get["path"] != want.Path || toNumber(get["port"]) != float64(want.Port) {
-			return violated("explicit Workload probes must be kept")
+		actual := object(c[probe])
+		expected := probeIntent(want)
+		// The template may default timings, but never add a second action.
+		actionCount := 0
+		for _, key := range []string{"httpGet", "tcpSocket", "exec", "grpc"} {
+			if _, ok := actual[key]; ok {
+				actionCount++
+			}
+		}
+		if actionCount != 1 {
+			return violated("probe must have one action")
+		}
+		for key, value := range expected {
+			gotBytes, _ := json.Marshal(actual[key])
+			wantBytes, _ := json.Marshal(value)
+			if string(gotBytes) != string(wantBytes) {
+				return violated("explicit Workload probes must be kept")
+			}
 		}
 	}
 	for _, want := range declared.Ports {
 		found := false
 		for _, raw := range list(c["ports"]) {
 			port := object(raw)
-			if port["name"] == want.Name && toNumber(port["containerPort"]) == float64(want.ContainerPort) {
+			if port["name"] == want.Name && toNumber(port["containerPort"]) == float64(want.ContainerPort) && (want.Protocol == "" || port["protocol"] == want.Protocol) {
 				found = true
 			}
 		}
@@ -567,3 +591,5 @@ func guardService(req execution.RenderRequest, delivery kubernetes.Delivery, s m
 	}
 	return nil
 }
+
+func stringOrEmpty(value any) string { s, _ := value.(string); return s }

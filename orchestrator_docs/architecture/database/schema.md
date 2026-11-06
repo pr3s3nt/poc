@@ -1055,6 +1055,14 @@ ADR-028 template registry reuses `render_bundles.contract.manifest.workloadTempl
 with immutable verified source content. Typed template inputs and content pin live
 in the execution JSONB extension. No dedicated template DDL or staging reset.
 
+GW-06/07 (2026-11-06) adds optional container role/initOrder/extended probe/port
+fields and execution volumes/volumeMounts to these same normalized JSONB documents.
+Custom execution may omit the authoring preset pin, while plans still pin the
+matched Definition/source. Source capabilities are immutable members of
+`template_sources.contract.manifest`. No relational column, DDL, migration or ERD
+change; existing immutable snapshots are not rewritten. See the
+[Generic Workload contract](../contracts/generic-workload.md).
+
 ## Application lifecycle — ADR-025
 
 Required by [ADR-025](../decisions/ADR-025-application-deletion.md) and
@@ -1340,3 +1348,10 @@ one host plus the workload's `/` path. The migration drops
 stored workload drafts. Immutable Deployment Sets, plans and receipts are not
 rewritten. Console has SELECT/INSERT/UPDATE/DELETE on both endpoint tables; the
 State login has none. Released versions 1–9 are frozen.
+
+HostPath extension (WC-21, 2026-11-06): WorkloadExecution.volumes retains the
+existing JSON shape with an exclusive hostPath source {path, type?}, alongside
+emptyDir/configMap. Path is the Linux node path; type is the optional Kubernetes
+HostPathType enum. Draft, deployment-set and applied ModuleSpec snapshots retain
+it with existing CAS and deep-copy rules. No relational column, migration, node
+filesystem provisioning, deletion or retention owner is introduced.

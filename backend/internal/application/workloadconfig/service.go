@@ -288,7 +288,7 @@ func (s *Service) Undo(ctx context.Context, app, env, workload string, expectedV
 }
 
 func (s *Service) validateBindings(ctx context.Context, app, env string, doc workloadspec.Document) error {
-	if doc.Execution != nil {
+	if doc.Execution.HasTemplate() {
 		application, err := s.store.GetApplication(ctx, app)
 		if err != nil {
 			return err

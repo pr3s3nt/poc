@@ -84,10 +84,18 @@ func (s *Service) Canonical() *Service {
 	return &out
 }
 
-// Probe is an HTTP readiness or liveness probe path.
+// Probe declares an HTTP, TCP or exec health check with optional timing overrides.
 type Probe struct {
-	Path string `json:"path"`
-	Port int    `json:"port"`
+	Type                string   `json:"type,omitempty"`
+	Path                string   `json:"path,omitempty"`
+	Port                int      `json:"port,omitempty"`
+	Command             []string `json:"command,omitempty"`
+	Scheme              string   `json:"scheme,omitempty"`
+	InitialDelaySeconds *int     `json:"initialDelaySeconds,omitempty"`
+	TimeoutSeconds      *int     `json:"timeoutSeconds,omitempty"`
+	PeriodSeconds       *int     `json:"periodSeconds,omitempty"`
+	SuccessThreshold    *int     `json:"successThreshold,omitempty"`
+	FailureThreshold    *int     `json:"failureThreshold,omitempty"`
 }
 
 // ComputeResources is one `requests` or `limits` branch of a container. Values
@@ -126,11 +134,14 @@ func (r *ContainerResourceRequirements) Clone() *ContainerResourceRequirements {
 // Container is one container of a workload module. The id repeats the map key,
 // which is the Humanitec module form.
 type ContainerPort struct {
+	Protocol      string `json:"protocol,omitempty"`
 	Name          string `json:"name"`
 	ContainerPort int    `json:"containerPort"`
 }
 
 type Container struct {
+	Role           string                         `json:"role,omitempty"`
+	InitOrder      int                            `json:"initOrder,omitempty"`
 	Ports          []ContainerPort                `json:"ports,omitempty"`
 	ID             string                         `json:"id,omitempty"`
 	WorkingDir     string                         `json:"workingDir,omitempty"`

@@ -118,7 +118,11 @@ func PrepareDelivery(_ context.Context, req execution.RenderRequest) (Delivery, 
 				fileKeys[file.Container] = map[string]bool{}
 			}
 			fileKeys[file.Container][key] = true
-			d.Files = append(d.Files, FileBinding{Container: file.Container, SecretName: req.ConfigSecretName, SecretKey: secretKey, Path: file.Path, Mode: file.Mode})
+			mode := file.Mode
+			if mode == 0 {
+				mode = 0400
+			}
+			d.Files = append(d.Files, FileBinding{Container: file.Container, SecretName: req.ConfigSecretName, SecretKey: secretKey, Path: file.Path, Mode: mode})
 		}
 	}
 	for name := range req.Module.Spec.Containers {
