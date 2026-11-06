@@ -1512,3 +1512,8 @@ WD-01–10 — [workload configuration/default policy](../usecase/UC-16/workload
 [field-to-code matrix](../implementation/workload-defaults.md),
 `runtime_policy_test.go`, `defaults_test.go`, `WorkloadDefaults.test.tsx`, JSONB
 reopen tests and [owned runtime/browser scenario](../../e2e/scenarios/workload-defaults/README.md).
+
+ADR-038 / WD-02–03: template-only values → RuntimeDefaults/TemplateDefaultsSnapshot
+→ workloadconfig scoped admission → generic resolver / renderer / Preview →
+arbitrary-value merge, forged-profile, no-policy and real Fleet/PVC acceptance.
+See [verification](../verification/2026-11-06-template-only-defaults.md).

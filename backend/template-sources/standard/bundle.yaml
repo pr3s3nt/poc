@@ -10,7 +10,7 @@ inputsSchema: inputs.schema.json
 defaults: defaults.yaml
 normalize: normalize/workload.tpl
 workloadCapabilities:
-  - workload-defaults-v1
+  - template-defaults-v1
   - runtime-security-v1
   - controller-policy-v1
   - stateful-claims-v1
@@ -33,7 +33,7 @@ patches:
   - patches/runtime-policy.tpl
 workloadTemplates:
   - id: frontend
-    version: 1.0.0
+    version: 1.1.0
     kind: Deployment
     labels:
       vi: Frontend web
@@ -43,8 +43,36 @@ workloadTemplates:
       additionalProperties: false
       properties: {}
     defaults: {}
+    runtimeDefaults:
+      resources:
+        requests: {cpu: 100m, memory: 128Mi}
+        limits: {memory: 512Mi}
+      containerSecurityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+      auxiliaryContainerSecurityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+      probeTimings:
+        readinessProbe: {periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3, successThreshold: 1}
+        livenessProbe: {periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3, successThreshold: 1}
+        startupProbe: {periodSeconds: 5, timeoutSeconds: 2, failureThreshold: 30, successThreshold: 1, initialDelaySeconds: 0}
+      replicas: 1
+      execution:
+        automountServiceAccountToken: false
+        podSecurityContext:
+          seccompProfile: {type: RuntimeDefault}
+        revisionHistoryLimit: 3
+        updateStrategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
+        persistentUpdateStrategy: {type: Recreate}
+        podDisruptionBudget: {enabled: true, maxUnavailable: 1, unhealthyPodEvictionPolicy: AlwaysAllow}
+      environments:
+        production:
+          resources:
+            requests: {cpu: 200m, memory: 256Mi}
+          execution: {revisionHistoryLimit: 10}
   - id: backend
-    version: 1.0.0
+    version: 1.1.0
     kind: Deployment
     labels:
       vi: Backend API
@@ -54,8 +82,36 @@ workloadTemplates:
       additionalProperties: false
       properties: {}
     defaults: {}
+    runtimeDefaults:
+      resources:
+        requests: {cpu: 100m, memory: 128Mi}
+        limits: {memory: 512Mi}
+      containerSecurityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+      auxiliaryContainerSecurityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+      probeTimings:
+        readinessProbe: {periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3, successThreshold: 1}
+        livenessProbe: {periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3, successThreshold: 1}
+        startupProbe: {periodSeconds: 5, timeoutSeconds: 2, failureThreshold: 30, successThreshold: 1, initialDelaySeconds: 0}
+      replicas: 1
+      execution:
+        automountServiceAccountToken: false
+        podSecurityContext:
+          seccompProfile: {type: RuntimeDefault}
+        revisionHistoryLimit: 3
+        updateStrategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
+        persistentUpdateStrategy: {type: Recreate}
+        podDisruptionBudget: {enabled: true, maxUnavailable: 1, unhealthyPodEvictionPolicy: AlwaysAllow}
+      environments:
+        production:
+          resources:
+            requests: {cpu: 200m, memory: 256Mi}
+          execution: {revisionHistoryLimit: 10}
   - id: worker
-    version: 1.0.0
+    version: 1.1.0
     kind: Deployment
     labels:
       vi: Xử lý nền
@@ -65,8 +121,36 @@ workloadTemplates:
       additionalProperties: false
       properties: {}
     defaults: {}
+    runtimeDefaults:
+      resources:
+        requests: {cpu: 100m, memory: 128Mi}
+        limits: {memory: 512Mi}
+      containerSecurityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+      auxiliaryContainerSecurityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+      probeTimings:
+        readinessProbe: {periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3, successThreshold: 1}
+        livenessProbe: {periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3, successThreshold: 1}
+        startupProbe: {periodSeconds: 5, timeoutSeconds: 2, failureThreshold: 30, successThreshold: 1, initialDelaySeconds: 0}
+      replicas: 1
+      execution:
+        automountServiceAccountToken: false
+        podSecurityContext:
+          seccompProfile: {type: RuntimeDefault}
+        revisionHistoryLimit: 3
+        updateStrategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
+        persistentUpdateStrategy: {type: Recreate}
+        podDisruptionBudget: {enabled: true, maxUnavailable: 1, unhealthyPodEvictionPolicy: AlwaysAllow}
+      environments:
+        production:
+          resources:
+            requests: {cpu: 200m, memory: 256Mi}
+          execution: {revisionHistoryLimit: 10}
   - id: stateful
-    version: 1.0.0
+    version: 1.1.0
     kind: StatefulSet
     labels:
       vi: Ứng dụng có dữ liệu
@@ -76,8 +160,35 @@ workloadTemplates:
       additionalProperties: false
       properties: {}
     defaults: {}
+    runtimeDefaults:
+      resources:
+        requests: {cpu: 100m, memory: 128Mi}
+        limits: {memory: 512Mi}
+      containerSecurityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+      auxiliaryContainerSecurityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+      probeTimings:
+        readinessProbe: {periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3, successThreshold: 1}
+        livenessProbe: {periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3, successThreshold: 1}
+        startupProbe: {periodSeconds: 5, timeoutSeconds: 2, failureThreshold: 30, successThreshold: 1, initialDelaySeconds: 0}
+      replicas: 1
+      execution:
+        automountServiceAccountToken: false
+        podSecurityContext:
+          seccompProfile: {type: RuntimeDefault}
+        revisionHistoryLimit: 3
+        updateStrategy: {type: RollingUpdate, rollingUpdate: {partition: 0}}
+        persistentVolumeClaimRetentionPolicy: {whenDeleted: Retain, whenScaled: Retain}
+      environments:
+        production:
+          resources:
+            requests: {cpu: 200m, memory: 256Mi}
+          execution: {revisionHistoryLimit: 10}
   - id: scheduled
-    version: 1.0.0
+    version: 1.1.0
     kind: CronJob
     labels:
       vi: Tác vụ theo lịch
@@ -87,8 +198,36 @@ workloadTemplates:
       additionalProperties: false
       properties: {}
     defaults: {}
+    runtimeDefaults:
+      resources:
+        requests: {cpu: 100m, memory: 128Mi}
+        limits: {memory: 512Mi}
+      containerSecurityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+      auxiliaryContainerSecurityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+      probeTimings:
+        readinessProbe: {periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3, successThreshold: 1}
+        livenessProbe: {periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3, successThreshold: 1}
+        startupProbe: {periodSeconds: 5, timeoutSeconds: 2, failureThreshold: 30, successThreshold: 1, initialDelaySeconds: 0}
+      execution:
+        automountServiceAccountToken: false
+        podSecurityContext:
+          seccompProfile: {type: RuntimeDefault}
+        schedule:
+          timeZone: Asia/Bangkok
+          concurrencyPolicy: Forbid
+          backoffLimit: 0
+          successfulJobsHistoryLimit: 3
+          failedJobsHistoryLimit: 3
+      environments:
+        production:
+          resources:
+            requests: {cpu: 200m, memory: 256Mi}
   - id: nginx-readonly
-    version: 1.0.0
+    version: 1.1.0
     kind: Deployment
     labels:
       vi: Nginx chỉ đọc
@@ -102,8 +241,39 @@ workloadTemplates:
       properties: {}
     defaults: {}
     runtimeDefaults:
+      resources:
+        requests: {cpu: 100m, memory: 128Mi}
+        limits: {memory: 512Mi}
+      containerSecurityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+      auxiliaryContainerSecurityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+      probeTimings:
+        readinessProbe: {periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3, successThreshold: 1}
+        livenessProbe: {periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3, successThreshold: 1}
+        startupProbe: {periodSeconds: 5, timeoutSeconds: 2, failureThreshold: 30, successThreshold: 1, initialDelaySeconds: 0}
+      replicas: 1
       multiReplicaSafe: true
-      productionReplicas: 2
+      execution:
+        automountServiceAccountToken: false
+        podSecurityContext:
+          seccompProfile: {type: RuntimeDefault}
+        revisionHistoryLimit: 3
+        updateStrategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
+        persistentUpdateStrategy: {type: Recreate}
+        podDisruptionBudget: {enabled: true, maxUnavailable: 1, unhealthyPodEvictionPolicy: AlwaysAllow}
+      environments:
+        production:
+          resources:
+            requests: {cpu: 200m, memory: 256Mi}
+          execution: {revisionHistoryLimit: 10}
+          replicas: 2
       image: nginxinc/nginx-unprivileged:1.27-alpine
       ports:
         - name: http
@@ -111,11 +281,6 @@ workloadTemplates:
       readinessProbe:
         path: /
         port: 8080
-      containerSecurityContext:
-        runAsNonRoot: true
-        readOnlyRootFilesystem: true
-        capabilities:
-          drop: [ALL]
       service:
         ports:
           http:

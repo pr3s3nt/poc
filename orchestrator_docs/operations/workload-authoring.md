@@ -25,17 +25,23 @@ hiển thị image kế thừa và không ghi nó thành override khi chỉ mở
 
 ## Giá trị hiệu lực và mặc định
 
-Workload mới từ form dùng `workload-defaults-v1`. Workload cũ giữ policy cũ tới
-khi chủ động đổi. Backend ưu tiên giá trị bạn nhập, rồi defaults template,
-rồi policy môi trường/nền tảng. Form không hiển thị nhãn nguồn. Giá trị mặc định
-hiện mờ trong ô trống; gõ trực tiếp để đặt giá trị riêng, không cần xóa default. Khôi phục mặc định xóa override; không ghi một bản sao
-của giá trị hiện tại. Metadata lỗi thì giữ draft, chỉnh trường lỗi và thử lại.
-Không đổi template/policy để chữa một lỗi runtime mà chưa kiểm tra Preview.
+Theo [ADR-038](../architecture/decisions/ADR-038-template-owned-workload-defaults.md),
+không còn policy mặc định trong backend hoặc dropdown chọn policy. Giá trị bạn
+nhập được ưu tiên; trường thiếu lấy từ `runtimeDefaults` của template đã ghim.
+Nếu có `environments.production`, template đó tự công bố các giá trị production.
+Backend chỉ ghép và kiểm tra hợp lệ, không bổ sung một bộ CPU/RAM/rollout khác.
 
-App container: staging 100m/128Mi request, production 200m/256Mi; memory limit
-512Mi, CPU limit chưa đặt. Init/Sidecar dùng cấu hình riêng. Legacy không policy
-vẫn dùng request đã nhập, nếu thiếu lấy limit, nếu cả hai thiếu dùng 10m/32Mi.
-Giới hạn phải đủ request; profile ứng dụng lớn cần bộ tài nguyên phù hợp.
+Giá trị mặc định hiện mờ trong ô trống. Gõ trực tiếp để đặt giá trị riêng, không cần
+xóa default; xóa giá trị riêng hoặc Khôi phục mặc định để kế thừa lại. Form không
+hiện nhãn nguồn. Save giữ override và snapshot profile đã xác minh cùng pin template.
+Đổi default cần publish version template mới, chọn chủ động và kiểm tra Preview.
+
+Các template chuẩn 1.1.0 công bố App requests staging 100m/128Mi, production
+200m/256Mi, memory limit 512Mi và không có CPU limit. Đây là dữ liệu template, không
+phải constants backend. Profile khác có thể dùng giá trị khác. Tự cấu hình không
+chọn template thì backend không cấp profile authoring; các fallback renderer nằm
+trong file source bundle. Snapshot cũ có `workloadExecution.defaults` không còn được
+chấp nhận; dữ liệu test cũ của task đã được phép xóa, không tự chuyển policy.
 
 ## Nhóm Workload và Container
 
@@ -90,7 +96,7 @@ trình migration/cleanup dữ liệu riêng có quyền và UID proof.
 ## Health, mạng và lịch
 
 Không tự đoán probe endpoint/cổng. Chỉ bật readiness/liveness/startup khi đã có
-phép kiểm tra hợp lệ. Normal Init không có probes. V1 period/timeout/failure của
+phép kiểm tra hợp lệ. Normal Init không có probes. Template chuẩn 1.1.0 khai báo period/timeout/failure của
 readiness/liveness là 10/2/3; startup 5/30, success 1. Startup có mặt thì initial
 delay mặc định 0. Input trống giữ kế thừa.
 
@@ -111,3 +117,37 @@ CPU/RAM, volumes, cổng, probes, khởi chạy và bảo mật nằm trong Hi�
 container. Service, dependencies, replica/cập nhật, Pod security và cấu hình ít
 thay đổi nằm trong Hiện nâng cao Workload. CronJob vẫn hiện Lịch chạy ở ngoài.
 Đóng/mở nâng cao giữ phần đang nhập; lỗi validation mở phần cần sửa.
+
+## Khai báo defaults trong template
+
+Ví dụ một mục trong `workloadTemplates` của bundle:
+
+```yaml
+- id: backend-small
+  version: 1.0.0
+  kind: Deployment
+  labels: {vi: Backend nhỏ, en: Small backend}
+  inputsSchema: {type: object, additionalProperties: false, properties: {}}
+  defaults: {} # Mặc định template inputs, tách khỏi runtimeDefaults.
+  runtimeDefaults:
+    resources:
+      requests: {cpu: 250m, memory: 256Mi}
+      limits: {memory: 768Mi}
+    replicas: 1
+    execution:
+      revisionHistoryLimit: 3
+      updateStrategy:
+        type: RollingUpdate
+        rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+      persistentUpdateStrategy: {type: Recreate}
+    environments:
+      production:
+        resources:
+          requests: {cpu: 400m, memory: 512Mi}
+        execution: {revisionHistoryLimit: 10}
+```
+
+Source phải công bố `template-defaults-v1` và các capability runtime đang dùng.
+Image vẫn do người dùng nhập nếu template không cung cấp. Khai báo probe endpoint,
+non-root/read-only và writable paths chỉ khi ứng dụng thực sự hỗ trợ. Các defaults
+PDB/probe/claim không tự bật hay tạo tính năng chưa được chọn.

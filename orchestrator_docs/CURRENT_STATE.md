@@ -7,7 +7,20 @@ last_reviewed: 2026-11-06
 
 # Current project state
 
-## Complete workload runtime policy — issue #37, 2026-11-06
+## Template-owned workload defaults — 2026-11-06
+
+[ADR-038](architecture/decisions/ADR-038-template-owned-workload-defaults.md)
+removes the backend `workload-defaults-v1` policy and its selector. Template 1.1.0
+profiles own every authoring default and named environment variant; backend only
+merges/validates. Verified `templateDefaults` snapshot metadata and template pins
+preserve Save/reopen/Preview/Deploy consistency. Old task test workload data was
+explicitly authorized for deletion, not migrated. Security/storage guards remain.
+[Template-only verification](verification/2026-11-06-template-only-defaults.md).
+
+## Issue #37 implementation history — 2026-11-06
+
+The backend-policy descriptions and older authoring links below are superseded by
+ADR-038 and the template-only verification above. Their dated evidence is retained.
 
 Branch `features/bo_sung_default` implements the seven runtime configuration gaps,
 backend versioned defaults/provenance, scoped authoring groups, immutable template

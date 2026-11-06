@@ -1356,11 +1356,13 @@ HostPathType enum. Draft, deployment-set and applied ModuleSpec snapshots retain
 it with existing CAS and deep-copy rules. No relational column, migration, node
 filesystem provisioning, deletion or retention owner is introduced.
 
-## Workload defaults policy metadata — issue #37
+## Workload template defaults snapshot — issue #37
 
 Existing JSONB workload drafts, Deployment Sets, plans and applied snapshots carry
 [the optional runtime extension](../contracts/workload-defaults.md), including
-immutable policy version/environment and verified frozen template defaults.
+the immutable template pin and verified `templateDefaults` environment/profile.
+ADR-038 removes the backend defaults policy; old task test data is deleted by
+explicit user authorization. No SQL DDL or released migration edits are required.
 No columns, relationships, grants, schema version or released SQL reference change.
 The [ERD](erd.puml) is unchanged. Retained StatefulSet-generated claims are not
 standalone Terraform resource instances; their live namespace inventory remains

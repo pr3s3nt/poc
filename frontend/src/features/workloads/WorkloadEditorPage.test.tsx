@@ -307,8 +307,6 @@ it('keeps resources, class and target port in closed advanced sections with effe
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await fillBasic(user);
-  await openWorkloadGroup(user,'Cấu hình ít thay đổi');
-  await user.selectOptions(screen.getByLabelText('Chính sách mặc định'),'');
   await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   await user.type(screen.getByLabelText('Alias tài nguyên'), 'cache');
@@ -317,7 +315,7 @@ it('keeps resources, class and target port in closed advanced sections with effe
   expect(screen.queryByLabelText('Yêu cầu CPU')).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Lớp tài nguyên')).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Cổng đích của Container')).not.toBeInTheDocument();
-  expect(screen.getByText('Tài nguyên tính toán', {exact:true}).closest('summary')!).toHaveTextContent('CPU 10m · RAM 32Mi');
+  expect(screen.getByText('Tài nguyên tính toán', {exact:true}).closest('summary')!).toHaveTextContent('CPU Chưa cấu hình · RAM Chưa cấu hình');
   expect(note('Tóm tắt nâng cao tài nguyên cache')).toHaveTextContent('Lớp hiệu lực: default (mặc định)');
   expect(note('Tóm tắt nâng cao cổng http')).toHaveTextContent('Cổng đích hiệu lực: 8080 (theo cổng Service)');
   await user.click(saveButton());
@@ -332,12 +330,10 @@ it('shows the effective request as explicit, else same-dimension limit, else def
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await fillBasic(user);
-  await openWorkloadGroup(user,'Cấu hình ít thay đổi');
-  await user.selectOptions(screen.getByLabelText('Chính sách mặc định'),'');
   const summary = () => screen.getByText('Tài nguyên tính toán', {exact:true}).closest('summary')!;
   await user.click(screen.getByText('Tài nguyên tính toán', {exact:true}));
   await user.type(screen.getByLabelText('Giới hạn CPU'), '500m');
-  expect(summary()).toHaveTextContent('CPU 500m · RAM 32Mi');
+  expect(summary()).toHaveTextContent('CPU 500m · RAM Chưa cấu hình');
   await user.type(screen.getByLabelText('Yêu cầu bộ nhớ'), '64Mi');
   expect(summary()).toHaveTextContent('RAM 64Mi');
   await user.type(screen.getByLabelText('Yêu cầu CPU'), '100m');

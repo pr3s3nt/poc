@@ -47,7 +47,7 @@ func TestWorkloadExecutionJSONBSurvivesRuntimeReopen(t *testing.T) {
 	}
 }
 
-func TestWorkloadDefaultsPolicyAndFalseZeroSurviveJSONBReopen(t *testing.T) {
+func TestWorkloadTemplateDefaultsAndFalseZeroSurviveJSONBReopen(t *testing.T) {
 	ctx := context.Background()
 	st, url := openFresh(t)
 	opts := seed.Defaults()
@@ -61,7 +61,7 @@ func TestWorkloadDefaultsPolicyAndFalseZeroSurviveJSONBReopen(t *testing.T) {
 	}
 	zero := int32(0)
 	no := false
-	policy := &environment.WorkloadExecution{Version: 1, Kind: "Deployment", Defaults: &environment.DefaultsPolicy{Version: "workload-defaults-v1", Environment: "staging"}, AutomountServiceAccountToken: &no, RevisionHistoryLimit: &zero, PodDisruptionBudget: &environment.PodDisruptionBudget{Enabled: false}}
+	policy := &environment.WorkloadExecution{Version: 1, Kind: "Deployment", Template: environment.TemplatePin{ID: "example", Version: "1.0.0", SHA256: strings.Repeat("a", 64)}, TemplateDefaults: &environment.TemplateDefaultsSnapshot{Environment: "staging", Profile: &environment.RuntimeDefaults{Resources: &environment.ContainerResourceRequirements{Requests: &environment.ComputeResources{CPU: "357m"}}}}, AutomountServiceAccountToken: &no, RevisionHistoryLimit: &zero, PodDisruptionBudget: &environment.PodDisruptionBudget{Enabled: false}}
 	doc := environment.NewDocument()
 	doc.Modules["web"] = environment.Module{Profile: environment.ModuleProfile, Spec: environment.ModuleSpec{Execution: policy, Containers: map[string]environment.Container{"main": {Image: "example:v1", SecurityContext: &environment.ContainerSecurityContext{RunAsNonRoot: &no}}}}}
 	set := environment.DeploymentSet{ID: ids.New(), EnvironmentID: env.ID, EnvironmentKey: opts.ApplicationKey + "/staging", Document: doc, DocumentHash: "defaults-snapshot", CreatedAt: time.Now().UTC()}

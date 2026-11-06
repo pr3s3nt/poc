@@ -20,7 +20,7 @@ node e2e/scenarios/workload-defaults/run.mjs cleanup
 
 Setup registers task app-scoped cluster/namespace/template Definitions using
 product APIs and current standard template source. Business flow uses browser
-import/form Save, Preview and Deploy. Checks legacy reopen/no-op, explicit adoption,
+import/form Save, Preview and Deploy. Checks legacy reopen/no-op, explicit pinned-template adoption,
 false/zero, effective/provenance Preview, two writable emptyDirs on a read-only
 non-root Nginx, PDB enable/prune and namespace/controller identity. Preview checks
 resource versions before/after to prove it caused no mutation. Deploy checks real
@@ -50,3 +50,8 @@ adapter workload removal; product authoring still permits StatefulSet replica 1.
 On success it explicitly deletes the owned claim by UID, then the namespace by UID.
 On failure it retains the namespace for diagnosis. This adapter acceptance is
 separate from the browser/CD flow and does not stand in for it.
+
+ADR-038: current source templates are 1.1.0 and carry defaults; no backend policy
+field is authored. Use a fresh private run receipt/name after deleting old policy
+test data. Definitions are scoped with the task Application key to avoid reusing
+a prior run's app criteria.

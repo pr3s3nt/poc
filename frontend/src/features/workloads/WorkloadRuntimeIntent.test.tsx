@@ -208,7 +208,7 @@ it('keeps canceled sources local and restores focus to the invoking container', 
   const dialog=await openVolume(user,'hostPath');
   await user.type(within(dialog).getByLabelText('Đường dẫn trên node'),'/var/local/cancel');
   await user.keyboard('{Escape}');expect(add).toHaveFocus();
-  await user.click(save());expect(puts[0]?.workload.workloadExecution).toEqual({version:1,kind:'Deployment',defaults:{version:'workload-defaults-v1',environment:'staging'}});
+  await user.click(save());expect(puts[0]?.workload.workloadExecution).toEqual({version:1,kind:'Deployment'});
 });
 
 it('keeps renamed-container mounts visible until their target is explicitly repaired', async () => {

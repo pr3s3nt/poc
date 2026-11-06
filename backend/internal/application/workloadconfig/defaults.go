@@ -16,7 +16,7 @@ func (s *Service) ResolveDefaults(ctx context.Context, app, env string, raw map[
 	if err != nil {
 		return nil, nil, err
 	}
-	if e := doc.Execution; e != nil && e.Defaults != nil && e.Defaults.Environment != env {
+	if e := doc.Execution; e != nil && e.TemplateDefaults != nil && e.TemplateDefaults.Environment != env {
 		return nil, nil, fmt.Errorf("%w: policy environment mismatch", ErrInvalidRequest)
 	}
 	var profile *environment.RuntimeDefaults
@@ -41,10 +41,13 @@ func (s *Service) ResolveDefaults(ctx context.Context, app, env string, raw map[
 		if err != nil {
 			return nil, nil, fmt.Errorf("%w: template unavailable", ErrInvalidRequest)
 		}
-		profile = t.RuntimeDefaults
-		if doc.Execution.Defaults != nil && doc.Execution.Defaults.Template != nil && !reflect.DeepEqual(doc.Execution.Defaults.Template, profile) {
-			return nil, nil, fmt.Errorf("%w: template policy snapshot differs from pin", ErrInvalidRequest)
+		profile = t.RuntimeDefaults.ForEnvironment(env)
+		if doc.Execution.TemplateDefaults != nil && doc.Execution.TemplateDefaults.Profile != nil && !reflect.DeepEqual(doc.Execution.TemplateDefaults.Profile, profile) {
+			return nil, nil, fmt.Errorf("%w: template defaults snapshot differs from pin", ErrInvalidRequest)
 		}
+	}
+	if doc.Execution.HasTemplate() && profile != nil {
+		doc.Execution.TemplateDefaults = &environment.TemplateDefaultsSnapshot{Environment: env, Profile: profile}
 	}
 	var replicas *int
 	if _, ok := doc.Map()["replicas"]; ok {
@@ -64,7 +67,7 @@ func (s *Service) ResolveDefaults(ctx context.Context, app, env string, raw map[
 	for name := range doc.Resources {
 		resources[name] = true
 	}
-	if err := effective.Execution.Validate(effective.Containers, effective.ReplicaCount(), effective.Service != nil && len(effective.Service.Ports) > 0, resources); err != nil {
+	if err := effective.Execution.ValidateResolved(effective.Containers, effective.ReplicaCount(), effective.Service != nil && len(effective.Service.Ports) > 0, resources); err != nil {
 		return nil, nil, err
 	}
 	out := doc.Map()

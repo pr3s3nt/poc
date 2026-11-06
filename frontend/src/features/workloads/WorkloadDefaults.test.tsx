@@ -8,12 +8,13 @@ import { templateKey, type Execution, type WorkloadTemplate } from './templates'
 const application={id:'defaults',name:'Defaults',environments:bothConfigured(),workloads:{staging:[],production:[]}};
 afterEach(()=>vi.unstubAllGlobals());
 // Nonsecret resolver response recorded from the real backend policy endpoint.
-const effective={apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'web'},containers:{main:{image:'nginx:1',resources:{requests:{cpu:'100m',memory:'128Mi'},limits:{memory:'512Mi'}}}},workloadExecution:{version:1,kind:'Deployment',defaults:{version:'workload-defaults-v1',environment:'staging'},automountServiceAccountToken:false,revisionHistoryLimit:3,updateStrategy:{type:'RollingUpdate',rollingUpdate:{maxUnavailable:0,maxSurge:1}}}};
-function serve(failure=false,responseWorkload: Record<string,unknown>=effective,template?:WorkloadTemplate){
+const backendTemplate:WorkloadTemplate={id:'backend',version:'1.1.0',sha256:'b'.repeat(64),kind:'Deployment',labels:{vi:'Backend API'},inputsSchema:{type:'object',properties:{}},defaults:{}};
+const effective={apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'web'},containers:{main:{image:'nginx:1',resources:{requests:{cpu:'100m',memory:'128Mi'},limits:{memory:'512Mi'}}}},workloadExecution:{version:1,kind:'Deployment',template:{id:backendTemplate.id,version:backendTemplate.version,sha256:backendTemplate.sha256},templateDefaults:{environment:'staging',profile:{}},automountServiceAccountToken:false,revisionHistoryLimit:3,updateStrategy:{type:'RollingUpdate',rollingUpdate:{maxUnavailable:0,maxSurge:1}}}};
+function serve(failure=false,responseWorkload: Record<string,unknown>=effective,template:WorkloadTemplate=backendTemplate){
  const saved:{workload:Record<string,unknown>}[]=[];let fail=failure;
  vi.stubGlobal('fetch',vi.fn(async(input:string|Request|URL,init?:RequestInit)=>{
  const url=String(input);
- if(url.endsWith('/resolve-defaults'))return fail?Response.json({code:'UNAVAILABLE'},{status:503}):Response.json({workload:responseWorkload,sources:{'containers.main.resources.requests.cpu':'environment','containers.main.resources.requests.memory':'environment','containers.main.resources.limits.memory':'platform','workloadExecution.automountServiceAccountToken':'platform','workloadExecution.revisionHistoryLimit':'environment','workloadExecution.updateStrategy.type':'platform'}});
+ if(url.endsWith('/resolve-defaults'))return fail?Response.json({code:'UNAVAILABLE'},{status:503}):Response.json({workload:responseWorkload,sources:{'containers.main.resources.requests.cpu':'template','containers.main.resources.requests.memory':'template','containers.main.resources.limits.memory':'template','workloadExecution.automountServiceAccountToken':'template','workloadExecution.revisionHistoryLimit':'template','workloadExecution.updateStrategy.type':'template'}});
  if(url.endsWith('/workload-templates'))return Response.json({templates:template?[template]:[]});
  if(url.endsWith('/configuration'))return Response.json({version:1,keys:[]});
  if(url.endsWith('/resource-types'))return Response.json({resourceTypes:[]});
@@ -21,11 +22,11 @@ function serve(failure=false,responseWorkload: Record<string,unknown>=effective,
  return Response.json({draftVersion:1,workloads:[]});
  }));return {saved,recover(){fail=false}};
 }
-async function author(){const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging"/>);await user.type(await screen.findByLabelText('Tên Workload'),'web');await user.type(screen.getByLabelText('Ảnh Container'),'nginx:1');await openAdvancedFields(user);return user}
+async function author(){const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging" selectedTemplate={templateKey(backendTemplate)}/>);await user.type(await screen.findByLabelText('Tên Workload'),'web');await user.type(screen.getByLabelText('Ảnh Container'),'nginx:1');await openAdvancedFields(user);return user}
 it('displays backend effective values and saves inherited values as omissions',async()=>{
  const {saved}=serve();const user=await author();await waitFor(()=>expect(screen.getByText(/CPU 100m · RAM 128Mi/)).toBeInTheDocument());
  await user.click(screen.getByText('Tài nguyên tính toán',{exact:true}));const cpu=screen.getByLabelText('Yêu cầu CPU');expect(cpu).toHaveValue('');expect(cpu).toHaveAttribute('placeholder','100m');expect(screen.getByLabelText('Giới hạn bộ nhớ')).toHaveAttribute('placeholder','512Mi');
- await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(saved).toHaveLength(1);expect(saved[0]!.workload.containers).toEqual({main:{image:'nginx:1'}});expect((saved[0]!.workload.workloadExecution as Execution).defaults?.version).toBe('workload-defaults-v1');
+ await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(saved).toHaveLength(1);expect(saved[0]!.workload.containers).toEqual({main:{image:'nginx:1'}});expect((saved[0]!.workload.workloadExecution as Execution).template?.id).toBe('backend');
 });
 it('keeps explicit false and zero and reset removes the history override',async()=>{
  const {saved}=serve();const user=await author();await user.click(screen.getByText('Bảo mật Pod',{exact:true}));await user.selectOptions(screen.getByLabelText('automountServiceAccountToken'),'false');
@@ -62,7 +63,7 @@ it('waits for the required image of a generic template instead of reporting reso
 });
 
 it('keeps the basic form small and lets typing replace a muted default without deleting it',async()=>{
- const {saved}=serve();const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging"/>);
+ const {saved}=serve();const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging" selectedTemplate={templateKey(backendTemplate)}/>);
  await user.type(await screen.findByLabelText('Tên Workload'),'web');await user.type(screen.getByLabelText('Ảnh Container'),'nginx:1');
  expect(screen.getByRole('button',{name:'+ Thêm biến'})).toBeVisible();
  for(const title of ['Tài nguyên tính toán','Volumes & files','Bảo mật Pod','Mở rộng & cập nhật','Cấu hình ít thay đổi'])expect(screen.queryByText(title,{exact:true})).not.toBeInTheDocument();

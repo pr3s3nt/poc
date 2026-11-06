@@ -226,6 +226,9 @@ func (r *Renderer) renderGit(ctx context.Context, req execution.RenderRequest) (
 		for _, t := range bundle.Contract.Manifest.WorkloadTemplates {
 			if t.ID == e.Template.ID && t.Version == e.Template.Version && t.SHA256() == e.Template.SHA256 {
 				profile = t.RuntimeDefaults
+				if e.TemplateDefaults != nil {
+					profile = profile.ForEnvironment(e.TemplateDefaults.Environment)
+				}
 			}
 		}
 	}
@@ -255,7 +258,7 @@ func (r *Renderer) renderGit(ctx context.Context, req execution.RenderRequest) (
 	for key := range req.Storage {
 		storageKeys[key] = true
 	}
-	if err := req.Module.Spec.Execution.Validate(req.Module.Spec.Containers, req.Module.Spec.ReplicaCount(), req.Module.Spec.Service != nil && len(req.Module.Spec.Service.Ports) > 0, storageKeys); err != nil {
+	if err := req.Module.Spec.Execution.ValidateResolved(req.Module.Spec.Containers, req.Module.Spec.ReplicaCount(), req.Module.Spec.Service != nil && len(req.Module.Spec.Service.Ports) > 0, storageKeys); err != nil {
 		return nil, err
 	}
 	delivery, err := kubernetes.PrepareDelivery(ctx, req)
@@ -276,7 +279,7 @@ func (r *Renderer) renderGit(ctx context.Context, req execution.RenderRequest) (
 		}
 		// Agent-based Vault auth needs the Pod token. VSO file delivery does not.
 		if req.Vault != nil {
-			if e.AutomountServiceAccountToken != nil && !*e.AutomountServiceAccountToken && e.Defaults == nil {
+			if e.AutomountServiceAccountToken != nil && !*e.AutomountServiceAccountToken && e.TemplateDefaults == nil {
 				return nil, environment.ErrExecution
 			}
 			// Desired explicit false is checked before inherited policy is resolved.

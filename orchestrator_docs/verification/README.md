@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-06 | Remove backend default policy; template-owned values, real SQL/Fleet/kind, authorized test cleanup and verified replacement Console link | [Template-only defaults](2026-11-06-template-only-defaults.md) |
 | 2026-11-06 | Compact workload form, muted default hints, scoped advanced and unchanged desired Save | [Simple default hints](2026-11-06-workload-simple-default-hints.md) |
 | 2026-11-06 | Generic template missing-image wait/resolution and inherited image regression | [Template image resolution](2026-11-06-template-image-resolution.md) |
 | 2026-11-06 | Frequency-based workload layout, VI/EN real Console/no-op Save and timezone dependency | [Layout follow-up](2026-11-06-workload-frequency-layout.md) |

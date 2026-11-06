@@ -3,7 +3,7 @@ package templatesource
 import "orchestrator/internal/domain/environment"
 
 const (
-	WorkloadDefaultsV1   = "workload-defaults-v1"
+	TemplateDefaultsV1   = "template-defaults-v1"
 	RuntimeSecurityV1    = "runtime-security-v1"
 	ControllerPolicyV1   = "controller-policy-v1"
 	StatefulClaimsV1     = "stateful-claims-v1"
@@ -17,7 +17,8 @@ const (
 func validateCapabilities(names []string) error {
 	seen := map[string]bool{}
 	for _, name := range names {
-		if seen[name] || (name != WorkloadDefaultsV1 && name != RuntimeSecurityV1 && name != ControllerPolicyV1 && name != StatefulClaimsV1 && name != CustomExecutionV1 && name != ContainerLifecycleV1 && name != PodVolumesV1 && name != ContainerProbesV1 && name != HostPathVolumesV1) {
+		// The retired token is readable registry metadata only; it has no resolver.
+		if seen[name] || (name != "workload-defaults-v1" && name != TemplateDefaultsV1 && name != RuntimeSecurityV1 && name != ControllerPolicyV1 && name != StatefulClaimsV1 && name != CustomExecutionV1 && name != ContainerLifecycleV1 && name != PodVolumesV1 && name != ContainerProbesV1 && name != HostPathVolumesV1) {
 			return invalid(ManifestFile, "unsupported or duplicate workload capability")
 		}
 		seen[name] = true
@@ -28,6 +29,9 @@ func ValidateWorkloadCapabilities(m Manifest, containers map[string]environment.
 	available := map[string]bool{}
 	for _, name := range m.WorkloadCapabilities {
 		available[name] = true
+	}
+	if available["workload-defaults-v1"] {
+		return environment.ErrExecutionUnavailable
 	}
 	for _, c := range containers {
 		if c.SecurityContext != nil && !available[RuntimeSecurityV1] {
@@ -45,7 +49,14 @@ func ValidateWorkloadCapabilities(m Manifest, containers map[string]environment.
 	if e == nil {
 		return nil
 	}
-	if e.Defaults != nil && !available[WorkloadDefaultsV1] {
+	if e.HasTemplate() {
+		for _, template := range m.WorkloadTemplates {
+			if template.ID == e.Template.ID && template.Version == e.Template.Version && template.RuntimeDefaults != nil && !available[TemplateDefaultsV1] {
+				return environment.ErrExecutionUnavailable
+			}
+		}
+	}
+	if e.TemplateDefaults != nil && !available[TemplateDefaultsV1] {
 		return environment.ErrExecutionUnavailable
 	}
 	if (e.PodSecurityContext != nil || e.AutomountServiceAccountToken != nil || e.ServiceAccountName != "") && !available[RuntimeSecurityV1] {

@@ -25,7 +25,7 @@ func policyQuantity(raw string) (float64, bool) {
 	return v, !math.IsInf(v, 0) && v >= 0
 }
 func (m ModuleSpec) ValidateComputePolicy() error {
-	if m.Execution == nil || m.Execution.Defaults == nil {
+	if !m.Execution.HasTemplate() {
 		return nil
 	}
 	for _, c := range m.Containers {

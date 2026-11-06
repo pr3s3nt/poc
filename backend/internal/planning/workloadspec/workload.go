@@ -271,7 +271,7 @@ func (d Document) Validate() error {
 				return err
 			}
 		}
-		if d.Containers[name].Image == "" && !(d.Execution.HasTemplate() && d.Execution.Defaults != nil) {
+		if d.Containers[name].Image == "" && !(d.Execution.HasTemplate()) {
 			return fmt.Errorf("workload: container %q has no image", name)
 		}
 	}
@@ -289,10 +289,10 @@ func (d Document) Validate() error {
 		replicas = 1
 	}
 	effective, _ := (environment.ModuleSpec{Execution: d.Execution, Containers: d.Containers, Service: d.Service}).ResolveDefaults()
-	if err := effective.ValidateComputePolicy(); err != nil && !(d.Execution.HasTemplate() && d.Execution.Defaults != nil) {
+	if err := effective.ValidateComputePolicy(); err != nil && !(d.Execution.HasTemplate()) {
 		return err
 	}
-	if d.Execution.HasTemplate() && d.Execution.Defaults != nil && d.Execution.Kind == "Deployment" && !d.replicaSet {
+	if d.Execution.HasTemplate() && d.Execution.Kind == "Deployment" && !d.replicaSet {
 		replicas = -1
 	}
 	if err := effective.Execution.Validate(effective.Containers, replicas, d.Service != nil && len(d.Service.Ports) > 0, resources); err != nil {

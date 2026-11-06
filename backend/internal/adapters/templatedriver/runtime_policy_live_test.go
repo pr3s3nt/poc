@@ -62,7 +62,12 @@ func TestRuntimeDefaultsOnOwnedKind(t *testing.T) {
 		t.Fatal(err)
 	}
 	var nginx environment.TemplatePin
+	profiles := map[string]environment.TemplatePin{}
+	snapshots := map[string]*environment.TemplateDefaultsSnapshot{}
 	for _, template := range bundle.Contract.Manifest.WorkloadTemplates {
+		profiles[template.ID] = environment.TemplatePin{ID: template.ID, Version: template.Version, SHA256: template.SHA256()}
+		snapshots[template.ID] = &environment.TemplateDefaultsSnapshot{Environment: "staging", Profile: template.RuntimeDefaults.ForEnvironment("staging")}
+
 		if template.ID == "nginx-readonly" {
 			nginx = environment.TemplatePin{ID: template.ID, Version: template.Version, SHA256: template.SHA256()}
 		}
@@ -91,7 +96,7 @@ func TestRuntimeDefaultsOnOwnedKind(t *testing.T) {
 		}
 	}
 	two := 2
-	web := makeReq("web", environment.ModuleSpec{Replicas: &two, Containers: map[string]environment.Container{"main": {}}, Execution: &environment.WorkloadExecution{Version: 1, Kind: "Deployment", Template: nginx, Defaults: &environment.DefaultsPolicy{Version: "workload-defaults-v1", Environment: "staging"}, PodDisruptionBudget: &environment.PodDisruptionBudget{Enabled: true, MaxUnavailable: 1, UnhealthyPodEvictionPolicy: "AlwaysAllow"}}})
+	web := makeReq("web", environment.ModuleSpec{Replicas: &two, Containers: map[string]environment.Container{"main": {}}, Execution: &environment.WorkloadExecution{Version: 1, Kind: "Deployment", Template: nginx, TemplateDefaults: snapshots["nginx-readonly"], PodDisruptionBudget: &environment.PodDisruptionBudget{Enabled: true, MaxUnavailable: 1, UnhealthyPodEvictionPolicy: "AlwaysAllow"}}})
 	apply(web)
 	wait("Deployment", "web")
 	result, err := cli.Run(ctx, nil, "-n", namespace, "exec", "deployment/web", "--", "sh", "-c", "id -u; echo issue37-cache >/var/cache/nginx/issue37; echo issue37-tmp >/tmp/issue37; wget -q -O - http://127.0.0.1:8080/")
@@ -127,7 +132,7 @@ func TestRuntimeDefaultsOnOwnedKind(t *testing.T) {
 	}
 	sharedUID := object(sharedObject["metadata"])["uid"]
 	for i, name := range []string{"consumer-a", "consumer-b"} {
-		consumer := makeReq(name, environment.ModuleSpec{Containers: map[string]environment.Container{"main": {Image: "busybox:1.36", Command: []string{"sh", "-c"}, Args: []string{"sleep 3600"}}}, Execution: &environment.WorkloadExecution{Version: 1, Kind: "Deployment", Defaults: &environment.DefaultsPolicy{Version: "workload-defaults-v1", Environment: "staging"}, Mounts: []environment.StorageMount{{Resource: "data", Container: "main", Path: "/data"}}}})
+		consumer := makeReq(name, environment.ModuleSpec{Containers: map[string]environment.Container{"main": {Image: "busybox:1.36", Command: []string{"sh", "-c"}, Args: []string{"sleep 3600"}}}, Execution: &environment.WorkloadExecution{Version: 1, Kind: "Deployment", Template: profiles["backend"], TemplateDefaults: snapshots["backend"], Mounts: []environment.StorageMount{{Resource: "data", Container: "main", Path: "/data"}}}})
 		consumer.Storage = map[string]execution.StorageBinding{"data": {ClaimName: "shared-data", Namespace: namespace}}
 		manifests := apply(consumer)
 		for _, m := range manifests {
@@ -163,7 +168,7 @@ func TestRuntimeDefaultsOnOwnedKind(t *testing.T) {
 	one := 1
 	uid1000 := int64(1000)
 	yes := true
-	stateful := makeReq("stateful", environment.ModuleSpec{Replicas: &one, Containers: map[string]environment.Container{"main": {Image: "busybox:1.36", Command: []string{"sh", "-c"}, Args: []string{"sleep 3600"}, SecurityContext: &environment.ContainerSecurityContext{RunAsNonRoot: &yes, RunAsUser: &uid1000, ReadOnlyRootFilesystem: &yes}}}, Execution: &environment.WorkloadExecution{Version: 1, Kind: "StatefulSet", Defaults: &environment.DefaultsPolicy{Version: "workload-defaults-v1", Environment: "staging"}, PodSecurityContext: &environment.PodSecurityContext{FSGroup: &uid1000}, VolumeClaimTemplates: []environment.ClaimTemplate{{Name: "data", Size: "32Mi", AccessModes: []string{"ReadWriteOnce"}}}, ClaimMounts: []environment.ClaimMount{{Claim: "data", Container: "main", Path: "/data"}}}})
+	stateful := makeReq("stateful", environment.ModuleSpec{Replicas: &one, Containers: map[string]environment.Container{"main": {Image: "busybox:1.36", Command: []string{"sh", "-c"}, Args: []string{"sleep 3600"}, SecurityContext: &environment.ContainerSecurityContext{RunAsNonRoot: &yes, RunAsUser: &uid1000, ReadOnlyRootFilesystem: &yes}}}, Execution: &environment.WorkloadExecution{Version: 1, Kind: "StatefulSet", Template: profiles["stateful"], TemplateDefaults: snapshots["stateful"], PodSecurityContext: &environment.PodSecurityContext{FSGroup: &uid1000}, VolumeClaimTemplates: []environment.ClaimTemplate{{Name: "data", Size: "32Mi", AccessModes: []string{"ReadWriteOnce"}}}, ClaimMounts: []environment.ClaimMount{{Claim: "data", Container: "main", Path: "/data"}}}})
 	objects := apply(stateful)
 	wait("StatefulSet", "stateful")
 	claim, found, err := cli.Get(ctx, namespace, "pvc", "data-stateful-0")

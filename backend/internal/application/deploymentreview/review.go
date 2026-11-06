@@ -799,7 +799,7 @@ func (a Assembler) manifests(ctx context.Context, plan *planning.Plan, descripto
 		return []Artifact{{ID: descriptor + ":manifest", NodeID: descriptor, Kind: "kubernetes-manifest", Path: "Deployment/" + workloadID, Language: "yaml", Before: beforeFor(old, "kubernetes-manifest", "Deployment/"+workloadID, !existed), After: unavailable("RENDER_UNAVAILABLE")}}
 	}
 	projections := ProjectManifests(manifests)
-	if e := module.Spec.Execution; e != nil && e.Defaults != nil {
+	if e := module.Spec.Execution; e != nil && e.TemplateDefaults != nil {
 		var profile *environment.RuntimeDefaults
 		if resolver, ok := a.Renderer.(interface {
 			RuntimeProfile(context.Context, resource.RenderingSelection, *environment.WorkloadExecution) (*environment.RuntimeDefaults, error)

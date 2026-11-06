@@ -223,3 +223,5 @@ Complete workload configuration/defaults (issue #37):
 [Hướng dẫn Add/Edit Workload và mặc định](operations/workload-authoring.md).
 
 [Issue #37 verification and runtime limits](verification/2026-11-06-workload-defaults.md).
+
+Template-only workload defaults: [ADR-038](architecture/decisions/ADR-038-template-owned-workload-defaults.md).

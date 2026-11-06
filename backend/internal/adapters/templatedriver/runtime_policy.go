@@ -179,7 +179,11 @@ func (r *Renderer) RuntimeProfile(ctx context.Context, selection resource.Render
 	}
 	for _, t := range bundle.Contract.Manifest.WorkloadTemplates {
 		if t.ID == e.Template.ID && t.Version == e.Template.Version && t.SHA256() == e.Template.SHA256 {
-			return t.RuntimeDefaults, nil
+			profile := t.RuntimeDefaults
+			if e.TemplateDefaults != nil {
+				profile = profile.ForEnvironment(e.TemplateDefaults.Environment)
+			}
+			return profile, nil
 		}
 	}
 	return nil, environment.ErrExecutionUnavailable

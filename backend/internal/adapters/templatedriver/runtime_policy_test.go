@@ -10,13 +10,26 @@ import (
 )
 
 func TestRuntimePolicyAllControllersAndPDB(t *testing.T) {
-	r, pins := gitRenderer(t, map[string]map[string][]byte{"standard": readBundle(t, standardDir)})
+	files := readBundle(t, standardDir)
+	bundle, err := renderengine.Validate(files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, pins := gitRenderer(t, map[string]map[string][]byte{"standard": files})
 	for _, kind := range []string{"Deployment", "StatefulSet", "CronJob"} {
 		t.Run(kind, func(t *testing.T) {
 			req := gitRequest(pins["standard"])
-			raw := `{"version":1,"kind":"` + kind + `","defaults":{"version":"workload-defaults-v1","environment":"production"},"automountServiceAccountToken":false,"podSecurityContext":{"fsGroup":0},"revisionHistoryLimit":0}`
+			raw := `{"version":1,"kind":"` + kind + `","automountServiceAccountToken":false,"podSecurityContext":{"fsGroup":0},"revisionHistoryLimit":0}`
 			var e environment.WorkloadExecution
 			_ = json.Unmarshal([]byte(raw), &e)
+			for _, template := range bundle.Contract.Manifest.WorkloadTemplates {
+				if template.Kind == kind && template.ID != "nginx-readonly" {
+					e.Template = environment.TemplatePin{ID: template.ID, Version: template.Version, SHA256: template.SHA256()}
+					e.TemplateDefaults = &environment.TemplateDefaultsSnapshot{Environment: "production", Profile: template.RuntimeDefaults.ForEnvironment("production")}
+					break
+				}
+			}
+
 			if kind == "Deployment" {
 				two := 2
 				req.Module.Spec.Replicas = &two
@@ -93,7 +106,7 @@ func TestPinnedNginxProfileSuppliesImageServiceAndWritablePaths(t *testing.T) {
 	}
 	req := gitRequest(pins["standard"])
 	req.WorkloadID = "nginx"
-	req.Module.Spec = environment.ModuleSpec{Containers: map[string]environment.Container{"main": {}}, Execution: &environment.WorkloadExecution{Version: 1, Kind: "Deployment", Template: environment.TemplatePin{ID: template.ID, Version: template.Version, SHA256: template.SHA256()}, Defaults: &environment.DefaultsPolicy{Version: "workload-defaults-v1", Environment: "staging"}}}
+	req.Module.Spec = environment.ModuleSpec{Containers: map[string]environment.Container{"main": {}}, Execution: &environment.WorkloadExecution{Version: 1, Kind: "Deployment", Template: environment.TemplatePin{ID: template.ID, Version: template.Version, SHA256: template.SHA256()}, TemplateDefaults: &environment.TemplateDefaultsSnapshot{Environment: "staging", Profile: template.RuntimeDefaults.ForEnvironment("staging")}}}
 	req.PlainEnv = nil
 	req.SecretEnv = nil
 	req.ConfigSecretName = ""

@@ -18,7 +18,7 @@ func TestWorkloadDefaultsEndpointIsScopedPureAndPreservesDesired(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := "/api/v1/applications/" + opts.ApplicationKey + "/environments/staging/workloads/resolve-defaults"
-	body := `{"workload":{"name":"web","image":"example:v1","replicas":0,"workloadExecution":{"version":1,"kind":"Deployment","defaults":{"version":"workload-defaults-v1","environment":"staging"},"automountServiceAccountToken":false,"revisionHistoryLimit":0}}}`
+	body := `{"workload":{"name":"web","image":"example:v1","replicas":0,"workloadExecution":{"version":1,"kind":"Deployment","automountServiceAccountToken":false,"revisionHistoryLimit":0}}}`
 	client := bundleClient(t, server.URL, "developer")
 	before, err := store.GetEnvironment(context.Background(), opts.ApplicationKey, "staging")
 	if err != nil {
@@ -41,7 +41,7 @@ func TestWorkloadDefaultsEndpointIsScopedPureAndPreservesDesired(t *testing.T) {
 		t.Fatal(err)
 	}
 	e := result.Workload["workloadExecution"].(map[string]any)
-	if result.Workload["replicas"] != float64(0) || e["automountServiceAccountToken"] != false || e["revisionHistoryLimit"] != float64(0) || result.Sources["containers.main.resources.requests.cpu"] != "environment" {
+	if result.Workload["replicas"] != float64(0) || e["automountServiceAccountToken"] != false || e["revisionHistoryLimit"] != float64(0) || result.Sources["containers.main.image"] != "workload" {
 		t.Fatal("resolver semantics", string(raw))
 	}
 	after, err := store.GetEnvironment(context.Background(), opts.ApplicationKey, "staging")
@@ -52,7 +52,7 @@ func TestWorkloadDefaultsEndpointIsScopedPureAndPreservesDesired(t *testing.T) {
 	if err != nil || len(drafts) != 0 || after.DraftVersion != before.DraftVersion || after.Version != before.Version {
 		t.Fatal("resolution changed desired state")
 	}
-	for _, invalid := range []string{`{}`, `{"workload":null}`, `{"workload":{},"unknown":true}`} {
+	for _, invalid := range []string{`{}`, `{"workload":{"name":"web","image":"example:v1","workloadExecution":{"version":1,"kind":"Deployment","defaults":{"version":"workload-defaults-v1","environment":"staging"}}}}`, `{"workload":null}`, `{"workload":{},"unknown":true}`} {
 		r, err := client.Post(server.URL+path, "application/json", strings.NewReader(invalid))
 		if err != nil {
 			t.Fatal(err)

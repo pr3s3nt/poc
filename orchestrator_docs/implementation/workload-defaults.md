@@ -19,11 +19,11 @@ separately; this matrix is not proof of deployment.
 | Strategy/history | Controller-specific typed policy | Scaling & updates, history reset | Exact strategy guard; no incompatible fields, zero preserved |
 | PDB | Explicit enable, int/percent, >=2 stateless replicas | min/max selection, disabled distinct from inherit | `pdb.tpl`, selectors/ownership, inventory prune, server dry-run |
 | Stateful claims | Named claim templates/mounts, Retain/Retain | StatefulSet-only storage group | Controller claim ownership, exact mounts/size/class guard, live UID/data retention |
-| Versioned defaults | Pure resolver; frozen verified template profile in policy metadata | Backend effective values/sources and reset | Desired stays overrides; snapshots retain policy/pin, Preview effective artifact |
-| Compatibility | Omitted policy keeps legacy, strict new-field null checks | Existing import/reopen retains absence/false/zero | Legacy tests, reconstruction, JSONB reopen, no silent adoption |
+| Template defaults | Pure resolver; verified environment profile in template snapshot metadata | Backend effective values/sources and reset | Desired stays overrides; snapshots retain template profile/pin, Preview effective artifact |
+| Compatibility | No template means no backend profile, strict new-field null checks | Existing import/reopen retains absence/false/zero | Legacy tests, reconstruction, JSONB reopen, no implicit profile adoption |
 | Existing runtime features | Existing lifecycle/volume/env/probe model retained | Per-container groups and reuse-first source dialog | Existing focused tests and explicit capabilities |
 
-The standard source advertises four new capabilities. `nginx-readonly` publishes
+The standard source advertises template-defaults-v1 and runtime/security/storage capabilities. `nginx-readonly` publishes
 an image-specific profile, two writable emptyDirs, valid readiness and declared
 production replica compatibility. New source publication/Definition selection is
 explicit; historical pins are not overwritten. No SQL schema migration is needed:
@@ -31,10 +31,10 @@ JSONB workload/module snapshots carry the extension; schema 10 and released SQL
 references/migrations remain unchanged.
 
 Read-only resolution is exposed through scoped POST `workloads/resolve-defaults`.
-Only backend admission fills verified `defaults.template`; displayed values never
+Only backend admission fills verified `templateDefaults`; displayed values never
 become container/workload overrides. Frozen metadata lets Service references and
 validation inspect inherited configuration without rewriting desired documents.
-Policy mismatch is rejected by Save and by selected-source planning validation.
+Template profile mismatch is rejected by Save and by selected-source planning validation.
 
 Claim inventory is the StatefulSet template plus the controller-created PVC's
 namespace/name/UID and inherited workload labels. It is separate from standalone
@@ -48,3 +48,9 @@ Checks and runtime procedures:
 [acceptance runner](../../e2e/scenarios/workload-defaults/README.md).
 
 [Verification and runtime limits](../verification/2026-11-06-workload-defaults.md).
+
+[ADR-038](../architecture/decisions/ADR-038-template-owned-workload-defaults.md)
+removes backend v1 policy interpretation. Profile values, environment variants and
+conditional defaults reside in bundle 1.1.0. `template_defaults.go` performs only
+generic merging; runtime_policy.go retains validation guards. Old test workload
+data is deleted through the product with authorization.

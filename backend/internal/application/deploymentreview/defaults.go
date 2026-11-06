@@ -16,10 +16,10 @@ func defaultsProjection(spec environment.ModuleSpec, profile *environment.Runtim
 	_ = json.Unmarshal(raw, &tree)
 	result := map[string]any{}
 	execution, _ := tree["workloadExecution"].(map[string]any)
-	keys := []string{"defaults", "podSecurityContext", "automountServiceAccountToken", "serviceAccountName", "updateStrategy", "revisionHistoryLimit", "podDisruptionBudget", "volumeClaimTemplates", "persistentVolumeClaimRetentionPolicy"}
+	keys := []string{"templateDefaults", "podSecurityContext", "automountServiceAccountToken", "serviceAccountName", "updateStrategy", "revisionHistoryLimit", "podDisruptionBudget", "volumeClaimTemplates", "persistentVolumeClaimRetentionPolicy"}
 	safeExecution := policyFields(execution, keys...)
-	if defaults, ok := safeExecution["defaults"].(map[string]any); ok {
-		safeExecution["defaults"] = selectObject(defaults, "version", "environment")
+	if snapshot, ok := safeExecution["templateDefaults"].(map[string]any); ok {
+		safeExecution["templateDefaults"] = selectObject(snapshot, "environment")
 	}
 	result["workloadExecution"] = safeExecution
 	if effective.Replicas != nil {

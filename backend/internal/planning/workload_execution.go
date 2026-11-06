@@ -8,7 +8,7 @@ import (
 
 // validateExecution proves that the selected renderer implements every explicit
 // runtime intent before any provisioning can begin.
-func validateExecution(plan *Plan, catalog Catalog) error {
+func validateExecution(plan *Plan, catalog Catalog, env string) error {
 	for id, module := range plan.CandidateSet.Modules {
 		e := module.Spec.Execution
 		needsLifecycle := false
@@ -44,11 +44,11 @@ func validateExecution(plan *Plan, catalog Catalog) error {
 		if e.HasTemplate() {
 			for _, t := range bundle.Contract.Manifest.WorkloadTemplates {
 				if t.ID == e.Template.ID && t.Version == e.Template.Version && t.SHA256() == e.Template.SHA256 {
-					profile = t.RuntimeDefaults
+					profile = t.RuntimeDefaults.ForEnvironment(env)
 				}
 			}
 		}
-		if e != nil && e.Defaults != nil && e.HasTemplate() && !reflect.DeepEqual(e.Defaults.Template, profile) {
+		if e.HasTemplate() && profile != nil && (e.TemplateDefaults == nil || e.TemplateDefaults.Environment != env || !reflect.DeepEqual(e.TemplateDefaults.Profile, profile)) {
 			return environment.ErrExecutionUnavailable
 		}
 		effective, _ := module.Spec.ResolveDefaults(profile)
@@ -61,7 +61,7 @@ func validateExecution(plan *Plan, catalog Catalog) error {
 		if err := effective.ValidateComputePolicy(); err != nil {
 			return err
 		}
-		if err := effective.Execution.Validate(effective.Containers, effective.ReplicaCount(), effective.Service != nil && len(effective.Service.Ports) > 0, resources); err != nil {
+		if err := effective.Execution.ValidateResolved(effective.Containers, effective.ReplicaCount(), effective.Service != nil && len(effective.Service.Ports) > 0, resources); err != nil {
 			return err
 		}
 		for _, c := range effective.Containers {

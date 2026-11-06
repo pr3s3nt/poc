@@ -207,13 +207,13 @@ func (s *Service) Save(ctx context.Context, app, env, workload string, raw map[s
 	if err := s.validateBindings(ctx, app, env, *doc); err != nil {
 		return View{}, err
 	}
-	if doc.Execution != nil && doc.Execution.Defaults != nil && doc.Execution.HasTemplate() {
+	if doc.Execution.HasTemplate() {
 		resolved, _, err := s.ResolveDefaults(ctx, app, env, doc.Map())
 		if err != nil {
 			return View{}, err
 		}
 		e := resolved["workloadExecution"].(*environment.WorkloadExecution)
-		doc.Execution.Defaults = e.Defaults
+		doc.Execution.TemplateDefaults = e.TemplateDefaults
 	}
 	if err := s.store.SaveWorkloadDraft(ctx, expectedVersion, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: workload, State: environment.DraftUpsert, Workload: doc.Map()}); err != nil {
 		return View{}, err
@@ -297,10 +297,10 @@ func (s *Service) Undo(ctx context.Context, app, env, workload string, expectedV
 }
 
 func (s *Service) validateBindings(ctx context.Context, app, env string, doc workloadspec.Document) error {
-	if doc.Execution != nil && doc.Execution.Defaults != nil && doc.Execution.Defaults.Environment != env {
+	if doc.Execution != nil && doc.Execution.TemplateDefaults != nil && doc.Execution.TemplateDefaults.Environment != env {
 		return fmt.Errorf("%w: defaults environment differs from target", ErrInvalidRequest)
 	}
-	if doc.Execution != nil && doc.Execution.Defaults != nil {
+	if doc.Execution.HasTemplate() {
 		if _, _, err := s.ResolveDefaults(ctx, app, env, doc.Map()); err != nil {
 			return err
 		}

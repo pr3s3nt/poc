@@ -234,7 +234,7 @@ private/shared, không tự migrate. Dialog thêm resource dùng đúng controls
 Use the current shell/cards/controls. Latest approved simplification (2026-11-06):
 show workload name and each container's name/image/environment variables. Put other
 container groups behind Show advanced per container, and Service/dependencies/
-scaling/storage/Pod security/execution/default policy/class/annotations behind a
+scaling/storage/Pod security/execution/class/annotations behind a
 workload Show advanced. CronJob schedule remains visible when applicable. Advanced
 sections preserve mounted edits after first opening and open for validation errors.
 Defaults appear as muted placeholders in empty inputs, never as authored values.
@@ -245,3 +245,7 @@ Preview remain available. Reset/clearing removes overrides. Unknown/missing defa
 stay unconfigured; do not invent example values that look like defaults.
 Loading/failure keeps draft and provides retry for actual resolution errors.
 ServiceAccount is managed/read-only unless a published allowed choice exists.
+
+ADR-038: remove the defaults-policy selector and policy-version summary entirely.
+Template pin and its resolved profile determine default hints; no template means no
+new backend authoring profile. Retain controller-specific schedule/claim controls.

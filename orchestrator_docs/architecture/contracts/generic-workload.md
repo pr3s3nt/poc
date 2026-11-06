@@ -164,3 +164,7 @@ on the selected source before provisioning. Historical HTTP shorthand is unchang
 [Workload defaults contract](workload-defaults.md) defines optional security,
 controller policy, StatefulSet claims and immutable policy selection, preserving
 legacy documents and desired/applied round-trip semantics.
+
+[ADR-038](../decisions/ADR-038-template-owned-workload-defaults.md) removes
+`workloadExecution.defaults`; verified template-only profiles are frozen in
+`workloadExecution.templateDefaults`. Unknown/removed policy fields are rejected.

@@ -3,42 +3,39 @@ package environment
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 )
 
 func pointer[T any](v T) *T { return &v }
-func TestDefaultsPolicyIsOptInAndDoesNotRewriteDesired(t *testing.T) {
-	legacy := ModuleSpec{Containers: map[string]Container{"main": {Image: "nginx:alpine"}}}
-	effective, sources := legacy.ResolveDefaults()
-	if !reflect.DeepEqual(legacy, effective) || sources["containers.main.image"] != "workload" {
-		t.Fatal("legacy changed")
+func TestOnlyPinnedTemplateDefaultsAreMergedWithoutRewritingDesired(t *testing.T) {
+	plain := ModuleSpec{Containers: map[string]Container{"main": {Image: "image"}}, Execution: &WorkloadExecution{Version: 1, Kind: "Deployment"}}
+	got, _ := plain.ResolveDefaults()
+	if !reflect.DeepEqual(got, plain) {
+		t.Fatal("backend supplied defaults without template")
 	}
+	profile := &RuntimeDefaults{Resources: &ContainerResourceRequirements{Requests: &ComputeResources{CPU: "317m", Memory: "123Mi"}}, Replicas: pointer(2), MultiReplicaSafe: true, Execution: &RuntimeExecutionDefaults{AutomountServiceAccountToken: pointer(true), RevisionHistoryLimit: pointer(int32(9))}, Environments: map[string]*RuntimeDefaults{"production": {Resources: &ContainerResourceRequirements{Requests: &ComputeResources{CPU: "719m"}}}}}
 	for _, env := range []string{"staging", "production"} {
 		t.Run(env, func(t *testing.T) {
-			spec := ModuleSpec{Replicas: pointer(0), Containers: map[string]Container{"main": {Image: "nginx:alpine", SecurityContext: &ContainerSecurityContext{RunAsNonRoot: pointer(false), RunAsUser: pointer(int64(0))}}, "init": {Image: "busybox", Role: "init", InitOrder: 1}}, Execution: &WorkloadExecution{Version: 1, Kind: "Deployment", Defaults: &DefaultsPolicy{Version: "workload-defaults-v1", Environment: env}, RevisionHistoryLimit: pointer(int32(0)), AutomountServiceAccountToken: pointer(false)}}
+			selected := profile.ForEnvironment(env)
+			spec := plain
+			spec.Replicas = pointer(0)
+			spec.Execution = &WorkloadExecution{Version: 1, Kind: "Deployment", Template: TemplatePin{ID: "example", Version: "1.0.0", SHA256: strings.Repeat("a", 64)}, TemplateDefaults: &TemplateDefaultsSnapshot{Environment: env, Profile: selected}, AutomountServiceAccountToken: pointer(false), RevisionHistoryLimit: pointer(int32(0))}
 			before, _ := json.Marshal(spec)
-			got, src := spec.ResolveDefaults()
+			resolved, src := spec.ResolveDefaults()
 			after, _ := json.Marshal(spec)
 			if string(before) != string(after) {
-				t.Fatal("resolver mutated desired")
+				t.Fatal("desired mutated")
 			}
-			if *got.Replicas != 0 || *got.Execution.RevisionHistoryLimit != 0 || *got.Execution.AutomountServiceAccountToken || *got.Containers["main"].SecurityContext.RunAsNonRoot {
-				t.Fatal("false/zero lost")
-			}
-			cpu := "100m"
+			want := "317m"
 			if env == "production" {
-				cpu = "200m"
+				want = "719m"
 			}
-			if got.Containers["main"].Resources.Requests.CPU != cpu || got.Containers["main"].Resources.Limits.CPU != "" || got.Containers["init"].Resources != nil {
-				t.Fatal("incorrect resources", got)
+			if resolved.Containers["main"].Resources.Requests.CPU != want || resolved.Containers["main"].Resources.Limits != nil {
+				t.Fatal("template values lost or platform values invented")
 			}
-			if src["containers.main.resources.requests.cpu"] != "environment" || src["workloadExecution.revisionHistoryLimit"] != "workload" {
-				t.Fatal(src)
-			}
-			profile := &RuntimeDefaults{Resources: &ContainerResourceRequirements{Requests: &ComputeResources{CPU: "500m", Memory: "256Mi"}}}
-			next, source := spec.ResolveDefaults(profile)
-			if next.Containers["main"].Resources.Requests.CPU != "500m" || source["containers.main.resources.requests.cpu"] != "template" {
-				t.Fatal("profile precedence")
+			if *resolved.Replicas != 0 || *resolved.Execution.AutomountServiceAccountToken || *resolved.Execution.RevisionHistoryLimit != 0 || src["containers.main.resources.requests.cpu"] != "template" {
+				t.Fatal("false/zero/source lost")
 			}
 		})
 	}
@@ -71,28 +68,22 @@ func TestRuntimePolicyValidationRejectsIncompatibleControllerFields(t *testing.T
 	}
 }
 
-func TestProductionReplicasRequirePublishedCompatibility(t *testing.T) {
-	profile := &RuntimeDefaults{ProductionReplicas: pointer(2), MultiReplicaSafe: true}
-	for _, env := range []string{"staging", "production"} {
-		spec := ModuleSpec{Containers: map[string]Container{"main": {Image: "image"}}, Execution: &WorkloadExecution{Version: 1, Kind: "Deployment", Defaults: &DefaultsPolicy{Version: "workload-defaults-v1", Environment: env, Template: profile}}}
-		got, _ := spec.ResolveDefaults()
-		want := 1
-		if env == "production" {
-			want = 2
-		}
-		if got.ReplicaCount() != want {
-			t.Fatal(env, got.ReplicaCount())
-		}
-		spec.Replicas = pointer(0)
-		got, _ = spec.ResolveDefaults()
-		if got.ReplicaCount() != 0 {
-			t.Fatal("template replaced explicit scale to zero")
-		}
-	}
-	profile.MultiReplicaSafe = false
-	spec := ModuleSpec{Containers: map[string]Container{"main": {Image: "image"}}, Execution: &WorkloadExecution{Version: 1, Kind: "Deployment", Defaults: &DefaultsPolicy{Version: "workload-defaults-v1", Environment: "production", Template: profile}}}
-	got, _ := spec.ResolveDefaults()
-	if got.ReplicaCount() != 1 {
-		t.Fatal("unsafe profile scaled arbitrary workload")
+func TestTemplatePDBBudgetDoesNotConflictWithAuthoredAlternative(t *testing.T) {
+	for _, tc := range []struct {
+		name               string
+		authored, defaults PodDisruptionBudget
+	}{
+		{"authored minimum", PodDisruptionBudget{Enabled: true, MinAvailable: 2}, PodDisruptionBudget{MaxUnavailable: 1}},
+		{"authored maximum", PodDisruptionBudget{Enabled: true, MaxUnavailable: 1}, PodDisruptionBudget{MinAvailable: 2}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			spec := ModuleSpec{Replicas: pointer(3), Containers: map[string]Container{"main": {Image: "image"}}, Execution: &WorkloadExecution{Version: 1, Kind: "Deployment", Template: TemplatePin{ID: "example", Version: "1.0.0", SHA256: strings.Repeat("a", 64)}, PodDisruptionBudget: &tc.authored}}
+			resolved, _ := spec.ResolveDefaults(&RuntimeDefaults{Execution: &RuntimeExecutionDefaults{PodDisruptionBudget: &tc.defaults}})
+			got, _ := json.Marshal(resolved.Execution.PodDisruptionBudget)
+			want, _ := json.Marshal(tc.authored)
+			if string(got) != string(want) {
+				t.Fatal("template added mutually exclusive budget", resolved.Execution.PodDisruptionBudget)
+			}
+		})
 	}
 }

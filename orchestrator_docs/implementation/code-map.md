@@ -1267,7 +1267,8 @@ change. [Verification](../verification/2026-11-06-reuse-first-volumes.md) record
 ## Workload defaults v1 — WD-01–10
 
 [Field/contract/UI/render map](workload-defaults.md). Domain resolution and typed
-runtime policy live in `backend/internal/domain/environment/runtime_policy.go`;
+constraints live in `backend/internal/domain/environment/runtime_policy.go`;
+template merging lives in `backend/internal/domain/environment/template_defaults.go`;
 scoped metadata validation/freezing in `application/workloadconfig/defaults.go`.
 `planning/workload_execution.go` gates profiles/capabilities;
 `templatedriver/runtime_policy.go` guards semantics. Kubernetes runtime admission
@@ -1276,3 +1277,7 @@ uses `adapters/kubernetes/runtime_policy.go` before direct/Fleet publication.
 Frontend `RuntimePolicyFields.tsx`, `ExecutionFields.tsx` and `WorkloadEditorPage.tsx`
 reuse current shell/controls. Tests cover typed round-trip, legacy behavior,
 source precedence/reset, JSONB and owned-kind/browser acceptance.
+
+ADR-038: `environment/template_defaults.go` owns generic template/environment
+profile merging and frozen metadata. `runtime_policy.go` owns constraints only;
+no backend defaults policy remains. Standard profiles live in source `bundle.yaml`.
