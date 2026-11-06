@@ -7,6 +7,13 @@ last_reviewed: 2026-11-06
 
 # Current project state
 
+## Workload default select choices — 2026-11-06
+
+The inherited hint remains muted in the closed control and is hidden from the
+menu. Service, security, rollout, PDB and schedule choices no longer repeat the
+default value; Restore defaults removes an explicit selection. Real VI/EN Console
+and no-op Save verified. [Verification](verification/2026-11-06-workload-default-selects.md).
+
 ## Template-owned workload defaults — 2026-11-06
 
 [ADR-038](architecture/decisions/ADR-038-template-owned-workload-defaults.md)

@@ -239,7 +239,11 @@ workload Show advanced. CronJob schedule remains visible when applicable. Advanc
 sections preserve mounted edits after first opening and open for validation errors.
 Defaults appear as muted placeholders in empty inputs, never as authored values.
 Typing starts a fresh override without deleting default text. For select controls,
-the empty selection displays the resolved default in muted text. Do not show source
+the empty selection displays the resolved default in muted text. This hint is a
+disabled hidden placeholder, not another menu choice: each actual value appears
+once when the menu opens. After an explicit choice, a Reset action restores
+omission/inheritance without adding a duplicate or source-labelled option. Apply
+this consistently to Service, security, rollout, PDB and schedule selects. Do not show source
 labels (platform/template/environment/custom) on the form; backend provenance and
 Preview remain available. Reset/clearing removes overrides. Unknown/missing defaults
 stay unconfigured; do not invent example values that look like defaults.

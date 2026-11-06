@@ -1,3 +1,5 @@
+import { ExecutionFields } from './ExecutionFields';
+import { t } from '../../shared/i18n';
 import { openAdvancedFields, openWorkloadGroup } from '../../test/workloadGroups';
 import { render,screen,within,waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -73,4 +75,50 @@ it('keeps the basic form small and lets typing replace a muted default without d
  await user.type(cpu,'250m');expect(cpu).toHaveValue('250m');await user.click(screen.getByRole('button',{name:'Ẩn nâng cao Container main'}));await user.click(screen.getByRole('button',{name:'Hiện nâng cao Container main'}));expect(cpu).toHaveValue('250m');
  await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));expect(saved).toHaveLength(1);expect(saved[0]!.workload.containers).toEqual({main:{image:'nginx:1',resources:{requests:{cpu:'250m'}}}});
  expect((saved[0]!.workload.workloadExecution as Execution).revisionHistoryLimit).toBeUndefined();
+});
+
+it('offers each select value once and reset restores omission after explicit choices',async()=>{
+ const {saved}=serve(false,{...effective,workloadExecution:{...effective.workloadExecution,podSecurityContext:{seccompProfile:{type:'RuntimeDefault'}}}});
+ const user=await author();
+ await openWorkloadGroup(user,'Service & kết nối');
+ const service=screen.getByRole('combobox',{name:'Service'});
+ expect(service).toHaveValue('');expect(service).toHaveClass('inherited-default');
+ expect(within(service).getAllByRole('option').map(option=>option.textContent)).toEqual(['Bật','Tắt']);
+ await user.selectOptions(service,'false');
+ await openWorkloadGroup(user,'Bảo mật Pod');
+ const token=screen.getByRole('combobox',{name:'automountServiceAccountToken'});
+ expect(within(token).getAllByRole('option').map(option=>option.textContent)).toEqual(['Có','Không']);
+ await user.selectOptions(token,'false');
+ const seccomp=screen.getByRole('combobox',{name:'seccompProfile'});
+ expect(within(seccomp).getAllByRole('option').map(option=>option.textContent)).toEqual(['RuntimeDefault','Localhost']);
+ await user.selectOptions(seccomp,'RuntimeDefault');
+ await openWorkloadGroup(user,'Mở rộng & cập nhật');
+ const strategy=screen.getByRole('combobox',{name:'Chiến lược cập nhật'});
+ expect(within(strategy).getAllByRole('option').map(option=>option.textContent)).toEqual(['RollingUpdate','Recreate']);
+ await user.selectOptions(strategy,'RollingUpdate');
+ await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));
+ const explicit=saved[0]!.workload.workloadExecution as Execution;
+ expect(explicit.serviceEnabled).toBe(false);expect(explicit.automountServiceAccountToken).toBe(false);expect(explicit.podSecurityContext?.seccompProfile?.type).toBe('RuntimeDefault');expect(explicit.updateStrategy?.type).toBe('RollingUpdate');
+ for(const control of [service,token,seccomp,strategy]){
+  await user.click(within(control.closest('label')!).getByRole('button',{name:'Khôi phục mặc định'}));
+  expect(control).toHaveValue('');expect(control).toHaveClass('inherited-default');
+ }
+ await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));
+ const reset=saved[1]!.workload.workloadExecution as Execution;
+ expect(reset.serviceEnabled).toBeUndefined();expect(reset.automountServiceAccountToken).toBeUndefined();expect(reset.podSecurityContext).toBeUndefined();expect(reset.updateStrategy).toBeUndefined();
+});
+
+
+it('shows inherited concurrency for a reopened sparse CronJob without an override',async()=>{
+ const user=userEvent.setup(),onChange=vi.fn();
+ const execution:Execution=JSON.parse('{"version":1,"kind":"CronJob","schedule":{"expression":"15 3 * * *","suspend":false}}');
+ render(<ExecutionFields section="schedule" value={execution} onChange={onChange} disabled={false} onRawProblems={()=>{}} resolution={{workload:{workloadExecution:{schedule:{concurrencyPolicy:'Forbid'}}},sources:{}}}/>);
+ const concurrency=screen.getByLabelText(t('workloads.templates.concurrency'));
+ await user.click(concurrency.closest('details')!.querySelector('summary')!);
+ expect(concurrency).toHaveValue('');expect(concurrency).toHaveClass('inherited-default');
+ expect(within(concurrency).getAllByRole('option')).toHaveLength(3);
+ expect(screen.queryByRole('button',{name:'Khôi phục mặc định'})).not.toBeInTheDocument();
+ await user.selectOptions(concurrency,'Allow');
+ expect(onChange.mock.lastCall?.[0].schedule.concurrencyPolicy).toBe('Allow');
+ expect(execution.schedule?.concurrencyPolicy).toBeUndefined();
 });

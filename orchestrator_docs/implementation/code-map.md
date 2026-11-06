@@ -1281,3 +1281,7 @@ source precedence/reset, JSONB and owned-kind/browser acceptance.
 ADR-038: `environment/template_defaults.go` owns generic template/environment
 profile merging and frozen metadata. `runtime_policy.go` owns constraints only;
 no backend defaults policy remains. Standard profiles live in source `bundle.yaml`.
+
+`frontend/src/features/workloads/DefaultSelect.tsx` shares muted inherited select
+hints, hidden placeholder options and explicit reset across Service/runtime/schedule
+fields. `WorkloadDefaults.test.tsx` covers distinct choices and sparse reset/Save.
