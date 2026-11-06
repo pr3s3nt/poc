@@ -136,3 +136,16 @@ list, deduplicates IDs and rejects conflicting or non-lossless projections.
 Selection copies authored Type/class/params/ID only; local alias and references
 remain local. Private is an advanced explicit choice. Current/imported Score
 keeps its identity. HTTP, planner scopes and persistence schema are unchanged.
+
+## WD collaboration — issue #37
+
+The editor sends desired overrides and an immutable template pin to the backend
+resolver. The resolver returns a separate effective document plus field sources;
+Save persists only desired intent. Workload admission validates both intent and
+effective values. The same pure resolver feeds template rendering/semantic guards
+and Preview. Existing draft/config/source pins fence Deploy and preserve rollback.
+See [contract](../../architecture/contracts/workload-defaults.md).
+
+ADR-039 replaces backend policy defaulting with a generic merge of verified
+template `runtimeDefaults`. Admission freezes `templateDefaults`; no platform
+policy values or selector remain.

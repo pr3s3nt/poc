@@ -49,3 +49,18 @@ func TestWorkloadCapabilitiesAreBoundedAndCloned(t *testing.T) {
 		t.Fatal("clone aliases capability list")
 	}
 }
+
+// Reading immutable retired source metadata must not break unrelated Preview.
+func TestRetiredPolicySourceIsReadableButCannotAuthorOrExecute(t *testing.T) {
+	manifest := Manifest{WorkloadCapabilities: []string{"workload-defaults-v1"}, WorkloadTemplates: []WorkloadTemplate{testTemplate()}}
+	if err := validateCapabilities(manifest.WorkloadCapabilities); err != nil {
+		t.Fatal("retired registry metadata unreadable", err)
+	}
+	catalog, err := TemplateCatalog(map[string]Bundle{"old": {Contract: Contract{Manifest: manifest}}})
+	if err != nil || len(catalog) != 0 {
+		t.Fatal("retired source offered for authoring", catalog, err)
+	}
+	if err := ValidateWorkloadCapabilities(manifest, nil, nil); err == nil {
+		t.Fatal("retired source executable")
+	}
+}

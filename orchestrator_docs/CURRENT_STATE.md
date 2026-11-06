@@ -7,6 +7,69 @@ last_reviewed: 2026-11-06
 
 # Current project state
 
+## Workload effective-configuration error handling — 2026-11-06
+
+Resolved runtime validation errors now return 400 INVALID_WORKLOAD rather than an
+unclassified 500. Console preserves edits, presents safe validation feedback and
+explains enabled PDB requirements for fewer than two known effective replicas.
+Saved Git-source draft loads successfully; exact original unsaved trigger remains
+unconfirmed. [Diagnosis and verification](verification/2026-11-06-workload-resolution-errors.md).
+
+## Retained issue #37 Console — Git template source, 2026-11-06
+
+The authoring test Application now selects its own Git-backed workload Definition
+in staging and production: repository `pr3s3nt/poc`, directory
+`backend/template-sources/standard`, pinned commit `b6ab5bd4`. Real Git inspection,
+Definition/browser/API read-back and unchanged desired/default checks pass. No
+application deployment occurred. [Verification](verification/2026-11-06-workload-git-source.md).
+
+## Workload default select choices — 2026-11-06
+
+The inherited hint remains muted in the closed control and is hidden from the
+menu. Service, security, rollout, PDB and schedule choices no longer repeat the
+default value; Restore defaults removes an explicit selection. Real VI/EN Console
+and no-op Save verified. [Verification](verification/2026-11-06-workload-default-selects.md).
+
+## Template-owned workload defaults — 2026-11-06
+
+[ADR-039](architecture/decisions/ADR-039-template-owned-workload-defaults.md)
+removes the backend `workload-defaults-v1` policy and its selector. Template 1.1.0
+profiles own every authoring default and named environment variant; backend only
+merges/validates. Verified `templateDefaults` snapshot metadata and template pins
+preserve Save/reopen/Preview/Deploy consistency. Old task test workload data was
+explicitly authorized for deletion, not migrated. Security/storage guards remain.
+[Template-only verification](verification/2026-11-06-template-only-defaults.md).
+
+## Issue #37 implementation history — 2026-11-06
+
+The backend-policy descriptions and older authoring links below are superseded by
+ADR-039 and the template-only verification above. Their dated evidence is retained.
+
+Branch `features/bo_sung_default` implements the seven runtime configuration gaps,
+backend versioned defaults/provenance, scoped authoring groups, immutable template
+profiles, Preview effective artifacts and server admission. Existing workloads keep
+legacy behavior until explicit adoption. Real PostgreSQL, kind storage retention/
+reuse and browser/Fleet legacy-to-policy deployment/PDB prune passed.
+The runtime acceptance Application was removed through product cleanup; a separate
+authoring-only draft remains available in the verified Console. No DDL or AWS
+changes. See [implementation](implementation/workload-defaults.md) and
+[verification, baseline failures and retained Console](verification/2026-11-06-workload-defaults.md).
+
+The approved frequency-based layout follow-up places image/environment controls
+first, moves replica into Scaling & updates, and collapses rare configuration at
+the bottom. CronJob schedule stays separately visible. Real VI/EN browser checks
+and no-op Save pass; the runtime image now includes timezone data. See
+[layout verification](verification/2026-11-06-workload-frequency-layout.md).
+
+A generic template without an image now waits for required input before resolving,
+instead of showing an invalid/unavailable error on initial open. Published image
+profiles retain inheritance. See [template image defect verification](verification/2026-11-06-template-image-resolution.md).
+
+The latest authoring simplification keeps name/image/environment in the basic
+view and scopes other fields under Show advanced. Defaults remain muted hints,
+with no per-field provenance labels and no automatic override materialization.
+See [compact form/default hint verification](verification/2026-11-06-workload-simple-default-hints.md).
+
 ## Workload class dropdown — 2026-11-05
 
 Task branch `features/chinhform`: UC-16 BR-31/32 replaces free-text workload class

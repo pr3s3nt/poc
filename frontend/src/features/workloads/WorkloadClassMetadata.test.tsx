@@ -1,3 +1,4 @@
+import { openAdvancedFields, openWorkloadGroup } from '../../test/workloadGroups';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -15,6 +16,7 @@ function serve(options: { types?: () => Response | Promise<Response>; workloads?
   const puts: Saved[] = [];
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     options.calls?.push(`${init?.method ?? 'GET'} ${url.replace('/api/v1', '')}`);
     if (url.endsWith('/configuration')) return Response.json({ version: 1, keys: [] });
     if (url.endsWith('/resource-types')) return options.types ? options.types() : Response.json({ resourceTypes: typeFixture });
@@ -31,9 +33,10 @@ async function newWorkload(user: ReturnType<typeof userEvent.setup>) {
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   await user.type(screen.getByLabelText('Tên Workload'), 'api');
-  await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/api:test');
+  await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/api:test');await openAdvancedFields(user);
 }
 async function addDependency(user: ReturnType<typeof userEvent.setup>, alias: string, type: string) {
+  await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   const aliases = screen.getAllByLabelText('Alias tài nguyên');
   const last = aliases[aliases.length - 1]!;
@@ -80,6 +83,7 @@ describe('UC-16 dependency class from authoritative metadata (I04-07)', () => {
     vi.unstubAllGlobals();
     const second = serve({ workloads: [{ id: 'api', ready: true, workload }] });
     render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
     expect(await screen.findByLabelText('Cách cung cấp (class) của db')).toHaveValue('cloud-managed');
     expect(screen.queryByLabelText(/ID dùng chung/)).not.toBeInTheDocument();
     expect(screen.getByLabelText('Tham số database')).toHaveValue('appdb');
@@ -95,6 +99,7 @@ describe('UC-16 dependency class from authoritative metadata (I04-07)', () => {
       resources: { cache: { type: 'redis', class: 'team-a', id: 'shared-cache' }, db: { type: 'postgres', class: 'default', id: 'orders-db', params: { database: 'appdb', username: 'appuser' } } } };
     const { puts } = serve({ workloads: [{ id: 'api', ready: true, workload }] });
     render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
     const cache = await screen.findByLabelText('Cách cung cấp (class) của cache');
     expect(cache).toHaveValue('team-a');
     expect(within(cache).getByRole('option', { name: 'team-a (đã nhập, giữ nguyên)' })).toBeInTheDocument();
@@ -132,6 +137,7 @@ describe('UC-16 dependency class from authoritative metadata (I04-07)', () => {
     await user.selectOptions(screen.getByLabelText('Cách cung cấp (class) của db'), 'in-cluster');
     await fillPostgres(user);
     fail = true;
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
     await user.click(screen.getByRole('button', { name: 'Làm mới metadata class' }));
     const alert = await screen.findByRole('alert', { name: 'Lỗi tải metadata class' });
     expect(alert).toHaveTextContent('lựa chọn class đang bị khóa');
@@ -190,6 +196,7 @@ describe('UC-16 dependency class from authoritative metadata (I04-07)', () => {
     await addDependency(user, 'db', 'postgres');
     await user.selectOptions(screen.getByLabelText('Cách cung cấp (class) của db'), 'in-cluster');
     malformed = true;
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
     await user.click(screen.getByRole('button', { name: 'Làm mới metadata class' }));
     await screen.findByRole('alert', { name: 'Lỗi tải metadata class' });
     expect(screen.getByLabelText('Cách cung cấp (class) của db')).toBeDisabled();
@@ -212,7 +219,9 @@ describe('UC-16 dependency class from authoritative metadata (I04-07)', () => {
     serve({ types: () => { call += 1; return call === 1 ? Response.json({ resourceTypes: typeFixture }) : new Promise<Response>((resolve) => { gates.push(resolve); }); } });
     await newWorkload(user);
     await addDependency(user, 'db', 'postgres');
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
     await user.click(screen.getByRole('button', { name: 'Làm mới metadata class' }));
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
     await user.click(screen.getByRole('button', { name: 'Làm mới metadata class' }));
     await vi.waitFor(() => expect(gates).toHaveLength(2));
     gates[1]?.(Response.json({ resourceTypes: typeFixture }));
@@ -232,12 +241,12 @@ describe('ADR-016 workload class (Workload metadata.class)', () => {
     expect(screen.queryByRole('combobox', { name: 'Class Workload' })).not.toBeInTheDocument();
     await user.click(save());
     expect((puts[0]?.workload as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api' });
-    await user.click(screen.getByRole('button', { name: 'Hiện nâng cao Workload' }));
+    await openAdvancedFields(user);await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
     const select = screen.getByRole('combobox', { name: 'Class Workload' });
     expect(within(select).getAllByRole('option').map(option => option.textContent)).toEqual(['Mặc định (default)', 'gold', 'worker']);
     await user.selectOptions(select, 'gold');
-    await user.click(screen.getByRole('button', { name: 'Ẩn nâng cao Workload' }));
-    expect(screen.getByRole('note', { name: 'Tóm tắt nâng cao Workload' })).toHaveTextContent('gold');
+    await openAdvancedFields(user);await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
+    expect(screen.getByText('Cấu hình ít thay đổi',{exact:true}).closest('summary')!).toHaveTextContent('gold');
     await user.click(save());
     expect((puts[1]?.workload as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api', class: 'gold' });
   });
@@ -250,9 +259,10 @@ describe('ADR-016 workload class (Workload metadata.class)', () => {
       const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api', class: className }, containers: { main: { image: 'example.invalid/api:v1' } } };
       const { puts } = serve({ workloads: [{ id: 'api', ready: true, workload }] });
       render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
       await screen.findByLabelText('Ảnh Container');
-      expect(screen.getByRole('note', { name: 'Tóm tắt nâng cao Workload' })).toHaveTextContent(className);
-      await user.click(screen.getByRole('button', { name: 'Hiện nâng cao Workload' }));
+      expect(screen.getByText('Cấu hình ít thay đổi',{exact:true}).closest('summary')!).toHaveTextContent(className);
+      await openAdvancedFields(user);await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
       expect(screen.getByRole('combobox', { name: 'Class Workload' })).toHaveValue(className);
       expect(within(screen.getByRole('combobox', { name: 'Class Workload' })).getByRole('option', { name: `${className} (đã lưu)` })).toBeInTheDocument();
       await user.clear(screen.getByLabelText('Ảnh Container'));
@@ -270,9 +280,10 @@ describe('ADR-016 workload class (Workload metadata.class)', () => {
       ? Response.json({ code: 'INTERNAL_ERROR' }, { status: 500 })
       : Response.json({ resourceTypes: [{ key: 'workload', inputs: [], outputs: [], classes: result === 'empty' ? [] : ['gold'] }] }) });
     await newWorkload(user);
-    await user.click(screen.getByRole('button', { name: 'Hiện nâng cao Workload' }));
+    await openAdvancedFields(user);await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
     await user.selectOptions(screen.getByRole('combobox', { name: 'Class Workload' }), 'gold');
     result = 'error';
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
     await user.click(screen.getByRole('button', { name: 'Làm mới metadata class' }));
     await screen.findByText('Không tải được class Workload.');
     const select = screen.getByRole('combobox', { name: 'Class Workload' });
@@ -295,7 +306,7 @@ describe('ADR-016 workload class (Workload metadata.class)', () => {
     const user = userEvent.setup();
     serve();
     await newWorkload(user);
-    await user.click(screen.getByRole('button', { name: 'Hiện nâng cao Workload' }));
+    await openAdvancedFields(user);await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
     const select = screen.getByRole('combobox', { name: 'Class Workload' });
     expect(within(select).getAllByRole('option')).toHaveLength(1);
     expect(select).toHaveValue('');
@@ -315,6 +326,7 @@ it('reuses an existing shared database with a local alias and locks its configur
   const spec = { type: 'postgres', class: 'in-cluster', id: 'existing-db', params: { database: 'appdb', username: 'appuser' } };
   const { puts } = serve({ workloads: [{ id: 'backend', ready: true, workload: { resources: { db: spec } } }] });
   await newWorkload(user);
+  await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   await user.type(screen.getByLabelText('Alias tài nguyên'), 'store');
   await user.selectOptions(screen.getByLabelText('Nguồn tài nguyên'), 'shared:existing-db');
@@ -340,6 +352,7 @@ it('supports explicit private scope in advanced controls and keeps it private on
   cleanup();
   const second = serve({ workloads: [{ id: 'api', ready: true, workload }] });
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await screen.findByLabelText('Ảnh Container');
   await user.type(screen.getByLabelText('Ảnh Container'), '-updated');
   await user.click(save());
@@ -392,6 +405,7 @@ it('preserves scheduled execution and container overrides while editing an exist
   const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, workloadExecution: execution, containers: { main: container }, resources: { cache: resource } };
   const { puts } = serve({ workloads: [{ id: 'api', ready: true, workload }] });
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await screen.findByLabelText('Ảnh Container');
   expect(screen.getByLabelText('Nguồn tài nguyên')).toHaveValue('current');
   await user.clear(screen.getByLabelText('Ảnh Container'));

@@ -46,6 +46,12 @@ func validateStorageIntent(before, after environment.Document, catalog Catalog) 
 		if !ok {
 			continue
 		}
+		if old := oldModule.Spec.Execution; old != nil && len(old.VolumeClaimTemplates) > 0 {
+			next := module.Spec.Execution
+			if next == nil || next.Kind != "StatefulSet" || !reflect.DeepEqual(old.VolumeClaimTemplates, next.VolumeClaimTemplates) {
+				return &StageError{Stage: StageCandidate, Reason: ReasonStorageImmutable, Err: fmt.Errorf("StatefulSet claim identities and configuration require explicit storage migration")}
+			}
+		}
 		for alias, next := range module.Externals {
 			if old, ok := oldModule.Externals[alias]; ok {
 				if err := check(old, next); err != nil {

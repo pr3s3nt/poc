@@ -122,6 +122,9 @@ func guard(req execution.RenderRequest, delivery kubernetes.Delivery, objects []
 	if err := guardWorkload(req, delivery, workloadKind, workload); err != nil {
 		return err
 	}
+	if err := guardRuntimePolicy(req, workloadKind, workload, objects, delivery.Selector); err != nil {
+		return err
+	}
 	if err := guardConfigMaps(req, objects); err != nil {
 		return err
 	}

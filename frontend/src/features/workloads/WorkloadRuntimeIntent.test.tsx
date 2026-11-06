@@ -1,3 +1,4 @@
+import { openAdvancedFields, openWorkloadGroup } from '../../test/workloadGroups';
 import { cleanup, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -15,6 +16,7 @@ function setup(workload?: Record<string, unknown>, others: {id:string;ready:bool
   const configuration = () => ({ version: 1, secretStoreKey: 'vault', keys });
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration/keys') && init?.method === 'POST') {
       const body = JSON.parse(String(init.body)); creates.push(body);
       keys = [...keys, { name: body.name, kind: 'SECRET', configured: true, usedBy: [] }];
@@ -30,13 +32,15 @@ function setup(workload?: Record<string, unknown>, others: {id:string;ready:bool
 }
 async function basic(user: ReturnType<typeof userEvent.setup>) {
   await user.type(await screen.findByLabelText('Tên Workload'), 'app');
-  await user.type(screen.getByLabelText('Ảnh Container'), 'example/app:1');
+  await user.type(screen.getByLabelText('Ảnh Container'), 'example/app:1');await openAdvancedFields(user);
 }
 const save = () => screen.getByRole('button', { name: 'Lưu draft Workload' });
 
 const volumeSection = (name = 'main') => screen.getByRole('group', {name:`Volume và file của ${name}`});
 const sourceKinds:Record<string,string>={storage:'Lưu trữ bền vững (PVC)',emptyDir:'Volume tạm (emptyDir)',configMap:'File cấu hình (ConfigMap)',hostPath:'Đường dẫn node (hostPath)',secret:'File bí mật'};
 async function openVolume(user: ReturnType<typeof userEvent.setup>, kind = 'emptyDir', container = 'main', source?:string) {
+  const containerInput=screen.getAllByLabelText('Tên Container').find(el=>(el as HTMLInputElement).value===container)!;
+  await openWorkloadGroup(user,'Volumes & files',containerInput.closest('section')!);
   await user.click(within(volumeSection(container)).getByRole('button',{name:'Thêm volume hoặc file'}));
   const dialog=screen.getByRole('dialog',{name:'Thêm volume hoặc file'});
   if(source) await user.click(within(dialog).getByRole('button',{name:`Dùng ${source} · ${sourceKinds[kind]}`}));
@@ -52,9 +56,11 @@ it('authors custom init/sidecar, a shared emptyDir, ConfigMap and a Secret file,
   const { puts, user } = setup(); await basic(user);
   await user.click(screen.getByRole('button', { name: '+ Thêm Container' }));
   await user.type(screen.getAllByLabelText('Ảnh Container')[1]!, 'example/init:1');
+  await openWorkloadGroup(user,'Khởi chạy',screen.getAllByLabelText('Ảnh Container')[1]!.closest('section')!);
   await user.selectOptions(screen.getByRole('combobox', { name: 'Vai trò container container-2' }), 'init');
   await user.click(screen.getByRole('button', { name: '+ Thêm Container' }));
   await user.type(screen.getAllByLabelText('Ảnh Container')[2]!, 'example/sidecar:1');
+  await openWorkloadGroup(user,'Khởi chạy',screen.getAllByLabelText('Ảnh Container')[2]!.closest('section')!);
   await user.selectOptions(screen.getByRole('combobox', { name: 'Vai trò container container-3' }), 'sidecar');
   let dialog=await openVolume(user);
   await user.clear(within(dialog).getByLabelText('Tên volume')); await user.type(within(dialog).getByLabelText('Tên volume'),'shared');
@@ -83,6 +89,7 @@ it('authors custom init/sidecar, a shared emptyDir, ConfigMap and a Secret file,
   expect(saved.containers).toMatchObject({ 'container-2': { role: 'init', initOrder: 1 }, 'container-3': { role: 'sidecar', initOrder: 2 } });
   cleanup(); const reopened = setup(saved);
   await screen.findByLabelText('Tên Workload');
+  await openWorkloadGroup(reopened.user,'Volumes & files',screen.getAllByLabelText('Ảnh Container')[0]!.closest('section')!);
   expect(within(volumeSection()).getByLabelText('Giới hạn dung lượng')).toHaveValue('64Mi');
   expect(screen.getByLabelText('Nội dung (không chứa bí mật)')).toHaveValue('setting=true');
   await reopened.user.click(save());
@@ -103,6 +110,7 @@ it('reads a multiline Secret from a file into UC-12 without leaking its bytes in
   const { puts, creates, user } = setup(); await basic(user);
   await user.click(screen.getByRole('button',{name:'+ Thêm Container'}));
   await user.type(screen.getAllByLabelText('Ảnh Container')[1]!, 'agent:1');
+  await openWorkloadGroup(user,'Khởi chạy',screen.getAllByLabelText('Ảnh Container')[1]!.closest('section')!);
   await user.selectOptions(screen.getByRole('combobox',{name:'Vai trò container container-2'}),'sidecar');
   const volumeDialog=await openVolume(user,'secret','container-2');
   await user.clear(within(volumeDialog).getByLabelText('Đường dẫn tệp'));await user.type(within(volumeDialog).getByLabelText('Đường dẫn tệp'),'/keys/uploaded.pem');
@@ -136,10 +144,12 @@ it('keeps zero replicas, annotations, container/Service protocols and extended p
     service: { ports: { dns: { port: 53, targetPort: 5353, protocol: 'UDP' } } } };
   const { puts, user } = setup(workload);
   await screen.findByLabelText('Ảnh Container');
+  await openWorkloadGroup(user,'Mở rộng & cập nhật');
   expect(screen.getByLabelText('Số replica')).toHaveValue(0);
-  await user.click(screen.getByRole('button', { name: 'Hiện nâng cao Workload' }));
+  await user.click(screen.getByText('Cấu hình ít thay đổi',{exact:true}));
   expect(screen.getByLabelText('Tên annotation')).toHaveValue('example.com/owner');
-  await user.click(screen.getByRole('button', { name: 'Hiện nâng cao Container 1' }));
+  await user.click(screen.getByText('Cổng container', {exact:true}));
+  await user.click(screen.getByText('Kiểm tra sức khỏe', {exact:true}));
   expect(screen.getByLabelText('Tên cổng container')).toHaveValue('dns');
   expect(screen.getAllByRole('combobox', { name: 'Giao thức' }).every(select => (select as HTMLSelectElement).value === 'UDP')).toBe(true);
   expect(screen.getByLabelText('Lệnh kiểm tra (mỗi đối số một dòng)')).toHaveValue('check');
@@ -160,7 +170,7 @@ it('authors hostPath with read-only defaults and keeps explicit writable mode wh
   const saved=puts[0]!.workload;
   expect((saved.workloadExecution as Execution).volumes).toEqual([{name:'volume',hostPath:{path:'/var/local/app',type:'Directory'}}]);
   expect((saved.workloadExecution as Execution).volumeMounts?.[0]?.readOnly).toBe(false);
-  cleanup(); const reopened=setup(saved); await screen.findByLabelText('Ảnh Container');
+  cleanup(); const reopened=setup(saved); await screen.findByLabelText('Ảnh Container');await openWorkloadGroup(reopened.user,'Volumes & files',screen.getAllByLabelText('Ảnh Container')[0]!.closest('section')!);
   expect(screen.getByLabelText('Đường dẫn trên node')).toHaveValue('/var/local/app');
   expect(screen.getByLabelText('Chỉ đọc')).not.toBeChecked();
   await reopened.user.click(save());expect(reopened.puts[0]?.workload).toEqual(saved);
@@ -178,6 +188,7 @@ it('validates hostPath source syntax and exclusive source types', () => {
 it('shares one source across containers, edits it for all users and removes only the selected mount', async () => {
   const workload={apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'app'},containers:{main:{image:'app'},agent:{image:'agent',role:'sidecar',initOrder:1}},workloadExecution:{version:1,kind:'Deployment',volumes:[{name:'shared',emptyDir:{medium:'Memory',sizeLimit:'64Mi'}},{name:'unused',hostPath:{path:'/var/local/unused'}}],volumeMounts:[{volume:'shared',container:'main',path:'/shared',readOnly:false},{volume:'shared',container:'agent',path:'/shared',readOnly:false}]}};
   const {puts,user}=setup(workload);await screen.findAllByLabelText('Ảnh Container');
+  for(const image of screen.getAllByLabelText('Ảnh Container'))await openWorkloadGroup(user,'Volumes & files',image.closest('section')!);
   const main=volumeSection();const agent=volumeSection('agent');
   expect(within(main).queryByLabelText('Container đích')).not.toBeInTheDocument();
   await user.click(within(agent).getByText('Cấu hình nguồn dùng chung (2 container)'));
@@ -192,11 +203,12 @@ it('shares one source across containers, edits it for all users and removes only
 
 it('keeps canceled sources local and restores focus to the invoking container', async () => {
   const {puts,user}=setup();await basic(user);
+  await openWorkloadGroup(user,'Volumes & files');
   const add=within(volumeSection()).getByRole('button',{name:'Thêm volume hoặc file'});
   const dialog=await openVolume(user,'hostPath');
   await user.type(within(dialog).getByLabelText('Đường dẫn trên node'),'/var/local/cancel');
   await user.keyboard('{Escape}');expect(add).toHaveFocus();
-  await user.click(save());expect(puts[0]?.workload.workloadExecution).toBeUndefined();
+  await user.click(save());expect(puts[0]?.workload.workloadExecution).toEqual({version:1,kind:'Deployment'});
 });
 
 it('keeps renamed-container mounts visible until their target is explicitly repaired', async () => {
@@ -213,6 +225,7 @@ it('opens with searchable reusable sources, no implicit selection or source-crea
   const workload={apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'app'},containers:{main:{image:'app'}},workloadExecution:{version:1,kind:'Deployment',volumes:[{name:'shared-cache',emptyDir:{}},{name:'node-logs',hostPath:{path:'/var/log',type:'Directory'}}],volumeMounts:[{volume:'shared-cache',container:'main',path:'/shared',readOnly:false}]}};
   const {puts,user}=setup(workload,[{id:'other',ready:true,workload:{containers:{worker:{image:'worker'}},workloadExecution:{version:1,kind:'Deployment',volumes:[{name:'other-temporary',emptyDir:{}}]}}}]);
   await screen.findByLabelText('Ảnh Container');
+  await openWorkloadGroup(user,'Volumes & files');
   await user.click(within(volumeSection()).getByRole('button',{name:'Thêm volume hoặc file'}));
   const dialog=screen.getByRole('dialog',{name:'Thêm volume hoặc file'});
   expect(within(dialog).queryByLabelText('Tên volume')).not.toBeInTheDocument();
@@ -240,10 +253,18 @@ it('opens with searchable reusable sources, no implicit selection or source-crea
 it('keeps named sources usable when the Secret catalog fails and reports the failure instead of an empty catalog', async () => {
   const workload={apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'app'},containers:{main:{image:'app'}},workloadExecution:{version:1,kind:'Deployment',volumes:[{name:'local-data',emptyDir:{}}]}};
   const {user}=setup(workload,[],true);await screen.findByLabelText('Ảnh Container');
+  await openWorkloadGroup(user,'Volumes & files');
   await user.click(within(volumeSection()).getByRole('button',{name:'Thêm volume hoặc file'}));
   const dialog=screen.getByRole('dialog',{name:'Thêm volume hoặc file'});
   expect(within(dialog).getByText('Không tải được bí mật. Đóng và thử tải lại key.')).toBeVisible();
   expect(within(dialog).queryByText('Chưa có nguồn để dùng lại.')).not.toBeInTheDocument();
   await user.click(within(dialog).getByRole('button',{name:'Dùng local-data · Volume tạm (emptyDir)'}));
   expect(within(dialog).getByRole('button',{name:'Thêm vào container'})).toBeEnabled();
+});
+
+it('defers template image admission to the backend while resolver metadata is refreshing',()=>{
+ const container=[{name:'main',image:''}];
+ expect(validRuntimeIntent(container)).toBe(false);
+ expect(validRuntimeIntent(container,undefined,undefined,true)).toBe(true);
+ expect(validRuntimeIntent([{name:'',image:''}],undefined,undefined,true)).toBe(false);
 });

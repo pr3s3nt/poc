@@ -3,8 +3,9 @@ import { t } from '../../shared/i18n';
 import { Button } from '../../shared/ui/Button';
 import { Advanced } from './Advanced';
 
-export function WorkloadClassControl({ value, classes, metadata, disabled, onChange, onReload, children }: {
+export function WorkloadClassControl({ value, classes, metadata, disabled, onChange, onReload, children, embedded = false }: {
   children?: ReactNode;
+  embedded?: boolean;
   value: string;
   classes: string[];
   metadata: 'ready' | 'loading' | 'error';
@@ -14,7 +15,7 @@ export function WorkloadClassControl({ value, classes, metadata, disabled, onCha
 }) {
   const choices = [...new Set(classes)].filter(name => name !== 'default').sort();
   const retained = value !== '' && !choices.includes(value);
-  return <Advanced label="Workload" summary={t('workloads.workloadClass.summary', { value: value || 'default' })}>
+  const content = <>
     <label>{t('workloads.workloadEditor.workloadClass')}
       <select aria-label={t('workloads.workloadEditor.workloadClass')} value={value} disabled={disabled || metadata !== 'ready'} onChange={event => onChange(event.target.value)}>
         <option value="">{t('workloads.workloadClass.default')}</option>
@@ -26,5 +27,6 @@ export function WorkloadClassControl({ value, classes, metadata, disabled, onCha
     {metadata === 'loading' ? <small role="status">{t('workloads.workloadClass.loading')}</small> : null}
     {metadata === 'error' ? <div className="form-error" role="alert">{t('workloads.workloadClass.unavailable')}{' '}<Button disabled={disabled} type="button" onClick={onReload}>{t('workloads.classControls.retryLoadingClassMetadata')}</Button></div> : null}
     {children}
-  </Advanced>;
+  </>;
+  return embedded ? content : <Advanced label="Workload" summary={t('workloads.workloadClass.summary', { value: value || 'default' })}>{content}</Advanced>;
 }

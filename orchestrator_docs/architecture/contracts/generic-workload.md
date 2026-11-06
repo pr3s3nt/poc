@@ -158,3 +158,13 @@ explicit action/timing; validate before Save/Preview and check again at render.
 
 Non-HTTP probes or explicit probe timing/scheme require `container-probes-v1`
 on the selected source before provisioning. Historical HTTP shorthand is unchanged.
+
+## GW-08 — Complete runtime configuration and defaults
+
+[Workload defaults contract](workload-defaults.md) defines optional security,
+controller policy, StatefulSet claims and immutable policy selection, preserving
+legacy documents and desired/applied round-trip semantics.
+
+[ADR-039](../decisions/ADR-039-template-owned-workload-defaults.md) removes
+`workloadExecution.defaults`; verified template-only profiles are frozen in
+`workloadExecution.templateDefaults`. Unknown/removed policy fields are rejected.

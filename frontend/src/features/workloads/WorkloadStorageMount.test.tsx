@@ -1,3 +1,4 @@
+import { openWorkloadGroup } from '../../test/workloadGroups';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -15,6 +16,7 @@ function setup({ types = [storage, redis], resources, others = [] }: { types?: R
   const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/backend:v1' } }, workloadExecution: execution, ...(resources ? { resources } : {}) };
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     if (url.endsWith('/configuration')) return Response.json({ version: 1, keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: types });
     if (init?.method === 'PUT') { puts.push(JSON.parse(String(init.body))); return Response.json({ workloads: [], draftVersion: 2 }); }
@@ -25,6 +27,7 @@ function setup({ types = [storage, redis], resources, others = [] }: { types?: R
 }
 
 async function openStorage(user:ReturnType<typeof userEvent.setup>, path = '/data') {
+  await openWorkloadGroup(user,'Volumes & files');
   const add=await screen.findByRole('button',{name:'Thêm volume hoặc file'});
   await user.click(add);
   await user.click(within(screen.getByRole('dialog',{name:'Thêm volume hoặc file'})).getByRole('button',{name:'Tạo nguồn mới'}));
@@ -80,7 +83,7 @@ it('chooses an unused alias and preserves a non-storage resource already called 
 it('explains unavailable storage and rejects secret or non-string storage capabilities', async () => {
   const invalid = { ...storage, outputs: [{ name: 'claimName', type: 'bool' }, { name: 'namespace', type: 'string', secret: true }] };
   const {user}=setup({ types: [redis, invalid] });
-  await user.click(await screen.findByRole('button', { name: 'Thêm volume hoặc file' }));
+  await openWorkloadGroup(user,'Volumes & files');await user.click(await screen.findByRole('button', { name: 'Thêm volume hoặc file' }));
   const dialog=screen.getByRole('dialog',{name:'Thêm volume hoặc file'});
   await user.click(within(dialog).getByRole('button',{name:'Tạo nguồn mới'}));
   await user.selectOptions(within(dialog).getByLabelText('Loại'),'storage');
@@ -90,7 +93,7 @@ it('explains unavailable storage and rejects secret or non-string storage capabi
 
 it('lists app storage first and reuses its shared identity atomically with a collision-free alias', async () => {
   const {puts,user}=setup({resources:{volume:{type:'redis',id:'cache-existing'}},others:[{id:'worker',ready:true,workload:{resources:{volume:{type:'persistent-storage',id:'store-a',params:{storage:'2Gi'}}}}}]});
-  await user.click(await screen.findByRole('button',{name:'Thêm volume hoặc file'}));
+  await openWorkloadGroup(user,'Volumes & files');await user.click(await screen.findByRole('button',{name:'Thêm volume hoặc file'}));
   const dialog=screen.getByRole('dialog',{name:'Thêm volume hoặc file'});
   expect(within(dialog).queryByLabelText('Loại')).not.toBeInTheDocument();
   await user.type(within(dialog).getByLabelText('Tìm nguồn'),'worker');

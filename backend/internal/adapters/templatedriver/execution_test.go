@@ -22,6 +22,10 @@ func TestExecutionRendersPrimaryControllersAndApprovedMounts(t *testing.T) {
 	for _, id := range []string{"backend", "stateful", "scheduled"} {
 		t.Run(id, func(t *testing.T) {
 			req := gitRequest(selections["standard"])
+			// Runtime tests inherit the selected template profile rather than incidental limits from gitRequest.
+			runtimeContainer := req.Module.Spec.Containers["main"]
+			runtimeContainer.Resources = nil
+			req.Module.Spec.Containers["main"] = runtimeContainer
 			var chosen int
 			for i, template := range bundle.Contract.Manifest.WorkloadTemplates {
 				if template.ID == id {
@@ -91,6 +95,10 @@ func TestDeploymentWithoutPersistentMountKeepsRolloutPolicy(t *testing.T) {
 	for _, mode := range []string{"legacy", "stateless", "secret-file-only"} {
 		t.Run(mode, func(t *testing.T) {
 			req := gitRequest(selections["standard"])
+			// Runtime tests inherit the selected template profile rather than incidental limits from gitRequest.
+			runtimeContainer := req.Module.Spec.Containers["main"]
+			runtimeContainer.Resources = nil
+			req.Module.Spec.Containers["main"] = runtimeContainer
 			if mode != "legacy" {
 				for _, template := range bundle.Contract.Manifest.WorkloadTemplates {
 					if template.ID == "backend" {
@@ -111,8 +119,13 @@ func TestDeploymentWithoutPersistentMountKeepsRolloutPolicy(t *testing.T) {
 			for _, m := range manifests {
 				if m.Kind == "Deployment" {
 					found = true
-					if strategy := object(object(m.Object["spec"])["strategy"]); len(strategy) != 0 {
-						t.Fatalf("unexpected rollout policy without PVC mount: %v", strategy)
+					strategy := object(object(m.Object["spec"])["strategy"])
+					if mode == "legacy" {
+						if len(strategy) != 0 {
+							t.Fatalf("legacy acquired rollout policy: %v", strategy)
+						}
+					} else if strategy["type"] != "RollingUpdate" || object(strategy["rollingUpdate"])["maxSurge"] != float64(1) {
+						t.Fatalf("template rollout policy lost: %v", strategy)
 					}
 				}
 			}
@@ -138,6 +151,10 @@ func TestCronJobFileSecretStaysReferenceOnlyAndNotEnvironment(t *testing.T) {
 	}
 	template := bundle.Contract.Manifest.WorkloadTemplates[templateIndex]
 	req := gitRequest(selections["standard"])
+	// Runtime tests inherit the selected template profile rather than incidental limits from gitRequest.
+	runtimeContainer := req.Module.Spec.Containers["main"]
+	runtimeContainer.Resources = nil
+	req.Module.Spec.Containers["main"] = runtimeContainer
 	req.Module.Spec.Service = nil
 	req.Module.Spec.Replicas = nil
 	req.Module.Spec.Execution = &environment.WorkloadExecution{Version: 1, Kind: "CronJob", Template: environment.TemplatePin{ID: template.ID, Version: template.Version, SHA256: template.SHA256()}, Schedule: &environment.Schedule{Expression: "* * * * *", TimeZone: "UTC", ConcurrencyPolicy: "Forbid"}, SecretFiles: []environment.SecretFile{{Ref: "${context.uc12.GPG_KEY}", Container: "main", Path: "/keys/server.asc", Mode: 0400}}}
@@ -192,6 +209,10 @@ func TestCustomLifecycleAndAllVolumeSourcesAcrossControllers(t *testing.T) {
 	for _, kind := range []string{"Deployment", "StatefulSet", "CronJob"} {
 		t.Run(kind, func(t *testing.T) {
 			req := gitRequest(selections["standard"])
+			// Runtime tests inherit the selected template profile rather than incidental limits from gitRequest.
+			runtimeContainer := req.Module.Spec.Containers["main"]
+			runtimeContainer.Resources = nil
+			req.Module.Spec.Containers["main"] = runtimeContainer
 			one := 1
 			req.Module.Spec.Replicas = &one
 			req.Module.Spec.Containers["aaa-prepare"] = environment.Container{Image: "busybox:1", Role: "init", InitOrder: 20, Command: []string{"sh", "-c"}, Args: []string{"cp /config/app.conf /shared/app.conf"}}
@@ -316,6 +337,10 @@ func TestExtendedProbeIntentOverridesDefaults(t *testing.T) {
 	files := readBundle(t, standardDir)
 	renderer, selections := gitRenderer(t, map[string]map[string][]byte{"standard": files})
 	req := gitRequest(selections["standard"])
+	// Runtime tests inherit the selected template profile rather than incidental limits from gitRequest.
+	runtimeContainer := req.Module.Spec.Containers["main"]
+	runtimeContainer.Resources = nil
+	req.Module.Spec.Containers["main"] = runtimeContainer
 	zero, one, two := 0, 1, 2
 	c := req.Module.Spec.Containers["main"]
 	c.ReadinessProbe = &environment.Probe{Type: "tcp", Port: 5432, InitialDelaySeconds: &zero, PeriodSeconds: &two}

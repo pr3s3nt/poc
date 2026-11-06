@@ -9,7 +9,8 @@ export async function ensureNamespaceAccess(ui,config,app,rt,{wait=true}={}) {
  const access=config.platform.delivery.namespaceAccess;
  if(!access?.enabled)return;
  requireDevTest(config);
- const ns=`app-${app.key}-${config.application.environment}`;
+ const ns=app.environments?.find(env=>env.key===config.application.environment)?.namespaceIdentity??(!app.key.startsWith('idp-')?`app-${app.key}-${config.application.environment}`:undefined);
+ requireConfig(ns,'Application Environment namespace identity unavailable');
  const args=['--kubeconfig',config.runtime.clusterKubeconfigFile,'--context',config.platform.account.context];
  const run=(more,input)=>execFileSync('kubectl',[...args,...more],{encoding:'utf8',input,timeout:15000,stdio:['pipe','pipe','pipe']});
  const deadline=Date.now()+config.runtime.timeoutMs;let namespace;

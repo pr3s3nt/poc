@@ -560,7 +560,7 @@ func sanitizeManifest(m execution.Manifest) map[string]any {
 		safe["selector"] = selected
 	}
 	// Accepted rollout fields of Git render bundles (ADR-021 RB-C06).
-	for _, field := range []string{"strategy"} {
+	for _, field := range []string{"strategy", "updateStrategy", "volumeClaimTemplates", "persistentVolumeClaimRetentionPolicy"} {
 		if value := safeTree(spec[field], 0); value != nil {
 			if object, ok := value.(map[string]any); !ok || len(object) > 0 {
 				safe[field] = value
@@ -595,7 +595,7 @@ func sanitizeManifest(m execution.Manifest) map[string]any {
 	if account, ok := pod["serviceAccountName"].(string); ok && safeLabel(account) {
 		podSafe["serviceAccountName"] = account
 	}
-	for _, field := range []string{"nodeSelector", "affinity", "tolerations", "securityContext", "topologySpreadConstraints"} {
+	for _, field := range []string{"nodeSelector", "affinity", "tolerations", "securityContext", "automountServiceAccountToken", "topologySpreadConstraints"} {
 		if value := safeTree(pod[field], 0); value != nil {
 			podSafe[field] = value
 		}
@@ -799,6 +799,16 @@ func (a Assembler) manifests(ctx context.Context, plan *planning.Plan, descripto
 		return []Artifact{{ID: descriptor + ":manifest", NodeID: descriptor, Kind: "kubernetes-manifest", Path: "Deployment/" + workloadID, Language: "yaml", Before: beforeFor(old, "kubernetes-manifest", "Deployment/"+workloadID, !existed), After: unavailable("RENDER_UNAVAILABLE")}}
 	}
 	projections := ProjectManifests(manifests)
+	if e := module.Spec.Execution; e != nil && e.TemplateDefaults != nil {
+		var profile *environment.RuntimeDefaults
+		if resolver, ok := a.Renderer.(interface {
+			RuntimeProfile(context.Context, resource.RenderingSelection, *environment.WorkloadExecution) (*environment.RuntimeDefaults, error)
+		}); ok {
+			profile, _ = resolver.RuntimeProfile(ctx, selection, e)
+		}
+		projections["EffectiveConfig/"+workloadID] = defaultsProjection(module.Spec, profile)
+	}
+
 	unknownSet := map[string]bool{}
 	for _, path := range unknown {
 		unknownSet[path] = true

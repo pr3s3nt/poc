@@ -450,6 +450,17 @@ func (p *Provider) preflight(ctx context.Context, i port.Intent, pkg Package) er
 			return ErrOwnership
 		}
 	}
+	rawPackage, err := json.Marshal(pkg)
+	if err != nil {
+		return ErrConfig
+	}
+	manifests, err := p.ExportArtifact(ctx, rawPackage)
+	if err != nil {
+		return err
+	}
+	if err := k8s.ValidateRuntimeObjects(ctx, cli, i.Target, manifests); err != nil {
+		return err
+	}
 	// Older handoff revisions left a competing Update owner of platform
 	// metadata. Relinquish only those fields under the current intent/fence,
 	// after validating its persisted source UID. This never changes business

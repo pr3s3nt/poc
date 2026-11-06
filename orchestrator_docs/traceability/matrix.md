@@ -1518,3 +1518,14 @@ creation is explicit. WorkloadEditorPage reuses shared PVC identity/typed params
 with a collision-free alias and existing reuse guards, adding dependency + mount
 atomically. Other workloads' Pod-local sources are excluded. No API/backend/schema
 change. [Verification](../verification/2026-11-06-reuse-first-volumes.md) records checks and real reuse/Preview.
+
+WD-01–10 — [workload configuration/default policy](../usecase/UC-16/workload-defaults-specification.md):
+[contract](../architecture/contracts/workload-defaults.md),
+[field-to-code matrix](../implementation/workload-defaults.md),
+`runtime_policy_test.go`, `defaults_test.go`, `WorkloadDefaults.test.tsx`, JSONB
+reopen tests and [owned runtime/browser scenario](../../e2e/scenarios/workload-defaults/README.md).
+
+ADR-039 / WD-02–03: template-only values → RuntimeDefaults/TemplateDefaultsSnapshot
+→ workloadconfig scoped admission → generic resolver / renderer / Preview →
+arbitrary-value merge, forged-profile, no-policy and real Fleet/PVC acceptance.
+See [verification](../verification/2026-11-06-template-only-defaults.md).

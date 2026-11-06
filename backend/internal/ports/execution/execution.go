@@ -214,11 +214,11 @@ type RenderRequest struct {
 func ServicePortsOf(modules map[string]environment.Module) map[string]map[string]int {
 	out := map[string]map[string]int{}
 	for id, module := range modules {
-		if module.Spec.Service == nil || len(module.Spec.Service.Ports) == 0 {
+		if module.Spec.EffectiveService() == nil || len(module.Spec.EffectiveService().Ports) == 0 {
 			continue
 		}
 		ports := map[string]int{}
-		for name, port := range module.Spec.Service.Ports {
+		for name, port := range module.Spec.EffectiveService().Ports {
 			ports[name] = port.Port
 		}
 		out[id] = ports

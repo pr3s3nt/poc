@@ -23,14 +23,14 @@ type ResourceEntry struct {
 
 // Port is one Service port of a workload.
 type Port struct {
-	Port       int    `json:"port"`
-	TargetPort int    `json:"targetPort,omitempty"`
-	Protocol   string `json:"protocol,omitempty"`
+	Port       int    `json:"port" yaml:"port"`
+	TargetPort int    `json:"targetPort,omitempty" yaml:"targetPort,omitempty"`
+	Protocol   string `json:"protocol,omitempty" yaml:"protocol,omitempty"`
 }
 
 // Service exposes workload ports inside the cluster.
 type Service struct {
-	Ports map[string]Port `json:"ports"`
+	Ports map[string]Port `json:"ports" yaml:"ports"`
 }
 
 // ErrPublicPortRemoved reports a Service that declares the removed
@@ -86,31 +86,31 @@ func (s *Service) Canonical() *Service {
 
 // Probe declares an HTTP, TCP or exec health check with optional timing overrides.
 type Probe struct {
-	Type                string   `json:"type,omitempty"`
-	Path                string   `json:"path,omitempty"`
-	Port                int      `json:"port,omitempty"`
-	Command             []string `json:"command,omitempty"`
-	Scheme              string   `json:"scheme,omitempty"`
-	InitialDelaySeconds *int     `json:"initialDelaySeconds,omitempty"`
-	TimeoutSeconds      *int     `json:"timeoutSeconds,omitempty"`
-	PeriodSeconds       *int     `json:"periodSeconds,omitempty"`
-	SuccessThreshold    *int     `json:"successThreshold,omitempty"`
-	FailureThreshold    *int     `json:"failureThreshold,omitempty"`
+	Type                string   `json:"type,omitempty" yaml:"type,omitempty"`
+	Path                string   `json:"path,omitempty" yaml:"path,omitempty"`
+	Port                int      `json:"port,omitempty" yaml:"port,omitempty"`
+	Command             []string `json:"command,omitempty" yaml:"command,omitempty"`
+	Scheme              string   `json:"scheme,omitempty" yaml:"scheme,omitempty"`
+	InitialDelaySeconds *int     `json:"initialDelaySeconds,omitempty" yaml:"initialDelaySeconds,omitempty"`
+	TimeoutSeconds      *int     `json:"timeoutSeconds,omitempty" yaml:"timeoutSeconds,omitempty"`
+	PeriodSeconds       *int     `json:"periodSeconds,omitempty" yaml:"periodSeconds,omitempty"`
+	SuccessThreshold    *int     `json:"successThreshold,omitempty" yaml:"successThreshold,omitempty"`
+	FailureThreshold    *int     `json:"failureThreshold,omitempty" yaml:"failureThreshold,omitempty"`
 }
 
 // ComputeResources is one `requests` or `limits` branch of a container. Values
 // are the Workload strings exactly as declared; an empty field is not declared.
 type ComputeResources struct {
-	CPU    string `json:"cpu,omitempty"`
-	Memory string `json:"memory,omitempty"`
+	CPU    string `json:"cpu,omitempty" yaml:"cpu,omitempty"`
+	Memory string `json:"memory,omitempty" yaml:"memory,omitempty"`
 }
 
 // ContainerResourceRequirements holds the optional Workload
 // `containers.*.resources` of one container. It belongs to the workload module
 // and is never a Resource Graph node (UC-05 BR-07, UC-06 BR-11).
 type ContainerResourceRequirements struct {
-	Requests *ComputeResources `json:"requests,omitempty"`
-	Limits   *ComputeResources `json:"limits,omitempty"`
+	Requests *ComputeResources `json:"requests,omitempty" yaml:"requests,omitempty"`
+	Limits   *ComputeResources `json:"limits,omitempty" yaml:"limits,omitempty"`
 }
 
 // Clone returns an independent copy, so a module never aliases the Workload it was
@@ -134,25 +134,26 @@ func (r *ContainerResourceRequirements) Clone() *ContainerResourceRequirements {
 // Container is one container of a workload module. The id repeats the map key,
 // which is the Humanitec module form.
 type ContainerPort struct {
-	Protocol      string `json:"protocol,omitempty"`
-	Name          string `json:"name"`
-	ContainerPort int    `json:"containerPort"`
+	Protocol      string `json:"protocol,omitempty" yaml:"protocol,omitempty"`
+	Name          string `json:"name" yaml:"name"`
+	ContainerPort int    `json:"containerPort" yaml:"containerPort"`
 }
 
 type Container struct {
-	Role           string                         `json:"role,omitempty"`
-	InitOrder      int                            `json:"initOrder,omitempty"`
-	Ports          []ContainerPort                `json:"ports,omitempty"`
-	ID             string                         `json:"id,omitempty"`
-	WorkingDir     string                         `json:"workingDir,omitempty"`
-	StartupProbe   *Probe                         `json:"startupProbe,omitempty"`
-	Image          string                         `json:"image"`
-	Command        []string                       `json:"command,omitempty"`
-	Args           []string                       `json:"args,omitempty"`
-	Variables      map[string]string              `json:"variables,omitempty"`
-	Resources      *ContainerResourceRequirements `json:"resources,omitempty"`
-	LivenessProbe  *Probe                         `json:"livenessProbe,omitempty"`
-	ReadinessProbe *Probe                         `json:"readinessProbe,omitempty"`
+	SecurityContext *ContainerSecurityContext      `json:"securityContext,omitempty"`
+	Role            string                         `json:"role,omitempty"`
+	InitOrder       int                            `json:"initOrder,omitempty"`
+	Ports           []ContainerPort                `json:"ports,omitempty"`
+	ID              string                         `json:"id,omitempty"`
+	WorkingDir      string                         `json:"workingDir,omitempty"`
+	StartupProbe    *Probe                         `json:"startupProbe,omitempty"`
+	Image           string                         `json:"image,omitempty"`
+	Command         []string                       `json:"command,omitempty"`
+	Args            []string                       `json:"args,omitempty"`
+	Variables       map[string]string              `json:"variables,omitempty"`
+	Resources       *ContainerResourceRequirements `json:"resources,omitempty"`
+	LivenessProbe   *Probe                         `json:"livenessProbe,omitempty"`
+	ReadinessProbe  *Probe                         `json:"readinessProbe,omitempty"`
 }
 
 // ModuleSpec is the workload body of a module.
@@ -226,8 +227,9 @@ func (d Document) Validate() error {
 		if len(m.Spec.Containers) == 0 {
 			return fmt.Errorf("environment: module %q has no container", id)
 		}
+		effective, _ := m.Spec.ResolveDefaults()
 		for _, name := range m.ContainerNames() {
-			if m.Spec.Containers[name].Image == "" {
+			if effective.Containers[name].Image == "" {
 				return fmt.Errorf("environment: module %q container %q has no image", id, name)
 			}
 		}

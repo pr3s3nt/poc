@@ -5,9 +5,9 @@ type Container = { name: string; image: string; role?: string; initOrder?: numbe
 const overlap = (a: string, b: string) => a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
 const safePath = (path: string) => path.startsWith('/') && path.length <= 1024 && !/[\0\r\n\\]/.test(path) && path.slice(1).split('/').every(part => part !== '' && part !== '.' && part !== '..') && !['/vault', '/var/run/secrets'].some(prefix => overlap(path, prefix));
 const safeSubPath = (path: string) => path === '' || path.length <= 1024 && !/[\0\r\n\\]/.test(path) && path.split('/').every(part => part !== '' && part !== '.' && part !== '..');
-export function validRuntimeIntent(containers: Container[], e?: Execution, secrets?: string[]): boolean {
+export function validRuntimeIntent(containers: Container[], e?: Execution, secrets?: string[], allowInheritedImage = false): boolean {
   const names = new Set(containers.map(c => c.name));
-  if (names.size !== containers.length || containers.some(c => !c.name || !c.image)) return false;
+  if (names.size !== containers.length || containers.some(c => !c.name || !c.image && !allowInheritedImage)) return false;
   if (!containers.some(c => !c.role || c.role === 'app')) return false;
   const orders = new Set<number>();
   for (const c of containers) {

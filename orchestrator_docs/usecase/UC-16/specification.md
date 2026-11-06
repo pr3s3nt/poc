@@ -296,3 +296,8 @@ as specified above.
 
 [EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
 preview, atomic hostname reservation, manifest delivery and safe release.
+
+## Complete runtime configuration and defaults — issue #37
+
+[WD-01–10](workload-defaults-specification.md) extend runtime authoring, immutable
+policy selection, storage ownership, compatibility and effective-value display.

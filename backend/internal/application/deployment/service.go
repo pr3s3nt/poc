@@ -1270,6 +1270,11 @@ func restoreTarget(target *execution.Target, ref map[string]any, organizationKey
 }
 
 func (s *Service) fail(ctx context.Context, record domain.Deployment, cause error) error {
+	log.Printf("deployment failure id=%s type=%T", record.ID, cause)
+	var stage *planning.StageError
+	if errors.As(cause, &stage) {
+		log.Printf("deployment planning failure stage=%s reason=%s type=%T", stage.Stage, stage.Reason, stage.Err)
+	}
 	finished := s.clock.Now()
 	record.Status = domain.StatusFailed
 	record.FailureReason = PublicFailure(cause)
@@ -1364,10 +1369,10 @@ func (r bindingResolver) ResolveContext(path string) (any, error) {
 			return nil, fmt.Errorf("deployment: invalid Service reference")
 		}
 		module, ok := r.set.Modules[parts[1]]
-		if !ok || module.Spec.Service == nil {
+		if !ok || module.Spec.EffectiveService() == nil {
 			return nil, fmt.Errorf("deployment: referenced Service does not exist")
 		}
-		port, ok := module.Spec.Service.Ports[parts[2]]
+		port, ok := module.Spec.EffectiveService().Ports[parts[2]]
 		if !ok || port.Port < 1 {
 			return nil, fmt.Errorf("deployment: referenced Service port does not exist")
 		}

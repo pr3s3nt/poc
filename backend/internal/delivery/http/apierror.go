@@ -534,7 +534,7 @@ func classify(err error) (failure, bool) {
 		return failure{code: codeInvalidWorkload, field: "service.publicPort"}, true
 	case errors.Is(err, environment.ErrPublicRoutesRemoved):
 		return failure{code: codeInvalidWorkload, field: "service.publicRoutes"}, true
-	case errors.Is(err, workloadconfig.ErrInvalid), errors.Is(err, workloadspec.ErrInvalid):
+	case errors.Is(err, workloadconfig.ErrInvalid), errors.Is(err, workloadspec.ErrInvalid), errors.Is(err, environment.ErrExecution):
 		return failure{code: codeInvalidWorkload}, true
 	}
 	return failure{}, false

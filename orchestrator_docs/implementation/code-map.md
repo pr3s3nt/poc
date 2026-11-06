@@ -1285,3 +1285,25 @@ creation is explicit. WorkloadEditorPage reuses shared PVC identity/typed params
 with a collision-free alias and existing reuse guards, adding dependency + mount
 atomically. Other workloads' Pod-local sources are excluded. No API/backend/schema
 change. [Verification](../verification/2026-11-06-reuse-first-volumes.md) records checks and real reuse/Preview.
+
+## Workload defaults v1 — WD-01–10
+
+[Field/contract/UI/render map](workload-defaults.md). Domain resolution and typed
+constraints live in `backend/internal/domain/environment/runtime_policy.go`;
+template merging lives in `backend/internal/domain/environment/template_defaults.go`;
+scoped metadata validation/freezing in `application/workloadconfig/defaults.go`.
+`planning/workload_execution.go` gates profiles/capabilities;
+`templatedriver/runtime_policy.go` guards semantics. Kubernetes runtime admission
+uses `adapters/kubernetes/runtime_policy.go` before direct/Fleet publication.
+`deploymentreview/defaults.go` projects safe effective values/provenance.
+Frontend `RuntimePolicyFields.tsx`, `ExecutionFields.tsx` and `WorkloadEditorPage.tsx`
+reuse current shell/controls. Tests cover typed round-trip, legacy behavior,
+source precedence/reset, JSONB and owned-kind/browser acceptance.
+
+ADR-039: `environment/template_defaults.go` owns generic template/environment
+profile merging and frozen metadata. `runtime_policy.go` owns constraints only;
+no backend defaults policy remains. Standard profiles live in source `bundle.yaml`.
+
+`frontend/src/features/workloads/DefaultSelect.tsx` shares muted inherited select
+hints, hidden placeholder options and explicit reset across Service/runtime/schedule
+fields. `WorkloadDefaults.test.tsx` covers distinct choices and sparse reset/Save.

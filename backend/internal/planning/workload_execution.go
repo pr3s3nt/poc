@@ -3,16 +3,17 @@ package planning
 import (
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/templatesource"
+	"reflect"
 )
 
 // validateExecution proves that the selected renderer implements every explicit
 // runtime intent before any provisioning can begin.
-func validateExecution(plan *Plan, catalog Catalog) error {
+func validateExecution(plan *Plan, catalog Catalog, env string) error {
 	for id, module := range plan.CandidateSet.Modules {
 		e := module.Spec.Execution
 		needsLifecycle := false
 		for _, c := range module.Spec.Containers {
-			needsLifecycle = needsLifecycle || c.Role == "init" || c.Role == "sidecar"
+			needsLifecycle = needsLifecycle || c.SecurityContext != nil || c.Role == "init" || c.Role == "sidecar"
 		}
 		needsProbes := false
 		for _, c := range module.Spec.Containers {
@@ -38,6 +39,35 @@ func validateExecution(plan *Plan, catalog Catalog) error {
 		}
 		if _, err := templatesource.ExecutionInputs(bundle.Contract.Manifest, e); err != nil {
 			return environment.ErrExecutionUnavailable
+		}
+		var profile *environment.RuntimeDefaults
+		if e.HasTemplate() {
+			for _, t := range bundle.Contract.Manifest.WorkloadTemplates {
+				if t.ID == e.Template.ID && t.Version == e.Template.Version && t.SHA256() == e.Template.SHA256 {
+					profile = t.RuntimeDefaults.ForEnvironment(env)
+				}
+			}
+		}
+		if e.HasTemplate() && profile != nil && (e.TemplateDefaults == nil || e.TemplateDefaults.Environment != env || !reflect.DeepEqual(e.TemplateDefaults.Profile, profile)) {
+			return environment.ErrExecutionUnavailable
+		}
+		effective, _ := module.Spec.ResolveDefaults(profile)
+		resources := map[string]bool{}
+		if e != nil {
+			for _, m := range e.Mounts {
+				resources[m.Resource] = true
+			}
+		}
+		if err := effective.ValidateComputePolicy(); err != nil {
+			return err
+		}
+		if err := effective.Execution.ValidateResolved(effective.Containers, effective.ReplicaCount(), effective.Service != nil && len(effective.Service.Ports) > 0, resources); err != nil {
+			return err
+		}
+		for _, c := range effective.Containers {
+			if c.Image == "" {
+				return environment.ErrExecution
+			}
 		}
 		if e == nil {
 			continue

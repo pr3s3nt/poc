@@ -1,3 +1,4 @@
+import { openWorkloadGroup } from '../../test/workloadGroups';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -39,6 +40,7 @@ function serve(options: Options = {}) {
   const configuration = () => ({ applicationKey: 'catalog', environmentKey: 'staging', version, secretStoreKey: store || undefined, keys });
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     const method = init?.method ?? 'GET';
     const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : undefined;
     calls.push({ method, url, body });
@@ -112,6 +114,7 @@ it('adds a directly editable name/value row without a source column and focuses 
 
 it('projects literal, shared Variable/Secret, secret output and Service without copying values', async () => {
   const api = serve({ workloads: [dbWorkload], types: [postgres] }); const user = userEvent.setup(); await newWorkload(user);
+  await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   await user.type(screen.getByLabelText('Alias tài nguyên'), 'db'); await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'postgres');
   await addRow(user, 1, 'LOG'); await user.type(table().getByLabelText('Giá trị nhập, dòng 1'), 'debug');
@@ -321,6 +324,7 @@ it('blocks duplicate resource aliases entered in the main resource editor', asyn
   const user = userEvent.setup();
   await newWorkload(user);
   for (let index = 0; index < 2; index++) {
+    await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
     await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
     await user.type(screen.getAllByLabelText('Alias tài nguyên')[index]!, 'db');
     await user.selectOptions(screen.getAllByLabelText('Loại tài nguyên')[index]!, 'postgres');
@@ -531,6 +535,7 @@ it('adds a dependency inline, explicitly selects its output and uses it from ano
 
 it('requires explicitly reselecting an output after changing dependency type', async () => {
   const api = serve({ types: [postgres, { ...postgres, key: 'mysql' }] }); const user = userEvent.setup(); await newWorkload(user);
+  await openWorkloadGroup(user,'Tài nguyên phụ thuộc');
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' })); await user.type(screen.getByLabelText('Alias tài nguyên'), 'db'); await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'postgres');
   await addRow(user, 1, 'DB_HOST'); await reference(user, 1, 'db.host');
   await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'mysql');
