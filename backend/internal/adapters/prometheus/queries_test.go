@@ -48,3 +48,34 @@ func TestWorkloadQueryAndRuleOwnership(t *testing.T) {
 		t.Fatal("unsafe name accepted")
 	}
 }
+
+func TestTypedPodMonitorAndApplicationQueryIdentity(t *testing.T) {
+	target := ownedTarget()
+	metric := monitoring.MetricDefinition{Key: "requests", Metric: "http_requests_total", Aggregation: "rate", Unit: "per_second", Labels: map[string]string{"status": "500"}}
+	profile := monitoring.WorkloadProfile{Port: "metrics", Path: "/metrics", IntervalSeconds: 30, SampleLimit: 500, Metrics: []monitoring.MetricDefinition{metric}}
+	doc, e := PodMonitorDocument(target, profile, map[string]string{"release": "metrics"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	raw, _ := json.Marshal(doc)
+	for _, want := range []string{`"honorLabels":false`, `orchestrator_cluster_uid`, `orchestrator_generation`, `"sampleLimit":500`} {
+		if !strings.Contains(string(raw), want) {
+			t.Fatal("missing monitor fence", want)
+		}
+	}
+	query := MetricQuery(target, metric)
+	for _, want := range []string{`orchestrator_app="app"`, `orchestrator_generation="2"`, `orchestrator_cluster_uid="cluster-uid"`, `rate(http_requests_total`, `[5m]`} {
+		if !strings.Contains(query, want) {
+			t.Fatal("missing application selector", want)
+		}
+	}
+	queries, e := WorkloadQueries(target)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for k, q := range queries {
+		if !strings.Contains(q, `cluster_uid="cluster-uid"`) {
+			t.Fatal("cross-cluster Kubernetes query", k)
+		}
+	}
+}

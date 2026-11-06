@@ -121,3 +121,15 @@ as gaps/dashes with coverage, never zero. Alert detail exposes rule/value/time,
 severity and pending/firing plus scoped drill-downs. Receiver delivery remains
 unknown without evidence. Grafana requires separate authorization. Technical
 formulas and source limitations belong in accessible details, not repeated prose.
+
+
+## Capability stages 1–5 — 2026-11-07
+
+Connection editor adds optional Loki and source credential configuration in advanced
+fields; stored tokens remain blank. Keep existing shell/form/button patterns.
+Show conditional verification facts without claiming synchronization. Connection
+removal confirms scope and fails while bound. Environment settings supports
+pre-deploy binding, explicit logs source, revision refresh and guarded unbind.
+Keep pending-target, stale config, busy, committed/reload-failure and provider error
+states distinct. Read explorers preserve filters/time and explicit source across
+navigation; no automatic fallback or missing-as-zero presentation.

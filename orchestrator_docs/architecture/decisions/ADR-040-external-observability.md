@@ -93,3 +93,14 @@ uninstall, namespace/PVC deletion or data reset is included. The
 [installation runbook](../../operations/observability-installation.md) defines
 configuration, validation and recovery. Installation readiness does not establish
 telemetry coverage, notification delivery or application acceptance.
+
+## Capability collection and profiles — execution 2026-11-07
+
+The approved capability stages use typed, versioned per-workload collection
+profiles, PodMonitor delivery through the existing Git/Fleet units, and trusted
+collector identity labels. PromQL/LogQL remain server-built. Local Prometheus
+samples must carry a cluster label; external labels alone are insufficient.
+Connection defaults and whole-workload binding overrides support heterogeneous
+applications and exporters without a generic policy language. See the contract
+for bounds and precedence. A dedicated owned kind cluster is authorized for live
+checks; actual MCP instrumentation remains dependent on Gateway/Admin source.

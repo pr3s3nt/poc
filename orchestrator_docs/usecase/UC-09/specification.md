@@ -205,3 +205,39 @@ Accepted 2026-11-05 for issue #35 Slice 1:
   selectors or arbitrary PromQL. Preserve explicit missing/stale/partial/error states.
 - **OBS-06:** Acceptance proves actual collection, firing and receiver delivery,
   Console investigation, recovery/resolved delivery, isolation and owned cleanup.
+
+
+### Capability stages 1–5 — 2026-11-07
+
+- **OBS-07:** PE/Admin can configure/test source-specific connections and bind an
+  Environment before deployment, refresh revisions, and remove unused bindings
+  and connections without changing native history. Verify actual target identity
+  during deployment; no controller must preexist for desired rule generation.
+- **OBS-08:** Verification reports connectivity/identity/coverage/config sync
+  separately and is scoped to configuration revision. Repeating a test does not
+  mutate configuration revision or invalidate healthy bindings.
+- **OBS-09:** An explicit per-signal source selects native or Loki logs; filters,
+  paging/follow/details and metrics/alert/Grafana links retain owned scope/time.
+  External errors remain visible, never implicit native fallback.
+- **OBS-10:** Versioned typed profiles inherit connection defaults with explicit
+  PE/Admin Environment overrides. Applied configuration, received data, alert
+  evaluation and notification delivery are separately evidenced.
+- **OBS-11:** Deploy/new workload/update/redeploy generate stable owned scrape/rule
+  configuration; reads validate actual controller/pod identity. Remove through the
+  existing owned delivery lifecycle before unbinding. Preserve shared stack and
+  retained native/external history according to source retention.
+
+### OBS-12–15 — capability collection and profiles
+
+- OBS-12: PE can configure a versioned typed metrics profile and whole-workload
+  binding overrides. Ordinary deployment delivers bounded PodMonitor/rules with
+  stable ownership; deployment/update/remove uses the existing delivery fencing.
+- OBS-13: Backend queries use trusted cluster/app/environment/generation selectors.
+  Logs from replaced Pods remain queryable in retention. Source selection is
+  explicit; external errors never silently return native data.
+- OBS-14: Console shows typed application/resource metrics, units, collection gaps,
+  rule evaluation and Alertmanager state separately. Missing series never imply
+  zero or recovery. Threshold configuration records version and provenance.
+- OBS-15: Profile changes require explicit binding refresh and deployment. A saved
+  profile is not evidence of collection or rule application. Removal preserves
+  shared tools and retained history; credentials remain private.

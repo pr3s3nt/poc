@@ -48,7 +48,7 @@ func PackageUnit(intent port.Intent, manifests []execution.Manifest) (Package, e
 	objects := []execution.ObjectRef{}
 	seen := map[string]bool{}
 	for _, m := range manifests {
-		if m.Kind == "PrometheusRule" && m.APIVersion != "monitoring.coreos.com/v1" {
+		if (m.Kind == "PrometheusRule" || m.Kind == "PodMonitor") && m.APIVersion != "monitoring.coreos.com/v1" {
 			return Package{}, domain.ErrUnsupported
 		}
 		if m.Secret || (m.Kind == "Secret" && !execution.PublicCertificateSecret(m.Object)) || m.Namespace != intent.Target.Namespace || m.Object == nil || !label.MatchString(strings.ToLower(m.Kind)) || !validObjectName(m.Name) {
@@ -174,7 +174,7 @@ func validObjectName(s string) bool {
 }
 func knownContinuous(kind string) bool {
 	switch kind {
-	case "PrometheusRule", "Deployment", "StatefulSet", "DaemonSet", "Service", "ConfigMap", "HorizontalPodAutoscaler", "PodDisruptionBudget", "NetworkPolicy", "ServiceAccount", "Role", "RoleBinding", "Ingress", "HTTPRoute", "CronJob", "VaultConnection", "VaultAuth", "VaultStaticSecret", "Secret":
+	case "PrometheusRule", "PodMonitor", "Deployment", "StatefulSet", "DaemonSet", "Service", "ConfigMap", "HorizontalPodAutoscaler", "PodDisruptionBudget", "NetworkPolicy", "ServiceAccount", "Role", "RoleBinding", "Ingress", "HTTPRoute", "CronJob", "VaultConnection", "VaultAuth", "VaultStaticSecret", "Secret":
 		return true
 	}
 	return false

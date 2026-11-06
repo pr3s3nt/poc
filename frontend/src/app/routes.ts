@@ -1,4 +1,4 @@
-export type TelemetryRouteQuery = { from?: string; to?: string; workload?: string; q?: string; level?: string; focus?: 'cpu' | 'memory' | 'signals' };
+export type TelemetryRouteQuery = { from?: string; to?: string; workload?: string; q?: string; level?: string; source?: string; container?: string; focus?: 'cpu' | 'memory' | 'signals' };
 
 export type Route =
   | { name: 'sign-in' }
@@ -73,7 +73,7 @@ export function parseRoute(path = window.location.pathname): Route {
   const telemetry = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/observability$/);
   if (telemetry?.[1] && telemetry[2]) {
     const params = new URLSearchParams(search), query: TelemetryRouteQuery = {};
-    for (const key of ['from', 'to', 'workload', 'q', 'level'] as const) { const value = params.get(key); if (value) query[key] = value; }
+    for (const key of ['from', 'to', 'workload', 'q', 'level', 'source', 'container'] as const) { const value = params.get(key); if (value) query[key] = value; }
     const focus = params.get('focus');
     if (focus === 'cpu' || focus === 'memory' || focus === 'signals') query.focus = focus;
     return { name: 'observability', applicationId: decodeURIComponent(telemetry[1]), environment: telemetry[2] as 'staging' | 'production', tab: params.get('tab') === 'metrics' ? 'metrics' : 'logs', query };

@@ -26,14 +26,14 @@ func (s *Server) handleObservability(w http.ResponseWriter, r *http.Request, kin
 		return
 	}
 	q := r.URL.Query()
-	allowed := map[string]bool{"from": true, "to": true, "workload": true, "q": true, "level": true, "limit": true, "cursor": true}
+	allowed := map[string]bool{"from": true, "to": true, "workload": true, "q": true, "level": true, "limit": true, "cursor": true, "source": true, "container": true}
 	for key, values := range q {
 		if !allowed[key] || len(values) != 1 {
 			writeCode(w, codeInvalidRequest, "")
 			return
 		}
 	}
-	p := obs.Params{From: q.Get("from"), To: q.Get("to"), Workload: q.Get("workload"), Search: q.Get("q"), Level: q.Get("level"), Cursor: q.Get("cursor")}
+	p := obs.Params{From: q.Get("from"), To: q.Get("to"), Workload: q.Get("workload"), Search: q.Get("q"), Level: q.Get("level"), Cursor: q.Get("cursor"), Container: q.Get("container")}
 	if raw := q.Get("limit"); raw != "" {
 		n, err := strconv.Atoi(raw)
 		if err != nil {
@@ -42,7 +42,17 @@ func (s *Server) handleObservability(w http.ResponseWriter, r *http.Request, kin
 		}
 		p.Limit = n
 	}
-	view, err := s.observability.Query(r.Context(), telemetry.Scope{OrganizationKey: org, ApplicationKey: app, EnvironmentKey: env}, kind, p)
+	var view obs.View
+	var err error
+	if kind == "logs" && s.monitoring != nil {
+		view, err = s.monitoring.QueryLogs(r.Context(), telemetry.Scope{OrganizationKey: org, ApplicationKey: app, EnvironmentKey: env}, p, q.Get("source"))
+	} else {
+		if q.Get("source") != "" && q.Get("source") != "native" {
+			writeCode(w, codeInvalidRequest, "")
+			return
+		}
+		view, err = s.observability.Query(r.Context(), telemetry.Scope{OrganizationKey: org, ApplicationKey: app, EnvironmentKey: env}, kind, p)
+	}
 	if err != nil {
 		var field *obs.FieldError
 		switch {

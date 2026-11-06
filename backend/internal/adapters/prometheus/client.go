@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -215,7 +216,11 @@ func (c *Client) Range(ctx context.Context, query string, from, to time.Time, st
 	if e != nil {
 		return nil, e
 	}
-	return validate(r, "matrix")
+	data, e := validate(r, "matrix")
+	if e != nil {
+		return nil, e
+	}
+	return fillRangeGaps(data, from, to, step), nil
 }
 func (c *Client) Instant(ctx context.Context, query string, at time.Time) ([]Series, error) {
 	if query == "" || len(query) > 16384 {
@@ -303,4 +308,89 @@ func (c *Client) AlertmanagerStatus(ctx context.Context) error {
 		return ErrResponse
 	}
 	return nil
+}
+
+// ReadJSON exposes bounded authenticated transport to trusted source adapters.
+func (c *Client) ReadJSON(ctx context.Context, path string, q url.Values, out any) error {
+	if !strings.HasPrefix(path, "/") || strings.Contains(path, "..") || strings.ContainsAny(path, "?#") {
+		return ErrEndpoint
+	}
+	return c.get(ctx, path, q, out)
+}
+
+// NotificationState reports Alertmanager processing, never delivery proof.
+type NotificationState struct {
+	Name        string            `json:"name"`
+	Fingerprint string            `json:"fingerprint"`
+	Labels      map[string]string `json:"labels"`
+	State       string            `json:"state"`
+	StartsAt    time.Time         `json:"startsAt"`
+	EndsAt      time.Time         `json:"endsAt"`
+	Receivers   []struct {
+		Name string `json:"name"`
+	} `json:"receivers"`
+	Status struct {
+		State       string   `json:"state"`
+		SilencedBy  []string `json:"silencedBy"`
+		InhibitedBy []string `json:"inhibitedBy"`
+	} `json:"status"`
+}
+
+func (c *Client) AlertmanagerAlerts(ctx context.Context, scope map[string]string) ([]NotificationState, error) {
+	q := url.Values{"active": {"true"}, "silenced": {"true"}, "inhibited": {"true"}}
+	keys := []string{}
+	for k := range scope {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		q.Add("filter", k+"="+strconv.Quote(scope[k]))
+	}
+	out := []NotificationState{}
+	if e := c.get(ctx, "/api/v2/alerts", q, &out); e != nil {
+		return nil, e
+	}
+	if len(out) > MaxSeries {
+		return nil, ErrResponse
+	}
+	for i := range out {
+		a := &out[i]
+		if len(a.Labels) > 64 || len(a.Receivers) > 32 || len(a.Status.SilencedBy) > 64 || len(a.Status.InhibitedBy) > 64 {
+			return nil, ErrResponse
+		}
+		for k, v := range scope {
+			if a.Labels[k] != v {
+				return nil, ErrResponse
+			}
+		}
+		switch a.Status.State {
+		case "active", "suppressed", "unprocessed":
+		default:
+			return nil, ErrResponse
+		}
+		a.State = a.Status.State
+		a.Name = a.Labels["alertname"]
+	}
+	return out, nil
+}
+
+// Evaluation-grid gaps stay null rather than joining samples across missing data.
+func fillRangeGaps(data []Series, from, to time.Time, step time.Duration) []Series {
+	for i := range data {
+		samples := make([]Sample, 0, int(to.Sub(from)/step)+1)
+		j := 0
+		for at := from; !at.After(to); at = at.Add(step) {
+			v := Sample{Timestamp: at.UTC()}
+			for j < len(data[i].Values) && data[i].Values[j].Timestamp.Before(at.Add(-2*time.Millisecond)) {
+				j++
+			}
+			if j < len(data[i].Values) && data[i].Values[j].Timestamp.Sub(at) <= 2*time.Millisecond {
+				v = data[i].Values[j]
+				j++
+			}
+			samples = append(samples, v)
+		}
+		data[i].Values = samples
+	}
+	return data
 }

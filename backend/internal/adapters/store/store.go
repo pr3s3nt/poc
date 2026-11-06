@@ -24,6 +24,7 @@ import (
 	"orchestrator/internal/domain/effectiveness"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/identity"
+	"orchestrator/internal/domain/monitoring"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/secretstore"
 	"orchestrator/internal/domain/telemetry"
@@ -44,6 +45,8 @@ type deliveryExecutionRecord struct {
 }
 
 type state struct {
+	MonitoringConnections           map[string]monitoring.Connection              `json:"monitoringConnections,omitempty"`
+	MonitoringBindings              map[string]monitoring.Binding                 `json:"monitoringBindings,omitempty"`
 	EndpointReservations            map[string]endpointReservation                `json:"endpointReservations,omitempty"`
 	DefinitionHistories             map[string]persistence.DefinitionHistory      `json:"definitionHistories,omitempty"`
 	DefinitionSelections            map[string]persistence.DefinitionSelection    `json:"definitionSelections,omitempty"`
@@ -98,6 +101,8 @@ type state struct {
 
 func newState() *state {
 	return &state{
+		MonitoringConnections:           map[string]monitoring.Connection{},
+		MonitoringBindings:              map[string]monitoring.Binding{},
 		PlatformDeliveryDefaults:        map[string]delivery.PlatformDefault{},
 		ApplicationDeliveryRepositories: map[string]delivery.ApplicationRepository{},
 		GitSettings:                     map[string]persistence.GitSettings{},

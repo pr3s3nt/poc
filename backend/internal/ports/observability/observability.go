@@ -24,3 +24,14 @@ type Reader interface {
 type TargetVerifier interface {
 	MonitoringTarget(context.Context, Source) (monitoring.Target, error)
 }
+
+// ClusterVerifier proves the credential-scoped destination before first deployment.
+type ClusterVerifier interface {
+	MonitoringCluster(context.Context, execution.Target) (string, error)
+}
+
+// ConfigurationVerifier compares only platform-owned monitoring artifacts.
+// Empty expected requires their absence before detaching a live workload.
+type ConfigurationVerifier interface {
+	MonitoringConfiguration(context.Context, Source, []execution.Manifest) (string, error)
+}

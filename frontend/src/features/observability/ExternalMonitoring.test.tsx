@@ -23,3 +23,8 @@ it('discards a late response from a previous environment', async () => {
  await act(async () => finish(Response.json({ state: 'NOT_CONFIGURED', workloads: [], alerts: [] })));
  expect(screen.queryByText('native-history')).not.toBeInTheDocument();
 });
+it('uses native when the bound metrics source explicitly selects native', async () => {
+ vi.stubGlobal('fetch', vi.fn(async () => Response.json({ source: 'native', state: 'METRICS_NATIVE', workloads: [], alerts: [] })));
+ render(<ExternalMonitoring applicationId="app" environment="staging" />);
+ expect(await screen.findByText('native-history')).toBeInTheDocument();
+});

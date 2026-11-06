@@ -4,6 +4,7 @@ package monitoring
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"regexp"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 )
 
 var ErrInvalid = errors.New("monitoring: invalid configuration")
+var ErrInUse = errors.New("monitoring: configuration still in use")
 var namePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$`)
 
 // Scope is supplied by authenticated application/Environment lookup, never URL selectors.
@@ -38,7 +40,15 @@ type Target struct {
 }
 
 func (t Target) Validate() error {
-	if t.Scope.Validate() != nil || !namePattern.MatchString(t.Workload) || !namePattern.MatchString(t.Name) || t.UID == "" || (t.Kind != "Deployment" && t.Kind != "StatefulSet") {
+	if t.ValidateDesired() != nil || t.UID == "" {
+		return ErrInvalid
+	}
+	return nil
+}
+
+// ValidateDesired checks an admitted controller before Kubernetes assigns its UID.
+func (t Target) ValidateDesired() error {
+	if t.Scope.Validate() != nil || !namePattern.MatchString(t.Workload) || !namePattern.MatchString(t.Name) || (t.Kind != "Deployment" && t.Kind != "StatefulSet") {
 		return ErrInvalid
 	}
 	return nil
@@ -84,11 +94,15 @@ func RuleName(t Target) string {
 
 // Connection stores only nonsecret metadata and a private opaque reference.
 type Connection struct {
+	Profile         Profile           `json:"profile"`
 	ID              string            `json:"id"`
 	Organization    string            `json:"organization"`
 	Key             string            `json:"key"`
 	Name            string            `json:"name"`
 	Revision        int64             `json:"revision"`
+	LokiURL         string            `json:"lokiUrl,omitempty"`
+	CredentialRefs  map[string]string `json:"credentialRefs,omitempty"`
+	Verification    Verification      `json:"verification"`
 	PrometheusURL   string            `json:"prometheusUrl"`
 	AlertmanagerURL string            `json:"alertmanagerUrl"`
 	GrafanaURL      string            `json:"grafanaUrl"`
@@ -101,12 +115,62 @@ type Connection struct {
 	VerifiedAt      *time.Time        `json:"verifiedAt,omitempty"`
 }
 type Binding struct {
-	Organization       string `json:"organization"`
-	Application        string `json:"application"`
-	Environment        string `json:"environment"`
-	ConnectionID       string `json:"connectionId"`
-	ConnectionRevision int64  `json:"connectionRevision"`
-	ClusterUID         string `json:"clusterUid"`
-	Generation         int64  `json:"generation"`
-	Revision           int64  `json:"revision"`
+	ProfileVersion     string                     `json:"profileVersion,omitempty"`
+	WorkloadProfiles   map[string]WorkloadProfile `json:"workloadProfiles,omitempty"`
+	Organization       string                     `json:"organization"`
+	Application        string                     `json:"application"`
+	Environment        string                     `json:"environment"`
+	ConnectionID       string                     `json:"connectionId"`
+	ConnectionRevision int64                      `json:"connectionRevision"`
+	ClusterUID         string                     `json:"clusterUid"`
+	Generation         int64                      `json:"generation"`
+	Revision           int64                      `json:"revision"`
+	LogsSource         string                     `json:"logsSource,omitempty"`
+	MetricsSource      string                     `json:"metricsSource,omitempty"`
+}
+
+// Verification is operational evidence for a configuration revision, not a new config.
+type Verification struct {
+	Revision     int64           `json:"revision"`
+	Connectivity map[string]bool `json:"connectivity"`
+	Identity     map[string]bool `json:"identity"`
+	Coverage     map[string]bool `json:"coverage"`
+	ConfigSync   string          `json:"configSync"`
+	CheckedAt    *time.Time      `json:"checkedAt,omitempty"`
+}
+
+func (c Connection) Credential(provider string) (string, string) {
+	if ref, ok := c.CredentialRefs[provider]; ok {
+		return c.Key + "-" + provider, ref
+	}
+	if provider != "loki" {
+		return c.Key, c.CredentialRef
+	}
+	return c.Key + "-" + provider, ""
+}
+
+func CloneConnection(c Connection) Connection {
+	b, _ := json.Marshal(c)
+	var out Connection
+	_ = json.Unmarshal(b, &out)
+	return out
+}
+
+func ValidateRuleLabels(labels map[string]string) error {
+	if len(labels) > 32 {
+		return ErrInvalid
+	}
+	for k, v := range labels {
+		if k == "" || len(k) > 253 || len(v) > 63 || strings.HasPrefix(k, "orchestrator") || k == "app.kubernetes.io/managed-by" || k == "app.kubernetes.io/name" {
+			return ErrInvalid
+		}
+		if v != "" && !regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9_.-]*[a-zA-Z0-9])?$`).MatchString(v) {
+			return ErrInvalid
+		}
+		parts := strings.Split(k, "/")
+		if (len(parts) == 2 && !namePattern.MatchString(parts[0])) || len(parts) > 2 || !regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9_.-]*[a-zA-Z0-9])?$`).MatchString(parts[len(parts)-1]) {
+			return ErrInvalid
+		}
+	}
+	return nil
 }

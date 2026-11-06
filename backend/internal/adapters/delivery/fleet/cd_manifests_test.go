@@ -64,3 +64,19 @@ func TestCDPackageOwnsVSOAndNonsecretAuxiliaries(t *testing.T) {
 		}
 	}
 }
+
+func TestPodMonitorUsesOrdinaryContinuousOwnedDelivery(t *testing.T) {
+	i := packageIntent()
+	i.Revision.Phase = domain.Prerequisite
+	i.Revision.Selection.SelfHeal = true
+	m := execution.Manifest{APIVersion: "monitoring.coreos.com/v1", Kind: "PodMonitor", Name: "owned-monitor", Namespace: "app", Object: map[string]any{"apiVersion": "monitoring.coreos.com/v1", "kind": "PodMonitor", "metadata": map[string]any{"name": "owned-monitor", "namespace": "app", "labels": map[string]any{"app.kubernetes.io/managed-by": "orchestrator"}}, "spec": map[string]any{"selector": map[string]any{"matchLabels": map[string]string{"app": "owned"}}}}}
+	p, e := PackageUnit(i, []execution.Manifest{m})
+	if e != nil || len(p.Objects) != 1 {
+		t.Fatal("PodMonitor rejected by CD", e)
+	}
+	m.APIVersion = "foreign/v1"
+	m.Object["apiVersion"] = "foreign/v1"
+	if _, e = PackageUnit(i, []execution.Manifest{m}); e == nil {
+		t.Fatal("wrong monitoring API admitted")
+	}
+}

@@ -226,8 +226,8 @@ func (s *Service) collect(ctx context.Context, source obs.Source) error {
 }
 
 type Params struct {
-	From, To, Workload, Search, Level, Cursor string
-	Limit                                     int
+	From, To, Workload, Search, Level, Cursor, Container string
+	Limit                                                int
 }
 type SourceHealth struct {
 	WorkloadID   string         `json:"workloadId"`
@@ -239,6 +239,8 @@ type SourceHealth struct {
 	Limited      bool           `json:"storageLimited"`
 }
 type View struct {
+	Source          string `json:"source,omitempty"`
+	CountLowerBound bool   `json:"countLowerBound,omitempty"`
 	telemetry.Data
 	Sources     []SourceHealth `json:"sources"`
 	State       string         `json:"state"`

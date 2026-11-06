@@ -29,7 +29,7 @@ try{
   await ui.page.screenshot({path:join(a.evidence,'connection.png'),fullPage:true});console.log('PASS connection: real query coverage and cluster identity');
  }else{
   assert(state.connectionId&&state.coverage?.cluster);await ui.page.goto(c.console.baseURL+`/ui/applications/${identity.appKey}/settings?environment=${c.application.environment}`);
-  const section=ui.page.locator('section.content-panel').filter({has:ui.page.getByRole('heading',{name:'Giám sát môi trường',exact:true})});await section.getByRole('combobox').selectOption(state.connectionId);
+  const section=ui.page.locator('section.content-panel').filter({has:ui.page.getByRole('heading',{name:'Giám sát môi trường',exact:true})});await section.getByLabel('Kết nối giám sát',{exact:true}).selectOption(state.connectionId);
   const reply=ui.page.waitForResponse(r=>r.request().method()==='PUT'&&r.url().endsWith('/monitoring/binding'));await section.getByRole('button',{name:'Gắn kết nối',exact:true}).click();const r=await reply;assert(r.ok(),`Binding ${r.status()}`);state.binding=await r.json();assert.equal(state.binding.connectionId,state.connectionId);assert.equal(state.binding.application,identity.appKey);save();await ui.page.screenshot({path:join(a.evidence,'binding.png'),fullPage:true});console.log('PASS verified Environment binding');
  }
 }finally{await closeConsole(ui,c.console)}

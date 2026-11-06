@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -21,9 +20,10 @@ func (s *Server) monitoringRoutes() {
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/monitoring", s.handleMonitoringRead)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/monitoring/binding", s.handleMonitoringBinding)
 	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/monitoring/binding", s.handleMonitoringBinding)
+	s.mux.HandleFunc("DELETE /api/v1/applications/{id}/environments/{env}/monitoring/binding", s.handleMonitoringBinding)
 }
 func publicMonitoring(c monitoring.Connection) map[string]any {
-	return map[string]any{"id": c.ID, "key": c.Key, "name": c.Name, "revision": c.Revision, "prometheusUrl": c.PrometheusURL, "alertmanagerUrl": c.AlertmanagerURL, "grafanaUrl": c.GrafanaURL, "dashboardUid": c.DashboardUID, "clusterUid": c.ClusterUID, "ruleLabels": c.RuleLabels, "rules": c.Rules, "verifiedAt": c.VerifiedAt, "credentialConfigured": c.CredentialRef != ""}
+	return map[string]any{"profile": c.Profile, "id": c.ID, "key": c.Key, "name": c.Name, "revision": c.Revision, "prometheusUrl": c.PrometheusURL, "alertmanagerUrl": c.AlertmanagerURL, "grafanaUrl": c.GrafanaURL, "dashboardUid": c.DashboardUID, "clusterUid": c.ClusterUID, "ruleLabels": c.RuleLabels, "rules": c.Rules, "verifiedAt": c.VerifiedAt, "lokiUrl": c.LokiURL, "ca": c.CA, "verification": c.Verification, "credentialsConfigured": map[string]bool{"prometheus": credentialSet(c, "prometheus"), "alertmanager": credentialSet(c, "alertmanager"), "loki": credentialSet(c, "loki")}, "credentialConfigured": c.CredentialRef != ""}
 }
 func monitoringBody(w http.ResponseWriter, r *http.Request, v any) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, 2<<20)
@@ -38,6 +38,8 @@ func monitoringBody(w http.ResponseWriter, r *http.Request, v any) bool {
 func (s *Server) monitoringError(w http.ResponseWriter, e error) {
 	var field *observability.FieldError
 	switch {
+	case errors.Is(e, monitoring.ErrInUse):
+		writeCode(w, "MONITORING_IN_USE", "")
 	case errors.Is(e, monitoring.ErrInvalid), errors.As(e, &field):
 		writeCode(w, codeInvalidRequest, "")
 	case errors.Is(e, persistence.ErrVersionConflict):
@@ -74,6 +76,7 @@ func (s *Server) handleMonitoringConnections(w http.ResponseWriter, r *http.Requ
 		Connection       monitoring.Connection `json:"connection"`
 		ExpectedRevision int64                 `json:"expectedRevision"`
 		Token            string                `json:"token"`
+		Tokens           map[string]string     `json:"tokens"`
 	}
 	if !monitoringBody(w, r, &body) {
 		return
@@ -81,9 +84,7 @@ func (s *Server) handleMonitoringConnections(w http.ResponseWriter, r *http.Requ
 	body.Connection.ID = r.PathValue("connection")
 	body.Connection.CredentialRef = ""
 	if r.Method == http.MethodDelete {
-		e := s.store.Transact(r.Context(), func(ctx context.Context) error {
-			return s.monitoring.Repo.DeleteMonitoringConnection(ctx, actor.OrganizationKey, body.Connection.ID, body.ExpectedRevision)
-		})
+		e := s.monitoring.Delete(r.Context(), actor.OrganizationKey, body.Connection.ID, body.ExpectedRevision)
 		if e != nil {
 			s.monitoringError(w, e)
 			return
@@ -91,7 +92,7 @@ func (s *Server) handleMonitoringConnections(w http.ResponseWriter, r *http.Requ
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	c, e := s.monitoring.Save(r.Context(), actor.OrganizationKey, body.Connection, body.ExpectedRevision, body.Token)
+	c, e := s.monitoring.SaveWithTokens(r.Context(), actor.OrganizationKey, body.Connection, body.ExpectedRevision, body.Token, body.Tokens)
 	if e != nil {
 		s.monitoringError(w, e)
 		return
@@ -99,6 +100,10 @@ func (s *Server) handleMonitoringConnections(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, 200, publicMonitoring(c))
 }
 func (s *Server) handleMonitoringTest(w http.ResponseWriter, r *http.Request) {
+	if s.monitoring == nil {
+		writeCode(w, codeServiceUnavailable, "")
+		return
+	}
 	actor, ok := s.platformIdentity(w, r)
 	if !ok {
 		return
@@ -138,7 +143,7 @@ func (s *Server) handleMonitoringBinding(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	if s.monitoring.Repo == nil {
+	if s.monitoring == nil || s.monitoring.Repo == nil {
 		writeCode(w, codeServiceUnavailable, "")
 		return
 	}
@@ -156,16 +161,33 @@ func (s *Server) handleMonitoringBinding(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var body struct {
-		ConnectionID     string `json:"connectionId"`
-		ExpectedRevision int64  `json:"expectedRevision"`
+		WorkloadProfiles map[string]monitoring.WorkloadProfile `json:"workloadProfiles"`
+		ConnectionID     string                                `json:"connectionId"`
+		ExpectedRevision int64                                 `json:"expectedRevision"`
+		MetricsSource    string                                `json:"metricsSource"`
+		LogsSource       string                                `json:"logsSource"`
 	}
 	if !monitoringBody(w, r, &body) {
 		return
 	}
-	out, e := s.monitoring.Bind(r.Context(), telemetry.Scope{OrganizationKey: actor.OrganizationKey, ApplicationKey: app, EnvironmentKey: env}, body.ConnectionID, body.ExpectedRevision)
+	if r.Method == http.MethodDelete {
+		e := s.monitoring.Unbind(r.Context(), telemetry.Scope{OrganizationKey: org, ApplicationKey: app, EnvironmentKey: env}, body.ExpectedRevision)
+		if e != nil {
+			s.monitoringError(w, e)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	out, e := s.monitoring.BindProfiles(r.Context(), telemetry.Scope{OrganizationKey: actor.OrganizationKey, ApplicationKey: app, EnvironmentKey: env}, body.ConnectionID, body.ExpectedRevision, body.MetricsSource, body.LogsSource, body.WorkloadProfiles)
 	if e != nil {
 		s.monitoringError(w, e)
 		return
 	}
 	writeJSON(w, 200, out)
+}
+
+func credentialSet(c monitoring.Connection, provider string) bool {
+	_, ref := c.Credential(provider)
+	return ref != ""
 }

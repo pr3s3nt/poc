@@ -1334,3 +1334,15 @@ The [standalone guide](../../scripts/observability/README.md) and
 chart pins, partial failure, retained state and live verification limits.
 Historical `e2e/setup/observability-stack/` remains the dev acceptance fixture;
 no new platform installer is placed in scenario setup or platform seed tooling.
+
+### Capability foundation checkpoint — 2026-11-07
+
+Connection verification uses a separate operational CAS update in PostgreSQL and
+memory/snapshot stores. Source credentials are private per provider. Console
+`MonitoringConnections` and `MonitoringBinding` add Loki, source choices and
+revision-guarded deletion/unbinding. `domain/monitoring/profile.go` owns bounded
+typed profile metadata; `adapters/prometheus/profile.go` generates desired
+PodMonitor/metric rules. `application/observability/logs.go` and `adapters/loki/`
+add retained external log reads behind the existing authorized history route.
+Kubernetes `MonitoringConfiguration` compares owned live artifact specs. These
+collection/lifecycle additions remain WIP pending end-to-end live verification.

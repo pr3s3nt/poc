@@ -3,7 +3,7 @@ import type { EnvironmentKey } from '../../shared/types/application';
 
 export type Metric = 'cpu' | 'memory';
 export type Focus = Metric | 'signals';
-export type Filters = { from?: string; to?: string; workload?: string; q?: string; level?: string; cursor?: string; limit?: number };
+export type Filters = { from?: string; to?: string; workload?: string; q?: string; level?: string; cursor?: string; source?: string; container?: string; limit?: number };
 export type Health = { workloadId: string; logsCode: string; metricsCode: string; observedAt: string | null; lastLogAt: string | null; lastMetricAt: string | null; storageLimited: boolean };
 export type Log = { id: string; workloadId: string; timestamp: string; podUid: string; podName: string; container: string; restartIndex: number; level: string; message: string };
 export type Sample = { workloadId: string; timestamp: string; metricsAt: string | null; cpuMilli: number | null; memoryBytes: number | null; cpuLimitMilli: number | null; memoryLimitBytes: number | null; readyPods: number; totalPods: number; restarts: number };
@@ -11,7 +11,7 @@ export type Peak = { workloadId: string; metric: Metric; timestamp: string; valu
 export type UsagePeak = { workloadId: string; metric: Metric; timestamp: string; value: number };
 export type Event = { id: string; workloadId: string; timestamp: string; kind: string; reason: string; occurrences: number; podName: string; container: string };
 export type Snapshot = {
-  state: string; from: string; to: string; generatedAt: string; stepSeconds: number;
+  source?: string; countLowerBound?: boolean; state: string; from: string; to: string; generatedAt: string; stepSeconds: number;
   workloads: string[]; sources: Health[]; signalCount: number; logsRetentionDays: number; metricsRetentionDays: number; hasHistory: boolean;
   logs: Log[]; logCount: number; errorCount: number; histogram: { timestamp: string; count: number }[]; nextCursor?: string;
   points: Sample[]; latest: Sample[]; peaks: Peak[]; usagePeaks: UsagePeak[]; events: Event[]; eventCount: number;

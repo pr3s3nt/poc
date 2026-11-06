@@ -10,6 +10,7 @@ import (
 
 	"orchestrator/internal/domain/diagnostics"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/monitoring"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/telemetry"
 	"orchestrator/internal/domain/templatesource"
@@ -73,6 +74,28 @@ func loadSnapshot(b []byte) (*state, error) {
 // and configuration metadata. Raw plan/Workload documents stay untyped. Errors
 // name no values.
 func (s *state) validateCurrent() error {
+	if s.MonitoringConnections == nil {
+		s.MonitoringConnections = map[string]monitoring.Connection{}
+	}
+	if s.MonitoringBindings == nil {
+		s.MonitoringBindings = map[string]monitoring.Binding{}
+	}
+	for id, c := range s.MonitoringConnections {
+		if _, ok := s.Organizations[c.Organization]; !ok || id != c.ID || c.Key == "" || c.Revision < 1 {
+			return resetRequired("monitoring connection identity is invalid")
+		}
+	}
+	for key, b := range s.MonitoringBindings {
+		c, ok := s.MonitoringConnections[b.ConnectionID]
+		a, appOK := s.Applications[b.Application]
+		if !ok || !appOK || a.OrganizationKey != b.Organization || c.Organization != b.Organization || key != envKey(b.Application, b.Environment) || b.Revision < 1 {
+			return resetRequired("monitoring binding identity is invalid")
+		}
+		if _, ok := s.Environments[key]; !ok {
+			return resetRequired("monitoring binding has no Environment")
+		}
+	}
+
 	if s.GitSettings == nil {
 		s.GitSettings = map[string]persistence.GitSettings{}
 	}

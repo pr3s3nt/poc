@@ -136,3 +136,12 @@ in Git/Fleet delivery; Prometheus evaluates and Alertmanager sends notifications
 Receiver evidence is independent of rule/config state. See
 [sequence](external-observability-sequence.puml) and
 [contract](../../architecture/contracts/external-observability.md).
+
+
+Stage-1–5 extension: ConnectionController delegates conditional verification and
+configuration revision fencing to the monitoring repository. BindingController
+allows pre-deploy identity pins. DeliveryCoordinator asks TargetVerifier to prove
+physical cluster identity directly from the admitted execution target before
+rendering desired observability configuration; query discovery continues using
+live owned controller UIDs. The source-specific adapters perform bounded reads,
+and only Prometheus/Alertmanager evaluate/send alerts. See the extended contract.

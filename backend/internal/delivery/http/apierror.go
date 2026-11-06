@@ -135,6 +135,7 @@ var publicErrors = map[string]publicError{
 	codeInvalidVariable:                 {http.StatusBadRequest, "a variable name, value or reference is not valid"},
 	codeInvalidWorkload:                 {http.StatusBadRequest, "the Workload or its resource parameters are not valid"},
 	codePlanningRejected:                {http.StatusBadRequest, "the change cannot be planned"},
+	"MONITORING_IN_USE":                 {http.StatusConflict, "monitoring configuration is still referenced by a binding or active workload"},
 	codeDuplicate:                       {http.StatusConflict, "an item with this identity already exists"},
 	codeUnauthorized:                    {http.StatusUnauthorized, "sign-in is required"},
 	codeInvalidCredentials:              {http.StatusUnauthorized, "sign-in failed"},

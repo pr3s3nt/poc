@@ -3,6 +3,7 @@ package prometheus
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -96,5 +97,41 @@ func TestRedirectDoesNotLeakCredentials(t *testing.T) {
 	_, e = c.Instant(context.Background(), "up", time.Now())
 	if e == nil || reached {
 		t.Fatal("redirect followed")
+	}
+}
+
+func TestRangeKeepsMissingEvaluationIntervalsNull(t *testing.T) {
+	from := time.Date(2026, 11, 7, 0, 0, 0, 0, time.UTC)
+	a, b := 1.0, 2.0
+	data := fillRangeGaps([]Series{{Values: []Sample{{Timestamp: from, Value: &a}, {Timestamp: from.Add(time.Minute), Value: &b}}}}, from, from.Add(time.Minute), 30*time.Second)
+	if len(data) != 1 || len(data[0].Values) != 3 || data[0].Values[1].Value != nil || data[0].Values[2].Value == nil {
+		t.Fatal("missing interval became a connected/zero observation")
+	}
+}
+func TestAlertmanagerStateIsScopedAndNotDeliveryProof(t *testing.T) {
+	foreign := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v2/alerts" || r.URL.Query().Get("filter") != `orchestrator_app="owned"` {
+			t.Error("missing AM scope filter")
+		}
+		app := "owned"
+		if foreign {
+			app = "foreign"
+		}
+		fmt.Fprintf(w, `[{"labels":{"orchestrator_app":%q,"alertname":"Test"},"status":{"state":"suppressed","silencedBy":[],"inhibitedBy":["test"]},"receivers":[{"name":"owned-test"}]}]`, app)
+	}))
+	defer server.Close()
+	client, e := New(Config{Endpoint: server.URL})
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer client.Close()
+	states, e := client.AlertmanagerAlerts(context.Background(), map[string]string{"orchestrator_app": "owned"})
+	if e != nil || len(states) != 1 || states[0].State != "suppressed" {
+		t.Fatal("AM state", e)
+	}
+	foreign = true
+	if _, e = client.AlertmanagerAlerts(context.Background(), map[string]string{"orchestrator_app": "owned"}); e == nil {
+		t.Fatal("foreign AM response accepted")
 	}
 }

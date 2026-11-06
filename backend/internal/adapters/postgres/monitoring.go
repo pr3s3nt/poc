@@ -3,6 +3,8 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"github.com/jackc/pgx/v5/pgconn"
 	"orchestrator/internal/domain/monitoring"
 	"orchestrator/internal/ports/persistence"
 )
@@ -69,6 +71,10 @@ func (s *Store) PutMonitoringConnection(ctx context.Context, c monitoring.Connec
 func (s *Store) DeleteMonitoringConnection(ctx context.Context, org, id string, expected int64) error {
 	tag, e := s.q(ctx).Exec(ctx, `DELETE FROM monitoring_connections m USING organizations o WHERE o.id=m.organization_id AND o.organization_key=$1 AND m.id::text=$2 AND m.revision=$3`, org, id, expected)
 	if e != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(e, &pgErr) && pgErr.Code == "23503" {
+			return monitoring.ErrInUse
+		}
 		return translate(e)
 	}
 	if tag.RowsAffected() != 1 {
@@ -108,6 +114,52 @@ func (s *Store) PutMonitoringBinding(ctx context.Context, b monitoring.Binding, 
 			return monitoring.ErrInvalid
 		}
 		tag, e := s.q(ctx).Exec(ctx, `INSERT INTO monitoring_bindings(environment_id,organization_id,connection_id,revision,document) SELECT e.id,o.id,c.id,$5,$6 FROM environments e JOIN applications a ON a.id=e.application_id JOIN organizations o ON o.id=a.organization_id JOIN monitoring_connections c ON c.organization_id=o.id AND c.id::text=$4 AND c.revision=$8 WHERE o.organization_key=$1 AND a.application_key=$2 AND e.environment_key=$3 AND (e.active_operation_id IS NULL OR e.active_operation_id=NULLIF($9,'')::uuid) AND e.target_generation=$10 AND ($7=0 OR EXISTS(SELECT 1 FROM monitoring_bindings b WHERE b.environment_id=e.id AND b.revision=$7)) ON CONFLICT(environment_id) DO UPDATE SET connection_id=EXCLUDED.connection_id,revision=EXCLUDED.revision,document=EXCLUDED.document WHERE monitoring_bindings.revision=$7`, b.Organization, b.Application, b.Environment, b.ConnectionID, b.Revision, raw, expected, b.ConnectionRevision, persistence.OperationFrom(ctx), b.Generation)
+		if e != nil {
+			return translate(e)
+		}
+		if tag.RowsAffected() != 1 {
+			return persistence.ErrVersionConflict
+		}
+		return nil
+	})
+}
+
+// Verification updates operational facts without changing the config CAS revision.
+func (s *Store) VerifyMonitoringConnection(ctx context.Context, c monitoring.Connection, expected int64) error {
+	if c.Revision != expected || c.Verification.Revision != expected {
+		return monitoring.ErrInvalid
+	}
+	verification, e := json.Marshal(c.Verification)
+	if e != nil {
+		return monitoring.ErrInvalid
+	}
+	at, e := json.Marshal(c.VerifiedAt)
+	if e != nil {
+		return monitoring.ErrInvalid
+	}
+	tag, e := s.q(ctx).Exec(ctx, `UPDATE monitoring_connections m SET document=jsonb_set(jsonb_set(m.document,'{verification}',$4::jsonb),'{verifiedAt}',$5::jsonb) FROM organizations o WHERE o.id=m.organization_id AND o.organization_key=$1 AND m.id::text=$2 AND m.revision=$3`, c.Organization, c.ID, expected, verification, at)
+	if e != nil {
+		return translate(e)
+	}
+	if tag.RowsAffected() != 1 {
+		return persistence.ErrVersionConflict
+	}
+	return nil
+}
+func (s *Store) DeleteMonitoringBinding(ctx context.Context, org, app, env string, expected int64) error {
+	return s.fenced(ctx, func(ctx context.Context) error {
+		application, e := s.GetApplication(ctx, app)
+		if e != nil || application.OrganizationKey != org {
+			return persistence.ErrNotFound
+		}
+		target, e := s.GetEnvironment(ctx, app, env)
+		if e != nil {
+			return e
+		}
+		if target.Busy() && target.ActiveOperationID != persistence.OperationFrom(ctx) {
+			return persistence.Busy(app, env)
+		}
+		tag, e := s.q(ctx).Exec(ctx, `DELETE FROM monitoring_bindings b USING environments e, applications a, organizations o WHERE b.environment_id=e.id AND e.application_id=a.id AND a.organization_id=o.id AND b.organization_id=o.id AND o.organization_key=$1 AND a.application_key=$2 AND e.environment_key=$3 AND b.revision=$4 AND (e.active_operation_id IS NULL OR e.active_operation_id=NULLIF($5,'')::uuid)`, org, app, env, expected, persistence.OperationFrom(ctx))
 		if e != nil {
 			return translate(e)
 		}

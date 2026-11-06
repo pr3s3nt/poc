@@ -14,9 +14,15 @@ func WorkloadQueries(t monitoring.Target) (map[string]string, error) {
 	if t.Validate() != nil {
 		return nil, monitoring.ErrInvalid
 	}
+	return workloadQueries(t)
+}
+func workloadQueries(t monitoring.Target) (map[string]string, error) {
+	if t.ValidateDesired() != nil {
+		return nil, monitoring.ErrInvalid
+	}
 	ns := strconv.Quote(t.Scope.Namespace)
 	name := strconv.Quote(t.Name)
-	base := `namespace=` + ns
+	base := `cluster_uid=` + strconv.Quote(t.Scope.ClusterUID) + `,namespace=` + ns
 	var pods, desired, ready, stable string
 	if t.Kind == "Deployment" {
 		// Rename the Deployment owner label before joining ReplicaSet names.
@@ -54,7 +60,7 @@ func RuleDocument(t monitoring.Target, c monitoring.RulesConfig) (map[string]any
 	if c.Validate() != nil {
 		return nil, monitoring.ErrInvalid
 	}
-	q, e := WorkloadQueries(t)
+	q, e := workloadQueries(t)
 	if e != nil {
 		return nil, e
 	}
