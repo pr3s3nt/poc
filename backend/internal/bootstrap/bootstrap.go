@@ -633,6 +633,10 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		telemetryReader = &k8s.TelemetryReader{KubectlPath: opts.KubectlPath, Credentials: kubeconfigSource}
 	}
 	telemetryService := observabilityapp.New(st, telemetryReader)
+	monitoringService := observabilityapp.NewMonitoring(telemetryService, st, connectionCredentials)
+	if deliveryCoordinator != nil {
+		deliveryCoordinator.MonitoringRules = monitoringService.PlanRules
+	}
 	*closers = append(*closers, telemetryService.Start(ctx))
 	if deliveryCoordinator != nil {
 		*closers = append(*closers, deliveryCoordinator.StartObservations(ctx))

@@ -182,3 +182,26 @@ TEL adds separate application telemetry queries backed by a background collector
 - **REC-04:** Reports redact values and raw provider diagnostics; show bounded
   field paths/actions and coverage. Infrastructure cadence is independent of the
   Environment CD checkbox. No alerting/notification service is introduced.
+
+## External Kubernetes monitoring and alerts — OBS
+
+Accepted 2026-11-05 for issue #35 Slice 1:
+[ADR-037](../../architecture/decisions/ADR-037-external-observability.md) and
+[contract](../../architecture/contracts/external-observability.md).
+
+- **OBS-01:** A verified Environment binding selects Prometheus metrics explicitly;
+  unbound scopes retain native behavior. Keep native logs/history and never hide
+  external failure with an automatic source switch.
+- **OBS-02:** Derive workload/cluster/namespace/pod identity from owned deployment
+  targets. Show readiness/status, restart increase, CPU/RAM, OOM observations,
+  freshness and latest deployment with coverage limits and null gaps.
+- **OBS-03:** Show scoped pending/firing alerts with severity, time, rule/value,
+  metric/workload/deployment/native-log links and Grafana scope/time links.
+  Notification delivery requires independent evidence.
+- **OBS-04:** Git/Fleet synchronizes stable app-owned rules on deploy/redeploy;
+  cleanup preserves shared stack/rules and preexisting resources. Development
+  defaults are labelled; thresholds/window/duration/severity are configurable.
+- **OBS-05:** Authorize before bounded backend queries; never accept client tenant
+  selectors or arbitrary PromQL. Preserve explicit missing/stale/partial/error states.
+- **OBS-06:** Acceptance proves actual collection, firing and receiver delivery,
+  Console investigation, recovery/resolved delivery, isolation and owned cleanup.

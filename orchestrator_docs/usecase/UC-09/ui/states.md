@@ -105,3 +105,19 @@ responses; summary/deep links preserve scope and interval.
 
 Pausing log follow pins the most recently displayed interval and retains its
 received rows. It does not rewind to the original overview interval.
+
+## External monitoring — OBS-01..06
+
+Reuse existing Application shell, staging/production tabs, history filters, charts,
+buttons, tables and safe errors. Add scoped alerts and concise source/freshness
+metadata. Connection management follows platform form/list patterns; Environment
+Settings selects a verified connection. PE/Admin author; ordinary application
+read permissions govern observations. Static labels use VI/EN message catalogs.
+
+States: loading, not configured, not deployed, waiting for scrape, receiving,
+missing metric, partial, stale, provider/auth failure, invalid input, revision
+conflict and successful save followed by reload failure. Missing values render
+as gaps/dashes with coverage, never zero. Alert detail exposes rule/value/time,
+severity and pending/firing plus scoped drill-downs. Receiver delivery remains
+unknown without evidence. Grafana requires separate authorization. Technical
+formulas and source limitations belong in accessible details, not repeated prose.

@@ -43,6 +43,7 @@ it('blocks stale writes until settings are reloaded and clears entered token', a
 it('tests a draft without saving and invalidates its result on edit', async () => {
   const methods: string[] = [];
   vi.stubGlobal('fetch', vi.fn(async (_input: unknown, init?: RequestInit) => {
+    if (String(_input).includes('/monitoring/connections')) return response(200, { connections: [] });
     methods.push(init?.method ?? 'GET');
     return response(200, init?.method === 'POST' ? { reachable: true } : { settings: saved });
   }));

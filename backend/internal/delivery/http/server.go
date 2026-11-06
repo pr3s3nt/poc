@@ -52,6 +52,7 @@ type Server struct {
 	drift           *driftapp.Service
 	reconciliation  *deliveryapp.Coordinator
 	delivery        *deliveryapp.Bindings
+	monitoring      *observabilityapp.Monitoring
 	observability   *observabilityapp.Service
 	deployments     *appsvc.Service
 	queries         *appsvc.QueryService
@@ -150,6 +151,8 @@ func NewServer(cfg Config) *Server {
 		uiDir:           cfg.UIDir,
 		mux:             http.NewServeMux(),
 	}
+	s.monitoring = observabilityapp.NewMonitoring(cfg.Observability, cfg.Store, cfg.ConnectionCredentials)
+	s.monitoringRoutes()
 	s.connections.SetKubeconfigRegistration(cfg.KubeconfigVerifier, cfg.ConnectionCredentials)
 	s.connections.SetAWSRegistration(cfg.AWSVerifier)
 	s.connections.SetEC2RoleProvider(cfg.EC2RoleProvider)

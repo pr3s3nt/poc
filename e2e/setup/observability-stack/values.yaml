@@ -1,0 +1,90 @@
+# Development only. Chart 92.18.0 pins all component image defaults.
+fullnameOverride: orch-observability
+commonLabels:
+  orchestrator.dev/setup: observability-s1
+prometheus:
+  prometheusSpec:
+    retention: 3d
+    retentionSize: 4GB
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    externalLabels:
+      cluster: k8s-4f
+    resources:
+      requests: {cpu: 200m, memory: 512Mi}
+      limits: {cpu: '2', memory: 2Gi}
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: standard
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests: {storage: 8Gi}
+    # Existing chart rules keep their release selector. App rules carry it too.
+    ruleSelector:
+      matchLabels: {release: orch-observability}
+    ruleNamespaceSelector: {}
+alertmanager:
+  alertmanagerSpec:
+    retention: 72h
+    resources:
+      requests: {cpu: 25m, memory: 64Mi}
+      limits: {cpu: 250m, memory: 256Mi}
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: standard
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests: {storage: 1Gi}
+  config:
+    global: {resolve_timeout: 5m}
+    route:
+      receiver: discard
+      group_by: [alertname, namespace]
+      group_wait: 10s
+      group_interval: 30s
+      repeat_interval: 4h
+      routes:
+        - matchers: ['orchestrator_test="true"']
+          receiver: test-webhook
+    receivers:
+      - name: discard
+      - name: test-webhook
+        webhook_configs:
+          - url: http://observability-test-receiver:8080/alerts
+            send_resolved: true
+grafana:
+  persistence:
+    enabled: true
+    storageClassName: standard
+    size: 1Gi
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+  sidecar:
+    dashboards:
+      resources:
+        requests: {cpu: 10m, memory: 32Mi}
+        limits: {cpu: 100m, memory: 128Mi}
+    datasources:
+      resources:
+        requests: {cpu: 10m, memory: 32Mi}
+        limits: {cpu: 100m, memory: 128Mi}
+kube-state-metrics:
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 300m, memory: 256Mi}
+prometheus-node-exporter:
+  resources:
+    requests: {cpu: 25m, memory: 32Mi}
+    limits: {cpu: 200m, memory: 128Mi}
+prometheusOperator:
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+# kind control-plane components have no reachable metrics Services by default.
+kubeControllerManager: {enabled: false}
+kubeScheduler: {enabled: false}
+kubeEtcd: {enabled: false}
+kubeProxy: {enabled: false}

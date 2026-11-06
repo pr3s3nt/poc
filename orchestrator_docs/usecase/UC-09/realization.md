@@ -123,3 +123,16 @@ Canonical shared collaboration: [delivery sequence](../../architecture/component
 [infrastructure sequence](../../architecture/components/infrastructure-drift-sequence.puml).
 These supplement the existing direct-path diagrams for this new design slice;
 [CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.
+
+## External observability — ADR-037
+
+The authorized query service loads the selected Environment binding, restores
+owned current-generation targets, verifies cluster identity, and asks the bounded
+Prometheus adapter for server-defined metrics/rules. The adapter resolves private
+credentials and returns timestamped observations with independent coverage codes.
+Console shares scope/time filters between overview, metrics, alerts and native logs.
+The existing delivery coordinator includes stable app-owned PrometheusRule objects
+in Git/Fleet delivery; Prometheus evaluates and Alertmanager sends notifications.
+Receiver evidence is independent of rule/config state. See
+[sequence](external-observability-sequence.puml) and
+[contract](../../architecture/contracts/external-observability.md).

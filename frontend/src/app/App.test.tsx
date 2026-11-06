@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 
-vi.mock('../features/observability/OverviewPanel', () => ({ OverviewPanel: () => null }));
+vi.mock('../features/observability/ExternalMonitoring', () => ({ ExternalMonitoring: () => null }));
 
 type Handler = (url: string, init?: RequestInit) => Response | Promise<Response> | undefined;
 

@@ -1307,3 +1307,20 @@ render source records. It refuses retained deployed workloads or resource
 references to an obsolete Definition. Terraform Definitions, accounts,
 connections, installation identity and Terraform state are preserved. Released
 versions 1–7 are frozen. Runtime never performs DDL or this cleanup.
+
+## External monitoring — ADR-037 / schema 9
+
+`monitoring_connections` belongs to one organization, with UUID id, unique
+organization/key, positive revision and JSON document for nonsecret endpoint,
+TLS/CA, credential reference, verified cluster UID, rule-selector labels,
+configurable development rules and verification facts. Credential bytes never
+enter this document. Public projection omits the private reference.
+
+`monitoring_bindings` links an Environment to an organization-owned connection
+revision and verified physical cluster UID, target generation, with a positive
+optimistic revision and nonsecret JSON document. Unique Environment identity;
+composite organization/connection FK prevents cross-organization links. Connection
+deletion is restricted while bound. Runtime writes use Environment fencing.
+Console has CRUD; State has no table privileges. Owner upgrade 8 -> 9 creates
+these empty tables and preserves all installation/domain/state identities. Frozen
+schema 8 remains unchanged; runtime never performs migration DDL.

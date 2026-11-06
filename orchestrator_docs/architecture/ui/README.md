@@ -279,3 +279,11 @@ saved source summary (UC-03 SP-01–03). Source origin and immutable version sta
 visible; creation/replacement controls are progressive disclosure via Change
 source. Registration/cache status does not replace origin. Reuse current styles,
 buttons and VI/EN message catalogs; no shell/theme change.
+
+## External monitoring — issue #35 Slice 1
+
+[UC-09 states](../../usecase/UC-09/ui/states.md) extends current Application
+observability with explicit metric source/freshness and scoped alerts. Connection
+forms reuse platform list/card/form patterns; binding reuses Environment Settings.
+Keep shell, environment tabs, charts, safe errors and VI/EN catalogs. No theme
+redesign. Formula/coverage explanations use accessible disclosures.

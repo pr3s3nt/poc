@@ -113,10 +113,15 @@ func (s *Service) discover(ctx context.Context) ([]obs.Source, error) {
 				scope := telemetry.Scope{OrganizationKey: app.OrganizationKey, ApplicationKey: app.Key, EnvironmentKey: env.Key, Generation: env.TargetGeneration}
 				key := telemetry.Hash(app.OrganizationKey, app.Key, env.Key, strconv.FormatInt(env.TargetGeneration, 10), instance.WorkloadID, hash)
 				source := obs.Source{Source: telemetry.Source{Scope: scope, Key: key, WorkloadID: instance.WorkloadID, TargetHash: hash}, Target: target}
+				source.DeploymentID = instance.LastDeploymentID
 				var objects []execution.ObjectRef
 				raw, marshalErr := json.Marshal(instance.TargetRef["objects"])
 				if marshalErr == nil && json.Unmarshal(raw, &objects) == nil {
 					for _, ref := range objects {
+						if ref.APIVersion == "apps/v1" && (ref.Kind == "Deployment" || ref.Kind == "StatefulSet") && ref.Name == instance.WorkloadID {
+							pin := ref
+							source.MonitoringController = &pin
+						}
 						if ref.APIVersion == "batch/v1" && ref.Kind == "CronJob" && ref.Name == instance.WorkloadID {
 							pin := ref
 							source.Controller = &pin

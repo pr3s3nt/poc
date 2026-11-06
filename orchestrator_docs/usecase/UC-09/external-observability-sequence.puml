@@ -1,0 +1,29 @@
+@startuml
+actor PE
+participant Console
+participant "Scoped monitoring service" as Service
+participant "Owned target / binding repository" as Repository
+participant "Private credentials resolver" as Secrets
+participant "Prometheus adapter" as Adapter
+participant Prometheus
+participant "Git/Fleet delivery" as CD
+participant Alertmanager
+participant "Test receiver" as Receiver
+PE -> Console : Register/test connection; bind Environment
+Console -> Service : Authorized connection/binding request
+Service -> Repository : Validate organization, revision, cluster pin
+Service -> Secrets : Resolve scoped credential privately
+Service -> Adapter : Test connectivity and coverage
+Adapter -> Prometheus : Bounded query
+PE -> Console : Deploy owned test app
+Console -> CD : Existing deployment with app-owned rules
+CD -> Prometheus : Operator loads PrometheusRule
+Console -> Service : Read selected app/Environment/time
+Service -> Repository : Authorize; restore owned targets
+Service -> Adapter : Server-defined scoped metrics/rules
+Adapter -> Prometheus : Bounded read
+Prometheus --> Console : Via service: samples, timestamps, coverage, alerts
+Prometheus -> Alertmanager : Firing / resolved
+Alertmanager -> Receiver : Actual test notification
+note over Console, Receiver : Delivery requires independent evidence; absent metrics never mean recovery
+@enduml

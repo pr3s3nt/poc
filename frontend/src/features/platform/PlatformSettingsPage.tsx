@@ -1,3 +1,4 @@
+import { MonitoringConnections } from '../observability/MonitoringConnections';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
@@ -113,5 +114,6 @@ export function PlatformSettingsPage() {
           <Button type="submit" tone="primary" disabled={pending !== null || stale}>{t(pending === 'save' ? 'platform.git.saving' : 'platform.git.save')}</Button>
         </div>
       </form>}
+  <MonitoringConnections />
   </section>;
 }

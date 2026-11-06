@@ -7,7 +7,7 @@ import { bothConfigured, configuredTarget } from '../../test/targets';
 
 // Observability has dedicated API/UI and browser coverage. Keep these lifecycle
 // tests' request sequencing focused on workloads and deployment mutations.
-vi.mock('../observability/OverviewPanel', () => ({ OverviewPanel: () => null }));
+vi.mock('../observability/ExternalMonitoring', () => ({ ExternalMonitoring: () => null }));
 
 const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 

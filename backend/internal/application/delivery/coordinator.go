@@ -25,12 +25,13 @@ type executionStore interface {
 	persistence.OrganizationIdentityReader
 }
 type Coordinator struct {
-	Repositories *Repositories
-	Store        executionStore
-	Registry     *port.Registry
-	Artifacts    *Artifacts
-	PollInterval time.Duration
-	Deadline     time.Duration
+	MonitoringRules func(context.Context, string, string, environment.Environment, execution.Target, string, []execution.Manifest) ([]execution.Manifest, error)
+	Repositories    *Repositories
+	Store           executionStore
+	Registry        *port.Registry
+	Artifacts       *Artifacts
+	PollInterval    time.Duration
+	Deadline        time.Duration
 }
 type DeployRequest struct {
 	PolicyOnly      bool
@@ -176,6 +177,12 @@ func (c *Coordinator) Deploy(ctx context.Context, req DeployRequest) error {
 					}
 				}
 			}
+		}
+	}
+	if c.MonitoringRules != nil {
+		req.Manifests, err = c.MonitoringRules(ctx, req.OrganizationKey, req.ApplicationKey, req.Environment, req.Target, req.WorkloadID, req.Manifests)
+		if err != nil {
+			return err
 		}
 	}
 	phases := map[domain.Phase][]execution.Manifest{}

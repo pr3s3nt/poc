@@ -514,3 +514,15 @@ explicit platform default action; it does not prove a live deployment or reposit
 creation permission beyond the adapter's read-only checks.
 
 Shared CD Git derives repository ownership from the explicit account/group URL scope in Platform Settings (for example `https://github.com/my-team`). Host-only and repository-specific scopes do not define an eligible owner. Settings displays the derived destination with guidance; CD hides owner authoring for shared Git and shows the inherited destination. Registration resolves this value server-side before validation, overriding any submitted owner. Authentication username is never assumed to be the owner. Existing binding versions retain their pinned owner; changed destinations apply when registering a new version. No separate owner column or schema migration is needed.
+
+## Observability connections — OBS-CON
+
+Accepted for issue #35 Slice 1, [ADR-037](../../architecture/decisions/ADR-037-external-observability.md).
+PE/Admin can create, list, update, test and remove organization-owned observability
+connections and bind a verified connection to an owned Environment. Keep credentials
+private through the existing resolver; expose backend endpoints separately from
+Grafana browser URL. Test connectivity/auth, coverage and config synchronization
+separately. Reject deletion while referenced and stale revision writes. Developer
+cannot author connections through UI or direct API. Binding preserves deployment
+placement and operation fencing. See the
+[contract](../../architecture/contracts/external-observability.md).

@@ -35,7 +35,13 @@ var versionSixSQL string
 var versionSevenSQL string
 
 //go:embed migrations/version-008.sql
+var versionEightSQL string
+
+//go:embed migrations/version-009.sql
 var versionSQL string
+
+//go:embed migrations/009-monitoring.sql
+var monitoringUpgradeSQL string
 
 //go:embed migrations/008-generic-workload.sql
 var genericWorkloadUpgradeSQL string
@@ -108,7 +114,10 @@ func recordUpgrade(ctx context.Context, tx pgx.Tx, source string) error {
 	if err := recordVersionSeven(ctx, tx); err != nil {
 		return err
 	}
-	return recordVersionEight(ctx, tx)
+	if err := recordVersionEight(ctx, tx); err != nil {
+		return err
+	}
+	return recordVersionNine(ctx, tx)
 }
 func recordVersionOne(ctx context.Context, tx pgx.Tx, source string) error {
 	_, err := tx.Exec(ctx, `INSERT INTO schema_upgrade_history(version,migration_sha256,source_sha256) VALUES(1,$1,$2)`, migrationChecksum(), source)
@@ -154,8 +163,12 @@ func recordVersionEight(ctx context.Context, tx pgx.Tx) error {
 	_, err := tx.Exec(ctx, `INSERT INTO schema_upgrade_history(version,migration_sha256,source_sha256) VALUES(8,$1,$2)`, digest(genericWorkloadUpgradeSQL), digest(versionSevenSQL))
 	return err
 }
+func recordVersionNine(ctx context.Context, tx pgx.Tx) error {
+	_, err := tx.Exec(ctx, `INSERT INTO schema_upgrade_history(version,migration_sha256,source_sha256) VALUES(9,$1,$2)`, digest(monitoringUpgradeSQL), digest(versionEightSQL))
+	return err
+}
 func verifyUpgradeHistory(ctx context.Context, tx pgx.Tx) error {
-	return verifyHistoryThrough(ctx, tx, 8)
+	return verifyHistoryThrough(ctx, tx, 9)
 }
 func verifyHistoryThrough(ctx context.Context, tx pgx.Tx, want int) error {
 	rows, err := tx.Query(ctx, `SELECT version,migration_sha256,source_sha256 FROM schema_upgrade_history ORDER BY version`)
@@ -189,6 +202,8 @@ func verifyHistoryThrough(ctx context.Context, tx pgx.Tx, want int) error {
 			valid = valid && checksum == digest(managedDeliveryUpgradeSQL) && source == digest(versionFourSQL)
 		case 6:
 			valid = valid && checksum == digest(definitionVersionsUpgradeSQL) && source == digest(versionFiveSQL)
+		case 9:
+			valid = valid && checksum == digest(monitoringUpgradeSQL) && source == digest(versionEightSQL)
 		case 8:
 			valid = valid && checksum == digest(genericWorkloadUpgradeSQL) && source == digest(versionSevenSQL)
 		case 7:
@@ -264,6 +279,29 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 	}
 	if identity == baselineIdentity {
 		return false, nil
+	}
+	if identity == "orchestrator-schema-v8" && sum == digest(versionEightSQL) && name == schema {
+		var count int
+		if err = tx.QueryRow(ctx, `SELECT count(*) FROM schema_baseline`).Scan(&count); err != nil || count != 1 {
+			return false, resetRequired("invalid source marker")
+		}
+		actual, err := catalogDump(ctx, tx, schema)
+		if err != nil {
+			return false, err
+		}
+		if digest(strings.Join(actual, "\n")) != catalog {
+			return false, resetRequired("source catalog differs from recorded identity")
+		}
+		if err = compareSchemaSQL(ctx, tx, schema, versionEightSQL); err != nil {
+			return false, err
+		}
+		if err = verifyHistoryThrough(ctx, tx, 8); err != nil {
+			return false, err
+		}
+		if err = applyMonitoringUpgrade(ctx, tx, schema, roles); err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 	source := supportedSource(sum)
 	versionSeven := identity == "orchestrator-schema-v7" && sum == digest(versionSevenSQL)
@@ -503,7 +541,7 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 	if _, err = tx.Exec(ctx, genericWorkloadUpgradeSQL); err != nil {
 		return false, fmt.Errorf("postgres: apply upgrade 8 (%s)", sqlState(err))
 	}
-	if err = compareSchemaSQL(ctx, tx, schema, versionSQL); err != nil {
+	if err = compareSchemaSQL(ctx, tx, schema, versionEightSQL); err != nil {
 		return false, err
 	}
 	if err = recordVersionEight(ctx, tx); err != nil {
@@ -513,6 +551,9 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 		return false, err
 	}
 
+	if err = applyMonitoringUpgrade(ctx, tx, schema, roles); err != nil {
+		return false, err
+	}
 	actual, err = catalogDump(ctx, tx, schema)
 	if err != nil {
 		return false, err
@@ -542,4 +583,30 @@ func reconciliationTable(name string) bool {
 
 func catalogTable(s string) bool {
 	return s == "catalog_sources" || s == "catalog_releases" || s == "environment_catalog_bindings"
+}
+
+func applyMonitoringUpgrade(ctx context.Context, tx pgx.Tx, schema string, roles Roles) error {
+	if _, err := tx.Exec(ctx, monitoringUpgradeSQL); err != nil {
+		return fmt.Errorf("postgres: apply upgrade 9 (%s)", sqlState(err))
+	}
+	if err := compareSchemaSQL(ctx, tx, schema, versionSQL); err != nil {
+		return err
+	}
+	if err := recordVersionNine(ctx, tx); err != nil {
+		return err
+	}
+	for _, table := range []string{"monitoring_connections", "monitoring_bindings"} {
+		if _, err := tx.Exec(ctx, `REVOKE ALL ON `+pgx.Identifier{table}.Sanitize()+` FROM PUBLIC`); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `GRANT SELECT,INSERT,UPDATE,DELETE ON `+pgx.Identifier{table}.Sanitize()+` TO `+pgx.Identifier{roles.Console}.Sanitize()); err != nil {
+			return err
+		}
+	}
+	actual, err := catalogDump(ctx, tx, schema)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `UPDATE schema_baseline SET baseline=$1,baseline_sha256=$2,catalog_sha256=$3`, baselineIdentity, digest(versionSQL), digest(strings.Join(actual, "\n")))
+	return err
 }

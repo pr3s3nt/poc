@@ -1,7 +1,7 @@
+import { ExternalMonitoring } from '../observability/ExternalMonitoring';
 import { JobHistoryDialog } from '../workloads/JobHistoryDialog';
 import { TemplatePicker } from '../workloads/TemplatePicker';
 import { templateKey } from '../workloads/templates';
-import { OverviewPanel } from '../observability/OverviewPanel';
 import { ReconciliationPanel } from '../delivery/ReconciliationPanel';
 import { InfrastructureDriftPanel } from '../delivery/InfrastructureDriftPanel';
 import { useEffect, useRef, useState } from 'react';
@@ -176,7 +176,7 @@ export function ApplicationHomePage({ application, initialEnvironment = 'staging
     <div className="tabs" role="tablist"><button className={environment === 'staging' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => setEnvironment('staging')}>staging<span>{endpointFor(application, 'staging')}</span></button><button className={environment === 'production' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => setEnvironment('production')}>production<span>{endpointFor(application, 'production')}</span></button></div>
     {application.environments[environment].reconciliationEnabled ? <ReconciliationPanel key={`${application.id}/${environment}`} applicationId={application.id} environment={environment} refreshKey={String(reload)} /> : null}
     {application.environments[environment].infrastructureDriftEnabled ? <InfrastructureDriftPanel key={`infrastructure/${application.id}/${environment}`} applicationId={application.id} environment={environment} canManage={canManageInfrastructure} busy={environmentBusy} refreshKey={String(reload)} /> : null}
-    <OverviewPanel applicationId={application.id} environment={environment} refreshKey={String(reload)} />
+    <ExternalMonitoring key={`external/${application.id}/${environment}`} applicationId={application.id} environment={environment} />
     <section className="content-panel"><div className="section-header"><div><h2>Workload</h2><p>{t('applications.applicationHome.configurationOfEnvironmentSavingHere', { environment })}</p></div><span><Button disabled={busy === 'deploy'} onClick={() => navigate({ name: 'workload-preview', applicationId: application.id, environment })}>{t('applications.applicationHome.previewScore')}</Button><Button disabled={locked} onClick={() => setTemplatePicker(true)}>{t('applications.applicationHome.addWorkload')}</Button></span></div>
       {error ? <div className="form-error" role="alert">{error}{!data && !loading ? <> <Button onClick={() => void reloadList(scope.current)}>{t('applications.applicationHome.retry')}</Button></> : null}</div> : null}
       {environmentBusy ? <div className="form-info" role="status">{t('applications.applicationHome.anEnvironmentOperationIsRunning', { environment })}</div> : null}

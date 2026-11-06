@@ -26,7 +26,7 @@ var baselineSQL string
 
 // baselineIdentity is the technical marker stored by a fresh initialization.
 // It identifies the frozen current schema version; history is recorded separately.
-const baselineIdentity = "orchestrator-schema-v8"
+const baselineIdentity = "orchestrator-schema-v9"
 
 // baselineLockKey serializes initialization and validation across instances.
 const baselineLockKey = 1862274311

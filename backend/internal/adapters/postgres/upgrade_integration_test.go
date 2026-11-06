@@ -119,6 +119,9 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 	}
 	for role, name := range map[RuntimeRole]string{ConsoleRuntime: db.ConsoleRole, StateRuntime: db.StateRole} {
 		for _, g := range grantsOf(role) {
+			if g.table == "monitoring_connections" || g.table == "monitoring_bindings" {
+				continue
+			}
 			if g.table == "template_sources" {
 				g.table = "render_bundles"
 			}

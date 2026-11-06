@@ -618,4 +618,21 @@ note right of active_resources
  Logical ID, scope and Terraform state identities are preserved.
  See catalog-releases-erd for the release tables.
 end note
+entity monitoring_connections {
+ * id : uuid <<PK>>
+ organization_id : uuid <<FK>>
+ connection_key : text
+ revision : bigint
+ document : jsonb
+}
+entity monitoring_bindings {
+ * environment_id : uuid <<PK,FK>>
+ organization_id : uuid <<FK>>
+ connection_id : uuid <<FK>>
+ revision : bigint
+ document : jsonb
+}
+organizations ||--o{ monitoring_connections
+monitoring_connections ||--o{ monitoring_bindings
+environments ||--o| monitoring_bindings
 @enduml

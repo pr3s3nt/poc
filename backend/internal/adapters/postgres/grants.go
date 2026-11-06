@@ -33,6 +33,7 @@ type grant struct {
 // writes them as its commands and queries need (CRUD); the State login has no
 // privilege on them beyond the scope columns listed in stateGrants.
 var productTables = []string{
+	"monitoring_connections", "monitoring_bindings",
 	"platform_git_settings",
 	"organizations", "user_accounts", "sessions", "connections", "applications",
 	"secret_store_connections", "environments", "environment_operations",
