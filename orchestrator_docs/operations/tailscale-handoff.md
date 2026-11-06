@@ -106,7 +106,8 @@ docker exec "poc-$FEATURE-backend-1" sh -c '/usr/local/bin/orchestrator -bootstr
   -bootstrap-admin-password-file /tmp/admin-password; rc=$?; rm -f /tmp/admin-password; exit $rc'
 ```
 
-Kiểm tra link theo mục trên, gồm đăng nhập bằng `admin`. `-p` và image riêng giữ
+Link trả 404 cho tới khi frontend healthy; chờ vài giây rồi kiểm tra theo mục trên,
+gồm đăng nhập bằng `admin`. `-p` và image riêng giữ
 các tính năng tách biệt, và stack không mở port trên máy nên chạy song song được.
 `socat` không tự chạy lại sau khi khởi động lại WSL; khi đó chạy lại phần proxy.
 
