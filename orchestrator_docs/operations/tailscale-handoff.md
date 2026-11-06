@@ -118,7 +118,8 @@ FEATURE=$FEATURE FEATURE_DOMAIN=$FEATURE_DOMAIN \
 BACKEND_IMAGE=poc-feature-backend:$FEATURE \
 FRONTEND_IMAGE=poc-feature-frontend:$FEATURE \
   docker compose -p "poc-$FEATURE" -f docker-compose.yml \
-  -f deploy/local/compose.feature-url.yml down -v --rmi all
+  -f deploy/local/compose.feature-url.yml down -v
+docker image rm "poc-feature-backend:$FEATURE" "poc-feature-frontend:$FEATURE"
 rm -f ~/.config/poc-feature/$FEATURE-admin-password
 ```
 
