@@ -68,3 +68,31 @@ payment has a Service but no Deployment or Pod. No cluster objects were mutated.
 Environment release snapshots, user-selected rollback execution, Console actions,
 rollback tests and the real Boutique deployment test remain incomplete. Existing
 per-workload history must not be presented as a successful Environment release.
+
+
+## Successful Environment checkpoint slice
+
+Pending Deploy now checkpoints the entire resulting Deployment Set, configuration
+revision, Definition snapshots and delivery/target pins before marking its
+Environment Operation successful. A reader verifies scope, metadata digest and
+immutable document hash, and refuses missing historical checkpoints.
+
+`TestSuccessfulEnvironmentReleaseSurvivesPartialDeploy` and
+`TestEnvironmentReleaseSurvivesPartialDeployAndPostgresReopen` passed together
+(12.292s), with REQUIRE_POSTGRES=1 for real PostgreSQL metadata persistence.
+The test deploys two workloads, succeeds on the first update and fails on the
+second, then proves the earlier complete release remains selected despite the
+new hybrid current Deployment Set. A fresh PostgreSQL connection sees the same
+checkpoint. Workload execution in these checkpoint tests is explicitly fake;
+this is not live Kubernetes rollback acceptance.
+
+A broader pending-package run failed preexisting renderer-fixture expectations;
+it also exposed the new test's initial expectation for uncheckpointed seed history,
+which was corrected to expect a refused historical baseline. The focused rerun
+above passed; the package-wide renderer failures remain unresolved.
+
+Read-only Boutique Operation history contains no SUCCEEDED Deploy operation;
+previous Deploy operations are Failed/Recovered and payment remains Interrupted.
+Seven successful workload deployments do not establish a successful Environment
+release. The requested initial rollback target is therefore empty; no workload
+or resource was deleted by this checkpoint slice.

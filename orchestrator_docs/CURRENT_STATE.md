@@ -13,7 +13,9 @@ ADR-040 records three total safe transient resource invocations and explicit
 user-selected Environment rollback after failure. Terraform retry now permits
 two retries while retaining acknowledged-state/process-stop checks; attempt
 deadlines and capability lifetime cover three invocations. Whole-Environment
-release snapshots, rollback execution and Console actions are not implemented yet.
+release checkpoints now capture successful pending batches and retain the last
+successful baseline across partial failures, including PostgreSQL reopen. Rollback
+execution and Console actions are not implemented yet.
 This is not a live deployment acceptance result.
 
 ## Issue #37 merged into main — 2026-11-06

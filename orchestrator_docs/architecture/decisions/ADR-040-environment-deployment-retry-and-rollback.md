@@ -47,6 +47,22 @@ do not by themselves identify one coherent Environment-wide release to restore.
    historical deployments without a release snapshot are not inferred as a
    successful Environment release.
 
+## Persisted release checkpoint
+
+A successful pending batch writes a versioned `releaseSnapshot` into its existing
+Environment Operation detail immediately before the operation becomes SUCCEEDED.
+The snapshot references the immutable complete Deployment Set and captures the
+configuration revision, Definition snapshots, catalog pin, delivery/target pins
+and Secret Store identity. A canonical digest covers the checkpoint metadata.
+Terminal operation details cannot be updated through the heartbeat protocol.
+This reuses current JSONB persistence; no schema upgrade is required for this slice.
+Operation HTTP projections expose neither the checkpoint nor its private refs.
+
+Reading a rollback baseline requires a SUCCEEDED whole-batch operation, matching
+operation/Environment identity, checkpoint digest and Deployment Set hash. Partial,
+interrupted and recovered operations never become successful release baselines.
+Missing historical checkpoints are not silently inferred as success.
+
 ## Consequences
 
 - Any persistence schema extension must use a versioned PostgreSQL upgrade under

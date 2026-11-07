@@ -1536,3 +1536,8 @@ invocations → `tfexec/run.go` and attempt deadline in `tfexec/service.go` →
 `TestBoundedTransientRetry`, `TestTransientPlanFailureSucceedsOnThirdAttempt`,
 `TestSecondTransientFailureWithUnaccountedCreateHolds`. UC-06 V2-07
 Environment rollback remains designed but unimplemented under issue #49.
+
+ADR-040 release checkpoint → `pending/release.go` and pending Deploy final stage →
+`TestSuccessfulEnvironmentReleaseSurvivesPartialDeploy` and
+`TestEnvironmentReleaseSurvivesPartialDeployAndPostgresReopen`. Execution/UI
+rollback remains unimplemented.
