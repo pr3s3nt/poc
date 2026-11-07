@@ -1,3 +1,5 @@
+// Legacy paths stay covered with switches enabled; production defaults have separate coverage.
+vi.mock('../../shared/authoringFeatures', () => ({ authoringFeatures: { workloadImport: true, nonGitDefinitionSources: true } }));
 import { openAdvancedFields, openWorkloadGroup } from '../../test/workloadGroups';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

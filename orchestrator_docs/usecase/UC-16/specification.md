@@ -301,3 +301,11 @@ preview, atomic hostname reservation, manifest delivery and safe release.
 
 [WD-01–10](workload-defaults-specification.md) extend runtime authoring, immutable
 policy selection, storage ownership, compatibility and effective-value display.
+
+## Console authoring restriction — issue #45 (2026-11-07)
+
+Console hides the Workload/Score file import entry and file picker. Form authoring
+remains available. Existing advanced documents retain their read-only document
+view and preservation behavior; this does not extend form support. Import APIs
+and stored documents are unchanged. The Console switches are build-time source
+configuration, not an authorization or backend validation boundary.

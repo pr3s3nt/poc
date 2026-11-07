@@ -2174,6 +2174,7 @@
   "workloads.workloadEditor.formInput": "Nhập bằng form",
   "workloads.workloadEditor.importScore": "Nhập Workload",
   "workloads.workloadEditor.thisScoreHasFieldsThe": "Workload này có các trường mà form không thể giữ nguyên. Hãy tải lên file Workload đã cập nhật để sửa mà không làm mất các trường đó.",
+  "workloads.workloadEditor.advancedReadOnly": "Workload có các trường chưa hỗ trợ chỉnh sửa bằng form. Nội dung hiện tại được giữ nguyên và chỉ hiển thị để xem.",
   "workloads.workloadEditor.retry": "Thử lại",
   "workloads.workloadEditor.workloadDraftIsStale": "Draft Workload đã cũ",
   "workloads.workloadEditor.workloadsIn": "Các Workload trong",

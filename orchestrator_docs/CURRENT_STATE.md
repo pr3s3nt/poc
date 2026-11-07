@@ -2167,3 +2167,12 @@ creation is explicit. WorkloadEditorPage reuses shared PVC identity/typed params
 with a collision-free alias and existing reuse guards, adding dependency + mount
 atomically. Other workloads' Pod-local sources are excluded. No API/backend/schema
 change. [Verification](verification/2026-11-06-reuse-first-volumes.md) records checks and real reuse/Preview.
+
+## Console authoring choices — issue #45 (2026-11-07)
+
+The feature branch hides Workload file import and offers only Git for new or
+changed Resource Definition sources. Console-only switches live in
+`frontend/src/shared/authoringFeatures.ts`; backend APIs and stored revisions
+are unchanged. Existing source provenance remains visible. Workload form and
+saved advanced-document preservation remain available. Verification and
+remaining gates: [issue #45 handoff](verification/2026-11-07-ui-authoring-restrictions.md).

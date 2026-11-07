@@ -226,3 +226,9 @@ Complete workload configuration/defaults (issue #37):
 
 Template-only workload defaults: [ADR-039](architecture/decisions/ADR-039-template-owned-workload-defaults.md).
 - [Readable IDP application/repository/resource names](architecture/decisions/ADR-038-readable-idp-names.md).
+
+## Console authoring restrictions — issue #45
+
+[Verification and remaining gate](verification/2026-11-07-ui-authoring-restrictions.md):
+Workload import is hidden; Definition source selection is Git-only on Console.
+Backend APIs and existing stored source revisions are unchanged.

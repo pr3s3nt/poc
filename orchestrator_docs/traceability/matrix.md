@@ -1529,3 +1529,12 @@ ADR-039 / WD-02–03: template-only values → RuntimeDefaults/TemplateDefaultsS
 → workloadconfig scoped admission → generic resolver / renderer / Preview →
 arbitrary-value merge, forged-profile, no-policy and real Fleet/PVC acceptance.
 See [verification](../verification/2026-11-06-template-only-defaults.md).
+
+## Console authoring choices — issue #45
+
+UC-03 Git-only Console source selection and UC-16 Console authoring restriction
+map to `frontend/src/shared/authoringFeatures.ts`, `ResourceDefinitionsPage`,
+`TemplateDriverFields` and `WorkloadEditorPage`. Production-default coverage is
+`frontend/src/features/platform/AuthoringRestrictions.test.tsx`;
+[verification and remaining gate](../verification/2026-11-07-ui-authoring-restrictions.md).
+Backend import/source contracts remain unchanged.
