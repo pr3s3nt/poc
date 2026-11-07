@@ -96,3 +96,25 @@ previous Deploy operations are Failed/Recovered and payment remains Interrupted.
 Seven successful workload deployments do not establish a successful Environment
 release. The requested initial rollback target is therefore empty; no workload
 or resource was deleted by this checkpoint slice.
+
+## Existing Boutique recovery passed through UI
+
+Shared-controller recovery now checks whether Git rendered the admitted commit
+before waking its BundleDeployment. It requests at most one guarded Git render
+per intent/commit after verifying receipt/controller identity and all sibling
+trees; active Job units block this render request. Full Fleet package tests passed
+(15.659s), including bounded render and Job/foreign-controller rejection tests.
+
+The existing cluster API forward had stopped. It was restored using the existing
+trial's port and destination. No RBAC change was made; an earlier hypothesis about
+missing patch permission was not substantiated and was discarded.
+
+The existing `online-boutique/recover.mjs` runner passed via actual Console UI.
+The original payment operation is now RECOVERED and staging has no active claim.
+Fleet GitJob is Current. Before/after exact namespace Service/Deployment/Pod UID
+inventories match; the payment Service, seven workload Deployments/Pods and Redis
+were preserved. No new workload deploy or rollback was triggered by recovery.
+
+Runtime uses the task-built backend in the retained isolated Boutique Console,
+with a private pre-upgrade database backup. This proves the Busy blocker recovery;
+whole-Environment rollback/UI and full issue acceptance remain incomplete.

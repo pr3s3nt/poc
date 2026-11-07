@@ -479,3 +479,13 @@ controller UID/resourceVersion is reread under the recovery fence before settlin
 Neither the Prerequisite nor siblings are submitted, withdrawn or rewritten.
 Ambiguous/admitted outcomes keep the Environment held. This extends the recovery
 prerequisite needed to exercise issue #49 on the existing Boutique deployment.
+
+Shared-controller recovery orders Git rendering before downstream observation:
+when an admitted receipt's Bundle is missing or still labels a prior commit,
+verify controller ownership/UID, exact receipt pin and every sibling tree, then
+request one Git render for that intent/current pinned commit via guarded
+forceSyncGeneration. This is not Helm force-sync. Any active Job unit blocks this
+shared render retry. The patch tests UID/resourceVersion/revision, preserves
+annotations and records an intent/commit marker to prevent repeated render requests.
+Recovery then observes actual Fleet results; it never forges readiness or removes
+resources to clear a lock.
