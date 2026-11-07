@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -209,6 +210,14 @@ func (c CLI) Run(ctx context.Context, stdin []byte, args ...string) ([]byte, err
 	if err := cmd.Run(); err != nil {
 		stderr := strings.TrimSpace(errOut.String())
 		failure := &CommandError{Operation: redactArgs(args), Category: classify(stderr), Process: err}
+		operation := "COMMAND"
+		if len(args) > 0 {
+			switch args[0] {
+			case "get", "apply", "replace", "create", "delete", "patch", "auth":
+				operation = args[0]
+			}
+		}
+		log.Printf("kubernetes command stopped: operation=%s category=%s", operation, failure.Category)
 		if c.private == "" {
 			failure.diagnostics = stderr
 		}

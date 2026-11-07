@@ -285,3 +285,38 @@ redis-server and PostgreSQL trust authentication made specific fixture checks
 invalid. It was stopped. A replacement disposable image includes Redis and a
 separate password-enforcing PostgreSQL server; the full check is running again.
 No product change was made to weaken those tests.
+
+
+## Full checks and subsequent diagnostics
+
+The full backend check completed with 18 failed packages; the same command on
+origin/main completed with 20 failed packages. No package failed only on the
+feature. Its one failure name absent from the main full-run output,
+TestVersionSixCapturesPopulatedFiveAndProtectsSnapshots, reproduced separately on
+main with the same retained-template-sources assertion. The main comparison also
+reproduced the cluster-ready timeout, stale subdomain schema fixture, unsafe
+source expectation and four RemoveDelivered fixture failures. Package timeouts
+and missing Node/Bash in the initial tool image prevent an all-tests-passed claim.
+After adding Node/Bash, the affected legacy runner checks still failed identically
+on feature/main, including the package timeout. Logs stay outside Git.
+
+The final frontend check after scope-guarded rollback refresh passed 979 tests;
+only the two legacy scenario assertions remained failed. Typecheck, lint (one
+existing warning), build and 26 focused UI tests passed. The source templates and
+shared Dialog/Button patterns were visually checked in the real Console.
+
+Additional real UI deployments stopped at payment Rollout and frontend
+Prerequisite; each stopped operation was recovered through the existing UI
+without database/controller edits. The latter stopped before a new content
+commit. Deployment runtime diagnostics were insufficient to distinguish the
+failing stage, so fixed-enum Git/Fleet/Kubernetes categories were added without
+logging stderr, URLs or credentials. Read-only Git commands may retry recognized
+DNS/transport errors at most three invocations; mutations and permanent errors
+are not replayed. Focused Git/Fleet/delivery tests and credential-leak tests passed.
+The actual transient cause remains to be observed; no root-cause guess is claimed.
+
+The independent eleven-Pod/Redis/endpoint/security observer passed again, and the
+actual browser checkout passed after replacing the fragile trial forward with an
+owned reconnecting forward. The final diagnostic runtime is being installed only
+after the previous operation was RECOVERED. A new renderer selection/release and
+whole-Environment rollback are still required before acceptance/merge.

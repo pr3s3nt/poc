@@ -529,3 +529,16 @@ published, with the original intent bytes; no new workload render is performed.
 Controller admission then uses UID/resourceVersion CAS, verifies every selected
 remote tree and observes actual Fleet readiness. Job units remain ineligible.
 No unknown publication, foreign object or changed prior pin may be adopted.
+
+
+## Bounded read-only Git retries — issue #49
+
+Generated publication may retry a failed read-only Git command at most three
+invocations when its process has exited and the diagnostic is a recognized DNS
+or transport failure. Fetch changes only the dedicated private clone; it never
+pushes remote state. Context cancellation/deadline stops the bounded backoff.
+Authentication, validation, local locks and unknown failures are not retried.
+Checkout/staging/commit/push are never automatically replayed by this policy:
+a push with an unknown outcome still retains the publication/Environment lease
+for exact observation and explicit recovery. Diagnostics emit fixed stage and
+category enums only; credentials, URLs and command stderr are never logged.
