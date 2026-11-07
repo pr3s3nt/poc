@@ -2175,3 +2175,12 @@ credential-free identity export, installation CLI/env wiring and session-scoped
 Organization verification before import. Existing names/IDs are preserved;
 conflicting names are refused. Legacy inputs remain supported. No schema, UI or
 provisioning change. [Checks and remaining limits](verification/2026-11-07-organization-seed.md).
+
+## Console authoring choices — issue #45 (2026-11-07)
+
+The feature branch hides Workload file import and offers only Git for new or
+changed Resource Definition sources. Console-only switches live in
+`frontend/src/shared/authoringFeatures.ts`; backend APIs and stored revisions
+are unchanged. Existing source provenance remains visible. Workload form and
+saved advanced-document preservation remain available. Verification and
+remaining gates: [issue #45 handoff](verification/2026-11-07-ui-authoring-restrictions.md).

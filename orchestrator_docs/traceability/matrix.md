@@ -1537,3 +1537,12 @@ UC-00 Organization identity for installation seed maps to the API seed CLI,
 handler. Tests: `api-seed.test.mjs`, seed `organization_test.go` and
 `catalog_postgres_test.go`, HTTP `organization_test.go`, CLI `main_test.go`.
 No schema migration, UI authoring or public creation endpoint is involved.
+
+## Console authoring choices — issue #45
+
+UC-03 Git-only Console source selection and UC-16 Console authoring restriction
+map to `frontend/src/shared/authoringFeatures.ts`, `ResourceDefinitionsPage`,
+`TemplateDriverFields` and `WorkloadEditorPage`. Production-default coverage is
+`frontend/src/features/platform/AuthoringRestrictions.test.tsx`;
+[verification and remaining gate](../verification/2026-11-07-ui-authoring-restrictions.md).
+Backend import/source contracts remain unchanged.

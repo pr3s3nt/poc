@@ -560,3 +560,14 @@ in CM-04. Existing Environments retain frozen revisions until explicitly upgrade
 
 [EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
 preview, atomic hostname reservation, manifest delivery and safe release.
+
+## Console Git-only source selection — issue #45 (2026-11-07)
+
+When creating a Definition or changing its source, Console exposes only Git
+authoring for Terraform modules and workload templates. Hide ZIP, inline, Catalog
+and installed-source selection actions. Previously verified Git template sources
+may be reused. Existing Definitions retain their saved source, inputs and
+provenance when opened; changing source explicitly uses Git. Endpoint and
+existing-cluster configuration keep their existing behavior. Backend source APIs,
+source validation, Catalog APIs and existing stored revisions are unchanged.
+This UI restriction supersedes earlier multi-source Console choices only.

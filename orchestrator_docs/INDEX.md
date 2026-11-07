@@ -235,3 +235,9 @@ and pre-import Organization checks.
 
 [Organization seed verification](verification/2026-11-07-organization-seed.md)
 records CLI/API, PostgreSQL, runtime rerun and full-check evidence for issue #47.
+
+## Console authoring restrictions — issue #45
+
+[Verification and remaining gate](verification/2026-11-07-ui-authoring-restrictions.md):
+Workload import is hidden; Definition source selection is Git-only on Console.
+Backend APIs and existing stored source revisions are unchanged.

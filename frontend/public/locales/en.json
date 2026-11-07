@@ -2174,6 +2174,7 @@
   "workloads.workloadEditor.formInput": "Form input",
   "workloads.workloadEditor.importScore": "Import Workload",
   "workloads.workloadEditor.thisScoreHasFieldsThe": "This Workload has fields the form cannot keep intact. Upload the updated Workload file to edit without losing those fields.",
+  "workloads.workloadEditor.advancedReadOnly": "This workload contains fields the form cannot edit. Its current document is preserved and shown for viewing only.",
   "workloads.workloadEditor.retry": "Retry",
   "workloads.workloadEditor.workloadDraftIsStale": "Workload draft is stale",
   "workloads.workloadEditor.workloadsIn": "Workloads in",

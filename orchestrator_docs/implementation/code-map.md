@@ -1317,3 +1317,13 @@ fields. `WorkloadDefaults.test.tsx` covers distinct choices and sparse reset/Sav
 - `backend/internal/seed/seed.go`: transactional identity creation/reuse/conflict.
 - `backend/cmd/orchestrator/main.go`: installation file flag/environment wiring.
 - `backend/internal/delivery/http/organization.go`: session-scoped identity read.
+
+## Console authoring restrictions — issue #45
+
+- `frontend/src/shared/authoringFeatures.ts`: Console-only import/source switches.
+- `frontend/src/features/workloads/WorkloadEditorPage.tsx`: hides import actions
+  while retaining form editing and advanced document preservation.
+- `frontend/src/features/platform/ResourceDefinitionsPage.tsx` and
+  `TemplateDriverFields.tsx`: Git-only source choices with saved provenance.
+- `frontend/src/features/platform/AuthoringRestrictions.test.tsx`: production
+  defaults; legacy authoring regression tests explicitly enable the switches.
