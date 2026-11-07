@@ -101,3 +101,8 @@ A rebuilt backend changes the executable pin of the renderer. Reinspect and save
 before Preview/Deploy. `ORCH_SELECT_ONLY=1` only selects an already-saved latest
 revision after inspecting its history. Do not rebuild a retained acceptance stack
 just to restart it, edit stored pins, or count an engine mismatch as a render pass.
+
+Deployment polling requires the exact reviewRequestId Operation to appear before
+interpreting an empty history as completion. A just-submitted request can still
+be in admission; the runner keeps its browser open until that exact Operation is
+terminal/interrupted, and reports an admission timeout honestly if it never appears.

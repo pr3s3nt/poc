@@ -40,7 +40,15 @@ for(;;){
  const latest=(await ui.get('/applications/'+state.app.key)).application.environments.find(e=>e.key==='staging');
  const history=await ui.get(base+'/deployments?reviewRequestId='+encodeURIComponent(state.deployAttempt.reviewRequestId));
  const records=history.deployments??[];
- if(!latest.activeOperation||latest.activeOperation.status==='INTERRUPTED'){
+ const operations=await ui.get(base+'/operations?reviewRequestId='+encodeURIComponent(state.deployAttempt.reviewRequestId));
+ const exactOperation=operations.operations?.find(op=>op.reviewRequestId===state.deployAttempt.reviewRequestId);
+ // Admission runs after the browser request is emitted. An empty history is
+ // not completion; keep the page alive until this exact request is admitted.
+ if(!exactOperation){
+  if(Date.now()>deadline)throw new Error('Deployment admission was not observed; inspect request before retry');
+  await page.waitForTimeout(1000);continue;
+ }
+ if(['SUCCEEDED','FAILED','RECOVERED','INTERRUPTED'].includes(exactOperation.status)){
   const byWorkload=new Map(records.map(d=>[d.workloadId,d]));
   const results=preview.changes.map(change=>{const d=byWorkload.get(change.workloadId);return{workloadId:change.workloadId,action:change.action,status:d?.status??'SKIPPED',...(d?{deploymentId:d.id}:{}),...(d?.failureReason?{error:d.failureReason}:{})}});
   const failed=results.some(r=>r.status==='FAILED');
