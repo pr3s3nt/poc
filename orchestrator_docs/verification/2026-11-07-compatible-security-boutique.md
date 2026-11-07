@@ -114,16 +114,20 @@ Deployment carried the expected delivery-revision. Nevertheless the platform
 recorded the frontend deployment FAILED after the exact-revision readiness wait.
 Console's safe deployment projection does not expose the underlying readiness
 reason. The browser runner also hit a Playwright response-body eviction after UI
-navigation, leaving its local attempt UNKNOWN; the Console read confirmed the
-deployment FAILED and the operation INTERRUPTED, then explicit UI recovery passed.
-The runner now captures the response body immediately and accepts UNKNOWN only
-when Console confirms the operation is INTERRUPTED. This runner fix is not yet
-committed or rerun. Current frontend resources are ready, but the failed attempt
-does not count as deployment acceptance; five workloads remain unapplied and the
-shop checkout has not run.
+navigation, leaving its local attempt UNKNOWN. Console reads confirmed the
+deployment FAILED and operation INTERRUPTED; explicit UI recovery passed. A
+subsequent attempt updated the original five workloads and frontend/loadgenerator
+succeeded, but payment was recorded FAILED. Its Service exists, but its rollout
+publication, Deployment and Pod are absent; Console exposes only the generic
+runtime failure. The operation is currently INTERRUPTED and awaits explicit UI
+recovery. The runner now polls operation and deployment history through GET after
+the Deploy button is clicked, avoiding response-body capture. This polling change
+is not yet committed or rerun. Payment failure and its cause remain under
+investigation; checkout has not run.
 
-Runtime/browser acceptance has NOT passed. Six workloads remain unapplied and
-product → cart → checkout has not run. The issue stays open, main is unmerged,
+Runtime/browser acceptance has NOT passed. Three workloads remain unapplied and
+payment is only partially applied; product → cart → checkout has not run. The
+issue stays open, main is unmerged,
 and the isolated stack/data are retained. Console's exact Tailscale Application
 page and same-origin workload API are checked separately; this is a Console
 status view, not a ready shop handoff. Runtime credentials, logs, screenshots,

@@ -2194,11 +2194,13 @@ capability and token policy unspecified; nginx-readonly keeps its stronger
 profile. Private source v0.3.0 is published. Focused render/domain checks and build
 pass. Full Go checks still fail the same 79 tests/17 packages as archived main.
 The separate Console has authored all eleven Online Boutique workloads through
-forms. The original five app workloads, Redis and the frontend Pod are ready.
+forms. The original five app workloads, Redis, frontend and loadgenerator are
+ready. Payment's Service exists, but its rollout failed before the Deployment/Pod
+were published.
 The user approved extending issue #47 to safely recover an unpublished new unit
 in an existing shared Fleet GitRepo. That change is pushed and explicit UI
-recovery passed. The next UI attempt updated the original five workloads and
-created the frontend, but deployment was recorded FAILED during exact revision
-readiness. Recovery released that operation; the remaining five workloads and
-checkout are unverified. Main is unmerged.
+recovery passed twice. The UI attempt updated the original five, then deployed
+frontend and loadgenerator; payment was recorded FAILED and the operation is
+currently INTERRUPTED. The three remaining workloads and checkout are
+unverified. Main is unmerged.
 [Execution and limitations](verification/2026-11-07-compatible-security-boutique.md).

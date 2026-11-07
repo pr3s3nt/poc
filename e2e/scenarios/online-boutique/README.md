@@ -66,7 +66,9 @@ node e2e/scenarios/online-boutique/shop.mjs
 The setup/definitions forms reuse existing named records. Workload reruns compare
 image, resources, variables and Service before reuse; they stop on a mismatch.
 Deploy records the attempt before submitting and will not replay an unknown or
-partial attempt. Inspect the error and fix its cause first. A stopped PARTIAL
+partial attempt. The UI submit is followed by GET polling of the operation and
+deployment history, so page navigation cannot lose the final response evidence.
+Inspect the error and fix its cause first. A stopped PARTIAL
 operation, or a locally UNKNOWN submit whose Console operation is confirmed
 INTERRUPTED, may be recovered explicitly using `recover.mjs`, which checks the UI
 recovery result and retains the prior attempt. A released FAILED operation needs

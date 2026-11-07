@@ -33,12 +33,24 @@ if(state.deployAttempt){
  state.previousAttempts??=[];state.previousAttempts.push(state.deployAttempt);delete state.deployAttempt;rt.save();
 }
 page.on('request',r=>{if(r.method()==='POST'&&new URL(r.url()).pathname==='/api/v1'+base+'/deploy'){state.deployAttempt={startedAt:new Date().toISOString(),reviewRequestId:r.postDataJSON()?.reviewRequestId,completion:'UNKNOWN'};rt.save()}});
-const responsePath='/api/v1'+base+'/deploy';
-const deploymentResponse=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname===responsePath,{timeout:1200000})
- .then(async r=>({status:r.status(),body:await r.body()}));
-const [response]=await Promise.all([deploymentResponse,page.getByRole('button',{name:'Triển khai các thay đổi này',exact:true}).click(),ensureNamespaceAccess(ui,config,app,rt)]);
-if(response.status<200||response.status>=300)throw new Error(`Deploy returned HTTP ${response.status}; inspect server before retry`);
-const report=JSON.parse(response.body.toString('utf8'));
+await Promise.all([page.getByRole('button',{name:'Triển khai các thay đổi này',exact:true}).click(),ensureNamespaceAccess(ui,config,app,rt)]);
+assert(state.deployAttempt?.reviewRequestId,'Console Deploy request ID was not observed');
+const deadline=Date.now()+config.runtime.timeoutMs;let report;
+for(;;){
+ const latest=(await ui.get('/applications/'+state.app.key)).application.environments.find(e=>e.key==='staging');
+ const history=await ui.get(base+'/deployments?reviewRequestId='+encodeURIComponent(state.deployAttempt.reviewRequestId));
+ const records=history.deployments??[];
+ if(!latest.activeOperation||latest.activeOperation.status==='INTERRUPTED'){
+  const byWorkload=new Map(records.map(d=>[d.workloadId,d]));
+  const results=preview.changes.map(change=>{const d=byWorkload.get(change.workloadId);return{workloadId:change.workloadId,action:change.action,status:d?.status??'SKIPPED',...(d?{deploymentId:d.id}:{}),...(d?.failureReason?{error:d.failureReason}:{})}});
+  const failed=results.some(r=>r.status==='FAILED');
+  const succeeded=results.some(r=>r.status==='SUCCEEDED');
+  report={status:failed?(succeeded?'PARTIAL':'FAILED'):(results.every(r=>r.status==='SUCCEEDED')?'SUCCEEDED':'PARTIAL'),results,operation:latest.activeOperation&&{id:latest.activeOperation.id,status:latest.activeOperation.status,stage:latest.activeOperation.stage}};
+  break;
+ }
+ if(Date.now()>deadline)throw new Error('Console Deploy remains active; inspect operation before resuming');
+ await page.waitForTimeout(2000);
+}
 state.deployAttempt.completion=report.status;rt.save();writeFileSync(dir+'/deployment.json',JSON.stringify(report,null,2),{mode:0o600});
 console.log('Deploy',report.status);assert.equal(report.status,'SUCCEEDED');
 }
