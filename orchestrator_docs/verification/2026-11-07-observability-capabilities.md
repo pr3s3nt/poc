@@ -262,3 +262,20 @@ An actual app-owned PodMonitor sampleLimit drift was introduced with UID/value
 preconditions. The product reported DRIFT; the exact original value was restored
 with preconditions and the subsequent scoped configuration read returned APPLIED.
 This test did not modify shared monitoring releases or erase a receipt.
+
+## Complete PostgreSQL package comparison — 2026-11-08
+
+The complete `internal/adapters/postgres` package was rerun without the earlier
+15-minute bound (same isolated tuned test database, 60-minute limit) on feature
+commit 0e36c1f1 and on origin/main b2d605f9. Both finished (about 15.5 and 15.1
+minutes). Feature: 89 passed, 4 failed. Main: 86 passed, the same 4 failed:
+`TestBaselineEnforcesCurrentConstraints` (missing `subdomain` column),
+`TestVersionSixCapturesPopulatedFiveAndProtectsSnapshots` and
+`TestVersionSevenPreservesConnectionsAndAdmitsGit` (retained `template_sources`
+rows changed) and `TestUpgradeHTTPLoginPreviewDeploy` (template `RenderError` on
+the upgraded schema). No feature-only PostgreSQL failure exists; the package is
+still not a green gate. The earlier timeout was runner duration, not a hang.
+
+The task-owned kind cluster used for stages 0–5 was later found deleted (cause not
+identified). Its runtime evidence above stays historical; further live checks must
+use a newly authorized environment.
