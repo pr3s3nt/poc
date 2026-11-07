@@ -19,12 +19,23 @@ preexisting releases. Existing CRDs require explicit compatibility-reviewed reus
 Local contract tests and pinned Helm rendering are supplemented by a real owned
 kind installation: metrics followed by logging with partial existing-component
 reuse; repeated applies are NOOP, and real Prometheus/Loki data is present.
-Console connection creation/test works against that isolated stack. PostgreSQL/blackbox/ingress sources, isolated firing/resolved notifications and
-five-component restart persistence now have live proof. Stages 0–5 still have
-open gates (resource/dependency product mapping, complete lifecycle and final
-validation); no
-stage-6 or MCP-specific acceptance is claimed. See the
-[capability checkpoints](verification/2026-11-07-observability-capabilities.md).
+Console connection creation/test and four real Git/Fleet workload deployments
+work against that isolated stack. PostgreSQL/blackbox/ingress sources, isolated
+firing/resolved notifications, grouping/inhibition and five-component restart
+persistence have live proof. Versioned profiles/defaults/overrides, monitoring-only
+UPDATE, stale Preview fencing, applied revision checks and native withdrawal/unbind
+are implemented and verified. Resource/dependency mappings use scoped resource IDs
+and actual collector profile metrics; browser reads and workload/time drill-down
+were exercised with PostgreSQL exporter and blackbox data.
+
+Coverage remains PARTIAL when source families such as OOM observations are absent.
+MCP Gateway/Admin source/image/config was not supplied; generic HTTP fixtures do
+not establish MCP-specific coverage. The PostgreSQL fixture is a declared external
+dependency, not a product-owned PostgreSQL State resource; DB/PVC free-space and
+production/company instrumentation/thresholds are not inferred. Full validation
+has known baseline failures and environment-dependent PostgreSQL checks under
+review. No complete stages-0–5 acceptance, stage-6 or main merge is claimed.
+See [capability checkpoints](verification/2026-11-07-observability-capabilities.md).
 
 ## Issue #35 branch integration — 2026-11-06
 

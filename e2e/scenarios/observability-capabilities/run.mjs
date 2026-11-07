@@ -145,7 +145,7 @@ try {
   const operations=(await api(base+'/operations')).operations;assert(!operations.some(o=>['ACTIVE','RECOVERING','INTERRUPTED'].includes(o.status)),'Operation not terminal');
   const latest=[...operations].sort((a,b)=>Date.parse(b.startedAt)-Date.parse(a.startedAt))[0];assert.equal(latest.status,'SUCCEEDED');
   const preview=await api(base+'/preview','POST',{});assert.equal(preview.changes.length,0,'Desired configuration not fully applied');
-  const view=await api(base+'/monitoring');assert.equal(view.workloads.length,state.workerSaved?2:1);assert(view.workloads.every(w=>w.configuration==='APPLIED'));
+  const view=await api(base+'/monitoring');assert.equal(view.workloads.length,(state.workerSaved?2:1)+Object.keys(state.collectorDrafts??{}).length);assert(view.workloads.every(w=>w.configuration==='APPLIED'));
   state.deployPending=false;state.lastDeployment={reconciled:true,operationId:latest.id,status:'SUCCEEDED'};save();console.log('PASS read-only reconciliation of lost response: terminal success, config APPLIED and no pending changes');
  }
  if(mode==='restore'){

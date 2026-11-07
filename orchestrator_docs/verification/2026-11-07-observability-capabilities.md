@@ -208,3 +208,28 @@ Config APPLIED now additionally requires the workload's persisted monitoring
 revision signature, not only equivalent Kubernetes artifact specs. A binding-only
 mapping edit therefore stays NOT_APPLIED until deployment acknowledges it. Focused
 tests cover absent/current/stale signatures with matching live artifacts.
+
+Controlled source failure on the owned PostgreSQL fixture and isolated blackbox
+HTTP target produced actual pg_up=0 and probe_success=0. Both configured below-one
+rules fired; the real DB critical notification reached the test receiver while
+warning inhibition remained intentional. Restoring replicas with a UID-tested
+patch and returning the endpoint to HTTP 200 produced fresh successful samples,
+resolved rules, an actual resolved DB notification and the retained PostgreSQL
+marker row. No shared database/identity service was stopped.
+
+Final validation follow-up: a full main frontend run reproduces two deterministic
+historical E2E label/recorded-ID failures. The Resource Types deep-link assertion
+also reproduces on main when using the same external-monitoring isolation mock as
+this feature; the untouched main mock can make that assertion pass before the
+selection effect completes. It is not counted as a fixed product defect or a green
+gate. A pooled Redis auth timing case failed in one full run and passed independently
+on both feature and main; affected code is unchanged.
+
+The initial complete PostgreSQL package exhausted default max_locks_per_transaction
+while creating/dropping frozen reference schemas, which is an environment failure.
+It is being rerun against a separate disposable PostgreSQL instance with 512 locks
+per transaction and test-only fsync/synchronous_commit/full_page_writes disabled.
+Those settings apply only to the test runner database, not the product/metrics DB.
+The future-history tampering test was corrected to mutate the maximum version to
+its successor; hardcoded 11 collided with the now-valid schema 11. Released SQL
+migrations/references remain unchanged.

@@ -70,3 +70,49 @@ For UI handoff, use the [Tailscale runbook](tailscale-handoff.md); this installe
 does not configure public ingress or claim that an application URL is ready.
 Cleanup is explicit operator work after UID/ownership/shared-consumer checks and
 backup. Keep shared stack and CRDs; stage test cleanup never removes them.
+
+## Product binding, profiles and resource mappings
+
+After installation, register separate query endpoints and a browser-reachable
+Grafana origin in Platform Settings, test connectivity/identity/coverage, then
+bind the Environment. Defaults and whole-workload overrides define named Pod
+port, scrape path/interval/sample cap and typed metric keys. Rules and PodMonitor
+travel through the existing Git/Fleet workload delivery, not Prometheus query
+API writes. `APPLIED` requires both expected live objects and the deployment's
+acknowledged monitoring revision; telemetry reception and alert delivery remain
+separate evidence.
+
+Advanced binding mappings use this shape (replace with actual scoped identity):
+
+```json
+{
+  "resourceObservations": {
+    "RESOURCE_INSTANCE_UUID": {
+      "collectorWorkload": "database-exporter",
+      "metricKeys": ["database_up", "connections"]
+    }
+  },
+  "dependencyObservations": {
+    "declared-backend": {
+      "collectorWorkload": "backend-probe",
+      "metricKeys": ["endpoint_up", "probe_latency"]
+    }
+  }
+}
+```
+
+Resource IDs come from the product State resource list, not Kubernetes names or
+an arbitrary external database. Mapped keys must exist in the collector's
+effective profile and the resource must belong to the current scope/generation.
+A workload collector must already expose actual metrics from its authorized
+source. Do not forward a company-wide multi-tenant exporter and pretend its
+samples are isolated by an app label; operator setup must limit the original
+source/monitoring credential first. The test fixture's metrics forwarding is not
+a product proxy. Declared relationships do not prove actual application calls.
+
+Binding/profile edits require Preview and Deploy even if Workload content has
+not changed. Preserve a lost response as uncertain and inspect terminal operation,
+applied config and Preview before retry. For native transition, select both native
+signals, Deploy withdrawal, verify app-owned monitoring objects absent, then unbind.
+Keep shared releases, history and resource data according to retention. Removed
+source mappings do not authorize deleting a database or exporter outside the app.

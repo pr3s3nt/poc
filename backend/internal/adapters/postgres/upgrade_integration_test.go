@@ -579,7 +579,7 @@ func TestBaselineCommentChangesDoNotRequireUpgrade(t *testing.T) {
 func TestUpgradeHistoryTamperingIsRejected(t *testing.T) {
 	for name, mutation := range map[string]string{
 		"checksum":       `UPDATE schema_upgrade_history SET migration_sha256=repeat('0',64)`,
-		"future-version": `UPDATE schema_upgrade_history SET version=11 WHERE version=10`,
+		"future-version": `UPDATE schema_upgrade_history SET version=version+1 WHERE version=(SELECT max(version) FROM schema_upgrade_history)`,
 		"source":         `UPDATE schema_upgrade_history SET source_sha256=repeat('0',64)`,
 		"missing":        `DELETE FROM schema_upgrade_history`,
 	} {
