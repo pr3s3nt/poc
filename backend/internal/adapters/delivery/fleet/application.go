@@ -599,9 +599,38 @@ func (p *Provider) ObserveSubmissionAbsent(ctx context.Context, i port.Intent, p
 	if cfg.ApplicationID == "" {
 		return false, nil
 	}
-	_, found, err := cli.Get(ctx, cfg.Workspace, "gitrepos.fleet.cattle.io", applicationRepoName(i, cfg))
-	if err != nil || found {
+	repo, found, err := cli.Get(ctx, cfg.Workspace, "gitrepos.fleet.cattle.io", applicationRepoName(i, cfg))
+	if err != nil {
 		return false, err
+	}
+	controllerFound := found
+	if found {
+		// The Application controller is shared by all workload units. Its
+		// existence alone is not evidence that this first prerequisite was
+		// submitted. Prove the exact controller incarnation and every existing
+		// sibling pin before considering absence for an unpinned new unit.
+		if !applicationOwns(repo, i, cfg) {
+			return false, ErrOwnership
+		}
+		md, _ := repo["metadata"].(map[string]any)
+		if md["deletionTimestamp"] != nil || md["uid"] == "" || md["resourceVersion"] == "" {
+			return false, ErrOwnership
+		}
+		pins, err := readUnitPins(repo)
+		if err != nil {
+			return false, err
+		}
+		if _, exists := pins[pkg.ReleaseName]; exists {
+			return false, nil
+		}
+		spec, _ := repo["spec"].(map[string]any)
+		commit, _ := spec["revision"].(string)
+		if commit == "" {
+			return false, ErrOwnership
+		}
+		if err := p.verifySharedTrees(ctx, i, commit, pins); err != nil {
+			return false, err
+		}
 	}
 	if err := p.validateApplicationSubmission(ctx, i, pkg, cfg); err != nil {
 		return false, err
@@ -678,6 +707,18 @@ func (p *Provider) ObserveSubmissionAbsent(ctx context.Context, i port.Intent, p
 	if err := p.Manager.RecoveryGuard(ctx, i); err != nil {
 		return false, err
 	}
-	_, found, err = cli.Get(ctx, cfg.Workspace, "gitrepos.fleet.cattle.io", applicationRepoName(i, cfg))
-	return !found && err == nil, err
+	// Re-read the controller after the rest of the absence proof. Do not settle
+	// FAILED if its identity changed or a controller appeared during observation.
+	current, currentFound, err := cli.Get(ctx, cfg.Workspace, "gitrepos.fleet.cattle.io", applicationRepoName(i, cfg))
+	if err != nil || currentFound != controllerFound {
+		return false, err
+	}
+	if controllerFound {
+		before, _ := repo["metadata"].(map[string]any)
+		after, _ := current["metadata"].(map[string]any)
+		if before["uid"] != after["uid"] || before["resourceVersion"] != after["resourceVersion"] || !applicationOwns(current, i, cfg) {
+			return false, ErrOwnership
+		}
+	}
+	return true, nil
 }

@@ -96,12 +96,12 @@ cannot reconstruct a receipt because neither publication exists. This explains
 the held recovery. The original frontend submit error is still an unclassified
 fixed error type; this evidence does not establish its initial root cause.
 
-A proposed extension to #47 would prove new-unit absence while preserving exact
-shared-controller ownership/UID, existing pins/trees, no native objects, no Bundle,
-no Helm release and no downstream pending manager; it would only settle the
-failed attempt, never publish/apply/adopt. User approval is pending because this
-changes recovery behavior/security scope beyond the approved template work.
-No database marker, receipt, pin or ownership guard was bypassed.
+The user approved extending #47 to prove new-unit absence with an existing shared
+controller while preserving exact ownership/UID, sibling pins/trees, no native
+objects, no Bundle/BundleDeployment, no Helm release and no downstream pending
+manager. The change may only settle the failed attempt; it never publishes,
+applies or adopts the candidate. Implementation and focused checks are in
+progress. No database marker, receipt, pin or ownership guard was bypassed.
 
 Runtime/browser acceptance has NOT passed. Six workloads remain unapplied and
 product → cart → checkout has not run. The issue stays open, main is unmerged,

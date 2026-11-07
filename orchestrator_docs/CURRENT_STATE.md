@@ -2196,5 +2196,6 @@ pass. Full Go checks still fail the same 79 tests/17 packages as archived main.
 The separate Console has authored all eleven Online Boutique workloads through
 forms. Five app workloads and Redis are ready; runtime acceptance is held by
 Fleet recovery of an unpublished new frontend unit in an existing shared GitRepo.
-Checkout has not run. A recovery scope extension awaits user approval; main is
-unmerged. [Execution and limitations](verification/2026-11-07-compatible-security-boutique.md).
+The user approved extending issue #47 to safely settle this case. ADR-036 and
+Fleet tests are being updated; checkout has not run. Main is unmerged.
+[Execution and limitations](verification/2026-11-07-compatible-security-boutique.md).
