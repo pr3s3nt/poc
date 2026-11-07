@@ -263,3 +263,25 @@ has reached controller observation; its final result is still being checked.
 PostgreSQL Definition/selection tests passed (6.781s). The four RemoveDelivered
 tests still fail with the same fake-transport ObjectRemover mismatch observed on
 the pre-rollback baseline; this package is not reported as passed.
+
+
+## Live publication recovery and initial-empty Console checks
+
+The guarded checkout publication recovery completed through Console UI. Its
+Prerequisite revision was actually acknowledged by Fleet, the operation became
+RECOVERED and the Environment claim was released. No manual database or controller
+repair was used. A new release using the final renderer is now deploying.
+
+A separate owned Application with no successful deployment and one pending draft
+passed explicit typed initial-empty rollback through Console. The resulting
+workload list was empty and the Environment idle. No Deploy was submitted, so
+this particular UI case created no Kubernetes resources and is not evidence of
+failed-rollout resource destruction. The temporary Application was subsequently
+cleaned through the normal Settings deletion UI after its preview proved both
+Environments contained no resources, workloads or drafts.
+
+The first full-backend attempt used an incomplete test image/database: missing
+redis-server and PostgreSQL trust authentication made specific fixture checks
+invalid. It was stopped. A replacement disposable image includes Redis and a
+separate password-enforcing PostgreSQL server; the full check is running again.
+No product change was made to weaken those tests.

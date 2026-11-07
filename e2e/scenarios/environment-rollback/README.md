@@ -47,3 +47,23 @@ the independent runtime observer and checkout runner. This case verifies discard
 pending edits and reapplying a proven release, not a live partial rollout failure.
 Partial rollout failure and first-failure cleanup are separately verified by the
 PostgreSQL and Terraform integration tests described in the issue evidence.
+
+
+`verify.mjs` reads the recorded `before-stage.json`,
+`before-rollback-inventory.json` (kind/name/UID for Deployments, StatefulSets,
+Services and PVCs) and `before-stateful-pods.json` (name/UID). Supply the authorized
+`ORCH_CLUSTER_KUBECONFIG`. It compares complete workload declarations and safe
+configuration projections, requires no drafts/active operation, preserves resource
+and stateful Pod UIDs, and opens the actual Console page. The independent Boutique
+observer/checkout scripts still verify readiness and business behavior afterwards.
+
+`initial-empty.mjs` requires `ORCH_EMPTY_ROLLBACK=1` and a fresh private evidence
+directory without `empty-application.json`. It creates only the test Application
+`rollback-empty-issue49` and one pending workload draft, confirms initial-empty
+rollback, and verifies zero workloads and an idle Environment. No Deploy is
+submitted and no Kubernetes resources are created. This verifies the Console
+empty-baseline flow, not cleanup of a failed real Kubernetes rollout. Record the
+created identity privately and clean up this empty test Application through its
+Settings deletion dialog after verifying the deletion preview has no workloads,
+resources or pending drafts in either Environment. Never use this cleanup on the
+retained Boutique Application.
