@@ -233,3 +233,32 @@ Those settings apply only to the test runner database, not the product/metrics D
 The future-history tampering test was corrected to mutate the maximum version to
 its successor; hardcoded 11 collided with the now-valid schema 11. Released SQL
 migrations/references remain unchanged.
+
+The final actual Tailscale Console route and its contextual Grafana link were
+opened by browser after the last runtime rebuild. All four workload configurations
+returned APPLIED, the resource and both declared dependencies returned RECEIVING,
+and the next Preview was unchanged. The shared proxy/forward and feature services
+remain running; private URLs/screenshots/configuration are outside Git.
+
+Both complete deployment-package runs produced the same eleven failing test names
+on feature and main (legacy removal/inventory/served-kind fixtures); no additional
+feature-only deployment failure was found in that comparison. All packages compile
+on the final stable source tree. Focused observability/HTTP/profile/Kubernetes,
+provider, PostgreSQL metadata and UI checks pass, including the new mapped views.
+
+The bounded complete PostgreSQL rerun reached its 15-minute package timeout after
+reporting the same pre-existing subdomain/retained-template assertions; it is not
+a passing full gate. A separate focused final run passed metadata/mapping/CAS,
+populated v8/v10-to-v11 upgrades, rollback and all four tampered-history rejection
+cases (35.8 seconds). No SQL reference or marker/checksum was edited to obtain it.
+
+PlantUML was installed privately after earlier checkpoints: all repository diagram
+syntax checks passed with the documentation checker, and the updated external
+observability sequence PNG was regenerated from its source. The standalone archive
+was unpacked outside the checkout and its copied Bash installer produced the same
+four NOOP logging/exporter actions without repository runtime dependencies.
+
+An actual app-owned PodMonitor sampleLimit drift was introduced with UID/value
+preconditions. The product reported DRIFT; the exact original value was restored
+with preconditions and the subsequent scoped configuration read returned APPLIED.
+This test did not modify shared monitoring releases or erase a receipt.

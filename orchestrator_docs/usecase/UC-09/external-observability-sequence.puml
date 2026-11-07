@@ -3,27 +3,52 @@ actor PE
 participant Console
 participant "Scoped monitoring service" as Service
 participant "Owned target / binding repository" as Repository
+participant "Scoped resource detail" as Resources
+participant "Credential-backed Kubernetes verifier" as Kubernetes
 participant "Private credentials resolver" as Secrets
-participant "Prometheus adapter" as Adapter
-participant Prometheus
+participant "Prometheus / Loki adapters" as Adapter
+participant "Prometheus / Loki" as Sources
+participant "Preview / operation admission" as Admission
 participant "Git/Fleet delivery" as CD
 participant Alertmanager
 participant "Test receiver" as Receiver
-PE -> Console : Register/test connection; bind Environment
-Console -> Service : Authorized connection/binding request
-Service -> Repository : Validate organization, revision, cluster pin
-Service -> Secrets : Resolve scoped credential privately
-Service -> Adapter : Test connectivity and coverage
-Adapter -> Prometheus : Bounded query
-PE -> Console : Deploy owned test app
-Console -> CD : Existing deployment with app-owned rules
-CD -> Prometheus : Operator loads PrometheusRule
-Console -> Service : Read selected app/Environment/time
-Service -> Repository : Authorize; restore owned targets
-Service -> Adapter : Server-defined scoped metrics/rules
-Adapter -> Prometheus : Bounded read
-Prometheus --> Console : Via service: samples, timestamps, coverage, alerts
-Prometheus -> Alertmanager : Firing / resolved
-Alertmanager -> Receiver : Actual test notification
-note over Console, Receiver : Delivery requires independent evidence; absent metrics never mean recovery
+PE -> Console : Register/test connection; bind signals and profiles
+Console -> Service : Authorized request with expected revision
+Service -> Repository : Validate organization, generation, cluster and CAS
+opt Resource observations declared
+ Service -> Resources : Verify scoped resource ID and generation
+ Service -> Service : Validate keys against effective collector profile
+end
+Service -> Secrets : Resolve each source credential privately
+Service -> Adapter : Test connectivity, identity and coverage
+Adapter -> Sources : Bounded read
+PE -> Console : Preview monitoring/workload changes
+Console -> Admission : Snapshot desired config and monitoring pins
+Admission --> Console : Pending UPDATE and pinned Preview token
+PE -> Console : Deploy reviewed changes
+Console -> Admission : Claim Environment with current revisions
+Admission -> CD : Workload + owned PodMonitor / PrometheusRule
+CD -> Sources : Operator/discovery consumes desired config
+CD -> Repository : Persist acknowledged monitoring signature
+Console -> Service : Read app/Environment/time
+Service -> Repository : Authorize; restore owned physical targets
+opt Resource detail read
+ Service -> Resources : Authorize resource before provider read
+end
+Service -> Adapter : Server-built scoped metric/log queries
+Adapter -> Sources : Bounded read; no raw client selector
+Sources --> Service : Samples, timestamps, gaps, logs, alerts
+Service -> Repository : Read acknowledged monitoring revision
+Service -> Kubernetes : Verify physical target and owned live artifact specs
+Service --> Console : Config status, data coverage and mapped observations
+Sources -> Alertmanager : Prometheus firing / resolved
+Alertmanager -> Receiver : Grouped/inhibited actual test notifications
+PE -> Console : Select native signals; Preview/Deploy withdrawal
+Console -> Admission : Revision-fenced cleanup deployment
+Admission -> CD : Withdraw only app-owned monitoring objects
+Console -> Service : Unbind with expected revision
+Service -> Kubernetes : Verify owned monitoring config absent
+Service -> Repository : Remove binding with generation/CAS guards
+note over Repository, Sources : Shared stack and retained history remain
+note over Console, Receiver : Processing state is not delivery proof; absent data is not recovery
 @enduml
