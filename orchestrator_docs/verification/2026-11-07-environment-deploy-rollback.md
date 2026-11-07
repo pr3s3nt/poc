@@ -236,3 +236,30 @@ warning. Rollback UI tests passed (2); AuthoringRestrictions passed separately
 (4), so its full-suite failure is not reproduced in isolation. The two legacy
 scenario failures reproduce on the pre-rollback HEAD; full frontend remains red
 and is not represented as passed. Documentation and diff checks passed.
+
+
+## Interrupted update publication pair
+
+The fresh UI release succeeded for ad/cart but stopped at checkout Prerequisite:
+the workload content commit existed remotely, paired metadata had not been
+published, and the shared controller still held the prior exact pin. The stopped
+operation stayed INTERRUPTED. Existing read-only receipt recovery correctly
+refused to treat that prior pin as an acknowledgement of the new revision.
+
+Recovery now receives the exact retained prior provider artifact/receipt from the
+coordinator. Under explicit stopped-owner recovery it may complete only the
+missing paired metadata after verifying the prior pin/controller UID, native UID
+and revision inventory, original metadata, exact new remote content and siblings.
+Controller admission uses the existing UID/resourceVersion CAS and normal Fleet
+observation. No workload rerender, arbitrary Git overwrite or lock bypass is used.
+
+Full Fleet and delivery package tests passed (19.827s/0.609s). The focused real-Git
+transport test passed (3.979s), covering exactly one metadata commit, idempotent
+receipt observation, and refusal without Git/controller changes for foreign
+metadata, foreign native UID, absent/tampered source and changed controller.
+This transport fixture is not a real Fleet acceptance claim. The new live recovery
+has reached controller observation; its final result is still being checked.
+
+PostgreSQL Definition/selection tests passed (6.781s). The four RemoveDelivered
+tests still fail with the same fake-transport ObjectRemover mismatch observed on
+the pre-rollback baseline; this package is not reported as passed.

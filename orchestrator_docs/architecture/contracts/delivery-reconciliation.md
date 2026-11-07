@@ -513,3 +513,19 @@ UNREFERENCED by CAS at the exact reviewed version under the same cleanup claim.
 This handles resources created by a failed first deployment. Held/unknown resource
 statuses remain ineligible. This metadata retirement authorizes no added resource
 and does not substitute for the engine's state, dependency and absence checks.
+
+
+## Interrupted publication pair during an update — issue #49
+
+An update can stop after publishing its immutable workload tree but before its
+paired metadata tree and controller admission. Explicit stopped-owner recovery
+may finish only that persisted pair, under the existing recovery and repository
+leases. It requires the exact prior acknowledged artifact/receipt, unchanged
+controller UID and prior revision pin, all sibling trees, exact prior live object
+UID/revision inventory, and exact new content tree already observed on the remote.
+The metadata tree must match either the retained prior artifact or the new one;
+another writer's metadata blocks recovery. Only missing paired metadata may be
+published, with the original intent bytes; no new workload render is performed.
+Controller admission then uses UID/resourceVersion CAS, verifies every selected
+remote tree and observes actual Fleet readiness. Job units remain ineligible.
+No unknown publication, foreign object or changed prior pin may be adopted.

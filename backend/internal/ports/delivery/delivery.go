@@ -33,6 +33,8 @@ type Intent struct {
 	ExpectedRevision string
 	SourceInventory  []AppliedObject
 	PolicyOnly       bool
+	// PriorSubmission is private retained evidence supplied only for explicit recovery.
+	PriorSubmission *PriorSubmission `json:"-"`
 }
 
 func (i Intent) Validate() error {
@@ -53,6 +55,11 @@ func (i Intent) Validate() error {
 		return i.Binding.Capabilities.ValidateSelection(s)
 	}
 	return nil
+}
+
+type PriorSubmission struct {
+	Prepared Prepared
+	Receipt  Receipt
 }
 
 type Prepared struct {

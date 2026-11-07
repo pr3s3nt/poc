@@ -459,6 +459,9 @@ func (p *Provider) RecoverReceipt(ctx context.Context, i port.Intent, prepared p
 		}
 		return p.recoverUnadmittedApplication(ctx, i, pkg, cfg, uid)
 	}
+	if unpublishedPriorPin(pin, found, i, pkg) {
+		return p.recoverPublishedUpdate(ctx, i, pkg, cfg, repo, pins)
+	}
 	if pin.Removed || pin.Intent != i.ID || pin.Revision != i.Revision.ID || pin.EnvironmentID != i.Revision.Scope.EnvironmentID || pin.Path != pkg.Publication.Path || pin.Digest != i.Revision.PayloadDigest {
 		return port.Receipt{}, ErrOwnership
 	}

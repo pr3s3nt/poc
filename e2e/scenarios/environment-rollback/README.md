@@ -35,3 +35,15 @@ exact owned resource selection after ownership checks. It does not restore prior
 database contents. Keep protected resources/credentials/controller identity intact.
 Evidence stays outside Git. Cleanup uses product operations with exact ownership
 verification; keep trial stack/forwards active when handing links to the user.
+
+
+For the retained Boutique release, `stage-draft.mjs` with
+`ORCH_ROLLBACK_STAGE=1` first verifies an idle Environment and eleven workloads
+without drafts, then records the original configuration and workloads privately.
+It adds an unused nonsecret configuration marker and stages a loadgenerator image
+edit through forms without deploying. Run the rollback runner afterwards and
+compare the restored workloads/configuration with `before-stage.json`; then run
+the independent runtime observer and checkout runner. This case verifies discarding
+pending edits and reapplying a proven release, not a live partial rollout failure.
+Partial rollout failure and first-failure cleanup are separately verified by the
+PostgreSQL and Terraform integration tests described in the issue evidence.

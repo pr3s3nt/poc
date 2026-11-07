@@ -55,6 +55,10 @@ func (p *Provider) observeUnpublishedUpdate(ctx context.Context, i port.Intent, 
 			return false, err
 		}
 	}
+	return p.verifyPriorNativeObjects(ctx, i, pkg, cfg)
+}
+
+func (p *Provider) verifyPriorNativeObjects(ctx context.Context, i port.Intent, pkg Package, cfg Config) (bool, error) {
 	target, done, err := k8s.OpenCLI(ctx, p.Manager.Verifier.KubectlPath, p.Manager.Verifier.Credentials, i.Target)
 	if err != nil {
 		return false, err

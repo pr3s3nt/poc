@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"log"
 	"time"
 
 	"orchestrator/internal/adapters/delivery/artifact"
@@ -139,6 +140,7 @@ func (p *Provider) Submit(ctx context.Context, i port.Intent, prepared port.Prep
 		}
 		metadata, err := publisher.Publish(ctx, *pkg.Metadata, func(ctx context.Context) error { return p.Manager.Guard(ctx, i) })
 		if err != nil {
+			log.Printf("fleet submission stopped: stage=METADATA_PUBLICATION")
 			return port.Receipt{}, err
 		}
 		git.Commit = metadata.Commit

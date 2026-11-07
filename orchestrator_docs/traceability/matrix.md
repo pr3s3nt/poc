@@ -1573,3 +1573,8 @@ removal → HTTP rollback-preview/rollback → EnvironmentRollback Dialog → pe
 prior-state/empty/partial/stale tests, real PostgreSQL/Terraform cleanup tests,
 HTTP scope tests and EnvironmentRollback component tests. Live scenario:
 e2e/scenarios/environment-rollback; full runtime acceptance still pending.
+
+Issue #49 interrupted publication pair: `TestRecoveryCompletesOnlyMissingUpdateMetadata`
+validates exact retained prior evidence, one missing metadata publication, native
+UID refusal and repeated observation without another Git write; see the
+[verification](../verification/2026-11-07-environment-deploy-rollback.md).
