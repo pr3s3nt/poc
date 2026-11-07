@@ -119,11 +119,14 @@ deployment FAILED and operation INTERRUPTED; explicit UI recovery passed. A
 subsequent attempt updated the original five workloads and frontend/loadgenerator
 succeeded, but payment was recorded FAILED. Its Service exists, but its rollout
 publication, Deployment and Pod are absent; Console exposes only the generic
-runtime failure. The operation is currently INTERRUPTED and awaits explicit UI
-recovery. The runner now polls operation and deployment history through GET after
-the Deploy button is clicked, avoiding response-body capture. This polling change
-is not yet committed or rerun. Payment failure and its cause remain under
-investigation; checkout has not run.
+runtime failure. UI recovery returned 409 `RECOVERY_INCOMPLETE`: the current
+read-only absence settlement supports first prerequisites only, while this
+failed intent is a new Rollout phase and its already-acknowledged prerequisite
+Service must be retained. A further recovery scope decision is pending. The
+runner now polls operation and deployment history through GET after the Deploy
+button is clicked, avoiding response-body capture. This change is committed as
+`cb000bcc` but has not yet been exercised in a new attempt. Payment failure and its cause remain under investigation;
+checkout has not run.
 
 Runtime/browser acceptance has NOT passed. Three workloads remain unapplied and
 payment is only partially applied; product → cart → checkout has not run. The

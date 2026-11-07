@@ -2196,11 +2196,14 @@ pass. Full Go checks still fail the same 79 tests/17 packages as archived main.
 The separate Console has authored all eleven Online Boutique workloads through
 forms. The original five app workloads, Redis, frontend and loadgenerator are
 ready. Payment's Service exists, but its rollout failed before the Deployment/Pod
-were published.
+were published; explicit recovery returned `RECOVERY_INCOMPLETE` because Fleet
+absence settlement currently covers first prerequisites only. A further recovery
+scope decision is pending.
 The user approved extending issue #47 to safely recover an unpublished new unit
 in an existing shared Fleet GitRepo. That change is pushed and explicit UI
-recovery passed twice. The UI attempt updated the original five, then deployed
-frontend and loadgenerator; payment was recorded FAILED and the operation is
-currently INTERRUPTED. The three remaining workloads and checkout are
+recovery passed for the original frontend operation. The UI attempt updated the
+original five, then deployed frontend and loadgenerator; payment was recorded
+FAILED and the operation is currently INTERRUPTED. The recovery attempt for this
+rollout remains incomplete. The three remaining workloads and checkout are
 unverified. Main is unmerged.
 [Execution and limitations](verification/2026-11-07-compatible-security-boutique.md).
