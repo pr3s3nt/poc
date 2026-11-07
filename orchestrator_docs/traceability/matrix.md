@@ -1529,3 +1529,11 @@ ADR-039 / WD-02–03: template-only values → RuntimeDefaults/TemplateDefaultsS
 → workloadconfig scoped admission → generic resolver / renderer / Preview →
 arbitrary-value merge, forged-profile, no-policy and real Fleet/PVC acceptance.
 See [verification](../verification/2026-11-06-template-only-defaults.md).
+
+## Installation Organization — issue #47
+
+UC-00 Organization identity for installation seed maps to the API seed CLI,
+`internal/seed/organization.go`, seed Apply and session-scoped organization HTTP
+handler. Tests: `api-seed.test.mjs`, seed `organization_test.go` and
+`catalog_postgres_test.go`, HTTP `organization_test.go`, CLI `main_test.go`.
+No schema migration, UI authoring or public creation endpoint is involved.

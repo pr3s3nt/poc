@@ -226,3 +226,12 @@ Complete workload configuration/defaults (issue #37):
 
 Template-only workload defaults: [ADR-039](architecture/decisions/ADR-039-template-owned-workload-defaults.md).
 - [Readable IDP application/repository/resource names](architecture/decisions/ADR-038-readable-idp-names.md).
+
+## Configurable seed Organization — issue #47
+
+[API seed installation procedure](operations/platform-seed.md#configurable-organization--issue-47)
+covers credential-free identity preparation, first-Admin/backend configuration
+and pre-import Organization checks.
+
+[Organization seed verification](verification/2026-11-07-organization-seed.md)
+records CLI/API, PostgreSQL, runtime rerun and full-check evidence for issue #47.

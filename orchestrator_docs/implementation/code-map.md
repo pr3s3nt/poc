@@ -1307,3 +1307,13 @@ no backend defaults policy remains. Standard profiles live in source `bundle.yam
 `frontend/src/features/workloads/DefaultSelect.tsx` shares muted inherited select
 hints, hidden placeholder options and explicit reset across Service/runtime/schedule
 fields. `WorkloadDefaults.test.tsx` covers distinct choices and sparse reset/Save.
+
+## Seed Organization identity — issue #47
+
+- `scripts/bootstrap/lib/api-seed.mjs`: Organization config validation, exclusive
+  identity-file preparation and session key/name verification before import.
+- `scripts/bootstrap/seed-api.mjs`: external CLI preparation/import modes.
+- `backend/internal/seed/organization.go`: bounded identity-file reader.
+- `backend/internal/seed/seed.go`: transactional identity creation/reuse/conflict.
+- `backend/cmd/orchestrator/main.go`: installation file flag/environment wiring.
+- `backend/internal/delivery/http/organization.go`: session-scoped identity read.

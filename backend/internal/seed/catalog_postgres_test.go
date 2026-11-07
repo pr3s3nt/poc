@@ -81,3 +81,44 @@ func TestCatalogNoneFixtureOnPostgresIsAtomicRaceFreeAndSurvivesReopen(t *testin
 		t.Fatalf("connections %d", len(conns))
 	}
 }
+
+func TestOrganizationIdentityOnPostgresPreservesNameAndID(t *testing.T) {
+	db := persistencetest.FreshPostgresRoles(t)
+	ctx := context.Background()
+	if _, err := postgres.Setup(ctx, db.Owner, postgres.Roles{Console: db.ConsoleRole, State: db.StateRole}); err != nil {
+		t.Fatal(err)
+	}
+	st, err := postgres.Open(ctx, db.Console)
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := seed.Defaults()
+	o.Profile = "production"
+	o.Catalog = seed.CatalogStaging
+	o.OrganizationKey = "my-company"
+	o.OrganizationName = "Công ty của tôi"
+	if err := seed.Apply(ctx, st, o); err != nil {
+		t.Fatal(err)
+	}
+	original, err := st.GetOrganization(ctx, o.OrganizationKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+	st, err = postgres.Open(ctx, db.Console)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := seed.Apply(ctx, st, o); err != nil {
+		t.Fatal(err)
+	}
+	o.OrganizationName = "Wrong name"
+	if seed.Apply(ctx, st, o) == nil {
+		t.Fatal("rename accepted")
+	}
+	after, err := st.GetOrganization(ctx, o.OrganizationKey)
+	if err != nil || after != original {
+		t.Fatalf("identity changed: %+v %v", after, err)
+	}
+}

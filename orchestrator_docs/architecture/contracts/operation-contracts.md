@@ -975,3 +975,11 @@ selection. Select a verified binding in Settings before Preview/Deploy. This
 refusal performs no Terraform apply or application manifest submission. Direct
 selection remains an invalid public mutation. Historical stored Direct states
 are readable for migration/cleanup, never a deploy fallback.
+
+## Organization identity read — issue #47
+
+`GET /api/v1/organization` requires an authenticated session. It returns
+`{organization: {id, key, name}}` resolved from that session only; no Organization
+selector is used. Missing authentication returns UNAUTHORIZED.
+It performs no writes and exposes no credentials or account list. External API
+seed may require an exact key/name match before other mutations.

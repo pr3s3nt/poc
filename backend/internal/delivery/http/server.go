@@ -189,6 +189,7 @@ func (s *Server) routes() {
 	s.observabilityRoutes()
 	s.mux.HandleFunc("POST /api/v1/auth/sign-in", s.handleSignIn)
 	s.mux.HandleFunc("GET /api/v1/auth/session", s.handleSession)
+	s.mux.HandleFunc("GET /api/v1/organization", s.handleOrganization)
 	s.mux.HandleFunc("POST /api/v1/auth/sign-out", s.handleSignOut)
 	s.mux.HandleFunc("POST /api/v1/auth/change-password", s.handleChangePassword)
 	s.mux.HandleFunc("GET /api/v1/users", s.handleListUsers)

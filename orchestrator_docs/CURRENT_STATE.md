@@ -2167,3 +2167,11 @@ creation is explicit. WorkloadEditorPage reuses shared PVC identity/typed params
 with a collision-free alias and existing reuse guards, adding dependency + mount
 atomically. Other workloads' Pod-local sources are excluded. No API/backend/schema
 change. [Verification](verification/2026-11-06-reuse-first-volumes.md) records checks and real reuse/Preview.
+
+## Configurable Organization seed — issue #47
+
+Feature branch adds key/name input to the external API seed tool, a local
+credential-free identity export, installation CLI/env wiring and session-scoped
+Organization verification before import. Existing names/IDs are preserved;
+conflicting names are refused. Legacy inputs remain supported. No schema, UI or
+provisioning change. [Checks and remaining limits](verification/2026-11-07-organization-seed.md).
