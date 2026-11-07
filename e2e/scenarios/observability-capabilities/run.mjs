@@ -9,7 +9,7 @@ const config = readConsoleConfig();
 const root = resolve(process.env.ORCH_TEST_RUN_DIR ?? '');
 assert(process.env.ORCH_TEST_RUN_DIR && !root.startsWith(process.cwd() + '/') && statSync(root).isDirectory() && !(statSync(root).mode & 0o077), 'Private run directory outside Git required');
 const mode = process.argv[2] ?? 'prepare';
-assert(['prepare', 'deploy', 'observe', 'refresh-renderer', 'profile-update', 'noop', 'native', 'add-workload', 'investigate', 'alerts', 'dashboard', 'unbind', 'reconcile-deploy', 'restore'].includes(mode));
+assert(['prepare', 'deploy', 'observe', 'refresh-renderer', 'profile-update', 'noop', 'native', 'add-workload', 'investigate', 'alerts', 'dashboard', 'unbind', 'reconcile-deploy', 'restore', 'add-collectors', 'related'].includes(mode));
 const kubeconfig = process.env.ORCH_CLUSTER_KUBECONFIG_FILE;
 const runName = process.env.ORCH_TEST_NAME;
 assert(kubeconfig && runName && /^[a-z0-9-]+$/.test(runName));
@@ -98,7 +98,7 @@ try {
   await page.goto(config.baseURL+`/ui/applications/${app.key}/settings?environment=staging`);
   const section=page.locator('section.content-panel').filter({has:page.getByRole('heading',{name:'Giám sát môi trường',exact:true})});await section.getByText('Override theo workload (JSON)',{exact:true}).click();
   const override=structuredClone(connection.profile.defaults);override.intervalSeconds=60;override.sampleLimit=600;
-  await section.locator('textarea').fill(JSON.stringify({'worker-demo':override},null,2));state.binding=await click(base+'/monitoring/binding','PUT',section.getByRole('button',{name:'Gắn kết nối',exact:true}));save();
+  await section.locator('#monitoring-workload-overrides').fill(JSON.stringify({'worker-demo':override},null,2));state.binding=await click(base+'/monitoring/binding','PUT',section.getByRole('button',{name:'Gắn kết nối',exact:true}));save();
   const preview=await api(base+'/preview','POST',{});assert(preview.changes.some(c=>c.workloadId==='worker-demo'&&c.action==='DEPLOY'));assert(preview.changes.some(c=>c.workloadId==='gateway-demo'&&c.action==='UPDATE'));console.log('PASS new workload + explicit override queued alongside inherited workload update');
  }
  if(mode==='investigate'){
@@ -154,8 +154,36 @@ try {
   const connection=(await api('/monitoring/connections')).connections.find(c=>c.id===state.connection);assert(connection?.profile.defaults);
   await page.goto(config.baseURL+`/ui/applications/${app.key}/settings?environment=staging`);const section=page.locator('section.content-panel').filter({has:page.getByRole('heading',{name:'Giám sát môi trường',exact:true})});
   await section.getByLabel('Kết nối giám sát',{exact:true}).selectOption(state.connection);await section.getByLabel('Nguồn metrics',{exact:true}).selectOption('prometheus');await section.getByLabel('Nguồn logs',{exact:true}).selectOption('loki');
-  const override=structuredClone(connection.profile.defaults);override.intervalSeconds=60;override.sampleLimit=600;await section.getByText('Override theo workload (JSON)',{exact:true}).click();await section.locator('textarea').fill(JSON.stringify({'worker-demo':override},null,2));
+  const override=structuredClone(connection.profile.defaults);override.intervalSeconds=60;override.sampleLimit=600;await section.getByText('Override theo workload (JSON)',{exact:true}).click();await section.locator('#monitoring-workload-overrides').fill(JSON.stringify({'worker-demo':override},null,2));
   state.binding=await click(base+'/monitoring/binding','PUT',section.getByRole('button',{name:'Gắn kết nối',exact:true}));save();const preview=await api(base+'/preview','POST',{});assert.equal(preview.changes.length,2);assert(preview.changes.every(c=>c.action==='UPDATE'));console.log('PASS external binding restored with its explicit workload override; deployment required');
+ }
+ if(mode==='add-collectors'){
+  const sources={ 'postgres-observer':process.env.ORCH_PG_EXPORTER_METRICS_URL, 'dependency-observer':process.env.ORCH_DEPENDENCY_PROBE_METRICS_URL };
+  state.collectorDrafts??={};
+  for(const [name,source] of Object.entries(sources)){
+   assert(source,'Actual source URL required for '+name);const sourceURL=new URL(source);assert(['http:','https:'].includes(sourceURL.protocol)&&!sourceURL.username&&!sourceURL.password,'Credential-free internal fixture URL required');
+   if(state.collectorDrafts[name])continue;
+   await page.goto(config.baseURL+`/ui/applications/${app.key}/environments/staging/workloads/new`);const custom=page.getByRole('button',{name:/Tự cấu hình/});if(await custom.count())await custom.click();await page.getByRole('button',{name:'Nhập Workload',exact:true}).click();
+   const workload={apiVersion:'orchestrator.dev/workload/v1',metadata:{name},replicas:1,containers:{main:{image:'observability-fixture:issue35-v2',variables:{METRICS_PROXY_URL:source},ports:[{name:'http',containerPort:8080}],readinessProbe:{path:'/health',port:8080}}},service:{ports:{http:{port:8080,targetPort:8080}}},workloadExecution:{version:1,kind:'Deployment'}};
+   const input=join(root,name+'-workload.json');writeFileSync(input,JSON.stringify(workload),{mode:0o600});await page.getByLabel('File Workload',{exact:true}).setInputFiles(input);await page.getByText('Đã phân tích Workload: '+name,{exact:false}).waitFor();await click(base+'/workloads/'+name,'PUT',page.getByRole('button',{name:'Lưu draft Workload',exact:true}));state.collectorDrafts[name]=true;save();
+  }
+  const binding=(await api(base+'/monitoring/binding')).binding;assert(binding?.metricsSource==='prometheus');const overrides=structuredClone(binding.workloadProfiles??{});
+  overrides['postgres-observer']={port:'http',path:'/metrics',intervalSeconds:30,sampleLimit:1000,metrics:[{key:'database_up',metric:'pg_up',aggregation:'gauge',unit:'count',alert:{comparison:'below',above:1,forSeconds:15,severity:'critical'}},{key:'connections',metric:'pg_stat_database_numbackends',aggregation:'gauge',unit:'count'},{key:'transactions',metric:'pg_stat_database_xact_commit',aggregation:'rate',unit:'per_second'}]};
+  overrides['dependency-observer']={port:'http',path:'/metrics',intervalSeconds:30,sampleLimit:500,metrics:[{key:'endpoint_up',metric:'probe_success',aggregation:'gauge',unit:'count',alert:{comparison:'below',above:1,forSeconds:15,severity:'warning'}},{key:'probe_latency',metric:'probe_duration_seconds',aggregation:'gauge',unit:'seconds'}]};
+  const resource=(await api(base+'/resources')).resources.find(r=>r.type==='k8s-namespace'&&r.generation===binding.generation);assert(resource?.id);state.mappedResource=resource.id;
+  await page.goto(config.baseURL+`/ui/applications/${app.key}/settings?environment=staging`);const section=page.locator('section.content-panel').filter({has:page.getByRole('heading',{name:'Giám sát môi trường',exact:true})});await section.getByText('Override theo workload (JSON)',{exact:true}).click();await section.locator('#monitoring-workload-overrides').fill(JSON.stringify(overrides,null,2));await section.getByText('Mapping resource/dependency (JSON)',{exact:true}).click();
+  await section.locator('#monitoring-resource-mappings').fill(JSON.stringify({[resource.id]:{collectorWorkload:'gateway-demo',metricKeys:['requests']}},null,2));
+  await section.locator('#monitoring-dependency-mappings').fill(JSON.stringify({'postgres-instance':{collectorWorkload:'postgres-observer',metricKeys:['database_up','connections','transactions']},'test-backend':{collectorWorkload:'dependency-observer',metricKeys:['endpoint_up','probe_latency']}},null,2));
+  state.binding=await click(base+'/monitoring/binding','PUT',section.getByRole('button',{name:'Gắn kết nối',exact:true}));save();const preview=await api(base+'/preview','POST',{});assert.equal(preview.changes.filter(c=>c.action==='DEPLOY').length,2);assert.equal(preview.changes.filter(c=>c.action==='UPDATE').length,2);console.log('PASS two actual exporter/probe collectors and scoped resource/dependency mappings queued');
+ }
+ if(mode==='related'){
+  assert(state.mappedResource);const view=await api(base+'/monitoring');assert.equal(view.resources.length,1);assert.equal(view.dependencies.length,2);assert.equal(view.resources[0].id,state.mappedResource);assert(view.dependencies.every(d=>d.configuration==='APPLIED'&&d.provenance==='DECLARED_MAPPING'));
+  const db=view.dependencies.find(d=>d.id==='postgres-instance'),probe=view.dependencies.find(d=>d.id==='test-backend');assert(db.metrics.database_up.state==='RECEIVING'&&probe.metrics.endpoint_up.state==='RECEIVING','Await actual exporter/probe ingestion');
+  const resource=await api(base+'/monitoring/resources/'+state.mappedResource);assert.equal(resource.collectorWorkload,'gateway-demo');assert.equal(resource.configuration,'APPLIED');assert(resource.metrics.requests);
+  const foreign=await page.request.get(config.baseURL+'/api/v1'+base+'/monitoring/resources/00000000-0000-4000-8000-000000000000');assert.equal(foreign.status(),404);
+  await page.goto(config.baseURL+`/ui/applications/${app.key}/environments/staging/resources/${state.mappedResource}`);await page.getByTestId('resource-name').waitFor();await page.getByText('Giám sát resource',{exact:true}).click();await page.getByRole('img',{name:/requests/}).waitFor();await page.screenshot({path:join(root,'resource-observation.png'),fullPage:true});
+  await page.getByRole('button',{name:'Logs',exact:true}).click();await page.locator('.obs-log-message').first().waitFor();const url=new URL(page.url());assert.equal(url.searchParams.get('workload'),'gateway-demo');assert(url.searchParams.get('from')&&url.searchParams.get('to'));
+  await page.goto(config.baseURL+`/ui/applications/${app.key}?environment=staging`);await page.getByRole('heading',{name:'Giám sát dependency',exact:true}).waitFor();await page.getByRole('region',{name:'postgres-instance',exact:true}).waitFor();await page.screenshot({path:join(root,'dependency-observation.png'),fullPage:true});state.relatedVerified=true;save();console.log('PASS actual scoped resource/dependency API, PostgreSQL/blackbox metrics, resource authorization and time-preserving browser drill-down');
  }
  if (mode === 'prepare') {
   const accounts = (await api('/driver-accounts')).accounts;

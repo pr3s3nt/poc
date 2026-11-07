@@ -5,6 +5,7 @@ import type { Application, EnvironmentKey } from '../../shared/types/application
 import { Button } from '../../shared/ui/Button';
 import { Status } from '../../shared/ui/Status';
 import { getResource, isTerminalStatus, type Admission, type ResourceDetail } from './api';
+import { ResourceMonitoring } from '../observability/RelatedMonitoring';
 import { CleanupProgress } from './CleanupProgress';
 import { DeleteResourceDialog } from './DeleteResourceDialog';
 import { consumerKindLabel, operationStatusLabel, refusalLabel, resourceStatusLabel, scopeLabel, stageLabel } from './labels';
@@ -27,6 +28,7 @@ type Load = ({ state: 'loading' } | { state: 'ready'; detail: ResourceDetail } |
  */
 export function ResourceDetailPage({ application, environment, resourceId, canDelete, pollMs }: { application: Application; environment: EnvironmentKey; resourceId: string; canDelete: boolean; pollMs?: number }) {
   const scope = `${application.id}|${environment}|${resourceId}`;
+  const [observationScope, setObservationScope] = useState('');
   const [stored, setLoad] = useState<Load>({ state: 'loading', scope });
   const [attempt, setAttempt] = useState(0);
   const [dialogScope, setDialogScope] = useState<string>();
@@ -87,6 +89,7 @@ export function ResourceDetailPage({ application, environment, resourceId, canDe
           {detail.lastAttempt ? <div><dt>{t('resources.resourceDetail.lastExecution')}</dt><dd>{detail.lastAttempt.number} · {stageLabel(detail.lastAttempt.stage)} · {detail.lastAttempt.status}{detail.lastAttempt.errorCode ? ` · ${detail.lastAttempt.errorCode}` : ''} · {date(detail.lastAttempt.updatedAt)}</dd></div> : null}
         </dl>
       </section>
+      <details key={scope} className="content-panel" onToggle={event => setObservationScope(event.currentTarget.open ? scope : '')}><summary>{t('monitoring.resourceObservations')}</summary>{observationScope === scope ? <ResourceMonitoring applicationId={application.id} environment={environment} resourceId={resourceId} /> : null}</details>
       <section className="content-panel"><h2>{t('resources.resourceDetail.safeOutputs')}</h2>{Object.keys(detail.outputs).length ? <dl className="detail-grid">{Object.entries(detail.outputs).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{outputText(value)}</dd></div>)}</dl> : <p>{t('resources.resourceDetail.theResourceHasNoRecorded')}</p>}</section>
       <section className="content-panel"><h2>{t('resources.resourceDetail.usedBy')}</h2>{detail.consumers.length ? <ul>{detail.consumers.map((c) => <li key={`${c.kind}|${c.name}|${c.resourceId ?? ''}`}>{consumerKindLabel(c.kind)}: <code>{c.name}</code>{c.status ? ` · ${resourceStatusLabel(c.status)}` : ''}{c.resourceId ? <> · <a href="#" onClick={(event) => { event.preventDefault(); navigate({ name: 'resource', applicationId: application.id, environment, resourceId: c.resourceId as string }); }}>{t('resources.resourceDetail.open')}</a></> : null}</li>)}</ul> : <p>{t('resources.resourceDetail.noWorkloadOrResourceUses')}</p>}</section>
       <section className="content-panel" aria-label={t('resources.resourceDetail.deleteResource')}><h2>{t('resources.resourceDetail.deleteResource')}</h2>

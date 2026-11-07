@@ -12,11 +12,14 @@ import (
 	"time"
 
 	"orchestrator/internal/adapters/credentialmemory"
+	"orchestrator/internal/adapters/prometheus"
 	"orchestrator/internal/adapters/store"
 	"orchestrator/internal/domain/application"
+	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/monitoring"
 	"orchestrator/internal/domain/telemetry"
+	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/execution"
 	obs "orchestrator/internal/ports/observability"
 	"orchestrator/internal/ports/persistence"
@@ -363,5 +366,144 @@ func TestMonitoringNativeWithdrawalDoesNotRequireExternalSourceRetest(t *testing
 	view, e := m.Read(ctx, scope, Params{})
 	if e != nil || view.Source != "native" {
 		t.Fatal("native read depends on stale external source", e)
+	}
+}
+
+func TestMonitoringResourceMappingsValidateScopeAndEffectiveKeys(t *testing.T) {
+	ctx := context.Background()
+	m, st, scope := monitoringFixture(t)
+	server := monitoringProvider(t, false)
+	defer server.Close()
+	c := connectionFixture(server.URL)
+	c.Profile = monitoring.Profile{SchemaVersion: 1, Version: "resource-test-v1", Defaults: &monitoring.WorkloadProfile{Port: "metrics", Path: "/metrics", IntervalSeconds: 30, SampleLimit: 500, Metrics: []monitoring.MetricDefinition{{Key: "up", Metric: "pg_up", Aggregation: "gauge", Unit: "count"}}}}
+	c, e := m.Save(ctx, "acme", c, 0, "")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = m.Test(ctx, "acme", c.ID); e != nil {
+		t.Fatal(e)
+	}
+	id := ids.New()
+	m.ResourceIdentity = func(_ context.Context, sc telemetry.Scope, key string) (ResourceIdentity, error) {
+		if sc != scope || key != id {
+			return ResourceIdentity{}, persistence.ErrNotFound
+		}
+		return ResourceIdentity{ID: id, Generation: 0, Name: "postgres.default", Type: "postgres", Status: "READY"}, nil
+	}
+	mappings := map[string]monitoring.ObservationMapping{id: {CollectorWorkload: "exporter", MetricKeys: []string{"up"}}}
+	b, e := m.BindObservations(ctx, scope, c.ID, 0, "prometheus", "native", nil, mappings, nil)
+	if e != nil {
+		t.Fatal(e)
+	}
+	// Old clients omitting mappings preserve the authorized saved association.
+	same, e := m.BindProfiles(ctx, scope, c.ID, b.Revision, "prometheus", "native", nil)
+	if e != nil || same.Revision != b.Revision || len(same.ResourceObservations) != 1 {
+		t.Fatal("omitted mapping lost or changed revision", e)
+	}
+	foreign := map[string]monitoring.ObservationMapping{ids.New(): {CollectorWorkload: "exporter", MetricKeys: []string{"up"}}}
+	if _, e = m.BindObservations(ctx, scope, c.ID, b.Revision, "prometheus", "native", nil, foreign, nil); !errors.Is(e, persistence.ErrNotFound) {
+		t.Fatal("foreign resource accepted", e)
+	}
+	mappings[id] = monitoring.ObservationMapping{CollectorWorkload: "exporter", MetricKeys: []string{"unknown"}}
+	if _, e = m.BindObservations(ctx, scope, c.ID, b.Revision, "prometheus", "native", nil, mappings, nil); !errors.Is(e, monitoring.ErrInvalid) {
+		t.Fatal("unconfigured metric accepted", e)
+	}
+	saved, e := st.GetMonitoringBinding(ctx, "acme", "shop", "staging")
+	if e != nil || saved.Revision != b.Revision {
+		t.Fatal("failed validation mutated binding", e)
+	}
+}
+func TestResourceObservationAuthorizationPrecedesExternalRead(t *testing.T) {
+	m, _, scope := monitoringFixture(t)
+	called := false
+	m.ResourceIdentity = func(context.Context, telemetry.Scope, string) (ResourceIdentity, error) {
+		called = true
+		return ResourceIdentity{}, persistence.ErrNotFound
+	}
+	if _, e := m.ReadResource(context.Background(), scope, ids.New(), Params{}); !errors.Is(e, persistence.ErrNotFound) || !called {
+		t.Fatal("resource authorization bypass", e)
+	}
+}
+func TestResourceProjectionKeepsMissingAndFiltersConfiguredAlerts(t *testing.T) {
+	now := time.Now()
+	mapping := monitoring.ObservationMapping{CollectorWorkload: "exporter", MetricKeys: []string{"up", "connections"}}
+	view := MonitoringView{From: now.Add(-time.Hour), To: now, Workloads: []WorkloadObservation{{Workload: "exporter", State: "PARTIAL", Configuration: "APPLIED", ProfileVersion: "db-v1", ApplicationMetrics: map[string]MetricObservation{"up": {Unit: "count", State: "RECEIVING"}}}}, Alerts: []prometheus.Alert{{Name: "DBDown", Labels: map[string]string{"orchestrator_workload": "exporter", "metric_key": "up"}}, {Name: "Foreign", Labels: map[string]string{"orchestrator_workload": "other", "metric_key": "up"}}, {Name: "OtherMetric", Labels: map[string]string{"orchestrator_workload": "exporter", "metric_key": "unmapped"}}}}
+	out := projectObservation("db", "resource", mapping, view)
+	if out.State != "PARTIAL" || out.Metrics["connections"].State != "MISSING" || len(out.Alerts) != 1 || out.Alerts[0].Name != "DBDown" {
+		t.Fatal("projection widened scope or invented healthy data", out)
+	}
+}
+
+type appliedConfigurationReader struct{ desiredClusterFixture }
+
+func (appliedConfigurationReader) MonitoringTarget(_ context.Context, s obs.Source) (monitoring.Target, error) {
+	return monitoring.Target{Scope: monitoring.Scope{Organization: s.OrganizationKey, Application: s.ApplicationKey, Environment: s.EnvironmentKey, Generation: s.Generation, ClusterUID: "cluster-one", Namespace: s.Target.Namespace}, Workload: s.WorkloadID, Kind: "Deployment", Name: s.WorkloadID, UID: "controller"}, nil
+}
+func (appliedConfigurationReader) MonitoringConfiguration(context.Context, obs.Source, []execution.Manifest) (string, error) {
+	return "APPLIED", nil
+}
+func TestMonitoringAppliedRequiresBothCurrentRevisionAndLiveArtifacts(t *testing.T) {
+	ctx := context.Background()
+	m, st, scope := monitoringFixture(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/query_range":
+			fmt.Fprint(w, `{"status":"success","data":{"resultType":"matrix","result":[]}}`)
+		case "/api/v1/alerts":
+			fmt.Fprint(w, `{"status":"success","data":{"alerts":[]}}`)
+		default:
+			fmt.Fprint(w, `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"cluster_uid":"cluster-one"},"value":[1,"1"]}]}}`)
+		}
+	}))
+	defer server.Close()
+	c := connectionFixture(server.URL)
+	c.AlertmanagerURL = ""
+	c.LokiURL = ""
+	c, e := m.Save(ctx, "acme", c, 0, "")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = m.Test(ctx, "acme", c.ID); e != nil {
+		t.Fatal(e)
+	}
+	b, e := m.BindSources(ctx, scope, c.ID, 0, "prometheus", "native")
+	if e != nil {
+		t.Fatal(e)
+	}
+	now := time.Now()
+	dep := deployment.Deployment{ID: ids.New(), OrganizationKey: "acme", ApplicationKey: "shop", EnvironmentKey: "staging", WorkloadID: "web", Status: deployment.StatusFailed, StartedAt: now}
+	if e = st.SaveDeployment(ctx, dep); e != nil {
+		t.Fatal(e)
+	}
+	wi := deployment.WorkloadInstance{ID: ids.New(), EnvironmentKey: "shop/staging", WorkloadID: "web", LastDeploymentID: dep.ID, Status: deployment.InstanceReady, ObservedAt: now, TargetRef: map[string]any{"organization": "acme", "connection": "scoped-account", "namespace": "shop-stage", "objects": []execution.ObjectRef{{APIVersion: "apps/v1", Kind: "Deployment", Name: "web"}}}}
+	if e = st.UpsertWorkloadInstance(ctx, wi); e != nil {
+		t.Fatal(e)
+	}
+	m.Native.reader = appliedConfigurationReader{desiredClusterFixture{"cluster-one"}}
+	readConfig := func() string {
+		t.Helper()
+		v, e := m.Read(ctx, scope, Params{})
+		if e != nil || len(v.Workloads) != 1 {
+			t.Fatalf("read %+v %v", v, e)
+		}
+		return v.Workloads[0].Configuration
+	}
+	if got := readConfig(); got != "NOT_APPLIED" {
+		t.Fatal("live artifacts hid a pending monitoring revision", got)
+	}
+	wi.TargetRef["monitoringRevision"] = monitoring.NewPin(b, c, 0).Signature()
+	if e = st.UpsertWorkloadInstance(ctx, wi); e != nil {
+		t.Fatal(e)
+	}
+	if got := readConfig(); got != "APPLIED" {
+		t.Fatal("matching signature and artifacts not applied", got)
+	}
+	b.Revision++
+	if e = st.PutMonitoringBinding(ctx, b, b.Revision-1); e != nil {
+		t.Fatal(e)
+	}
+	if got := readConfig(); got != "NOT_APPLIED" {
+		t.Fatal("binding-only change reported applied before deploy", got)
 	}
 }

@@ -79,6 +79,7 @@ type Server struct {
 
 // Config configures the HTTP server.
 type Config struct {
+	Monitoring      *observabilityapp.Monitoring
 	CatalogReleases *catalogapp.Service
 	GitAccess       *gitaccess.Service
 	GitTester       GitTester
@@ -152,7 +153,10 @@ func NewServer(cfg Config) *Server {
 		uiDir:           cfg.UIDir,
 		mux:             http.NewServeMux(),
 	}
-	s.monitoring = observabilityapp.NewMonitoring(cfg.Observability, cfg.Store, cfg.ConnectionCredentials)
+	s.monitoring = cfg.Monitoring
+	if s.monitoring == nil {
+		s.monitoring = observabilityapp.NewMonitoring(cfg.Observability, cfg.Store, cfg.ConnectionCredentials)
+	}
 	s.monitoringRoutes()
 	s.connections.SetKubeconfigRegistration(cfg.KubeconfigVerifier, cfg.ConnectionCredentials)
 	s.connections.SetAWSRegistration(cfg.AWSVerifier)

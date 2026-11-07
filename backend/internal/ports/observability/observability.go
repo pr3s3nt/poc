@@ -9,6 +9,7 @@ import (
 )
 
 type Source struct {
+	MonitoringRevision string `json:"monitoringRevision,omitempty"`
 	telemetry.Source
 	Target               execution.Target
 	Controller           *execution.ObjectRef

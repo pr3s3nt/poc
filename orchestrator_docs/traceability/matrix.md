@@ -1540,6 +1540,7 @@ See [verification](../verification/2026-11-06-template-only-defaults.md).
 | UC-09 EXT-OBS-02/05/09/13 | cluster/current-Pod UID-scoped Prometheus queries; retained Loki adapter; explicit native history | provider bounds/isolation tests; live collection/query checkpoints |
 | UC-09 EXT-OBS-03/06/14 | Prometheus evaluation, Alertmanager processing projection, scoped Console drill-down | real firing and resolved webhook receipts; browser checks in progress |
 | UC-09 EXT-OBS-04/10–12/15; UC-05–08 observation pins | typed profile/PodMonitor/rules; plan/Preview/claim pins; applied workload signature | profile-only/stale/noop tests; real PostgreSQL admission/config fencing; live lifecycle in progress |
+| UC-09 EXT-OBS-16 | Scoped resource/dependency mapping, `related.go`, `RelatedMonitoring.tsx` | Effective-key/scope validation, authorize-before-query, missing-data and late-response tests; live mapping pending |
 
 Implementation status and limits are recorded in
 [capability verification](../verification/2026-11-07-observability-capabilities.md);

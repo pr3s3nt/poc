@@ -4090,5 +4090,11 @@
   "monitoring.deleting": "Chờ xóa; bấm Xóa để thử lại",
   "monitoring.credentialCleanupPending": "Credential cũ chờ dọn; lưu lại để thử lại",
   "monitoring.credentialRequired": "Cần nhập lại hoặc xóa credential khi đổi URL nguồn.",
-  "monitoring.staleBinding": "Cấu hình giám sát đã đổi. Kiểm tra kết nối và cập nhật binding trước khi triển khai."
+  "monitoring.staleBinding": "Cấu hình giám sát đã đổi. Kiểm tra kết nối và cập nhật binding trước khi triển khai.",
+  "monitoring.relatedMappings": "Mapping resource/dependency (JSON)",
+  "monitoring.resourceObservations": "Giám sát resource",
+  "monitoring.dependencyObservations": "Giám sát dependency",
+  "monitoring.collector": "Workload thu thập",
+  "monitoring.declaredDependency": "Quan hệ khai báo; metrics không chứng minh mọi lời gọi ứng dụng.",
+  "monitoring.logs": "Logs"
 }

@@ -1354,3 +1354,11 @@ pending planning compares the applied `monitoringRevision` target metadata.
 PostgreSQL `monitoring_guard.go` serializes metadata mutation with atomic
 Environment claim admission; memory stores perform the same pin/busy checks.
 These additions use existing JSON metadata and require no relational migration.
+
+Resource/dependency observability (EXT-OBS-16):
+`backend/internal/application/observability/related.go` authorizes State resource
+identity and projects configured collector metrics/alerts; bootstrap wires the
+existing scoped resource-detail service. Optional binding JSON maps resource IDs
+and dependency aliases to effective profile keys. `RelatedMonitoring.tsx` and
+`MonitoringChart.tsx` share charts/drill-down between environment monitoring and
+resource detail; no new external query language or cross-app source selector.

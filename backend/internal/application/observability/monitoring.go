@@ -22,10 +22,11 @@ import (
 
 // Monitoring keeps external reads independent of native stored log/history reads.
 type Monitoring struct {
-	Native      *Service
-	Store       persistence.Store
-	Repo        persistence.MonitoringRepository
-	Credentials credentials.Store
+	ResourceIdentity func(context.Context, telemetry.Scope, string) (ResourceIdentity, error)
+	Native           *Service
+	Store            persistence.Store
+	Repo             persistence.MonitoringRepository
+	Credentials      credentials.Store
 }
 
 func NewMonitoring(native *Service, st persistence.Store, creds credentials.Store) *Monitoring {
@@ -325,6 +326,9 @@ func (m *Monitoring) BindSources(ctx context.Context, scope telemetry.Scope, id 
 	return m.BindProfiles(ctx, scope, id, expected, metricsSource, logsSource, nil)
 }
 func (m *Monitoring) BindProfiles(ctx context.Context, scope telemetry.Scope, id string, expected int64, metricsSource, logsSource string, profiles map[string]monitoring.WorkloadProfile) (monitoring.Binding, error) {
+	return m.BindObservations(ctx, scope, id, expected, metricsSource, logsSource, profiles, nil, nil)
+}
+func (m *Monitoring) BindObservations(ctx context.Context, scope telemetry.Scope, id string, expected int64, metricsSource, logsSource string, profiles map[string]monitoring.WorkloadProfile, resources, dependencies map[string]monitoring.ObservationMapping) (monitoring.Binding, error) {
 	var out monitoring.Binding
 	if m.Repo == nil || m.Native == nil {
 		return out, ErrUnavailable
@@ -381,6 +385,19 @@ func (m *Monitoring) BindProfiles(ctx context.Context, scope telemetry.Scope, id
 	}
 	out = monitoring.Binding{ProfileVersion: c.Profile.Version, WorkloadProfiles: profiles, Organization: scope.OrganizationKey, Application: scope.ApplicationKey, Environment: scope.EnvironmentKey, ConnectionID: id, ConnectionRevision: c.Revision, ClusterUID: c.ClusterUID, Generation: env.TargetGeneration, Revision: expected + 1, MetricsSource: metricsSource, LogsSource: logsSource}
 	if prior, err := m.Repo.GetMonitoringBinding(ctx, scope.OrganizationKey, scope.ApplicationKey, scope.EnvironmentKey); err == nil && prior.Revision == expected {
+		if resources == nil {
+			resources = prior.ResourceObservations
+		}
+		if dependencies == nil {
+			dependencies = prior.DependencyObservations
+		}
+	}
+	if e = m.validateObservationMappings(ctx, scope, env.TargetGeneration, c, profiles, resources, dependencies, metricsSource == "prometheus"); e != nil {
+		return out, e
+	}
+	out.ResourceObservations = resources
+	out.DependencyObservations = dependencies
+	if prior, err := m.Repo.GetMonitoringBinding(ctx, scope.OrganizationKey, scope.ApplicationKey, scope.EnvironmentKey); err == nil && prior.Revision == expected {
 		candidate := monitoring.CloneBinding(out)
 		candidate.Revision = prior.Revision
 		if reflect.DeepEqual(candidate, prior) {
@@ -435,6 +452,8 @@ type MetricObservation struct {
 	Series []prometheus.Series `json:"series"`
 }
 type MonitoringView struct {
+	Resources         []RelatedObservation           `json:"resources"`
+	Dependencies      []RelatedObservation           `json:"dependencies"`
 	LogsSource        string                         `json:"logsSource"`
 	AlertmanagerState string                         `json:"alertmanagerState"`
 	Notifications     []prometheus.NotificationState `json:"notifications"`
@@ -517,6 +536,13 @@ func (m *Monitoring) Read(ctx context.Context, scope telemetry.Scope, p Params) 
 		return out, e
 	}
 	out.State = "NOT_DEPLOYED"
+	var configSources []obs.Source
+	if _, ok := m.Native.reader.(obs.ConfigurationVerifier); ok {
+		configSources, e = m.Native.discover(ctx)
+		if e != nil {
+			return out, e
+		}
+	}
 	for _, t := range targets {
 		if t.Scope.ClusterUID != b.ClusterUID {
 			return out, monitoring.ErrInvalid
@@ -552,17 +578,16 @@ func (m *Monitoring) Read(ctx context.Context, scope telemetry.Scope, p Params) 
 			}
 		}
 		if verifier, ok := m.Native.reader.(obs.ConfigurationVerifier); ok {
-			sources, err := m.Native.discover(ctx)
-			if err != nil {
-				return out, err
-			}
-			for _, source := range sources {
+			for _, source := range configSources {
 				if source.OrganizationKey == scope.OrganizationKey && source.ApplicationKey == scope.ApplicationKey && source.EnvironmentKey == scope.EnvironmentKey && source.WorkloadID == t.Workload {
 					desired, err := monitoringObjects(c, b, t)
 					if err != nil {
 						return out, err
 					}
 					w.Configuration, err = verifier.MonitoringConfiguration(ctx, source, desired)
+					if err == nil && w.Configuration == "APPLIED" && source.MonitoringRevision != monitoring.NewPin(b, c, env.TargetGeneration).Signature() {
+						w.Configuration = "NOT_APPLIED"
+					}
 					if err != nil {
 						w.Configuration = "UNAVAILABLE"
 					}
@@ -642,6 +667,7 @@ func (m *Monitoring) Read(ctx context.Context, scope telemetry.Scope, p Params) 
 		}
 	}
 	out.GrafanaURL = scopedGrafanaURL(c, scope, b.Generation, out.From, out.To, selectedWorkload, namespace)
+	m.projectRelated(ctx, scope, b, &out)
 	return out, nil
 }
 

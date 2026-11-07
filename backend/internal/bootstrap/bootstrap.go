@@ -54,6 +54,7 @@ import (
 	deliveryhttp "orchestrator/internal/delivery/http"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/telemetry"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/platform/clock"
 	configport "orchestrator/internal/ports/configuration"
@@ -242,6 +243,7 @@ type PlatformVaultBootstrap struct {
 
 // App holds the built components.
 type App struct {
+	Monitoring    *observabilityapp.Monitoring
 	Observability *observabilityapp.Service
 	// Diagnostics is the Infrastructure Account diagnostics service.
 	Diagnostics *accountdiag.Service
@@ -620,6 +622,10 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	}
 	telemetryService := observabilityapp.New(st, telemetryReader)
 	monitoringService := observabilityapp.NewMonitoring(telemetryService, st, connectionCredentials)
+	monitoringService.ResourceIdentity = func(ctx context.Context, scope telemetry.Scope, id string) (observabilityapp.ResourceIdentity, error) {
+		v, e := resourceCleanup.GetResource(ctx, resourcecleanup.Scope{OrganizationKey: scope.OrganizationKey, ApplicationKey: scope.ApplicationKey, EnvironmentKey: scope.EnvironmentKey}, id)
+		return observabilityapp.ResourceIdentity{ID: v.ID, Name: v.Descriptor, Type: v.Type, Generation: v.Generation, Status: v.Status}, e
+	}
 	if deliveryCoordinator != nil {
 		deliveryCoordinator.MonitoringRules = monitoringService.PlanRules
 	}
@@ -661,6 +667,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		Drift:                 driftService,
 		Reconciliation:        deliveryCoordinator,
 		Delivery:              deliveryBindings,
+		Monitoring:            monitoringService,
 		Observability:         telemetryService,
 		Diagnostics:           diagnostics,
 		TemplateSources:       bundles,
@@ -690,6 +697,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	})
 
 	return &App{
+		Monitoring:            monitoringService,
 		Observability:         telemetryService,
 		Diagnostics:           diagnostics,
 		RenderRegistry:        renderRegistry,

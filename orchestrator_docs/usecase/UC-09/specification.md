@@ -241,3 +241,15 @@ Accepted 2026-11-05 for issue #35 Slice 1:
 - EXT-OBS-15: Profile changes require explicit binding refresh and deployment. A saved
   profile is not evidence of collection or rule application. Removal preserves
   shared tools and retained history; credentials remain private.
+
+### EXT-OBS-16 — resource and declared dependency views
+
+PE/Admin may map existing profile metrics to a scoped resource instance or a
+named declared dependency. The server verifies real resource identity through
+UC-09 RES and never accepts a resource name as ownership proof. Mappings select
+only metrics from an owned collector workload; they add no free-form query or
+cross-app selector. Environment views and resource detail show source, collector,
+configuration/profile/freshness and missing/error states, and preserve workload
+and time on drill-down. A declared dependency and an observed probe are distinct
+from proof of an actual application call. Exporter/instrumentation prerequisites
+and company metric semantics must remain explicit.

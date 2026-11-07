@@ -115,6 +115,7 @@ func (s *Service) discover(ctx context.Context) ([]obs.Source, error) {
 				source := obs.Source{Source: telemetry.Source{Scope: scope, Key: key, WorkloadID: instance.WorkloadID, TargetHash: hash}, Target: target}
 				source.DeploymentID = instance.LastDeploymentID
 				var objects []execution.ObjectRef
+				source.MonitoringRevision, _ = instance.TargetRef["monitoringRevision"].(string)
 				raw, marshalErr := json.Marshal(instance.TargetRef["objects"])
 				if marshalErr == nil && json.Unmarshal(raw, &objects) == nil {
 					for _, ref := range objects {

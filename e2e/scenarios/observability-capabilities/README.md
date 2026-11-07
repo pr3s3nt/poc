@@ -91,3 +91,14 @@ If a proxy/browser loses the deployment response, retain `deployPending` and use
 SUCCEEDED, all expected workload config APPLIED and no pending Preview changes.
 It updates only the private runner receipt and refuses inconsistent outcomes.
 Never restart the proxy/frontend while a deployment response is still open.
+
+`add-collectors` needs `ORCH_PG_EXPORTER_METRICS_URL` and
+`ORCH_DEPENDENCY_PROBE_METRICS_URL` pointing only to the run-owned exporter/probe.
+Use fixture image `observability-fixture:issue35-v2`; its optional
+`METRICS_PROXY_URL` forwards actual metric responses with a ten-second/four-MiB
+bound. It is a test adapter, not a product proxy or source of synthetic samples.
+It adds two collector Workloads, typed overrides and declared dependency mappings.
+The scoped namespace resource maps to an actual workload metric for the generic
+resource-panel gate; this is not product-owned PostgreSQL resource acceptance.
+Run `deploy`, wait for actual ingestion, then `related` to verify live APIs,
+resource authorization, charts and scope/time-preserving browser drill-down.

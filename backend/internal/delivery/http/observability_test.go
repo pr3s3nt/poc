@@ -13,7 +13,10 @@ import (
 	"orchestrator/internal/application/authentication"
 	obs "orchestrator/internal/application/observability"
 	"orchestrator/internal/domain/identity"
+	"orchestrator/internal/domain/telemetry"
+	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/platform/password"
+	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
 )
@@ -31,7 +34,18 @@ func TestObservabilityAuthenticatedStoredHistory(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	ts := httptest.NewServer(NewServer(Config{Store: st, Authentication: authentication.NewService(st), Observability: obs.New(st, nil)}))
+	native := obs.New(st, nil)
+	monitor := obs.NewMonitoring(native, st, nil)
+	resourceID := ids.New()
+	resourceReads := 0
+	monitor.ResourceIdentity = func(_ context.Context, sc telemetry.Scope, id string) (obs.ResourceIdentity, error) {
+		resourceReads++
+		if sc.OrganizationKey != fixture.Scope.OrganizationKey || sc.ApplicationKey != fixture.Scope.ApplicationKey || sc.EnvironmentKey != fixture.Scope.EnvironmentKey || id != resourceID {
+			return obs.ResourceIdentity{}, persistence.ErrNotFound
+		}
+		return obs.ResourceIdentity{ID: resourceID, Name: "owned resource", Generation: fixture.Scope.Generation, Status: "READY"}, nil
+	}
+	ts := httptest.NewServer(NewServer(Config{Store: st, Authentication: authentication.NewService(st), Observability: native, Monitoring: monitor}))
 	defer ts.Close()
 	base := ts.URL + "/api/v1/applications/" + fixture.Scope.ApplicationKey + "/environments/staging/observability/"
 	user := bundleClient(t, ts.URL, "telemetry-user")
@@ -51,6 +65,22 @@ func TestObservabilityAuthenticatedStoredHistory(t *testing.T) {
 	}
 	if status, _ := read(foreign, base+"logs"); status != 404 {
 		t.Fatalf("foreign: %d", status)
+	}
+	resourceURL := strings.TrimSuffix(base, "observability/") + "monitoring/resources/" + resourceID
+	if status, _ := read(http.DefaultClient, resourceURL); status != 401 {
+		t.Fatal("resource without login", status)
+	}
+	if status, _ := read(foreign, resourceURL); status != 404 {
+		t.Fatal("foreign resource read", status)
+	}
+	if resourceReads != 0 {
+		t.Fatal("resource lookup ran before scope authorization")
+	}
+	if status, _ := read(user, resourceURL+"?namespace=foreign"); status != 400 {
+		t.Fatal("resource selector override", status)
+	}
+	if status, raw := read(user, resourceURL); status != 200 || !strings.Contains(string(raw), "NOT_CONFIGURED") {
+		t.Fatalf("unconfigured scoped resource %d %s", status, raw)
 	}
 	jobs := strings.TrimSuffix(base, "observability/") + "workloads/backup/jobs"
 	if status, _ := read(http.DefaultClient, jobs); status != 401 {

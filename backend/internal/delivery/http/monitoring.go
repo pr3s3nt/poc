@@ -12,6 +12,7 @@ import (
 )
 
 func (s *Server) monitoringRoutes() {
+	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/monitoring/resources/{resource}", s.handleResourceMonitoring)
 	s.mux.HandleFunc("GET /api/v1/monitoring/connections", s.handleMonitoringConnections)
 	s.mux.HandleFunc("POST /api/v1/monitoring/connections", s.handleMonitoringConnections)
 	s.mux.HandleFunc("PUT /api/v1/monitoring/connections/{connection}", s.handleMonitoringConnections)
@@ -163,11 +164,13 @@ func (s *Server) handleMonitoringBinding(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var body struct {
-		WorkloadProfiles map[string]monitoring.WorkloadProfile `json:"workloadProfiles"`
-		ConnectionID     string                                `json:"connectionId"`
-		ExpectedRevision int64                                 `json:"expectedRevision"`
-		MetricsSource    string                                `json:"metricsSource"`
-		LogsSource       string                                `json:"logsSource"`
+		ResourceObservations   map[string]monitoring.ObservationMapping `json:"resourceObservations"`
+		DependencyObservations map[string]monitoring.ObservationMapping `json:"dependencyObservations"`
+		WorkloadProfiles       map[string]monitoring.WorkloadProfile    `json:"workloadProfiles"`
+		ConnectionID           string                                   `json:"connectionId"`
+		ExpectedRevision       int64                                    `json:"expectedRevision"`
+		MetricsSource          string                                   `json:"metricsSource"`
+		LogsSource             string                                   `json:"logsSource"`
 	}
 	if !monitoringBody(w, r, &body) {
 		return
@@ -181,7 +184,7 @@ func (s *Server) handleMonitoringBinding(w http.ResponseWriter, r *http.Request)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	out, e := s.monitoring.BindProfiles(r.Context(), telemetry.Scope{OrganizationKey: actor.OrganizationKey, ApplicationKey: app, EnvironmentKey: env}, body.ConnectionID, body.ExpectedRevision, body.MetricsSource, body.LogsSource, body.WorkloadProfiles)
+	out, e := s.monitoring.BindObservations(r.Context(), telemetry.Scope{OrganizationKey: actor.OrganizationKey, ApplicationKey: app, EnvironmentKey: env}, body.ConnectionID, body.ExpectedRevision, body.MetricsSource, body.LogsSource, body.WorkloadProfiles, body.ResourceObservations, body.DependencyObservations)
 	if e != nil {
 		s.monitoringError(w, e)
 		return
@@ -192,4 +195,28 @@ func (s *Server) handleMonitoringBinding(w http.ResponseWriter, r *http.Request)
 func credentialSet(c monitoring.Connection, provider string) bool {
 	_, ref := c.Credential(provider)
 	return ref != ""
+}
+
+func (s *Server) handleResourceMonitoring(w http.ResponseWriter, r *http.Request) {
+	org, app, env, ok := s.scopedEnvironment(w, r)
+	if !ok {
+		return
+	}
+	if s.monitoring == nil {
+		writeCode(w, codeServiceUnavailable, "")
+		return
+	}
+	q := r.URL.Query()
+	for key, values := range q {
+		if (key != "from" && key != "to") || len(values) != 1 {
+			writeCode(w, codeInvalidRequest, "")
+			return
+		}
+	}
+	out, e := s.monitoring.ReadResource(r.Context(), telemetry.Scope{OrganizationKey: org, ApplicationKey: app, EnvironmentKey: env}, r.PathValue("resource"), observability.Params{From: q.Get("from"), To: q.Get("to")})
+	if e != nil {
+		s.monitoringError(w, e)
+		return
+	}
+	writeJSON(w, 200, out)
 }

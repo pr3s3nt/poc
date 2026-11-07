@@ -57,8 +57,15 @@ func TestMonitoringRepositoryRevisionAndReferences(t *testing.T) {
 		t.Fatal(e)
 	}
 	b := monitoring.Binding{Organization: "observe", Application: "shop", Environment: "staging", ConnectionID: c.ID, ConnectionRevision: 1, ClusterUID: "cluster", Generation: env.TargetGeneration, Revision: 1, LogsSource: "loki"}
+	resourceID := ids.New()
+	b.ResourceObservations = map[string]monitoring.ObservationMapping{resourceID: {CollectorWorkload: "exporter", MetricKeys: []string{"up"}}}
+	b.DependencyObservations = map[string]monitoring.ObservationMapping{"database": {CollectorWorkload: "exporter", MetricKeys: []string{"up"}}}
 	if e = st.PutMonitoringBinding(ctx, b, 0); e != nil {
 		t.Fatal(e)
+	}
+	savedBinding, e := st.GetMonitoringBinding(ctx, "observe", "shop", "staging")
+	if e != nil || savedBinding.ResourceObservations[resourceID].CollectorWorkload != "exporter" || len(savedBinding.DependencyObservations["database"].MetricKeys) != 1 {
+		t.Fatal("mapping metadata round trip", e)
 	}
 	oldPin, e := persistence.ReadMonitoringPin(ctx, st, "observe", "shop", "staging", env.TargetGeneration)
 	if e != nil {

@@ -203,3 +203,33 @@ query or current verification pin. Generation/physical-target guards still apply
 an unrelated external connection edit must not prevent removal of its app-owned
 collection configuration. Explicit Loki queries continue requiring a current,
 verified binding even when the default logs source is native.
+
+## Resource and declared dependency observations
+
+A PE/Admin binding may associate at most eight `resourceObservations` and eight
+`dependencyObservations` with existing collection profiles. Each mapping has a
+`collectorWorkload` and one to eight `metricKeys` already defined by that workload's
+effective profile (whole-workload override before connection defaults). It adds no
+raw query, endpoint, credential or selector. Resource keys are real State resource
+instance IDs, verified through the existing scoped resource-detail service for the
+same organization/Application/Environment/generation. Dependency keys are bounded
+aliases. A mapping states a declared relationship; receiving probe/client metrics
+does not prove that every application request traversed that dependency.
+
+Collection still belongs to the managed collector workload and is delivered through
+its existing PodMonitor/rules. Exporter/probe installation and least-privilege
+source credentials remain operator prerequisites. The platform does not attach a
+shared exporter to an app merely because names match. A resource mapping cannot
+widen the collector's trusted target scope or grant another app's resource access.
+It must be rechecked when read; removed or inaccessible resources report missing
+mapping rather than adopting another resource with the same name.
+
+Environment monitoring exposes mapped observations with their resource/dependency
+identity, declared collector, profile version, config status, freshness, metric
+units/null gaps and matching configured metric alerts. Resource detail can open
+its own scoped observation read; resource authorization precedes external reads.
+Both resource and dependency drill-down preserve collector/workload/time for logs,
+metrics and Grafana. Source failure stays explicit. Unconfigured mappings stay
+NOT_CONFIGURED; absent collector data stays NOT_DEPLOYED/MISSING, never zero.
+Mapping edits share binding revision, Preview/admission fences and native withdrawal
+behavior. Optional JSON metadata requires no schema DDL change.

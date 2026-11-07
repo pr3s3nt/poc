@@ -179,3 +179,32 @@ are still running. Redis was initially missing from the runner PATH; private
 packaged binaries/libraries were installed and the affected acceptance workload
 packages passed with real PostgreSQL and Redis. This does not declare the entire
 feature/full gate green.
+
+## Resource/dependency mapping checkpoint
+
+EXT-OBS-16 now has scoped State-resource authorization, effective profile-key
+validation, revisioned optional binding metadata and shared Console charts. Real
+PostgreSQL verifies mapping round trips alongside admission/reference fences.
+HTTP tests reject unauthenticated/foreign resource reads and selector overrides
+before resource/provider reads. Focused UI tests retain scope under late replies
+and keep external failures/missing observations explicit.
+
+Four actual workloads run through the product Git/Fleet path: the original two
+HTTP fixtures plus collectors forwarding real PostgreSQL-exporter and blackbox
+responses without changing their samples. These adapters are test-only, keep
+source URLs outside Git and do not simulate telemetry. The PostgreSQL fixture is
+an explicitly declared external dependency, not a product-owned PostgreSQL State
+resource. The real product namespace State resource is mapped to its workload
+request metric solely to verify scoped resource mapping/drill-down; this does not
+claim database resource ownership or disk-space coverage.
+
+Browser/API checks verified the real resource panel and two dependency panels,
+actual pg_up/probe_success observations, unknown-resource 404 and resource-to-logs
+workload/time preservation. Shared resource-detail shell/panels were opened before
+implementation and visually compared afterwards. No navigation/branding redesign;
+advanced mappings remain collapsed and the panel opens explicitly.
+
+Config APPLIED now additionally requires the workload's persisted monitoring
+revision signature, not only equivalent Kubernetes artifact specs. A binding-only
+mapping edit therefore stays NOT_APPLIED until deployment acknowledges it. Focused
+tests cover absent/current/stale signatures with matching live artifacts.

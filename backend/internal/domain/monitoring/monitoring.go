@@ -127,19 +127,25 @@ type Connection struct {
 	Rules              RulesConfig         `json:"rules"`
 	VerifiedAt         *time.Time          `json:"verifiedAt,omitempty"`
 }
+type ObservationMapping struct {
+	CollectorWorkload string   `json:"collectorWorkload"`
+	MetricKeys        []string `json:"metricKeys"`
+}
 type Binding struct {
-	ProfileVersion     string                     `json:"profileVersion,omitempty"`
-	WorkloadProfiles   map[string]WorkloadProfile `json:"workloadProfiles,omitempty"`
-	Organization       string                     `json:"organization"`
-	Application        string                     `json:"application"`
-	Environment        string                     `json:"environment"`
-	ConnectionID       string                     `json:"connectionId"`
-	ConnectionRevision int64                      `json:"connectionRevision"`
-	ClusterUID         string                     `json:"clusterUid"`
-	Generation         int64                      `json:"generation"`
-	Revision           int64                      `json:"revision"`
-	LogsSource         string                     `json:"logsSource,omitempty"`
-	MetricsSource      string                     `json:"metricsSource,omitempty"`
+	ResourceObservations   map[string]ObservationMapping `json:"resourceObservations,omitempty"`
+	DependencyObservations map[string]ObservationMapping `json:"dependencyObservations,omitempty"`
+	ProfileVersion         string                        `json:"profileVersion,omitempty"`
+	WorkloadProfiles       map[string]WorkloadProfile    `json:"workloadProfiles,omitempty"`
+	Organization           string                        `json:"organization"`
+	Application            string                        `json:"application"`
+	Environment            string                        `json:"environment"`
+	ConnectionID           string                        `json:"connectionId"`
+	ConnectionRevision     int64                         `json:"connectionRevision"`
+	ClusterUID             string                        `json:"clusterUid"`
+	Generation             int64                         `json:"generation"`
+	Revision               int64                         `json:"revision"`
+	LogsSource             string                        `json:"logsSource,omitempty"`
+	MetricsSource          string                        `json:"metricsSource,omitempty"`
 }
 
 // Verification is operational evidence for a configuration revision, not a new config.

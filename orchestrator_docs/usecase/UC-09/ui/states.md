@@ -133,3 +133,10 @@ pre-deploy binding, explicit logs source, revision refresh and guarded unbind.
 Keep pending-target, stale config, busy, committed/reload-failure and provider error
 states distinct. Read explorers preserve filters/time and explicit source across
 navigation; no automatic fallback or missing-as-zero presentation.
+
+Resource/dependency monitoring uses a compact panel showing the declared collector
+and config/profile status, then existing charts/alerts. Resource detail opens the
+panel explicitly. Empty mapping, missing collector, stale observations and source
+failure remain separate; no native fallback or inferred dependency-call claims.
+Links preserve workload/time. Mapping JSON is an advanced PE/Admin binding input,
+separate from whole-workload collection overrides; default shell/navigation stay.

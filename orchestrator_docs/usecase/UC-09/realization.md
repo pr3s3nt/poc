@@ -151,3 +151,9 @@ pending Preview token and Environment operation claim. Successful delivery recor
 the applied signature in workload target metadata. Pending planning compares this
 signature independently of Workload/configuration changes, so profile-only updates
 and native-source withdrawal use the ordinary fenced delivery/pruning path.
+
+EXT-OBS-16 reuses the resource-detail service to authorize a resource observation
+before reading external data. Monitoring binding resolves mapped keys against the
+effective collector profile; the scoped read projects existing metric observations
+and alert identities without widening selectors. Console reuses the metric chart,
+status and workload/time drill-down patterns in resource/dependency panels.
