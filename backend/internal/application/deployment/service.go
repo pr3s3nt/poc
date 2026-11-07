@@ -14,6 +14,7 @@ import (
 	"orchestrator/internal/application/deploymentreview"
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/provisioning"
+	"orchestrator/internal/application/tfexec"
 	"orchestrator/internal/application/workloadconfig"
 	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/configuration"
@@ -30,7 +31,10 @@ import (
 	"orchestrator/internal/platform/ids"
 	configport "orchestrator/internal/ports/configuration"
 	"orchestrator/internal/ports/execution"
+	"orchestrator/internal/ports/moduleregistry"
 	"orchestrator/internal/ports/persistence"
+	"orchestrator/internal/ports/renderregistry"
+	"orchestrator/internal/ports/repositoryhosting"
 )
 
 // DeployCommand is the UC-06 system operation input (OC-08).
@@ -1270,7 +1274,24 @@ func restoreTarget(target *execution.Target, ref map[string]any, organizationKey
 }
 
 func (s *Service) fail(ctx context.Context, record domain.Deployment, cause error) error {
-	log.Printf("deployment failure id=%s type=%T", record.ID, cause)
+	code := "UNCLASSIFIED"
+	for _, known := range []struct {
+		err  error
+		code string
+	}{
+		{repositoryhosting.ErrIdentity, "REPOSITORY_IDENTITY"}, {repositoryhosting.ErrUnavailable, "REPOSITORY_UNAVAILABLE"},
+		{deliverydomain.ErrUnsupported, "DELIVERY_UNSUPPORTED"}, {deliveryapp.ErrUnavailable, "DELIVERY_UNAVAILABLE"},
+		{deliverydomain.ErrOutcomeUnknown, "DELIVERY_UNKNOWN"}, {ErrTargetChanged, "TARGET_CHANGED"},
+		{configport.ErrNoStore, "NO_SECRET_STORE"}, {configport.ErrStoreUnavailable, "SECRET_STORE_UNAVAILABLE"},
+		{tfexec.ErrInstanceHeld, "RESOURCE_HELD"}, {tfexec.ErrBinding, "RESOURCE_BINDING"}, {tfexec.ErrReplacementRequired, "RESOURCE_REPLACEMENT"},
+		{moduleregistry.ErrReleaseMismatch, "MODULE_RELEASE"}, {renderregistry.ErrBundleUnavailable, "TEMPLATE_UNAVAILABLE"},
+	} {
+		if errors.Is(cause, known.err) {
+			code = known.code
+			break
+		}
+	}
+	log.Printf("deployment failure id=%s code=%s type=%T", record.ID, code, cause)
 	var stage *planning.StageError
 	if errors.As(cause, &stage) {
 		log.Printf("deployment planning failure stage=%s reason=%s type=%T", stage.Stage, stage.Reason, stage.Err)

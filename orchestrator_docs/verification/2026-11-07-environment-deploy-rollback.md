@@ -134,3 +134,19 @@ Deploy was admitted and ended FAILED at ad. Namespace Role/RoleBinding were reus
 No subsequent retry was launched without diagnosing this new failure. The original
 Busy blocker is resolved; successful complete redeploy and rollback acceptance are
 not yet achieved. This new pre-provision failure remains to be diagnosed.
+
+## Pre-provision failure diagnosis
+
+The managed application repository had become public. Its remote ID, allocation
+marker, clone URL and branch still matched the persisted allocation, but the
+repository-hosting adapter correctly refuses public repositories. The user's
+original private-repository requirement was restored on that exact existing repo;
+identity and marker were rechecked without replacing it. No actor or time for the
+visibility change is established by this check.
+
+Explicit Console renderer repinning and a fresh UI Deploy then passed the previous
+pre-provision failure and advanced through ad to cart. Runtime completion is still
+pending. Fixed-code deployment diagnostics now classify known repository, delivery,
+resource and template failures without logging provider text or secret values.
+Focused deployment-service tests passed (17.677s). No successful full application
+acceptance or rollback implementation is inferred from this checkpoint.
