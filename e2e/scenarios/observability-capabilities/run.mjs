@@ -9,7 +9,7 @@ const config = readConsoleConfig();
 const root = resolve(process.env.ORCH_TEST_RUN_DIR ?? '');
 assert(process.env.ORCH_TEST_RUN_DIR && !root.startsWith(process.cwd() + '/') && statSync(root).isDirectory() && !(statSync(root).mode & 0o077), 'Private run directory outside Git required');
 const mode = process.argv[2] ?? 'prepare';
-assert(['prepare', 'deploy', 'observe', 'refresh-renderer', 'profile-update', 'noop', 'native'].includes(mode));
+assert(['prepare', 'deploy', 'observe', 'refresh-renderer', 'profile-update', 'noop', 'native', 'add-workload', 'investigate', 'alerts', 'dashboard', 'unbind', 'reconcile-deploy', 'restore'].includes(mode));
 const kubeconfig = process.env.ORCH_CLUSTER_KUBECONFIG_FILE;
 const runName = process.env.ORCH_TEST_NAME;
 assert(kubeconfig && runName && /^[a-z0-9-]+$/.test(runName));
@@ -20,13 +20,14 @@ const save = () => writeFileSync(stateFile, JSON.stringify(state, null, 2), { mo
 const native = args => execFileSync('kubectl', ['--kubeconfig', kubeconfig, ...args], { encoding: 'utf8', timeout: 30000, stdio: ['pipe', 'pipe', 'pipe'] });
 const ui = await openConsole(config);
 const { page } = ui;
+page.setDefaultTimeout(30000);
 const api = async (path, method = 'GET', data) => {
  const r = await page.request.fetch(config.baseURL + '/api/v1' + path, { method, ...(data === undefined ? {} : { data }), timeout: 600000 });
  assert(r.ok(), `${method} ${path}: ${r.status()}`);
  return r.status() === 204 ? undefined : r.json();
 };
-const pending = (path, method) => page.waitForResponse(r => new URL(r.url()).pathname === '/api/v1' + path && r.request().method() === method, { timeout: 600000 });
-const click = async (path, method, button) => { const wait = pending(path, method); await button.click(); const r = await wait; assert(r.ok(), `${method} ${path}: ${r.status()}`); return r.status() === 204 ? undefined : r.json(); };
+const pending = (path, method) => page.waitForResponse(r => new URL(r.url()).pathname === '/api/v1' + path && r.request().method() === method, { timeout: path.endsWith('/deploy') ? 600000 : 30000 });
+const click = async (path, method, button) => { const wait = pending(path, method); void wait.catch(() => {}); await button.click(); const r = await wait; assert(r.ok(), `${method} ${path}: ${r.status()}`); return r.status() === 204 ? undefined : r.json(); };
 try {
  let app = (await api('/applications')).applications.find(a => a.key === state.app);
  if (!state.app) {
@@ -56,18 +57,18 @@ try {
   state.templateSourceId=source.id;save();console.log('PASS reinspection of unchanged template content for current runtime binary');
  }
  if (mode === 'profile-update' || mode === 'native') {
-  const previous=await api(base+'/preview','POST',{});
+  console.log('Reading current Preview');const previous=await api(base+'/preview','POST',{});
   if(mode==='profile-update'){
    const connection=(await api('/monitoring/connections')).connections.find(c=>c.id===state.connection);assert(connection);
    if(connection.profile.version!=='development-http-v2'){
-    await page.goto(config.baseURL+'/ui/platform/settings');
+    console.log('Opening profile editor');await page.goto(config.baseURL+'/ui/platform/settings');
     const section=page.getByRole('region',{name:'Kết nối giám sát',exact:true});
     await section.locator('.section-header').filter({hasText:'Owned kind observability'}).getByRole('button',{name:'Sửa',exact:true}).click();
     await section.getByText('Profile thu thập',{exact:true}).click();
     const profile=structuredClone(connection.profile);profile.version='development-http-v2';profile.defaults.metrics.find(m=>m.key==='failure').alert.severity='critical';
     profile.defaults.metrics.push({key:'failure_warning',metric:'fixture_failure',aggregation:'gauge',unit:'count',alert:{above:0,forSeconds:15,severity:'warning'}});
     profile.defaults.metrics.push({key:'error_ratio',metric:'fixture_requests_total',matchers:{code:'5..'},aggregation:'rate_ratio',denominatorMetric:'fixture_requests_total',minimumDenominator:0.01,unit:'ratio',alert:{above:0.05,forSeconds:15,severity:'warning'}});
-    await section.locator('#monitor-profile').fill(JSON.stringify(profile,null,2));
+    await section.locator('#monitor-profile').fill(JSON.stringify(profile,null,2));console.log('Saving profile v2');
     await click('/monitoring/connections/'+state.connection,'PUT',section.getByRole('button',{name:'Lưu kết nối',exact:true}));
    }
    await page.goto(config.baseURL+'/ui/platform/settings');const section=page.getByRole('region',{name:'Kết nối giám sát',exact:true});
@@ -84,6 +85,77 @@ try {
  }
  if(mode==='noop'){
   const preview=await api(base+'/preview','POST',{});assert.equal(preview.changes.length,0);console.log('PASS unchanged configuration has no pending deploy');
+ }
+ if(mode==='add-workload'){
+  if(!state.workerSaved){
+   await page.goto(config.baseURL+`/ui/applications/${app.key}/environments/staging/workloads/new`);
+   const custom=page.getByRole('button',{name:/Tự cấu hình/});if(await custom.count())await custom.click();await page.getByRole('button',{name:'Nhập Workload',exact:true}).click();
+   const workload={apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'worker-demo'},replicas:1,containers:{main:{image:'observability-fixture:issue35',ports:[{name:'http',containerPort:8080}],readinessProbe:{path:'/health',port:8080}}},service:{ports:{http:{port:8080,targetPort:8080}}},workloadExecution:{version:1,kind:'Deployment'}};
+   const input=join(root,'worker-workload.json');writeFileSync(input,JSON.stringify(workload),{mode:0o600});await page.getByLabel('File Workload',{exact:true}).setInputFiles(input);
+   await page.getByText('Đã phân tích Workload: worker-demo',{exact:false}).waitFor();await click(base+'/workloads/worker-demo','PUT',page.getByRole('button',{name:'Lưu draft Workload',exact:true}));state.workerSaved=true;save();
+  }
+  const connection=(await api('/monitoring/connections')).connections.find(c=>c.id===state.connection);assert(connection?.profile.defaults);
+  await page.goto(config.baseURL+`/ui/applications/${app.key}/settings?environment=staging`);
+  const section=page.locator('section.content-panel').filter({has:page.getByRole('heading',{name:'Giám sát môi trường',exact:true})});await section.getByText('Override theo workload (JSON)',{exact:true}).click();
+  const override=structuredClone(connection.profile.defaults);override.intervalSeconds=60;override.sampleLimit=600;
+  await section.locator('textarea').fill(JSON.stringify({'worker-demo':override},null,2));state.binding=await click(base+'/monitoring/binding','PUT',section.getByRole('button',{name:'Gắn kết nối',exact:true}));save();
+  const preview=await api(base+'/preview','POST',{});assert(preview.changes.some(c=>c.workloadId==='worker-demo'&&c.action==='DEPLOY'));assert(preview.changes.some(c=>c.workloadId==='gateway-demo'&&c.action==='UPDATE'));console.log('PASS new workload + explicit override queued alongside inherited workload update');
+ }
+ if(mode==='investigate'){
+  const from=new Date(Date.now()-12*3600000).toISOString(),to=new Date().toISOString();
+  const q=new URLSearchParams({from,to,source:'loki',workload:'gateway-demo',container:'main',level:'INFO',q:'actual HTTP request',limit:'2'});
+  const first=await api(base+'/observability/logs?'+q);assert.equal(first.source,'loki');assert(first.logs.length>0&&first.logs.every(l=>l.workloadId==='gateway-demo'&&l.container==='main'&&l.level==='INFO'&&l.podUid));
+  if(first.nextCursor){q.set('cursor',first.nextCursor);const second=await api(base+'/observability/logs?'+q);assert(second.logs.length>0);assert(!second.logs.some(l=>first.logs.some(p=>p.id===l.id)));}
+  const retained=new URLSearchParams({from,to,source:'loki',workload:'gateway-demo',q:'actual HTTP request',limit:'200'});const history=await api(base+'/observability/logs?'+retained);
+  const podUids=[...new Set(history.logs.map(l=>l.podUid))];assert(podUids.length>=2,'Expected retained records from a replaced Pod and its successor');state.retainedPodUids=podUids;save();
+  await page.goto(config.baseURL+`/ui/applications/${app.key}/environments/staging/observability?tab=logs&workload=gateway-demo`);
+  await page.locator('.obs-log-message').first().waitFor();await page.getByLabel('Mức log',{exact:true}).selectOption('INFO');
+  await page.getByLabel('Tìm trong nội dung log',{exact:true}).fill('actual HTTP request');await page.locator('.obs-log-message').first().waitFor();
+  await page.locator('.obs-log-message').first().click();await page.getByRole('heading',{name:'Chi tiết log',exact:true}).waitFor();assert((await page.locator('.obs-detail-dialog').innerText()).includes('UID:'));await page.screenshot({path:join(root,'log-detail.png'),fullPage:true});await page.getByRole('button',{name:'Đóng',exact:true}).click();
+  await page.getByRole('button',{name:'Theo dõi log mới',exact:true}).click();await page.getByRole('button',{name:'Tạm dừng',exact:true}).click();await page.locator('.obs-log-message').first().waitFor();
+  await page.screenshot({path:join(root,'log-investigation.png'),fullPage:true});console.log('PASS Loki filters, paging, Pod replacement history, detail and follow/pause');
+ }
+ if(mode==='alerts'){
+  const view=await api(base+'/monitoring');assert(view.alerts.filter(a=>a.state==='firing'&&a.labels.severity==='critical').length>=2);assert(view.notifications.some(n=>n.state==='suppressed'));
+  await page.goto(config.baseURL+`/ui/applications/${app.key}?environment=staging`);
+  await page.getByRole('button',{name:/OrchestratorMetricThreshold.*Nghiêm trọng/}).first().click();await page.getByRole('region',{name:'Chi tiết cảnh báo',exact:true}).waitFor();
+  await page.screenshot({path:join(root,'alert-detail.png'),fullPage:true});
+  await page.getByRole('button',{name:'Logs Loki',exact:true}).click();await page.locator('.obs-log-message').first().waitFor();const url=new URL(page.url());assert(url.searchParams.get('from')&&url.searchParams.get('to')&&url.searchParams.get('workload'));assert.equal(url.searchParams.get('tab'),'logs');
+  await page.screenshot({path:join(root,'alert-logs-drilldown.png'),fullPage:true});console.log('PASS actual firing alerts, suppressed processing state and scoped/time-preserving logs drill-down');
+ }
+ if(mode==='dashboard'){
+  const url=process.env.ORCH_GRAFANA_BROWSER_URL;assert(url,'Verified private browser origin required');
+  await page.goto(config.baseURL+'/ui/platform/settings');const section=page.getByRole('region',{name:'Kết nối giám sát',exact:true});await section.locator('.section-header').filter({hasText:'Owned kind observability'}).getByRole('button',{name:'Sửa',exact:true}).click();
+  await section.locator('#monitor-grafanaUrl').fill(url);await section.getByText('Nâng cao',{exact:true}).click();await section.locator('#monitor-dashboardUid').fill('orchestrator-workloads');
+  await click('/monitoring/connections/'+state.connection,'PUT',section.getByRole('button',{name:'Lưu kết nối',exact:true}));
+  const facts=await click('/monitoring/connections/'+state.connection+'/test','POST',section.getByRole('button',{name:'Kiểm tra',exact:true}));assert(facts.connectivity&&facts.cluster);
+  await page.goto(config.baseURL+`/ui/applications/${app.key}/settings?environment=staging`);const bindingSection=page.locator('section.content-panel').filter({has:page.getByRole('heading',{name:'Giám sát môi trường',exact:true})});state.binding=await click(base+'/monitoring/binding','PUT',bindingSection.getByRole('button',{name:'Gắn kết nối',exact:true}));save();console.log('PASS configured separate Grafana browser origin and refreshed source binding');
+ }
+ if(mode==='unbind'){
+  const binding=(await api(base+'/monitoring/binding')).binding;assert(binding?.metricsSource==='native'&&binding.logsSource==='native');
+  const rules=JSON.parse(native(['-n',state.namespace,'get','prometheusrules,podmonitors','-o','json']));assert.equal(rules.items.length,0,'App-owned monitoring config was not withdrawn');
+  const connection=(await api('/monitoring/connections')).connections.find(c=>c.id===state.connection);assert(connection);
+  const guarded=await page.request.delete(config.baseURL+'/api/v1/monitoring/connections/'+state.connection,{data:{expectedRevision:connection.revision}});assert.equal(guarded.status(),409,'Referenced connection deletion was admitted');
+  await page.goto(config.baseURL+`/ui/applications/${app.key}/settings?environment=staging`);const section=page.locator('section.content-panel').filter({has:page.getByRole('heading',{name:'Giám sát môi trường',exact:true})});await section.getByRole('button',{name:'Gỡ binding',exact:true}).click();const dialog=page.getByRole('dialog');await click(base+'/monitoring/binding','DELETE',dialog.getByRole('button',{name:'Gỡ binding',exact:true}));assert.equal((await api(base+'/monitoring/binding')).binding,null);
+  const logs=await api(base+'/observability/logs?source=native');assert.equal(logs.source,'native');assert(logs.logs.length>0,'Native history disappeared');
+  const unchanged=await api(base+'/preview','POST',{});assert.equal(unchanged.changes.length,0);state.binding=null;state.withdrawalVerified=true;save();await page.screenshot({path:join(root,'unbound-native.png'),fullPage:true});console.log('PASS scoped config withdrawal, referenced deletion guard, unbind and retained native history');
+ }
+ if(mode==='reconcile-deploy'){
+  assert(state.deployPending,'No uncertain deployment to reconcile');
+  const operations=(await api(base+'/operations')).operations;assert(!operations.some(o=>['ACTIVE','RECOVERING','INTERRUPTED'].includes(o.status)),'Operation not terminal');
+  const latest=[...operations].sort((a,b)=>Date.parse(b.startedAt)-Date.parse(a.startedAt))[0];assert.equal(latest.status,'SUCCEEDED');
+  const preview=await api(base+'/preview','POST',{});assert.equal(preview.changes.length,0,'Desired configuration not fully applied');
+  const view=await api(base+'/monitoring');assert.equal(view.workloads.length,state.workerSaved?2:1);assert(view.workloads.every(w=>w.configuration==='APPLIED'));
+  state.deployPending=false;state.lastDeployment={reconciled:true,operationId:latest.id,status:'SUCCEEDED'};save();console.log('PASS read-only reconciliation of lost response: terminal success, config APPLIED and no pending changes');
+ }
+ if(mode==='restore'){
+  assert(state.withdrawalVerified,'Complete native withdrawal acceptance first');
+  const facts=await api('/monitoring/connections/'+state.connection+'/test','POST');assert(facts.connectivity&&facts.cluster&&facts.metrics);
+  const connection=(await api('/monitoring/connections')).connections.find(c=>c.id===state.connection);assert(connection?.profile.defaults);
+  await page.goto(config.baseURL+`/ui/applications/${app.key}/settings?environment=staging`);const section=page.locator('section.content-panel').filter({has:page.getByRole('heading',{name:'Giám sát môi trường',exact:true})});
+  await section.getByLabel('Kết nối giám sát',{exact:true}).selectOption(state.connection);await section.getByLabel('Nguồn metrics',{exact:true}).selectOption('prometheus');await section.getByLabel('Nguồn logs',{exact:true}).selectOption('loki');
+  const override=structuredClone(connection.profile.defaults);override.intervalSeconds=60;override.sampleLimit=600;await section.getByText('Override theo workload (JSON)',{exact:true}).click();await section.locator('textarea').fill(JSON.stringify({'worker-demo':override},null,2));
+  state.binding=await click(base+'/monitoring/binding','PUT',section.getByRole('button',{name:'Gắn kết nối',exact:true}));save();const preview=await api(base+'/preview','POST',{});assert.equal(preview.changes.length,2);assert(preview.changes.every(c=>c.action==='UPDATE'));console.log('PASS external binding restored with its explicit workload override; deployment required');
  }
  if (mode === 'prepare') {
   const accounts = (await api('/driver-accounts')).accounts;
@@ -148,7 +220,7 @@ try {
   const defaultCD = await api('/delivery-default'); const binding = await api(`/delivery-bindings/${defaultCD.bindingId}?version=${defaultCD.bindingVersion}`);
   const values = binding.config; assert(values?.serviceAccountMode);
   state.namespace = env.namespaceIdentity; state.deliverySubject = values.serviceAccountMode === 'NATIVE' ? { mode: 'NATIVE' } : { name: values.serviceAccount, namespace: values.agentNamespace }; save();
-  state.deployPending = true; save(); const wait = pending(base + '/deploy', 'POST'); void wait.catch(() => {});
+  state.activePreview=preview;state.deployStartedAt=new Date().toISOString();state.deployPending = true; save(); const wait = pending(base + '/deploy', 'POST'); void wait.catch(() => {});
   await page.getByRole('button', { name: 'Triển khai các thay đổi này', exact: true }).click();
   if (values.serviceAccountMode !== 'NATIVE') {
    const accessFile = process.env.ORCH_TEST_ACCESS_FILE; assert(accessFile);

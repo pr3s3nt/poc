@@ -336,3 +336,32 @@ func TestMonitoringEndpointChangeRequiresExplicitCredentialClear(t *testing.T) {
 		t.Fatal("explicit clear failed")
 	}
 }
+
+func TestMonitoringNativeWithdrawalDoesNotRequireExternalSourceRetest(t *testing.T) {
+	ctx := context.Background()
+	m, st, scope := monitoringFixture(t)
+	c, e := m.Save(ctx, "acme", connectionFixture("https://metrics.example.test"), 0, "")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = m.BindSources(ctx, scope, c.ID, 0, "native", "native"); e != nil {
+		t.Fatal(e)
+	}
+	c.Name = "Renamed source"
+	if _, e = m.Save(ctx, "acme", c, c.Revision, ""); e != nil {
+		t.Fatal(e)
+	}
+	env, e := st.GetEnvironment(ctx, "shop", "staging")
+	if e != nil {
+		t.Fatal(e)
+	}
+	manifests := []execution.Manifest{{Kind: "Deployment", Name: "web", Namespace: "shop-stage"}}
+	planned, e := m.PlanRules(ctx, "acme", "shop", env, execution.Target{Namespace: "shop-stage"}, "web", manifests)
+	if e != nil || len(planned) != 1 {
+		t.Fatal("native withdrawal depends on stale external source", e)
+	}
+	view, e := m.Read(ctx, scope, Params{})
+	if e != nil || view.Source != "native" {
+		t.Fatal("native read depends on stale external source", e)
+	}
+}

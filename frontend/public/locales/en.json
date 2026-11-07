@@ -4087,5 +4087,8 @@
   "monitoring.customRange": "Selected interval",
   "monitoring.nativeMetricHistory": "Native metric history",
   "monitoring.settings": "Environment settings",
+  "monitoring.deleting": "Deletion pending; retry Delete",
+  "monitoring.credentialCleanupPending": "Old credential cleanup pending; save to retry",
+  "monitoring.credentialRequired": "Supply or explicitly clear the credential when changing a source URL.",
   "monitoring.staleBinding": "Monitoring configuration changed. Test the connection and refresh the binding before deployment."
 }

@@ -57,3 +57,37 @@ cluster/resource UIDs before cleanup. Retain the isolated cluster/feature stack
 while verification is in progress. Withdraw workloads using product delivery,
 remove only recorded namespace RBAC/collector allowlist entries, then delete the
 owned Application. Never delete shared/preexisting resources or another session.
+
+Lifecycle/investigation phases on the same recorded Application:
+
+```sh
+node e2e/scenarios/observability-capabilities/run.mjs add-workload
+node e2e/scenarios/observability-capabilities/run.mjs deploy
+node e2e/scenarios/observability-capabilities/run.mjs investigate
+# During controlled failure of the two owned HTTP fixtures:
+node e2e/scenarios/observability-capabilities/run.mjs alerts
+# Restore the fixtures and verify actual resolved receiver receipts before withdrawal.
+node e2e/scenarios/observability-capabilities/run.mjs native
+node e2e/scenarios/observability-capabilities/run.mjs deploy
+node e2e/scenarios/observability-capabilities/run.mjs unbind
+```
+
+`add-workload` creates a second workload in the same Application and a complete
+profile override; this is not stage-6 second-Application acceptance. `investigate`
+needs actual HTTP traffic in multiple Pod incarnations; it asserts Loki filters,
+paging, retained history, browser detail and follow/pause. `alerts` requires real
+firing critical and inhibited warning alerts, then checks Console drill-down.
+Controlled `/control` calls must target only recorded fixture workloads. Always
+restore them before stopping; verify fresh HTTP 200 and resolved receipts.
+
+`dashboard` takes `ORCH_GRAFANA_BROWSER_URL` already verified on the actual private
+access path, saves that separate browser origin and refreshes the binding; deploy
+afterwards. Do not commit private addresses. `refresh-renderer` reinspects identical
+task template content and explicitly selects its new Definition revision after a
+binary rebuild. It does not bypass compatibility checks or change source content.
+
+If a proxy/browser loses the deployment response, retain `deployPending` and use
+`reconcile-deploy` for a read-only check: no unresolved operation, latest operation
+SUCCEEDED, all expected workload config APPLIED and no pending Preview changes.
+It updates only the private runner receipt and refuses inconsistent outcomes.
+Never restart the proxy/frontend while a deployment response is still open.

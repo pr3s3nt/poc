@@ -197,3 +197,9 @@ objects, then removes metadata. Provider failure keeps the tombstone/receipts fo
 safe retry; Save/Test/Bind cannot reactivate or select it. No DB transaction spans
 credential-provider calls. New and legacy immutable references remain scoped to
 their organization/connection keys; credentials never enter manifests or links.
+
+When both signals explicitly select native, withdrawal uses no external source
+query or current verification pin. Generation/physical-target guards still apply;
+an unrelated external connection edit must not prevent removal of its app-owned
+collection configuration. Explicit Loki queries continue requiring a current,
+verified binding even when the default logs source is native.

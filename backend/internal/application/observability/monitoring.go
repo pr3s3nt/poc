@@ -477,13 +477,13 @@ func (m *Monitoring) Read(ctx context.Context, scope telemetry.Scope, p Params) 
 	if e != nil {
 		return out, e
 	}
-	if c.Revision != b.ConnectionRevision {
-		return out, persistence.ErrVersionConflict
-	}
 	if b.MetricsSource == "native" || (b.MetricsSource == "" && c.PrometheusURL == "") {
 		out.Source = "native"
 		out.State = "METRICS_NATIVE"
 		return out, nil
+	}
+	if c.Revision != b.ConnectionRevision {
+		return out, persistence.ErrVersionConflict
 	}
 	if !sourceVerified(c, "prometheus") {
 		return out, ErrUnavailable
@@ -663,12 +663,15 @@ func (m *Monitoring) PlanRules(ctx context.Context, org, app string, env environ
 	if e != nil {
 		return nil, e
 	}
-	if c.Revision != b.ConnectionRevision || b.Generation != env.TargetGeneration || b.ClusterUID != c.ClusterUID {
+	if b.Generation != env.TargetGeneration || b.ClusterUID != c.ClusterUID {
 		return nil, monitoring.ErrInvalid
 	}
 	externalMetrics := b.MetricsSource != "native" && c.PrometheusURL != ""
 	if !externalMetrics && b.LogsSource != "loki" {
 		return manifests, nil
+	}
+	if c.Revision != b.ConnectionRevision {
+		return nil, monitoring.ErrStaleBinding
 	}
 	if (externalMetrics && !sourceVerified(c, "prometheus")) || (b.LogsSource == "loki" && !sourceVerified(c, "loki")) || m.Native == nil || target.Organization != org {
 		return nil, monitoring.ErrInvalid

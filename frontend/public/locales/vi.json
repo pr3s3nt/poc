@@ -4087,5 +4087,8 @@
   "monitoring.customRange": "Khoảng đã chọn",
   "monitoring.nativeMetricHistory": "Lịch sử metrics native",
   "monitoring.settings": "Cài đặt môi trường",
+  "monitoring.deleting": "Chờ xóa; bấm Xóa để thử lại",
+  "monitoring.credentialCleanupPending": "Credential cũ chờ dọn; lưu lại để thử lại",
+  "monitoring.credentialRequired": "Cần nhập lại hoặc xóa credential khi đổi URL nguồn.",
   "monitoring.staleBinding": "Cấu hình giám sát đã đổi. Kiểm tra kết nối và cập nhật binding trước khi triển khai."
 }

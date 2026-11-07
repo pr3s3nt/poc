@@ -122,3 +122,60 @@ rendering. The subsequent actual Console/Git/Fleet deployment succeeded; this
 checkpoint does not yet mark the whole stage 5 complete. Known renderer tests and all 29 conformance
 failures were also reproduced on the same origin/main baseline; logs remain
 private outside Git. Full final gate has not yet been completed.
+
+## Profile and log lifecycle follow-up
+
+The version-2 development HTTP profile was edited through Console, tested, rebound
+and deployed through Git/Fleet. Product comparison returned APPLIED. Deployment,
+PodMonitor and PrometheusRule UIDs remained stable while the Pod UID changed.
+The next unchanged Preview had no changes. Adding a second workload in the same
+Application and an explicit whole-profile override produced DEPLOY plus UPDATE;
+the resulting PodMonitors use the inherited 30-second interval and overridden
+60-second interval respectively. This is not the stage-6 second-Application test.
+
+Real Loki checks cover search/level/container/workload filters, cursor paging
+without repeated records and retained logs from multiple Pod UIDs after rollout.
+The actual Console log detail shows Pod UID, and follow/pause was exercised by
+browser. A separate UID-fenced one-shot probe confirmed JSON severity and plain
+levels normalize to WARN/INFO/ERROR/UNKNOWN and representative fake password/token
+values are redacted. That probe was removed with its UID precondition.
+
+The profile editor exposed an old connection whose unspecified Loki retention was
+rendered as zero in a closed advanced panel, blocking HTML form submission. The
+UI now displays the three-day default; a focused legacy-editability test covers
+this. Native withdrawal also bypasses unused external-source verification/revision
+requirements while retaining generation and cluster guards; a focused test covers
+source changes after selecting both native signals.
+
+Actual version-2 rules on both owned workloads reached firing. Alertmanager
+reported two active critical alerts and three inhibited warnings; a real webhook
+body grouped the critical alerts from both workloads. Console displayed firing
+alerts and suppressed processing state, opened actual alert detail, and drilled
+to Loki logs preserving workload and time range. After both workloads were
+restored, 1,200 actual HTTP 200 requests supplied new recovery data and the
+receiver recorded resolved critical alerts for both workloads. Missing data was
+not used as proof of recovery.
+
+Native-source withdrawal was performed through Console and Git/Fleet. Both
+app-owned PodMonitor/PrometheusRule pairs were absent afterwards, referenced
+connection deletion was refused, Console unbind succeeded, native log history
+remained readable and Preview was a no-op. All six reused metrics component
+controller UIDs remained unchanged. The external binding and override are being
+restored for further work.
+
+A feature frontend restart interrupted an open deployment response. The backend
+completed normally. Read-only reconciliation confirmed a terminal SUCCEEDED
+operation, every expected monitoring configuration APPLIED and no Preview changes
+before clearing only the private runner's uncertain-outcome flag. Deployment was
+not resent. The runner records pending intent and supports this guarded recovery.
+
+Full frontend execution with four workers completed 982 tests: 979 passed and
+three failed. The two historical E2E label/recorded-ID assertions and the Resource
+Types deep-link assertion also fail on the same main baseline; focused
+observability tests pass, including the legacy editor regression. An initial
+unbounded run additionally had transient UI timing failures; bounded execution
+removed those without changing assertions. Full Go checks with real PostgreSQL
+are still running. Redis was initially missing from the runner PATH; private
+packaged binaries/libraries were installed and the affected acceptance workload
+packages passed with real PostgreSQL and Redis. This does not declare the entire
+feature/full gate green.
