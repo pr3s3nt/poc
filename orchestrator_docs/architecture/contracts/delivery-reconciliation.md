@@ -489,3 +489,27 @@ shared render retry. The patch tests UID/resourceVersion/revision, preserves
 annotations and records an intent/commit marker to prevent repeated render requests.
 Recovery then observes actual Fleet results; it never forges readiness or removes
 resources to clear a lock.
+
+## Empty rollback authorization — issue #49
+
+Rollback to the initial empty baseline confirms the complete owned resource
+selection before side effects and acquires that Environment as RESOURCE_CLEANUP.
+The same owner/fence removes workload delivery, including failed-first-deploy
+receipts outside the committed current Set, then executes the existing Terraform
+cleanup engine. There is no gap for another Deploy between workload removal and
+resource cleanup. Platform/preexisting resources and consumers outside the
+confirmed selection remain protected.
+
+The immutable cleanup selection pins original instance versions, targets, module
+and state identities. Workload removal can advance a selected instance exactly
+once to UNREFERENCED under this owner. Cleanup may derive that new version only
+when it is original+1 with unchanged target/module/state and UNREFERENCED status;
+all other version changes or statuses block. Selection never grows. Physical
+absence proof is required for every selected resource before reporting empty.
+
+After the current Set is empty and every workload instance is verified REMOVED,
+selected READY/confirmed-FAILED instances outside the committed Set may be marked
+UNREFERENCED by CAS at the exact reviewed version under the same cleanup claim.
+This handles resources created by a failed first deployment. Held/unknown resource
+statuses remain ineligible. This metadata retirement authorizes no added resource
+and does not substitute for the engine's state, dependency and absence checks.

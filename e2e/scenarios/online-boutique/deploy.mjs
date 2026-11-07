@@ -28,7 +28,9 @@ if(process.env.ORCH_DEPLOY!=='1'){console.log('PASS Preview only; set ORCH_DEPLO
 else{
 if(state.deployAttempt){
  assert.equal(process.env.ORCH_RETRY_CONFIRMED,'1','Inspect and fix the prior failed attempt before explicitly retrying');
- assert.equal(state.deployAttempt.completion,'FAILED');
+ if(state.deployAttempt.completion==='SUCCEEDED'){
+  assert.equal(process.env.ORCH_NEW_RELEASE,'1','A successful prior release requires an explicitly requested new release');
+ }else{assert.equal(state.deployAttempt.completion,'FAILED');}
  assert(!app.environments.find(e=>e.key==='staging').activeOperation,'Prior operation must be released');
  state.previousAttempts??=[];state.previousAttempts.push(state.deployAttempt);delete state.deployAttempt;rt.save();
 }

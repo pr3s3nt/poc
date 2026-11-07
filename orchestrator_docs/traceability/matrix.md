@@ -1565,3 +1565,11 @@ source `defaults.yaml`, `bundle.yaml`, `patches/runtime-policy.tpl` →
 custom/preset) → [UI trial](../../e2e/scenarios/online-boutique/README.md) and
 [execution evidence](../verification/2026-11-07-compatible-security-boutique.md).
 Real acceptance and the pre-existing red full gate are reported separately.
+
+
+UC-06 V2-07 / ADR-040 — explicit Environment rollback → pending/rollback.go,
+resourcecleanup/rollback.go, deployment/rollback_preflight.go and retained delivery
+removal → HTTP rollback-preview/rollback → EnvironmentRollback Dialog → pending
+prior-state/empty/partial/stale tests, real PostgreSQL/Terraform cleanup tests,
+HTTP scope tests and EnvironmentRollback component tests. Live scenario:
+e2e/scenarios/environment-rollback; full runtime acceptance still pending.

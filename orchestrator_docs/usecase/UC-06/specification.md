@@ -459,3 +459,14 @@ same owned controller UID/resourceVersion before settling. This recovery does no
 publish or retry, withdraw the Prerequisite, or change sibling resources. Unknown
 or admitted outcomes remain held. After recovery, redeploy or rollback is a
 separate user action.
+
+### Rollback admission guards — issue #49
+
+Rollback always revalidates the original target generation, delivery binding and
+Secret Store identity. A changed destination, unavailable historical renderer,
+unretained catalog selection or one-shot Job requiring replay blocks admission or
+execution with an explicit failure; no substitute pin, resource replacement or
+Job replay is selected silently. Rollback restores declared configuration and
+owned workload resources; it does not rewind database contents. An initial-empty
+rollback is separately confirmed and physically verifies removal of its exact
+owned resource selection while retaining platform/preexisting resources.

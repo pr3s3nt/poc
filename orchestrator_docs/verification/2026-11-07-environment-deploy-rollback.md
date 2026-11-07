@@ -178,3 +178,61 @@ successful. This does not complete the whole issue #49: explicit Environment
 rollback execution/API/UI and their acceptance remain unfinished. No merge into
 `features/organization_seed` or main is authorized by a partial feature result.
 The trial stack, API forward and workload forward remain running for user review.
+
+## Rollback implementation checkpoint — 2026-11-08
+
+Whole-Environment rollback now has Preview/token, typed confirmation, one fenced
+execution, configuration/immutable Secret-reference restoration, retained
+Definition selection and full target-hash verification. Partial rollback retains
+an interrupted claim. Initial-empty rollback admits an exact resource inventory,
+removes failed workload receipts outside the current Set, and uses the existing
+Terraform engine under the same claim for owned-resource deletion.
+
+Focused pending tests passed (34.039s), including PostgreSQL reopen, stale token,
+wrong confirmation, restoring configuration/Secret references and partial rollback
+hold. Real PostgreSQL/Terraform empty-cleanup tests passed (15.981s), including
+concurrent Deploy refusal and unexpected version/status changes blocking deletion.
+UI component and Application Home tests passed: 26 tests. HTTP scope/body guards,
+resource cleanup tests, backend build, frontend typecheck/lint/build passed.
+Lint retains one existing warning in PlatformSettingsPage.
+
+A full frontend run had 978 passing and three failing tests (authoring restriction
+VPC selection, legacy Terraform scenario labels and retired import evidence ID).
+These require baseline comparison; no full-suite pass is claimed. Existing
+RemoveDelivered tests fail on both pre-change HEAD and this working tree; the
+single-test baseline reproduction failed before any removal. This is retained as
+an unresolved verification limitation, not waived as a pass.
+
+Actual Console rollback preview passed. Actual confirmation exposed an unavailable
+historical renderer after the backend rebuild. Runtime rejected execution without
+substituting its current renderer; workloads were not rolled back. The interrupted
+preflight operation was recovered through UI. Historical-renderer validation now
+runs before claiming/changing desired state, and planning failures roll back the
+desired-state transaction before releasing a confirmed nonmutating failure.
+Successful live rollback and full acceptance remain pending. Boutique's prior
+successful deploy and checkout do not count as live rollback acceptance.
+
+
+## Transaction and guard verification — 2026-11-08
+
+Restoration of desired configuration/drafts and the normal deployment Preview
+now share one transaction. A preflight refusal rolls back all desired writes and
+ends the operation as FAILED without retaining an unnecessary Busy claim. An
+in-memory nested-transaction deadlock discovered during verification was removed;
+the focused memory/PostgreSQL release/rollback suite passed again (33.167s).
+Configuration, Definition and catalog revisions are rechecked inside that
+transaction after admission, including the initial-empty cleanup claim path.
+
+Historical successful renderer selections are checked before claiming or changing
+desired state. A missing retained engine is refused; the implementation never
+substitutes the current renderer for the original pin. A fresh successful release
+using the current renderer is being established through Console UI for live
+rollback verification. This is still not a live rollback success claim.
+
+Additional checks: HTTP rollback guards passed (0.262s); resourcecleanup package
+passed (0.022s); real PostgreSQL/Terraform rollback cleanup tests passed (16.456s);
+backend build passed. Frontend typecheck/lint passed with one preexisting lint
+warning. Rollback UI tests passed (2); AuthoringRestrictions passed separately
+(4), so its full-suite failure is not reproduced in isolation. The two legacy
+scenario failures reproduce on the pre-rollback HEAD; full frontend remains red
+and is not represented as passed. Documentation and diff checks passed.

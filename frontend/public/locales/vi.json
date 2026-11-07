@@ -3985,5 +3985,21 @@
   "workloads.defaults.networking": "Service & kết nối",
   "workloads.defaults.dependencies": "Tài nguyên phụ thuộc",
   "workloads.defaults.infrequent": "Cấu hình ít thay đổi",
-  "workloads.defaults.imageRequiredForDefaults": "Nhập image cho container để tính cấu hình hiệu lực."
+  "workloads.defaults.imageRequiredForDefaults": "Nhập image cho container để tính cấu hình hiệu lực.",
+  "deployments.rollback.title": "Khôi phục bản triển khai",
+  "deployments.rollback.preview": "Xem trước Rollback",
+  "deployments.rollback.previewError": "Không thể xem trước Rollback. Kiểm tra trạng thái môi trường rồi thử lại.",
+  "deployments.rollback.failed": "Rollback chưa hoàn tất. Xem trạng thái thao tác trước khi thử lại.",
+  "deployments.rollback.succeeded": "Đã khôi phục toàn bộ môi trường.",
+  "deployments.rollback.loading": "Đang kiểm tra mốc khôi phục…",
+  "deployments.rollback.confirmTitle": "Xác nhận Rollback môi trường",
+  "deployments.rollback.emptyWarning": "Đưa {environment} về rỗng. Các tài nguyên thuộc lần triển khai sẽ bị xóa sau khi kiểm tra quyền sở hữu.",
+  "deployments.rollback.scopeWarning": "Khôi phục toàn bộ {environment} về lần triển khai thành công gần nhất. Thay đổi đang chờ sẽ được thay bằng cấu hình khôi phục.",
+  "deployments.rollback.restore": "Khôi phục workload",
+  "deployments.rollback.remove": "Xóa workload",
+  "deployments.rollback.confirmName": "Nhập {name} để xác nhận",
+  "deployments.rollback.running": "Đang Rollback. Có thể theo dõi thao tác trong Cài đặt môi trường.",
+  "deployments.rollback.cancel": "Hủy",
+  "deployments.rollback.confirm": "Rollback môi trường",
+  "deployments.rollback.resources": "Xóa tài nguyên thuộc môi trường"
 }

@@ -249,3 +249,16 @@ trees. It verifies retained unit trees before moving the common SHA and correlat
 observations to the receipted Bundle/release. Withdrawal removes only its unit;
 last-unit cleanup retires the owned GitRepo. See the updated
 [shared sequence](../../architecture/components/platform-managed-delivery-sequence.puml).
+
+## User-selected rollback execution — issue #49
+
+`Pending.PreviewRollback` reads a consistent Environment snapshot and returns a
+safe restore/remove summary plus a token binding current set/version, drafts,
+configuration revision, Definition/catalog revisions and target release digest.
+`Pending.Rollback` requires typed Application-key confirmation and rechecks the
+token before acquiring one fenced Environment Deploy operation. Configuration
+Secret references, Definition snapshots and reconstructed proven workload inputs
+are restored in a short transaction. The normal planner/delivery/readiness engine
+executes under that same claim. On complete success the resulting release receives
+a new checkpoint; failure is retained as an interrupted rollback for recovery.
+No rollback endpoint exposes private snapshot pins or resolved Secret values.

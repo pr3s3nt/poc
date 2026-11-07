@@ -86,6 +86,55 @@ func (s *Service) RemoveDelivered(ctx context.Context, organizationKey, applicat
 	if err != nil {
 		return report, err
 	}
+	report, err = s.removeClaimedInstances(lease, organizationKey, applicationKey, environmentKey, env, candidates, report)
+	if err != nil {
+		_ = lease.Suspend("DELIVERY_REMOVE_UNVERIFIED")
+		return report, err
+	}
+
+	if len(report.Failed) > 0 {
+		_ = lease.Suspend("DELIVERY_REMOVE_UNVERIFIED")
+		return report, fmt.Errorf("deployment: %d Workload removals are unverified; the Environment stays held", len(report.Failed))
+	}
+	if err := lease.End(environment.OpSucceeded, ""); err != nil {
+		return report, err
+	}
+	return report, nil
+}
+
+// RemoveInputs groups what a caller (and the tests) needs around RemoveDelivered.
+type RemoveInputs struct {
+	Service                                *Service
+	Store                                  persistence.Store
+	Ops                                    *envops.Manager
+	Organization, Application, Environment string
+}
+
+// RemoveRollbackRemainders removes only current-generation instances whose
+// workload is absent from the target set, under the caller's existing claim.
+// This covers a failed first Deploy whose receipt exists outside the current Set.
+func (s *Service) RemoveRollbackRemainders(lease *envops.Lease, orgKey, appKey, envKey string, keep map[string]bool) (RemovedDelivery, error) {
+	env, err := s.store.GetEnvironment(lease.Ctx, appKey, envKey)
+	if err != nil {
+		return RemovedDelivery{}, err
+	}
+	if env.ActiveOperationID != lease.Operation.ID {
+		return RemovedDelivery{}, persistence.ErrOperationLost
+	}
+	instances, err := s.store.ListWorkloadInstancesFor(lease.Ctx, appKey+"/"+envKey, env.TargetGeneration)
+	if err != nil {
+		return RemovedDelivery{}, err
+	}
+	candidates := []domain.WorkloadInstance{}
+	for _, instance := range instances {
+		if !keep[instance.WorkloadID] && instance.Status != domain.InstanceRemoved {
+			candidates = append(candidates, instance)
+		}
+	}
+	return s.removeClaimedInstances(lease, orgKey, appKey, envKey, env, candidates, RemovedDelivery{})
+}
+func (s *Service) removeClaimedInstances(lease *envops.Lease, organizationKey, applicationKey, environmentKey string, env environment.Environment, candidates []domain.WorkloadInstance, report RemovedDelivery) (RemovedDelivery, error) {
+	generation := env.TargetGeneration
 	var lastTarget execution.Target
 	hasLegacyAuxiliary := false
 	for _, w := range candidates {
@@ -161,19 +210,7 @@ func (s *Service) RemoveDelivered(ctx context.Context, organizationKey, applicat
 		}
 	}
 	if len(report.Failed) > 0 {
-		_ = lease.Suspend("DELIVERY_REMOVE_UNVERIFIED")
-		return report, fmt.Errorf("deployment: %d Workload removals are unverified; the Environment stays held", len(report.Failed))
-	}
-	if err := lease.End(environment.OpSucceeded, ""); err != nil {
-		return report, err
+		return report, fmt.Errorf("deployment: %d Workload removals are unverified", len(report.Failed))
 	}
 	return report, nil
-}
-
-// RemoveInputs groups what a caller (and the tests) needs around RemoveDelivered.
-type RemoveInputs struct {
-	Service                                *Service
-	Store                                  persistence.Store
-	Ops                                    *envops.Manager
-	Organization, Application, Environment string
 }

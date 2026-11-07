@@ -3985,5 +3985,21 @@
   "workloads.defaults.networking": "Service & networking",
   "workloads.defaults.dependencies": "Dependencies",
   "workloads.defaults.infrequent": "Infrequent configuration",
-  "workloads.defaults.imageRequiredForDefaults": "Enter a container image to calculate effective configuration."
+  "workloads.defaults.imageRequiredForDefaults": "Enter a container image to calculate effective configuration.",
+  "deployments.rollback.title": "Restore deployment",
+  "deployments.rollback.preview": "Preview rollback",
+  "deployments.rollback.previewError": "Could not preview rollback. Check the Environment status before trying again.",
+  "deployments.rollback.failed": "Rollback did not complete. Check operation status before retrying.",
+  "deployments.rollback.succeeded": "The entire Environment has been restored.",
+  "deployments.rollback.loading": "Checking rollback target…",
+  "deployments.rollback.confirmTitle": "Confirm Environment rollback",
+  "deployments.rollback.emptyWarning": "Restore {environment} to empty. Deployment-owned resources will be deleted after ownership checks.",
+  "deployments.rollback.scopeWarning": "Restore all of {environment} to the last successful deployment. Pending changes will be replaced with the rollback configuration.",
+  "deployments.rollback.restore": "Restore workloads",
+  "deployments.rollback.remove": "Remove workloads",
+  "deployments.rollback.confirmName": "Enter {name} to confirm",
+  "deployments.rollback.running": "Rollback is running. Follow the operation in Environment settings.",
+  "deployments.rollback.cancel": "Cancel",
+  "deployments.rollback.confirm": "Roll back Environment",
+  "deployments.rollback.resources": "Remove Environment-owned resources"
 }

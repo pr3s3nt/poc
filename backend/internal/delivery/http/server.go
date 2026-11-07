@@ -259,6 +259,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/connections/kubernetes/inspect", s.handleInspectKubeconfig)
 	s.registerDriverAccountRoutes()
 	s.mux.HandleFunc("POST /api/v1/deployments", s.handleCreateDeployment)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/rollback-preview", s.handlePreviewRollback)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/rollback", s.handleRollback)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/resources", s.handleListResources)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/resources/{resourceId}", s.handleGetResource)
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/resources/{resourceId}/deletion-preview", s.handleDeletionPreview)

@@ -106,3 +106,8 @@ Deployment polling requires the exact reviewRequestId Operation to appear before
 interpreting an empty history as completion. A just-submitted request can still
 be in admission; the runner keeps its browser open until that exact Operation is
 terminal/interrupted, and reports an admission timeout honestly if it never appears.
+
+After a verified SUCCEEDED attempt, `ORCH_NEW_RELEASE=1` together with the existing
+explicit confirmation flags permits a new reviewed release. It archives the
+successful attempt unchanged; it never relabels success as failure or replays an
+UNKNOWN/PARTIAL attempt. Use this after an intentional renderer revision upgrade.
