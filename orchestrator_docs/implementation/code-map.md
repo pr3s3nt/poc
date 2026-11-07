@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-07
 ---
 
 # Design-to-code map
@@ -1307,3 +1307,34 @@ no backend defaults policy remains. Standard profiles live in source `bundle.yam
 `frontend/src/features/workloads/DefaultSelect.tsx` shares muted inherited select
 hints, hidden placeholder options and explicit reset across Service/runtime/schedule
 fields. `WorkloadDefaults.test.tsx` covers distinct choices and sparse reset/Save.
+
+## Seed Organization identity — issue #47
+
+- `scripts/bootstrap/lib/api-seed.mjs`: Organization config validation, exclusive
+  identity-file preparation and session key/name verification before import.
+- `scripts/bootstrap/seed-api.mjs`: external CLI preparation/import modes.
+- `backend/internal/seed/organization.go`: bounded identity-file reader.
+- `backend/internal/seed/seed.go`: transactional identity creation/reuse/conflict.
+- `backend/cmd/orchestrator/main.go`: installation file flag/environment wiring.
+- `backend/internal/delivery/http/organization.go`: session-scoped identity read.
+
+## Console authoring restrictions — issue #45
+
+- `frontend/src/shared/authoringFeatures.ts`: Console-only import/source switches.
+- `frontend/src/features/workloads/WorkloadEditorPage.tsx`: hides import actions
+  while retaining form editing and advanced document preservation.
+- `frontend/src/features/platform/ResourceDefinitionsPage.tsx` and
+  `TemplateDriverFields.tsx`: Git-only source choices with saved provenance.
+- `frontend/src/features/platform/AuthoringRestrictions.test.tsx`: production
+  defaults; legacy authoring regression tests explicitly enable the switches.
+
+## Compatible security template and UI trial — issue #47
+
+- `backend/template-sources/standard/{defaults.yaml,bundle.yaml}`: compatible
+  fallback and immutable generic profile versions.
+- `backend/template-sources/standard/patches/runtime-policy.tpl`: field-level
+  security merge retaining explicit intent for app/init/sidecar containers.
+- `backend/internal/adapters/templatedriver/compatible_security_test.go`: all
+  primary controllers and custom/preset render regression.
+- `e2e/scenarios/online-boutique/`: real Console setup/authoring/Preview/Deploy,
+  explicit recovery/renderer upgrade, runtime observation and browser shop flow.

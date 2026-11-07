@@ -289,3 +289,23 @@ uses Git-owned portable Definitions/Workloads with explicit nonsecret parameters
 The offline lock helper computes pins from exact local Git commits; platform
 preflight/inspection/deployment remain separate. No company endpoint, credential
 or staging execution is supplied or implied by the example.
+
+## Cấu hình Organization khi cài đặt — issue #47
+
+API seed input supports `organization.key` and `organization.name`. On a new
+installation prepare its nonsecret identity file before creating the first admin:
+
+```sh
+node scripts/bootstrap/seed-api.mjs --config /private/dev.yaml \
+  --prepare-organization /private/organization.json
+```
+
+Mount that file read-only and configure `ORCHESTRATOR_ORGANIZATION_FILE` for both
+backend startup and the first-admin CLI. It contains only key/name, not the seed
+credentials. Start the backend/create the admin against that identity, then run
+`node scripts/bootstrap/seed-api.mjs --config /private/dev.yaml` normally.
+Importer checks the session's Organization key and name before writing platform
+data. Reusing the same config preserves identities; changing an existing name
+reports a conflict. It is not a rename tool or an API for creating Organizations.
+Legacy `console.expectedOrganization` remains a key-only compatibility check.
+See the [installation procedure](../../orchestrator_docs/operations/platform-seed.md#configurable-organization--issue-47).

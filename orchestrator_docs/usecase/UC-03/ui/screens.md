@@ -314,3 +314,11 @@ and component identity. Hashes remain in technical details. A Change source
 button reveals the existing Git/ZIP/Inline/Catalog/registered selectors. Plain
 parameter edits keep the saved pin; missing metadata stays blocked. Template
 prepared-source lists are labelled Registered sources, not Catalog.
+
+## Git-only Console source choices — issue #45
+
+New Definition sources and explicit source changes show Git only, for both
+Terraform and workload templates. Hide alternative-source buttons and inline/ZIP
+authoring. Reuse of verified Git templates remains available. Viewing an existing
+non-Git Definition preserves its source and parameters; it never auto-migrates.
+Backend and Catalog browser behavior are unchanged.

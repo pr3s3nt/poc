@@ -282,3 +282,11 @@ saved source summary (UC-03 SP-01–03). Source origin and immutable version sta
 visible; creation/replacement controls are progressive disclosure via Change
 source. Registration/cache status does not replace origin. Reuse current styles,
 buttons and VI/EN message catalogs; no shell/theme change.
+
+## Console source choices — issue #45 (2026-11-07)
+
+The Console hides Workload file import and exposes only Git for new or changed
+Definition sources. Saved provenance remains visible. This overrides the earlier
+Git/ZIP/Catalog/inline/registered authoring choices in the affected editors only;
+backend capabilities and the Catalog browser remain available. Keep the current
+shell, shared controls and form layout; do not add explanatory banners.

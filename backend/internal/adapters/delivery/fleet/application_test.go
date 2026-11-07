@@ -627,3 +627,45 @@ func TestApplicationFirstPrerequisiteAbsenceRecoveryIsReadOnlyAndConservative(t 
 		t.Fatal("Job absence inferred", absent, err)
 	}
 }
+
+func TestApplicationFirstPrerequisiteAbsenceWithSharedControllerIsReadOnly(t *testing.T) {
+	p, w, dir, intent := applicationFixture(t)
+	publishApplicationUnit(t, p, w, dir, intent("staging", "backend"))
+
+	i := intent("production", "frontend")
+	i.Revision.Phase = domain.Prerequisite
+	i.Revision.Scope.UnitKey = "frontend/PREREQUISITE"
+	i, pkg, _ := applicationPackage(t, i)
+	raw, _ := json.Marshal(pkg)
+	prepared := port.Prepared{Revision: i.Revision, Payload: raw}
+	ctx := context.Background()
+
+	repoPath := filepath.Join(dir, "repo.json")
+	before, err := os.ReadFile(repoPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	absent, err := p.ObserveSubmissionAbsent(ctx, i, prepared)
+	if err != nil || !absent {
+		t.Fatal("unpublished first prerequisite with owned shared controller", absent, err)
+	}
+	after, err := os.ReadFile(repoPath)
+	if err != nil || string(before) != string(after) {
+		t.Fatal("absence recovery mutated the shared controller", err)
+	}
+}
+
+func TestApplicationFirstPrerequisiteAbsenceRejectsExistingUnitPin(t *testing.T) {
+	p, w, dir, intent := applicationFixture(t)
+	i := intent("staging", "backend")
+	i.Revision.Phase = domain.Prerequisite
+	i.Revision.Scope.UnitKey = "backend/PREREQUISITE"
+	publishApplicationUnit(t, p, w, dir, i)
+	i, pkg, _ := applicationPackage(t, i)
+	raw, _ := json.Marshal(pkg)
+	prepared := port.Prepared{Revision: i.Revision, Payload: raw}
+	absent, err := p.ObserveSubmissionAbsent(context.Background(), i, prepared)
+	if err != nil || absent {
+		t.Fatal("existing workload pin treated as absent", absent, err)
+	}
+}

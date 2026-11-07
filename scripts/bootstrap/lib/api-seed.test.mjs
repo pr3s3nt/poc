@@ -97,3 +97,34 @@ test('tailnet HTTP opt-in rejects public 100.x addresses and hostname tricks', t
  const {file}=fixture(t,{console:{url:'http://100.77.224.24:3070',tailnet:true,username:'pe',passwordFile:'password',expectedOrganization:'acme'}});
  assert.equal(loadConfig(file).console.origin,'http://100.77.224.24:3070');
 });
+
+test('prepares only Organization identity without credentials or overwriting output', async t => {
+ const {prepareOrganization} = await import('./api-seed.mjs');
+ const {readFileSync,statSync} = await import('node:fs');
+ const f=fixture(t,{organization:{key:'my-company',name:'Công ty của tôi'},console:{expectedOrganization:'my-company',passwordFile:'missing'}});
+ const output=join(f.dir,'organization.json');
+ prepareOrganization(f.file,output);
+ assert.deepEqual(JSON.parse(readFileSync(output,'utf8')),{key:'my-company',name:'Công ty của tôi'});
+ assert.equal(statSync(output).mode&0o077,0);
+ assert.throws(()=>prepareOrganization(f.file,output),/must be new/);
+});
+test('Organization configuration rejects mismatching keys and invalid identity before sign-in', t=>{
+ const f=fixture(t,{organization:{key:'other-company',name:'Other'}});
+ assert.throws(()=>loadConfig(f.file),/conflicts/);
+ for(const org of [{key:'bad key',name:'Company'},{key:'company',name:' '},{key:'company',name:'line\nbreak'},{key:'company',name:'Company',token:'secret'}]) {
+  const other=fixture(t,{organization:org});assert.throws(()=>loadConfig(other.file),/identity/);
+ }
+});
+test('checks Organization name before platform writes and signs out on mismatch', async t=>{
+ const f=fixture(t,{organization:{key:'acme',name:'My Company'},resourceTypes:[{key:'new-type',inputs:[],outputs:[]}]});
+ const c=loadConfig(f.file),s=server();let name='Wrong Company';
+ const fetcher=async(raw,options)=>new URL(raw).pathname==='/api/v1/organization'?(s.calls.push({path:'/organization',method:options.method}),Response.json({organization:{key:'acme',name}})):s.fetcher(raw,options);
+ await assert.rejects(seed(c,{fetcher,report:()=>{}}),/Organization: CONFLICT/);
+ assert.deepEqual(s.calls.map(c=>c.path),['/auth/sign-in','/organization','/auth/sign-out']);
+ name='My Company';await seed(c,{fetcher,report:()=>{}});await seed(c,{fetcher,report:()=>{}});
+ assert.equal(s.calls.filter(c=>c.path==='/resource-types'&&c.method==='POST').length,1);
+});
+test('allows Organization key/name without legacy expectedOrganization', t=>{
+ const f=fixture(t,{organization:{key:'my-company',name:'My Company'},console:{url:'http://127.0.0.1:9090',username:'admin',passwordFile:'password'}});
+ assert.equal(loadConfig(f.file).organization.key,'my-company');
+});

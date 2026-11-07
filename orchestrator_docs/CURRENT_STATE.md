@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-06
+last_reviewed: 2026-11-07
 ---
 
 # Current project state
@@ -2178,3 +2178,43 @@ creation is explicit. WorkloadEditorPage reuses shared PVC identity/typed params
 with a collision-free alias and existing reuse guards, adding dependency + mount
 atomically. Other workloads' Pod-local sources are excluded. No API/backend/schema
 change. [Verification](verification/2026-11-06-reuse-first-volumes.md) records checks and real reuse/Preview.
+
+## Configurable Organization seed — issue #47
+
+Feature branch adds key/name input to the external API seed tool, a local
+credential-free identity export, installation CLI/env wiring and session-scoped
+Organization verification before import. Existing names/IDs are preserved;
+conflicting names are refused. Legacy inputs remain supported. No schema, UI or
+provisioning change. [Checks and remaining limits](verification/2026-11-07-organization-seed.md).
+
+## Console authoring choices — issue #45 (2026-11-07)
+
+The feature branch hides Workload file import and offers only Git for new or
+changed Resource Definition sources. Console-only switches live in
+`frontend/src/shared/authoringFeatures.ts`; backend APIs and stored revisions
+are unchanged. Existing source provenance remains visible. Workload form and
+saved advanced-document preservation remain available. Verification and
+remaining gates: [issue #45 handoff](verification/2026-11-07-ui-authoring-restrictions.md).
+
+## Compatible security template — issue #47 (2026-11-07)
+
+`features/organization_seed` adds `privileged: false` as the standard source's
+field-level fallback across app/init/sidecar roles. Generic presets 1.2.0 preserve
+explicit permitted security values and leave UID/non-root, filesystem, seccomp,
+capability and token policy unspecified; nginx-readonly keeps its stronger
+profile. Private source v0.3.0 is published. Focused render/domain checks and build
+pass. Full Go checks still fail the same 79 tests/17 packages as archived main.
+The separate Console has authored all eleven Online Boutique workloads through
+forms. The original five app workloads, Redis, frontend and loadgenerator are
+ready. Payment's Service exists, but its rollout failed before the Deployment/Pod
+were published; explicit recovery returned `RECOVERY_INCOMPLETE` because Fleet
+absence settlement currently covers first prerequisites only. A further recovery
+scope decision is pending.
+The user approved extending issue #47 to safely recover an unpublished new unit
+in an existing shared Fleet GitRepo. That change is pushed and explicit UI
+recovery passed for the original frontend operation. The UI attempt updated the
+original five, then deployed frontend and loadgenerator; payment was recorded
+FAILED and the operation is currently INTERRUPTED. The recovery attempt for this
+rollout remains incomplete. The three remaining workloads and checkout are
+unverified. Main is unmerged.
+[Execution and limitations](verification/2026-11-07-compatible-security-boutique.md).
