@@ -1,6 +1,6 @@
 import { outsideRepo } from '../../../scripts/bootstrap/lib/runtime.mjs';
 import assert from 'node:assert/strict';
-import { chromium } from '@playwright/test';
+import { chromium } from 'playwright';
 const origin=process.env.ORCH_WORKLOAD_URL,dir=process.env.ORCH_TEST_RUN_DIR;
 assert(origin&&dir,'ORCH_WORKLOAD_URL and ORCH_TEST_RUN_DIR required');
 outsideRepo(dir);

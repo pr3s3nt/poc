@@ -150,3 +150,31 @@ pending. Fixed-code deployment diagnostics now classify known repository, delive
 resource and template failures without logging provider text or secret values.
 Focused deployment-service tests passed (17.677s). No successful full application
 acceptance or rollback implementation is inferred from this checkpoint.
+
+## Boutique deployment and business acceptance passed — 2026-11-08
+
+After restoring the existing managed repository to the originally requested
+private visibility and explicitly selecting the rebuilt renderer revision through
+Console, the real UI Deploy completed SUCCEEDED for all eleven workloads. It
+advanced past the original payment failure and recorded RELEASE_READY followed
+by a successful Environment Operation. No direct API/seed mutation replaced the
+Console Deploy steps.
+
+The runtime observer passed: eleven Ready application Pods/controllers, Redis
+Ready, correct pinned images and ordinary environment values, compatible security
+defaults in app/init containers, ready Service endpoints and VSO-synchronized Cart
+Redis Secret reference. Namespace UID was checked against the retained run.
+
+The actual workload browser scenario passed product → Add to Cart → Place Order
+and observed the completed-order confirmation on `/cart/checkout`. It used the
+Tailscale workload origin; screenshots and private runtime evidence are retained
+outside Git. Console credentials and repository/cluster/private URLs are excluded
+from public evidence. The shopping runner uses plain `playwright` to avoid loading
+two separate copies of the `@playwright/test` singleton via shared helpers; Node
+syntax validation passed and the real browser run verified the fix.
+
+The deployment/runtime/checkout acceptance for the existing Boutique app is now
+successful. This does not complete the whole issue #49: explicit Environment
+rollback execution/API/UI and their acceptance remain unfinished. No merge into
+`features/organization_seed` or main is authorized by a partial feature result.
+The trial stack, API forward and workload forward remain running for user review.
