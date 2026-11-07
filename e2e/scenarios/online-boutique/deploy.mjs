@@ -33,7 +33,12 @@ if(state.deployAttempt){
  state.previousAttempts??=[];state.previousAttempts.push(state.deployAttempt);delete state.deployAttempt;rt.save();
 }
 page.on('request',r=>{if(r.method()==='POST'&&new URL(r.url()).pathname==='/api/v1'+base+'/deploy'){state.deployAttempt={startedAt:new Date().toISOString(),reviewRequestId:r.postDataJSON()?.reviewRequestId,completion:'UNKNOWN'};rt.save()}});
-const [report]=await Promise.all([ui.submit(base+'/deploy','POST',page.getByRole('button',{name:'Triển khai các thay đổi này',exact:true})),ensureNamespaceAccess(ui,config,app,rt)]);
+const responsePath='/api/v1'+base+'/deploy';
+const deploymentResponse=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname===responsePath,{timeout:1200000})
+ .then(async r=>({status:r.status(),body:await r.body()}));
+const [response]=await Promise.all([deploymentResponse,page.getByRole('button',{name:'Triển khai các thay đổi này',exact:true}).click(),ensureNamespaceAccess(ui,config,app,rt)]);
+if(response.status<200||response.status>=300)throw new Error(`Deploy returned HTTP ${response.status}; inspect server before retry`);
+const report=JSON.parse(response.body.toString('utf8'));
 state.deployAttempt.completion=report.status;rt.save();writeFileSync(dir+'/deployment.json',JSON.stringify(report,null,2),{mode:0o600});
 console.log('Deploy',report.status);assert.equal(report.status,'SUCCEEDED');
 }

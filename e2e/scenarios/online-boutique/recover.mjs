@@ -4,7 +4,7 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import {openConsole,closeConsole,readConsoleConfig} from '../../lib/console.mjs';
 import {makeUI} from '../../../scripts/bootstrap/lib/runtime.mjs';
 const dir=process.env.ORCH_TEST_RUN_DIR;assert(dir);outsideRepo(dir);const file=dir+'/state.json',state=JSON.parse(readFileSync(file));
-assert.equal(state.deployAttempt?.completion,'PARTIAL','Only inspect/recover the confirmed stopped partial attempt');
+assert(['PARTIAL','UNKNOWN'].includes(state.deployAttempt?.completion),'Only inspect/recover a recorded partial or unknown attempt after confirming the stopped operation in Console');
 const c=readConsoleConfig(),s=await openConsole(c,{role:'ADMIN'}),ui=makeUI(s.page,c.baseURL,180000);
 try{
 s.page.on('response',async r=>{if(r.url().endsWith('/recover')&&!r.ok())console.error('Recovery response',JSON.stringify(await r.json()))});

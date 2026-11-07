@@ -67,7 +67,8 @@ The setup/definitions forms reuse existing named records. Workload reruns compar
 image, resources, variables and Service before reuse; they stop on a mismatch.
 Deploy records the attempt before submitting and will not replay an unknown or
 partial attempt. Inspect the error and fix its cause first. A stopped PARTIAL
-operation may be recovered explicitly using `recover.mjs`, which checks the UI
+operation, or a locally UNKNOWN submit whose Console operation is confirmed
+INTERRUPTED, may be recovered explicitly using `recover.mjs`, which checks the UI
 recovery result and retains the prior attempt. A released FAILED operation needs
 `ORCH_RETRY_CONFIRMED=1` to make the reviewed retry explicit. Never clear state or
 patch the database to bypass those guards. Recovery can return 409 when Fleet or

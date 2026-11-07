@@ -100,8 +100,27 @@ The user approved extending #47 to prove new-unit absence with an existing share
 controller while preserving exact ownership/UID, sibling pins/trees, no native
 objects, no Bundle/BundleDeployment, no Helm release and no downstream pending
 manager. The change may only settle the failed attempt; it never publishes,
-applies or adopts the candidate. Implementation and focused checks are in
-progress. No database marker, receipt, pin or ownership guard was bypassed.
+applies or adopts the candidate. Commit `7f36e330` implements this in ADR-036 and
+the Fleet adapter; focused Fleet tests and backend build pass. Explicit UI recovery
+passed and released the first held operation. No database marker, receipt, pin or
+ownership guard was bypassed.
+
+After rebuilding the backend and explicitly selecting the saved renderer revision
+in Console, Preview showed five UPDATE and six DEPLOY changes, no REMOVE. A UI
+Deploy updated the original five and published/applied the frontend prerequisite
+and rollout. The frontend Service, Deployment, Pod, Fleet Bundle and
+BundleDeployment were present; the Pod and controller reported Ready and the
+Deployment carried the expected delivery-revision. Nevertheless the platform
+recorded the frontend deployment FAILED after the exact-revision readiness wait.
+Console's safe deployment projection does not expose the underlying readiness
+reason. The browser runner also hit a Playwright response-body eviction after UI
+navigation, leaving its local attempt UNKNOWN; the Console read confirmed the
+deployment FAILED and the operation INTERRUPTED, then explicit UI recovery passed.
+The runner now captures the response body immediately and accepts UNKNOWN only
+when Console confirms the operation is INTERRUPTED. This runner fix is not yet
+committed or rerun. Current frontend resources are ready, but the failed attempt
+does not count as deployment acceptance; five workloads remain unapplied and the
+shop checkout has not run.
 
 Runtime/browser acceptance has NOT passed. Six workloads remain unapplied and
 product → cart → checkout has not run. The issue stays open, main is unmerged,
