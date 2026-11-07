@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-07
 ---
 
 # Design-to-code map
@@ -1327,3 +1327,14 @@ fields. `WorkloadDefaults.test.tsx` covers distinct choices and sparse reset/Sav
   `TemplateDriverFields.tsx`: Git-only source choices with saved provenance.
 - `frontend/src/features/platform/AuthoringRestrictions.test.tsx`: production
   defaults; legacy authoring regression tests explicitly enable the switches.
+
+## Compatible security template and UI trial — issue #47
+
+- `backend/template-sources/standard/{defaults.yaml,bundle.yaml}`: compatible
+  fallback and immutable generic profile versions.
+- `backend/template-sources/standard/patches/runtime-policy.tpl`: field-level
+  security merge retaining explicit intent for app/init/sidecar containers.
+- `backend/internal/adapters/templatedriver/compatible_security_test.go`: all
+  primary controllers and custom/preset render regression.
+- `e2e/scenarios/online-boutique/`: real Console setup/authoring/Preview/Deploy,
+  explicit recovery/renderer upgrade, runtime observation and browser shop flow.

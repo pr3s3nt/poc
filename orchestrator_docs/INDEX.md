@@ -241,3 +241,6 @@ records CLI/API, PostgreSQL, runtime rerun and full-check evidence for issue #47
 [Verification and remaining gate](verification/2026-11-07-ui-authoring-restrictions.md):
 Workload import is hidden; Definition source selection is Git-only on Console.
 Backend APIs and existing stored source revisions are unchanged.
+
+Compatible security template and UI Online Boutique trial (issue #47):
+[verification and remaining gates](verification/2026-11-07-compatible-security-boutique.md).

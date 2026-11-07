@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-06
+last_reviewed: 2026-11-07
 ---
 
 # Current project state
@@ -2184,3 +2184,15 @@ changed Resource Definition sources. Console-only switches live in
 are unchanged. Existing source provenance remains visible. Workload form and
 saved advanced-document preservation remain available. Verification and
 remaining gates: [issue #45 handoff](verification/2026-11-07-ui-authoring-restrictions.md).
+
+## Compatible security template — issue #47 (2026-11-07)
+
+`features/organization_seed` adds `privileged: false` as the standard source's
+field-level fallback across app/init/sidecar roles. Generic presets 1.2.0 preserve
+explicit permitted security values and leave UID/non-root, filesystem, seccomp,
+capability and token policy unspecified; nginx-readonly keeps its stronger
+profile. Private source v0.3.0 is published. Focused render/domain checks and build
+pass. Full Go checks still fail the same 79 tests/17 packages as archived main.
+The separate Console has authored all eleven Online Boutique workloads through
+forms; runtime/browser acceptance is in progress, not yet a passed gate. Main is
+unmerged. [Execution and limitations](verification/2026-11-07-compatible-security-boutique.md).

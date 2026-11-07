@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-07
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -1546,3 +1546,11 @@ map to `frontend/src/shared/authoringFeatures.ts`, `ResourceDefinitionsPage`,
 `frontend/src/features/platform/AuthoringRestrictions.test.tsx`;
 [verification and remaining gate](../verification/2026-11-07-ui-authoring-restrictions.md).
 Backend import/source contracts remain unchanged.
+
+Issue #47 compatible security / ADR-039 WD-02–03 →
+[default contract](../architecture/contracts/workload-defaults.md) → standard
+source `defaults.yaml`, `bundle.yaml`, `patches/runtime-policy.tpl` →
+`compatible_security_test.go` (Deployment/StatefulSet/CronJob and app/init/sidecar,
+custom/preset) → [UI trial](../../e2e/scenarios/online-boutique/README.md) and
+[execution evidence](../verification/2026-11-07-compatible-security-boutique.md).
+Real acceptance and the pre-existing red full gate are reported separately.
