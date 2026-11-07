@@ -78,3 +78,18 @@ its old test data with authorization. There is no old-policy migration/reader.
 
 The standard-template values and conditional exceptions in issue #37 section 5
 define the approved values, now owned by template version 1.1.0. No HPA, new controller or platform-wide redesign is included.
+
+## Compatible security defaults — issue #47
+
+Standard generic profiles use Baseline as a compatibility reference, not a claim
+of complete policy enforcement. Default every authored app/init/sidecar container
+to privileged=false. Do not invent runAsNonRoot/UID/GID, read-only filesystem,
+capability drops, seccomp or token mounting in the generic profiles. Preserve all
+explicit permitted security values, including false/zero and stricter settings.
+Existing runtime guards rejecting privileged/escalation/Unconfined remain.
+The image-specific nginx-readonly profile keeps its verified stronger settings.
+Custom execution without a preset receives the source privileged=false fallback
+through the same field-level merge. Publish new immutable preset versions; old
+source pins and existing snapshots remain unchanged. Host isolation follows
+Kubernetes defaults; hostPath support is not removed or represented as Baseline
+compliance. Validate real rendered/injected Pods during acceptance.

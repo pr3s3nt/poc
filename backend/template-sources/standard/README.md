@@ -31,3 +31,18 @@ Focused renderer verification from `backend/`:
 ```sh
 go test ./internal/adapters/templatedriver -run 'TestStandardBundleExamples|TestExecutionRendersPrimaryControllersAndApprovedMounts'
 ```
+
+## Compatible security defaults — issue #47
+
+Standard generic profiles use Baseline as a compatibility reference, not a claim
+of complete policy enforcement. Default every authored app/init/sidecar container
+to privileged=false. Do not invent runAsNonRoot/UID/GID, read-only filesystem,
+capability drops, seccomp or token mounting in the generic profiles. Preserve all
+explicit permitted security values, including false/zero and stricter settings.
+Existing runtime guards rejecting privileged/escalation/Unconfined remain.
+The image-specific nginx-readonly profile keeps its verified stronger settings.
+Custom execution without a preset receives the source privileged=false fallback
+through the same field-level merge. Publish new immutable preset versions; old
+source pins and existing snapshots remain unchanged. Host isolation follows
+Kubernetes defaults; hostPath support is not removed or represented as Baseline
+compliance. Validate real rendered/injected Pods during acceptance.

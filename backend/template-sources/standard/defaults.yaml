@@ -15,4 +15,5 @@ probe:
 labels: {}
 podAnnotations: {}
 podSecurityContext: {}
-containerSecurityContext: {}
+containerSecurityContext:
+  privileged: false

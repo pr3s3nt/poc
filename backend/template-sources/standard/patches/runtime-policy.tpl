@@ -18,10 +18,11 @@
 {{- range $field := list "containers" "initContainers" -}}
 {{- range $ci,$c := get $pod $field | default (list) -}}
 {{- $declared := get $in.workload.spec.containers $c.name | default (dict) -}}
-{{- if hasKey $declared "securityContext" }}
+{{- $security := merge $.Defaults.containerSecurityContext (get $c "securityContext" | default (dict)) (get $declared "securityContext" | default (dict)) -}}
+{{- if gt (len $security) 0 }}
 - op: set
   path: "{{ $path }}.{{ $field }}.{{ $ci }}.securityContext"
-  value: {{ toJson $declared.securityContext }}
+  value: {{ toJson $security }}
 {{- end -}}
 {{- $mounts := get $c "volumeMounts" | default (list) -}}
 {{- range $mount := get $e "claimMounts" | default (list) -}}
