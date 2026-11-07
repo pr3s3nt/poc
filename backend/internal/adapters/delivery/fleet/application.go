@@ -584,7 +584,7 @@ func (p *Provider) ObserveSubmissionAbsent(ctx context.Context, i port.Intent, p
 	if i.ExpectedRevision != "" && len(i.SourceInventory) > 0 {
 		return p.observeUnpublishedUpdate(ctx, i, prepared)
 	}
-	if i.Revision.Phase != domain.Prerequisite || i.ExpectedRevision != "" || len(i.SourceInventory) != 0 {
+	if (i.Revision.Phase != domain.Prerequisite && i.Revision.Phase != domain.Rollout) || i.ExpectedRevision != "" || len(i.SourceInventory) != 0 {
 		return false, nil
 	}
 	var pkg Package
@@ -623,6 +623,9 @@ func (p *Provider) ObserveSubmissionAbsent(ctx context.Context, i port.Intent, p
 		if _, exists := pins[pkg.ReleaseName]; exists {
 			return false, nil
 		}
+		if i.Revision.Phase == domain.Rollout && !hasPrerequisitePin(i, pkg, cfg, pins) {
+			return false, nil
+		}
 		spec, _ := repo["spec"].(map[string]any)
 		commit, _ := spec["revision"].(string)
 		if commit == "" {
@@ -631,6 +634,9 @@ func (p *Provider) ObserveSubmissionAbsent(ctx context.Context, i port.Intent, p
 		if err := p.verifySharedTrees(ctx, i, commit, pins); err != nil {
 			return false, err
 		}
+	}
+	if i.Revision.Phase == domain.Rollout && !controllerFound {
+		return false, nil
 	}
 	if err := p.validateApplicationSubmission(ctx, i, pkg, cfg); err != nil {
 		return false, err
@@ -721,4 +727,20 @@ func (p *Provider) ObserveSubmissionAbsent(ctx context.Context, i port.Intent, p
 		}
 	}
 	return true, nil
+}
+
+// A first Rollout is a separate delivery unit from its completed Prerequisite.
+// Its absence can be proven without withdrawing or rewriting that prior unit.
+func hasPrerequisitePin(i port.Intent, pkg Package, cfg Config, pins map[string]unitPin) bool {
+	parts := strings.Split(i.Revision.Scope.UnitKey, "/")
+	if len(parts) != 2 || !strings.EqualFold(parts[1], string(domain.Rollout)) {
+		return false
+	}
+	scope := i.Revision.Scope
+	scope.UnitKey = parts[0] + "/" + string(domain.Prerequisite)
+	prior, ok := pins[unitReleaseName(scope)]
+	return ok && !prior.Removed && prior.EnvironmentID == scope.EnvironmentID &&
+		prior.Revision != "" && prior.Revision != i.Revision.ID && prior.Intent != "" && prior.Intent != i.ID &&
+		prior.Digest != "" && prior.Path == path.Join(cfg.Root, parts[0], strings.ToLower(string(domain.Prerequisite))) &&
+		prior.Path != pkg.Publication.Path
 }

@@ -466,3 +466,16 @@ a per-intent recovery marker prevents repeated requests. Recovery never forges
 controller status, changes the admitted revision/target, deletes controllers or
 forces Kubernetes object replacement. All original Bundle/live revision proofs
 still gate acknowledgement.
+
+## First Rollout absence recovery — issue #49
+
+For a first Rollout unit with no acknowledged prior Rollout receipt, explicit
+stopped-owner recovery can prove absence using the same exact publication,
+controller, workload, Bundle/BundleDeployment and Helm checks as a first
+Prerequisite. A Rollout additionally requires a non-removed completed Prerequisite
+pin of the same workload, Environment, target generation and epoch, with matching
+stable path and nonempty intent/revision/digest. Every sibling tree is verified;
+controller UID/resourceVersion is reread under the recovery fence before settling.
+Neither the Prerequisite nor siblings are submitted, withdrawn or rewritten.
+Ambiguous/admitted outcomes keep the Environment held. This extends the recovery
+prerequisite needed to exercise issue #49 on the existing Boutique deployment.

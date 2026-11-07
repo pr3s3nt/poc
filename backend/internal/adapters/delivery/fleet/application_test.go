@@ -669,3 +669,49 @@ func TestApplicationFirstPrerequisiteAbsenceRejectsExistingUnitPin(t *testing.T)
 		t.Fatal("existing workload pin treated as absent", absent, err)
 	}
 }
+
+func TestFirstRolloutAbsencePreservesCompletedPrerequisiteAndController(t *testing.T) {
+	p, w, dir, intent := applicationFixture(t)
+	prior := intent("staging", "payment")
+	prior.ID += "-prerequisite"
+	prior.Revision.ID += "-prerequisite"
+	prior.Revision.Phase = domain.Prerequisite
+	prior.Revision.Scope.UnitKey = "payment/PREREQUISITE"
+	publishApplicationUnit(t, p, w, dir, prior)
+	i := intent("staging", "payment")
+	i.ID += "-rollout"
+	i.Revision.ID += "-rollout"
+	m := configMap()
+	m.Name = "payment-rollout-config"
+	m.Namespace = i.Target.Namespace
+	m.Object["metadata"].(map[string]any)["name"] = m.Name
+	m.Object["metadata"].(map[string]any)["namespace"] = m.Namespace
+	pkg, err := PackageUnit(i, []execution.Manifest{m})
+	if err != nil {
+		t.Fatal(err)
+	}
+	i.Revision.PayloadDigest = pkg.Publication.TreeDigest
+	raw, _ := json.Marshal(pkg)
+	repoPath := filepath.Join(dir, "repo.json")
+	before, _ := os.ReadFile(repoPath)
+	priorPath := filepath.Join(dir, "live-"+i.Target.Namespace+"-payment-config.json")
+	priorBefore, err := os.ReadFile(priorPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	headBefore, _ := exec.Command("git", "-C", w.Dir, "rev-parse", "HEAD").Output()
+	absent, err := p.ObserveSubmissionAbsent(context.Background(), i, port.Prepared{Revision: i.Revision, Payload: raw})
+	if err != nil || !absent {
+		t.Fatalf("first Rollout absence: %v %v", absent, err)
+	}
+	after, _ := os.ReadFile(repoPath)
+	priorAfter, _ := os.ReadFile(priorPath)
+	headAfter, _ := exec.Command("git", "-C", w.Dir, "rev-parse", "HEAD").Output()
+	if string(before) != string(after) || string(priorBefore) != string(priorAfter) || string(headBefore) != string(headAfter) {
+		t.Fatal("recovery mutated prerequisite/controller/Git")
+	}
+	os.WriteFile(filepath.Join(dir, "release-secret"), nil, 0600)
+	if absent, err = p.ObserveSubmissionAbsent(context.Background(), i, port.Prepared{Revision: i.Revision, Payload: raw}); err != nil || absent {
+		t.Fatalf("orphan Rollout Helm release accepted: %v %v", absent, err)
+	}
+}

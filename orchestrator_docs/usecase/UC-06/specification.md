@@ -447,3 +447,15 @@ per-resource evidence; changing a Definition does not silently upgrade this scop
 
 [EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
 preview, atomic hostname reservation, manifest delivery and safe release.
+
+## Explicit recovery before rollback — issue #49
+
+A first Rollout may be settled as failed without publication only after the
+stopped-owner recovery guard verifies exact new manifest/metadata publication
+absence, absence of the Rollout pin, live workload objects, Bundle,
+BundleDeployment and Helm release. A completed same-workload/generation/epoch
+Prerequisite pin and all sibling Git trees must remain authoritative; reread the
+same owned controller UID/resourceVersion before settling. This recovery does not
+publish or retry, withdraw the Prerequisite, or change sibling resources. Unknown
+or admitted outcomes remain held. After recovery, redeploy or rollback is a
+separate user action.
