@@ -118,3 +118,19 @@ were preserved. No new workload deploy or rollback was triggered by recovery.
 Runtime uses the task-built backend in the retained isolated Boutique Console,
 with a private pre-upgrade database backup. This proves the Busy blocker recovery;
 whole-Environment rollback/UI and full issue acceptance remain incomplete.
+
+## Redeploy after recovery
+
+UI Preview passed with all eleven workloads. The renderer was explicitly
+reinspected/selected through Console after the runtime rebuild. The first new
+Deploy failed without retaining the Environment claim. A runner admission race
+was found: it interpreted empty history before Operation admission as terminal,
+then closed the browser. The runner now requires the exact reviewRequestId
+Operation before reporting completion. Node syntax/docs checks passed.
+
+With the corrected runner and a host-specific private kubeconfig (the container
+kubeconfig's host.docker.internal does not resolve on the host), the next real UI
+Deploy was admitted and ended FAILED at ad. Namespace Role/RoleBinding were reused.
+No subsequent retry was launched without diagnosing this new failure. The original
+Busy blocker is resolved; successful complete redeploy and rollback acceptance are
+not yet achieved. This new pre-provision failure remains to be diagnosed.
