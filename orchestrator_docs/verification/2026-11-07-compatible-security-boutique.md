@@ -81,8 +81,32 @@ was inspected again, the workload Definition updated and its new revision
 selected through Console Settings before the next Preview/Deploy. This run
 retains failed attempts as evidence and does not count setup as acceptance.
 
-Final runtime/browser result is pending; do not claim shop readiness from the
-successful template checks, Preview or ready Redis alone. The issue remains
-open and main is unmerged. Runtime credentials, logs, screenshots and state are
-kept outside Git. Access URLs containing tailnet addresses belong in the private
-handoff to the user, not this public record or issue comments.
+The repinned run successfully applied ad, cart, checkout, currency and email;
+all five app Pods plus Redis were ready without restarts when checked. It then
+returned PARTIAL at frontend's PREREQUISITE phase. No frontend generated Git tree
+or metadata tree exists at the observed remote head, no corresponding native
+Service/controller exists, and no matching Fleet Bundle or Helm release exists.
+The shared GitRepo still serves the ten successful phase paths of the five
+workloads. Explicit UI recovery returns RECOVERY_INCOMPLETE.
+
+Code diagnosis: `ObserveSubmissionAbsent` only proves first-prerequisite absence
+when the whole shared GitRepo is absent. For a new unit in an already-existing
+Application GitRepo it returns without an absence proof; `RecoverReceipt` then
+cannot reconstruct a receipt because neither publication exists. This explains
+the held recovery. The original frontend submit error is still an unclassified
+fixed error type; this evidence does not establish its initial root cause.
+
+A proposed extension to #47 would prove new-unit absence while preserving exact
+shared-controller ownership/UID, existing pins/trees, no native objects, no Bundle,
+no Helm release and no downstream pending manager; it would only settle the
+failed attempt, never publish/apply/adopt. User approval is pending because this
+changes recovery behavior/security scope beyond the approved template work.
+No database marker, receipt, pin or ownership guard was bypassed.
+
+Runtime/browser acceptance has NOT passed. Six workloads remain unapplied and
+product → cart → checkout has not run. The issue stays open, main is unmerged,
+and the isolated stack/data are retained. Console's exact Tailscale Application
+page and same-origin workload API are checked separately; this is a Console
+status view, not a ready shop handoff. Runtime credentials, logs, screenshots,
+forward/restart instructions and state remain outside Git. Tailnet access URLs
+belong in the private handoff, not this public record or issue comments.

@@ -2194,5 +2194,7 @@ capability and token policy unspecified; nginx-readonly keeps its stronger
 profile. Private source v0.3.0 is published. Focused render/domain checks and build
 pass. Full Go checks still fail the same 79 tests/17 packages as archived main.
 The separate Console has authored all eleven Online Boutique workloads through
-forms; runtime/browser acceptance is in progress, not yet a passed gate. Main is
+forms. Five app workloads and Redis are ready; runtime acceptance is held by
+Fleet recovery of an unpublished new frontend unit in an existing shared GitRepo.
+Checkout has not run. A recovery scope extension awaits user approval; main is
 unmerged. [Execution and limitations](verification/2026-11-07-compatible-security-boutique.md).

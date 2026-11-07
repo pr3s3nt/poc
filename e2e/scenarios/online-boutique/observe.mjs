@@ -18,7 +18,7 @@ for(const w of fixture.workloads){
  const containers=[...(pod.spec.containers??[]),...(pod.spec.initContainers??[])];assert(containers.length>0);
  for(const c of containers)assert.equal(c.securityContext?.privileged,false,w.name+'/'+c.name+' compatible default');
  const main=pod.spec.containers.find(c=>c.image===w.image);assert(main,w.name+' image');
- for(const [name,value]of Object.entries(w.variables))assert.equal(main.env.find(e=>e.name===name)?.value,value,w.name+'/'+name);
+ for(const [name,value]of Object.entries(w.variables)){const binding=main.env.find(e=>e.name===name);assert(binding,w.name+'/'+name);assert(!binding.valueFrom,w.name+'/'+name+' literal binding');assert.equal(binding.value??'',value,w.name+'/'+name);}
  if(w.redis){const binding=main.env.find(e=>e.name==='REDIS_ADDR');assert(binding.valueFrom?.secretKeyRef,'Redis is a Secret reference');assert(!binding.value,'No Redis literal');}
  evidence.push({workload:w.name,ready:true,restarts:pod.status.containerStatuses.reduce((n,c)=>n+c.restartCount,0),containers:containers.map(c=>({name:c.name,securityContext:c.securityContext})),podSecurityContext:pod.spec.securityContext,automountServiceAccountToken:pod.spec.automountServiceAccountToken});
  if(w.service)for(const port of Object.values(w.service.ports)){const service=services.find(s=>s.metadata.name===w.name);assert(service);assert(service.spec.ports.some(p=>p.port===port.port&&p.targetPort===port.targetPort));assert(endpoints.some(e=>e.metadata.labels['kubernetes.io/service-name']===w.name&&e.endpoints.some(x=>x.conditions.ready===true)),w.name+' ready endpoint');}
