@@ -32,8 +32,30 @@ whose unaccounted creation prevents a third Apply. Documentation checker and
 `git diff --check` passed. Docker PlantUML syntax checks passed for the three
 changed sequence/state diagrams.
 
-The entire tfexec package run is still pending at this checkpoint. No full product
-acceptance or runtime upgrade is claimed.
+## Acceptance review — not passed
+
+The full tfexec package run reported a failure in
+`TestDestroyUsesRetainedHistoricalReleaseNeverTheCurrentOne`, then reached the
+10-minute package timeout while another cleanup test was running. It did not pass.
+
+An isolated comparison used the same disposable PostgreSQL/Terraform environment,
+REQUIRE_POSTGRES=1, REQUIRE_TERRAFORM=1 and a three-minute test timeout:
+
+```sh
+go test ./internal/application/tfexec -count=1 -timeout=3m -run '^TestDestroyUsesRetainedHistoricalReleaseNeverTheCurrentOne$'
+```
+
+- `origin/main` at `b2d605f9`: failed (24.340s).
+- Feature at `f08ef8aa`: failed identically (24.303s).
+- Both report that destroy succeeded without the required retained release,
+  contrary to the test expectation. This isolated failure predates the task;
+  the full-package timeout was not independently compared with main.
+
+The feature is not accepted: Environment rollback/API/UI are incomplete and the
+existing Boutique failure has not been exercised with the new feature. The user
+requested merge into the prior working branch only if acceptance passes; therefore
+no merge into `features/organization_seed` or main was performed. No runtime
+upgrade or complete product acceptance is claimed.
 
 ## Existing Boutique target
 
