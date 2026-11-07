@@ -12,8 +12,10 @@ last_reviewed: 2026-10-13
 - [Workload Instance](workload-instance.puml): apply/readiness/update/removal.
 - [Connection](connection.puml): verification before use.
 
-`FAILED` records terminal execution failure so status does not remain misleading. Retry transient tối đa một lần trong deadline thuộc state contract.
-Automatic full resume/rollback vẫn ngoài scope. Explicit Environment transition compensation/recovery/source cleanup are scoped by ADR-012.
+`FAILED` records terminal execution failure so status does not remain misleading.
+Retry transient tối đa ba lần tổng cộng trong deadline thuộc ADR-040/state contract.
+Rollback toàn Environment là thao tác người dùng chủ động sau khi release fail;
+không tự rollback. Snapshot, ownership và operation rules thuộc ADR-040.
 
 - [Historical Environment destination selector](environment-target.puml) — deployment selection/transition retired by ADR-017/V06.08. Current per-resource placement follows ADR-017; Secret Store and operation owner/recovery contracts remain in UC-01/UC-12 and ADR-012.
 

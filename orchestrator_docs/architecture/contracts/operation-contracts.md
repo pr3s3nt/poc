@@ -203,7 +203,8 @@ Không còn set-once/legacy backfill: lịch sử contract ở `a897d6b`/`3367f7
   resolve typed inputs, khóa state, init/validate/plan, reject UPDATE delete/
   replace, apply dưới deadline. State backend acknowledge rồi validate
   outputs/readiness, store secret refs và commit result/progress nguyên tử.
-- Retry transient tối đa một lần sau state/actual-result checks; input/auth/
+- Retry transient tối đa ba lần tổng cộng sau state/actual-result checks theo
+  ADR-040; input/auth/
   permission/unknown outcome dừng và giữ metadata/state/hold. Full resume/import
   deferred D12/D13; state thiếu không tự biến thành CREATE.
 - Returns: safe outputs/typed Secret refs và scoped target. Identity/stable

@@ -123,7 +123,7 @@ UC-08 Provision Resources
 ## Ngoài phạm vi happy path
 
 - **OOS-01:** Retry không giới hạn hoặc cancellation không dừng process.
-  Retry tối đa một lần, timeout và stopped-process checks thuộc V2-06.
+  Retry tối đa ba lần tổng cộng, timeout và stopped-process checks thuộc V2-06.
 - **OOS-02:** Tự động resume sau gián đoạn và reconcile tài nguyên ngoài
   state theo D12/D13. Ghi nhận partial failure/hold và cleanup vẫn bắt buộc.
 - **OOS-03:** Incremental provisioning optimization.
@@ -180,7 +180,7 @@ before destination apps/routes become live. See
 - **V2-04:** Persist intent/ownership trước call. State lock nằm dưới
   Environment operation; mỗi write/unlock kiểm owner/fence. Không giữ DB
   transaction qua Terraform/network call hoặc tự mở khóa vì hết heartbeat.
-- **V2-06:** Retry transient tối đa một lần trong deadline sau kiểm state/
+- **V2-06:** Theo ADR-040, retry transient tối đa ba lần tổng cộng trong deadline sau kiểm state/
   kết quả thực tế. Input/auth/permission hoặc outcome chưa rõ thì dừng, giữ
   progress/state/hold. Không tự resume/import; cleanup độc lập runner vẫn bắt buộc.
 - **V2-07:** State thiếu sau prior attempt hoặc provider outcome chưa rõ thì

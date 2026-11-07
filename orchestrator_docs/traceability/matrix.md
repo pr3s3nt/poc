@@ -1529,3 +1529,10 @@ ADR-039 / WD-02–03: template-only values → RuntimeDefaults/TemplateDefaultsS
 → workloadconfig scoped admission → generic resolver / renderer / Preview →
 arbitrary-value merge, forged-profile, no-policy and real Fleet/PVC acceptance.
 See [verification](../verification/2026-11-06-template-only-defaults.md).
+
+
+ADR-040 / UC-06 V2-05 / UC-08 V2-06 — three total safe transient resource
+invocations → `tfexec/run.go` and attempt deadline in `tfexec/service.go` →
+`TestBoundedTransientRetry`, `TestTransientPlanFailureSucceedsOnThirdAttempt`,
+`TestSecondTransientFailureWithUnaccountedCreateHolds`. UC-06 V2-07
+Environment rollback remains designed but unimplemented under issue #49.

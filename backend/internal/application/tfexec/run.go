@@ -39,6 +39,8 @@ type stepFailure struct {
 func (f *stepFailure) Error() string { return f.err.Error() }
 func (f *stepFailure) Unwrap() error { return f.err }
 
+const maxResourceInvocations = 3
+
 // run drives the instance through init, plan review, apply, outputs, state
 // acknowledgement, contract checks and readiness. art is the first private
 // artifact (owned by the caller); retries and sessions open their own.
@@ -58,10 +60,10 @@ func (s *Service) run(ctx context.Context, st *execState, art *tfmodule.Verified
 	st.token = token
 
 	var outcome invocationOutcome
-	retried := false
+	attempt := 1
 	current := art
 	for {
-		outcome, err = s.invoke(ctx, st, current, retried)
+		outcome, err = s.invoke(ctx, st, current, attempt > 1)
 		if current != art {
 			_ = current.Close()
 		}
@@ -72,8 +74,8 @@ func (s *Service) run(ctx context.Context, st *execState, art *tfmodule.Verified
 		if !errors.As(err, &failure) {
 			return Result{}, s.settleFailure(ctx, st, prev, &stepFailure{stage: StagePlanning, err: err})
 		}
-		if !retried && retryable(failure) {
-			// One bounded retry. A pre-apply failure (init, plan) had no
+		if attempt < maxResourceInvocations && retryable(failure) {
+			// At most three total attempts. A pre-apply failure (init, plan) had no
 			// effect. After an APPLY failure a clean exit proves nothing about
 			// the provider: the retry needs acknowledged state for this
 			// attempt and every object the plan meant to create present in
@@ -86,7 +88,7 @@ func (s *Service) run(ctx context.Context, st *execState, art *tfmodule.Verified
 					return Result{}, s.settleFailure(ctx, st, prev, failure)
 				}
 			}
-			retried = true
+			attempt++
 			s.progress(ctx, st, failure.stage, tfresource.AttemptRunning, codeTransient)
 			if err := s.sleep(ctx, s.cfg.RetryBackoff); err != nil {
 				return Result{}, s.settleFailure(ctx, st, prev, &stepFailure{stage: failure.stage, step: &terraformexec.StepError{Step: "retry", Class: terraformexec.ClassCancelled, Outcome: terraformexec.OutcomeUnknown}, err: failure.err})
@@ -104,14 +106,14 @@ func (s *Service) run(ctx context.Context, st *execState, art *tfmodule.Verified
 }
 
 func (s *Service) capabilityTTL() time.Duration {
-	ttl := 2*s.cfg.InvocationTimeout + s.cfg.RetryBackoff + 5*time.Minute
+	ttl := maxResourceInvocations*s.cfg.InvocationTimeout + (maxResourceInvocations-1)*s.cfg.RetryBackoff + 5*time.Minute
 	if max := 6 * time.Hour; ttl > max {
 		ttl = max
 	}
 	return ttl
 }
 
-// retryable reports whether a failure may be retried once: a confirmed
+// retryable reports whether a failure may be retried: a confirmed
 // transient failure of a step before or during apply. Authentication, input,
 // destructive and unknown outcomes never retry.
 func retryable(f *stepFailure) bool {

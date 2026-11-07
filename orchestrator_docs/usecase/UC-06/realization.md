@@ -83,6 +83,14 @@ node persist progress bằng transaction ngắn. Transaction B sau readiness
 atomically đổi Environment current-set pointer, save WorkloadInstance và mark
 Deployment `SUCCEEDED`, với optimistic Environment version.
 
+Theo [ADR-040](../../architecture/decisions/ADR-040-environment-deployment-retry-and-rollback.md),
+pending batch cần lưu base Environment release snapshot trước side effect. Các
+Deployment con tiếp tục lưu progress chi tiết; batch chỉ thành successful release
+sau khi toàn bộ workloads và delivery/readiness đều pass. Rollback là operation
+bù trừ mới, dùng base của release thành công gần nhất hoặc empty baseline đã
+inventory ownership; không dùng current set lai của một batch partial như một
+release thành công.
+
 ## Planned tests
 
 - `TestDeployWorkload_AWSHappyPath`, `TestDeployWorkload_InternalHappyPath`.
