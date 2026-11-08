@@ -51,3 +51,22 @@ Editor navigation retains the selected Environment.
 The dedicated feature frontend image and private resume script are updated;
 Console/data/forwards remain running. Public evidence omits private URLs and
 credentials. Main merge awaits user acceptance.
+
+## Approved test maintenance and integration
+
+The user approved retiring obsolete historical static scans and merging main.
+The label-corpus scan (and its extraction-count assertion) and the V04 source-ID
+scan are removed: those mixed runners still include retired Score/Bundle steps
+and are already historical under `e2e/README.md`. Registration, no-interception,
+secret protection and missing/failed runtime-evidence checks remain. No required
+runtime assertion was removed from the evidence verifier, and historical runners
+were not silently presented as executable current acceptance.
+
+After this test-only change, the focused groups pass 16/16 and full frontend
+passes 986/986 across 104 files. The count decreases by three removed static
+checks, including the two previously failing checks. Lint and documentation
+validation pass (existing lint warning and unavailable local PlantUML remain).
+No product code changed after the real-browser authoring verification above;
+the preceding complete-tooling kind backend comparison remains the disclosed
+backend baseline, without claiming full backend green or rerunning stopped app
+scenarios.

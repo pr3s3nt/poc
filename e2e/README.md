@@ -139,6 +139,11 @@ the removed CLI stop before setup. Mixed historical scenarios are not evidence
 that their obsolete rendering steps still work. Reuse focused product tests and
 the new scenario for this change; no bulk E2E migration is included.
 
+Static scans requiring old Console label strings or literal assertion IDs in these
+historical mixed runners are retired. Their registration, safety and supplied
+runtime-evidence validation tests remain. This does not make historical runners
+current acceptance or remove missing/failed evidence checks from verifyEvidence.
+
 Git-only bootstrap, unchanged rerun and owned backend Pod recreation/PVC persistence:
 [bootstrap-git-pvc](scenarios/bootstrap-git-pvc/README.md).
 
