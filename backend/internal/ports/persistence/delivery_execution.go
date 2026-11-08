@@ -26,6 +26,20 @@ type DeliveryExecution struct {
 }
 type DeliveryObject = port.AppliedObject
 
+// TerminalJobFailure is a known failed publication, retained only for guarded
+// removal. It cannot be reused as a completed execution or successful baseline.
+func (e DeliveryExecution) TerminalJobFailure() bool {
+	if e.Revision.Phase != domain.Job || e.Mutation.Action != domain.Submit || e.Mutation.Status != domain.IntentFailed || e.Receipt.Handle[port.TerminalJobFailureKey] != "v1" || e.Receipt.IntentID != e.Mutation.ID || e.Receipt.RevisionID != e.Revision.ID || e.Receipt.PayloadDigest != e.Revision.PayloadDigest || len(e.Inventory) == 0 {
+		return false
+	}
+	for _, o := range e.Inventory {
+		if o.APIVersion != "batch/v1" || o.Kind != "Job" || o.Name == "" || o.UID == "" {
+			return false
+		}
+	}
+	return true
+}
+
 // DeliveryExecutionRepository writes only under an active matching Environment
 // owner/fence. Observations have their own read-only lease protocol.
 type DeliveryExecutionRepository interface {

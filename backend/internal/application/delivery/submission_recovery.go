@@ -192,6 +192,62 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 				return err
 			}
 		}
+		settleFailure := func(proofCtx context.Context, receipt port.Receipt) (bool, error) {
+			terminal, ok := provider.(port.TerminalJobFailureObserver)
+			if record.Revision.Phase != domain.Job || !ok {
+				return false, nil
+			}
+			if record.Revision.Scope.TargetGeneration != env.TargetGeneration || record.Revision.Scope.Epoch != env.DeliveryEpoch {
+				return false, domain.ErrStale
+			}
+			inventory, failed, proofErr := terminal.ObserveTerminalJobFailure(proofCtx, intent, port.Prepared{Revision: record.Revision, Payload: raw}, receipt)
+			if proofErr != nil || !failed {
+				return false, proofErr
+			}
+			if len(inventory) == 0 {
+				return false, domain.ErrOutcomeUnknown
+			}
+			for _, old := range record.Inventory {
+				found := false
+				for _, current := range inventory {
+					if old.Key() == current.Key() && old.UID == current.UID {
+						found = true
+					}
+				}
+				if !found {
+					return false, domain.ErrStale
+				}
+			}
+			old := record.Mutation.Version
+			record.Mutation, err = record.Mutation.Advance(domain.IntentFailed, true)
+			if err != nil {
+				return false, err
+			}
+			if receipt.Handle == nil {
+				receipt.Handle = map[string]string{}
+			}
+			receipt.Handle[port.TerminalJobFailureKey] = "v1"
+			record.Receipt, record.Inventory, record.UpdatedAt = receipt, inventory, time.Now().UTC()
+			if !record.TerminalJobFailure() {
+				return false, domain.ErrOutcomeUnknown
+			}
+			_, err = c.Store.UpdateDeliveryExecution(ctx, record, old)
+			return err == nil, err
+		}
+		// Check terminal failure before any recovery wake/metadata handoff.
+		settled, settleErr := settleFailure(ctx, record.Receipt)
+		if settleErr != nil {
+			return settleErr
+		}
+		if settled {
+			if destination != "" {
+				if err := c.Store.ReleaseGitPublication(ctx, persistence.GitPublicationLease{Destination: destination, OrganizationID: org.ID, Owner: owner}); err != nil {
+					return err
+				}
+			}
+			continue
+		}
+
 		stage = "submission"
 		receipt, err := recoverer.RecoverSubmission(ctx, intent, port.Prepared{Revision: record.Revision, Payload: raw}, record.Receipt, source)
 		if err != nil {
@@ -207,6 +263,16 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 		wait, cancel := context.WithTimeout(ctx, deadline)
 		for {
 			stage = "observe"
+			settled, settleErr := settleFailure(wait, receipt)
+			if settleErr != nil {
+				cancel()
+				return settleErr
+			}
+			if settled {
+				cancel()
+				break
+			}
+
 			observed, observeErr := provider.Observe(wait, intent, receipt)
 			if observeErr != nil {
 				cancel()

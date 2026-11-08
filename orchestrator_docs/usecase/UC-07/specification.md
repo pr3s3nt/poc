@@ -282,6 +282,11 @@ and cache contracts. No upload or source fetch is introduced into this use case.
 - **CD-03:** Keep union inventory on partial update/removal and block cleanup
   dependencies until absence is proven. Retry reads durable checkpoints; a failed
   Git push or disconnected controller is not successful removal.
+  GW-08's approved terminal-failed Job inventory is removable even without a
+  successful workload baseline. Removal uses the original receipted artifacts,
+  target/binding and proven UID, including prerequisite/Job phases, and is never
+  interpreted as Job completion or data rollback. A subsequent withdrawal
+  tombstone supersedes the failed publication and prevents resurrection.
 - **CD-04:** Disabling CD changes desired selection, not live ownership. Removal
   during a pending toggle uses applied manager; admitted transitions hold the
   Environment until completed or explicitly recovered.

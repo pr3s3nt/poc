@@ -1282,6 +1282,7 @@ func (s *Service) fail(ctx context.Context, record domain.Deployment, cause erro
 		{repositoryhosting.ErrIdentity, "REPOSITORY_IDENTITY"}, {repositoryhosting.ErrUnavailable, "REPOSITORY_UNAVAILABLE"},
 		{deliverydomain.ErrUnsupported, "DELIVERY_UNSUPPORTED"}, {deliveryapp.ErrUnavailable, "DELIVERY_UNAVAILABLE"},
 		{deliverydomain.ErrOutcomeUnknown, "DELIVERY_UNKNOWN"}, {ErrTargetChanged, "TARGET_CHANGED"},
+		{deliverydomain.ErrJobFailed, "JOB_EXECUTION_FAILED"},
 		{configport.ErrNoStore, "NO_SECRET_STORE"}, {configport.ErrStoreUnavailable, "SECRET_STORE_UNAVAILABLE"},
 		{tfexec.ErrInstanceHeld, "RESOURCE_HELD"}, {tfexec.ErrBinding, "RESOURCE_BINDING"}, {tfexec.ErrReplacementRequired, "RESOURCE_REPLACEMENT"},
 		{moduleregistry.ErrReleaseMismatch, "MODULE_RELEASE"}, {renderregistry.ErrBundleUnavailable, "TEMPLATE_UNAVAILABLE"},

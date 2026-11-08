@@ -119,6 +119,14 @@ type SubmissionRecovery interface {
 	RecoverSubmission(context.Context, Intent, Prepared, Receipt, TransferSource) (Receipt, error)
 }
 
+// TerminalJobFailureObserver proves a published Job phase has terminated in failure,
+// without publishing, mutating a Job or claiming successful completion.
+type TerminalJobFailureObserver interface {
+	ObserveTerminalJobFailure(context.Context, Intent, Prepared, Receipt) ([]AppliedObject, bool, error)
+}
+
+const TerminalJobFailureKey = "terminalJobFailure"
+
 // TransferSource is private coordinator input backed by immutable source
 // artifacts and acknowledged incarnation receipts. It is never accepted from UI.
 type TransferSource struct {

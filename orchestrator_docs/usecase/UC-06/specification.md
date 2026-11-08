@@ -477,5 +477,10 @@ Follow GW-08 in `architecture/contracts/generic-workload.md`: first-class Job
 intent, same-Environment waitForJobs completion edges, final-candidate validation,
 consumer blocking until successful completion, immutable execution and no automatic
 replay. Saving incomplete drafts is distinct from Preview/Deploy validation.
-One batch Deploy includes all resources/Jobs/consumers. No new Job rerun or
-rollback/recovery policy is part of this slice.
+One batch Deploy includes all resources/Jobs/consumers. No automatic Job rerun or
+data rollback is introduced. The user subsequently approved GW-08's failed-Job
+recovery extension: verified terminal failure settles a submission as FAILED with
+retained UID inventory, releases the stopped owner's operation without marking
+the Job successful, and preserves explicit guarded deletion/new-identity retry.
+Unknown/running/replaced/foreign outcomes remain held. Consumers never proceed
+because of a failure settlement.

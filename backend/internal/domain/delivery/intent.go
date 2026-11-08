@@ -4,6 +4,7 @@ import "errors"
 
 var ErrOutcomeUnknown = errors.New("delivery: prior mutation outcome must be resolved")
 var ErrTransition = errors.New("delivery: invalid intent transition")
+var ErrJobFailed = errors.New("delivery: Job execution failed; remove it and use a new Job workload identity")
 
 type Action string
 

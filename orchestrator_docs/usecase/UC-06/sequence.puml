@@ -22,6 +22,9 @@ note over Service, Deployer
 GW-08: batch consumers follow successful Job completion.
 Existing Job phase waits; immutable completed Jobs are reused,
 never replayed by polling or an unrelated workload Deploy.
+Failed Job recovery: verify exact publication/controller/release,
+terminal Job and stopped Pods; retain UID inventory as FAILED.
+Explicit removal/new Job identity stays Preview -> Deploy.
 end note
 Developer -> API: DeployWorkload(command)
 API -> Service: DeployWorkload(ctx, command)

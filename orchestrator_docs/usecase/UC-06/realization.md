@@ -278,3 +278,11 @@ First-class Job (GW-08) uses the existing Job phase and completion observation.
 The workload completion prerequisite is represented in the Environment graph;
 its consumer executes only after the Job's workload operation succeeds. No new
 phase, implicit Job retry or rewrite of acknowledged Job artifacts is introduced.
+
+The approved failed-Job extension introduces a read-only terminal-failure proof
+at the provider port. Under the stopped-owner fence, the coordinator settles the
+submission FAILED with private proof/UID inventory, without a successful workload
+commit. Guarded removal includes this known failed publication; reuse cannot turn
+it into completion. A draft with retained delivery is pending deletion, not simply
+discarded. Existing Preview/Deploy performs withdrawal/cleanup and only then drops
+the draft; a new Job identity supplies the corrected task.

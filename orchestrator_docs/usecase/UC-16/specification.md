@@ -60,8 +60,12 @@ của Environment đang chọn.
 - **VAR-02 — Xóa workload:** tại TRG-01, Developer chọn Delete và xác nhận.
   Hệ thống đánh dấu workload chờ xóa trong Environment; Developer có thể hoàn
   tác trước khi deploy. Workload đang chạy chưa bị xóa. Nếu workload mới chỉ
-  tồn tại ở draft, chưa từng deploy, Delete hủy pending add thay vì tạo pending
+  tồn tại ở draft, chưa từng publish tài nguyên, Delete hủy pending add thay vì tạo pending
   delete cho workload không tồn tại ở runtime.
+  Nếu deploy thất bại nhưng đã publish tài nguyên được giữ inventory, Delete
+  vẫn tạo pending delete; Preview → Deploy mới thực hiện cleanup. Không bỏ draft
+  rồi để tài nguyên thất bại thành orphan. Consumer phải bỏ/đổi dependency trước
+  khi final Preview cho phép xóa Job (GW-08, mở rộng issue #50).
 
 ## Hậu điều kiện
 

@@ -191,7 +191,8 @@ its consumers. Initial batch planning remains one user Deploy for the Environmen
 
 Preserve existing UC-06 CD-03 immutable Job/no-replay behavior. An unchanged
 completed Job is reused. No rerun button, automatic replay, update of an existing
-Job payload, or new rollback/recovery semantics are introduced by this slice.
+Job payload is introduced. The separately approved failed-Job recovery extension
+below adds a bounded terminal-failure path without replay.
 A different migration run uses an explicitly new Job workload identity and updated
 consumer dependencies. Changing execution content under an already applied Job
 identity must fail closed. Removal is ownership/UID guarded and cannot leave
@@ -204,3 +205,22 @@ fail capability admission instead of silently producing a Deployment. Standard
 source adds a new Job preset and capability without changing existing immutable
 preset metadata. No SQL migration is required: optional intent fields remain in
 existing versioned JSON snapshots.
+
+### Failed Job lifecycle — extension approved 2026-11-08
+
+Explicit stopped-owner recovery may settle a receipted Job submission as FAILED,
+retaining its exact live UID inventory and a terminal-failure proof in the private
+receipt. It must verify the admitted artifact/publication and controller/tree pins,
+Bundle/Helm and platform ownership, unchanged Job incarnation/spec, Failed=True,
+and no active/terminating Pods. Missing, replaced, running, incomplete or ambiguous
+objects stay held. This is not a successful workload commit or completion receipt;
+consumers stay blocked and the same Job identity may not be reused as successful
+or replayed. Recovery performs no Job write or resubmission.
+
+Published failed work remains removable through draft → Preview → Deploy even
+without a prior successful workload baseline. The deletion plan is distinct from
+discarding a never-published draft, removes its exact retained CD inventory with
+existing UID guards, preserves sibling trees/PVCs and cleans the draft only after
+successful removal. References must be removed/repointed in the final candidate.
+An explicitly new Job identity executes the corrected task. Recovery/Job deletion
+does not roll back any database or external data effects.

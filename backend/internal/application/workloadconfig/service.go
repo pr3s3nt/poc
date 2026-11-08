@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	catalogapp "orchestrator/internal/application/catalogrelease"
+	deliveryapp "orchestrator/internal/application/delivery"
 	"regexp"
 	"sort"
 	"strings"
@@ -254,10 +255,32 @@ func (s *Service) Delete(ctx context.Context, app, env, workload string, expecte
 		return View{}, persistence.ErrNotFound
 	}
 	if !deployed && priorErr == nil && prior.State == environment.DraftUpsert {
-		if err := s.store.DeleteWorkloadDraft(ctx, app, env, workload, expectedVersion); err != nil {
+		application, err := s.store.GetApplication(ctx, app)
+		if err != nil {
 			return View{}, err
 		}
-		return s.List(ctx, app, env)
+		org, err := s.store.GetOrganization(ctx, application.OrganizationKey)
+		if err != nil {
+			return View{}, err
+		}
+		repository, ok := s.store.(persistence.DeliveryExecutionRepository)
+		if !ok {
+			return View{}, persistence.ErrOperationLost
+		}
+		executions, err := repository.ListDeliveryExecutions(ctx, org.ID, e.ID)
+		if err != nil {
+			return View{}, err
+		}
+		retained, err := deliveryapp.HasRetainedWorkload(executions, workload)
+		if err != nil {
+			return View{}, err
+		}
+		if !retained {
+			if err := s.store.DeleteWorkloadDraft(ctx, app, env, workload, expectedVersion); err != nil {
+				return View{}, err
+			}
+			return s.List(ctx, app, env)
+		}
 	}
 	draft := environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: workload, State: environment.DraftDelete}
 	if priorErr == nil && prior.State == environment.DraftUpsert {

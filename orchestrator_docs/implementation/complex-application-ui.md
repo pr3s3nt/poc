@@ -209,5 +209,30 @@ Ready but failed the bucket Job due to a double URL scheme in scenario inputs.
 The renderer pin refresh and namespace access harness correction, supported
 recovery, immutable Job failure and next scope decision are recorded in the
 verification above. Corrected inputs are prepared, not applied to the blocked app.
-No new failed-Job recovery/removal behavior is implemented or assumed approved;
-functional/full issue acceptance and merge stay pending.
+The user subsequently selected option 2, approving the bounded extension below.
+Functional/full issue acceptance and merge stay pending.
+
+
+## Approved failed-Job recovery/removal — implementation checkpoint
+
+Option 2 extends issue #50 on the existing GitLab app. GW-08 and UC-06/07/16
+define the boundary: prove terminal failure against the admitted artifact, exact
+Git/controller/Helm identities, immutable native Job and stopped Pods; settle the
+submission as FAILED with retained UID inventory, never completion or replay.
+UI deletion must retain a draft removal even without a prior successful Set. A
+corrected Job uses a new workload identity and explicitly updated dependencies.
+
+`fleet/terminal_job.go` implements the read-only proof. Delivery recovery persists
+the failure receipt, removal includes its inventory, acknowledged withdrawal
+fences older records, and ordinary submission rejects reuse of the failed Job.
+Workload deletion checks retained delivery records before discarding a draft.
+No schema migration or manual database/cluster repair is introduced.
+
+Affected Fleet/delivery/workloadconfig/domain/planning suites, focused pending
+Job/literal tests and Go build pass. Real PostgreSQL integration tests pass with
+REQUIRE_POSTGRES=1, including reopen, UID retention and absence of a successful
+revision. Two renderer tests fail identically on origin/main (2755c864) in the
+same tool environment: RequiredRendererMissingTieAndUnavailableFailBeforeResources
+and RequiredRendererPreviewIsPurePinsAndDeployRendersAfterOutputs; renderer bundle
+unavailability is not claimed as a pass. Actual UI recovery, removal and GitLab
+functional checks remain pending at this checkpoint.

@@ -234,6 +234,9 @@ func (c *Coordinator) Deploy(ctx context.Context, req DeployRequest) error {
 		if previous.Revision.Phase != domain.Job || len(phases[domain.Job]) == 0 {
 			continue
 		}
+		if previous.TerminalJobFailure() {
+			return domain.ErrJobFailed
+		}
 		policy, ok := provider.(port.ImmutableExecution)
 		if !ok {
 			return domain.ErrUnsupported

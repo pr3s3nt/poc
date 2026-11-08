@@ -378,6 +378,18 @@ expiry. A successful transition commits all applied selection metadata together;
 the existing workloads keep their Deployment history. Future provider transitions
 must implement the same export/adoption protocol or return UNSUPPORTED.
 
+### Bounded terminal Job failure — GW-08
+
+For the approved managed Fleet layout, explicit recovery may settle a submission
+as FAILED when read-only proof binds the admitted artifact, remote publication,
+controller revision, latest failed Helm release and terminal native Job UID with
+all owned Pods stopped. Preserve its receipt and UID inventory for guarded removal;
+this is not a completion acknowledgement and must not set a successful revision.
+Unknown outcome remains held. No controller wake, Job replay, force replacement
+or inferred rollback is permitted by this path. Failed Job reuse is rejected; a
+new Job identity requires authored dependency changes. An acknowledged withdrawal
+fences the retained failed inventory so later cleanup cannot revive it.
+
 ## CDR-08 — Public API
 
 All routes are under the existing authenticated `/api/v1` boundary. Environment

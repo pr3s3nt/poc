@@ -44,7 +44,7 @@ func activeExecutions(executions []persistence.DeliveryExecution, workload strin
 		if e.Mutation.Status == domain.IntentRunning || e.Mutation.Status == domain.IntentUnknown {
 			return nil, domain.ErrOutcomeUnknown
 		}
-		if e.Mutation.Status == domain.IntentAcknowledged {
+		if e.Mutation.Status == domain.IntentAcknowledged || e.TerminalJobFailure() {
 			if prior, exists := latest[e.UnitID]; !exists || e.CreatedAt.After(prior.CreatedAt) {
 				latest[e.UnitID] = e
 			}
@@ -65,6 +65,13 @@ func activeExecutions(executions []persistence.DeliveryExecution, workload strin
 		return out[i].UnitID < out[j].UnitID
 	})
 	return out, nil
+}
+
+// HasRetainedWorkload distinguishes discarding a never-published draft from a
+// removal that must go through Preview/Deploy and retain the CD ownership proof.
+func HasRetainedWorkload(executions []persistence.DeliveryExecution, workload string) (bool, error) {
+	active, err := activeExecutions(executions, workload)
+	return len(active) > 0, err
 }
 func (c *Coordinator) removeExecution(ctx context.Context, orgKey string, source persistence.DeliveryExecution) error {
 	return c.withdrawExecution(ctx, orgKey, source, true)

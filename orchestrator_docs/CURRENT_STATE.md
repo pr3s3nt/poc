@@ -27,10 +27,12 @@ ConfigMap shell text as platform references; planning tests and Go build pass.
 Three batch attempts are recorded: stale renderer pin failed, namespace access
 setup ordering interrupted then recovered, and the current attempt reached Ready
 Gitaly/SeaweedFS but its bucket Job failed due to a double URL scheme in test
-inputs. Corrections are prepared; failed Job recovery waits for Ready and holds
-the app. No recovery semantics extension is approved. User choice between a new
-isolated test app and expanding failed-Job recovery/removal is pending; GitLab
-functional acceptance and full gate are not complete. See
+inputs. The user approved option 2: bounded failed-Job recovery/removal on the
+current app. Implementation now observes terminal failure read-only, retains UID
+inventory without success acknowledgement, blocks Job replay and preserves UI
+draft deletion for published failed Jobs. Focused Go/build and real PostgreSQL
+persistence checks pass; runtime recovery/removal verification, GitLab functional
+acceptance and the full gate are not complete. See
 [survey and proposed options](implementation/complex-application-ui.md).
 
 ## Grouped template versions — issue #47
