@@ -2310,6 +2310,7 @@ for new resources). Platform Engineers append optional outputs to an existing Ty
 through `POST /api/v1/resource-types/{key}/outputs` and the Resource Types page
 (UC-02 EXT); a workload binding an optional output its selected Terraform
 Definition does not map is rejected at Preview. Aurora/ElastiCache outputs are
-validated offline only (no AWS run). `platform-catalog/` and
+validated offline only (no AWS run). Verified on kind with five databases
+([record](verification/2026-11-08-db-connection-outputs.md)). `platform-catalog/` and
 `backend/terraform-modules/mysql` snapshots and Git-catalog bootstrap targets pinned
 to older commits are unchanged.
