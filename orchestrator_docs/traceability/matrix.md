@@ -1544,7 +1544,9 @@ See [verification](../verification/2026-11-06-template-only-defaults.md).
 
 Implementation status and limits are recorded in
 [capability verification](../verification/2026-11-07-observability-capabilities.md);
-this trace does not claim stage-6 or MCP-specific acceptance.
+stage-6 UI acceptance with Online Boutique is recorded in
+[stage-6 verification](../verification/2026-11-08-observability-boutique-acceptance.md)
+(`e2e/scenarios/observability-boutique`); MCP-specific acceptance is not claimed.
 
 
 ADR-040 / UC-06 V2-05 / UC-08 V2-06 — three total safe transient resource

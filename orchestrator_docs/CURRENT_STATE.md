@@ -34,8 +34,15 @@ not establish MCP-specific coverage. The PostgreSQL fixture is a declared extern
 dependency, not a product-owned PostgreSQL State resource; DB/PVC free-space and
 production/company instrumentation/thresholds are not inferred. Full validation
 has known baseline failures and environment-dependent PostgreSQL checks under
-review. No complete stages-0–5 acceptance, stage-6 or main merge is claimed.
+review. User acceptance and the main merge are still pending.
 See [capability checkpoints](verification/2026-11-07-observability-capabilities.md).
+
+Stage 6 (2026-11-08) ran through the Console UI with Online Boutique on the shared
+kind cluster: binding before Deploy, 11 workloads `APPLIED`, real Loki logs, a
+form-driven OOM producing real firing/resolved notifications, and recovery. It
+fixed multi-workload monitoring reads (bounded concurrency) and the workload
+dashboard. MCP coverage and post-acceptance cleanup remain open; see
+[stage-6 verification](verification/2026-11-08-observability-boutique-acceptance.md).
 
 ## Issue #35 branch integration — 2026-11-06
 

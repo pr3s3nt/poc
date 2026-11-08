@@ -56,12 +56,13 @@
           "uid": "prometheus"
         },
         "query": {
-          "query": "label_values(kube_deployment_labels{cluster_uid=\"$cluster_uid\",namespace=\"$namespace\"}, deployment)",
+          "query": "label_values(kube_deployment_status_replicas_available{cluster_uid=\"$cluster_uid\",namespace=\"$namespace\"}, deployment)",
           "refId": "workload"
         },
         "refresh": 1,
         "multi": false,
-        "includeAll": false
+        "includeAll": true,
+        "allValue": ".*"
       }
     ]
   },
@@ -143,7 +144,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "kube_deployment_status_replicas_available{cluster_uid=\"$cluster_uid\",namespace=\"$namespace\",deployment=\"$workload\"}"
+          "expr": "kube_deployment_status_replicas_available{cluster_uid=\"$cluster_uid\",namespace=\"$namespace\",deployment=~\"$workload\"}"
         }
       ],
       "fieldConfig": {

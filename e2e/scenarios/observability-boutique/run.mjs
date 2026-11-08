@@ -62,7 +62,8 @@ async function previewDeploy(label) {
 async function monitoring() { return ui.get(base + '/monitoring'); }
 async function openWorkloadEditor(name) {
   await page.goto(c.baseURL + `/ui/applications/${app}?environment=staging`);
-  await page.getByRole('link', { name, exact: true }).or(page.getByRole('button', { name, exact: true })).first().click();
+  const row = page.locator('.table-row').filter({ has: page.locator('.workload-name', { hasText: new RegExp(`^\\W*${name}$`) }) });
+  await row.getByRole('button', { name: 'Sửa', exact: true }).click();
   await page.getByLabel('Tên Workload', { exact: true }).waitFor();
 }
 async function setCartMemoryLimit(value) {
@@ -111,7 +112,8 @@ try {
     for (const name of inputs.expectedWorkloads) assert(rows.some(r => r.workload === name), 'missing workload ' + name);
     assert(rows.every(r => r.configuration === 'APPLIED'), 'configuration not APPLIED for all workloads');
     await page.goto(c.baseURL + `/ui/applications/${app}?environment=staging`);
-    await page.getByRole('heading', { name: 'Giám sát Kubernetes', exact: true }).waitFor(); await shot('monitoring-overview');
+    const panel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Giám sát Kubernetes', exact: true }) }).last();
+    await panel.getByRole('cell', { name: 'cart', exact: true }).first().waitFor({ timeout: 60000 }); await shot('monitoring-overview');
     await page.goto(c.baseURL + `/ui/applications/${app}/environments/staging/observability?tab=logs&workload=cart`);
     await page.locator('.obs-log-table').waitFor({ timeout: 60000 });
     assert.equal(await page.locator('.obs-log-controls select').first().inputValue(), '', 'logs must follow the bound source (Loki)');
@@ -134,10 +136,17 @@ try {
     await shot('restore-deploy'); console.log('PASS cart restored through workload form and Deploy');
   }
   if (mode === 'receipts') {
-    const all = receipts(), mine = (all.notifications ?? all).filter(n => JSON.stringify(n).includes(namespace() ?? '#none'));
-    const summary = mine.map(n => ({ at: n.receivedAt ?? n.at, status: n.body?.status ?? n.status, alerts: (n.body?.alerts ?? n.alerts ?? []).map(a => `${a.labels?.alertname}/${a.labels?.orchestrator_workload ?? a.labels?.container ?? ''}:${a.status}`) }));
-    obs.receipts = summary; save(); console.log(JSON.stringify(summary, null, 1));
-    await page.goto(c.baseURL + `/ui/applications/${app}?environment=staging`); await shot('alerts-view');
+    const mine = receipts().filter(n => (n.notification?.alerts ?? []).some(a => a.labels?.orchestrator_app === app));
+    const summary = mine.map(n => ({ at: n.receivedAt, status: n.notification.status, alerts: n.notification.alerts.map(a => `${a.labels.alertname}/${a.labels.orchestrator_workload}:${a.status}`) }));
+    obs.receipts = summary; save(); console.log(JSON.stringify(summary));
+    assert(summary.length > 0, 'no actual notification for this application');
+    const view = await monitoring();
+    console.log('Console alerts', JSON.stringify((view.alerts ?? []).map(a => `${a.name}/${a.labels?.orchestrator_workload}:${a.state}`)), 'notifications', JSON.stringify((view.notifications ?? []).map(a => `${a.name ?? a.labels?.alertname}:${a.state ?? a.status?.state}`)));
+    await page.goto(c.baseURL + `/ui/applications/${app}?environment=staging`);
+    const panel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Giám sát Kubernetes', exact: true }) }).last();
+    await panel.getByRole('cell', { name: 'cart', exact: true }).first().waitFor({ timeout: 60000 }); await shot('alerts-view-' + Date.now());
+    await page.goto(c.baseURL + `/ui/applications/${app}/environments/staging/observability?tab=logs&workload=cart`);
+    await page.locator('.obs-log-table').or(page.getByRole('status')).first().waitFor({ timeout: 60000 }); await shot('cart-logs-' + Date.now());
   }
   if (mode === 'native') {
     obs.native = await bind('native'); save();

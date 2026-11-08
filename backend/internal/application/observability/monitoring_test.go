@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -641,5 +642,19 @@ func TestMonitoringReadObservesManyWorkloadsWithinDeadlineInOrder(t *testing.T) 
 		if w.Workload != targets[i].Workload {
 			t.Fatal("observation order changed", i, w.Workload, targets[i].Workload)
 		}
+	}
+}
+
+func TestScopedGrafanaURLSelectsAllWorkloadsExplicitly(t *testing.T) {
+	c := monitoring.Connection{GrafanaURL: "https://grafana.example/", DashboardUID: "orchestrator-workloads", ClusterUID: "cluster-one"}
+	scope := telemetry.Scope{OrganizationKey: "acme", ApplicationKey: "shop", EnvironmentKey: "staging"}
+	now := time.Now()
+	all, e := url.Parse(scopedGrafanaURL(c, scope, 2, now.Add(-time.Hour), now, "", "shop-stage"))
+	if e != nil || all.Path != "/d/orchestrator-workloads" || all.Query().Get("var-workload") != "$__all" || all.Query().Get("var-namespace") != "shop-stage" {
+		t.Fatal("environment-wide link must select all workloads", all, e)
+	}
+	one, _ := url.Parse(scopedGrafanaURL(c, scope, 2, now.Add(-time.Hour), now, "web", "shop-stage"))
+	if one.Query().Get("var-workload") != "web" || one.User != nil {
+		t.Fatal("workload link lost scope", one)
 	}
 }

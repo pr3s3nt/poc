@@ -993,6 +993,10 @@ func scopedGrafanaURL(c monitoring.Connection, scope telemetry.Scope, generation
 		u.Path = strings.TrimRight(u.Path, "/") + "/d/" + url.PathEscape(c.DashboardUID)
 	}
 	q := u.Query()
+	if workload == "" {
+		// Grafana's explicit "All" selection; an empty value selects nothing.
+		workload = "$__all"
+	}
 	for k, v := range map[string]string{"var-cluster_uid": c.ClusterUID, "var-organization": scope.OrganizationKey, "var-application": scope.ApplicationKey, "var-environment": scope.EnvironmentKey, "var-generation": strconv.FormatInt(generation, 10), "var-workload": workload, "var-namespace": namespace, "from": strconv.FormatInt(from.UnixMilli(), 10), "to": strconv.FormatInt(to.UnixMilli(), 10)} {
 		q.Set(k, v)
 	}
