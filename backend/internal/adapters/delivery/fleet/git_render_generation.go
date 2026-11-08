@@ -134,14 +134,14 @@ func gitRenderRecoveryPatch(repo map[string]any, cfg Config, i port.Intent, r po
 // Shared controllers must first render the admitted commit before a downstream
 // Bundle can be woken. Validate all sibling trees before calling this helper.
 func (p *Provider) wakeSharedGitRender(ctx context.Context, cli k8s.CLI, cfg Config, i port.Intent, r port.Receipt, repo map[string]any, pins map[string]unitPin) (bool, error) {
-	log.Printf("shared Git render recovery: stage=begin")
+	log.Printf("shared Git render request: stage=begin")
 	raw, err := cli.Run(ctx, nil, "get", "bundles.fleet.cattle.io", "-n", cfg.Workspace, "-l", "fleet.cattle.io/repo-name="+r.Handle["gitrepo"], "-o", "json")
 	if err != nil {
 		code := "COMMAND"
 		if errors.Is(err, k8s.ErrForbidden) {
 			code = "FORBIDDEN"
 		}
-		log.Printf("shared Git render recovery: stage=list code=%s", code)
+		log.Printf("shared Git render request: stage=list code=%s", code)
 		return false, ErrController
 	}
 	var bundles struct{ Items []map[string]any }
@@ -183,7 +183,7 @@ func (p *Provider) wakeSharedGitRender(ctx context.Context, cli k8s.CLI, cfg Con
 			if errors.Is(err, k8s.ErrUnreachable) {
 				code = "UNREACHABLE"
 			}
-			log.Printf("shared Git render recovery patch refused: code=%s", code)
+			log.Printf("shared Git render request patch refused: code=%s", code)
 			return false, ErrController
 		}
 	}
@@ -223,4 +223,19 @@ func sharedGitRenderRecoveryPatch(repo map[string]any, i port.Intent, r port.Rec
 		{"op": "add", "path": "/metadata/annotations", "value": updated},
 	})
 	return patch, true, err
+}
+
+// Admission/withdrawal preserve an existing render counter without advancing it.
+// Dropping it would reset the bounded request made by an earlier owner.
+func retainGitRenderGeneration(next, current map[string]any) error {
+	prior, _ := current["spec"].(map[string]any)
+	if _, exists := prior["forceSyncGeneration"]; !exists {
+		return nil
+	}
+	generation, err := currentGitRenderGeneration(prior)
+	if err != nil {
+		return err
+	}
+	next["forceSyncGeneration"] = generation
+	return nil
 }

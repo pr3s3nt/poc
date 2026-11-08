@@ -1578,3 +1578,9 @@ Issue #49 interrupted publication pair: `TestRecoveryCompletesOnlyMissingUpdateM
 validates exact retained prior evidence, one missing metadata publication, native
 UID refusal and repeated observation without another Git write; see the
 [verification](../verification/2026-11-07-environment-deploy-rollback.md).
+
+Issue #49 active shared-unit convergence is verified by
+`TestActiveReceiptConvergenceKeepsExactChainAndBumpsOnlyOnce`,
+`TestActiveReceiptConvergenceDoesNotTouchJobsOrForeignControllers` and
+`TestSharedAdmissionPreservesAnExistingRenderCounter`; live evidence remains
+separate in the Environment rollback verification record.

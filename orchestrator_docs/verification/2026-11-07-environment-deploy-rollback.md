@@ -320,3 +320,31 @@ actual browser checkout passed after replacing the fragile trial forward with an
 owned reconnecting forward. The final diagnostic runtime is being installed only
 after the previous operation was RECOVERED. A new renderer selection/release and
 whole-Environment rollback are still required before acceptance/merge.
+
+
+## DNS isolation and active Fleet convergence — 2026-11-08
+
+Runtime logs directly confirmed a Git push DNS failure during paired metadata
+publication. The stopped operation retained its claim, with no blind push retry.
+Only the dedicated trial backend's DNS upstreams were changed after successful
+lookup probes; internal Docker service resolution was retained. No host-wide DNS
+or other feature stack was changed. The DNS failure was observed directly in
+this attempt; earlier generic failures are not all asserted to share that cause.
+
+A subsequent unit had the desired native Deployment revision and Ready state,
+while GitRepo reported the admitted commit but Bundle/BundleDeployment still
+labelled the prior commit. Exact readiness correctly remained pending and timed
+out. Active phase execution now calls optional guarded PendingConvergence for this
+receipted Pending/Progressing condition. It reuses the bounded render request with
+current owner/publication lease, exact controller/receipt/sibling-tree checks and
+Job exclusions; Observe remains read-only. Admission/withdrawal retain the
+existing render counter instead of dropping it. No stale chain is accepted.
+
+Full affected suites passed: Fleet 23.351s, delivery 0.607s, Git publication
+1.049s; backend build passed. New tests include a lost patch acknowledgement,
+one bounded generation, stale BundleDeployment refusal, foreign controller/lost
+owner refusal, Job protection, and counter retention on admission/withdrawal.
+PlantUML syntax checks passed. Recovery of the stopped ad operation passed through
+Console on the new runtime; it released the Environment. The final renderer was
+then selected explicitly through UI and another release is now running. Whole-
+Environment live rollback is still pending, so no acceptance/merge is claimed.

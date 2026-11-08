@@ -262,3 +262,14 @@ are restored in a short transaction. The normal planner/delivery/readiness engin
 executes under that same claim. On complete success the resulting release receives
 a new checkpoint; failure is retained as an interrupted rollback for recovery.
 No rollback endpoint exposes private snapshot pins or resolved Secret values.
+
+
+### Active receipt convergence — issue #49
+
+When a normal phase has persisted its receipt but Observe reports Pending and
+Progressing, DeliveryCoordinator may invoke the optional PendingConvergence port
+under the same Environment/publication owner. Fleet verifies the admitted
+controller/receipt, sibling trees and absence of Job pins before one bounded Git
+render request. Observe remains read-only and exact Bundle/BundleDeployment/live
+revision proof still gates acknowledgement. Admission/withdrawal preserve any
+existing render counter; they do not force a new shared render themselves.

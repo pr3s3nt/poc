@@ -4,12 +4,14 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import {openConsole,closeConsole,readConsoleConfig} from '../../lib/console.mjs';
 import {makeUI} from '../../../scripts/bootstrap/lib/runtime.mjs';
 const dir=process.env.ORCH_TEST_RUN_DIR;assert(dir);outsideRepo(dir);const file=dir+'/state.json',state=JSON.parse(readFileSync(file));
-assert(['PARTIAL','UNKNOWN'].includes(state.deployAttempt?.completion),'Only inspect/recover a recorded partial or unknown attempt after confirming the stopped operation in Console');
+assert(['PARTIAL','UNKNOWN','FAILED'].includes(state.deployAttempt?.completion),'Only inspect/recover a recorded partial or unknown attempt after confirming the stopped operation in Console');
 const c=readConsoleConfig(),s=await openConsole(c,{role:'ADMIN'}),ui=makeUI(s.page,c.baseURL,180000);
 try{
 s.page.on('response',async r=>{if(r.url().endsWith('/recover')&&!r.ok())console.error('Recovery response',JSON.stringify(await r.json()))});
 const base=`/applications/${state.app.key}/environments/staging`,app=(await ui.get('/applications/'+state.app.key)).application;
 const op=app.environments.find(e=>e.key==='staging').activeOperation;assert.equal(op?.status,'INTERRUPTED');
+assert(state.deployAttempt.reviewRequestId,'Exact prior review request is required');
+const exact=(await ui.get(base+'/operations?reviewRequestId='+encodeURIComponent(state.deployAttempt.reviewRequestId))).operations;assert(exact.some(item=>item.id===op.id&&item.status==='INTERRUPTED'),'Active operation does not belong to the recorded attempt');
 await s.page.goto(c.baseURL+`/ui/applications/${state.app.key}/settings?environment=staging`);
 await s.page.getByRole('checkbox',{name:'Tôi xác nhận thao tác bị gián đoạn đã dừng hẳn',exact:true}).check();
 const result=await ui.submit(base+`/operations/${op.id}/recover`,'POST',s.page.getByRole('button',{name:'Khôi phục môi trường',exact:true}));

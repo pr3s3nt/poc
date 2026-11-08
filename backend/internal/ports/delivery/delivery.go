@@ -247,3 +247,9 @@ type SubmissionReceiptRecovery interface {
 type SubmissionAbsenceRecovery interface {
 	ObserveSubmissionAbsent(context.Context, Intent, Prepared) (bool, error)
 }
+
+// PendingConvergence is an explicit guarded write of the current owner; Observe
+// remains read-only. Providers must make repeated requests idempotent.
+type PendingConvergence interface {
+	ConvergePending(context.Context, Intent, Receipt) error
+}

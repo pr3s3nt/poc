@@ -111,3 +111,8 @@ After a verified SUCCEEDED attempt, `ORCH_NEW_RELEASE=1` together with the exist
 explicit confirmation flags permits a new reviewed release. It archives the
 successful attempt unchanged; it never relabels success as failure or replays an
 UNKNOWN/PARTIAL attempt. Use this after an intentional renderer revision upgrade.
+
+A FAILED recorded batch can still hold an INTERRUPTED operation when its first
+workload failed after submission. Recovery supports this case only after matching
+the active INTERRUPTED operation to the exact recorded reviewRequestId; a released
+FAILED batch is never recovered by this runner.

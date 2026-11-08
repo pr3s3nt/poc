@@ -239,7 +239,11 @@ func (p *Provider) submitApplicationAttempt(ctx context.Context, i port.Intent, 
 	if err != nil {
 		return port.Receipt{}, err
 	}
-	obj := map[string]any{"apiVersion": "fleet.cattle.io/v1alpha1", "kind": "GitRepo", "metadata": md, "spec": sharedSpec(cfg, git.Commit, pins)}
+	spec := sharedSpec(cfg, git.Commit, pins)
+	if err := retainGitRenderGeneration(spec, current); err != nil {
+		return port.Receipt{}, err
+	}
+	obj := map[string]any{"apiVersion": "fleet.cattle.io/v1alpha1", "kind": "GitRepo", "metadata": md, "spec": spec}
 	payload, _ := json.Marshal(obj)
 	if err := m.Guard(ctx, i); err != nil {
 		return port.Receipt{}, err
@@ -343,7 +347,11 @@ func (p *Provider) withdrawApplicationAttempt(ctx context.Context, i port.Intent
 			if err != nil {
 				return proof, err
 			}
-			payload, _ := json.Marshal(map[string]any{"apiVersion": "fleet.cattle.io/v1alpha1", "kind": "GitRepo", "metadata": md, "spec": sharedSpec(cfg, git.Commit, pins)})
+			spec := sharedSpec(cfg, git.Commit, pins)
+			if err := retainGitRenderGeneration(spec, current); err != nil {
+				return proof, err
+			}
+			payload, _ := json.Marshal(map[string]any{"apiVersion": "fleet.cattle.io/v1alpha1", "kind": "GitRepo", "metadata": md, "spec": spec})
 			if _, err := cli.Run(ctx, payload, "replace", "-f", "-"); err != nil {
 				if errors.Is(err, k8s.ErrRequestRejected) && attempt < 2 {
 					return p.withdrawApplicationAttempt(ctx, i, r, attempt+1)

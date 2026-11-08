@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ func TestApplicationFleetTransport(t *testing.T) {
 		args = args[1:]
 	}
 	args = args[1:]
-	for len(args) > 0 && args[0] != "get" && args[0] != "create" && args[0] != "replace" && args[0] != "delete" {
+	for len(args) > 0 && args[0] != "get" && args[0] != "create" && args[0] != "replace" && args[0] != "delete" && args[0] != "patch" {
 		args = args[1:]
 	}
 	fail := func() { fmt.Fprintln(os.Stderr, "NotFound"); os.Exit(1) }
@@ -90,6 +91,52 @@ func TestApplicationFleetTransport(t *testing.T) {
 			os.Exit(2)
 		}
 		emit(repo)
+	case "patch":
+		repo := read("repo.json")
+		var patch []map[string]any
+		for n, arg := range args {
+			if arg == "--patch" && n+1 < len(args) {
+				if json.Unmarshal([]byte(args[n+1]), &patch) != nil {
+					os.Exit(2)
+				}
+			}
+		}
+		if len(patch) == 0 {
+			os.Exit(2)
+		}
+		for _, op := range patch {
+			parts := strings.Split(strings.TrimPrefix(op["path"].(string), "/"), "/")
+			target := repo
+			for _, part := range parts[:len(parts)-1] {
+				next, ok := target[part].(map[string]any)
+				if !ok {
+					os.Exit(2)
+				}
+				target = next
+			}
+			key := parts[len(parts)-1]
+			switch op["op"] {
+			case "test":
+				if !reflect.DeepEqual(target[key], op["value"]) {
+					fmt.Fprintln(os.Stderr, "Error from server (Conflict): precondition")
+					os.Exit(1)
+				}
+			case "add":
+				target[key] = op["value"]
+			default:
+				os.Exit(2)
+			}
+		}
+		metadata := repo["metadata"].(map[string]any)
+		metadata["resourceVersion"] = metadata["resourceVersion"].(string) + "1"
+		body, _ := json.Marshal(repo)
+		os.WriteFile(filepath.Join(dir, "repo.json"), body, 0600)
+		if _, err := os.Stat(filepath.Join(dir, "lose-patch-ack")); err == nil {
+			os.Remove(filepath.Join(dir, "lose-patch-ack"))
+			fmt.Fprintln(os.Stderr, "lost patch acknowledgement")
+			os.Exit(1)
+		}
+		emit(repo)
 	case "delete":
 		repo := read("repo.json")
 		raw, _ := io.ReadAll(os.Stdin)
@@ -123,7 +170,11 @@ func TestApplicationFleetTransport(t *testing.T) {
 			if len(args) > 2 && args[2] != "-n" {
 				repo := read("repo.json")
 				spec := repo["spec"].(map[string]any)
-				emit(map[string]any{"metadata": map[string]any{"labels": map[string]any{"fleet.cattle.io/commit": spec["revision"]}}, "spec": map[string]any{"deploymentID": "applied"}, "status": map[string]any{"appliedDeploymentID": "applied"}})
+				commit := spec["revision"]
+				if old, err := os.ReadFile(filepath.Join(dir, "bd-commit")); err == nil {
+					commit = strings.TrimSpace(string(old))
+				}
+				emit(map[string]any{"metadata": map[string]any{"labels": map[string]any{"fleet.cattle.io/commit": commit}}, "spec": map[string]any{"deploymentID": "applied"}, "status": map[string]any{"appliedDeploymentID": "applied"}})
 			}
 			emit(map[string]any{"items": []any{}})
 		case "bundles.fleet.cattle.io":
@@ -135,9 +186,13 @@ func TestApplicationFleetTransport(t *testing.T) {
 					os.Exit(2)
 				}
 				spec := repo["spec"].(map[string]any)
+				commit := spec["revision"]
+				if old, err := os.ReadFile(filepath.Join(dir, "bundle-commit")); err == nil {
+					commit = strings.TrimSpace(string(old))
+				}
 				for release, pin := range pins {
 					if !pin.Removed {
-						items = append(items, map[string]any{"metadata": map[string]any{"name": release, "labels": map[string]any{"fleet.cattle.io/commit": spec["revision"], "orchestrator.io/organization-id": "org", "orchestrator.io/environment-id": pin.EnvironmentID, "orchestrator.io/delivery-unit": release}}, "spec": map[string]any{"helm": map[string]any{"releaseName": release}}})
+						items = append(items, map[string]any{"metadata": map[string]any{"name": release, "labels": map[string]any{"fleet.cattle.io/commit": commit, "orchestrator.io/organization-id": "org", "orchestrator.io/environment-id": pin.EnvironmentID, "orchestrator.io/delivery-unit": release}}, "spec": map[string]any{"helm": map[string]any{"releaseName": release}}})
 					}
 				}
 			}

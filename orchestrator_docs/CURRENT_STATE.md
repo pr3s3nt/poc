@@ -17,9 +17,11 @@ release checkpoints now capture successful pending batches and retain the last
 successful baseline across partial failures, including PostgreSQL reopen. Rollback
 execution/API and Console Preview/confirmation are implemented on the task branch
 with focused tests for restoring prior state, initial-empty cleanup, stale tokens
-and interrupted partial rollback. Live preview passed; full live rollback is still
-blocked by historical renderer availability after runtime rebuild. Existing
-Boutique deployment and checkout passed before this slice. No feature acceptance
+and interrupted partial rollback. Live preview and the separate initial-empty Console case passed. Trial DNS
+failures and a stale Fleet Bundle commit were diagnosed; active guarded convergence
+and counter retention are implemented and the stopped operation was recovered
+through UI. A current-renderer release and whole-Environment live rollback remain
+in verification. Boutique deployment and checkout passed before this slice. No feature acceptance
 or merge is claimed until rollback runtime and the remaining full gates pass.
 
 ## Issue #37 merged into main — 2026-11-06

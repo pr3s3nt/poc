@@ -542,3 +542,26 @@ Checkout/staging/commit/push are never automatically replayed by this policy:
 a push with an unknown outcome still retains the publication/Environment lease
 for exact observation and explicit recovery. Diagnostics emit fixed stage and
 category enums only; credentials, URLs and command stderr are never logged.
+
+
+## Convergence of an active receipted shared unit — issue #49
+
+A shared GitRepo can report its admitted commit while a Bundle/BundleDeployment
+still carries an older commit, even when native objects already have the desired
+revision. Readiness continues requiring the complete exact commit/revision chain.
+Read-only Observe must not mutate controllers or accept the stale chain.
+
+The active deployment coordinator may explicitly request one bounded Git render
+for its already persisted receipt when observation is Pending/Progressing. The
+adapter verifies the current Environment/publication owner, controller UID,
+repository/target/path and receipt pin, all sibling trees, and the admitted
+GitRepo status/spec commit before using the existing guarded render patch. Any
+active Job pin suppresses this step, and Job units never invoke it. The marker
+binds intent+commit, and UID/resourceVersion/revision CAS prevents repeated or
+foreign writes. No Git publication, Helm force, target change, controller deletion
+or status forgery occurs. Normal observation must subsequently prove actual
+Bundle/BundleDeployment and live-object convergence before acknowledgement.
+
+Shared-controller admission and withdrawal preserve an already stored Git render
+counter without advancing it. They must not drop/reset a bounded request made by
+an earlier owner. Only the guarded convergence/recovery request advances it.
