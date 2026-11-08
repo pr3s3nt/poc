@@ -7,6 +7,16 @@ last_reviewed: 2026-11-08
 
 # Current project state
 
+## Apache Airflow trial — issue #51
+
+Airflow 3.4.0 (LocalExecutor, PostgreSQL) was deployed on the retained kind
+Console purely through Console forms: four workloads with init containers, one
+shared PostgreSQL, one batch Deploy that SUCCEEDED first time. Sign-in, an example
+DAG run and its task log passed in the browser. It needed Platform Engineer setup
+first (Vault Kubernetes auth, endpoint Type, a current Git template source) and
+found six gaps, including a template picker that offers templates the matching
+Definition cannot render. See [verification](verification/2026-11-08-airflow.md).
+
 ## Grouped template versions — issue #47
 
 Add Workload now groups each template ID into one card, defaulting to its newest

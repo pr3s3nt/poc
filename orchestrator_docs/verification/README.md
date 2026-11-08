@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-11-04
+last_reviewed: 2026-11-08
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-08 | Apache Airflow 3 via Console: platform setup, four workloads + PostgreSQL, one batch Deploy, DAG run and task log | [Airflow](2026-11-08-airflow.md) |
 | 2026-11-08 | One template card per ID, latest/older exact pins, main frontend rollout and real-browser checks | [Grouped template versions](2026-11-08-grouped-template-versions.md) |
 | 2026-11-08 | Organization seed main merge, obsolete static test retirement and retained kind Console upgrade | [Main integration](2026-11-08-organization-seed-main-merge.md) |
 | 2026-11-06 | Issue #37 merge, naming/ADR integration, real kind/Fleet/SQL gate, verified backup and retained Console main upgrade | [Main merge verification](2026-11-06-workload-defaults-main-merge.md) |

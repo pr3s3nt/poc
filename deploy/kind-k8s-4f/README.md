@@ -76,6 +76,22 @@ $K wait --for=condition=available deployment/backend deployment/frontend --timeo
 
 Job cũ được giữ làm dấu vết của từng lần nâng cấp.
 
+## Vault Kubernetes auth cho workload
+
+Workload nhận secret qua VSO, nên Vault của Console cần auth mount `kubernetes`.
+Pod Vault không mount ServiceAccount token, vì vậy dùng một ServiceAccount
+reviewer riêng có `system:auth-delegator` và token Secret do Kubernetes sinh:
+
+```bash
+kubectl --context kind-k8s-4f apply -f deploy/kind-k8s-4f/04-vault-kubernetes-auth.yaml
+deploy/kind-k8s-4f/vault-kubernetes-auth.sh
+```
+
+Script bật mount nếu chưa có và ghi lại cấu hình mỗi lần chạy, không in token/CA.
+Trạng thái Kubernetes auth trên trang Secret Store chỉ được ghi lúc đăng ký store,
+nên store đăng ký trước bước này vẫn hiện "Chưa cấu hình"; Deploy dùng cấu hình
+thực tế của Vault. Thiết lập lần đầu ngày 2026-11-08 (issue #51).
+
 ## Link Tailscale
 
 Console mở tại `http://<IP Tailscale>:3070/ui/`, qua hai forward chạy trong tmux. Vòng
