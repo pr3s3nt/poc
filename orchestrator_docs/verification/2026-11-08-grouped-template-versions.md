@@ -63,4 +63,3 @@ version change alone, and unchanged workload drafts after Cancel. No application
 Deploy was performed. Feature branch is deleted locally/remotely and the isolated
 frontend container is stopped/removed; other stacks/forwards and retained data are
 untouched. The main Console and its existing access forwards remain running.
-
