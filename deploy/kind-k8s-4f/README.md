@@ -50,6 +50,9 @@ kubectl create configmap installation-scripts -n orchestrator-dev-3070 \
 kubectl --context kind-k8s-4f apply -f deploy/kind-k8s-4f/01-storage.yaml \
   -f deploy/kind-k8s-4f/02-postgres.yaml -f deploy/kind-k8s-4f/03-vault.yaml
 $K wait --for=condition=available deployment/postgres deployment/vault --timeout=180s
+# Vault Kubernetes auth cho workload, xem mục bên dưới
+kubectl --context kind-k8s-4f apply -f deploy/kind-k8s-4f/04-vault-kubernetes-auth.yaml
+deploy/kind-k8s-4f/vault-kubernetes-auth.sh
 render 10-db-setup.yaml | kubectl --context kind-k8s-4f apply -f -
 $K wait --for=condition=complete "job/db-setup-$TAG" --timeout=180s
 render 20-backend.yaml | kubectl --context kind-k8s-4f apply -f -
@@ -80,7 +83,8 @@ Job cũ được giữ làm dấu vết của từng lần nâng cấp.
 
 Workload nhận secret qua VSO, nên Vault của Console cần auth mount `kubernetes`.
 Pod Vault không mount ServiceAccount token, vì vậy dùng một ServiceAccount
-reviewer riêng có `system:auth-delegator` và token Secret do Kubernetes sinh:
+reviewer riêng có `system:auth-delegator` và token Secret do Kubernetes sinh.
+Đây là bước của mục Cài mới; với namespace đã cài từ trước, chạy riêng:
 
 ```bash
 kubectl --context kind-k8s-4f apply -f deploy/kind-k8s-4f/04-vault-kubernetes-auth.yaml
