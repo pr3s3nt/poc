@@ -75,3 +75,19 @@ MCP Gateway/Admin sources (not supplied), Boutique application metrics (no
 production receivers and thresholds. Native withdrawal/unbind and application
 cleanup are kept for after user acceptance so the environment stays inspectable;
 they were verified on the stage-5 cluster.
+
+## Full validation against main — 2026-11-08
+
+Run on feature `c7bc7c28`/`ccf80195` (frontend-only follow-up) and origin/main
+`0b180b33` with the same real PostgreSQL/Redis test services:
+
+- Backend (`go test -p 1` all packages, PostgreSQL package with a 60-minute
+  bound): feature 77 packages ok, main 74 ok; the same 14 packages and the same
+  67 test names fail on both, including the `tfexec` 15-minute timeout and the
+  four PostgreSQL baseline/template failures. The three extra passing packages
+  are the new Loki, Prometheus and monitoring-domain packages. No feature-only
+  backend failure; the full backend gate is not green on main either.
+- Frontend: feature 996/996, main 986/986. The previously flaky follow/pause test
+  was caused by a spurious mount refetch, fixed with a regression test (0/12
+  failures in repeated runs). Typecheck, build and documentation checks pass;
+  lint keeps the pre-existing PlatformSettingsPage warning.
