@@ -7,7 +7,7 @@ import {ensureNamespaceAccess} from '../../../scripts/bootstrap/lib/namespace-ac
 const dir=process.env.ORCH_TEST_RUN_DIR;if(!dir)throw Error('ORCH_TEST_RUN_DIR required');
 outsideRepo(dir);
 const state=JSON.parse(readFileSync(dir+'/state.json'));
-const config={runtime:{profile:'dev-test',timeoutMs:1200000,clusterKubeconfigFile:process.env.ORCH_CLUSTER_KUBECONFIG},application:{environment:'staging'},platform:{account:{context:'kind-k8s-4f'},delivery:{namespaceAccess:{enabled:true,rulesFile:new URL('../../../scripts/bootstrap/applications/acceptance/fleet-access.json',import.meta.url).pathname}}}};
+const config={runtime:{profile:'dev-test',timeoutMs:1200000,clusterKubeconfigFile:process.env.ORCH_CLUSTER_KUBECONFIG},application:{environment:'staging'},platform:{account:{context:'kind-k8s-4f'},delivery:{namespaceAccess:{enabled:true,rulesFile:process.env.ORCH_NAMESPACE_ACCESS_RULES_FILE||new URL('../../../scripts/bootstrap/applications/acceptance/fleet-access.json',import.meta.url).pathname}}}};
 assert(config.runtime.clusterKubeconfigFile,'ORCH_CLUSTER_KUBECONFIG required');
 const rt={state,save(){writeFileSync(dir+'/state.json',JSON.stringify(state,null,2),{mode:0o600})},record(key,status){console.log(key,status);this.save()}};
 const c=readConsoleConfig(),s=await openConsole(c,{role:'ADMIN'}),ui=makeUI(s.page,c.baseURL,1200000),{page}=ui;

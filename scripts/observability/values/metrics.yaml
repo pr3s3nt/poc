@@ -50,7 +50,11 @@ grafana:
 # Required for local-query cluster isolation. Replace with kube-system UID.
 kubelet:
   serviceMonitor:
+    # Preserve the pinned chart kubelet bucket filter before adding local identity.
     metricRelabelings:
+      - action: drop
+        sourceLabels: [__name__, le]
+        regex: (csi_operations|storage_operation_duration)_seconds_bucket;(0.25|2.5|15|25|120|600)(\.0)?
       - {action: replace, targetLabel: cluster_uid, replacement: CHANGE_ME_CLUSTER_UID}
     # Preserve the pinned chart cAdvisor filters before adding local identity.
     cAdvisorMetricRelabelings:

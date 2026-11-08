@@ -23,6 +23,7 @@ import (
 	"orchestrator/internal/ports/execution"
 	obs "orchestrator/internal/ports/observability"
 	"orchestrator/internal/ports/persistence"
+	"sync/atomic"
 )
 
 type durableCredentialFixture struct{ *credentialmemory.Store }
@@ -505,5 +506,140 @@ func TestMonitoringAppliedRequiresBothCurrentRevisionAndLiveArtifacts(t *testing
 	}
 	if got := readConfig(); got != "NOT_APPLIED" {
 		t.Fatal("binding-only change reported applied before deploy", got)
+	}
+}
+
+type slowTargetReader struct {
+	desiredClusterFixture
+	delay  time.Duration
+	fail   string
+	active *int32
+	peak   *int32
+}
+
+func (r slowTargetReader) MonitoringTarget(ctx context.Context, s obs.Source) (monitoring.Target, error) {
+	n := atomic.AddInt32(r.active, 1)
+	defer atomic.AddInt32(r.active, -1)
+	for {
+		p := atomic.LoadInt32(r.peak)
+		if n <= p || atomic.CompareAndSwapInt32(r.peak, p, n) {
+			break
+		}
+	}
+	select {
+	case <-time.After(r.delay):
+	case <-ctx.Done():
+		return monitoring.Target{}, ctx.Err()
+	}
+	if s.WorkloadID == r.fail {
+		return monitoring.Target{}, errors.New("live controller ownership mismatch")
+	}
+	return monitoring.Target{Workload: s.WorkloadID, Kind: "Deployment", Name: s.WorkloadID}, nil
+}
+
+func TestMonitoringTargetsVerifyManyWorkloadsConcurrentlyAndAllMustPass(t *testing.T) {
+	ctx := context.Background()
+	m, st, scope := monitoringFixture(t)
+	now := time.Now()
+	names := []string{}
+	for i := 0; i < 12; i++ {
+		name := fmt.Sprintf("w%02d", i)
+		names = append(names, name)
+		dep := deployment.Deployment{ID: ids.New(), OrganizationKey: "acme", ApplicationKey: "shop", EnvironmentKey: "staging", WorkloadID: name, Status: deployment.StatusFailed, StartedAt: now}
+		if e := st.SaveDeployment(ctx, dep); e != nil {
+			t.Fatal(e)
+		}
+		wi := deployment.WorkloadInstance{ID: ids.New(), EnvironmentKey: "shop/staging", WorkloadID: name, LastDeploymentID: dep.ID, Status: deployment.InstanceReady, ObservedAt: now, TargetRef: map[string]any{"organization": "acme", "connection": "scoped-account", "namespace": "shop-stage", "objects": []execution.ObjectRef{{APIVersion: "apps/v1", Kind: "Deployment", Name: name}}}}
+		if e := st.UpsertWorkloadInstance(ctx, wi); e != nil {
+			t.Fatal(e)
+		}
+	}
+	var active, peak int32
+	reader := slowTargetReader{desiredClusterFixture: desiredClusterFixture{"cluster-one"}, delay: 200 * time.Millisecond, active: &active, peak: &peak}
+	m.Native.reader = reader
+	started := time.Now()
+	targets, e := m.targets(ctx, telemetry.Scope{OrganizationKey: "acme", ApplicationKey: scope.ApplicationKey, EnvironmentKey: scope.EnvironmentKey, Generation: scope.Generation})
+	if e != nil || len(targets) != len(names) {
+		t.Fatalf("targets %d %v", len(targets), e)
+	}
+	if elapsed := time.Since(started); elapsed > 1500*time.Millisecond {
+		t.Fatal("verification stayed sequential", elapsed)
+	}
+	if peak > targetVerificationConcurrency || peak < 2 {
+		t.Fatal("concurrency not bounded or not used", peak)
+	}
+	seen := map[string]bool{}
+	for _, target := range targets {
+		seen[target.Workload] = true
+	}
+	if len(seen) != len(names) {
+		t.Fatal("missing or duplicated targets", targets)
+	}
+	reader.fail = "w07"
+	m.Native.reader = reader
+	if _, e := m.targets(ctx, telemetry.Scope{OrganizationKey: "acme", ApplicationKey: scope.ApplicationKey, EnvironmentKey: scope.EnvironmentKey, Generation: scope.Generation}); !errors.Is(e, ErrUnavailable) {
+		t.Fatal("one unverified workload must make the read unavailable", e)
+	}
+}
+
+func TestMonitoringReadObservesManyWorkloadsWithinDeadlineInOrder(t *testing.T) {
+	ctx := context.Background()
+	m, st, scope := monitoringFixture(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(40 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/query_range":
+			fmt.Fprint(w, `{"status":"success","data":{"resultType":"matrix","result":[]}}`)
+		case "/api/v1/alerts":
+			fmt.Fprint(w, `{"status":"success","data":{"alerts":[]}}`)
+		default:
+			fmt.Fprint(w, `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"cluster_uid":"cluster-one"},"value":[1,"1"]}]}}`)
+		}
+	}))
+	defer server.Close()
+	c := connectionFixture(server.URL)
+	c.AlertmanagerURL = ""
+	c.LokiURL = ""
+	c, e := m.Save(ctx, "acme", c, 0, "")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = m.Test(ctx, "acme", c.ID); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = m.BindSources(ctx, scope, c.ID, 0, "prometheus", "native"); e != nil {
+		t.Fatal(e)
+	}
+	now := time.Now()
+	for i := 0; i < 12; i++ {
+		name := fmt.Sprintf("w%02d", i)
+		dep := deployment.Deployment{ID: ids.New(), OrganizationKey: "acme", ApplicationKey: "shop", EnvironmentKey: "staging", WorkloadID: name, Status: deployment.StatusFailed, StartedAt: now}
+		if e = st.SaveDeployment(ctx, dep); e != nil {
+			t.Fatal(e)
+		}
+		wi := deployment.WorkloadInstance{ID: ids.New(), EnvironmentKey: "shop/staging", WorkloadID: name, LastDeploymentID: dep.ID, Status: deployment.InstanceReady, ObservedAt: now, TargetRef: map[string]any{"organization": "acme", "connection": "scoped-account", "namespace": "shop-stage", "objects": []execution.ObjectRef{{APIVersion: "apps/v1", Kind: "Deployment", Name: name}}}}
+		if e = st.UpsertWorkloadInstance(ctx, wi); e != nil {
+			t.Fatal(e)
+		}
+	}
+	m.Native.reader = appliedConfigurationReader{desiredClusterFixture{"cluster-one"}}
+	targets, e := m.targets(ctx, scope)
+	if e != nil {
+		t.Fatal(e)
+	}
+	started := time.Now()
+	v, e := m.Read(ctx, scope, Params{})
+	if e != nil || len(v.Workloads) != 12 {
+		t.Fatalf("read %d %v", len(v.Workloads), e)
+	}
+	// Sequential reads need 12 workloads x 7 provider calls x 40ms (>3s).
+	if elapsed := time.Since(started); elapsed > 2*time.Second {
+		t.Fatal("workload observations stayed sequential", elapsed)
+	}
+	for i, w := range v.Workloads {
+		if w.Workload != targets[i].Workload {
+			t.Fatal("observation order changed", i, w.Workload, targets[i].Workload)
+		}
 	}
 }

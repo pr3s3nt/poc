@@ -51,6 +51,11 @@ Install `npm ci --prefix e2e` and `npm ci --prefix scripts/bootstrap`, then
 `cd e2e && npx playwright install chromium`. Kubectl is required by the narrowly
 scoped namespace setup and runtime observation. Use the shared Console environment
 variables above plus `ORCH_TEST_RUN_DIR` outside Git (directory mode 0700).
+Optional `ORCH_BOUTIQUE_APP_NAME` names the created Application (default
+`boutique-issue47`); use a distinct name when another run shares the cluster.
+Optional `ORCH_NAMESPACE_ACCESS_RULES_FILE` replaces the default Fleet namespace
+RBAC rules, e.g. adding `monitoring.coreos.com` PodMonitor/PrometheusRule access
+when an observability binding delivers app-owned monitoring objects.
 
 The technical setup prepares `kubeconfig`, `vault-token` (0600) and `config.json`
 in that directory. The latter contains `gitScope`, `gitUsername`, `gitTokenFile`,

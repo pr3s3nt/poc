@@ -41,7 +41,7 @@ await page.getByLabel('ID cấu hình (Definition ID)',{exact:true}).fill(key);a
 const saved=await ui.submit('/resource-definitions','POST',page.getByRole('button',{name:'Đăng ký cấu hình tài nguyên',exact:true}).first());console.log('Saved Definition via UI',key);
 }
 if(!state.app){
- await page.goto(c.baseURL+'/ui/applications/new');await page.getByLabel('Tên ứng dụng',{exact:true}).fill('boutique-issue47');
+ await page.goto(c.baseURL+'/ui/applications/new');await page.getByLabel('Tên ứng dụng',{exact:true}).fill(process.env.ORCH_BOUTIQUE_APP_NAME||'boutique-issue47');
  const r=await ui.submit('/applications','POST',page.getByRole('button',{name:'Tạo ứng dụng',exact:true}));state.app=r.application;rt.save();console.log('Created Application via UI',state.app.key);
 }
 console.log('PASS UI Definitions and Application creation');

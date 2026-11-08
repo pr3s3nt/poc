@@ -17,8 +17,12 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
+
+// targetVerificationConcurrency bounds parallel live target verification reads.
+const targetVerificationConcurrency = 6
 
 // Monitoring keeps external reads independent of native stored log/history reads.
 type Monitoring struct {
@@ -412,7 +416,7 @@ func (m *Monitoring) targets(ctx context.Context, scope telemetry.Scope) ([]moni
 	if e != nil {
 		return nil, e
 	}
-	out := []monitoring.Target{}
+	selected := []obs.Source{}
 	for _, s := range sources {
 		if s.OrganizationKey != scope.OrganizationKey || s.ApplicationKey != scope.ApplicationKey || s.EnvironmentKey != scope.EnvironmentKey {
 			continue
@@ -420,15 +424,46 @@ func (m *Monitoring) targets(ctx context.Context, scope telemetry.Scope) ([]moni
 		if s.MonitoringController == nil {
 			continue
 		}
-		verifier, ok := m.Native.reader.(obs.TargetVerifier)
-		if !ok {
+		selected = append(selected, s)
+	}
+	if len(selected) == 0 {
+		return []monitoring.Target{}, nil
+	}
+	verifier, ok := m.Native.reader.(obs.TargetVerifier)
+	if !ok {
+		return nil, ErrUnavailable
+	}
+	// Each verification performs several bounded cluster reads; verify workloads
+	// concurrently so multi-workload environments fit the read deadline. Every
+	// target must still pass, and results keep the deterministic source order.
+	out := make([]monitoring.Target, len(selected))
+	failed := make([]bool, len(selected))
+	slots := make(chan struct{}, targetVerificationConcurrency)
+	var wg sync.WaitGroup
+	for i, s := range selected {
+		wg.Add(1)
+		go func(i int, s obs.Source) {
+			defer wg.Done()
+			select {
+			case slots <- struct{}{}:
+			case <-ctx.Done():
+				failed[i] = true
+				return
+			}
+			defer func() { <-slots }()
+			t, e := verifier.MonitoringTarget(ctx, s)
+			if e != nil {
+				failed[i] = true
+				return
+			}
+			out[i] = t
+		}(i, s)
+	}
+	wg.Wait()
+	for _, f := range failed {
+		if f {
 			return nil, ErrUnavailable
 		}
-		t, e := verifier.MonitoringTarget(ctx, s)
-		if e != nil {
-			return nil, ErrUnavailable
-		}
-		out = append(out, t)
 	}
 	return out, nil
 }
@@ -543,6 +578,7 @@ func (m *Monitoring) Read(ctx context.Context, scope telemetry.Scope, p Params) 
 			return out, e
 		}
 	}
+	selected := []monitoring.Target{}
 	for _, t := range targets {
 		if t.Scope.ClusterUID != b.ClusterUID {
 			return out, monitoring.ErrInvalid
@@ -550,9 +586,15 @@ func (m *Monitoring) Read(ctx context.Context, scope telemetry.Scope, p Params) 
 		if p.Workload != "" && p.Workload != t.Workload {
 			continue
 		}
+		selected = append(selected, t)
+	}
+	// Each workload needs several bounded provider and cluster reads. Observe them
+	// concurrently so multi-workload environments fit the read deadline; results
+	// and the first error keep the deterministic target order.
+	observe := func(t monitoring.Target) (WorkloadObservation, error) {
 		queries, e := prometheus.WorkloadQueries(t)
 		if e != nil {
-			return out, e
+			return WorkloadObservation{}, e
 		}
 		w := WorkloadObservation{Workload: t.Workload, Kind: t.Kind, UID: t.UID, State: "RECEIVING", Metrics: map[string][]prometheus.Series{}}
 		w.Limits = map[string]*float64{"cpu": t.CPULimitMilli, "memory": t.MemoryLimitBytes}
@@ -568,7 +610,7 @@ func (m *Monitoring) Read(ctx context.Context, scope telemetry.Scope, p Params) 
 			for _, metric := range profile.Metrics {
 				data, err := cl.Range(ctx, prometheus.MetricQuery(t, metric), out.From, out.To, step)
 				if err != nil {
-					return out, err
+					return w, err
 				}
 				state := "RECEIVING"
 				if !seriesHaveValues(data) {
@@ -582,7 +624,7 @@ func (m *Monitoring) Read(ctx context.Context, scope telemetry.Scope, p Params) 
 				if source.OrganizationKey == scope.OrganizationKey && source.ApplicationKey == scope.ApplicationKey && source.EnvironmentKey == scope.EnvironmentKey && source.WorkloadID == t.Workload {
 					desired, err := monitoringObjects(c, b, t)
 					if err != nil {
-						return out, err
+						return w, err
 					}
 					w.Configuration, err = verifier.MonitoringConfiguration(ctx, source, desired)
 					if err == nil && w.Configuration == "APPLIED" && source.MonitoringRevision != monitoring.NewPin(b, c, env.TargetGeneration).Signature() {
@@ -603,7 +645,7 @@ func (m *Monitoring) Read(ctx context.Context, scope telemetry.Scope, p Params) 
 				data, e = cl.Instant(ctx, queries[key], out.To)
 			}
 			if e != nil {
-				return out, e
+				return w, e
 			}
 			w.Metrics[key] = data
 			if len(data) == 0 {
@@ -617,7 +659,7 @@ func (m *Monitoring) Read(ctx context.Context, scope telemetry.Scope, p Params) 
 		}
 		source, e := cl.Instant(ctx, queries["sourceTimestamp"], out.To)
 		if e != nil {
-			return out, e
+			return w, e
 		}
 		if len(source) != 1 || source[0].Value == nil || source[0].Value.Value == nil {
 			w.State = "PARTIAL"
@@ -627,6 +669,31 @@ func (m *Monitoring) Read(ctx context.Context, scope telemetry.Scope, p Params) 
 			if stamp.Before(now.Add(-90 * time.Second)) {
 				w.State = "STALE"
 			}
+		}
+		return w, nil
+	}
+	observed := make([]WorkloadObservation, len(selected))
+	failures := make([]error, len(selected))
+	slots := make(chan struct{}, targetVerificationConcurrency)
+	var wg sync.WaitGroup
+	for i, t := range selected {
+		wg.Add(1)
+		go func(i int, t monitoring.Target) {
+			defer wg.Done()
+			select {
+			case slots <- struct{}{}:
+			case <-ctx.Done():
+				failures[i] = ctx.Err()
+				return
+			}
+			defer func() { <-slots }()
+			observed[i], failures[i] = observe(t)
+		}(i, t)
+	}
+	wg.Wait()
+	for i, w := range observed {
+		if failures[i] != nil {
+			return out, failures[i]
 		}
 		out.Workloads = append(out.Workloads, w)
 		if out.State == "NOT_DEPLOYED" || w.State != "RECEIVING" {
