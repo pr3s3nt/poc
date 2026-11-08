@@ -322,3 +322,10 @@ Terraform and workload templates. Hide alternative-source buttons and inline/ZIP
 authoring. Reuse of verified Git templates remains available. Viewing an existing
 non-Git Definition preserves its source and parameters; it never auto-migrates.
 Backend and Catalog browser behavior are unchanged.
+
+## Catalog visibility — user decision 2026-11-08
+
+Catalog is absent from navigation and has no create/edit/refresh controls in
+Console. Direct legacy URLs retain read-only source/release inspection.
+Environment Catalog selection is hidden when empty and read-only when pinned.
+Resource Types/Definitions remain the normal authoring screens.

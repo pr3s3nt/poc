@@ -72,6 +72,9 @@ func projectNodeProgress(graph, review any, resources []ResourceView, attempts [
 				switch w.Status {
 				case domain.InstanceReady:
 					p.State = "READY"
+					if retained[id] {
+						p.State = "RETAINED"
+					}
 					p.FinishedAt = &t
 				case domain.InstanceFailed:
 					p.State = "FAILED"

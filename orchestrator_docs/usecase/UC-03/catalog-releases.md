@@ -85,3 +85,11 @@ See [ADR-031](../../architecture/decisions/ADR-031-versioned-catalog.md) and
 
 [Sequence](catalog-releases-sequence.puml) ([PNG](catalog-releases-sequence.png))
 and [UI states](ui/catalog-releases.md).
+
+## Console authoring restriction — user decision 2026-11-08
+
+Console hides Catalog navigation and Catalog creation/selection controls. Direct
+resource Definitions from Git are the authoring flow. Existing Catalog URLs and
+Environment selections remain readable as history; stored releases, pins and
+backend APIs are preserved. This supersedes UI authoring/selection clauses below
+without removing Catalog resolution or migrating existing Environments.

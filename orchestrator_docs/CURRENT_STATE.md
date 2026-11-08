@@ -7,6 +7,17 @@ last_reviewed: 2026-11-08
 
 # Current project state
 
+## Retained progress and Catalog UI — issue #47
+
+Deployment progress now resolves retained workload READY evidence from the exact
+successful base-set ancestry, within tenant/Environment/generation and unchanged
+module intent; current-run facts override history. Missing proof remains UNKNOWN.
+The reported frontend detail was verified in the real browser at 7/7, with backend
+RETAINED and no fabricated current-run workload row. Catalog navigation and
+authoring/selection controls are removed; legacy source/releases and existing
+Environment pins remain readable. See
+[verification](verification/2026-11-08-retained-progress-catalog.md).
+
 ## Frontend/backend example — issue #47, trial stopped by user
 
 The integrated organization_seed branch deployed the Score frontend/backend

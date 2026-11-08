@@ -1584,3 +1584,10 @@ Issue #49 active shared-unit convergence is verified by
 `TestActiveReceiptConvergenceDoesNotTouchJobsOrForeignControllers` and
 `TestSharedAdmissionPreservesAnExistingRenderCounter`; live evidence remains
 separate in the Environment rollback verification record.
+
+## Issue #47 — retained progress and Catalog UI, 2026-11-08
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| UC-09 retained workload evidence; OBS-02/05 | deployment/retained_progress.go + query.go; immutable base-set ancestry, current snapshots win | retained_progress_test.go; exact reported deployment browser 7/7 |
+| UC-03 Console Catalog restriction, 2026-11-08 | AppShell; CatalogPage; EnvironmentCatalogPanel | read-only source/releases and pin tests; browser legacy route and hidden navigation |

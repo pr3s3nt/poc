@@ -182,3 +182,13 @@ TEL adds separate application telemetry queries backed by a background collector
 - **REC-04:** Reports redact values and raw provider diagnostics; show bounded
   field paths/actions and coverage. Infrastructure cadence is independent of the
   Environment CD checkbox. No alerting/notification service is introduced.
+
+## Retained workload progress — accepted 2026-11-08
+
+A retained workload node without a snapshot in this Deployment may use a READY
+snapshot from the immutable successful Deployment Set ancestry of this run's
+base set. Require explicit RETAIN/BIND intent, same tenant/Environment/target
+generation, unchanged module intent along that ancestry and exact snapshot
+Deployment/workload identity. Current instance state, later deployments or overall
+SUCCEEDED alone are not proof. Missing, conflicting, failed or changed baseline
+evidence remains UNKNOWN; current-run facts always take precedence.

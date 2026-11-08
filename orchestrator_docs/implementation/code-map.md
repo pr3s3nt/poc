@@ -1338,3 +1338,12 @@ fields. `WorkloadDefaults.test.tsx` covers distinct choices and sparse reset/Sav
   primary controllers and custom/preset render regression.
 - `e2e/scenarios/online-boutique/`: real Console setup/authoring/Preview/Deploy,
   explicit recovery/renderer upgrade, runtime observation and browser shop flow.
+
+## Retained workload progress and legacy Catalog reads — issue #47
+
+`backend/internal/application/deployment/retained_progress.go` supplements only
+progress projection from exact successful base-set ancestry. `node_progress.go`
+labels verified retained workload facts; query Workloads remains per-Deployment.
+`frontend/src/features/catalog/CatalogPage.tsx` and `EnvironmentCatalogPanel.tsx`
+keep legacy read views without authoring or release selection; AppShell omits
+Catalog navigation. Regression tests live beside these implementations.

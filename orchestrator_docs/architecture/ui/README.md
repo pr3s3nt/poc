@@ -300,3 +300,9 @@ initial-empty rollback explicitly warns that owned deployment resources are dele
 Busy prevents conflicting actions. During execution keep confirmation/dialog
 mounted and disable dismissal; outcome and errors are explicit and never echo raw
 provider output. Shell/navigation and the normal Preview/Deploy flow are unchanged.
+
+## Catalog navigation — 2026-11-08
+
+Hide Catalog from the shared sidebar. Existing Catalog routes remain read-only
+for history; Console offers no new Catalog authoring or Environment selection.
+Keep the shared shell and the Resource Type/Definition navigation unchanged.
