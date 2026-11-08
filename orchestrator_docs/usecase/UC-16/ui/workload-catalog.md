@@ -2,7 +2,7 @@
 id: UC-16-UI-WORKLOAD-CATALOG
 artifact: use-case-ui-design
 status: draft
-last_reviewed: 2026-10-29
+last_reviewed: 2026-11-09
 ---
 
 # Workload catalog UI
@@ -21,7 +21,7 @@ trả focus về nút. Save quay về danh sách pending; Preview/Deploy vẫn �
 | Section | Controls |
 |---|---|
 | Cơ bản | Tên, image, registry credential ref; container selector khi nhiều container |
-| Mạng | Service toggle, ClusterIP/headless, ports table, public route tới Service port |
+| Mạng | Ports table (có cổng thì có Service, không có dropdown bật/tắt), Headless trong Nâng cao kèm giải thích ngắn, public route tới Service port |
 | Biến môi trường | Name/Value, Chọn từ… và secret create dialog hiện hành |
 | Tài nguyên | Typed dependency, class/shared identity, inputs theo Type schema, new/reuse |
 | Volume và file (trong từng container) | Một nút thêm; PVC, emptyDir, ConfigMap, hostPath hoặc Secret; tạo mới/dùng lại nguồn; path/mode; container đích ngầm định |

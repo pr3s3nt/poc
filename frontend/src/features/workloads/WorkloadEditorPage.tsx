@@ -1,5 +1,4 @@
 import { authoringFeatures } from '../../shared/authoringFeatures';
-import { DefaultSelect } from './DefaultSelect';
 import { AdvancedFields } from './AdvancedFields';
 import { ConfigGroup, fieldValue, RuntimePolicyFields, SecurityFields, wd, type SecurityContext, type Resolution } from './RuntimePolicyFields';
 import { api } from '../../shared/api/client';
@@ -124,7 +123,7 @@ function buildScore(form: Form, types: ResourceType[]): Record<string, unknown> 
   if (form.execution?.secretFiles?.length) resources.set('env', { type: 'environment' });
   const ports = new Map<string, unknown>();
   for (const port of form.servicePorts) if (port.name && Number(port.port) > 0) ports.set(port.name, { ...(port.protocol ? {protocol: port.protocol} : {}), port: Number(port.port), targetPort: Number(port.targetPort || port.port) });
-  return { ...(form.execution ? { workloadExecution: form.execution } : {}), ...(form.replicas !== undefined ? { replicas: form.replicas } : {}), apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: form.name, ...(form.annotations.length ? { annotations: Object.fromEntries(form.annotations.map(a => [a.name, a.value])) } : {}), ...(form.workloadClass ? { class: form.workloadClass } : {}) }, containers: Object.fromEntries(containers), ...(ports.size ? { service: { ports: Object.fromEntries(ports) } } : {}), ...(resources.size ? { resources: Object.fromEntries(resources) } : {}) };
+  return { ...(form.execution ? { workloadExecution: serviceExecution(form.execution, ports.size > 0) } : {}), ...(form.replicas !== undefined ? { replicas: form.replicas } : {}), apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: form.name, ...(form.annotations.length ? { annotations: Object.fromEntries(form.annotations.map(a => [a.name, a.value])) } : {}), ...(form.workloadClass ? { class: form.workloadClass } : {}) }, containers: Object.fromEntries(containers), ...(ports.size ? { service: { ports: Object.fromEntries(ports) } } : {}), ...(resources.size ? { resources: Object.fromEntries(resources) } : {}) };
 }
 
 
@@ -176,6 +175,16 @@ function hasRemovedPublicPort(workload: Record<string, unknown>): boolean {
 const removedPublicPortMessage = t('workloads.workloadEditor.theDraftScoreStillDeclares');
 
 const readyCatalog = (config: Configuration): KeyCatalog => ({ status: 'ready', keys: config.keys ?? [], version: config.version, secretStoreKey: config.secretStoreKey });
+
+// Service exists exactly when the Workload has ports, so the editor no longer
+// offers serviceEnabled. Keep a stored opt-out only while it is still valid (no
+// ports: it drops a template Service) and drop headless once no port remains.
+function serviceExecution(execution: Execution, hasPorts: boolean): Execution {
+  const next = { ...execution };
+  if (next.serviceEnabled === true || (next.serviceEnabled === false && hasPorts)) delete next.serviceEnabled;
+  if (!hasPorts) delete next.headless;
+  return next;
+}
 
 export function WorkloadEditorPage({ application, environment, workloadId, selectedTemplate, onTargetChange }: { application: Application; environment: EnvironmentKey; workloadId?: string; selectedTemplate?: string; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void }) {
   // Environment operations hold draft writes: Save stays disabled, text is kept.
@@ -474,14 +483,16 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
 
       {form.execution ? <ExecutionFields section="schedule" value={form.execution} onChange={execution => updateForm({ ...form, execution })} metadata={templateMetadata} disabled={saving} onRawProblems={setTemplateInputProblems} resolution={resolution} /> : null}
       <section className="content-panel editor-grid"><ConfigGroup initialOpen title={wd('networking')} summary={form.servicePorts.map(p=>`${p.name}: ${p.port} → ${p.targetPort||p.port}`).join(', ')||wd('notConfigured')} invalid={Boolean(error)}>
-        {form.execution && form.servicePorts.length ? <label className="checkbox-row"><input type="checkbox" checked={form.execution.headless ?? false} onChange={e => updateForm({ ...form, execution: { ...form.execution!, headless: e.target.checked } })} />{t('workloads.templates.headless')}</label> : null}
-        <label>{wd('service')}<DefaultSelect defaultLabel={fieldValue(resolution,'service')?wd('enabled'):wd('disabled')} aria-label={wd('service')} value={form.execution?.serviceEnabled===undefined?'':String(form.execution.serviceEnabled)} onValueChange={selected=>{const execution={...(form.execution??customExecution())};if(selected==='')delete execution.serviceEnabled;else execution.serviceEnabled=selected==='true';updateForm({...form,execution})}}><option value="true">{wd('enabled')}</option><option value="false">{wd('disabled')}</option></DefaultSelect></label>
         <div className="section-header"><div><h2>{t('workloads.workloadEditor.servicePorts')}</h2><p>{t('workloads.workloadEditor.internalAccessForOtherWorkloads', { environment })}</p></div><Button onClick={() => updateForm({ ...form, servicePorts: [...form.servicePorts, { name: '', port: '', targetPort: '' }] })}>{t('workloads.workloadEditor.addPort')}</Button></div>
         {form.servicePorts.map((port, index) => <div className="editor-grid" key={index}><div className="binding-row"><input aria-label={t('workloads.workloadEditor.servicePortName')} value={port.name} placeholder="http" onChange={(event) => updatePort(index, { name: event.target.value })} /><input aria-label={t('workloads.workloadEditor.servicePorts')} type="number" value={port.port} placeholder="80" onChange={(event) => updatePort(index, { port: event.target.value })} /><label>{t('workloads.containerPorts.protocol')}<select aria-label={t('workloads.containerPorts.protocol')} value={port.protocol ?? 'TCP'} onChange={e => updatePort(index, {protocol: e.target.value || undefined})}><option value="TCP">TCP</option><option value="UDP">UDP</option><option value="SCTP">SCTP</option></select></label><Button tone="quiet" onClick={() => updateForm({ ...form, servicePorts: form.servicePorts.filter((_, i) => i !== index) })}>{t('workloads.workloadEditor.remove')}</Button></div>
           <Advanced label={t('workloads.workloadEditor.portValue', { value: port.name || index + 1 })} summary={t('workloads.workloadEditor.effectiveTargetPortValueValue2', { value: port.targetPort || port.port || t('workloads.workloadEditor.none2'), value2: port.targetPort ? t('workloads.workloadEditor.override') : t('workloads.workloadEditor.fromServicePort') })}>
             <label>{t('workloads.workloadEditor.containerTargetPort')}<input aria-label={t('workloads.workloadEditor.containerTargetPort')} type="number" value={port.targetPort} placeholder={port.port || '8080'} onChange={(event) => updatePort(index, { targetPort: event.target.value })} /></label>
             <p>{t('workloads.workloadEditor.emptyMakesTheTargetPort')}</p>
           </Advanced></div>)}
+        {form.execution && form.servicePorts.length ? <Advanced label={wd('service')} summary={form.execution.headless ? t('workloads.templates.headless') : 'ClusterIP'}>
+          <label className="checkbox-row"><input type="checkbox" checked={form.execution.headless ?? false} onChange={e => updateForm({ ...form, execution: { ...form.execution!, headless: e.target.checked } })} />{t('workloads.templates.headless')}</label>
+          <p className="muted">{t('workloads.templates.headlessHelp')}</p>
+        </Advanced> : null}
         <ServiceEndpointFields dependencies={form.dependencies} ports={form.servicePorts} available={types.some(type=>type.key==='endpoint')} serviceEnabled={form.execution?.serviceEnabled!==false} workloadName={form.name} disabled={saving || classMetadata!=='ready'} onChange={dependencies=>updateForm({...form,dependencies})}/>
       </ConfigGroup></section>
       <section className="content-panel editor-grid"><ConfigGroup initialOpen keepMounted title={wd('dependencies')} summary={form.dependencies.map(d=>d.alias||d.type).join(', ')||wd('notConfigured')} invalid={Boolean(error)}><div className="section-header"><div><h2>{t('workloads.workloadEditor.workloadResources')}</h2><p>{t('workloads.workloadEditor.chooseAnAvailableResourceType')}</p></div><div className="form-actions"><Button tone="quiet" onClick={() => void reloadClassMetadata()}>{t('workloads.workloadEditor.refreshClassMetadata')}</Button><Button onClick={() => updateForm({ ...form, dependencies: [...form.dependencies, emptyDependency()] })}>{t('workloads.workloadEditor.addResource')}</Button></div></div>{form.dependencies.map((dep, index) => dep.type === 'endpoint' ? null : <DependencyFields key={index} index={index} dependency={dep} types={types} choices={resourceChoices} classMetadata={classMetadata} disabled={saving} servicePorts={[...validPortNames(form.servicePorts)]} onChange={(patch) => updateDependency(index, patch)} onReload={() => void reloadClassMetadata()} onRemove={() => updateForm({ ...form, dependencies: form.dependencies.filter((_, i) => i !== index) })} />)}</ConfigGroup></section>

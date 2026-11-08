@@ -3290,6 +3290,7 @@
   "workloads.templates.retain": "Dữ liệu được giữ khi xóa workload.",
   "workloads.templates.templateMissing": "Mẫu đã chọn không còn khả dụng. Hãy quay lại chọn mẫu.",
   "workloads.templates.headless": "Service headless",
+  "workloads.templates.headlessHelp": "Không có IP chung: DNS trả về địa chỉ từng Pod để client gọi đúng Pod. Chỉ bật cho ứng dụng cần điều này, ví dụ database có replication hoặc cụm nhiều node (StatefulSet). Web/API thông thường để tắt. Không mở ứng dụng ra Internet.",
   "workloads.templates.command": "Lệnh (mỗi dòng một phần tử)",
   "workloads.templates.args": "Tham số (mỗi dòng một phần tử)",
   "workloads.templates.replicas": "Số replica",

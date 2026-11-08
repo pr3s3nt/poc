@@ -120,7 +120,6 @@ async function authorWorkload(spec){
  }
  if(spec.port){
   const net=await openGroup(page,'Service & kết nối');
-  await net.getByRole('combobox',{name:'Service',exact:true}).selectOption('true');
   await net.getByRole('button',{name:'+ Thêm cổng',exact:true}).click();
   await net.getByLabel('Tên cổng Service',{exact:true}).fill('http');await net.getByLabel('Cổng Service',{exact:true}).fill(String(spec.port));
   if(spec.endpoint){await net.getByRole('button',{name:'Tạo endpoint từ cổng http',exact:true}).click();const ep=net.getByRole('group',{name:'Endpoint công khai'});await ep.getByLabel('Tên endpoint',{exact:true}).fill(input.endpointName);const path=ep.getByLabel('Đường dẫn endpoint',{exact:true});if(await path.count())await path.fill('/');}
