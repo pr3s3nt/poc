@@ -60,7 +60,7 @@ export async function authorGitLabWorkload(ui,base,home,spec){
  }
  for(const name of spec.wait??[])await page.getByLabel(name,{exact:true}).check();
  await ui.submit(base+'/workloads/'+spec.name,'PUT',page.getByRole('button',exact('Lưu draft Workload')));
- const saved=(await ui.get(base+'/workloads')).workloads.find(w=>w.id===spec.name)?.workload;assert(saved);assert.equal(saved.workloadExecution.kind,spec.kind);assert.equal(Object.keys(saved.containers).length,spec.containers.length);if(spec.wait)assert.deepEqual(saved.workloadExecution.waitForJobs,spec.wait);return saved;
+ const saved=(await ui.get(base+'/workloads')).workloads.find(w=>w.id===spec.name)?.workload;assert(saved);assert.equal(saved.workloadExecution.kind,spec.kind);assert.equal(Object.keys(saved.containers).length,spec.containers.length);if(spec.wait)assert.deepEqual(saved.workloadExecution.waitForJobs??[],spec.wait);return saved;
 }
 
 // Approved storage-provider change, before the first deployment. Every edit is
