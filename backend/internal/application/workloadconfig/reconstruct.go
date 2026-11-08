@@ -494,9 +494,6 @@ func reconstruct(workload string, module environment.Module, set environment.Doc
 		metadata["annotations"] = annotations
 	}
 	out := map[string]any{"apiVersion": "orchestrator.dev/workload/v1", "metadata": metadata, "containers": containers}
-	if len(b.resources) > 0 {
-		out["resources"] = b.resources
-	}
 	if module.Spec.Service != nil {
 		out["service"] = module.Spec.Service
 	}
@@ -530,6 +527,12 @@ func reconstruct(workload string, module environment.Module, set environment.Doc
 			}
 		}
 		out["workloadExecution"] = execution
+	}
+	// Secret-file references can declare the Environment resource even when no
+	// container variable or storage mount uses it. Publish aliases after all
+	// execution references have been reconstructed.
+	if len(b.resources) > 0 {
+		out["resources"] = b.resources
 	}
 	if module.Spec.Replicas != nil {
 		out["replicas"] = *module.Spec.Replicas

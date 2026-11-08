@@ -31,8 +31,10 @@ inputs. The user approved option 2: bounded failed-Job recovery/removal on the
 current app. Implementation now observes terminal failure read-only, retains UID
 inventory without success acknowledgement, blocks Job replay and preserves UI
 draft deletion for published failed Jobs. Focused Go/build and real PostgreSQL
-persistence checks pass; runtime recovery/removal verification, GitLab functional
-acceptance and the full gate are not complete. See
+persistence checks pass. Actual Settings recovery now releases the existing
+Environment, preserving the failed Job UID/spec. Connection corrections, a new
+Job identity and dependency updates are authored through UI. Removal verification,
+GitLab functional acceptance and the full gate are not complete. See
 [survey and proposed options](implementation/complex-application-ui.md).
 
 ## Grouped template versions — issue #47

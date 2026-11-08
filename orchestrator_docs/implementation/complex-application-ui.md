@@ -236,3 +236,17 @@ same tool environment: RequiredRendererMissingTieAndUnavailableFailBeforeResourc
 and RequiredRendererPreviewIsPurePinsAndDeployRendersAfterOutputs; renderer bundle
 unavailability is not claimed as a pass. Actual UI recovery, removal and GitLab
 functional checks remain pending at this checkpoint.
+
+Actual Settings recovery now passes after accounting for Fleet's ObjectSet
+tracking metadata (2a84a39e); the original failed Job UID/spec is unchanged. The
+renderer revision is explicitly refreshed through UI, and corrected ConfigMaps,
+new Job identity and dependency references are authored. Removal/batch retry and
+GitLab functional acceptance are still pending; see the verification checkpoint.
+
+The old Job deletion now remains a PENDING_DELETE draft through actual UI. The
+next Preview exposed a pre-existing reconstruction defect: a workload using
+only secret files could declare its Environment resource after the resource map
+was already omitted from the rebuilt document. Gitaly hit this path after its
+successful partial deployment. Reconstruction now publishes resource aliases
+after mapping all execution references; the focused workloadconfig suite and a
+file-only round-trip regression pass. Retesting the full batch remains pending.

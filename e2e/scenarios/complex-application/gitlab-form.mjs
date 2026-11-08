@@ -68,7 +68,7 @@ export async function authorGitLabWorkload(ui,base,home,spec){
 export async function updateGitLabStorage(ui,base,appKey,spec){
  const {page}=ui;
  await page.goto(ui.baseURL+`/ui/applications/${appKey}/environments/staging/workloads/${spec.name}`);
- await page.getByLabel('Tên Workload',{exact:true}).waitFor();
+ await page.getByLabel('Tên Workload',{exact:true}).waitFor();for(let attempt=0;await page.getByLabel('Tên Workload',{exact:true}).inputValue()!==spec.name;attempt++){assert(attempt<150,'Editor did not load expected workload');await page.waitForTimeout(200);}
  const c=spec.containers[0];await page.getByLabel('Ảnh Container',{exact:true}).fill(c.image);
  const oldName=await page.getByLabel('Tên Container',{exact:true}).inputValue();
  if(oldName!==c.name)await page.getByLabel('Tên Container',{exact:true}).fill(c.name);
@@ -85,13 +85,13 @@ export async function updateGitLabStorage(ui,base,appKey,spec){
 }
 
 export async function updateGitLabConnectionFiles(ui,base,appKey,spec,previous){
- const {page}=ui;await page.goto(ui.baseURL+`/ui/applications/${appKey}/environments/staging/workloads/${spec.name}`);await page.getByLabel('Tên Workload',{exact:true}).waitFor();
+ const {page}=ui;await page.goto(ui.baseURL+`/ui/applications/${appKey}/environments/staging/workloads/${spec.name}`);await page.getByLabel('Tên Workload',{exact:true}).waitFor();for(let attempt=0;await page.getByLabel('Tên Workload',{exact:true}).inputValue()!==spec.name;attempt++){assert(attempt<150,'Editor did not load expected workload');await page.waitForTimeout(200);}
  let changed=0;
  for(const volume of spec.volumes.filter(v=>v.files)){
   const prior=previous.workloadExecution.volumes.find(v=>v.name===volume.name)?.configMap;assert(prior);
   if(JSON.stringify(prior.files)===JSON.stringify(volume.files))continue;
   const mount=spec.mounts.find(m=>m.volume===volume.name);assert(mount);const index=await page.getByLabel('Tên Container',{exact:true}).evaluateAll((es,name)=>es.findIndex(e=>e.value===name),mount.container),section=page.locator('section.content-panel').filter({has:page.getByRole('heading',exact(`Container ${index+1}`))});await group(page,section,text('defaults','volumes'));
-  const fields=section.getByRole('group',exact(`Volume và file của ${mount.container}`)),cards=fields.locator(':scope > div.content-panel');let card;
+  const fields=section.getByRole('group',exact(`Volume và file của ${mount.container}`)),cards=fields.locator(':scope > div.content-panel');await cards.first().waitFor();let card;
   for(let i=0;i<await cards.count();i++)if(await cards.nth(i).locator('select').first().inputValue()===volume.name){card=cards.nth(i);break;}
   assert(card,'Mounted ConfigMap source '+volume.name);await card.locator('details > summary').click();const names=card.getByLabel('Tên file cấu hình',{exact:true});assert.equal(await names.count(),volume.files.length);
   for(let n=0;n<volume.files.length;n++){assert.equal(await names.nth(n).inputValue(),volume.files[n].name);assert.equal(await card.locator('textarea').nth(n).inputValue(),prior.files[n].value);if(prior.files[n].value!==volume.files[n].value){await card.locator('textarea').nth(n).fill(volume.files[n].value);changed++;}}

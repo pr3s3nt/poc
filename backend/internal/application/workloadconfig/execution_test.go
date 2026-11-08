@@ -122,3 +122,29 @@ func TestCustomVolumeAndLifecycleSaveImportAndAppliedRoundTrip(t *testing.T) {
 		t.Fatalf("round-trip changed runtime intent")
 	}
 }
+
+func TestSecretFilesOnlyDeclareEnvironmentOnAppliedReconstruction(t *testing.T) {
+	module := environment.Module{Profile: environment.ModuleProfile, Spec: environment.ModuleSpec{
+		Containers: map[string]environment.Container{"main": {Image: "app:1"}},
+		Execution:  &environment.WorkloadExecution{Version: 1, Kind: "Deployment", SecretFiles: []environment.SecretFile{{Ref: "${context.uc12.TOKEN}", Container: "main", Path: "/secrets/token"}}},
+	}}
+	set := environment.Document{Modules: map[string]environment.Module{"app": module}}
+	raw, err := ReconstructWorkload("app", module, set)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := workloadspec.FromMap(raw)
+	if err != nil {
+		t.Fatal("Reconstructed file-only workload cannot be previewed", err)
+	}
+	if parsed.Resources["env"].Type != "environment" || parsed.Execution.SecretFiles[0].Ref != "${resources.env.TOKEN}" {
+		t.Fatal("Secret resource alias lost")
+	}
+	fragment, err := parsed.Fragment(map[string]resource.Type{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fragment.Module.Spec.Execution.SecretFiles[0].Ref != "${context.uc12.TOKEN}" {
+		t.Fatal("Applied secret reference changed")
+	}
+}

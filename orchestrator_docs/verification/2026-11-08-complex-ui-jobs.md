@@ -205,3 +205,33 @@ and expanding issue #50 to handle failed Job recovery/removal through UI. Neithe
 choice is assumed. GitLab itself is not functioning; its webservice/migration
 and user/Git/S3-retention acceptance are not complete. Do not send its TLS URL as
 an application-ready handoff. Existing apps, receipts and guards remain intact.
+
+
+## Approved option 2 — actual failed-Job recovery checkpoint
+
+The user selected option 2, expanding issue #50 for bounded terminal failed-Job
+recovery/removal on this existing app. This supersedes the pending decision above.
+Implementation 8196020e retains FAILED submission inventory without completion or
+replay. The first real proof held on Fleet-added ObjectSet metadata; 2a84a39e
+normalizes exactly those two tracking keys, with a regression rejecting changed
+Job policy. The second explicit Console Settings recovery succeeds and releases
+the Environment. Before/after native reads confirm the failed Job UID and full
+spec are unchanged. No controller wake, manual deletion or database edit is used.
+The renderer source is re-inspected and the new Definition revision selected
+through UI. Connection ConfigMaps, replacement Job identity and completion
+references are corrected through forms. Removal and subsequent batch/functional
+acceptance remain pending at this checkpoint.
+
+Focused affected suites and Go build pass; real PostgreSQL tests with
+REQUIRE_POSTGRES=1 prove failure receipt/inventory survives reopen and does not
+set a successful revision. Two renderer tests fail identically on origin/main
+2755c864 in the same environment; this is a recorded baseline limitation.
+Documentation checks pass, with PlantUML unavailable locally.
+
+The old Job deletion now remains a PENDING_DELETE draft through actual UI. The
+next Preview exposed a pre-existing reconstruction defect: a workload using
+only secret files could declare its Environment resource after the resource map
+was already omitted from the rebuilt document. Gitaly hit this path after its
+successful partial deployment. Reconstruction now publishes resource aliases
+after mapping all execution references; the focused workloadconfig suite and a
+file-only round-trip regression pass. Retesting the full batch remains pending.
