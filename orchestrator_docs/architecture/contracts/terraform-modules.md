@@ -2,7 +2,7 @@
 id: TERRAFORM-MODULE-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-08
 related: [ADR-014, UC-03, UC-05, UC-06, UC-08, UC-16]
 ---
 
@@ -158,9 +158,10 @@ hiệu lực nếu Type hoặc module đánh dấu secret; không downgrade đ�
 
 | Type | Contract dùng cho ứng dụng |
 |---|---|
-| `postgres` | Giữ contract catalog hiện hành: `host` string, `port` number, `database` string, `username` string, `password` secret string |
-| `redis` | `host` string, `port` number, `username` string, `password` secret string, `tls` bool; credentials không rỗng khi auth yêu cầu |
-| `mysql`, `mariadb`, `mongodb` (Git resource assets) | `host` string, `port` number, `database` string, `username` string, `claimName` string, `namespace` string; credentials supplied through existing Kubernetes Secret references, no password output |
+| `postgres` | Giữ contract catalog hiện hành: `host` string, `port` number, `database` string, `username` string, `password` secret string; tuỳ chọn `uri` secret string, `jdbcUrl` string |
+| `redis` | `host` string, `port` number, `username` string, `password` secret string, `tls` bool; credentials không rỗng khi auth yêu cầu; tuỳ chọn `uri` secret string |
+| `mysql`, `mariadb` (Git resource assets) | `host` string, `port` number, `database` string, `username` string, `password` secret string, `claimName` string, `namespace` string; tuỳ chọn `uri` secret string, `jdbcUrl` string |
+| `mongodb` (Git resource assets) | `host` string, `port` number, `database` string, `username` string, `password` secret string, `claimName` string, `namespace` string; tuỳ chọn `connection` secret string |
 
 Redis v2 dùng auth cho cả in-cluster/managed; in-cluster có thể không TLS,
 ElastiCache dùng TLS và app phải hỗ trợ theo output `tls`. Module sinh username/
@@ -168,6 +169,35 @@ password phù hợp implementation, không hard-code credential vào app. Postgr
 giữ database/username params hiện hành; Redis cung cấp class và binding outputs,
 không thêm user-facing module selector. Sizing nằm trong module schema/Definition;
 chỉ expose param nghiệp vụ đã được Resource Type đăng ký, không expose mọi AWS knob.
+
+### Chuỗi kết nối — issue #52
+
+Theo cách Humanitec mở rộng output contract (override Type, output `connection`
+của MongoDB/MSSQL), module DB xuất sẵn chuỗi kết nối để app dùng một biến:
+
+| Output | Định dạng |
+|---|---|
+| postgres `uri` | `postgresql://<user>:<password>@<host>:<port>/<database>` |
+| postgres `jdbcUrl` | `jdbc:postgresql://<host>:<port>/<database>` (in-cluster và Aurora cùng định dạng) |
+| mysql/mariadb `uri` | `mysql://<user>:<password>@<host>:<port>/<database>` (MariaDB dùng cùng scheme) |
+| mysql/mariadb `jdbcUrl` | `jdbc:mysql://…` / `jdbc:mariadb://<host>:<port>/<database>` |
+| redis `uri` | `redis://` hoặc `rediss://` khi `tls`, `<user>:<password>@<host>:<port>` |
+| mongodb `connection` | `mongodb://<user>:<password>@<host>:<port>/<database>?authSource=<database>` |
+
+User và password trong chuỗi được percent-encode (`urlencode`), nên password
+có ký tự đặc biệt vẫn hợp lệ. `uri`/`connection` chứa password nên luôn là
+secret ở cả module (`sensitive = true`) và Type. `jdbcUrl` không chứa
+credential; app dùng kèm `username`/`password`. Đây là outputs tuỳ chọn của
+Type (UC-02 EXT): Definition cũ vẫn hợp lệ; Definition muốn cung cấp phải map
+output trong revision mới. Tham chiếu output mà Definition được chọn không cung
+cấp bị chặn ở Preview (UC-02 EXT-05).
+
+MySQL, MariaDB và MongoDB dùng cùng cơ chế mật khẩu với PostgreSQL/Redis:
+executor sinh `password` (user ứng dụng) và `master_password` (root/admin) một
+lần theo resource identity, lưu secret store; module tạo Kubernetes Secret
+riêng của instance từ hai biến này. Không còn input `auth_secret_name`, tên
+key hay Secret do người dùng chuẩn bị. Root/admin password không bao giờ là
+output.
 
 VPC bổ sung output tùy chọn `privateSubnetIds`: danh sách ID subnet private,
 không bí mật (Type schema hiện hành dùng `any`; module kiểm list(string)).

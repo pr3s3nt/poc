@@ -2296,3 +2296,21 @@ FAILED and the operation is currently INTERRUPTED. The recovery attempt for this
 rollout remains incomplete. The three remaining workloads and checkout are
 unverified. Main is unmerged.
 [Execution and limitations](verification/2026-11-07-compatible-security-boutique.md).
+
+## DB connection-string outputs — issue #52 (2026-11-08)
+
+Resource Types `postgres`, `redis`, `mysql`, `mariadb`, `mongodb` expose optional
+secret connection strings (`uri`; MongoDB `connection`) and nonsecret `jdbcUrl`
+per [module contract](architecture/contracts/terraform-modules.md#chuỗi-kết-nối--issue-52).
+Packaged release `v5-2026.11.08` adds them to postgres-k8s, redis-k8s, aurora and
+elasticache; the Git modules in `projects/platform-resources/` add them to all
+five, and MySQL/MariaDB/MongoDB now take executor-owned `password`/`master_password`
+instead of a prepared Secret (supersedes the 2026-11-04 Secret-reference contract
+for new resources). Platform Engineers append optional outputs to an existing Type
+through `POST /api/v1/resource-types/{key}/outputs` and the Resource Types page
+(UC-02 EXT); a workload binding an optional output its selected Terraform
+Definition does not map is rejected at Preview. Aurora/ElastiCache outputs are
+validated offline only (no AWS run). Verified on kind with five databases
+([record](verification/2026-11-08-db-connection-outputs.md)). `platform-catalog/` and
+`backend/terraform-modules/mysql` snapshots and Git-catalog bootstrap targets pinned
+to older commits are unchanged.

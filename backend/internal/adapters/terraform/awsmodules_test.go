@@ -104,13 +104,13 @@ func TestAWSModuleRegistryContracts(t *testing.T) {
 				"master_password": "string", "tags": "map(string)", "engine_version": "string", "min_capacity": "number", "max_capacity": "number", "seconds_until_auto_pause": "number"},
 			required: []string{"region", "name", "vpc_id", "private_subnet_ids", "subnet_ids", "database", "username", "master_password", "tags", "engine_version", "min_capacity", "max_capacity"},
 			outputs: map[string]string{"host": "", "port": "", "database": "", "username": "", "password": "", "cluster_identifier": "", "writer_identifier": "",
-				"security_group_id": ""}, sensitive: []string{"password"}},
+				"security_group_id": "", "uri": "", "jdbcUrl": ""}, sensitive: []string{"password", "uri"}},
 		"elasticache": {types: []string{"redis"}, owned: []string{"password", "tags"},
 			inputs: map[string]string{"region": "string", "vpc_id": "string", "private_subnet_ids": "list(string)", "subnet_ids": "list(string)", "username": "string", "engine_version": "string",
 				"node_type": "string", "password": "string", "tags": "map(string)"},
 			required:  []string{"region", "vpc_id", "private_subnet_ids", "subnet_ids", "password", "tags", "engine_version", "node_type"},
-			outputs:   map[string]string{"host": "", "port": "", "username": "", "password": "", "tls": "", "replication_group_id": "", "security_group_id": ""},
-			sensitive: []string{"password"}},
+			outputs:   map[string]string{"host": "", "port": "", "username": "", "password": "", "tls": "", "replication_group_id": "", "security_group_id": "", "uri": ""},
+			sensitive: []string{"password", "uri"}},
 	}
 	for id, w := range wants {
 		b := all[id]
@@ -319,10 +319,14 @@ func TestAWSModuleSourceSafety(t *testing.T) {
 		if !strings.Contains(src, "subnet_ids = var.private_subnet_ids") {
 			t.Errorf("%s subnet group must use the shared private subnets", id)
 		}
-		// Credentials appear only in the credential argument and sensitive output.
+		// Credentials appear only in the credential argument and sensitive
+		// outputs: the password itself and the percent-encoded connection string.
 		for n, line := range strings.Split(src, "\n") {
 			trim := strings.TrimSpace(line)
 			if strings.HasPrefix(trim, "#") || !(strings.Contains(trim, "var.password") || strings.Contains(trim, "var.master_password")) {
+				continue
+			}
+			if connectionStringValue(trim) {
 				continue
 			}
 			switch trim {
@@ -463,15 +467,15 @@ func TestEKSAddonsArePinnedToVerifiedBuilds(t *testing.T) {
 func TestPackagedReleaseRevisionIsDistinctFromEarlierRelease(t *testing.T) {
 	type pin struct{ revision, digest string }
 	earlier := map[string][]pin{
-		"vpc":           {{"v1-2026.10.13", "ebc9b73046f6838921bc5fcff8beebb725a0d085a8921e95766fb5a30339b92d"}, {"v2-2026.10.13", "7f85d296ce7dceff9d57475599a4367c7ece599cf87d1c5e269b11d0071395e4"}, {"v3-2026.10.13", "f159d1be486706560730a1d7e36744b5588103d7d6ea9c67e1c120519cb382cc"}},
-		"eks":           {{"v1-2026.10.13", "00dabd6fe3df5514f1c26bc23064fe527157d27130402a4305abe71503070460"}, {"v2-2026.10.13", "15cd6a4d5a88dc48ff49cce5c84c68db160f934d8594752b933b502952647997"}, {"v3-2026.10.13", "15cd6a4d5a88dc48ff49cce5c84c68db160f934d8594752b933b502952647997"}},
-		"aurora":        {{"v1-2026.10.13", "5fc963c62421d46ac1c68540f9fef2651314721facd245967394a63f6293e7f2"}, {"v2-2026.10.13", "b3d4fa946b12a66799818715abbdf64a0ffe12d8a1781e778f8fd86d6ca71afd"}, {"v3-2026.10.13", "f8755b77289c2e2bf5b2be351b90d4a1d44d0eeaf56021560c7fefb1aafc4ba6"}},
-		"elasticache":   {{"v2-2026.10.13", "ad562a3f616c6db0566a38d38acd323fc8d62ebeaa68758bb74ea83a556b9878"}, {"v3-2026.10.13", "b46261d722e23f7ace3693c12f0d5ed03f28ca6d8abbbc8ae519230051c3e8e7"}},
-		"k8s-namespace": {{"v1-2026.10.13", "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"}, {"v2-2026.10.13", "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"}, {"v3-2026.10.13", "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"}},
-		"redis-k8s":     {{"v1-2026.10.13", "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"}, {"v2-2026.10.13", "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"}, {"v3-2026.10.13", "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"}},
-		"postgres-k8s":  {{"v1-2026.10.13", "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"}, {"v2-2026.10.13", "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"}, {"v3-2026.10.13", "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"}},
+		"vpc":           {{"v1-2026.10.13", "ebc9b73046f6838921bc5fcff8beebb725a0d085a8921e95766fb5a30339b92d"}, {"v2-2026.10.13", "7f85d296ce7dceff9d57475599a4367c7ece599cf87d1c5e269b11d0071395e4"}, {"v3-2026.10.13", "f159d1be486706560730a1d7e36744b5588103d7d6ea9c67e1c120519cb382cc"}, {"v4-2026.10.15", "c783343a2686a754e42521d9d21cdc8a70ead0a2b83b14d90448b56296acbfad"}},
+		"eks":           {{"v1-2026.10.13", "00dabd6fe3df5514f1c26bc23064fe527157d27130402a4305abe71503070460"}, {"v2-2026.10.13", "15cd6a4d5a88dc48ff49cce5c84c68db160f934d8594752b933b502952647997"}, {"v3-2026.10.13", "15cd6a4d5a88dc48ff49cce5c84c68db160f934d8594752b933b502952647997"}, {"v4-2026.10.15", "15cd6a4d5a88dc48ff49cce5c84c68db160f934d8594752b933b502952647997"}},
+		"aurora":        {{"v1-2026.10.13", "5fc963c62421d46ac1c68540f9fef2651314721facd245967394a63f6293e7f2"}, {"v2-2026.10.13", "b3d4fa946b12a66799818715abbdf64a0ffe12d8a1781e778f8fd86d6ca71afd"}, {"v3-2026.10.13", "f8755b77289c2e2bf5b2be351b90d4a1d44d0eeaf56021560c7fefb1aafc4ba6"}, {"v4-2026.10.15", "f8755b77289c2e2bf5b2be351b90d4a1d44d0eeaf56021560c7fefb1aafc4ba6"}},
+		"elasticache":   {{"v2-2026.10.13", "ad562a3f616c6db0566a38d38acd323fc8d62ebeaa68758bb74ea83a556b9878"}, {"v3-2026.10.13", "b46261d722e23f7ace3693c12f0d5ed03f28ca6d8abbbc8ae519230051c3e8e7"}, {"v4-2026.10.15", "b46261d722e23f7ace3693c12f0d5ed03f28ca6d8abbbc8ae519230051c3e8e7"}},
+		"k8s-namespace": {{"v1-2026.10.13", "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"}, {"v2-2026.10.13", "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"}, {"v3-2026.10.13", "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"}, {"v4-2026.10.15", "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"}},
+		"redis-k8s":     {{"v1-2026.10.13", "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"}, {"v2-2026.10.13", "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"}, {"v3-2026.10.13", "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"}, {"v4-2026.10.15", "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"}},
+		"postgres-k8s":  {{"v1-2026.10.13", "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"}, {"v2-2026.10.13", "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"}, {"v3-2026.10.13", "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"}, {"v4-2026.10.15", "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"}},
 	}
-	const current = "v4-2026.10.15"
+	const current = "v5-2026.11.08"
 	refs, err := registry.PackagedRefs()
 	if err != nil {
 		t.Fatal(err)
@@ -492,7 +496,7 @@ func TestPackagedReleaseRevisionIsDistinctFromEarlierRelease(t *testing.T) {
 				t.Fatal("an earlier pin cannot use the current revision")
 			}
 			// Changed content must not keep an earlier pin.
-			changed := id == "vpc" || (id == "aurora" && prev.revision != "v3-2026.10.13") || (id == "elasticache" && prev.revision != "v3-2026.10.13") || (id == "eks" && prev.revision == "v1-2026.10.13")
+			changed := (id == "vpc" && prev.revision != "v4-2026.10.15") || id == "aurora" || id == "elasticache" || id == "redis-k8s" || id == "postgres-k8s" || (id == "eks" && prev.revision == "v1-2026.10.13")
 			if changed && ref.ContentSHA256 == prev.digest {
 				t.Errorf("%s changed module but kept the digest of %s", id, prev.revision)
 			}
@@ -508,4 +512,14 @@ func TestPackagedReleaseRevisionIsDistinctFromEarlierRelease(t *testing.T) {
 	if len(refs) != 7 || len(identities) != 7 {
 		t.Fatalf("refs %d identities %d", len(refs), len(identities))
 	}
+}
+
+// connectionStringValue reports a sensitive connection-string output value
+// (issue #52): the password may appear there only percent-encoded.
+func connectionStringValue(line string) bool {
+	if !strings.HasPrefix(line, `value     = "`) {
+		return false
+	}
+	rest := strings.NewReplacer("${urlencode(var.password)}", "", "${urlencode(var.master_password)}", "").Replace(line)
+	return !strings.Contains(rest, "var.password") && !strings.Contains(rest, "var.master_password")
 }

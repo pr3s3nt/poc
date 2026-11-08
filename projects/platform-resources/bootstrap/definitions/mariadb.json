@@ -10,9 +10,6 @@
         "database": "${bootstrap.mariadbDatabase}",
         "username": "${bootstrap.mariadbUsername}",
         "image": "${bootstrap.mariadbImage}",
-        "auth_secret_name": "${bootstrap.mariadbAuthSecretName}",
-        "root_password_key": "${bootstrap.mariadbRootPasswordKey}",
-        "user_password_key": "${bootstrap.mariadbUserPasswordKey}",
         "storage": "${bootstrap.mariadbStorage}",
         "storage_class": "${bootstrap.mariadbStorageClass}",
         "image_pull_secret_name": "${bootstrap.mariadbImagePullSecretName}"
@@ -34,15 +31,6 @@
         "username": {
           "param": "username"
         },
-        "auth_secret_name": {
-          "param": "auth_secret_name"
-        },
-        "root_password_key": {
-          "param": "root_password_key"
-        },
-        "user_password_key": {
-          "param": "user_password_key"
-        },
         "storage": {
           "param": "storage"
         }
@@ -53,7 +41,10 @@
         "database": "database",
         "username": "username",
         "claimName": "claimName",
-        "namespace": "namespace"
+        "namespace": "namespace",
+        "password": "password",
+        "uri": "uri",
+        "jdbcUrl": "jdbcUrl"
       },
       "provider_bindings": {
         "kubernetes": {

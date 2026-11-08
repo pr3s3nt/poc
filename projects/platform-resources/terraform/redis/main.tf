@@ -326,3 +326,10 @@ output "password" {
   value     = var.password
   sensitive = true
 }
+
+# Connection string (issue #52). Credentials are percent-encoded; the password
+# makes it sensitive. In-cluster Redis serves plain TCP.
+output "uri" {
+  value     = "redis://${urlencode(var.username)}:${urlencode(var.password)}@${local.host}:6379"
+  sensitive = true
+}

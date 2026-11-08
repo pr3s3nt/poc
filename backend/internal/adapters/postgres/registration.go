@@ -48,6 +48,48 @@ func (s *Store) CreateResourceType(ctx context.Context, org string, v resource.T
 	return registrationError(err, "resource type "+v.Key)
 }
 
+// AppendResourceTypeOutputs appends outputs to an existing Resource Type
+// (UC-02 EXT). The row lock serialises concurrent additions: the second
+// request sees the first one's names and fails as a duplicate.
+func (s *Store) AppendResourceTypeOutputs(ctx context.Context, org, key string, outputs []resource.OutputField) (resource.Type, error) {
+	var out resource.Type
+	err := s.Transact(ctx, func(ctx context.Context) error {
+		var id string
+		var a, b []byte
+		current := resource.Type{Key: key}
+		err := s.q(ctx).QueryRow(ctx, `SELECT rt.id::text,rt.input_schema,rt.output_schema FROM resource_types rt JOIN organizations o ON o.id=rt.organization_id WHERE o.organization_key=$1 AND rt.resource_type_key=$2 FOR UPDATE OF rt`, org, key).Scan(&id, &a, &b)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: resource type %s", persistence.ErrNotFound, key)
+		}
+		if err != nil {
+			return err
+		}
+		if err = unmarshalJSON(a, &current.Inputs); err != nil {
+			return err
+		}
+		if err = unmarshalJSON(b, &current.Outputs); err != nil {
+			return err
+		}
+		next, err := resource.AppendOutputs(current, outputs)
+		if errors.Is(err, resource.ErrOutputExists) {
+			return fmt.Errorf("%w: %v", persistence.ErrDuplicate, err)
+		}
+		if err != nil {
+			return err
+		}
+		raw, err := jsonBytes(next.Outputs)
+		if err != nil {
+			return err
+		}
+		if _, err = s.q(ctx).Exec(ctx, `UPDATE resource_types SET output_schema=$2 WHERE id=$1::uuid`, id, raw); err != nil {
+			return err
+		}
+		out = next
+		return nil
+	})
+	return out, err
+}
+
 func (s *Store) CreateResourceDefinition(ctx context.Context, org string, v resource.Definition) error {
 	if err := v.Validate(); err != nil {
 		return err

@@ -2,7 +2,7 @@
 id: UC-02-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-11-08
 ---
 
 # UC-02 — Register Resource Type
@@ -75,7 +75,7 @@ UC-02 Register Resource Type
 
 ## Ngoài phạm vi happy path
 
-- **OOS-01:** Cập nhật hoặc xóa Resource Type.
+- **OOS-01:** Cập nhật hoặc xóa Resource Type, ngoài việc bổ sung output tuỳ chọn theo mục EXT bên dưới.
 - **OOS-02:** Versioning và migration schema.
 - **OOS-03:** Kiểm tra ảnh hưởng tới Resource Definitions và Active Resources hiện có.
 - **OOS-04:** Custom validation ngoài JSON Schema.
@@ -114,3 +114,28 @@ UC-02 Register Resource Type
   remain supported. A
   namespace output remains required string `name`. Resource Type registration
   stays create-only; fresh fixtures/seeds reflect V03, no old Type migration.
+
+## Bổ sung output tuỳ chọn — issue #52
+
+Người dùng duyệt 2026-11-08. Cài đặt đang chạy cần nhận output mới (ví dụ chuỗi
+kết nối `uri`) mà không đăng ký lại Type. Đây là thao tác chỉ-thêm, không phải
+sửa hay version hóa schema.
+
+- **EXT-01:** Platform Engineer/Admin thêm một hoặc nhiều output vào Type đã
+  đăng ký trong Organization của phiên. Mỗi output mới có name, type, secret;
+  output mới luôn tuỳ chọn (không required).
+- **EXT-02:** Không xoá, đổi tên, đổi type, đổi required hay đổi secret của
+  output hiện có; không đổi inputs hay key. Tên trùng output hiện có, kể cả do
+  hai yêu cầu đồng thời, bị từ chối và không đổi record.
+- **EXT-03:** Type `workload` không nhận output (V03-02). Tên output theo cùng
+  quy tắc field hiện hành; type thuộc tập `string`, `number`, `bool`, `any`.
+- **EXT-04:** Definitions và resources hiện có giữ nguyên hiệu lực vì output
+  mới tuỳ chọn (BR-03 chỉ bắt buộc output required). Definition muốn cung cấp
+  output mới phải tạo revision mới theo UC-03; secret classification giữ quy
+  tắc BR-03.
+- **EXT-05:** Workload tham chiếu một output tuỳ chọn mà Definition được chọn
+  không cung cấp thì Preview bị chặn với lỗi nêu tên resource/output, không
+  chờ tới lúc chạy.
+- **EXT-06:** Thao tác không chạy Terraform, không đổi state hay resource đã
+  tạo. Resource hiện có chỉ có output mới sau lần deploy kế tiếp dùng revision
+  Definition có cung cấp output đó.

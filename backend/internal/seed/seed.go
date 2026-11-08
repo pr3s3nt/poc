@@ -166,7 +166,9 @@ func RedisType() resource.Type {
 	return resource.Type{Key: "redis", Outputs: []resource.OutputField{
 		{Name: "host", Type: "string", Required: true}, {Name: "port", Type: "number", Required: true},
 		{Name: "username", Type: "string", Required: true}, {Name: "password", Type: "string", Required: true, Secret: true},
-		{Name: "tls", Type: "bool", Required: true}}}
+		{Name: "tls", Type: "bool", Required: true},
+		// Optional connection string (issue #52): redis:// or rediss://, with credentials.
+		{Name: "uri", Type: "string", Secret: true}}}
 }
 
 // ResourceTypesFor returns the Types Apply registers for the catalog mode: none
@@ -232,6 +234,9 @@ func resourceTypes() []resource.Type {
 				{Name: "database", Type: "string", Required: true},
 				{Name: "username", Type: "string", Required: true},
 				{Name: "password", Type: "string", Required: true, Secret: true},
+				// Optional connection strings (issue #52): uri carries credentials, jdbcUrl none.
+				{Name: "uri", Type: "string", Secret: true},
+				{Name: "jdbcUrl", Type: "string"},
 			},
 		},
 	}
@@ -346,8 +351,8 @@ func terraformK8sDefinitions(modules map[string]tfmodule.SourceRef, appKey strin
 	internalApp := []resource.Criterion{{ApplicationID: appKey}}
 	return []resource.Definition{
 		build("namespace-k8s-module", "Namespace Kubernetes (Terraform module)", "k8s-namespace", "k8s-namespace", []resource.Criterion{{}}, map[string]any{"name": "${context.env.namespace}"}, nil, []string{"name"}),
-		build("postgres-k8s-module", "PostgreSQL trong cluster (Terraform module)", "postgres", "postgres-k8s", internalApp, map[string]any{"namespace": nsOut}, []string{"database", "username"}, []string{"host", "port", "database", "username", "password"}),
-		build("redis-k8s-module", "Redis trong cluster (Terraform module)", "redis", "redis-k8s", internalApp, map[string]any{"namespace": nsOut}, nil, []string{"host", "port", "username", "password", "tls"}),
+		build("postgres-k8s-module", "PostgreSQL trong cluster (Terraform module)", "postgres", "postgres-k8s", internalApp, map[string]any{"namespace": nsOut}, []string{"database", "username"}, []string{"host", "port", "database", "username", "password", "uri", "jdbcUrl"}),
+		build("redis-k8s-module", "Redis trong cluster (Terraform module)", "redis", "redis-k8s", internalApp, map[string]any{"namespace": nsOut}, nil, []string{"host", "port", "username", "password", "tls", "uri"}),
 	}
 }
 
@@ -461,7 +466,7 @@ func baseDefinitions(o Options, cloud CloudConfig, eksVariables map[string]any, 
 				"vpc_id":             "${resources['vpc.default#@infra'].outputs.id}",
 				"subnet_ids":         "${resources['vpc.default#@infra'].outputs.subnetIds}",
 				"private_subnet_ids": "${resources['vpc.default#@infra'].outputs.privateSubnetIds}",
-			}), []string{"database", "username"}, []string{"host", "port", "database", "username", "password"}),
+			}), []string{"database", "username"}, []string{"host", "port", "database", "username", "password", "uri", "jdbcUrl"}),
 			Criteria: []resource.Criterion{{Class: "cloud-managed"}},
 		},
 	}

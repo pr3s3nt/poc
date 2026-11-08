@@ -140,6 +140,18 @@
             "type": "string",
             "required": true,
             "secret": true
+          },
+          {
+            "name": "uri",
+            "type": "string",
+            "required": false,
+            "secret": true
+          },
+          {
+            "name": "jdbcUrl",
+            "type": "string",
+            "required": false,
+            "secret": false
           }
         ]
       },
@@ -176,6 +188,12 @@
             "type": "bool",
             "required": true,
             "secret": false
+          },
+          {
+            "name": "uri",
+            "type": "string",
+            "required": false,
+            "secret": true
           }
         ]
       },
@@ -199,21 +217,6 @@
           },
           {
             "name": "username",
-            "type": "string",
-            "required": true
-          },
-          {
-            "name": "auth_secret_name",
-            "type": "string",
-            "required": true
-          },
-          {
-            "name": "root_password_key",
-            "type": "string",
-            "required": true
-          },
-          {
-            "name": "user_password_key",
             "type": "string",
             "required": true
           },
@@ -259,6 +262,24 @@
             "type": "string",
             "required": true,
             "secret": false
+          },
+          {
+            "name": "password",
+            "type": "string",
+            "required": true,
+            "secret": true
+          },
+          {
+            "name": "uri",
+            "type": "string",
+            "required": false,
+            "secret": true
+          },
+          {
+            "name": "jdbcUrl",
+            "type": "string",
+            "required": false,
+            "secret": false
           }
         ]
       }
@@ -293,7 +314,7 @@
           "pin": {
             "sourceId": "platform",
             "moduleId": "k8s-namespace",
-            "revision": "v4-2026.10.15",
+            "revision": "v5-2026.11.08",
             "subdirectory": "k8s-namespace",
             "contentSha256": "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"
           }
@@ -306,9 +327,9 @@
           "pin": {
             "sourceId": "platform",
             "moduleId": "postgres-k8s",
-            "revision": "v4-2026.10.15",
+            "revision": "v5-2026.11.08",
             "subdirectory": "postgres-k8s",
-            "contentSha256": "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"
+            "contentSha256": "20c5c700769b6191f8e59e538e9e3091bfbf99d5b1313adf2b9d604a24f316b7"
           }
         }
       },
@@ -319,9 +340,9 @@
           "pin": {
             "sourceId": "platform",
             "moduleId": "redis-k8s",
-            "revision": "v4-2026.10.15",
+            "revision": "v5-2026.11.08",
             "subdirectory": "redis-k8s",
-            "contentSha256": "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"
+            "contentSha256": "631b8ca60a56d0618efa3ca5882577e7f2441e3ec09895a27c5ca4a892a3bdce"
           }
         }
       },

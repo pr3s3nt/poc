@@ -2,7 +2,7 @@
 id: HUMANITEC-COMPATIBILITY
 artifact: compatibility-matrix
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-11-08
 ---
 
 # Humanitec and Score compatibility matrix
@@ -37,6 +37,7 @@ resources hoặc các dòng khác trong bảng này.
 | Probes | Score dùng `livenessProbe`/`readinessProbe` với nested `httpGet`. | MVP model hiện dùng probe phẳng `{path, port}`. | Deferred compatibility | D06 |
 | Replicas | Score workload contract không có top-level `replicas`. | MVP chấp nhận top-level `replicas` như extension. | Product extension | D06 |
 | Namespace output | Humanitec namespace resource output dùng key `namespace`. | Seed/runtime MVP hiện công bố key `name`. | Deferred compatibility | D06 |
+| DB connection outputs | Built-in `postgres`/`mysql`/`redis` chỉ có field riêng lẻ, app ghép chuỗi bằng placeholder; `mongodb`/`mssql` có secret `connection`; custom Type có thể override built-in để thêm outputs. | Type thêm outputs tuỳ chọn `uri` (secret), `jdbcUrl` và `connection` cho MongoDB; PE thêm output tuỳ chọn vào Type đã có (UC-02 EXT). Ghép chuỗi bằng placeholder trong env workload không được hỗ trợ (UC-16 giữ secret nguyên binding). | Product extension (override-aligned) | UC-02 EXT, issue #52 |
 | Empty matching criteria | Definition thiếu criteria hoặc có `criteria: []` không được xét; một criterion `{}` là wildcard điểm 0. | Conformance harness đã aligned: adapter bỏ Definition thiếu/`[]` khỏi challenge catalog và giữ `{}` thành wildcard điểm 0. Product validation stricter: registration từ chối Definition vi phạm invariant và planner fail cả catalog thay vì bỏ qua Definition đó. | Deferred compatibility (harness aligned) | UC-03 BR-07, D07, [I06-05 evidence](../verification/2026-09-22-imp010-conformance-catalog.md) |
 
 ## Boundary rule
@@ -51,6 +52,8 @@ test contract và có migration cho dữ liệu/client hiện tại.
 - [Humanitec Delta API](https://api-docs.humanitec.com/#tag/Delta) — create,
   update and archive operations.
 - [Humanitec Namespace resource](https://developer.humanitec.com/platform-orchestrator/docs/integration-and-extensions/containerization/namespaces/) — canonical `namespace` output.
+- [Humanitec Resource Types](https://developer.humanitec.com/platform-orchestrator/docs/platform-orchestrator/reference/resource-types/) — built-in outputs and connection-string examples.
+- [Humanitec Custom Resource Types](https://developer.humanitec.com/platform-orchestrator/docs/platform-orchestrator/resources/custom-resource-types/) — overriding built-in Types.
 - [Score specification reference](https://docs.score.dev/docs/score-specification/score-spec-reference/) — container resources and probe shapes.
 - [`PROBLEM.md`](../../orchestrator_reference/humanitec-planner-challenge-v4/PROBLEM.md) — planner challenge subset, matching and criteria behavior.
 

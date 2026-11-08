@@ -2,7 +2,7 @@
 id: UC-02-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-11-08
 ---
 
 # UC-02 — Use Case Realization
@@ -67,3 +67,19 @@ UC-02 V03-01/02 and ADR-016 extend fresh k8s-cluster outputs with concrete opaqu
 cluster target validation and allow workload Type params/safe outputs. Existing
 Type schema validation remains; execution validators must enforce target identity
 and scope in addition to the generic any schema. No credential bytes/public refs.
+
+## Bổ sung output tuỳ chọn — issue #52
+
+System operation `ResourceTypeService.AddResourceTypeOutputs(ctx, organizationKey,
+key, outputs)` hiện thực specification EXT-01..06 theo
+[sequence-extend](sequence-extend.puml).
+
+- Controller kiểm session/role, parse body strict và gọi service.
+- Service validate field mới (EXT-01/03), rồi trong một transaction khoá dòng
+  Type (`SELECT … FOR UPDATE`), kiểm tên chưa tồn tại (EXT-02), nối output mới
+  vào cuối danh sách và ghi `output_schema`. Không có version column: khoá dòng
+  là chốt chống ghi đè đồng thời; yêu cầu thứ hai thấy tên đã có và trả trùng.
+- Repository `AppendResourceTypeOutputs` là đường cập nhật duy nhất; không mở
+  `SaveResourceType` (seed/upsert) thành public update.
+- Planner (EXT-05) kiểm, khi đã chọn Terraform Definition cho node, mọi tham
+  chiếu output tới node đó phải nằm trong output Definition cung cấp.

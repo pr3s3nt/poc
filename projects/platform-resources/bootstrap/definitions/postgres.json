@@ -31,7 +31,9 @@
         "host": "host",
         "password": "password",
         "port": "port",
-        "username": "username"
+        "username": "username",
+        "uri": "uri",
+        "jdbcUrl": "jdbcUrl"
       },
       "provider_bindings": {
         "kubernetes": {

@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-08
 ---
 
 # Database Schema
@@ -205,7 +205,7 @@ Drafts do not alter `deployment_sets` until successful deployment.
 
 ### `resource_types`
 
-Columns: `id uuid PK`, `organization_id FK`, `resource_type_key text`, `input_schema jsonb`, `output_schema jsonb`, timestamps. Unique `(organization_id, resource_type_key)`.
+Columns: `id uuid PK`, `organization_id FK`, `resource_type_key text`, `input_schema jsonb`, `output_schema jsonb`, timestamps. Unique `(organization_id, resource_type_key)`. Public registration is insert-only; the only public update appends optional outputs to `output_schema` under a row lock (UC-02 EXT, issue #52) using the existing Console CRUD grant. No column, grant or migration change.
 
 ### `resource_definitions`
 

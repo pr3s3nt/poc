@@ -254,13 +254,13 @@ describe('UC-02 resource type details and copy', () => {
     expect(posted).toHaveLength(1);
   });
 
-  it('offers no edit, delete or version control on registered types', async () => {
+  it('offers no edit, delete or version control on registered types, only adding outputs (UC-02 EXT)', async () => {
     const user = userEvent.setup();
     backend();
     render(<ResourceTypesPage />);
     await open(user, 'cache');
     const scope = within(entry('cache'));
-    expect(scope.getAllByRole('button').map((button) => button.textContent)).toEqual(['Ẩn schema', 'Sao chép schema']);
+    expect(scope.getAllByRole('button').map((button) => button.textContent)).toEqual(['Ẩn schema', 'Sao chép schema', 'Thêm output']);
     expect(screen.queryByRole('button', { name: /sửa|xóa loại|phiên bản|version|delete|edit/i })).not.toBeInTheDocument();
   });
 });
@@ -333,5 +333,62 @@ describe('T31 support metadata is authoritative', () => {
     expect(screen.queryByRole('link', { name: 'Tạo Cấu hình tài nguyên cho postgres-ha' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Tạo Cấu hình tài nguyên cho constructor' })).not.toBeInTheDocument();
     expect(methods.every((method) => method === 'GET')).toBe(true);
+  });
+});
+
+describe('UC-02 EXT add optional outputs (issue #52)', () => {
+  const postgres: Body = { key: 'postgres', inputs: [], outputs: [{ name: 'host', type: 'string', required: true }, { name: 'password', type: 'string', required: true, secret: true }] };
+
+  function outputsBackend(post: (url: string, body: Body) => Response) {
+    const posted: { url: string; body: Body }[] = [];
+    const workload: Body = { key: 'workload', inputs: [], outputs: [] };
+    let types: Body[] = [postgres, workload];
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        const body = JSON.parse(String(init.body)) as Body;
+        posted.push({ url: String(input), body });
+        const response = post(String(input), body);
+        if (response.ok) types = [{ ...postgres, outputs: [...(postgres.outputs as Body[]), ...(body.outputs as Body[])] }, workload];
+        return response;
+      }
+      if (String(input).endsWith('/resource-definition-capabilities')) return Response.json({ capabilities: capabilityFixture });
+      return Response.json({ resourceTypes: types });
+    }));
+    return posted;
+  }
+
+  it('adds a secret optional output without a required flag and shows it after reload', async () => {
+    const user = userEvent.setup();
+    const posted = outputsBackend(() => Response.json({}, { status: 200 }));
+    render(<ResourceTypesPage />);
+    await open(user, 'postgres');
+    expect(within(entry('postgres')).queryByRole('button', { name: 'Thêm output cho workload' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Thêm output cho postgres' }));
+    const form = screen.getByRole('form', { name: 'Thêm output cho postgres' });
+    expect(within(form).queryByLabelText('Output mới 1 bắt buộc')).not.toBeInTheDocument();
+    expect(within(form).getByText(/Output mới luôn tuỳ chọn/)).toBeInTheDocument();
+    await user.type(within(form).getByLabelText('Output mới 1 tên'), ' uri ');
+    await user.click(within(form).getByLabelText('Output mới 1 bí mật'));
+    await user.click(within(form).getByRole('button', { name: 'Lưu output' }));
+    expect(await screen.findByText('Đã thêm output vào postgres.')).toBeInTheDocument();
+    expect(posted).toEqual([{ url: '/api/v1/resource-types/postgres/outputs', body: { outputs: [{ name: 'uri', type: 'string', secret: true }] } }]);
+    expect(screen.queryByRole('form', { name: 'Thêm output cho postgres' })).not.toBeInTheDocument();
+    expect(await within(screen.getByRole('table', { name: 'Đầu ra của postgres' })).findByText('uri')).toBeInTheDocument();
+  });
+
+  it('keeps the draft and explains a duplicate name in Vietnamese; Cancel sends nothing', async () => {
+    const user = userEvent.setup();
+    const posted = outputsBackend(() => Response.json({ code: 'DUPLICATE', error: 'catalog: duplicate id: resource type "postgres" already declares an added output' }, { status: 409 }));
+    render(<ResourceTypesPage />);
+    await open(user, 'postgres');
+    await user.click(screen.getByRole('button', { name: 'Thêm output cho postgres' }));
+    await user.type(screen.getByLabelText('Output mới 1 tên'), 'host');
+    await user.click(screen.getByRole('button', { name: 'Lưu output' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('postgres đã có output trùng tên. Đổi tên rồi lưu lại.');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('catalog:');
+    expect(screen.getByLabelText('Output mới 1 tên')).toHaveValue('host');
+    await user.click(screen.getByRole('button', { name: 'Huỷ' }));
+    expect(screen.queryByRole('form', { name: 'Thêm output cho postgres' })).not.toBeInTheDocument();
+    expect(posted).toHaveLength(1);
   });
 });

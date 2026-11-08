@@ -31,6 +31,10 @@ type graphBuilder struct {
 	// workload node before graph expansion (ADR-016).
 	workloadDefs    map[string]resource.Definition
 	workloadMatches map[string]Match
+	// setOutputRefs are the outputs the Deployment Set binds; once Definitions
+	// are matched they are checked against what each Definition provides, so
+	// an optional Type output it does not map stops planning (UC-02 EXT-05).
+	setOutputRefs []pendingRef
 }
 
 func newGraphBuilder(ctx Context, catalog Catalog) *graphBuilder {
@@ -273,6 +277,7 @@ func (b *graphBuilder) buildFromSet(set environment.Document, namespace *Node) e
 				return nil, fmt.Errorf("planning: %s binds output %q which is not in the %q output contract",
 					path, ref.OutputKey, typ.Key)
 			}
+			b.setOutputRefs = append(b.setOutputRefs, pendingRef{From: path, To: node.Descriptor, Output: ref.OutputKey, Path: path})
 		}
 		return node, nil
 	}

@@ -22,7 +22,8 @@
         "password": "password",
         "port": "port",
         "tls": "tls",
-        "username": "username"
+        "username": "username",
+        "uri": "uri"
       },
       "provider_bindings": {
         "kubernetes": {

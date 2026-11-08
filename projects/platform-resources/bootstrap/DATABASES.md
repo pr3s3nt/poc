@@ -13,9 +13,9 @@ Bootstrap đăng ký chúng; workload phải khai báo resource mới tạo data
 ## Điền input
 
 Trong `scripts/bootstrap/enterprise/staging.input.json` riêng tư, mỗi `<db>` có:
-`<db>Image`, `<db>ModulePath`, `<db>Database`, `<db>Username`, `<db>AuthSecretName`,
-`<db>RootPasswordKey`, `<db>UserPasswordKey`, `<db>Storage`, `<db>StorageClass`,
-`<db>ImagePullSecretName`. MongoDB có thêm `mongodbRootUsername`.
+`<db>Image`, `<db>ModulePath`, `<db>Database`, `<db>Username`, `<db>Storage`,
+`<db>StorageClass`, `<db>ImagePullSecretName`. MongoDB có thêm `mongodbRootUsername`.
+Không còn tham số Secret/key mật khẩu (issue #52).
 Giữ module ID/hash là LOCK_WITH_HELPER cho locker tính từ commit đã review.
 
 Image phải pin digest; không nhúng token vào URL. Pull Secret tùy chọn phải có
@@ -24,14 +24,22 @@ Cần image tương thích entrypoint chính thức; module không nhận thông
 entrypoint tùy ý. Image chính thức có thể khởi động entrypoint bằng root trước
 khi chuyển sang user database; kiểm policy admission của cluster trước deploy.
 
-## Secret
+## Mật khẩu và chuỗi kết nối — issue #52
 
-Cấp hai mật khẩu riêng root/app qua Secret có sẵn trong namespace của resource,
-ví dụ Secret tên `mysql-auth` với key `root-password` và `user-password`.
-Dùng Vault/VSO hoặc quy trình đã được duyệt; Terraform chỉ đặt secretKeyRef,
-không đọc Secret và không lưu password vào input/output. Với MariaDB/MongoDB dùng
-tên Secret riêng tương ứng. Consumer nhận mật khẩu qua cơ chế secret delivery
-của công ty; không lấy password qua Resource Type outputs.
+Platform sinh hai mật khẩu (root/admin và app) một lần cho mỗi instance, lưu
+secret store và chuyển vào module qua biến executor-owned `master_password`,
+`password`. Module tạo Secret riêng của instance cho Pod; không cần chuẩn bị
+Secret thủ công. Root/admin password không bao giờ là output.
+
+Workload nhận output bí mật `password` và chuỗi kết nối:
+
+| Type | Output | Ví dụ |
+|---|---|---|
+| mysql | `uri` 🔒, `jdbcUrl` | `mysql://app:…@host:3306/appdb`, `jdbc:mysql://host:3306/appdb` |
+| mariadb | `uri` 🔒, `jdbcUrl` | `mysql://app:…@host:3306/appdb`, `jdbc:mariadb://host:3306/appdb` |
+| mongodb | `connection` 🔒 | `mongodb://app:…@host:27017/appdb?authSource=appdb` |
+
+User/password trong chuỗi được percent-encode. `jdbcUrl` không chứa credential.
 
 ## Resource declaration trong workload
 
@@ -48,16 +56,14 @@ resources:
       image: registry.company.example/platform/mysql@sha256:REPLACE_64_HEX_DIGEST
       database: appdb
       username: app
-      auth_secret_name: mysql-auth
-      root_password_key: root-password
-      user_password_key: user-password
       storage: 10Gi
 ```
 
-Đổi `type`, `image`, `id`, `auth_secret_name` cho MariaDB hoặc MongoDB.
+Đổi `type`, `image`, `id` cho MariaDB hoặc MongoDB.
 Các Type params bắt buộc vẫn phải được khai báo; chúng ưu tiên hơn fallback
 trong Definition. Chọn cùng image/Secret đã chuẩn bị trong input. Outputs của
-cả ba là `host`, `port`, `database`, `username`, `claimName`, `namespace`.
+cả ba là `host`, `port`, `database`, `username`, `password` 🔒, `claimName`,
+`namespace`, cộng chuỗi kết nối ở bảng trên.
 MongoDB khởi tạo app user với role readWrite; kết nối bằng authSource=database
 ứng dụng, không dùng tài khoản root cho workload.
 
@@ -65,7 +71,7 @@ MongoDB khởi tạo app user với role readWrite; kết nối bằng authSourc
 
 Mỗi instance sở hữu StatefulSet, Service nội bộ và PVC riêng. MongoDB có thêm
 ConfigMap init code không chứa credential. Init chỉ chạy trên volume trống;
-đổi image, Secret/password, user hay database không phải quy trình DB upgrade/
+đổi image, password, user hay database không phải quy trình DB upgrade/
 rotation. Không tự xóa PVC/state hoặc dùng MySQL/MariaDB thay thế trực tiếp trên
 cùng volume. Thực hiện backup/migration/rotation bằng quy trình được review.
 

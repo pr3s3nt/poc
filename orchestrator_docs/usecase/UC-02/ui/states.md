@@ -2,7 +2,7 @@
 id: UC-02-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-11-08
 related: UC-02
 ---
 
@@ -46,3 +46,12 @@ không tự replay mutation; lỗi tải lại không phủ nhận kết quả �
 Loading/error capability hiện trạng thái riêng và Thử lại, không fallback whitelist
 hoặc giả “Chỉ có contract”; CTA khóa đến khi có metadata thành công. Refresh/late
 reply không overwrite draft schema, ID hay lựa chọn đã sửa. Retry chỉ GET.
+
+## Thêm output — issue #52
+
+- Draft: dòng mới trống; huỷ không gửi request.
+- Saving: khoá form và nút; không gửi lặp.
+- Added: chi tiết nạp lại từ GET và hiện output mới; form đóng.
+- Added/load error: báo đã thêm, lỗi nạp lại riêng với Thử lại (chỉ GET).
+- Error: 400/409 giữ draft và báo lỗi Việt theo code; 404 báo Type không còn
+  trong Organization.

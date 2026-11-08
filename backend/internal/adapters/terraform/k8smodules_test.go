@@ -110,12 +110,12 @@ func TestKubernetesModuleRegistryContracts(t *testing.T) {
 			inputs: map[string]string{"namespace": "string", "image": "string", "username": "string", "storage": "string", "storage_class": "string",
 				"labels": "map(string)", "annotations": "map(string)", "password": "string", "tags": "map(string)"},
 			required: []string{"namespace", "password", "tags"},
-			outputs:  map[string]string{"host": "", "port": "number", "username": "", "tls": "bool", "password": ""}, sensitive: []string{"password"}},
+			outputs:  map[string]string{"host": "", "port": "number", "username": "", "tls": "bool", "password": "", "uri": "string"}, sensitive: []string{"password", "uri"}},
 		"postgres-k8s": {types: []string{"postgres"}, owned: []string{"password", "tags"},
 			inputs: map[string]string{"namespace": "string", "database": "string", "username": "string", "image": "string", "storage": "string", "storage_class": "string",
 				"labels": "map(string)", "annotations": "map(string)", "password": "string", "tags": "map(string)"},
 			required: []string{"namespace", "database", "username", "password", "tags"},
-			outputs:  map[string]string{"host": "", "port": "number", "database": "", "username": "", "password": ""}, sensitive: []string{"password"}},
+			outputs:  map[string]string{"host": "", "port": "number", "database": "", "username": "", "password": "", "uri": "string", "jdbcUrl": "string"}, sensitive: []string{"password", "uri"}},
 	}
 	for id, w := range wants {
 		b := all[id]
@@ -280,7 +280,7 @@ func TestKubernetesModuleSourceSafety(t *testing.T) {
 			if strings.HasPrefix(trim, "#") || !strings.Contains(trim, "var.password") {
 				continue
 			}
-			if trim != "password = var.password" && trim != "value     = var.password" {
+			if trim != "password = var.password" && trim != "value     = var.password" && !connectionStringValue(trim) {
 				t.Errorf("%s:%d unexpected password use: %s", id, n+1, trim)
 			}
 		}

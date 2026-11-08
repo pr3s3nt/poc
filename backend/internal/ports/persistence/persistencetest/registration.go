@@ -56,6 +56,31 @@ func Registration(t *testing.T, st persistence.Store) RegistrationFixture {
 	assertType(t, st, "reg-acme", typ)
 	assertType(t, st, "reg-globex", changed)
 
+	// UC-02 EXT: appending optional outputs keeps the stored contract first and
+	// unchanged; an existing name or a missing Type changes nothing.
+	added := []resource.OutputField{{Name: "uri", Type: "string", Secret: true}}
+	extended, err := st.AppendResourceTypeOutputs(ctx, "reg-acme", "cache", added)
+	if err != nil {
+		t.Fatalf("append outputs: %v", err)
+	}
+	want := typ
+	want.Outputs = append(append([]resource.OutputField(nil), typ.Outputs...), added...)
+	if !reflect.DeepEqual(extended, want) {
+		t.Fatalf("appended type = %+v, want %+v", extended, want)
+	}
+	if _, err := st.AppendResourceTypeOutputs(ctx, "reg-acme", "cache", []resource.OutputField{{Name: "host", Type: "string"}}); !errors.Is(err, persistence.ErrDuplicate) {
+		t.Fatalf("existing output name: %v", err)
+	}
+	if _, err := st.AppendResourceTypeOutputs(ctx, "reg-acme", "missing-type", added); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("missing Type: %v", err)
+	}
+	if _, err := st.AppendResourceTypeOutputs(ctx, "reg-missing", "cache", added); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("missing Organization: %v", err)
+	}
+	assertType(t, st, "reg-acme", want)
+	assertType(t, st, "reg-globex", changed)
+	typ = want
+
 	def := resource.Definition{
 		Key: "cache-fast", Name: "Cache nhanh", Version: 1, ResourceTypeKey: "cache", DriverType: resource.DriverKubernetes,
 		DriverInputs:   map[string]any{"values": map[string]any{"variables": map[string]any{"tier": "fast"}}},

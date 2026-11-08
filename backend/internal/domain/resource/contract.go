@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 )
@@ -53,6 +54,36 @@ func (t Type) Validate() error {
 		outputs[field.Name] = true
 	}
 	return nil
+}
+
+// ErrOutputExists reports an appended output whose name the Type already has.
+var ErrOutputExists = errors.New("resource: the type already declares this output")
+
+// AppendOutputs returns t with outputs appended (UC-02 EXT). Appended outputs
+// are optional: a required flag is refused, as is an empty, duplicate or
+// already declared name or an unsupported type. t itself is not modified.
+func AppendOutputs(t Type, outputs []OutputField) (Type, error) {
+	if len(outputs) == 0 {
+		return Type{}, fmt.Errorf("resource: no output to add")
+	}
+	existing := make(map[string]bool, len(t.Outputs))
+	for _, field := range t.Outputs {
+		existing[field.Name] = true
+	}
+	next := t
+	next.Outputs = append(append([]OutputField(nil), t.Outputs...), outputs...)
+	for _, field := range outputs {
+		if field.Required {
+			return Type{}, fmt.Errorf("resource: added output %q must be optional", field.Name)
+		}
+		if existing[field.Name] {
+			return Type{}, fmt.Errorf("%w: %q", ErrOutputExists, field.Name)
+		}
+	}
+	if err := next.Validate(); err != nil {
+		return Type{}, err
+	}
+	return next, nil
 }
 
 func validContractType(value string) bool {

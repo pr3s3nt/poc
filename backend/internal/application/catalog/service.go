@@ -114,6 +114,43 @@ func (s *Service) RegisterResourceType(ctx context.Context, organizationKey stri
 	return typ, nil
 }
 
+// AddResourceTypeOutputs appends optional outputs to an existing Resource Type
+// of the Organization (UC-02 EXT, issue #52). Existing fields, inputs and the
+// key never change; the workload Type takes no outputs (V03-02). The stored
+// Type is returned. A name that already exists is a duplicate.
+func (s *Service) AddResourceTypeOutputs(ctx context.Context, organizationKey, key string, outputs []resource.OutputField) (resource.Type, error) {
+	if key == planning.TypeWorkload {
+		return resource.Type{}, invalidField("outputs", fmt.Errorf("%w: the workload Resource Type takes no outputs", ErrInvalid))
+	}
+	if len(outputs) == 0 {
+		return resource.Type{}, invalidField("outputs", fmt.Errorf("%w: add at least one output", ErrInvalid))
+	}
+	for _, field := range outputs {
+		if field.Required {
+			return resource.Type{}, invalidField("outputs", fmt.Errorf("%w: an added output is optional", ErrInvalid))
+		}
+	}
+	if err := (resource.Type{Key: key, Outputs: outputs}).Validate(); err != nil {
+		return resource.Type{}, invalidField("outputs", fmt.Errorf("%w: %v", ErrInvalid, err))
+	}
+	var stored resource.Type
+	err := s.store.Transact(ctx, func(ctx context.Context) error {
+		if _, err := s.store.GetOrganization(ctx, organizationKey); err != nil {
+			return err
+		}
+		var err error
+		stored, err = s.store.AppendResourceTypeOutputs(ctx, organizationKey, key, outputs)
+		return err
+	})
+	if errors.Is(err, persistence.ErrDuplicate) {
+		return resource.Type{}, fmt.Errorf("%w: resource type %q already declares an added output", ErrDuplicate, key)
+	}
+	if err != nil {
+		return resource.Type{}, err
+	}
+	return stored, nil
+}
+
 // ErrVersionConflict reports an edit based on a stale Definition version
 // (HTTP 409). The stored winner is untouched.
 var ErrVersionConflict = errors.New("catalog: stale resource definition version")

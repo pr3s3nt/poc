@@ -1,0 +1,23 @@
+@startuml
+title UC-02 EXT - Add optional Resource Type outputs
+autonumber
+actor "Platform Engineer" as PE
+boundary ResourceTypeController as API
+control ResourceTypeService as Service
+entity ResourceType as Validator
+database ResourceTypeRepository as Repo
+
+PE -> API: AddOutputs(key, outputs) [EXT-01]
+API -> Service: AddResourceTypeOutputs(ctx, org, key, outputs)
+Service -> Validator: Validate new fields (optional, supported type, not workload) [EXT-01, EXT-03]
+Validator --> Service: valid
+Service -> Repo: AppendResourceTypeOutputs(org, key, outputs) <<transaction>>
+note right of Repo
+Locks the Type row; rejects a name that
+already exists (EXT-02). Existing fields,
+inputs and key are never rewritten.
+end note
+Repo --> Service: ResourceType
+Service --> API: ResourceType
+API --> PE: Outputs added [EXT-04, EXT-06]
+@enduml
