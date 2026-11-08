@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {writeFileSync,mkdirSync} from 'node:fs';
+import {writeFileSync,mkdirSync,existsSync,readFileSync} from 'node:fs';
 import {outsideRepo,makeUI} from '../../../scripts/bootstrap/lib/runtime.mjs';
 import {readConsoleConfig,openConsole,closeConsole} from '../../lib/console.mjs';
 
@@ -16,6 +16,7 @@ try{
  await page.goto(config.baseURL+`/ui/applications/${encodeURIComponent(app)}?environment=${environment}`);
  const preview=await ui.submit(base+'/rollback-preview','POST',page.getByRole('button',{name:'Xem trước Rollback',exact:true}));
  writeFileSync(dir+'/rollback-preview.json',JSON.stringify(preview,null,2),{mode:0o600});
+ if(existsSync(dir+'/before-stage.json')){const baseline=JSON.parse(readFileSync(dir+'/before-stage.json'));if(baseline.applicationKey)assert.equal(baseline.applicationKey,app);if(baseline.targetOperationId)assert.equal(preview.targetOperationId,baseline.targetOperationId,'Partial per-workload successes must not replace the Environment baseline');}
  await page.getByRole('dialog',{name:'Xác nhận Rollback môi trường'}).waitFor();
  assert(Array.isArray(preview.restore)&&Array.isArray(preview.remove));
  await page.screenshot({path:dir+'/rollback-review.png',fullPage:true});

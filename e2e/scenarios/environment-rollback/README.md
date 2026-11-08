@@ -67,3 +67,22 @@ created identity privately and clean up this empty test Application through its
 Settings deletion dialog after verifying the deletion preview has no workloads,
 resources or pending drafts in either Environment. Never use this cleanup on the
 retained Boutique Application.
+
+
+## Deferred live scenario 2 — user decision 2026-11-08
+
+**UNVERIFIED. Do not run further scenario 2 attempts without a new user request.**
+`prepare-failure.mjs` and `fail-release.mjs` are retained as unfinished acceptance
+work. Preparation timed out after creating/selecting an unused test Definition and
+saving a configuration marker. No controlled failing deployment or restorative
+rollback was submitted. The marker/selection are cleaned through existing UI
+operations; the unused type/Definition and private fixture branch remain for audit.
+
+The planned fixture is pinned to commit
+`d9ffa3fb47e4fcd3e156d5c9a534d1b43e6de18c`, path `terraform/rollback-gate`,
+on the existing private template repository's isolated test branch. It uses only
+terraform_data and an explicit false precondition; local validate and expected
+Plan failure passed without Apply. This is fixture verification, not application
+rollback acceptance. Future preparation also needs ORCH_BOUTIQUE_STATE_FILE pointing
+to the private successful Boutique run state, in addition to the shared Console
+credentials/evidence/app settings. Existing evidence files prohibit blind replay.

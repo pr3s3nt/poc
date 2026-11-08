@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-07
+last_reviewed: 2026-11-08
 ---
 
 # Current project state
@@ -17,12 +17,15 @@ release checkpoints now capture successful pending batches and retain the last
 successful baseline across partial failures, including PostgreSQL reopen. Rollback
 execution/API and Console Preview/confirmation are implemented on the task branch
 with focused tests for restoring prior state, initial-empty cleanup, stale tokens
-and interrupted partial rollback. Live preview and the separate initial-empty Console case passed. Trial DNS
-failures and a stale Fleet Bundle commit were diagnosed; active guarded convergence
-and counter retention are implemented and the stopped operation was recovered
-through UI. A current-renderer release and whole-Environment live rollback remain
-in verification. Boutique deployment and checkout passed before this slice. No feature acceptance
-or merge is claimed until rollback runtime and the remaining full gates pass.
+and interrupted partial rollback. Live preview and the separate initial-empty Console case passed. The current
+runtime deployed all eleven Boutique workloads successfully through UI after DNS
+isolation and guarded Fleet convergence fixes. On 2026-11-08 the user requested
+stopping further live scenario 2 attempts and proceeding to integration in the
+previous working branch. **Live partial-failure → whole-Environment rollback is
+not verified**; its setup did not submit the controlled failing deployment or
+rollback. This limitation stays recorded in issue #49 and is not replaced by
+unit/integration results. Full-suite legacy failures/limits remain documented.
+
 
 ## Issue #37 merged into main — 2026-11-06
 

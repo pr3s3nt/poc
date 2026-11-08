@@ -348,3 +348,34 @@ PlantUML syntax checks passed. Recovery of the stopped ad operation passed throu
 Console on the new runtime; it released the Environment. The final renderer was
 then selected explicitly through UI and another release is now running. Whole-
 Environment live rollback is still pending, so no acceptance/merge is claimed.
+
+
+## User stops scenario 2 — 2026-11-08
+
+The current renderer release completed SUCCEEDED for all eleven workloads through
+Console. The independent Pod/Redis/endpoints/security observer passed again.
+A controlled partial-failure fixture was prepared on an isolated private Git
+branch: Terraform validates and fails Plan on its explicit closed precondition;
+no Apply was invoked during module validation.
+
+The live setup registered/selected a test Definition and stored an unused
+configuration marker, then timed out in the UI preparation flow. At the user's
+request, further scenario 2 attempts were stopped. **No controlled failing batch
+and no restorative rollback from that batch were submitted. Live whole-Environment
+rollback after a partial deployment failure remains UNVERIFIED.** Integration
+results do not replace this missing live evidence. The user requested recording
+this limitation in issue #49 and moving on to the next integration step.
+
+Deferred runners are retained for future review, explicitly not counted as passed.
+Do not resume this scenario without another user request. The task does not claim
+all-green full suites, completed live rollback acceptance, or a main deployment.
+
+
+Cleanup used existing Console controls only: removed the unused test marker and
+discarded the test Definition upgrade. Gate desired/applied selection IDs are
+both empty; the four real Definition desired IDs equal their applied IDs. No
+workload drafts or gate workload exist. The Definition revision pending flag
+remains true after discard despite identical selection IDs; no extra Deploy or
+manual database edit was used to clear it. The unused type/Definition and private
+fixture branch remain as recorded test artifacts. This residual UI/metadata flag
+is not a successful live rollback claim and was not pursued as a new test/fix.
