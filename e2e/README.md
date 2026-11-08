@@ -34,6 +34,17 @@ runtime code sản phẩm vào `e2e/` hoặc `orchestrator_docs/`.
 
 ## Dependencies và kết nối Console dùng chung
 
+### Điều kiện nghiệm thu deploy nhiều workload — quyết định 2026-11-08
+
+Thao tác như người dùng thật: tạo và lưu **toàn bộ workload cùng các resource
+bindings** của ứng dụng qua UI trước, sau đó Preview toàn bộ thay đổi và bấm
+Deploy **một lần cho cả Environment**. Không deploy riêng từng workload để dựng
+dần ứng dụng rồi dùng kết quả đó thay cho nghiệm thu lần deploy cả ứng dụng.
+Ghi lại danh sách workload trong Preview và Operation gắn với lần bấm Deploy.
+Backend có thể xử lý workload theo thứ tự; điều kiện này quy định thao tác UI,
+không thay đổi cách lập lịch của backend. Retry sau lỗi phải là lượt riêng,
+giữ bằng chứng của lượt lỗi và không được báo thành công ở lần thử đầu.
+
 `e2e/package.json` khai báo dependencies cho script trong thư mục này; cài bằng
 `npm ci` và `npx playwright install chromium` từ `e2e/`. Unit tests của helpers
 chạy bằng `npm test`. Helper đăng nhập dùng chung với bootstrap: trước khi chạy
@@ -127,6 +138,11 @@ current acceptance gates. Their paths stay for provenance; wrappers that require
 the removed CLI stop before setup. Mixed historical scenarios are not evidence
 that their obsolete rendering steps still work. Reuse focused product tests and
 the new scenario for this change; no bulk E2E migration is included.
+
+Static scans requiring old Console label strings or literal assertion IDs in these
+historical mixed runners are retired. Their registration, safety and supplied
+runtime-evidence validation tests remain. This does not make historical runners
+current acceptance or remove missing/failed evidence checks from verifyEvidence.
 
 Git-only bootstrap, unchanged rerun and owned backend Pod recreation/PVC persistence:
 [bootstrap-git-pvc](scenarios/bootstrap-git-pvc/README.md).

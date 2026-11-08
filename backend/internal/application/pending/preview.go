@@ -14,6 +14,7 @@ import (
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/deploymentreview"
 	"orchestrator/internal/application/envops"
+	"orchestrator/internal/application/resourcecleanup"
 	"orchestrator/internal/application/target"
 	"orchestrator/internal/application/workloadconfig"
 	"orchestrator/internal/domain/application"
@@ -89,7 +90,8 @@ type Preview struct {
 }
 
 type Service struct {
-	simulation bool // Explicit fake-adapter simulation; never a real-cluster fallback.
+	rollbackCleanup *resourcecleanup.Service
+	simulation      bool // Explicit fake-adapter simulation; never a real-cluster fallback.
 
 	store             persistence.Store
 	planner           *planning.Service

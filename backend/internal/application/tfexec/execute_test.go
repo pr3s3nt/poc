@@ -242,7 +242,7 @@ func TestKnownAcknowledgedFailureStaysCleanupEligibleAndRepairable(t *testing.T)
 	}
 }
 
-// After the one permitted retry, a SECOND transient apply failure with a
+// After the first retry, a second transient apply failure with a
 // create the state does not account for holds too (no third apply).
 func TestSecondTransientFailureWithUnaccountedCreateHolds(t *testing.T) {
 	h := newHarness(t)
@@ -306,12 +306,11 @@ func TestStatePushFailureKeepsRecoveryArtifactAndHolds(t *testing.T) {
 }
 
 // Bounded retry. A transient failure BEFORE apply (init, plan) is retried
-// once. A transient failure DURING apply is retried only when acknowledged
+// up to two times. A transient failure DURING apply is retried only when acknowledged
 // state proves the outcome; auth, input and unknown never retry.
 func TestBoundedTransientRetry(t *testing.T) {
 	transient := &terraformexec.StepError{Step: "apply", Class: terraformexec.ClassTransient, Outcome: terraformexec.OutcomeConfirmed, Stopped: true}
-	// Positive: the apply really changed things and the backend acknowledged
-	// the state before the CLI exited non-zero; the retry replans and finishes.
+	// Positive: an acknowledged apply failure can be retried safely.
 	h := newHarness(t)
 	h.runner.onApply = func(n int, real terraformexec.Session) error {
 		if n == 1 {
@@ -331,18 +330,18 @@ func TestBoundedTransientRetry(t *testing.T) {
 		t.Fatalf("a retry must stay one attempt: %+v", attempts)
 	}
 
-	// Acknowledged but still transient every time: one retry only, no hold.
+	// Acknowledged but still transient every time: three total attempts, no hold.
 	h2 := newHarness(t)
 	planCalls := 0
 	h2.runner.onPlan = func(plan terraformexec.Plan, mode terraformexec.PlanMode) (terraformexec.Plan, error) {
 		planCalls++
-		if planCalls == 2 { // the replan after the retry still has work to do
+		if planCalls >= 2 { // every retry still has work to do
 			plan.Changes = append(plan.Changes, terraformexec.ResourceChange{Address: "terraform_data.db", Type: "terraform_data", Actions: []string{"update"}})
 		}
 		return plan, nil
 	}
 	h2.runner.onApply = func(n int, real terraformexec.Session) error {
-		if n == 1 {
+		if n < 3 {
 			_ = real.Apply(context.Background())
 		}
 		return transient
@@ -351,8 +350,8 @@ func TestBoundedTransientRetry(t *testing.T) {
 	if _, err := h2.svc.Execute(ctx2, h2.request("run-1", h2.mod, inputs("db1", "k"))); err == nil || errors.Is(err, tfexec.ErrNeedsAttention) {
 		t.Fatalf("exhausted retry: %v", err)
 	}
-	if h2.runner.applies != 2 {
-		t.Fatalf("applies %d, want exactly 2 (one retry)", h2.runner.applies)
+	if h2.runner.applies != 3 {
+		t.Fatalf("applies %d, want exactly 3 (initial attempt plus two retries)", h2.runner.applies)
 	}
 
 	// Auth, input, unknown and unconfirmed-stop never retry.
@@ -419,18 +418,18 @@ func TestTransientApplyFailureWithoutAcknowledgedStateHoldsInsteadOfRetrying(t *
 }
 
 // A transient failure before apply (plan) is safe to retry: it had no effect.
-func TestTransientPlanFailureIsRetriedOnce(t *testing.T) {
+func TestTransientPlanFailureSucceedsOnThirdAttempt(t *testing.T) {
 	h := newHarness(t)
 	planCalls := 0
 	h.runner.onPlan = func(plan terraformexec.Plan, mode terraformexec.PlanMode) (terraformexec.Plan, error) {
 		planCalls++
-		if planCalls == 1 {
+		if planCalls <= 2 {
 			return terraformexec.Plan{}, &terraformexec.StepError{Step: "plan", Class: terraformexec.ClassTransient, Outcome: terraformexec.OutcomeConfirmed, Stopped: true}
 		}
 		return plan, nil
 	}
 	ctx, _ := h.claim("proc-a")
-	if _, err := h.svc.Execute(ctx, h.request("run-1", h.mod, inputs("db1", "k"))); err != nil || planCalls != 2 || h.runner.applies != 1 {
+	if _, err := h.svc.Execute(ctx, h.request("run-1", h.mod, inputs("db1", "k"))); err != nil || planCalls != 3 || h.runner.applies != 1 {
 		t.Fatalf("plan retry: %v plans=%d applies=%d", err, planCalls, h.runner.applies)
 	}
 }

@@ -47,7 +47,6 @@ export function AppShell({ children, onSignOut, username, role, activeRoute }: P
     { route: 'resource-types', label: t('app.appShell.resourceTypes'), tone: 'teal', platform: true, admin: false },
     { route: 'resource-definitions', label: t('app.appShell.resourceDefinitions'), tone: 'violet', platform: true, admin: false },
     { route: 'driver-accounts', label: t('app.appShell.infrastructureAccounts'), tone: 'blue', platform: true, admin: false },
-    { route: 'catalog', label: t('catalog.title'), tone: 'violet', platform: true, admin: false },
     { route: 'platform-settings', label: t('platform.git.title'), tone: 'blue', platform: true, admin: false },
     { route: 'cd-providers', label: t('cd.title'), tone: 'teal', platform: true, admin: false },
     { route: 'secret-stores', label: t('app.appShell.secretStores'), tone: 'rose', platform: true, admin: false },

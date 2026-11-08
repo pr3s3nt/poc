@@ -47,6 +47,11 @@ else ordinary delivery
     Deploy -> Provider: Observe exact revision and readiness
     Provider -> Cluster: Read controller + owned live objects
     Provider --> Deploy: Complete observation or unknown
+    opt pending receipted shared unit; no active Job pins
+      Deploy -> Provider: ConvergePending under current owner/publication fence
+      Provider -> Cluster: Verify UID/pins/trees; one CAS Git render request
+      Deploy -> Provider: Observe exact chain again; request alone is not Ready
+    end
     opt only proven retained deletions prevent clean readiness
       Deploy -> Provider: PrunePendingReleasedObjects(omitted acknowledged inventory)
       Provider -> Cluster: Verify applied revision/healthy desired objects; UID-guarded prune

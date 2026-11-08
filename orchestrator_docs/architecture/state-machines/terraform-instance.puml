@@ -4,7 +4,7 @@ title Terraform v2 instance and separate cleanup lifecycle
 PENDING --> PROVISIONING : admitted Environment owner + state lock
 PROVISIONING --> READY : state acknowledged, outputs/readiness valid
 PROVISIONING --> FAILED : known executor/contract failure
-FAILED --> PROVISIONING : one bounded known-transient retry after checks
+FAILED --> PROVISIONING : bounded known-transient retry (max 3 attempts total) after checks
 PROVISIONING --> INTERRUPTED : process lost, outcome not proven
 INTERRUPTED --> NEEDS_ATTENTION : state/provider uncertainty
 INTERRUPTED --> PROVISIONING : manual stopped-owner verification, new fence

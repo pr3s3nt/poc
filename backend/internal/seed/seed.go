@@ -51,6 +51,8 @@ type Images struct {
 type Options struct {
 	Profile         string
 	OrganizationKey string
+	// Empty retains legacy naming; nonempty is an explicit installation identity.
+	OrganizationName string
 
 	ApplicationKey    string
 	ApplicationName   string
@@ -518,6 +520,11 @@ func (o Options) CatalogFree() bool { return o.Catalog == CatalogNone }
 // Validate refuses combinations that would hide a legacy catalog in a real
 // acceptance profile or an unknown catalog mode.
 func (o Options) Validate() error {
+	if o.OrganizationName != "" {
+		if err := (OrganizationIdentity{Key: o.OrganizationKey, Name: o.OrganizationName}).Validate(); err != nil {
+			return err
+		}
+	}
 	switch o.Catalog {
 	case CatalogLegacy, CatalogTerraformK8s, CatalogNone, CatalogStaging:
 	default:
@@ -538,11 +545,21 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 	if err := o.Validate(); err != nil {
 		return err
 	}
-	if _, err := store.GetOrganization(ctx, o.OrganizationKey); errors.Is(err, persistence.ErrNotFound) {
-		if err := store.SaveOrganization(ctx, application.Organization{ID: ids.New(), Key: o.OrganizationKey, Name: "Acme"}); err != nil {
+	if err := store.Transact(ctx, func(ctx context.Context) error {
+		if org, err := store.GetOrganization(ctx, o.OrganizationKey); errors.Is(err, persistence.ErrNotFound) {
+			name := o.OrganizationName
+			if name == "" {
+				name = "Acme"
+			}
+			return store.SaveOrganization(ctx, application.Organization{ID: ids.New(), Key: o.OrganizationKey, Name: name})
+		} else if err != nil {
 			return err
+		} else if o.OrganizationName != "" && org.Name != o.OrganizationName {
+			return errors.New("seed: Organization identity conflict")
 		}
-	} else if err != nil {
+
+		return nil
+	}); err != nil {
 		return err
 	}
 	if AllowsFixedTestAccounts(o.Profile) {

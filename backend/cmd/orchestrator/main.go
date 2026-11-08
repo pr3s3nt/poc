@@ -95,6 +95,7 @@ func main() {
 	bootstrapAdminUsername := flag.String("bootstrap-admin-username", "admin", "username of the bootstrapped ADMIN account")
 	bootstrapAdminPasswordFile := flag.String("bootstrap-admin-password-file", os.Getenv("ORCHESTRATOR_BOOTSTRAP_ADMIN_PASSWORD_FILE"), "owner-only file holding the password of the bootstrapped ADMIN account")
 	pruneDrift := flag.Bool("prune-drift-history", false, "explicit owner-only retention: bounded expiry of settled repair plans after 24h and unreferenced scans after 30d, then exit")
+	organizationFile := flag.String("organization-file", os.Getenv("ORCHESTRATOR_ORGANIZATION_FILE"), "owner-only JSON file containing installation Organization key and name")
 	flag.Parse()
 	if *pruneDrift {
 		if *setupDatabase {
@@ -105,6 +106,14 @@ func main() {
 	}
 	if *setupDatabase {
 		os.Exit(runDatabaseSetup(*ownerURLFile, *consoleRole, *stateRole))
+	}
+	if *organizationFile != "" {
+		org, err := seed.ReadOrganizationFile(*organizationFile)
+		if err != nil {
+			log.Print("orchestrator: invalid Organization identity file")
+			os.Exit(1)
+		}
+		opts.OrganizationKey, opts.OrganizationName = org.Key, org.Name
 	}
 	var platformVault *bootstrap.PlatformVaultBootstrap
 	if *platformVaultBootstrap {

@@ -603,6 +603,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	if opts.CleanupEngineOverride != nil {
 		resourceCleanup.SetEngine(opts.CleanupEngineOverride)
 	}
+	pendingChanges.SetRollbackCleanup(resourceCleanup)
 	appDeletion := appdeletion.New(st, workloads, pendingChanges, resourceCleanup, storeRegistry)
 	appDeletion.SetRetiredAuxiliary(deployments.RemoveRetiredAuxiliary)
 

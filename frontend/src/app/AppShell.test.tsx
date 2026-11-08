@@ -54,3 +54,9 @@ it('keeps CD, platform Git and user administration navigation together after int
   expect(screen.getByRole('link', { name: 'Người dùng' })).toHaveAttribute('href', '/ui/platform/users');
   expect(screen.getByRole('button', { name: 'Đổi mật khẩu' })).toBeVisible();
 });
+
+it('keeps Definition navigation and hides Catalog authoring entry', () => {
+ render(<AppShell {...props}><div /></AppShell>);
+ expect(screen.getByRole('link',{name:'Cấu hình tài nguyên'})).toBeVisible();
+ expect(screen.queryByRole('link',{name:'Catalog'})).not.toBeInTheDocument();
+});

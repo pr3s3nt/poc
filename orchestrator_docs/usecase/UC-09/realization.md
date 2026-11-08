@@ -123,3 +123,12 @@ Canonical shared collaboration: [delivery sequence](../../architecture/component
 [infrastructure sequence](../../architecture/components/infrastructure-drift-sequence.puml).
 These supplement the existing direct-path diagrams for this new design slice;
 [CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.
+
+## Retained workload history
+
+The assembler follows successful Deployment records producing the exact base
+Deployment Set, within the same scope/generation. It checks unchanged module
+intent and reads only immutable workload snapshots, stopping at the first
+workload-owning ancestor. It supplies verified READY evidence only to progress
+projection; the current run's Workloads list is unchanged. Missing/ambiguous
+ancestry stays UNKNOWN. No provider calls or persistence writes are introduced.

@@ -203,7 +203,8 @@ Không còn set-once/legacy backfill: lịch sử contract ở `a897d6b`/`3367f7
   resolve typed inputs, khóa state, init/validate/plan, reject UPDATE delete/
   replace, apply dưới deadline. State backend acknowledge rồi validate
   outputs/readiness, store secret refs và commit result/progress nguyên tử.
-- Retry transient tối đa một lần sau state/actual-result checks; input/auth/
+- Retry transient tối đa ba lần tổng cộng sau state/actual-result checks theo
+  ADR-040; input/auth/
   permission/unknown outcome dừng và giữ metadata/state/hold. Full resume/import
   deferred D12/D13; state thiếu không tự biến thành CREATE.
 - Returns: safe outputs/typed Secret refs và scoped target. Identity/stable
@@ -975,3 +976,11 @@ selection. Select a verified binding in Settings before Preview/Deploy. This
 refusal performs no Terraform apply or application manifest submission. Direct
 selection remains an invalid public mutation. Historical stored Direct states
 are readable for migration/cleanup, never a deploy fallback.
+
+## Organization identity read — issue #47
+
+`GET /api/v1/organization` requires an authenticated session. It returns
+`{organization: {id, key, name}}` resolved from that session only; no Organization
+selector is used. Missing authentication returns UNAUTHORIZED.
+It performs no writes and exposes no credentials or account list. External API
+seed may require an exact key/name match before other mutations.

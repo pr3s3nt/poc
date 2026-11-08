@@ -77,3 +77,18 @@ Organization của họ.
   email verification; Admin đặt lại password theo BR-11 nằm trong phạm vi.
 - **OOS-03:** OAuth, OIDC, SAML hoặc external IdP.
 - **OOS-04:** Fine-grained RBAC, audit login và account lockout.
+
+## Organization identity for installation seed — issue #47
+
+An external seed configuration may declare `organization: {key, name}`. A local
+preparation step exports only that identity, without credentials. Before store
+bootstrap, the backend accepts the identity via an operator-owned file and uses
+it to create a missing Organization. A matching existing Organization retains
+its ID and name; an explicit name mismatch fails before other seed writes. No
+rename, reassignment of accounts or public Organization-creation API is added.
+Identity key is a lowercase DNS label (1–63 characters); display name is
+nonblank, trimmed, at most 200 Unicode characters and contains no control
+characters. Legacy installations without an identity file retain the existing defaults.
+Authenticated `GET /api/v1/organization` returns only the session Organization.
+The API importer verifies both key and name before platform writes. Different
+login Organization or name is a conflict, never an instruction to migrate data.

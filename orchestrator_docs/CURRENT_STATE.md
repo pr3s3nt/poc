@@ -2,10 +2,66 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-06
+last_reviewed: 2026-11-08
 ---
 
 # Current project state
+
+## Workload authoring controls — issue #47
+
+Add Workload picker Cancel/Escape now removes the overlay reliably and allows
+reopening/custom selection. Service and dependency groups are open by default,
+with explicit endpoint creation from a named TCP Service port. Name/port/path
+remain editable using the existing endpoint resource contract; no port is
+published automatically. Editor Cancel/back/save preserve the Environment.
+Real-browser authoring checks passed without writing drafts or deploying apps;
+Save payload is covered by component tests. See
+[verification](verification/2026-11-08-workload-authoring-ui.md).
+
+## Retained progress and Catalog UI — issue #47
+
+Deployment progress now resolves retained workload READY evidence from the exact
+successful base-set ancestry, within tenant/Environment/generation and unchanged
+module intent; current-run facts override history. Missing proof remains UNKNOWN.
+The reported frontend detail was verified in the real browser at 7/7, with backend
+RETAINED and no fabricated current-run workload row. Catalog navigation and
+authoring/selection controls are removed; legacy source/releases and existing
+Environment pins remain readable. See
+[verification](verification/2026-11-08-retained-progress-catalog.md).
+
+## Frontend/backend example — issue #47, trial stopped by user
+
+The integrated organization_seed branch deployed the Score frontend/backend
+example through Console forms and one batch Deploy per attempt, using native
+shared-host endpoints and PostgreSQL. The corrected batch SUCCEEDED; both
+workloads and PostgreSQL were Ready. Browser reached the Guest page through
+the endpoint, but guest sign-in failed with the upstream frontend's `core.toast`
+error; catalog acceptance did not pass. On 2026-11-08 the user accepted the
+deployed state as sufficient for this trial and requested stopping further
+verification. App/endpoint remain available; no main merge was performed.
+Prior template-pin failure, expired trial Vault reviewer and operator-assisted
+Fleet convergence remain disclosed in the
+[verification record](verification/2026-11-08-frontend-backend.md).
+
+## Deployment retry and Environment rollback — issue #49, in progress
+
+ADR-040 records three total safe transient resource invocations and explicit
+user-selected Environment rollback after failure. Terraform retry now permits
+two retries while retaining acknowledged-state/process-stop checks; attempt
+deadlines and capability lifetime cover three invocations. Whole-Environment
+release checkpoints now capture successful pending batches and retain the last
+successful baseline across partial failures, including PostgreSQL reopen. Rollback
+execution/API and Console Preview/confirmation are implemented on the task branch
+with focused tests for restoring prior state, initial-empty cleanup, stale tokens
+and interrupted partial rollback. Live preview and the separate initial-empty Console case passed. The current
+runtime deployed all eleven Boutique workloads successfully through UI after DNS
+isolation and guarded Fleet convergence fixes. On 2026-11-08 the user requested
+stopping further live scenario 2 attempts and proceeding to integration in the
+previous working branch. **Live partial-failure → whole-Environment rollback is
+not verified**; its setup did not submit the controlled failing deployment or
+rollback. This limitation stays recorded in issue #49 and is not replaced by
+unit/integration results. Full-suite legacy failures/limits remain documented.
+
 
 ## Issue #37 merged into main — 2026-11-06
 
@@ -2167,3 +2223,43 @@ creation is explicit. WorkloadEditorPage reuses shared PVC identity/typed params
 with a collision-free alias and existing reuse guards, adding dependency + mount
 atomically. Other workloads' Pod-local sources are excluded. No API/backend/schema
 change. [Verification](verification/2026-11-06-reuse-first-volumes.md) records checks and real reuse/Preview.
+
+## Configurable Organization seed — issue #47
+
+Feature branch adds key/name input to the external API seed tool, a local
+credential-free identity export, installation CLI/env wiring and session-scoped
+Organization verification before import. Existing names/IDs are preserved;
+conflicting names are refused. Legacy inputs remain supported. No schema, UI or
+provisioning change. [Checks and remaining limits](verification/2026-11-07-organization-seed.md).
+
+## Console authoring choices — issue #45 (2026-11-07)
+
+The feature branch hides Workload file import and offers only Git for new or
+changed Resource Definition sources. Console-only switches live in
+`frontend/src/shared/authoringFeatures.ts`; backend APIs and stored revisions
+are unchanged. Existing source provenance remains visible. Workload form and
+saved advanced-document preservation remain available. Verification and
+remaining gates: [issue #45 handoff](verification/2026-11-07-ui-authoring-restrictions.md).
+
+## Compatible security template — issue #47 (2026-11-07)
+
+`features/organization_seed` adds `privileged: false` as the standard source's
+field-level fallback across app/init/sidecar roles. Generic presets 1.2.0 preserve
+explicit permitted security values and leave UID/non-root, filesystem, seccomp,
+capability and token policy unspecified; nginx-readonly keeps its stronger
+profile. Private source v0.3.0 is published. Focused render/domain checks and build
+pass. Full Go checks still fail the same 79 tests/17 packages as archived main.
+The separate Console has authored all eleven Online Boutique workloads through
+forms. The original five app workloads, Redis, frontend and loadgenerator are
+ready. Payment's Service exists, but its rollout failed before the Deployment/Pod
+were published; explicit recovery returned `RECOVERY_INCOMPLETE` because Fleet
+absence settlement currently covers first prerequisites only. A further recovery
+scope decision is pending.
+The user approved extending issue #47 to safely recover an unpublished new unit
+in an existing shared Fleet GitRepo. That change is pushed and explicit UI
+recovery passed for the original frontend operation. The UI attempt updated the
+original five, then deployed frontend and loadgenerator; payment was recorded
+FAILED and the operation is currently INTERRUPTED. The recovery attempt for this
+rollout remains incomplete. The three remaining workloads and checkout are
+unverified. Main is unmerged.
+[Execution and limitations](verification/2026-11-07-compatible-security-boutique.md).

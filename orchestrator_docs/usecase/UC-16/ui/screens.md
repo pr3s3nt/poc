@@ -257,3 +257,19 @@ ServiceAccount is managed/read-only unless a published allowed choice exists.
 ADR-039: remove the defaults-policy selector and policy-version summary entirely.
 Template pin and its resolved profile determine default hints; no template means no
 new backend authoring profile. Retain controller-specific schedule/claim controls.
+
+## Workload import hidden — issue #45
+
+Hide the import tab, its upload control and redundant form/import tab bar. Keep
+form authoring, pending changes, Save and Preview/Deploy unchanged. Existing
+advanced documents retain the document view without a file picker.
+
+## Service and dependencies visible by default — 2026-11-08
+
+Display Service & connections and dependency resources outside the advanced
+Workload disclosure, initially expanded. Next to each valid TCP Service port,
+provide Create endpoint when none exists. Its name/port/path are edited within
+Service; reuse the original endpoint alias when editing. Dependency fields remain
+available for other types; endpoint output selection uses the same dependency.
+Cancel closes the picker, including loading/error states; editor Cancel returns
+to the same Environment and never saves a draft.

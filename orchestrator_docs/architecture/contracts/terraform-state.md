@@ -114,12 +114,12 @@ chỉ dùng lúc claim/write, không giữ transaction qua Terraform/provider ca
 ## Retry và gián đoạn tối thiểu trong v2
 
 Mỗi invocation có timeout hữu hạn và process group riêng; cancellation phải
-terminate/confirm group stopped trước release. Retry tự động tối đa một lần cho
-lỗi transient đã phân loại, có backoff; refresh/read state và kiểm actual result
-trước replan. Provider/HTTP request retry nằm trong deadline này, không kéo dài
-run vô hạn. Validation, auth, permission, destructive plan và unknown outcome
-không automatic retry apply. Scenario retry tối đa một lần là giới hạn khác,
-được ghi trong acceptance runbook.
+terminate/confirm group stopped trước release. Theo [ADR-040](../decisions/ADR-040-environment-deployment-retry-and-rollback.md),
+retry tự động tối đa ba lần tổng cộng cho lỗi transient đã phân loại, có
+backoff; refresh/read state và kiểm actual result trước mỗi replan. Provider/HTTP
+request retry nằm trong deadline này, không kéo dài run vô hạn. Validation,
+auth, permission, destructive plan và unknown outcome không automatic retry
+apply. Scenario retry ở acceptance vẫn có deadline và cleanup độc lập.
 
 Write-ahead execution record trước side effect: operation/run ID, state ref,
 target/owner, action, module pin, physical-name/tag intent, ownership classification,

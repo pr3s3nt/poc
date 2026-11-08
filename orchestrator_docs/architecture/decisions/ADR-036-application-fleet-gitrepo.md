@@ -75,6 +75,15 @@ read-only recovery when its exact candidate Git trees are not published, the
 Application controller and every proposed native object are absent, and target
 identity plus the recovered fence/lease are verified. It cannot infer absence
 for Jobs, publish content or create a controller; any uncertainty stays held.
+A new first prerequisite can also be settled FAILED when the shared Application
+controller already exists for admitted sibling units. In that case recovery must
+prove the controller's exact owned UID/resourceVersion and non-deleting state,
+prove the candidate release has no pin, verify every active sibling tree at the
+controller's pinned revision, and re-read the same controller identity after
+checking both candidate Git trees, native objects, Bundle/BundleDeployment and
+Helm release absence. This remains read-only and uses the recovered operation
+fence/lease; it cannot remove sibling pins or apply/admit the candidate. If any
+identity, tree or absence check is uncertain, recovery remains held.
 Acknowledged withdrawal is terminal source ownership: recreation has no prior
 active revision/inventory.
 Ordinary controller writes retry bounded API rejections after rereading and

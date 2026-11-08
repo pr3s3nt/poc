@@ -3,7 +3,10 @@ package fleet
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"log"
 	"math"
+	"strings"
 
 	k8s "orchestrator/internal/adapters/kubernetes"
 	domain "orchestrator/internal/domain/delivery"
@@ -126,4 +129,113 @@ func gitRenderRecoveryPatch(repo map[string]any, cfg Config, i port.Intent, r po
 		{"op": "add", "path": "/metadata/annotations/orchestrator.io~1git-render-recovery", "value": i.ID},
 	})
 	return patch, true, err
+}
+
+// Shared controllers must first render the admitted commit before a downstream
+// Bundle can be woken. Validate all sibling trees before calling this helper.
+func (p *Provider) wakeSharedGitRender(ctx context.Context, cli k8s.CLI, cfg Config, i port.Intent, r port.Receipt, repo map[string]any, pins map[string]unitPin) (bool, error) {
+	log.Printf("shared Git render request: stage=begin")
+	raw, err := cli.Run(ctx, nil, "get", "bundles.fleet.cattle.io", "-n", cfg.Workspace, "-l", "fleet.cattle.io/repo-name="+r.Handle["gitrepo"], "-o", "json")
+	if err != nil {
+		code := "COMMAND"
+		if errors.Is(err, k8s.ErrForbidden) {
+			code = "FORBIDDEN"
+		}
+		log.Printf("shared Git render request: stage=list code=%s", code)
+		return false, ErrController
+	}
+	var bundles struct{ Items []map[string]any }
+	if json.Unmarshal(raw, &bundles) != nil {
+		return false, ErrController
+	}
+	matched := selectRelease(bundles.Items, r.Handle["release"])
+	if len(matched) > 1 {
+		return false, ErrOwnership
+	}
+	spec, _ := repo["spec"].(map[string]any)
+	commit, _ := spec["revision"].(string)
+	if len(matched) == 1 {
+		if !owns(matched[0], i, r.Handle["release"]) {
+			return false, ErrOwnership
+		}
+		md, _ := matched[0]["metadata"].(map[string]any)
+		labels, _ := md["labels"].(map[string]any)
+		if labels["fleet.cattle.io/commit"] == commit {
+			return false, nil
+		}
+	}
+	patch, needed, err := sharedGitRenderRecoveryPatch(repo, i, r, pins)
+	if err != nil {
+		return false, err
+	}
+	if needed {
+		if err := p.Manager.RecoveryGuard(ctx, i); err != nil {
+			return false, err
+		}
+		if _, err := cli.Run(ctx, nil, "patch", "gitrepos.fleet.cattle.io", r.Handle["gitrepo"], "-n", cfg.Workspace, "--type=json", "--patch", string(patch)); err != nil {
+			code := "COMMAND"
+			if errors.Is(err, k8s.ErrForbidden) {
+				code = "FORBIDDEN"
+			}
+			if errors.Is(err, k8s.ErrRequestRejected) {
+				code = "REJECTED"
+			}
+			if errors.Is(err, k8s.ErrUnreachable) {
+				code = "UNREACHABLE"
+			}
+			log.Printf("shared Git render request patch refused: code=%s", code)
+			return false, ErrController
+		}
+	}
+	return true, nil
+}
+func sharedGitRenderRecoveryPatch(repo map[string]any, i port.Intent, r port.Receipt, pins map[string]unitPin) ([]byte, bool, error) {
+	md, _ := repo["metadata"].(map[string]any)
+	spec, _ := repo["spec"].(map[string]any)
+	annotations, _ := md["annotations"].(map[string]any)
+	commit, _ := spec["revision"].(string)
+	if md["uid"] != r.Handle["gitrepoUID"] || md["resourceVersion"] == nil || commit == "" || !sharedReceiptMatches(pins, i, r) {
+		return nil, false, ErrOwnership
+	}
+	for _, pin := range pins {
+		if !pin.Removed && strings.HasSuffix(pin.Path, "/job") {
+			return nil, false, domain.ErrUnsupported
+		}
+	}
+	marker := i.ID + "/" + commit
+	if annotations[gitRenderRecoveryAnnotation] == marker {
+		return nil, false, nil
+	}
+	generation, err := currentGitRenderGeneration(spec)
+	if err != nil {
+		return nil, false, err
+	}
+	updated := map[string]any{}
+	for k, v := range annotations {
+		updated[k] = v
+	}
+	updated[gitRenderRecoveryAnnotation] = marker
+	patch, err := json.Marshal([]map[string]any{
+		{"op": "test", "path": "/metadata/uid", "value": md["uid"]},
+		{"op": "test", "path": "/metadata/resourceVersion", "value": md["resourceVersion"]},
+		{"op": "test", "path": "/spec/revision", "value": commit},
+		{"op": "add", "path": "/spec/forceSyncGeneration", "value": generation + 1},
+		{"op": "add", "path": "/metadata/annotations", "value": updated},
+	})
+	return patch, true, err
+}
+
+// Admission/withdrawal preserve an existing render counter without advancing it.
+// Dropping it would reset the bounded request made by an earlier owner.
+func retainGitRenderGeneration(next, current map[string]any) error {
+	prior, _ := current["spec"].(map[string]any)
+	if _, exists := prior["forceSyncGeneration"]; !exists {
+		return nil
+	}
+	generation, err := currentGitRenderGeneration(prior)
+	if err != nil {
+		return err
+	}
+	next["forceSyncGeneration"] = generation
+	return nil
 }

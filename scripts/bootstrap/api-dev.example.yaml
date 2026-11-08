@@ -1,10 +1,13 @@
 # Copy outside Git, chmod 600, and replace the target/file references.
 schemaVersion: 1
+organization:
+  key: my-company
+  name: My Company
 console:
   url: https://your-console.example
   username: platform-engineer
   passwordFile: ./credentials/console-password
-  expectedOrganization: acme
+  # expectedOrganization is optional with organization; if set, it must match its key.
 git:
   url: https://github.com/your-organization
   username: your-bot

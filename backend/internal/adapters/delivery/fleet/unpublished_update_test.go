@@ -25,3 +25,30 @@ func TestUnpublishedUpdateRequiresExactPriorControllerPin(t *testing.T) {
 		t.Fatal("absent controller pin accepted")
 	}
 }
+
+func TestFirstRolloutAbsenceRequiresItsOwnPrerequisitePin(t *testing.T) {
+	i := port.Intent{ID: "new", Revision: domain.Revision{ID: "rollout", Phase: domain.Rollout, Scope: domain.Scope{OrganizationID: "org", EnvironmentID: "env", TargetGeneration: 2, Epoch: 3, UnitKey: "payment/ROLLOUT"}}}
+	cfg := Config{Root: "environments/staging"}
+	pkg := Package{Publication: gitport.Intent{Path: "environments/staging/payment/rollout"}}
+	scope := i.Revision.Scope
+	scope.UnitKey = "payment/PREREQUISITE"
+	key := unitReleaseName(scope)
+	prior := unitPin{EnvironmentID: "env", Path: "environments/staging/payment/prerequisite", Revision: "prior", Intent: "prior-intent", Digest: "digest"}
+	if !hasPrerequisitePin(i, pkg, cfg, map[string]unitPin{key: prior}) {
+		t.Fatal("valid prerequisite refused")
+	}
+	for _, mutate := range []func(*unitPin){func(p *unitPin) { p.Removed = true }, func(p *unitPin) { p.EnvironmentID = "other" }, func(p *unitPin) { p.Path = "environments/staging/other/prerequisite" }, func(p *unitPin) { p.Revision = "" }, func(p *unitPin) { p.Intent = i.ID }, func(p *unitPin) { p.Digest = "" }} {
+		bad := prior
+		mutate(&bad)
+		if hasPrerequisitePin(i, pkg, cfg, map[string]unitPin{key: bad}) {
+			t.Fatal("invalid prerequisite accepted")
+		}
+	}
+	for _, mutate := range []func(*domain.Scope){func(s *domain.Scope) { s.Epoch++ }, func(s *domain.Scope) { s.TargetGeneration++ }, func(s *domain.Scope) { s.EnvironmentID = "other" }, func(s *domain.Scope) { s.UnitKey = "other/PREREQUISITE" }} {
+		foreign := scope
+		mutate(&foreign)
+		if hasPrerequisitePin(i, pkg, cfg, map[string]unitPin{unitReleaseName(foreign): prior}) {
+			t.Fatal("foreign prerequisite accepted")
+		}
+	}
+}

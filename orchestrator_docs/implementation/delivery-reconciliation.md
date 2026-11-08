@@ -224,3 +224,11 @@ Design-task validation/evidence is recorded separately in
 [design verification](../verification/2026-10-28-delivery-reconciliation-design.md).
 No browser mock, document, unit fake or successful setup alone means the user can
 deploy with Fleet today. “Usable” requires R01–R08 and applicable E01–E10 evidence.
+
+
+Issue #49 adds optional `ports/delivery.PendingConvergence`, called only by the
+active `application/delivery.Coordinator.runPhase` after a persisted receipt and
+Pending/Progressing observation. `fleet/pending_convergence.go` reuses exact scoped
+Git-render guards; it is never called by read-only observation workers. See the
+contract and `TestActiveReceiptConvergenceKeepsExactChainAndBumpsOnlyOnce`, including
+lost patch acknowledgement, and `TestSharedAdmissionPreservesAnExistingRenderCounter`.

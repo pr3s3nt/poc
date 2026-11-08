@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ func TestApplicationFleetTransport(t *testing.T) {
 		args = args[1:]
 	}
 	args = args[1:]
-	for len(args) > 0 && args[0] != "get" && args[0] != "create" && args[0] != "replace" && args[0] != "delete" {
+	for len(args) > 0 && args[0] != "get" && args[0] != "create" && args[0] != "replace" && args[0] != "delete" && args[0] != "patch" {
 		args = args[1:]
 	}
 	fail := func() { fmt.Fprintln(os.Stderr, "NotFound"); os.Exit(1) }
@@ -90,6 +91,52 @@ func TestApplicationFleetTransport(t *testing.T) {
 			os.Exit(2)
 		}
 		emit(repo)
+	case "patch":
+		repo := read("repo.json")
+		var patch []map[string]any
+		for n, arg := range args {
+			if arg == "--patch" && n+1 < len(args) {
+				if json.Unmarshal([]byte(args[n+1]), &patch) != nil {
+					os.Exit(2)
+				}
+			}
+		}
+		if len(patch) == 0 {
+			os.Exit(2)
+		}
+		for _, op := range patch {
+			parts := strings.Split(strings.TrimPrefix(op["path"].(string), "/"), "/")
+			target := repo
+			for _, part := range parts[:len(parts)-1] {
+				next, ok := target[part].(map[string]any)
+				if !ok {
+					os.Exit(2)
+				}
+				target = next
+			}
+			key := parts[len(parts)-1]
+			switch op["op"] {
+			case "test":
+				if !reflect.DeepEqual(target[key], op["value"]) {
+					fmt.Fprintln(os.Stderr, "Error from server (Conflict): precondition")
+					os.Exit(1)
+				}
+			case "add":
+				target[key] = op["value"]
+			default:
+				os.Exit(2)
+			}
+		}
+		metadata := repo["metadata"].(map[string]any)
+		metadata["resourceVersion"] = metadata["resourceVersion"].(string) + "1"
+		body, _ := json.Marshal(repo)
+		os.WriteFile(filepath.Join(dir, "repo.json"), body, 0600)
+		if _, err := os.Stat(filepath.Join(dir, "lose-patch-ack")); err == nil {
+			os.Remove(filepath.Join(dir, "lose-patch-ack"))
+			fmt.Fprintln(os.Stderr, "lost patch acknowledgement")
+			os.Exit(1)
+		}
+		emit(repo)
 	case "delete":
 		repo := read("repo.json")
 		raw, _ := io.ReadAll(os.Stdin)
@@ -123,7 +170,11 @@ func TestApplicationFleetTransport(t *testing.T) {
 			if len(args) > 2 && args[2] != "-n" {
 				repo := read("repo.json")
 				spec := repo["spec"].(map[string]any)
-				emit(map[string]any{"metadata": map[string]any{"labels": map[string]any{"fleet.cattle.io/commit": spec["revision"]}}, "spec": map[string]any{"deploymentID": "applied"}, "status": map[string]any{"appliedDeploymentID": "applied"}})
+				commit := spec["revision"]
+				if old, err := os.ReadFile(filepath.Join(dir, "bd-commit")); err == nil {
+					commit = strings.TrimSpace(string(old))
+				}
+				emit(map[string]any{"metadata": map[string]any{"labels": map[string]any{"fleet.cattle.io/commit": commit}}, "spec": map[string]any{"deploymentID": "applied"}, "status": map[string]any{"appliedDeploymentID": "applied"}})
 			}
 			emit(map[string]any{"items": []any{}})
 		case "bundles.fleet.cattle.io":
@@ -135,9 +186,13 @@ func TestApplicationFleetTransport(t *testing.T) {
 					os.Exit(2)
 				}
 				spec := repo["spec"].(map[string]any)
+				commit := spec["revision"]
+				if old, err := os.ReadFile(filepath.Join(dir, "bundle-commit")); err == nil {
+					commit = strings.TrimSpace(string(old))
+				}
 				for release, pin := range pins {
 					if !pin.Removed {
-						items = append(items, map[string]any{"metadata": map[string]any{"name": release, "labels": map[string]any{"fleet.cattle.io/commit": spec["revision"], "orchestrator.io/organization-id": "org", "orchestrator.io/environment-id": pin.EnvironmentID, "orchestrator.io/delivery-unit": release}}, "spec": map[string]any{"helm": map[string]any{"releaseName": release}}})
+						items = append(items, map[string]any{"metadata": map[string]any{"name": release, "labels": map[string]any{"fleet.cattle.io/commit": commit, "orchestrator.io/organization-id": "org", "orchestrator.io/environment-id": pin.EnvironmentID, "orchestrator.io/delivery-unit": release}}, "spec": map[string]any{"helm": map[string]any{"releaseName": release}}})
 					}
 				}
 			}
@@ -625,5 +680,93 @@ func TestApplicationFirstPrerequisiteAbsenceRecoveryIsReadOnlyAndConservative(t 
 	i.Revision.Phase = domain.Job
 	if absent, err = p.ObserveSubmissionAbsent(ctx, i, prepared); err != nil || absent {
 		t.Fatal("Job absence inferred", absent, err)
+	}
+}
+
+func TestApplicationFirstPrerequisiteAbsenceWithSharedControllerIsReadOnly(t *testing.T) {
+	p, w, dir, intent := applicationFixture(t)
+	publishApplicationUnit(t, p, w, dir, intent("staging", "backend"))
+
+	i := intent("production", "frontend")
+	i.Revision.Phase = domain.Prerequisite
+	i.Revision.Scope.UnitKey = "frontend/PREREQUISITE"
+	i, pkg, _ := applicationPackage(t, i)
+	raw, _ := json.Marshal(pkg)
+	prepared := port.Prepared{Revision: i.Revision, Payload: raw}
+	ctx := context.Background()
+
+	repoPath := filepath.Join(dir, "repo.json")
+	before, err := os.ReadFile(repoPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	absent, err := p.ObserveSubmissionAbsent(ctx, i, prepared)
+	if err != nil || !absent {
+		t.Fatal("unpublished first prerequisite with owned shared controller", absent, err)
+	}
+	after, err := os.ReadFile(repoPath)
+	if err != nil || string(before) != string(after) {
+		t.Fatal("absence recovery mutated the shared controller", err)
+	}
+}
+
+func TestApplicationFirstPrerequisiteAbsenceRejectsExistingUnitPin(t *testing.T) {
+	p, w, dir, intent := applicationFixture(t)
+	i := intent("staging", "backend")
+	i.Revision.Phase = domain.Prerequisite
+	i.Revision.Scope.UnitKey = "backend/PREREQUISITE"
+	publishApplicationUnit(t, p, w, dir, i)
+	i, pkg, _ := applicationPackage(t, i)
+	raw, _ := json.Marshal(pkg)
+	prepared := port.Prepared{Revision: i.Revision, Payload: raw}
+	absent, err := p.ObserveSubmissionAbsent(context.Background(), i, prepared)
+	if err != nil || absent {
+		t.Fatal("existing workload pin treated as absent", absent, err)
+	}
+}
+
+func TestFirstRolloutAbsencePreservesCompletedPrerequisiteAndController(t *testing.T) {
+	p, w, dir, intent := applicationFixture(t)
+	prior := intent("staging", "payment")
+	prior.ID += "-prerequisite"
+	prior.Revision.ID += "-prerequisite"
+	prior.Revision.Phase = domain.Prerequisite
+	prior.Revision.Scope.UnitKey = "payment/PREREQUISITE"
+	publishApplicationUnit(t, p, w, dir, prior)
+	i := intent("staging", "payment")
+	i.ID += "-rollout"
+	i.Revision.ID += "-rollout"
+	m := configMap()
+	m.Name = "payment-rollout-config"
+	m.Namespace = i.Target.Namespace
+	m.Object["metadata"].(map[string]any)["name"] = m.Name
+	m.Object["metadata"].(map[string]any)["namespace"] = m.Namespace
+	pkg, err := PackageUnit(i, []execution.Manifest{m})
+	if err != nil {
+		t.Fatal(err)
+	}
+	i.Revision.PayloadDigest = pkg.Publication.TreeDigest
+	raw, _ := json.Marshal(pkg)
+	repoPath := filepath.Join(dir, "repo.json")
+	before, _ := os.ReadFile(repoPath)
+	priorPath := filepath.Join(dir, "live-"+i.Target.Namespace+"-payment-config.json")
+	priorBefore, err := os.ReadFile(priorPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	headBefore, _ := exec.Command("git", "-C", w.Dir, "rev-parse", "HEAD").Output()
+	absent, err := p.ObserveSubmissionAbsent(context.Background(), i, port.Prepared{Revision: i.Revision, Payload: raw})
+	if err != nil || !absent {
+		t.Fatalf("first Rollout absence: %v %v", absent, err)
+	}
+	after, _ := os.ReadFile(repoPath)
+	priorAfter, _ := os.ReadFile(priorPath)
+	headAfter, _ := exec.Command("git", "-C", w.Dir, "rev-parse", "HEAD").Output()
+	if string(before) != string(after) || string(priorBefore) != string(priorAfter) || string(headBefore) != string(headAfter) {
+		t.Fatal("recovery mutated prerequisite/controller/Git")
+	}
+	os.WriteFile(filepath.Join(dir, "release-secret"), nil, 0600)
+	if absent, err = p.ObserveSubmissionAbsent(context.Background(), i, port.Prepared{Revision: i.Revision, Payload: raw}); err != nil || absent {
+		t.Fatalf("orphan Rollout Helm release accepted: %v %v", absent, err)
 	}
 }

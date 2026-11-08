@@ -123,3 +123,13 @@ show authoritative secret metadata read-only. No local variable reference chain.
   never offered. Unsafe/conflicting shared entries remain disabled choices.
 - Imported/edited private/shared: preserve identity and params without migration.
 - Cancel inline resource: parent unchanged; no persistence or provision.
+
+## Service endpoint and Cancel — 2026-11-08
+
+Default form shows expanded Service/dependencies. No endpoint until explicit
+Create action; invalid/duplicate/UDP ports, unavailable metadata or disabled
+Service cannot create a target. Existing endpoint port stays selected when a
+Service port is renamed/removed and Save is blocked instead of retargeting it.
+Cancel/Escape work during picker loading/error; a late template reply cannot
+reopen the dismissed picker. Reopening/selecting remains possible. Editor Cancel
+keeps the same Environment and never writes a workload draft.

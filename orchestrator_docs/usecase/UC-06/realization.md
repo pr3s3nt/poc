@@ -83,6 +83,14 @@ node persist progress bằng transaction ngắn. Transaction B sau readiness
 atomically đổi Environment current-set pointer, save WorkloadInstance và mark
 Deployment `SUCCEEDED`, với optimistic Environment version.
 
+Theo [ADR-040](../../architecture/decisions/ADR-040-environment-deployment-retry-and-rollback.md),
+pending batch cần lưu base Environment release snapshot trước side effect. Các
+Deployment con tiếp tục lưu progress chi tiết; batch chỉ thành successful release
+sau khi toàn bộ workloads và delivery/readiness đều pass. Rollback là operation
+bù trừ mới, dùng base của release thành công gần nhất hoặc empty baseline đã
+inventory ownership; không dùng current set lai của một batch partial như một
+release thành công.
+
 ## Planned tests
 
 - `TestDeployWorkload_AWSHappyPath`, `TestDeployWorkload_InternalHappyPath`.
@@ -241,3 +249,27 @@ trees. It verifies retained unit trees before moving the common SHA and correlat
 observations to the receipted Bundle/release. Withdrawal removes only its unit;
 last-unit cleanup retires the owned GitRepo. See the updated
 [shared sequence](../../architecture/components/platform-managed-delivery-sequence.puml).
+
+## User-selected rollback execution — issue #49
+
+`Pending.PreviewRollback` reads a consistent Environment snapshot and returns a
+safe restore/remove summary plus a token binding current set/version, drafts,
+configuration revision, Definition/catalog revisions and target release digest.
+`Pending.Rollback` requires typed Application-key confirmation and rechecks the
+token before acquiring one fenced Environment Deploy operation. Configuration
+Secret references, Definition snapshots and reconstructed proven workload inputs
+are restored in a short transaction. The normal planner/delivery/readiness engine
+executes under that same claim. On complete success the resulting release receives
+a new checkpoint; failure is retained as an interrupted rollback for recovery.
+No rollback endpoint exposes private snapshot pins or resolved Secret values.
+
+
+### Active receipt convergence — issue #49
+
+When a normal phase has persisted its receipt but Observe reports Pending and
+Progressing, DeliveryCoordinator may invoke the optional PendingConvergence port
+under the same Environment/publication owner. Fleet verifies the admitted
+controller/receipt, sibling trees and absence of Job pins before one bounded Git
+render request. Observe remains read-only and exact Bundle/BundleDeployment/live
+revision proof still gates acknowledgement. Admission/withdrawal preserve any
+existing render counter; they do not force a new shared render themselves.

@@ -119,3 +119,28 @@ IP. The previous task-owned Compose proxy was replaced; the Compose services and
 volumes were not stopped. After reboot restart both forwards; Kubernetes itself
 restarts the in-cluster Deployments. Restrict private input and evidence access;
 never publish their contents.
+
+## Configurable Organization — issue #47
+
+New API seed input can include `organization: {key: my-company, name: My Company}`.
+Prepare an owner-only, credential-free identity file before a fresh installation:
+
+```sh
+node scripts/bootstrap/seed-api.mjs --config /private/dev.yaml \
+  --prepare-organization /private/organization.json
+```
+
+This local step does not sign in, call APIs or create database records. Mount the
+identity file read-only and set `ORCHESTRATOR_ORGANIZATION_FILE` (or CLI
+`-organization-file`) for both the first-Admin command and every backend start.
+Backend initializes the missing Organization; configure the admin against that
+same identity before running the normal `--config` API import. The backend does
+not mount the seed YAML or credential files just to read Organization identity.
+
+Existing matching identity is reused; an explicit name mismatch stops startup
+before other seed writes. Do not change the key to rename an installation: it is
+a separate ownership identity and accounts are never moved. Import verifies the
+authenticated Organization key/name before any platform mutation. Existing input
+with only `console.expectedOrganization` remains supported as a key-only check;
+if both are provided, their keys must agree. The importer never renames an
+existing Organization. The new file is created exclusively, never overwritten.

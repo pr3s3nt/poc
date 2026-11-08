@@ -1,5 +1,5 @@
 // Local API importer. No browser, kubectl, shell commands or secret persistence.
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { isIP } from 'node:net';
@@ -45,16 +45,35 @@ function target(raw, tailnet) {
  if (u.protocol !== 'https:' && !(u.protocol === 'http:' && (['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname) || tailnet === true && (u.hostname.endsWith('.ts.net') || tailnetIP)))) fail('Use HTTPS, loopback or explicitly verified Tailscale');
  return u.origin;
 }
-export function loadConfig(file) {
+function readInput(file) {
  let c; try {
   const stat = statSync(file); if (!stat.isFile() || stat.size > 16 * 2 ** 20 || (stat.mode & 0o077)) fail('Config must be owner-only and bounded');
   const doc = parseDocument(readFileSync(file, 'utf8'), { uniqueKeys: true });
   if (doc.errors.length) fail('Invalid YAML');
   c = doc.toJS({ maxAliasCount: 0 });
  } catch (e) { if (e instanceof SeedError) throw e; fail('Cannot load seed YAML'); }
- const allowed = ['schemaVersion', 'console', 'git', 'accounts', 'gitAccounts', 'vaults', 'resourceTypes', 'templateSources', 'definitions', 'delivery'];
+ return c;
+}
+export function organizationIdentity(value) {
+ if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(k => !['key','name'].includes(k)) || typeof value.key !== 'string' || !/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(value.key) || typeof value.name !== 'string' || !value.name || value.name !== value.name.trim() || [...value.name].length > 200 || /[\p{Cc}\p{Cs}]/u.test(value.name)) fail('Invalid Organization identity');
+ return { key: value.key, name: value.name };
+}
+export function prepareOrganization(file, output) {
+ const c = readInput(file);
+ if (c?.schemaVersion !== 1) fail('Invalid seed schema');
+ const org = organizationIdentity(c.organization);
+ if (c.console?.expectedOrganization && c.console.expectedOrganization !== org.key) fail('Organization key conflicts with expectedOrganization');
+ try { writeFileSync(output, JSON.stringify(org) + '\n', { mode: 0o600, flag: 'wx' }); } catch { fail('Cannot create Organization file; output must be new'); }
+}
+export function loadConfig(file) {
+ const c = readInput(file);
+ const allowed = ['organization', 'schemaVersion', 'console', 'git', 'accounts', 'gitAccounts', 'vaults', 'resourceTypes', 'templateSources', 'definitions', 'delivery'];
  if (!c || c.schemaVersion !== 1 || Object.keys(c).some(k => !allowed.includes(k))) fail('Invalid seed schema');
- if (!c.console?.username || !c.console.passwordFile || !c.console.expectedOrganization) fail('Console identity and passwordFile are required');
+ if (c.organization !== undefined) {
+  c.organization = organizationIdentity(c.organization);
+  if (c.console?.expectedOrganization && c.console.expectedOrganization !== c.organization.key) fail('Organization key conflicts with expectedOrganization');
+ }
+ if (!c.console?.username || !c.console.passwordFile || !(c.organization?.key || c.console.expectedOrganization)) fail('Console identity and passwordFile are required');
  c.console.origin = target(c.console.url, c.console.tailnet);
  const local = p => typeof p === 'string' ? (p.startsWith('~/') ? resolve(homedir(), p.slice(2)) : resolve(dirname(file), p)) : fail('Invalid file reference');
  c.console.password = privateFile(local(c.console.passwordFile));
@@ -121,7 +140,12 @@ export async function seed(c, { fetcher = fetch, report = console.log } = {}) {
   const { result: login, response } = await api('POST', '/auth/sign-in', { username: c.console.username, password: c.console.password });
   cookie = response.headers.getSetCookie()[0]?.split(';')[0];
   if (!cookie) fail('Sign-in did not provide session');
-  if (login.user?.OrganizationKey !== c.console.expectedOrganization || !['ADMIN', 'PLATFORM_ENGINEER'].includes(login.user?.Role)) fail('Unexpected Organization or insufficient role');
+  if (login.user?.OrganizationKey !== (c.organization?.key ?? c.console.expectedOrganization) || !['ADMIN', 'PLATFORM_ENGINEER'].includes(login.user?.Role)) fail('Unexpected Organization or insufficient role');
+  if (c.organization) {
+   const actual = (await get('/organization')).organization;
+   if (!actual || actual.key !== c.organization.key || actual.name !== c.organization.name) fail('Organization: CONFLICT');
+   emit('Organization', 'REUSED');
+  }
   if (c.git) {
    const old = (await get('/platform/settings/git')).settings;
    const expected = { url: c.git.url, username: c.git.username, authenticated: true, caPem: c.git.caPem ?? '' };

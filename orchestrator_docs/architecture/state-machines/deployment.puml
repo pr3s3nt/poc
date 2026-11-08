@@ -16,8 +16,10 @@ end note
 note right of FAILED
   Status recording only.
   Snapshot may be NULL only if planning failed.
-  V2 bounded transient node retry is allowed.
-No automatic resume/rollback.
+  V2 transient node retry allows at most three attempts total after outcome checks.
+  No automatic resume/rollback. A user may request a compensating Environment
+  rollback after failure; it uses the last successful Environment snapshot, or
+  the verified empty baseline when none exists. Rollback failure remains visible/held.
 Interrupted execution: FAILED safe reason;
 Environment operation remains held until process checked.
 end note
