@@ -7,6 +7,17 @@ last_reviewed: 2026-11-08
 
 # Current project state
 
+## Workload authoring controls — issue #47
+
+Add Workload picker Cancel/Escape now removes the overlay reliably and allows
+reopening/custom selection. Service and dependency groups are open by default,
+with explicit endpoint creation from a named TCP Service port. Name/port/path
+remain editable using the existing endpoint resource contract; no port is
+published automatically. Editor Cancel/back/save preserve the Environment.
+Real-browser authoring checks passed without writing drafts or deploying apps;
+Save payload is covered by component tests. See
+[verification](verification/2026-11-08-workload-authoring-ui.md).
+
 ## Retained progress and Catalog UI — issue #47
 
 Deployment progress now resolves retained workload READY evidence from the exact

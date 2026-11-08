@@ -4001,5 +4001,13 @@
   "deployments.rollback.running": "Đang Rollback. Có thể theo dõi thao tác trong Cài đặt môi trường.",
   "deployments.rollback.cancel": "Hủy",
   "deployments.rollback.confirm": "Rollback môi trường",
-  "deployments.rollback.resources": "Xóa tài nguyên thuộc môi trường"
+  "deployments.rollback.resources": "Xóa tài nguyên thuộc môi trường",
+  "workloads.endpoint.title": "Endpoint công khai",
+  "workloads.endpoint.name": "Tên endpoint",
+  "workloads.endpoint.port": "Cổng endpoint",
+  "workloads.endpoint.path": "Đường dẫn endpoint",
+  "workloads.endpoint.choosePort": "Chọn cổng Service",
+  "workloads.endpoint.remove": "Xóa endpoint",
+  "workloads.endpoint.create": "Tạo endpoint từ cổng {port}",
+  "workloads.endpoint.invalidPort": "Endpoint cần một cổng Service TCP hợp lệ và Service đang bật."
 }

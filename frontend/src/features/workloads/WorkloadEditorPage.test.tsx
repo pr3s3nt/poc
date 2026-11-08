@@ -508,3 +508,24 @@ it('saves a selected scheduled template with Service omitted and explicit schedu
  const workload = saved?.workload as { workloadExecution: { kind: string; template: { sha256: string }; schedule: { expression: string; suspend: boolean } }; service?: unknown };
  expect(workload.workloadExecution.kind).toBe('CronJob');expect(workload.workloadExecution.template.sha256).toBe(digest);expect(workload.workloadExecution.schedule).toMatchObject({expression:'0 1 * * *',suspend:true});expect(workload.service).toBeUndefined();
 });
+
+it('shows networking and dependencies immediately and saves an explicitly requested endpoint from Service', async () => {
+ let saved: {workload: {resources: Record<string, unknown>; service: {ports: Record<string, unknown>}}} | undefined;
+ vi.stubGlobal('fetch',vi.fn(async (input:string|URL|Request,init?:RequestInit)=>{
+  const url=String(input);
+  if(url.endsWith('/resource-types'))return Response.json({resourceTypes:[{key:'endpoint',classes:[],inputs:[{name:'name',type:'string',required:true},{name:'port',type:'string',required:true},{name:'path',type:'string'}],outputs:[{name:'url',type:'string'}]}]});
+  if(url.endsWith('/configuration'))return Response.json({version:1,keys:[]});
+  if(init?.method==='PUT'){saved=JSON.parse(String(init.body));return Response.json({draftVersion:1,workloads:[]});}
+  return Response.json({draftVersion:0,workloads:[],templates:[]});
+ }));
+ const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging"/>);
+ await screen.findByLabelText('Tên Workload');
+ expect(screen.getByRole('button',{name:'+ Thêm tài nguyên'})).toBeVisible();expect(screen.getByRole('button',{name:'+ Thêm cổng'})).toBeVisible();
+ await user.type(screen.getByLabelText('Tên Workload'),'web');await user.type(screen.getByLabelText('Ảnh Container'),'nginx:1');
+ await user.click(screen.getByRole('button',{name:'+ Thêm cổng'}));await user.type(screen.getByLabelText('Tên cổng Service'),'http');await user.type(screen.getByLabelText('Cổng Service'),'8080');
+ expect(screen.queryByLabelText('Tên endpoint')).not.toBeInTheDocument();await user.click(screen.getByRole('button',{name:'Tạo endpoint từ cổng http'}));
+ expect(screen.getByLabelText('Tên endpoint')).toHaveValue('web');await user.clear(screen.getByLabelText('Đường dẫn endpoint'));await user.type(screen.getByLabelText('Đường dẫn endpoint'),'/api');
+ await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));
+ expect(saved?.workload.resources.public).toEqual({type:'endpoint',params:{name:'web',port:'http',path:'/api'}});
+ expect(saved?.workload.service.ports.http).toEqual({port:8080,targetPort:8080});
+});

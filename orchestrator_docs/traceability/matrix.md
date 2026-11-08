@@ -1591,3 +1591,10 @@ separate in the Environment rollback verification record.
 |---|---|---|
 | UC-09 retained workload evidence; OBS-02/05 | deployment/retained_progress.go + query.go; immutable base-set ancestry, current snapshots win | retained_progress_test.go; exact reported deployment browser 7/7 |
 | UC-03 Console Catalog restriction, 2026-11-08 | AppShell; CatalogPage; EnvironmentCatalogPanel | read-only source/releases and pin tests; browser legacy route and hidden navigation |
+
+## Issue #47 — Workload authoring controls, 2026-11-08
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| UC-16 picker Cancel/Escape and Environment-preserving Cancel | ApplicationHomePage picker host; WorkloadEditorPage navigation | Home/TemplatePicker tests; actual Console close/reopen/Cancel with unchanged drafts |
+| UC-16 default Service/dependencies and explicit endpoint from port | WorkloadEditorPage; ServiceEndpointFields | Editor Save payload and endpoint component tests; real-browser field editing |

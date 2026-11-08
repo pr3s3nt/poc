@@ -149,3 +149,12 @@ See [contract](../../architecture/contracts/workload-defaults.md).
 ADR-039 replaces backend policy defaulting with a generic merge of verified
 template `runtimeDefaults`. Admission freezes `templateDefaults`; no platform
 policy values or selector remain.
+
+## Inline Service endpoint — 2026-11-08
+
+The boundary adds/edits the existing private endpoint dependency in local form
+state from the selected named TCP Service port. Preserve alias/class/params and
+resource-output references; only allocate a collision-free alias when creating.
+The regular build/validation/save path serializes this resource. No second API,
+provider write or immediate public exposure is added. Picker dismissal removes
+its own host; editor Cancel returns with the Environment selection intact.

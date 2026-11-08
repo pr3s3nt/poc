@@ -4001,5 +4001,13 @@
   "deployments.rollback.running": "Rollback is running. Follow the operation in Environment settings.",
   "deployments.rollback.cancel": "Cancel",
   "deployments.rollback.confirm": "Roll back Environment",
-  "deployments.rollback.resources": "Remove Environment-owned resources"
+  "deployments.rollback.resources": "Remove Environment-owned resources",
+  "workloads.endpoint.title": "Public endpoint",
+  "workloads.endpoint.name": "Endpoint name",
+  "workloads.endpoint.port": "Endpoint port",
+  "workloads.endpoint.path": "Endpoint path",
+  "workloads.endpoint.choosePort": "Choose a Service port",
+  "workloads.endpoint.remove": "Remove endpoint",
+  "workloads.endpoint.create": "Create endpoint from port {port}",
+  "workloads.endpoint.invalidPort": "An endpoint requires an enabled Service and a valid TCP Service port."
 }

@@ -1347,3 +1347,13 @@ labels verified retained workload facts; query Workloads remains per-Deployment.
 `frontend/src/features/catalog/CatalogPage.tsx` and `EnvironmentCatalogPanel.tsx`
 keep legacy read views without authoring or release selection; AppShell omits
 Catalog navigation. Regression tests live beside these implementations.
+
+## Workload authoring controls — issue #47
+
+`ApplicationHomePage.tsx` owns the picker DOM host/dismissal; its tests cover
+Cancel/reopen/Escape while templates load. `WorkloadEditorPage.tsx` keeps Service
+and dependencies outside advanced disclosure and preserves Environment navigation.
+`ServiceEndpointFields.tsx` authors the existing private endpoint dependency from
+valid named TCP ports, preserving alias/class/unknown params; editor validation
+blocks invalid/removed ports. Component tests cover the Save payload; the real
+browser scenario is `e2e/scenarios/workload-authoring-ui/` (no Save/Deploy).

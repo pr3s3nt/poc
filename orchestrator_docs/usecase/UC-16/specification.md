@@ -309,3 +309,15 @@ remains available. Existing advanced documents retain their read-only document
 view and preservation behavior; this does not extend form support. Import APIs
 and stored documents are unchanged. The Console switches are build-time source
 configuration, not an authorization or backend validation boundary.
+
+## Service endpoint authoring — approved 2026-11-08
+
+Show dependency resources and Service controls in the default workload form,
+without opening advanced fields. Cancel in the template picker closes it even
+while loading; editor Cancel returns to the same Application Environment without
+saving. Service ports offer an explicit action creating a private `endpoint`
+dependency with editable name, selected named TCP port and path. It uses the
+existing endpoint contract, not a new Service type; no endpoint is added until
+requested. Preserve existing endpoint alias/references and permit only one per
+workload. Missing type metadata or invalid/disabled target ports prevents creation
+or saving an invalid endpoint; Save → Preview → Deploy remains explicit.
