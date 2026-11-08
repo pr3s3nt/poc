@@ -4009,5 +4009,7 @@
   "workloads.endpoint.choosePort": "Choose a Service port",
   "workloads.endpoint.remove": "Remove endpoint",
   "workloads.endpoint.create": "Create endpoint from port {port}",
-  "workloads.endpoint.invalidPort": "An endpoint requires an enabled Service and a valid TCP Service port."
+  "workloads.endpoint.invalidPort": "An endpoint requires an enabled Service and a valid TCP Service port.",
+  "workloads.templates.versions": "Other versions",
+  "workloads.templates.version": "Version"
 }

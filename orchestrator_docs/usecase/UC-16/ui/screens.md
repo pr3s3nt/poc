@@ -273,3 +273,14 @@ Service; reuse the original endpoint alias when editing. Dependency fields remai
 available for other types; endpoint output selection uses the same dependency.
 Cancel closes the picker, including loading/error states; editor Cancel returns
 to the same Environment and never saves a draft.
+
+## Grouped template cards — approved 2026-11-08
+
+The Add Workload picker groups by template ID, with one card showing its selected
+version and that version's kind/label/description. Default selection is the
+numerically latest scoped version. A collapsed Versions disclosure contains a
+labeled select when multiple versions exist, newest first. Selecting an older
+version updates the card; clicking the card proceeds with its exact immutable pin.
+Version controls do not select a template or navigate by themselves. Search
+retains matching groups; closing/reopening or changing Environment resets the new
+selection. Existing edit flows are unchanged.

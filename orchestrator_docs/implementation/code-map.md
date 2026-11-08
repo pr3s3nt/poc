@@ -1357,3 +1357,11 @@ and dependencies outside advanced disclosure and preserves Environment navigatio
 valid named TCP ports, preserving alias/class/unknown params; editor validation
 blocks invalid/removed ports. Component tests cover the Save payload; the real
 browser scenario is `e2e/scenarios/workload-authoring-ui/` (no Save/Deploy).
+
+## Grouped template versions — issue #47
+
+`TemplatePicker.tsx` groups the Environment-scoped list by template ID, sorts
+numeric version components, and owns each card's local version choice. Existing
+`onSelect` receives the exact selected immutable template object. Regression
+coverage is in `TemplatePicker.test.tsx`; actual latest/older pin navigation and
+unchanged drafts are checked by `e2e/scenarios/workload-template-versions/`.

@@ -158,3 +158,8 @@ resource-output references; only allocate a collision-free alias when creating.
 The regular build/validation/save path serializes this resource. No second API,
 provider write or immediate public exposure is added. Picker dismissal removes
 its own host; editor Cancel returns with the Environment selection intact.
+
+Grouped picker cards consume the existing Environment-scoped template list. The
+Console sorts numeric major/minor/patch components, keeps version selection local
+and forwards the exact selected object through the existing onSelect callback.
+No backend query, stored pin or render/Deploy operation is added.

@@ -4009,5 +4009,7 @@
   "workloads.endpoint.choosePort": "Chọn cổng Service",
   "workloads.endpoint.remove": "Xóa endpoint",
   "workloads.endpoint.create": "Tạo endpoint từ cổng {port}",
-  "workloads.endpoint.invalidPort": "Endpoint cần một cổng Service TCP hợp lệ và Service đang bật."
+  "workloads.endpoint.invalidPort": "Endpoint cần một cổng Service TCP hợp lệ và Service đang bật.",
+  "workloads.templates.versions": "Phiên bản khác",
+  "workloads.templates.version": "Phiên bản"
 }

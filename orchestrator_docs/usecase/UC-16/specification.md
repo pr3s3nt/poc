@@ -321,3 +321,12 @@ existing endpoint contract, not a new Service type; no endpoint is added until
 requested. Preserve existing endpoint alias/references and permit only one per
 workload. Missing type metadata or invalid/disabled target ports prevents creation
 or saving an invalid endpoint; Save → Preview → Deploy remains explicit.
+
+## Template version grouping — approved 2026-11-08, issue #47
+
+Add Workload shows one card per template ID within the API's current Environment
+scope. Its initial selection is the greatest numeric major.minor.patch version
+available in that scope. Older versions remain selectable through a collapsed
+version control; selecting a card passes the chosen immutable ID/version/digest.
+Editing an existing workload preserves its pin and never upgrades automatically.
+No template records, API visibility or deployment behavior change.

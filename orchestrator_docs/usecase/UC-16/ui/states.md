@@ -133,3 +133,9 @@ Service port is renamed/removed and Save is blocked instead of retargeting it.
 Cancel/Escape work during picker loading/error; a late template reply cannot
 reopen the dismissed picker. Reopening/selecting remains possible. Editor Cancel
 keeps the same Environment and never writes a workload draft.
+
+Grouped template picker: loaded metadata is grouped by ID; each group defaults
+to its newest scoped numeric version. Version disclosure/select changes only
+local selection; card activation submits that selected pin. Single-version
+groups have no version control. Loading/error/empty/search and Cancel/Escape
+remain supported; no late response from another scope may update the picker.

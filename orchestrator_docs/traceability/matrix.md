@@ -1598,3 +1598,9 @@ separate in the Environment rollback verification record.
 |---|---|---|
 | UC-16 picker Cancel/Escape and Environment-preserving Cancel | ApplicationHomePage picker host; WorkloadEditorPage navigation | Home/TemplatePicker tests; actual Console close/reopen/Cancel with unchanged drafts |
 | UC-16 default Service/dependencies and explicit endpoint from port | WorkloadEditorPage; ServiceEndpointFields | Editor Save payload and endpoint component tests; real-browser field editing |
+
+## Issue #47 — grouped template versions, 2026-11-08
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| UC-16 one card per ID, newest scoped numeric version, explicit older versions | TemplatePicker groups and local TemplateCard version control | TemplatePicker numeric order/exact pin/scope reset tests; workload-template-versions browser scenario |

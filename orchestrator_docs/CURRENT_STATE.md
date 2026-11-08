@@ -7,6 +7,13 @@ last_reviewed: 2026-11-08
 
 # Current project state
 
+## Grouped template versions — issue #47
+
+Add Workload now groups each template ID into one card, defaulting to its newest
+scoped numeric version. Older versions remain selectable in a collapsed control;
+card activation preserves the exact selected immutable pin. Existing workload
+pins are unchanged. See [verification](verification/2026-11-08-grouped-template-versions.md).
+
 ## Main integration — issues #47/#49, 2026-11-08
 
 User accepted integration and explicitly authorized main merge. Merge `0b180b33`

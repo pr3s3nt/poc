@@ -751,3 +751,6 @@ fieldset.volume-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 .workload-editor select.inherited-default { color:#6e7781; font-weight:400; }
 .workload-editor select.inherited-default option { color:var(--ink); }
 .workload-advanced-fields > .button { margin-top:10px; }
+
+.template-picker-choice { display:grid; gap:8px; width:100%; padding:0; border:0; background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.template-picker-choice:focus-visible { outline:2px solid var(--blue); outline-offset:4px; }
