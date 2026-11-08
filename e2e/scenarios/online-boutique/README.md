@@ -18,6 +18,15 @@ supplied through an owner-only file; no credential is printed or recorded.
 Business writes use browser controls only; API reads/response observation are
 technical assertions, never mutation shortcuts.
 
+Acceptance condition (user decision 2026-11-08): create and save all eleven
+workloads and their resource bindings through the UI before deployment. Preview
+the complete batch, then click Deploy once for the Environment. Record the
+Preview workload list and the resulting Operation. Deploying individual workloads
+one at a time is not a substitute for this acceptance flow. `workloads.mjs`
+saves the full set without deploying; `deploy.mjs` submits one batch Deploy.
+Backend sequencing is independent of the number of UI Deploy actions. A retry
+is a separately reported attempt, never evidence of first-attempt success.
+
 Assertions: private Git source pins, workload save/reopen, manifest/controller
 security defaults, Pod readiness, Redis secret delivery and interservice calls,
 shop/product/cart/checkout browser flow and loadgenerator logs/status.
@@ -84,6 +93,11 @@ resolved. No cleanup or namespace deletion is performed automatically on failure
   port in the shared namespace. The Console's current Service output is an HTTP
   URL, unsuitable for gRPC `host:port`; this run does not claim a cross-workload
   dependency edge for those literals.
+  For example, frontend's `AD_SERVICE_ADDR=ad:9555` addresses the Kubernetes
+  Service named `ad`, on its Service port `9555`, in the same namespace. It is
+  a literal gRPC endpoint, not a Console resource-output reference or an HTTP URL.
+  The short Service names match the workload names in this fixture; renaming a
+  Service requires updating its literal consumers as well.
 - Redis uses the private Terraform module and its sensitive `connection_string`
   output, selected through the resource picker. VSO delivers it as a Secret
   reference. Neither the fixture nor the Git manifests contain its value.
