@@ -185,7 +185,9 @@ The isolated Console UI proof now passes a complete two-workload batch and a
 consumer update with unchanged completed Job UID/time. Platform Git, account, CD,
 Definitions, workloads and Deploy used UI; scoped Fleet namespace RBAC preparation
 is disclosed separately. See [verification](../verification/2026-11-08-complex-ui-jobs.md).
-GitLab itself is not deployed. HTTPS hostname/certificate selection is the next
-user decision, since current Tailscale status has no CertDomains and enabling
-publicly trusted certificates requires tailnet setting/CT disclosure. No TLS or
-shared Serve settings have been changed. Full issue acceptance/merge stays pending.
+GitLab itself is not deployed. The user selected Tailscale HTTPS (option 1).
+The subsequent certificate request was refused by Tailscale with "your Tailscale
+account does not support getting TLS certs". The admin DNS page redirects the
+available browser session to login, so the account owner must enable HTTPS
+Certificates there before issuance can proceed. No certificate was issued and
+shared Serve settings remain unchanged. Full issue acceptance/merge stays pending.

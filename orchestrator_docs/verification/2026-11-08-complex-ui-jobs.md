@@ -111,5 +111,23 @@ Sources: [Tailscale HTTPS](https://tailscale.com/docs/how-to/set-up-https-certif
 [GitLab chart TLS](https://docs.gitlab.com/charts/installation/tls/).
 The choice changes external DNS/certificate trust and possibly tailnet settings;
 it is outside a routine form implementation detail. User input is needed before
-the dependent GitLab configuration/endpoint work. No TLS certificate was requested
-or issued and no tailnet setting was mutated.
+the dependent GitLab configuration/endpoint work. At this checkpoint no TLS
+certificate was requested or issued and no tailnet setting was mutated.
+
+## Tailscale HTTPS selected — account action required
+
+The user subsequently selected option 1 and authorized the Tailscale HTTPS path.
+Read-only preflight still reports no CertDomains. The first certificate command
+was denied for the non-operator WSL user; running it as root avoids changing the
+shared Tailscale operator setting. Tailscale then returned HTTP 500 with
+"your Tailscale account does not support getting TLS certs". No certificate was
+issued. Existing Serve configuration was backed up privately and not changed.
+
+The actual admin DNS page was opened with a browser and redirected to Tailscale
+login. There is no authenticated admin session available to perform the account
+change. The account owner needs to open the admin DNS page and enable HTTPS
+Certificates, acknowledging the previously approved CT disclosure. This is an
+account-access prerequisite, not another request to approve the chosen option.
+After confirmation, retry issuance and continue the GitLab configuration through
+UI. The login screenshot and command diagnostics remain outside Git. GitLab is
+not deployed and no HTTPS endpoint is claimed ready.
