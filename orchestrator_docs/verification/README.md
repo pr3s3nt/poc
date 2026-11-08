@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-08 | Issue #50 first-class Job UI batch completion and no-replay consumer update; GitLab TLS decision pending | [Job proof](2026-11-08-complex-ui-jobs.md) |
 | 2026-11-08 | One template card per ID, latest/older exact pins, main frontend rollout and real-browser checks | [Grouped template versions](2026-11-08-grouped-template-versions.md) |
 | 2026-11-08 | Organization seed main merge, obsolete static test retirement and retained kind Console upgrade | [Main integration](2026-11-08-organization-seed-main-merge.md) |
 | 2026-11-06 | Issue #37 merge, naming/ADR integration, real kind/Fleet/SQL gate, verified backup and retained Console main upgrade | [Main merge verification](2026-11-06-workload-defaults-main-merge.md) |

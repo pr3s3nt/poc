@@ -13,9 +13,10 @@ The user authorized implementing issue #50 until a product/architecture decision
 is needed. Branch: `features/complex_application_ui`, base main `2755c864`.
 GitLab is the first acceptance application; the goal is a functioning complex
 application entered through Workload forms and deployed in one Environment batch.
-This record is survey evidence and proposed choices, **not an approved extension
-to the Generic Workload or deployment contract**. No product code, Application,
-namespace, Definition, secret or runtime object has been changed in this survey.
+This record contains survey evidence and implementation checkpoints. GW-08 in
+the Generic Workload contract owns the behavior approved after A selection. The
+initial survey itself changed no product code or external application state;
+later real UI deployment evidence is linked in the final section.
 
 ## Verified upstream baseline
 
@@ -85,9 +86,8 @@ scheduling overhead:
 
 These are upstream defaults, not validated final sizing. The chart's default
 Gitaly claim is 50Gi; test sizing/retention need explicit configuration before
-creation. Cluster read preflight sees a single Ready development node with
-56 allocatable CPU and about 23.4Gi allocatable RAM; a metrics snapshot used
-6814Mi. This does not guarantee capacity for GitLab: other workloads, limits,
+creation. Cluster capacity/metrics were inspected read-only; actual capacity values remain
+in private run evidence. This does not guarantee capacity for GitLab: other workloads, limits,
 actual usage, disk backing, init scheduling and all dependencies must be budgeted.
 The default local-path storage binds on first consumer and does not advertise
 expansion; do not plan to fix undersizing by blindly expanding a claim later.
@@ -175,6 +175,17 @@ rendered Job policy tampering, Job ordering, deletion with unchanged consumers
 and mixed cycles; affected environment/template-source/workloadspec package suites
 and Go build pass. Console focused groups pass; the latest editor/JobFields run
 passes 27 tests including Job/consumer Save payloads. Typecheck/lint/build pass,
-with the existing PlatformSettings warning and bundle-size advisory. Product
-runtime Job/GitLab acceptance and feature full gate remain pending. These checks
-must not be reported as deployment success.
+with the existing PlatformSettings warning and bundle-size advisory. At that checkpoint, runtime Job/GitLab acceptance and the feature full gate
+were pending. Those unit/component checks alone are not deployment success; the
+subsequent real Job evidence is linked below.
+
+## Real Job proof and next decision
+
+The isolated Console UI proof now passes a complete two-workload batch and a
+consumer update with unchanged completed Job UID/time. Platform Git, account, CD,
+Definitions, workloads and Deploy used UI; scoped Fleet namespace RBAC preparation
+is disclosed separately. See [verification](../verification/2026-11-08-complex-ui-jobs.md).
+GitLab itself is not deployed. HTTPS hostname/certificate selection is the next
+user decision, since current Tailscale status has no CertDomains and enabling
+publicly trusted certificates requires tailnet setting/CT disclosure. No TLS or
+shared Serve settings have been changed. Full issue acceptance/merge stays pending.

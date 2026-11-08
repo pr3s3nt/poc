@@ -14,8 +14,9 @@ release index digest and an offline reduced profile renders successfully. Core
 components and form/Definition gaps are mapped; no application or cluster object
 has been created. The user selected first-class one-shot Job authoring (A). Job intent, source
 capability/guards, explicit completion graph/batch order and form fields are being
-implemented under GW-08, preserving immutable/no-replay behavior. Runtime Job and
-GitLab acceptance are not yet verified. See
+implemented under GW-08, preserving immutable/no-replay behavior. Real UI batch Job completion and a consumer update without Job replay now pass;
+GitLab acceptance/full gate remain pending, with HTTPS certificate/hostname choice
+awaiting user input. See
 [survey and proposed options](implementation/complex-application-ui.md).
 
 ## Grouped template versions — issue #47
