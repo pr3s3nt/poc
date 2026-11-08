@@ -37,7 +37,17 @@ func hasRuntimePolicy(m execution.Manifest) bool {
 // ValidateRuntimeObjects uses server admission without persistence before CD
 // publication or direct apply. Unsupported/gated fields fail closed. Retained
 // same-name claims cannot be adopted by a newly created StatefulSet.
-func ValidateRuntimeObjects(ctx context.Context, cli CLI, target execution.Target, manifests []execution.Manifest) error {
+func ValidateRuntimeObjects(ctx context.Context, cli CLI, target execution.Target, manifests []execution.Manifest, managers ...DeliveryManager) error {
+	manager := DeliveryManager{}
+	if len(managers) > 1 {
+		return ErrDeliveryOwnership
+	}
+	if len(managers) == 1 {
+		manager = managers[0]
+	}
+	if !manager.valid() {
+		return ErrDeliveryOwnership
+	}
 	discovery := newDiscovery(cli)
 	for _, m := range manifests {
 		if !hasRuntimePolicy(m) {
@@ -59,7 +69,7 @@ func ValidateRuntimeObjects(ctx context.Context, cli CLI, target execution.Targe
 					if err != nil {
 						return err
 					}
-					if found && (!exists || !sameWorkloadOwner(objectLabels(controller), target.Extra["application"], target.Extra["environment"], m.Name) || !sameWorkloadOwner(objectLabels(pvc), target.Extra["application"], target.Extra["environment"], m.Name)) {
+					if found && (!exists || !runtimeControllerOwner(controller, target, m.Name, manager) || !sameWorkloadOwner(objectLabels(pvc), target.Extra["application"], target.Extra["environment"], m.Name)) {
 						return fmt.Errorf("%w: retained or foreign StatefulSet claim requires explicit data migration", ErrDeliveryOwnership)
 					}
 				}
@@ -99,4 +109,24 @@ func ValidateRuntimeObjects(ctx context.Context, cli CLI, target execution.Targe
 		}
 	}
 	return nil
+}
+
+// Fleet changes the controller manager to Helm, but generated claims retain
+// platform labels. The exact admitted manager must be supplied by the CD caller.
+func runtimeControllerOwner(controller map[string]any, target execution.Target, workload string, manager DeliveryManager) bool {
+	labels := objectLabels(controller)
+	if manager.Release == "" {
+		return sameWorkloadOwner(labels, target.Extra["application"], target.Extra["environment"], workload)
+	}
+	md, _ := controller["metadata"].(map[string]any)
+	annotations, _ := md["annotations"].(map[string]any)
+	if labels["app.kubernetes.io/managed-by"] != "Helm" || labels["orchestrator.io/managed-by"] != "orchestrator" || annotations["meta.helm.sh/release-name"] != manager.Release || annotations["meta.helm.sh/release-namespace"] != manager.Namespace {
+		return false
+	}
+	normalized := map[string]any{}
+	for k, v := range labels {
+		normalized[k] = v
+	}
+	normalized["app.kubernetes.io/managed-by"] = "orchestrator"
+	return sameWorkloadOwner(normalized, target.Extra["application"], target.Extra["environment"], workload)
 }

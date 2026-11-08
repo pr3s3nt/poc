@@ -81,6 +81,10 @@ func (p *Provider) Verify(ctx context.Context, b port.BindingVersion) (port.Veri
 	return result, nil
 }
 func (p *Provider) Prepare(_ context.Context, i port.Intent, manifests []execution.Manifest) (port.Prepared, error) {
+	manifests, err := preserveClaimProvenance(i, manifests)
+	if err != nil {
+		return port.Prepared{}, err
+	}
 	pkg, err := PackageUnit(i, manifests)
 	if err != nil {
 		return port.Prepared{}, err
@@ -494,7 +498,7 @@ func (p *Provider) preflight(ctx context.Context, i port.Intent, pkg Package) er
 	if err != nil {
 		return err
 	}
-	if err := k8s.ValidateRuntimeObjects(ctx, cli, i.Target, manifests); err != nil {
+	if err := k8s.ValidateRuntimeObjects(ctx, cli, i.Target, manifests, k8s.DeliveryManager{Release: pkg.ReleaseName, Namespace: cfg.ReleaseNamespace}); err != nil {
 		return err
 	}
 	// Older handoff revisions left a competing Update owner of platform

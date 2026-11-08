@@ -235,3 +235,20 @@ was already omitted from the rebuilt document. Gitaly hit this path after its
 successful partial deployment. Reconstruction now publishes resource aliases
 after mapping all execution references; the focused workloadconfig suite and a
 file-only round-trip regression pass. Retesting the full batch remains pending.
+
+## Whole-batch retry after recovery — StatefulSet admission
+
+After the reconstruction fix, whole-Environment Preview succeeds with two UPDATEs
+(Gitaly/objectstore), seven DEPLOYs including the replacement Job, and REMOVE of
+the old Job. One actual UI Deploy is recorded. It stops at Gitaly rollout
+preflight before publishing that rollout. Existing explicit unpublished-update
+recovery succeeds through Settings; the prior successful controller is retained.
+
+Read-only inspection identifies Fleet's Helm controller manager versus native
+claim labels. Server dry-run also confirms that changing the generated deployment
+label in volumeClaimTemplates is an immutable StatefulSet change. The correction
+uses the exact admitted CD manager for controller validation and preserves only
+that generated claim label from the retained source artifact before packaging.
+Storage fields, business metadata, native admission, source UID and release checks
+remain enforced; no live resource/data migration or force replace is introduced.
+Runtime retry remains pending while these corrections are validated.

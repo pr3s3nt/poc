@@ -278,6 +278,13 @@ func (c *Coordinator) Deploy(ctx context.Context, req DeployRequest) error {
 			if e.UnitID == unit {
 				intent.ExpectedRevision = e.Revision.ID
 				intent.SourceInventory = append([]port.AppliedObject(nil), e.Inventory...)
+				if phase == domain.Rollout {
+					priorRaw, err := c.providerArtifact(ctx, e)
+					if err != nil {
+						return err
+					}
+					intent.PriorSubmission = &port.PriorSubmission{Prepared: port.Prepared{Revision: e.Revision, Payload: priorRaw}, Receipt: e.Receipt}
+				}
 			}
 		}
 

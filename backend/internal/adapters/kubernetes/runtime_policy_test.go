@@ -55,3 +55,39 @@ esac
 		t.Fatal("dry-run merged ports")
 	}
 }
+
+func TestRuntimeClaimControllerRequiresExactDeliveryOwner(t *testing.T) {
+	target := execution.Target{Extra: map[string]string{"application": "app", "environment": "staging"}}
+	manager := DeliveryManager{Release: "release", Namespace: "fleet-releases"}
+	makeController := func() map[string]any {
+		return map[string]any{"metadata": map[string]any{"labels": map[string]any{"app.kubernetes.io/managed-by": "Helm", "app.kubernetes.io/name": "web", "orchestrator.io/managed-by": "orchestrator", "orchestrator.io/application": "app", "orchestrator.io/environment": "staging"}, "annotations": map[string]any{"meta.helm.sh/release-name": "release", "meta.helm.sh/release-namespace": "fleet-releases"}}}
+	}
+	if !runtimeControllerOwner(makeController(), target, "web", manager) {
+		t.Fatal("Admitted Fleet controller rejected")
+	}
+	for _, test := range []struct {
+		name   string
+		change func(map[string]any)
+	}{
+		{"foreign-release", func(c map[string]any) {
+			c["metadata"].(map[string]any)["annotations"].(map[string]any)["meta.helm.sh/release-name"] = "foreign"
+		}},
+		{"foreign-environment", func(c map[string]any) {
+			c["metadata"].(map[string]any)["labels"].(map[string]any)["orchestrator.io/environment"] = "prod"
+		}},
+		{"missing-platform-owner", func(c map[string]any) {
+			delete(c["metadata"].(map[string]any)["labels"].(map[string]any), "orchestrator.io/managed-by")
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			c := makeController()
+			test.change(c)
+			if runtimeControllerOwner(c, target, "web", manager) {
+				t.Fatal("Foreign controller admitted")
+			}
+		})
+	}
+	if runtimeControllerOwner(makeController(), target, "web", DeliveryManager{}) {
+		t.Fatal("Direct admission accepted Helm ownership")
+	}
+}

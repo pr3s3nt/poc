@@ -1390,3 +1390,10 @@ withdrawal. `coordinator.go` rejects replay. `workloadconfig/service.go` preserv
 UI draft removals with retained publication even without a successful Set.
 `terminal_job_test.go`, `failed_delivery_delete_test.go` and the PostgreSQL
 `terminal_job_integration_test.go` cover these boundaries; runtime proof is pending.
+
+Stateful update corrections (issue #50): `fleet/stateful_claims.go` retains only
+the generated deployment provenance label of existing immutable claim templates
+from the persisted admitted source artifact before packaging/digesting. Native
+storage/business changes remain subject to admission. `runtime_policy.go` accepts
+an exact CD manager for controller ownership while preserving native claim owner
+checks. `coordinator.go` supplies the retained rollout artifact and UID inventory.
