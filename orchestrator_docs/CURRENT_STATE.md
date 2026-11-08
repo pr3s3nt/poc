@@ -20,10 +20,17 @@ Application. GitLab acceptance/full gate remain pending. The user selected
 Tailscale HTTPS and enabled the account setting: certificate issuance and TLS
 verification now pass, with existing Serve listeners preserved. All nine GitLab
 component/dependency drafts and the webservice endpoint are entered through UI;
-whole-Environment Preview passes, but no GitLab Deploy has run yet. The user
+whole-Environment Preview passes. The user
 approved SeaweedFS S3 after the selected MinIO image manifests were unavailable.
 Preview exposed and now verifies a fix for graph discovery interpreting literal
-ConfigMap shell text as platform references; planning tests and Go build pass. See
+ConfigMap shell text as platform references; planning tests and Go build pass.
+Three batch attempts are recorded: stale renderer pin failed, namespace access
+setup ordering interrupted then recovered, and the current attempt reached Ready
+Gitaly/SeaweedFS but its bucket Job failed due to a double URL scheme in test
+inputs. Corrections are prepared; failed Job recovery waits for Ready and holds
+the app. No recovery semantics extension is approved. User choice between a new
+isolated test app and expanding failed-Job recovery/removal is pending; GitLab
+functional acceptance and full gate are not complete. See
 [survey and proposed options](implementation/complex-application-ui.md).
 
 ## Grouped template versions — issue #47

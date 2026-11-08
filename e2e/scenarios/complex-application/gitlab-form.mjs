@@ -47,7 +47,7 @@ export async function authorGitLabWorkload(ui,base,home,spec){
  if(spec.claim){const claim=spec.claim,g=await group(page,page,text('defaults','statefulStorage'));await g.getByRole('button',exact(text('defaults','addClaim'))).click();await g.getByLabel(text('defaults','claimName'),{exact:true}).fill(claim.name);await g.getByLabel(text('defaults','size'),{exact:true}).fill(claim.size);await g.getByRole('button',exact(text('defaults','addClaimMount'))).click();await g.locator('select').last().selectOption(claim.container);await g.getByLabel('path',{exact:true}).fill(claim.path);}
  const attached=new Set();
  for(const mount of [...spec.mounts,...spec.secrets.map(m=>({...m,secret:true}))]){
-  const index=spec.containers.findIndex(c=>c.name===mount.container),section=page.locator('section.content-panel').filter({has:page.getByRole('heading',exact(`Container ${index+1}`))});await group(page,section,text('defaults','volumes'));
+  const index=await page.getByLabel('Tên Container',{exact:true}).evaluateAll((es,name)=>es.findIndex(e=>e.value===name),mount.container),section=page.locator('section.content-panel').filter({has:page.getByRole('heading',exact(`Container ${index+1}`))});await group(page,section,text('defaults','volumes'));
   await section.getByRole('button',exact('Thêm volume hoặc file')).click();const dialog=page.getByRole('dialog',exact('Thêm volume hoặc file'));
   if(mount.secret){await dialog.getByRole('button',exact(`Dùng ${mount.key} · File bí mật`)).click();await dialog.getByLabel('Đường dẫn tệp',{exact:true}).fill(mount.path);await dialog.getByRole('combobox',exact('Quyền đọc')).selectOption('288');}
   else{
@@ -82,4 +82,19 @@ export async function updateGitLabStorage(ui,base,appKey,spec){
  }
  await ui.submit(base+'/workloads/'+spec.name,'PUT',page.getByRole('button',exact('Lưu draft Workload')));
  const saved=(await ui.get(base+'/workloads')).workloads.find(w=>w.id===spec.name)?.workload;assert.equal(saved.containers[c.name].image,c.image);return saved;
+}
+
+export async function updateGitLabConnectionFiles(ui,base,appKey,spec,previous){
+ const {page}=ui;await page.goto(ui.baseURL+`/ui/applications/${appKey}/environments/staging/workloads/${spec.name}`);await page.getByLabel('Tên Workload',{exact:true}).waitFor();
+ let changed=0;
+ for(const volume of spec.volumes.filter(v=>v.files)){
+  const prior=previous.workloadExecution.volumes.find(v=>v.name===volume.name)?.configMap;assert(prior);
+  if(JSON.stringify(prior.files)===JSON.stringify(volume.files))continue;
+  const mount=spec.mounts.find(m=>m.volume===volume.name);assert(mount);const index=await page.getByLabel('Tên Container',{exact:true}).evaluateAll((es,name)=>es.findIndex(e=>e.value===name),mount.container),section=page.locator('section.content-panel').filter({has:page.getByRole('heading',exact(`Container ${index+1}`))});await group(page,section,text('defaults','volumes'));
+  const fields=section.getByRole('group',exact(`Volume và file của ${mount.container}`)),cards=fields.locator(':scope > div.content-panel');let card;
+  for(let i=0;i<await cards.count();i++)if(await cards.nth(i).locator('select').first().inputValue()===volume.name){card=cards.nth(i);break;}
+  assert(card,'Mounted ConfigMap source '+volume.name);await card.locator('details > summary').click();const names=card.getByLabel('Tên file cấu hình',{exact:true});assert.equal(await names.count(),volume.files.length);
+  for(let n=0;n<volume.files.length;n++){assert.equal(await names.nth(n).inputValue(),volume.files[n].name);assert.equal(await card.locator('textarea').nth(n).inputValue(),prior.files[n].value);if(prior.files[n].value!==volume.files[n].value){await card.locator('textarea').nth(n).fill(volume.files[n].value);changed++;}}
+ }
+ assert(changed>0,'Expected URL-normalization corrections');await ui.submit(base+'/workloads/'+spec.name,'PUT',page.getByRole('button',exact('Lưu draft Workload')));return (await ui.get(base+'/workloads')).workloads.find(w=>w.id===spec.name).workload;
 }

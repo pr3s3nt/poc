@@ -19,7 +19,7 @@ specs.push(base('redis','StatefulSet',[container('redis',image.redis,{REDIS_PASS
 specs[1].containers[0].readiness={type:'exec',command:['sh','-c','REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping']};
 specs.push(base('objectstore','StatefulSet',[container('objectstore',image.s3,{AWS_ACCESS_KEY_ID:secret('S3_USER'),AWS_SECRET_ACCESS_KEY:secret('S3_PASSWORD'),HOME:'/data'},['mini','-dir=/data','-s3.port=9000','-webdav=false','-admin.ui=false','-master.telemetry=false'],['weed'])],{uid:1000,claim:{name:'data',size:'5Gi',container:'objectstore',path:'/data'},service:{name:'s3',port:9000}}));
 specs[2].containers[0].readiness={type:'tcp',port:9000};
-specs.push(base('object-init','Job',[container('buckets',image.aws,{AWS_ACCESS_KEY_ID:secret('S3_USER'),AWS_SECRET_ACCESS_KEY:secret('S3_PASSWORD'),S3_ENDPOINT:{service:'objectstore',port:'s3'},AWS_DEFAULT_REGION:'us-east-1',AWS_EC2_METADATA_DISABLED:'true',HOME:'/tmp'},['set -e; for bucket in gitlab-artifacts git-lfs gitlab-uploads gitlab-packages gitlab-pages gitlab-backups; do aws --endpoint-url "http://$S3_ENDPOINT" s3api head-bucket --bucket "$bucket" || aws --endpoint-url "http://$S3_ENDPOINT" s3api create-bucket --bucket "$bucket"; done'],['/bin/sh','-c'])],{uid:1000}));
+specs.push(base('object-init','Job',[container('buckets',image.aws,{AWS_ACCESS_KEY_ID:secret('S3_USER'),AWS_SECRET_ACCESS_KEY:secret('S3_PASSWORD'),S3_ENDPOINT:{service:'objectstore',port:'s3'},AWS_DEFAULT_REGION:'us-east-1',AWS_EC2_METADATA_DISABLED:'true',AWS_MAX_ATTEMPTS:'2',HOME:'/tmp'},['set -e; for bucket in gitlab-artifacts git-lfs gitlab-uploads gitlab-packages gitlab-pages gitlab-backups; do aws --cli-connect-timeout 5 --cli-read-timeout 15 --endpoint-url "$S3_ENDPOINT" s3api head-bucket --bucket "$bucket" || aws --cli-connect-timeout 5 --cli-read-timeout 15 --endpoint-url "$S3_ENDPOINT" s3api create-bucket --bucket "$bucket"; done'],['/bin/sh','-c'])],{uid:1000}));
 for(const d of docs.filter(d=>['Deployment','StatefulSet','Job'].includes(d.kind))){
  const name=d.metadata.name.includes('migrations')?'migrations':d.metadata.name.includes('webservice')?'webservice':d.metadata.name.includes('sidekiq')?'sidekiq':d.metadata.name.includes('toolbox')?'toolbox':'gitaly';
  const pod=d.spec.template.spec,spec=base(name,d.kind,[],{uid:1000});
@@ -54,7 +54,7 @@ for(const d of docs.filter(d=>['Deployment','StatefulSet','Job'].includes(d.kind
   spec.containers.push(out);
  }
  // Make database/Redis reference outputs feed ERB/Gomplate, not unused env placeholders.
- for(const v of spec.volumes)for(const f of v.files??[]){f.value=f.value.replaceAll('host: "postgres"',`host: <%= ENV.fetch('PG_ENDPOINT').split(':').first.to_json %>`).replaceAll('@redis:6379',`@<%= ENV.fetch('REDIS_ENDPOINT') %>`).replaceAll('URL = "redis://redis:6379"','URL = "redis://{% .Env.REDIS_ENDPOINT %}"');}
+ for(const v of spec.volumes)for(const f of v.files??[]){f.value=f.value.replaceAll('host: "postgres"',`host: <%= ENV.fetch('PG_ENDPOINT').split('://',2).last.split(':').first.to_json %>`).replaceAll('@redis:6379',`@<%= ENV.fetch('REDIS_ENDPOINT').split('://',2).last %>`).replaceAll('URL = "redis://redis:6379"','URL = "redis://{% .Env.REDIS_ENDPOINT | strings.TrimPrefix "http://" %}"');}
  specs.push(spec);
 }
 assert.equal(specs.length,9);

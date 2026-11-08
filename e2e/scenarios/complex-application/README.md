@@ -60,3 +60,25 @@ ORCH_VAULT_WORKLOAD_ADDRESS and a private vault-application-token input; operato
 Kubernetes authentication setup is a separate prerequisite. Drafts, receipts and
 rendered files stay outside Git. Preview is not runtime acceptance; do not claim
 that these stages deploy GitLab or that all workload images have been pulled.
+
+Recorded deployment continuation adds `deploy` (first batch), `status` (observe
+only) and explicit `retry` after a diagnosed failed/recovered attempt. Every
+attempt records its reviewRequestId before observation and validates history;
+never invoke deploy to resume an unknown attempt. The Deploy click starts the
+observer immediately rather than waiting for the long-running HTTP response,
+so scoped namespace access can be prepared as soon as the platform creates it.
+`namespace-access` only invokes that guarded operator helper; `refresh-source`
+re-inspects the configured exact Git ref after an executable change and explicitly
+selects a new Definition revision in this app. `recover` uses Settings' existing
+recovery control and records the result, without overriding guards. It may remain
+incomplete for a failed Job; do not interpret running it as successful recovery.
+
+The current retry checker is intentionally limited to the recorded nine-change
+initial batch. A later partial-success retry or new Job identity needs explicit
+scenario updates and assertions. `updateGitLabConnectionFiles` is prepared for
+form corrections to the literal files, but has not yet been exercised. Service
+references resolve to complete HTTP URLs: use the full S3 URL directly; Rails
+config must extract hostname/authority rather than add another URL scheme. The
+initial bucket Job used a double scheme and failed; its immutable identity must
+not be rewritten/replayed. Keep failed attempt records and use an explicitly new
+Job identity if the supported lifecycle allows it.

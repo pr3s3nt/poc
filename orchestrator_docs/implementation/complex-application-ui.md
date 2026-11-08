@@ -204,5 +204,10 @@ The selected MinIO server/client tags return no manifest; the upstream repositor
 is archived. The user approved SeaweedFS S3 instead. Objectstore and bucket Job
 drafts were edited through UI, preserving Service identity/port, with SeaweedFS
 4.52 and AWS CLI 2.31.20 manifests verified. This does not yet prove GitLab S3
-compatibility or retention. Next is one batch Deploy and functional acceptance;
-full issue acceptance/merge stays pending.
+compatibility or retention. Subsequent batch attempts reached Gitaly/SeaweedFS
+Ready but failed the bucket Job due to a double URL scheme in scenario inputs.
+The renderer pin refresh and namespace access harness correction, supported
+recovery, immutable Job failure and next scope decision are recorded in the
+verification above. Corrected inputs are prepared, not applied to the blocked app.
+No new failed-Job recovery/removal behavior is implemented or assumed approved;
+functional/full issue acceptance and merge stay pending.

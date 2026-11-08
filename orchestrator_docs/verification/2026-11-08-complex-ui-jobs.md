@@ -172,3 +172,34 @@ New GitLab authoring/profile scripts are in `e2e/scenarios/complex-application/`
 Node syntax and documentation/whitespace checks pass. Frontend code is unchanged
 in this checkpoint, so its earlier focused checks are reused. Full gate, GitLab
 runtime/Git operations and cleanup remain pending; no main merge.
+
+## GitLab initial deployment attempts — not accepted
+
+First whole-Environment UI Deploy failed before provisioning: rebuilding the
+backend made its previously prepared template source UNAVAILABLE. The exact Git
+source was re-inspected through the Definition editor, creating a proposed
+revision explicitly selected for this app; existing pins were not bypassed.
+The next batch was interrupted because the scenario awaited the long-running
+Deploy response before it could prepare scoped Fleet namespace access. The
+prerequisite Bundle reported forbidden ServiceAccount access. This is a harness
+ordering error, not evidence that the infrastructure prerequisite was fulfilled.
+The namespace Role/RoleBinding were then created with the existing ownership/UID
+guard; VSO objects became Ready. Settings recovery completed and released the
+Environment. The script now starts observation immediately after the UI click.
+
+The third recorded batch advanced Gitaly and SeaweedFS to Ready, with real Pods
+and retained claims. Its bucket initialization Job failed: the bound Service
+reference is a complete HTTP URL, while the scenario prepended another scheme.
+Prepared corrections use the S3 URL directly and extract the database/Redis
+host or authority explicitly. They have not been saved into the blocked app's
+forms. A new Job execution requires a new workload identity under GW-08; the
+published Job has not been rewritten or run manually.
+
+The Operation is interrupted. Existing recovery observes the exact submission
+but waits for Ready, which this failed Job cannot reach. No new Job recovery
+semantics are approved under GW-08. User choice is needed between a new isolated
+UI-authored test app using corrected inputs (retaining this failed app as evidence)
+and expanding issue #50 to handle failed Job recovery/removal through UI. Neither
+choice is assumed. GitLab itself is not functioning; its webservice/migration
+and user/Git/S3-retention acceptance are not complete. Do not send its TLS URL as
+an application-ready handoff. Existing apps, receipts and guards remain intact.
