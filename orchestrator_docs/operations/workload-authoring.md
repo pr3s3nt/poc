@@ -2,7 +2,7 @@
 id: OPS-WORKLOAD-AUTHORING
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-11-06
+last_reviewed: 2026-11-09
 ---
 
 # Hướng dẫn sử dụng trang Thêm Workload
@@ -130,11 +130,10 @@ Bấm **Hiện nâng cao Workload**, ở ngoài các khối container.
 
 Dùng Service để workload khác trong cùng môi trường truy cập ứng dụng:
 
-1. Chọn **Bật / Enabled** nếu muốn bật rõ ràng; có thể giữ kế thừa nếu template
-   đã cung cấp Service phù hợp.
-2. Bấm **+ Thêm cổng / Add port**.
-3. Điền tên cổng, cổng Service và chọn protocol phù hợp.
-4. Mở **Hiện nâng cao** của chính dòng cổng đó để nhập **Cổng đích của Container**
+1. Bấm **+ Thêm cổng / Add port**. Có ít nhất một cổng thì workload có Service;
+   không có cổng thì không có Service. Không có lựa chọn bật/tắt riêng.
+2. Điền tên cổng, cổng Service và chọn protocol phù hợp.
+3. Mở **Hiện nâng cao** của chính dòng cổng đó để nhập **Cổng đích của Container**
    (target port). Nếu để trống, target port lấy cùng số với cổng Service.
 
 Ví dụ ứng dụng lắng nghe ở cổng `8080`:
@@ -148,11 +147,16 @@ Ví dụ ứng dụng lắng nghe ở cổng `8080`:
 
 Client gọi Service ở cổng 80; Service chuyển tới tiến trình ở cổng 8080 của Pod.
 Cổng container và target port cần khớp với ứng dụng thực sự đang lắng nghe.
-Chỉ chọn Enabled mà chưa có cổng hợp lệ chưa tạo được một kết nối sử dụng được.
 Service trên trang này phục vụ kết nối nội bộ, không tự cấp URL public/Internet.
+Template có Service mặc định (ví dụ `nginx-readonly`) luôn giữ Service đó; đổi
+cổng bằng cách thêm cổng cùng tên.
 
-Chọn **Tắt / Disabled** để tắt Service, kể cả Service kế thừa từ template.
-Headless chỉ dùng khi ứng dụng cần; nó không phải tùy chọn để công khai web.
+**Service headless** nằm trong **Hiện nâng cao Service**, chỉ hiện khi có cổng.
+Headless không cấp IP chung; DNS trả về địa chỉ từng Pod để client gọi đúng Pod.
+Chỉ bật khi ứng dụng cần, ví dụ database có replication hoặc cụm nhiều node
+(StatefulSet). Web/API thông thường để tắt. Headless không công khai web.
+Workload cũ đã lưu lựa chọn tắt Service vẫn giữ nguyên khi chưa có cổng; thêm cổng
+rồi lưu sẽ bỏ lựa chọn đó.
 
 ### Tài nguyên phụ thuộc
 

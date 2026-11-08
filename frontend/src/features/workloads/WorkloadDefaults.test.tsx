@@ -81,10 +81,7 @@ it('offers each select value once and reset restores omission after explicit cho
  const {saved}=serve(false,{...effective,workloadExecution:{...effective.workloadExecution,podSecurityContext:{seccompProfile:{type:'RuntimeDefault'}}}});
  const user=await author();
  await openWorkloadGroup(user,'Service & kết nối');
- const service=screen.getByRole('combobox',{name:'Service'});
- expect(service).toHaveValue('');expect(service).toHaveClass('inherited-default');
- expect(within(service).getAllByRole('option').map(option=>option.textContent)).toEqual(['Bật','Tắt']);
- await user.selectOptions(service,'false');
+ expect(screen.queryByRole('combobox',{name:'Service'})).not.toBeInTheDocument();
  await openWorkloadGroup(user,'Bảo mật Pod');
  const token=screen.getByRole('combobox',{name:'automountServiceAccountToken'});
  expect(within(token).getAllByRole('option').map(option=>option.textContent)).toEqual(['Có','Không']);
@@ -98,14 +95,14 @@ it('offers each select value once and reset restores omission after explicit cho
  await user.selectOptions(strategy,'RollingUpdate');
  await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));
  const explicit=saved[0]!.workload.workloadExecution as Execution;
- expect(explicit.serviceEnabled).toBe(false);expect(explicit.automountServiceAccountToken).toBe(false);expect(explicit.podSecurityContext?.seccompProfile?.type).toBe('RuntimeDefault');expect(explicit.updateStrategy?.type).toBe('RollingUpdate');
- for(const control of [service,token,seccomp,strategy]){
+ expect(explicit.automountServiceAccountToken).toBe(false);expect(explicit.podSecurityContext?.seccompProfile?.type).toBe('RuntimeDefault');expect(explicit.updateStrategy?.type).toBe('RollingUpdate');
+ for(const control of [token,seccomp,strategy]){
   await user.click(within(control.closest('label')!).getByRole('button',{name:'Khôi phục mặc định'}));
   expect(control).toHaveValue('');expect(control).toHaveClass('inherited-default');
  }
  await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));
  const reset=saved[1]!.workload.workloadExecution as Execution;
- expect(reset.serviceEnabled).toBeUndefined();expect(reset.automountServiceAccountToken).toBeUndefined();expect(reset.podSecurityContext).toBeUndefined();expect(reset.updateStrategy).toBeUndefined();
+ expect(reset.automountServiceAccountToken).toBeUndefined();expect(reset.podSecurityContext).toBeUndefined();expect(reset.updateStrategy).toBeUndefined();
 });
 
 
@@ -142,4 +139,22 @@ it('explains a rejected single-replica PDB and recovers after correcting replica
  await user.type(screen.getByLabelText('Số replica'),'2');await waitFor(()=>expect(screen.queryByRole('alert')).not.toBeInTheDocument());
  await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));
  expect(mock.saved).toHaveLength(1);expect(mock.saved[0]!.workload.replicas).toBe(2);expect((mock.saved[0]!.workload.workloadExecution as Execution).podDisruptionBudget).toEqual({enabled:true});
+});
+
+it('keeps headless under the Service advanced section and derives Service from ports',async()=>{
+ const {saved}=serve();
+ const user=await author();
+ await openWorkloadGroup(user,'Service & kết nối');
+ expect(screen.queryByRole('checkbox',{name:'Service headless'})).not.toBeInTheDocument();
+ await user.click(screen.getByRole('button',{name:'+ Thêm cổng'}));await user.type(screen.getByLabelText('Tên cổng Service'),'http');await user.type(screen.getByLabelText('Cổng Service'),'8080');
+ expect(screen.queryByRole('checkbox',{name:'Service headless'})).not.toBeInTheDocument();
+ expect(screen.getByRole('note',{name:'Tóm tắt nâng cao Service'})).toHaveTextContent('ClusterIP');
+ await user.click(screen.getByRole('button',{name:'Hiện nâng cao Service'}));
+ expect(screen.getByText(t('workloads.templates.headlessHelp'))).toBeVisible();
+ await user.click(screen.getByRole('checkbox',{name:'Service headless'}));
+ expect(screen.getByRole('note',{name:'Tóm tắt nâng cao Service'})).toHaveTextContent('Service headless');
+ await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));
+ const execution=saved[0]!.workload.workloadExecution as Execution;
+ expect(execution.headless).toBe(true);expect(execution.serviceEnabled).toBeUndefined();
+ expect(saved[0]!.workload.service).toEqual({ports:{http:{port:8080,targetPort:8080}}});
 });

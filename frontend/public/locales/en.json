@@ -3290,6 +3290,7 @@
   "workloads.templates.retain": "Data is retained when the workload is removed.",
   "workloads.templates.templateMissing": "Selected template is unavailable. Go back and choose a template.",
   "workloads.templates.headless": "Headless Service",
+  "workloads.templates.headlessHelp": "No shared IP: DNS returns each Pod address so clients can reach a specific Pod. Enable only when the application needs it, such as a replicated database or multi-node cluster (StatefulSet). Leave off for ordinary web/APIs. Does not expose the application to the Internet.",
   "workloads.templates.command": "Command (one element per line)",
   "workloads.templates.args": "Arguments (one element per line)",
   "workloads.templates.replicas": "Replicas",
