@@ -341,7 +341,7 @@ func terminalJobIdentity(job, expected map[string]any, i port.Intent, r port.Rec
 	md := obj(job["metadata"])
 	labels, ann := obj(md["labels"]), obj(md["annotations"])
 	uid := stringValue(md["uid"])
-	if uid == "" || md["resourceVersion"] == nil || md["namespace"] != i.Target.Namespace || md["name"] != obj(expected["metadata"])["name"] || md["deletionTimestamp"] != nil || labels["orchestrator.io/managed-by"] != "orchestrator" || labels["orchestrator.io/application"] != i.Target.Extra["application"] || labels["orchestrator.io/environment"] != i.Target.Extra["environment"] || ann["orchestrator.io/delivery-revision"] != i.Revision.ID || ann["meta.helm.sh/release-name"] != r.Handle["release"] || ann["meta.helm.sh/release-namespace"] != r.Handle["releaseNamespace"] || obj(cloneObject(job)["metadata"])["generation"] != float64(1) || !expectedJobFields(obj(cloneObject(expected)["spec"]), obj(cloneObject(job)["spec"])) {
+	if uid == "" || md["resourceVersion"] == nil || md["namespace"] != i.Target.Namespace || md["name"] != obj(expected["metadata"])["name"] || md["deletionTimestamp"] != nil || labels["orchestrator.io/managed-by"] != "orchestrator" || labels["orchestrator.io/application"] != i.Target.Extra["application"] || labels["orchestrator.io/environment"] != i.Target.Extra["environment"] || ann["orchestrator.io/delivery-revision"] != i.Revision.ID || ann["meta.helm.sh/release-name"] != r.Handle["release"] || ann["meta.helm.sh/release-namespace"] != r.Handle["releaseNamespace"] || obj(cloneObject(job)["metadata"])["generation"] != float64(1) || !expectedJobFields(nativeJobSpec(expected), nativeJobSpec(job)) {
 		return "", false, false, ErrOwnership
 	}
 	status := obj(cloneObject(job)["status"])
@@ -422,4 +422,28 @@ func terminalJobExecutionObject(source map[string]any) map[string]any {
 	delete(obj(md["annotations"]), "objectset.rio.cattle.io/id")
 	delete(obj(md["labels"]), "objectset.rio.cattle.io/hash")
 	return out
+}
+
+// These VolumeMount fields are non-pointer Kubernetes API scalars: the server
+// omits false/empty values when serializing an otherwise identical Job spec.
+// Preserve all nonzero mounts and all other Job/Pod security/business fields.
+func nativeJobSpec(job map[string]any) map[string]any {
+	spec := obj(cloneObject(job)["spec"])
+	pod := obj(obj(spec["template"])["spec"])
+	for _, kind := range []string{"containers", "initContainers"} {
+		containers, _ := pod[kind].([]any)
+		for _, raw := range containers {
+			mounts, _ := obj(raw)["volumeMounts"].([]any)
+			for _, m := range mounts {
+				mount := obj(m)
+				if _, present := mount["readOnly"]; !present {
+					mount["readOnly"] = false
+				}
+				if _, present := mount["subPath"]; !present {
+					mount["subPath"] = ""
+				}
+			}
+		}
+	}
+	return spec
 }

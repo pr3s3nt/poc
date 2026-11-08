@@ -114,3 +114,23 @@ func TestTerminalJobManifestIgnoresOnlyFleetTracking(t *testing.T) {
 		t.Fatal("Changed Job policy admitted", err)
 	}
 }
+
+func TestTerminalJobNativeMountDefaultsKeepMeaningfulDifferences(t *testing.T) {
+	job := map[string]any{"spec": map[string]any{"template": map[string]any{"spec": map[string]any{"containers": []any{map[string]any{"volumeMounts": []any{map[string]any{"name": "data", "mountPath": "/data", "readOnly": false, "subPath": ""}}}}}}}}
+	native := cloneObject(job)
+	mount := obj(obj(obj(obj(obj(native["spec"])["template"])["spec"])["containers"].([]any)[0])["volumeMounts"].([]any)[0])
+	delete(mount, "readOnly")
+	delete(mount, "subPath")
+	if !expectedJobFields(nativeJobSpec(job), nativeJobSpec(native)) {
+		t.Fatal("API omitted scalar defaults rejected")
+	}
+	mount["readOnly"] = true
+	if expectedJobFields(nativeJobSpec(job), nativeJobSpec(native)) {
+		t.Fatal("Read-only mount change admitted")
+	}
+	delete(mount, "readOnly")
+	mount["subPath"] = "different"
+	if expectedJobFields(nativeJobSpec(job), nativeJobSpec(native)) {
+		t.Fatal("Subpath change admitted")
+	}
+}

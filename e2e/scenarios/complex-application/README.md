@@ -92,3 +92,11 @@ the migration completion reference and marks the old Job for removal through UI.
 It asserts that deletion remains PENDING_DELETE rather than silently discarding a
 published draft. `retry` previews the entire replacement/removal batch and clicks
 Environment Deploy once; history and previous attempt receipts remain retained.
+
+`recover` now observes the recorded operation asynchronously after its single UI
+click, preserving the request if recovery outlasts a short browser response wait.
+For the diagnosed multiline Settings-input mistake, `correct-migration` uses
+privately prepared YAML-compatible single-line JSON, asserts the input preserves
+its bytes, replaces S3/Rails secrets through Settings, authors explicit new
+bucket/migration Jobs, repoints consumers and retains three retirement drafts.
+Preview asserts the complete 12-change batch. This does not replay a completed Job.

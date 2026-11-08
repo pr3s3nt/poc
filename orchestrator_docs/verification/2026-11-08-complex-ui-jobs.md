@@ -262,3 +262,23 @@ The same batch passes objectstore update and `object-init-v2` completion (20s).
 Its AWS CLI log records six bucket creations without AccessDenied; PostgreSQL
 is the next active component. SeaweedFS bucket initialization is now verified;
 GitLab's own object-storage upload/read compatibility is still pending.
+
+## Migration failure diagnosis — acceptance still pending
+
+The batch reaches migrations, but the large toolbox image pull consumes the
+delivery wait window. After starting, the native Job fails before SQL execution:
+Psych cannot parse the S3 connection file. The scenario had filled multiline
+secret file contents into Settings' single-line password input; browser input
+normalization removed line breaks. Private comparison confirms this without
+logging secret bytes. YAML-compatible single-line JSON is prepared for S3 and
+Rails secrets; these corrections must be saved through UI. This does not claim
+the Settings input supports multiline files or replace the existing file importer.
+
+Explicit recovery initially holds on native mount serialization: Kubernetes
+omits `readOnly:false` and empty `subPath` while Helm retains them. The proof now
+fills only these absent API scalar defaults before comparison; true/read-write
+or nonempty subpath differences still reject. Fleet suite/regression passes.
+The next intended UI batch uses new migration and bucket-init Job identities,
+updates consumer dependencies and removes retired Jobs. The previously completed
+bucket Job is not silently retargeted/replayed after configuration/source changes.
+GitLab functional checks and full gate remain incomplete.
