@@ -168,3 +168,39 @@ legacy documents and desired/applied round-trip semantics.
 [ADR-039](../decisions/ADR-039-template-owned-workload-defaults.md) removes
 `workloadExecution.defaults`; verified template-only profiles are frozen in
 `workloadExecution.templateDefaults`. Unknown/removed policy fields are rejected.
+
+## GW-08 — One-shot Jobs and completion dependencies (approved 2026-11-08, issue #50)
+
+The user selected first-class Job authoring. `workloadExecution.kind: Job` is a
+single-completion batch/v1 Job with restartPolicy Never and optional `job`
+{backoffLimit: nonnegative integer, activeDeadlineSeconds: positive integer}.
+The standard source defaults backoffLimit to zero; retrying application code is
+explicit user intent, not a consequence of observation or another workload Deploy.
+No Service/endpoint, replica scaling, rollout strategy/history, PDB, schedule or
+claim template is valid on a Job. Existing container roles, bindings, security,
+secret files and retained storage mounts remain available.
+
+Any workload may declare `workloadExecution.waitForJobs: [workloadName, ...]` in
+the same Environment. Names must be unique, bounded, non-self references to Jobs
+in the final candidate set. Preview validates existence/kind and dependency cycles
+before provisioning. These edges are completion prerequisites, not fake Service
+bindings. Authoring incomplete drafts may defer missing-target validation, but
+Preview/Deploy may not. Consumers start only after the provider's deployment
+succeeds, which for Job means completion; a failed/incomplete Job never unlocks
+its consumers. Initial batch planning remains one user Deploy for the Environment.
+
+Preserve existing UC-06 CD-03 immutable Job/no-replay behavior. An unchanged
+completed Job is reused. No rerun button, automatic replay, update of an existing
+Job payload, or new rollback/recovery semantics are introduced by this slice.
+A different migration run uses an explicitly new Job workload identity and updated
+consumer dependencies. Changing execution content under an already applied Job
+identity must fail closed. Removal is ownership/UID guarded and cannot leave
+surviving consumers referencing a removed Job. Database effects are not reversed
+by rolling back/deleting a Job. Pins/profile/target/approved secret projection and
+saved/edited/reconstructed desired intent retain all fields.
+
+Sources advertise `one-shot-job-v1` before Job intent can render; legacy sources
+fail capability admission instead of silently producing a Deployment. Standard
+source adds a new Job preset and capability without changing existing immutable
+preset metadata. No SQL migration is required: optional intent fields remain in
+existing versioned JSON snapshots.

@@ -46,3 +46,10 @@ through the same field-level merge. Publish new immutable preset versions; old
 source pins and existing snapshots remain unchanged. Host isolation follows
 Kubernetes defaults; hostPath support is not removed or represented as Baseline
 compliance. Validate real rendered/injected Pods during acceptance.
+
+One-shot Job support (issue #50): this source advertises `one-shot-job-v1` and
+adds preset `job@1.0.0` without changing existing preset metadata. A Job has one
+completion, no Service, restartPolicy Never and source-owned zero backoff unless
+explicitly overridden. `waitForJobs` is planner intent, not a rendered environment
+variable or fake Service. Completed Job artifacts retain existing immutable/no-
+replay delivery rules; new migration executions use a new workload identity.

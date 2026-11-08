@@ -470,3 +470,12 @@ Job replay is selected silently. Rollback restores declared configuration and
 owned workload resources; it does not rewind database contents. An initial-empty
 rollback is separately confirmed and physically verifies removal of its exact
 owned resource selection while retaining platform/preexisting resources.
+
+## One-shot Job authoring — issue #50, approved 2026-11-08
+
+Follow GW-08 in `architecture/contracts/generic-workload.md`: first-class Job
+intent, same-Environment waitForJobs completion edges, final-candidate validation,
+consumer blocking until successful completion, immutable execution and no automatic
+replay. Saving incomplete drafts is distinct from Preview/Deploy validation.
+One batch Deploy includes all resources/Jobs/consumers. No new Job rerun or
+rollback/recovery policy is part of this slice.

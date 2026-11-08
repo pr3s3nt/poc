@@ -10,6 +10,7 @@ inputsSchema: inputs.schema.json
 defaults: defaults.yaml
 normalize: normalize/workload.tpl
 workloadCapabilities:
+  - one-shot-job-v1
   - template-defaults-v1
   - runtime-security-v1
   - controller-policy-v1
@@ -277,3 +278,23 @@ workloadTemplates:
           container: main
           path: /tmp
           readOnly: false
+
+  - id: job
+    version: 1.0.0
+    kind: Job
+    labels:
+      vi: Job chạy một lần
+      en: One-shot Job
+    inputsSchema:
+      type: object
+      additionalProperties: false
+      properties: {}
+    defaults: {}
+    runtimeDefaults:
+      resources:
+        requests: {cpu: 100m, memory: 128Mi}
+        limits: {memory: 512Mi}
+      containerSecurityContext:
+        privileged: false
+      auxiliaryContainerSecurityContext:
+        privileged: false

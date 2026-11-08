@@ -273,3 +273,8 @@ controller/receipt, sibling trees and absence of Job pins before one bounded Git
 render request. Observe remains read-only and exact Bundle/BundleDeployment/live
 revision proof still gates acknowledgement. Admission/withdrawal preserve any
 existing render counter; they do not force a new shared render themselves.
+
+First-class Job (GW-08) uses the existing Job phase and completion observation.
+The workload completion prerequisite is represented in the Environment graph;
+its consumer executes only after the Job's workload operation succeeds. No new
+phase, implicit Job retry or rewrite of acknowledged Job artifacts is introduced.

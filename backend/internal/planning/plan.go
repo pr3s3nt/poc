@@ -90,6 +90,9 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 	}
 	candidate := built.Candidate
 	if !req.AllowIntermediateEnvironmentState {
+		if err := ValidateJobDependencies(candidate); err != nil {
+			return nil, stageErr(StageServiceRefs, err)
+		}
 		if err := ValidateServiceReferences(candidate); err != nil {
 			return nil, stageErr(StageServiceRefs, err)
 		}
@@ -100,6 +103,7 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		return nil, stageErr(StageCatalog, err)
 	}
 	builder := newGraphBuilder(ctx, req.Catalog)
+	builder.allowIntermediate = req.AllowIntermediateEnvironmentState
 	builder.inspector = req.Terraform
 	namespace, err := builder.enrichProfile()
 	if err != nil {

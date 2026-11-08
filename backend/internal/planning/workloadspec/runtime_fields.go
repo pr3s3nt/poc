@@ -37,7 +37,7 @@ func validateRuntimeFields(b []byte) error {
 			}
 		}
 	}
-	for _, key := range []string{"templateDefaults", "podSecurityContext", "automountServiceAccountToken", "serviceAccountName", "serviceEnabled", "updateStrategy", "revisionHistoryLimit", "podDisruptionBudget", "volumeClaimTemplates", "claimMounts", "persistentVolumeClaimRetentionPolicy"} {
+	for _, key := range []string{"job", "waitForJobs", "templateDefaults", "podSecurityContext", "automountServiceAccountToken", "serviceAccountName", "serviceEnabled", "updateStrategy", "revisionHistoryLimit", "podDisruptionBudget", "volumeClaimTemplates", "claimMounts", "persistentVolumeClaimRetentionPolicy"} {
 		if err := check(raw.Execution, key); err != nil {
 			return err
 		}

@@ -7,14 +7,15 @@ last_reviewed: 2026-11-08
 
 # Current project state
 
-## Complex application UI — issue #50, survey and decision pending
+## Complex application UI — issue #50, first-class Job in progress
 
 The official GitLab chart 10.5.4 / app v19.5.3 archive is verified against the
 release index digest and an offline reduced profile renders successfully. Core
 components and form/Definition gaps are mapped; no application or cluster object
-has been created. The pending design choice is independent one-shot Job authoring
-versus a template-owned migration companion, including consumer completion order.
-Existing delivery Job support does not provide a first-class Job form. See
+has been created. The user selected first-class one-shot Job authoring (A). Job intent, source
+capability/guards, explicit completion graph/batch order and form fields are being
+implemented under GW-08, preserving immutable/no-replay behavior. Runtime Job and
+GitLab acceptance are not yet verified. See
 [survey and proposed options](implementation/complex-application-ui.md).
 
 ## Grouped template versions — issue #47

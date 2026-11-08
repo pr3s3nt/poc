@@ -163,3 +163,9 @@ Grouped picker cards consume the existing Environment-scoped template list. The
 Console sorts numeric major/minor/patch components, keeps version selection local
 and forwards the exact selected object through the existing onSelect callback.
 No backend query, stored pin or render/Deploy operation is added.
+
+Job and waitForJobs intent round-trips through the existing workload document,
+Deployment Set and snapshots. The planner adds completion edges with no output
+bindings, validates final targets/cycles, and reuses topological execution. The
+Git source renders batch/v1 Job; existing delivery Job phase waits for completion
+before acknowledging success. Retained completed executions are not replayed.

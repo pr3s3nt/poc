@@ -248,6 +248,6 @@ Compatible security template and UI Online Boutique trial (issue #47):
 ## Complex application through Console — issue #50
 
 [Survey and decision handoff](implementation/complex-application-ui.md) records
-the verified GitLab chart baseline, offline component mapping and pending choice
-between first-class migration Job authoring and a template-owned companion Job.
-This is survey/proposal evidence, not an approved new workload/dependency contract.
+the verified GitLab chart baseline, offline component mapping and user selection of first-class migration Job
+authoring. GW-08 in the Generic Workload contract owns the approved bounded
+execution/dependency behavior; this handoff records implementation progress.

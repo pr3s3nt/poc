@@ -49,6 +49,20 @@
 - op: set
   path: "{{ $i }}.spec"
   value: {{ toJson (dict "serviceName" (printf "%s-identity" $in.identity.workload) "replicas" 1 "selector" $m.spec.selector "template" $pod) }}
+{{- else if eq $e.kind "Job" -}}
+{{- $_ := set $pod.spec "restartPolicy" "Never" -}}
+{{- $policy := get $e "job" | default (dict) -}}
+{{- $spec := dict "template" $pod "backoffLimit" 0 -}}
+{{- range $key := list "activeDeadlineSeconds" "backoffLimit" }}{{ if hasKey $policy $key }}{{ $_ := set $spec $key (get $policy $key) }}{{ end }}{{ end }}
+- op: set
+  path: "{{ $i }}.apiVersion"
+  value: batch/v1
+- op: set
+  path: "{{ $i }}.kind"
+  value: Job
+- op: set
+  path: "{{ $i }}.spec"
+  value: {{ toJson $spec }}
 {{- else if eq $e.kind "CronJob" -}}
 {{- $_ := set $pod.spec "restartPolicy" "Never" -}}
 {{- $job := dict "template" $pod -}}

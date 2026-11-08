@@ -330,3 +330,12 @@ available in that scope. Older versions remain selectable through a collapsed
 version control; selecting a card passes the chosen immutable ID/version/digest.
 Editing an existing workload preserves its pin and never upgrades automatically.
 No template records, API visibility or deployment behavior change.
+
+## One-shot Job authoring — issue #50, approved 2026-11-08
+
+Follow GW-08 in `architecture/contracts/generic-workload.md`: first-class Job
+intent, same-Environment waitForJobs completion edges, final-candidate validation,
+consumer blocking until successful completion, immutable execution and no automatic
+replay. Saving incomplete drafts is distinct from Preview/Deploy validation.
+One batch Deploy includes all resources/Jobs/consumers. No new Job rerun or
+rollback/recovery policy is part of this slice.

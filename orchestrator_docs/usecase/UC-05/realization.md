@@ -189,3 +189,7 @@ Canonical shared collaboration: [delivery sequence](../../architecture/component
 [infrastructure sequence](../../architecture/components/infrastructure-drift-sequence.puml).
 These supplement the existing direct-path diagrams for this new design slice;
 [CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.
+
+GW-08 adds explicit waitForJobs completion edges during graph construction.
+Final-candidate target kind/existence and cycle validation precede provisioning;
+a Job's container/secret/resource intent follows existing renderer pin admission.

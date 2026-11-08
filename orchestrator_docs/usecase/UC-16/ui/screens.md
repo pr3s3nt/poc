@@ -284,3 +284,13 @@ version updates the card; clicking the card proceeds with its exact immutable pi
 Version controls do not select a template or navigate by themselves. Search
 retains matching groups; closing/reopening or changing Environment resets the new
 selection. Existing edit flows are unchanged.
+
+## One-shot Job and completion waits — issue #50
+
+Execution offers Job alongside existing kinds. Job fields show backoff limit and
+optional active deadline; scaling/rollout and Service/endpoint choices do not apply.
+The workload-level dependency section offers existing Job workloads as explicit
+completion prerequisites. Keep selected references visible if the target disappears
+so errors can be repaired; do not silently remove them. Editing an applied Job
+shows that a new migration execution uses a new workload identity; never rerun on
+Save, opening the page, polling or changing another workload.

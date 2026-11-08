@@ -89,7 +89,7 @@ func guard(req execution.RenderRequest, delivery kubernetes.Delivery, objects []
 			return violated("cluster-scoped objects are not allowed")
 		}
 		primaryWorkload := m.APIVersion == "apps/v1" && (m.Kind == "Deployment" || m.Kind == "StatefulSet")
-		if req.Module.Spec.Execution != nil && m.APIVersion == "batch/v1" && m.Kind == "CronJob" {
+		if req.Module.Spec.Execution != nil && m.APIVersion == "batch/v1" && (m.Kind == "CronJob" || m.Kind == "Job") {
 			primaryWorkload = true
 		}
 		primary := m.Name == req.WorkloadID && (primaryWorkload || m.APIVersion == "v1" && m.Kind == "Service")
@@ -113,7 +113,7 @@ func guard(req execution.RenderRequest, delivery kubernetes.Delivery, objects []
 		return violated("primary runtime differs from execution intent")
 	}
 	if workload == nil {
-		return violated("the primary Deployment or StatefulSet is missing")
+		return violated("the declared primary workload is missing")
 	}
 	wantService := req.Module.Spec.Service != nil && len(req.Module.Spec.Service.Ports) > 0
 	if (service != nil) != wantService {
@@ -235,6 +235,33 @@ func guardWorkload(req execution.RenderRequest, delivery kubernetes.Delivery, ki
 			}
 		}
 		spec = jobSpec
+	} else if kind == "Job" {
+		if spec["selector"] != nil || spec["manualSelector"] != nil || spec["ttlSecondsAfterFinished"] != nil {
+			return violated("Job controller identity/completion must stay retained and native")
+		}
+		for _, key := range []string{"completions", "parallelism"} {
+			if v, ok := spec[key]; ok && v != float64(1) {
+				return violated("Job must have one completion and one parallel execution")
+			}
+		}
+		wanted := int32(0)
+		e := req.Module.Spec.Execution
+		if e == nil {
+			return violated("Job requires execution intent")
+		}
+		if e.Job != nil && e.Job.BackoffLimit != nil {
+			wanted = *e.Job.BackoffLimit
+		}
+		if spec["backoffLimit"] != float64(wanted) {
+			return violated("Job backoff intent must be kept")
+		}
+		if e.Job != nil && e.Job.ActiveDeadlineSeconds != nil {
+			if spec["activeDeadlineSeconds"] != float64(*e.Job.ActiveDeadlineSeconds) {
+				return violated("Job deadline intent must be kept")
+			}
+		} else if spec["activeDeadlineSeconds"] != nil {
+			return violated("Job deadline must be explicit")
+		}
 	} else {
 		if req.Module.Spec.Replicas != nil {
 			if replicas, ok := spec["replicas"].(float64); !ok || int(replicas) != req.Module.Spec.ReplicaCount() {
@@ -275,6 +302,9 @@ func guardWorkload(req execution.RenderRequest, delivery kubernetes.Delivery, ki
 		}
 	}
 	pod := object(template["spec"])
+	if kind == "Job" && pod["restartPolicy"] != "Never" {
+		return violated("Job must use Never restart policy")
+	}
 	if delivery.ImagePullSecret != "" {
 		found := false
 		for _, ref := range list(pod["imagePullSecrets"]) {

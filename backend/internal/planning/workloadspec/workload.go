@@ -237,6 +237,14 @@ func FromMap(m map[string]any) (*Document, error) {
 
 // Validate enforces the structural rules of UC-06 PRE-05.
 func (d Document) Validate() error {
+	if d.Execution != nil {
+		for _, dependency := range d.Execution.WaitForJobs {
+			if dependency == d.Metadata.Name {
+				return fmt.Errorf("workload: cannot wait for itself")
+			}
+		}
+	}
+
 	if d.Replicas < 0 {
 		return fmt.Errorf("workload: replicas must be nonnegative")
 	}

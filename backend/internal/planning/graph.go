@@ -18,13 +18,14 @@ import (
 var ErrNodeConflict = errors.New("planning: conflicting params for one resource descriptor")
 
 type graphBuilder struct {
-	ctx      Context
-	catalog  Catalog
-	order    []string
-	nodes    map[string]*Node
-	edges    []Edge
-	edgeSeen map[string]bool
-	expanded map[string]bool
+	allowIntermediate bool
+	ctx               Context
+	catalog           Catalog
+	order             []string
+	nodes             map[string]*Node
+	edges             []Edge
+	edgeSeen          map[string]bool
+	expanded          map[string]bool
 	// inspector reads verified Terraform bundle metadata (never executes).
 	inspector ModuleInspector
 	// workloadDefs/workloadMatches hold the Definition selected for each
@@ -281,7 +282,25 @@ func (b *graphBuilder) buildFromSet(set environment.Document, namespace *Node) e
 	for _, id := range set.ModuleIDs() {
 		module := set.Modules[id]
 		workload := workloadNodes[id]
+		if hasJobWaits(set) {
+			for _, target := range serviceWorkloadTargets(module) {
+				if provider := workloadNodes[target]; provider != nil {
+					b.addEdge(workload.Descriptor, provider.Descriptor, ReasonWorkloadPlace, pointer("modules", id, "spec", "containers"))
+				}
+			}
+		}
 		if execution := module.Spec.Execution; execution != nil {
+			for _, name := range execution.WaitForJobs {
+				target, exists := set.Modules[name]
+				provider := workloadNodes[name]
+				if !exists || target.Spec.Execution == nil || target.Spec.Execution.Kind != "Job" {
+					if b.allowIntermediate {
+						continue
+					}
+					return fmt.Errorf("planning: workload %q waits for %q, which is not a Job in the resulting Environment", id, name)
+				}
+				b.addEdge(workload.Descriptor, provider.Descriptor, ReasonJobCompletion, pointer("modules", id, "spec", "workloadExecution", "waitForJobs"))
+			}
 			for _, mount := range execution.Mounts {
 				if strings.HasPrefix(mount.Resource, placeholder.ScopeShared+".") {
 					provider := sharedNodes[strings.TrimPrefix(mount.Resource, placeholder.ScopeShared+".")]

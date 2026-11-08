@@ -32,6 +32,11 @@ export function validRuntimeIntent(containers: Container[], e?: Execution, secre
     } else if (c.role && c.role !== 'app' || c.initOrder !== undefined && c.initOrder !== 0) return false;
   }
   if (!e) return true;
+  if (e.waitForJobs && (e.waitForJobs.length>64 || new Set(e.waitForJobs).size!==e.waitForJobs.length || e.waitForJobs.some(name=>!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(name)))) return false;
+  if (e.job && e.kind!=='Job') return false;
+  if(e.kind==='Job'&&(e.schedule||e.updateStrategy||e.revisionHistoryLimit!==undefined||e.podDisruptionBudget||e.volumeClaimTemplates?.length||e.claimMounts?.length||e.persistentVolumeClaimRetentionPolicy||e.headless||e.serviceEnabled===true))return false;
+  if(e.job&&(e.job.backoffLimit!==undefined&&(!Number.isInteger(e.job.backoffLimit)||e.job.backoffLimit<0)||e.job.activeDeadlineSeconds!==undefined&&(!Number.isInteger(e.job.activeDeadlineSeconds)||e.job.activeDeadlineSeconds<1)))return false;
+
   const volumes = e.volumes ?? [];
   if (volumes.length > 32 || new Set(volumes.map(v => v.name)).size !== volumes.length) return false;
   for (const v of volumes) {

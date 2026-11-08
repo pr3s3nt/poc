@@ -1365,3 +1365,14 @@ numeric version components, and owns each card's local version choice. Existing
 `onSelect` receives the exact selected immutable template object. Regression
 coverage is in `TemplatePicker.test.tsx`; actual latest/older pin navigation and
 unchanged drafts are checked by `e2e/scenarios/workload-template-versions/`.
+
+## First-class Jobs — issue #50, in progress
+
+`environment/execution.go` carries JobPolicy/waitForJobs; workloadspec validates
+and reconstructs them without a new schema. `planning/job_dependencies.go` and
+`graph.go` add final-candidate completion validation/edges; pending preview orders
+Job providers before consumers. `templatedriver/guard.go`, native runtime admission
+and the standard source render/validate a primary Job with exact execution policy.
+`one-shot-job-v1` gates old sources. JobFields/WaitForJobsFields and the editor
+round-trip explicit policy/dependencies; shared graph labels completion edges.
+Runtime Job/GitLab acceptance is pending, not implied by these source paths.

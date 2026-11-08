@@ -1604,3 +1604,11 @@ separate in the Environment rollback verification record.
 | Requirement | Implementation | Verification |
 |---|---|---|
 | UC-16 one card per ID, newest scoped numeric version, explicit older versions | TemplatePicker groups and local TemplateCard version control | TemplatePicker numeric order/exact pin/scope reset tests; workload-template-versions browser scenario |
+
+## Issue #50 — GW-08 first-class Job and completion dependencies
+
+| Requirement | Implementation | Checks |
+|---|---|---|
+| Job intent, exact policy and capability gate | environment JobPolicy; template-source capability; standard Job preset/patch/guard | OneShotJobValidation, OneShotJobIntentRoundTrip, OneShotJobRequiresAdvertisedSourceCapability, OneShotJobRendersAndGuardsExecution |
+| Job completion prerequisite / no cycles / batch order | planning job_dependencies/graph; pending preview/order | JobCompletionDependencyGraph, JobCompletionOrdersBatchBeforeConsumers; runtime pending |
+| Form round-trip, zero retry, deadline and repairable dependency | JobFields/WaitForJobsFields; WorkloadEditorPage | JobFields and Job/Deployment Save regression tests; real UI pending |

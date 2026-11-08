@@ -129,7 +129,7 @@ expansion; do not plan to fix undersizing by blindly expanding a claim later.
   are not rerun for this documentation-only survey; no product code changed.
   PlantUML is unavailable locally; no diagram changes are included.
 
-## Decision required before implementation
+## Migration authoring decision — A approved 2026-11-08
 
 The missing decision is **how the developer authors a migration task and how the
 Environment expresses waiting for its success**. Both options retain the single
@@ -140,11 +140,11 @@ batch Deploy acceptance and require tests for failure and no accidental replay.
 | A — first-class one-shot Job | Add a migration workload in the form, specify inputs/resources/secrets and select completion dependencies for consumers | Reusable beyond GitLab; extends normalized execution contract, UI, planner/dependency validation, render guards, progress and lifecycle. Job re-execution semantics must be specified; the existing delivery phase is reused where applicable. |
 | B — migration companion owned by a template | Select a GitLab-specific template whose reviewed Git source includes a migration Job before its primary rollout | Smaller primary-kind change; migration is not an independent form workload. Must still prove cross-workload ordering for Sidekiq and other consumers, approved secret projection, exact Job identity and no replay. Not automatically safe just because companion manifests are allowed. |
 
-**Recommendation: A**, given the goal of supporting complex applications rather
-than only one GitLab packaging. It also keeps the migration visible and reusable
-as a task. This is a proposed direction, not permission to implement a new
-controller kind or arbitrary dependency graph. Do not silently substitute a
-CronJob, init container or manually executed migration.
+The user selected **A**. The recommendation was based on supporting complex applications rather
+than only one GitLab packaging. It keeps migration visible and reusable
+as a task. GW-08 now owns the bounded implementation contract: Job plus explicit
+waitForJobs completion dependencies, preserving current immutable/no-replay
+behavior. Arbitrary dependency conditions or a rerun button are not included.
 
 ## Next work after the decision
 
@@ -158,3 +158,23 @@ CronJob, init container or manually executed migration.
    Preview and one batch Deploy, followed by GitLab project/commit/HTTPS Git and
    data-retention acceptance. Stop again if another material decision is missing.
 5. Commit/push/comment stage results; user acceptance before main merge.
+
+## First implementation checkpoint — in progress, not runtime acceptance
+
+After A approval, JobPolicy and waitForJobs round-trip through typed intent;
+source capability admission and standard Job rendering/guards are implemented.
+Completion edges participate in final-candidate and mixed Service/resource cycle
+validation, and pending batch ordering puts Job providers before their consumers.
+The editor exposes Job policy and explicit completion selection, including missing
+references that remain removable. Standard source adds Job preset 1.0.0; existing
+preset metadata remains unchanged. Native Job policy is admitted through server
+dry-run before publication. Existing Job-phase immutable/no-replay semantics stay.
+
+Focused Go checks cover validation, capability absence, serialization/zero/null,
+rendered Job policy tampering, Job ordering, deletion with unchanged consumers
+and mixed cycles; affected environment/template-source/workloadspec package suites
+and Go build pass. Console focused groups pass; the latest editor/JobFields run
+passes 27 tests including Job/consumer Save payloads. Typecheck/lint/build pass,
+with the existing PlatformSettings warning and bundle-size advisory. Product
+runtime Job/GitLab acceptance and feature full gate remain pending. These checks
+must not be reported as deployment success.

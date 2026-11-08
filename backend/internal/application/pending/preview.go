@@ -431,7 +431,10 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		preview.lastIntents = plan.ResourceIntents(baselines.Reader())
 		base = plan.CandidateSet
 	}
-	// Service-reference rules apply to the final batch state only.
+	// Completion and Service-reference rules apply to the final batch state only.
+	if err := planning.ValidateJobDependencies(base); err != nil {
+		return Preview{}, publicPlanningError("", &planning.StageError{Stage: planning.StageServiceRefs, Err: err})
+	}
 	if err := planning.ValidateServiceReferences(base); err != nil {
 		return Preview{}, publicPlanningError("", &planning.StageError{Stage: planning.StageServiceRefs, Err: err})
 	}
@@ -561,7 +564,7 @@ func orderDrafts(drafts map[string]environment.WorkloadDraft) ([]string, error) 
 	var visit func(string) error
 	visit = func(id string) error {
 		if state[id] == 1 {
-			return fmt.Errorf("%w: Service reference cycle", ErrInvalid)
+			return fmt.Errorf("%w: workload dependency cycle", ErrInvalid)
 		}
 		if state[id] == 2 {
 			return nil
@@ -572,6 +575,15 @@ func orderDrafts(drafts map[string]environment.WorkloadDraft) ([]string, error) 
 			parsed, err := workloadspec.FromMap(draft.Workload)
 			if err != nil {
 				return err
+			}
+			if parsed.Execution != nil {
+				for _, target := range parsed.Execution.WaitForJobs {
+					if dep, exists := drafts[target]; exists && dep.State == environment.DraftUpsert {
+						if err := visit(target); err != nil {
+							return err
+						}
+					}
+				}
 			}
 			for _, alias := range parsed.ResourceAliases() {
 				resource := parsed.Resources[alias]
@@ -626,7 +638,7 @@ func sameRendering(ctx context.Context, st persistence.Store, deploymentID, work
 	return a == b, err
 }
 
-// OrderDrafts returns workload IDs in Service-reference dependency order; a
+// OrderDrafts returns workload IDs in Service/completion dependency order; a
 // target transition deploys the complete Environment in the same order.
 func OrderDrafts(drafts map[string]environment.WorkloadDraft) ([]string, error) {
 	return orderDrafts(drafts)

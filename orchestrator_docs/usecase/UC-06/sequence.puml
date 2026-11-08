@@ -18,6 +18,11 @@ database DeploymentDeltaSnapshotRepository as DeltaSnapshotRepo
 database DeploymentSetRepository as SetRepo
 database WorkloadInstanceRepository as WorkloadRepo
 
+note over Service, Deployer
+GW-08: batch consumers follow successful Job completion.
+Existing Job phase waits; immutable completed Jobs are reused,
+never replayed by polling or an unrelated workload Deploy.
+end note
 Developer -> API: DeployWorkload(command)
 API -> Service: DeployWorkload(ctx, command)
 Service -> EnvRepo: LoadPlanningSnapshot(appID, envID) [MS-01]

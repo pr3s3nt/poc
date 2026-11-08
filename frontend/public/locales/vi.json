@@ -3324,7 +3324,7 @@
   "workloads.jobs.state": "Trạng thái",
   "workloads.jobs.created": "Tạo lúc",
   "workloads.jobs.finished": "Kết thúc",
-  "workloads.jobs.empty": "Không có Job được lưu.",
+  "workloads.jobs.empty": "Chưa có Job để chọn.",
   "workloads.jobs.observed": "Quan sát lúc",
   "workloads.jobs.refresh": "Tải lại",
   "workloads.jobs.logs": "Xem log",
@@ -4011,5 +4011,12 @@
   "workloads.endpoint.create": "Tạo endpoint từ cổng {port}",
   "workloads.endpoint.invalidPort": "Endpoint cần một cổng Service TCP hợp lệ và Service đang bật.",
   "workloads.templates.versions": "Phiên bản khác",
-  "workloads.templates.version": "Phiên bản"
+  "workloads.templates.version": "Phiên bản",
+  "workloads.jobs.kind": "Job chạy một lần",
+  "workloads.jobs.backoff": "Số lần thử lại khi thất bại",
+  "workloads.jobs.deadline": "Thời gian chạy tối đa (giây)",
+  "workloads.jobs.immutable": "Job đã hoàn thành không tự chạy lại. Tạo Job với tên mới cho lượt chạy mới.",
+  "workloads.jobs.wait": "Chờ Job thành công",
+  "workloads.jobs.missing": "Không còn là Job trong môi trường này",
+  "workloads.jobs.invalid": "Job không có Service hoặc nhiều replica và không thể chờ chính nó."
 }

@@ -41,6 +41,7 @@ const (
 
 // Edge reasons, mirroring the planner reference so a plan can be audited.
 const (
+	ReasonJobCompletion  = "job-completion"
 	ReasonPrivate        = "deployment-set-private"
 	ReasonWorkloadPlace  = "workload-placeholder"
 	ReasonInputPlace     = "resource-input-placeholder"

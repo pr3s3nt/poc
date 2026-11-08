@@ -25,6 +25,7 @@ import { bindingProblem, changeSource, escapeLiteral, isKeySource, readBinding, 
 import { buildRowContext } from './rowContext';
 import { t } from '../../shared/i18n';
 import { sharedResources, sharedSelectionProblem } from './sharedResources';
+import { JobFields, WaitForJobsFields } from './JobFields';
 import { ServiceEndpointFields, endpointPorts } from './ServiceEndpointFields';
 
 import { ProbeFields, type Probe } from './ProbeFields';
@@ -392,6 +393,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     if (blocked || stale || templateInputProblems > 0) return;
     if (form.execution?.mounts?.some(mount => !form.dependencies.some(dep => dep.alias === mount.resource) || !form.containers.some(c => c.name === mount.container) || !mount.path.startsWith('/'))) { setError(t('workloads.templates.mountInvalid')); return; }
     if (mode === 'form' || dirty) {
+      if(form.execution?.waitForJobs?.includes(form.name)||form.execution?.kind==='Job'&&(form.servicePorts.length>0||form.replicas!==undefined&&form.replicas!==1)){setError(t('workloads.jobs.invalid'));return;}
       if(missingTemplateImage){setError(wd('imageRequiredForDefaults'));return;}
       if (new Set(form.annotations.map(a => a.name)).size !== form.annotations.length || form.annotations.some(a => !a.name)) { setError(t('workloads.volumes.invalid')); return; }
       if (!validRuntimeIntent(form.containers.map(c=>({...c,image:c.image||String(fieldValue(resolution,`containers.${c.name}.image`)??'')})), form.execution, catalog.status === 'ready' ? catalog.keys.filter(k => k.kind === 'SECRET' && k.configured).map(k => k.name) : undefined, Boolean(form.execution?.template))) { setError(t('workloads.volumes.invalid')); return; }
@@ -472,6 +474,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
       {form.execution ? <UnassignedVolumeMounts value={form.execution} onChange={execution => updateForm({...form,execution})} containers={form.containers.map(c => c.name)} disabled={saving} /> : null}
       <Button onClick={() => updateForm({ ...form, containers: [...form.containers, { ...emptyContainer(), name: `container-${form.containers.length + 1}` }] })}>{t('workloads.workloadEditor.addContainer')}</Button>
 
+      {form.execution ? <JobFields value={form.execution} onChange={execution=>updateForm({...form,execution})}/> : null}
       {form.execution ? <ExecutionFields section="schedule" value={form.execution} onChange={execution => updateForm({ ...form, execution })} metadata={templateMetadata} disabled={saving} onRawProblems={setTemplateInputProblems} resolution={resolution} /> : null}
       <section className="content-panel editor-grid"><ConfigGroup initialOpen title={wd('networking')} summary={form.servicePorts.map(p=>`${p.name}: ${p.port} → ${p.targetPort||p.port}`).join(', ')||wd('notConfigured')} invalid={Boolean(error)}>
         {form.execution && form.servicePorts.length ? <label className="checkbox-row"><input type="checkbox" checked={form.execution.headless ?? false} onChange={e => updateForm({ ...form, execution: { ...form.execution!, headless: e.target.checked } })} />{t('workloads.templates.headless')}</label> : null}
@@ -484,7 +487,8 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
           </Advanced></div>)}
         <ServiceEndpointFields dependencies={form.dependencies} ports={form.servicePorts} available={types.some(type=>type.key==='endpoint')} serviceEnabled={form.execution?.serviceEnabled!==false} workloadName={form.name} disabled={saving || classMetadata!=='ready'} onChange={dependencies=>updateForm({...form,dependencies})}/>
       </ConfigGroup></section>
-      <section className="content-panel editor-grid"><ConfigGroup initialOpen keepMounted title={wd('dependencies')} summary={form.dependencies.map(d=>d.alias||d.type).join(', ')||wd('notConfigured')} invalid={Boolean(error)}><div className="section-header"><div><h2>{t('workloads.workloadEditor.workloadResources')}</h2><p>{t('workloads.workloadEditor.chooseAnAvailableResourceType')}</p></div><div className="form-actions"><Button tone="quiet" onClick={() => void reloadClassMetadata()}>{t('workloads.workloadEditor.refreshClassMetadata')}</Button><Button onClick={() => updateForm({ ...form, dependencies: [...form.dependencies, emptyDependency()] })}>{t('workloads.workloadEditor.addResource')}</Button></div></div>{form.dependencies.map((dep, index) => dep.type === 'endpoint' ? null : <DependencyFields key={index} index={index} dependency={dep} types={types} choices={resourceChoices} classMetadata={classMetadata} disabled={saving} servicePorts={[...validPortNames(form.servicePorts)]} onChange={(patch) => updateDependency(index, patch)} onReload={() => void reloadClassMetadata()} onRemove={() => updateForm({ ...form, dependencies: form.dependencies.filter((_, i) => i !== index) })} />)}</ConfigGroup></section>
+      <section className="content-panel editor-grid"><ConfigGroup initialOpen keepMounted title={wd('dependencies')} summary={form.dependencies.map(d=>d.alias||d.type).join(', ')||wd('notConfigured')} invalid={Boolean(error)}><div className="section-header"><div><h2>{t('workloads.workloadEditor.workloadResources')}</h2><p>{t('workloads.workloadEditor.chooseAnAvailableResourceType')}</p></div><div className="form-actions"><Button tone="quiet" onClick={() => void reloadClassMetadata()}>{t('workloads.workloadEditor.refreshClassMetadata')}</Button><Button onClick={() => updateForm({ ...form, dependencies: [...form.dependencies, emptyDependency()] })}>{t('workloads.workloadEditor.addResource')}</Button></div></div>{form.dependencies.map((dep, index) => dep.type === 'endpoint' ? null : <DependencyFields key={index} index={index} dependency={dep} types={types} choices={resourceChoices} classMetadata={classMetadata} disabled={saving} servicePorts={[...validPortNames(form.servicePorts)]} onChange={(patch) => updateDependency(index, patch)} onReload={() => void reloadClassMetadata()} onRemove={() => updateForm({ ...form, dependencies: form.dependencies.filter((_, i) => i !== index) })} />)}<WaitForJobsFields value={form.execution??customExecution()} workloads={workloads} name={form.name} onChange={execution=>updateForm({...form,execution})}/>
+</ConfigGroup></section>
 
       <AdvancedFields label="Workload" invalid={Boolean(error)||templateInputProblems>0}>
       <RuntimePolicyFields value={form.execution??customExecution()} onChange={execution=>updateForm({...form,execution})} resolution={resolutionState==='ready'?resolution:undefined} replicas={form.replicas} onReplicas={replicas=>updateForm({...form,replicas})} containers={form.containers.map(c=>c.name)} invalid={Boolean(error)}/>

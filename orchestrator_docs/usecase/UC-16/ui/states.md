@@ -139,3 +139,10 @@ to its newest scoped numeric version. Version disclosure/select changes only
 local selection; card activation submits that selected pin. Single-version
 groups have no version control. Loading/error/empty/search and Cancel/Escape
 remain supported; no late response from another scope may update the picker.
+
+Job authoring preserves omitted versus explicit zero backoff. Switching kind retains container/storage/binding intent; controller-specific
+schedule/strategy policies follow the existing explicit kind-selection behavior,
+and incompatible remaining settings fail validation.
+Missing/changed Job dependencies remain visible and block Preview. Failed Job
+keeps consumers blocked; existing completed immutable Job is reused, never rerun
+by polling/reload or unrelated Deploy.

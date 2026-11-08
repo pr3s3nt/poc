@@ -33,7 +33,7 @@ func (t WorkloadTemplate) Validate() error {
 		return invalid(ManifestFile, "workload template metadata is invalid")
 	}
 	switch t.Kind {
-	case "Deployment", "StatefulSet", "CronJob":
+	case "Deployment", "StatefulSet", "CronJob", "Job":
 	default:
 		return invalid(ManifestFile, "workload template runtime is unsupported")
 	}

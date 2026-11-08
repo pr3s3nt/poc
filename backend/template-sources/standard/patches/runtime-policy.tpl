@@ -1,7 +1,7 @@
 {{- $in := .Input -}}
 {{- $e := get $in.workload.spec "workloadExecution" | default (dict) -}}
 {{- range $i,$m := .Manifests -}}
-{{- if or (eq $m.kind "Deployment") (eq $m.kind "StatefulSet") (eq $m.kind "CronJob") -}}
+{{- if or (eq $m.kind "Deployment") (eq $m.kind "StatefulSet") (eq $m.kind "CronJob") (eq $m.kind "Job") -}}
 {{- $path := printf "%d.spec.template.spec" $i -}}
 {{- $pod := dict -}}
 {{- if eq $m.kind "CronJob" -}}
@@ -36,7 +36,7 @@
   path: "{{ $path }}.{{ $field }}.{{ $ci }}.volumeMounts"
   value: {{ toJson $mounts }}
 {{- end -}}{{- end -}}{{- end -}}
-{{- if ne $m.kind "CronJob" -}}
+{{- if and (ne $m.kind "CronJob") (ne $m.kind "Job") -}}
 {{- if hasKey $e "revisionHistoryLimit" }}
 - op: set
   path: "{{ $i }}.spec.revisionHistoryLimit"

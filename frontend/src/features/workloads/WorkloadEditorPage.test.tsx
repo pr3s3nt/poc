@@ -529,3 +529,13 @@ it('shows networking and dependencies immediately and saves an explicitly reques
  expect(saved?.workload.resources.public).toEqual({type:'endpoint',params:{name:'web',port:'http',path:'/api'}});
  expect(saved?.workload.service.ports.http).toEqual({port:8080,targetPort:8080});
 });
+
+it.each(['Job','Deployment'] as const)('round-trips %s and explicit Job completion prerequisites through Save',async(kind)=>{
+ const execution={version:1,kind,...(kind==='Job'?{job:{backoffLimit:0}}:{})};
+ const {puts}=serve({workloads:[{id:'task',state:'PENDING_UPSERT',workload:{apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'task'},containers:{main:{image:'migration:1',command:['/bin/migrate']}},workloadExecution:execution}},{id:'prepare',state:'PENDING_UPSERT',workload:{apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'prepare'},containers:{main:{image:'prepare:1'}},workloadExecution:{version:1,kind:'Job'}}}]});
+ const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging" workloadId="task"/>);
+ await user.click(await screen.findByLabelText('prepare'));
+ if(kind==='Job'){expect(screen.getByLabelText('Số lần thử lại khi thất bại')).toHaveValue(0);await user.type(screen.getByLabelText('Thời gian chạy tối đa (giây)'),'300');}
+ await user.click(saveButton());
+ expect(puts[0]!.workload.workloadExecution).toMatchObject({...execution,waitForJobs:['prepare'],...(kind==='Job'?{job:{backoffLimit:0,activeDeadlineSeconds:300}}:{})});expect(puts[0]!.workload.service).toBeUndefined();expect(puts[0]!.workload.containers.main.command).toEqual(['/bin/migrate']);
+});

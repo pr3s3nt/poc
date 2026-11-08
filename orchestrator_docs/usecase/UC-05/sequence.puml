@@ -37,6 +37,10 @@ Planner -> Matcher: Select workload Definition/class first [ADR-017]
 Matcher --> Planner: pinned render source/engine/effective inputs + namespace/cluster refs + provision rules
 Planner -> Graph: BuildAndExpand(candidate, selected workload references/rules) [MS-05]
 Graph -> Graph: Expand matched references/rules/provider bindings to fixed point; no implicit infrastructure
+note right of Graph
+GW-08: explicit waitForJobs completion edges;
+validate final targets/kinds and mixed dependency cycles.
+end note
 Graph -> Matcher: Match resource nodes including existing-cluster
 Matcher -> Matcher: Validate winning Definition/account kind/org/READY/version
 Matcher --> Graph: Matched definitions or safe planning error

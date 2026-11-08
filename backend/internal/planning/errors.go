@@ -117,7 +117,7 @@ var (
 		StageBefore:      "workloadBefore does not match the current Deployment Set for this workload",
 		StageCandidate:   "the Candidate Deployment Set cannot be built from this Workload, for example because a shared resource conflicts with the current one",
 		StageRoutes:      "public routes of the resulting Environment are invalid: a duplicate path or an undeclared Service port",
-		StageServiceRefs: "a workload in the resulting Environment references a Service or Service port that would not exist; update or delete its consumers in the same change",
+		StageServiceRefs: "a workload references a missing Service/port or invalid Job completion dependency; update or delete its consumers in the same change",
 		StageCatalog:     "the registered Resource Definitions cannot be used for planning; ask a platform engineer to check them",
 		StageGraph:       "the Resource Graph cannot be built or matched for this Workload; check resource types, classes and ids against the registered Resource Definitions",
 		StageReference:   "a resource reference cannot be resolved against the matched Resource Definitions",

@@ -12,8 +12,11 @@ func hasRuntimePolicy(m execution.Manifest) bool {
 	if m.Kind == "PodDisruptionBudget" {
 		return true
 	}
-	if m.Kind != "Deployment" && m.Kind != "StatefulSet" && m.Kind != "CronJob" {
+	if m.Kind != "Deployment" && m.Kind != "StatefulSet" && m.Kind != "CronJob" && m.Kind != "Job" {
 		return false
+	}
+	if m.Kind == "Job" {
+		return true
 	}
 	if _, ok := spec["volumeClaimTemplates"]; ok {
 		return true

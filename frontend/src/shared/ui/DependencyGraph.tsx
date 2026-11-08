@@ -10,6 +10,7 @@ export type BlockedConsumer = { consumer: string; provider: string; reason: stri
 // Every edge of a plan is an ORDERING edge: the provider runs first. The label says why it exists.
 const reasonLabels: Record<string, string> = {
   'resource-reference': t('shared.dependencyGraph.referencesAnOutputOfAnother'),
+  'job-completion': t('workloads.jobs.wait'),
   'workload-placeholder': t('shared.dependencyGraph.workloadReadsAResourceOutput'),
   'resource-input-placeholder': t('shared.dependencyGraph.resourceParameterReadsAnOutput'),
   'deployment-set-private': t('shared.dependencyGraph.privateResourceDeclaredInThe'),

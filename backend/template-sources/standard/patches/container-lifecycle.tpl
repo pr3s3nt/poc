@@ -1,6 +1,6 @@
 {{- $in := .Input -}}
 {{- range $i,$m := .Manifests -}}
-{{- if or (eq $m.kind "Deployment") (eq $m.kind "StatefulSet") (eq $m.kind "CronJob") -}}
+{{- if or (eq $m.kind "Deployment") (eq $m.kind "StatefulSet") (eq $m.kind "CronJob") (eq $m.kind "Job") -}}
 {{- $pod := dict -}}
 {{- $path := printf "%d.spec.template.spec" $i -}}
 {{- if eq $m.kind "CronJob" -}}

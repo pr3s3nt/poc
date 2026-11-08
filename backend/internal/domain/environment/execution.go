@@ -14,6 +14,8 @@ import (
 // WorkloadExecution is the versioned platform extension carried by desired and
 // applied workload snapshots. It never contains secret bytes; hostPath sources retain node path metadata only.
 type WorkloadExecution struct {
+	Job                          *JobPolicy                `json:"job,omitempty"`
+	WaitForJobs                  []string                  `json:"waitForJobs,omitempty"`
 	ServiceEnabled               *bool                     `json:"serviceEnabled,omitempty"`
 	TemplateDefaults             *TemplateDefaultsSnapshot `json:"templateDefaults,omitempty"`
 	PodSecurityContext           *PodSecurityContext       `json:"podSecurityContext,omitempty"`
@@ -35,6 +37,12 @@ type WorkloadExecution struct {
 	Mounts                       []StorageMount            `json:"mounts,omitempty"`
 	Inputs                       map[string]any            `json:"inputs,omitempty"`
 	Headless                     bool                      `json:"headless,omitempty"`
+}
+
+// JobPolicy controls one single-completion execution, never an observation retry.
+type JobPolicy struct {
+	BackoffLimit          *int32 `json:"backoffLimit,omitempty"`
+	ActiveDeadlineSeconds *int64 `json:"activeDeadlineSeconds,omitempty"`
 }
 
 type TemplatePin struct {
@@ -99,7 +107,27 @@ func (e *WorkloadExecution) validate(containers map[string]Container, replicas i
 	if e.Version != 1 || (e.HasTemplate() && (!templateID.MatchString(e.Template.ID) || !versionID.MatchString(e.Template.Version) || !sha256ID.MatchString(e.Template.SHA256))) || (!e.HasTemplate() && len(e.Inputs) > 0) {
 		return ErrExecution
 	}
+	if len(e.WaitForJobs) > 64 {
+		return ErrExecution
+	}
+	seenJobs := map[string]bool{}
+	for _, name := range e.WaitForJobs {
+		if !templateID.MatchString(name) || seenJobs[name] {
+			return ErrExecution
+		}
+		seenJobs[name] = true
+	}
+	if e.Kind != "Job" && e.Job != nil {
+		return ErrExecution
+	}
 	switch e.Kind {
+	case "Job":
+		if e.Schedule != nil || hasPorts || replicas != 1 || e.Headless || e.ServiceEnabled != nil && *e.ServiceEnabled || e.RevisionHistoryLimit != nil || e.UpdateStrategy != nil || e.PodDisruptionBudget != nil {
+			return ErrExecution
+		}
+		if e.Job != nil && (e.Job.BackoffLimit != nil && *e.Job.BackoffLimit < 0 || e.Job.ActiveDeadlineSeconds != nil && *e.Job.ActiveDeadlineSeconds <= 0) {
+			return ErrExecution
+		}
 	case "Deployment":
 		if e.Schedule != nil {
 			return ErrExecution
