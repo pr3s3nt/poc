@@ -282,3 +282,20 @@ The next intended UI batch uses new migration and bucket-init Job identities,
 updates consumer dependencies and removes retired Jobs. The previously completed
 bucket Job is not silently retargeted/replayed after configuration/source changes.
 GitLab functional checks and full gate remain incomplete.
+
+## PostgreSQL schema lock capacity — next UI correction
+
+The corrected JSON secrets are accepted: migration reaches `db/structure.sql`,
+then PostgreSQL reports `out of shared memory` at line 52084 under the single
+transaction load. Read-only SHOW returns max_locks_per_transaction=64 and
+max_connections=100; public table count is zero after the failed transaction.
+Explicit Settings recovery passes again.
+
+The GitLab test PostgreSQL workload is edited through UI to start with
+`postgres -c max_locks_per_transaction=4096`, following the lock-heavy development
+case in [GitLab GDK troubleshooting](https://gitlab-org.gitlab.io/gitlab-development-kit/troubleshooting/postgresql/#error-out-of-shared-memory--max_locks_per_transaction).
+This is application sizing, not a new platform-wide default. Database/PVC are
+retained. New explicit Job identities and completion references are authored;
+the next whole-batch Preview expects thirteen changes. The prior failed migration
+was removed through the product with JOB/PREREQUISITE withdrawals acknowledged
+and native absence confirmed. GitLab functional/full acceptance stays pending.

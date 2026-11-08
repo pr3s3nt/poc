@@ -98,3 +98,9 @@ export async function updateGitLabConnectionFiles(ui,base,appKey,spec,previous){
  }
  assert(changed>0,'Expected URL-normalization corrections');await ui.submit(base+'/workloads/'+spec.name,'PUT',page.getByRole('button',exact('Lưu draft Workload')));return (await ui.get(base+'/workloads')).workloads.find(w=>w.id===spec.name).workload;
 }
+
+export async function updateGitLabPostgresLocks(ui,base,appKey){
+ const {page}=ui;await page.goto(ui.baseURL+`/ui/applications/${appKey}/environments/staging/workloads/postgres`);await page.getByLabel('Tên Workload',{exact:true}).waitFor();for(let attempt=0;await page.getByLabel('Tên Workload',{exact:true}).inputValue()!=='postgres';attempt++){assert(attempt<150);await page.waitForTimeout(200);}
+ const section=page.locator('section.content-panel').filter({has:page.getByRole('heading',exact('Container 1'))});const startup=await group(page,section,text('defaults','startup'));const args=['postgres','-c','max_locks_per_transaction=4096'];await startup.getByLabel(text('templates','args'),{exact:true}).fill(args.join('\n'));
+ await ui.submit(base+'/workloads/postgres','PUT',page.getByRole('button',exact('Lưu draft Workload')));const saved=(await ui.get(base+'/workloads')).workloads.find(w=>w.id==='postgres').workload;assert.deepEqual(saved.containers.postgres.args,args);return saved;
+}

@@ -100,3 +100,16 @@ privately prepared YAML-compatible single-line JSON, asserts the input preserves
 its bytes, replaces S3/Rails secrets through Settings, authors explicit new
 bucket/migration Jobs, repoints consumers and retains three retirement drafts.
 Preview asserts the complete 12-change batch. This does not replay a completed Job.
+
+For initial Settings-based preparation, S3_CONNECTION and RAILS_SECRETS must be
+valid YAML-compatible JSON on a single line. A multiline file must use the actual
+file importer rather than filling a single-line password field.
+`gitlab-web.mjs` opens the actual configured HTTPS origin only after the recorded
+batch is SUCCEEDED, and keeps browser inspection evidence private. Inspection
+alone is not login/project/Git/upload/retention acceptance.
+
+`correct-postgres` handles the observed schema lock-table exhaustion by editing
+only this test PostgreSQL's startup argument to max_locks_per_transaction=4096,
+retaining data and authoring explicit replacement Jobs/references. The profile
+generator includes the same sizing for fresh runs. The next complete Preview
+asserts thirteen changes; no SQL reset, direct config edit or individual Deploy.
