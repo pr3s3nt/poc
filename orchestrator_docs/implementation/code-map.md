@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-07
 ---
 
 # Design-to-code map
@@ -1311,7 +1311,7 @@ fields. `WorkloadDefaults.test.tsx` covers distinct choices and sparse reset/Sav
 
 ## External Kubernetes monitoring Slice 1 WIP — issue #35
 
-ADR-040 / UC-09 EXT-OBS: `application/observability/monitoring.go`,
+ADR-041 / UC-09 EXT-OBS: `application/observability/monitoring.go`,
 `domain/monitoring/`, `adapters/prometheus/`, Kubernetes `monitoring.go`,
 PostgreSQL `monitoring.go` and `migrations/011-monitoring.sql` with frozen
 `version-011.sql`; owner setup upgrades released schema 10 to 11. Existing
@@ -1326,7 +1326,7 @@ compatibility limits of the retained pre-merge WIP database.
 
 ## Portable observability operator setup — issue #35 stage 0
 
-ADR-040 operator setup extension maps to `scripts/observability/setup.sh`, JSON
+ADR-041 operator setup extension maps to `scripts/observability/setup.sh`, JSON
 examples and chart values. Runtime deps: Linux Bash/Helm/kubectl/jq, no custom
 Go/Node/Python runtime. Contract tests: `scripts/observability/test/run.sh`.
 The [standalone guide](../../scripts/observability/README.md) and
@@ -1362,3 +1362,53 @@ existing scoped resource-detail service. Optional binding JSON maps resource IDs
 and dependency aliases to effective profile keys. `RelatedMonitoring.tsx` and
 `MonitoringChart.tsx` share charts/drill-down between environment monitoring and
 resource detail; no new external query language or cross-app source selector.
+
+## Seed Organization identity — issue #47
+
+- `scripts/bootstrap/lib/api-seed.mjs`: Organization config validation, exclusive
+  identity-file preparation and session key/name verification before import.
+- `scripts/bootstrap/seed-api.mjs`: external CLI preparation/import modes.
+- `backend/internal/seed/organization.go`: bounded identity-file reader.
+- `backend/internal/seed/seed.go`: transactional identity creation/reuse/conflict.
+- `backend/cmd/orchestrator/main.go`: installation file flag/environment wiring.
+- `backend/internal/delivery/http/organization.go`: session-scoped identity read.
+
+## Console authoring restrictions — issue #45
+
+- `frontend/src/shared/authoringFeatures.ts`: Console-only import/source switches.
+- `frontend/src/features/workloads/WorkloadEditorPage.tsx`: hides import actions
+  while retaining form editing and advanced document preservation.
+- `frontend/src/features/platform/ResourceDefinitionsPage.tsx` and
+  `TemplateDriverFields.tsx`: Git-only source choices with saved provenance.
+- `frontend/src/features/platform/AuthoringRestrictions.test.tsx`: production
+  defaults; legacy authoring regression tests explicitly enable the switches.
+
+## Compatible security template and UI trial — issue #47
+
+- `backend/template-sources/standard/{defaults.yaml,bundle.yaml}`: compatible
+  fallback and immutable generic profile versions.
+- `backend/template-sources/standard/patches/runtime-policy.tpl`: field-level
+  security merge retaining explicit intent for app/init/sidecar containers.
+- `backend/internal/adapters/templatedriver/compatible_security_test.go`: all
+  primary controllers and custom/preset render regression.
+- `e2e/scenarios/online-boutique/`: real Console setup/authoring/Preview/Deploy,
+  explicit recovery/renderer upgrade, runtime observation and browser shop flow.
+
+## Retained workload progress and legacy Catalog reads — issue #47
+
+`backend/internal/application/deployment/retained_progress.go` supplements only
+progress projection from exact successful base-set ancestry. `node_progress.go`
+labels verified retained workload facts; query Workloads remains per-Deployment.
+`frontend/src/features/catalog/CatalogPage.tsx` and `EnvironmentCatalogPanel.tsx`
+keep legacy read views without authoring or release selection; AppShell omits
+Catalog navigation. Regression tests live beside these implementations.
+
+## Workload authoring controls — issue #47
+
+`ApplicationHomePage.tsx` owns the picker DOM host/dismissal; its tests cover
+Cancel/reopen/Escape while templates load. `WorkloadEditorPage.tsx` keeps Service
+and dependencies outside advanced disclosure and preserves Environment navigation.
+`ServiceEndpointFields.tsx` authors the existing private endpoint dependency from
+valid named TCP ports, preserving alias/class/unknown params; editor validation
+blocks invalid/removed ports. Component tests cover the Save payload; the real
+browser scenario is `e2e/scenarios/workload-authoring-ui/` (no Save/Deploy).

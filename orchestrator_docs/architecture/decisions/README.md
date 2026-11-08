@@ -78,7 +78,8 @@ ZIP source upload: [ADR-026](ADR-026-zip-source-upload.md).
 - [ADR-037 — Retire public routes and Application subdomains](ADR-037-retire-public-routes.md).
 
 - [ADR-039 — Template-owned workload defaults](ADR-039-template-owned-workload-defaults.md).
+- [ADR-040 — Bounded deployment retry and user-selected Environment rollback](ADR-040-environment-deployment-retry-and-rollback.md) — issue #49.
 - [ADR-038 — Readable names for IDP-managed resources](ADR-038-readable-idp-names.md).
 
 
-- [ADR-040 — External Kubernetes monitoring and alerts](ADR-040-external-observability.md).
+- [ADR-041 — External Kubernetes monitoring and alerts](ADR-041-external-observability.md).

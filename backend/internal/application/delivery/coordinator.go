@@ -410,6 +410,13 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 		if observed.Health == domain.Degraded {
 			return errors.New("delivery: admitted workload is degraded")
 		}
+		if observed.Sync == domain.Pending && observed.Health == domain.Progressing {
+			if convergence, ok := provider.(port.PendingConvergence); ok {
+				if err := convergence.ConvergePending(wait, i, receipt); err != nil {
+					return err
+				}
+			}
+		}
 		if err := c.prunePending(wait, provider, i, receipt, observed); err != nil {
 			return err
 		}

@@ -1,0 +1,312 @@
+{
+  "upstream": "score-spec/examples@23eb62304e00eea5ccf01c4b54c2915a64c13611",
+  "workloads": [
+    {
+      "name": "ad",
+      "image": "us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/adservice:v0.10.7",
+      "variables": {
+        "PORT": "9555"
+      },
+      "resources": {
+        "limits": {
+          "memory": "150Mi",
+          "cpu": "280m"
+        },
+        "requests": {
+          "memory": "120Mi",
+          "cpu": "250m"
+        }
+      },
+      "service": {
+        "ports": {
+          "grpc": {
+            "port": 9555,
+            "targetPort": 9555
+          }
+        }
+      },
+      "redis": false
+    },
+    {
+      "name": "currency",
+      "image": "us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/currencyservice:v0.10.7",
+      "variables": {
+        "DISABLE_PROFILER": "1",
+        "PORT": "7000"
+      },
+      "resources": {
+        "limits": {
+          "memory": "90Mi",
+          "cpu": "140m"
+        },
+        "requests": {
+          "memory": "70Mi",
+          "cpu": "120m"
+        }
+      },
+      "service": {
+        "ports": {
+          "grpc": {
+            "port": 7000,
+            "targetPort": 7000
+          }
+        }
+      },
+      "redis": false
+    },
+    {
+      "name": "email",
+      "image": "us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/emailservice:v0.10.7",
+      "variables": {
+        "DISABLE_PROFILER": "1",
+        "PORT": "8080"
+      },
+      "resources": {
+        "limits": {
+          "memory": "70Mi",
+          "cpu": "130m"
+        },
+        "requests": {
+          "memory": "50Mi",
+          "cpu": "110m"
+        }
+      },
+      "service": {
+        "ports": {
+          "grpc": {
+            "port": 5000,
+            "targetPort": 8080
+          }
+        }
+      },
+      "redis": false
+    },
+    {
+      "name": "payment",
+      "image": "us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/paymentservice:v0.10.7",
+      "variables": {
+        "DISABLE_PROFILER": "1",
+        "PORT": "50051"
+      },
+      "resources": {
+        "limits": {
+          "memory": "50Mi",
+          "cpu": "30m"
+        },
+        "requests": {
+          "memory": "30Mi",
+          "cpu": "10m"
+        }
+      },
+      "service": {
+        "ports": {
+          "grpc": {
+            "port": 50051,
+            "targetPort": 50051
+          }
+        }
+      },
+      "redis": false
+    },
+    {
+      "name": "productcatalog",
+      "image": "us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/productcatalogservice:v0.10.7",
+      "variables": {
+        "DISABLE_PROFILER": "1",
+        "PORT": "3550"
+      },
+      "resources": {
+        "limits": {
+          "memory": "40Mi",
+          "cpu": "30m"
+        },
+        "requests": {
+          "memory": "20Mi",
+          "cpu": "10m"
+        }
+      },
+      "service": {
+        "ports": {
+          "grpc": {
+            "port": 3550,
+            "targetPort": 3550
+          }
+        }
+      },
+      "redis": false
+    },
+    {
+      "name": "shipping",
+      "image": "us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/shippingservice:v0.10.7",
+      "variables": {
+        "DISABLE_PROFILER": "1",
+        "PORT": "50051"
+      },
+      "resources": {
+        "limits": {
+          "memory": "30Mi",
+          "cpu": "30m"
+        },
+        "requests": {
+          "memory": "10Mi",
+          "cpu": "10m"
+        }
+      },
+      "service": {
+        "ports": {
+          "grpc": {
+            "port": 50051,
+            "targetPort": 50051
+          }
+        }
+      },
+      "redis": false
+    },
+    {
+      "name": "cart",
+      "image": "us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/cartservice:v0.10.7",
+      "variables": {},
+      "resources": {
+        "limits": {
+          "memory": "90Mi",
+          "cpu": "220m"
+        },
+        "requests": {
+          "memory": "70Mi",
+          "cpu": "200m"
+        }
+      },
+      "service": {
+        "ports": {
+          "grpc": {
+            "port": 7070,
+            "targetPort": 7070
+          }
+        }
+      },
+      "redis": true
+    },
+    {
+      "name": "recommendation",
+      "image": "us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/recommendationservice:v0.10.7",
+      "variables": {
+        "DISABLE_PROFILER": "1",
+        "PORT": "8080",
+        "PRODUCT_CATALOG_SERVICE_ADDR": "productcatalog:3550"
+      },
+      "resources": {
+        "limits": {
+          "memory": "70Mi",
+          "cpu": "30m"
+        },
+        "requests": {
+          "memory": "50Mi",
+          "cpu": "10m"
+        }
+      },
+      "service": {
+        "ports": {
+          "grpc": {
+            "port": 8080,
+            "targetPort": 8080
+          }
+        }
+      },
+      "redis": false
+    },
+    {
+      "name": "checkout",
+      "image": "us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/checkoutservice:v0.10.7",
+      "variables": {
+        "CART_SERVICE_ADDR": "cart:7070",
+        "CURRENCY_SERVICE_ADDR": "currency:7000",
+        "EMAIL_SERVICE_ADDR": "email:5000",
+        "PAYMENT_SERVICE_ADDR": "payment:50051",
+        "PORT": "5050",
+        "PRODUCT_CATALOG_SERVICE_ADDR": "productcatalog:3550",
+        "SHIPPING_SERVICE_ADDR": "shipping:50051"
+      },
+      "resources": {
+        "limits": {
+          "memory": "80Mi",
+          "cpu": "60m"
+        },
+        "requests": {
+          "memory": "60Mi",
+          "cpu": "40m"
+        }
+      },
+      "service": {
+        "ports": {
+          "grpc": {
+            "port": 5050,
+            "targetPort": 5050
+          }
+        }
+      },
+      "redis": false
+    },
+    {
+      "name": "frontend",
+      "image": "us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/frontend:v0.10.7",
+      "variables": {
+        "AD_SERVICE_ADDR": "ad:9555",
+        "CART_SERVICE_ADDR": "cart:7070",
+        "CHECKOUT_SERVICE_ADDR": "checkout:5050",
+        "CURRENCY_SERVICE_ADDR": "currency:7000",
+        "ENABLE_PROFILER": "0",
+        "PAYMENT_SERVICE_ADDR": "payment:50051",
+        "PORT": "8080",
+        "PRODUCT_CATALOG_SERVICE_ADDR": "productcatalog:3550",
+        "RECOMMENDATION_SERVICE_ADDR": "recommendation:8080",
+        "SHIPPING_SERVICE_ADDR": "shipping:50051",
+        "SHOPPING_ASSISTANT_SERVICE_ADDR": "not-used-yet:8080",
+        "CYMBAL_BRANDING": "false",
+        "FRONTEND_MESSAGE": "",
+        "ENABLE_ASSISTANT": "false"
+      },
+      "resources": {
+        "limits": {
+          "memory": "50Mi",
+          "cpu": "50m"
+        },
+        "requests": {
+          "memory": "30Mi",
+          "cpu": "30m"
+        }
+      },
+      "service": {
+        "ports": {
+          "http": {
+            "port": 8080,
+            "targetPort": 8080
+          }
+        }
+      },
+      "redis": false,
+      "httpHealth": {
+        "path": "/_healthz",
+        "port": 8080
+      }
+    },
+    {
+      "name": "loadgenerator",
+      "image": "us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/loadgenerator:v0.10.7",
+      "variables": {
+        "FRONTEND_ADDR": "frontend:8080",
+        "USERS": "10"
+      },
+      "resources": {
+        "limits": {
+          "memory": "220Mi",
+          "cpu": "100m"
+        },
+        "requests": {
+          "memory": "200Mi",
+          "cpu": "80m"
+        }
+      },
+      "redis": false
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-07
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -1535,7 +1535,7 @@ See [verification](../verification/2026-11-06-template-only-defaults.md).
 
 | Requirement | Implementation | Verification |
 |---|---|---|
-| ADR-040 portable setup | scripts/observability Bash/Helm installer, values and receipts | 25 command-contract cases; real fresh/partial kind setup and NOOP reruns |
+| ADR-041 portable setup | scripts/observability Bash/Helm installer, values and receipts | 25 command-contract cases; real fresh/partial kind setup and NOOP reruns |
 | UC-09 EXT-OBS-01/07/08 | source-specific connections, operational verification, predeploy binding, PostgreSQL/memory CAS | monitoring service/HTTP/real PostgreSQL tests; Console connection/binding |
 | UC-09 EXT-OBS-02/05/09/13 | cluster/current-Pod UID-scoped Prometheus queries; retained Loki adapter; explicit native history | provider bounds/isolation tests; live collection/query checkpoints |
 | UC-09 EXT-OBS-03/06/14 | Prometheus evaluation, Alertmanager processing projection, scoped Console drill-down | real firing and resolved webhook receipts; browser checks in progress |
@@ -1545,3 +1545,72 @@ See [verification](../verification/2026-11-06-template-only-defaults.md).
 Implementation status and limits are recorded in
 [capability verification](../verification/2026-11-07-observability-capabilities.md);
 this trace does not claim stage-6 or MCP-specific acceptance.
+
+
+ADR-040 / UC-06 V2-05 / UC-08 V2-06 — three total safe transient resource
+invocations → `tfexec/run.go` and attempt deadline in `tfexec/service.go` →
+`TestBoundedTransientRetry`, `TestTransientPlanFailureSucceedsOnThirdAttempt`,
+`TestSecondTransientFailureWithUnaccountedCreateHolds`. UC-06 V2-07
+Environment rollback remains designed but unimplemented under issue #49.
+
+ADR-040 release checkpoint → `pending/release.go` and pending Deploy final stage →
+`TestSuccessfulEnvironmentReleaseSurvivesPartialDeploy` and
+`TestEnvironmentReleaseSurvivesPartialDeployAndPostgresReopen`. Execution/UI
+rollback remains unimplemented.
+## Installation Organization — issue #47
+
+UC-00 Organization identity for installation seed maps to the API seed CLI,
+`internal/seed/organization.go`, seed Apply and session-scoped organization HTTP
+handler. Tests: `api-seed.test.mjs`, seed `organization_test.go` and
+`catalog_postgres_test.go`, HTTP `organization_test.go`, CLI `main_test.go`.
+No schema migration, UI authoring or public creation endpoint is involved.
+
+## Console authoring choices — issue #45
+
+UC-03 Git-only Console source selection and UC-16 Console authoring restriction
+map to `frontend/src/shared/authoringFeatures.ts`, `ResourceDefinitionsPage`,
+`TemplateDriverFields` and `WorkloadEditorPage`. Production-default coverage is
+`frontend/src/features/platform/AuthoringRestrictions.test.tsx`;
+[verification and remaining gate](../verification/2026-11-07-ui-authoring-restrictions.md).
+Backend import/source contracts remain unchanged.
+
+Issue #47 compatible security / ADR-039 WD-02–03 →
+[default contract](../architecture/contracts/workload-defaults.md) → standard
+source `defaults.yaml`, `bundle.yaml`, `patches/runtime-policy.tpl` →
+`compatible_security_test.go` (Deployment/StatefulSet/CronJob and app/init/sidecar,
+custom/preset) → [UI trial](../../e2e/scenarios/online-boutique/README.md) and
+[execution evidence](../verification/2026-11-07-compatible-security-boutique.md).
+Real acceptance and the pre-existing red full gate are reported separately.
+
+
+UC-06 V2-07 / ADR-040 — explicit Environment rollback → pending/rollback.go,
+resourcecleanup/rollback.go, deployment/rollback_preflight.go and retained delivery
+removal → HTTP rollback-preview/rollback → EnvironmentRollback Dialog → pending
+prior-state/empty/partial/stale tests, real PostgreSQL/Terraform cleanup tests,
+HTTP scope tests and EnvironmentRollback component tests. Live scenario:
+e2e/scenarios/environment-rollback; full runtime acceptance still pending.
+
+Issue #49 interrupted publication pair: `TestRecoveryCompletesOnlyMissingUpdateMetadata`
+validates exact retained prior evidence, one missing metadata publication, native
+UID refusal and repeated observation without another Git write; see the
+[verification](../verification/2026-11-07-environment-deploy-rollback.md).
+
+Issue #49 active shared-unit convergence is verified by
+`TestActiveReceiptConvergenceKeepsExactChainAndBumpsOnlyOnce`,
+`TestActiveReceiptConvergenceDoesNotTouchJobsOrForeignControllers` and
+`TestSharedAdmissionPreservesAnExistingRenderCounter`; live evidence remains
+separate in the Environment rollback verification record.
+
+## Issue #47 — retained progress and Catalog UI, 2026-11-08
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| UC-09 retained workload evidence; OBS-02/05 | deployment/retained_progress.go + query.go; immutable base-set ancestry, current snapshots win | retained_progress_test.go; exact reported deployment browser 7/7 |
+| UC-03 Console Catalog restriction, 2026-11-08 | AppShell; CatalogPage; EnvironmentCatalogPanel | read-only source/releases and pin tests; browser legacy route and hidden navigation |
+
+## Issue #47 — Workload authoring controls, 2026-11-08
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| UC-16 picker Cancel/Escape and Environment-preserving Cancel | ApplicationHomePage picker host; WorkloadEditorPage navigation | Home/TemplatePicker tests; actual Console close/reopen/Cancel with unchanged drafts |
+| UC-16 default Service/dependencies and explicit endpoint from port | WorkloadEditorPage; ServiceEndpointFields | Editor Save payload and endpoint component tests; real-browser field editing |

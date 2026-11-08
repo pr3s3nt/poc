@@ -466,3 +466,102 @@ a per-intent recovery marker prevents repeated requests. Recovery never forges
 controller status, changes the admitted revision/target, deletes controllers or
 forces Kubernetes object replacement. All original Bundle/live revision proofs
 still gate acknowledgement.
+
+## First Rollout absence recovery — issue #49
+
+For a first Rollout unit with no acknowledged prior Rollout receipt, explicit
+stopped-owner recovery can prove absence using the same exact publication,
+controller, workload, Bundle/BundleDeployment and Helm checks as a first
+Prerequisite. A Rollout additionally requires a non-removed completed Prerequisite
+pin of the same workload, Environment, target generation and epoch, with matching
+stable path and nonempty intent/revision/digest. Every sibling tree is verified;
+controller UID/resourceVersion is reread under the recovery fence before settling.
+Neither the Prerequisite nor siblings are submitted, withdrawn or rewritten.
+Ambiguous/admitted outcomes keep the Environment held. This extends the recovery
+prerequisite needed to exercise issue #49 on the existing Boutique deployment.
+
+Shared-controller recovery orders Git rendering before downstream observation:
+when an admitted receipt's Bundle is missing or still labels a prior commit,
+verify controller ownership/UID, exact receipt pin and every sibling tree, then
+request one Git render for that intent/current pinned commit via guarded
+forceSyncGeneration. This is not Helm force-sync. Any active Job unit blocks this
+shared render retry. The patch tests UID/resourceVersion/revision, preserves
+annotations and records an intent/commit marker to prevent repeated render requests.
+Recovery then observes actual Fleet results; it never forges readiness or removes
+resources to clear a lock.
+
+## Empty rollback authorization — issue #49
+
+Rollback to the initial empty baseline confirms the complete owned resource
+selection before side effects and acquires that Environment as RESOURCE_CLEANUP.
+The same owner/fence removes workload delivery, including failed-first-deploy
+receipts outside the committed current Set, then executes the existing Terraform
+cleanup engine. There is no gap for another Deploy between workload removal and
+resource cleanup. Platform/preexisting resources and consumers outside the
+confirmed selection remain protected.
+
+The immutable cleanup selection pins original instance versions, targets, module
+and state identities. Workload removal can advance a selected instance exactly
+once to UNREFERENCED under this owner. Cleanup may derive that new version only
+when it is original+1 with unchanged target/module/state and UNREFERENCED status;
+all other version changes or statuses block. Selection never grows. Physical
+absence proof is required for every selected resource before reporting empty.
+
+After the current Set is empty and every workload instance is verified REMOVED,
+selected READY/confirmed-FAILED instances outside the committed Set may be marked
+UNREFERENCED by CAS at the exact reviewed version under the same cleanup claim.
+This handles resources created by a failed first deployment. Held/unknown resource
+statuses remain ineligible. This metadata retirement authorizes no added resource
+and does not substitute for the engine's state, dependency and absence checks.
+
+
+## Interrupted publication pair during an update — issue #49
+
+An update can stop after publishing its immutable workload tree but before its
+paired metadata tree and controller admission. Explicit stopped-owner recovery
+may finish only that persisted pair, under the existing recovery and repository
+leases. It requires the exact prior acknowledged artifact/receipt, unchanged
+controller UID and prior revision pin, all sibling trees, exact prior live object
+UID/revision inventory, and exact new content tree already observed on the remote.
+The metadata tree must match either the retained prior artifact or the new one;
+another writer's metadata blocks recovery. Only missing paired metadata may be
+published, with the original intent bytes; no new workload render is performed.
+Controller admission then uses UID/resourceVersion CAS, verifies every selected
+remote tree and observes actual Fleet readiness. Job units remain ineligible.
+No unknown publication, foreign object or changed prior pin may be adopted.
+
+
+## Bounded read-only Git retries — issue #49
+
+Generated publication may retry a failed read-only Git command at most three
+invocations when its process has exited and the diagnostic is a recognized DNS
+or transport failure. Fetch changes only the dedicated private clone; it never
+pushes remote state. Context cancellation/deadline stops the bounded backoff.
+Authentication, validation, local locks and unknown failures are not retried.
+Checkout/staging/commit/push are never automatically replayed by this policy:
+a push with an unknown outcome still retains the publication/Environment lease
+for exact observation and explicit recovery. Diagnostics emit fixed stage and
+category enums only; credentials, URLs and command stderr are never logged.
+
+
+## Convergence of an active receipted shared unit — issue #49
+
+A shared GitRepo can report its admitted commit while a Bundle/BundleDeployment
+still carries an older commit, even when native objects already have the desired
+revision. Readiness continues requiring the complete exact commit/revision chain.
+Read-only Observe must not mutate controllers or accept the stale chain.
+
+The active deployment coordinator may explicitly request one bounded Git render
+for its already persisted receipt when observation is Pending/Progressing. The
+adapter verifies the current Environment/publication owner, controller UID,
+repository/target/path and receipt pin, all sibling trees, and the admitted
+GitRepo status/spec commit before using the existing guarded render patch. Any
+active Job pin suppresses this step, and Job units never invoke it. The marker
+binds intent+commit, and UID/resourceVersion/revision CAS prevents repeated or
+foreign writes. No Git publication, Helm force, target change, controller deletion
+or status forgery occurs. Normal observation must subsequently prove actual
+Bundle/BundleDeployment and live-object convergence before acknowledgement.
+
+Shared-controller admission and withdrawal preserve an already stored Git render
+counter without advancing it. They must not drop/reset a bounded request made by
+an earlier owner. Only the guarded convergence/recovery request advances it.

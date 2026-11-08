@@ -585,3 +585,17 @@ it('admits a catalog-only deployment when component content is unchanged', async
   await user.click(screen.getByRole('button', { name: 'Triển khai các thay đổi này' }));
   expect(await screen.findByRole('heading', { name: 'Triển khai thành công' })).toBeInTheDocument(); expect(submits).toBe(1);
 });
+
+it('dismisses the Add Workload picker while templates are loading and lets it reopen',async()=>{
+ vi.stubGlobal('fetch',vi.fn(async (input:string|URL|Request)=>{
+  const url=String(input);if(url.endsWith('/workload-templates'))return new Promise<Response>(()=>{});
+  if(url.endsWith('/workloads'))return Response.json({draftVersion:0,workloads:[]});
+  if(url.endsWith('/deployments'))return Response.json({deployments:[]});
+  if(url.endsWith('/resources'))return Response.json({resources:[]});
+  return Response.json({});
+ }));
+ const user=userEvent.setup();render(<ApplicationHomePage application={application}/>);
+ const add=await screen.findByRole('button',{name:'+ Thêm Workload'});await user.click(add);
+ await user.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Hủy'}));expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+ await user.click(add);expect(screen.getByRole('dialog')).toBeVisible();await user.keyboard('{Escape}');expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});

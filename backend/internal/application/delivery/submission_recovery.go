@@ -141,6 +141,13 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 		intent := port.Intent{ID: record.Mutation.ID, OrganizationKey: orgKey, Owner: port.Owner{OperationID: owner.OperationID, Instance: owner.Owner, Fence: owner.Fence}, Binding: binding, Revision: record.Revision, Target: record.Target, PolicyOnly: policyOnly}
 		intent.SourceInventory = append([]port.AppliedObject(nil), source.Inventory...)
 		intent.ExpectedRevision = source.Revision.ID
+		if previous != nil && source.Revision.ID != "" {
+			priorRaw, err := c.providerArtifact(ctx, *previous)
+			if err != nil {
+				return err
+			}
+			intent.PriorSubmission = &port.PriorSubmission{Prepared: port.Prepared{Revision: source.Revision, Payload: priorRaw}, Receipt: source.Receipt}
+		}
 		if record.Receipt.IntentID == "" {
 			if absentObserver, ok := provider.(port.SubmissionAbsenceRecovery); ok {
 				stage = "absence"

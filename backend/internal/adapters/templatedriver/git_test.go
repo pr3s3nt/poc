@@ -127,7 +127,8 @@ func gitRequest(selection resource.RenderingSelection) execution.RenderRequest {
 	return req
 }
 
-// The standard bundle reproduces the native semantics for every supported
+// Apart from its documented privileged=false fallback, the standard bundle reproduces
+// the native semantics for every supported
 // Workload field, the VSO path and the legacy Agent path, without a native render.
 func TestStandardBundleMatchesNativeSemantics(t *testing.T) {
 	r, selections := gitRenderer(t, map[string]map[string][]byte{"standard": readBundle(t, standardDir)})
@@ -161,6 +162,23 @@ func TestStandardBundleMatchesNativeSemantics(t *testing.T) {
 			want, err := kubernetes.NewRenderer().Render(context.Background(), req)
 			if err != nil {
 				t.Fatal(err)
+			}
+			for _, m := range want {
+				if m.Kind != "Deployment" {
+					continue
+				}
+				pod := object(object(object(m.Object["spec"])["template"])["spec"])
+				for _, raw := range list(pod["containers"]) {
+					c := object(raw)
+					security := object(c["securityContext"])
+					if security == nil {
+						security = map[string]any{}
+					}
+					if _, set := security["privileged"]; !set {
+						security["privileged"] = false
+					}
+					c["securityContext"] = security
+				}
 			}
 			if a, b := semantic(t, got), semantic(t, want); !reflect.DeepEqual(a, b) {
 				ja, _ := json.MarshalIndent(a, "", " ")

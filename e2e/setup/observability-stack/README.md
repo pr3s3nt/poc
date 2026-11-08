@@ -6,7 +6,7 @@ For portable operator installation and partial existing stacks, use the
 This folder retains the historical dev acceptance fixture/receiver; do not copy
 its kind-specific values/identity generator as a general cluster installer.
 
-Operator setup for [ADR-040](../../../orchestrator_docs/architecture/decisions/ADR-040-external-observability.md)
+Operator setup for [ADR-041](../../../orchestrator_docs/architecture/decisions/ADR-041-external-observability.md)
 and [UC-09 OBS](../../../orchestrator_docs/usecase/UC-09/specification.md#external-kubernetes-monitoring-and-alerts--obs).
 Installation is not product acceptance. Requires explicit cluster mutation permission,
 Helm 3, kubectl, kind `k8s-4f`, working standard local-path storage and capacity.

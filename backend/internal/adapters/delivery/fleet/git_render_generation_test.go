@@ -72,3 +72,27 @@ func TestGitRenderRecoveryPatchIsReceiptScopedAndBounded(t *testing.T) {
 		t.Fatal("Job recovery render was admitted", err)
 	}
 }
+
+func TestSharedRenderRecoveryIsBoundedAndRejectsJobReplay(t *testing.T) {
+	i := packageIntent()
+	r := port.Receipt{PayloadDigest: i.Revision.PayloadDigest, Handle: map[string]string{"gitrepoUID": "uid", "release": "release", "path": "payment/prerequisite"}}
+	pins := map[string]unitPin{"release": {EnvironmentID: i.Revision.Scope.EnvironmentID, Revision: i.Revision.ID, Digest: r.PayloadDigest, Path: r.Handle["path"]}}
+	repo := map[string]any{"metadata": map[string]any{"uid": "uid", "resourceVersion": "42", "annotations": map[string]any{}}, "spec": map[string]any{"revision": "admitted"}}
+	patch, needed, err := sharedGitRenderRecoveryPatch(repo, i, r, pins)
+	if err != nil || !needed || len(patch) == 0 {
+		t.Fatal(needed, err)
+	}
+	repo["metadata"].(map[string]any)["annotations"].(map[string]any)[gitRenderRecoveryAnnotation] = i.ID + "/admitted"
+	if _, needed, err := sharedGitRenderRecoveryPatch(repo, i, r, pins); err != nil || needed {
+		t.Fatal("unbounded retry", err)
+	}
+	pins["job"] = unitPin{Path: "worker/job"}
+	if _, _, err := sharedGitRenderRecoveryPatch(repo, i, r, pins); !errors.Is(err, domain.ErrUnsupported) {
+		t.Fatal("Job replay accepted", err)
+	}
+	delete(pins, "job")
+	repo["metadata"].(map[string]any)["uid"] = "other"
+	if _, _, err := sharedGitRenderRecoveryPatch(repo, i, r, pins); err == nil {
+		t.Fatal("foreign controller accepted")
+	}
+}

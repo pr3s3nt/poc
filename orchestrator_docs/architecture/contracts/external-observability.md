@@ -3,12 +3,12 @@ id: EXTERNAL-OBSERVABILITY-CONTRACT
 artifact: operation-contract
 status: current
 last_reviewed: 2026-11-05
-related: [ADR-040, UC-04, UC-09]
+related: [ADR-041, UC-04, UC-09]
 ---
 
 # External observability — Slice 1
 
-[ADR-040](../decisions/ADR-040-external-observability.md) selects the architecture.
+[ADR-041](../decisions/ADR-041-external-observability.md) selects the architecture.
 
 ## Connection and binding
 

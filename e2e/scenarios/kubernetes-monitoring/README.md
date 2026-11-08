@@ -1,7 +1,7 @@
 # External Kubernetes monitoring — issue #35 Slice 1
 
 Validates [UC-09 OBS](../../../orchestrator_docs/usecase/UC-09/specification.md#external-kubernetes-monitoring-and-alerts--obs),
-[ADR-040](../../../orchestrator_docs/architecture/decisions/ADR-040-external-observability.md)
+[ADR-041](../../../orchestrator_docs/architecture/decisions/ADR-041-external-observability.md)
 and the [external contract](../../../orchestrator_docs/architecture/contracts/external-observability.md).
 
 Requires explicit dev cluster/Git/notification mutation authorization, a dedicated

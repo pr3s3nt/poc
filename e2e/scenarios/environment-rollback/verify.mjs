@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import{readFileSync,writeFileSync}from'node:fs';
+import{execFileSync}from'node:child_process';
+import{outsideRepo,makeUI}from'../../../scripts/bootstrap/lib/runtime.mjs';
+import{readConsoleConfig,openConsole,closeConsole}from'../../lib/console.mjs';
+const app=process.env.ORCH_ROLLBACK_APP,dir=process.env.ORCH_TEST_RUN_DIR,kube=process.env.ORCH_CLUSTER_KUBECONFIG;
+assert(app&&dir&&kube,'Application, evidence directory and authorized kubeconfig required');outsideRepo(dir);
+const before=JSON.parse(readFileSync(dir+'/before-stage.json'));
+const inventory=JSON.parse(readFileSync(dir+'/before-rollback-inventory.json'));
+const statefulPods=JSON.parse(readFileSync(dir+'/before-stateful-pods.json'));
+const config=readConsoleConfig(),session=await openConsole(config,{role:'ADMIN'}),ui=makeUI(session.page,config.baseURL,180000);
+const base=`/applications/${encodeURIComponent(app)}/environments/staging`;
+try{
+ const application=(await ui.get('/applications/'+encodeURIComponent(app))).application;
+ const env=application.environments.find(e=>e.key==='staging');assert(!env.activeOperation);
+ const after=await ui.get(base+'/workloads');
+ const projection=x=>x.workloads.map(w=>({id:w.id,workload:w.workload})).sort((a,b)=>a.id.localeCompare(b.id));
+ assert.deepEqual(projection(after),projection(before.workloads),'Whole Environment workload declarations differ from the baseline');
+ assert(after.workloads.every(w=>!w.state),'Rollback left pending workload edits');
+ const variables=await ui.get(base+'/configuration');
+ const keys=x=>x.keys.map(k=>({name:k.name,kind:k.kind,value:k.value,configured:k.configured})).sort((a,b)=>a.name.localeCompare(b.name));
+ assert.deepEqual(keys(variables),keys(before.configuration),'Configuration differs from successful baseline');
+ const raw=JSON.parse(execFileSync('kubectl',['--kubeconfig',kube,'--context','kind-k8s-4f','-n',env.namespaceIdentity,'get','deployments,statefulsets,services,persistentvolumeclaims','-o','json'],{encoding:'utf8',timeout:30000}));
+ const actual=raw.items.map(x=>({kind:x.kind,name:x.metadata.name,uid:x.metadata.uid})).sort((a,b)=>(a.kind+a.name).localeCompare(b.kind+b.name));
+ assert.deepEqual(actual,inventory,'Controller/Service/stateful resource UID changed');
+ const pods=JSON.parse(execFileSync('kubectl',['--kubeconfig',kube,'--context','kind-k8s-4f','-n',env.namespaceIdentity,'get','pods','-o','json'],{encoding:'utf8',timeout:30000}));
+ const stateful=pods.items.filter(p=>p.metadata.ownerReferences?.some(o=>o.kind==='StatefulSet')).map(p=>({name:p.metadata.name,uid:p.metadata.uid})).sort((a,b)=>a.name.localeCompare(b.name));
+ assert.deepEqual(stateful,statefulPods,'Rollback replaced a stateful Pod');
+ await session.page.goto(config.baseURL+`/ui/applications/${app}?environment=staging`);
+ await session.page.getByRole('heading',{name:'Khôi phục bản triển khai',exact:true}).waitFor();
+ await session.page.screenshot({path:dir+'/verified-console.png',fullPage:true});
+ writeFileSync(dir+'/verification.json',JSON.stringify({status:'PASSED',workloads:after.workloads.length,inventoryObjects:actual.length,pendingDrafts:0,environmentIdle:true,configurationRestored:true},null,2),{mode:0o600});
+ console.log('PASS whole Environment declarations/configuration restored; no drafts or Busy; protected UIDs unchanged');
+}catch(error){console.error(error.message);process.exitCode=1}finally{await closeConsole(session,config)}

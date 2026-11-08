@@ -64,3 +64,40 @@ func (s *Server) handleDeployPending(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, report)
 }
+
+func (s *Server) handlePreviewRollback(w http.ResponseWriter, r *http.Request) {
+	app, env, ok := s.authorizedConfiguration(w, r)
+	if !ok {
+		return
+	}
+	var req struct{}
+	if !decodeStrict(w, r, 1<<10, &req) {
+		return
+	}
+	preview, err := s.pending.PreviewRollback(r.Context(), app, env)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, preview)
+}
+func (s *Server) handleRollback(w http.ResponseWriter, r *http.Request) {
+	app, env, ok := s.authorizedConfiguration(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		Token        string `json:"token"`
+		Confirmation string `json:"confirmation"`
+	}
+	if !decodeStrict(w, r, 8<<10, &req) {
+		return
+	}
+	identity, _ := s.sessionIdentity(r)
+	report, err := s.pending.Rollback(r.Context(), app, env, identity.UserID, req.Token, req.Confirmation)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, report)
+}

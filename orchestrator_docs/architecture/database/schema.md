@@ -1373,7 +1373,7 @@ The [ERD](erd.puml) is unchanged. Retained StatefulSet-generated claims are not
 standalone Terraform resource instances; their live namespace inventory remains
 subject to the existing UID/content deletion guard.
 
-## External monitoring — ADR-040 / schema 11
+## External monitoring — ADR-041 / schema 11
 
 `monitoring_connections` belongs to one organization, with UUID id, unique
 organization/key, positive revision and JSON document for nonsecret endpoint,

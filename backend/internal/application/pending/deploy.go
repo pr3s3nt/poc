@@ -96,6 +96,15 @@ func (s *Service) DeployWithReview(ctx context.Context, appKey, envKey, actor, t
 		}
 	}
 
+	// A failed checkpoint never becomes a selectable successful release.
+	if err == nil && report.Status == "SUCCEEDED" {
+		var snapshot ReleaseSnapshot
+		snapshot, err = s.captureRelease(lease.Ctx, lease.Operation.ID, preview)
+		if err == nil {
+			err = lease.Stage("RELEASE_READY", map[string]any{"releaseSnapshot": snapshot})
+		}
+	}
+
 	status, failure := environment.OpSucceeded, ""
 	if err != nil || report.Status != "SUCCEEDED" {
 		status, failure = environment.OpFailed, "the deploy did not complete: "+report.Status

@@ -277,7 +277,11 @@ func assembleView(ctx context.Context, st persistence.Store, query GetDeployment
 			ManifestReview:          w.ManifestReview,
 		})
 	}
-	view.NodeProgress = projectNodeProgress(view.Graph, view.Review, view.Resources, attempts, instances, record.Status, time.Now().UTC())
+	progressInstances, err := retainedWorkloadProgress(ctx, st, record, view.Review, instances)
+	if err != nil {
+		return nil, err
+	}
+	view.NodeProgress = projectNodeProgress(view.Graph, view.Review, view.Resources, attempts, progressInstances, record.Status, time.Now().UTC())
 	if view.Resources == nil {
 		view.Resources = []ResourceView{}
 	}

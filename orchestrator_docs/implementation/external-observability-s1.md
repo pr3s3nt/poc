@@ -3,7 +3,7 @@ id: IMPLEMENTATION-EXTERNAL-OBSERVABILITY-S1
 artifact: implementation-handoff
 status: draft
 last_reviewed: 2026-11-06
-related: [ADR-040, UC-04, UC-09]
+related: [ADR-041, UC-04, UC-09]
 ---
 
 # Issue #35 Slice 1 — work in progress
@@ -110,7 +110,7 @@ Main already released schema 9 (endpoint reservations) and 10 (route retirement)
 Their migrations and frozen references are preserved byte-for-byte. The WIP
 monitoring migration moves from 9 to 11, with a complete schema-11 reference,
 owner upgrade from released schema 10, and current version/history checks.
-External observability is now ADR-040; ADR-037/038/039 retain main's decisions.
+External observability is now ADR-041; ADR-037/038/039 retain main's decisions.
 Both translation sets and both sides of the schema/ERD were retained.
 
 The retained isolated `observability-s1-live` database used the earlier WIP

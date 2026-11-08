@@ -124,7 +124,7 @@ Canonical shared collaboration: [delivery sequence](../../architecture/component
 These supplement the existing direct-path diagrams for this new design slice;
 [CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.
 
-## External observability — ADR-040
+## External observability — ADR-041
 
 The authorized query service loads the selected Environment binding, restores
 owned current-generation targets, verifies cluster identity, and asks the bounded
@@ -157,3 +157,12 @@ before reading external data. Monitoring binding resolves mapped keys against th
 effective collector profile; the scoped read projects existing metric observations
 and alert identities without widening selectors. Console reuses the metric chart,
 status and workload/time drill-down patterns in resource/dependency panels.
+
+## Retained workload history
+
+The assembler follows successful Deployment records producing the exact base
+Deployment Set, within the same scope/generation. It checks unchanged module
+intent and reads only immutable workload snapshots, stopping at the first
+workload-owning ancestor. It supplies verified READY evidence only to progress
+projection; the current run's Workloads list is unchanged. Missing/ambiguous
+ancestry stays UNKNOWN. No provider calls or persistence writes are introduced.

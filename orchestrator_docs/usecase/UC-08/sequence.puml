@@ -61,7 +61,7 @@ loop Provider-first Terraform nodes
   else failure / uncertain result
     Service -> Intent: Persist stage/status; keep state and private recovery handle
     note over Service, Terraform
-    Known transient: at most one bounded retry after state/result checks.
+    Known transient: at most three total attempts after state/result checks (ADR-040).
     Unknown outcome: hold, no CREATE replay or automatic resume/import.
     Failure stops dependent batches; only safe independent cleanup continues.
     Failure does not authorize dependency destruction.

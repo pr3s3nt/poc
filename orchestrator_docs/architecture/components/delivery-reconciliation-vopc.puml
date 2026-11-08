@@ -9,6 +9,7 @@ class "ObservationWorker" <<control>>
 class "InfrastructureDriftService" <<control>>
 interface "DeliveryProvider" as Provider
 interface "OwnershipTransfer" as Transfer
+interface "PendingConvergence" as Converge
 interface "GitPublisher" as Publisher
 interface "OwnedObjectRemover" as Remover
 class "DirectAdapter" <<adapter>>
@@ -26,6 +27,7 @@ class "EnvironmentOperation" <<entity>>
 "Pending / Deployment service" --> "DeliveryCoordinator"
 "DeliveryCoordinator" --> Provider
 "DeliveryCoordinator" --> Transfer
+"DeliveryCoordinator" --> Converge
 "DeliveryCoordinator" --> Remover
 "DeliveryCoordinator" --> "EnvironmentOperation"
 "DeliveryCoordinator" --> "DeliveryUnit"
@@ -40,6 +42,7 @@ class "EnvironmentOperation" <<entity>>
 "Future CD adapter" ..|> Provider
 "DirectAdapter" ..|> Transfer
 "FleetAdapter" ..|> Transfer
+"FleetAdapter" ..|> Converge
 "FleetAdapter" --> Publisher
 note bottom of Provider
 Fleet/Argo/Flux types remain adapter-private.

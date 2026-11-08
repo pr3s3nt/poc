@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import{existsSync,writeFileSync,mkdirSync}from'node:fs';
+import{outsideRepo,makeUI}from'../../../scripts/bootstrap/lib/runtime.mjs';
+import{readConsoleConfig,openConsole,closeConsole}from'../../lib/console.mjs';
+const dir=process.env.ORCH_TEST_RUN_DIR;assert(dir&&process.env.ORCH_EMPTY_ROLLBACK==='1');outsideRepo(dir);mkdirSync(dir,{recursive:true,mode:0o700});
+const config=readConsoleConfig(),session=await openConsole(config,{role:'ADMIN'}),ui=makeUI(session.page,config.baseURL,180000),page=session.page;
+const file=dir+'/empty-application.json';
+try{
+ assert(!existsSync(file),'Inspect the recorded prior run before creating another application');
+ const apps=(await ui.get('/applications')).applications;assert(!apps.some(a=>a.name==='rollback-empty-issue49'),'Application name already exists');
+ await page.goto(config.baseURL+'/ui/applications/new');
+ await page.getByLabel('Tên ứng dụng',{exact:true}).fill('rollback-empty-issue49');
+ const result=await ui.submit('/applications','POST',page.getByRole('button',{name:'Tạo ứng dụng',exact:true}));
+ const app=result.application;writeFileSync(file,JSON.stringify(app,null,2),{mode:0o600});
+ const base=`/applications/${app.key}/environments/staging`;
+ await page.goto(config.baseURL+`/ui/applications/${app.key}?environment=staging`);
+ await page.getByRole('button',{name:'+ Thêm Workload',exact:true}).click();
+ await page.getByRole('button',{name:/Backend API/}).click();
+ await page.getByLabel('Tên Workload',{exact:true}).fill('empty-check');
+ await page.getByLabel('Ảnh Container',{exact:true}).fill('nginx:1.27');
+ await ui.submit(base+'/workloads/empty-check','PUT',page.getByRole('button',{name:'Lưu draft Workload',exact:true}));
+ await page.goto(config.baseURL+`/ui/applications/${app.key}?environment=staging`);
+ const preview=await ui.submit(base+'/rollback-preview','POST',page.getByRole('button',{name:'Xem trước Rollback',exact:true}));
+ assert.equal(preview.empty,true);assert.equal(preview.restore.length,0);assert.equal(preview.resources.length,0);
+ await page.getByRole('textbox',{name:`Nhập ${app.key} để xác nhận`,exact:true}).fill(app.key);
+ const report=await ui.submit(base+'/rollback','POST',page.getByRole('button',{name:'Rollback môi trường',exact:true}));
+ assert.equal(report.status,'SUCCEEDED');
+ const after=await ui.get(base+'/workloads');assert.equal(after.workloads.length,0);
+ const idle=(await ui.get('/applications/'+app.key)).application.environments.find(e=>e.key==='staging');assert(!idle.activeOperation);
+ await page.getByText('Đã khôi phục toàn bộ môi trường.',{exact:true}).waitFor();
+ await page.screenshot({path:dir+'/initial-empty-complete.png',fullPage:true});
+ writeFileSync(dir+'/initial-empty-result.json',JSON.stringify({status:'PASSED',applicationKey:app.key,workloads:0,resources:0,initialDeploymentNeverStarted:true},null,2),{mode:0o600});
+ console.log('PASS initial-empty rollback through UI; pending draft removed; no external resources were created');
+}catch(error){await page.screenshot({path:dir+'/initial-empty-error.png',fullPage:true}).catch(()=>{});console.error(error.message);process.exitCode=1}finally{await closeConsole(session,config)}

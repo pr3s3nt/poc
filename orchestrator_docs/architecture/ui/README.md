@@ -290,3 +290,27 @@ observability with explicit metric source/freshness and scoped alerts. Connectio
 forms reuse platform list/card/form patterns; binding reuses Environment Settings.
 Keep shell, environment tabs, charts, safe errors and VI/EN catalogs. No theme
 redesign. Formula/coverage explanations use accessible disclosures.
+
+## Console source choices — issue #45 (2026-11-07)
+
+The Console hides Workload file import and exposes only Git for new or changed
+Definition sources. Saved provenance remains visible. This overrides the earlier
+Git/ZIP/Catalog/inline/registered authoring choices in the affected editors only;
+backend capabilities and the Catalog browser remain available. Keep the current
+shell, shared controls and form layout; do not add explanatory banners.
+
+## Environment rollback — issue #49
+
+Application Home reuses content-panel, Button, Dialog and current status/error
+patterns. A scoped Preview Rollback action shows the target Environment and whole
+restore/remove workload summary. Confirmation requires the Application key;
+initial-empty rollback explicitly warns that owned deployment resources are deleted.
+Busy prevents conflicting actions. During execution keep confirmation/dialog
+mounted and disable dismissal; outcome and errors are explicit and never echo raw
+provider output. Shell/navigation and the normal Preview/Deploy flow are unchanged.
+
+## Catalog navigation — 2026-11-08
+
+Hide Catalog from the shared sidebar. Existing Catalog routes remain read-only
+for history; Console offers no new Catalog authoring or Environment selection.
+Keep the shared shell and the Resource Type/Definition navigation unchanged.

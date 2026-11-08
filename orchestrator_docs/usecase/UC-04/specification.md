@@ -517,7 +517,7 @@ Shared CD Git derives repository ownership from the explicit account/group URL s
 
 ## Observability connections — OBS-CON
 
-Accepted for issue #35 Slice 1, [ADR-040](../../architecture/decisions/ADR-040-external-observability.md).
+Accepted for issue #35 Slice 1, [ADR-041](../../architecture/decisions/ADR-041-external-observability.md).
 PE/Admin can create, list, update, test and remove organization-owned observability
 connections and bind a verified connection to an owned Environment. Keep credentials
 private through the existing resolver; expose backend endpoints separately from

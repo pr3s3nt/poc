@@ -3,6 +3,8 @@ package fleet
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"log"
 	k8s "orchestrator/internal/adapters/kubernetes"
 	domain "orchestrator/internal/domain/delivery"
 	port "orchestrator/internal/ports/delivery"
@@ -53,6 +55,20 @@ func (p *Provider) RecoverSubmission(ctx context.Context, i port.Intent, prepare
 	}
 	repo, found, err := cli.Get(ctx, cfg.Workspace, "gitrepos.fleet.cattle.io", r.Handle["gitrepo"])
 	if err != nil || !found {
+		code := "NOT_FOUND"
+		if err != nil {
+			code = "COMMAND"
+		}
+		if errors.Is(err, k8s.ErrUnreachable) {
+			code = "UNREACHABLE"
+		}
+		if errors.Is(err, k8s.ErrForbidden) {
+			code = "FORBIDDEN"
+		}
+		if errors.Is(err, k8s.ErrUnauthorized) {
+			code = "UNAUTHORIZED"
+		}
+		log.Printf("Fleet recovery controller read failed: code=%s", code)
 		return r, ErrController
 	}
 	md, _ := repo["metadata"].(map[string]any)
@@ -73,6 +89,11 @@ func (p *Provider) RecoverSubmission(ctx context.Context, i port.Intent, prepare
 		if err := p.verifySharedTrees(ctx, i, commit, pins); err != nil {
 			return r, err
 		}
+		waiting, err := p.wakeSharedGitRender(ctx, cli, cfg, i, r, repo, pins)
+		if err != nil || waiting {
+			return r, err
+		}
+
 	} else {
 		annotations, _ := md["annotations"].(map[string]any)
 		spec, _ := repo["spec"].(map[string]any)

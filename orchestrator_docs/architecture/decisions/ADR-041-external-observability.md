@@ -1,12 +1,12 @@
 ---
-id: ADR-040
+id: ADR-041
 artifact: architecture-decision
 status: current
 last_reviewed: 2026-11-06
 related: [ADR-023, ADR-036, UC-04, UC-09]
 ---
 
-# ADR-040 — External Kubernetes monitoring and alerts
+# ADR-041 — External Kubernetes monitoring and alerts
 
 Initially accepted by the user on 2026-11-05 for Slice 1 of issue #35. Product
 implementation remains WIP; capability-based installation tooling was subsequently

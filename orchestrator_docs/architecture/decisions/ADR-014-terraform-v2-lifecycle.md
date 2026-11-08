@@ -8,6 +8,9 @@ related: [UC-03, UC-04, UC-05, UC-06, UC-07, UC-08, UC-09, UC-16]
 
 # ADR-014 — Terraform v2: ownership, modules, state và execution
 
+> Bounded retry count and user-requested Environment-level rollback now follow
+> [ADR-040](ADR-040-environment-deployment-retry-and-rollback.md).
+
 Status: Accepted — 2026-10-13, theo các quyết định người dùng chốt ở Bước 1.
 Đây là thiết kế cần implement, không phải bằng chứng code hoặc acceptance đã đạt.
 

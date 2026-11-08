@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"log"
 	"time"
 
 	"orchestrator/internal/adapters/delivery/artifact"
@@ -91,7 +93,35 @@ func (p *Provider) Prepare(_ context.Context, i port.Intent, manifests []executi
 	revision.PayloadDigest = pkg.Publication.TreeDigest
 	return port.Prepared{Revision: revision, Objects: pkg.Objects, Payload: raw}, nil
 }
-func (p *Provider) Submit(ctx context.Context, i port.Intent, prepared port.Prepared) (port.Receipt, error) {
+func (p *Provider) Submit(ctx context.Context, i port.Intent, prepared port.Prepared) (result port.Receipt, resultErr error) {
+	stage := "VALIDATE"
+	defer func() {
+		if resultErr == nil {
+			return
+		}
+		code := "UNCLASSIFIED"
+		for _, known := range []struct {
+			err  error
+			code string
+		}{
+			{ErrOwnership, "OWNERSHIP"}, {ErrController, "CONTROLLER"}, {ErrVerification, "VERIFICATION"}, {ErrConfig, "CONFIG"},
+			{k8s.ErrUnreachable, "CLUSTER_UNREACHABLE"}, {k8s.ErrRequestRejected, "CLUSTER_REJECTED"}, {k8s.ErrForbidden, "CLUSTER_FORBIDDEN"},
+		} {
+			if errors.Is(resultErr, known.err) {
+				code = known.code
+				break
+			}
+		}
+		switch resultErr.Error() {
+		case "gitpublication: operation failed":
+			code = "GIT_FAILED"
+		case "gitpublication: generated path changed concurrently":
+			code = "GIT_CONFLICT"
+		case "gitpublication: invalid generated publication":
+			code = "GIT_INVALID"
+		}
+		log.Printf("fleet submission stopped: stage=%s code=%s type=%T", stage, code, resultErr)
+	}()
 	if p.Manager == nil || p.Publishers == nil || p.Manager.Guard == nil {
 		return port.Receipt{}, ErrController
 	}
@@ -122,13 +152,16 @@ func (p *Provider) Submit(ctx context.Context, i port.Intent, prepared port.Prep
 			return port.Receipt{}, err
 		}
 	}
+	stage = "PREFLIGHT"
 	if err := p.preflight(ctx, i, pkg); err != nil {
 		return port.Receipt{}, err
 	}
+	stage = "RESOLVE_PUBLISHER"
 	publisher, err := p.Publishers.ResolvePublisher(ctx, i.Binding)
 	if err != nil {
 		return port.Receipt{}, err
 	}
+	stage = "CONTENT_PUBLICATION"
 	git, err := publisher.Publish(ctx, pkg.Publication, func(ctx context.Context) error { return p.Manager.Guard(ctx, i) })
 	if err != nil {
 		return port.Receipt{}, err
@@ -137,11 +170,14 @@ func (p *Provider) Submit(ctx context.Context, i port.Intent, prepared port.Prep
 		if pkg.Metadata == nil {
 			return port.Receipt{}, ErrConfig
 		}
+		stage = "METADATA_PUBLICATION"
 		metadata, err := publisher.Publish(ctx, *pkg.Metadata, func(ctx context.Context) error { return p.Manager.Guard(ctx, i) })
 		if err != nil {
+
 			return port.Receipt{}, err
 		}
 		git.Commit = metadata.Commit
+		stage = "CONTROLLER_ADMISSION"
 		return p.submitApplication(ctx, i, pkg, git)
 	}
 	return p.Manager.Submit(ctx, i, pkg, git)

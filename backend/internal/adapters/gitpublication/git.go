@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	port "orchestrator/internal/ports/gitpublication"
 )
@@ -74,14 +76,63 @@ func validate(i port.Intent) error {
 func Digest(files map[string][]byte) string { return port.Digest(files) }
 
 func (w *Writer) git(ctx context.Context, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", w.Dir, "-c", "core.hooksPath=/dev/null", "-c", "credential.helper="}, args...)...)
-	cmd.Env = append([]string{"PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME"), "GIT_TERMINAL_PROMPT=0", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null"}, w.Env...)
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, ErrPublication
+	stage := "COMMAND"
+	if len(args) > 0 {
+		switch args[0] {
+		case "fetch", "status", "checkout", "ls-tree", "cat-file", "add", "push", "rev-parse", "merge-base":
+			stage = args[0]
+		case "-c":
+			stage = "commit"
+		}
 	}
-	return out, nil
+	readOnly := stage == "fetch" || stage == "status" || stage == "ls-tree" || stage == "cat-file" || stage == "rev-parse" || stage == "merge-base"
+	for attempt := 1; attempt <= 3; attempt++ {
+		cmd := exec.CommandContext(ctx, "git", append([]string{"-C", w.Dir, "-c", "core.hooksPath=/dev/null", "-c", "credential.helper="}, args...)...)
+		cmd.Env = append([]string{"PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME"), "GIT_TERMINAL_PROMPT=0", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null"}, w.Env...)
+		out, err := cmd.Output()
+		if err == nil {
+			return out, nil
+		}
+		code := gitFailureCode(err)
+		log.Printf("gitpublication command stopped: stage=%s code=%s attempt=%d", stage, code, attempt)
+		if !readOnly || (code != "DNS" && code != "TRANSPORT") || attempt == 3 || ctx.Err() != nil {
+			return nil, ErrPublication
+		}
+		timer := time.NewTimer(time.Duration(attempt) * 100 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, ErrPublication
+		case <-timer.C:
+		}
+	}
+	return nil, ErrPublication
 }
+
+func gitFailureCode(err error) string {
+	var exited *exec.ExitError
+	if !errors.As(err, &exited) {
+		return "PROCESS"
+	}
+	message := strings.ToLower(string(exited.Stderr))
+	switch {
+	case strings.Contains(message, "could not resolve host"):
+		return "DNS"
+	case strings.Contains(message, "authentication failed") || strings.Contains(message, "could not read username") || strings.Contains(message, "requested url returned error: 403") || strings.Contains(message, "requested url returned error: 401"):
+		return "AUTH"
+	case strings.Contains(message, "ssl certificate problem") || strings.Contains(message, "certificate verify failed"):
+		return "TLS"
+	case strings.Contains(message, "index.lock") || strings.Contains(message, "cannot lock ref"):
+		return "LOCAL_LOCK"
+	case strings.Contains(message, "nothing to commit"):
+		return "NO_CHANGE"
+	case strings.Contains(message, "http/2") || strings.Contains(message, "rpc failed") || strings.Contains(message, "connection reset") || strings.Contains(message, "connection timed out") || strings.Contains(message, "failed to connect") || strings.Contains(message, "empty reply from server") || strings.Contains(message, "remote end hung up") || strings.Contains(message, "early eof"):
+		return "TRANSPORT"
+	default:
+		return "EXIT"
+	}
+}
+
 func (w *Writer) fetch(ctx context.Context, branch string) error {
 	_, err := w.git(ctx, "fetch", "--no-tags", "origin", branch)
 	return err

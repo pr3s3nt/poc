@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { ApiError } from '../../shared/api/client';
@@ -24,4 +24,14 @@ it('directs an unselected environment to its catalog settings instead of retryin
  expect(await screen.findByRole('alert')).toHaveTextContent('Chọn một phiên bản Catalog');
  expect(screen.getByRole('link', { name: 'Cài đặt môi trường' })).toHaveAttribute('href', '/ui/applications/app/settings?environment=production');
  expect(screen.queryByRole('button', { name: 'Thử lại' })).not.toBeInTheDocument();
+});
+
+it('closes a mounted picker through Cancel while templates are still loading', async () => {
+ vi.mocked(getWorkloadTemplates).mockReturnValue(new Promise(() => {}));
+ const {useState, StrictMode}=await import('react');
+ function Host(){const[open,setOpen]=useState(false);return <><button onClick={()=>setOpen(true)}>Open picker</button>{open?<TemplatePicker app="app" environment="staging" onClose={()=>setOpen(false)} onSelect={vi.fn()} onCustom={vi.fn()}/>:null}</>}
+ const user=userEvent.setup();render(<StrictMode><Host/></StrictMode>);
+ await user.click(screen.getByRole('button',{name:'Open picker'}));
+ await user.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Hủy'}));
+ await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 });

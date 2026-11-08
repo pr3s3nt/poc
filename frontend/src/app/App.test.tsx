@@ -303,14 +303,14 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       expect(requests.filter((request) => request.method === 'POST')).toEqual([]);
     });
 
-    it.each(['/ui/platform/resource-definitions', '/ui/platform/resource-definitions?resourceType=workload', '/ui/platform/resource-definitions?resourceType=nope'])('selects nothing for deep link %s', async (path) => {
+    it.each([['/ui/platform/resource-definitions', ''], ['/ui/platform/resource-definitions?resourceType=workload', 'workload'], ['/ui/platform/resource-definitions?resourceType=nope', '']])('preserves supported type selection for deep link %s', async (path, expectedType) => {
       authenticated = true;
       window.history.replaceState({}, '', path);
       override = catalog;
       render(<App />);
       if (path === '/ui/platform/resource-definitions') await userEvent.setup().click(await screen.findByRole('button', { name: 'Tạo cấu hình' }));
       await screen.findByRole('option', { name: 'vpc' });
-      expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('');
+      await waitFor(() => expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue(expectedType));
     });
 
     it('prefills a catalog type awaiting its first Git module and keeps Git registration blocked until inspection', async () => {

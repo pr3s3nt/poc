@@ -3,7 +3,7 @@ id: VER-OBSERVABILITY-CAPABILITIES-20261107
 artifact: verification
 status: current
 last_reviewed: 2026-11-07
-related: [ADR-040, UC-09]
+related: [ADR-041, UC-09]
 ---
 
 # Issue #35 capability execution checkpoints

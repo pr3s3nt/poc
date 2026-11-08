@@ -33,6 +33,8 @@ type Intent struct {
 	ExpectedRevision string
 	SourceInventory  []AppliedObject
 	PolicyOnly       bool
+	// PriorSubmission is private retained evidence supplied only for explicit recovery.
+	PriorSubmission *PriorSubmission `json:"-"`
 }
 
 func (i Intent) Validate() error {
@@ -53,6 +55,11 @@ func (i Intent) Validate() error {
 		return i.Binding.Capabilities.ValidateSelection(s)
 	}
 	return nil
+}
+
+type PriorSubmission struct {
+	Prepared Prepared
+	Receipt  Receipt
 }
 
 type Prepared struct {
@@ -239,4 +246,10 @@ type SubmissionReceiptRecovery interface {
 // It never applies to Jobs and never authorizes replay of the original request.
 type SubmissionAbsenceRecovery interface {
 	ObserveSubmissionAbsent(context.Context, Intent, Prepared) (bool, error)
+}
+
+// PendingConvergence is an explicit guarded write of the current owner; Observe
+// remains read-only. Providers must make repeated requests idempotent.
+type PendingConvergence interface {
+	ConvergePending(context.Context, Intent, Receipt) error
 }

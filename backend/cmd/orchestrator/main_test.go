@@ -208,3 +208,37 @@ func TestBootstrapAdminThroughTheCLI(t *testing.T) {
 		t.Fatalf("admin sign-in = %d", resp.StatusCode)
 	}
 }
+
+func TestOrganizationFileCLIUsesExplicitIdentityAndRefusesRename(t *testing.T) {
+	dir := t.TempDir()
+	organization := privateFile(t, dir, "organization.json", `{"key":"my-company","name":"Công ty của tôi"}`, 0600)
+	password := privateFile(t, dir, "password", "organization-test-password", 0600)
+	state := filepath.Join(dir, "state.json")
+	args := []string{"-organization-file", organization, "-bootstrap-admin", "-bootstrap-admin-password-file", password, "-state", state}
+	out, err := command(args...).CombinedOutput()
+	if err != nil || !strings.Contains(string(out), `organization "my-company"`) {
+		t.Fatalf("bootstrap: %v %s", err, out)
+	}
+	before, err := os.ReadFile(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(before, []byte("Công ty của tôi")) {
+		t.Fatal("configured name missing from snapshot")
+	}
+	privateFile(t, dir, "organization.json", `{"key":"my-company","name":"Different name"}`, 0600)
+	out, err = command(args...).CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "Organization identity conflict") {
+		t.Fatalf("expected conflict: %v %s", err, out)
+	}
+	after, err := os.ReadFile(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatal("conflict changed stored data")
+	}
+	if bytes.Contains(out, []byte("organization-test-password")) {
+		t.Fatal("password leaked")
+	}
+}

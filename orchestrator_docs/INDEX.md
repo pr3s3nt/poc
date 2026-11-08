@@ -230,3 +230,21 @@ Template-only workload defaults: [ADR-039](architecture/decisions/ADR-039-templa
 Portable observability installation (issue #35 stage 0):
 [operator runbook](operations/observability-installation.md),
 [standalone Bash/Helm installer](../scripts/observability/README.md).
+
+## Configurable seed Organization — issue #47
+
+[API seed installation procedure](operations/platform-seed.md#configurable-organization--issue-47)
+covers credential-free identity preparation, first-Admin/backend configuration
+and pre-import Organization checks.
+
+[Organization seed verification](verification/2026-11-07-organization-seed.md)
+records CLI/API, PostgreSQL, runtime rerun and full-check evidence for issue #47.
+
+## Console authoring restrictions — issue #45
+
+[Verification and remaining gate](verification/2026-11-07-ui-authoring-restrictions.md):
+Workload import is hidden; Definition source selection is Git-only on Console.
+Backend APIs and existing stored source revisions are unchanged.
+
+Compatible security template and UI Online Boutique trial (issue #47):
+[verification and remaining gates](verification/2026-11-07-compatible-security-boutique.md).

@@ -3,7 +3,7 @@ id: OPS-OBSERVABILITY-INSTALLATION
 artifact: runbook
 status: current
 last_reviewed: 2026-11-06
-related: [ADR-040, UC-09]
+related: [ADR-041, UC-09]
 ---
 
 # Portable observability installation — issue #35 stage 0
@@ -14,7 +14,7 @@ of an unspecified destination. Do not install from the read-only inventory alone
 
 [Standalone installer guide](../../scripts/observability/README.md) owns commands,
 configuration and recovery details. It is copied with the installer. This runbook
-owns operational boundaries; [ADR-040](../architecture/decisions/ADR-040-external-observability.md)
+owns operational boundaries; [ADR-041](../architecture/decisions/ADR-041-external-observability.md)
 owns architecture. This is operator setup, not Console stack provisioning.
 
 ## Installation procedure

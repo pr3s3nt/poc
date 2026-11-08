@@ -65,6 +65,8 @@
                     requests:
                         cpu: 50m
                         memory: 32Mi
+                  securityContext:
+                    privileged: false
                 - image: example/agent:1
                   imagePullPolicy: IfNotPresent
                   name: sidecar
@@ -74,6 +76,8 @@
                     requests:
                         cpu: 10m
                         memory: 96Mi
+                  securityContext:
+                    privileged: false
 - apiVersion: v1
   kind: Service
   metadata:

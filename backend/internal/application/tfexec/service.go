@@ -74,7 +74,7 @@ type Config struct {
 	InvocationTimeout time.Duration
 	// ReadinessTimeout bounds the readiness query (default 5m).
 	ReadinessTimeout time.Duration
-	// RetryBackoff is the wait before the single transient retry (default 5s).
+	// RetryBackoff is the wait before each bounded transient retry (default 5s).
 	RetryBackoff time.Duration
 	// AbsencePolls and AbsenceInterval bound the physical absence proof.
 	AbsencePolls    int
@@ -418,7 +418,7 @@ func (s *Service) prepareInstance(ctx context.Context, st *execState, env terraf
 	attempt, err := s.deps.State.BeginAttempt(ctx, tfresource.Attempt{
 		InstanceID: st.inst.ID, DeploymentID: req.DeploymentID, RunID: req.RunID, Action: st.action, Ownership: ownership,
 		Stage: StageIntent, ModuleSnapshot: moduleSnap, TargetSnapshot: snapshot,
-		Deadline: s.now().Add(2*s.cfg.InvocationTimeout + s.cfg.RetryBackoff + s.cfg.ReadinessTimeout),
+		Deadline: s.now().Add(maxResourceInvocations*s.cfg.InvocationTimeout + (maxResourceInvocations-1)*s.cfg.RetryBackoff + s.cfg.ReadinessTimeout),
 	})
 	if err != nil {
 		return fmt.Errorf("%w: begin the attempt: %w", ErrExecution, err)

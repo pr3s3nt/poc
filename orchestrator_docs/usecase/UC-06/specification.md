@@ -208,9 +208,11 @@ hard-code Application hay Environment.
 
 - **OOS-01:** Retry không giới hạn và timeout vô hạn. Retry transient có
   giới hạn, deadline và cancellation thuộc V2-05.
-- **OOS-02:** Rollback tự động.
+- **OOS-02:** Tự động rollback khi deployment thất bại. Rollback toàn Environment
+  do người dùng chủ động sau khi xem lỗi thuộc V2-07.
 - **OOS-03:** Concurrent deployment.
-- **OOS-04:** Partial failure recovery.
+- **OOS-04:** Tự tiếp tục hoặc tự sửa một deployment bị partial failure. Người
+  dùng có thể chọn redeploy hoặc rollback theo V2-07.
 - **OOS-05:** Drift reconciliation.
 - **OOS-06:** Scheduled deletion hoặc destroy ngầm trong Deploy. Xóa
   resource có xác nhận riêng thuộc UC-07 V2-03.
@@ -270,10 +272,25 @@ before destination apps/routes become live. See
 
 ## Retry, gián đoạn và kiểm chứng
 
-- **V2-05:** Retry lỗi tạm thời tối đa một lần sau kiểm state/kết quả, trong
-  deadline theo [state contract](../../architecture/contracts/terraform-state.md).
-  Lỗi input/auth/permission hoặc chưa rõ kết quả thì dừng. Giữ stage/state/
-  ownership và khóa khi chưa xác minh tiến trình cũ đã dừng; không tự resume/rollback.
+[ADR-040](../../architecture/decisions/ADR-040-environment-deployment-retry-and-rollback.md)
+owns the bounded retry and user-selected Environment rollback behavior below.
+
+- **V2-05:** Với lỗi tạm thời có kết quả đã xác nhận, thử tối đa ba lần tổng cộng
+  cho thao tác resource (lần đầu và tối đa hai lần thử lại), trong deadline theo
+  [state contract](../../architecture/contracts/terraform-state.md). Trước lần
+  thử lại sau Apply phải chứng minh state và kết quả đã được ghi nhận. Lỗi
+  input/auth/permission, cancellation hoặc kết quả chưa rõ thì dừng; không lặp
+  lại thao tác có thể gây tác động trùng. Hết lượt thì Deployment báo `FAILED`,
+  giữ lỗi/log an toàn để người dùng chẩn đoán. Không tự rollback.
+- **V2-07:** Sau Deployment thất bại, người dùng có thể sửa desired configuration
+  và khởi chạy Deployment mới, hoặc chọn rollback toàn Environment. Rollback tạo
+  một deployment bù trừ dưới Environment operation lock, khôi phục chính xác
+  snapshot của Environment trước lần triển khai thất bại gần nhất đã thành công.
+  Nếu chưa có snapshot triển khai thành công, mốc đích là Environment rỗng.
+  Chỉ xóa tài nguyên xác minh được thuộc lần triển khai của Environment; giữ
+  shared/preexisting resources. Rollback chỉ thành công khi toàn bộ Environment
+  đạt mốc đích; kết quả một phần hoặc không rõ phải giữ operation để xử lý và
+  báo rõ lỗi, không tuyên bố thành công.
 - **V2-06:** Redeploy giữ identity/dữ liệu. Replacement cần Preview và xác nhận
   riêng theo UC-05 V2-04. Acceptance phải hoàn tất luồng job trên UI ứng dụng
   và chứng minh đọc/ghi Redis/PostgreSQL, ngoài việc Declare/Preview/Deploy qua
@@ -440,3 +457,26 @@ and binding revisions. Profile-only changes produce ordinary pending UPDATEs;
 unchanged saves do not. Admission rejects stale pins before provider effects and
 configuration mutation respects held referencing Environment operations. Removal
 uses retained owned delivery receipts even when the external query source is stale.
+
+## Explicit recovery before rollback — issue #49
+
+A first Rollout may be settled as failed without publication only after the
+stopped-owner recovery guard verifies exact new manifest/metadata publication
+absence, absence of the Rollout pin, live workload objects, Bundle,
+BundleDeployment and Helm release. A completed same-workload/generation/epoch
+Prerequisite pin and all sibling Git trees must remain authoritative; reread the
+same owned controller UID/resourceVersion before settling. This recovery does not
+publish or retry, withdraw the Prerequisite, or change sibling resources. Unknown
+or admitted outcomes remain held. After recovery, redeploy or rollback is a
+separate user action.
+
+### Rollback admission guards — issue #49
+
+Rollback always revalidates the original target generation, delivery binding and
+Secret Store identity. A changed destination, unavailable historical renderer,
+unretained catalog selection or one-shot Job requiring replay blocks admission or
+execution with an explicit failure; no substitute pin, resource replacement or
+Job replay is selected silently. Rollback restores declared configuration and
+owned workload resources; it does not rewind database contents. An initial-empty
+rollback is separately confirmed and physically verifies removal of its exact
+owned resource selection while retaining platform/preexisting resources.

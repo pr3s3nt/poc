@@ -186,7 +186,7 @@ TEL adds separate application telemetry queries backed by a background collector
 ## External Kubernetes monitoring and alerts — OBS
 
 Accepted 2026-11-05 for issue #35 Slice 1:
-[ADR-040](../../architecture/decisions/ADR-040-external-observability.md) and
+[ADR-041](../../architecture/decisions/ADR-041-external-observability.md) and
 [contract](../../architecture/contracts/external-observability.md).
 
 - **EXT-OBS-01:** A verified Environment binding selects Prometheus metrics explicitly;
@@ -253,3 +253,13 @@ configuration/profile/freshness and missing/error states, and preserve workload
 and time on drill-down. A declared dependency and an observed probe are distinct
 from proof of an actual application call. Exporter/instrumentation prerequisites
 and company metric semantics must remain explicit.
+
+## Retained workload progress — accepted 2026-11-08
+
+A retained workload node without a snapshot in this Deployment may use a READY
+snapshot from the immutable successful Deployment Set ancestry of this run's
+base set. Require explicit RETAIN/BIND intent, same tenant/Environment/target
+generation, unchanged module intent along that ancestry and exact snapshot
+Deployment/workload identity. Current instance state, later deployments or overall
+SUCCEEDED alone are not proof. Missing, conflicting, failed or changed baseline
+evidence remains UNKNOWN; current-run facts always take precedence.

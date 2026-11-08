@@ -3,7 +3,7 @@ id: VERIFY-20261106-OBSERVABILITY-INSTALLER
 artifact: verification
 status: current
 last_reviewed: 2026-11-06
-related: [ADR-040, OPS-OBSERVABILITY-INSTALLATION]
+related: [ADR-041, OPS-OBSERVABILITY-INSTALLATION]
 ---
 
 # Portable observability installer tooling checkpoint

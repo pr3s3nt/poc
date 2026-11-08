@@ -239,7 +239,11 @@ func (p *Provider) submitApplicationAttempt(ctx context.Context, i port.Intent, 
 	if err != nil {
 		return port.Receipt{}, err
 	}
-	obj := map[string]any{"apiVersion": "fleet.cattle.io/v1alpha1", "kind": "GitRepo", "metadata": md, "spec": sharedSpec(cfg, git.Commit, pins)}
+	spec := sharedSpec(cfg, git.Commit, pins)
+	if err := retainGitRenderGeneration(spec, current); err != nil {
+		return port.Receipt{}, err
+	}
+	obj := map[string]any{"apiVersion": "fleet.cattle.io/v1alpha1", "kind": "GitRepo", "metadata": md, "spec": spec}
 	payload, _ := json.Marshal(obj)
 	if err := m.Guard(ctx, i); err != nil {
 		return port.Receipt{}, err
@@ -343,7 +347,11 @@ func (p *Provider) withdrawApplicationAttempt(ctx context.Context, i port.Intent
 			if err != nil {
 				return proof, err
 			}
-			payload, _ := json.Marshal(map[string]any{"apiVersion": "fleet.cattle.io/v1alpha1", "kind": "GitRepo", "metadata": md, "spec": sharedSpec(cfg, git.Commit, pins)})
+			spec := sharedSpec(cfg, git.Commit, pins)
+			if err := retainGitRenderGeneration(spec, current); err != nil {
+				return proof, err
+			}
+			payload, _ := json.Marshal(map[string]any{"apiVersion": "fleet.cattle.io/v1alpha1", "kind": "GitRepo", "metadata": md, "spec": spec})
 			if _, err := cli.Run(ctx, payload, "replace", "-f", "-"); err != nil {
 				if errors.Is(err, k8s.ErrRequestRejected) && attempt < 2 {
 					return p.withdrawApplicationAttempt(ctx, i, r, attempt+1)
@@ -458,6 +466,9 @@ func (p *Provider) RecoverReceipt(ctx context.Context, i port.Intent, prepared p
 			return port.Receipt{}, ErrOwnership
 		}
 		return p.recoverUnadmittedApplication(ctx, i, pkg, cfg, uid)
+	}
+	if unpublishedPriorPin(pin, found, i, pkg) {
+		return p.recoverPublishedUpdate(ctx, i, pkg, cfg, repo, pins)
 	}
 	if pin.Removed || pin.Intent != i.ID || pin.Revision != i.Revision.ID || pin.EnvironmentID != i.Revision.Scope.EnvironmentID || pin.Path != pkg.Publication.Path || pin.Digest != i.Revision.PayloadDigest {
 		return port.Receipt{}, ErrOwnership
@@ -584,7 +595,7 @@ func (p *Provider) ObserveSubmissionAbsent(ctx context.Context, i port.Intent, p
 	if i.ExpectedRevision != "" && len(i.SourceInventory) > 0 {
 		return p.observeUnpublishedUpdate(ctx, i, prepared)
 	}
-	if i.Revision.Phase != domain.Prerequisite || i.ExpectedRevision != "" || len(i.SourceInventory) != 0 {
+	if (i.Revision.Phase != domain.Prerequisite && i.Revision.Phase != domain.Rollout) || i.ExpectedRevision != "" || len(i.SourceInventory) != 0 {
 		return false, nil
 	}
 	var pkg Package
@@ -599,9 +610,44 @@ func (p *Provider) ObserveSubmissionAbsent(ctx context.Context, i port.Intent, p
 	if cfg.ApplicationID == "" {
 		return false, nil
 	}
-	_, found, err := cli.Get(ctx, cfg.Workspace, "gitrepos.fleet.cattle.io", applicationRepoName(i, cfg))
-	if err != nil || found {
+	repo, found, err := cli.Get(ctx, cfg.Workspace, "gitrepos.fleet.cattle.io", applicationRepoName(i, cfg))
+	if err != nil {
 		return false, err
+	}
+	controllerFound := found
+	if found {
+		// The Application controller is shared by all workload units. Its
+		// existence alone is not evidence that this first prerequisite was
+		// submitted. Prove the exact controller incarnation and every existing
+		// sibling pin before considering absence for an unpinned new unit.
+		if !applicationOwns(repo, i, cfg) {
+			return false, ErrOwnership
+		}
+		md, _ := repo["metadata"].(map[string]any)
+		if md["deletionTimestamp"] != nil || md["uid"] == "" || md["resourceVersion"] == "" {
+			return false, ErrOwnership
+		}
+		pins, err := readUnitPins(repo)
+		if err != nil {
+			return false, err
+		}
+		if _, exists := pins[pkg.ReleaseName]; exists {
+			return false, nil
+		}
+		if i.Revision.Phase == domain.Rollout && !hasPrerequisitePin(i, pkg, cfg, pins) {
+			return false, nil
+		}
+		spec, _ := repo["spec"].(map[string]any)
+		commit, _ := spec["revision"].(string)
+		if commit == "" {
+			return false, ErrOwnership
+		}
+		if err := p.verifySharedTrees(ctx, i, commit, pins); err != nil {
+			return false, err
+		}
+	}
+	if i.Revision.Phase == domain.Rollout && !controllerFound {
+		return false, nil
 	}
 	if err := p.validateApplicationSubmission(ctx, i, pkg, cfg); err != nil {
 		return false, err
@@ -678,6 +724,34 @@ func (p *Provider) ObserveSubmissionAbsent(ctx context.Context, i port.Intent, p
 	if err := p.Manager.RecoveryGuard(ctx, i); err != nil {
 		return false, err
 	}
-	_, found, err = cli.Get(ctx, cfg.Workspace, "gitrepos.fleet.cattle.io", applicationRepoName(i, cfg))
-	return !found && err == nil, err
+	// Re-read the controller after the rest of the absence proof. Do not settle
+	// FAILED if its identity changed or a controller appeared during observation.
+	current, currentFound, err := cli.Get(ctx, cfg.Workspace, "gitrepos.fleet.cattle.io", applicationRepoName(i, cfg))
+	if err != nil || currentFound != controllerFound {
+		return false, err
+	}
+	if controllerFound {
+		before, _ := repo["metadata"].(map[string]any)
+		after, _ := current["metadata"].(map[string]any)
+		if before["uid"] != after["uid"] || before["resourceVersion"] != after["resourceVersion"] || !applicationOwns(current, i, cfg) {
+			return false, ErrOwnership
+		}
+	}
+	return true, nil
+}
+
+// A first Rollout is a separate delivery unit from its completed Prerequisite.
+// Its absence can be proven without withdrawing or rewriting that prior unit.
+func hasPrerequisitePin(i port.Intent, pkg Package, cfg Config, pins map[string]unitPin) bool {
+	parts := strings.Split(i.Revision.Scope.UnitKey, "/")
+	if len(parts) != 2 || !strings.EqualFold(parts[1], string(domain.Rollout)) {
+		return false
+	}
+	scope := i.Revision.Scope
+	scope.UnitKey = parts[0] + "/" + string(domain.Prerequisite)
+	prior, ok := pins[unitReleaseName(scope)]
+	return ok && !prior.Removed && prior.EnvironmentID == scope.EnvironmentID &&
+		prior.Revision != "" && prior.Revision != i.Revision.ID && prior.Intent != "" && prior.Intent != i.ID &&
+		prior.Digest != "" && prior.Path == path.Join(cfg.Root, parts[0], strings.ToLower(string(domain.Prerequisite))) &&
+		prior.Path != pkg.Publication.Path
 }

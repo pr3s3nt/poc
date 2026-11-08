@@ -140,3 +140,14 @@ panel explicitly. Empty mapping, missing collector, stale observations and sourc
 failure remain separate; no native fallback or inferred dependency-call claims.
 Links preserve workload/time. Mapping JSON is an advanced PE/Admin binding input,
 separate from whole-workload collection overrides; default shell/navigation stay.
+
+## Environment rollback — issue #49
+
+Application Home provides Preview Rollback using the existing shared Dialog.
+Preview identifies staging/production, last successful target and restore/remove
+workloads. Initial-empty mode lists the owned resources selected for deletion and
+warns of removal. Confirmation requires the full Application key. Conflicting
+Environment operations disable the action. Loading, unavailable baseline,
+stale preview, in-progress, incomplete/failed and successful rollback are distinct;
+raw provider errors are never displayed. A failed or lost mutation is not retried
+automatically; inspect the Environment operation before another request.

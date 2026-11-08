@@ -87,12 +87,12 @@ func (s *Store) FreezeDefinitionSelection(ctx context.Context, v persistence.Def
 	return translate(err)
 }
 func (s *Store) SelectDefinitionSelection(ctx context.Context, org string, expectedEnv, expected int64, v persistence.DefinitionSelection) error {
-	return s.Transact(ctx, func(ctx context.Context) error {
+	return s.fenced(ctx, func(ctx context.Context) error {
 		env, err := scanEnv(s.q(ctx).QueryRow(ctx, envSelect+` WHERE a.application_key=$1 AND e.environment_key=$2 AND a.organization_id=(SELECT id FROM organizations WHERE organization_key=$3) AND a.status='ACTIVE' FOR UPDATE OF e`, v.ApplicationKey, v.EnvironmentKey, org))
 		if err != nil {
 			return translate(err)
 		}
-		if env.Busy() {
+		if env.Busy() && env.ActiveOperationID != ownerArg(ctx) {
 			return persistence.ErrEnvironmentBusy
 		}
 		if env.Version != expectedEnv {
