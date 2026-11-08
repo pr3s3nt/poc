@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-08 | One template card per ID, latest/older exact pins, main frontend rollout and real-browser checks | [Grouped template versions](2026-11-08-grouped-template-versions.md) |
 | 2026-11-08 | Organization seed main merge, obsolete static test retirement and retained kind Console upgrade | [Main integration](2026-11-08-organization-seed-main-merge.md) |
 | 2026-11-06 | Issue #37 merge, naming/ADR integration, real kind/Fleet/SQL gate, verified backup and retained Console main upgrade | [Main merge verification](2026-11-06-workload-defaults-main-merge.md) |
 | 2026-11-06 | Effective runtime validation 400, actionable PDB feedback, preserved draft and real VI/EN correction/retry | [Resolution errors](2026-11-06-workload-resolution-errors.md) |

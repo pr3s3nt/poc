@@ -46,5 +46,21 @@ backend query, rendering and deployment are unchanged.
   remain disclosed in the preceding integration record. Documentation and
   whitespace checks pass; local PlantUML is unavailable and no diagram changed.
 
-Private screenshots, browser receipts and logs stay outside Git. Main frontend
-rollout and final browser verification are recorded after completion below.
+Private screenshots, browser receipts and logs stay outside Git.
+
+## Main rollout — passed
+
+User-authorized merge `fc018680` is pushed to main. Its exact tested frontend
+image is imported into the existing kind node and assigned only to the existing
+installer-owned frontend Deployment after checking its UID. Frontend is Ready;
+backend/PostgreSQL/Vault specs and all Deployment UIDs remain unchanged and Ready.
+No schema setup, backend rollout, template revision change or database mutation
+was needed for this UI-only change.
+
+The same actual-browser scenario passes again through the exact main Tailscale
+URL: one card per ID, newest default pin, explicit older pin, no navigation on
+version change alone, and unchanged workload drafts after Cancel. No application
+Deploy was performed. Feature branch is deleted locally/remotely and the isolated
+frontend container is stopped/removed; other stacks/forwards and retained data are
+untouched. The main Console and its existing access forwards remain running.
+

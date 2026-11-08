@@ -12,7 +12,9 @@ last_reviewed: 2026-11-08
 Add Workload now groups each template ID into one card, defaulting to its newest
 scoped numeric version. Older versions remain selectable in a collapsed control;
 card activation preserves the exact selected immutable pin. Existing workload
-pins are unchanged. See [verification](verification/2026-11-08-grouped-template-versions.md).
+pins are unchanged. Merged as `fc018680`, rolled out to the retained kind Console
+and verified by actual browser with unchanged drafts. Full frontend passes
+988/988. See [verification](verification/2026-11-08-grouped-template-versions.md).
 
 ## Main integration — issues #47/#49, 2026-11-08
 
