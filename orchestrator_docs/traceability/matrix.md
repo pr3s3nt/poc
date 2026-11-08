@@ -1610,7 +1610,6 @@ separate in the Environment rollback verification record.
 | Requirement | Implementation | Checks |
 |---|---|---|
 | Job intent, exact policy and capability gate | environment JobPolicy; template-source capability; standard Job preset/patch/guard | OneShotJobValidation, OneShotJobIntentRoundTrip, OneShotJobRequiresAdvertisedSourceCapability, OneShotJobRendersAndGuardsExecution |
-| Job completion prerequisite / no cycles / batch order | planning job_dependencies/graph; pending preview/order | JobCompletionDependencyGraph, JobCompletionOrdersBatchBeforeConsumers; runtime pending |
-| Form round-trip, zero retry, deadline and repairable dependency | JobFields/WaitForJobsFields; WorkloadEditorPage | JobFields and Job/Deployment Save regression tests; real UI pending |
-
-| GW-08 / UC-06 terminal failed Job recovery; UC-07 removal; UC-16 draft deletion | Fleet terminal_job; delivery submission_recovery/removal/coordinator; workloadconfig Delete | Terminal Job unit tests, FailedDelivery deletion tests, TerminalJobFailureInventorySurvivesPostgresReopen; actual UI recovery/removal pending |
+| Job completion prerequisite / no cycles / batch order | planning job_dependencies/graph; pending preview/order | JobCompletionDependencyGraph, JobCompletionOrdersBatchBeforeConsumers; real two-workload UI batch passes |
+| Form round-trip, zero retry, deadline and repairable dependency | JobFields/WaitForJobsFields; WorkloadEditorPage | JobFields and Job/Deployment Save regression tests; real Job/consumer UI proof passes |
+| GW-08 / UC-06 terminal failed Job recovery; UC-07 removal; UC-16 draft deletion | Fleet terminal_job; delivery submission_recovery/removal/coordinator; workloadconfig Delete | Terminal Job unit tests, FailedDelivery deletion tests, TerminalJobFailureInventorySurvivesPostgresReopen; actual UI recovery and draft deletion pass; removal execution pending |

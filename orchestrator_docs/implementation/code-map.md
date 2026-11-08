@@ -1381,7 +1381,8 @@ Job providers before consumers. `templatedriver/guard.go`, native runtime admiss
 and the standard source render/validate a primary Job with exact execution policy.
 `one-shot-job-v1` gates old sources. JobFields/WaitForJobsFields and the editor
 round-trip explicit policy/dependencies; shared graph labels completion edges.
-Runtime Job/GitLab acceptance is pending, not implied by these source paths.
+Real UI Job completion and consumer update without Job replay pass; GitLab
+functional/full acceptance remains pending. See the issue #50 verification.
 
 Failed-Job extension (issue #50): `adapters/delivery/fleet/terminal_job.go` proves
 terminal failure; `application/delivery/submission_recovery.go` settles FAILED
@@ -1389,7 +1390,9 @@ with private retained inventory, and `removal.go` includes it until acknowledged
 withdrawal. `coordinator.go` rejects replay. `workloadconfig/service.go` preserves
 UI draft removals with retained publication even without a successful Set.
 `terminal_job_test.go`, `failed_delivery_delete_test.go` and the PostgreSQL
-`terminal_job_integration_test.go` cover these boundaries; runtime proof is pending.
+`terminal_job_integration_test.go` cover these boundaries. Actual Settings
+recovery preserves the failed Job UID/spec and releases the Environment; UI
+retains its removal draft. Removal execution is still pending.
 
 Stateful update corrections (issue #50): `fleet/stateful_claims.go` retains only
 the generated deployment provenance label of existing immutable claim templates

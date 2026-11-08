@@ -252,3 +252,13 @@ that generated claim label from the retained source artifact before packaging.
 Storage fields, business metadata, native admission, source UID and release checks
 remain enforced; no live resource/data migration or force replace is introduced.
 Runtime retry remains pending while these corrections are validated.
+
+The subsequent single-batch retry with 171bc1b6 passes Gitaly preflight and
+rollout: its replacement Pod is Ready, and the operation advances to objectstore.
+Read-only comparison confirms both existing PVC UIDs are retained. This proves
+the StatefulSet correction on the app, not yet the later Job/migration/web path.
+
+The same batch passes objectstore update and `object-init-v2` completion (20s).
+Its AWS CLI log records six bucket creations without AccessDenied; PostgreSQL
+is the next active component. SeaweedFS bucket initialization is now verified;
+GitLab's own object-storage upload/read compatibility is still pending.
