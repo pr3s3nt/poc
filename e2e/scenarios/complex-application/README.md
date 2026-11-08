@@ -82,3 +82,13 @@ config must extract hostname/authority rather than add another URL scheme. The
 initial bucket Job used a double scheme and failed; its immutable identity must
 not be rewritten/replayed. Keep failed attempt records and use an explicitly new
 Job identity if the supported lifecycle allows it.
+
+Approved option 2 adds bounded failed-Job recovery/removal on the current app.
+`recover` must pass the product proof; failure remains blocked and is not a
+success. After verified recovery and regenerating the corrected offline profile,
+`refresh-source` explicitly selects the inspected renderer revision, then
+`correct-failed-job` edits connection ConfigMaps, authors `object-init-v2`, changes
+the migration completion reference and marks the old Job for removal through UI.
+It asserts that deletion remains PENDING_DELETE rather than silently discarding a
+published draft. `retry` previews the entire replacement/removal batch and clicks
+Environment Deploy once; history and previous attempt receipts remain retained.

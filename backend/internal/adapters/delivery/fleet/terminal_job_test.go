@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
+	"orchestrator/internal/adapters/delivery/artifact"
 	port "orchestrator/internal/ports/delivery"
 	"testing"
 )
@@ -94,5 +95,22 @@ func TestFailedHelmReleaseProofRejectsWrongAndNewerReleases(t *testing.T) {
 	obj(obj(newer["metadata"])["labels"])["status"] = "pending-upgrade"
 	if _, err = latestFailedJobRelease([]map[string]any{secret, newer}, "release", "fleet-system"); err == nil {
 		t.Fatal("pending new release ignored")
+	}
+}
+
+func TestTerminalJobManifestIgnoresOnlyFleetTracking(t *testing.T) {
+	expected := map[string]any{"apiVersion": "batch/v1", "kind": "Job", "metadata": map[string]any{"name": "task", "labels": map[string]any{"business": "keep"}}, "spec": map[string]any{"backoffLimit": 0}}
+	live := cloneObject(expected)
+	md := obj(live["metadata"])
+	md["annotations"] = map[string]any{"objectset.rio.cattle.io/id": "controller"}
+	obj(md["labels"])["objectset.rio.cattle.io/hash"] = "hash"
+	same, err := artifact.SameExecution([]map[string]any{cloneObject(expected)}, []map[string]any{terminalJobExecutionObject(live)})
+	if err != nil || !same {
+		t.Fatal("Fleet post-render provenance rejected", err)
+	}
+	obj(live["spec"])["backoffLimit"] = 3
+	same, err = artifact.SameExecution([]map[string]any{cloneObject(expected)}, []map[string]any{terminalJobExecutionObject(live)})
+	if err != nil || same {
+		t.Fatal("Changed Job policy admitted", err)
 	}
 }

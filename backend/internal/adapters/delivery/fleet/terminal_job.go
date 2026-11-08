@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -24,7 +25,13 @@ import (
 // ObserveTerminalJobFailure is read-only. A failed Helm wait is not publication
 // absence, and never a successful completion. Bind the failed execution to its
 // admitted tree, release manifest and stable live incarnations for later removal.
-func (p *Provider) ObserveTerminalJobFailure(ctx context.Context, i port.Intent, prepared port.Prepared, r port.Receipt) ([]port.AppliedObject, bool, error) {
+func (p *Provider) ObserveTerminalJobFailure(ctx context.Context, i port.Intent, prepared port.Prepared, r port.Receipt) (result []port.AppliedObject, settled bool, resultErr error) {
+	stage := "guard"
+	defer func() {
+		if resultErr != nil {
+			log.Printf("Fleet terminal Job proof stopped: stage=%s type=%T", stage, resultErr)
+		}
+	}()
 	if i.Revision.Phase != domain.Job {
 		return nil, false, nil
 	}
@@ -34,19 +41,23 @@ func (p *Provider) ObserveTerminalJobFailure(ctx context.Context, i port.Intent,
 	if err := p.Manager.RecoveryGuard(ctx, i); err != nil {
 		return nil, false, err
 	}
+	stage = "artifact"
 	var pkg Package
 	if json.Unmarshal(prepared.Payload, &pkg) != nil || pkg.Publication.ID != i.ID || pkg.Publication.TreeDigest != i.Revision.PayloadDigest || gitport.Digest(pkg.Publication.Files) != i.Revision.PayloadDigest || r.IntentID != i.ID || r.RevisionID != i.Revision.ID || r.PayloadDigest != i.Revision.PayloadDigest {
 		return nil, false, ErrOwnership
 	}
+	stage = "target-config"
 	cli, done, cfg, err := p.Manager.open(ctx, i)
 	if err != nil {
 		return nil, false, err
 	}
 	defer done()
 	// Only the current managed per-Application layout is admitted by this extension.
+	stage = "receipt"
 	if r.Handle["layout"] != applicationLayout || cfg.ApplicationID == "" || r.Handle["gitrepo"] != applicationRepoName(i, cfg) || r.Handle["release"] != pkg.ReleaseName || r.Handle["releaseNamespace"] != cfg.ReleaseNamespace || r.Handle["namespace"] != i.Target.Namespace || r.Handle["path"] != pkg.Publication.Path {
 		return nil, false, ErrOwnership
 	}
+	stage = "gitrepo"
 	repo, found, err := cli.Get(ctx, cfg.Workspace, "gitrepos.fleet.cattle.io", r.Handle["gitrepo"])
 	if err != nil || !found {
 		return nil, false, ErrController
@@ -60,9 +71,11 @@ func (p *Provider) ObserveTerminalJobFailure(ctx context.Context, i port.Intent,
 	if commit == "" || obj(repo["status"])["commit"] != commit {
 		return nil, false, nil
 	}
+	stage = "shared-trees"
 	if err = p.verifySharedTrees(ctx, i, commit, pins); err != nil {
 		return nil, false, err
 	}
+	stage = "metadata"
 	if pkg.Metadata == nil || gitport.Digest(pkg.Metadata.Files) != pkg.Metadata.TreeDigest || pkg.Metadata.DestinationKey != pkg.Publication.DestinationKey || pkg.Metadata.Branch != pkg.Publication.Branch {
 		return nil, false, ErrOwnership
 	}
@@ -70,6 +83,7 @@ func (p *Provider) ObserveTerminalJobFailure(ctx context.Context, i port.Intent,
 	if err != nil {
 		return nil, false, err
 	}
+	stage = "publication"
 	publication, ok, err := publisher.ObservePublication(ctx, pkg.Publication)
 	if err != nil || !ok || publication.TreeDigest != i.Revision.PayloadDigest || publication.Commit != commit {
 		return nil, false, domain.ErrOutcomeUnknown
@@ -78,6 +92,7 @@ func (p *Provider) ObserveTerminalJobFailure(ctx context.Context, i port.Intent,
 	if err != nil || !ok || metadataPublication.Commit != commit || metadataPublication.TreeDigest != pkg.Metadata.TreeDigest {
 		return nil, false, domain.ErrOutcomeUnknown
 	}
+	stage = "bundle"
 	raw, err := cli.Run(ctx, nil, "get", "bundles.fleet.cattle.io", "-n", cfg.Workspace, "-l", "fleet.cattle.io/repo-name="+r.Handle["gitrepo"], "-o", "json")
 	if err != nil {
 		return nil, false, ErrController
@@ -90,6 +105,7 @@ func (p *Provider) ObserveTerminalJobFailure(ctx context.Context, i port.Intent,
 	if len(bs) != 1 || !owns(bs[0], i, pkg.ReleaseName) {
 		return nil, false, ErrOwnership
 	}
+	stage = "cluster"
 	cluster, found, err := cli.Get(ctx, cfg.Workspace, "clusters.fleet.cattle.io", cfg.TargetCluster)
 	if err != nil || !found {
 		return nil, false, ErrController
@@ -102,6 +118,7 @@ func (p *Provider) ObserveTerminalJobFailure(ctx context.Context, i port.Intent,
 	if ns == "" || bn == "" {
 		return nil, false, ErrOwnership
 	}
+	stage = "bundledeployment"
 	bd, found, err := cli.Get(ctx, ns, "bundledeployments.fleet.cattle.io", bn)
 	if err != nil || !found {
 		return nil, false, ErrController
@@ -109,6 +126,7 @@ func (p *Provider) ObserveTerminalJobFailure(ctx context.Context, i port.Intent,
 	if !controllerCommitMatches(commit, bs[0], bd) || obj(bd["spec"])["deploymentID"] == nil {
 		return nil, false, nil
 	}
+	stage = "target"
 	target, closeTarget, err := k8s.OpenCLI(ctx, p.Manager.Verifier.KubectlPath, p.Manager.Verifier.Credentials, i.Target)
 	if err != nil {
 		return nil, false, err
@@ -128,6 +146,7 @@ func (p *Provider) ObserveTerminalJobFailure(ctx context.Context, i port.Intent,
 	if json.Unmarshal(raw, &releases) != nil {
 		return nil, false, ErrOwnership
 	}
+	stage = "helm-release"
 	release, err := latestFailedJobRelease(releases.Items, pkg.ReleaseName, cfg.ReleaseNamespace)
 	if errors.Is(err, domain.ErrOutcomeUnknown) {
 		return nil, false, nil
@@ -135,10 +154,12 @@ func (p *Provider) ObserveTerminalJobFailure(ctx context.Context, i port.Intent,
 	if err != nil {
 		return nil, false, err
 	}
+	stage = "helm-manifest"
 	manifest, err := helmJobManifest(release, pkg.ReleaseName, cfg.ReleaseNamespace)
 	if err != nil {
 		return nil, false, err
 	}
+	stage = "artifact-manifest"
 	expected, err := p.ExportArtifact(ctx, prepared.Payload)
 	if err != nil {
 		return nil, false, err
@@ -151,8 +172,9 @@ func (p *Provider) ObserveTerminalJobFailure(ctx context.Context, i port.Intent,
 		a = append(a, cloneObject(m.Object))
 	}
 	for _, m := range manifest {
-		b = append(b, cloneObject(m))
+		b = append(b, terminalJobExecutionObject(m))
 	}
+	stage = "manifest-equality"
 	same, err := artifact.SameExecution(a, b)
 	if err != nil || !same {
 		return nil, false, ErrOwnership
@@ -161,6 +183,7 @@ func (p *Provider) ObserveTerminalJobFailure(ctx context.Context, i port.Intent,
 	for _, m := range expected {
 		refs = append(refs, execution.ObjectRef{APIVersion: m.APIVersion, Kind: m.Kind, Name: m.Name})
 	}
+	stage = "native-job"
 	live, err := k8s.InspectDeliveryObjects(ctx, target, i.Target, refs)
 	if err != nil {
 		return nil, false, err
@@ -173,6 +196,7 @@ func (p *Provider) ObserveTerminalJobFailure(ctx context.Context, i port.Intent,
 		if job == nil {
 			return nil, false, ErrOwnership
 		}
+		stage = "native-job-identity"
 		uid, terminal, isFailed, err := terminalJobIdentity(job, m.Object, i, r)
 		if err != nil {
 			return nil, false, err
@@ -181,6 +205,7 @@ func (p *Provider) ObserveTerminalJobFailure(ctx context.Context, i port.Intent,
 			return nil, false, nil
 		}
 		failed = failed || isFailed
+		stage = "job-pods"
 		podsRaw, err := target.Run(ctx, nil, "get", "pods", "-n", i.Target.Namespace, "-l", "batch.kubernetes.io/controller-uid="+uid, "-o", "json")
 		if err != nil {
 			return nil, false, err
@@ -202,6 +227,7 @@ func (p *Provider) ObserveTerminalJobFailure(ctx context.Context, i port.Intent,
 	if err = p.Manager.RecoveryGuard(ctx, i); err != nil {
 		return nil, false, err
 	}
+	stage = "stable-snapshot"
 	again, err := k8s.InspectDeliveryObjects(ctx, target, i.Target, refs)
 	if err != nil {
 		return nil, false, err
@@ -385,4 +411,15 @@ func jobPodsStopped(pods []map[string]any, uid, name string) bool {
 		}
 	}
 	return true
+}
+
+// Fleet adds these two ObjectSet tracking keys during post-render. They are
+// controller provenance; exact release/controller and native ownership are
+// verified separately. No business metadata or Pod field is ignored here.
+func terminalJobExecutionObject(source map[string]any) map[string]any {
+	out := cloneObject(source)
+	md := obj(out["metadata"])
+	delete(obj(md["annotations"]), "objectset.rio.cattle.io/id")
+	delete(obj(md["labels"]), "objectset.rio.cattle.io/hash")
+	return out
 }

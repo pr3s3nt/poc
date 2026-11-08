@@ -235,6 +235,7 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 			return err == nil, err
 		}
 		// Check terminal failure before any recovery wake/metadata handoff.
+		stage = "terminal-job-proof"
 		settled, settleErr := settleFailure(ctx, record.Receipt)
 		if settleErr != nil {
 			return settleErr

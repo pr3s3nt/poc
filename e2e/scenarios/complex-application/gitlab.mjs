@@ -5,7 +5,7 @@ import {makeUI,outsideRepo} from '../../../scripts/bootstrap/lib/runtime.mjs';
 import {ensureEnvironment,selectDefinitionRevisions} from '../../../scripts/bootstrap/lib/environment.mjs';
 import {ensureSecretStore,ensureTypes} from '../../../scripts/bootstrap/lib/platform.mjs';
 import {ensureDirectDefinitions} from '../../../scripts/bootstrap/lib/direct-platform.mjs';
-import {authorGitLabWorkload,updateGitLabStorage} from './gitlab-form.mjs';
+import {authorGitLabWorkload,updateGitLabStorage,updateGitLabConnectionFiles} from './gitlab-form.mjs';
 import {execFileSync} from 'node:child_process';
 import {ensureNamespaceAccess} from '../../../scripts/bootstrap/lib/namespace-access.mjs';
 process.umask(0o077);
@@ -13,7 +13,7 @@ const dir=process.env.ORCH_TEST_RUN_DIR;assert(dir);outsideRepo(dir);
 const file=dir+'/gitlab-state.json',state=existsSync(file)?JSON.parse(readFileSync(file,'utf8')):{};
 const save=()=>writeFileSync(file,JSON.stringify(state,null,2));
 const rt={state,save,record(key,status){console.log(key,status);save()}};
-const stage=process.argv[2];assert(['inspect','prepare','author','endpoint','attach-endpoint','preview','storage','deploy','status','refresh-source','retry','namespace-access','recover'].includes(stage));
+const stage=process.argv[2];assert(['inspect','prepare','author','endpoint','attach-endpoint','preview','storage','deploy','status','refresh-source','retry','namespace-access','recover','correct-failed-job'].includes(stage));
 const c=readConsoleConfig(),s=await openConsole(c,{role:'ADMIN'}),ui=makeUI(s.page,c.baseURL,180000),{page}=ui;
 try{
  const stores=(await ui.get('/secret-stores')).secretStores;
@@ -28,11 +28,25 @@ try{
   assert.equal(state.attempt?.status,'INTERRUPTED');const base=`/applications/${state.app.key}/environments/staging`,op=(await ui.get(base+'/operations?reviewRequestId='+encodeURIComponent(state.attempt.reviewRequestId))).operations.find(o=>o.id===state.attempt.operationId);assert.equal(op?.status,'INTERRUPTED');assert(op.recoverable);
   await page.goto(c.baseURL+`/ui/applications/${state.app.key}/settings?environment=staging`);await page.getByLabel('Tôi xác nhận thao tác bị gián đoạn đã dừng hẳn',{exact:true}).check();const result=await ui.submit(base+'/operations/'+op.id+'/recover','POST',page.getByRole('button',{name:'Khôi phục môi trường',exact:true}));writeFileSync(dir+'/gitlab-recovery.json',JSON.stringify(result,null,2));assert.equal(result.recovery.compensationFailed?.length??0,0);const app=(await ui.get('/applications/'+state.app.key)).application;assert(!app.environments.find(e=>e.key==='staging').activeOperation);state.attempt.status='RECOVERED';save();console.log('PASS supported UI recovery released Environment');
  }
+ else if(stage==='correct-failed-job'){
+  assert.equal(state.attempt?.status,'RECOVERED');const base=`/applications/${state.app.key}/environments/staging`,home=c.baseURL+`/ui/applications/${state.app.key}?environment=staging`;
+  const app=(await ui.get('/applications/'+state.app.key)).application;assert(!app.environments.find(e=>e.key==='staging').activeOperation);
+  const specs=JSON.parse(readFileSync(dir+'/gitlab-profile.json','utf8'));state.correctedWorkloads??=[];
+  for(const name of ['migrations','webservice','sidekiq','toolbox']){
+   if(state.correctedWorkloads.includes(name))continue;const before=(await ui.get(base+'/workloads')).workloads.find(w=>w.id===name);assert.deepEqual(before.workload,state.savedWorkloads[name]);
+   const spec=specs.find(s=>s.name===name);state.savedWorkloads[name]=await updateGitLabConnectionFiles(ui,base,state.app.key,spec,before.workload);state.correctedWorkloads.push(name);save();
+  }
+  const replacement=structuredClone(specs.find(s=>s.name==='object-init'));replacement.name='object-init-v2';
+  if(!state.savedWorkloads[replacement.name]){assert(!(await ui.get(base+'/workloads')).workloads.some(w=>w.id===replacement.name));state.savedWorkloads[replacement.name]=await authorGitLabWorkload(ui,base,home,replacement);save();}
+  if(!state.repointedJob){await page.goto(c.baseURL+`/ui/applications/${state.app.key}/environments/staging/workloads/migrations`);await page.getByLabel('object-init',{exact:true}).uncheck();await page.getByLabel('object-init-v2',{exact:true}).check();await ui.submit(base+'/workloads/migrations','PUT',page.getByRole('button',{name:'Lưu draft Workload',exact:true}));state.savedWorkloads.migrations=(await ui.get(base+'/workloads')).workloads.find(w=>w.id==='migrations').workload;assert.deepEqual(state.savedWorkloads.migrations.workloadExecution.waitForJobs,['object-init-v2']);state.repointedJob=true;save();}
+  if(!state.failedJobRemovalDraft){await page.goto(home);const row=page.locator('.table-row').filter({has:page.locator('.workload-name').getByText('object-init',{exact:true})});await ui.submit(base+'/workloads/object-init','DELETE',row.getByRole('button',{name:'Xóa',exact:true}));const retained=(await ui.get(base+'/workloads')).workloads.find(w=>w.id==='object-init');assert.equal(retained?.state,'PENDING_DELETE','Published failed Job must remain a removal draft');state.failedJobRemovalDraft=true;save();}
+  delete state.previewed;save();console.log('PASS corrected connections, replacement Job and old Job removal authored through UI');
+ }
  else if(stage==='namespace-access'){
   const input=JSON.parse(readFileSync(dir+'/config.json','utf8'));assert.equal(input.context,'kind-k8s-4f');const access={runtime:{profile:'dev-test',timeoutMs:120000,clusterKubeconfigFile:input.clusterKubeconfigFile},application:{environment:'staging'},platform:{account:{context:input.context},delivery:{namespaceAccess:{enabled:true,rulesFile:new URL('../../../scripts/bootstrap/applications/acceptance/fleet-access.json',import.meta.url).pathname}}}};await ensureNamespaceAccess(ui,access,state.app,rt,{wait:false});state.namespaceAccessReady=true;save();
  }
  else if(stage==='refresh-source'){
-  assert.equal(state.attempt?.status,'FAILED');const config=JSON.parse(readFileSync(dir+'/config.json','utf8'));
+  assert(['FAILED','RECOVERED'].includes(state.attempt?.status));const config=JSON.parse(readFileSync(dir+'/config.json','utf8'));
   await page.goto(c.baseURL+'/ui/platform/resource-definitions');await page.getByRole('button',{name:'Sửa cấu hình complex-workload',exact:true}).click();await page.getByRole('button',{name:'Đổi nguồn',exact:true}).click();await page.getByLabel('Git HTTPS URL',{exact:true}).filter({visible:true}).fill(config.templateRepository);await page.getByLabel('Thư mục template',{exact:true}).fill(config.templatePath);await page.getByLabel('Tag hoặc commit',{exact:true}).filter({visible:true}).fill(config.templateRef);
   const prepared=await ui.submit('/template-sources/inspect','POST',page.getByRole('button',{name:'Kiểm tra template',exact:true}));assert.equal(prepared.templateSource.status,'AVAILABLE');state.refreshedSource=prepared.templateSource.id;save();await ui.submit('/resource-definitions/complex-workload','PUT',page.getByRole('button',{name:'Lưu thay đổi',exact:true}));
   const history=(await ui.get('/resource-definitions/complex-workload/versions')).history,revision=[...history.versions].sort((a,b)=>b.number-a.number)[0];assert(revision&&!revision.archived);state.rendererRevision=revision.id;save();
@@ -50,9 +64,9 @@ try{
  else if(stage==='preview'||stage==='deploy'||stage==='retry'){
   assert(state.authored&&state.endpointAttached);const base=`/applications/${state.app.key}/environments/staging`;
   const history=(await ui.get(base+'/deployments')).deployments,recorded=[...(state.previousAttempts??[]),...(state.attempt?[state.attempt]:[])];assert(history.every(d=>recorded.some(a=>a.reviewRequestId===d.reviewRequestId)),'Unrecorded deployment; reconcile before proceeding');
-  const workloads=(await ui.get(base+'/workloads')).workloads;assert.equal(workloads.length,9);for(const w of workloads)assert.deepEqual(w.workload,state.savedWorkloads[w.id]);
+  const workloads=(await ui.get(base+'/workloads')).workloads;assert.equal(workloads.length,state.failedJobRemovalDraft?10:9);for(const w of workloads){if(w.id==='object-init'&&state.failedJobRemovalDraft){assert.equal(w.state,'PENDING_DELETE');continue;}assert.deepEqual(w.workload,state.savedWorkloads[w.id]);}
   await page.goto(c.baseURL+`/ui/applications/${state.app.key}?environment=staging`);const response=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/v1'+base+'/preview');await page.getByRole('button',{name:'Xem trước thay đổi',exact:true}).click();const reply=await response,preview=await reply.json();writeFileSync(dir+'/gitlab-preview.json',JSON.stringify(preview,null,2));assert(reply.ok(),'Preview failed; inspect private response');
-  assert.equal(preview.changes.length,9);assert(preview.changes.every(c=>c.action==='DEPLOY'));const order=preview.changes.map(c=>c.workloadId);for(const[provider,consumer]of[['object-init','migrations'],['migrations','webservice'],['migrations','sidekiq'],['migrations','toolbox']])assert(order.indexOf(provider)<order.indexOf(consumer));state.previewed=true;save();await page.screenshot({path:dir+'/gitlab-preview.png',fullPage:true});console.log('PASS whole GitLab batch Preview',JSON.stringify(order));
+  if(state.failedJobRemovalDraft){assert.equal(preview.changes.length,10);assert.equal(preview.changes.find(c=>c.workloadId==='object-init')?.action,'REMOVE');assert(preview.changes.filter(c=>c.workloadId!=='object-init').every(c=>c.action==='DEPLOY'));}else{assert.equal(preview.changes.length,9);assert(preview.changes.every(c=>c.action==='DEPLOY'));}const order=preview.changes.map(c=>c.workloadId);for(const[provider,consumer]of[[state.failedJobRemovalDraft?'object-init-v2':'object-init','migrations'],['migrations','webservice'],['migrations','sidekiq'],['migrations','toolbox']])assert(order.indexOf(provider)<order.indexOf(consumer));state.previewed=true;save();await page.screenshot({path:dir+'/gitlab-preview.png',fullPage:true});console.log('PASS whole GitLab batch Preview',JSON.stringify(order));
   if(stage==='deploy'||stage==='retry'){
    if(stage==='retry'){assert(state.sourceRefreshed);assert(['FAILED','RECOVERED'].includes(state.attempt?.status));const op=(await ui.get(base+'/operations?reviewRequestId='+encodeURIComponent(state.attempt.reviewRequestId))).operations.find(o=>o.id===state.attempt.operationId);assert(['FAILED','RECOVERED'].includes(op?.status));const app=(await ui.get('/applications/'+state.app.key)).application;assert(!app.environments.find(e=>e.key==='staging').activeOperation);state.previousAttempts??=[];state.previousAttempts.push(state.attempt);delete state.attempt;save();}
    assert(state.storageUpdated,'Approved storage replacement must precede first Deploy');assert(!state.attempt,'Attempt exists; inspect status instead of replay');const b=await ui.get('/delivery-default'),binding=await ui.get(`/delivery-bindings/${b.bindingId}?version=${b.bindingVersion}`);state.deliverySubject={name:binding.config.serviceAccount,namespace:binding.config.agentNamespace};save();
