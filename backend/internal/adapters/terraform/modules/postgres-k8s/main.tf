@@ -322,3 +322,12 @@ output "password" {
   value     = var.password
   sensitive = true
 }
+
+# Connection strings (issue #52). Credentials are percent-encoded; uri carries
+# the password and is therefore sensitive. jdbcUrl has no credentials.
+output "uri" {
+  value     = "postgresql://${urlencode(var.username)}:${urlencode(var.password)}@${local.host}:5432/${urlencode(var.database)}"
+  sensitive = true
+}
+
+output "jdbcUrl" { value = "jdbc:postgresql://${local.host}:5432/${var.database}" }

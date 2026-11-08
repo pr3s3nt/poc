@@ -1366,7 +1366,7 @@
   "platform.resourceTypes.loadingResourceTypes": "Loading resource types…",
   "platform.resourceTypes.noResourceTypesYet": "No resource types yet.",
   "platform.resourceTypes.registerResourceType": "Register resource type",
-  "platform.resourceTypes.theContractIsIndependentOf": "The contract is independent of the infrastructure provider. Registering a new type adds no provisioning method. Registered types cannot be edited, deleted or re-versioned; to change the schema, copy it to a new ID.",
+  "platform.resourceTypes.theContractIsIndependentOf": "The contract is independent of the infrastructure provider. Registering a new type adds no provisioning method. Registered types cannot be deleted or re-versioned and only accept added optional outputs; for other schema changes, copy to a new ID.",
   "platform.resourceTypes.resourceTypeID": "Resource type ID",
   "platform.resourceTypes.useLowercaseLettersDigitsAnd": "Use lowercase letters, digits and hyphens, for example",
   "platform.resourceTypes.theIDIsNeverCorrected": ". The ID is never corrected for you.",
@@ -4011,5 +4011,15 @@
   "workloads.endpoint.create": "Create endpoint from port {port}",
   "workloads.endpoint.invalidPort": "An endpoint requires an enabled Service and a valid TCP Service port.",
   "workloads.templates.versions": "Other versions",
-  "workloads.templates.version": "Version"
+  "workloads.templates.version": "Version",
+  "platform.resourceTypes.addOutputs": "Add outputs",
+  "platform.resourceTypes.addOutputsToKey": "Add outputs to {key}",
+  "platform.resourceTypes.newOutputs": "New outputs",
+  "platform.resourceTypes.addedOutputsAreOptional": "New outputs are always optional. A resource definition needs a new version to provide them.",
+  "platform.resourceTypes.saveOutputs": "Save outputs",
+  "platform.resourceTypes.savingOutputs": "Saving…",
+  "platform.resourceTypes.cancel": "Cancel",
+  "platform.resourceTypes.outputsAddedToKey": "Added outputs to {key}.",
+  "platform.resourceTypes.outputNameAlreadyExists": "{key} already has an output with that name. Rename it and save again.",
+  "platform.resourceTypes.typeNoLongerExists": "Resource type {key} is no longer in the organization. Reload the list."
 }

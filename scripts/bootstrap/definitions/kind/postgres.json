@@ -13,9 +13,9 @@
       "source": {
         "source_id": "platform",
         "module_id": "postgres-k8s",
-        "revision": "v4-2026.10.15",
+        "revision": "v5-2026.11.08",
         "subdirectory": "postgres-k8s",
-        "content_sha256": "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"
+        "content_sha256": "20c5c700769b6191f8e59e538e9e3091bfbf99d5b1313adf2b9d604a24f316b7"
       },
       "input_mapping": {
         "database": {
@@ -30,7 +30,9 @@
         "host": "host",
         "password": "password",
         "port": "port",
-        "username": "username"
+        "username": "username",
+        "uri": "uri",
+        "jdbcUrl": "jdbcUrl"
       },
       "provider_bindings": {
         "kubernetes": {

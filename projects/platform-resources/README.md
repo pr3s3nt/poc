@@ -51,8 +51,8 @@ Image PostgreSQL và Redis được điền tại `parameters.postgresImage` và
 `parameters.redisImage` trong input riêng tư, dạng digest-pinned. Image của
 backend/worker/frontend tiếp tục nằm tại `application.images`.
 
-MySQL, MariaDB và MongoDB cũng có `<db>Image`, `<db>AuthSecretName`, tên key,
-storage và pull Secret trong input. Xem [hướng dẫn database](bootstrap/DATABASES.md).
+MySQL, MariaDB và MongoDB cũng có `<db>Image`, storage và pull Secret trong
+input; mật khẩu do platform sinh (issue #52). Xem [hướng dẫn database](bootstrap/DATABASES.md).
 
 HTTPRoute nằm trong workload template, cùng manifest Git/Fleet với Service.
 Điền nhóm `parameters.httprouteGateway*` và `endpoint*`; frontend mẫu khai báo

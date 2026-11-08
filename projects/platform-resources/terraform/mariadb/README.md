@@ -1,5 +1,6 @@
 # mariadb — Kubernetes resource
 
 Xem [database setup và contract](../../bootstrap/DATABASES.md).
-Module dùng image digest-pinned, Secret có sẵn, PVC riêng và internal Service.
-Không apply ngoài target được cấp quyền; không đọc mật khẩu vào Terraform.
+Module dùng image digest-pinned, mật khẩu do executor sinh (Secret riêng của
+instance), PVC riêng và internal Service. Xuất `password` và chuỗi kết nối
+bí mật (issue #52). Không apply ngoài target được cấp quyền.

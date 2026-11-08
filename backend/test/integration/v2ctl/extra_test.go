@@ -129,8 +129,8 @@ func TestModulePinsListsEveryPackagedModuleDeterministically(t *testing.T) {
 	if got := strings.TrimSpace(out); got != strings.Join(want, "\n") {
 		t.Fatalf("module-pins output:\n%s\nwant:\n%s", got, strings.Join(want, "\n"))
 	}
-	if ref := refs["vpc"]; ref.Revision != "v4-2026.10.15" || ref.ContentSHA256 != "c783343a2686a754e42521d9d21cdc8a70ead0a2b83b14d90448b56296acbfad" {
-		t.Fatalf("VPC v4 pin = %+v", ref)
+	if ref := refs["vpc"]; ref.Revision != "v5-2026.11.08" || ref.ContentSHA256 != "c783343a2686a754e42521d9d21cdc8a70ead0a2b83b14d90448b56296acbfad" {
+		t.Fatalf("VPC v5 pin = %+v", ref)
 	}
 	again, code := e.ctl("module-pins")
 	if code != 0 || again != out {

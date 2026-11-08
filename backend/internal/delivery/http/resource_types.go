@@ -54,3 +54,34 @@ func (s *Server) handleRegisterResourceType(w http.ResponseWriter, r *http.Reque
 	}
 	writeJSON(w, http.StatusCreated, created)
 }
+
+// addResourceTypeOutputsRequest is the strict body of UC-02 EXT. Required is
+// deliberately absent: an added output is always optional.
+type addResourceTypeOutputsRequest struct {
+	Outputs []struct {
+		Name   string `json:"name"`
+		Type   string `json:"type"`
+		Secret bool   `json:"secret"`
+	} `json:"outputs"`
+}
+
+func (s *Server) handleAddResourceTypeOutputs(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.platformActor(w, r)
+	if !ok {
+		return
+	}
+	var body addResourceTypeOutputsRequest
+	if !decodeStrict(w, r, managementBodyLimit, &body) {
+		return
+	}
+	outputs := make([]resource.OutputField, 0, len(body.Outputs))
+	for _, field := range body.Outputs {
+		outputs = append(outputs, resource.OutputField{Name: field.Name, Type: field.Type, Secret: field.Secret})
+	}
+	updated, err := s.catalog.AddResourceTypeOutputs(r.Context(), org, r.PathValue("key"), outputs)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}

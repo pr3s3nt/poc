@@ -137,6 +137,7 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		return nil, stageErr(StageGraph, err)
 	}
 	refs = append(refs, expanded...)
+	refs = append(refs, builder.setOutputRefs...)
 	if err := builder.validateReferenceOutputs(refs, matches, matcher, req.Terraform); err != nil {
 		return nil, stageErr(StageReference, err)
 	}

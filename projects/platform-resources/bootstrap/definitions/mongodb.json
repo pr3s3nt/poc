@@ -10,9 +10,6 @@
         "database": "${bootstrap.mongodbDatabase}",
         "username": "${bootstrap.mongodbUsername}",
         "image": "${bootstrap.mongodbImage}",
-        "auth_secret_name": "${bootstrap.mongodbAuthSecretName}",
-        "root_password_key": "${bootstrap.mongodbRootPasswordKey}",
-        "user_password_key": "${bootstrap.mongodbUserPasswordKey}",
         "storage": "${bootstrap.mongodbStorage}",
         "storage_class": "${bootstrap.mongodbStorageClass}",
         "image_pull_secret_name": "${bootstrap.mongodbImagePullSecretName}",
@@ -35,15 +32,6 @@
         "username": {
           "param": "username"
         },
-        "auth_secret_name": {
-          "param": "auth_secret_name"
-        },
-        "root_password_key": {
-          "param": "root_password_key"
-        },
-        "user_password_key": {
-          "param": "user_password_key"
-        },
         "storage": {
           "param": "storage"
         }
@@ -54,7 +42,9 @@
         "database": "database",
         "username": "username",
         "claimName": "claimName",
-        "namespace": "namespace"
+        "namespace": "namespace",
+        "password": "password",
+        "connection": "connection"
       },
       "provider_bindings": {
         "kubernetes": {

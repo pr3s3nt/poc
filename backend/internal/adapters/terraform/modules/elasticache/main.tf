@@ -187,3 +187,10 @@ output "password" {
 output "tls" { value = aws_elasticache_replication_group.this.transit_encryption_enabled }
 output "replication_group_id" { value = aws_elasticache_replication_group.this.replication_group_id }
 output "security_group_id" { value = aws_security_group.this.id }
+
+# Connection string (issue #52). ElastiCache enforces TLS, hence rediss://.
+# Credentials are percent-encoded; the password makes it sensitive.
+output "uri" {
+  value     = "${aws_elasticache_replication_group.this.transit_encryption_enabled ? "rediss" : "redis"}://${urlencode(aws_elasticache_user.app.user_name)}:${urlencode(var.password)}@${aws_elasticache_replication_group.this.primary_endpoint_address}:${aws_elasticache_replication_group.this.port}"
+  sensitive = true
+}

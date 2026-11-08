@@ -225,6 +225,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/workload-samples", s.handleWorkloadSamples)
 	s.mux.HandleFunc("GET /api/v1/resource-types", s.handleResourceTypes)
 	s.mux.HandleFunc("POST /api/v1/resource-types", s.handleRegisterResourceType)
+	s.mux.HandleFunc("POST /api/v1/resource-types/{key}/outputs", s.handleAddResourceTypeOutputs)
 	s.mux.HandleFunc("GET /api/v1/resource-definitions/{key}/versions", s.handleDefinitionVersions)
 	s.mux.HandleFunc("POST /api/v1/resource-definitions/{key}/versions/{revision}/promote", func(w http.ResponseWriter, r *http.Request) {
 		r.SetPathValue("action", "promote")

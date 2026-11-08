@@ -131,7 +131,7 @@ func (stubInspector) module(module string) (ModuleContract, error) {
 		},
 		"aurora": {
 			Module: "aurora", Fingerprint: "sha256:aurora",
-			Outputs: []string{"cluster_identifier", "database", "host", "password", "port", "security_group_id", "username", "writer_identifier"},
+			Outputs: []string{"cluster_identifier", "database", "host", "jdbcUrl", "password", "port", "security_group_id", "uri", "username", "writer_identifier"},
 			Variables: map[string]ModuleVariable{
 				"region": {Name: "region"}, "name": {Name: "name"}, "tags": {Name: "tags"},
 				"vpc_id": {Name: "vpc_id"}, "private_subnet_ids": {Name: "private_subnet_ids"}, "subnet_ids": {Name: "subnet_ids"},
@@ -144,7 +144,7 @@ func (stubInspector) module(module string) (ModuleContract, error) {
 	}
 	contracts["pgk8s"] = ModuleContract{
 		Module: "pgk8s", Fingerprint: "sha256:pgk8s",
-		Outputs:   []string{"database", "host", "password", "port", "username"},
+		Outputs:   []string{"database", "host", "password", "port", "uri", "username"},
 		Variables: map[string]ModuleVariable{"database": {Name: "database", HasDefault: true}, "username": {Name: "username", HasDefault: true}},
 	}
 	contracts["k8s-namespace"] = ModuleContract{

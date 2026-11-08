@@ -39,6 +39,13 @@ function describeFailure(reason: unknown): string {
 }
 const listFailure = () => t('platform.resourceTypes.couldNotLoadTheResource');
 
+// UC-02 EXT (issue #52): an addition conflicts on an output name, not on the Type ID.
+function describeAddFailure(reason: unknown, key: string): string {
+  if (reason instanceof ApiError && reason.status === 409) return t('platform.resourceTypes.outputNameAlreadyExists', { key });
+  if (reason instanceof ApiError && reason.status === 404) return t('platform.resourceTypes.typeNoLongerExists', { key });
+  return describeFailure(reason);
+}
+
 const loadTypes = async () => (await api<{ resourceTypes: ResourceType[] }>('/resource-types')).resourceTypes ?? [];
 
 function SchemaTable({ label, fields, secret }: { label: string; fields: Partial<OutputField>[]; secret: boolean }) {
@@ -58,6 +65,12 @@ export function ResourceTypesPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const idField = useRef<HTMLInputElement>(null);
+  // Adding optional outputs to one registered Type (UC-02 EXT).
+  const [adding, setAdding] = useState('');
+  const [added, setAdded] = useState<OutputField[]>([]);
+  const [addSaving, setAddSaving] = useState(false);
+  const [addError, setAddError] = useState('');
+  const [addNotice, setAddNotice] = useState('');
 
   // Copy never sends a request: it only fills the independent draft; the ID stays blank.
   function copySchema(source: ResourceType) {
@@ -79,17 +92,32 @@ export function ResourceTypesPage() {
     setNotice(t('platform.resourceTypes.registeredResourceTypeSubmitted', { submitted })); setKey(''); setInputs([]); setOutputs([]); setCopiedFrom(''); setSaving(false);
     await reload();
   }
+  function startAdding(typeKey: string) {
+    if (addSaving) return;
+    setAdding(typeKey); setAdded([newOutput()]); setAddError(''); setAddNotice('');
+  }
+  async function submitOutputs(event: FormEvent<HTMLFormElement>, typeKey: string) {
+    event.preventDefault();
+    if (addSaving) return;
+    setAddError(''); setAddNotice(''); setAddSaving(true);
+    try {
+      await api(`/resource-types/${encodeURIComponent(typeKey)}/outputs`, { method: 'POST', body: JSON.stringify({ outputs: added.map((field) => ({ name: field.name.trim(), type: field.type, secret: field.secret })) }) });
+    } catch (reason) { setAddError(describeAddFailure(reason, typeKey)); setAddSaving(false); return; }
+    // Committed: report it once, close the draft, then reload; a reload failure is reported separately.
+    setAddNotice(t('platform.resourceTypes.outputsAddedToKey', { key: typeKey })); setAdding(''); setAdded([]); setAddSaving(false);
+    await reload();
+  }
   function typeOptions(value: string) {
     return [...fieldTypes, ...(fieldTypes.includes(value) ? [] : [value])].map((option) => <option key={option}>{option}</option>);
   }
-  function renderFields<T extends InputField>(label: string, noun: string, fields: T[], update: (fields: T[]) => void, create: () => T, secret: boolean) {
+  function renderFields<T extends InputField>(label: string, noun: string, fields: T[], update: (fields: T[]) => void, create: () => T, secret: boolean, required = true) {
     const patch = (index: number, change: Partial<OutputField>) => update(fields.map((item, position) => position === index ? { ...item, ...change } : item));
     return <section className="catalog-fields"><div className="section-header"><h3>{label}</h3><Button type="button" onClick={() => update([...fields, create()])}>{t('platform.resourceTypes.addNoun', { noun })}</Button></div>
       {fields.length === 0 ? <p className="muted">{t('platform.resourceTypes.noNounDeclared', { noun })}</p> : null}
       {fields.map((field, index) => <div className="catalog-field-row" key={index}>
         <label>{t('platform.resourceTypes.name')}<input aria-label={t('platform.resourceTypes.labelValueName', { label, value: index + 1 })} value={field.name} required onChange={(event) => patch(index, { name: event.target.value })} /></label>
         <label>{t('platform.resourceTypes.type')}<select aria-label={t('platform.resourceTypes.labelValueType', { label, value: index + 1 })} value={field.type} onChange={(event) => patch(index, { type: event.target.value })}>{typeOptions(field.type)}</select></label>
-        <label className="catalog-check"><input type="checkbox" aria-label={t('platform.resourceTypes.labelValueRequired', { label, value: index + 1 })} checked={field.required} onChange={(event) => patch(index, { required: event.target.checked })} /> {' '}{t('platform.resourceTypes.required')}</label>
+        {required ? <label className="catalog-check"><input type="checkbox" aria-label={t('platform.resourceTypes.labelValueRequired', { label, value: index + 1 })} checked={field.required} onChange={(event) => patch(index, { required: event.target.checked })} /> {' '}{t('platform.resourceTypes.required')}</label> : null}
         {secret ? <label className="catalog-check"><input type="checkbox" aria-label={t('platform.resourceTypes.labelValueSecret', { label, value: index + 1 })} checked={'secret' in field && field.secret === true} onChange={(event) => patch(index, { secret: event.target.checked })} /> {' '}{t('platform.resourceTypes.secret')}</label> : null}
         <Button type="button" tone="quiet" aria-label={t('platform.resourceTypes.removeToLowerCaseValue', { toLowerCase: label.toLowerCase(), value: index + 1 })} onClick={() => update(fields.filter((_, position) => position !== index))}>{t('platform.resourceTypes.remove')}</Button>
       </div>)}
@@ -114,7 +142,14 @@ export function ResourceTypesPage() {
       {open ? <section className="catalog-details" aria-label={t('platform.resourceTypes.schemaOfKey', { key: type.key })}>
         <h3>{t('platform.resourceTypes.inputs')}</h3>{inputList.length === 0 ? <p className="muted">{t('platform.resourceTypes.noInputParametersDeclared')}</p> : <SchemaTable label={t('platform.resourceTypes.inputsOfKey', { key: type.key })} fields={inputList} secret={false} />}
         <h3>{t('platform.resourceTypes.outputs')}</h3>{outputList.length === 0 ? <p className="muted">{t('platform.resourceTypes.noOutputParametersDeclared')}</p> : <SchemaTable label={t('platform.resourceTypes.outputsOfKey', { key: type.key })} fields={outputList} secret />}
-        <div className="form-actions"><Button type="button" disabled={saving} aria-label={t('platform.resourceTypes.copySchemaKey', { key: type.key })} onClick={() => copySchema(type)}>{t('platform.resourceTypes.copySchema')}</Button></div>
+        <div className="form-actions"><Button type="button" disabled={saving} aria-label={t('platform.resourceTypes.copySchemaKey', { key: type.key })} onClick={() => copySchema(type)}>{t('platform.resourceTypes.copySchema')}</Button>
+          {type.key !== 'workload' && adding !== type.key ? <Button type="button" disabled={addSaving} aria-label={t('platform.resourceTypes.addOutputsToKey', { key: type.key })} onClick={() => startAdding(type.key)}>{t('platform.resourceTypes.addOutputs')}</Button> : null}</div>
+        {adding === type.key ? <form onSubmit={(event) => void submitOutputs(event, type.key)} aria-label={t('platform.resourceTypes.addOutputsToKey', { key: type.key })}><fieldset className="form-fieldset" disabled={addSaving} aria-busy={addSaving}>
+          {renderFields(t('platform.resourceTypes.newOutputs'), t('platform.resourceTypes.outputParameters'), added, setAdded, newOutput, true, false)}
+          <p className="feature-note">{t('platform.resourceTypes.addedOutputsAreOptional')}</p>
+          {addError ? <div className="form-error" role="alert">{addError}</div> : null}
+          <div className="form-actions"><Button type="submit" tone="primary" disabled={addSaving || added.length === 0}>{addSaving ? t('platform.resourceTypes.savingOutputs') : t('platform.resourceTypes.saveOutputs')}</Button><Button type="button" tone="quiet" onClick={() => { setAdding(''); setAdded([]); setAddError(''); }}>{t('platform.resourceTypes.cancel')}</Button></div>
+        </fieldset></form> : null}
       </section> : null}
     </div>;
   }
@@ -122,6 +157,7 @@ export function ResourceTypesPage() {
     <section className="content-panel"><div className="section-header"><h2>{t('platform.resourceTypes.registeredResourceTypes')}</h2></div>
       <p className="feature-note">{t('platform.resourceTypes.provisioningSupportedMeansTheSystem')}</p>
       {capabilityList.loadError ? <div className="form-error" role="alert" aria-label={t('platform.resourceTypes.supportMetadataLoadError')}>{capabilityList.loadError} {' '}{t('platform.resourceTypes.itCouldNotBeConfirmed')}{' '} <Button type="button" onClick={() => void capabilityList.reload()}>{t('platform.resourceTypes.retry')}</Button></div> : null}
+      {addNotice ? <div className="form-success" role="status">{addNotice}</div> : null}
       {loadError ? <div className="form-error" role="alert" aria-label={t('platform.resourceTypes.listLoadError')}>{loadError} <Button type="button" onClick={() => void reload()}>{t('platform.resourceTypes.retry')}</Button></div> : loading ? <p role="status">{t('platform.resourceTypes.loadingResourceTypes')}</p> : types.length === 0 ? <p>{t('platform.resourceTypes.noResourceTypesYet')}</p> : <div className="catalog-list">{types.map(renderEntry)}</div>}</section>
     <section className="content-panel"><div className="section-header"><div><h2>{t('platform.resourceTypes.registerResourceType')}</h2><p>{t('platform.resourceTypes.theContractIsIndependentOf')}</p></div></div>
       <form onSubmit={submit}><fieldset className="editor-grid form-fieldset" disabled={saving} aria-busy={saving}><label>{t('platform.resourceTypes.resourceTypeID')}<input ref={idField} value={key} required aria-describedby="resource-type-id-hint" onChange={(event) => setKey(event.target.value)} /></label>

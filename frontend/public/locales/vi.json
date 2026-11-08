@@ -1366,7 +1366,7 @@
   "platform.resourceTypes.loadingResourceTypes": "Đang tải loại tài nguyên…",
   "platform.resourceTypes.noResourceTypesYet": "Chưa có loại tài nguyên nào.",
   "platform.resourceTypes.registerResourceType": "Đăng ký loại tài nguyên",
-  "platform.resourceTypes.theContractIsIndependentOf": "Contract độc lập với nhà cung cấp hạ tầng. Đăng ký loại mới không thêm cách tạo tài nguyên. Loại đã đăng ký không sửa, xóa hay đổi phiên bản; muốn đổi schema hãy sao chép sang ID mới.",
+  "platform.resourceTypes.theContractIsIndependentOf": "Contract độc lập với nhà cung cấp hạ tầng. Đăng ký loại mới không thêm cách tạo tài nguyên. Loại đã đăng ký không xóa hay đổi phiên bản, chỉ thêm được output tuỳ chọn; muốn đổi schema khác hãy sao chép sang ID mới.",
   "platform.resourceTypes.resourceTypeID": "ID loại tài nguyên",
   "platform.resourceTypes.useLowercaseLettersDigitsAnd": "Dùng chữ thường, số và dấu gạch ngang, ví dụ",
   "platform.resourceTypes.theIDIsNeverCorrected": ". ID không được tự sửa hộ.",
@@ -4011,5 +4011,15 @@
   "workloads.endpoint.create": "Tạo endpoint từ cổng {port}",
   "workloads.endpoint.invalidPort": "Endpoint cần một cổng Service TCP hợp lệ và Service đang bật.",
   "workloads.templates.versions": "Phiên bản khác",
-  "workloads.templates.version": "Phiên bản"
+  "workloads.templates.version": "Phiên bản",
+  "platform.resourceTypes.addOutputs": "Thêm output",
+  "platform.resourceTypes.addOutputsToKey": "Thêm output cho {key}",
+  "platform.resourceTypes.newOutputs": "Output mới",
+  "platform.resourceTypes.addedOutputsAreOptional": "Output mới luôn tuỳ chọn. Cấu hình tài nguyên cần phiên bản mới để cung cấp output này.",
+  "platform.resourceTypes.saveOutputs": "Lưu output",
+  "platform.resourceTypes.savingOutputs": "Đang lưu…",
+  "platform.resourceTypes.cancel": "Huỷ",
+  "platform.resourceTypes.outputsAddedToKey": "Đã thêm output vào {key}.",
+  "platform.resourceTypes.outputNameAlreadyExists": "{key} đã có output trùng tên. Đổi tên rồi lưu lại.",
+  "platform.resourceTypes.typeNoLongerExists": "Loại tài nguyên {key} không còn trong tổ chức. Tải lại danh sách."
 }

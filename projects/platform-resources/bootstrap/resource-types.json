@@ -115,6 +115,18 @@
         "type": "string",
         "required": true,
         "secret": true
+      },
+      {
+        "name": "uri",
+        "type": "string",
+        "required": false,
+        "secret": true
+      },
+      {
+        "name": "jdbcUrl",
+        "type": "string",
+        "required": false,
+        "secret": false
       }
     ]
   },
@@ -151,6 +163,12 @@
         "type": "bool",
         "required": true,
         "secret": false
+      },
+      {
+        "name": "uri",
+        "type": "string",
+        "required": false,
+        "secret": true
       }
     ]
   },
@@ -178,21 +196,6 @@
         "required": true
       },
       {
-        "name": "auth_secret_name",
-        "type": "string",
-        "required": true
-      },
-      {
-        "name": "root_password_key",
-        "type": "string",
-        "required": true
-      },
-      {
-        "name": "user_password_key",
-        "type": "string",
-        "required": true
-      },
-      {
         "name": "storage",
         "type": "string",
         "required": false
@@ -233,6 +236,24 @@
         "name": "namespace",
         "type": "string",
         "required": true,
+        "secret": false
+      },
+      {
+        "name": "password",
+        "type": "string",
+        "required": true,
+        "secret": true
+      },
+      {
+        "name": "uri",
+        "type": "string",
+        "required": false,
+        "secret": true
+      },
+      {
+        "name": "jdbcUrl",
+        "type": "string",
+        "required": false,
         "secret": false
       }
     ]
@@ -256,21 +277,6 @@
         "required": true
       },
       {
-        "name": "auth_secret_name",
-        "type": "string",
-        "required": true
-      },
-      {
-        "name": "root_password_key",
-        "type": "string",
-        "required": true
-      },
-      {
-        "name": "user_password_key",
-        "type": "string",
-        "required": true
-      },
-      {
         "name": "storage",
         "type": "string",
         "required": false
@@ -311,6 +317,24 @@
         "name": "namespace",
         "type": "string",
         "required": true,
+        "secret": false
+      },
+      {
+        "name": "password",
+        "type": "string",
+        "required": true,
+        "secret": true
+      },
+      {
+        "name": "uri",
+        "type": "string",
+        "required": false,
+        "secret": true
+      },
+      {
+        "name": "jdbcUrl",
+        "type": "string",
+        "required": false,
         "secret": false
       }
     ]
@@ -334,21 +358,6 @@
         "required": true
       },
       {
-        "name": "auth_secret_name",
-        "type": "string",
-        "required": true
-      },
-      {
-        "name": "root_password_key",
-        "type": "string",
-        "required": true
-      },
-      {
-        "name": "user_password_key",
-        "type": "string",
-        "required": true
-      },
-      {
         "name": "storage",
         "type": "string",
         "required": false
@@ -390,6 +399,18 @@
         "type": "string",
         "required": true,
         "secret": false
+      },
+      {
+        "name": "password",
+        "type": "string",
+        "required": true,
+        "secret": true
+      },
+      {
+        "name": "connection",
+        "type": "string",
+        "required": false,
+        "secret": true
       }
     ]
   },

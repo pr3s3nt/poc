@@ -36,27 +36,16 @@ variable "username" {
     error_message = "username must be a non-root application identifier."
   }
 }
-# Names only. Secret data is delivered separately and never read by Terraform.
-variable "auth_secret_name" {
-  type = string
-  validation {
-    condition     = length(var.auth_secret_name) <= 253 && can(regex("^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$", var.auth_secret_name))
-    error_message = "auth_secret_name must be a Kubernetes Secret name."
-  }
+# Executor-owned: stable passwords drawn once per instance and kept in the
+# platform secret store (issue #52). password is the application user's,
+# master_password the admin account's; admin is never an output.
+variable "password" {
+  type      = string
+  sensitive = true
 }
-variable "root_password_key" {
-  type = string
-  validation {
-    condition     = can(regex("^[A-Za-z0-9._-]+$", var.root_password_key))
-    error_message = "root_password_key must be a Secret data key."
-  }
-}
-variable "user_password_key" {
-  type = string
-  validation {
-    condition     = can(regex("^[A-Za-z0-9._-]+$", var.user_password_key))
-    error_message = "user_password_key must be a Secret data key."
-  }
+variable "master_password" {
+  type      = string
+  sensitive = true
 }
 variable "storage" {
   type    = string
@@ -94,6 +83,21 @@ locals {
   labels = merge(local.platform_labels, local.selector, {
     "app.kubernetes.io/managed-by" = "orchestrator"
   })
+}
+
+# Credentials for the pod only; consumers receive the password through the
+# orchestrator's secret-store output, never from this object's metadata.
+resource "kubernetes_secret_v1" "auth" {
+  metadata {
+    name        = "${local.name}-auth"
+    namespace   = var.namespace
+    labels      = local.labels
+    annotations = var.tags
+  }
+  data = {
+    "root-password" = var.master_password
+    "user-password" = var.password
+  }
 }
 
 resource "kubernetes_persistent_volume_claim_v1" "data" {
@@ -177,8 +181,8 @@ resource "kubernetes_stateful_set_v1" "this" {
             name = "MONGO_INITDB_ROOT_PASSWORD"
             value_from {
               secret_key_ref {
-                name = var.auth_secret_name
-                key  = var.root_password_key
+                name = kubernetes_secret_v1.auth.metadata[0].name
+                key  = "root-password"
               }
             }
           }
@@ -194,8 +198,8 @@ resource "kubernetes_stateful_set_v1" "this" {
             name = "MONGO_APP_PASSWORD"
             value_from {
               secret_key_ref {
-                name = var.auth_secret_name
-                key  = var.user_password_key
+                name = kubernetes_secret_v1.auth.metadata[0].name
+                key  = "user-password"
               }
             }
           }
@@ -257,6 +261,18 @@ output "database" { value = var.database }
 output "username" { value = var.username }
 output "claimName" { value = kubernetes_persistent_volume_claim_v1.data.metadata[0].name }
 output "namespace" { value = var.namespace }
+
+output "password" {
+  value     = var.password
+  sensitive = true
+}
+
+# Connection string (issue #52), the Humanitec mongodb `connection` output.
+# The app user lives in the application database, hence authSource.
+output "connection" {
+  value     = "mongodb://${urlencode(var.username)}:${urlencode(var.password)}@${kubernetes_service_v1.this.metadata[0].name}.${var.namespace}.svc:27017/${urlencode(var.database)}?authSource=${urlencode(var.database)}"
+  sensitive = true
+}
 
 variable "root_username" {
   type    = string

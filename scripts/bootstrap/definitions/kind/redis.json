@@ -11,9 +11,9 @@
       "source": {
         "source_id": "platform",
         "module_id": "redis-k8s",
-        "revision": "v4-2026.10.15",
+        "revision": "v5-2026.11.08",
         "subdirectory": "redis-k8s",
-        "content_sha256": "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"
+        "content_sha256": "631b8ca60a56d0618efa3ca5882577e7f2441e3ec09895a27c5ca4a892a3bdce"
       },
       "input_mapping": {},
       "output_mapping": {
@@ -21,7 +21,8 @@
         "password": "password",
         "port": "port",
         "tls": "tls",
-        "username": "username"
+        "username": "username",
+        "uri": "uri"
       },
       "provider_bindings": {
         "kubernetes": {

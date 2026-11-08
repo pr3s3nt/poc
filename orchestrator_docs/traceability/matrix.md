@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-11-07
+last_reviewed: 2026-11-08
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -1604,3 +1604,11 @@ separate in the Environment rollback verification record.
 | Requirement | Implementation | Verification |
 |---|---|---|
 | UC-16 one card per ID, newest scoped numeric version, explicit older versions | TemplatePicker groups and local TemplateCard version control | TemplatePicker numeric order/exact pin/scope reset tests; workload-template-versions browser scenario |
+
+## Issue #52 — DB connection outputs and Type extension, 2026-11-08
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| UC-02 EXT-01..04 add optional outputs | `resource.AppendOutputs`; `catalog.Service.AddResourceTypeOutputs`; memory/PostgreSQL `AppendResourceTypeOutputs` (row lock); `POST /api/v1/resource-types/{key}/outputs`; ResourceTypesPage add-output form | `TestAppendOutputs`, `TestAddResourceTypeOutputs`, persistencetest `Registration` (memory + PostgreSQL), `TestUC02AddResourceTypeOutputsHTTP`, `TestUC02AddResourceTypeOutputsConcurrentOnPostgres`; ResourceTypesPage UC-02 EXT tests |
+| UC-02 EXT-05 unmapped optional output stops Preview | `graphBuilder.setOutputRefs` checked by `validateReferenceOutputs` | `TestPlan_OptionalOutputMustBeProvidedByTheSelectedDefinition` |
+| Module contract `uri`/`jdbcUrl`/`connection`; executor-owned MySQL/MariaDB/MongoDB passwords | packaged postgres-k8s/redis-k8s/aurora/elasticache (release v5-2026.11.08); `projects/platform-resources/terraform/*` | `TestKubernetesModuleRegistryContracts`, `TestAWSModuleRegistryContracts`, source-safety tests; `terraform test` for mysql/mariadb/mongodb (percent-encoding) |

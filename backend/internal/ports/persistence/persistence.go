@@ -276,6 +276,13 @@ type CatalogRepository interface {
 	// Resource Type. Save* remain the seed/test upserts.
 	CreateResourceType(ctx context.Context, organizationKey string, t resource.Type) error
 	CreateResourceDefinition(ctx context.Context, organizationKey string, d resource.Definition) error
+	// AppendResourceTypeOutputs is the only public Resource Type update
+	// (UC-02 EXT, issue #52): it appends outputs to the stored contract of an
+	// existing Type under a row lock and returns the stored result. Existing
+	// fields, inputs and the key are never rewritten. ErrNotFound: missing
+	// Organization or Type; ErrDuplicate: an output name already exists, with
+	// the stored contract untouched.
+	AppendResourceTypeOutputs(ctx context.Context, organizationKey, key string, outputs []resource.OutputField) (resource.Type, error)
 	// UpdateResourceDefinition is the UC-03 V02-06 compare-and-set. It
 	// replaces the editable content and matching criteria of the Definition
 	// named by d.Key when the stored version equals expected, increments the

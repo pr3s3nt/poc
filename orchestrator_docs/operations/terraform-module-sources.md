@@ -2,7 +2,7 @@
 id: OPS-TERRAFORM-MODULE-SOURCES
 artifact: operational-runbook
 status: current
-last_reviewed: 2026-10-21
+last_reviewed: 2026-11-08
 ---
 
 # Terraform modules from GitHub
@@ -11,7 +11,10 @@ The seven reference modules are published at
 [pr3s3nt/terraform-modules](https://github.com/pr3s3nt/terraform-modules).
 Release `v1.0.0` resolves to commit
 `6b991b16c39ac8485c74fa6756cf3223a129c8c9`; module contents match the
-product's packaged release `v4-2026.10.15` unchanged.
+product's packaged release `v4-2026.10.15` unchanged. Packaged release
+`v5-2026.11.08` (issue #52) adds connection-string outputs (`uri`, `jdbcUrl`)
+to postgres-k8s, redis-k8s, aurora and elasticache; that external repository
+has not been republished, so its `v1.0.0` modules lack these outputs.
 
 ## Register a Definition
 

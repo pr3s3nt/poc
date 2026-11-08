@@ -62,7 +62,7 @@
   ],
   "packaged": {
     "sourceId": "platform",
-    "revision": "v4-2026.10.15",
+    "revision": "v5-2026.11.08",
     "modules": [
       {
         "id": "vpc",
@@ -87,7 +87,7 @@
       {
         "id": "aurora",
         "subdirectory": "aurora",
-        "contentSha256": "f8755b77289c2e2bf5b2be351b90d4a1d44d0eeaf56021560c7fefb1aafc4ba6",
+        "contentSha256": "ab8b5ca2382ca4ae460b6e436ca657fed8008e0843315d980a7e96acd61cb395",
         "resourceTypes": [
           "postgres"
         ]
@@ -98,7 +98,7 @@
         "resourceTypes": [
           "redis"
         ],
-        "contentSha256": "b46261d722e23f7ace3693c12f0d5ed03f28ca6d8abbbc8ae519230051c3e8e7"
+        "contentSha256": "036c01643c88bc5eb837ee9ef58d4bef267eb7f74efbbcbdcb4e340d616b356d"
       },
       {
         "id": "k8s-namespace",
@@ -114,7 +114,7 @@
         "resourceTypes": [
           "redis"
         ],
-        "contentSha256": "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"
+        "contentSha256": "631b8ca60a56d0618efa3ca5882577e7f2441e3ec09895a27c5ca4a892a3bdce"
       },
       {
         "id": "postgres-k8s",
@@ -122,7 +122,7 @@
         "resourceTypes": [
           "postgres"
         ],
-        "contentSha256": "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"
+        "contentSha256": "20c5c700769b6191f8e59e538e9e3091bfbf99d5b1313adf2b9d604a24f316b7"
       }
     ]
   }

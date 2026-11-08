@@ -16,7 +16,6 @@ Không copy địa chỉ/IP/credential hoặc commit demo của cá nhân sang c
 | `parameters.postgresImage`, `redisImage` | Image PostgreSQL/Redis từ registry công ty, dạng `registry:port/path@sha256:<64 hex>`; không dùng tag trần/latest |
 | `parameters.mysqlImage`, `mariadbImage`, `mongodbImage` | Image registry công ty, bắt buộc `@sha256:<64 hex>`; có hỗ trợ hostname kèm port |
 | `parameters.<db>Database`, `<db>Username` | Database và application user mặc định; `<db>` là mysql/mariadb/mongodb |
-| `parameters.<db>AuthSecretName`, `<db>RootPasswordKey`, `<db>UserPasswordKey` | Tên Secret có sẵn trong namespace ứng dụng và hai tên key; không điền mật khẩu thật |
 | `parameters.<db>Storage`, `<db>StorageClass` | Dung lượng PVC và StorageClass; rỗng chọn class mặc định cluster |
 | `parameters.<db>ImagePullSecretName` | Secret pull registry có sẵn trong namespace; rỗng dùng credential node/ServiceAccount |
 | `parameters.mongodbRootUsername` | Tài khoản quản trị MongoDB trong auth database `admin`; app user riêng nằm trong database ứng dụng |
@@ -66,17 +65,15 @@ entrypoint hiện có. Mirror nguyên image đã duyệt hoặc review module n�
 
 Input đăng ký thêm ba Definitions `class=in-cluster`; app nghiệm thu vẫn dùng
 PostgreSQL/Redis. Workload chọn một Type bằng resource declaration, các params
-bắt buộc là `image`, `database`, `username`, `auth_secret_name`,
-`root_password_key`, `user_password_key`; `storage` tùy chọn. Các params ưu tiên
-hơn fallback trong Definition. Khi khai báo workload hãy dùng image đã review
+bắt buộc là `image`, `database`, `username`; `storage` tùy chọn. Các params ưu
+tiên hơn fallback trong Definition. Khi khai báo workload hãy dùng image đã review
 khớp với tham số `<db>Image`. Xem ví dụ ở
 [database resources](../../../projects/platform-resources/bootstrap/DATABASES.md).
 
-Chuẩn bị Secret có hai key mật khẩu root/app qua Vault/VSO hoặc quy trình đã
-được duyệt, trong đúng namespace trước khi Pod cần chạy. Module không đọc data
-Secret, không tạo credential và không xuất password. Consumer nhận password
-qua secret delivery của công ty, không qua Type params/output. MongoDB app user
-có role readWrite trong database ứng dụng, authSource là database đó; root ở admin.
+Mật khẩu root/app do platform sinh và lưu secret store (issue #52); không chuẩn
+bị Secret thủ công. App nhận `password` và chuỗi kết nối `uri` (MySQL/MariaDB)
+hoặc `connection` (MongoDB) qua output bí mật. MongoDB app user có role
+readWrite trong database ứng dụng, authSource là database đó; root ở admin.
 
 Các module là single-instance có PVC, chưa có HA/replica set/backup automation.
 Đổi biến init trên PVC đã có dữ liệu không tự rotate mật khẩu hoặc migrate DB.

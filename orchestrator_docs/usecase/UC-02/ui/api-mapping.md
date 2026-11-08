@@ -59,7 +59,7 @@ computed class metadata vào registration payload.
 Platform Engineer/Admin only. Body bounded strict JSON
 `{"outputs":[{"name","type","secret"}]}`, ít nhất một output, không trường lạ;
 `required` không thuộc body (output mới luôn tuỳ chọn). Thành công 200 trả Type
-đầy đủ như một phần tử của GET. Validation 400, Type không thuộc Organization
+đã lưu (`key`, `inputs`, `outputs`); class metadata chỉ có ở GET. Validation 400, Type không thuộc Organization
 404, tên output đã tồn tại (kể cả đồng thời) 409, thiếu session 401, sai role
 403, oversize 413. Lỗi theo public error contract T20; không echo payload.
 POST `/api/v1/resource-types` giữ insert-only, không trở thành upsert.

@@ -7,6 +7,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -884,6 +885,29 @@ func (s *Store) CreateResourceType(ctx context.Context, organizationKey string, 
 	}
 	s.state.ResourceTypes[key] = t
 	return nil
+}
+
+// AppendResourceTypeOutputs appends outputs to an existing Resource Type
+// (UC-02 EXT); a name that already exists is ErrDuplicate and nothing changes.
+func (s *Store) AppendResourceTypeOutputs(ctx context.Context, organizationKey, key string, outputs []resource.OutputField) (resource.Type, error) {
+	defer s.lock(ctx)()
+	if _, ok := s.state.Organizations[organizationKey]; !ok {
+		return resource.Type{}, fmt.Errorf("%w: organization %q", persistence.ErrNotFound, organizationKey)
+	}
+	k := catalogKey(organizationKey, key)
+	current, ok := s.state.ResourceTypes[k]
+	if !ok {
+		return resource.Type{}, fmt.Errorf("%w: resource type %q", persistence.ErrNotFound, key)
+	}
+	next, err := resource.AppendOutputs(current, outputs)
+	if errors.Is(err, resource.ErrOutputExists) {
+		return resource.Type{}, fmt.Errorf("%w: %v", persistence.ErrDuplicate, err)
+	}
+	if err != nil {
+		return resource.Type{}, err
+	}
+	s.state.ResourceTypes[k] = next
+	return next, nil
 }
 
 // CreateResourceDefinition inserts a Definition with its criteria; an

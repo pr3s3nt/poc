@@ -218,3 +218,12 @@ output "password" {
 output "cluster_identifier" { value = aws_rds_cluster.this.cluster_identifier }
 output "writer_identifier" { value = aws_rds_cluster_instance.writer.identifier }
 output "security_group_id" { value = aws_security_group.this.id }
+
+# Connection strings (issue #52). Credentials are percent-encoded; uri carries
+# the password and is therefore sensitive. jdbcUrl has no credentials.
+output "uri" {
+  value     = "postgresql://${urlencode(aws_rds_cluster.this.master_username)}:${urlencode(var.master_password)}@${aws_rds_cluster.this.endpoint}:${aws_rds_cluster.this.port}/${urlencode(aws_rds_cluster.this.database_name)}"
+  sensitive = true
+}
+
+output "jdbcUrl" { value = "jdbc:postgresql://${aws_rds_cluster.this.endpoint}:${aws_rds_cluster.this.port}/${aws_rds_cluster.this.database_name}" }
