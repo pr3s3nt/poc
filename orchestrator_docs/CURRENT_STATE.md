@@ -7,6 +7,20 @@ last_reviewed: 2026-11-08
 
 # Current project state
 
+## Main integration — issues #47/#49, 2026-11-08
+
+User accepted integration and explicitly authorized main merge. Merge `0b180b33`
+is pushed; the retained Console on kind now runs the corresponding backend and
+frontend artifacts. Owner setup completed after a verified private backup; real
+Tailscale browser checks confirm login, unchanged Application/Environment identity,
+Definitions, picker dismissal/reopening and default-visible authoring groups.
+Full frontend passes 986/986 after retiring obsolete historical static scans;
+backend full-suite baseline failures remain disclosed. No new application Deploy,
+stopped Backstage business acceptance or deferred rollback scenario was rerun.
+Feature authoring services are stopped and its branch deleted; private volumes,
+Vault needed by deployed workloads and workload endpoint forwards are retained.
+See [merge verification](verification/2026-11-08-organization-seed-main-merge.md).
+
 ## Workload authoring controls — issue #47
 
 Add Workload picker Cancel/Escape now removes the overlay reliably and allows
