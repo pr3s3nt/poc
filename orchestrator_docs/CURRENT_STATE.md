@@ -7,6 +7,16 @@ last_reviewed: 2026-11-08
 
 # Current project state
 
+## Complex application UI — issue #50, survey and decision pending
+
+The official GitLab chart 10.5.4 / app v19.5.3 archive is verified against the
+release index digest and an offline reduced profile renders successfully. Core
+components and form/Definition gaps are mapped; no application or cluster object
+has been created. The pending design choice is independent one-shot Job authoring
+versus a template-owned migration companion, including consumer completion order.
+Existing delivery Job support does not provide a first-class Job form. See
+[survey and proposed options](implementation/complex-application-ui.md).
+
 ## Grouped template versions — issue #47
 
 Add Workload now groups each template ID into one card, defaulting to its newest
