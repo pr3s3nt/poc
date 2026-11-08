@@ -312,7 +312,7 @@ func (b *graphBuilder) buildFromSet(set environment.Document, namespace *Node) e
 				}
 			}
 		}
-		spec, err := canon.Map(module.Spec)
+		spec, err := moduleSpecReferenceTree(module.Spec)
 		if err != nil {
 			return err
 		}

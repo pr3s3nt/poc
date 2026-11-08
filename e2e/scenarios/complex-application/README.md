@@ -44,3 +44,19 @@ only scenario-owned Applications through UI and verifies namespace/GitRepo absen
 with recorded ownership/UID; retained storage needs separate explicit cleanup.
 Other stacks, cluster controllers and credentials are preserved. A live workload
 is retained for handoff only when recorded explicitly; no implicit volume deletion.
+
+GitLab continuation (in progress): `gitlab-profile.mjs` derives form input JSON
+from the checksum-verified `gitlab-rendered.yaml` in the private run directory.
+It does not apply manifests or carry secret bytes. `gitlab.mjs prepare` creates
+its own app/store/configuration through UI using private `gitlab-input.json`
+(secretFiles and endpoint routing policy); `endpoint` registers the scoped
+endpoint Definition. `author` saves all nine workloads; `attach-endpoint` attaches
+webservice HTTP access. `storage` is the approved pre-deploy MinIO-to-SeaweedFS
+conversion of the two existing drafts, recorded per workload. Do not run that
+conversion against a new profile already authored with SeaweedFS. `preview`
+checks the complete saved draft set, nine changes and Job ordering without Deploy.
+`inspect` only reads store readiness. The store registration requires
+ORCH_VAULT_WORKLOAD_ADDRESS and a private vault-application-token input; operator
+Kubernetes authentication setup is a separate prerequisite. Drafts, receipts and
+rendered files stay outside Git. Preview is not runtime acceptance; do not claim
+that these stages deploy GitLab or that all workload images have been pulled.

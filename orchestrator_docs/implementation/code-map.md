@@ -1268,6 +1268,12 @@ capability admission, templatedriver multi-controller/source/mode invariants,
 deploymentreview projection, WorkloadRuntimeIntent UI and workload-runtime-form E2E.
 See [generic contract](../architecture/contracts/generic-workload.md) and the runtime verification record. Kubernetes execution remains unverified.
 
+Issue #50 literal file reference discovery: `backend/internal/planning/module_references.go`
+filters ConfigMap file values from graph binding and shared-resource retention
+under GW-06. `module_references_test.go` checks shell/reference-looking text stays
+literal, creates no edges/retained shared resources and leaves actual env reference
+validation active. The authored specification and renderer content are unchanged.
+
 WC-22 — Container volume/file authoring (2026-11-06): WorkloadEditorPage now
 places ContainerVolumeFields in every app/init/sidecar card. Add volume or file
 creates/attaches a source atomically or reuses an existing source; VolumeSourceFields

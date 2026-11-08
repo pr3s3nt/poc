@@ -456,6 +456,10 @@ func sharedReferences(module environment.Module) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	tree["spec"], err = moduleSpecReferenceTree(module.Spec)
+	if err != nil {
+		return nil, err
+	}
 	found := map[string]bool{}
 	// Mount bindings are typed resource references, not output placeholders.
 	// They must retain shared entries while another workload still mounts them.

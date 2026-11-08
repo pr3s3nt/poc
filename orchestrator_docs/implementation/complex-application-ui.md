@@ -185,9 +185,24 @@ The isolated Console UI proof now passes a complete two-workload batch and a
 consumer update with unchanged completed Job UID/time. Platform Git, account, CD,
 Definitions, workloads and Deploy used UI; scoped Fleet namespace RBAC preparation
 is disclosed separately. See [verification](../verification/2026-11-08-complex-ui-jobs.md).
-GitLab itself is not deployed. The user selected Tailscale HTTPS (option 1).
-The subsequent certificate request was refused by Tailscale with "your Tailscale
-account does not support getting TLS certs". The admin DNS page redirects the
-available browser session to login, so the account owner must enable HTTPS
-Certificates there before issuance can proceed. No certificate was issued and
-shared Serve settings remain unchanged. Full issue acceptance/merge stays pending.
+GitLab itself is not deployed. The user selected Tailscale HTTPS (option 1), then
+enabled the account setting after the initial refusal. Certificate issuance and
+TLS verification now pass; an HTTPS Serve listener forwards to the existing
+Gateway, and comparison verifies all prior Serve entries are preserved. Hostname,
+certificates and access details remain private. This is transport setup, not a
+working GitLab screen.
+
+All nine component/dependency drafts and a webservice endpoint are authored via
+UI before any Deploy. Initial Preview failed because graph discovery interpreted
+literal ConfigMap shell text as platform placeholders. GW-06 already requires
+literal content: `planning/module_references.go` now excludes only ConfigMap file
+values from reference discovery/shared retention without changing authored text
+or real container/resource validation. Regression and all planning package tests,
+Go build, image rebuild and whole-Environment UI Preview pass. No contract change.
+
+The selected MinIO server/client tags return no manifest; the upstream repository
+is archived. The user approved SeaweedFS S3 instead. Objectstore and bucket Job
+drafts were edited through UI, preserving Service identity/port, with SeaweedFS
+4.52 and AWS CLI 2.31.20 manifests verified. This does not yet prove GitLab S3
+compatibility or retention. Next is one batch Deploy and functional acceptance;
+full issue acceptance/merge stays pending.

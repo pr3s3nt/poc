@@ -131,3 +131,44 @@ account-access prerequisite, not another request to approve the chosen option.
 After confirmation, retry issuance and continue the GitLab configuration through
 UI. The login screenshot and command diagnostics remain outside Git. GitLab is
 not deployed and no HTTPS endpoint is claimed ready.
+
+## HTTPS enabled and GitLab drafts/Preview — passed, not deployment
+
+After the owner enabled HTTPS, Tailscale issued a certificate. An HTTPS Serve
+listener was added for the existing Gateway; comparison against the private
+snapshot proves every previous listener/routing entry unchanged. The exact
+MagicDNS URL completes TLS verification without ignoring errors. Before a matching
+route exists its HTTP response is 404, so this is transport evidence only and is
+not a working-GitLab handoff. Certificate/key and hostname remain private.
+
+The isolated feature Vault now has Kubernetes authentication configured using the
+existing reviewer credential; no new cluster-wide role/binding or shared Vault
+change. A verified GitLab test store is registered through UI. Application,
+Environment secrets, endpoint Definition and all nine workloads are entered through
+forms: PostgreSQL 17, Redis 7.2, S3 objectstore, bucket initialization Job, Gitaly,
+migration Job, Webservice/Workhorse, Sidekiq and Toolbox. Secrets stay in the store;
+ConfigMaps contain nonsecret configuration/scripts. Stateful components have
+retained claim templates. Every draft exists before any application Deploy.
+
+Manifest preflight rejected the selected MinIO server/client tags. The user then
+approved SeaweedFS over S3. The two drafts were edited through forms to use
+SeaweedFS 4.52 and AWS CLI 2.31.20, preserving the Service identity/port; both
+replacement manifests are available. This is not yet compatibility acceptance.
+Source: [SeaweedFS release](https://github.com/seaweedfs/seaweedfs/releases/tag/4.52),
+[MinIO archived repository](https://github.com/minio/minio).
+
+Initial whole-app Preview returned PLANNING_REJECTED at graph construction.
+Graph discovery was parsing shell/reference-looking text inside ConfigMap files,
+contrary to GW-06's literal contract. The bounded fix excludes only file values
+from graph/shared reference discovery, preserves authored text and still rejects
+invalid real container references. The regression and all planning package tests
+pass, as does Go build. The isolated backend was rebuilt/restarted. Repeated real
+UI Preview now passes with all nine DEPLOY changes; bucket Job precedes migration,
+and migration precedes Sidekiq/Toolbox/Webservice. No application Deploy was
+submitted during these failed/successful Previews. Earlier authoring failures were
+harness selectors, corrected using the actual form; no API mutation substituted.
+
+New GitLab authoring/profile scripts are in `e2e/scenarios/complex-application/`.
+Node syntax and documentation/whitespace checks pass. Frontend code is unchanged
+in this checkpoint, so its earlier focused checks are reused. Full gate, GitLab
+runtime/Git operations and cleanup remain pending; no main merge.

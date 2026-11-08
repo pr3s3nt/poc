@@ -17,9 +17,13 @@ capability/guards, explicit completion graph/batch order and form fields are
 implemented under GW-08, preserving immutable/no-replay behavior. Real UI batch
 Job completion and a consumer update without Job replay now pass in an isolated
 Application. GitLab acceptance/full gate remain pending. The user selected
-Tailscale HTTPS; issuance is refused by the account, and the available browser
-redirects admin DNS to login. The account owner must enable HTTPS Certificates
-before issuance and dependent GitLab configuration can continue. See
+Tailscale HTTPS and enabled the account setting: certificate issuance and TLS
+verification now pass, with existing Serve listeners preserved. All nine GitLab
+component/dependency drafts and the webservice endpoint are entered through UI;
+whole-Environment Preview passes, but no GitLab Deploy has run yet. The user
+approved SeaweedFS S3 after the selected MinIO image manifests were unavailable.
+Preview exposed and now verifies a fix for graph discovery interpreting literal
+ConfigMap shell text as platform references; planning tests and Go build pass. See
 [survey and proposed options](implementation/complex-application-ui.md).
 
 ## Grouped template versions — issue #47
