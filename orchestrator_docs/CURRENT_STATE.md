@@ -7,6 +7,20 @@ last_reviewed: 2026-11-08
 
 # Current project state
 
+## Frontend/backend example — issue #47, trial stopped by user
+
+The integrated organization_seed branch deployed the Score frontend/backend
+example through Console forms and one batch Deploy per attempt, using native
+shared-host endpoints and PostgreSQL. The corrected batch SUCCEEDED; both
+workloads and PostgreSQL were Ready. Browser reached the Guest page through
+the endpoint, but guest sign-in failed with the upstream frontend's `core.toast`
+error; catalog acceptance did not pass. On 2026-11-08 the user accepted the
+deployed state as sufficient for this trial and requested stopping further
+verification. App/endpoint remain available; no main merge was performed.
+Prior template-pin failure, expired trial Vault reviewer and operator-assisted
+Fleet convergence remain disclosed in the
+[verification record](verification/2026-11-08-frontend-backend.md).
+
 ## Deployment retry and Environment rollback — issue #49, in progress
 
 ADR-040 records three total safe transient resource invocations and explicit
