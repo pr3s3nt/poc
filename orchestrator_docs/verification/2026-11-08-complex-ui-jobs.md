@@ -195,8 +195,10 @@ host or authority explicitly. They have not been saved into the blocked app's
 forms. A new Job execution requires a new workload identity under GW-08; the
 published Job has not been rewritten or run manually.
 
-The Operation is interrupted. Existing recovery observes the exact submission
-but waits for Ready, which this failed Job cannot reach. No new Job recovery
+The deployment was interrupted. Its recovery is still RECOVERING after the
+browser's response-wait deadline; no release is confirmed. Existing recovery
+observes the exact submission but waits for Ready, which this failed Job cannot
+reach. No new Job recovery
 semantics are approved under GW-08. User choice is needed between a new isolated
 UI-authored test app using corrected inputs (retaining this failed app as evidence)
 and expanding issue #50 to handle failed Job recovery/removal through UI. Neither
