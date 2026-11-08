@@ -42,7 +42,7 @@ function NativeHistoryPage({ application, environment, tab, query = {} }: { appl
   const { data, error, loading, reload } = history;
   useEffect(() => { setFilters(initial); setRange(preset(initial)); setSearch(initial.q ?? ''); setFocus(query.focus); setFollow(false); setDetail(null); setStartInput(localDateInput(initial.from!)); setEndInput(localDateInput(initial.to!)); setInvalidRange(false); }, [initial, application.id, environment, tab, query.focus]);
   useEffect(() => { setOlder([]); setNextCursor(undefined); setOlderError(''); setOlderBusy(false); }, [scope]);
-  useEffect(() => { const timer = window.setTimeout(() => { setFilters(value => value.q === search ? value : { ...value, q: search }); }, 250); return () => window.clearTimeout(timer); }, [search]);
+  useEffect(() => { const timer = window.setTimeout(() => { setFilters(value => (value.q ?? '') === search ? value : { ...value, q: search || undefined }); }, 250); return () => window.clearTimeout(timer); }, [search]);
   useEffect(() => { if (detail) dialog.current?.showModal(); else if (dialog.current?.open) { dialog.current.close(); opener.current?.focus(); } }, [detail]);
   useEffect(() => { if (follow && logArea.current) logArea.current.scrollTop = logArea.current.scrollHeight; }, [follow, data]);
   const changeFilter = (patch: Partial<Filters>) => { setFocus(undefined); setFollow(false); setFilters(previous => ({ ...previous, ...patch, cursor: undefined })); };

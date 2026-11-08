@@ -79,3 +79,18 @@ it('pauses at the latest followed interval without rewinding received logs', asy
   expect(await screen.findByText(newer.message)).toBeInTheDocument();
   now.mockRestore();
 });
+
+it('does not refetch logs on mount when the search box is still empty', async () => {
+  const original = fixture();
+  const fetcher = vi.fn(async (input: string) => {
+    const url = new URL(input, 'http://localhost');
+    return Response.json({ ...original, from: url.searchParams.get('from'), to: url.searchParams.get('to') });
+  });
+  vi.stubGlobal('fetch', fetcher);
+  render(<HistoryPage application={{ id: 'shop', name: 'Shop', environments: bothConfigured(), workloads: { staging: [], production: [] } }} environment="staging" tab="logs" />);
+  await screen.findByText(original.logs[0]!.message);
+  await new Promise(resolve => setTimeout(resolve, 400));
+  const logReads = fetcher.mock.calls.filter(([input]) => String(input).includes('/observability/'));
+  expect(logReads).toHaveLength(1);
+  expect(screen.getByRole('button', { name: text('follow') })).toBeEnabled();
+});
