@@ -2,7 +2,7 @@
 id: UC-02-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-11-08
 related: UC-02
 ---
 
@@ -34,5 +34,12 @@ thêm/bớt dòng. ID phải theo BR-05/BR-06, không chuẩn hóa âm thầm.
 
 “Sao chép schema” đưa schema vào draft độc lập, giữ nguyên types và flags;
 ID mới để trống để người dùng nhập và xác nhận/sửa schema trước đăng ký.
-Sửa draft không đổi nguồn. Không có sửa/xóa/version schema đã đăng ký.
+Sửa draft không đổi nguồn. Không có sửa/xóa/version schema đã đăng ký; chỉ được thêm output tuỳ chọn (issue #52).
 ID trùng không ghi đè; submit lỗi giữ form. Sao chép không gửi POST.
+
+## Thêm output vào Type đã có — issue #52
+
+Chi tiết Type có nút **Thêm output** (ẩn với `workload` và với vai trò không
+được phép). Form gồm các dòng name, type, “Bí mật”; không có “Bắt buộc” vì
+output mới luôn tuỳ chọn. Output hiện có hiện chỉ đọc. Trợ giúp ngắn: output
+mới không bắt buộc; Definition cần revision mới để cung cấp nó.

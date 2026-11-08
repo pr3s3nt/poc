@@ -2,7 +2,7 @@
 id: UC-02-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-11-08
 ---
 
 # UC-02 context — Register Resource Type
@@ -28,3 +28,6 @@ UI: [screens](ui/screens.md), [states](ui/states.md), [HTTP mapping](ui/api-mapp
 - [`backend/internal/domain/resource`](../../../backend/internal/domain/resource/)
 - [`backend/internal/adapters/store`](../../../backend/internal/adapters/store/)
 - [`backend/internal/seed`](../../../backend/internal/seed/)
+
+Issue #52 bổ sung output tuỳ chọn: [specification EXT](specification.md#bổ-sung-output-tuỳ-chọn--issue-52),
+[sequence-extend](sequence-extend.puml).

@@ -2,7 +2,7 @@
 id: UC-02-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-10-14
+last_reviewed: 2026-11-08
 related: UC-02
 ---
 
@@ -52,3 +52,14 @@ toàn, không module pins/provider inputs/credentials. Class metadata lấy từ
 verified registry/scoped Definitions trong read snapshot, không fetch/inspect
 module hoặc ghi Type. POST không thêm field; copy Type schema không chép
 computed class metadata vào registration payload.
+
+## Bổ sung output tuỳ chọn — issue #52
+
+`POST /api/v1/resource-types/{key}/outputs` theo specification EXT-01..06,
+Platform Engineer/Admin only. Body bounded strict JSON
+`{"outputs":[{"name","type","secret"}]}`, ít nhất một output, không trường lạ;
+`required` không thuộc body (output mới luôn tuỳ chọn). Thành công 200 trả Type
+đầy đủ như một phần tử của GET. Validation 400, Type không thuộc Organization
+404, tên output đã tồn tại (kể cả đồng thời) 409, thiếu session 401, sai role
+403, oversize 413. Lỗi theo public error contract T20; không echo payload.
+POST `/api/v1/resource-types` giữ insert-only, không trở thành upsert.
