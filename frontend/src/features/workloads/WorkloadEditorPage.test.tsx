@@ -560,4 +560,5 @@ it('shows an existing workload name in the title without a locked name input', a
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
   await screen.findByRole('heading', { name: 'Sửa api' });
   expect(screen.queryByLabelText('Tên Workload')).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Thông tin cơ bản' })).not.toBeInTheDocument();
 });

@@ -138,7 +138,8 @@ image, Score keys và payload. Text/aria/validation dùng catalog ADR-020. Mappi
   và các input có kiểu, Service port và đường dẫn công khai.
 - Tên Workload (BR-01): khi tạo mới, ô tên có ghi chú ngắn "không đổi được sau khi
   lưu" và báo lỗi định dạng tại ô khi nhập và khi Lưu; tên sai không gửi request.
-  Khi sửa workload có sẵn, tên hiển thị dạng chữ, không phải ô nhập bị khóa.
+  Khi sửa workload có sẵn, tên chỉ hiện ở tiêu đề "Sửa <tên>", không có ô nhập bị
+  khóa hay thẻ Thông tin cơ bản rỗng.
 - Mỗi Container có phần nâng cao cho CPU/memory request và limit. Tóm tắt luôn
   hiện request có hiệu lực: request tường minh, nếu thiếu thì limit cùng loại,
   nếu cả hai thiếu thì CPU `10m`, memory `32Mi`. Limit thiếu hiển thị chưa đặt.
