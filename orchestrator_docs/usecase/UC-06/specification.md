@@ -2,7 +2,7 @@
 id: UC-06-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-09
 ---
 
 > Current managed delivery policy: [ADR-033](../../architecture/decisions/ADR-033-platform-managed-delivery.md)
@@ -442,6 +442,18 @@ per-resource evidence; changing a Definition does not silently upgrade this scop
   the allocated Git repository and its Fleet GitRepo, per
   [ADR-038](../../architecture/decisions/ADR-038-readable-idp-names.md). Existing
   allocations/controller names and original ownership guards remain unchanged.
+- **CD-10 (issue #55):** A rollout is a **determined failure** when its submission
+  receipt is persisted and the provider is observed successfully but reports the
+  exact revision Degraded, or still not Ready at the readiness deadline. The
+  delivery intent becomes FAILED, the Git publication lease is released and the
+  Environment is released: Deploy ends FAILED with a safe rollout reason, Recover
+  ends RECOVERED with the Deployment FAILED. The published revision remains until
+  a later Deploy, rollback or removal replaces it; there is no automatic retry,
+  rollback or deletion. Any **unknown outcome** keeps the existing hold: a failed
+  or unconfirmed push, an observation/controller/ownership/fencing error, loss or
+  cancellation of the owning operation, and CD ownership transfer or policy-only
+  delivery. Recover applies the same classification, so an operation held by an
+  earlier release for a determined failure resolves with one Recover.
 
 ## Public endpoint resource
 

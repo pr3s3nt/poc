@@ -205,6 +205,10 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 			deadline = 20 * time.Minute
 		}
 		wait, cancel := context.WithTimeout(ctx, deadline)
+		// UC-06 CD-10: an ordinary Deploy whose receipted revision is observed
+		// failing ends FAILED; transfer/policy recovery keeps the hold.
+		determined := !policyOnly && op.Kind == environment.OpDeploy
+		failed := false
 		for {
 			stage = "observe"
 			observed, observeErr := provider.Observe(wait, intent, receipt)
@@ -215,6 +219,14 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 			if err := c.prunePending(wait, provider, intent, receipt, observed); err != nil {
 				cancel()
 				return err
+			}
+			if determined && observed.Health == domain.Degraded {
+				cancel()
+				if err := c.failRecoveredSubmission(ctx, &record, destination, org.ID, owner); err != nil {
+					return err
+				}
+				failed = true
+				break
 			}
 			if observed.Ready(intent.Revision, time.Now().UTC(), ObservationInterval) {
 				expected := map[string]string{}
@@ -251,9 +263,22 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 			case <-wait.Done():
 				timer.Stop()
 				cancel()
-				return domain.ErrOutcomeUnknown
+				if !determined || ctx.Err() != nil {
+					return domain.ErrOutcomeUnknown
+				}
+				if err := c.failRecoveredSubmission(ctx, &record, destination, org.ID, owner); err != nil {
+					return err
+				}
+				failed = true
 			case <-timer.C:
 			}
+			if failed {
+				break
+			}
+		}
+		cancel()
+		if failed {
+			continue
 		}
 		if destination != "" {
 			if err := c.Store.ReleaseGitPublication(ctx, persistence.GitPublicationLease{Destination: destination, OrganizationID: org.ID, Owner: owner}); err != nil {
@@ -261,5 +286,31 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 			}
 		}
 	}
+	return nil
+}
+
+// failRecoveredSubmission marks a receipted submission FAILED after recovery
+// observed its rollout failing (UC-06 CD-10) and releases its Git publication.
+func (c *Coordinator) failRecoveredSubmission(ctx context.Context, record *persistence.DeliveryExecution, destination, orgID string, owner persistence.Owner) error {
+	old := record.Mutation.Version
+	next, err := record.Mutation.Advance(domain.IntentFailed, true)
+	if err != nil {
+		return err
+	}
+	updated := *record
+	updated.Mutation = next
+	updated.UpdatedAt = time.Now().UTC()
+	if err := c.Store.Transact(ctx, func(tx context.Context) error {
+		if _, err := c.Store.UpdateDeliveryExecution(tx, updated, old); err != nil {
+			return err
+		}
+		if destination != "" {
+			return c.Store.ReleaseGitPublication(tx, persistence.GitPublicationLease{Destination: destination, OrganizationID: orgID, Owner: owner})
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	*record = updated
 	return nil
 }

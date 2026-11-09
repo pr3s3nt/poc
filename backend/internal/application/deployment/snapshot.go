@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	catalogapp "orchestrator/internal/application/catalogrelease"
+	deliveryapp "orchestrator/internal/application/delivery"
 
 	"orchestrator/internal/application/deploymentreview"
 	"orchestrator/internal/application/target"
@@ -27,6 +28,10 @@ const (
 	FailureTargetChange = "the workload target changed since it was applied; a target cannot be moved by an update, so remove and deploy it again"
 	FailureRuntime      = "runtime deployment failed during resource provisioning, workload apply/readiness or removal; preview changes again to retry"
 	FailureNotFound     = "a required Application, Environment or catalog record was not found"
+	// UC-06 CD-10: the revision was delivered and observed failing; the
+	// Environment is released so the user can fix the input and deploy again.
+	FailureRolloutDegraded = "the workload was delivered but its rollout is failing (for example containers crash or cannot start); check the workload logs, fix the configuration and deploy again"
+	FailureRolloutNotReady = "the workload was delivered but did not become ready before the readiness deadline; check the workload logs, fix the configuration and deploy again"
 )
 
 // FailureLegacy replaces a stored FailureReason that is not a known safe
@@ -38,7 +43,7 @@ const FailureLegacy = "deployment failed; its recorded diagnostic is not shown. 
 // empty) and FailureLegacy otherwise.
 func SafeFailureReason(reason string) string {
 	switch reason {
-	case "", FailureTargetChange, FailureStale, FailureRuntime, FailureNotFound:
+	case "", FailureTargetChange, FailureStale, FailureRuntime, FailureNotFound, FailureRolloutDegraded, FailureRolloutNotReady:
 		return reason
 	}
 	if planning.IsPublicMessage(reason) {
@@ -56,6 +61,10 @@ func PublicFailure(err error) string {
 		return FailureNotFound
 	case errors.Is(err, ErrTargetChanged):
 		return FailureTargetChange
+	case errors.Is(err, deliveryapp.ErrRolloutDegraded):
+		return FailureRolloutDegraded
+	case errors.Is(err, deliveryapp.ErrRolloutNotReady):
+		return FailureRolloutNotReady
 	}
 	if message, ok := planning.PublicMessage(err); ok {
 		return message
