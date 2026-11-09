@@ -7,8 +7,8 @@ import (
 	"embed"
 	"encoding/hex"
 	"fmt"
-	"io"
-	"os"
+	"runtime"
+	"runtime/debug"
 	"sync"
 
 	"orchestrator/internal/domain/resource"
@@ -30,47 +30,59 @@ type Renderer struct {
 
 func New() *Renderer { return &Renderer{} }
 
-var executablePin struct {
+// rendererLibraries are the modules the renderer links for data handling
+// (ADR-041). Their versions, with the Go toolchain, replace the digest of the
+// whole executable so that unrelated rebuilds keep template pins valid.
+var rendererLibraries = []string{"gopkg.in/yaml.v3", "github.com/tidwall/sjson", "github.com/tidwall/gjson", "github.com/tidwall/match", "github.com/tidwall/pretty"}
+
+var runtimePin struct {
 	once   sync.Once
 	digest string
 	err    error
 }
 
-// Pin the executable too: delivery preparation, domain methods and linked helpers
-// can affect output even when the template worker source itself did not change.
-func executableDigest() (string, error) {
-	executablePin.once.Do(func() {
-		path, err := os.Executable()
-		if err != nil {
-			executablePin.err = err
+// runtimeIdentity fingerprints what the renderer depends on outside its own
+// embedded sources: the Go toolchain and the listed library versions.
+func runtimeIdentity() (string, error) {
+	runtimePin.once.Do(func() {
+		info, ok := debug.ReadBuildInfo()
+		if !ok {
+			runtimePin.err = fmt.Errorf("template: build information is unavailable")
 			return
 		}
-		file, err := os.Open("/proc/self/exe")
-		if err != nil {
-			file, err = os.Open(path)
-		}
-		if err != nil {
-			executablePin.err = err
-			return
-		}
-		defer file.Close()
-		hash := sha256.New()
-		if _, err = io.Copy(hash, file); err != nil {
-			executablePin.err = err
-			return
-		}
-		executablePin.digest = hex.EncodeToString(hash.Sum(nil))
+		runtimePin.digest = identityFrom(runtime.Version(), info.Deps)
 	})
-	return executablePin.digest, executablePin.err
+	return runtimePin.digest, runtimePin.err
 }
 
+// identityFrom digests the Go toolchain and the renderer library versions; any
+// other dependency of the backend does not affect it.
+func identityFrom(goVersion string, deps []*debug.Module) string {
+	versions := map[string]string{}
+	for _, dep := range deps {
+		module := dep
+		if dep.Replace != nil {
+			module = dep.Replace
+		}
+		versions[dep.Path] = module.Path + "@" + module.Version + "#" + module.Sum
+	}
+	h := sha256.New()
+	h.Write([]byte("go:" + goVersion))
+	for _, path := range rendererLibraries {
+		h.Write([]byte("\n" + path + "=" + versions[path]))
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+// BinaryDigest is the stable renderer identity of ADR-041 (the persisted field
+// keeps its historical name).
 func (r *Renderer) BinaryDigest() string {
-	binary, err := executableDigest()
+	identity, err := runtimeIdentity()
 	if err != nil {
 		return ""
 	}
 	h := sha256.New()
-	h.Write([]byte(binary))
+	h.Write([]byte(identity))
 	h.Write([]byte(templatesource.EngineContract + ":" + Version + ":" + renderengine.Fingerprint()))
 	for _, name := range []string{"renderer.go", "git.go", "guard.go", "pod_volumes.go", "runtime_policy.go"} {
 		source, _ := driverSource.ReadFile(name)
@@ -80,7 +92,7 @@ func (r *Renderer) BinaryDigest() string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 func (r *Renderer) CheckBinary() error {
-	if _, err := executableDigest(); err != nil {
+	if _, err := runtimeIdentity(); err != nil {
 		return fmt.Errorf("template: cannot fingerprint the running engine")
 	}
 	return nil
