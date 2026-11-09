@@ -140,20 +140,24 @@ type ContainerPort struct {
 }
 
 type Container struct {
-	SecurityContext *ContainerSecurityContext      `json:"securityContext,omitempty"`
-	Role            string                         `json:"role,omitempty"`
-	InitOrder       int                            `json:"initOrder,omitempty"`
-	Ports           []ContainerPort                `json:"ports,omitempty"`
-	ID              string                         `json:"id,omitempty"`
-	WorkingDir      string                         `json:"workingDir,omitempty"`
-	StartupProbe    *Probe                         `json:"startupProbe,omitempty"`
-	Image           string                         `json:"image,omitempty"`
-	Command         []string                       `json:"command,omitempty"`
-	Args            []string                       `json:"args,omitempty"`
-	Variables       map[string]string              `json:"variables,omitempty"`
-	Resources       *ContainerResourceRequirements `json:"resources,omitempty"`
-	LivenessProbe   *Probe                         `json:"livenessProbe,omitempty"`
-	ReadinessProbe  *Probe                         `json:"readinessProbe,omitempty"`
+	SecurityContext *ContainerSecurityContext `json:"securityContext,omitempty"`
+	Role            string                    `json:"role,omitempty"`
+	InitOrder       int                       `json:"initOrder,omitempty"`
+	Ports           []ContainerPort           `json:"ports,omitempty"`
+	ID              string                    `json:"id,omitempty"`
+	WorkingDir      string                    `json:"workingDir,omitempty"`
+	StartupProbe    *Probe                    `json:"startupProbe,omitempty"`
+	Image           string                    `json:"image,omitempty"`
+	Command         []string                  `json:"command,omitempty"`
+	Args            []string                  `json:"args,omitempty"`
+	Variables       map[string]string         `json:"variables,omitempty"`
+	// VariableOrder is the authored display order of Variables (issue #63):
+	// unique names of Variables; names it omits follow in sorted order. It is
+	// authoring metadata only: rendering keeps its own sorted order.
+	VariableOrder  []string                       `json:"variableOrder,omitempty"`
+	Resources      *ContainerResourceRequirements `json:"resources,omitempty"`
+	LivenessProbe  *Probe                         `json:"livenessProbe,omitempty"`
+	ReadinessProbe *Probe                         `json:"readinessProbe,omitempty"`
 }
 
 // ModuleSpec is the workload body of a module.

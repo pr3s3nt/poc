@@ -201,6 +201,7 @@ a Type with no class and no default keeps the current value with the
 free-text class input under the dependency advanced section is removed.
 
 Keep the unified environment-variable table and Save draft → Xem trước thay đổi → Triển khai flow.
+Rows keep the order the author added them through Save, reopen and Deploy (BR-34).
 Each Redis/PostgreSQL dependency displays “Cách cung cấp / Class” beside its
 alias/type/typed params using authoritative metadata: “Trong cluster”
 (`in-cluster`) and “Dịch vụ managed AWS” (`cloud-managed`). This replaces hiding
