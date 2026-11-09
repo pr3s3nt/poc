@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Button } from '../../shared/ui/Button';
 import type { TypeContract } from './moduleMapping';
 import { baseKind, entryValue } from './typedVariables';
-import { classChoices, compatibleOutputs, contextAllowed, contextChoices, contextPlaceholder, defaultClass, environmentScopeId, infraScopeId, parseSource, referencePlaceholder, referenceTypes, scopeFromId, type ResourceReference, type ValueSource } from './valueSource';
+import { initialClass, classChoices, compatibleOutputs, contextAllowed, contextChoices, contextPlaceholder, defaultClass, environmentScopeId, infraScopeId, parseSource, referencePlaceholder, referenceTypes, scopeFromId, type ResourceReference, type ValueSource } from './valueSource';
 import { t } from '../../shared/i18n';
 
 // The shared chooser of a value source (UC-03 UI11-02). It only offers choices that are valid for the target and writes
@@ -74,11 +74,11 @@ export function ValueSourceDialog({ target, raw, types, inherit, onApply, onCanc
       </div> : null}
       {mode === 'context' ? <div className="value-body"><label>{t('platform.valueSourceDialog.contextValue')}<select aria-label={t('platform.valueSourceDialog.contextValue')} value={contextPath} onChange={(event) => setContextPath(event.target.value)}>{contextChoices.map((choice) => <option key={choice.path} value={choice.path}>{choice.label}</option>)}</select></label></div> : null}
       {mode === 'resource' ? <div className="value-body value-grid">
-        <label>{t('platform.valueSourceDialog.resourceType')}<select aria-label={t('platform.valueSourceDialog.sourceResourceType')} value={ref.type} onChange={(event) => setRef({ ...ref, type: event.target.value, output: '', class: defaultClass })}>
+        <label>{t('platform.valueSourceDialog.resourceType')}<select aria-label={t('platform.valueSourceDialog.sourceResourceType')} value={ref.type} onChange={(event) => setRef({ ...ref, type: event.target.value, output: '', class: initialClass(types.find((type) => type.key === event.target.value)) })}>
           <option value="">{t('platform.valueSourceDialog.chooseAResourceType2')}</option>
           {ref.type !== '' && !types.some((type) => type.key === ref.type) ? <option value={ref.type}>{t('platform.valueSourceDialog.typeNoLongerInMetadata', { type: ref.type })}</option> : null}
           {referenceTypes(types).map((type) => <option key={type.key} value={type.key}>{type.key}</option>)}</select></label>
-        <label>{t('platform.valueSourceDialog.class')}<select aria-label={t('platform.valueSourceDialog.sourceClass')} value={ref.class} onChange={(event) => setRefPart({ class: event.target.value })}>{classChoices(refType, ref.class).map((item) => <option key={item} value={item}>{item === defaultClass ? t('platform.valueSourceDialog.defaultDefault') : item}</option>)}</select></label>
+        <label>{t('platform.valueSourceDialog.class')}<select aria-label={t('platform.valueSourceDialog.sourceClass')} value={ref.class} onChange={(event) => setRefPart({ class: event.target.value })}>{ref.class === '' ? <option value="" disabled>{t('shared.classChoices.choose')}</option> : null}{classChoices(refType, ref.class).map((item) => <option key={item} value={item}>{item === defaultClass ? t('platform.valueSourceDialog.defaultDefault') : item}</option>)}</select></label>
         <label className="value-wide">{t('platform.valueSourceDialog.scope')}<select aria-label={t('platform.valueSourceDialog.sourceScope')} value={scopeValue} onChange={(event) => setRefPart({ scope: event.target.value === 'resource' ? { kind: 'resource', id: '' } : scopeFromId(event.target.value) })}>
           <option value={environmentScopeId}>{t('platform.valueSourceDialog.sameApplicationAndEnvironment')}</option><option value={infraScopeId}>{t('platform.valueSourceDialog.infrastructureContext')}</option><option value="resource">{t('platform.valueSourceDialog.specificResourceID')}</option></select></label>
         {ref.scope.kind === 'resource' ? <label className="value-wide">{t('platform.valueSourceDialog.resourceID')}<input aria-label={t('platform.valueSourceDialog.sourceResourceID')} value={ref.scope.id} spellCheck={false} onChange={(event) => setRefPart({ scope: { kind: 'resource', id: event.target.value } })} /></label> : null}

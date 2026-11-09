@@ -247,14 +247,11 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));
     await provideSource(user, 'namespace', "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}");
-    await submitDefinition(user);
-    expect(await screen.findByRole('alert')).toHaveTextContent(/Chọn nhóm cluster cho provider kubernetes/);
-    expect(posted).toEqual([]);
-    expect(field('Nhóm cluster của provider kubernetes')).toHaveValue('');
+    // UC-16 BR-33: the only published cluster class is selected for the unbound provider.
+    expect(await screen.findByDisplayValue('eks')).toBe(field('Nhóm cluster của provider kubernetes'));
     expect(screen.queryByLabelText(/Phạm vi cluster/)).not.toBeInTheDocument();
     const classes = within(field('Nhóm cluster của provider kubernetes')).getAllByRole('option').map((option) => option.getAttribute('value'));
     expect(classes).toEqual(['', 'eks']);
-    await user.selectOptions(field('Nhóm cluster của provider kubernetes'), 'eks');
     await submitDefinition(user);
     expect(await screen.findByText(/^Đã (đăng ký|lưu) cấu hình/)).toHaveTextContent('Đã đăng ký cấu hình tài nguyên pg-k8s.');
     expect(posted[0]).toMatchObject({ driverType: 'terraform' });

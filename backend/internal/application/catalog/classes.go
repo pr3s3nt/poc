@@ -18,6 +18,10 @@ import (
 type ResourceTypeView struct {
 	resource.Type
 	Classes []string `json:"classes"`
+	// DefaultAvailable reports whether the class `default` (an omitted class)
+	// can be served: an offered Definition has a criterion that declares no
+	// class or declares `default` (issue #61). Clients offer "Default" only then.
+	DefaultAvailable bool `json:"defaultAvailable"`
 }
 
 // ListResourceTypeViews returns the Organization's Resource Types with the
@@ -43,9 +47,11 @@ func (s *Service) ListResourceTypeViews(ctx context.Context, organizationKey str
 		return nil, err
 	}
 	classes := map[string]map[string]bool{}
+	defaults := map[string]bool{}
 	for _, def := range definitions {
 		declared := declaredClasses(def)
-		if len(declared) == 0 {
+		servesDefault := matchesDefaultClass(def)
+		if len(declared) == 0 && !servesDefault {
 			continue
 		}
 		serves, err := s.servesType(ctx, def)
@@ -53,6 +59,12 @@ func (s *Service) ListResourceTypeViews(ctx context.Context, organizationKey str
 			return nil, &internalError{err: err}
 		}
 		if !serves {
+			continue
+		}
+		if servesDefault {
+			defaults[def.ResourceTypeKey] = true
+		}
+		if len(declared) == 0 {
 			continue
 		}
 		if classes[def.ResourceTypeKey] == nil {
@@ -64,7 +76,7 @@ func (s *Service) ListResourceTypeViews(ctx context.Context, organizationKey str
 	}
 	out := make([]ResourceTypeView, 0, len(types))
 	for _, typ := range types {
-		view := ResourceTypeView{Type: typ, Classes: []string{}}
+		view := ResourceTypeView{Type: typ, Classes: []string{}, DefaultAvailable: defaults[typ.Key]}
 		for class := range classes[typ.Key] {
 			view.Classes = append(view.Classes, class)
 		}
@@ -72,6 +84,17 @@ func (s *Service) ListResourceTypeViews(ctx context.Context, organizationKey str
 		out = append(out, view)
 	}
 	return out, nil
+}
+
+// matchesDefaultClass reports whether a criterion of the Definition matches the
+// class `default`: it declares no class (matches every class) or `default`.
+func matchesDefaultClass(def resource.Definition) bool {
+	for _, criterion := range def.Criteria {
+		if criterion.Class == "" || criterion.Class == "default" {
+			return true
+		}
+	}
+	return false
 }
 
 func declaredClasses(def resource.Definition) []string {

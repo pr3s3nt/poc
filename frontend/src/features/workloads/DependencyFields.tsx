@@ -3,6 +3,7 @@ import { Advanced } from './Advanced';
 import { ClassControls } from './ClassControls';
 import type { ResourceType } from './api';
 import { t } from '../../shared/i18n';
+import { autoClass, classChoiceMissing } from '../../shared/classChoices';
 import { newSharedId, type SharedResource } from './sharedResources';
 
 // sharedId is the Workload resource `id` (UC-06 shared dependency `<type>.<class>#shared.<id>`); className is the
@@ -27,6 +28,8 @@ export function dependencyProblem(dependency: Dependency, types: ResourceType[])
     if (input.required && !value.trim()) return t('workloads.workloadEditor.valueNameIsRequired', { value: dependency.alias || dependency.type, name: input.name });
     if (value && input.type === 'number' && !Number.isFinite(Number(value))) return t('workloads.workloadEditor.valueNameMustBeA', { value: dependency.alias || dependency.type, name: input.name });
   }
+  // UC-16 BR-33: a new resource needs a served class; a stored or reused one is kept as is.
+  if (!dependency.existing && !dependency.reuseId && !privateOnlyType(dependency.type) && classChoiceMissing(contract, '', dependency.className)) return t('shared.classChoices.required', { name: dependency.alias || dependency.type });
   return undefined;
 }
 
@@ -71,10 +74,10 @@ export function DependencyFields({ index, dependency: dep, types, choices = [], 
     {choices.length === 0 ? <small className="muted">{t('workloads.resources.noExisting')}</small> : null}
     <div className="binding-row">
       <input aria-label={t('workloads.workloadEditor.resourceAlias')} value={dep.alias} disabled={disabled} placeholder="db" onChange={(event) => onChange({ alias: event.target.value })} />
-      <select aria-label={t('workloads.workloadEditor.resourceType')} value={dep.type} disabled={locked} onChange={(event) => onChange({ type: event.target.value, params: {}, ...(privateOnlyType(event.target.value) ? { sharedId: '' } : privateOnlyType(dep.type) ? { sharedId: newSharedId() } : {}) })}><option value="">{t('workloads.workloadEditor.chooseAType')}</option>{types.map((item) => <option key={item.key} value={item.key}>{item.key}</option>)}</select>
+      <select aria-label={t('workloads.workloadEditor.resourceType')} value={dep.type} disabled={locked} onChange={(event) => onChange({ type: event.target.value, params: {}, className: dep.className === '' ? autoClass(types.find((item) => item.key === event.target.value), '') ?? '' : dep.className, ...(privateOnlyType(event.target.value) ? { sharedId: '' } : privateOnlyType(dep.type) ? { sharedId: newSharedId() } : {}) })}><option value="">{t('workloads.workloadEditor.chooseAType')}</option>{types.map((item) => <option key={item.key} value={item.key}>{item.key}</option>)}</select>
       {onRemove ? <Button tone="quiet" onClick={onRemove}>{t('workloads.workloadEditor.remove')}</Button> : null}
     </div>
-    <ClassControls index={index} alias={dep.alias} type={type} className={dep.className} metadata={classMetadata} disabled={locked} onClass={(value) => onChange({ className: value })} onReload={onReload} />
+    <ClassControls index={index} alias={dep.alias} type={type} className={dep.className} saved={dep.existing} metadata={classMetadata} disabled={locked} onClass={(value) => onChange({ className: value })} onReload={onReload} />
     <div className="field-grid">{type?.inputs?.map((input) => <label key={input.name}>{dep.alias || dep.type} · {input.name}{input.required ? ' *' : ''}{privateOnlyType(dep.type) && input.name === 'port'
       ? <select aria-label={t('workloads.workloadEditor.parameterName', { name: input.name })} value={paramValue(dep.params, input.name)} disabled={locked} onChange={(event) => onChange({ params: { ...dep.params, [input.name]: event.target.value } })}><option value="">{t('workloads.workloadEditor.choose')}</option>{servicePorts.map((port) => <option key={port} value={port}>{port}</option>)}</select>
       : input.type === 'bool'
@@ -82,8 +85,6 @@ export function DependencyFields({ index, dependency: dep, types, choices = [], 
       : <input aria-label={t('workloads.workloadEditor.parameterName', { name: input.name })} type={input.type === 'number' ? 'number' : 'text'} value={paramValue(dep.params, input.name)} disabled={locked} onChange={(event) => onChange({ params: { ...dep.params, [input.name]: event.target.value } })} />}</label>)}</div>
     <Advanced label={t('workloads.workloadEditor.resourceValue', { value: dep.alias || index + 1 })} summary={<>{t(dep.sharedId ? 'workloads.resources.shared' : 'workloads.resources.private')} · {t('workloads.workloadEditor.effectiveClassValueValue2', { value: dep.className || 'default', value2: dep.className ? t('workloads.workloadEditor.explicit') : t('workloads.workloadEditor.default') })}</>}>
       {!dep.reuseId && !privateOnlyType(dep.type) ? <label><input type="checkbox" checked={!dep.sharedId} disabled={disabled} onChange={(event) => onChange({ sharedId: event.target.checked ? '' : newSharedId() })} />{t('workloads.resources.privateOnly')}</label> : null}
-      <label>{t('workloads.workloadEditor.resourceClass')}<input aria-label={t('workloads.workloadEditor.resourceClass')} value={dep.className} disabled={locked} placeholder="default" onChange={(event) => onChange({ className: event.target.value })} /></label>
-      <p>{t('workloads.workloadEditor.emptyUsesTheDefaultClass')}</p>
     </Advanced>
   </div>;
 }

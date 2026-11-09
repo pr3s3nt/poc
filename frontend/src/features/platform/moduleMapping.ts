@@ -15,6 +15,7 @@ export type TypeContract = {
   inputs: { name: string; type: string; required?: boolean }[];
   outputs: { name: string; type: string; secret?: boolean; required?: boolean }[];
   classes: string[];
+  defaultAvailable?: boolean;
 };
 
 export type BindingDraft = { target: '' | 'resource'; clusterClass: string };

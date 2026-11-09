@@ -742,7 +742,10 @@ Types/Definitions và local verified registry metadata, không provider/CLI/
 secret-store calls/fetch hoặc writes. Module pins/provider controls vẫn chỉ
 ở PE/Admin capabilities OC-04d. Class metadata không thay matching/Preview;
 unknown/custom/default semantics và imported selections không bị rewrite.
-Failure safe error, không fake empty/guessed class fallback. Chi tiết ở
+Failure safe error, không fake empty/guessed class fallback. Mỗi entry thêm
+computed `defaultAvailable: boolean` (issue #61): true khi một Definition được
+offer có criterion không ghi class hoặc ghi `default`, tức class `default`
+match được; client chỉ hiện lựa chọn Default khi true. Chi tiết ở
 [UC-16 API mapping](../../usecase/UC-16/ui/api-mapping.md#metadata-class-và-source--i04-07).
 
 
