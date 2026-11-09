@@ -512,11 +512,13 @@ it('preserves imported literal and repeated shared references in the form', asyn
   const api = serve({ workloads: [{ id: 'importer', ready: true, workload }] }); const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="importer" />);
   await screen.findByRole('heading', { name: 'Sửa importer' });
-  expect(table().getByLabelText('Giá trị nhập, dòng 1')).toHaveValue('debug');
+  // Without an authored order (GW-09) rows are sorted: A, B, LEVEL, TOKEN.
+  expect(table().getByRole('button', { name: 'Đổi nguồn, dòng 1' })).toHaveTextContent('Ứng dụng / API_URL');
   expect(table().getByRole('button', { name: 'Đổi nguồn, dòng 2' })).toHaveTextContent('Ứng dụng / API_URL');
-  expect(table().getByRole('button', { name: 'Đổi nguồn, dòng 3' })).toHaveTextContent('Ứng dụng / API_URL');
+  expect(table().getByLabelText('Giá trị nhập, dòng 3')).toHaveValue('debug');
   expect(table().getByLabelText('Bí mật, dòng 4')).toBeChecked();
   await user.click(save()); expect(api.puts()[0]!.workload.containers.main?.variables).toEqual(workload.containers.main.variables);
+  expect(api.puts()[0]!.workload.containers.main).not.toHaveProperty('variableOrder');
 });
 
 it('adds a dependency inline, explicitly selects its output and uses it from another container', async () => {

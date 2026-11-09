@@ -42,7 +42,7 @@ function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): 
   const declaredClass = (raw.metadata as { class?: unknown } | undefined)?.class;
   if (declaredClass !== undefined && (typeof declaredClass !== 'string' || !validWorkloadClass(declaredClass))) return true;
   const containers = (raw.containers ?? {}) as Record<string, Record<string, unknown>>;
-  if (Object.values(containers).some((container) => Object.keys(container).some((key) => !['image', 'variables', 'resources', 'command', 'args', 'workingDir', 'readinessProbe', 'livenessProbe', 'startupProbe', 'role', 'initOrder', 'ports', 'securityContext'].includes(key)))) return true;
+  if (Object.values(containers).some((container) => Object.keys(container).some((key) => !['image', 'variables', 'resources', 'command', 'args', 'workingDir', 'readinessProbe', 'livenessProbe', 'startupProbe', 'role', 'initOrder', 'ports', 'securityContext', 'variableOrder'].includes(key)))) return true;
   if (Object.values(containers).some((container) => Object.keys((container.resources ?? {}) as Record<string, unknown>).some((key) => !['requests', 'limits'].includes(key)))) return true;
   if (Object.values(containers).some((container) => Object.values((container.resources ?? {}) as Record<string, Record<string, unknown>>).some((quantity) => Object.keys(quantity).some((key) => !['cpu', 'memory'].includes(key))))) return true;
   const resources = (raw.resources ?? {}) as Record<string, Record<string, unknown>>;
@@ -133,7 +133,10 @@ function buildScore(form: Form, types: ResourceType[]): Record<string, unknown> 
     if (container.memoryRequest) requests.memory = container.memoryRequest;
     if (container.cpuLimit) limits.cpu = container.cpuLimit;
     if (container.memoryLimit) limits.memory = container.memoryLimit;
-    containers.set(container.name, { ...(container.securityContext ? {securityContext:container.securityContext} : {}), ...(container.ports?.length ? {ports: container.ports} : {}), ...(container.role ? {role: container.role} : {}), ...(container.initOrder !== undefined ? {initOrder: container.initOrder} : {}), ...(container.workingDir ? { workingDir: container.workingDir } : {}), ...(container.readinessProbe ? { readinessProbe: container.readinessProbe } : {}), ...(container.livenessProbe ? { livenessProbe: container.livenessProbe } : {}), ...(container.startupProbe ? { startupProbe: container.startupProbe } : {}), ...(container.command.length ? { command: container.command } : {}), ...(container.args.length ? { args: container.args } : {}), ...(container.image ? { image: container.image } : {}), ...(variables.length ? { variables: Object.fromEntries(variables) } : {}), ...(Object.keys(requests).length || Object.keys(limits).length ? { resources: { ...(Object.keys(requests).length ? { requests } : {}), ...(Object.keys(limits).length ? { limits } : {}) } } : {}) });
+    // GW-09: the authored row order is written only when it differs from the sorted order.
+    const rowOrder = variables.map(([name]) => name);
+    const authoredOrder = rowOrder.join('\u0000') !== [...rowOrder].sort().join('\u0000');
+    containers.set(container.name, { ...(authoredOrder ? { variableOrder: rowOrder } : {}), ...(container.securityContext ? {securityContext:container.securityContext} : {}), ...(container.ports?.length ? {ports: container.ports} : {}), ...(container.role ? {role: container.role} : {}), ...(container.initOrder !== undefined ? {initOrder: container.initOrder} : {}), ...(container.workingDir ? { workingDir: container.workingDir } : {}), ...(container.readinessProbe ? { readinessProbe: container.readinessProbe } : {}), ...(container.livenessProbe ? { livenessProbe: container.livenessProbe } : {}), ...(container.startupProbe ? { startupProbe: container.startupProbe } : {}), ...(container.command.length ? { command: container.command } : {}), ...(container.args.length ? { args: container.args } : {}), ...(container.image ? { image: container.image } : {}), ...(variables.length ? { variables: Object.fromEntries(variables) } : {}), ...(Object.keys(requests).length || Object.keys(limits).length ? { resources: { ...(Object.keys(requests).length ? { requests } : {}), ...(Object.keys(limits).length ? { limits } : {}) } } : {}) });
   }
   if (form.execution?.secretFiles?.length) resources.set('env', { type: 'environment' });
   const ports = new Map<string, unknown>();
@@ -163,6 +166,13 @@ function validPortNames(ports: ServicePort[]): Set<string> {
   for (const port of ports) if (port.name.trim()) counts.set(port.name, (counts.get(port.name) ?? 0) + 1);
   return new Set(ports.filter((port) => port.name.trim() && counts.get(port.name) === 1 && validPortNumber(port.port)).map((port) => port.name));
 }
+// Variables in the authored order (GW-09): the listed names first, then the rest sorted.
+export function orderedVariables(variables: Record<string, string>, order: string[] = []): [string, string][] {
+  const listed = [...new Set(order)].filter((name) => Object.hasOwn(variables, name));
+  const rest = Object.keys(variables).filter((name) => !listed.includes(name)).sort();
+  return [...listed, ...rest].map((name) => [name, variables[name]!]);
+}
+
 function readForm(workload: Record<string, unknown>): Form {
   const form = emptyForm();
   form.execution = workload.workloadExecution as Execution | undefined;
@@ -172,8 +182,8 @@ function readForm(workload: Record<string, unknown>): Form {
   form.workloadClass = String((workload.metadata as { class?: string } | undefined)?.class ?? '');
   const resources = (workload.resources ?? {}) as Record<string, { type?: string; class?: string; id?: unknown; params?: Record<string, unknown> }>;
   form.dependencies = Object.entries(resources).filter(([, spec]) => spec.type !== 'environment' && spec.type !== 'service').map(([alias, spec]) => ({ existing: true, alias, type: spec.type ?? '', className: spec.class ?? '', sharedId: typeof spec.id === 'string' ? spec.id : '', params: Object.fromEntries(Object.entries(spec.params ?? {}).map(([key, value]) => [key, String(value)])) }));
-  const rawContainers = (workload.containers ?? {}) as Record<string, { ports?: {name: string; containerPort: number; protocol?: string}[]; securityContext?: SecurityContext; role?: 'app' | 'init' | 'sidecar'; initOrder?: number; workingDir?: string; readinessProbe?: Probe; livenessProbe?: Probe; startupProbe?: Probe; command?: string[]; args?: string[]; image?: string; variables?: Record<string, string>; resources?: { requests?: { cpu?: string; memory?: string }; limits?: { cpu?: string; memory?: string } } }>;
-  form.containers = Object.entries(rawContainers).map(([name, value]) => ({ securityContext: value.securityContext, ports: value.ports, role: value.role, initOrder: value.initOrder, workingDir: value.workingDir, readinessProbe: value.readinessProbe, livenessProbe: value.livenessProbe, startupProbe: value.startupProbe, command: value.command ?? [], args: value.args ?? [], name, image: value.image ?? '', cpuRequest: value.resources?.requests?.cpu ?? '', memoryRequest: value.resources?.requests?.memory ?? '', cpuLimit: value.resources?.limits?.cpu ?? '', memoryLimit: value.resources?.limits?.memory ?? '', bindings: Object.entries(value.variables ?? {}).flatMap(([envName, raw]) => readBinding(envName, raw, resources as ResourceSpecs) ?? []) }));
+  const rawContainers = (workload.containers ?? {}) as Record<string, { ports?: {name: string; containerPort: number; protocol?: string}[]; securityContext?: SecurityContext; role?: 'app' | 'init' | 'sidecar'; initOrder?: number; workingDir?: string; readinessProbe?: Probe; livenessProbe?: Probe; startupProbe?: Probe; command?: string[]; args?: string[]; image?: string; variables?: Record<string, string>; variableOrder?: string[]; resources?: { requests?: { cpu?: string; memory?: string }; limits?: { cpu?: string; memory?: string } } }>;
+  form.containers = Object.entries(rawContainers).map(([name, value]) => ({ securityContext: value.securityContext, ports: value.ports, role: value.role, initOrder: value.initOrder, workingDir: value.workingDir, readinessProbe: value.readinessProbe, livenessProbe: value.livenessProbe, startupProbe: value.startupProbe, command: value.command ?? [], args: value.args ?? [], name, image: value.image ?? '', cpuRequest: value.resources?.requests?.cpu ?? '', memoryRequest: value.resources?.requests?.memory ?? '', cpuLimit: value.resources?.limits?.cpu ?? '', memoryLimit: value.resources?.limits?.memory ?? '', bindings: orderedVariables(value.variables ?? {}, value.variableOrder).flatMap(([envName, raw]) => readBinding(envName, raw, resources as ResourceSpecs) ?? []) }));
   if (!form.containers.length) form.containers = [emptyContainer()];
   const ports = ((workload.service as { ports?: Record<string, { port: number; targetPort?: number; protocol?: string }> } | undefined)?.ports ?? {});
   form.servicePorts = Object.entries(ports).map(([name, port]) => ({ protocol: port.protocol, name, port: String(port.port), targetPort: String(port.targetPort ?? port.port) }));

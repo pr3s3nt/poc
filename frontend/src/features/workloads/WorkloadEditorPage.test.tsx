@@ -3,8 +3,8 @@ vi.mock('../../shared/authoringFeatures', () => ({ authoringFeatures: { workload
 import { openAdvancedFields, openWorkloadGroup } from '../../test/workloadGroups';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, expect, it, vi } from 'vitest';
-import { WorkloadEditorPage } from './WorkloadEditorPage';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { WorkloadEditorPage, orderedVariables } from './WorkloadEditorPage';
 import type { Application } from '../../shared/types/application';
 import { bothConfigured } from '../../test/targets';
 
@@ -558,4 +558,56 @@ it('shows an existing workload name in the title without a locked name input', a
   await screen.findByRole('heading', { name: 'Sửa api' });
   expect(screen.queryByLabelText('Tên Workload')).not.toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: 'Thông tin cơ bản' })).not.toBeInTheDocument();
+});
+
+describe('authored environment-variable order (UC-16 BR-34, GW-09)', () => {
+  const rows = () => screen.getAllByLabelText(/^Tên biến, dòng \d+$/).map((input) => (input as HTMLInputElement).value);
+
+  it('writes the order the rows were added when it is not the sorted order', async () => {
+    const { puts } = serve();
+    const user = userEvent.setup();
+    render(<WorkloadEditorPage application={application} environment="staging" />);
+    await fillBasic(user);
+    for (const [index, name] of ['ZETA', 'ALPHA', 'MID'].entries()) {
+      await user.click(screen.getByRole('button', { name: '+ Thêm biến' }));
+      await user.type(screen.getByLabelText(`Tên biến, dòng ${index + 1}`), name);
+      await user.type(screen.getByLabelText(`Giá trị nhập, dòng ${index + 1}`), name.toLowerCase());
+    }
+    await user.click(saveButton());
+    await vi.waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]!.workload.containers.main).toMatchObject({ variables: { ZETA: 'zeta', ALPHA: 'alpha', MID: 'mid' }, variableOrder: ['ZETA', 'ALPHA', 'MID'] });
+  });
+
+  it('reopens rows in the stored order and keeps an unchanged order on save', async () => {
+    const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1', variables: { ALPHA: 'a', MID: 'm', ZETA: 'z' }, variableOrder: ['ZETA', 'ALPHA', 'MID'] } } };
+    const { puts } = serve({ workloads: [{ id: 'api', workload }] });
+    const user = userEvent.setup();
+    render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+    await screen.findByRole('heading', { name: 'Sửa api' });
+    expect(rows()).toEqual(['ZETA', 'ALPHA', 'MID']);
+    await user.clear(screen.getByLabelText('Ảnh Container'));
+    await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/api:v2');
+    await user.click(saveButton());
+    await vi.waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]!.workload.containers.main.variableOrder).toEqual(['ZETA', 'ALPHA', 'MID']);
+  });
+
+  it('adds no order to an older workload whose rows stay sorted', async () => {
+    const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1', variables: { ALPHA: 'a', ZETA: 'z' } } } };
+    const { puts } = serve({ workloads: [{ id: 'api', workload }] });
+    const user = userEvent.setup();
+    render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+    await screen.findByRole('heading', { name: 'Sửa api' });
+    expect(rows()).toEqual(['ALPHA', 'ZETA']);
+    await user.clear(screen.getByLabelText('Ảnh Container'));
+    await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/api:v2');
+    await user.click(saveButton());
+    await vi.waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]!.workload).toEqual({ ...workload, containers: { main: { ...workload.containers.main, image: 'example.invalid/api:v2' } } });
+  });
+
+  it('lists named variables first and the rest sorted, ignoring unknown and repeated names', () => {
+    expect(orderedVariables({ B: '2', A: '1', C: '3' }, ['C', 'X', 'C'])).toEqual([['C', '3'], ['A', '1'], ['B', '2']]);
+    expect(orderedVariables({ B: '2', A: '1' })).toEqual([['A', '1'], ['B', '2']]);
+  });
 });
