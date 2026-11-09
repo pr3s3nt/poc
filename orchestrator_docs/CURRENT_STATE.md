@@ -2314,3 +2314,12 @@ validated offline only (no AWS run). Verified on kind with five databases
 ([record](verification/2026-11-08-db-connection-outputs.md)). `platform-catalog/` and
 `backend/terraform-modules/mysql` snapshots and Git-catalog bootstrap targets pinned
 to older commits are unchanged.
+
+## Git release source for the kind Console — issue #54 (2026-11-09)
+
+The Console on `kind-k8s-4f` resolves Terraform modules and the `standard-workload`
+template from `pr3s3nt/orchestrator-workload-templates@v0.4.1` instead of the `poc`
+repository paths and an inline upload. Five Terraform and three workload
+Definitions gained a promoted revision 2; `postgres`/`redis` Types expose `uri`
+(and `jdbcUrl` for PostgreSQL). No product code changed. In-repo copies remain the
+development source; see the [release procedure](operations/terraform-module-sources.md#nguồn-phát-hành-cho-console--issue-54).

@@ -2,10 +2,40 @@
 id: OPS-TERRAFORM-MODULE-SOURCES
 artifact: operational-runbook
 status: current
-last_reviewed: 2026-11-08
+last_reviewed: 2026-11-09
 ---
 
 # Terraform modules from GitHub
+
+## Nguồn phát hành cho Console — issue #54
+
+Console trên `kind-k8s-4f` lấy module Terraform và workload template từ một repo
+Git phát hành: `https://github.com/pr3s3nt/orchestrator-workload-templates.git`
+(private; Console đọc bằng Git access của `github.com/pr3s3nt`). Release hiện tại
+là tag `v0.4.1`, commit `f9bf7251fde0b4ae9224f960b476219765f1e2ea`. Không dùng
+`v0.4.0` (MySQL contract cũ).
+
+| Thư mục | Dùng cho |
+|---|---|
+| `templates/standard` | Template source `standard-workload` của Definition workload |
+| `terraform/namespace` | `k8s-namespace` |
+| `terraform/postgres` | `postgres`, có output `uri` (secret) và `jdbcUrl` |
+| `terraform/redis` | `redis`, có `uri` (secret) và `connection_string` |
+| `terraform/persistent-storage` | `persistent-storage` |
+| `terraform/mysql` | `mysql`, password do executor quản lý, có `uri`/`jdbcUrl` |
+
+Bản trong repo `poc` (`backend/template-sources/standard`,
+`backend/internal/adapters/terraform/modules`, `projects/platform-resources`) vẫn
+là nguồn phát triển và test; `SOURCE.md` của repo phát hành ghi commit và đường
+dẫn gốc của từng file. Khi phát hành bản mới:
+
+1. Đồng bộ file từ `poc`, chạy `terraform fmt -check`, `validate` (và `terraform
+   test` nếu module có test) với Terraform 1.9.8, cập nhật README/SOURCE.md.
+2. Gắn tag mới; không di chuyển tag cũ.
+3. Trên Console: kiểm tra module/template từ tag mới, sửa Definition để tạo
+   revision mới rồi promote. Environment đã đóng băng revision cũ giữ nguyên tới
+   khi được chọn nâng cấp. Nếu module có output mới, thêm output vào Resource Type
+   và ánh xạ trong Definition trước khi workload dùng.
 
 The seven reference modules are published at
 [pr3s3nt/terraform-modules](https://github.com/pr3s3nt/terraform-modules).
