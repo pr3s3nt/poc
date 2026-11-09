@@ -88,7 +88,7 @@ it('authors custom init/sidecar, a shared emptyDir, ConfigMap and a Secret file,
   expect(saved.resources).toEqual({ env: { type: 'environment' } });
   expect(saved.containers).toMatchObject({ 'container-2': { role: 'init', initOrder: 1 }, 'container-3': { role: 'sidecar', initOrder: 2 } });
   cleanup(); const reopened = setup(saved);
-  await screen.findByLabelText('Tên Workload');
+  await screen.findByRole('heading', { name: /^Sửa / });
   await openWorkloadGroup(reopened.user,'Volumes & files',screen.getAllByLabelText('Ảnh Container')[0]!.closest('section')!);
   expect(within(volumeSection()).getByLabelText('Giới hạn dung lượng')).toHaveValue('64Mi');
   expect(screen.getByLabelText('Nội dung (không chứa bí mật)')).toHaveValue('setting=true');

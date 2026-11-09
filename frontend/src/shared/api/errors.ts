@@ -147,7 +147,7 @@ const knownFields: ReadonlySet<string> = new Set([
   'acknowledgeDowntime', 'priorExecutionStopped', 'resources', 'status', 'workloadBefore', 'workloadAfter', 'version', 'token', 'kubeconfig',
   'type.key', 'type.schema', 'definition.schema', 'definition.driver', 'definition.references', 'definition.key',
   'definition.resourceType', 'definition.driverType', 'definition.criteria',
-  'definition.connectionKey', 'definition.driverInputs.values', 'definition.driverInputs.values.source', 'definition.driverInputs.values.provider_bindings', 'driverInputs.values.variables', 'context.applicationId', 'context.environmentId', 'context.resourceId', 'context.class', 'service.publicPort',
+  'definition.connectionKey', 'definition.driverInputs.values', 'definition.driverInputs.values.source', 'definition.driverInputs.values.provider_bindings', 'driverInputs.values.variables', 'context.applicationId', 'context.environmentId', 'context.resourceId', 'context.class', 'service.publicPort', 'metadata.name',
   'accessKeyId', 'secretAccessKey', 'allowedRegions', 'verificationRegions', 'confirmationName', 'selectedResourceIds',
   'username', 'role', 'password', 'currentPassword', 'newPassword', 'confirmPassword',
   'from', 'to', 'workload', 'metric', 'valueSeconds', 'source', 'effectiveFrom', 'sampleSize', 'measuredFrom', 'measuredTo',
@@ -178,6 +178,9 @@ export function messageFor(status: number, code?: string, params?: ErrorParams, 
   }
   if (code === 'INVALID_WORKLOAD' && field === 'service.publicPort') {
     return t('shared.errors.baseThePublicPortFieldIs', { base });
+  }
+  if (code === 'INVALID_WORKLOAD' && field === 'metadata.name') {
+    return t('shared.errors.baseWorkloadNameInvalid', { base });
   }
   if (code === 'INVALID_WORKLOAD' && field === 'resources') {
     return t('shared.errors.baseAResourceInThe', { base });
