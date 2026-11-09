@@ -75,7 +75,10 @@ của Environment đang chọn.
 
 - **BR-01:** Cấu hình workload thuộc đúng một Environment; thay đổi ở `staging`
   không sửa cấu hình `production`, và ngược lại. Tên workload là duy nhất trong
-  Environment.
+  Environment, là DNS label Kubernetes (chữ thường, số, `-`; bắt đầu và kết thúc
+  bằng chữ hoặc số; tối đa 63 ký tự, 52 ký tự với `CronJob`) và cố định sau lần
+  lưu đầu. Form và API từ chối tên sai khi Lưu/Import, không chờ tới Xem trước.
+  Đổi tên workload chưa được thiết kế (issue #59).
 - **BR-02:** Container hỗ trợ giá trị thường nhập trực tiếp và các tham chiếu
   ở MS-04. Giá trị trực tiếp là string thuộc riêng container/workload/environment,
   không tự tạo key UC-12. Nó được lưu trong Score, đọc lại được và không dùng
