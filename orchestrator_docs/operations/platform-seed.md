@@ -7,6 +7,21 @@ last_reviewed: 2026-11-06
 
 # Local API seed and kind Console
 
+For an installation with Types, Kubernetes Driver Account and Git settings
+already configured, use the Definition-only importer:
+
+```sh
+node scripts/bootstrap/seed-definitions.mjs --config /private/definitions.yaml
+```
+
+The [input and procedure](../../scripts/bootstrap/README.md#chỉ-seed-resource-definitions-lần-đầu--issue-62)
+use one repository URL and an exact commit for both modules and templates.
+Backend inspection derives verified pins with existing Git credentials/CA.
+Only source inspection metadata/cache and missing Definitions are written;
+existing prerequisites and Definition revisions are preserved. Matching
+Definitions are reused; conflicts stop before any new Definition registration.
+This procedure does not deploy or accept a workload.
+
 Approved 2026-11-06: install Orchestrator inside `kind-k8s-4f`, expose its Console
 through verified Tailscale port 3070, and import platform configuration through
 its API from the current checkout. Input YAML and credentials remain local,

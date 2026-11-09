@@ -191,6 +191,14 @@ Deploy was performed. See [checks, baseline failures, runtime and limits](verifi
 
 ## Local API platform seed and kind Console — 2026-11-06
 
+2026-11-10, issue #62: `scripts/bootstrap/seed-definitions.mjs` supports a
+Definition-only first-installation input with one Git repository URL/commit.
+Existing Types, Driver Account and Git settings are read; backend inspection
+derives module/template pins. Six compatible Definitions were seeded and reused
+on the retained dev installation. The existing MySQL Type has a legacy contract
+and was omitted from that runtime input; it was not modified. See the
+[Definition seed procedure](../scripts/bootstrap/README.md#chỉ-seed-resource-definitions-lần-đầu--issue-62).
+
 A local YAML/file-based importer now provisions platform configuration through
 existing authenticated APIs, without browser or input uploads to Kubernetes.
 The isolated Orchestrator installation in `kind-k8s-4f` exposes Console port 3070;

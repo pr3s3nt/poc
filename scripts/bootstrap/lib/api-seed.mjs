@@ -28,7 +28,7 @@ export function expand(value, refs) {
  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, expand(v, refs)]));
  return value;
 }
-function privateFile(file) {
+export function privateFile(file) {
  let stat, value;
  try { stat = statSync(file); } catch { fail('Credential file unavailable'); }
  if (!stat.isFile() || (stat.mode & 0o077)) fail('Credential file must be regular and owner-only (0600/0400)');
@@ -37,7 +37,7 @@ function privateFile(file) {
  if (!value) fail('Credential file is empty');
  return value;
 }
-function target(raw, tailnet) {
+export function target(raw, tailnet) {
  let u; try { u = new URL(raw); } catch { fail('Invalid Console URL'); }
  if (u.username || u.password || u.search || u.hash || !['', '/', '/ui', '/ui/'].includes(u.pathname)) fail('Console URL must be an origin');
  const ip = u.hostname.split('.').map(Number);
@@ -45,7 +45,7 @@ function target(raw, tailnet) {
  if (u.protocol !== 'https:' && !(u.protocol === 'http:' && (['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname) || tailnet === true && (u.hostname.endsWith('.ts.net') || tailnetIP)))) fail('Use HTTPS, loopback or explicitly verified Tailscale');
  return u.origin;
 }
-function readInput(file) {
+export function readInput(file) {
  let c; try {
   const stat = statSync(file); if (!stat.isFile() || stat.size > 16 * 2 ** 20 || (stat.mode & 0o077)) fail('Config must be owner-only and bounded');
   const doc = parseDocument(readFileSync(file, 'utf8'), { uniqueKeys: true });
