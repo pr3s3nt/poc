@@ -452,8 +452,11 @@ per-resource evidence; changing a Definition does not silently upgrade this scop
   rollback or deletion. Any **unknown outcome** keeps the existing hold: a failed
   or unconfirmed push, an observation/controller/ownership/fencing error, loss or
   cancellation of the owning operation, and CD ownership transfer or policy-only
-  delivery. Recover applies the same classification, so an operation held by an
-  earlier release for a determined failure resolves with one Recover.
+  delivery. Recover applies the same classification and, for an ordinary Deploy,
+  the same readiness deadline as Deploy, so an operation held by an earlier
+  release for a determined failure resolves with one Recover inside one Console
+  request. A crash-looping first rollout keeps the Deployment `Progressing=True`
+  and is never reported Degraded by Fleet; it is concluded at the deadline.
 
 ## Public endpoint resource
 

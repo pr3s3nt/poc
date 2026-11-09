@@ -382,7 +382,7 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 	}
 	deadline := c.Deadline
 	if deadline <= 0 {
-		deadline = 5 * time.Minute
+		deadline = DeployReadinessDeadline
 	}
 	wait, cancel := context.WithTimeout(ctx, deadline)
 	defer cancel()
@@ -482,6 +482,10 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 	effectPending = false
 	return nil
 }
+
+// DeployReadinessDeadline bounds waiting for an exact revision to become Ready
+// in Deploy and in Deploy recovery (UC-06 CD-10).
+const DeployReadinessDeadline = 5 * time.Minute
 
 // Determined rollout failures (UC-06 CD-10). Their messages are unchanged so
 // existing diagnostics and logs keep matching.

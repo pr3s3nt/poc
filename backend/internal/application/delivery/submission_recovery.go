@@ -200,14 +200,20 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 		// A previously failing controller can still be in exponential backoff
 		// after its ownership conflict is resolved. Recovery only observes the
 		// receipted revision; allow that retry without forcing a new deployment.
-		deadline := c.Deadline
-		if deadline <= 0 {
-			deadline = 20 * time.Minute
-		}
-		wait, cancel := context.WithTimeout(ctx, deadline)
 		// UC-06 CD-10: an ordinary Deploy whose receipted revision is observed
 		// failing ends FAILED; transfer/policy recovery keeps the hold.
 		determined := !policyOnly && op.Kind == environment.OpDeploy
+		deadline := c.Deadline
+		if deadline <= 0 {
+			deadline = 20 * time.Minute
+			if determined {
+				// The Deploy readiness deadline. A crash-looping first rollout never
+				// reports Degraded, and recovery runs inside one Console request,
+				// so it must conclude well before the proxy timeout.
+				deadline = DeployReadinessDeadline
+			}
+		}
+		wait, cancel := context.WithTimeout(ctx, deadline)
 		failed := false
 		for {
 			stage = "observe"
