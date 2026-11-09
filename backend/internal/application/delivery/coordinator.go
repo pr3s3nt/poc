@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -277,10 +278,46 @@ func (c *Coordinator) Deploy(ctx context.Context, req DeployRequest) error {
 				intent.SourceInventory = append([]port.AppliedObject(nil), e.Inventory...)
 			}
 		}
+		// UC-06 CD-10: a newer determined failure that was published now holds
+		// the provider pin. The next revision replaces it explicitly; the source
+		// inventory stays that of the last acknowledged revision.
+		if failed := publishedFailure(existing, unit, active); failed != nil {
+			intent.ExpectedRevision = failed.Revision.ID
+		}
 
 		if err := c.runPhase(ctx, provider, intent, unit, req.WorkloadID, manifests); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// publishedFailure returns the newest Submit of unit when it is a determined
+// failure with a persisted receipt and newer than the unit's acknowledged
+// source, or nil. Failed submissions proven never published are skipped: they
+// never held the provider pin.
+func publishedFailure(executions []persistence.DeliveryExecution, unit string, active []persistence.DeliveryExecution) *persistence.DeliveryExecution {
+	candidates := []*persistence.DeliveryExecution{}
+	for index := range executions {
+		if executions[index].UnitID == unit {
+			candidates = append(candidates, &executions[index])
+		}
+	}
+	sort.Slice(candidates, func(a, b int) bool { return candidates[a].CreatedAt.After(candidates[b].CreatedAt) })
+	for _, e := range candidates {
+		published := e.Receipt.IntentID == e.Mutation.ID && e.Receipt.RevisionID == e.Revision.ID
+		if e.Mutation.Action == domain.Submit && e.Mutation.Status == domain.IntentFailed && !published {
+			continue
+		}
+		if e.Mutation.Action != domain.Submit || e.Mutation.Status != domain.IntentFailed {
+			return nil
+		}
+		for _, source := range active {
+			if source.UnitID == unit && !e.CreatedAt.After(source.CreatedAt) {
+				return nil
+			}
+		}
+		return e
 	}
 	return nil
 }

@@ -20,6 +20,15 @@ type rolloutProvider struct {
 	rolloutHealth domain.Health
 	observeErr    error
 	recoveries    int
+	expected      map[domain.Phase][]string
+}
+
+func (p *rolloutProvider) Submit(ctx context.Context, i port.Intent, prepared port.Prepared) (port.Receipt, error) {
+	if p.expected == nil {
+		p.expected = map[domain.Phase][]string{}
+	}
+	p.expected[i.Revision.Phase] = append(p.expected[i.Revision.Phase], i.ExpectedRevision)
+	return p.neutralProvider.Submit(ctx, i, prepared)
 }
 
 func (p *rolloutProvider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (domain.Observation, error) {
@@ -96,6 +105,7 @@ func TestDegradedRolloutFailsWithoutHoldAndAllowsRedeploy(t *testing.T) {
 	if status[domain.Rollout] != domain.IntentFailed || status[domain.Prerequisite] != domain.IntentAcknowledged {
 		t.Fatal("unexpected intent states", status)
 	}
+	failedRevision := rolloutRevision(t, c, ctx, req)
 	// The released Environment accepts a corrected deployment without replaying
 	// the failed revision.
 	owner, _ := persistence.OwnerFrom(ctx)
@@ -113,6 +123,31 @@ func TestDegradedRolloutFailsWithoutHoldAndAllowsRedeploy(t *testing.T) {
 	if persistence.Held(ctx) || len(p.order) <= submitted {
 		t.Fatal("corrected rollout was not submitted", p.order)
 	}
+	// The published failed revision holds the provider pin; the corrected
+	// rollout must name it so the provider accepts the replacement.
+	rollouts := p.expected[domain.Rollout]
+	if len(rollouts) != 2 || rollouts[0] != "" || rollouts[1] != failedRevision {
+		t.Fatal("corrected rollout did not replace the failed revision", rollouts, failedRevision)
+	}
+}
+
+func rolloutRevision(t *testing.T, c *Coordinator, ctx context.Context, req DeployRequest) string {
+	t.Helper()
+	org, err := c.Store.GetOrganization(ctx, req.OrganizationKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	records, err := c.Store.ListDeliveryExecutions(ctx, org.ID, req.Environment.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range records {
+		if r.Revision.Phase == domain.Rollout && r.Mutation.Status == domain.IntentFailed {
+			return r.Revision.ID
+		}
+	}
+	t.Fatal("no failed rollout record")
+	return ""
 }
 
 func TestRolloutNotReadyAtDeadlineFailsWithoutHold(t *testing.T) {
@@ -252,4 +287,31 @@ func (p *notReadyProvider) Observe(ctx context.Context, i port.Intent, r port.Re
 		observed.Health = domain.Degraded
 	}
 	return observed, err
+}
+
+func TestPublishedFailureSkipsNeverPublishedAttempts(t *testing.T) {
+	at := time.Now().UTC()
+	record := func(id string, status domain.IntentStatus, published bool, age int) persistence.DeliveryExecution {
+		e := persistence.DeliveryExecution{UnitID: "u", CreatedAt: at.Add(time.Duration(age) * time.Second), Revision: domain.Revision{ID: "rev-" + id}, Mutation: domain.Mutation{ID: "m-" + id, Action: domain.Submit, Status: status}}
+		if published {
+			e.Receipt = port.Receipt{IntentID: e.Mutation.ID, RevisionID: e.Revision.ID}
+		}
+		return e
+	}
+	ack := record("ack", domain.IntentAcknowledged, true, 0)
+	failed := record("failed", domain.IntentFailed, true, 1)
+	unpublished := record("absent", domain.IntentFailed, false, 2)
+	if got := publishedFailure([]persistence.DeliveryExecution{ack, failed, unpublished}, "u", []persistence.DeliveryExecution{ack}); got == nil || got.Revision.ID != "rev-failed" {
+		t.Fatal("published failure behind a never-published attempt was not found", got)
+	}
+	newer := record("newer", domain.IntentAcknowledged, true, 3)
+	if got := publishedFailure([]persistence.DeliveryExecution{ack, failed, newer}, "u", []persistence.DeliveryExecution{newer}); got != nil {
+		t.Fatal("a newer acknowledged revision owns the pin", got.Revision.ID)
+	}
+	if got := publishedFailure([]persistence.DeliveryExecution{ack, unpublished}, "u", []persistence.DeliveryExecution{ack}); got != nil {
+		t.Fatal("a never-published failure must not become the expected revision", got.Revision.ID)
+	}
+	if got := publishedFailure(nil, "u", nil); got != nil {
+		t.Fatal("no executions")
+	}
 }

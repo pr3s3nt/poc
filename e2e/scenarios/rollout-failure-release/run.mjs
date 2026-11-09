@@ -14,7 +14,7 @@ const input=JSON.parse(readFileSync(dir+'/config.json'));
 const file=dir+'/state.json',state=existsSync(file)?JSON.parse(readFileSync(file)):{};
 const save=()=>writeFileSync(file,JSON.stringify(state,null,2),{mode:0o600});
 const rt={state,save,record(k,v){console.log(k,v);save()}};
-const APP_NAME='rollfail-issue55',ENV='staging',WORKLOAD='crash';
+const APP_NAME=process.env.ORCH_APP_NAME||'rollfail-issue55',ENV='staging',WORKLOAD='crash';
 // The image is present on the kind node; the arguments decide crash or run.
 const IMAGE='postgres:16.14-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777';
 const BAD=['sh','-c','echo missing subcommand; exit 0'],GOOD=['sh','-c','echo started; exec sleep 2147483647'];
