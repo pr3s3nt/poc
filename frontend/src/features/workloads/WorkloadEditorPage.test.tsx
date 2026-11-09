@@ -450,8 +450,11 @@ it('blocks Save with Vietnamese validation for an invalid Workload name and keep
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/x:v1');
+  expect(screen.getByLabelText('Tên Workload')).toHaveAttribute('aria-invalid', 'false');
   await user.click(saveButton());
-  expect(screen.getByRole('alert')).toHaveTextContent('Cần nhập tên Workload.');
+  expect(screen.getByLabelText('Tên Workload')).toHaveAttribute('aria-invalid', 'true');
+  expect(screen.getByLabelText('Tên Workload')).toHaveAccessibleDescription('Cần nhập tên Workload.');
+  expect(screen.getByLabelText('Tên Workload')).toHaveFocus();
   expect(screen.getByLabelText('Ảnh Container')).toHaveValue('example.invalid/x:v1');
   expect(puts).toEqual([]);
 });
@@ -528,4 +531,34 @@ it('shows networking and dependencies immediately and saves an explicitly reques
  await user.click(screen.getByRole('button',{name:'Lưu draft Workload'}));
  expect(saved?.workload.resources.public).toEqual({type:'endpoint',params:{name:'web',port:'http',path:'/api'}});
  expect(saved?.workload.service.ports.http).toEqual({port:8080,targetPort:8080});
+});
+
+it('rejects a workload name that is not a DNS label at the field and sends nothing (UC-16 BR-01)', async () => {
+  const { puts } = serve();
+  const user = userEvent.setup();
+  render(<WorkloadEditorPage application={application} environment="staging" />);
+  await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
+  const name = screen.getByLabelText('Tên Workload');
+  expect(name).toHaveAccessibleDescription('Không đổi được sau khi lưu.');
+  await user.type(name, 'My App');
+  await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/web:v1');
+  expect(name).toHaveAttribute('aria-invalid', 'true');
+  expect(name).toHaveAccessibleDescription(/Chỉ dùng chữ thường, số và "-".*tối đa 63 ký tự/);
+  await user.click(saveButton());
+  expect(name).toHaveFocus();
+  expect(puts).toHaveLength(0);
+  await user.clear(name);
+  await user.type(name, 'my-app');
+  expect(name).toHaveAttribute('aria-invalid', 'false');
+  await user.click(saveButton());
+  await vi.waitFor(() => expect(puts).toHaveLength(1));
+  expect((puts[0]!.workload as { metadata: { name: string } }).metadata.name).toBe('my-app');
+});
+
+it('shows an existing workload name in the title without a locked name input', async () => {
+  serve({ workloads: [{ id: 'api', workload: { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1' } } } }] });
+  render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+  await screen.findByRole('heading', { name: 'Sửa api' });
+  expect(screen.queryByLabelText('Tên Workload')).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Thông tin cơ bản' })).not.toBeInTheDocument();
 });

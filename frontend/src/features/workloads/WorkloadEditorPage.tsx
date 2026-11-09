@@ -76,6 +76,14 @@ function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): 
   return Object.values(ports).some((port) => Object.keys(port).some((key) => !['port', 'targetPort', 'protocol'].includes(key)));
 }
 
+// Workload name (UC-16 BR-01): a Kubernetes DNS label, at most 52 characters for a CronJob (backend workloadspec).
+const workloadNamePattern = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+export function workloadNameProblem(name: string, kind?: string): string {
+  if (name === '') return t('workloads.workloadEditor.enterAWorkloadName');
+  const max = kind === 'CronJob' ? 52 : 63;
+  return workloadNamePattern.test(name) && name.length <= max ? '' : t('workloads.workloadEditor.invalidWorkloadName', { max });
+}
+
 // Workload class identifier: lowercase, no dot or space, at most 63 characters (backend resource.ValidClass).
 export const validWorkloadClass = (value: string): boolean => /^[a-z0-9][a-z0-9_-]{0,62}$/.test(value);
 
@@ -225,6 +233,9 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   const [focusRequest, setFocusRequest] = useState<FocusRequest>();
   // After a failed Save the table also reports rows that are not filled in yet.
   const [showIncomplete, setShowIncomplete] = useState(false);
+  // The name error shows once something is typed, or after a Save attempt with an empty name.
+  const [showNameProblem, setShowNameProblem] = useState(false);
+  const nameInput = useRef<HTMLInputElement>(null);
   // Scope/unmount guard for import, Save and reload: a late reply for another
   // scope or after leaving the page is dropped.
   const scope = useRef(0);
@@ -237,7 +248,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   useEffect(() => {
     scope.current += 1;
     setWorkloadClasses([]);
-    setTemplateMetadata(undefined); setTemplateInputProblems(0); setForm(emptyForm()); setImported(undefined); setDirty(false); setMode('form'); setAdvancedScore(false); setBlocked(false); setSaving(false); setReloading(false); setWorkloads([]); setDialog(undefined); setFocusRequest(undefined); setShowIncomplete(false);
+    setTemplateMetadata(undefined); setTemplateInputProblems(0); setForm(emptyForm()); setImported(undefined); setDirty(false); setMode('form'); setAdvancedScore(false); setBlocked(false); setSaving(false); setReloading(false); setWorkloads([]); setDialog(undefined); setFocusRequest(undefined); setShowIncomplete(false); setShowNameProblem(false);
   }, [application.id, environment, workloadId, selectedTemplate]);
 
   useEffect(() => {
@@ -395,12 +406,14 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     });
     setDirty(true);
   }
+  const nameProblem = !workloadId && showNameProblem ? workloadNameProblem(form.name, form.execution?.kind) : '';
   const rowContext = buildRowContext(catalog, form.dependencies, types, workloads, form.name);
   async function save() {
     if (environmentBusy) return;
     if (blocked || stale || templateInputProblems > 0) return;
     if (form.execution?.mounts?.some(mount => !form.dependencies.some(dep => dep.alias === mount.resource) || !form.containers.some(c => c.name === mount.container) || !mount.path.startsWith('/'))) { setError(t('workloads.templates.mountInvalid')); return; }
     if (mode === 'form' || dirty) {
+      if (!workloadId && workloadNameProblem(form.name, form.execution?.kind)) { setShowNameProblem(true); nameInput.current?.focus(); return; }
       if(missingTemplateImage){setError(wd('imageRequiredForDefaults'));return;}
       if (new Set(form.annotations.map(a => a.name)).size !== form.annotations.length || form.annotations.some(a => !a.name)) { setError(t('workloads.volumes.invalid')); return; }
       if (!validRuntimeIntent(form.containers.map(c=>({...c,image:c.image||String(fieldValue(resolution,`containers.${c.name}.image`)??'')})), form.execution, catalog.status === 'ready' ? catalog.keys.filter(k => k.kind === 'SECRET' && k.configured).map(k => k.name) : undefined, Boolean(form.execution?.template))) { setError(t('workloads.volumes.invalid')); return; }
@@ -435,6 +448,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   }
   const currentState = current?.state === 'absent' ? t('workloads.workloadEditor.none') : current?.state === 'deployed' ? t('workloads.workloadEditor.deployedNoPendingChanges') : current?.state === 'PENDING_DELETE' ? t('workloads.workloadEditor.pendingDeletion') : t('workloads.workloadEditor.hasPendingChanges');
 
+  const resolutionStatus = resolutionState==='error'?<div role="alert" className="form-error">{resolutionProblem||wd('resolutionError')}<Button onClick={()=>setResolutionAttempt(v=>v+1)}>{t('workloads.workloadEditor.retry')}</Button></div>:resolutionState==='incomplete'?<p role="status">{wd('imageRequiredForDefaults')}</p>:resolutionState==='loading'?<p role="status">{wd('resolving')}</p>:null;
   return <section className="page workload-editor">
     <button className="back-link" onClick={() => navigate({ name: 'application', applicationId: application.id, environment })}>← {application.name} / {environment}</button>
     <header className="page-header application-header"><div><p className="eyebrow">{t('workloads.workloadEditor.environmentWorkloadConfiguration', { environment })}</p><h1>{workloadId ? t('workloads.workloadEditor.editWorkloadId', { workloadId }) : t('workloads.workloadEditor.addWorkload')}</h1><p>{t('workloads.workloadEditor.saveTheDraftFirstPreview')}</p></div><Button onClick={() => navigate({ name: 'settings', applicationId: application.id, environment })}>{t('workloads.workloadEditor.variablesSecrets')}</Button></header>
@@ -444,9 +458,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     {stale ? <div className="form-error" role="alert" aria-label={t('workloads.workloadEditor.workloadDraftIsStale')}>{t('workloads.workloadEditor.workloadsIn')}{' '} {environment} {' '}{t('workloads.workloadEditor.changedAfterThisPageWas')}{' '} <Button disabled={reloading} onClick={() => void reloadCurrent()}>{reloading ? t('workloads.workloadEditor.reloading') : t('workloads.workloadEditor.reloadCurrentState')}</Button>{reloadError ? <p>{reloadError}</p> : null}</div> : null}
     {current ? <div className="form-info" role="status">{t('workloads.workloadEditor.reloadedDraftVersion')}{' '} {current.version}{t('workloads.workloadEditor.currentStateOfThisWorkload')}{' '} {currentState}{t('workloads.workloadEditor.theEditsBelowAreUnchanged')}{current.workload ? <details><summary>{t('workloads.workloadEditor.currentScore')}</summary><pre className="workload-preview">{JSON.stringify(current.workload, null, 2)}</pre></details> : null}</div> : null}
     {loading ? <p>{t('workloads.workloadEditor.loadingWorkloadOptions')}</p> : mode === 'import' ? <section className="content-panel">{authoringFeatures.workloadImport ? <><h2>{t('workloads.workloadEditor.importAScoreFile')}</h2><p>{t('workloads.workloadEditor.yAMLOrJSONTheSame')}</p><input aria-label={t('workloads.workloadEditor.scoreFile')} type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} /></> : null}{imported ? <><p>{t('workloads.workloadEditor.parsedWorkload')}{' '} <strong>{String((imported.metadata as { name?: string } | undefined)?.name ?? '')}</strong></p><pre className="workload-preview">{JSON.stringify(imported, null, 2)}</pre></> : null}</section> : <>
-      <section className="content-panel editor-grid"><h2>{t('workloads.workloadEditor.basicInformation')}</h2><label>{t('workloads.workloadEditor.workloadName')}<input value={form.name} disabled={Boolean(workloadId)} onChange={(event) => updateForm({ ...form, name: event.target.value })} placeholder="frontend" /></label>
-      {resolutionState==='error'?<div role="alert" className="form-error">{resolutionProblem||wd('resolutionError')}<Button onClick={()=>setResolutionAttempt(v=>v+1)}>{t('workloads.workloadEditor.retry')}</Button></div>:resolutionState==='incomplete'?<p role="status">{wd('imageRequiredForDefaults')}</p>:resolutionState==='loading'?<p role="status">{wd('resolving')}</p>:null}
-</section>
+      {workloadId ? resolutionStatus : <section className="content-panel editor-grid"><h2>{t('workloads.workloadEditor.basicInformation')}</h2><label>{t('workloads.workloadEditor.workloadName')}<input ref={nameInput} value={form.name} aria-invalid={Boolean(nameProblem)} aria-describedby="workload-name-note" onChange={(event) => { setShowNameProblem(true); updateForm({ ...form, name: event.target.value }); }} placeholder="frontend" /></label>{nameProblem ? <span id="workload-name-note" className="field-error">{nameProblem}</span> : <small id="workload-name-note" className="muted">{t('workloads.workloadEditor.nameFixedHint')}</small>}{resolutionStatus}</section>}
       {catalog.status === 'error' ? <div className="form-error" role="alert">{t('workloads.workloadEditor.couldNotLoadApplicationVariables2')}{' '} {catalog.message} {' '}{t('workloads.workloadEditor.yourSelectionsAreKept')}{' '} <Button onClick={() => setCatalogAttempt((value) => value + 1)}>{t('workloads.workloadEditor.retryLoadingKeys')}</Button></div> : null}
       {form.containers.map((container, ci) => <section className="content-panel editor-grid" key={ci}><div className="section-header"><h2>Container {ci + 1}</h2>{form.containers.length > 1 ? <Button tone="danger" onClick={() => updateForm({ ...form, containers: form.containers.filter((_, index) => index !== ci) })}>{t('workloads.workloadEditor.remove')}</Button> : null}</div><div className="field-grid"><label>{t('workloads.workloadEditor.containerName')}<input value={container.name} onChange={(event) => updateContainer(ci, { ...container, name: event.target.value })} /></label><label>{t('workloads.workloadEditor.containerImage')}<input value={container.image} onChange={(event) => updateContainer(ci, { ...container, image: event.target.value })} placeholder={String(fieldValue(resolution,`containers.${container.name}.image`)??'')} /></label></div>
 

@@ -19,6 +19,10 @@ thêm endpoint deploy hoặc copy giá trị. Save editor với draft version c�
 STALE_VERSION và giữ edits. Xem trước thay đổi trên trang ứng dụng gọi pending
 Preview hiện hành; token cũ sau rename không dùng được.
 
+Save và parse/import từ chối `metadata.name` không phải DNS label (BR-01) bằng
+400 `INVALID_WORKLOAD`, field `metadata.name`; editor kiểm tra cùng quy tắc trước
+khi gửi và hiển thị lỗi tại ô tên.
+
 BUSY/stale/duplicate và REFERENCE_REWRITE_UNSAFE dùng thông báo Việt theo shared
 error contract. Failed mutation không mất dialog/aliases; reload sau commit
 thất bại báo tải lại, không tự replay rename. Scope change invalidate replies.

@@ -25,6 +25,18 @@ var bindingPatternForFile = regexp.MustCompile(`^\$\{resources\.([A-Za-z0-9_-]+)
 
 var publicPathPattern = regexp.MustCompile(`^/(?:[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*)?$`)
 
+// workloadNamePattern is a Kubernetes DNS label: the workload name becomes the
+// name of its Kubernetes objects and of its Service DNS entry (UC-16 BR-01).
+var workloadNamePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
+
+// cronJobNameLimit is the Kubernetes limit for a CronJob name, which leaves
+// room for the suffix of the Jobs it creates.
+const cronJobNameLimit = 52
+
+// ErrInvalidName classifies a metadata.name that is not a usable workload name.
+// It also matches ErrInvalid.
+var ErrInvalidName = errors.New("workload: invalid metadata.name")
+
 // Metadata names the single workload described by a Workload document.
 type Metadata struct {
 	Name string `json:"name"`
@@ -244,7 +256,13 @@ func (d Document) Validate() error {
 		return fmt.Errorf("workload: unsupported apiVersion %q, want %q", d.APIVersion, SupportedAPIVersion)
 	}
 	if d.Metadata.Name == "" {
-		return fmt.Errorf("workload: metadata.name is required")
+		return fmt.Errorf("%w: metadata.name is required", ErrInvalidName)
+	}
+	if !workloadNamePattern.MatchString(d.Metadata.Name) {
+		return fmt.Errorf("%w: %q must be a lowercase DNS label (a-z, 0-9, '-', at most 63 characters)", ErrInvalidName, d.Metadata.Name)
+	}
+	if d.Execution != nil && d.Execution.Kind == "CronJob" && len(d.Metadata.Name) > cronJobNameLimit {
+		return fmt.Errorf("%w: a CronJob workload name has at most %d characters", ErrInvalidName, cronJobNameLimit)
 	}
 	if err := environment.ValidateContainerRoles(d.Containers); err != nil {
 		return err
