@@ -196,7 +196,8 @@ Definition-only first-installation input with one Git repository URL/commit.
 Existing Types, Driver Account and Git settings are read; backend inspection
 derives module/template pins. Six compatible Definitions were seeded and reused
 on the retained dev installation. The existing MySQL Type has a legacy contract
-and was omitted from that runtime input; it was not modified. See the
+and was omitted from that runtime input; it was not modified. Full bootstrap
+tests on kind pass (88/88). See [verification and limits](verification/2026-11-10-definition-seed.md) and the
 [Definition seed procedure](../scripts/bootstrap/README.md#chỉ-seed-resource-definitions-lần-đầu--issue-62).
 
 A local YAML/file-based importer now provisions platform configuration through
