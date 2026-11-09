@@ -21,6 +21,8 @@ type WorkloadResult struct {
 	Status       string        `json:"status"`
 	DeploymentID string        `json:"deploymentId,omitempty"`
 	Error        string        `json:"error,omitempty"`
+	// ErrorCode is the code of a known safe summary (UC-06 CD-10), or empty.
+	ErrorCode string `json:"errorCode,omitempty"`
 }
 
 type DeployReport struct {
@@ -219,7 +221,7 @@ func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, act
 			AcceptLiterals:   draftErr == nil && draft.State == environment.DraftUpsert,
 		})
 		if deployErr != nil {
-			report.Results = append(report.Results, WorkloadResult{WorkloadID: change.WorkloadID, Action: change.Action, Status: "FAILED", Error: publicDeployError(deployErr)})
+			report.Results = append(report.Results, WorkloadResult{WorkloadID: change.WorkloadID, Action: change.Action, Status: "FAILED", Error: publicDeployError(deployErr), ErrorCode: appsvc.FailureCode(publicDeployError(deployErr))})
 			report.Status = statusFor(report.Results)
 			appendSkipped(&report, preview.Changes[index+1:])
 			return report, nil

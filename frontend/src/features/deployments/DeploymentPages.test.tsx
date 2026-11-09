@@ -326,6 +326,19 @@ it('shows a safe Vietnamese failure guidance, never the raw failure reason, and 
   expect(screen.queryByText('Các đợt tạo tài nguyên')).not.toBeInTheDocument();
 });
 
+it('localizes a determined rollout failure and links to the workload logs', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(detail({
+    deployment: deployment({ id: 'dep-4', workloadId: 'keycloak', status: 'FAILED', failureReason: 'the workload was delivered but its rollout is failing', failureCode: 'ROLLOUT_DEGRADED' }),
+  }))));
+  render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-4" />);
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('Workload đã được triển khai nhưng không chạy được');
+  expect(alert).not.toHaveTextContent('Triển khai không hoàn tất.');
+  await userEvent.click(within(alert).getByRole('link', { name: 'Xem log' }));
+  expect(window.location.pathname).toContain('/environments/staging/observability');
+  expect(window.location.search).toContain('workload=keycloak');
+});
+
 it('uses the same generic guidance for an unknown failure reason on a non-failed status', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => Response.json(detail({ deployment: deployment({ status: 'DEPLOYING', failureReason: 'something brand new' }) }))));
   render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);

@@ -21,5 +21,11 @@ func TestRolloutFailuresHaveSafeSummaries(t *testing.T) {
 		if SafeFailureReason(want) != want {
 			t.Fatalf("history hid the rollout summary %q", want)
 		}
+		if FailureCode(want) == "" {
+			t.Fatalf("rollout summary %q has no Console code", want)
+		}
+	}
+	if FailureCode(FailureRuntime) != "" || FailureCode("raw dial tcp text") != "" {
+		t.Fatal("only known rollout summaries carry a code")
 	}
 }

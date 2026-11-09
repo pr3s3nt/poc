@@ -34,6 +34,23 @@ const (
 	FailureRolloutNotReady = "the workload was delivered but did not become ready before the readiness deadline; check the workload logs, fix the configuration and deploy again"
 )
 
+// Codes of safe summaries the Console localizes (UC-06 CD-10).
+const (
+	FailureCodeRolloutDegraded = "ROLLOUT_DEGRADED"
+	FailureCodeRolloutNotReady = "ROLLOUT_NOT_READY"
+)
+
+// FailureCode returns the code of a known safe summary, or "".
+func FailureCode(reason string) string {
+	switch reason {
+	case FailureRolloutDegraded:
+		return FailureCodeRolloutDegraded
+	case FailureRolloutNotReady:
+		return FailureCodeRolloutNotReady
+	}
+	return ""
+}
+
 // FailureLegacy replaces a stored FailureReason that is not a known safe
 // summary, such as raw text recorded before summaries existed. Records are
 // not rewritten; only the UC-09 read projection changes.
