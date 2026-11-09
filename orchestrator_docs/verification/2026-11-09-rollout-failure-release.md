@@ -2,7 +2,7 @@
 id: VERIFY-2026-11-09-ROLLOUT-FAILURE-RELEASE
 artifact: verification
 status: current
-last_reviewed: 2026-11-09
+last_reviewed: 2026-11-10
 related: [UC-06, UC-01, UC-09]
 ---
 
@@ -50,6 +50,32 @@ A crash-looping first rollout keeps the Deployment `Progressing=True`
 (`NewReplicaSetAvailable`), so Fleet reports NotReady, never Degraded; the failure
 is concluded at the 5-minute readiness deadline.
 
+## User acceptance round 1 and follow-up (2026-11-10)
+
+The user's first acceptance did not pass: Recover of `rollfail2`, whose
+replacement Deploy was interrupted right after a published failed revision,
+stopped with `OWNERSHIP` and kept the Environment held. A rerun on a new
+Application also showed a crash-looping first rollout ending SUCCEEDED from a
+momentary ready replica. Fixes, on the branch merged with `main` `da72cc20`:
+
+- `34136d56`: Recover names the published failed revision as the pin holder, as
+  Deploy does; the Fleet adapter proves the replacement absent against it.
+- `c0e05b6d`: rollout readiness reads the current revision's Pods. Healthy needs
+  every container ready and running 15 s; 3 restarts without stable running is a
+  determined failure (user decision 2026-11-10).
+
+| Step | Console build | Result |
+|---|---|---|
+| Recover `rollfail2` (held since the intermediate build) | `34136d56` | RECOVERED in 3 s, Environment released |
+| Template sources after the upgrade | `34136d56` | UNAVAILABLE (executable pin), registered again once per ADR-041; Definition revision 4 promoted and selected |
+| Deploy corrected `rollfail2`, delete | `34136d56` | SUCCEEDED in 43 s; deletion SUCCEEDED, namespace absent |
+| Crash-looping first rollout (`rollfail4`) | `34136d56` | SUCCEEDED in ~30 s: defect, fixed in `c0e05b6d` |
+| Upgrade to `c0e05b6d` | | re-registered template source stays AVAILABLE |
+| Crash loop, fix, deploy, delete (`rollfail5`) | `c0e05b6d` | FAILED in 73 s (`ROLLOUT_DEGRADED`), released; SUCCEEDED in 43 s; deletion SUCCEEDED |
+
+Full checks on `c0e05b6d`: backend fails the same 63 tests as `main` `1fb0bcd9`
+(identical list); frontend typecheck, 995/995 tests and build pass; docs pass.
+
 ## Findings outside this scope
 
 1. **Template sources become UNAVAILABLE after a backend build change.** Every
@@ -61,7 +87,7 @@ is concluded at the 5-minute readiness deadline.
    (`CLEANUP_REFUSED`): its namespace resource stays READY, never UNREFERENCED, so
    no cleanup root is eligible. Not changed by this issue (the Environment was held
    before it); relates to Environment rollback to empty in #49.
-3. **Unknown push right after a published failure:** if the replacement push fails
+3. **(Resolved by `34136d56` when the replacement is proven absent.) Unknown push right after a published failure:** if the replacement push fails
    ambiguously, recovery cannot yet prove the new revision absent because the unit
    pin belongs to the failed revision; the Environment stays held (case of #56).
 4. CrashLoopBackOff is detected only at the readiness deadline; earlier detection
