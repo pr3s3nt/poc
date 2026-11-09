@@ -457,6 +457,12 @@ per-resource evidence; changing a Definition does not silently upgrade this scop
   release for a determined failure resolves with one Recover inside one Console
   request. A crash-looping first rollout keeps the Deployment `Progressing=True`
   and is never reported Degraded by Fleet; it is concluded at the deadline.
+  A published determined failure holds the provider pin until replaced: the next
+  Deploy names it as the expected revision, and Recover of a replacement
+  interrupted after it observes against that same pin. When both Git publications
+  of the replacement are absent and every live object of the unit still carries
+  the failed revision, the replacement is proven never published, its intent
+  becomes FAILED and the Environment is released; otherwise the hold remains.
 
 ## Public endpoint resource
 

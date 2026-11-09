@@ -40,6 +40,10 @@ func (p *Provider) observeUnpublishedUpdate(ctx context.Context, i port.Intent, 
 	if !unpublishedPriorPin(pin, exists, i, pkg) {
 		return false, nil
 	}
+	// A published failure must still be the exact pin holder it was receipted as.
+	if failedPrior(i) && (pin.Intent != i.PriorSubmission.Receipt.IntentID || pin.Digest != i.PriorSubmission.Receipt.PayloadDigest) {
+		return false, ErrOwnership
+	}
 	spec, _ := repo["spec"].(map[string]any)
 	commit, _ := spec["revision"].(string)
 	if err := p.verifySharedTrees(ctx, i, commit, pins); err != nil {
@@ -64,8 +68,26 @@ func (p *Provider) verifyPriorNativeObjects(ctx context.Context, i port.Intent, 
 		return false, err
 	}
 	defer done()
-	refs := []execution.ObjectRef{}
+	prior := map[string]port.AppliedObject{}
 	for _, o := range i.SourceInventory {
+		prior[o.Key()] = o
+	}
+	failed := failedPrior(i)
+	if failed {
+		// UC-06 CD-10: the published failure was applied without an acknowledged
+		// UID inventory. Its own objects are expected, identified by revision.
+		var old Package
+		if json.Unmarshal(i.PriorSubmission.Prepared.Payload, &old) != nil || old.ReleaseName != pkg.ReleaseName || old.Publication.TreeDigest != i.PriorSubmission.Prepared.Revision.PayloadDigest {
+			return false, ErrOwnership
+		}
+		for _, ref := range old.Objects {
+			if _, ok := prior[ref.Key()]; !ok {
+				prior[ref.Key()] = port.AppliedObject{ObjectRef: ref}
+			}
+		}
+	}
+	refs := []execution.ObjectRef{}
+	for _, o := range prior {
 		refs = append(refs, o.ObjectRef)
 	}
 	refs = append(refs, pkg.Objects...)
@@ -73,26 +95,30 @@ func (p *Provider) verifyPriorNativeObjects(ctx context.Context, i port.Intent, 
 	if err != nil {
 		return false, err
 	}
-	prior := map[string]port.AppliedObject{}
-	for _, o := range i.SourceInventory {
-		prior[o.Key()] = o
-	}
 	for key, obj := range live {
 		proof, ok := prior[key]
-		if !ok || proof.UID == "" {
+		if !ok || (proof.UID == "" && !failed) {
 			return false, ErrOwnership
 		}
 		md, _ := obj["metadata"].(map[string]any)
 		a, _ := md["annotations"].(map[string]any)
 		labels, _ := md["labels"].(map[string]any)
-		if md["uid"] != proof.UID || a["orchestrator.io/delivery-revision"] != i.ExpectedRevision || a["meta.helm.sh/release-name"] != pkg.ReleaseName || a["meta.helm.sh/release-namespace"] != cfg.ReleaseNamespace || labels["orchestrator.io/managed-by"] != "orchestrator" || labels["orchestrator.io/application"] != i.Target.Extra["application"] || labels["orchestrator.io/environment"] != i.Target.Extra["environment"] {
+		if (proof.UID != "" && md["uid"] != proof.UID) || a["orchestrator.io/delivery-revision"] != i.ExpectedRevision || a["meta.helm.sh/release-name"] != pkg.ReleaseName || a["meta.helm.sh/release-namespace"] != cfg.ReleaseNamespace || labels["orchestrator.io/managed-by"] != "orchestrator" || labels["orchestrator.io/application"] != i.Target.Extra["application"] || labels["orchestrator.io/environment"] != i.Target.Extra["environment"] {
 			return false, ErrOwnership
 		}
 	}
-	if len(live) != len(prior) {
+	// A failed rollout may have pruned objects of the acknowledged source, so only
+	// an acknowledged prior must still be complete.
+	if !failed && len(live) != len(prior) {
 		return false, ErrOwnership
 	}
 	return true, nil
+}
+
+// failedPrior reports a published determined failure supplied as the pin holder.
+func failedPrior(i port.Intent) bool {
+	p := i.PriorSubmission
+	return p != nil && p.Failed && p.Prepared.Revision.ID == i.ExpectedRevision && p.Receipt.RevisionID == i.ExpectedRevision && p.Receipt.IntentID != ""
 }
 func unpublishedPriorPin(pin unitPin, exists bool, i port.Intent, pkg Package) bool {
 	return exists && !pin.Removed && pin.Revision == i.ExpectedRevision && pin.Revision != i.Revision.ID && pin.Intent != i.ID && pin.EnvironmentID == i.Revision.Scope.EnvironmentID && pin.Path == pkg.Publication.Path && pin.Digest != ""

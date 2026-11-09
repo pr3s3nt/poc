@@ -148,6 +148,18 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 			}
 			intent.PriorSubmission = &port.PriorSubmission{Prepared: port.Prepared{Revision: source.Revision, Payload: priorRaw}, Receipt: source.Receipt}
 		}
+		// UC-06 CD-10: a newer published determined failure holds the provider
+		// pin, as the Deploy that created this submission must name it. Recovery
+		// observes against that pin; the acknowledged source inventory, if any,
+		// stays the UID evidence.
+		if failed := publishedFailure(otherExecutions(records, record.Mutation.ID), record.UnitID, acknowledged(records)); failed != nil {
+			failedRaw, err := c.providerArtifact(ctx, *failed)
+			if err != nil {
+				return err
+			}
+			intent.ExpectedRevision = failed.Revision.ID
+			intent.PriorSubmission = &port.PriorSubmission{Prepared: port.Prepared{Revision: failed.Revision, Payload: failedRaw}, Receipt: failed.Receipt, Failed: true}
+		}
 		if record.Receipt.IntentID == "" {
 			if absentObserver, ok := provider.(port.SubmissionAbsenceRecovery); ok {
 				stage = "absence"
@@ -319,4 +331,37 @@ func (c *Coordinator) failRecoveredSubmission(ctx context.Context, record *persi
 	}
 	*record = updated
 	return nil
+}
+
+// otherExecutions returns records without the submission being recovered, so
+// the in-flight attempt is never mistaken for the revision holding the pin.
+func otherExecutions(records []persistence.DeliveryExecution, mutationID string) []persistence.DeliveryExecution {
+	out := make([]persistence.DeliveryExecution, 0, len(records))
+	for _, r := range records {
+		if r.Mutation.ID != mutationID {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// acknowledged returns the latest acknowledged Submit/Adopt of each unit, the
+// same authoritative sources a Deploy uses.
+func acknowledged(records []persistence.DeliveryExecution) []persistence.DeliveryExecution {
+	latest := map[string]persistence.DeliveryExecution{}
+	for _, r := range records {
+		if r.Mutation.Status != domain.IntentAcknowledged {
+			continue
+		}
+		if prior, ok := latest[r.UnitID]; !ok || r.CreatedAt.After(prior.CreatedAt) {
+			latest[r.UnitID] = r
+		}
+	}
+	out := []persistence.DeliveryExecution{}
+	for _, r := range latest {
+		if r.Mutation.Action == domain.Submit || r.Mutation.Action == domain.Adopt {
+			out = append(out, r)
+		}
+	}
+	return out
 }

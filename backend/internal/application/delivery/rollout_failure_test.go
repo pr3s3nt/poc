@@ -315,3 +315,89 @@ func TestPublishedFailureSkipsNeverPublishedAttempts(t *testing.T) {
 		t.Fatal("no executions")
 	}
 }
+
+// failedPinProvider proves absence only against the published failed revision
+// that holds the provider pin, as the Fleet adapter does.
+type failedPinProvider struct {
+	*rolloutProvider
+	recoveryGuard func(context.Context, port.Intent) error
+	seen          []port.Intent
+	rolloutError  error
+}
+
+func (p *failedPinProvider) Submit(ctx context.Context, i port.Intent, prepared port.Prepared) (port.Receipt, error) {
+	if i.Revision.Phase == domain.Rollout && p.rolloutError != nil {
+		return port.Receipt{}, p.rolloutError
+	}
+	return p.rolloutProvider.Submit(ctx, i, prepared)
+}
+
+func (p *failedPinProvider) ObserveSubmissionAbsent(ctx context.Context, i port.Intent, _ port.Prepared) (bool, error) {
+	if err := p.recoveryGuard(ctx, i); err != nil {
+		return false, err
+	}
+	p.seen = append(p.seen, i)
+	return i.PriorSubmission != nil && i.PriorSubmission.Failed && i.ExpectedRevision == i.PriorSubmission.Prepared.Revision.ID, nil
+}
+
+// UC-06 CD-10: a replacement interrupted after a published failure is recovered
+// against the failed revision's pin and releases the Environment.
+func TestRecoveryAfterPublishedFailureObservesTheFailedPinAndReleases(t *testing.T) {
+	c, rp, ctx, req := rolloutFixture(t, nil)
+	p := &failedPinProvider{rolloutProvider: rp, recoveryGuard: c.GuardRecovery}
+	c.Registry = port.NewRegistry()
+	if err := c.Registry.Register("fleet", p); err != nil {
+		t.Fatal(err)
+	}
+	rp.rolloutHealth = domain.Degraded
+	if err := c.Deploy(ctx, req); !errors.Is(err, ErrRolloutDegraded) {
+		t.Fatal("expected a determined degraded failure", err)
+	}
+	failedRevision := rolloutRevision(t, c, ctx, req)
+	owner, _ := persistence.OwnerFrom(ctx)
+	if err := c.Store.ReleaseOperation(ctx, owner, environment.OpFailed, ""); err != nil {
+		t.Fatal(err)
+	}
+	// The replacement is interrupted before publication.
+	ctx = persistence.WithHold(claimDeploy(t, c, req, nil))
+	rp.rolloutHealth = domain.Healthy
+	p.rolloutError = errors.New("before publication")
+	req.DeploymentID = ids.New()
+	req.Manifests[0].Object = map[string]any{"kind": "Deployment", "fixed": true}
+	if err := c.Deploy(ctx, req); err == nil {
+		t.Fatal("missing interrupted replacement")
+	}
+	owner, _ = persistence.OwnerFrom(ctx)
+	if err := c.Store.SuspendOperation(ctx, owner, "prior worker stopped"); err != nil {
+		t.Fatal(err)
+	}
+	op, err := c.Store.BeginRecovery(context.Background(), owner.OperationID, "failed-pin-recovery", "operator")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx = persistence.WithOwner(context.Background(), persistence.Owner{OperationID: op.ID, Owner: op.Owner, Fence: op.Fence})
+	if err := c.RecoverSubmissions(ctx, req.OrganizationKey, req.Environment); err != nil {
+		t.Fatal("recovery after a published failure", err)
+	}
+	if len(p.seen) != 1 || p.seen[0].ExpectedRevision != failedRevision || p.seen[0].Revision.ID == failedRevision {
+		t.Fatal("recovery did not observe against the failed pin", p.seen)
+	}
+	if rolloutStatus(t, c, ctx, req)[domain.Rollout] != domain.IntentFailed {
+		t.Fatal("absent replacement was not settled")
+	}
+	owner, _ = persistence.OwnerFrom(ctx)
+	if err := c.Store.ReleaseOperation(ctx, owner, environment.OpRecovered, ""); err != nil {
+		t.Fatal(err)
+	}
+	// The released Environment deploys the correction against the same pin.
+	ctx = persistence.WithHold(claimDeploy(t, c, req, nil))
+	p.rolloutError = nil
+	req.DeploymentID = ids.New()
+	if err := c.Deploy(ctx, req); err != nil {
+		t.Fatal("deploy after recovery", err)
+	}
+	rollouts := rp.expected[domain.Rollout]
+	if rollouts[len(rollouts)-1] != failedRevision {
+		t.Fatal("corrected rollout did not replace the failed revision", rollouts, failedRevision)
+	}
+}
