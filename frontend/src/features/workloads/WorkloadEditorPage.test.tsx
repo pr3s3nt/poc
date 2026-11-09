@@ -358,9 +358,7 @@ it('keeps imported advanced overrides through collapse and basic edits and write
   expect(note('Tóm tắt nâng cao tài nguyên db')).toHaveTextContent('Lớp hiệu lực: large (tường minh)');
   await openWorkloadGroup(user,'Service & kết nối');
   expect(note('Tóm tắt nâng cao cổng http')).toHaveTextContent('Cổng đích hiệu lực: 9090 (ghi đè)');
-  await user.click(screen.getByRole('button', { name: 'Hiện nâng cao tài nguyên db' }));
-  expect(screen.getByLabelText('Lớp tài nguyên')).toHaveValue('large');
-  await user.click(screen.getByRole('button', { name: 'Ẩn nâng cao tài nguyên db' }));
+  expect(screen.getByLabelText('Cách cung cấp (class) của db')).toHaveValue('large');
   await user.click(screen.getByRole('button', { name: 'Hiện nâng cao cổng http' }));
   expect(screen.getByLabelText('Cổng đích của Container')).toHaveValue(9090);
   await user.clear(screen.getByLabelText('Ảnh Container'));
@@ -370,7 +368,7 @@ it('keeps imported advanced overrides through collapse and basic edits and write
 });
 
 it('omits an empty class and writes a class only while it is set', async () => {
-  const { puts } = serve({ types: [{ key: 'redis', inputs: [], outputs: [] }] });
+  const { puts } = serve({ types: [{ key: 'redis', inputs: [], outputs: [], classes: ['big'], defaultAvailable: true }] });
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await fillBasic(user);
@@ -378,10 +376,9 @@ it('omits an empty class and writes a class only while it is set', async () => {
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   await user.type(screen.getByLabelText('Alias tài nguyên'), 'cache');
   await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'redis');
-  await user.click(screen.getByRole('button', { name: 'Hiện nâng cao tài nguyên cache' }));
-  await user.type(screen.getByLabelText('Lớp tài nguyên'), 'big');
+  await user.selectOptions(screen.getByLabelText('Cách cung cấp (class) của cache'), 'big');
   expect(note('Tóm tắt nâng cao tài nguyên cache')).toHaveTextContent('Lớp hiệu lực: big (tường minh)');
-  await user.clear(screen.getByLabelText('Lớp tài nguyên'));
+  await user.selectOptions(screen.getByLabelText('Cách cung cấp (class) của cache'), '');
   expect(note('Tóm tắt nâng cao tài nguyên cache')).toHaveTextContent('Lớp hiệu lực: default (mặc định)');
   await user.click(saveButton());
   expect(puts[0]!.workload.resources.cache).toEqual({ type: 'redis', id: expect.stringMatching(/^resource-/) });

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Button } from '../../shared/ui/Button';
 import type { Capability } from './capabilities';
 import { bindingProviders, type BindingDraft, type MappingDraft, type MappingProblem } from './moduleMapping';
@@ -36,6 +37,13 @@ export function InfrastructureConnection({ capability, accountRequired, accounts
   const accountName = (key: string) => { const found = accounts.items.find((item) => item.key === key); return found ? accountLabel(found) : key; };
   const typeName = typeLabel(capability.account.type ?? '');
   const providerNote = (list: typeof providers) => list.map((provider) => `${provider.source} ${provider.version}`.trim()).join(' · ');
+  // UC-16 BR-33: a provider without binding takes the only published cluster class; one provider per render
+  // because each binding change replaces the draft.
+  const onlyClass = clusterClasses.length === 1 ? clusterClasses[0] : undefined;
+  const unbound = kubernetesProviders.find((provider) => (mapping.bindings[provider.name]?.target ?? '') === '' && capability.bindings.some((item) => item.provider === provider.name && item.targets.some((target) => target.target === 'resource')));
+  useEffect(() => {
+    if (!disabled && mappingEditable && onlyClass && unbound) onBinding(unbound.name, { target: 'resource', clusterClass: onlyClass });
+  }, [disabled, mappingEditable, onlyClass, unbound, onBinding]);
   if (!accountRequired && kubernetesProviders.length === 0) return <p className="feature-note" role="note">{t('platform.infrastructureConnection.thisModuleNeedsNoInfrastructure')}</p>;
 
   return <div className="connection-section" aria-label={t('platform.infrastructureConnection.infrastructureConnection')}>

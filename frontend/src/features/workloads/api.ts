@@ -34,18 +34,18 @@ export const deployChanges = (app: string, env: EnvironmentKey, token: string, r
 // registration field. A valid `classes: []` means "none published"; an absent or
 // malformed list, or a malformed body, is unavailable metadata and throws, so
 // nothing becomes a fake-empty or guessed choice.
-export type ResourceType = { key: string; inputs: { name: string; type: string; required?: boolean }[]; outputs: { name: string; type?: string; secret?: boolean }[]; classes?: string[] };
+export type ResourceType = { key: string; inputs: { name: string; type: string; required?: boolean }[]; outputs: { name: string; type?: string; secret?: boolean }[]; classes?: string[]; defaultAvailable?: boolean };
 export class MetadataError extends Error {}
 const isArray = (value: unknown): value is unknown[] => Array.isArray(value);
 export function parseResourceTypes(body: unknown): { resourceTypes: ResourceType[] } {
   const list = (body as { resourceTypes?: unknown } | null)?.resourceTypes;
   if (!isArray(list)) throw new MetadataError('resource types are missing');
   return { resourceTypes: list.map((item) => {
-    const type = item as { key?: unknown; inputs?: unknown; outputs?: unknown; classes?: unknown } | null;
+    const type = item as { key?: unknown; inputs?: unknown; outputs?: unknown; classes?: unknown; defaultAvailable?: unknown } | null;
     if (typeof type !== 'object' || type === null || typeof type.key !== 'string' || type.key === '') throw new MetadataError('resource type is malformed');
     if (!isArray(type.classes) || !type.classes.every((entry) => typeof entry === 'string')) throw new MetadataError('classes are missing or malformed');
     if ((type.inputs != null && !isArray(type.inputs)) || (type.outputs != null && !isArray(type.outputs))) throw new MetadataError('schema is malformed');
-    return { key: type.key, inputs: (type.inputs ?? []) as ResourceType['inputs'], outputs: (type.outputs ?? []) as ResourceType['outputs'], classes: type.classes as string[] };
+    return { key: type.key, inputs: (type.inputs ?? []) as ResourceType['inputs'], outputs: (type.outputs ?? []) as ResourceType['outputs'], classes: type.classes as string[], defaultAvailable: type.defaultAvailable === true };
   }) };
 }
 export const getResourceTypes = async () => parseResourceTypes(await api<unknown>('/resource-types'));

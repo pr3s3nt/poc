@@ -11,6 +11,9 @@ import { typeFixture } from '../../test/types';
 const application: Application = { id: 'catalog', name: 'Catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 type Saved = { workload: Record<string, unknown>; version: number };
 
+// The recorded catalog also serves the default class of every Type except vpc, which no Definition serves (UC-16 BR-33).
+const servedDefault = typeFixture.map((type) => ({ ...type, defaultAvailable: type.key !== 'vpc' }));
+
 // Types are the recorded GET /resource-types of the product backend (classes included).
 function serve(options: { types?: () => Response | Promise<Response>; workloads?: Workload[]; calls?: string[] } = {}) {
   const puts: Saved[] = [];
@@ -19,7 +22,7 @@ function serve(options: { types?: () => Response | Promise<Response>; workloads?
     if (url.endsWith('/workloads/resolve-defaults')) return Response.json({workload: JSON.parse(String(init?.body)).workload, sources:{}});
     options.calls?.push(`${init?.method ?? 'GET'} ${url.replace('/api/v1', '')}`);
     if (url.endsWith('/configuration')) return Response.json({ version: 1, keys: [] });
-    if (url.endsWith('/resource-types')) return options.types ? options.types() : Response.json({ resourceTypes: typeFixture });
+    if (url.endsWith('/resource-types')) return options.types ? options.types() : Response.json({ resourceTypes: servedDefault });
     if (init?.method === 'PUT') { puts.push(JSON.parse(String(init.body)) as Saved); return Response.json({ draftVersion: 2, workloads: [] }); }
     return Response.json({ draftVersion: 1, workloads: options.workloads ?? [] });
   }));
@@ -414,4 +417,86 @@ it('preserves scheduled execution and container overrides while editing an exist
   expect(puts[0]?.workload.workloadExecution).toEqual(execution);
   expect(puts[0]?.workload.containers).toEqual({ main: { ...container, image: 'example.invalid/job:v2' } });
   expect(resourcesOf(puts[0])?.cache).toEqual(resource);
+});
+
+describe('UC-16 BR-33 class choices follow what the catalog serves (issue #61)', () => {
+  const noDefault = (workloadClasses: string[]) => () => Response.json({ resourceTypes: [...typeFixture.filter(type => type.key !== 'workload'), { key: 'workload', inputs: [], outputs: [], classes: workloadClasses, defaultAvailable: false }] });
+  const rare = async (user: ReturnType<typeof userEvent.setup>) => { await openAdvancedFields(user); await user.click(screen.getByText('Cấu hình ít thay đổi', { exact: true })); };
+
+  it('selects the only workload class of a new workload and writes it', async () => {
+    const user = userEvent.setup();
+    const { puts } = serve({ types: noDefault(['git-dev']) });
+    await newWorkload(user);
+    await rare(user);
+    const select = screen.getByRole('combobox', { name: 'Class Workload' });
+    expect(select).toHaveValue('git-dev');
+    expect(within(select).queryByRole('option', { name: 'Mặc định (default)' })).not.toBeInTheDocument();
+    await user.click(save());
+    expect((puts[0]?.workload as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api', class: 'git-dev' });
+  });
+
+  it('requires a workload class when several are served and none is default', async () => {
+    const user = userEvent.setup();
+    const { puts } = serve({ types: noDefault(['gold', 'silver']) });
+    await newWorkload(user);
+    await user.click(save());
+    expect(await screen.findByRole('alert')).toHaveTextContent('Chọn class cho Workload: catalog không phục vụ class mặc định.');
+    expect(puts).toHaveLength(0);
+    const select = screen.getByRole('combobox', { name: 'Class Workload' });
+    expect(select).toHaveValue('');
+    expect(within(select).getAllByRole('option').map(option => option.textContent)).toEqual(['Chọn class', 'gold', 'silver']);
+    await user.selectOptions(select, 'silver');
+    await user.click(save());
+    expect((puts[0]?.workload as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api', class: 'silver' });
+  });
+
+  it('keeps a stored workload without class as it is when the default is no longer served', async () => {
+    const user = userEvent.setup();
+    const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1' } } };
+    const { puts } = serve({ types: noDefault(['gold', 'silver']), workloads: [{ id: 'api', ready: true, workload }] });
+    render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+    await screen.findByRole('heading', { name: 'Sửa api' });
+    await rare(user);
+    const select = screen.getByRole('combobox', { name: 'Class Workload' });
+    expect(select).toHaveValue('');
+    expect(within(select).getByRole('option', { name: 'Default (catalog không phục vụ)' })).toBeInTheDocument();
+    await user.click(save());
+    expect(puts[0]?.workload).toEqual(workload);
+  });
+
+  it('requires a dependency class when the Type serves several and no default, then writes the chosen one', async () => {
+    const user = userEvent.setup();
+    const { puts } = serve();
+    await newWorkload(user);
+    await addDependency(user, 'db', 'postgres');
+    const select = screen.getByLabelText('Cách cung cấp (class) của db');
+    expect(select).toHaveValue('');
+    expect(within(select).getAllByRole('option').map((option) => option.textContent)).toEqual(['Mặc định (default)', 'Dịch vụ managed AWS (cloud-managed)', 'Trong cluster (in-cluster)']);
+    cleanup(); vi.unstubAllGlobals();
+    const strict = serve({ types: () => Response.json({ resourceTypes: typeFixture }) });
+    await newWorkload(user);
+    await addDependency(user, 'db', 'postgres');
+    const required = screen.getByLabelText('Cách cung cấp (class) của db');
+    expect(required).toHaveValue('');
+    expect(within(required).getAllByRole('option').map((option) => option.textContent)).toEqual(['Chọn class', 'Dịch vụ managed AWS (cloud-managed)', 'Trong cluster (in-cluster)']);
+    await fillPostgres(user);
+    await user.click(save());
+    expect(await screen.findByRole('alert')).toHaveTextContent('Chọn class cho db: catalog không phục vụ class mặc định.');
+    expect(strict.puts).toHaveLength(0);
+    await user.selectOptions(required, 'in-cluster');
+    await user.click(save());
+    expect(resourcesOf(strict.puts[0])?.db).toMatchObject({ type: 'postgres', class: 'in-cluster' });
+    expect(puts).toHaveLength(0);
+  });
+
+  it('selects the only dependency class of a newly chosen Type', async () => {
+    const user = userEvent.setup();
+    const { puts } = serve({ types: () => Response.json({ resourceTypes: typeFixture.map((type) => type.key === 'postgres' ? { ...type, classes: ['in-cluster'], defaultAvailable: false } : type) }) });
+    await newWorkload(user);
+    await addDependency(user, 'db', 'postgres');
+    expect(screen.getByLabelText('Cách cung cấp (class) của db')).toHaveValue('in-cluster');
+    await fillPostgres(user);
+    await user.click(save());
+    expect(resourcesOf(puts[0])?.db).toMatchObject({ type: 'postgres', class: 'in-cluster' });
+  });
 });

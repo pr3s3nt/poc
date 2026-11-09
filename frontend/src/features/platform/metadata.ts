@@ -20,7 +20,7 @@ function array(value: unknown, optional = false): unknown[] {
 export const members = <T>(value: unknown, read: (item: unknown) => T, optional = false): T[] => array(value, optional).map(read);
 
 export type TypeField = { name: string; type: string; required?: boolean; secret?: boolean };
-export type TypeMetadata = { key: string; inputs: TypeField[]; outputs: TypeField[]; classes: string[] };
+export type TypeMetadata = { key: string; inputs: TypeField[]; outputs: TypeField[]; classes: string[]; defaultAvailable: boolean };
 
 function field(item: unknown): TypeField {
   if (!isObject(item) || !filled(item.name) || !text(item.type)) return fail();
@@ -36,7 +36,7 @@ export function parseTypeMetadata(body: unknown): TypeMetadata[] {
     if (!isObject(item) || !filled(item.key)) return fail();
     const schema = (value: unknown) => (value === null ? [] : members(value, field));
     const classes = members(item.classes, (entry) => (text(entry) ? entry : fail()));
-    return { key: item.key, inputs: schema(item.inputs), outputs: schema(item.outputs), classes };
+    return { key: item.key, inputs: schema(item.inputs), outputs: schema(item.outputs), classes, defaultAvailable: item.defaultAvailable === true };
   });
 }
 

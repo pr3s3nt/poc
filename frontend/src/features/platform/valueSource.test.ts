@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { typeFixture } from '../../test/types';
-import { classChoices, compatibleOutputs, contextAllowed, contextPlaceholder, describeSource, parseDescriptor, parseSource, referencePlaceholder } from './valueSource';
+import { classChoices, initialClass, compatibleOutputs, contextAllowed, contextPlaceholder, describeSource, parseDescriptor, parseSource, referencePlaceholder } from './valueSource';
 
 const type = (key: string) => typeFixture.find((item) => item.key === key);
 
@@ -31,10 +31,14 @@ describe('value sources (UC-03 UI11-02)', () => {
     expect(contextAllowed('number')).toBe(false);
   });
 
-  it('lists the default class first and the published ones, keeping an unknown current class', () => {
-    expect(classChoices(type('postgres'))).toEqual(['default', 'cloud-managed', 'in-cluster']);
-    expect(classChoices(type('postgres'), 'legacy')).toEqual(['default', 'cloud-managed', 'in-cluster', 'legacy']);
+  it('lists Default only when served, then the published classes, keeping an unknown current class (UC-16 BR-33)', () => {
+    expect(classChoices(type('postgres'))).toEqual(['cloud-managed', 'in-cluster']);
+    expect(classChoices({ ...type('postgres')!, defaultAvailable: true })).toEqual(['default', 'cloud-managed', 'in-cluster']);
+    expect(classChoices(type('postgres'), 'legacy')).toEqual(['cloud-managed', 'in-cluster', 'legacy']);
     expect(classChoices(undefined)).toEqual(['default']);
+    expect(initialClass(type('postgres'))).toBe('');
+    expect(initialClass({ ...type('postgres')!, classes: ['in-cluster'] })).toBe('in-cluster');
+    expect(initialClass({ ...type('postgres')!, defaultAvailable: true })).toBe('default');
   });
 
   it('parses only complete type.class#scope descriptors', () => {

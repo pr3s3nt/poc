@@ -37,7 +37,9 @@ describe('UI11-02 reference picker', () => {
     await user.click(dialog.getByRole('radio', { name: 'Lấy từ tài nguyên khác' }));
     expect(dialog.getByRole('button', { name: 'Áp dụng' })).toBeDisabled();
     await user.selectOptions(dialog.getByLabelText('Loại tài nguyên nguồn'), 'postgres');
-    expect(optionValues(dialog.getByLabelText('Nhóm cấu hình nguồn'))).toEqual(['default', 'cloud-managed', 'in-cluster']);
+    // UC-16 BR-33: postgres serves no default and two classes, so a class must be chosen.
+    expect(optionValues(dialog.getByLabelText('Nhóm cấu hình nguồn'))).toEqual(['cloud-managed', 'in-cluster']);
+    expect(dialog.getByLabelText('Nhóm cấu hình nguồn')).toHaveValue('');
     // The secret password and the numeric port cannot fill a string.
     expect(optionValues(dialog.getByLabelText('Output cần lấy'))).toEqual(['host', 'database', 'username']);
     await user.selectOptions(dialog.getByLabelText('Loại tài nguyên nguồn'), 'k8s-namespace');
