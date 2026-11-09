@@ -204,7 +204,7 @@ var trustedFields = map[string]bool{
 	"definition.driverInputs.values.provider_bindings":         true,
 	"definition.driverInputs.values.variables.template_source": true, "definition.driverInputs.values.variables.template_inputs": true,
 	"context.applicationId": true, "context.environmentId": true, "context.resourceId": true, "context.class": true,
-	"service.publicPort": true, "confirmationName": true, "selectedResourceIds": true,
+	"service.publicPort": true, "metadata.name": true, "confirmationName": true, "selectedResourceIds": true,
 	"accessKeyId": true, "secretAccessKey": true, "allowedRegions": true, "verificationRegions": true,
 	// UC-17 effectiveness query and baseline fields.
 	"from": true, "to": true, "workload": true, "metric": true, "statistic": true, "valueSeconds": true, "source": true,
@@ -534,6 +534,8 @@ func classify(err error) (failure, bool) {
 		return failure{code: codeInvalidWorkload, field: "service.publicPort"}, true
 	case errors.Is(err, environment.ErrPublicRoutesRemoved):
 		return failure{code: codeInvalidWorkload, field: "service.publicRoutes"}, true
+	case errors.Is(err, workloadspec.ErrInvalidName):
+		return failure{code: codeInvalidWorkload, field: "metadata.name"}, true
 	case errors.Is(err, workloadconfig.ErrInvalid), errors.Is(err, workloadspec.ErrInvalid), errors.Is(err, environment.ErrExecution):
 		return failure{code: codeInvalidWorkload}, true
 	}

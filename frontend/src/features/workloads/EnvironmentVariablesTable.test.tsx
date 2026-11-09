@@ -196,7 +196,7 @@ it('Escape closes source search and returns focus without losing a typed value',
 });
 
 it('keeps unavailable imported references visible and blocks Save without retargeting',async()=>{
-  const api=serve({workloads:[{id:'api',ready:true,workload:{apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'api'},containers:{main:{image:'i',variables:{MISSING:'${resources.env.REMOVED}',OUTPUT:'${resources.db.missing}'}}},resources:{env:{type:'environment'},db:{type:'postgres'}}}}],types:[postgres]});const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging" workloadId="api"/>);await screen.findByRole('heading',{name:'Thông tin cơ bản'});
+  const api=serve({workloads:[{id:'api',ready:true,workload:{apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'api'},containers:{main:{image:'i',variables:{MISSING:'${resources.env.REMOVED}',OUTPUT:'${resources.db.missing}'}}},resources:{env:{type:'environment'},db:{type:'postgres'}}}}],types:[postgres]});const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging" workloadId="api"/>);await screen.findByRole('heading',{name:'Sửa api'});
   expect(table().getByRole('button',{name:'Đổi nguồn, dòng 1'})).toHaveTextContent('Ứng dụng / REMOVED');expect(table().getByRole('button',{name:'Đổi nguồn, dòng 2'})).toHaveTextContent('db.missing');await user.click(save());expect(api.puts()).toHaveLength(0);expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
 });
 
@@ -511,7 +511,7 @@ it('preserves imported literal and repeated shared references in the form', asyn
   const workload = { ...parsedScore, containers: { main: { image: 'i', variables: { LEVEL: 'debug', A: '${resources.env.API_URL}', B: '${resources.env.API_URL}', TOKEN: '${resources.env.DATABASE_PASSWORD}' } } } };
   const api = serve({ workloads: [{ id: 'importer', ready: true, workload }] }); const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="importer" />);
-  await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
+  await screen.findByRole('heading', { name: 'Sửa importer' });
   expect(table().getByLabelText('Giá trị nhập, dòng 1')).toHaveValue('debug');
   expect(table().getByRole('button', { name: 'Đổi nguồn, dòng 2' })).toHaveTextContent('Ứng dụng / API_URL');
   expect(table().getByRole('button', { name: 'Đổi nguồn, dòng 3' })).toHaveTextContent('Ứng dụng / API_URL');

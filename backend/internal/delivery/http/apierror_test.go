@@ -61,6 +61,7 @@ func TestWriteErrorCodesStatusesAndFields(t *testing.T) {
 		{"catalog selection required", catalogdomain.ErrRequired, 409, "CATALOG_REQUIRED", ""},
 		{"resolved runtime invalid", fmt.Errorf("runtime: %s: %w", canary, environment.ErrExecution), 400, "INVALID_WORKLOAD", ""},
 		{"score invalid", fmt.Errorf("score: %s bad: %w", canary, workloadspec.ErrInvalid), 400, "INVALID_WORKLOAD", ""},
+		{"workload name invalid", fmt.Errorf("score: %w", fmt.Errorf("%w: %s", workloadspec.ErrInvalidName, canary)), 400, "INVALID_WORKLOAD", "metadata.name"},
 		{"removed publicPort", fmt.Errorf("score: service.publicPort: %w", environment.ErrPublicPortRemoved), 400, "INVALID_WORKLOAD", "service.publicPort"},
 		{"workload score", fmt.Errorf("%w: %s", workloadconfig.ErrInvalid, canary), 400, "INVALID_WORKLOAD", ""},
 		{"workload variable", fmt.Errorf("x %s: %w", canary, workloadconfig.ErrInvalidVariable), 400, "INVALID_VARIABLE", ""},

@@ -2325,3 +2325,12 @@ published failed revision so Fleet accepts its replacement. Deploy results and
 Deployment details carry `ROLLOUT_DEGRADED`/`ROLLOUT_NOT_READY`; the Console shows
 the reason with a link to the workload logs. Unknown outcomes, CD transfer and
 policy-only delivery still hold. [Evidence and findings](verification/2026-11-09-rollout-failure-release.md).
+
+## Stable template renderer pin — issue #57 (2026-11-09)
+
+Git template sources pin a stable renderer identity ([ADR-041](architecture/decisions/ADR-041-stable-template-renderer-pin.md)):
+engine contract, driver version, embedded renderer/engine sources, Go toolchain and
+renderer library versions, no longer the whole backend executable. A backend rebuild
+that leaves these unchanged keeps template sources AVAILABLE; templates registered
+with the earlier executable pin are registered again once after this upgrade.
+[Evidence](verification/2026-11-09-stable-template-renderer-pin.md).
