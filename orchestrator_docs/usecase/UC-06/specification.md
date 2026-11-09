@@ -455,8 +455,14 @@ per-resource evidence; changing a Definition does not silently upgrade this scop
   delivery. Recover applies the same classification and, for an ordinary Deploy,
   the same readiness deadline as Deploy, so an operation held by an earlier
   release for a determined failure resolves with one Recover inside one Console
-  request. A crash-looping first rollout keeps the Deployment `Progressing=True`
-  and is never reported Degraded by Fleet; it is concluded at the deadline.
+  request. A rollout is Ready only when every container of the current revision's
+  Pods is ready and has been running continuously for 15 seconds, so a container
+  that exits at once is never reported successful from a momentary ready replica.
+  A container not stably running after 3 restarts is a crash loop and concludes
+  the rollout as a determined failure (`ROLLOUT_DEGRADED`) without waiting for the
+  deadline; a container that restarted during start-up and then runs stably is
+  Ready. Fleet reports a crash-looping first rollout as `Progressing=True`, never
+  Degraded, so this Pod evidence is required.
   A published determined failure holds the provider pin until replaced: the next
   Deploy names it as the expected revision, and Recover of a replacement
   interrupted after it observes against that same pin. When both Git publications
