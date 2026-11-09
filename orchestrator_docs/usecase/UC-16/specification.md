@@ -288,6 +288,10 @@ as specified above.
   free-text entry or use dependency classes as workload choices. The default
   option omits `metadata.class`; explicit historical `default` stays explicit
   until the user changes it. Show the effective class in the collapsed summary.
+- **BR-34 (issue #63):** The environment-variable table keeps the order in which
+  the author added the rows: after Save, reopen and Deploy the rows appear in that
+  order ([GW-09](../../architecture/contracts/generic-workload.md#gw-09--authored-variable-order-issue-63)).
+  The runtime order of variables does not change.
 - **BR-33 (issue #61):** Every class dropdown (Workload class, dependency class,
   and the Platform Engineer's reference/companion class and Kubernetes cluster
   class in UC-03) offers only usable choices: the published classes, plus
