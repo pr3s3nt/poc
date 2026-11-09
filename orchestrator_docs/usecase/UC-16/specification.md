@@ -288,6 +288,16 @@ as specified above.
   free-text entry or use dependency classes as workload choices. The default
   option omits `metadata.class`; explicit historical `default` stays explicit
   until the user changes it. Show the effective class in the collapsed summary.
+- **BR-33 (issue #61):** Every class dropdown (Workload class, dependency class,
+  and the Platform Engineer's reference/companion class and Kubernetes cluster
+  class in UC-03) offers only usable choices: the published classes, plus
+  Default only when the Type's `defaultAvailable` is true. When a new value has
+  exactly one choice it is selected automatically. When several choices exist
+  and none is Default, the user must pick one and Save/Apply is blocked with a
+  reason. When the Type publishes no class and no default, the existing
+  "not published" note is shown and the value stays as before. A saved value
+  (including an omitted/default class) that is no longer offered is kept as a
+  labelled option and never changed automatically.
 - **BR-32:** Preserve a valid imported/current class absent from metadata as a
   labelled retained option. Closing advanced controls, saving unrelated edits,
   refreshing metadata or receiving an empty list must not replace that value.

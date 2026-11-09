@@ -112,3 +112,58 @@ func TestResourceTypeClassesNeverGuessOnRegistryFailure(t *testing.T) {
 		t.Fatal("registry failure must be an error, not an empty class list")
 	}
 }
+
+func defaultAvailable(t *testing.T, svc *catalog.Service, org, typeKey string) bool {
+	t.Helper()
+	views, err := svc.ListResourceTypeViews(context.Background(), org)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, view := range views {
+		if view.Key == typeKey {
+			return view.DefaultAvailable
+		}
+	}
+	t.Fatalf("type %s missing", typeKey)
+	return false
+}
+
+// Issue #61: `default` is offered only when an offered Definition matches it,
+// through a criterion without class or with class `default`.
+func TestResourceTypeDefaultClassOnlyWhenADefinitionMatchesIt(t *testing.T) {
+	ctx := context.Background()
+	st, svc, opts := seededCatalog(t, withRegistry)
+	refs, err := registry.PackagedRefs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.RegisterResourceType(ctx, opts.OrganizationKey, resource.Type{Key: "redis", Outputs: []resource.OutputField{
+		{Name: "host", Type: "string", Required: true}, {Name: "port", Type: "number", Required: true}, {Name: "username", Type: "string", Required: true},
+		{Name: "password", Type: "string", Required: true, Secret: true}, {Name: "tls", Type: "bool", Required: true}}}); err != nil {
+		t.Fatal(err)
+	}
+	classesOf(t, st, svc, opts.OrganizationKey, "redis") // publishes the seeded catalog
+	if defaultAvailable(t, svc, opts.OrganizationKey, "redis") {
+		t.Fatal("a Type no Definition serves has no default")
+	}
+	ns := "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+	out := []string{"host", "port", "username", "password", "tls"}
+	register := func(key string, criterion resource.Criterion) {
+		t.Helper()
+		if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, k8sDefinition(key, "redis", refs["redis-k8s"], map[string]any{"namespace": ns}, nil, out, criterion)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	register("redis-in-cluster", resource.Criterion{Class: "in-cluster"})
+	if got := classesOf(t, st, svc, opts.OrganizationKey, "redis"); !reflect.DeepEqual(got, []string{"in-cluster"}) || defaultAvailable(t, svc, opts.OrganizationKey, "redis") {
+		t.Fatalf("only an explicit class: classes %v, default must be unavailable", got)
+	}
+	register("redis-staging", resource.Criterion{EnvironmentType: "staging"})
+	if got := classesOf(t, st, svc, opts.OrganizationKey, "redis"); !reflect.DeepEqual(got, []string{"in-cluster"}) || !defaultAvailable(t, svc, opts.OrganizationKey, "redis") {
+		t.Fatalf("a classless criterion serves default without adding a class: classes %v", got)
+	}
+	unverified := catalog.NewService(st, metadataFailure{err: moduleregistry.ErrNotVerified})
+	if defaultAvailable(t, unverified, opts.OrganizationKey, "redis") {
+		t.Fatal("an unverified pin offers no default")
+	}
+}

@@ -31,8 +31,10 @@ thất bại báo tải lại, không tự replay rename. Scope change invalidat
 
 Editor đọc GET `/api/v1/resource-types` đã authenticate theo Organization của
 session. Response `resourceTypes` giữ key/inputs/outputs và bổ sung `classes`
-(array string, sorted/unique, rỗng là `[]`) như read projection, không phải
-field của Type registration/persistence. Class choices lấy từ verified registry
+(array string, sorted/unique, rỗng là `[]`) và `defaultAvailable` (boolean,
+issue #61) như read projection, không phải field của Type registration/persistence.
+`defaultAvailable` true khi một Definition được offer (cùng điều kiện verified
+như `classes`) có criterion không ghi class hoặc ghi `default`. Class choices lấy từ verified registry
 metadata và class khai báo trong scoped catalog Definitions; không đoán từ tên
 module, credential, target mặc định hoặc source bên ngoài. Metadata chỉ hướng
 dẫn authoring, không bảo đảm một class match context cụ thể; Preview/Deploy
