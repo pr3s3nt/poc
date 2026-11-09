@@ -225,6 +225,7 @@ Complete workload configuration/defaults (issue #37):
 [Issue #37 verification and runtime limits](verification/2026-11-06-workload-defaults.md).
 
 Template-only workload defaults: [ADR-039](architecture/decisions/ADR-039-template-owned-workload-defaults.md).
+Stable template renderer pin across backend upgrades: [ADR-041](architecture/decisions/ADR-041-stable-template-renderer-pin.md).
 - [Readable IDP application/repository/resource names](architecture/decisions/ADR-038-readable-idp-names.md).
 
 ## Configurable seed Organization — issue #47
