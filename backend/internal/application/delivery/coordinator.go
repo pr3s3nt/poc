@@ -333,6 +333,13 @@ func phaseIntent(req DeployRequest, orgID string, owner persistence.Owner, b dom
 	return port.Intent{ID: stableID("delivery-intent", revision.ID, string(domain.Submit)), OrganizationKey: req.OrganizationKey, Owner: port.Owner{OperationID: owner.OperationID, Instance: owner.Owner, Fence: owner.Fence}, Binding: b, Revision: revision, Target: req.Target, PolicyOnly: req.PolicyOnly}, unit
 }
 func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i port.Intent, unit, workload string, manifests []execution.Manifest) error {
+	return c.runPhaseAccepting(ctx, provider, i, unit, workload, manifests, nil)
+}
+
+// runPhaseAccepting is runPhase with an optional acceptance of a not fully
+// Ready revision (ADR-042 secret preparation): accept reports whether the
+// observation is sufficient for this revision's purpose.
+func (c *Coordinator) runPhaseAccepting(ctx context.Context, provider port.Provider, i port.Intent, unit, workload string, manifests []execution.Manifest, accept func(domain.Observation) bool) error {
 	record, err := c.Store.GetDeliveryExecution(ctx, i.Revision.Scope.OrganizationID, i.ID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		prepared, prepareErr := provider.Prepare(ctx, i, manifests)
@@ -439,6 +446,12 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 			for _, object := range observed.Objects {
 				record.Inventory = append(record.Inventory, persistence.DeliveryObject{ObjectRef: execution.ObjectRef{APIVersion: object.APIVersion, Kind: object.Kind, Name: object.Name}, UID: object.UID, Release: receipt.Handle["release"]})
 			}
+			break
+		}
+		if accept != nil && accept(observed) {
+			// Keep the active inventory and add every observed identity, so
+			// a later revision still prunes what this one did not observe.
+			record.Inventory = mergeInventory(i.SourceInventory, observedInventory(observed, receipt))
 			break
 		}
 		if observed.Health == domain.Degraded {
@@ -643,6 +656,22 @@ func observedInventory(observed domain.Observation, receipt port.Receipt) []pers
 			continue
 		}
 		out = append(out, persistence.DeliveryObject{ObjectRef: execution.ObjectRef{APIVersion: object.APIVersion, Kind: object.Kind, Name: object.Name}, UID: object.UID, Release: receipt.Handle["release"]})
+	}
+	return out
+}
+
+func mergeInventory(base, observed []persistence.DeliveryObject) []persistence.DeliveryObject {
+	out := []persistence.DeliveryObject{}
+	index := map[string]int{}
+	for _, list := range [][]persistence.DeliveryObject{base, observed} {
+		for _, o := range list {
+			if at, ok := index[o.Key()]; ok {
+				out[at] = o
+				continue
+			}
+			index[o.Key()] = len(out)
+			out = append(out, o)
+		}
 	}
 	return out
 }

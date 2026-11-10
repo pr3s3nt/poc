@@ -66,7 +66,11 @@ gốc độ phức tạp của recovery ở issue #48 và #55.
    tham chiếu một Secret mà bản `app` đã publish chưa khai báo (lần deploy đầu
    hoặc version giá trị mới), Orchestrator publish trước một revision `app` chỉ
    thêm phần giao secret (ServiceAccount, VaultAuth, VaultConnection, VSS) của
-   workload thay đổi, chờ Ready, rồi mới tới `migrate` và revision `app` cuối.
+   workload thay đổi, chờ các object thêm vào được áp dụng và khỏe, rồi mới tới
+   `migrate` và revision `app` cuối. Object đã publish từ trước mà chưa Ready
+   (ví dụ workload hỏng đang được sửa trong chính lần Deploy này) không chặn bước
+   chuẩn bị. Helm của unit Environment chờ tối đa 240 giây, ngắn hơn deadline
+   readiness, để lỗi apply được báo và gán đúng workload trước deadline.
 6. **Giữ secret của lần deploy thành công gần nhất.** Bundle `app` gồm VSS mà
    workload đang cần cộng VSS của lần publish `app` thành công gần nhất nếu khác.
    VSS giữ lại mang annotation `orchestrator.io/retained-secret: "true"`. Pod cũ

@@ -275,3 +275,27 @@ func TestEnvironmentReleasePublishesMissingJobSecretsBeforeTheJob(t *testing.T) 
 		t.Fatalf("final with retained secret = %s", got)
 	}
 }
+
+func TestSecretPreparationIsNotBlockedByAPublishedBrokenWorkload(t *testing.T) {
+	c, p, ctx, req := environmentFixture(t)
+	c.Deadline = time.Second
+	p.degraded = "worker"
+	req.ReleaseID, req.Workloads = "r1", map[string][]execution.Manifest{"backend": workloadManifests("backend", "b:1", 0, ""), "worker": workloadManifests("worker", "w:bad", 0, "")}
+	if err := c.DeployEnvironment(ctx, req); err == nil {
+		t.Fatal("broken worker accepted")
+	}
+	// The worker stays broken; the backend now needs a new secret for its Job.
+	req.ReleaseID, req.Workloads = "r2", map[string][]execution.Manifest{"backend": workloadManifests("backend", "b:2", 1, "migrate")}
+	err := c.DeployEnvironment(ctx, req)
+	var failure *RolloutFailure
+	if !errors.As(err, &failure) || strings.Join(failure.Workloads, ",") != "worker" {
+		t.Fatalf("final failure = %v", err)
+	}
+	units := []string{}
+	for _, s := range p.submitted[1:] {
+		units = append(units, s.unit)
+	}
+	if strings.Join(units, ",") != "app,migrate,app" {
+		t.Fatalf("units after the broken release = %v", units)
+	}
+}

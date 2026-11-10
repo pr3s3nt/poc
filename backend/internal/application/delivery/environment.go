@@ -482,7 +482,8 @@ func (c *Coordinator) DeployEnvironment(ctx context.Context, req EnvironmentRequ
 			prepReq := req
 			prepReq.ReleaseID = req.ReleaseID + "/secrets"
 			intent, _ := c.environmentIntent(prepReq, org.ID, owner, b, domain.EnvironmentAppUnit, domain.Rollout)
-			if err := c.runEnvironmentUnit(ctx, provider, intent, appUnit, executions, manifests, comp); err != nil {
+			added := addedSecretObjects(baseApps, prepare)
+			if err := c.runEnvironmentUnitAccepting(ctx, provider, intent, appUnit, executions, manifests, comp, secretsApplied(intent.Revision.ID, added)); err != nil {
 				return err
 			}
 			// The preparation is now the published base of the final app revision.
@@ -551,6 +552,10 @@ func (c *Coordinator) environmentIntent(req EnvironmentRequest, orgID string, ow
 // runEnvironmentUnit stores the composition and runs the unit revision with
 // the same receipt/lease/readiness protocol as a per-workload phase.
 func (c *Coordinator) runEnvironmentUnit(ctx context.Context, provider port.Provider, intent port.Intent, unit string, executions []persistence.DeliveryExecution, manifests []execution.Manifest, comp composition) error {
+	return c.runEnvironmentUnitAccepting(ctx, provider, intent, unit, executions, manifests, comp, nil)
+}
+
+func (c *Coordinator) runEnvironmentUnitAccepting(ctx context.Context, provider port.Provider, intent port.Intent, unit string, executions []persistence.DeliveryExecution, manifests []execution.Manifest, comp composition, accept func(domain.Observation) bool) error {
 	if err := c.putComposition(ctx, intent.Revision.Scope.OrganizationID, unit, intent.Revision.ID, comp); err != nil {
 		return err
 	}
@@ -568,7 +573,58 @@ func (c *Coordinator) runEnvironmentUnit(ctx context.Context, provider port.Prov
 	if failed := publishedFailure(executions, unit, active); failed != nil {
 		intent.ExpectedRevision = failed.Revision.ID
 	}
-	return c.runPhase(ctx, provider, intent, unit, domain.EnvironmentWorkload, manifests)
+	return c.runPhaseAccepting(ctx, provider, intent, unit, domain.EnvironmentWorkload, manifests, accept)
+}
+
+// addedSecretObjects lists the kind/name keys of the secret delivery objects
+// that the preparation adds to the published composition.
+func addedSecretObjects(base, prepare map[string][]execution.Manifest) map[string]bool {
+	present := map[string]bool{}
+	for _, ms := range base {
+		for _, m := range ms {
+			present[m.Kind+"/"+m.Name] = true
+		}
+	}
+	out := map[string]bool{}
+	for _, ms := range prepare {
+		for _, m := range ms {
+			if secretDelivery(m) && !present[m.Kind+"/"+m.Name] {
+				out[m.Kind+"/"+m.Name] = true
+			}
+		}
+	}
+	return out
+}
+
+// secretsApplied accepts a secret preparation once its revision is applied
+// and every object it adds is healthy, even when an object that was already
+// published (for example a broken workload being fixed by this Deploy) is
+// not Ready. A failure of an added object still fails the preparation.
+func secretsApplied(revision string, added map[string]bool) func(domain.Observation) bool {
+	return func(o domain.Observation) bool {
+		healthy := map[string]bool{}
+		for _, object := range o.Objects {
+			key := object.Kind + "/" + object.Name
+			if added[key] && object.Health != domain.Healthy && object.Health != "" {
+				return false
+			}
+			if object.Health == domain.Healthy {
+				healthy[key] = true
+			}
+		}
+		if o.Complete && o.ObservedRevision == revision {
+			// Full object-level observation of this revision.
+			for key := range added {
+				if !healthy[key] {
+					return false
+				}
+			}
+			return true
+		}
+		// Fleet's aggregate apply failure for this deployment lists only the
+		// objects that blocked it; Helm applied everything else.
+		return o.Health == domain.Degraded && o.Sync == domain.OutOfSync && len(o.Objects) > 0
+	}
 }
 
 // failingWorkloads attributes unhealthy observed objects to their workloads.
