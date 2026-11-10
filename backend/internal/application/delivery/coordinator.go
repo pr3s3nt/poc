@@ -444,6 +444,7 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 		if observed.Health == domain.Degraded {
 			// UC-06 CD-10: the receipted revision was observed failing. This
 			// process is the only writer, so the outcome is known, not held.
+			record.Inventory = observedInventory(observed, receipt)
 			return &observedFailure{cause: c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutDegraded), observation: observed}
 		}
 		if observed.Sync == domain.Pending && observed.Health == domain.Progressing {
@@ -462,6 +463,7 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 				// The owning operation was cancelled or lost: outcome unknown.
 				return ctx.Err()
 			}
+			record.Inventory = observedInventory(last, receipt)
 			return &observedFailure{cause: c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutNotReady), observation: last}
 		case <-ticker.C:
 		}
@@ -486,6 +488,23 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 	if priorActive != nil {
 		for _, o := range priorActive.Inventory {
 			if !currentKeys[o.Key()] {
+				staleByKey[o.Key()] = o
+			}
+		}
+	}
+	// Objects that only a published, failed revision created (for example a
+	// new versioned secret) are not in any acknowledged inventory; their
+	// observed UIDs were recorded with the failure (ADR-042).
+	for index := range prior {
+		failed := &prior[index]
+		if failed.UnitID != record.UnitID || failed.Mutation.ID == record.Mutation.ID || failed.Mutation.Action != domain.Submit || failed.Mutation.Status != domain.IntentFailed || !published(*failed) {
+			continue
+		}
+		if priorActive != nil && !failed.CreatedAt.After(priorActive.CreatedAt) {
+			continue
+		}
+		for _, o := range failed.Inventory {
+			if _, known := staleByKey[o.Key()]; !known && !currentKeys[o.Key()] && o.UID != "" {
 				staleByKey[o.Key()] = o
 			}
 		}
@@ -610,4 +629,17 @@ func (c *Coordinator) ValidateForPreview(ctx context.Context, orgKey string, env
 	}
 	_, _, err := c.resolveBinding(ctx, orgKey, env, false)
 	return err
+}
+
+// observedInventory records the objects and UIDs a failing revision was
+// observed with, so a later successful revision can prune what only it created.
+func observedInventory(observed domain.Observation, receipt port.Receipt) []persistence.DeliveryObject {
+	out := []persistence.DeliveryObject{}
+	for _, object := range observed.Objects {
+		if object.UID == "" {
+			continue
+		}
+		out = append(out, persistence.DeliveryObject{ObjectRef: execution.ObjectRef{APIVersion: object.APIVersion, Kind: object.Kind, Name: object.Name}, UID: object.UID, Release: receipt.Handle["release"]})
+	}
+	return out
 }

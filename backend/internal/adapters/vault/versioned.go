@@ -206,6 +206,11 @@ func (p *Provider) DeleteWorkload(ctx context.Context, app, env, workload string
 		if err != nil {
 			return err
 		}
+		// A store token without delete on the fixed role/policy (older
+		// installations) leaves a role that can only read the deleted path.
+		if status == http.StatusForbidden {
+			continue
+		}
 		if status != http.StatusOK && status != http.StatusNoContent && status != http.StatusNotFound {
 			return fmt.Errorf("vault: delete workload access status %d", status)
 		}

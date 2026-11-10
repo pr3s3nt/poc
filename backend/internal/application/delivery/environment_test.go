@@ -20,6 +20,7 @@ type recordingProvider struct {
 	*neutralProvider
 	submitted []submittedUnit
 	degraded  string
+	pruned    []string
 }
 
 type submittedUnit struct {
@@ -41,15 +42,25 @@ func (p *recordingProvider) Submit(ctx context.Context, i port.Intent, prepared 
 
 func (p *recordingProvider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (domain.Observation, error) {
 	o, err := p.neutralProvider.Observe(ctx, i, r)
-	if p.degraded == "" || i.Revision.Phase == domain.Job {
-		return o, err
-	}
-	o.Health = domain.Degraded
-	o.Objects = []domain.ObjectObservation{
-		{APIVersion: "apps/v1", Kind: "Deployment", Name: "backend", UID: "u1", Health: domain.Healthy},
-		{APIVersion: "apps/v1", Kind: "Deployment", Name: p.degraded, UID: "u2", Health: domain.Degraded},
+	last := p.submitted[len(p.submitted)-1]
+	for _, object := range last.objects {
+		md := object["metadata"].(map[string]any)
+		name := md["name"].(string)
+		health := domain.Healthy
+		if p.degraded == name && object["kind"] == "Deployment" {
+			health = domain.Degraded
+			o.Health = domain.Degraded
+		}
+		o.Objects = append(o.Objects, domain.ObjectObservation{APIVersion: object["apiVersion"].(string), Kind: object["kind"].(string), Name: name, Namespace: "app", UID: "uid-" + name, Health: health})
 	}
 	return o, err
+}
+
+func (p *recordingProvider) PruneReleasedObjects(_ context.Context, _ port.Intent, _ port.Receipt, stale []port.AppliedObject) error {
+	for _, o := range stale {
+		p.pruned = append(p.pruned, o.Kind+"/"+o.Name)
+	}
+	return nil
 }
 
 func object(apiVersion, kind, name string, extra map[string]any) execution.Manifest {
@@ -70,7 +81,12 @@ func workloadManifests(name, image string, secretVersion int, job string) []exec
 		out = append(out, object("secrets.hashicorp.com/v1beta1", "VaultStaticSecret", secret, map[string]any{"spec": map[string]any{"version": secretVersion}}))
 	}
 	if job != "" {
-		out = append(out, object("batch/v1", "Job", name+"-migrate", map[string]any{"spec": map[string]any{"args": job}}))
+		spec := map[string]any{"args": job}
+		if secretVersion > 0 {
+			secret := name + "-config-v" + string(rune('0'+secretVersion))
+			spec["template"] = map[string]any{"spec": map[string]any{"containers": []any{map[string]any{"name": "main", "env": []any{map[string]any{"name": "PGPASSWORD", "valueFrom": map[string]any{"secretKeyRef": map[string]any{"name": secret, "key": "main_PGPASSWORD"}}}}}}}}
+		}
+		out = append(out, object("batch/v1", "Job", name+"-migrate", map[string]any{"spec": spec}))
 	}
 	return out
 }
@@ -192,7 +208,7 @@ func TestEnvironmentReleaseNamesTheFailingWorkload(t *testing.T) {
 	c, p, ctx, req := environmentFixture(t)
 	c.Deadline = time.Second
 	p.degraded = "worker"
-	req.ReleaseID, req.Workloads = "r1", map[string][]execution.Manifest{"backend": workloadManifests("backend", "b:1", 0, ""), "worker": workloadManifests("worker", "w:bad", 0, "")}
+	req.ReleaseID, req.Workloads = "r1", map[string][]execution.Manifest{"backend": workloadManifests("backend", "b:1", 0, ""), "worker": workloadManifests("worker", "w:bad", 1, "")}
 	err := c.DeployEnvironment(ctx, req)
 	var failure *RolloutFailure
 	if !errors.As(err, &failure) || !errors.Is(err, ErrRolloutDegraded) || strings.Join(failure.Workloads, ",") != "worker" {
@@ -206,6 +222,10 @@ func TestEnvironmentReleaseNamesTheFailingWorkload(t *testing.T) {
 	}
 	if strings.Join(names(p.submitted[len(p.submitted)-1].objects), " ") != "Deployment/backend Deployment/worker VaultConnection/orch-vault-1" {
 		t.Fatalf("fix release = %v", names(p.submitted[len(p.submitted)-1].objects))
+	}
+	// The secret only the failed revision created is pruned once the fix is Ready.
+	if strings.Join(p.pruned, ",") != "VaultStaticSecret/worker-config-v1" {
+		t.Fatalf("pruned = %v", p.pruned)
 	}
 }
 
@@ -221,5 +241,37 @@ func TestEnvironmentBundleIsNotUsedWhileLegacyUnitsAreActive(t *testing.T) {
 	uses, err = c.UsesEnvironmentBundle(ctx, req.OrganizationKey, req.Environment)
 	if err != nil || uses {
 		t.Fatalf("legacy Environment = %v %v", uses, err)
+	}
+}
+
+func TestEnvironmentReleasePublishesMissingJobSecretsBeforeTheJob(t *testing.T) {
+	c, p, ctx, req := environmentFixture(t)
+	req.ReleaseID, req.Workloads = "r1", map[string][]execution.Manifest{"backend": workloadManifests("backend", "b:1", 1, "migrate"), "worker": workloadManifests("worker", "w:1", 0, "")}
+	if err := c.DeployEnvironment(ctx, req); err != nil {
+		t.Fatal(err)
+	}
+	if len(p.submitted) != 3 || p.submitted[0].unit != domain.EnvironmentAppUnit || p.submitted[1].unit != domain.EnvironmentMigrateUnit || p.submitted[2].unit != domain.EnvironmentAppUnit {
+		t.Fatalf("order = %+v", p.submitted)
+	}
+	if got := strings.Join(names(p.submitted[0].objects), " "); got != "VaultConnection/orch-vault-1 VaultStaticSecret/backend-config-v1" {
+		t.Fatalf("secret preparation = %s", got)
+	}
+	if got := strings.Join(names(p.submitted[2].objects), " "); got != "Deployment/backend Deployment/worker VaultConnection/orch-vault-1 VaultStaticSecret/backend-config-v1" {
+		t.Fatalf("final app = %s", got)
+	}
+	// A new secret version for a changed Job is prepared again; the running
+	// version stays declared until the final release.
+	req.ReleaseID, req.Workloads = "r2", map[string][]execution.Manifest{"backend": workloadManifests("backend", "b:1", 2, "migrate")}
+	if err := c.DeployEnvironment(ctx, req); err != nil {
+		t.Fatal(err)
+	}
+	if len(p.submitted) != 6 || p.submitted[3].unit != domain.EnvironmentAppUnit || p.submitted[4].unit != domain.EnvironmentMigrateUnit {
+		t.Fatalf("order = %+v", p.submitted[3:])
+	}
+	if got := strings.Join(names(p.submitted[3].objects), " "); got != "Deployment/backend Deployment/worker VaultConnection/orch-vault-1 VaultStaticSecret/backend-config-v1 VaultStaticSecret/backend-config-v2" {
+		t.Fatalf("second preparation = %s", got)
+	}
+	if got := strings.Join(names(p.submitted[5].objects), " "); got != "Deployment/backend Deployment/worker VaultConnection/orch-vault-1 VaultStaticSecret/backend-config-v1 VaultStaticSecret/backend-config-v2" {
+		t.Fatalf("final with retained secret = %s", got)
 	}
 }

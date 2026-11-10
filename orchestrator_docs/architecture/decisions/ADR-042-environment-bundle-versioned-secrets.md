@@ -60,6 +60,11 @@ gốc độ phức tạp của recovery ở issue #48 và #55.
    kstatus coi Job đã bắt đầu là `Current`, nên bundle Ready trước khi Job xong.
    Tên Job mang hash nội dung (`<tên>-<hash8>`). Job không đổi giữ nguyên tên và
    nội dung nên Fleet đồng bộ lại không tạo Job mới; Job đổi là object mới.
+   Job thường cần Secret của workload (ví dụ mật khẩu database). Khi Job đã đổi
+   tham chiếu một Secret mà bản `app` đã publish chưa khai báo (lần deploy đầu
+   hoặc version giá trị mới), Orchestrator publish trước một revision `app` chỉ
+   thêm phần giao secret (ServiceAccount, VaultAuth, VaultConnection, VSS) của
+   workload thay đổi, chờ Ready, rồi mới tới `migrate` và revision `app` cuối.
 6. **Giữ secret của lần deploy thành công gần nhất.** Bundle `app` gồm VSS mà
    workload đang cần cộng VSS của lần publish `app` thành công gần nhất nếu khác.
    VSS giữ lại mang annotation `orchestrator.io/retained-secret: "true"`. Pod cũ
@@ -79,8 +84,10 @@ revision. Deploy batch:
    không render lại nên không restart.
 3. Thêm VSS giữ lại theo quyết định 6, gộp object dùng chung (VaultConnection)
    theo khóa object; hai object trùng khóa khác nội dung thì từ chối.
-4. Publish `migrate` (nếu có Job đổi) và chờ `Complete`, rồi publish `app`, chờ
-   Ready. Revision mới Ready thì xóa guarded object không còn trong bundle.
+4. Publish `migrate` (nếu có Job đổi, sau bước chuẩn bị secret khi cần) và chờ
+   `Complete`, rồi publish `app`, chờ Ready. Revision mới Ready thì xóa guarded
+   object không còn trong bundle, gồm cả object chỉ do một revision lỗi đã
+   publish tạo ra (UID quan sát được ghi cùng bản ghi FAILED).
 
 Mọi workload của Environment phải cùng cluster và namespace; khác thì Deploy
 từ chối trước khi publish, với lỗi rõ ràng.

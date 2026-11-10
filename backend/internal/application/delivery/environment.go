@@ -377,6 +377,10 @@ func (c *Coordinator) DeployEnvironment(ctx context.Context, req EnvironmentRequ
 	if err != nil {
 		return err
 	}
+	baseApps, err := load(appBase)
+	if err != nil {
+		return err
+	}
 	jobs, err := load(migrateBase)
 	if err != nil {
 		return err
@@ -428,41 +432,15 @@ func (c *Coordinator) DeployEnvironment(ctx context.Context, req EnvironmentRequ
 	}
 	// ADR-042 decision 6: keep the VaultStaticSecrets of the last successful
 	// release that the new desired state no longer uses.
-	withRetained := map[string][]execution.Manifest{}
-	for name, ms := range apps {
-		withRetained[name] = append([]execution.Manifest(nil), ms...)
-	}
+	var lastSuccess map[string][]execution.Manifest
 	if appSuccess != nil {
-		last, err := load(appSuccess)
-		if err != nil {
+		if lastSuccess, err = load(appSuccess); err != nil {
 			return err
 		}
-		for name, ms := range last {
-			current, keep := withRetained[name]
-			if !keep {
-				continue
-			}
-			names := map[string]bool{}
-			for _, m := range current {
-				names[objectKey(m)] = true
-			}
-			for _, m := range ms {
-				if m.Kind != "VaultStaticSecret" || names[objectKey(m)] {
-					continue
-				}
-				md, _ := m.Object["metadata"].(map[string]any)
-				if md == nil {
-					return domain.ErrInvalid
-				}
-				annotations, _ := md["annotations"].(map[string]any)
-				if annotations == nil {
-					annotations = map[string]any{}
-				}
-				annotations[RetainedSecretAnnotation] = "true"
-				md["annotations"] = annotations
-				withRetained[name] = append(withRetained[name], m)
-			}
-		}
+	}
+	withRetained, err := retainSecrets(apps, lastSuccess)
+	if err != nil {
+		return err
 	}
 	appManifests, appOwners, err := flatten(withRetained)
 	if err != nil {
@@ -485,6 +463,33 @@ func (c *Coordinator) DeployEnvironment(ctx context.Context, req EnvironmentRequ
 	}
 	migrateChanged := !reflect.DeepEqual(previousJobs.Workloads, jobComposition.Workloads)
 	if len(jobManifests) > 0 && migrateChanged {
+		// A changed Job can need a Secret the published app unit does not
+		// declare yet (first deploy or a new value version). Publish only the
+		// secret delivery objects first, so the Job can start (ADR-042).
+		if prepare, needed := secretPreparation(baseApps, req.Workloads, jobManifests); needed {
+			prepared, err := retainSecrets(prepare, lastSuccess)
+			if err != nil {
+				return err
+			}
+			manifests, _, err := flatten(prepared)
+			if err != nil {
+				return err
+			}
+			comp, err := toComposition(prepare)
+			if err != nil {
+				return err
+			}
+			prepReq := req
+			prepReq.ReleaseID = req.ReleaseID + "/secrets"
+			intent, _ := c.environmentIntent(prepReq, org.ID, owner, b, domain.EnvironmentAppUnit, domain.Rollout)
+			if err := c.runEnvironmentUnit(ctx, provider, intent, appUnit, executions, manifests, comp); err != nil {
+				return err
+			}
+			// The preparation is now the published base of the final app revision.
+			if executions, err = c.Store.ListDeliveryExecutions(ctx, org.ID, req.Environment.ID); err != nil {
+				return err
+			}
+		}
 		intent, _ := c.environmentIntent(req, org.ID, owner, b, domain.EnvironmentMigrateUnit, domain.Job)
 		if _, err := provider.Prepare(ctx, intent, jobManifests); err != nil {
 			return err
@@ -582,4 +587,140 @@ func failingWorkloads(observation domain.Observation, owners map[string]string) 
 	}
 	sort.Strings(out)
 	return out
+}
+
+// retainSecrets adds, per remaining workload, the VaultStaticSecrets of the
+// last successful release that the desired manifests no longer declare.
+func retainSecrets(apps, lastSuccess map[string][]execution.Manifest) (map[string][]execution.Manifest, error) {
+	out := map[string][]execution.Manifest{}
+	for name, ms := range apps {
+		out[name] = append([]execution.Manifest(nil), ms...)
+	}
+	for name, ms := range lastSuccess {
+		current, keep := out[name]
+		if !keep {
+			continue
+		}
+		names := map[string]bool{}
+		for _, m := range current {
+			names[objectKey(m)] = true
+		}
+		for _, m := range ms {
+			if m.Kind != "VaultStaticSecret" || names[objectKey(m)] {
+				continue
+			}
+			object, err := deepCopy(m.Object)
+			if err != nil {
+				return nil, err
+			}
+			md, _ := object["metadata"].(map[string]any)
+			if md == nil {
+				return nil, domain.ErrInvalid
+			}
+			annotations, _ := md["annotations"].(map[string]any)
+			if annotations == nil {
+				annotations = map[string]any{}
+			}
+			annotations[RetainedSecretAnnotation] = "true"
+			md["annotations"] = annotations
+			m.Object = object
+			out[name] = append(out[name], m)
+		}
+	}
+	return out, nil
+}
+
+// secretDelivery reports a platform secret-delivery object of a workload.
+func secretDelivery(m execution.Manifest) bool {
+	switch {
+	case strings.HasPrefix(m.APIVersion, "secrets.hashicorp.com/"):
+		return true
+	case m.APIVersion == "v1" && m.Kind == "ServiceAccount" && strings.HasPrefix(m.Name, "orch-"):
+		return true
+	case m.APIVersion == "v1" && m.Kind == "Secret" && execution.PublicCertificateSecret(m.Object):
+		return true
+	}
+	return false
+}
+
+// jobSecretNames lists the Secrets the pods of the Jobs reference.
+func jobSecretNames(jobs []execution.Manifest) map[string]bool {
+	out := map[string]bool{}
+	for _, job := range jobs {
+		spec, _ := job.Object["spec"].(map[string]any)
+		template, _ := spec["template"].(map[string]any)
+		pod, _ := template["spec"].(map[string]any)
+		containers, _ := pod["containers"].([]any)
+		if initContainers, ok := pod["initContainers"].([]any); ok {
+			containers = append(containers, initContainers...)
+		}
+		for _, raw := range containers {
+			container, _ := raw.(map[string]any)
+			env, _ := container["env"].([]any)
+			for _, rawEnv := range env {
+				entry, _ := rawEnv.(map[string]any)
+				from, _ := entry["valueFrom"].(map[string]any)
+				ref, _ := from["secretKeyRef"].(map[string]any)
+				if name, _ := ref["name"].(string); name != "" {
+					out[name] = true
+				}
+			}
+			envFrom, _ := container["envFrom"].([]any)
+			for _, rawFrom := range envFrom {
+				entry, _ := rawFrom.(map[string]any)
+				ref, _ := entry["secretRef"].(map[string]any)
+				if name, _ := ref["name"].(string); name != "" {
+					out[name] = true
+				}
+			}
+		}
+		volumes, _ := pod["volumes"].([]any)
+		for _, raw := range volumes {
+			volume, _ := raw.(map[string]any)
+			secret, _ := volume["secret"].(map[string]any)
+			if name, _ := secret["secretName"].(string); name != "" {
+				out[name] = true
+			}
+		}
+	}
+	return out
+}
+
+// secretPreparation returns the published app composition extended with the
+// secret delivery objects of the changed workloads, when a changed Job needs
+// a Secret that the published composition does not declare.
+func secretPreparation(base, changed map[string][]execution.Manifest, jobs []execution.Manifest) (map[string][]execution.Manifest, bool) {
+	declared := map[string]bool{}
+	for _, ms := range base {
+		for _, m := range ms {
+			if m.Kind == "VaultStaticSecret" {
+				declared[m.Name] = true
+			}
+		}
+	}
+	missing := false
+	for name := range jobSecretNames(jobs) {
+		missing = missing || !declared[name]
+	}
+	if !missing {
+		return nil, false
+	}
+	out := map[string][]execution.Manifest{}
+	for name, ms := range base {
+		out[name] = append([]execution.Manifest(nil), ms...)
+	}
+	for name, ms := range changed {
+		current := out[name]
+		present := map[string]bool{}
+		for _, m := range current {
+			present[objectKey(m)] = true
+		}
+		for _, m := range ms {
+			if secretDelivery(m) && !present[objectKey(m)] {
+				current = append(current, m)
+			}
+		}
+		out[name] = current
+	}
+	return out, true
 }
