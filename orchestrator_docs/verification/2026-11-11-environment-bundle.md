@@ -41,7 +41,24 @@ Every business action went through the Console as Admin or Developer; workloads
 were authored in the form (no file import). See the run table in the issue
 report for operation IDs and timings.
 
-RESULTS_PLACEHOLDER
+Final clean run `bundle3` (2026-11-10 19:03–19:42 UTC) on the last build:
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | First Deploy of four workloads | SUCCEEDED in one Deploy; `<workload>-config-v1` at Vault version 1; app checks PASS |
+| 2 | Image only | same VSS/Secret/ServiceAccount/VaultAuth UIDs and Vault version |
+| 3 | Secret change | Vault version 2, `-config-v2`, Pods rolled, v1 retained |
+| 4 | Rollout failure after a secret change | Old worker Pod kept `worker-config-v2`; deleting it (UID precondition) brought a Ready replacement on v2 |
+| 5 | Unused secret | Rollback release left only `-config-v2`; every other backend/worker VSS and Secret deleted and garbage collected |
+| 6 | Job | `backend-migrate-<hash>` Complete before the backend Deployment existed; forced Fleet resync re-ran no Job |
+| 7 | One broken workload | Deploy PARTIAL: Console named worker (`ROLLOUT_NOT_READY`), backend SUCCEEDED, frontend Pods unchanged, jobs still processed |
+| 8 | Rollback | Restored `-config-v2` reusing the Vault version (no new write) |
+| 9 | Acceptance app | frontend/backend/worker/scheduled, PostgreSQL, Redis, 1Gi PVC: checks PASS, job DONE, PVC value kept after Pod recreation, scheduled receipt with the PVC hash |
+| 10 | Deletion | `bundle2`: schedule suspended through Preview/Deploy, Application deleted; namespace, Fleet GitRepo and workload Vault paths gone |
+
+During `bundle3` the first `fail` attempt hit a deadline-cut Git read (fixed,
+item 3 below); the Environment was recovered from Settings and the stage rerun.
+The delivery Git repository history is retained per ADR-033.
 
 ## Defects found and fixed during the run
 

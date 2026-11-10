@@ -18,8 +18,8 @@ equal content reuses a version, the last successful version stays declared, and
 SA/VaultAuth/role are fixed. Only PE/Admin select the Environment store; a store
 with running workloads cannot change. Environments with active per-workload units
 keep the previous path. The standard template source adds `backend-migrate`.
-Kind acceptance runs through `e2e/scenarios/environment-bundle/`; awaiting user
-acceptance.
+Kind acceptance through `e2e/scenarios/environment-bundle/` passed all ten
+criteria; awaiting user acceptance. [Evidence](verification/2026-11-11-environment-bundle.md).
 
 ## Rollout recovery after a completed Prerequisite — issue #48
 
