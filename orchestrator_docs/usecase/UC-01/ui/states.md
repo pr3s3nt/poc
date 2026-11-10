@@ -2,7 +2,7 @@
 id: UC-01-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-11-09
 ---
 
 # UC-01 UI states
@@ -69,6 +69,8 @@ Subdomain đã bỏ theo [ADR-037](../../../architecture/decisions/ADR-037-retir
 - Failed/partial: báo kết quả từng Workload; thay đổi chưa xong vẫn pending,
   không rollback tự động. Lỗi dùng fallback Việt an toàn, không hiển thị raw
   backend/provider error hoặc giá trị key/bí mật; mapping tổng thể theo contract lỗi T20.
+  Mã `ROLLOUT_DEGRADED`/`ROLLOUT_NOT_READY` (UC-06 CD-10) hiện thông báo rollout
+  riêng kèm link “Xem log” của Workload; Environment đã mở khóa để sửa và triển khai lại.
 - Đổi app/môi trường: bỏ phản hồi cũ sai context cho list/preview/result/history;
   IDs và graph data giữ nguyên. Triển khai đang chạy giữ các khóa điều hướng.
 

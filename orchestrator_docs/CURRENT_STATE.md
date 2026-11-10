@@ -2324,6 +2324,17 @@ validated offline only (no AWS run). Verified on kind with five databases
 `backend/terraform-modules/mysql` snapshots and Git-catalog bootstrap targets pinned
 to older commits are unchanged.
 
+## Determined rollout failure releases the Environment — issue #55 (2026-11-09)
+
+A receipted rollout observed Degraded, or still not Ready at the 5-minute
+readiness deadline, ends FAILED and releases the Environment instead of being held
+INTERRUPTED ([UC-06 CD-10](usecase/UC-06/specification.md)). Recover applies the
+same classification within the Deploy deadline, and the next Deploy names a
+published failed revision so Fleet accepts its replacement. Deploy results and
+Deployment details carry `ROLLOUT_DEGRADED`/`ROLLOUT_NOT_READY`; the Console shows
+the reason with a link to the workload logs. Unknown outcomes, CD transfer and
+policy-only delivery still hold. [Evidence and findings](verification/2026-11-09-rollout-failure-release.md).
+
 ## Stable template renderer pin — issue #57 (2026-11-09)
 
 Git template sources pin a stable renderer identity ([ADR-041](architecture/decisions/ADR-041-stable-template-renderer-pin.md)):

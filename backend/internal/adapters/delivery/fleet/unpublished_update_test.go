@@ -52,3 +52,28 @@ func TestFirstRolloutAbsenceRequiresItsOwnPrerequisitePin(t *testing.T) {
 		}
 	}
 }
+
+// UC-06 CD-10: only an exact receipted published failure stands in for the
+// acknowledged source inventory.
+func TestFailedPriorRequiresTheReceiptedPinHolder(t *testing.T) {
+	prior := &port.PriorSubmission{Failed: true, Prepared: port.Prepared{Revision: domain.Revision{ID: "failed"}}, Receipt: port.Receipt{IntentID: "failed-intent", RevisionID: "failed"}}
+	i := port.Intent{ID: "new", ExpectedRevision: "failed", PriorSubmission: prior}
+	if !failedPrior(i) {
+		t.Fatal("receipted published failure refused")
+	}
+	for _, mutate := range []func(*port.PriorSubmission){
+		func(p *port.PriorSubmission) { p.Failed = false },
+		func(p *port.PriorSubmission) { p.Prepared.Revision.ID = "other" },
+		func(p *port.PriorSubmission) { p.Receipt.RevisionID = "other" },
+		func(p *port.PriorSubmission) { p.Receipt.IntentID = "" },
+	} {
+		bad := *prior
+		mutate(&bad)
+		if failedPrior(port.Intent{ID: "new", ExpectedRevision: "failed", PriorSubmission: &bad}) {
+			t.Fatal("unproven failed prior accepted", bad)
+		}
+	}
+	if failedPrior(port.Intent{ExpectedRevision: "failed"}) || failedPrior(port.Intent{ExpectedRevision: "other", PriorSubmission: prior}) {
+		t.Fatal("missing or mismatched prior accepted")
+	}
+}

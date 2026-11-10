@@ -60,6 +60,9 @@ func (i Intent) Validate() error {
 type PriorSubmission struct {
 	Prepared Prepared
 	Receipt  Receipt
+	// Failed marks a determined failure that was published (UC-06 CD-10). It
+	// holds the provider pin but never recorded an acknowledged UID inventory.
+	Failed bool
 }
 
 type Prepared struct {

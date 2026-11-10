@@ -2,7 +2,7 @@
 id: UC-09-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-11-09
 related: UC-09
 ---
 
@@ -41,6 +41,8 @@ related: UC-09
 - Failed: badge “Thất bại”, hướng dẫn Việt an toàn; không có plan thì ghi
   “Không có kế hoạch tạo tài nguyên được lưu cho triển khai này.”, không dựng
   graph/batches giả. Unknown failure dùng fallback, không thay từ bằng regex.
+  `failureCode` rollout (UC-06 CD-10) thay fallback bằng thông báo rollout và link
+  “Xem log” tới log của Workload.
 - Succeeded: badge “Thành công”, dữ liệu persisted và output đã che. Các enum
   khác được dịch nhãn nhưng không đổi dữ liệu API; empty Workload/tài nguyên/
   batches có thông báo Việt. Phản hồi hoặc lỗi đến muộn của app/env/ID/lượt đọc

@@ -354,6 +354,28 @@ it('reports a partial Deploy per Workload without raw errors and retries through
   expect(calls.filter((call) => call === 'deploy')).toHaveLength(2);
 });
 
+it('explains a determined rollout failure per Workload and links to its logs', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.includes('/resources')) return Response.json({ resources: [] });
+    if (url.endsWith('/preview')) return Response.json({ token: 'tok', draftVersion: 1, changes: [{ workloadId: 'api', action: 'UPDATE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] });
+    if (url.endsWith('/deploy')) return Response.json({ status: 'FAILED', results: [{ workloadId: 'api', action: 'UPDATE', status: 'FAILED', deploymentId: 'dep-api', error: 'the workload was delivered but did not become ready', errorCode: 'ROLLOUT_NOT_READY' }] });
+    return pendingList();
+  }));
+  const user = userEvent.setup();
+  render(<ApplicationHomePage application={application} />);
+  await screen.findByText('api');
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  await user.click(await screen.findByRole('button', { name: 'Triển khai các thay đổi này' }));
+  const result = await screen.findByLabelText('Kết quả triển khai');
+  expect(result).toHaveTextContent('chưa sẵn sàng trong thời gian chờ');
+  expect(result).not.toHaveTextContent('Workload này không triển khai được');
+  await user.click(within(result).getByRole('link', { name: 'Xem log' }));
+  expect(window.location.pathname).toContain('/environments/staging/observability');
+  expect(window.location.search).toContain('workload=api');
+});
+
 it('drops a stale Preview on a 409 Deploy, reloads the list and does not redeploy', async () => {
   let deploys = 0;
   let lists = 0;

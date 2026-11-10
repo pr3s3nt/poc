@@ -12,6 +12,7 @@ export type Deployment = {
   actorRef: string;
   status: 'PLANNING' | 'PROVISIONING' | 'DEPLOYING' | 'SUCCEEDED' | 'FAILED';
   failureReason?: string;
+  failureCode?: string;
   startedAt: string;
   finishedAt?: string;
 };

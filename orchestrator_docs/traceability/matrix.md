@@ -1612,3 +1612,9 @@ separate in the Environment rollback verification record.
 | UC-02 EXT-01..04 add optional outputs | `resource.AppendOutputs`; `catalog.Service.AddResourceTypeOutputs`; memory/PostgreSQL `AppendResourceTypeOutputs` (row lock); `POST /api/v1/resource-types/{key}/outputs`; ResourceTypesPage add-output form | `TestAppendOutputs`, `TestAddResourceTypeOutputs`, persistencetest `Registration` (memory + PostgreSQL), `TestUC02AddResourceTypeOutputsHTTP`, `TestUC02AddResourceTypeOutputsConcurrentOnPostgres`; ResourceTypesPage UC-02 EXT tests |
 | UC-02 EXT-05 unmapped optional output stops Preview | `graphBuilder.setOutputRefs` checked by `validateReferenceOutputs` | `TestPlan_OptionalOutputMustBeProvidedByTheSelectedDefinition` |
 | Module contract `uri`/`jdbcUrl`/`connection`; executor-owned MySQL/MariaDB/MongoDB passwords | packaged postgres-k8s/redis-k8s/aurora/elasticache (release v5-2026.11.08); `projects/platform-resources/terraform/*` | `TestKubernetesModuleRegistryContracts`, `TestAWSModuleRegistryContracts`, source-safety tests; `terraform test` for mysql/mariadb/mongodb (percent-encoding) |
+
+## Determined rollout failure releases the Environment — issue #55
+
+| Requirement | Realization/code | Validation |
+|---|---|---|
+| UC-06 CD-10 | delivery `coordinator.go` (`runPhase`), `submission_recovery.go`; deployment `PublicFailure` rollout summaries | coordinator and recovery tests for Degraded, readiness deadline, push failure, observation error and transfer hold; kind Console scenario |

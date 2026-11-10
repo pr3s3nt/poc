@@ -2,7 +2,7 @@
 id: UC-06-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-09
 ---
 
 > Current managed delivery policy: [ADR-033](../../architecture/decisions/ADR-033-platform-managed-delivery.md)
@@ -442,6 +442,33 @@ per-resource evidence; changing a Definition does not silently upgrade this scop
   the allocated Git repository and its Fleet GitRepo, per
   [ADR-038](../../architecture/decisions/ADR-038-readable-idp-names.md). Existing
   allocations/controller names and original ownership guards remain unchanged.
+- **CD-10 (issue #55):** A rollout is a **determined failure** when its submission
+  receipt is persisted and the provider is observed successfully but reports the
+  exact revision Degraded, or still not Ready at the readiness deadline. The
+  delivery intent becomes FAILED, the Git publication lease is released and the
+  Environment is released: Deploy ends FAILED with a safe rollout reason, Recover
+  ends RECOVERED with the Deployment FAILED. The published revision remains until
+  a later Deploy, rollback or removal replaces it; there is no automatic retry,
+  rollback or deletion. Any **unknown outcome** keeps the existing hold: a failed
+  or unconfirmed push, an observation/controller/ownership/fencing error, loss or
+  cancellation of the owning operation, and CD ownership transfer or policy-only
+  delivery. Recover applies the same classification and, for an ordinary Deploy,
+  the same readiness deadline as Deploy, so an operation held by an earlier
+  release for a determined failure resolves with one Recover inside one Console
+  request. A rollout is Ready only when every container of the current revision's
+  Pods is ready and has been running continuously for 15 seconds, so a container
+  that exits at once is never reported successful from a momentary ready replica.
+  A container not stably running after 3 restarts is a crash loop and concludes
+  the rollout as a determined failure (`ROLLOUT_DEGRADED`) without waiting for the
+  deadline; a container that restarted during start-up and then runs stably is
+  Ready. Fleet reports a crash-looping first rollout as `Progressing=True`, never
+  Degraded, so this Pod evidence is required.
+  A published determined failure holds the provider pin until replaced: the next
+  Deploy names it as the expected revision, and Recover of a replacement
+  interrupted after it observes against that same pin. When both Git publications
+  of the replacement are absent and every live object of the unit still carries
+  the failed revision, the replacement is proven never published, its intent
+  becomes FAILED and the Environment is released; otherwise the hold remains.
 
 ## Public endpoint resource
 
