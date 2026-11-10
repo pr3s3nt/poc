@@ -1,5 +1,41 @@
 # Bootstrap platform và acceptance app
 
+## Chỉ seed Resource Definitions lần đầu — issue #62
+
+Resource Types, Kubernetes Driver Account và Git settings phải có sẵn. Copy
+[input mẫu](definitions.example.yaml) ra ngoài Git, `chmod 600` và điền Console,
+file password, Organization, `parameters.driverAccountKey`, tên và điều kiện
+matching. Không cần khai báo lại Git credential hoặc các prerequisites này.
+
+```sh
+npm ci --prefix scripts/bootstrap
+node scripts/bootstrap/seed-definitions.mjs --config /private/definitions.yaml
+```
+
+Input mẫu dùng `pr3s3nt/orchestrator-workload-templates` tại exact commit và tạo
+bảy Definitions: cluster, namespace, PostgreSQL, Redis, MySQL, storage, workload.
+Xóa entry không cần; các Type còn lại phải tồn tại. `repository.url` là URL Git
+duy nhất: khi mirror nguyên repo/commit sang Git nội bộ, chỉ thay URL đó. Nếu
+commit của bản nội bộ khác, sửa thêm `repository.ref`. Backend dùng Git settings
+hiện có để xác thực và trust CA; script không yêu cầu GitHub CLI/token riêng,
+không sửa Git settings và không tắt TLS verification.
+
+`modulePath`/`templatePath` nằm cạnh các trường Definition JSON thông thường.
+Script inspect qua backend, lấy source/module IDs, exact revision, digest hoặc
+template ID rồi điền vào Definition; không tự tính hoặc hardcode pins. Chỉ
+`${seed.NAME}` được thay bằng `parameters.NAME`; expressions của sản phẩm giữ
+nguyên. Inputs/outputs, biến và provider bindings còn lại khai báo trong YAML.
+MySQL lấy `image` từ resource param; không đưa password vào input. Có thể thêm
+output PostgreSQL `asyncUri` vào mapping nếu Type đã khai báo output đó.
+
+Đây là seed lần đầu qua API, không ghi SQL trực tiếp: tạo mục thiếu, dùng lại
+mục khớp, khác thì CONFLICT. Tất cả conflicts trên Definitions được kiểm trước
+khi tạo Definition mới. Inspect có thể ghi metadata/cache nguồn ngay cả khi
+seed bị chặn; các bước đã thành công không tự rollback. Không tự retry POST khi
+kết quả không rõ, không sửa/promote revision hoặc deploy ứng dụng. Chạy một
+importer cho mỗi target. Thành công báo `Definitions SEEDED`, không phải nghiệm
+thu workload.
+
 ## Local API seed (không browser)
 
 Cho Console chạy trong `kind-k8s-4f`, dùng [runbook](../../orchestrator_docs/operations/platform-seed.md)
