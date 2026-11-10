@@ -93,7 +93,7 @@ function watchAndStop(ns){
   });
  });
 }
-// A request in flight to the stopped backend never answers; bound each read.
+// A read may hit the backend while it restarts; bound each one.
 const getWithin=(path,ms=30000)=>Promise.race([ui.get(path),new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout '+path)),ms))]);
 async function interrupt(){
  if(state.attempt?.stoppedAt&&state.kept)return classify();
@@ -125,7 +125,9 @@ async function classify(){
  await page.goto(c.baseURL+`/ui/applications/${state.app.key}?environment=${ENV}`).catch(()=>{});
  const deadline=Date.now()+900000;let op;
  for(;;){
-  try{op=(await getWithin(appBase()+'/operations?reviewRequestId='+encodeURIComponent(state.attempt.reviewRequestId))).operations?.find(o=>o.reviewRequestId===state.attempt.reviewRequestId);}catch{}
+  // The unfiltered list classifies a stale heartbeat (as the Settings page does);
+  // the reviewRequestId filter only reads.
+  try{await getWithin(appBase()+'/operations');op=(await getWithin(appBase()+'/operations?reviewRequestId='+encodeURIComponent(state.attempt.reviewRequestId))).operations?.find(o=>o.reviewRequestId===state.attempt.reviewRequestId);}catch{}
   if(op&&TERMINAL.includes(op.status))break;
   assert(Date.now()<deadline,'Operation not classified after the stop');await page.waitForTimeout(5000);
  }

@@ -482,7 +482,7 @@ stopped-owner recovery guard verifies exact new manifest/metadata publication
 absence, absence of the Rollout pin, live workload objects, Bundle,
 BundleDeployment and Helm release. A completed same-workload/generation/epoch
 Prerequisite pin and all sibling Git trees must remain authoritative; reread the
-same owned controller UID/resourceVersion before settling. This recovery does not
+same owned controller (UID, generation, labels, annotations, spec) before settling. This recovery does not
 publish or retry, withdraw the Prerequisite, or change sibling resources. Unknown
 or admitted outcomes remain held. After recovery, redeploy or rollback is a
 separate user action.

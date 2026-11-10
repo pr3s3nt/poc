@@ -77,3 +77,37 @@ func TestFailedPriorRequiresTheReceiptedPinHolder(t *testing.T) {
 		t.Fatal("missing or mismatched prior accepted")
 	}
 }
+
+// Issue #48: Fleet status writes change resourceVersion; only a change of the
+// controller itself may stop the first-Rollout absence proof.
+func TestSameControllerIdentityIgnoresStatusWrites(t *testing.T) {
+	repo := func() map[string]any {
+		return map[string]any{
+			"metadata": map[string]any{"uid": "u", "generation": float64(2), "resourceVersion": "10", "labels": map[string]any{"a": "1"}, "annotations": map[string]any{"orchestrator.io/unit-pins": "pins"}},
+			"spec":     map[string]any{"revision": "c1", "paths": []any{"p"}},
+			"status":   map[string]any{"commit": "c1"},
+		}
+	}
+	before, after := repo(), repo()
+	after["metadata"].(map[string]any)["resourceVersion"] = "11"
+	after["status"] = map[string]any{"commit": "c1", "lastPollingTriggered": "now"}
+	if !sameControllerIdentity(before, after) {
+		t.Fatal("a status write was treated as a different controller")
+	}
+	for name, mutate := range map[string]func(map[string]any){
+		"uid":        func(r map[string]any) { r["metadata"].(map[string]any)["uid"] = "other" },
+		"generation": func(r map[string]any) { r["metadata"].(map[string]any)["generation"] = float64(3) },
+		"unit pins": func(r map[string]any) {
+			r["metadata"].(map[string]any)["annotations"] = map[string]any{"orchestrator.io/unit-pins": "changed"}
+		},
+		"labels":   func(r map[string]any) { r["metadata"].(map[string]any)["labels"] = map[string]any{"a": "2"} },
+		"spec":     func(r map[string]any) { r["spec"] = map[string]any{"revision": "c2", "paths": []any{"p"}} },
+		"deleting": func(r map[string]any) { r["metadata"].(map[string]any)["deletionTimestamp"] = "now" },
+	} {
+		changed := repo()
+		mutate(changed)
+		if sameControllerIdentity(before, changed) {
+			t.Fatalf("%s change accepted as the same controller", name)
+		}
+	}
+}
