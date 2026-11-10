@@ -2,7 +2,7 @@
 id: UC03-DEFINITION-VERSIONS
 artifact: specification-extension
 status: current
-last_reviewed: 2026-11-03
+last_reviewed: 2026-11-09
 ---
 
 # Controlled Definition and artifact upgrades
@@ -42,6 +42,9 @@ or unknown mutation outcomes require reload rather than automatic replay.
 DV-05. Module/bundle pins remain immutable. Terraform binary/provider and renderer
 identities are part of their artifact contracts. Retain verified old artifacts and
 compatible executable versions; never reinterpret a pin with the current binary.
+For Git template sources the renderer identity is the stable fingerprint of
+[ADR-041](../../architecture/decisions/ADR-041-stable-template-renderer-pin.md),
+not the whole backend executable.
 If the matching old toolchain is unavailable, refuse execution with guidance.
 Historical cleanup keeps original state/identity/artifact guards.
 

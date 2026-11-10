@@ -168,3 +168,13 @@ legacy documents and desired/applied round-trip semantics.
 [ADR-039](../decisions/ADR-039-template-owned-workload-defaults.md) removes
 `workloadExecution.defaults`; verified template-only profiles are frozen in
 `workloadExecution.templateDefaults`. Unknown/removed policy fields are rejected.
+
+## GW-09 — Authored variable order (issue #63)
+
+A container may declare optional `variableOrder: string[]`: the display order the
+author gave its `variables`. Entries are distinct names declared in `variables`;
+names it omits follow in sorted order. It is authoring metadata stored with the
+draft and the Deployment Set module, so a deployed workload reopens in the same
+order. Rendering, bindings and manifests ignore it and keep their sorted order.
+The editor writes it only when the order differs from the sorted order, so an
+unchanged older workload keeps the same document. Import/export keep it as written.

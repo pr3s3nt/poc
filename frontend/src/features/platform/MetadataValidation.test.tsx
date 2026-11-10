@@ -45,7 +45,8 @@ describe('strict capability metadata', () => {
 
 describe('strict Resource Type and bundle metadata', () => {
   it('accepts valid empty arrays, null schemas and rejects the rest', () => {
-    expect(parseTypeMetadata({ resourceTypes: [{ key: 'cache', inputs: null, outputs: [], classes: [] }] })).toEqual([{ key: 'cache', inputs: [], outputs: [], classes: [] }]);
+    expect(parseTypeMetadata({ resourceTypes: [{ key: 'cache', inputs: null, outputs: [], classes: [] }] })).toEqual([{ key: 'cache', inputs: [], outputs: [], classes: [], defaultAvailable: false }]);
+    expect(parseTypeMetadata({ resourceTypes: [{ key: 'cache', inputs: [], outputs: [], classes: ['a'], defaultAvailable: true }] })[0]?.defaultAvailable).toBe(true);
     expect(parseTypeMetadata({ resourceTypes: [] })).toEqual([]);
     for (const body of [{}, { resourceTypes: {} }, { resourceTypes: [{ key: 'a', inputs: [], outputs: [] }] }, { resourceTypes: [{ key: 'a', inputs: [], outputs: [], classes: 'x' }] }, { resourceTypes: [{ key: 'a', inputs: [], outputs: [], classes: [1] }] },
       { resourceTypes: [{ key: 'a', inputs: {}, outputs: [], classes: [] }] }, { resourceTypes: [{ key: 'a', inputs: [], outputs: [{ type: 'string' }], classes: [] }] }, { resourceTypes: [{ key: '', inputs: [], outputs: [], classes: [] }] }, { resourceTypes: [{ key: 'a', inputs: [], classes: [] }] }]) {

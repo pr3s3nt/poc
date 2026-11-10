@@ -79,4 +79,5 @@ ZIP source upload: [ADR-026](ADR-026-zip-source-upload.md).
 
 - [ADR-039 — Template-owned workload defaults](ADR-039-template-owned-workload-defaults.md).
 - [ADR-040 — Bounded deployment retry and user-selected Environment rollback](ADR-040-environment-deployment-retry-and-rollback.md) — issue #49.
+- [ADR-041 — Stable template renderer pin](ADR-041-stable-template-renderer-pin.md) — issue #57
 - [ADR-038 — Readable names for IDP-managed resources](ADR-038-readable-idp-names.md).

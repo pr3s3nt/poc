@@ -45,7 +45,7 @@ không tự replay mutation; lỗi tải lại không phủ nhận kết quả �
 
 ## Read-only dependency classes — I04-07
 
-GET resource-types thêm computed `classes: string[]` theo
+GET resource-types thêm computed `classes: string[]` và `defaultAvailable` theo
 [UC-16 metadata mapping](../../UC-16/ui/api-mapping.md#metadata-class-và-source--i04-07).
 Session org/all authenticated roles giữ nguyên; chỉ schema và class names an
 toàn, không module pins/provider inputs/credentials. Class metadata lấy từ

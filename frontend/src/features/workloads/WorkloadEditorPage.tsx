@@ -23,6 +23,7 @@ import { WorkloadClassControl } from './WorkloadClassControl';
 import { bindingProblem, changeSource, escapeLiteral, isKeySource, readBinding, serviceAlias, type Binding, type KeyCatalog, type ResourceSpecs } from './bindings';
 import { buildRowContext } from './rowContext';
 import { t } from '../../shared/i18n';
+import { autoClass, classChoiceMissing } from '../../shared/classChoices';
 import { sharedResources, sharedSelectionProblem } from './sharedResources';
 import { ServiceEndpointFields, endpointPorts } from './ServiceEndpointFields';
 
@@ -41,7 +42,7 @@ function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): 
   const declaredClass = (raw.metadata as { class?: unknown } | undefined)?.class;
   if (declaredClass !== undefined && (typeof declaredClass !== 'string' || !validWorkloadClass(declaredClass))) return true;
   const containers = (raw.containers ?? {}) as Record<string, Record<string, unknown>>;
-  if (Object.values(containers).some((container) => Object.keys(container).some((key) => !['image', 'variables', 'resources', 'command', 'args', 'workingDir', 'readinessProbe', 'livenessProbe', 'startupProbe', 'role', 'initOrder', 'ports', 'securityContext'].includes(key)))) return true;
+  if (Object.values(containers).some((container) => Object.keys(container).some((key) => !['image', 'variables', 'resources', 'command', 'args', 'workingDir', 'readinessProbe', 'livenessProbe', 'startupProbe', 'role', 'initOrder', 'ports', 'securityContext', 'variableOrder'].includes(key)))) return true;
   if (Object.values(containers).some((container) => Object.keys((container.resources ?? {}) as Record<string, unknown>).some((key) => !['requests', 'limits'].includes(key)))) return true;
   if (Object.values(containers).some((container) => Object.values((container.resources ?? {}) as Record<string, Record<string, unknown>>).some((quantity) => Object.keys(quantity).some((key) => !['cpu', 'memory'].includes(key))))) return true;
   const resources = (raw.resources ?? {}) as Record<string, Record<string, unknown>>;
@@ -87,6 +88,12 @@ export function workloadNameProblem(name: string, kind?: string): string {
 // Workload class identifier: lowercase, no dot or space, at most 63 characters (backend resource.ValidClass).
 export const validWorkloadClass = (value: string): boolean => /^[a-z0-9][a-z0-9_-]{0,62}$/.test(value);
 
+// Class choices of the `workload` Type (UC-16 BR-31/33).
+const workloadClassMeta = (types: ResourceType[]) => {
+  const type = types.find((item) => item.key === 'workload');
+  return { classes: (type?.classes ?? []).filter(validWorkloadClass), defaultAvailable: type?.defaultAvailable === true };
+};
+
 // Every dictionary keyed by a user-chosen name is collected in a Map and turned
 // into an object with Object.fromEntries, so a name such as __proto__ stays an
 // own property instead of replacing the prototype and being dropped from JSON.
@@ -126,7 +133,10 @@ function buildScore(form: Form, types: ResourceType[]): Record<string, unknown> 
     if (container.memoryRequest) requests.memory = container.memoryRequest;
     if (container.cpuLimit) limits.cpu = container.cpuLimit;
     if (container.memoryLimit) limits.memory = container.memoryLimit;
-    containers.set(container.name, { ...(container.securityContext ? {securityContext:container.securityContext} : {}), ...(container.ports?.length ? {ports: container.ports} : {}), ...(container.role ? {role: container.role} : {}), ...(container.initOrder !== undefined ? {initOrder: container.initOrder} : {}), ...(container.workingDir ? { workingDir: container.workingDir } : {}), ...(container.readinessProbe ? { readinessProbe: container.readinessProbe } : {}), ...(container.livenessProbe ? { livenessProbe: container.livenessProbe } : {}), ...(container.startupProbe ? { startupProbe: container.startupProbe } : {}), ...(container.command.length ? { command: container.command } : {}), ...(container.args.length ? { args: container.args } : {}), ...(container.image ? { image: container.image } : {}), ...(variables.length ? { variables: Object.fromEntries(variables) } : {}), ...(Object.keys(requests).length || Object.keys(limits).length ? { resources: { ...(Object.keys(requests).length ? { requests } : {}), ...(Object.keys(limits).length ? { limits } : {}) } } : {}) });
+    // GW-09: the authored row order is written only when it differs from the sorted order.
+    const rowOrder = variables.map(([name]) => name);
+    const authoredOrder = rowOrder.join('\u0000') !== [...rowOrder].sort().join('\u0000');
+    containers.set(container.name, { ...(authoredOrder ? { variableOrder: rowOrder } : {}), ...(container.securityContext ? {securityContext:container.securityContext} : {}), ...(container.ports?.length ? {ports: container.ports} : {}), ...(container.role ? {role: container.role} : {}), ...(container.initOrder !== undefined ? {initOrder: container.initOrder} : {}), ...(container.workingDir ? { workingDir: container.workingDir } : {}), ...(container.readinessProbe ? { readinessProbe: container.readinessProbe } : {}), ...(container.livenessProbe ? { livenessProbe: container.livenessProbe } : {}), ...(container.startupProbe ? { startupProbe: container.startupProbe } : {}), ...(container.command.length ? { command: container.command } : {}), ...(container.args.length ? { args: container.args } : {}), ...(container.image ? { image: container.image } : {}), ...(variables.length ? { variables: Object.fromEntries(variables) } : {}), ...(Object.keys(requests).length || Object.keys(limits).length ? { resources: { ...(Object.keys(requests).length ? { requests } : {}), ...(Object.keys(limits).length ? { limits } : {}) } } : {}) });
   }
   if (form.execution?.secretFiles?.length) resources.set('env', { type: 'environment' });
   const ports = new Map<string, unknown>();
@@ -156,6 +166,13 @@ function validPortNames(ports: ServicePort[]): Set<string> {
   for (const port of ports) if (port.name.trim()) counts.set(port.name, (counts.get(port.name) ?? 0) + 1);
   return new Set(ports.filter((port) => port.name.trim() && counts.get(port.name) === 1 && validPortNumber(port.port)).map((port) => port.name));
 }
+// Variables in the authored order (GW-09): the listed names first, then the rest sorted.
+export function orderedVariables(variables: Record<string, string>, order: string[] = []): [string, string][] {
+  const listed = [...new Set(order)].filter((name) => Object.hasOwn(variables, name));
+  const rest = Object.keys(variables).filter((name) => !listed.includes(name)).sort();
+  return [...listed, ...rest].map((name) => [name, variables[name]!]);
+}
+
 function readForm(workload: Record<string, unknown>): Form {
   const form = emptyForm();
   form.execution = workload.workloadExecution as Execution | undefined;
@@ -165,8 +182,8 @@ function readForm(workload: Record<string, unknown>): Form {
   form.workloadClass = String((workload.metadata as { class?: string } | undefined)?.class ?? '');
   const resources = (workload.resources ?? {}) as Record<string, { type?: string; class?: string; id?: unknown; params?: Record<string, unknown> }>;
   form.dependencies = Object.entries(resources).filter(([, spec]) => spec.type !== 'environment' && spec.type !== 'service').map(([alias, spec]) => ({ existing: true, alias, type: spec.type ?? '', className: spec.class ?? '', sharedId: typeof spec.id === 'string' ? spec.id : '', params: Object.fromEntries(Object.entries(spec.params ?? {}).map(([key, value]) => [key, String(value)])) }));
-  const rawContainers = (workload.containers ?? {}) as Record<string, { ports?: {name: string; containerPort: number; protocol?: string}[]; securityContext?: SecurityContext; role?: 'app' | 'init' | 'sidecar'; initOrder?: number; workingDir?: string; readinessProbe?: Probe; livenessProbe?: Probe; startupProbe?: Probe; command?: string[]; args?: string[]; image?: string; variables?: Record<string, string>; resources?: { requests?: { cpu?: string; memory?: string }; limits?: { cpu?: string; memory?: string } } }>;
-  form.containers = Object.entries(rawContainers).map(([name, value]) => ({ securityContext: value.securityContext, ports: value.ports, role: value.role, initOrder: value.initOrder, workingDir: value.workingDir, readinessProbe: value.readinessProbe, livenessProbe: value.livenessProbe, startupProbe: value.startupProbe, command: value.command ?? [], args: value.args ?? [], name, image: value.image ?? '', cpuRequest: value.resources?.requests?.cpu ?? '', memoryRequest: value.resources?.requests?.memory ?? '', cpuLimit: value.resources?.limits?.cpu ?? '', memoryLimit: value.resources?.limits?.memory ?? '', bindings: Object.entries(value.variables ?? {}).flatMap(([envName, raw]) => readBinding(envName, raw, resources as ResourceSpecs) ?? []) }));
+  const rawContainers = (workload.containers ?? {}) as Record<string, { ports?: {name: string; containerPort: number; protocol?: string}[]; securityContext?: SecurityContext; role?: 'app' | 'init' | 'sidecar'; initOrder?: number; workingDir?: string; readinessProbe?: Probe; livenessProbe?: Probe; startupProbe?: Probe; command?: string[]; args?: string[]; image?: string; variables?: Record<string, string>; variableOrder?: string[]; resources?: { requests?: { cpu?: string; memory?: string }; limits?: { cpu?: string; memory?: string } } }>;
+  form.containers = Object.entries(rawContainers).map(([name, value]) => ({ securityContext: value.securityContext, ports: value.ports, role: value.role, initOrder: value.initOrder, workingDir: value.workingDir, readinessProbe: value.readinessProbe, livenessProbe: value.livenessProbe, startupProbe: value.startupProbe, command: value.command ?? [], args: value.args ?? [], name, image: value.image ?? '', cpuRequest: value.resources?.requests?.cpu ?? '', memoryRequest: value.resources?.requests?.memory ?? '', cpuLimit: value.resources?.limits?.cpu ?? '', memoryLimit: value.resources?.limits?.memory ?? '', bindings: orderedVariables(value.variables ?? {}, value.variableOrder).flatMap(([envName, raw]) => readBinding(envName, raw, resources as ResourceSpecs) ?? []) }));
   if (!form.containers.length) form.containers = [emptyContainer()];
   const ports = ((workload.service as { ports?: Record<string, { port: number; targetPort?: number; protocol?: string }> } | undefined)?.ports ?? {});
   form.servicePorts = Object.entries(ports).map(([name, port]) => ({ protocol: port.protocol, name, port: String(port.port), targetPort: String(port.targetPort ?? port.port) }));
@@ -207,7 +224,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   const [catalog, setCatalog] = useState<KeyCatalog>({ status: 'loading' });
   const [catalogAttempt, setCatalogAttempt] = useState(0);
   const [types, setTypes] = useState<ResourceType[]>([]);
-  const [workloadClasses, setWorkloadClasses] = useState<string[]>([]);
+  const [workloadMeta, setWorkloadMeta] = useState<{ classes: string[]; defaultAvailable: boolean }>({ classes: [], defaultAvailable: false });
   // Class choices come from GET /resource-types; while they reload or fail the class controls lock, edits stay and nothing is guessed.
   const [classMetadata, setClassMetadata] = useState<ClassMetadata>('ready');
   const [workloads, setWorkloads] = useState<Workload[]>([]);
@@ -247,7 +264,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   // over (a pending reload's finally ignores the new scope by design).
   useEffect(() => {
     scope.current += 1;
-    setWorkloadClasses([]);
+    setWorkloadMeta({ classes: [], defaultAvailable: false });
     setTemplateMetadata(undefined); setTemplateInputProblems(0); setForm(emptyForm()); setImported(undefined); setDirty(false); setMode('form'); setAdvancedScore(false); setBlocked(false); setSaving(false); setReloading(false); setWorkloads([]); setDialog(undefined); setFocusRequest(undefined); setShowIncomplete(false); setShowNameProblem(false);
   }, [application.id, environment, workloadId, selectedTemplate]);
 
@@ -257,7 +274,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     setLoading(true); setLoadFailed(false); setError('');
     Promise.all([getWorkloads(application.id, environment), getResourceTypes()]).then(async ([list, catalog]) => {
       if (cancelled) return;
-      setWorkloads(list.workloads); setTypes(catalog.resourceTypes.filter((type) => type.key !== 'workload')); setWorkloadClasses((catalog.resourceTypes.find(type => type.key === 'workload')?.classes ?? []).filter(validWorkloadClass)); setClassMetadata('ready'); setVersion(list.draftVersion);
+      setWorkloads(list.workloads); setTypes(catalog.resourceTypes.filter((type) => type.key !== 'workload')); setWorkloadMeta(workloadClassMeta(catalog.resourceTypes)); setClassMetadata('ready'); setVersion(list.draftVersion);
       const existing = list.workloads.find((item) => item.id === workloadId);
       if (existing?.workload && hasRemovedPublicPort(existing.workload)) { setForm({ ...emptyForm(), name: workloadId ?? '' }); setBlocked(true); setError(removedPublicPortMessage); }
       else if (existing?.workload) { setForm(readForm(existing.workload)); setImported(existing.workload); setBlocked(false); const advanced = needsScoreEditor(existing.workload, catalog.resourceTypes); setAdvancedScore(advanced); if (advanced) setMode('import'); }
@@ -276,6 +293,13 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
 
   const templateImage = form.execution?.templateDefaults?.profile.image ?? templateMetadata?.runtimeDefaults?.environments?.[environment]?.image ?? templateMetadata?.runtimeDefaults?.image;
   const missingTemplateImage = Boolean(form.execution?.template) && form.containers.some(container => !container.image && !((!container.role || container.role === 'app') && typeof templateImage === 'string' && templateImage.length > 0));
+
+  // A new workload takes the only class the catalog offers (UC-16 BR-33); a stored one is never changed.
+  useEffect(() => {
+    if (workloadId || loading || classMetadata !== 'ready') return;
+    const only = autoClass(workloadMeta, '');
+    if (only) setForm((prev) => (prev.workloadClass === '' ? { ...prev, workloadClass: only } : prev));
+  }, [workloadId, loading, classMetadata, workloadMeta]);
 
   // Resolution only changes display; no effective field is copied into desired overrides.
   useEffect(()=>{
@@ -344,7 +368,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     try {
       const catalog = await getResourceTypes();
       if (at !== scope.current || request !== metadataRequest.current) return;
-      setTypes(catalog.resourceTypes.filter((type) => type.key !== 'workload')); setWorkloadClasses((catalog.resourceTypes.find(type => type.key === 'workload')?.classes ?? []).filter(validWorkloadClass)); setClassMetadata('ready');
+      setTypes(catalog.resourceTypes.filter((type) => type.key !== 'workload')); setWorkloadMeta(workloadClassMeta(catalog.resourceTypes)); setClassMetadata('ready');
     } catch {
       if (at === scope.current && request === metadataRequest.current) setClassMetadata('error');
     }
@@ -390,7 +414,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   function openStorageResource(container: string, mount: {path: string; subPath: string; readOnly: boolean}) {
     let alias = 'data';
     for (let suffix = 2; form.dependencies.some(dependency => dependency.alias === alias); suffix += 1) alias = `data-${suffix}`;
-    setDialog({ type: 'storage', container, mount, initial: { ...emptyDependency(), alias, type: storageTypes.length === 1 ? storageTypes[0]!.key : '' } });
+    setDialog({ type: 'storage', container, mount, initial: { ...emptyDependency(), alias, type: storageTypes.length === 1 ? storageTypes[0]!.key : '', className: storageTypes.length === 1 ? autoClass(storageTypes[0], '') ?? '' : '' } });
   }
   const reusableStorage = resourceChoices.filter(choice => choice.dependency && storageKeys.has(choice.dependency.type) && !form.dependencies.some(dep => dep.sharedId === choice.id));
   function attachSharedStorage(id: string, container: string, mount: {path:string;subPath:string;readOnly:boolean}) {
@@ -406,6 +430,8 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     });
     setDirty(true);
   }
+  // The class stored in the loaded Workload: kept as is even when the catalog no longer serves it.
+  const savedWorkloadClass = workloadId && imported ? String((imported.metadata as { class?: string } | undefined)?.class ?? '') : undefined;
   const nameProblem = !workloadId && showNameProblem ? workloadNameProblem(form.name, form.execution?.kind) : '';
   const rowContext = buildRowContext(catalog, form.dependencies, types, workloads, form.name);
   async function save() {
@@ -418,6 +444,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
       if (new Set(form.annotations.map(a => a.name)).size !== form.annotations.length || form.annotations.some(a => !a.name)) { setError(t('workloads.volumes.invalid')); return; }
       if (!validRuntimeIntent(form.containers.map(c=>({...c,image:c.image||String(fieldValue(resolution,`containers.${c.name}.image`)??'')})), form.execution, catalog.status === 'ready' ? catalog.keys.filter(k => k.kind === 'SECRET' && k.configured).map(k => k.name) : undefined, Boolean(form.execution?.template))) { setError(t('workloads.volumes.invalid')); return; }
       if (form.workloadClass && !validWorkloadClass(form.workloadClass)) { setError(t('workloads.workloadEditor.invalidWorkloadClassUseOnly')); return; }
+      if (classMetadata === 'ready' && form.workloadClass !== savedWorkloadClass && classChoiceMissing(workloadMeta, '', form.workloadClass)) { setError(t('shared.classChoices.required', { name: 'Workload' })); return; }
       if (classMetadata !== 'ready' && form.dependencies.length > 0) { setError(classMetadata === 'loading' ? t('workloads.workloadEditor.classMetadataIsLoadingWait') : t('workloads.workloadEditor.theResourceClassMetadataIs')); return; }
       const aliasesIssue = dependencyAliasesProblem(form.dependencies, form.containers.flatMap((container) => container.bindings.filter((row) => row.source === 'SERVICE').map((row) => row.alias || serviceAlias(row.workload, row.port))));
       if (aliasesIssue) { setError(aliasesIssue); return; }
@@ -505,7 +532,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
           <label className="checkbox-row"><input type="checkbox" checked={form.execution.headless ?? false} onChange={e => updateForm({ ...form, execution: { ...form.execution!, headless: e.target.checked } })} />{t('workloads.templates.headless')}</label>
           <p className="muted">{t('workloads.templates.headlessHelp')}</p>
         </Advanced> : null}
-        <ServiceEndpointFields dependencies={form.dependencies} ports={form.servicePorts} available={types.some(type=>type.key==='endpoint')} serviceEnabled={form.execution?.serviceEnabled!==false} workloadName={form.name} disabled={saving || classMetadata!=='ready'} onChange={dependencies=>updateForm({...form,dependencies})}/>
+        <ServiceEndpointFields dependencies={form.dependencies} ports={form.servicePorts} available={types.some(type=>type.key==='endpoint')} serviceEnabled={form.execution?.serviceEnabled!==false} workloadName={form.name} disabled={saving || classMetadata!=='ready'} onChange={dependencies=>updateForm({...form,dependencies:dependencies.map(dep=>dep.type==='endpoint'&&!dep.existing&&dep.className===''?{...dep,className:autoClass(types.find(type=>type.key==='endpoint'),'')??''}:dep)})}/>
       </ConfigGroup></section>
       <section className="content-panel editor-grid"><ConfigGroup initialOpen keepMounted title={wd('dependencies')} summary={form.dependencies.map(d=>d.alias||d.type).join(', ')||wd('notConfigured')} invalid={Boolean(error)}><div className="section-header"><div><h2>{t('workloads.workloadEditor.workloadResources')}</h2><p>{t('workloads.workloadEditor.chooseAnAvailableResourceType')}</p></div><div className="form-actions"><Button tone="quiet" onClick={() => void reloadClassMetadata()}>{t('workloads.workloadEditor.refreshClassMetadata')}</Button><Button onClick={() => updateForm({ ...form, dependencies: [...form.dependencies, emptyDependency()] })}>{t('workloads.workloadEditor.addResource')}</Button></div></div>{form.dependencies.map((dep, index) => dep.type === 'endpoint' ? null : <DependencyFields key={index} index={index} dependency={dep} types={types} choices={resourceChoices} classMetadata={classMetadata} disabled={saving} servicePorts={[...validPortNames(form.servicePorts)]} onChange={(patch) => updateDependency(index, patch)} onReload={() => void reloadClassMetadata()} onRemove={() => updateForm({ ...form, dependencies: form.dependencies.filter((_, i) => i !== index) })} />)}</ConfigGroup></section>
 
@@ -514,7 +541,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
       <section className="content-panel editor-grid"><ConfigGroup keepMounted title={wd('infrequent')} summary={`${form.execution?.kind??'Deployment'} · ${form.workloadClass||'default'}`} invalid={Boolean(error)||templateInputProblems>0}>
       {form.execution ? <ExecutionFields value={form.execution} onChange={execution => updateForm({ ...form, execution })} metadata={templateMetadata} disabled={saving} onRawProblems={setTemplateInputProblems} resolution={resolution} /> : null}
 
-      <WorkloadClassControl embedded value={form.workloadClass} classes={workloadClasses} metadata={classMetadata} disabled={saving} onChange={workloadClass => updateForm({ ...form, workloadClass })} onReload={() => void reloadClassMetadata()}>
+      <WorkloadClassControl embedded value={form.workloadClass} classes={workloadMeta.classes} defaultAvailable={workloadMeta.defaultAvailable} saved={savedWorkloadClass !== undefined && form.workloadClass === savedWorkloadClass} metadata={classMetadata} disabled={saving} onChange={workloadClass => updateForm({ ...form, workloadClass })} onReload={() => void reloadClassMetadata()}>
         <div className="section-header"><h3>{t('workloads.annotations.title')}</h3><Button onClick={() => updateForm({ ...form, annotations: [...form.annotations, {name: '', value: ''}] })}>{t('workloads.annotations.add')}</Button></div>
         {form.annotations.map((annotation, index) => <div className="field-grid" key={index}><label>{t('workloads.annotations.name')}<input value={annotation.name} onChange={event => updateForm({ ...form, annotations: form.annotations.map((a, i) => i === index ? {...a, name: event.target.value} : a) })} /></label><label>{t('workloads.annotations.value')}<input value={annotation.value} onChange={event => updateForm({ ...form, annotations: form.annotations.map((a, i) => i === index ? {...a, value: event.target.value} : a) })} /></label><Button tone="quiet" onClick={() => updateForm({ ...form, annotations: form.annotations.filter((_,i) => i !== index) })}>{t('workloads.annotations.remove')}</Button></div>)}
       </WorkloadClassControl>

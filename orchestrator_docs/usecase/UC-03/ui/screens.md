@@ -235,7 +235,11 @@ cấp” chỉ đọc. Mỗi thẻ có tên, kiểu, nguồn hiện tại, giá 
 Hộp thoại “Chọn nguồn giá trị”: Nhập giá trị / Dùng mặc định hoặc param ứng
 dụng (nếu hợp lệ) / Lấy từ ngữ cảnh triển khai / Lấy từ tài nguyên khác. Nhánh
 cuối chọn Loại tài nguyên, Nhóm cấu hình (class), Phạm vi, Output cần lấy và hiện
-biểu thức sinh trong phần kỹ thuật thu gọn. Hủy không đổi draft; Áp dụng ghi
+biểu thức sinh trong phần kỹ thuật thu gọn. Class theo UC-16 BR-33: Default chỉ có
+khi Type `defaultAvailable`; chỉ một lựa chọn thì tự chọn; nhiều lựa chọn mà
+không có Default thì phải chọn trước khi Áp dụng. Thẻ tài nguyên đi kèm dùng cùng
+quy tắc; “Kết nối Kubernetes” tự chọn cluster class khi chỉ có đúng một và
+chưa có binding. Hủy không đổi draft; Áp dụng ghi
 một lần vào draft.
 
 “Tài nguyên đi kèm” nằm trong Thiết lập nâng cao: thẻ tài nguyên đang cấu hình,

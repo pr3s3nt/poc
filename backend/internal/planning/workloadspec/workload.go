@@ -10,6 +10,7 @@ import (
 	"io"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -238,6 +239,19 @@ func normalizeDocument(b []byte) ([]byte, bool, error) {
 	return encoded, replicaSet, err
 }
 
+// validateVariableOrder accepts an authored variable order made of distinct
+// names declared in the container's variables (issue #63).
+func validateVariableOrder(name string, container environment.Container) error {
+	seen := make(map[string]bool, len(container.VariableOrder))
+	for _, variable := range container.VariableOrder {
+		if _, declared := container.Variables[variable]; !declared || seen[variable] {
+			return fmt.Errorf("workload: container %q variableOrder must list distinct declared variables", name)
+		}
+		seen[variable] = true
+	}
+	return nil
+}
+
 // FromMap reads a Workload document from a decoded JSON tree.
 func FromMap(m map[string]any) (*Document, error) {
 	b, err := json.Marshal(m)
@@ -266,6 +280,11 @@ func (d Document) Validate() error {
 	}
 	if err := environment.ValidateContainerRoles(d.Containers); err != nil {
 		return err
+	}
+	for _, name := range sortedKeys(d.Containers) {
+		if err := validateVariableOrder(name, d.Containers[name]); err != nil {
+			return err
+		}
 	}
 	if len(d.Containers) == 0 {
 		return fmt.Errorf("workload: workload %q declares no container", d.Metadata.Name)
@@ -422,6 +441,7 @@ func (d Document) Fragment(types map[string]resource.Type) (*Fragment, error) {
 		container := d.Containers[name]
 		container.ID = name
 		container.Resources = container.Resources.Clone()
+		container.VariableOrder = slices.Clone(container.VariableOrder)
 		if len(container.Variables) > 0 {
 			rewritten := make(map[string]string, len(container.Variables))
 			for _, key := range sortedKeys(container.Variables) {

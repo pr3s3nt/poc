@@ -5,7 +5,7 @@ import { t } from '../../shared/i18n';
 // one co-provisioned resource rule keyed by its descriptor. Rows serialize to
 // exactly {descriptor: {params, is_dependent, match_dependents}}; false flags and
 // empty params are omitted like the backend does.
-export type ProvisionRow = { id: number; descriptor: string; params: string; isDependent: boolean; matchDependents: boolean; keepIsDependent?: boolean; keepMatchDependents?: boolean; keepParams?: boolean };
+export type ProvisionRow = { id: number; descriptor: string; params: string; isDependent: boolean; matchDependents: boolean; keepIsDependent?: boolean; keepMatchDependents?: boolean; keepParams?: boolean; /** The Type serves several classes and no default: a class must be chosen (UC-16 BR-33). */ classPending?: boolean };
 
 let nextRowId = 1;
 export const newProvisionRow = (): ProvisionRow => ({ id: nextRowId++, descriptor: '', params: '{}', isDependent: false, matchDependents: false });
@@ -33,6 +33,7 @@ export function rowsToProvision(rows: ProvisionRow[]): { value?: JsonObject; pro
   for (const [index, row] of rows.entries()) {
     const descriptor = row.descriptor;
     if (descriptor.trim() === '') return { problem: t('platform.typedProvision.ruleValueEnterTheDescriptor', { value: index + 1 }) };
+    if (row.classPending) return { problem: t('shared.classChoices.required', { name: descriptor.split('.')[0] ?? descriptor }) };
     if (Object.hasOwn(out, descriptor)) return { problem: t('platform.typedProvision.descriptorDescriptorIsDuplicatedEach', { descriptor }) };
     const params = parseObjectText(row.params, t('platform.typedProvision.paramsOfDescriptor', { descriptor }));
     if (!params.value) return { problem: params.error };

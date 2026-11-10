@@ -1,6 +1,7 @@
 import { inputCompatible, type TypeContract } from './moduleMapping';
 import { baseKind, isWholePlaceholder } from './typedVariables';
 import { t } from '../../shared/i18n';
+import { autoClass, offeredClasses } from '../../shared/classChoices';
 
 // Value sources of a Driver Input variable or a companion param (UC-03 UI11-02).
 // A source is a view of one placeholder string: the form generates the string
@@ -62,10 +63,18 @@ export function compatibleOutputs(type: TypeContract | undefined, targetType: st
   return (type?.outputs ?? []).filter((output) => !output.secret && inputCompatible(output.type, targetType));
 }
 
+// UC-16 BR-33: Default only when the Type serves it; a stored class stays listed.
 export const classChoices = (type: TypeContract | undefined, current = ''): string[] => {
-  const classes = new Set([defaultClass, ...(type?.classes ?? [])]);
+  const classes = new Set(offeredClasses(type, defaultClass));
   if (current !== '') classes.add(current);
   return [...classes];
+};
+
+// The class a newly chosen Type starts with: its only choice, else Default when served, else none ('').
+export const initialClass = (type: TypeContract | undefined): string => {
+  const only = autoClass(type, defaultClass);
+  if (only !== undefined) return only;
+  return offeredClasses(type, defaultClass).includes(defaultClass) ? defaultClass : '';
 };
 
 export const contextAllowed = (targetType: string) => baseKind(targetType) === 'string' || baseKind(targetType) === 'any';

@@ -190,13 +190,18 @@ runtime/current set hoặc Environment khác khi lưu.
 Workload class (`metadata.class`) is a dropdown under the collapsed **Workload**
 advanced section (BR-31/32), separate from dependency class controls below.
 Its summary shows the effective class, including `default`. Choices come only
-from the published `workload` Type classes; the default choice omits the field.
-Retain imported/custom and explicit historical `default` values as labelled
-options when absent from the list. Refresh never changes the selection.
-Disable selection while metadata loads/fails and show a retry action; an empty
-successful list still permits the default and a retained current value.
+from the published `workload` Type classes; the Default choice (omits the
+field) appears only when `defaultAvailable` is true (BR-33). A new workload with
+exactly one choice selects it; several choices without Default require a pick
+before Save. Retain imported/custom, explicit historical `default` and an omitted
+class that is no longer served as labelled options. Refresh never changes the
+selection. Disable selection while metadata loads/fails and show a retry action;
+a Type with no class and no default keeps the current value with the
+"not published" note. Dependency classes follow the same rules; the separate
+free-text class input under the dependency advanced section is removed.
 
 Keep the unified environment-variable table and Save draft → Xem trước thay đổi → Triển khai flow.
+Rows keep the order the author added them through Save, reopen and Deploy (BR-34).
 Each Redis/PostgreSQL dependency displays “Cách cung cấp / Class” beside its
 alias/type/typed params using authoritative metadata: “Trong cluster”
 (`in-cluster`) and “Dịch vụ managed AWS” (`cloud-managed`). This replaces hiding

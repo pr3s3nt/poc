@@ -2323,3 +2323,12 @@ validated offline only (no AWS run). Verified on kind with five databases
 ([record](verification/2026-11-08-db-connection-outputs.md)). `platform-catalog/` and
 `backend/terraform-modules/mysql` snapshots and Git-catalog bootstrap targets pinned
 to older commits are unchanged.
+
+## Stable template renderer pin — issue #57 (2026-11-09)
+
+Git template sources pin a stable renderer identity ([ADR-041](architecture/decisions/ADR-041-stable-template-renderer-pin.md)):
+engine contract, driver version, embedded renderer/engine sources, Go toolchain and
+renderer library versions, no longer the whole backend executable. A backend rebuild
+that leaves these unchanged keeps template sources AVAILABLE; templates registered
+with the earlier executable pin are registered again once after this upgrade.
+[Evidence](verification/2026-11-09-stable-template-renderer-pin.md).

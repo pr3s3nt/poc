@@ -3,8 +3,8 @@ vi.mock('../../shared/authoringFeatures', () => ({ authoringFeatures: { workload
 import { openAdvancedFields, openWorkloadGroup } from '../../test/workloadGroups';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, expect, it, vi } from 'vitest';
-import { WorkloadEditorPage } from './WorkloadEditorPage';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { WorkloadEditorPage, orderedVariables } from './WorkloadEditorPage';
 import type { Application } from '../../shared/types/application';
 import { bothConfigured } from '../../test/targets';
 
@@ -358,9 +358,7 @@ it('keeps imported advanced overrides through collapse and basic edits and write
   expect(note('Tóm tắt nâng cao tài nguyên db')).toHaveTextContent('Lớp hiệu lực: large (tường minh)');
   await openWorkloadGroup(user,'Service & kết nối');
   expect(note('Tóm tắt nâng cao cổng http')).toHaveTextContent('Cổng đích hiệu lực: 9090 (ghi đè)');
-  await user.click(screen.getByRole('button', { name: 'Hiện nâng cao tài nguyên db' }));
-  expect(screen.getByLabelText('Lớp tài nguyên')).toHaveValue('large');
-  await user.click(screen.getByRole('button', { name: 'Ẩn nâng cao tài nguyên db' }));
+  expect(screen.getByLabelText('Cách cung cấp (class) của db')).toHaveValue('large');
   await user.click(screen.getByRole('button', { name: 'Hiện nâng cao cổng http' }));
   expect(screen.getByLabelText('Cổng đích của Container')).toHaveValue(9090);
   await user.clear(screen.getByLabelText('Ảnh Container'));
@@ -370,7 +368,7 @@ it('keeps imported advanced overrides through collapse and basic edits and write
 });
 
 it('omits an empty class and writes a class only while it is set', async () => {
-  const { puts } = serve({ types: [{ key: 'redis', inputs: [], outputs: [] }] });
+  const { puts } = serve({ types: [{ key: 'redis', inputs: [], outputs: [], classes: ['big'], defaultAvailable: true }] });
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" />);
   await fillBasic(user);
@@ -378,10 +376,9 @@ it('omits an empty class and writes a class only while it is set', async () => {
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   await user.type(screen.getByLabelText('Alias tài nguyên'), 'cache');
   await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'redis');
-  await user.click(screen.getByRole('button', { name: 'Hiện nâng cao tài nguyên cache' }));
-  await user.type(screen.getByLabelText('Lớp tài nguyên'), 'big');
+  await user.selectOptions(screen.getByLabelText('Cách cung cấp (class) của cache'), 'big');
   expect(note('Tóm tắt nâng cao tài nguyên cache')).toHaveTextContent('Lớp hiệu lực: big (tường minh)');
-  await user.clear(screen.getByLabelText('Lớp tài nguyên'));
+  await user.selectOptions(screen.getByLabelText('Cách cung cấp (class) của cache'), '');
   expect(note('Tóm tắt nâng cao tài nguyên cache')).toHaveTextContent('Lớp hiệu lực: default (mặc định)');
   await user.click(saveButton());
   expect(puts[0]!.workload.resources.cache).toEqual({ type: 'redis', id: expect.stringMatching(/^resource-/) });
@@ -561,4 +558,56 @@ it('shows an existing workload name in the title without a locked name input', a
   await screen.findByRole('heading', { name: 'Sửa api' });
   expect(screen.queryByLabelText('Tên Workload')).not.toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: 'Thông tin cơ bản' })).not.toBeInTheDocument();
+});
+
+describe('authored environment-variable order (UC-16 BR-34, GW-09)', () => {
+  const rows = () => screen.getAllByLabelText(/^Tên biến, dòng \d+$/).map((input) => (input as HTMLInputElement).value);
+
+  it('writes the order the rows were added when it is not the sorted order', async () => {
+    const { puts } = serve();
+    const user = userEvent.setup();
+    render(<WorkloadEditorPage application={application} environment="staging" />);
+    await fillBasic(user);
+    for (const [index, name] of ['ZETA', 'ALPHA', 'MID'].entries()) {
+      await user.click(screen.getByRole('button', { name: '+ Thêm biến' }));
+      await user.type(screen.getByLabelText(`Tên biến, dòng ${index + 1}`), name);
+      await user.type(screen.getByLabelText(`Giá trị nhập, dòng ${index + 1}`), name.toLowerCase());
+    }
+    await user.click(saveButton());
+    await vi.waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]!.workload.containers.main).toMatchObject({ variables: { ZETA: 'zeta', ALPHA: 'alpha', MID: 'mid' }, variableOrder: ['ZETA', 'ALPHA', 'MID'] });
+  });
+
+  it('reopens rows in the stored order and keeps an unchanged order on save', async () => {
+    const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1', variables: { ALPHA: 'a', MID: 'm', ZETA: 'z' }, variableOrder: ['ZETA', 'ALPHA', 'MID'] } } };
+    const { puts } = serve({ workloads: [{ id: 'api', workload }] });
+    const user = userEvent.setup();
+    render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+    await screen.findByRole('heading', { name: 'Sửa api' });
+    expect(rows()).toEqual(['ZETA', 'ALPHA', 'MID']);
+    await user.clear(screen.getByLabelText('Ảnh Container'));
+    await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/api:v2');
+    await user.click(saveButton());
+    await vi.waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]!.workload.containers.main.variableOrder).toEqual(['ZETA', 'ALPHA', 'MID']);
+  });
+
+  it('adds no order to an older workload whose rows stay sorted', async () => {
+    const workload = { apiVersion: 'orchestrator.dev/workload/v1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1', variables: { ALPHA: 'a', ZETA: 'z' } } } };
+    const { puts } = serve({ workloads: [{ id: 'api', workload }] });
+    const user = userEvent.setup();
+    render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+    await screen.findByRole('heading', { name: 'Sửa api' });
+    expect(rows()).toEqual(['ALPHA', 'ZETA']);
+    await user.clear(screen.getByLabelText('Ảnh Container'));
+    await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/api:v2');
+    await user.click(saveButton());
+    await vi.waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]!.workload).toEqual({ ...workload, containers: { main: { ...workload.containers.main, image: 'example.invalid/api:v2' } } });
+  });
+
+  it('lists named variables first and the rest sorted, ignoring unknown and repeated names', () => {
+    expect(orderedVariables({ B: '2', A: '1', C: '3' }, ['C', 'X', 'C'])).toEqual([['C', '3'], ['A', '1'], ['B', '2']]);
+    expect(orderedVariables({ B: '2', A: '1' })).toEqual([['A', '1'], ['B', '2']]);
+  });
 });
