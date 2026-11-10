@@ -123,6 +123,7 @@ type Lease struct {
 	mu          sync.Mutex
 	stage       string
 	detail      map[string]any
+	notes       map[string]any
 	lost        bool
 	lossCause   string
 	lossTrigger string
@@ -170,7 +171,8 @@ func (m *Manager) start(parent context.Context, op environment.Operation) *Lease
 	base := persistence.WithHold(persistence.WithOwner(context.WithoutCancel(parent), owner))
 	// The recorded deadline bounds every executor call made under the lease.
 	ctx, cancel := context.WithDeadline(base, op.Deadline)
-	lease := &Lease{Operation: op, Ctx: ctx, owner: owner, manager: m, cancel: cancel, stop: make(chan struct{}), detail: op.Detail}
+	lease := &Lease{Operation: op, owner: owner, manager: m, cancel: cancel, stop: make(chan struct{}), detail: op.Detail}
+	lease.Ctx = context.WithValue(ctx, leaseKey{}, lease)
 	lease.done.Add(1)
 	go lease.beat()
 	return lease
@@ -250,7 +252,7 @@ func (l *Lease) beat() {
 			return
 		case <-ticker.C:
 			l.mu.Lock()
-			stage, detail := l.stage, l.detail
+			stage, detail := l.stage, l.mergedLocked()
 			l.mu.Unlock()
 			err := l.heartbeatNow(stage, detail)
 			switch {
@@ -277,6 +279,45 @@ func (l *Lease) Lost() bool {
 	return l.lost
 }
 
+type leaseKey struct{}
+
+// Annotate merges one nonsecret detail entry into the operation that owns ctx
+// and persists it with the current stage. Later heartbeats keep it. Outside a
+// lease it does nothing. Callers store only safe, value-free observations.
+func Annotate(ctx context.Context, key string, value any) error {
+	l, ok := ctx.Value(leaseKey{}).(*Lease)
+	if !ok || l == nil {
+		return nil
+	}
+	l.mu.Lock()
+	if l.notes == nil {
+		l.notes = map[string]any{}
+	}
+	l.notes[key] = value
+	stage, detail := l.stage, l.mergedLocked()
+	l.mu.Unlock()
+	err := l.heartbeatNow(stage, detail)
+	if errors.Is(err, persistence.ErrOperationLost) {
+		l.markLost("operation_lost", "operation_lost")
+	}
+	return err
+}
+
+// mergedLocked overlays annotations on the stage detail; l.mu is held.
+func (l *Lease) mergedLocked() map[string]any {
+	if len(l.notes) == 0 {
+		return l.detail
+	}
+	out := make(map[string]any, len(l.detail)+len(l.notes))
+	for k, v := range l.detail {
+		out[k] = v
+	}
+	for k, v := range l.notes {
+		out[k] = v
+	}
+	return out
+}
+
 // Stage persists the current stage and nonsecret detail immediately.
 func (l *Lease) Stage(stage string, detail map[string]any) error {
 	l.mu.Lock()
@@ -284,7 +325,7 @@ func (l *Lease) Stage(stage string, detail map[string]any) error {
 	if detail != nil {
 		l.detail = detail
 	}
-	d := l.detail
+	d := l.mergedLocked()
 	l.mu.Unlock()
 	err := l.heartbeatNow(stage, d)
 	if errors.Is(err, persistence.ErrOperationLost) {
