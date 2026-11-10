@@ -34,7 +34,9 @@ Definition-only first-installation seed: `scripts/bootstrap/seed-definitions.mjs
 `scripts/bootstrap/lib/definition-seed.mjs`, focused tests alongside it and
 `scripts/bootstrap/definitions.example.yaml`. Reuses private input/credential and
 endpoint validation from `api-seed.mjs`; calls existing Git inspection and
-Definition registration APIs without modifying prerequisite records.
+Definition registration APIs. Optional `resourceTypes` (issue #65) registers
+missing contracts first, with conflict/mapping checks and API read-back;
+Account/Git configuration remains a prerequisite. Existing Types are preserved.
 
 Operator procedure: [runbook](../operations/platform-seed.md). Local CLI:
 `scripts/bootstrap/seed-api.mjs`; API orchestration, private input validation and
