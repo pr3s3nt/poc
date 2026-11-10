@@ -15,6 +15,11 @@ related: [ADR-007, ADR-014, ADR-016, ADR-017, ADR-024]
 
 # ADR-030 — Optional CD providers and infrastructure reconciliation
 
+> ADR-042 (2026-11-10): new Environment deliveries use two units per
+> Environment (`app`, `migrate`) instead of per-workload phase packages.
+> Decision 8's Job/UID cleanup guarantees are kept for the `migrate` unit.
+
+
 ## Decision and authorization
 
 User decisions on 2026-10-28: design a provider-neutral delivery boundary with

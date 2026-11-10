@@ -204,11 +204,12 @@ sở hữu mapping HTTP/Score. Trạng thái code ở CURRENT_STATE, không suy 
   workload/container/name/value và version; provenance không có hoặc không
   khớp thì giữ trạng thái không thể mở an toàn, không trả value. Không xóa/reset
   dữ liệu cũ để đáp ứng tính năng. Contract chi tiết ở OC-16 DEVEX-ENV.
-- **BR-24:** Secret Store chưa chọn: ngay form Tạo bí mật có selector READY
-  stores và **Lưu kho bí mật** theo UC-01 hiện hành. Không tự chọn/lưu; giữ
-  workload draft, không yêu cầu chuyển trang. Chỉ cho initial selection khi
-  chưa có kho; thay kho đã có vẫn qua Settings/copy flow UC-12. Chọn kho là
-  commit riêng; nếu tạo secret tiếp theo lỗi, kho đã lưu vẫn được giữ và báo rõ.
+- **BR-24:** Secret Store chưa chọn: form Tạo bí mật báo Environment chưa có
+  kho và cần PE/Admin chọn trong Settings (ADR-042). PE/Admin mở form này thì
+  có selector READY stores và **Lưu kho bí mật** như Settings. Không tự chọn/lưu;
+  giữ workload draft. Chỉ cho initial selection khi chưa có kho; đổi kho theo
+  UC-12 BR-16. Chọn kho là commit riêng; nếu tạo secret tiếp theo lỗi, kho đã
+  lưu vẫn được giữ và báo rõ.
 - **BR-25:** Binding Workload khác chọn workload khác trong cùng env, Service
   và port hợp lệ, không tự tham chiếu hay chọn workload chờ xóa. Chỉ gắn vào
   dòng đang sửa. Lưu chỉ tạo desired draft; explicit Preview → Deploy giữ nguyên.
