@@ -198,8 +198,10 @@ func sharedGitRenderRecoveryPatch(repo map[string]any, i port.Intent, r port.Rec
 		return nil, false, ErrOwnership
 	}
 	for _, pin := range pins {
-		// A forced re-render could recreate a completed Job (ADR-030/ADR-042).
-		if !pin.Removed && (strings.HasSuffix(pin.Path, "/job") || strings.HasSuffix(pin.Path, "/"+domain.EnvironmentMigrateUnit)) {
+		// A forced re-render could recreate a completed per-workload Job
+		// (ADR-030). ADR-042 migrate Jobs are content-named and kept after
+		// completion, so re-rendering an unchanged Job is a no-op.
+		if !pin.Removed && strings.HasSuffix(pin.Path, "/job") {
 			return nil, false, domain.ErrUnsupported
 		}
 	}

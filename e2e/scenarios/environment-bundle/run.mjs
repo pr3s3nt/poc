@@ -15,7 +15,7 @@ import { makeUI, outsideRepo } from '../../../scripts/bootstrap/lib/runtime.mjs'
 import { ensureNamespaceAccess } from '../../../scripts/bootstrap/lib/namespace-access.mjs';
 
 process.umask(0o077);
-const STAGES = ['users', 'prepare', 'deploy', 'image', 'secret', 'fail', 'rollback', 'resync', 'cleanup'];
+const STAGES = ['users', 'prepare', 'deploy', 'verify-deploy', 'image', 'secret', 'fail', 'rollback', 'resync', 'cleanup'];
 const stage = process.argv[2];
 assert(STAGES.includes(stage), 'stage: ' + STAGES.join('|'));
 const dir = process.env.ORCH_TEST_RUN_DIR;
@@ -62,7 +62,9 @@ function podSecrets(workload) {
 }
 const deploymentSecret = (workload) => [...new Set(kjson('-n', ns(), 'get', 'deployment', workload).spec.template.spec.containers.flatMap((c) => (c.env ?? []).map((e) => e.valueFrom?.secretKeyRef?.name).filter(Boolean)))];
 function fleetBundles() {
-  const repos = kjson('-n', 'fleet-local', 'get', 'gitrepos.fleet.cattle.io').items.filter((r) => r.metadata.labels?.['orchestrator.io/application-id'] === state.app.id);
+  // ADR-038: the IDP controller is named after the Application's delivery repository.
+  const repoName = state.app.key.replace(/-([a-z0-9]+)$/, '-deploy-$1');
+  const repos = kjson('-n', 'fleet-local', 'get', 'gitrepos.fleet.cattle.io').items.filter((r) => r.metadata.name === repoName);
   const bundles = kjson('-n', 'fleet-local', 'get', 'bundles.fleet.cattle.io').items.filter((b) => repos.some((r) => b.metadata.labels?.['fleet.cattle.io/repo-name'] === r.metadata.name));
   return { repos, bundles };
 }
@@ -407,6 +409,11 @@ async function deploy() {
   const { report } = await previewAndDeploy(dev, ['backend', 'frontend', 'scheduled', 'worker']);
   assert.equal(report.status, 'SUCCEEDED');
   pass('One Deploy of four workloads SUCCEEDED');
+  await verifyDeploy(dev);
+}
+
+async function verifyDeploy(dev) {
+  dev ??= await asDeveloper();
   await namespaceAccess(dev);
   // Bundles: one app and one migrate unit for the Environment.
   const { repos, bundles } = fleetBundles();
@@ -654,7 +661,7 @@ async function cleanup() {
 let status = 'FAIL';
 try {
   if (stage !== 'users') assert(stage === 'prepare' || state.app, 'run prepare first');
-  await ({ users, prepare, deploy, image, secret, fail, rollback, resync, cleanup })[stage]();
+  await ({ users, prepare, deploy, 'verify-deploy': () => verifyDeploy(), image, secret, fail, rollback, resync, cleanup })[stage]();
   status = 'PASS';
 } catch (error) {
   console.error(`FAIL ${stage}: ${String(error?.message ?? error).split('\n')[0]}`);

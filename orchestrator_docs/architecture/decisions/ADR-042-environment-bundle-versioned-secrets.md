@@ -60,6 +60,8 @@ gốc độ phức tạp của recovery ở issue #48 và #55.
    kstatus coi Job đã bắt đầu là `Current`, nên bundle Ready trước khi Job xong.
    Tên Job mang hash nội dung (`<tên>-<hash8>`). Job không đổi giữ nguyên tên và
    nội dung nên Fleet đồng bộ lại không tạo Job mới; Job đổi là object mới.
+   Vì vậy yêu cầu render lại GitRepo khi Fleet chậm commit được phép cả khi có
+   unit `migrate` (khác Job phase theo workload của ADR-030).
    Job thường cần Secret của workload (ví dụ mật khẩu database). Khi Job đã đổi
    tham chiếu một Secret mà bản `app` đã publish chưa khai báo (lần deploy đầu
    hoặc version giá trị mới), Orchestrator publish trước một revision `app` chỉ

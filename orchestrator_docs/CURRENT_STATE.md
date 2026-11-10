@@ -2,10 +2,24 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-08
+last_reviewed: 2026-11-11
 ---
 
 # Current project state
+
+## One Fleet bundle per Environment, versioned secrets — issue #67
+
+[ADR-042](architecture/decisions/ADR-042-environment-bundle-versioned-secrets.md)
+is implemented on `features/refactor_fleet`. An Environment without active
+per-workload units delivers every workload in one `app` unit and changed Jobs
+in a `migrate` unit that completes first (after publishing missing Job secrets).
+Each workload has one KV v2 path; VSS `<workload>-config-v<N>` pins the version,
+equal content reuses a version, the last successful version stays declared, and
+SA/VaultAuth/role are fixed. Only PE/Admin select the Environment store; a store
+with running workloads cannot change. Environments with active per-workload units
+keep the previous path. The standard template source adds `backend-migrate`.
+Kind acceptance runs through `e2e/scenarios/environment-bundle/`; awaiting user
+acceptance.
 
 ## Rollout recovery after a completed Prerequisite — issue #48
 
