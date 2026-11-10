@@ -475,7 +475,10 @@ controller, workload, Bundle/BundleDeployment and Helm checks as a first
 Prerequisite. A Rollout additionally requires a non-removed completed Prerequisite
 pin of the same workload, Environment, target generation and epoch, with matching
 stable path and nonempty intent/revision/digest. Every sibling tree is verified;
-controller UID/resourceVersion is reread under the recovery fence before settling.
+the controller is reread under the recovery fence before settling and must keep
+its UID, generation, labels, annotations (unit pins) and spec. Its resourceVersion
+is not compared: Fleet keeps writing GitRepo status, which would otherwise refuse
+a proven absence at random.
 Neither the Prerequisite nor siblings are submitted, withdrawn or rewritten.
 Ambiguous/admitted outcomes keep the Environment held. This extends the recovery
 prerequisite needed to exercise issue #49 on the existing Boutique deployment.

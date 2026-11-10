@@ -8,6 +8,7 @@ import (
 	"errors"
 	k8s "orchestrator/internal/adapters/kubernetes"
 	"path"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -731,9 +732,7 @@ func (p *Provider) ObserveSubmissionAbsent(ctx context.Context, i port.Intent, p
 		return false, err
 	}
 	if controllerFound {
-		before, _ := repo["metadata"].(map[string]any)
-		after, _ := current["metadata"].(map[string]any)
-		if before["uid"] != after["uid"] || before["resourceVersion"] != after["resourceVersion"] || !applicationOwns(current, i, cfg) {
+		if !sameControllerIdentity(repo, current) || !applicationOwns(current, i, cfg) {
 			return false, ErrOwnership
 		}
 	}
@@ -754,4 +753,18 @@ func hasPrerequisitePin(i port.Intent, pkg Package, cfg Config, pins map[string]
 		prior.Revision != "" && prior.Revision != i.Revision.ID && prior.Intent != "" && prior.Intent != i.ID &&
 		prior.Digest != "" && prior.Path == path.Join(cfg.Root, parts[0], strings.ToLower(string(domain.Prerequisite))) &&
 		prior.Path != pkg.Publication.Path
+}
+
+// sameControllerIdentity reports whether a re-read controller is the same
+// incarnation with the same desired state. Fleet keeps writing the GitRepo
+// status (polling, Bundle summaries), which changes resourceVersion without
+// changing the controller; uid, generation, labels, annotations (unit pins)
+// and spec must all be unchanged, and neither read may be deleting.
+func sameControllerIdentity(before, after map[string]any) bool {
+	b, _ := before["metadata"].(map[string]any)
+	a, _ := after["metadata"].(map[string]any)
+	if b == nil || a == nil || b["uid"] == nil || b["uid"] != a["uid"] || b["generation"] != a["generation"] || b["deletionTimestamp"] != nil || a["deletionTimestamp"] != nil {
+		return false
+	}
+	return reflect.DeepEqual(b["labels"], a["labels"]) && reflect.DeepEqual(b["annotations"], a["annotations"]) && reflect.DeepEqual(before["spec"], after["spec"])
 }
