@@ -292,6 +292,34 @@ type ReadinessRequest struct {
 	// Env is the private provider environment of the invocation.
 	Env      []string
 	Deadline time.Time
+	// Observe, when set, receives safe progress while waiting (UC-08 BR-11):
+	// Pods waiting on a non-recovering reason and stuck Pod replacements.
+	Observe func(ReadinessObservation)
+}
+
+// PodWait is one safe observation of a Pod that is not Ready: reason code,
+// image reference and restarts only, never a free-form message.
+type PodWait struct {
+	Object       string `json:"object"`
+	Pod          string `json:"pod"`
+	Container    string `json:"container,omitempty"`
+	Code         string `json:"code"`
+	Image        string `json:"image,omitempty"`
+	Restarts     int64  `json:"restarts,omitempty"`
+	StuckSeconds int64  `json:"stuckSeconds"`
+}
+
+// PodReplacement records that a stuck Pod of an older revision was deleted so
+// the StatefulSet controller recreates it from the fixed revision.
+type PodReplacement struct {
+	Wait PodWait   `json:"wait"`
+	At   time.Time `json:"at"`
+}
+
+// ReadinessObservation is the latest wait state of one readiness poll.
+type ReadinessObservation struct {
+	Waiting  []PodWait
+	Replaced *PodReplacement
 }
 
 // ErrNotReady means a readiness query ran to completion and the objects are

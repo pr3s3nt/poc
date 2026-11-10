@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"orchestrator/internal/adapters/awsaccess"
+	"orchestrator/internal/adapters/kubernetes/stuckpod"
 	"orchestrator/internal/ports/terraformexec"
 )
 
@@ -48,6 +49,9 @@ type Checker struct {
 	// Run is the command seam; the default runs the real kubectl.
 	Run Runner
 	Now func() time.Time
+	// StuckThreshold is how long a StatefulSet Pod must wait on a
+	// non-recovering reason before it is replaced (UC-08 BR-11).
+	StuckThreshold time.Duration
 }
 
 var _ terraformexec.ReadinessChecker = (*Checker)(nil)
@@ -183,16 +187,23 @@ func (c *Checker) Check(ctx context.Context, req terraformexec.ReadinessRequest)
 	}
 	for {
 		var notReady []string
+		var waits []terraformexec.PodWait
 		queryFailed := false
 		for _, p := range kube {
-			ready, err := c.kubeReady(ctx, kubeconfig, req.Env, p)
+			ready, object, err := c.kubeReady(ctx, kubeconfig, req.Env, p)
 			switch {
 			case err != nil:
 				queryFailed = true
 				notReady = append(notReady, p.label)
 			case !ready:
 				notReady = append(notReady, p.label)
+				if p.kind == "statefulset" {
+					waits = append(waits, c.recoverStuckPods(ctx, kubeconfig, req, p, object)...)
+				}
 			}
+		}
+		if req.Observe != nil && len(kube) > 0 {
+			req.Observe(terraformexec.ReadinessObservation{Waiting: waits})
 		}
 		var awsConn terraformexec.AWSConnection
 		if len(aws) > 0 {
@@ -220,6 +231,9 @@ func (c *Checker) Check(ctx context.Context, req terraformexec.ReadinessRequest)
 			if queryFailed {
 				return ErrUnavailable
 			}
+			if len(waits) > 0 {
+				return fmt.Errorf("%w: %s (%s)", terraformexec.ErrNotReady, strings.Join(notReady, ", "), waitSummary(waits))
+			}
 			return fmt.Errorf("%w: %s", terraformexec.ErrNotReady, strings.Join(notReady, ", "))
 		}
 		select {
@@ -241,19 +255,98 @@ func validName(s string) bool {
 	return true
 }
 
-// kubeReady queries one Kubernetes object.
-func (c *Checker) kubeReady(ctx context.Context, kubeconfig string, env []string, p probe) (bool, error) {
-	args := []string{"--kubeconfig", kubeconfig}
+func (c *Checker) kubectl(ctx context.Context, kubeconfig string, env []string, args ...string) ([]byte, error) {
+	base := []string{"--kubeconfig", kubeconfig}
 	if ctxName := value(env, "KUBE_CTX"); ctxName != "" {
-		args = append(args, "--context", ctxName)
+		base = append(base, "--context", ctxName)
 	}
-	args = append(args, "get", p.kind, p.name, "-o", "json")
+	return c.run()(ctx, c.Kubectl, append(base, args...), []string{"PATH=" + filepath.Join(os.TempDir(), "no-path"), "HOME=" + filepath.Dir(kubeconfig), "KUBECONFIG=" + kubeconfig})
+}
+
+// recoverStuckPods applies UC-08 BR-11 to a StatefulSet that is not ready: it
+// reports Pods waiting on a non-recovering reason and, only when a new
+// revision exists, deletes at most one stuck Pod of an older revision. Pod
+// queries and deletion are best effort: a failure (for example a missing
+// delete permission) never changes the readiness verdict.
+func (c *Checker) recoverStuckPods(ctx context.Context, kubeconfig string, req terraformexec.ReadinessRequest, p probe, object map[string]any) []terraformexec.PodWait {
+	selector := matchLabels(object)
+	if selector == "" {
+		return nil
+	}
+	out, err := c.kubectl(ctx, kubeconfig, req.Env, "get", "pods", "-n", p.ns, "-l", selector, "-o", "json")
+	if err != nil {
+		return nil
+	}
+	var list struct {
+		Items []map[string]any `json:"items"`
+	}
+	if json.Unmarshal(out, &list) != nil {
+		return nil
+	}
+	now := c.now()
+	decision := stuckpod.Evaluate(object, list.Items, now, c.StuckThreshold)
+	objectName := p.ns + "/" + p.name
+	waits := make([]terraformexec.PodWait, 0, len(decision.Reasons))
+	for _, r := range decision.Reasons {
+		waits = append(waits, podWait(objectName, r))
+	}
+	if r := decision.Replace; r != nil && validName(r.Pod) {
+		if _, err := c.kubectl(ctx, kubeconfig, req.Env, "delete", "pod", r.Pod, "-n", p.ns, "--wait=false"); err == nil && req.Observe != nil {
+			req.Observe(terraformexec.ReadinessObservation{Waiting: waits, Replaced: &terraformexec.PodReplacement{Wait: podWait(objectName, r.Reason), At: now.UTC()}})
+		}
+	}
+	return waits
+}
+
+func podWait(object string, r stuckpod.Reason) terraformexec.PodWait {
+	return terraformexec.PodWait{Object: object, Pod: r.Pod, Container: r.Container, Code: r.Code, Image: r.Image, Restarts: r.Restarts, StuckSeconds: r.StuckSeconds}
+}
+
+func waitSummary(waits []terraformexec.PodWait) string {
+	parts := make([]string, 0, len(waits))
+	for _, w := range waits {
+		parts = append(parts, stuckpod.Reason{Pod: w.Pod, Code: w.Code, Image: w.Image, Restarts: w.Restarts}.String())
+	}
+	return strings.Join(parts, "; ")
+}
+
+// matchLabels renders spec.selector.matchLabels as a kubectl label selector.
+func matchLabels(object map[string]any) string {
+	spec, _ := object["spec"].(map[string]any)
+	selector, _ := spec["selector"].(map[string]any)
+	labels, _ := selector["matchLabels"].(map[string]any)
+	if len(labels) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(labels))
+	for k := range labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		v, _ := labels[k].(string)
+		if strings.ContainsAny(k+v, ",=! ") {
+			return ""
+		}
+		parts = append(parts, k+"="+v)
+	}
+	return strings.Join(parts, ",")
+}
+
+// kubeReady queries one Kubernetes object and returns it for further checks.
+func (c *Checker) kubeReady(ctx context.Context, kubeconfig string, env []string, p probe) (bool, map[string]any, error) {
+	args := []string{"get", p.kind, p.name, "-o", "json"}
 	if p.ns != "" {
 		args = append(args, "-n", p.ns)
 	}
-	out, err := c.run()(ctx, c.Kubectl, args, []string{"PATH=" + filepath.Join(os.TempDir(), "no-path"), "HOME=" + filepath.Dir(kubeconfig), "KUBECONFIG=" + kubeconfig})
+	out, err := c.kubectl(ctx, kubeconfig, env, args...)
 	if err != nil {
-		return false, err
+		return false, nil, err
+	}
+	var object map[string]any
+	if json.Unmarshal(out, &object) != nil {
+		return false, nil, ErrUnavailable
 	}
 	var doc struct {
 		Metadata struct {
@@ -271,7 +364,7 @@ func (c *Checker) kubeReady(ctx context.Context, kubeconfig string, env []string
 		} `json:"status"`
 	}
 	if json.Unmarshal(out, &doc) != nil {
-		return false, ErrUnavailable
+		return false, nil, ErrUnavailable
 	}
 	want := int64(1)
 	if doc.Spec.Replicas != nil {
@@ -279,13 +372,13 @@ func (c *Checker) kubeReady(ctx context.Context, kubeconfig string, env []string
 	}
 	switch p.kind {
 	case "namespace":
-		return doc.Status.Phase == "Active", nil
+		return doc.Status.Phase == "Active", object, nil
 	case "statefulset":
-		return doc.Status.ObservedGeneration >= doc.Metadata.Generation && doc.Status.ReadyReplicas >= want && doc.Status.UpdatedReplicas >= want, nil
+		return doc.Status.ObservedGeneration >= doc.Metadata.Generation && doc.Status.ReadyReplicas >= want && doc.Status.UpdatedReplicas >= want, object, nil
 	case "deployment":
-		return doc.Status.ObservedGeneration >= doc.Metadata.Generation && doc.Status.AvailableReplicas >= want && doc.Status.UpdatedReplicas >= want, nil
+		return doc.Status.ObservedGeneration >= doc.Metadata.Generation && doc.Status.AvailableReplicas >= want && doc.Status.UpdatedReplicas >= want, object, nil
 	}
-	return false, ErrUnavailable
+	return false, nil, ErrUnavailable
 }
 
 func value(env []string, key string) string {
