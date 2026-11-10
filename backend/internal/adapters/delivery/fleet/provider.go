@@ -1,6 +1,7 @@
 package fleet
 
 import (
+	"regexp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -330,9 +331,13 @@ func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (
 	}
 	desired, _ := bdSpec["deploymentID"].(string)
 	applied, _ := bdStatus["appliedDeploymentID"].(string)
-	if display, _ := bdStatus["display"].(map[string]any); display != nil && display["state"] == "ErrApplied" {
+	if display, _ := bdStatus["display"].(map[string]any); display != nil && display["state"] == "ErrApplied" && (desired == "" || desired == applied) {
 		out.Sync = domain.OutOfSync
 		out.Health = domain.Degraded
+		// Fleet names the objects that blocked the apply; they let the
+		// coordinator attribute an Environment failure to its workload.
+		message, _ := display["deployed"].(string)
+		out.Objects = append(out.Objects, notReadyObjects(message, i.Target.Namespace)...)
 		return out, nil
 	}
 	if desired == "" || desired != applied {
@@ -621,4 +626,18 @@ func (p *Provider) pruneRetainedInventory(ctx context.Context, i port.Intent, r 
 		}
 	}
 	return nil
+}
+
+var notReadyResource = regexp.MustCompile(`resource ([A-Za-z]+)/([a-z0-9.-]+)/([a-z0-9.-]+) not ready`)
+
+// notReadyObjects extracts "resource <Kind>/<namespace>/<name> not ready"
+// entries of Fleet's apply message in the target namespace. They carry no UID.
+func notReadyObjects(message, namespace string) []domain.ObjectObservation {
+	out := []domain.ObjectObservation{}
+	for _, m := range notReadyResource.FindAllStringSubmatch(message, -1) {
+		if m[2] == namespace {
+			out = append(out, domain.ObjectObservation{Kind: m[1], Name: m[3], Namespace: namespace, Health: domain.Degraded})
+		}
+	}
+	return out
 }

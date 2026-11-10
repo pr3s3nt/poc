@@ -446,9 +446,7 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 			// process is the only writer, so the outcome is known, not held.
 			// Fleet's aggregate failure carries no object list; the last
 			// object-level observation names the failing workload.
-			if len(observed.Objects) == 0 {
-				observed.Objects = last.Objects
-			}
+			observed.Objects = append(observed.Objects, last.Objects...)
 			record.Inventory = observedInventory(observed, receipt)
 			return &observedFailure{cause: c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutDegraded), observation: observed}
 		}

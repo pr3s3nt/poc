@@ -574,9 +574,21 @@ func (c *Coordinator) runEnvironmentUnit(ctx context.Context, provider port.Prov
 // failingWorkloads attributes unhealthy observed objects to their workloads.
 func failingWorkloads(observation domain.Observation, owners map[string]string) []string {
 	set := map[string]bool{}
+	byKindName := map[string]string{}
+	for key, name := range owners {
+		parts := strings.Split(key, "/")
+		if len(parts) >= 2 {
+			byKindName[parts[len(parts)-2]+"/"+parts[len(parts)-1]] = name
+		}
+	}
 	for _, o := range observation.Objects {
 		if o.Health == domain.Degraded || o.Health == domain.Progressing {
-			if name := owners[o.APIVersion+"/"+o.Kind+"/"+o.Name]; name != "" {
+			name := owners[o.APIVersion+"/"+o.Kind+"/"+o.Name]
+			if name == "" {
+				// Fleet's apply message names kind and name only.
+				name = byKindName[o.Kind+"/"+o.Name]
+			}
+			if name != "" {
 				set[name] = true
 			}
 		}
