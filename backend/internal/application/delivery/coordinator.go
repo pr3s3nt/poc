@@ -438,6 +438,11 @@ func (c *Coordinator) runPhaseAccepting(ctx context.Context, provider port.Provi
 		if len(observed.Objects) > 0 {
 			last = observed
 		}
+		if err != nil && wait.Err() != nil && ctx.Err() == nil {
+			// The read was cut off by the expired readiness deadline.
+			record.Inventory = observedInventory(last, receipt)
+			return &observedFailure{cause: c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutNotReady), observation: last}
+		}
 		if err != nil {
 			return err
 		}

@@ -621,9 +621,18 @@ func secretsApplied(revision string, added map[string]bool) func(domain.Observat
 			}
 			return true
 		}
-		// Fleet's aggregate apply failure for this deployment lists only the
-		// objects that blocked it; Helm applied everything else.
-		return o.Health == domain.Degraded && o.Sync == domain.OutOfSync && len(o.Objects) > 0
+		// Fleet's aggregate apply failure lists only the objects that blocked
+		// it (Helm applied everything else): accept when they are all objects
+		// published before this preparation.
+		if len(o.Objects) == 0 || o.Complete {
+			return false
+		}
+		for _, object := range o.Objects {
+			if object.Health != domain.Degraded || added[object.Kind+"/"+object.Name] {
+				return false
+			}
+		}
+		return true
 	}
 }
 

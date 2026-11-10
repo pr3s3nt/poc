@@ -331,13 +331,21 @@ func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (
 	}
 	desired, _ := bdSpec["deploymentID"].(string)
 	applied, _ := bdStatus["appliedDeploymentID"].(string)
-	if display, _ := bdStatus["display"].(map[string]any); display != nil && display["state"] == "ErrApplied" && (desired == "" || desired == applied) {
-		out.Sync = domain.OutOfSync
-		out.Health = domain.Degraded
+	if display, _ := bdStatus["display"].(map[string]any); display != nil && display["state"] == "ErrApplied" {
 		// Fleet names the objects that blocked the apply; they let the
 		// coordinator attribute an Environment failure to its workload.
 		message, _ := display["deployed"].(string)
 		out.Objects = append(out.Objects, notReadyObjects(message, i.Target.Namespace)...)
+		if desired == "" || desired == applied {
+			out.Sync = domain.OutOfSync
+			out.Health = domain.Degraded
+			return out, nil
+		}
+		// A failed Helm upgrade does not record the new deployment as applied,
+		// and the error may still be the previous one: keep waiting; the
+		// readiness deadline concludes with the named objects.
+		out.Sync = domain.Pending
+		out.Health = domain.Progressing
 		return out, nil
 	}
 	if desired == "" || desired != applied {
