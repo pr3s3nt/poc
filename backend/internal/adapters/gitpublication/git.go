@@ -95,10 +95,13 @@ func (w *Writer) git(ctx context.Context, args ...string) ([]byte, error) {
 		}
 		code := gitFailureCode(err)
 		log.Printf("gitpublication command stopped: stage=%s code=%s attempt=%d", stage, code, attempt)
-		if !readOnly || (code != "DNS" && code != "TRANSPORT") || attempt == 3 || ctx.Err() != nil {
+		// Read-only commands change nothing remotely; a failure other than
+		// rejected credentials or certificates (also a concurrent local fetch
+		// holding a lock) is retried with backoff.
+		if !readOnly || code == "AUTH" || code == "TLS" || attempt == 3 || ctx.Err() != nil {
 			return nil, ErrPublication
 		}
-		timer := time.NewTimer(time.Duration(attempt) * 100 * time.Millisecond)
+		timer := time.NewTimer(time.Duration(attempt) * 750 * time.Millisecond)
 		select {
 		case <-ctx.Done():
 			timer.Stop()

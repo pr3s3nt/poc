@@ -15,7 +15,7 @@ import { makeUI, outsideRepo } from '../../../scripts/bootstrap/lib/runtime.mjs'
 import { ensureNamespaceAccess } from '../../../scripts/bootstrap/lib/namespace-access.mjs';
 
 process.umask(0o077);
-const STAGES = ['users', 'prepare', 'deploy', 'verify-deploy', 'image', 'secret', 'fail', 'rollback', 'resync', 'cleanup'];
+const STAGES = ['users', 'prepare', 'deploy', 'verify-deploy', 'image', 'secret', 'fail', 'rollback', 'resync', 'cleanup', 'recover'];
 const stage = process.argv[2];
 assert(STAGES.includes(stage), 'stage: ' + STAGES.join('|'));
 const dir = process.env.ORCH_TEST_RUN_DIR;
@@ -541,6 +541,7 @@ async function fail() {
   const dev = await asDeveloper();
   const frontendBefore = { uid: kjson('-n', ns(), 'get', 'deployment', 'frontend').metadata.uid, pods: podSecrets('frontend').map((p) => p.uid).sort() };
   const oldWorker = podSecrets('worker');
+  const backendVersion = vaultVersion('backend');
   await changeSecret(dev);
   await editImage(dev, 'worker', `acceptance-worker:issue67-missing`);
   const { report, screen } = await previewAndDeploy(dev, ['backend', 'worker']);
@@ -568,8 +569,11 @@ async function fail() {
     await new Promise((r) => setTimeout(r, 3000));
   }
   pass(`Old worker Pod restarted (${replacement.name}) and runs with worker-config-v2`);
-  assert.equal(vaultVersion('backend'), 3);
-  assert(podSecrets('backend').every((p) => p.secrets.includes('backend-config-v3')), 'backend on v3');
+  const failedVersion = vaultVersion('backend');
+  assert.equal(failedVersion, backendVersion + 1);
+  state.failedVersion = failedVersion;
+  save();
+  assert(podSecrets('backend').every((p) => p.secrets.includes(`backend-config-v${failedVersion}`)), 'backend on the new version');
   const frontendAfter = { uid: kjson('-n', ns(), 'get', 'deployment', 'frontend').metadata.uid, pods: podSecrets('frontend').map((p) => p.uid).sort() };
   assert.deepEqual(frontendAfter, frontendBefore, 'frontend not restarted');
   pass('Unchanged frontend kept its Deployment and Pods');
@@ -601,16 +605,17 @@ async function rollback() {
     assert.deepEqual(deploymentSecret(w), [`${w}-config-v2`], `${w} back on v2`);
     assert(podSecrets(w).every((p) => p.secrets.includes(`${w}-config-v2`)), `${w} pods on v2`);
   }
-  assert.equal(vaultVersion('backend'), 3, 'rollback reused Vault version 2 without a new write');
+  assert.equal(vaultVersion('backend'), state.failedVersion, 'rollback reused Vault version 2 without a new write');
   // Not used by any successful release any more: removed and garbage collected.
   const deadline = Date.now() + 120_000;
   for (;;) {
     const snap = snapshot();
-    if (!snap.vss['backend-config-v3'] && !snap.secrets['backend-config-v3'] && !snap.vss['worker-config-v3'] && !snap.secrets['worker-config-v3']) break;
+    const unused = Object.keys({ ...snap.vss, ...snap.secrets }).filter((n) => /^(backend|worker)-config-v(\d+)$/.test(n) && !/-v2$/.test(n));
+    if (!unused.length) break;
     assert(Date.now() < deadline, 'v3 VSS/Secret removed after rollback');
     await new Promise((r) => setTimeout(r, 3000));
   }
-  pass('Rollback restored <workload>-config-v2 (Vault version reused) and v3 VSS/Secret were deleted and garbage collected');
+  pass('Rollback restored <workload>-config-v2 (Vault version reused); every other backend/worker VSS and Secret was deleted and garbage collected');
   const app = await appPage(dev);
   await checksPass(app);
   pass('App checks PASS after rollback (secret hash of the restored release)');
@@ -627,6 +632,23 @@ async function resync() {
   const jobsAfter = items('jobs').filter((j) => j.metadata.name.startsWith('backend-migrate-')).map((j) => j.metadata.uid).sort();
   assert.deepEqual(jobsAfter, jobsBefore, 'no migration Job re-run');
   pass(`Forced Fleet resync re-ran no migration Job (${jobsAfter.length} Job UIDs unchanged)`);
+}
+
+// Settles an interrupted Environment operation through Settings (explicit
+// operator confirmation that the earlier execution stopped).
+async function recover() {
+  const dev = await asDeveloper();
+  const env = (await dev.get('/applications/' + state.app.key)).application.environments.find((e) => e.key === ENV);
+  assert(env.activeOperation, 'no held operation');
+  await openSettings(dev);
+  await dev.page.getByLabel('Tôi xác nhận thao tác bị gián đoạn đã dừng hẳn').check();
+  const result = await dev.submit(`${base()}/operations/${env.activeOperation.id}/recover`, 'POST', dev.page.getByRole('button', { name: 'Khôi phục môi trường', exact: true }));
+  writeFileSync(join(dir, 'recover-result-body.json'), JSON.stringify(result, null, 2));
+  await shot(dev, 'done');
+  const after = (await dev.get('/applications/' + state.app.key)).application.environments.find((e) => e.key === ENV);
+  console.log('RECOVER', JSON.stringify({ outcome: result.recovery?.outcome, active: after.activeOperation?.status ?? null }));
+  assert(!after.activeOperation, 'Environment released');
+  pass('Recovered the interrupted operation from Settings; Environment released');
 }
 
 async function cleanup() {
@@ -661,7 +683,7 @@ async function cleanup() {
 let status = 'FAIL';
 try {
   if (stage !== 'users') assert(stage === 'prepare' || state.app, 'run prepare first');
-  await ({ users, prepare, deploy, 'verify-deploy': () => verifyDeploy(), image, secret, fail, rollback, resync, cleanup })[stage]();
+  await ({ users, prepare, deploy, 'verify-deploy': () => verifyDeploy(), image, secret, fail, rollback, resync, cleanup, recover })[stage]();
   status = 'PASS';
 } catch (error) {
   console.error(`FAIL ${stage}: ${String(error?.message ?? error).split('\n')[0]}`);
