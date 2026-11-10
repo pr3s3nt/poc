@@ -1,6 +1,7 @@
 package delivery
 
 import (
+	"log"
 	"context"
 	"errors"
 	"sort"
@@ -157,6 +158,7 @@ func (c *Coordinator) withdrawExecution(ctx context.Context, orgKey string, sour
 		}
 	}
 	if err := withdrawErr; err != nil {
+		log.Printf("delivery withdrawal stopped: unit=%s remove=%t cause=%v", source.Revision.Scope.UnitKey, remove, err)
 		old := record.Mutation.Version
 		record.Mutation, _ = record.Mutation.Advance(domain.IntentUnknown, false)
 		record.UpdatedAt = time.Now().UTC()

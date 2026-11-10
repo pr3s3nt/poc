@@ -665,6 +665,17 @@ async function cleanup() {
   const app = (await dev.get('/applications/' + state.app.key)).application;
   const namespace = app.environments.find((e) => e.key === ENV).namespaceIdentity;
   const { repos } = fleetBundles();
+  // Deletion requires the applied schedule to be suspended (UC-18).
+  const scheduled = (await dev.get(base() + '/workloads')).workloads.find((w) => w.id === 'scheduled');
+  if (scheduled && !scheduled.workload.workloadExecution?.schedule?.suspend) {
+    await dev.page.goto(`${dev.baseURL}/ui/applications/${state.app.key}/environments/${ENV}/workloads/scheduled`);
+    await dev.page.locator('summary').getByText('Chính sách Job', { exact: true }).click();
+    await dev.page.getByLabel('Tạm dừng lịch', { exact: true }).check();
+    await dev.submit(base() + '/workloads/scheduled', 'PUT', dev.page.getByRole('button', { name: 'Lưu draft Workload', exact: true }));
+    const { report } = await previewAndDeploy(dev, ['scheduled']);
+    assert.equal(report.status, 'SUCCEEDED');
+    pass('Suspended the scheduled workload through Preview and Deploy');
+  }
   if (kubectl('get', 'namespace', namespace, '--ignore-not-found', '-o', 'name')) kubectl('-n', namespace, 'delete', 'role,rolebinding', '-l', 'bootstrap.orchestrator.dev/application=' + state.app.key, '--ignore-not-found');
   await dev.page.goto(`${dev.baseURL}/ui/applications/${state.app.key}/settings`);
   if (app.status === 'DELETING') await dev.page.getByRole('region', { name: 'Tiến trình xóa ứng dụng', exact: true }).getByRole('button', { name: 'Thử lại', exact: true }).click();

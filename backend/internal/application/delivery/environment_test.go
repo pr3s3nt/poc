@@ -316,3 +316,28 @@ func TestRollbackReleaseKeepsTheMigrateUnit(t *testing.T) {
 		t.Fatalf("rollback submissions = %+v", p.submitted)
 	}
 }
+
+func TestSecretPreparationIsNotTheLastSuccessfulRelease(t *testing.T) {
+	c, p, ctx, req := environmentFixture(t)
+	c.Deadline = time.Second
+	req.ReleaseID, req.Workloads = "r1", map[string][]execution.Manifest{"backend": workloadManifests("backend", "b:1", 1, "migrate"), "worker": workloadManifests("worker", "w:1", 0, "")}
+	if err := c.DeployEnvironment(ctx, req); err != nil {
+		t.Fatal(err)
+	}
+	// v2 is prepared, then the final release fails.
+	p.degraded = "worker"
+	req.ReleaseID, req.Workloads = "r2", map[string][]execution.Manifest{"backend": workloadManifests("backend", "b:1", 2, "migrate"), "worker": workloadManifests("worker", "w:bad", 0, "")}
+	if err := c.DeployEnvironment(ctx, req); err == nil {
+		t.Fatal("broken worker accepted")
+	}
+	// Rolling back to v1 keeps no v2: the preparation is not a release.
+	p.degraded = ""
+	req.ReleaseID, req.KeepJobs = "rollback", true
+	req.Workloads = map[string][]execution.Manifest{"backend": workloadManifests("backend", "b:1", 1, "migrate"), "worker": workloadManifests("worker", "w:1", 0, "")}
+	if err := c.DeployEnvironment(ctx, req); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(names(p.submitted[len(p.submitted)-1].objects), " "); got != "Deployment/backend Deployment/worker VaultConnection/orch-vault-1 VaultStaticSecret/backend-config-v1" {
+		t.Fatalf("rollback = %s", got)
+	}
+}

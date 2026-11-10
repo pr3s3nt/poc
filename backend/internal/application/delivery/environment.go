@@ -73,6 +73,9 @@ type storedManifest struct {
 type composition struct {
 	Version   int                         `json:"version"`
 	Workloads map[string][]storedManifest `json:"workloads"`
+	// Preparation marks a secret preparation revision; it is never the last
+	// successful release kept by ADR-042 decision 6.
+	Preparation bool `json:"preparation,omitempty"`
 }
 
 func compositionID(revisionID string) string { return stableID("delivery-composition", revisionID) }
@@ -436,7 +439,7 @@ func (c *Coordinator) DeployEnvironment(ctx context.Context, req EnvironmentRequ
 	// release that the new desired state no longer uses.
 	var lastSuccess map[string][]execution.Manifest
 	if appSuccess != nil {
-		if lastSuccess, err = load(appSuccess); err != nil {
+		if lastSuccess, err = c.lastRelease(ctx, executions, appUnit); err != nil {
 			return err
 		}
 	}
@@ -481,6 +484,7 @@ func (c *Coordinator) DeployEnvironment(ctx context.Context, req EnvironmentRequ
 			if err != nil {
 				return err
 			}
+			comp.Preparation = true
 			prepReq := req
 			prepReq.ReleaseID = req.ReleaseID + "/secrets"
 			intent, _ := c.environmentIntent(prepReq, org.ID, owner, b, domain.EnvironmentAppUnit, domain.Rollout)
@@ -802,4 +806,33 @@ func secretPreparation(base, changed map[string][]execution.Manifest, jobs []exe
 		out[name] = current
 	}
 	return out, true
+}
+
+// lastRelease returns the workloads of the newest acknowledged, non-preparation
+// revision of the unit, or nil after a withdrawal or when there is none.
+func (c *Coordinator) lastRelease(ctx context.Context, executions []persistence.DeliveryExecution, unit string) (map[string][]execution.Manifest, error) {
+	records := []persistence.DeliveryExecution{}
+	for _, e := range executions {
+		if e.UnitID == unit && e.Mutation.Status == domain.IntentAcknowledged {
+			records = append(records, e)
+		}
+	}
+	sort.Slice(records, func(i, j int) bool { return records[i].CreatedAt.After(records[j].CreatedAt) })
+	for _, e := range records {
+		if e.Mutation.Action == domain.Withdraw {
+			return nil, nil
+		}
+		if e.Mutation.Action != domain.Submit && e.Mutation.Action != domain.Adopt {
+			continue
+		}
+		comp, err := c.getComposition(ctx, e)
+		if err != nil {
+			return nil, err
+		}
+		if comp.Preparation {
+			continue
+		}
+		return storedWorkloads(comp)
+	}
+	return nil, nil
 }
