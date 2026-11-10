@@ -425,8 +425,12 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 	defer cancel()
 	ticker := time.NewTicker(poll)
 	defer ticker.Stop()
+	var last domain.Observation
 	for {
 		observed, err := provider.Observe(wait, i, receipt)
+		if len(observed.Objects) > 0 {
+			last = observed
+		}
 		if err != nil {
 			return err
 		}
@@ -440,7 +444,7 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 		if observed.Health == domain.Degraded {
 			// UC-06 CD-10: the receipted revision was observed failing. This
 			// process is the only writer, so the outcome is known, not held.
-			return c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutDegraded)
+			return &observedFailure{cause: c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutDegraded), observation: observed}
 		}
 		if observed.Sync == domain.Pending && observed.Health == domain.Progressing {
 			if convergence, ok := provider.(port.PendingConvergence); ok {
@@ -458,7 +462,7 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 				// The owning operation was cancelled or lost: outcome unknown.
 				return ctx.Err()
 			}
-			return c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutNotReady)
+			return &observedFailure{cause: c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutNotReady), observation: last}
 		case <-ticker.C:
 		}
 	}

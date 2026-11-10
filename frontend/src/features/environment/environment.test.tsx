@@ -22,7 +22,7 @@ function stub(handler: Handler) {
 }
 function Store({ target, onConfig = () => undefined }: { target: EnvironmentTarget; onConfig?(): void }) {
   const [application, setApplication] = useState(app(target));
-  return <SecretStoreSelection application={application} environment="staging" configVersion={4} onConfigurationChanged={onConfig} onTargetChange={(_id, env, next) => setApplication((c) => ({ ...c, environments: { ...c.environments, [env]: next } }))} />;
+  return <SecretStoreSelection application={application} environment="staging" configVersion={4} canSelect onConfigurationChanged={onConfig} onTargetChange={(_id, env, next) => setApplication((c) => ({ ...c, environments: { ...c.environments, [env]: next } }))} />;
 }
 
 it('selects a store with both versions, reports the copy and keeps the selector editable', async () => {
@@ -191,7 +191,7 @@ it('refreshes the configuration only for the scope that saved the store, but sti
   function Switch() {
     const [environment, setEnvironment] = useState<'staging' | 'production'>('staging');
     const application = { ...app(configuredTarget( { secretStoreKey: 'vault-a', version: 5 })), environments: { staging: configuredTarget( { secretStoreKey: 'vault-a', version: 5 }), production: configuredTarget( { secretStoreKey: 'vault-a', version: 5 }) } };
-    return <><button onClick={() => setEnvironment('production')}>Sang production</button><SecretStoreSelection application={application} environment={environment} configVersion={4} onConfigurationChanged={onConfig} onTargetChange={onTarget} /></>;
+    return <><button onClick={() => setEnvironment('production')}>Sang production</button><SecretStoreSelection application={application} environment={environment} configVersion={4} canSelect onConfigurationChanged={onConfig} onTargetChange={onTarget} /></>;
   }
   const user = userEvent.setup();
   render(<Switch />);
@@ -244,4 +244,25 @@ it('claims a reload only after the GET succeeds: a failed stale reload keeps the
   expect(screen.getByRole('status')).toHaveTextContent('Đã tải lại lựa chọn mới nhất');
   const puts = vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === 'PUT');
   expect(puts).toHaveLength(1);
+});
+
+it('shows a developer the bound store read-only and never offers a selector (ADR-042)', async () => {
+  stub((url) => { if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: stores }); });
+  render(<SecretStoreSelection application={app(configuredTarget({ secretStoreKey: 'vault-a', secretStoreName: 'Vault A', version: 5 }))} environment="staging" configVersion={4} onConfigurationChanged={() => undefined} onTargetChange={() => undefined} />);
+  expect(screen.getByText('Vault A')).toBeInTheDocument();
+  expect(screen.getByRole('note')).toHaveTextContent('Chỉ Kỹ sư nền tảng hoặc Quản trị viên chọn kho bí mật');
+  expect(screen.queryByLabelText('Kho bí mật cho Staging')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Lưu kho bí mật' })).toBeNull();
+});
+
+it('explains a locked store when the Environment still runs workloads', async () => {
+  stub((url, init) => {
+    if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: stores });
+    if (init?.method === 'PUT') return Response.json({ code: 'SECRET_STORE_LOCKED', field: 'secretStoreKey' }, { status: 409 });
+  });
+  const user = userEvent.setup();
+  render(<Store target={configuredTarget({ secretStoreKey: 'vault-a', version: 5 })} />);
+  await user.selectOptions(await screen.findByLabelText('Kho bí mật cho Staging'), 'vault-b');
+  await user.click(screen.getByRole('button', { name: 'Lưu kho bí mật' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Môi trường còn workload đang chạy nên không đổi được kho bí mật');
 });

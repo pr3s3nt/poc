@@ -211,7 +211,7 @@ function serviceExecution(execution: Execution, hasPorts: boolean): Execution {
   return next;
 }
 
-export function WorkloadEditorPage({ application, environment, workloadId, selectedTemplate, onTargetChange }: { application: Application; environment: EnvironmentKey; workloadId?: string; selectedTemplate?: string; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void }) {
+export function WorkloadEditorPage({ application, environment, workloadId, selectedTemplate, canSelectStore = false, onTargetChange }: { application: Application; environment: EnvironmentKey; workloadId?: string; selectedTemplate?: string; canSelectStore?: boolean; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void }) {
   // Environment operations hold draft writes: Save stays disabled, text is kept.
   const environmentBusy = useEnvironmentBusy(application, environment, onTargetChange);
   const [resolution,setResolution]=useState<Resolution>();
@@ -548,7 +548,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
       </ConfigGroup></section>
       </AdvancedFields>
     </>}
-    {dialog?.type === 'key' && catalog.status === 'ready' ? <CreateKeyDialog application={application} environment={environment} kind={dialog.kind} suggestedName={dialog.suggested} catalog={catalog} onTargetChange={onTargetChange}
+    {dialog?.type === 'key' && catalog.status === 'ready' ? <CreateKeyDialog application={application} environment={environment} kind={dialog.kind} suggestedName={dialog.suggested} catalog={catalog} canSelectStore={canSelectStore} onTargetChange={onTargetChange}
       onConfiguration={acceptConfiguration(scope.current)} onClose={closeDialog}
       onCreated={((at, rowId, kind, file, targetContainer, targetMount) => (key: string) => {
         if (at !== scope.current) return;

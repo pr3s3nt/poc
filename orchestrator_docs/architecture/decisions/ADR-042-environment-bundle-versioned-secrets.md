@@ -82,8 +82,8 @@ revision. Deploy batch:
 4. Publish `migrate` (nếu có Job đổi) và chờ `Complete`, rồi publish `app`, chờ
    Ready. Revision mới Ready thì xóa guarded object không còn trong bundle.
 
-Mọi workload của Environment phải cùng cluster và namespace; khác thì Preview
-và Deploy từ chối với lỗi rõ ràng.
+Mọi workload của Environment phải cùng cluster và namespace; khác thì Deploy
+từ chối trước khi publish, với lỗi rõ ràng.
 
 ## Kết quả, lỗi và rollback
 

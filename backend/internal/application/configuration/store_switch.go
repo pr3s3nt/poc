@@ -10,6 +10,7 @@ import (
 
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/domain/configuration"
+	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/secretstore"
 	"orchestrator/internal/platform/ids"
@@ -59,6 +60,19 @@ func (s *Service) SetSecretStore(ctx context.Context, cmd SwitchCommand) (Switch
 	}
 	if l.env.SecretStoreKey == cmd.StoreKey {
 		return SwitchResult{Environment: l.env}, nil
+	}
+	// ADR-042: running workloads still use VaultStaticSecrets of the selected
+	// store, so it changes only while the Environment has none.
+	if l.env.SecretStoreKey != "" {
+		instances, err := s.store.ListWorkloadInstances(ctx, cmd.ApplicationKey+"/"+cmd.EnvironmentKey)
+		if err != nil {
+			return SwitchResult{}, err
+		}
+		for _, instance := range instances {
+			if instance.Status != deployment.InstanceRemoved {
+				return SwitchResult{}, ErrStoreLocked
+			}
+		}
 	}
 	target, err := s.store.GetSecretStore(ctx, l.org, cmd.StoreKey)
 	if err != nil || target.OrganizationKey != l.org || target.Status != secretstore.StatusReady {

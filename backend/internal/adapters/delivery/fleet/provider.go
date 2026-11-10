@@ -420,6 +420,7 @@ func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (
 				return unknown(i), err
 			}
 		}
+		out.Objects[len(out.Objects)-1].Health = health
 		if health == domain.Degraded || (health == domain.Progressing && out.Health != domain.Degraded) {
 			out.Health = health
 		}

@@ -25,6 +25,7 @@ resources:
   - resources/deployment.tpl
   - resources/service.tpl
   - resources/identity.tpl
+  - resources/migrate.tpl
 patches:
   - patches/deployment.tpl
   - patches/service.tpl
@@ -77,6 +78,50 @@ workloadTemplates:
       additionalProperties: false
       properties: {}
     defaults: {}
+    runtimeDefaults:
+      resources:
+        requests: {cpu: 100m, memory: 128Mi}
+        limits: {memory: 512Mi}
+      containerSecurityContext:
+        privileged: false
+      auxiliaryContainerSecurityContext:
+        privileged: false
+      probeTimings:
+        readinessProbe: {periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3, successThreshold: 1}
+        livenessProbe: {periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3, successThreshold: 1}
+        startupProbe: {periodSeconds: 5, timeoutSeconds: 2, failureThreshold: 30, successThreshold: 1, initialDelaySeconds: 0}
+      replicas: 1
+      execution:
+        revisionHistoryLimit: 3
+        updateStrategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
+        persistentUpdateStrategy: {type: Recreate}
+        podDisruptionBudget: {enabled: true, maxUnavailable: 1, unhealthyPodEvictionPolicy: AlwaysAllow}
+      environments:
+        production:
+          resources:
+            requests: {cpu: 200m, memory: 256Mi}
+          execution: {revisionHistoryLimit: 10}
+  - id: backend-migrate
+    version: 1.2.0
+    kind: Deployment
+    labels:
+      vi: Backend API có migrate
+      en: Backend API with migration
+    descriptions:
+      vi: Chạy Job migrate bằng image của container chính trước khi cập nhật ứng dụng.
+      en: Runs a migration Job with the main container image before the application rolls out.
+    inputsSchema:
+      type: object
+      additionalProperties: false
+      properties:
+        migrateArgs:
+          type: array
+          title: Migration arguments
+          items:
+            type: string
+    defaults:
+      migrateArgs:
+        - migrate
     runtimeDefaults:
       resources:
         requests: {cpu: 100m, memory: 128Mi}

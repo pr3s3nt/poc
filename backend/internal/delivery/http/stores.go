@@ -11,6 +11,7 @@ import (
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/secretstores"
 	"orchestrator/internal/domain/environment"
+	identitydomain "orchestrator/internal/domain/identity"
 	"orchestrator/internal/domain/secretstore"
 	"orchestrator/internal/ports/persistence"
 )
@@ -125,6 +126,11 @@ func (s *Server) handleSetSecretStore(w http.ResponseWriter, r *http.Request) {
 	identity, ok := s.sessionIdentity(r)
 	if !ok {
 		writeCode(w, codeUnauthorized, "")
+		return
+	}
+	// ADR-042: only a Platform Engineer or Admin selects an Environment store.
+	if identity.Role != identitydomain.RolePlatformEngineer && identity.Role != identitydomain.RoleAdmin {
+		writeCode(w, codeForbidden, "")
 		return
 	}
 	var req setSecretStoreBody
