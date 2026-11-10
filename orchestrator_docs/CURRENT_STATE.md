@@ -200,6 +200,12 @@ Deploy was performed. See [checks, baseline failures, runtime and limits](verifi
 
 ## Local API platform seed and kind Console — 2026-11-06
 
+2026-11-10, issue #66: the seed example now includes built-in `endpoint`, for
+eight Types and eight Definitions. Exact-repo fresh API seed and unchanged rerun
+pass, including endpoint policy with the existing Traefik Gateway; full bootstrap
+tests on kind pass 94/94. This verifies registration, not workload public access.
+See [endpoint seed verification](verification/2026-11-10-endpoint-seed.md).
+
 2026-11-10, issue #65: the same seed input optionally declares `resourceTypes`.
 Creates missing Types before Git inspection and Definitions; preserves existing
 contracts or stops on conflict. Exact user release repo verification created

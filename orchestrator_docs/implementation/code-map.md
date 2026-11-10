@@ -37,6 +37,8 @@ endpoint validation from `api-seed.mjs`; calls existing Git inspection and
 Definition registration APIs. Optional `resourceTypes` (issue #65) registers
 missing contracts first, with conflict/mapping checks and API read-back;
 Account/Git configuration remains a prerequisite. Existing Types are preserved.
+Built-in `endpoint` input support (issue #66) supplies domain/Gateway policy
+directly; endpoint has no module/template inspection or attached Driver Account.
 
 Operator procedure: [runbook](../operations/platform-seed.md). Local CLI:
 `scripts/bootstrap/seed-api.mjs`; API orchestration, private input validation and

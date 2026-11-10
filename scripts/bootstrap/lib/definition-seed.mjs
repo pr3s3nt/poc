@@ -59,7 +59,8 @@ export function loadDefinitionConfig(file) {
   keys.add(d.key);
   const fields = ['key','name','resourceType','driverType','driverAccount','driverInputs','provision','criteria','modulePath','templatePath'];
   if (Object.keys(d).some(k => !fields.includes(k))) fail('Unsupported Definition field');
-  if (!['terraform','template','existing-cluster'].includes(d.driverType)) fail('Unsupported Definition driver');
+  if (!['terraform','template','existing-cluster','endpoint'].includes(d.driverType)) fail('Unsupported Definition driver');
+  if (d.driverType === 'endpoint' && (d.resourceType !== 'endpoint' || d.driverAccount || d.driverInputs.values.source || d.driverInputs.values.variables?.template_source)) fail('Endpoint uses the built-in driver without an account or source');
   if (d.driverType === 'terraform' ? !directory(d.modulePath) || d.templatePath || d.driverInputs.values.source : d.driverType === 'template' ? !directory(d.templatePath) || d.modulePath || d.driverInputs.values.variables?.template_source : d.modulePath || d.templatePath) fail('Definition source must be supplied by inspection');
  }
  return c;

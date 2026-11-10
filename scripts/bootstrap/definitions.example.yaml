@@ -17,6 +17,11 @@ parameters:
   environmentType: staging
   targetClass: default
   resourceClass: in-cluster
+  endpointRootDomain: apps.company.example
+  endpointScheme: https
+  gatewayName: traefik-gateway
+  gatewayNamespace: traefik
+  gatewaySectionName: websecure
 resourceTypes:
   - key: persistent-storage
     inputs:
@@ -179,6 +184,26 @@ resourceTypes:
       - name: jdbcUrl
         type: string
         required: false
+        secret: false
+  - key: endpoint
+    inputs:
+      - name: name
+        type: string
+        required: true
+      - name: port
+        type: string
+        required: true
+      - name: path
+        type: string
+        required: false
+    outputs:
+      - name: hostname
+        type: string
+        required: true
+        secret: false
+      - name: url
+        type: string
+        required: true
         secret: false
 definitions:
   - key: ${seed.definitionPrefix}-cluster
@@ -344,3 +369,18 @@ definitions:
       - env_type: ${seed.environmentType}
         class: ${seed.targetClass}
     templatePath: templates/standard
+  - key: ${seed.definitionPrefix}-endpoint
+    name: ${seed.definitionName} public endpoint
+    resourceType: endpoint
+    driverType: endpoint
+    driverInputs:
+      values:
+        variables:
+          rootDomain: ${seed.endpointRootDomain}
+          scheme: ${seed.endpointScheme}
+          gatewayName: ${seed.gatewayName}
+          gatewayNamespace: ${seed.gatewayNamespace}
+          gatewaySectionName: ${seed.gatewaySectionName}
+    provision: {}
+    criteria:
+      - env_type: ${seed.environmentType}

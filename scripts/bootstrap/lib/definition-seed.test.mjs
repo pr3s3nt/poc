@@ -98,16 +98,50 @@ test('loader rejects mutable refs, embedded credentials, duplicate keys and sour
  assert.throws(() => substitute('${seed.missing}', {}), /Missing seed parameter/);
 });
 
-test('published input declares seven Definitions and just one Git URL', t => {
+test('published input declares eight Types/Definitions including endpoint and just one Git URL', t => {
  const raw = readFileSync(new URL('../definitions.example.yaml', import.meta.url), 'utf8');
  const f = config(t); writeFileSync(f.file, raw.replace('https://console.company.example', 'http://127.0.0.1:3070').replace('./credentials/password', 'password'));
  const c = f.loaded();
- assert.equal(c.definitions.length, 7);
- assert.equal(c.resourceTypes.length, 7);
+ assert.equal(c.definitions.length, 8);
+ assert.equal(c.resourceTypes.length, 8);
  assert.deepEqual(new Set(c.resourceTypes.map(t => t.key)), new Set(c.definitions.map(d => d.resourceType)));
  assert.equal(c.definitions.filter(d => d.modulePath).length, 5);
  assert.equal(c.definitions.filter(d => d.templatePath).length, 1);
  assert.equal((raw.match(/https:\/\/github.com/g) ?? []).length, 1);
+});
+
+function endpointInput() {
+ return {
+  resourceTypes: [{ key: 'endpoint', inputs: [{ name: 'name', type: 'string', required: true }, { name: 'port', type: 'string', required: true }, { name: 'path', type: 'string' }], outputs: [{ name: 'hostname', type: 'string', required: true }, { name: 'url', type: 'string', required: true }] }],
+  definitions: [{ key: 'public-endpoint', name: 'Public endpoint', resourceType: 'endpoint', driverType: 'endpoint', driverInputs: { values: { variables: { rootDomain: 'apps.example.com', scheme: 'https', gatewayName: 'traefik', gatewayNamespace: 'traefik', gatewaySectionName: 'websecure', reservedNames: ['www'] } } }, provision: {}, criteria: [{ env_type: 'staging' }] }],
+ };
+}
+
+test('endpoint seed creates and reuses policy without Git inspection or attached account', async t => {
+ const c = config(t, endpointInput()).loaded(), s = server(c), report = [];
+ await seedDefinitions(c, { fetcher: s.fetcher, report: x => report.push(x) });
+ await seedDefinitions(c, { fetcher: s.fetcher, report: x => report.push(x) });
+ assert.equal(s.calls.filter(x => x.path.endsWith('/inspect')).length, 0);
+ assert.equal(s.calls.filter(x => x.path === '/resource-definitions' && x.method === 'POST').length, 1);
+ assert.equal(s.calls.filter(x => x.path === '/resource-types' && x.method === 'POST').length, 1);
+ assert.deepEqual(s.definitions[0], c.definitions[0]);
+ assert.equal(s.definitions[0].driverAccount, undefined);
+ assert.ok(report.includes('Definition public-endpoint REUSED'));
+});
+
+test('endpoint input refuses wrong resource type, attached account and Git/module/template sources', t => {
+ for (const mutate of [d => { d.resourceType = 'workload'; }, d => { d.driverAccount = 'existing-account'; }, d => { d.modulePath = 'terraform/endpoint'; }, d => { d.templatePath = 'templates/standard'; }, d => { d.driverInputs.values.source = {}; }, d => { d.driverInputs.values.variables.template_source = 'source-id'; }]) {
+  const input = endpointInput(); mutate(input.definitions[0]); assert.throws(config(t, input).loaded, /Endpoint|inspection/);
+ }
+});
+
+test('changed Gateway policy is a conflict and never overwrites the existing endpoint', async t => {
+ const c = config(t, endpointInput()).loaded(), s = server(c);
+ await seedDefinitions(c, { fetcher: s.fetcher, report: () => {} });
+ c.definitions[0].driverInputs.values.variables.gatewayName = 'another-gateway';
+ await assert.rejects(seedDefinitions(c, { fetcher: s.fetcher, report: () => {} }), /CONFLICT/);
+ assert.equal(s.calls.filter(x => x.path === '/resource-definitions' && x.method === 'POST').length, 1);
+ assert.equal(s.definitions[0].driverInputs.values.variables.gatewayName, 'traefik');
 });
 
 test('missing Types are created before inspection; rerun preserves Types and Definitions', async t => {

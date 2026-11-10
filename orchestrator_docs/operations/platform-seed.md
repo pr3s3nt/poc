@@ -26,6 +26,13 @@ conflicting Definitions stop before any new Definition registration. Successful
 Type creation is retained if a later phase fails.
 This procedure does not deploy or accept a workload.
 
+The example includes built-in `endpoint` (issue #66): Type inputs `name`, `port`,
+optional `path`; nonsecret outputs `hostname`, `url`. Its Definition declares
+domain/scheme and the existing Gateway/listener policy, without a Driver Account
+or Git module/template of its own. Traefik must support Gateway API and the
+Gateway must allow application namespaces. Endpoint registration is not proof
+of HTTPRoute, DNS or TLS reachability; these are checked after workload deploy.
+
 Approved 2026-11-06: install Orchestrator inside `kind-k8s-4f`, expose its Console
 through verified Tailscale port 3070, and import platform configuration through
 its API from the current checkout. Input YAML and credentials remain local,

@@ -14,8 +14,8 @@ node scripts/bootstrap/seed-definitions.mjs --config /private/definitions.yaml
 ```
 
 Input mẫu dùng `pr3s3nt/orchestrator-workload-templates` tại exact commit và tạo
-bảy Types cùng bảy Definitions: cluster, namespace, PostgreSQL, Redis, MySQL,
-storage, workload. `resourceTypes` khai báo `key`, `inputs`, `outputs`; mỗi field
+tám Types cùng tám Definitions: cluster, namespace, PostgreSQL, Redis, MySQL,
+storage, workload, endpoint. `resourceTypes` khai báo `key`, `inputs`, `outputs`; mỗi field
 có `name`, `type` (`string`, `number`, `bool`, `any`), optional `required` và
 `secret` cho outputs chứa bí mật. Xóa entry không cần. Bỏ `resourceTypes` để
 dùng input cũ với Types đã có. `repository.url` là URL Git
@@ -31,6 +31,18 @@ template ID rồi điền vào Definition; không tự tính hoặc hardcode pin
 nguyên. Inputs/outputs, biến và provider bindings còn lại khai báo trong YAML.
 MySQL lấy `image` từ resource param; không đưa password vào input. Có thể thêm
 output PostgreSQL `asyncUri` vào mapping nếu Type đã khai báo output đó.
+
+Endpoint dùng driver có sẵn `endpoint`, không có module/template Git hoặc
+`driverAccount` riêng. Điền `parameters.endpointRootDomain`, `endpointScheme`,
+`gatewayName`, `gatewayNamespace`, `gatewaySectionName` theo Gateway/listener
+thực tế của Traefik. Ví dụ mẫu là dữ liệu cần thay, không xác nhận Gateway đó
+đã có. Muốn bỏ listener tùy chọn, xóa `gatewaySectionName` trong variables của
+Definition; có thể thêm `reservedNames: [www, api]` để bảo vệ tên ngoài platform.
+Type `endpoint` nhận `name`/`port`/optional `path`, xuất `hostname`/`url`.
+Gateway API, Gateway cho phép HTTPRoute từ namespace app, wildcard DNS/TLS là
+prerequisites. Seed chỉ lưu Type/policy; HTTPRoute được backend sinh khi deploy
+workload có endpoint. Không tự cài/sửa Traefik, Gateway, DNS/TLS hoặc tạo route
+trong bước seed. Xem [endpoint contract](../../orchestrator_docs/architecture/contracts/endpoint.md).
 
 Đây là seed lần đầu qua API, không ghi SQL trực tiếp: tạo mục thiếu, dùng lại
 mục khớp, khác thì CONFLICT. Kiểm tra mọi Type conflict và mapping trước khi tạo
