@@ -132,6 +132,11 @@ func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, act
 		if staged {
 			// ADR-042: every change of this batch is one Environment release.
 			release := appsvc.NewRelease(orgKey, appKey, env)
+			if rollback, _ := lease.Operation.Detail["rollback"].(bool); rollback {
+				// ADR-042: a rollback restores the app unit and never re-runs
+				// migration Jobs of an older release.
+				release.KeepJobs()
+			}
 			report, err := s.deployChanges(lease, appsvc.WithRelease(ctx, release), orgKey, appKey, envKey, actor, preview, env)
 			s.finishRelease(ctx, release, &report)
 			return report, err

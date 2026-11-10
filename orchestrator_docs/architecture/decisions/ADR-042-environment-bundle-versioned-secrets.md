@@ -110,7 +110,9 @@ từ chối trước khi publish, với lỗi rõ ràng.
 - Git giữ trạng thái đã publish kể cả khi lỗi. Developer sửa cấu hình rồi Deploy
   lại, hoặc Rollback Environment theo ADR-040. Rollback khôi phục cấu hình mong
   muốn của bản thành công và Deploy lại; nhờ dùng lại version trùng nội dung,
-  workload quay về đúng version secret của bản đó.
+  workload quay về đúng version secret của bản đó. Rollback chỉ publish unit
+  `app`; unit `migrate` giữ nguyên, không chạy lại migration của bản cũ (thay
+  quy tắc chặn rollback khi có Job của ADR-040 cho unit `migrate`).
 - Recovery của submission giữ nguyên giao thức receipt, lease và hold của
   ADR-036 cho hai unit mới.
 

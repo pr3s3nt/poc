@@ -299,3 +299,20 @@ func TestSecretPreparationIsNotBlockedByAPublishedBrokenWorkload(t *testing.T) {
 		t.Fatalf("units after the broken release = %v", units)
 	}
 }
+
+func TestRollbackReleaseKeepsTheMigrateUnit(t *testing.T) {
+	c, p, ctx, req := environmentFixture(t)
+	req.ReleaseID, req.Workloads = "r1", map[string][]execution.Manifest{"backend": workloadManifests("backend", "b:2", 0, "migrate-2")}
+	if err := c.DeployEnvironment(ctx, req); err != nil {
+		t.Fatal(err)
+	}
+	req.ReleaseID, req.KeepJobs = "rollback", true
+	req.Workloads = map[string][]execution.Manifest{"backend": workloadManifests("backend", "b:1", 0, "migrate-1")}
+	if err := c.DeployEnvironment(ctx, req); err != nil {
+		t.Fatal(err)
+	}
+	last := p.submitted[len(p.submitted)-1]
+	if len(p.submitted) != 3 || p.submitted[2].unit != domain.EnvironmentAppUnit || last.objects[1]["spec"].(map[string]any)["image"] != "b:1" {
+		t.Fatalf("rollback submissions = %+v", p.submitted)
+	}
+}

@@ -26,7 +26,11 @@ type Release struct {
 	removed   []string
 	order     []string
 	finishers map[string]func(context.Context, error) error
+	keepJobs  bool
 }
+
+// KeepJobs publishes the app unit only, leaving the migrate unit unchanged.
+func (r *Release) KeepJobs() { r.keepJobs = true }
 
 type releaseKey struct{}
 
@@ -156,7 +160,7 @@ func (s *Service) FlushRelease(ctx context.Context, r *Release) (ReleaseOutcome,
 	} else if r.target == nil {
 		err = fmt.Errorf("deployment: release has no target")
 	} else {
-		err = s.delivery.DeployEnvironment(ctx, deliveryapp.EnvironmentRequest{OrganizationKey: r.orgKey, ApplicationKey: r.appKey, Environment: r.env, Target: *r.target, Workloads: r.workloads, Removed: r.removed})
+		err = s.delivery.DeployEnvironment(ctx, deliveryapp.EnvironmentRequest{OrganizationKey: r.orgKey, ApplicationKey: r.appKey, Environment: r.env, Target: *r.target, Workloads: r.workloads, Removed: r.removed, KeepJobs: r.keepJobs})
 	}
 	failed := map[string]bool{}
 	var rollout *deliveryapp.RolloutFailure

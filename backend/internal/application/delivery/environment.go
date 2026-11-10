@@ -34,6 +34,8 @@ type EnvironmentRequest struct {
 	Target          execution.Target
 	Workloads       map[string][]execution.Manifest
 	Removed         []string
+	// KeepJobs (rollback) leaves the migrate unit unchanged: no older Job runs.
+	KeepJobs bool
 }
 
 // RolloutFailure names the workloads whose objects were not healthy when the
@@ -461,7 +463,7 @@ func (c *Coordinator) DeployEnvironment(ctx context.Context, req EnvironmentRequ
 			return err
 		}
 	}
-	migrateChanged := !reflect.DeepEqual(previousJobs.Workloads, jobComposition.Workloads)
+	migrateChanged := !reflect.DeepEqual(previousJobs.Workloads, jobComposition.Workloads) && !req.KeepJobs
 	if len(jobManifests) > 0 && migrateChanged {
 		// A changed Job can need a Secret the published app unit does not
 		// declare yet (first deploy or a new value version). Publish only the
@@ -523,7 +525,7 @@ func (c *Coordinator) DeployEnvironment(ctx context.Context, req EnvironmentRequ
 	}
 	// Completed Jobs of workloads that no longer have one are cleaned up only
 	// after the release succeeded.
-	if len(jobManifests) == 0 && migrateBase != nil {
+	if len(jobManifests) == 0 && migrateBase != nil && !req.KeepJobs {
 		active, err := activeExecutions(executions, domain.EnvironmentWorkload)
 		if err != nil {
 			return err
