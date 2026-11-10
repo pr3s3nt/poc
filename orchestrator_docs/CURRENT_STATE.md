@@ -7,6 +7,15 @@ last_reviewed: 2026-11-08
 
 # Current project state
 
+## Rollout recovery after a completed Prerequisite — issue #48
+
+A first Rollout interrupted after its Prerequisite completed is settled FAILED by
+Recover once proven never published; the Prerequisite, its Service and the Fleet
+controller are kept and nothing is replayed. The proof is on `main` since
+`3631ea05`; tests now cover every remaining trace, and a kind run stopped the
+backend between the two units and recovered through the Console. Awaiting user
+acceptance. [Evidence](verification/2026-11-10-rollout-recovery-prerequisite.md).
+
 ## Apache Airflow trial — issue #51
 
 Airflow 3.4.0 (LocalExecutor, PostgreSQL) was deployed on the retained kind

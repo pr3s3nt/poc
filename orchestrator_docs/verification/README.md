@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-10 | First Rollout interrupted after its Prerequisite: absence evidence tests and kind recovery through the Console keeping Prerequisite, Service and controller | [Rollout recovery after Prerequisite](2026-11-10-rollout-recovery-prerequisite.md) |
 | 2026-11-09 | Stable template renderer pin: template sources stay AVAILABLE across an unrelated backend rebuild; deploy before/after upgrade on kind | [Stable template renderer pin](2026-11-09-stable-template-renderer-pin.md) |
 | 2026-11-08 | DB connection-string outputs and Type output extension: unit/integration, Console trial and five databases on kind via `uri`/`connection` | [DB connection outputs](2026-11-08-db-connection-outputs.md) |
 | 2026-11-08 | Apache Airflow 3 via Console: platform setup, four workloads + PostgreSQL, one batch Deploy, DAG run and task log | [Airflow](2026-11-08-airflow.md) |
