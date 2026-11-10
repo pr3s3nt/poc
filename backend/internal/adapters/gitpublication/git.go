@@ -2,6 +2,7 @@
 package gitpublication
 
 import (
+	"strconv"
 	"bytes"
 	"context"
 	"errors"
@@ -94,7 +95,11 @@ func (w *Writer) git(ctx context.Context, args ...string) ([]byte, error) {
 			return out, nil
 		}
 		code := gitFailureCode(err)
-		log.Printf("gitpublication command stopped: stage=%s code=%s attempt=%d", stage, code, attempt)
+		detail := ""
+		if code == "EXIT" || code == "PROCESS" {
+			detail = " detail=" + failureDetail(err, ctx.Err())
+		}
+		log.Printf("gitpublication command stopped: stage=%s code=%s attempt=%d%s", stage, code, attempt, detail)
 		// Read-only commands change nothing remotely; a failure other than
 		// rejected credentials or certificates (also a concurrent local fetch
 		// holding a lock) is retried with backoff.
@@ -331,4 +336,23 @@ func (w *Writer) VerifyTrees(ctx context.Context, branch, commit string, trees m
 		}
 	}
 	return true, nil
+}
+
+var credentialInURL = regexp.MustCompile(`//[^/@\s]*@`)
+
+// failureDetail is the first stderr line of an unclassified git failure with
+// any URL user information removed; git never receives the token itself.
+func failureDetail(err, ctxErr error) string {
+	if ctxErr != nil {
+		return "context-" + ctxErr.Error()
+	}
+	var exited *exec.ExitError
+	if !errors.As(err, &exited) {
+		return "no-exit-status"
+	}
+	line := strings.TrimSpace(strings.SplitN(string(exited.Stderr), "\n", 2)[0])
+	if len(line) > 160 {
+		line = line[:160]
+	}
+	return strconv.Quote(credentialInURL.ReplaceAllString(line, "//***@"))
 }
