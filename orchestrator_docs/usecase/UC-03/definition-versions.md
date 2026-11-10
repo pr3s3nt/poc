@@ -2,7 +2,7 @@
 id: UC03-DEFINITION-VERSIONS
 artifact: specification-extension
 status: current
-last_reviewed: 2026-11-09
+last_reviewed: 2026-11-10
 ---
 
 # Controlled Definition and artifact upgrades
@@ -15,6 +15,10 @@ creates a Proposed revision; the mutable editor CAS counter is distinct from the
 revision identity. Configuration, matching rules and exact module/bundle pins are
 immutable within a revision. Promote changes the default for unselected/new
 Environments only. Archive prevents new selection; existing pins remain usable.
+An Environment without a SUCCEEDED Deployment and without an explicit selection
+is unselected: it always resolves the current Active revision, even when a
+system-captured freeze (authoring/promotion guard or owner migration) exists for
+it. Only explicit selection or a successful deployment pins it (issue #68).
 
 DV-02. Each Environment freezes its Definition configuration independently of
 later authoring/promotion. It stores desired configuration, last fully applied
@@ -35,7 +39,8 @@ Direct deployment may not bypass a pending Environment-wide revision upgrade.
 DV-04. UI adds Versions and Usage to both Definition and rendering forms, with
 Proposed/Active/Archived status, compare, promote and archive controls. Environment
 Settings shows frozen/desired/applied versions, new-version availability, diff,
-selection and Preview link. Missing historical evidence is labelled unknown,
+selection and Preview link. Preview also states when a newer Active revision exists
+that a pinned Environment has not selected. Missing historical evidence is labelled unknown,
 never falsely reported as successfully applied. Errors preserve drafts and stale
 or unknown mutation outcomes require reload rather than automatic replay.
 
