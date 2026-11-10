@@ -12,7 +12,7 @@ import (
 // decrypted and scope-checked by the coordinator, never supplied by an HTTP client.
 func (p *Provider) recoverPublishedUpdate(ctx context.Context, i port.Intent, pkg Package, cfg Config, repo map[string]any, pins map[string]unitPin) (port.Receipt, error) {
 	prior := i.PriorSubmission
-	if prior == nil || pkg.Metadata == nil || i.Revision.Phase == domain.Job || len(i.SourceInventory) == 0 || prior.Prepared.Revision.ID != i.ExpectedRevision || prior.Prepared.Revision.Scope != i.Revision.Scope {
+	if prior == nil || pkg.Metadata == nil || i.Revision.Phase == domain.Job || (len(i.SourceInventory) == 0 && !prior.Failed) || prior.Prepared.Revision.ID != i.ExpectedRevision || prior.Prepared.Revision.Scope != i.Revision.Scope {
 		return port.Receipt{}, ErrOwnership
 	}
 	var old Package

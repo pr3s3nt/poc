@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -277,10 +278,46 @@ func (c *Coordinator) Deploy(ctx context.Context, req DeployRequest) error {
 				intent.SourceInventory = append([]port.AppliedObject(nil), e.Inventory...)
 			}
 		}
+		// UC-06 CD-10: a newer determined failure that was published now holds
+		// the provider pin. The next revision replaces it explicitly; the source
+		// inventory stays that of the last acknowledged revision.
+		if failed := publishedFailure(existing, unit, active); failed != nil {
+			intent.ExpectedRevision = failed.Revision.ID
+		}
 
 		if err := c.runPhase(ctx, provider, intent, unit, req.WorkloadID, manifests); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// publishedFailure returns the newest Submit of unit when it is a determined
+// failure with a persisted receipt and newer than the unit's acknowledged
+// source, or nil. Failed submissions proven never published are skipped: they
+// never held the provider pin.
+func publishedFailure(executions []persistence.DeliveryExecution, unit string, active []persistence.DeliveryExecution) *persistence.DeliveryExecution {
+	candidates := []*persistence.DeliveryExecution{}
+	for index := range executions {
+		if executions[index].UnitID == unit {
+			candidates = append(candidates, &executions[index])
+		}
+	}
+	sort.Slice(candidates, func(a, b int) bool { return candidates[a].CreatedAt.After(candidates[b].CreatedAt) })
+	for _, e := range candidates {
+		published := e.Receipt.IntentID == e.Mutation.ID && e.Receipt.RevisionID == e.Revision.ID
+		if e.Mutation.Action == domain.Submit && e.Mutation.Status == domain.IntentFailed && !published {
+			continue
+		}
+		if e.Mutation.Action != domain.Submit || e.Mutation.Status != domain.IntentFailed {
+			return nil
+		}
+		for _, source := range active {
+			if source.UnitID == unit && !e.CreatedAt.After(source.CreatedAt) {
+				return nil
+			}
+		}
+		return e
 	}
 	return nil
 }
@@ -382,7 +419,7 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 	}
 	deadline := c.Deadline
 	if deadline <= 0 {
-		deadline = 5 * time.Minute
+		deadline = DeployReadinessDeadline
 	}
 	wait, cancel := context.WithTimeout(ctx, deadline)
 	defer cancel()
@@ -401,7 +438,9 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 			break
 		}
 		if observed.Health == domain.Degraded {
-			return errors.New("delivery: admitted workload is degraded")
+			// UC-06 CD-10: the receipted revision was observed failing. This
+			// process is the only writer, so the outcome is known, not held.
+			return c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutDegraded)
 		}
 		if observed.Sync == domain.Pending && observed.Health == domain.Progressing {
 			if convergence, ok := provider.(port.PendingConvergence); ok {
@@ -415,7 +454,11 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 		}
 		select {
 		case <-wait.Done():
-			return errors.New("delivery: exact revision readiness deadline exceeded")
+			if ctx.Err() != nil {
+				// The owning operation was cancelled or lost: outcome unknown.
+				return ctx.Err()
+			}
+			return c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutNotReady)
 		case <-ticker.C:
 		}
 	}
@@ -475,6 +518,68 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 	}
 	effectPending = false
 	return nil
+}
+
+// DeployReadinessDeadline bounds waiting for an exact revision to become Ready
+// in Deploy and in Deploy recovery (UC-06 CD-10).
+const DeployReadinessDeadline = 5 * time.Minute
+
+// Determined rollout failures (UC-06 CD-10). Their messages are unchanged so
+// existing diagnostics and logs keep matching.
+var (
+	ErrRolloutDegraded = errors.New("delivery: admitted workload is degraded")
+	ErrRolloutNotReady = errors.New("delivery: exact revision readiness deadline exceeded")
+)
+
+// determinedFailureAllowed reports whether the owning operation is an ordinary
+// Deploy. CD ownership transfer and policy-only delivery keep the hold, because
+// they need every unit acknowledged before the transition can continue.
+func (c *Coordinator) determinedFailureAllowed(ctx context.Context, i port.Intent) bool {
+	if i.PolicyOnly {
+		return false
+	}
+	owner, ok := persistence.OwnerFrom(ctx)
+	if !ok {
+		return false
+	}
+	op, err := c.Store.GetOperation(ctx, owner.OperationID)
+	if err != nil || op.Kind != environment.OpDeploy || op.Stage == "DELIVERY_POLICY" {
+		return false
+	}
+	policyOnly, _ := op.Detail["deliveryPolicyOnly"].(bool)
+	transfer, _ := op.Detail["deliveryTransfer"].(bool)
+	return !policyOnly && !transfer
+}
+
+// failRollout records a determined rollout failure: the receipted intent
+// becomes FAILED and its Git publication lease is released, so the Environment
+// can be released. Any persistence error leaves the hold in place.
+func (c *Coordinator) failRollout(ctx context.Context, i port.Intent, record *persistence.DeliveryExecution, publication *persistence.GitPublicationLease, effectPending *bool, cause error) error {
+	if !c.determinedFailureAllowed(ctx, i) {
+		return cause
+	}
+	old := record.Mutation.Version
+	next, err := record.Mutation.Advance(domain.IntentFailed, true)
+	if err != nil {
+		return cause
+	}
+	updated := *record
+	updated.Mutation = next
+	updated.UpdatedAt = time.Now().UTC()
+	if err := c.Store.Transact(ctx, func(tx context.Context) error {
+		if _, err := c.Store.UpdateDeliveryExecution(tx, updated, old); err != nil {
+			return err
+		}
+		if publication != nil {
+			return c.Store.ReleaseGitPublication(tx, *publication)
+		}
+		return nil
+	}); err != nil {
+		return cause
+	}
+	*record = updated
+	*effectPending = false
+	return cause
 }
 
 // Activate commits the applied delivery selection only after all admitted work

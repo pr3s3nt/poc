@@ -30,6 +30,12 @@ Backend matching/API/persistence contracts are unchanged.
 
 ## Local API platform seed and kind Console
 
+Definition-only first-installation seed: `scripts/bootstrap/seed-definitions.mjs`,
+`scripts/bootstrap/lib/definition-seed.mjs`, focused tests alongside it and
+`scripts/bootstrap/definitions.example.yaml`. Reuses private input/credential and
+endpoint validation from `api-seed.mjs`; calls existing Git inspection and
+Definition registration APIs without modifying prerequisite records.
+
 Operator procedure: [runbook](../operations/platform-seed.md). Local CLI:
 `scripts/bootstrap/seed-api.mjs`; API orchestration, private input validation and
 rerun checks: `scripts/bootstrap/lib/api-seed.mjs`; focused tests beside it.

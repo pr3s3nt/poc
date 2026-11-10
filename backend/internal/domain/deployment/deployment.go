@@ -37,18 +37,21 @@ type Deployment struct {
 	ApplicationKey  string `json:"applicationKey"`
 	EnvironmentKey  string `json:"environmentKey"`
 	// TargetGeneration records the identity generation of this run's resources; history never derives it from the current Environment.
-	TargetGeneration       int64      `json:"targetGeneration,omitempty"`
-	Action                 Action     `json:"action"`
-	WorkloadID             string     `json:"workloadId"`
-	ActorRef               string     `json:"actorRef"`
-	Status                 Status     `json:"status"`
-	BaseEnvironmentVersion int64      `json:"baseEnvironmentVersion"`
-	BaseDeploymentSetID    string     `json:"baseDeploymentSetId"`
-	CandidateDeploymentSet string     `json:"candidateDeploymentSetId"`
-	DeltaSnapshotID        string     `json:"deltaSnapshotId,omitempty"`
-	FailureReason          string     `json:"failureReason,omitempty"`
-	StartedAt              time.Time  `json:"startedAt"`
-	FinishedAt             *time.Time `json:"finishedAt,omitempty"`
+	TargetGeneration       int64  `json:"targetGeneration,omitempty"`
+	Action                 Action `json:"action"`
+	WorkloadID             string `json:"workloadId"`
+	ActorRef               string `json:"actorRef"`
+	Status                 Status `json:"status"`
+	BaseEnvironmentVersion int64  `json:"baseEnvironmentVersion"`
+	BaseDeploymentSetID    string `json:"baseDeploymentSetId"`
+	CandidateDeploymentSet string `json:"candidateDeploymentSetId"`
+	DeltaSnapshotID        string `json:"deltaSnapshotId,omitempty"`
+	FailureReason          string `json:"failureReason,omitempty"`
+	// FailureCode is derived from FailureReason on read (never stored) so the
+	// Console can localize known summaries (UC-06 CD-10).
+	FailureCode string     `json:"failureCode,omitempty"`
+	StartedAt   time.Time  `json:"startedAt"`
+	FinishedAt  *time.Time `json:"finishedAt,omitempty"`
 }
 
 // ResourceStatus is the per-node execution status recorded for a Deployment.

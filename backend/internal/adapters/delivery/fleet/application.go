@@ -592,7 +592,7 @@ func (p *Provider) ObserveSubmissionAbsent(ctx context.Context, i port.Intent, p
 	if err := p.Manager.RecoveryGuard(ctx, i); err != nil {
 		return false, err
 	}
-	if i.ExpectedRevision != "" && len(i.SourceInventory) > 0 {
+	if i.ExpectedRevision != "" && (len(i.SourceInventory) > 0 || failedPrior(i)) {
 		return p.observeUnpublishedUpdate(ctx, i, prepared)
 	}
 	if (i.Revision.Phase != domain.Prerequisite && i.Revision.Phase != domain.Rollout) || i.ExpectedRevision != "" || len(i.SourceInventory) != 0 {

@@ -1,0 +1,183 @@
+# Copy outside Git and chmod 600. Git credentials remain in platform settings.
+# For an exact internal mirror, change only repository.url.
+# If the mirror has new commits, also set repository.ref to its full commit.
+schemaVersion: 1
+console:
+  url: https://console.company.example
+  username: platform-engineer
+  passwordFile: ./credentials/password
+  expectedOrganization: your-org
+repository:
+  url: https://github.com/pr3s3nt/orchestrator-workload-templates
+  ref: 2a9be1b1b8150ef146a5e629ea4d818eea03f2a8
+parameters:
+  driverAccountKey: REPLACE_WITH_EXISTING_ACCOUNT_KEY
+  definitionPrefix: platform
+  definitionName: Platform
+  environmentType: staging
+  targetClass: default
+  resourceClass: in-cluster
+definitions:
+  - key: ${seed.definitionPrefix}-cluster
+    name: ${seed.definitionName} cluster
+    resourceType: k8s-cluster
+    driverType: existing-cluster
+    driverInputs:
+      values:
+        variables: {}
+    provision: {}
+    criteria:
+      - env_type: ${seed.environmentType}
+        class: ${seed.targetClass}
+    driverAccount: ${seed.driverAccountKey}
+  - key: ${seed.definitionPrefix}-k8s-namespace
+    name: ${seed.definitionName} k8s-namespace
+    resourceType: k8s-namespace
+    driverType: terraform
+    driverInputs:
+      values:
+        variables:
+          name: ${context.env.namespace}
+        input_mapping: {}
+        output_mapping:
+          name: name
+        provider_bindings:
+          kubernetes:
+            target: resource
+            resource_ref: k8s-cluster.${seed.targetClass}#environments.@app.@env
+    provision: {}
+    criteria:
+      - env_type: ${seed.environmentType}
+    modulePath: terraform/namespace
+  - key: ${seed.definitionPrefix}-postgres
+    name: ${seed.definitionName} postgres
+    resourceType: postgres
+    driverType: terraform
+    driverInputs:
+      values:
+        variables:
+          namespace: ${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}
+          database: acceptance
+          username: app
+        input_mapping:
+          database:
+            param: database
+          username:
+            param: username
+        output_mapping:
+          database: database
+          host: host
+          password: password
+          port: port
+          username: username
+          uri: uri
+          jdbcUrl: jdbcUrl
+        provider_bindings:
+          kubernetes:
+            target: resource
+            resource_ref: k8s-cluster.${seed.targetClass}#environments.@app.@env
+    provision: {}
+    criteria:
+      - env_type: ${seed.environmentType}
+        class: ${seed.resourceClass}
+    modulePath: terraform/postgres
+  - key: ${seed.definitionPrefix}-redis
+    name: ${seed.definitionName} redis
+    resourceType: redis
+    driverType: terraform
+    driverInputs:
+      values:
+        variables:
+          namespace: ${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}
+        input_mapping: {}
+        output_mapping:
+          host: host
+          password: password
+          port: port
+          tls: tls
+          username: username
+          uri: uri
+        provider_bindings:
+          kubernetes:
+            target: resource
+            resource_ref: k8s-cluster.${seed.targetClass}#environments.@app.@env
+    provision: {}
+    criteria:
+      - env_type: ${seed.environmentType}
+        class: ${seed.resourceClass}
+    modulePath: terraform/redis
+  - key: ${seed.definitionPrefix}-mysql
+    name: ${seed.definitionName} mysql
+    resourceType: mysql
+    driverType: terraform
+    modulePath: terraform/mysql
+    driverInputs:
+      values:
+        variables:
+          namespace: ${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}
+          database: app
+          username: app
+        input_mapping:
+          image:
+            param: image
+          database:
+            param: database
+          username:
+            param: username
+          storage:
+            param: storage
+        output_mapping:
+          host: host
+          port: port
+          database: database
+          username: username
+          claimName: claimName
+          namespace: namespace
+          password: password
+          uri: uri
+          jdbcUrl: jdbcUrl
+        provider_bindings:
+          kubernetes:
+            target: resource
+            resource_ref: k8s-cluster.${seed.targetClass}#environments.@app.@env
+    provision: {}
+    criteria:
+      - env_type: ${seed.environmentType}
+        class: ${seed.resourceClass}
+  - key: ${seed.definitionPrefix}-storage
+    name: ${seed.definitionName} storage
+    resourceType: persistent-storage
+    driverType: terraform
+    modulePath: terraform/persistent-storage
+    driverInputs:
+      values:
+        variables:
+          namespace: ${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}
+          storage: 1Gi
+        input_mapping:
+          storage:
+            param: storage
+        output_mapping:
+          claimName: claimName
+          namespace: namespace
+        provider_bindings:
+          kubernetes:
+            target: resource
+            resource_ref: k8s-cluster.${seed.targetClass}#environments.@app.@env
+    provision: {}
+    criteria:
+      - env_type: ${seed.environmentType}
+  - key: ${seed.definitionPrefix}-workload
+    name: ${seed.definitionName} workload
+    resourceType: workload
+    driverType: template
+    driverInputs:
+      values:
+        variables:
+          template_inputs: {}
+          namespace: ${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}
+    provision: {}
+    criteria:
+      - env_type: ${seed.environmentType}
+        class: ${seed.targetClass}
+    templatePath: templates/standard

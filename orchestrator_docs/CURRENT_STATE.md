@@ -200,6 +200,15 @@ Deploy was performed. See [checks, baseline failures, runtime and limits](verifi
 
 ## Local API platform seed and kind Console — 2026-11-06
 
+2026-11-10, issue #62: `scripts/bootstrap/seed-definitions.mjs` supports a
+Definition-only first-installation input with one Git repository URL/commit.
+Existing Types, Driver Account and Git settings are read; backend inspection
+derives module/template pins. Six compatible Definitions were seeded and reused
+on the retained dev installation. The existing MySQL Type has a legacy contract
+and was omitted from that runtime input; it was not modified. Full bootstrap
+tests on kind pass (88/88). See [verification and limits](verification/2026-11-10-definition-seed.md) and the
+[Definition seed procedure](../scripts/bootstrap/README.md#chỉ-seed-resource-definitions-lần-đầu--issue-62).
+
 A local YAML/file-based importer now provisions platform configuration through
 existing authenticated APIs, without browser or input uploads to Kubernetes.
 The isolated Orchestrator installation in `kind-k8s-4f` exposes Console port 3070;
@@ -2323,6 +2332,17 @@ validated offline only (no AWS run). Verified on kind with five databases
 ([record](verification/2026-11-08-db-connection-outputs.md)). `platform-catalog/` and
 `backend/terraform-modules/mysql` snapshots and Git-catalog bootstrap targets pinned
 to older commits are unchanged.
+
+## Determined rollout failure releases the Environment — issue #55 (2026-11-09)
+
+A receipted rollout observed Degraded, or still not Ready at the 5-minute
+readiness deadline, ends FAILED and releases the Environment instead of being held
+INTERRUPTED ([UC-06 CD-10](usecase/UC-06/specification.md)). Recover applies the
+same classification within the Deploy deadline, and the next Deploy names a
+published failed revision so Fleet accepts its replacement. Deploy results and
+Deployment details carry `ROLLOUT_DEGRADED`/`ROLLOUT_NOT_READY`; the Console shows
+the reason with a link to the workload logs. Unknown outcomes, CD transfer and
+policy-only delivery still hold. [Evidence and findings](verification/2026-11-09-rollout-failure-release.md).
 
 ## Stable template renderer pin — issue #57 (2026-11-09)
 

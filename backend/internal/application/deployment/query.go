@@ -136,6 +136,7 @@ func (q *QueryService) ListDeployments(ctx context.Context, query ListDeployment
 				continue
 			}
 			record.FailureReason = SafeFailureReason(record.FailureReason)
+			record.FailureCode = FailureCode(record.FailureReason)
 			out = append(out, record)
 		}
 		return nil
@@ -176,6 +177,7 @@ func assembleView(ctx context.Context, st persistence.Store, query GetDeployment
 		return nil, persistence.ErrNotFound
 	}
 	record.FailureReason = SafeFailureReason(record.FailureReason)
+	record.FailureCode = FailureCode(record.FailureReason)
 	view := &View{Deployment: record, DeploymentSet: environment.NewDocument()}
 
 	setID := record.CandidateDeploymentSet

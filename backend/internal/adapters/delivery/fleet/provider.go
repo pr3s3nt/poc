@@ -404,6 +404,15 @@ func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (
 			return out, nil
 		}
 		health := objectHealth(ref.Kind, object)
+		if (ref.Kind == "Deployment" || ref.Kind == "StatefulSet") && health != domain.Degraded {
+			pods, err := rolloutPodHealth(ctx, targetCLI, i.Target.Namespace, ref.Kind, object, time.Now().UTC())
+			if err != nil {
+				return unknown(i), err
+			}
+			if pods == domain.Degraded || (pods == domain.Progressing && health == domain.Healthy) {
+				health = pods
+			}
+		}
 		if ref.APIVersion == "secrets.hashicorp.com/v1beta1" && ref.Kind == "VaultStaticSecret" {
 			var err error
 			health, err = observeSecret(ctx, targetCLI, i.Target, object)

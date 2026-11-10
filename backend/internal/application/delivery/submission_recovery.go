@@ -148,6 +148,18 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 			}
 			intent.PriorSubmission = &port.PriorSubmission{Prepared: port.Prepared{Revision: source.Revision, Payload: priorRaw}, Receipt: source.Receipt}
 		}
+		// UC-06 CD-10: a newer published determined failure holds the provider
+		// pin, as the Deploy that created this submission must name it. Recovery
+		// observes against that pin; the acknowledged source inventory, if any,
+		// stays the UID evidence.
+		if failed := publishedFailure(otherExecutions(records, record.Mutation.ID), record.UnitID, acknowledged(records)); failed != nil {
+			failedRaw, err := c.providerArtifact(ctx, *failed)
+			if err != nil {
+				return err
+			}
+			intent.ExpectedRevision = failed.Revision.ID
+			intent.PriorSubmission = &port.PriorSubmission{Prepared: port.Prepared{Revision: failed.Revision, Payload: failedRaw}, Receipt: failed.Receipt, Failed: true}
+		}
 		if record.Receipt.IntentID == "" {
 			if absentObserver, ok := provider.(port.SubmissionAbsenceRecovery); ok {
 				stage = "absence"
@@ -200,11 +212,21 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 		// A previously failing controller can still be in exponential backoff
 		// after its ownership conflict is resolved. Recovery only observes the
 		// receipted revision; allow that retry without forcing a new deployment.
+		// UC-06 CD-10: an ordinary Deploy whose receipted revision is observed
+		// failing ends FAILED; transfer/policy recovery keeps the hold.
+		determined := !policyOnly && op.Kind == environment.OpDeploy
 		deadline := c.Deadline
 		if deadline <= 0 {
 			deadline = 20 * time.Minute
+			if determined {
+				// The Deploy readiness deadline. A crash-looping first rollout never
+				// reports Degraded, and recovery runs inside one Console request,
+				// so it must conclude well before the proxy timeout.
+				deadline = DeployReadinessDeadline
+			}
 		}
 		wait, cancel := context.WithTimeout(ctx, deadline)
+		failed := false
 		for {
 			stage = "observe"
 			observed, observeErr := provider.Observe(wait, intent, receipt)
@@ -215,6 +237,14 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 			if err := c.prunePending(wait, provider, intent, receipt, observed); err != nil {
 				cancel()
 				return err
+			}
+			if determined && observed.Health == domain.Degraded {
+				cancel()
+				if err := c.failRecoveredSubmission(ctx, &record, destination, org.ID, owner); err != nil {
+					return err
+				}
+				failed = true
+				break
 			}
 			if observed.Ready(intent.Revision, time.Now().UTC(), ObservationInterval) {
 				expected := map[string]string{}
@@ -251,9 +281,22 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 			case <-wait.Done():
 				timer.Stop()
 				cancel()
-				return domain.ErrOutcomeUnknown
+				if !determined || ctx.Err() != nil {
+					return domain.ErrOutcomeUnknown
+				}
+				if err := c.failRecoveredSubmission(ctx, &record, destination, org.ID, owner); err != nil {
+					return err
+				}
+				failed = true
 			case <-timer.C:
 			}
+			if failed {
+				break
+			}
+		}
+		cancel()
+		if failed {
+			continue
 		}
 		if destination != "" {
 			if err := c.Store.ReleaseGitPublication(ctx, persistence.GitPublicationLease{Destination: destination, OrganizationID: org.ID, Owner: owner}); err != nil {
@@ -262,4 +305,63 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 		}
 	}
 	return nil
+}
+
+// failRecoveredSubmission marks a receipted submission FAILED after recovery
+// observed its rollout failing (UC-06 CD-10) and releases its Git publication.
+func (c *Coordinator) failRecoveredSubmission(ctx context.Context, record *persistence.DeliveryExecution, destination, orgID string, owner persistence.Owner) error {
+	old := record.Mutation.Version
+	next, err := record.Mutation.Advance(domain.IntentFailed, true)
+	if err != nil {
+		return err
+	}
+	updated := *record
+	updated.Mutation = next
+	updated.UpdatedAt = time.Now().UTC()
+	if err := c.Store.Transact(ctx, func(tx context.Context) error {
+		if _, err := c.Store.UpdateDeliveryExecution(tx, updated, old); err != nil {
+			return err
+		}
+		if destination != "" {
+			return c.Store.ReleaseGitPublication(tx, persistence.GitPublicationLease{Destination: destination, OrganizationID: orgID, Owner: owner})
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	*record = updated
+	return nil
+}
+
+// otherExecutions returns records without the submission being recovered, so
+// the in-flight attempt is never mistaken for the revision holding the pin.
+func otherExecutions(records []persistence.DeliveryExecution, mutationID string) []persistence.DeliveryExecution {
+	out := make([]persistence.DeliveryExecution, 0, len(records))
+	for _, r := range records {
+		if r.Mutation.ID != mutationID {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// acknowledged returns the latest acknowledged Submit/Adopt of each unit, the
+// same authoritative sources a Deploy uses.
+func acknowledged(records []persistence.DeliveryExecution) []persistence.DeliveryExecution {
+	latest := map[string]persistence.DeliveryExecution{}
+	for _, r := range records {
+		if r.Mutation.Status != domain.IntentAcknowledged {
+			continue
+		}
+		if prior, ok := latest[r.UnitID]; !ok || r.CreatedAt.After(prior.CreatedAt) {
+			latest[r.UnitID] = r
+		}
+	}
+	out := []persistence.DeliveryExecution{}
+	for _, r := range latest {
+		if r.Mutation.Action == domain.Submit || r.Mutation.Action == domain.Adopt {
+			out = append(out, r)
+		}
+	}
+	return out
 }
