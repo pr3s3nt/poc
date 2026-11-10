@@ -438,13 +438,16 @@ func (c *Coordinator) runPhaseAccepting(ctx context.Context, provider port.Provi
 		if len(observed.Objects) > 0 {
 			last = observed
 		}
-		if err != nil && wait.Err() != nil && ctx.Err() == nil {
-			// The read was cut off by the expired readiness deadline.
-			record.Inventory = observedInventory(last, receipt)
-			return &observedFailure{cause: c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutNotReady), observation: last}
+		deadlineFailure := func(err error) error {
+			if wait.Err() != nil && ctx.Err() == nil {
+				// The call was cut off by the expired readiness deadline.
+				record.Inventory = observedInventory(last, receipt)
+				return &observedFailure{cause: c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutNotReady), observation: last}
+			}
+			return err
 		}
 		if err != nil {
-			return err
+			return deadlineFailure(err)
 		}
 		if observed.Ready(i.Revision, time.Now().UTC(), 30*time.Second) {
 			record.Inventory = []persistence.DeliveryObject{}
@@ -471,12 +474,12 @@ func (c *Coordinator) runPhaseAccepting(ctx context.Context, provider port.Provi
 		if observed.Sync == domain.Pending && observed.Health == domain.Progressing {
 			if convergence, ok := provider.(port.PendingConvergence); ok {
 				if err := convergence.ConvergePending(wait, i, receipt); err != nil {
-					return err
+					return deadlineFailure(err)
 				}
 			}
 		}
 		if err := c.prunePending(wait, provider, i, receipt, observed); err != nil {
-			return err
+			return deadlineFailure(err)
 		}
 		select {
 		case <-wait.Done():
