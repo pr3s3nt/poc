@@ -608,6 +608,21 @@ it('admits a catalog-only deployment when component content is unchanged', async
   expect(await screen.findByRole('heading', { name: 'Triển khai thành công' })).toBeInTheDocument(); expect(submits).toBe(1);
 });
 
+it('names a pinned Definition revision older than Active in Preview (issue #68)', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const path = new URL(String(input), 'http://localhost').pathname;
+    if (path.endsWith('/workloads')) return Response.json({ draftVersion: 1, workloads: [] });
+    if (path.endsWith('/preview')) return Response.json({ token: 'pinned', changes: [], catalogPending: true, catalogRevision: 2, newerDefinitions: [{ key: 'postgres-main', selectedNumber: 1, activeNumber: 2 }] });
+    if (path.endsWith('/deployments')) return Response.json({ deployments: [] });
+    if (path.endsWith('/operations')) return Response.json({ operations: [] });
+    if (path.endsWith('/resources')) return Response.json({ resources: [] });
+    return Response.json({}, { status: 404 });
+  }));
+  const user = userEvent.setup(); render(<ApplicationHomePage application={application} />);
+  await user.click(await screen.findByRole('button', { name: 'Xem trước thay đổi' }));
+  expect(await screen.findByText('postgres-main đang dùng r1; bản Active là r2. Chọn trong Cài đặt môi trường để dùng.')).toBeVisible();
+});
+
 it('dismisses the Add Workload picker while templates are loading and lets it reopen',async()=>{
  vi.stubGlobal('fetch',vi.fn(async (input:string|URL|Request)=>{
   const url=String(input);if(url.endsWith('/workload-templates'))return new Promise<Response>(()=>{});

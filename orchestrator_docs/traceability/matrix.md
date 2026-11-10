@@ -1623,7 +1623,7 @@ separate in the Environment rollback verification record.
 
 | Requirement | Realization/code | Validation |
 |---|---|---|
-| UC-03 DV-01/02 unselected Environment follows Active | `definitionversions.Resolve`/`Effective`, `FreezeOrganization` skips Environments without a SUCCEEDED Deployment | definitionversions unit tests; catalog promote integration test (planned) |
-| UC-03 DV-04 Preview new-revision notice | Preview response and Console Preview (planned) | Preview handler and UI tests (planned) |
+| UC-03 DV-01/02 unselected Environment follows Active | `definitionversions.Effective`/`HasSucceeded`/`Resolve`, `FreezeOrganization` skips Environments without a SUCCEEDED Deployment; first success applies the selection (`pending/deploy.go`) | `TestUnselectedEnvironmentWithoutSuccessFollowsActiveRevision`, `TestSucceededEnvironmentKeepsSystemFreeze`, `TestDefinitionRevisionLifecycleKeepsEnvironmentsPinned`, `TestRevisionAPIsSeparateProposedAndEnvironmentUpgrade`; PostgreSQL definition-version integration tests |
+| UC-03 DV-04 Preview new-revision notice | `pending.newerDefinitions` → Preview `newerDefinitions`; Console Preview notice | `TestNewerDefinitionsNamesOnlyOlderPinnedRevisions`; `ApplicationHomePage.test.tsx` Preview notice |
 | UC-08 BR-11 stuck Pod replacement on Terraform readiness | shared stuck-Pod evaluation; `readiness.Checker` (planned) | table-driven evaluation tests; readiness tests; kind Console scenario (planned) |
 | UC-06 CD-11 stuck Pod replacement while waiting for Fleet rollout | delivery coordinator wait + Fleet provider (planned, after #67) | coordinator/provider tests; kind Console scenario (planned) |

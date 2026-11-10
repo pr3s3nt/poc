@@ -3773,6 +3773,7 @@
   "versions.environmentNote": "Chọn phiên bản, xem khác biệt rồi Preview và triển khai.",
   "versions.unverifiedBaseline": "Cấu hình cũ đã được giữ lại. Phiên bản thực tế sẽ được xác nhận sau lần triển khai thành công.",
   "versions.available": "Có bản mới",
+  "versions.newerInPreview": "{key} đang dùng r{selected}; bản Active là r{active}. Chọn trong Cài đặt môi trường để dùng.",
   "versions.choose": "Phiên bản cho {key}",
   "versions.frozen": "Bản đã ghim",
   "versions.changes": "Thay đổi cấu hình",

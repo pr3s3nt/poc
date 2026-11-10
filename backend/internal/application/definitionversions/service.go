@@ -7,6 +7,7 @@ import (
 	"errors"
 	"sort"
 
+	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/ports/persistence"
@@ -39,10 +40,62 @@ func ActiveDefinitions(ctx context.Context, st persistence.Store, org string, de
 	return out, nil
 }
 
+// Effective returns the selection that governs an Environment (UC-03 DV-01).
+// A freeze captured by the system (authoring/promotion guard or owner
+// migration, never an explicit selection) does not pin an Environment that has
+// no SUCCEEDED Deployment: such an Environment is unselected and follows the
+// current Active revision. Explicit selections and applied evidence stay.
+func Effective(ctx context.Context, st persistence.Store, app, env string) (persistence.DefinitionSelection, error) {
+	selected, err := st.GetDefinitionSelection(ctx, app, env)
+	if err != nil || !selected.Frozen || selected.Revision != 0 || selected.AppliedVerified {
+		return selected, err
+	}
+	succeeded, err := HasSucceeded(ctx, st, app, env)
+	if err != nil || succeeded {
+		return selected, err
+	}
+	return persistence.DefinitionSelection{ApplicationKey: app, EnvironmentKey: env, Revision: selected.Revision, AppliedRevision: selected.AppliedRevision}, nil
+}
+
+// HasSucceeded reports whether the current Environment has a SUCCEEDED
+// Deployment. A workload deployed by a Deployment whose record is missing
+// (pre-versioning installation, DV-07) is unknown evidence and also counts, so
+// such an Environment stays pinned rather than being upgraded silently.
+func HasSucceeded(ctx context.Context, st persistence.Store, app, env string) (bool, error) {
+	current, err := st.GetEnvironment(ctx, app, env)
+	if err != nil {
+		return false, err
+	}
+	deployments, err := st.ListDeployments(ctx, app, env)
+	if err != nil {
+		return false, err
+	}
+	known := map[string]bool{}
+	for _, d := range deployments {
+		if d.EnvironmentID != "" && d.EnvironmentID != current.ID {
+			continue
+		}
+		if d.Status == deployment.StatusSucceeded {
+			return true, nil
+		}
+		known[d.ID] = true
+	}
+	instances, err := st.ListWorkloadInstances(ctx, app+"/"+env)
+	if err != nil {
+		return false, err
+	}
+	for _, instance := range instances {
+		if instance.LastDeploymentID != "" && !known[instance.LastDeploymentID] {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // Resolve keeps Environment policies frozen. A separately selected Catalog release
 // may replace its own legacy snapshots; it cannot overwrite authored revision pins.
 func Resolve(ctx context.Context, st persistence.Store, app, env string, base, released []resource.Definition, pin string) ([]resource.Definition, error) {
-	selected, err := st.GetDefinitionSelection(ctx, app, env)
+	selected, err := Effective(ctx, st, app, env)
 	if err != nil {
 		return nil, err
 	}
@@ -71,6 +124,7 @@ func Resolve(ctx context.Context, st persistence.Store, app, env string, base, r
 
 // FreezeOrganization is called before changing an active authoring policy. It
 // preserves configuration only and never claims that it was actually deployed.
+// Environments without a SUCCEEDED Deployment stay unselected (DV-01).
 func FreezeOrganization(ctx context.Context, st persistence.Store, org string, resolve func(context.Context, persistence.Store, string, string, string) ([]resource.Definition, string, error)) error {
 	return freezeOrganization(ctx, st, org, resolve, false)
 }
@@ -101,6 +155,15 @@ func freezeOrganization(ctx context.Context, st persistence.Store, org string, r
 			}
 			if old.Frozen {
 				continue
+			}
+			if !runningOnly {
+				succeeded, err := HasSucceeded(ctx, st, app.Key, env.Key)
+				if err != nil {
+					return err
+				}
+				if !succeeded {
+					continue
+				}
 			}
 			if runningOnly {
 				instances, err := st.ListWorkloadInstances(ctx, app.Key+"/"+env.Key)
@@ -190,7 +253,7 @@ func Select(ctx context.Context, st persistence.Store, org, app, env, key, id st
 	if a.OrganizationKey != org || a.Lifecycle() != "ACTIVE" {
 		return persistence.ErrNotFound
 	}
-	current, err := st.GetDefinitionSelection(ctx, app, env)
+	current, err := Effective(ctx, st, app, env)
 	if err != nil {
 		return err
 	}
