@@ -2,7 +2,8 @@
 
 ## Chỉ seed Resource Definitions lần đầu — issue #62
 
-Resource Types, Kubernetes Driver Account và Git settings phải có sẵn. Copy
+Input hiện hỗ trợ seed cả Resource Types trước Definitions (issue #65).
+Kubernetes Driver Account và Git settings phải có sẵn. Copy
 [input mẫu](definitions.example.yaml) ra ngoài Git, `chmod 600` và điền Console,
 file password, Organization, `parameters.driverAccountKey`, tên và điều kiện
 matching. Không cần khai báo lại Git credential hoặc các prerequisites này.
@@ -13,8 +14,11 @@ node scripts/bootstrap/seed-definitions.mjs --config /private/definitions.yaml
 ```
 
 Input mẫu dùng `pr3s3nt/orchestrator-workload-templates` tại exact commit và tạo
-bảy Definitions: cluster, namespace, PostgreSQL, Redis, MySQL, storage, workload.
-Xóa entry không cần; các Type còn lại phải tồn tại. `repository.url` là URL Git
+bảy Types cùng bảy Definitions: cluster, namespace, PostgreSQL, Redis, MySQL,
+storage, workload. `resourceTypes` khai báo `key`, `inputs`, `outputs`; mỗi field
+có `name`, `type` (`string`, `number`, `bool`, `any`), optional `required` và
+`secret` cho outputs chứa bí mật. Xóa entry không cần. Bỏ `resourceTypes` để
+dùng input cũ với Types đã có. `repository.url` là URL Git
 duy nhất: khi mirror nguyên repo/commit sang Git nội bộ, chỉ thay URL đó. Nếu
 commit của bản nội bộ khác, sửa thêm `repository.ref`. Backend dùng Git settings
 hiện có để xác thực và trust CA; script không yêu cầu GitHub CLI/token riêng,
@@ -29,9 +33,11 @@ MySQL lấy `image` từ resource param; không đưa password vào input. Có t
 output PostgreSQL `asyncUri` vào mapping nếu Type đã khai báo output đó.
 
 Đây là seed lần đầu qua API, không ghi SQL trực tiếp: tạo mục thiếu, dùng lại
-mục khớp, khác thì CONFLICT. Tất cả conflicts trên Definitions được kiểm trước
-khi tạo Definition mới. Inspect có thể ghi metadata/cache nguồn ngay cả khi
-seed bị chặn; các bước đã thành công không tự rollback. Không tự retry POST khi
+mục khớp, khác thì CONFLICT. Kiểm tra mọi Type conflict và mapping trước khi tạo
+Type; tạo và đọc lại Types trước khi inspect. Tất cả conflicts trên Definitions
+được kiểm trước khi tạo Definition mới. Types đã tạo và metadata/cache từ inspect
+được giữ ngay cả khi phase Definition bị chặn; các bước đã thành công không tự
+rollback. Type có contract cũ không tự đổi sang contract mới. Không tự retry POST khi
 kết quả không rõ, không sửa/promote revision hoặc deploy ứng dụng. Chạy một
 importer cho mỗi target. Thành công báo `Definitions SEEDED`, không phải nghiệm
 thu workload.

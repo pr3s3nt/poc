@@ -19,6 +19,7 @@ function config(t, patch = {}) {
 }
 function server(c, { wrongPin = false, conflict = false, missingType = false, incompatibleType = false, role = 'PLATFORM_ENGINEER', transport = false } = {}) {
  const calls = [], definitions = conflict ? [{ ...structuredClone(c.definitions[1]), driverType: 'existing-cluster' }] : [];
+ const types = missingType ? [] : [{ key: 'k8s-namespace', ...(incompatibleType ? { inputs: [{ name: 'legacy-input' }] } : {}) }, { key: 'workload' }];
  const source = { sourceId: 'server-source', moduleId: 'server-module', revision, subdirectory: 'terraform/namespace', contentSha256: sha, repositoryUrl: c.repository.url };
  const fetcher = async (raw, options) => {
   const path = new URL(raw).pathname.replace('/api/v1', '');
@@ -29,7 +30,10 @@ function server(c, { wrongPin = false, conflict = false, missingType = false, in
   if (path === '/auth/sign-in') return Response.json({ user: { OrganizationKey: 'acme', Role: role } }, { headers: { 'set-cookie': 'session=private-cookie; HttpOnly' } });
   assert.equal(options.headers.Cookie, 'session=private-cookie');
   if (path === '/auth/sign-out') return new Response(null, { status: 204 });
-  if (path === '/resource-types' && options.method === 'GET') return Response.json({ resourceTypes: missingType ? [] : [{ key: 'k8s-namespace', ...(incompatibleType ? { inputs: [{ name: 'legacy-input' }] } : {}) }, { key: 'workload' }] });
+  if (path === '/resource-types') {
+   if (options.method === 'POST') { types.push(body); return Response.json(body); }
+   return Response.json({ resourceTypes: types });
+  }
   if (path === '/driver-accounts' && options.method === 'GET') return Response.json({ accounts: [{ key: 'existing-account', type: 'INTERNAL', status: 'READY' }] });
   if (path === '/resource-definitions') {
    if (options.method === 'POST') definitions.push(body);
@@ -42,7 +46,7 @@ function server(c, { wrongPin = false, conflict = false, missingType = false, in
   if (path === '/template-sources/inspect') return Response.json({ templateSource: { id: 'exact-current-renderer-source', status: 'AVAILABLE', source: { url: c.repository.url, revision, path: 'templates/standard', contentSha256: sha } } });
   throw Error('Unexpected API request');
  };
- return { fetcher, calls, definitions };
+ return { fetcher, calls, definitions, types };
 }
 
 test('first seed and unchanged rerun use server pins without writing prerequisites', async t => {
@@ -99,7 +103,40 @@ test('published input declares seven Definitions and just one Git URL', t => {
  const f = config(t); writeFileSync(f.file, raw.replace('https://console.company.example', 'http://127.0.0.1:3070').replace('./credentials/password', 'password'));
  const c = f.loaded();
  assert.equal(c.definitions.length, 7);
+ assert.equal(c.resourceTypes.length, 7);
+ assert.deepEqual(new Set(c.resourceTypes.map(t => t.key)), new Set(c.definitions.map(d => d.resourceType)));
  assert.equal(c.definitions.filter(d => d.modulePath).length, 5);
  assert.equal(c.definitions.filter(d => d.templatePath).length, 1);
  assert.equal((raw.match(/https:\/\/github.com/g) ?? []).length, 1);
+});
+
+test('missing Types are created before inspection; rerun preserves Types and Definitions', async t => {
+ const c = config(t, { resourceTypes: [{ key: 'k8s-namespace', inputs: [], outputs: [] }, { key: 'workload', inputs: [], outputs: [] }] }).loaded();
+ const s = server(c, { missingType: true }), report = [];
+ await seedDefinitions(c, { fetcher: s.fetcher, report: x => report.push(x) });
+ const createPositions = s.calls.flatMap((x,i) => x.path === '/resource-types' && x.method === 'POST' ? [i] : []);
+ assert.equal(createPositions.length, 2);
+ assert.ok(createPositions.every(i => i < s.calls.findIndex(x => x.path.endsWith('/inspect'))));
+ await seedDefinitions(c, { fetcher: s.fetcher, report: x => report.push(x) });
+ assert.equal(s.calls.filter(x => x.path === '/resource-types' && x.method === 'POST').length, 2);
+ assert.equal(s.definitions.length, 2);
+ assert.ok(report.includes('ResourceType workload REUSED'));
+});
+
+test('later Type conflict and invalid Definition mapping prevent every Type write', async t => {
+ const c = config(t, { resourceTypes: [{ key: 'k8s-namespace', inputs: [], outputs: [] }, { key: 'workload', inputs: [], outputs: [] }] }).loaded();
+ for (const mismatch of ['type','mapping']) {
+  const s = server(c, { missingType: true });
+  if (mismatch === 'type') s.types.push({ key: 'workload', inputs: [{ name: 'legacy', type: 'string' }], outputs: [] });
+  else c.resourceTypes[0].inputs.push({ name: 'unmapped', type: 'string' });
+  await assert.rejects(seedDefinitions(c, { fetcher: s.fetcher }), /CONFLICT|mappings differ/);
+  assert.equal(s.calls.filter(x => x.path !== '/auth/sign-in' && x.path !== '/auth/sign-out' && x.method === 'POST').length, 0);
+ }
+});
+
+test('invalid or duplicate Type contracts fail locally', t => {
+ for (const resourceTypes of [null, {}, [{ key: 'db', inputs: [], outputs: [] }, { key: 'db', inputs: [], outputs: [] }], [{ key: 'db', inputs: [{ name: 'size', type: 'unsupported' }], outputs: [] }], [{ key: 'db', inputs: [], outputs: [{ name: 'password', type: 'string', secret: 'true' }] }]]) {
+  const f = config(t, { resourceTypes });
+  assert.throws(f.loaded);
+ }
 });

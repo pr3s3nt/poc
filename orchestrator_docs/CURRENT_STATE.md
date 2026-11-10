@@ -200,6 +200,13 @@ Deploy was performed. See [checks, baseline failures, runtime and limits](verifi
 
 ## Local API platform seed and kind Console — 2026-11-06
 
+2026-11-10, issue #65: the same seed input optionally declares `resourceTypes`.
+Creates missing Types before Git inspection and Definitions; preserves existing
+contracts or stops on conflict. Exact user release repo verification created
+seven Types and seven Definitions (including MySQL) from an empty isolated
+catalog, then reused every record across rerun and backend restart. Full bootstrap
+tests on kind: 91/91 pass. See [verification and limits](verification/2026-11-10-types-definitions-seed.md).
+
 2026-11-10, issue #62: `scripts/bootstrap/seed-definitions.mjs` supports a
 Definition-only first-installation input with one Git repository URL/commit.
 Existing Types, Driver Account and Git settings are read; backend inspection
