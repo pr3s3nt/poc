@@ -545,6 +545,14 @@ func (c *Coordinator) runPhaseAccepting(ctx context.Context, provider port.Provi
 			return err
 		}
 	}
+	// ADR-042: objects of this release that no recorded inventory covers (for
+	// example created by a failed revision) are swept once this one is Ready.
+	if sweeper, ok := provider.(port.ReleaseSweep); ok && accept == nil && (i.Revision.Scope.UnitKey == domain.EnvironmentAppUnit || i.Revision.Scope.UnitKey == domain.EnvironmentMigrateUnit) {
+		if _, err := sweeper.SweepRelease(ctx, i, receipt); err != nil {
+			persistence.MarkHold(ctx)
+			return err
+		}
+	}
 	old := record.Mutation.Version
 	record.Mutation, err = record.Mutation.Advance(domain.IntentAcknowledged, true)
 	if err != nil {

@@ -15,7 +15,7 @@ import { makeUI, outsideRepo } from '../../../scripts/bootstrap/lib/runtime.mjs'
 import { ensureNamespaceAccess } from '../../../scripts/bootstrap/lib/namespace-access.mjs';
 
 process.umask(0o077);
-const STAGES = ['users', 'prepare', 'deploy', 'verify-deploy', 'image', 'secret', 'fail', 'rollback', 'resync', 'cleanup', 'recover'];
+const STAGES = ['users', 'prepare', 'deploy', 'verify-deploy', 'image', 'secret', 'fail', 'rollback', 'resync', 'cleanup', 'recover', 'verify-rollback'];
 const stage = process.argv[2];
 assert(STAGES.includes(stage), 'stage: ' + STAGES.join('|'));
 const dir = process.env.ORCH_TEST_RUN_DIR;
@@ -595,12 +595,21 @@ async function rollback() {
   await shot(dev, 'preview');
   await dialog.getByRole('textbox').fill(state.app.key);
   const started = Date.now();
-  const report = await dev.submit(base() + '/rollback', 'POST', dialog.getByRole('button', { name: 'Rollback môi trường', exact: true }));
+  const [reply] = await Promise.all([
+    dev.page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1' + base() + '/rollback', { timeout: 1_800_000 }),
+    dialog.getByRole('button', { name: 'Rollback môi trường', exact: true }).click(),
+  ]);
+  const report = await reply.json();
   writeFileSync(join(dir, 'rollback-report.json'), JSON.stringify(report, null, 2));
   assert.equal(report.status, 'SUCCEEDED');
   await dev.page.getByText('Đã khôi phục toàn bộ môi trường.').waitFor();
   await shot(dev, 'done');
   pass(`Rollback SUCCEEDED in ${Math.round((Date.now() - started) / 1000)} s`);
+  await verifyRollback(dev);
+}
+
+async function verifyRollback(dev) {
+  dev ??= await asDeveloper();
   for (const w of ['backend', 'worker']) {
     assert.deepEqual(deploymentSecret(w), [`${w}-config-v2`], `${w} back on v2`);
     assert(podSecrets(w).every((p) => p.secrets.includes(`${w}-config-v2`)), `${w} pods on v2`);
@@ -683,7 +692,7 @@ async function cleanup() {
 let status = 'FAIL';
 try {
   if (stage !== 'users') assert(stage === 'prepare' || state.app, 'run prepare first');
-  await ({ users, prepare, deploy, 'verify-deploy': () => verifyDeploy(), image, secret, fail, rollback, resync, cleanup, recover })[stage]();
+  await ({ users, prepare, deploy, 'verify-deploy': () => verifyDeploy(), image, secret, fail, rollback, resync, cleanup, recover, 'verify-rollback': () => verifyRollback() })[stage]();
   status = 'PASS';
 } catch (error) {
   console.error(`FAIL ${stage}: ${String(error?.message ?? error).split('\n')[0]}`);

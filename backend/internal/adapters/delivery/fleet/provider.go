@@ -607,6 +607,47 @@ func (p *Provider) PruneReleasedObjects(ctx context.Context, i port.Intent, r po
 	return p.pruneRetainedInventory(ctx, i, r, stale, observed, p.Manager.Guard)
 }
 
+// SweepRelease removes live objects of the receipted release that the Ready
+// revision no longer declares (ADR-042 Environment units only).
+func (p *Provider) SweepRelease(ctx context.Context, i port.Intent, r port.Receipt) ([]port.AppliedObject, error) {
+	if i.Revision.Scope.UnitKey != domain.EnvironmentAppUnit && i.Revision.Scope.UnitKey != domain.EnvironmentMigrateUnit {
+		return nil, nil
+	}
+	if p.Manager == nil || p.Manager.Guard == nil {
+		return nil, ErrOwnership
+	}
+	observed, err := p.Observe(ctx, i, r)
+	if err != nil {
+		return nil, err
+	}
+	if !observed.Ready(i.Revision, time.Now(), 30*time.Second) {
+		return nil, ErrController
+	}
+	keep := map[string]bool{}
+	for _, o := range observed.Objects {
+		keep[o.APIVersion+"/"+o.Kind+"/"+o.Name] = true
+	}
+	cli, close, err := k8s.OpenCLI(ctx, p.Manager.Verifier.KubectlPath, p.Manager.Verifier.Credentials, i.Target)
+	if err != nil {
+		return nil, err
+	}
+	live, err := k8s.ListReleasedObjects(ctx, cli, i.Target, r.Handle["release"], r.Handle["releaseNamespace"])
+	close()
+	if err != nil {
+		return nil, err
+	}
+	stale := []port.AppliedObject{}
+	for _, o := range live {
+		if !keep[o.Ref.Key()] {
+			stale = append(stale, port.AppliedObject{ObjectRef: o.Ref, UID: o.UID, Release: r.Handle["release"]})
+		}
+	}
+	if len(stale) == 0 {
+		return nil, nil
+	}
+	return stale, p.pruneRetainedInventory(ctx, i, r, stale, observed, p.Manager.Guard)
+}
+
 func (p *Provider) pruneRetainedInventory(ctx context.Context, i port.Intent, r port.Receipt, stale []port.AppliedObject, observed domain.Observation, guard func(context.Context, port.Intent) error) error {
 	inventory := map[string]bool{}
 	for _, o := range observed.Objects {

@@ -93,7 +93,11 @@ revision. Deploy batch:
 4. Publish `migrate` (nếu có Job đổi, sau bước chuẩn bị secret khi cần) và chờ
    `Complete`, rồi publish `app`, chờ Ready. Revision mới Ready thì xóa guarded
    object không còn trong bundle, gồm cả object chỉ do một revision lỗi đã
-   publish tạo ra (UID quan sát được ghi cùng bản ghi FAILED).
+   publish tạo ra (UID quan sát được ghi cùng bản ghi FAILED). Sau đó
+   Orchestrator quét object đang sống mang đúng release Helm của unit và nhãn
+   platform của Application/Environment, rồi xóa có điều kiện UID mọi object
+   revision hiện tại không còn khai báo, kể cả object của revision lỗi không có
+   UID trong bản ghi.
 
 Mọi workload của Environment phải cùng cluster và namespace; khác thì Deploy
 từ chối trước khi publish, với lỗi rõ ràng.

@@ -156,6 +156,13 @@ type GuardedPrune interface {
 	PruneReleasedObjects(context.Context, Intent, Receipt, []AppliedObject) error
 }
 
+// ReleaseSweep removes, after the receipted revision is Ready, every live
+// object owned by the same release that the revision no longer declares
+// (ADR-042), including objects of failed revisions with no recorded UID.
+type ReleaseSweep interface {
+	SweepRelease(context.Context, Intent, Receipt) ([]AppliedObject, error)
+}
+
 // PendingPrune breaks a retained-object readiness deadlock without declaring
 // drift clean. Only admitted Submit/recovery calls it with acknowledged old UIDs;
 // the provider proves deletion-only drift and fences every removal. Observe stays read-only.
