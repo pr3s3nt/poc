@@ -467,7 +467,7 @@ controller status, changes the admitted revision/target, deletes controllers or
 forces Kubernetes object replacement. All original Bundle/live revision proofs
 still gate acknowledgement.
 
-## First Rollout absence recovery — issue #49
+## First Rollout absence recovery — issues #49, #48
 
 For a first Rollout unit with no acknowledged prior Rollout receipt, explicit
 stopped-owner recovery can prove absence using the same exact publication,
@@ -479,6 +479,11 @@ controller UID/resourceVersion is reread under the recovery fence before settlin
 Neither the Prerequisite nor siblings are submitted, withdrawn or rewritten.
 Ambiguous/admitted outcomes keep the Environment held. This extends the recovery
 prerequisite needed to exercise issue #49 on the existing Boutique deployment.
+Issue #48 tracks this case from the Boutique payment Deploy held with
+`RECOVERY_INCOMPLETE`: tests cover each remaining trace (manifest or metadata
+publication, live object, Bundle, BundleDeployment, Helm release, missing
+Prerequisite pin) keeping the hold, and recovery leaving the acknowledged
+Prerequisite unchanged without replaying any submission.
 
 Shared-controller recovery orders Git rendering before downstream observation:
 when an admitted receipt's Bundle is missing or still labels a prior commit,
