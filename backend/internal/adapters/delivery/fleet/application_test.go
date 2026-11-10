@@ -176,9 +176,17 @@ func TestApplicationFleetTransport(t *testing.T) {
 				}
 				emit(map[string]any{"metadata": map[string]any{"labels": map[string]any{"fleet.cattle.io/commit": commit}}, "spec": map[string]any{"deploymentID": "applied"}, "status": map[string]any{"appliedDeploymentID": "applied"}})
 			}
-			emit(map[string]any{"items": []any{}})
+			items := []any{}
+			if release, err := os.ReadFile(filepath.Join(dir, "orphan-bundledeployment")); err == nil {
+				items = append(items, map[string]any{"spec": map[string]any{"options": map[string]any{"helm": map[string]any{"releaseName": strings.TrimSpace(string(release))}}}})
+			}
+			emit(map[string]any{"items": items})
 		case "bundles.fleet.cattle.io":
 			items := []any{}
+			if release, err := os.ReadFile(filepath.Join(dir, "orphan-bundle")); err == nil {
+				name := strings.TrimSpace(string(release))
+				items = append(items, map[string]any{"metadata": map[string]any{"name": name, "labels": map[string]any{"orchestrator.io/delivery-unit": name}}, "spec": map[string]any{"helm": map[string]any{"releaseName": name}}})
+			}
 			if _, err := os.Stat(filepath.Join(dir, "repo.json")); err == nil {
 				repo := read("repo.json")
 				pins, err := readUnitPins(repo)
@@ -769,4 +777,89 @@ func TestFirstRolloutAbsencePreservesCompletedPrerequisiteAndController(t *testi
 	if absent, err = p.ObserveSubmissionAbsent(context.Background(), i, port.Prepared{Revision: i.Revision, Payload: raw}); err != nil || absent {
 		t.Fatalf("orphan Rollout Helm release accepted: %v %v", absent, err)
 	}
+}
+
+// rolloutAfterPrerequisite publishes a completed Prerequisite of workload
+// payment and returns its unpublished first Rollout (issue #48).
+func rolloutAfterPrerequisite(t *testing.T, publishPrerequisite bool) (*Provider, *publication.Writer, string, port.Intent, Package, port.Prepared) {
+	t.Helper()
+	p, w, dir, intent := applicationFixture(t)
+	if publishPrerequisite {
+		prior := intent("staging", "payment")
+		prior.ID += "-prerequisite"
+		prior.Revision.ID += "-prerequisite"
+		prior.Revision.Phase = domain.Prerequisite
+		prior.Revision.Scope.UnitKey = "payment/PREREQUISITE"
+		publishApplicationUnit(t, p, w, dir, prior)
+	} else {
+		// A sibling workload owns the controller; payment has no Prerequisite pin.
+		publishApplicationUnit(t, p, w, dir, intent("staging", "backend"))
+	}
+	i := intent("staging", "payment")
+	i.ID += "-rollout"
+	i.Revision.ID += "-rollout"
+	m := configMap()
+	m.Name = "payment-rollout-config"
+	m.Namespace = i.Target.Namespace
+	m.Object["metadata"].(map[string]any)["name"] = m.Name
+	m.Object["metadata"].(map[string]any)["namespace"] = m.Namespace
+	pkg, err := PackageUnit(i, []execution.Manifest{m})
+	if err != nil {
+		t.Fatal(err)
+	}
+	i.Revision.PayloadDigest = pkg.Publication.TreeDigest
+	raw, _ := json.Marshal(pkg)
+	return p, w, dir, i, pkg, port.Prepared{Revision: i.Revision, Payload: raw}
+}
+
+// Issue #48: any trace of the Rollout, or a missing completed Prerequisite,
+// keeps the Environment held instead of settling the Rollout as never published.
+func TestFirstRolloutAbsenceRejectsEveryRemainingTrace(t *testing.T) {
+	ctx := context.Background()
+	traces := map[string]func(t *testing.T, w *publication.Writer, dir string, i port.Intent, pkg Package){
+		"manifest publication": func(t *testing.T, w *publication.Writer, _ string, _ port.Intent, pkg Package) {
+			if _, err := w.Publish(ctx, pkg.Publication, func(context.Context) error { return nil }); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"metadata publication": func(t *testing.T, w *publication.Writer, _ string, _ port.Intent, pkg Package) {
+			if _, err := w.Publish(ctx, *pkg.Metadata, func(context.Context) error { return nil }); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"live workload object": func(t *testing.T, _ *publication.Writer, dir string, i port.Intent, _ Package) {
+			live := map[string]any{"apiVersion": "v1", "kind": "ConfigMap", "metadata": map[string]any{"name": "payment-rollout-config", "namespace": i.Target.Namespace, "uid": "orphan-uid"}}
+			raw, _ := json.Marshal(live)
+			if err := os.WriteFile(filepath.Join(dir, "live-"+i.Target.Namespace+"-payment-rollout-config.json"), raw, 0600); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"Bundle": func(t *testing.T, _ *publication.Writer, dir string, _ port.Intent, pkg Package) {
+			os.WriteFile(filepath.Join(dir, "orphan-bundle"), []byte(pkg.ReleaseName), 0600)
+		},
+		"BundleDeployment": func(t *testing.T, _ *publication.Writer, dir string, _ port.Intent, pkg Package) {
+			os.WriteFile(filepath.Join(dir, "orphan-bundledeployment"), []byte(pkg.ReleaseName), 0600)
+		},
+		"Helm release": func(t *testing.T, _ *publication.Writer, dir string, _ port.Intent, _ Package) {
+			os.WriteFile(filepath.Join(dir, "release-secret"), nil, 0600)
+		},
+	}
+	for name, leave := range traces {
+		t.Run(name, func(t *testing.T) {
+			p, w, dir, i, pkg, prepared := rolloutAfterPrerequisite(t, true)
+			if absent, err := p.ObserveSubmissionAbsent(ctx, i, prepared); err != nil || !absent {
+				t.Fatalf("clean first Rollout: %v %v", absent, err)
+			}
+			leave(t, w, dir, i, pkg)
+			if absent, err := p.ObserveSubmissionAbsent(ctx, i, prepared); absent {
+				t.Fatalf("%s treated as absent (err %v)", name, err)
+			}
+		})
+	}
+	t.Run("no completed Prerequisite", func(t *testing.T) {
+		p, _, _, i, _, prepared := rolloutAfterPrerequisite(t, false)
+		if absent, err := p.ObserveSubmissionAbsent(ctx, i, prepared); absent {
+			t.Fatalf("Rollout without its Prerequisite treated as absent (err %v)", err)
+		}
+	})
 }
