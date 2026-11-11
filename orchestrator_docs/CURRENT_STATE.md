@@ -20,9 +20,10 @@ postgres, verified host/URI reads/writes, 5.369-second failover and retained
 identity/data after a client-only update. Unchanged Preview disables empty
 Deploy; direct Terraform no-op apply was separately checked. The user approved
 optional secret `asyncUri` on 2026-11-12; it is added to the shared Type and the
-HA Definition now maps all eight outputs, pinned to release commit `721b154`.
+HA Definition now maps all eight outputs, pinned to release commit `c728807` (module content unchanged).
 Product cleanup passed after restoring its task-owned Vault forward; full
-backend remains red and is being compared with pristine main. [IMP-043](implementation/deviations.md#imp-043--cnpg-cluster-uid-absent-from-terraform-manifest-state)
+backend has the same 13 failing packages and exact failing tests as pristine
+main, with no additional failures. Full backend is still red. [IMP-043](implementation/deviations.md#imp-043--cnpg-cluster-uid-absent-from-terraform-manifest-state)
 records missing historical Cluster UID in provider state; ownership stays fail
 closed. No tag or release promotion has occurred. Full-check and cleanup results
 are recorded in [verification](verification/2026-11-12-postgres-ha.md).

@@ -14,8 +14,8 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | Requirement | Design / implementation | Validation |
 |---|---|---|
 | UC-03 PGHA-01/02: explicit postgres class ha and immutable source | ADR-043; existing matcher; release module terraform/postgres-ha | Git Console inspect and eight-output Definition registration passed after approved optional Type extension |
-| PGHA-03: two instances, eight outputs, Ready wait, stable host, failover/data | CNPG 1.30.1; release module Cluster/basic-auth Secret | Five contract tests; direct kind 5.09s failover/no-op; real browser Deploy with HA/in-cluster, 5.369s failover, data-preserving client update; product cleanup and PV absence pass; full backend red, main comparison pending |
-| PGHA-04: ownership and authoritative absence | runner/plan.go; readiness/inspect.go; tfexec/namespace.go | State/Inspect/VerifyAbsent/owner-chain tests; missing live state UID remains fail closed, IMP-043 |
+| PGHA-03: two instances, eight outputs, Ready wait, stable host, failover/data | CNPG 1.30.1; release module Cluster/basic-auth Secret | Five contract tests; direct kind 5.09s failover/no-op; real browser Deploy with HA/in-cluster, 5.369s failover, data-preserving client update; product cleanup and PV absence pass; full backend red with exact main failure parity (13 packages) |
+| PGHA-04: ownership and authoritative absence | runner/plan.go; readiness/inspect.go; tfexec/namespace.go | State/Inspect/VerifyAbsent/owner-chain tests; real historical-state absence probe pass; missing live state UID remains fail closed, IMP-043 |
 
 ## Custom workload runtime — 2026-11-06
 
