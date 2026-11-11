@@ -64,7 +64,7 @@ không sửa nguồn ngoài phạm vi. Type đổi giữ guard resourceChanged h
 Nhập file là merge có review: mỗi collision mặc định Giữ hiện tại, có Thay thế;
 không xóa biến vắng trong file. Thay thế giữ vị trí hiện tại, biến mới append theo
 thứ tự file. Text editor là chỉnh trực tiếp toàn draft nên xóa khai báo xóa dòng.
-Tải mẫu từ dependency/output metadata và tải nội dung hiện tại, không resolve
+File upload tối đa 1 MiB. Tải mẫu từ dependency/output metadata và tải nội dung hiện tại, không resolve
 output/Secret. File lỗi UTF-8 không sửa draft. Reply đọc file muộn bị bỏ khi
 scope đổi/unmount hoặc đã có thao tác nhập mới.
 

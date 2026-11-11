@@ -44,7 +44,16 @@ export function EnvironmentVariablesEditor(props: Props) {
   // Revalidate preserved text when metadata changes. Never commit it partially.
   const parsed = importText !== undefined ? parseEnvfile(importText, context, bindings) : text === undefined ? undefined : parseEnvfile(text, context, bindings);
   const currentProblems = parsed?.problems ?? problems;
-  const blocked = currentProblems.length > 0 || reading || !!incoming || importText !== undefined || serializationError;
+  // Metadata can make preserved text valid without another keystroke (for
+  // example, adding its missing resource). Publish that whole draft before
+  // unlocking Save; otherwise the old table could silently be saved instead.
+  const needsReconciliation = importText === undefined && text !== undefined && parsed !== undefined && parsed.problems.length === 0 && serializeEnvfile(parsed.bindings, context) !== canonical;
+  useEffect(() => {
+    if (importText !== undefined || text === undefined || !parsed || parsed.problems.length) return;
+    if (problems.length) setProblems([]);
+    if (needsReconciliation) { emitted.current = parsed.bindings; onChange(parsed.bindings); }
+  }, [importText, text, parsed, problems.length, needsReconciliation, onChange]);
+  const blocked = currentProblems.length > 0 || needsReconciliation || reading || !!incoming || importText !== undefined || serializationError;
   useEffect(() => { onBlocked(props.editorId, blocked); }, [blocked, onBlocked, props.editorId]);
   useEffect(() => () => onBlocked(props.editorId, false), [onBlocked, props.editorId]);
   function publish(next: Binding[]) { emitted.current = next; onChange(next); }

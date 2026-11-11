@@ -48,3 +48,22 @@ it('keeps invalid text when another draft field refreshes bindings', async () =>
   view.rerender(<EnvironmentVariablesEditor {...props} bindings={[{ ...row }]} />);
   expect(screen.getByLabelText('Nội dung .env')).toHaveValue('BROKEN');expect(onChange).not.toHaveBeenCalled();
 });
+it('publishes formerly invalid text atomically when its missing dependency becomes available', async () => {
+  const blocked = vi.fn(), onChange = vi.fn(); const row = { ...emptyBinding(), name: 'OLD', value: 'kept' };
+  const props = { editorId: 0, container: 'main', bindings: [row], catalog: context.catalog, dependencies: [], types: [], workloads: [], self: 'test', context, disabled: false, showIncomplete: false, onFocused() {}, onChange, onCreateKey() {}, onAddResource() {}, application: { id: 'test', name: 'Test', environments: bothConfigured(), workloads: { staging: [], production: [] } }, environment: 'staging' as const, onConfiguration() {}, onBlocked: blocked, onBusy() {}, onReplaceSecret() {} };
+  const view = render(<EnvironmentVariablesEditor {...props} />); const user = userEvent.setup();
+  await user.click(screen.getByRole('tab', { name: 'Nhập .env' }));
+  fireEvent.change(screen.getByLabelText('Nội dung .env'), { target: { value: 'ADDED=@db.host' } });
+  expect(onChange).not.toHaveBeenCalled();expect(blocked).toHaveBeenLastCalledWith(0, true);
+  const ready: RowContext = { ...context, dependencies: [{ alias: 'db', type: 'postgres' }], outputs: () => ['host'] };
+  view.rerender(<EnvironmentVariablesEditor {...props} context={ready} />);
+  await waitFor(() => expect(onChange).toHaveBeenCalled());
+  const next = onChange.mock.lastCall![0] as Binding[];
+  expect(next.map(binding => ({ name: binding.name, source: binding.source, alias: binding.alias }))).toEqual([{ name: 'ADDED', source: 'RESOURCE', alias: 'db' }]);
+  // Save stays locked until the parent has actually adopted these bindings.
+  expect(blocked).toHaveBeenLastCalledWith(0, true);
+  view.rerender(<EnvironmentVariablesEditor {...props} context={ready} bindings={next} />);
+  await waitFor(() => expect(blocked).toHaveBeenLastCalledWith(0, false));
+  await user.click(screen.getByRole('tab', { name: 'UI' }));
+  expect(screen.getByLabelText('Tên biến, dòng 1')).toHaveValue('ADDED');
+});

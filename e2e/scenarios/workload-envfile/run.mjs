@@ -6,7 +6,7 @@ import { openConsole, closeConsole, readConsoleConfig } from '../../lib/console.
 import { makeUI, outsideRepo } from '../../../scripts/bootstrap/lib/runtime.mjs';
 import { ensureNamespaceAccess } from '../../../scripts/bootstrap/lib/namespace-access.mjs';
 process.umask(0o077);
-const stage = process.argv[2]; assert(['prepare', 'author', 'deploy', 'verify', 'cleanup'].includes(stage));
+const stage = process.argv[2]; assert(['prepare', 'author', 'editor', 'deploy', 'verify', 'cleanup'].includes(stage));
 const dir = process.env.ORCH_TEST_RUN_DIR; assert(dir); outsideRepo(dir);
 const file = dir + '/state.json';
 const state = existsSync(file) ? JSON.parse(readFileSync(file)) : {};
@@ -107,6 +107,28 @@ async function author() {
   assert(!JSON.stringify(saved).includes('issue72-synthetic'));
   state.saved = saved; save(); console.log('PASS authored and reopened 36 rows with five sources');
 }
+async function editor() {
+  await open('envfile');
+  let mutations = 0;
+  const observe = request => { if (request.method() === 'PUT' && new URL(request.url()).pathname.includes('/workloads/')) mutations++; };
+  page.on('request', observe);
+  const text = await textTab(), original = await text.inputValue();
+  await text.fill(original + '\nMETADATA_CASE=@late-check.host');
+  assert(await page.getByRole('tab', { name: 'UI', exact: true }).isDisabled());
+  assert(await page.getByRole('button', { name: 'Lưu draft Workload', exact: true }).isDisabled());
+  const count = await page.getByLabel('Alias tài nguyên', { exact: true }).count();
+  await page.getByRole('button', { name: '+ Thêm tài nguyên', exact: true }).click();
+  await page.getByLabel('Alias tài nguyên', { exact: true }).nth(count).fill('late-check');
+  await page.getByLabel('Loại tài nguyên', { exact: true }).nth(count).selectOption('postgres');
+  await page.getByRole('tab', { name: 'UI', exact: true }).click();
+  assert.equal(await page.getByLabel('Tên biến, dòng 37', { exact: true }).inputValue(), 'METADATA_CASE');
+  assert((await page.getByRole('button', { name: 'Đổi nguồn, dòng 37', exact: true }).innerText()).includes('late-check.host'));
+  await page.getByRole('button', { name: 'Hủy', exact: true }).click();
+  await open('envfile'); assert.deepEqual(await rows(), state.order);
+  page.off('request', observe); assert.equal(mutations, 0);
+  await page.screenshot({ path: dir + '/metadata-reconciliation.png' });
+  console.log('PASS metadata reconciliation and cancellation without a workload mutation');
+}
 async function deploy(expected = ['backend', 'envfile']) {
   assert(!state.attempt, 'Recorded Deploy must be inspected before another attempt');
   await page.goto(config.baseURL + `/ui/applications/${state.app.key}?environment=staging`);
@@ -178,16 +200,28 @@ async function cleanup() {
   const namespace = JSON.parse(kube('get', 'namespace', state.namespace, '-o', 'json'));
   assert.equal(namespace.metadata.uid, state.namespaceUid, 'Owned namespace UID must match');
   assert.equal(namespace.metadata.labels['app.kubernetes.io/managed-by'], 'orchestrator');
+  // These two objects are technical setup owned by this scenario, not product
+  // resources. Remove them before the product's foreign-child namespace guard.
+  for (const kind of ['rolebindings', 'roles']) {
+    const object = JSON.parse(kube('-n', state.namespace, 'get', kind, 'bootstrap-fleet-access', '--ignore-not-found', '-o', 'json') || 'null');
+    if (!object) continue;
+    assert.equal(object.metadata.labels['bootstrap.orchestrator.dev/application'], state.app.key);
+    const options = { apiVersion: 'v1', kind: 'DeleteOptions', preconditions: { uid: object.metadata.uid } };
+    execFileSync('kubectl', ['--kubeconfig', process.env.KUBECONFIG, '--context', 'kind-k8s-4f', 'delete', '--raw', `/apis/rbac.authorization.k8s.io/v1/namespaces/${state.namespace}/${kind}/bootstrap-fleet-access`, '-f', '-'], { input: JSON.stringify(options), encoding: 'utf8', timeout: 60_000, stdio: ['pipe', 'pipe', 'pipe'] });
+    assert.equal(kube('-n', state.namespace, 'get', kind, 'bootstrap-fleet-access', '--ignore-not-found', '-o', 'name'), '');
+  }
   await page.goto(config.baseURL + `/ui/applications/${state.app.key}/settings?environment=staging`);
-  await page.getByRole('region', { name: 'Xóa ứng dụng', exact: true }).getByRole('button', { name: 'Xóa ứng dụng', exact: true }).click();
+  const app = (await ui.get('/applications/' + state.app.key)).application;
+  if (app.status === 'DELETING') await page.getByRole('region', { name: 'Tiến trình xóa ứng dụng', exact: true }).getByRole('button', { name: 'Thử lại', exact: true }).click();
+  else await page.getByRole('region', { name: 'Xóa ứng dụng', exact: true }).getByRole('button', { name: 'Xóa ứng dụng', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Xóa ứng dụng', exact: true });
   await dialog.getByRole('textbox').fill(state.app.name);
   const response = await ui.submit(`/applications/${state.app.key}/deletions`, 'POST', dialog.getByRole('button', { name: 'Xóa vĩnh viễn ứng dụng', exact: true }));
-  const operation = response.deletion.operationId;
+  const operation = response.deletion.operationId; state.deletionId = operation; save();
   const deadline = Date.now() + 1_800_000;
   for (;;) { const result = (await ui.get(`/applications/${state.app.key}/deletions/${operation}`)).deletion; if (!result.running) { assert.equal(result.status, 'SUCCEEDED'); break; } assert(Date.now() < deadline); await page.waitForTimeout(3000); }
   assert.equal(kube('get', 'namespace', state.namespace, '--ignore-not-found', '-o', 'name'), ''); state.cleaned = true; save(); console.log('PASS cleanup');
 }
-try { await ({ prepare, author, deploy, verify, cleanup })[stage](); }
+try { await ({ prepare, author, editor, deploy, verify, cleanup })[stage](); }
 catch (error) { console.log('UI_STATE', page.url(), await page.getByRole('heading').allTextContents(), await page.getByRole('tab').allTextContents()); throw error; }
 finally { await closeConsole(session, config); }
