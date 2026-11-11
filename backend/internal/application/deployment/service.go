@@ -299,6 +299,19 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 			return nil, s.fail(ctx, record, err)
 		}
 	}
+	// ADR-042: a direct Workload deploy is a one-workload Environment release.
+	var ownRelease *Release
+	if releaseFrom(ctx) == nil {
+		staged, err := s.UsesEnvironmentBundle(ctx, cmd.OrganizationKey, env)
+		if err != nil {
+			return nil, s.fail(ctx, record, err)
+		}
+		if staged {
+			ownRelease = NewRelease(cmd.OrganizationKey, app.Key, env)
+			ctx = WithRelease(ctx, ownRelease)
+		}
+	}
+	release := releaseFrom(ctx)
 
 	planCtx := planning.Context{
 		OrganizationKey: cmd.OrganizationKey,
@@ -470,13 +483,32 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		if err := s.applyWorkload(ctx, &record, planCtx, plan, provisionResult, types, workloadID, cmd.ConfigRevisionID); err != nil {
 			return nil, s.fail(ctx, record, err)
 		}
-		if err := s.provisionPostWorkload(ctx, provisionRequest, provisionResult, workloadID, env); err != nil {
-			return nil, s.fail(ctx, record, err)
+		if release == nil {
+			if err := s.provisionPostWorkload(ctx, provisionRequest, provisionResult, workloadID, env); err != nil {
+				return nil, s.fail(ctx, record, err)
+			}
 		}
 	} else {
 		if err := s.removeWorkload(ctx, planCtx, workloadID, record.ID); err != nil {
 			return nil, s.fail(ctx, record, err)
 		}
+	}
+	staged := release != nil && release.has(workloadID)
+	if staged {
+		// The Deployment completes when its Environment release is observed:
+		// only then do workload-dependent resources run and it succeeds.
+		release.extend(workloadID, func(ctx context.Context, cause error) error {
+			if cause == nil && after != nil {
+				cause = s.provisionPostWorkload(ctx, provisionRequest, provisionResult, workloadID, env)
+			}
+			if cause != nil {
+				return s.fail(ctx, record, cause)
+			}
+			finished := s.clock.Now()
+			record.Status = domain.StatusSucceeded
+			record.FinishedAt = &finished
+			return s.store.SaveDeployment(ctx, record)
+		})
 	}
 
 	// Transaction B: optimistic commit of the current Deployment Set (MS-12).
@@ -497,12 +529,25 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 				return err
 			}
 		}
+		if staged {
+			return s.store.SaveDeployment(ctx, record)
+		}
 		finished := s.clock.Now()
 		record.Status = domain.StatusSucceeded
 		record.FinishedAt = &finished
 		return s.store.SaveDeployment(ctx, record)
 	}); err != nil {
 		return nil, s.fail(ctx, record, err)
+	}
+	if ownRelease != nil {
+		outcome, err := s.FlushRelease(ctx, ownRelease)
+		if cause := outcome[workloadID]; cause != nil {
+			return nil, cause
+		}
+		if err != nil {
+			return nil, err
+		}
+		record.Status = domain.StatusSucceeded
 	}
 
 	if failed := s.markInstancesUnreferenced(ctx, env.TargetGeneration, plan.UnreferencedResources); failed > 0 {
@@ -587,6 +632,23 @@ func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, 
 		instance.ObservedAt = s.clock.Now()
 		if err := s.store.UpsertWorkloadProgress(ctx, instance); err != nil {
 			return err
+		}
+		if release := releaseFrom(ctx); release != nil && instance.TargetRef["deliveryMode"] == "CD" {
+			return release.stageRemoval(workloadID, target, func(ctx context.Context, cause error) error {
+				if cause != nil {
+					instance.Status = domain.InstanceFailed
+					instance.ObservedAt = s.clock.Now()
+					_ = s.store.UpsertWorkloadProgress(ctx, instance)
+					return cause
+				}
+				if err := s.retainEndpoints(ctx, endpointOwner(planCtx, workloadID), nil); err != nil {
+					return err
+				}
+				instance.Status = domain.InstanceRemoved
+				instance.AppliedConfigRevisionID = ""
+				instance.ObservedAt = s.clock.Now()
+				return s.store.UpsertWorkloadProgress(ctx, instance)
+			})
 		}
 		if instance.TargetRef["deliveryMode"] == "CD" || instance.TargetRef["deliveryMode"] == "DIRECT" {
 			if s.delivery == nil {
@@ -814,13 +876,14 @@ func (s *Service) applyWorkload(
 			}
 			bundle, err := s.registry.PrepareBundle(ctx, configport.BundleRequest{
 				CDOwned:         cdManifests,
+				Versioned:       cdManifests && releaseFrom(ctx) != nil,
 				OrganizationKey: planCtx.OrganizationKey, ApplicationKey: planCtx.App.Key, EnvironmentKey: planCtx.Env.Key, WorkloadID: workloadID,
 				Namespace: target.Namespace, RevisionID: deliveryRevision, DeploymentID: record.ID, DeliveryStoreKey: deliveryStore, Refs: storeRefs, Values: bundleValues,
 			})
 			if err != nil {
 				return err
 			}
-			configBundle := execution.ConfigBundle{StoreKey: bundle.StoreKey, Address: bundle.Address, Mount: bundle.Mount, AuthMount: bundle.AuthMount, Path: bundle.Path, Role: bundle.Role, ServiceAccount: bundle.ServiceAccount, SecretName: bundle.SecretName, CAPEM: bundle.CAPEM, Keys: bundle.Keys}
+			configBundle := execution.ConfigBundle{StoreKey: bundle.StoreKey, Address: bundle.Address, Mount: bundle.Mount, AuthMount: bundle.AuthMount, Path: bundle.Path, Role: bundle.Role, ServiceAccount: bundle.ServiceAccount, SecretName: bundle.SecretName, CAPEM: bundle.CAPEM, Keys: bundle.Keys, Version: bundle.Version}
 			if cdManifests {
 				renderer, ok := s.configSync.(execution.ConfigBundleRenderer)
 				if !ok {
@@ -838,6 +901,9 @@ func (s *Service) applyWorkload(
 			}
 			configSecretName, configSecretKeys = bundle.SecretName, bundle.Keys
 			secretDelivery = map[string]any{"storeKey": bundle.StoreKey, "address": bundle.Address, "authMount": bundle.AuthMount, "mount": bundle.Mount, "path": bundle.Path, "secretName": bundle.SecretName}
+			if bundle.Version > 0 {
+				secretDelivery["version"] = bundle.Version
+			}
 		} else {
 			refs := []string{}
 			bindings := map[string]map[string]string{}
@@ -965,6 +1031,30 @@ func (s *Service) applyWorkload(
 	}
 	if err := s.store.UpsertWorkloadProgress(ctx, instance); err != nil {
 		return err
+	}
+
+	if release := releaseFrom(ctx); release != nil {
+		// ADR-042: the batch publishes every workload in one Environment
+		// release; this workload completes when that release is observed.
+		return release.stage(workloadID, target, manifests, func(ctx context.Context, cause error) error {
+			if cause != nil {
+				instance.Status = domain.InstanceFailed
+				instance.ObservedAt = s.clock.Now()
+				_ = s.store.UpsertWorkloadProgress(ctx, instance)
+				return cause
+			}
+			keep := []endpoint.Claim{}
+			if desired, ok := plan.Endpoints[workloadID]; ok {
+				keep = append(keep, desired.Claim())
+			}
+			if err := s.retainEndpoints(ctx, endpointOwner(planCtx, workloadID), keep); err != nil {
+				return err
+			}
+			instance.TargetRef = withInventory(instance.TargetRef, rendered)
+			instance.Status = domain.InstanceReady
+			instance.ObservedAt = s.clock.Now()
+			return s.store.UpsertWorkloadProgress(ctx, instance)
+		})
 	}
 
 	if !s.simulation || planCtx.Env.DesiredDelivery.Effective().Mode == deliverydomain.CD || s.delivery != nil {

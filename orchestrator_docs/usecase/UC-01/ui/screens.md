@@ -22,9 +22,13 @@ source cleanup action. Show the persisted authoritative destination and actual
 writer/route compensation outcome, including source quiesce failures after
 cutover. Never present a failed/partial transition as successful.
 
-Changing secret store explains that Secrets are copied first and running workloads
-move after Preview/Deploy. Secret values are never displayed. On 409 show latest
-selection and require review/resubmit; active-operation busy is temporary.
+Anyone with access selects the first secret store of an Environment (ADR-042);
+once selected, a Developer sees the store name and a note that only PE/Admin
+change it, while PE/Admin keep the selector.
+Changing a selected store is accepted only while the Environment has no workload;
+otherwise the selector shows `SECRET_STORE_LOCKED` and nothing changes. Secret
+values are never displayed. On a stale 409 show latest selection and require
+review/resubmit; active-operation busy is temporary.
 
 ## T07 — Cài đặt môi trường (ENV-01, VI-02)
 

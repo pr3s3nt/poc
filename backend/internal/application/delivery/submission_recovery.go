@@ -230,9 +230,14 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 		for {
 			stage = "observe"
 			observed, observeErr := provider.Observe(wait, intent, receipt)
-			if observeErr != nil {
+			// A read cut off by the expired readiness deadline is the deadline
+			// outcome, not a provider failure.
+			if observeErr != nil && !(determined && wait.Err() != nil && ctx.Err() == nil) {
 				cancel()
 				return observeErr
+			}
+			if observeErr != nil {
+				observed = domain.Observation{}
 			}
 			if err := c.prunePending(wait, provider, intent, receipt, observed); err != nil {
 				cancel()

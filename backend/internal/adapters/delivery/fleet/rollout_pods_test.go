@@ -57,3 +57,10 @@ func TestMatchLabelsSelectorIsDeterministicAndStrict(t *testing.T) {
 		t.Fatal("matchExpressions accepted")
 	}
 }
+
+func TestNotReadyObjectsNameTheBlockingWorkload(t *testing.T) {
+	got := notReadyObjects("resource Deployment/app-ns/worker not ready. status: Failed, message: Progress deadline exceeded; resource Deployment/other/x not ready", "app-ns")
+	if len(got) != 1 || got[0].Kind != "Deployment" || got[0].Name != "worker" || got[0].Health != domain.Degraded {
+		t.Fatalf("objects = %+v", got)
+	}
+}

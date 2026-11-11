@@ -55,6 +55,9 @@ type WorkloadBundle struct {
 	StoreKey, Address, Mount, AuthMount, Path, Role, ServiceAccount, SecretName string
 	CAPEM                                                                       string
 	Keys                                                                        map[string]map[string]string
+	// Version is the pinned KV v2 version of a versioned workload path
+	// (ADR-042); zero for a per-deployment bundle.
+	Version int
 }
 
 // BundleRequest asks the delivery store to host one workload's bundle. Each
@@ -68,6 +71,9 @@ type BundleRequest struct {
 	Values map[string]map[string]string `json:"-"`
 	// CDOwned scopes ServiceAccounts away from historical direct auxiliaries.
 	CDOwned bool
+	// Versioned writes to the workload's fixed path as a KV v2 version and uses
+	// the fixed per-workload identity (ADR-042) instead of a per-deployment bundle.
+	Versioned bool
 }
 
 // AccessRequest is the agent-delivery variant: all refs live in one store.

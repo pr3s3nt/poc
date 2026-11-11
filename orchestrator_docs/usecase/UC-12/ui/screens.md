@@ -56,9 +56,12 @@ Deploy.
 
 ## Secret Store Connection
 
-Selected Environment Settings displays the chosen store and editable READY choices.
-Unset state allows ordinary Variable edits, but Secret Add asks to select a store.
-Change-store action shows copying/verification, success/pending-deploy or safe error.
+Selected Environment Settings displays the chosen store. Without a store, anyone
+with access sees the READY choices and **Lưu kho bí mật**; once selected only
+PE/Admin keep the selector, Developer sees the store name and a note (ADR-042).
+Unset state allows ordinary Variable edits, but Secret Add asks to select a store. Change-store is accepted only while
+the Environment has no workload (`SECRET_STORE_LOCKED` otherwise) and shows
+copying/verification, success/pending-deploy or safe error.
 No raw Secret, store token or backup content appears in the UI.
 
 ## T07 — Nhãn và lựa chọn Kho bí mật
@@ -73,8 +76,8 @@ tham chiếu. Chọn checkbox giữ tên biến trong Container và chỉ sửa 
 
 Khi chưa có kho và chỉ có một READY store hợp lệ, selector gợi ý draft chưa lưu,
 không tạo binding hoặc cho phép Secret write trước Lưu. Nhiều kho yêu cầu chọn
-tường minh. Kho đã cấu hình không bị thay; Lưu đổi kho vẫn copy/verify trước
-commit, runtime chuyển sau Xem trước → Triển khai.
+tường minh. Kho đã cấu hình không bị thay; chỉ PE/Admin đổi kho khi môi trường
+không còn workload, copy/verify trước commit.
 
 ## T30 rename dialog
 

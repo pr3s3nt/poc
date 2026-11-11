@@ -131,6 +131,67 @@ func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, act
 	if err != nil {
 		return report, err
 	}
+	if !preview.DeliveryTransfer && !preview.DeliveryPolicyOnly {
+		staged, err := s.deployer.UsesEnvironmentBundle(ctx, orgKey, env)
+		if err != nil {
+			return report, err
+		}
+		if staged {
+			// ADR-042: every change of this batch is one Environment release.
+			release := appsvc.NewRelease(orgKey, appKey, env)
+			if rollback, _ := lease.Operation.Detail["rollback"].(bool); rollback {
+				// ADR-042: a rollback restores the app unit and never re-runs
+				// migration Jobs of an older release.
+				release.KeepJobs()
+			}
+			report, err := s.deployChanges(lease, appsvc.WithRelease(ctx, release), orgKey, appKey, envKey, actor, preview, env)
+			s.finishRelease(ctx, release, &report)
+			return report, err
+		}
+	}
+	return s.deployChanges(lease, ctx, orgKey, appKey, envKey, actor, preview, env)
+}
+
+// finishRelease publishes the staged workloads once and replaces each staged
+// workload's result with its delivery outcome.
+func (s *Service) finishRelease(ctx context.Context, release *appsvc.Release, report *DeployReport) {
+	if release.Empty() {
+		return
+	}
+	outcome, releaseErr := s.deployer.FlushRelease(ctx, release)
+	failed := false
+	for index, result := range report.Results {
+		cause, staged := outcome[result.WorkloadID]
+		if !staged || result.Status != "SUCCEEDED" {
+			continue
+		}
+		if cause != nil {
+			report.Results[index].Status = "FAILED"
+			report.Results[index].Error = publicDeployError(cause)
+			report.Results[index].ErrorCode = appsvc.FailureCode(report.Results[index].Error)
+			failed = true
+		}
+	}
+	if releaseErr != nil && !failed {
+		// The failing workload was not changed in this batch: the release
+		// still failed, so report that workload and not a success.
+		var rollout *deliveryapp.RolloutFailure
+		names := []string{}
+		if errors.As(releaseErr, &rollout) {
+			names = rollout.Workloads
+		}
+		for _, name := range names {
+			report.Results = append(report.Results, WorkloadResult{WorkloadID: name, Action: domain.ActionUpdate, Status: "FAILED", Error: publicDeployError(releaseErr), ErrorCode: appsvc.FailureCode(publicDeployError(releaseErr))})
+		}
+		failed = true
+	}
+	if failed {
+		report.Status = statusFor(report.Results)
+	}
+}
+
+func (s *Service) deployChanges(lease *envops.Lease, ctx context.Context, orgKey, appKey, envKey, actor string, preview Preview, env environment.Environment) (DeployReport, error) {
+	report := DeployReport{Status: "SUCCEEDED", Results: []WorkloadResult{}}
 	pin, err := deliveryapp.PinForPreview(ctx, s.store, orgKey, env)
 	if err != nil {
 		return report, err

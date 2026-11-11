@@ -4032,5 +4032,9 @@
   "platform.resourceTypes.cancel": "Cancel",
   "platform.resourceTypes.outputsAddedToKey": "Added outputs to {key}.",
   "platform.resourceTypes.outputNameAlreadyExists": "{key} already has an output with that name. Rename it and save again.",
-  "platform.resourceTypes.typeNoLongerExists": "Resource type {key} is no longer in the organization. Reload the list."
+  "platform.resourceTypes.typeNoLongerExists": "Resource type {key} is no longer in the organization. Reload the list.",
+  "environment.secretStoreSelection.platformOnly": "Once selected, only a Platform Engineer or Administrator can change the secret store.",
+  "environment.secretStoreSelection.locked": "The Environment still runs workloads, so its secret store cannot change. See the store change runbook.",
+  "environment.secretStoreSelection.changeOnlyWhenEmpty": "The store can change only while the Environment has no workloads. Desired secrets are copied and verified before saving.",
+  "shared.errors.secretStoreLocked": "The Environment still runs workloads, so its secret store cannot change."
 }

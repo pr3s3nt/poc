@@ -192,3 +192,4 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [Container volume/file UI — WC-22](2026-11-06-container-volume-ui.md).
 
 - [Existing volume sources before creation — WC-23](2026-11-06-reuse-first-volumes.md).
+- [2026-11-11 One Fleet bundle per Environment, versioned secrets — issue #67](2026-11-11-environment-bundle.md)

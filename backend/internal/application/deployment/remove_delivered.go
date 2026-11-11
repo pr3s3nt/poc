@@ -137,6 +137,34 @@ func (s *Service) removeClaimedInstances(lease *envops.Lease, organizationKey, a
 	generation := env.TargetGeneration
 	var lastTarget execution.Target
 	hasLegacyAuxiliary := false
+	// ADR-042: an Environment bundle removes all candidate workloads with one
+	// release (or withdraws the units when none remain).
+	var bundleErr error
+	bundled := false
+	if uses, err := s.UsesEnvironmentBundle(lease.Ctx, organizationKey, env); err != nil {
+		return report, err
+	} else if uses {
+		removed := []string{}
+		var target *execution.Target
+		for _, w := range candidates {
+			if w.TargetRef["deliveryMode"] != "CD" {
+				continue
+			}
+			t := execution.Target{Namespace: env.Namespace(), Extra: map[string]string{"application": applicationKey, "environment": environmentKey}}
+			if err := restoreEnvironmentTarget(&t, w.TargetRef, organizationKey, env); err == nil && target == nil {
+				target = &t
+			}
+			removed = append(removed, w.WorkloadID)
+		}
+		if len(removed) > 0 {
+			bundled = true
+			if target == nil {
+				bundleErr = fmt.Errorf("deployment: no persisted target for the Environment release")
+			} else {
+				bundleErr = s.delivery.DeployEnvironment(lease.Ctx, deliveryapp.EnvironmentRequest{OrganizationKey: organizationKey, ApplicationKey: applicationKey, Environment: env, Target: *target, Removed: removed})
+			}
+		}
+	}
 	for _, w := range candidates {
 		hasLegacyAuxiliary = hasLegacyAuxiliary || legacyAuxiliary(w)
 		target := execution.Target{Namespace: env.Namespace(), Extra: map[string]string{"application": applicationKey, "environment": environmentKey, "deployment": workloadOwnerDeploymentID(w)}}
@@ -155,6 +183,8 @@ func (s *Service) removeClaimedInstances(lease *envops.Lease, organizationKey, a
 		if w.TargetRef["deliveryMode"] == "CD" || w.TargetRef["deliveryMode"] == "DIRECT" {
 			if s.delivery == nil {
 				removeErr = deliveryapp.ErrUnavailable
+			} else if bundled && w.TargetRef["deliveryMode"] == "CD" {
+				removeErr = bundleErr
 			} else {
 				removeErr = s.delivery.RemoveWorkload(lease.Ctx, organizationKey, env.ID, w.WorkloadID)
 			}

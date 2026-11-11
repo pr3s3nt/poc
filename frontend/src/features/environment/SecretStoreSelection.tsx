@@ -16,13 +16,17 @@ type State = { status: 'loading' | 'error' } | { status: 'ready'; stores: readon
 // the draft (not an Organization default or fallback); nothing persists until
 // Save. The draft is derived from `picked`, so a reload or a late response never
 // overwrites the user's choice, and a bound store is never retargeted.
-export function SecretStoreSelection({ application, environment, configVersion, onTargetChange, onConfigurationChanged }: {
+export function SecretStoreSelection({ application, environment, configVersion, canSelect = false, onTargetChange, onConfigurationChanged }: {
   application: Application; environment: EnvironmentKey; configVersion: number;
+  // ADR-042: anyone selects the first store; only a Platform Engineer/Admin
+  // changes a selected one.
+  canSelect?: boolean;
   onTargetChange(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void;
   onConfigurationChanged(): void;
 }) {
   const target = application.environments[environment];
   const busy = Boolean(target.activeOperation);
+  const selectable = canSelect || !target.secretStoreKey;
   const [choices, setChoices] = useState<State>({ status: 'loading' });
   const [picked, setPicked] = useState<string>();
   const [saving, setSaving] = useState(false);
@@ -85,7 +89,9 @@ export function SecretStoreSelection({ application, environment, configVersion, 
       if (current === generation.current) { setPicked(undefined); setNotice(!result.changed ? t('environment.secretStoreSelection.thisStoreIsSelectedNothing') : t('environment.secretStoreSelection.secretStoreSavedCopiedSecretsSecrets', { copiedSecrets: result.copiedSecrets })); }
     } catch (err) {
       if (current !== generation.current) return;
-      if (isBusy(err)) {
+      if (err instanceof ApiError && err.code === 'SECRET_STORE_LOCKED') {
+        setError(t('environment.secretStoreSelection.locked'));
+      } else if (isBusy(err)) {
         setError((err as ApiError).message);
       } else if (isStaleConflict(err)) {
         const base = (err as ApiError).message;
@@ -112,10 +118,11 @@ export function SecretStoreSelection({ application, environment, configVersion, 
     {error ? <div className="form-error" role="alert">{error}{needsReload ? <Button type="button" onClick={() => void retryReload()}>{t('environment.secretStoreSelection.reloadStatus')}</Button> : null}</div> : null}
     {notice ? <div className="form-success" role="status">{notice}</div> : null}
     {busy ? <div className="form-info" role="status">{t('environment.secretStoreSelection.anOperationIsRunningOn')}</div> : null}
-    {choices.status === 'loading' ? <p role="status" aria-busy="true">{t('environment.secretStoreSelection.loadingSecretStores')}</p> : null}
-    {choices.status === 'error' ? <div className="form-error" role="alert">{t('environment.secretStoreSelection.couldNotLoadTheSecret')}<Button type="button" onClick={() => setAttempt((value) => value + 1)}>{t('environment.secretStoreSelection.retry')}</Button></div> : null}
-    {choices.status === 'ready' && stores.length === 0 ? <div className="form-info" role="status">{t('environment.secretStoreSelection.noReadyREADYSecretStore')}<Button type="button" onClick={() => setAttempt((value) => value + 1)}>{t('environment.secretStoreSelection.retry')}</Button></div> : null}
-    {stores.length > 0 ? <>
+    {!selectable ? <p className="muted" role="note">{t('environment.secretStoreSelection.platformOnly')}</p> : null}
+    {selectable && choices.status === 'loading' ? <p role="status" aria-busy="true">{t('environment.secretStoreSelection.loadingSecretStores')}</p> : null}
+    {selectable && choices.status === 'error' ? <div className="form-error" role="alert">{t('environment.secretStoreSelection.couldNotLoadTheSecret')}<Button type="button" onClick={() => setAttempt((value) => value + 1)}>{t('environment.secretStoreSelection.retry')}</Button></div> : null}
+    {selectable && choices.status === 'ready' && stores.length === 0 ? <div className="form-info" role="status">{t('environment.secretStoreSelection.noReadyREADYSecretStore')}<Button type="button" onClick={() => setAttempt((value) => value + 1)}>{t('environment.secretStoreSelection.retry')}</Button></div> : null}
+    {selectable && stores.length > 0 ? <>
       <label htmlFor="environment-secret-store">{t('environment.secretStoreSelection.secretStoreForTitle', { title })}</label>
       <select id="environment-secret-store" value={selected} disabled={saving || busy} onChange={(event) => { setPicked(event.target.value); setNotice(''); }}>
         {!target.secretStoreKey || !selected ? <option value="" disabled>{t('environment.secretStoreSelection.chooseASecretStore')}</option> : null}
@@ -124,7 +131,7 @@ export function SecretStoreSelection({ application, environment, configVersion, 
       {suggested ? <div className="form-info" role="status">{t('environment.secretStoreSelection.unsavedSuggestion')}{' '} <strong>{suggestion?.name}</strong> {' '}{t('environment.secretStoreSelection.isTheOnlyReadySecret')}</div> : null}
       {lostPick ? <div className="form-info" role="status">{t('environment.secretStoreSelection.theStoreYouChoseEarlier')}</div> : null}
       {!target.secretStoreKey && stores.length > 1 && !selected ? <small>{t('environment.secretStoreSelection.severalStoresAreReadyChoose')}</small> : null}
-      <small>{t('environment.secretStoreSelection.changingStoresFirstCopiesThe')}</small>
+      {target.secretStoreKey ? <small>{t('environment.secretStoreSelection.changeOnlyWhenEmpty')}</small> : null}
       <div className="form-actions"><Button tone="primary" disabled={!selected || saving || busy || needsReload || selected === target.secretStoreKey} onClick={() => void save()}>{saving ? t('environment.secretStoreSelection.copyingSecrets') : t('environment.secretStoreSelection.saveSecretStore')}</Button></div>
     </> : null}
   </section>;

@@ -2,7 +2,7 @@
 id: UC-12-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-24
+last_reviewed: 2026-11-10
 related: UC-01, UC-05, UC-06, UC-07, UC-16
 ---
 
@@ -84,8 +84,9 @@ form tạo key tại chỗ từ bảng Biến môi trường của UC-16.
   cấu hình workload.
 - **BR-07:** Resource outputs và Service của workload khác không phải key do
   UC-12 quản lý; UC-16 cho chọn trực tiếp các nguồn đó.
-- **BR-08:** Mỗi Environment chọn Secret Store Connection riêng qua Settings;
-  hỗ trợ Vault KV v2 trước. Variable lưu trong Orchestrator; Secret lưu ở kho
+- **BR-08:** Mỗi Environment có Secret Store Connection riêng, chọn một lần qua
+  Settings khi Environment chưa có kho (Developer chọn được); đã chọn thì
+  Developer chỉ xem (ADR-042). Hỗ trợ Vault KV v2 trước. Variable lưu trong Orchestrator; Secret lưu ở kho
   được chọn với refs bất biến mang store identity. Không kế thừa provider cấp Application.
   Variable chỉ chứa Value trong metadata, không StoreKey/ValueRef; CRUD không gọi
   Vault. Không đọc/materialize Variable refs cũ; format cũ bị từ chối và cần reset dev.
@@ -94,8 +95,9 @@ form tạo key tại chỗ từ bảng Biến môi trường của UC-16.
   revision đã áp dụng. Workload đang chạy và Pod được tạo trước Deploy phải tiếp
   tục dùng revision đã áp dụng. Preview xác định workload bị ảnh hưởng; chỉ
   Deploy hợp lệ mới chuyển revision áp dụng và khởi động lại các workload đó.
-- **BR-10:** Với provider Vault trên Kubernetes, VSO đồng bộ đúng revision được
-  Deploy thành Kubernetes Secret trong namespace của workload. Container nhận
+- **BR-10:** Với provider Vault trên Kubernetes, VSO đồng bộ đúng version được
+  Deploy thành Kubernetes Secret `<workload>-config-v<N>` trong namespace của
+  workload (ADR-042). Container nhận
   key đã tham chiếu qua `env.valueFrom.secretKeyRef`; image không phải đọc file
   hoặc thay đổi startup command. Giá trị không được ghi vào Score, Deployment
   Set, GitOps repo, Pod spec/annotations, log hay response đọc. Tiến trình đang
@@ -111,11 +113,13 @@ form tạo key tại chỗ từ bảng Biến môi trường của UC-16.
   thái áp dụng một phần và tên workload thành công/thất bại. Không đánh dấu
   Environment đã áp dụng toàn bộ revision; workload thành công giữ revision đã
   áp dụng của chính nó để lần Deploy sau tiếp tục an toàn.
-- **BR-14:** VSO chỉ đồng bộ các key mà workload tham chiếu từ bundle bất biến
-  của Application/Environment/workload/revision. Mỗi bundle có Secret đích riêng;
-  quyền đọc Vault chỉ cho bundle đó. Deploy phải xác nhận Secret của revision đã
-  đồng bộ trước khi apply workload và chỉ báo thành công sau readiness. Đổi giá
-  trị tạo revision chờ Preview → Deploy, không tự rollout workload.
+- **BR-14:** Mỗi workload có một path Vault KV v2 cố định chứa đúng các giá trị
+  secret nó tham chiếu. Deploy ghi version mới chỉ khi nội dung khác mọi version
+  gần nhất; trùng thì dùng lại version đó. VSS ghim version; ServiceAccount,
+  VaultAuth và Vault role cố định theo workload và chỉ đọc path của workload.
+  Bundle giữ VSS của lần deploy thành công gần nhất để pod cũ chạy tiếp khi
+  rollout lỗi. Deploy chỉ báo thành công sau readiness. Đổi giá trị chờ
+  Preview → Deploy, không tự rollout workload (ADR-042).
 
 ## Đổi tên với cập nhật tham chiếu — CFG-01 / T30
 
@@ -142,8 +146,8 @@ form tạo key tại chỗ từ bảng Biến môi trường của UC-16.
 - **OOS-01:** Form cấu hình workload và sửa tham chiếu thủ công; thuộc UC-16.
   Đổi tên với cập nhật desired references tường minh theo BR-20–23 thuộc UC-12.
 - **OOS-02:** Preview và Deploy; thuộc UC-05, UC-06 và UC-07.
-- **OOS-03:** Provider ngoài Vault KV v2 và tự động rollback sau Deploy thất bại;
-  chuyển giữa các Vault stores nằm trong phạm vi theo BR-15..19.
+- **OOS-03:** Provider ngoài Vault KV v2 và tự động rollback sau Deploy thất bại.
+  Đổi kho do PE/Admin làm theo BR-15..19 và runbook; Developer không tự đổi kho.
 
 ## Trạng thái implementation hiện tại
 
@@ -164,7 +168,10 @@ Chọn key có sẵn không tạo bản sao giá trị; tạo tại chỗ là th
 - **BR-15:** Chưa chọn kho thì variable operations vẫn hoạt động; Secret write
   trả 422 secretStoreKey và dẫn tới Settings. Không backfill store identity hoặc dùng legacy Vault flags; runtime chỉ resolve
   private credential ref của kho đúng Organization.
-- **BR-16:** Đổi kho dùng expected Environment/config versions và operation claim.
+- **BR-16:** Chỉ PE/Admin đổi kho, và chỉ khi Environment không còn workload
+  đang chạy; còn workload thì trả 409 `SECRET_STORE_LOCKED` (ADR-042,
+  [runbook](../../operations/secret-store-change.md)). Đổi kho dùng expected
+  Environment/config versions và operation claim.
   Đọc refs từ đúng owning store, copy immutable desired Secret values sang kho
   mới, verify rồi commit selection và revision cùng transaction. Không copy
   Variable vào kho secret và không thay các revisions đã áp dụng.
@@ -175,7 +182,8 @@ Chọn key có sẵn không tạo bản sao giá trị; tạo tại chỗ là th
 - **BR-19:** Active deploy/migration/store-copy chặn concurrent Settings/config/draft
   writes bằng safe 409. Không có secret plaintext trong DB/plan/API/log/recording.
 
-**VAR-04 — Change store:** Developer chọn store READY khác trong Settings;
+**VAR-04 — Change store:** PE/Admin chọn store READY khác trong Settings khi
+Environment không còn workload;
 hiển thị impact; copy/verify/commit, báo progress hoặc safe recovery failure.
 Quy tắc shared: [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).
 
@@ -203,4 +211,4 @@ Quy tắc shared: [ADR-012](../../architecture/decisions/ADR-012-environment-sto
   chỉ vì thấy cùng tên key. Không đọc secret để đối chiếu.
 - **BR-28:** Variable tạo tại chỗ lưu như UC-12 hiện hành, khác với Giá trị nhập
   riêng container ở UC-16 BR-20. Khi chưa có Secret Store, form UC-16 hỗ trợ
-  initial selection theo UC-16 BR-24; không khởi chạy copy/migrate tự động.
+  chọn kho lần đầu theo UC-16 BR-24; không khởi chạy copy/migrate tự động.

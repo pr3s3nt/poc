@@ -1,6 +1,7 @@
 package fleet
 
 import (
+	"regexp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -331,8 +332,20 @@ func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (
 	desired, _ := bdSpec["deploymentID"].(string)
 	applied, _ := bdStatus["appliedDeploymentID"].(string)
 	if display, _ := bdStatus["display"].(map[string]any); display != nil && display["state"] == "ErrApplied" {
-		out.Sync = domain.OutOfSync
-		out.Health = domain.Degraded
+		// Fleet names the objects that blocked the apply; they let the
+		// coordinator attribute an Environment failure to its workload.
+		message, _ := display["deployed"].(string)
+		out.Objects = append(out.Objects, notReadyObjects(message, i.Target.Namespace)...)
+		if desired == "" || desired == applied {
+			out.Sync = domain.OutOfSync
+			out.Health = domain.Degraded
+			return out, nil
+		}
+		// A failed Helm upgrade does not record the new deployment as applied,
+		// and the error may still be the previous one: keep waiting; the
+		// readiness deadline concludes with the named objects.
+		out.Sync = domain.Pending
+		out.Health = domain.Progressing
 		return out, nil
 	}
 	if desired == "" || desired != applied {
@@ -420,6 +433,7 @@ func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (
 				return unknown(i), err
 			}
 		}
+		out.Objects[len(out.Objects)-1].Health = health
 		if health == domain.Degraded || (health == domain.Progressing && out.Health != domain.Degraded) {
 			out.Health = health
 		}
@@ -593,6 +607,47 @@ func (p *Provider) PruneReleasedObjects(ctx context.Context, i port.Intent, r po
 	return p.pruneRetainedInventory(ctx, i, r, stale, observed, p.Manager.Guard)
 }
 
+// SweepRelease removes live objects of the receipted release that the Ready
+// revision no longer declares (ADR-042 Environment units only).
+func (p *Provider) SweepRelease(ctx context.Context, i port.Intent, r port.Receipt) ([]port.AppliedObject, error) {
+	if i.Revision.Scope.UnitKey != domain.EnvironmentAppUnit && i.Revision.Scope.UnitKey != domain.EnvironmentMigrateUnit {
+		return nil, nil
+	}
+	if p.Manager == nil || p.Manager.Guard == nil {
+		return nil, ErrOwnership
+	}
+	observed, err := p.Observe(ctx, i, r)
+	if err != nil {
+		return nil, err
+	}
+	if !observed.Ready(i.Revision, time.Now(), 30*time.Second) {
+		return nil, ErrController
+	}
+	keep := map[string]bool{}
+	for _, o := range observed.Objects {
+		keep[o.APIVersion+"/"+o.Kind+"/"+o.Name] = true
+	}
+	cli, close, err := k8s.OpenCLI(ctx, p.Manager.Verifier.KubectlPath, p.Manager.Verifier.Credentials, i.Target)
+	if err != nil {
+		return nil, err
+	}
+	live, err := k8s.ListReleasedObjects(ctx, cli, i.Target, r.Handle["release"], r.Handle["releaseNamespace"])
+	close()
+	if err != nil {
+		return nil, err
+	}
+	stale := []port.AppliedObject{}
+	for _, o := range live {
+		if !keep[o.Ref.Key()] {
+			stale = append(stale, port.AppliedObject{ObjectRef: o.Ref, UID: o.UID, Release: r.Handle["release"]})
+		}
+	}
+	if len(stale) == 0 {
+		return nil, nil
+	}
+	return stale, p.pruneRetainedInventory(ctx, i, r, stale, observed, p.Manager.Guard)
+}
+
 func (p *Provider) pruneRetainedInventory(ctx context.Context, i port.Intent, r port.Receipt, stale []port.AppliedObject, observed domain.Observation, guard func(context.Context, port.Intent) error) error {
 	inventory := map[string]bool{}
 	for _, o := range observed.Objects {
@@ -620,4 +675,18 @@ func (p *Provider) pruneRetainedInventory(ctx context.Context, i port.Intent, r 
 		}
 	}
 	return nil
+}
+
+var notReadyResource = regexp.MustCompile(`resource ([A-Za-z]+)/([a-z0-9.-]+)/([a-z0-9.-]+) not ready`)
+
+// notReadyObjects extracts "resource <Kind>/<namespace>/<name> not ready"
+// entries of Fleet's apply message in the target namespace. They carry no UID.
+func notReadyObjects(message, namespace string) []domain.ObjectObservation {
+	out := []domain.ObjectObservation{}
+	for _, m := range notReadyResource.FindAllStringSubmatch(message, -1) {
+		if m[2] == namespace {
+			out = append(out, domain.ObjectObservation{Kind: m[1], Name: m[3], Namespace: namespace, Health: domain.Degraded})
+		}
+	}
+	return out
 }

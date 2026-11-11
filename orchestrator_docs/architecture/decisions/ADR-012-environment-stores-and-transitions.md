@@ -7,6 +7,16 @@ last_reviewed: 2026-10-13
 
 # ADR-012 — Editable Environment Connections, secret stores and transitions
 
+## ADR-042 partial supersession
+
+[ADR-042](ADR-042-environment-bundle-versioned-secrets.md) locks the Secret Store
+per Environment: only PE/Admin selects it, and changes it only while the
+Environment has no running workload. Per-deployment immutable bundles are
+replaced by one fixed KV v2 path per workload with versioned VaultStaticSecrets
+and fixed Vault role/ServiceAccount/VaultAuth. Store copy, versions, claims and
+fencing below remain.
+
+
 Status: Accepted — 2026-10-07, user-approved feature scope.
 Supersedes ADR-011 permanent binding lock and ADR-006 Application-level provider
 selection/Variable storage. Preserves current ADR-011 ENVIRONMENT generation-0

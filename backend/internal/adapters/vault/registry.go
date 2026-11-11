@@ -133,7 +133,12 @@ func (r *Registry) PrepareBundle(ctx context.Context, req configport.BundleReque
 			values[container][name] = value
 		}
 	}
-	bundle, err := delivery.writeBundle(ctx, req.ApplicationKey, req.EnvironmentKey, req.WorkloadID, req.Namespace, req.RevisionID, req.DeploymentID, values, req.CDOwned)
+	var bundle configport.WorkloadBundle
+	if req.Versioned {
+		bundle, err = delivery.writeVersionedBundle(ctx, req.ApplicationKey, req.EnvironmentKey, req.WorkloadID, req.Namespace, values)
+	} else {
+		bundle, err = delivery.writeBundle(ctx, req.ApplicationKey, req.EnvironmentKey, req.WorkloadID, req.Namespace, req.RevisionID, req.DeploymentID, values, req.CDOwned)
+	}
 	if err != nil {
 		return configport.WorkloadBundle{}, err
 	}
@@ -195,4 +200,19 @@ func (r *Registry) PurgeValues(ctx context.Context, org, storeKey, app, env stri
 		}
 	}
 	return len(refs), nil
+}
+
+// PurgeWorkloads deletes the fixed value path, policy and role of each listed
+// workload of one Application Environment (ADR-042, UC-18 MS-08).
+func (r *Registry) PurgeWorkloads(ctx context.Context, org, storeKey, app, env string, workloads []string) (int, error) {
+	p, _, err := r.provider(ctx, org, storeKey)
+	if err != nil {
+		return 0, err
+	}
+	for _, workload := range workloads {
+		if err := p.DeleteWorkload(ctx, app, env, workload); err != nil {
+			return 0, err
+		}
+	}
+	return len(workloads), nil
 }

@@ -88,6 +88,7 @@ const (
 	codeSecretStoreRequired       = "SECRET_STORE_REQUIRED"
 	codeSecretStoreUnavailable    = "SECRET_STORE_UNAVAILABLE"
 	codeSecretCopyFailed          = "SECRET_COPY_FAILED"
+	codeSecretStoreLocked         = "SECRET_STORE_LOCKED"
 	codeRefRewriteUnsafe          = "REFERENCE_REWRITE_UNSAFE"
 	codeRecoveryConfirmRequired   = "RECOVERY_CONFIRMATION_REQUIRED"
 	codeRecoveryIncomplete        = "RECOVERY_INCOMPLETE"
@@ -166,6 +167,7 @@ var publicErrors = map[string]publicError{
 	codeSecretStoreRequired:             {http.StatusUnprocessableEntity, "a secret store must be selected"},
 	codeSecretStoreUnavailable:          {http.StatusUnprocessableEntity, "the selected secret store is not available"},
 	codeSecretCopyFailed:                {http.StatusBadGateway, "secrets could not be copied to the new store"},
+	codeSecretStoreLocked:               {http.StatusConflict, "the secret store cannot change while the Environment runs workloads"},
 	codeRefRewriteUnsafe:                {http.StatusUnprocessableEntity, "the references cannot be updated without losing configuration"},
 	codeRecoveryConfirmRequired:         {http.StatusUnprocessableEntity, "recovery needs confirmation that the prior execution stopped"},
 	codeRecoveryIncomplete:              {http.StatusConflict, "recovery remains incomplete; the Environment is held"},
@@ -440,6 +442,8 @@ func classify(err error) (failure, bool) {
 		return failure{code: codeRefRewriteUnsafe}, true
 	case errors.Is(err, appconfig.ErrStoreCopy):
 		return failure{code: codeSecretCopyFailed}, true
+	case errors.Is(err, appconfig.ErrStoreLocked):
+		return failure{code: codeSecretStoreLocked, field: "secretStoreKey"}, true
 	case errors.Is(err, persistence.ErrOperationLost):
 		return failure{code: codeOperationLost}, true
 	case errors.Is(err, persistence.ErrNotFound), errors.Is(err, catalog.ErrPreviewNotFound), errors.Is(err, catalog.ErrNotFound):
