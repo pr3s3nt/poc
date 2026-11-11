@@ -252,4 +252,5 @@ Compatible security template and UI Online Boutique trial (issue #47):
 [progress contract](architecture/contracts/deployment-progress.md) and
 [UI design](usecase/UC-09/ui/screens.md#detailed-deployrecovery-progress--issue-69)
 define the persisted timeline and Recovery checks.
-[Implementation and acceptance gate](implementation/deploy-recovery-progress.md).
+[Implementation and acceptance gate](implementation/deploy-recovery-progress.md),
+[verification and remaining gates](verification/2026-11-11-deploy-recovery-progress.md).

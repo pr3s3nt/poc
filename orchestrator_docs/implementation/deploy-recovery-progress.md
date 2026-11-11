@@ -47,7 +47,8 @@ Focused backend suites, race checks, scoped real PostgreSQL reopen/correlation
 checks and focused Console checks have passed. Migration immutability, documentation
 validation and the changed PlantUML sequence have passed. Full suites run in an
 isolated kind namespace and are compared with the main baseline when failures
-occur; final counts and cleanup are recorded in the dated verification report.
+occur; final counts and cleanup are recorded in the
+[dated verification report](../verification/2026-11-11-deploy-recovery-progress.md).
 
 The real trial has separate Docker volumes and real kind/Fleet connections. Its
 preparation uses bootstrap APIs only for platform configuration. A workload and
