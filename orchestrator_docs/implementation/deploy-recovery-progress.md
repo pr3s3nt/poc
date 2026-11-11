@@ -37,7 +37,11 @@ can inspect the conclusion and the collapsible check list.
 
 Console detail shows the generic timeline grouped by workload, elapsed/remaining
 time, pod image/reason/restarts, latest three events and safe structured Terraform
-logs. Environment home and Settings reuse OperationBanner for current step,
+logs. Secret preparation retains required/prepared binding counts (explicit zero
+when none are needed); render retains total objects and counts by safe kind.
+Object bodies, secret names/keys/values and private references are excluded.
+Older records remain unchanged, and steps without evidence/children have no
+empty disclosure control. Environment home and Settings reuse OperationBanner for current step,
 warning, detail link and Recovery. Polling reads stored data every three seconds;
 no SSE or separate backend observer is added.
 

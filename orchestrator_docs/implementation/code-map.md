@@ -1394,7 +1394,10 @@ unchanged drafts are checked by `e2e/scenarios/workload-template-versions/`.
 `application/envops/progress.go` persists them with the lease heartbeat; Deploy,
 pending batch, delivery coordinator, Fleet recovery and Terraform execution
 emit facts. Fleet `progress.go` projects pod/event diagnostics inside readiness
-observation. Deployment query and operation DTOs expose the persisted projection.
+observation. `application/deployment/progress.go` groups successful render
+objects into safe kind counts; `service.go` records secret binding counts.
+Deployment query and operation DTOs expose the persisted projection.
 `frontend/src/features/deployments/ExecutionProgress.tsx` renders timeline, safe
-structured logs and recovery checks; `OperationBanner` summarizes and polls them.
+structured logs, preparation counts and recovery checks, omitting empty
+disclosure controls; `OperationBanner` summarizes and polls them.
 See [contract](../architecture/contracts/deployment-progress.md).

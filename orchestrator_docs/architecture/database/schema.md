@@ -1378,7 +1378,11 @@ subject to the existing UID/content deletion guard.
 `environment_operations.detail.progress` holds version 1 generic steps and
 recovery checks: stable id, parent/workload identity, state, safe reason code,
 start/update/finish timestamps, optional readiness deadline and bounded safe
-pod/event facts. This uses the existing JSONB column and owner/fence guarded
+pod/event facts. Optional `secretBindings` retains required/prepared binding
+counts (zero is distinct from absent); `rendered` retains total objects and
+counts by safe kind, excluding object bodies and secret names/keys/values/refs.
+These additive JSON fields are not reconstructed for old operations.
+This uses the existing JSONB column and owner/fence guarded
 heartbeat update; no schema migration, DDL or baseline change is required.
 Stage updates preserve this key; other detail fields keep their existing replacement semantics. History
 reads the operation correlated by review request ID, never a later active claim.

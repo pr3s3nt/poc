@@ -202,3 +202,50 @@ repeated on kind: 106 files / 1,015 tests, typecheck, lint and build passed.
 The owned UI test namespace was removed with a checked label/UID; backend checks
 were not repeated for this presentation-only
 change, and the baseline failures and cleanup limitation above remain unchanged.
+
+## Preparation detail refinement
+
+The user approved adding actual preparation/render results and removing empty
+step disclosure controls. Source `6abb9c2e` records the count of container
+variable/file secret bindings before preparation, and shows prepared only after
+success. Explicit zero means no bindings needed; missing old facts remain
+unknown. Successful rendering records total objects and grouped safe kinds,
+including secret-delivery manifests, without bodies, keys, values or references.
+
+The 57 focused UI tests passed, as did Go progress/lease race suites, bounded
+projection tests, render content exclusion and execution-through-persisted-query
+checks. Backend build passed. No schema migration or execution guard changed.
+
+A separate real Console application verified both no-secret and secret-bound
+Deploy flows. Its first render showed no secret binding required and two objects
+(Deployment and Service). Its update showed one prepared secret binding and six
+rendered objects, including the secret-delivery objects. Kinds outside the fixed
+allowlist appear as Other. The random test secret value and its key were absent
+from the saved progress projection; no credential value is recorded here.
+Browser checked that rows without details no longer expose an empty disclosure.
+The example application is retained for review, separately from the user's fresh
+trial. This is technical regression evidence, not the six-case user acceptance.
+
+The two Deploys completed successfully. Restarting only the feature backend and
+reopening the actual Deployment preserved one prepared binding and six object
+counts. Legacy history had no synthesized counts or empty disclosure controls.
+The shared shell/styles were retained and only useful result facts were added.
+
+Full frontend on kind passed 106 files / 1,017 tests, typecheck, lint and build
+with `--maxWorkers=2`. The first default-parallel full run failed the existing
+observability test `pauses at the latest followed interval without rewinding
+received logs` while waiting for a live log record. The unchanged observability
+suite passed all five tests independently; the complete rerun passed without
+changing assertions or product logic. Its source is unchanged from main.
+
+Full backend was repeated on kind for `6abb9c2e` with real PostgreSQL and the
+same bounded test parallelism/tool versions as the earlier baseline. It failed
+the same 70 top-level test names in the same 13 packages as pinned main
+`dfa6470c`, with no additional named failure or package. The list above remains
+accurate. Backend build passed; no connection/shared-memory exhaustion code
+appeared. This remains a red full-suite baseline, not a full-green gate.
+
+After preserving logs/exit codes and the comparison outside Git, the owned test
+namespace was removed with verified run label and UID precondition; absence was
+verified. The live review example and fresh user trial remain available. The
+older technical application cleanup limitation above remains unchanged.

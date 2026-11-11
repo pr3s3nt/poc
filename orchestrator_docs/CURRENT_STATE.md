@@ -2384,7 +2384,8 @@ with the earlier executable pin are registered again once after this upgrade.
 
 The `features/deploy-recovery-progress` branch implements persisted generic Deploy
 steps and Recovery checks with Console timeline/banner and safe pod/event/stage
-log projections. It is not merged or accepted. See the
+log projections, preparation/render counts and no empty step disclosures. It is
+not merged or accepted. See the
 [implementation handoff](implementation/deploy-recovery-progress.md) for scope,
 checks and the separate six-case user Console acceptance gate.
 [Verification and cleanup limits](verification/2026-11-11-deploy-recovery-progress.md)
