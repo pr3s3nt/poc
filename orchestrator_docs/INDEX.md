@@ -245,3 +245,10 @@ Backend APIs and existing stored source revisions are unchanged.
 
 Compatible security template and UI Online Boutique trial (issue #47):
 [verification and remaining gates](verification/2026-11-07-compatible-security-boutique.md).
+
+## Workload UI/.env — issue #72
+
+[Specification](usecase/UC-16/envfile-specification.md),
+[acceptance runner](../e2e/scenarios/workload-envfile/README.md),
+[verification and main baseline limits](verification/2026-11-11-workload-envfile.md).
+Implementation on the feature branch awaits user acceptance.

@@ -2388,3 +2388,7 @@ ordered bindings, bulk draft Secret marking and explicit create-only confirmatio
 Partial/unknown outcomes keep per-row status and never replay automatically.
 No backend API/schema/renderer change. Awaiting user acceptance; not merged.
 Specification: [ENVFILE-01–06](usecase/UC-16/envfile-specification.md).
+
+[Verification](verification/2026-11-11-workload-envfile.md): 1025 frontend tests,
+typecheck/lint/build, real browser/Deploy/cleanup pass. Full Go remains red at
+13 packages on the identical main backend tree; this is not a full green gate.
