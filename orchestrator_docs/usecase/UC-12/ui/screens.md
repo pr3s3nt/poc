@@ -56,10 +56,10 @@ Deploy.
 
 ## Secret Store Connection
 
-Selected Environment Settings displays the chosen store. Only PE/Admin see the
-READY choices and **Lưu kho bí mật** (ADR-042); Developer sees the store name and a
-note that PE/Admin selects it. Unset state allows ordinary Variable edits, but
-Secret Add asks PE/Admin to select a store. Change-store is accepted only while
+Selected Environment Settings displays the chosen store. Without a store, anyone
+with access sees the READY choices and **Lưu kho bí mật**; once selected only
+PE/Admin keep the selector, Developer sees the store name and a note (ADR-042).
+Unset state allows ordinary Variable edits, but Secret Add asks to select a store. Change-store is accepted only while
 the Environment has no workload (`SECRET_STORE_LOCKED` otherwise) and shows
 copying/verification, success/pending-deploy or safe error.
 No raw Secret, store token or backup content appears in the UI.

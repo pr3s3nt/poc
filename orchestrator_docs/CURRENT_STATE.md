@@ -15,8 +15,8 @@ per-workload units delivers every workload in one `app` unit and changed Jobs
 in a `migrate` unit that completes first (after publishing missing Job secrets).
 Each workload has one KV v2 path; VSS `<workload>-config-v<N>` pins the version,
 equal content reuses a version, the last successful version stays declared, and
-SA/VaultAuth/role are fixed. Only PE/Admin select the Environment store; a store
-with running workloads cannot change. Environments with active per-workload units
+SA/VaultAuth/role are fixed. Anyone selects the first Environment store; only
+PE/Admin change it, and only without running workloads. Environments with active per-workload units
 keep the previous path. The standard template source adds `backend-migrate`.
 Kind acceptance through `e2e/scenarios/environment-bundle/` passed all ten
 criteria; awaiting user acceptance. [Evidence](verification/2026-11-11-environment-bundle.md).

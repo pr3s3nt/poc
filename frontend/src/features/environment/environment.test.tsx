@@ -246,11 +246,11 @@ it('claims a reload only after the GET succeeds: a failed stale reload keeps the
   expect(puts).toHaveLength(1);
 });
 
-it('shows a developer the bound store read-only and never offers a selector (ADR-042)', async () => {
+it('shows a developer a selected store read-only and offers no selector (ADR-042)', async () => {
   stub((url) => { if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: stores }); });
   render(<SecretStoreSelection application={app(configuredTarget({ secretStoreKey: 'vault-a', secretStoreName: 'Vault A', version: 5 }))} environment="staging" configVersion={4} onConfigurationChanged={() => undefined} onTargetChange={() => undefined} />);
   expect(screen.getByText('Vault A')).toBeInTheDocument();
-  expect(screen.getByRole('note')).toHaveTextContent('Chỉ Kỹ sư nền tảng hoặc Quản trị viên chọn kho bí mật');
+  expect(screen.getByRole('note')).toHaveTextContent('Kho bí mật đã chọn thì chỉ Kỹ sư nền tảng hoặc Quản trị viên đổi được.');
   expect(screen.queryByLabelText('Kho bí mật cho Staging')).toBeNull();
   expect(screen.queryByRole('button', { name: 'Lưu kho bí mật' })).toBeNull();
 });
@@ -265,4 +265,17 @@ it('explains a locked store when the Environment still runs workloads', async ()
   await user.selectOptions(await screen.findByLabelText('Kho bí mật cho Staging'), 'vault-b');
   await user.click(screen.getByRole('button', { name: 'Lưu kho bí mật' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Môi trường còn workload đang chạy nên không đổi được kho bí mật');
+});
+
+it('lets a developer select the first store of an Environment (ADR-042)', async () => {
+  const saved = configuredTarget({ secretStoreKey: 'vault-b', version: 6 });
+  stub((url, init) => {
+    if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: stores });
+    if (init?.method === 'PUT') return Response.json({ environment: envJson(saved), changed: true, copiedSecrets: 0 });
+  });
+  const user = userEvent.setup();
+  render(<SecretStoreSelection application={app(configuredTarget({ secretStoreKey: '', version: 5 }))} environment="staging" configVersion={4} onConfigurationChanged={() => undefined} onTargetChange={() => undefined} />);
+  await user.selectOptions(await screen.findByLabelText('Kho bí mật cho Staging'), 'vault-b');
+  await user.click(screen.getByRole('button', { name: 'Lưu kho bí mật' }));
+  expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true);
 });

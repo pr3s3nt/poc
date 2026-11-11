@@ -9,16 +9,14 @@ related: [ADR-042, UC-12]
 # Đổi Secret Store của một Environment
 
 Theo [ADR-042](../architecture/decisions/ADR-042-environment-bundle-versioned-secrets.md),
-kho secret khóa theo Environment. Developer không chọn hoặc đổi kho. PE/Admin chọn
-kho một lần và chỉ đổi khi Environment không còn workload đang chạy.
+kho secret khóa theo Environment. Ai có quyền với Application (kể cả Developer)
+chọn kho một lần khi Environment chưa có kho; đã chọn thì chỉ PE/Admin đổi, và
+chỉ khi Environment không còn workload đang chạy.
 
 ## Chọn kho lần đầu
 
-1. Đăng nhập Console bằng tài khoản PE hoặc Admin.
-2. Mở Application → Settings → tab Environment cần chọn.
-3. Trong mục **Kho bí mật**, chọn kho Sẵn sàng rồi bấm **Lưu kho bí mật**.
-
-Sau khi lưu, Developer tạo Secret và Deploy bình thường.
+Mở Application → Settings → tab Environment → **Kho bí mật**, chọn kho Sẵn sàng
+rồi bấm **Lưu kho bí mật**; hoặc chọn ngay trong hộp Tạo bí mật của form workload.
 
 ## Đổi kho
 

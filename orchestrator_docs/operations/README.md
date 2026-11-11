@@ -43,7 +43,7 @@ observations separate from authorized Kubernetes lifecycle verification.
 | AWS | [AWS verification](aws.md) | Creates paid VPC/EKS/Aurora/ECR resources, then destroys them |
 
 [Đổi Secret Store của Environment](secret-store-change.md) là thủ tục PE/Admin
-theo ADR-042; Developer không tự đổi kho.
+theo ADR-042; Developer chọn kho lần đầu nhưng không đổi kho.
 
 [UC-12 Vault on kind](vault-kind.md) documents the persistent Vault release,
 VSO, its sealed/init handoff and the legacy Agent Injector. It is separate from

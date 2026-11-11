@@ -18,13 +18,15 @@ type State = { status: 'loading' | 'error' } | { status: 'ready'; stores: readon
 // overwrites the user's choice, and a bound store is never retargeted.
 export function SecretStoreSelection({ application, environment, configVersion, canSelect = false, onTargetChange, onConfigurationChanged }: {
   application: Application; environment: EnvironmentKey; configVersion: number;
-  // ADR-042: only a Platform Engineer/Admin selects the Environment store.
+  // ADR-042: anyone selects the first store; only a Platform Engineer/Admin
+  // changes a selected one.
   canSelect?: boolean;
   onTargetChange(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void;
   onConfigurationChanged(): void;
 }) {
   const target = application.environments[environment];
   const busy = Boolean(target.activeOperation);
+  const selectable = canSelect || !target.secretStoreKey;
   const [choices, setChoices] = useState<State>({ status: 'loading' });
   const [picked, setPicked] = useState<string>();
   const [saving, setSaving] = useState(false);
@@ -116,11 +118,11 @@ export function SecretStoreSelection({ application, environment, configVersion, 
     {error ? <div className="form-error" role="alert">{error}{needsReload ? <Button type="button" onClick={() => void retryReload()}>{t('environment.secretStoreSelection.reloadStatus')}</Button> : null}</div> : null}
     {notice ? <div className="form-success" role="status">{notice}</div> : null}
     {busy ? <div className="form-info" role="status">{t('environment.secretStoreSelection.anOperationIsRunningOn')}</div> : null}
-    {!canSelect ? <p className="muted" role="note">{t('environment.secretStoreSelection.platformOnly')}</p> : null}
-    {canSelect && choices.status === 'loading' ? <p role="status" aria-busy="true">{t('environment.secretStoreSelection.loadingSecretStores')}</p> : null}
-    {canSelect && choices.status === 'error' ? <div className="form-error" role="alert">{t('environment.secretStoreSelection.couldNotLoadTheSecret')}<Button type="button" onClick={() => setAttempt((value) => value + 1)}>{t('environment.secretStoreSelection.retry')}</Button></div> : null}
-    {canSelect && choices.status === 'ready' && stores.length === 0 ? <div className="form-info" role="status">{t('environment.secretStoreSelection.noReadyREADYSecretStore')}<Button type="button" onClick={() => setAttempt((value) => value + 1)}>{t('environment.secretStoreSelection.retry')}</Button></div> : null}
-    {canSelect && stores.length > 0 ? <>
+    {!selectable ? <p className="muted" role="note">{t('environment.secretStoreSelection.platformOnly')}</p> : null}
+    {selectable && choices.status === 'loading' ? <p role="status" aria-busy="true">{t('environment.secretStoreSelection.loadingSecretStores')}</p> : null}
+    {selectable && choices.status === 'error' ? <div className="form-error" role="alert">{t('environment.secretStoreSelection.couldNotLoadTheSecret')}<Button type="button" onClick={() => setAttempt((value) => value + 1)}>{t('environment.secretStoreSelection.retry')}</Button></div> : null}
+    {selectable && choices.status === 'ready' && stores.length === 0 ? <div className="form-info" role="status">{t('environment.secretStoreSelection.noReadyREADYSecretStore')}<Button type="button" onClick={() => setAttempt((value) => value + 1)}>{t('environment.secretStoreSelection.retry')}</Button></div> : null}
+    {selectable && stores.length > 0 ? <>
       <label htmlFor="environment-secret-store">{t('environment.secretStoreSelection.secretStoreForTitle', { title })}</label>
       <select id="environment-secret-store" value={selected} disabled={saving || busy} onChange={(event) => { setPicked(event.target.value); setNotice(''); }}>
         {!target.secretStoreKey || !selected ? <option value="" disabled>{t('environment.secretStoreSelection.chooseASecretStore')}</option> : null}

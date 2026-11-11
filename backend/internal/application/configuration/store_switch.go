@@ -22,6 +22,8 @@ import (
 type SwitchCommand struct {
 	OrganizationKey, ApplicationKey, EnvironmentKey, StoreKey string
 	ExpectedVersion, ExpectedConfigVersion                    int64
+	// MayChange allows replacing an already selected store (PE/Admin).
+	MayChange bool
 }
 
 // SwitchResult reports the committed selection. Changed is false for an
@@ -63,6 +65,9 @@ func (s *Service) SetSecretStore(ctx context.Context, cmd SwitchCommand) (Switch
 	}
 	// ADR-042: running workloads still use VaultStaticSecrets of the selected
 	// store, so it changes only while the Environment has none.
+	if l.env.SecretStoreKey != "" && !cmd.MayChange {
+		return SwitchResult{}, ErrStoreLocked
+	}
 	if l.env.SecretStoreKey != "" {
 		instances, err := s.store.ListWorkloadInstances(ctx, cmd.ApplicationKey+"/"+cmd.EnvironmentKey)
 		if err != nil {

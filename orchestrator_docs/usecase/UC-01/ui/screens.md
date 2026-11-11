@@ -22,8 +22,9 @@ source cleanup action. Show the persisted authoritative destination and actual
 writer/route compensation outcome, including source quiesce failures after
 cutover. Never present a failed/partial transition as successful.
 
-Only a Platform Engineer or Admin sees the secret store selector (ADR-042); a
-Developer sees the selected store name and a note that PE/Admin selects it.
+Anyone with access selects the first secret store of an Environment (ADR-042);
+once selected, a Developer sees the store name and a note that only PE/Admin
+change it, while PE/Admin keep the selector.
 Changing a selected store is accepted only while the Environment has no workload;
 otherwise the selector shows `SECRET_STORE_LOCKED` and nothing changes. Secret
 values are never displayed. On a stale 409 show latest selection and require

@@ -27,10 +27,11 @@ gốc độ phức tạp của recovery ở issue #48 và #55.
 
 ## Quyết định
 
-1. **Kho secret khóa theo Environment.** PE/Admin chọn Secret Store Connection
-   cho Environment một lần trong Settings. Developer xem được kho đã chọn nhưng
-   không chọn hoặc đổi. Đổi kho chỉ được làm khi Environment không còn workload
-   đang chạy, do PE/Admin thực hiện theo
+1. **Kho secret khóa theo Environment.** Người có quyền với Application (kể cả
+   Developer) chọn Secret Store Connection cho Environment một lần, khi
+   Environment chưa có kho (người dùng chốt ngày 2026-11-11). Đã chọn thì người
+   dùng app không đổi được. Đổi kho chỉ được làm khi Environment không còn
+   workload đang chạy, do PE/Admin thực hiện theo
    [runbook đổi kho](../../operations/secret-store-change.md). Quyết định này thay
    phần đổi kho tự phục vụ của ADR-012 và UC-12 BR-16..18, VAR-04.
 2. **Giá trị secret đổi qua Deploy, theo version.** Mỗi workload có một path cố

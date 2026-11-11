@@ -84,9 +84,9 @@ form tạo key tại chỗ từ bảng Biến môi trường của UC-16.
   cấu hình workload.
 - **BR-07:** Resource outputs và Service của workload khác không phải key do
   UC-12 quản lý; UC-16 cho chọn trực tiếp các nguồn đó.
-- **BR-08:** Mỗi Environment có Secret Store Connection riêng, do PE/Admin chọn
-  một lần qua Settings (ADR-042); Developer chỉ xem kho đã chọn. Hỗ trợ Vault KV
-  v2 trước. Variable lưu trong Orchestrator; Secret lưu ở kho
+- **BR-08:** Mỗi Environment có Secret Store Connection riêng, chọn một lần qua
+  Settings khi Environment chưa có kho (Developer chọn được); đã chọn thì
+  Developer chỉ xem (ADR-042). Hỗ trợ Vault KV v2 trước. Variable lưu trong Orchestrator; Secret lưu ở kho
   được chọn với refs bất biến mang store identity. Không kế thừa provider cấp Application.
   Variable chỉ chứa Value trong metadata, không StoreKey/ValueRef; CRUD không gọi
   Vault. Không đọc/materialize Variable refs cũ; format cũ bị từ chối và cần reset dev.
@@ -210,5 +210,5 @@ Quy tắc shared: [ADR-012](../../architecture/decisions/ADR-012-environment-sto
   tạo lại nếu xác minh key chưa tồn tại; không khẳng định giá trị đã lưu đúng
   chỉ vì thấy cùng tên key. Không đọc secret để đối chiếu.
 - **BR-28:** Variable tạo tại chỗ lưu như UC-12 hiện hành, khác với Giá trị nhập
-  riêng container ở UC-16 BR-20. Khi chưa có Secret Store, form UC-16 báo cần
-  PE/Admin chọn kho trong Settings (ADR-042); không khởi chạy copy/migrate tự động.
+  riêng container ở UC-16 BR-20. Khi chưa có Secret Store, form UC-16 hỗ trợ
+  chọn kho lần đầu theo UC-16 BR-24; không khởi chạy copy/migrate tự động.

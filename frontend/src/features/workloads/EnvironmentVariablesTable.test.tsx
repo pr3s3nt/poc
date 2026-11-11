@@ -75,7 +75,7 @@ const table = (container = 'main') => within(screen.getByRole('region', { name: 
 const addButton = (container = 'main') => table(container).getByRole('button', { name: '+ Thêm biến' });
 
 async function newWorkload(user: ReturnType<typeof userEvent.setup>) {
-  render(<WorkloadEditorPage application={application} environment="staging" canSelectStore />);
+  render(<WorkloadEditorPage application={application} environment="staging" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   await user.type(screen.getByLabelText('Tên Workload'), 'api');
   await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/api:test');
@@ -280,7 +280,7 @@ it('ignores a late Workload import parse response from the previous Environment'
   const fallback = vi.mocked(fetch).getMockImplementation()!;
   vi.mocked(fetch).mockImplementation(async (input, init) => String(input).endsWith('/workloads/parse') ? gate(gates) : fallback(input, init));
   const user = userEvent.setup();
-  const view = render(<WorkloadEditorPage application={application} environment="staging" canSelectStore />);
+  const view = render(<WorkloadEditorPage application={application} environment="staging" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   await user.click(screen.getByRole('button', { name: 'Nhập Workload' }));
   const content = 'apiVersion: orchestrator.dev/workload/v1\n';
@@ -303,7 +303,7 @@ it.each([
   const api = serve({ put: () => gate(gates) });
   const user = userEvent.setup();
   window.history.pushState({}, '', '/editor-under-test');
-  const view = render(<WorkloadEditorPage application={application} environment="staging" canSelectStore />);
+  const view = render(<WorkloadEditorPage application={application} environment="staging" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   await user.type(screen.getByLabelText('Tên Workload'), 'api');
   await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/api:test');
@@ -438,7 +438,7 @@ it('drops the reply of a create started in the previous Environment: no key, row
   const gates: Gate[] = [];
   const api = serve({ create: () => gate(gates) });
   const user = userEvent.setup();
-  const view = render(<WorkloadEditorPage application={application} environment="staging" canSelectStore />);
+  const view = render(<WorkloadEditorPage application={application} environment="staging" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   await addRow(user, 1, 'FIRST', 'Biến của ứng dụng');
   await create(user, 'Tạo biến');
@@ -466,7 +466,7 @@ it('drops the reply of a create started in the previous Environment: no key, row
 it('starts a different Environment with a fresh form and closes the dialog of the previous one', async () => {
   serve();
   const user = userEvent.setup();
-  const view = render(<WorkloadEditorPage application={application} environment="staging" canSelectStore />);
+  const view = render(<WorkloadEditorPage application={application} environment="staging" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   await user.type(screen.getByLabelText('Tên Workload'), 'api');
   await addRow(user, 1, 'X', 'Bí mật');
@@ -493,7 +493,7 @@ it('renders direct entry and the shared source picker in English', async () => {
   const read = (file: string) => JSON.parse(readFileSync(resolve(__dirname, '../../../public/locales', file), 'utf8')) as Record<string, string>;
   setCatalogs('en', read('en.json'), read('vi.json'));
   try {
-    serve(); const user = userEvent.setup(); render(<WorkloadEditorPage application={application} environment="staging" canSelectStore />);
+    serve(); const user = userEvent.setup(); render(<WorkloadEditorPage application={application} environment="staging" />);
     await screen.findByRole('heading', { name: 'Basic information' });
     const region = within(screen.getByRole('region', { name: 'Environment variables of container main' }));
     await user.click(region.getByRole('button', { name: '+ Add variable' }));
@@ -574,7 +574,7 @@ it('does not leak a late catalog response from staging into production source se
     if (String(input).endsWith('/production/configuration')) return Response.json({ version: 1, keys: [{ name: 'PROD_ONLY', kind: 'VARIABLE', configured: true, usedBy: [] }] });
     return fallback(input, init);
   });
-  const user = userEvent.setup(); const view = render(<WorkloadEditorPage application={application} environment="staging" canSelectStore />);
+  const user = userEvent.setup(); const view = render(<WorkloadEditorPage application={application} environment="staging" />);
   await waitFor(() => expect(gates).toHaveLength(1));
   view.rerender(<WorkloadEditorPage application={application} environment="production" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' }); await addRow(user, 1, 'K'); const dialog = await picker(user);

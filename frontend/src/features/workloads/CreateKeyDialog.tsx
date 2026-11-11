@@ -17,9 +17,7 @@ type Stores = { status: 'loading' | 'error' } | { status: 'ready'; stores: Store
 // (UC-16 BR-21, UC-12 BR-24..28). The key is committed by the create-only API, on its
 // own: cancelling or failing the workload Save later keeps it. The secret exists only
 // in this masked input and the request. Nothing here retries a create on its own.
-export function CreateKeyDialog({ application, environment, kind, suggestedName, catalog, canSelectStore = false, onConfiguration, onCreated, onTargetChange, onClose }: {
-  // ADR-042: only a Platform Engineer/Admin selects the Environment store.
-  canSelectStore?: boolean;
+export function CreateKeyDialog({ application, environment, kind, suggestedName, catalog, onConfiguration, onCreated, onTargetChange, onClose }: {
   application: Application; environment: EnvironmentKey; kind: KeyKind; suggestedName: string; catalog: Ready;
   onConfiguration(configuration: Configuration): void;
   onCreated(name: string): void;
@@ -45,12 +43,12 @@ export function CreateKeyDialog({ application, environment, kind, suggestedName,
 
   const needsStore = secret && !catalog.secretStoreKey;
   useEffect(() => {
-    if (!needsStore || !canSelectStore) return;
+    if (!needsStore) return;
     let cancelled = false;
     setStores({ status: 'loading' });
     listStoreChoices().then((list) => { if (!cancelled) setStores({ status: 'ready', stores: list }); }).catch(() => { if (!cancelled) setStores({ status: 'error' }); });
     return () => { cancelled = true; };
-  }, [needsStore, canSelectStore, storeAttempt]);
+  }, [needsStore, storeAttempt]);
   const ready = stores.status === 'ready' ? stores.stores.filter((item) => item.status === 'READY') : [];
 
   const trimmedProblem = !NAME.test(name) ? t('workloads.createKey.nameInvalid') : !value ? t('workloads.createKey.valueRequired') : value.includes('\u0000') ? t('workloads.createKey.valueNul') : '';
@@ -133,8 +131,7 @@ export function CreateKeyDialog({ application, environment, kind, suggestedName,
   return <Dialog label={title} busy={busy || fileReading} onClose={onClose}>
     <h2>{title}</h2>
     <p className="muted">{t('workloads.createKey.scope', { application: application.name, environment })}</p>
-    {needsStore && !canSelectStore ? <div className="form-info" role="status">{t('workloads.createKey.storePlatformOnly')}</div> : null}
-    {needsStore && canSelectStore ? <fieldset className="form-fieldset" disabled={busy || fileReading}>
+    {needsStore ? <fieldset className="form-fieldset" disabled={busy || fileReading}>
       <legend>{t('workloads.createKey.storeLegend')}</legend>
       {stores.status === 'loading' ? <p role="status" aria-busy="true">{t('workloads.createKey.storesLoading')}</p> : null}
       {stores.status === 'error' ? <div className="form-error" role="alert">{t('workloads.createKey.storesError')} <Button type="button" onClick={() => setStoreAttempt((value) => value + 1)}>{t('workloads.createKey.retry')}</Button></div> : null}

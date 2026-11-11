@@ -372,19 +372,16 @@ async function prepare() {
     save();
     pass(`Developer created Application ${name}`);
   }
-  // ADR-042: the developer sees the store but cannot choose it.
-  await openSettings(dev);
-  assert.equal(await dev.page.getByLabel('Kho bí mật cho Staging', { exact: true }).count(), 0, 'developer must not see a store selector');
-  await dev.page.getByText('Chỉ Kỹ sư nền tảng hoặc Quản trị viên chọn kho bí mật cho môi trường.').waitFor();
-  await shot(dev, 'developer-store');
-  pass('Developer sees no secret store selector');
-  const adminUI = await asAdmin();
-  const store = (await adminUI.get('/secret-stores')).secretStores.find((s) => s.name === STORE);
+  // ADR-042: the developer selects the first store, then cannot change it.
+  const store = (await dev.get('/secret-store-choices')).secretStores.find((s) => s.name === STORE);
   assert(store, 'secret store ' + STORE);
-  const appView = (await adminUI.get('/applications/' + state.app.key)).application;
-  if (!appView.environments.find((e) => e.key === ENV).secretStoreKey) await selectStore(adminUI, store.key);
-  await shot(adminUI, 'admin-store');
-  pass(`Admin selected ${STORE} for staging`);
+  const appView = (await dev.get('/applications/' + state.app.key)).application;
+  if (!appView.environments.find((e) => e.key === ENV).secretStoreKey) await selectStore(dev, store.key);
+  await openSettings(dev);
+  await dev.page.getByText('Kho bí mật đã chọn thì chỉ Kỹ sư nền tảng hoặc Quản trị viên đổi được.').waitFor();
+  assert.equal(await dev.page.getByLabel('Kho bí mật cho Staging', { exact: true }).count(), 0, 'developer must not change a selected store');
+  await shot(dev, 'developer-store');
+  pass(`Developer selected ${STORE} for staging and then sees it read-only`);
 
   const secret = randomBytes(24).toString('hex');
   state.secretHashes = [createHash('sha256').update(secret).digest('hex')];

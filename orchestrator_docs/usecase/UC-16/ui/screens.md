@@ -70,9 +70,8 @@ workload áp dụng sau Lưu → Xem trước → Triển khai.” Thay staging 
   là draft chưa lưu; key đã nằm trong Settings. Hủy workload không xóa key này.
 - Existing key cùng tên: báo trùng, cho **Dùng key hiện có** sau reload/review
   nếu đúng loại; không ghi đè. Muốn sửa giá trị key dùng chung thì dùng Settings.
-- Nếu chưa chọn kho, Developer thấy thông báo cần Kỹ sư nền tảng chọn kho trong
-  Cài đặt (ADR-042). PE/Admin thấy selector **Kho bí mật** từ READY stores
-  và nút **Lưu kho bí mật**. Chỉ bật Tạo và chọn sau lưu kho thành công. Không
+- Nếu chưa chọn kho, dialog Bí mật hiện selector **Kho bí mật** từ READY stores
+  và nút **Lưu kho bí mật** (mọi vai trò có quyền với app). Chỉ bật Tạo và chọn sau lưu kho thành công. Không
   có kho phù hợp: báo “Chưa có kho bí mật sẵn sàng”, cho tải lại hoặc hủy; các
   dòng khác vẫn sửa được. Không có quyền đăng ký kho hạ tầng trong form này.
 - Kho đã chọn: chỉ hiện tên; đổi kho qua Settings vì có flow copy/verify riêng.

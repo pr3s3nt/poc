@@ -128,11 +128,6 @@ func (s *Server) handleSetSecretStore(w http.ResponseWriter, r *http.Request) {
 		writeCode(w, codeUnauthorized, "")
 		return
 	}
-	// ADR-042: only a Platform Engineer or Admin selects an Environment store.
-	if identity.Role != identitydomain.RolePlatformEngineer && identity.Role != identitydomain.RoleAdmin {
-		writeCode(w, codeForbidden, "")
-		return
-	}
 	var req setSecretStoreBody
 	if err := decodeSingleObject(r, &req); err != nil {
 		writeCode(w, codeInvalidRequest, "")
@@ -161,6 +156,9 @@ func (s *Server) handleSetSecretStore(w http.ResponseWriter, r *http.Request) {
 	result, err := s.configurations.SetSecretStore(r.Context(), appconfig.SwitchCommand{
 		OrganizationKey: identity.OrganizationKey, ApplicationKey: appKey, EnvironmentKey: envKey, StoreKey: key,
 		ExpectedVersion: version, ExpectedConfigVersion: configVersion,
+		// ADR-042: anyone with access selects the first store; only a
+		// Platform Engineer or Admin changes a selected one.
+		MayChange: identity.Role == identitydomain.RolePlatformEngineer || identity.Role == identitydomain.RoleAdmin,
 	})
 	if err != nil {
 		s.writeError(w, err)

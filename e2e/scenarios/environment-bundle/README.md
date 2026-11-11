@@ -11,8 +11,8 @@ through the Console as real users, and deploy the full acceptance application
 ## Rules
 
 Every business action is a click or an entry in the Console: the Admin prepares
-the `developer` account and selects the Environment secret store; the developer
-creates the Application, Variables/Secret, authors every workload in the form
+the `developer` account; the developer creates the Application, selects the first
+Environment secret store, Variables/Secret, authors every workload in the form
 (template card, image, Service port, dependencies, variable sources, PVC, cron),
 previews, deploys once per step, rolls back and deletes. No workload file
 import, no direct API mutation, no fake adapter. Scoped API GETs, `kubectl get`
@@ -49,7 +49,7 @@ node e2e/scenarios/environment-bundle/run.mjs cleanup   # when the trial is over
 
 | Stage | Checks |
 |---|---|
-| `prepare` | Developer sees no store selector; Admin selects the store; keys saved; four workloads authored |
+| `prepare` | Developer selects the first store and then sees it read-only; keys saved; four workloads authored |
 | `deploy` | One Deploy of four workloads succeeds; one GitRepo watching `app` and `migrate`; migration Job Complete before the backend Deployment exists; `<workload>-config-v1` VSS/Secret at Vault version 1; app checks PASS, job DONE, PVC value survives Pod recreation, scheduled receipt (1, 6, 9) |
 | `image` | Backend image only: same VSS/Secret/ServiceAccount/VaultAuth UIDs and Vault version (2) |
 | `secret` | Secret and its hash changed: Vault version 2, `-config-v2`, Pods on v2, v1 retained (3) |
