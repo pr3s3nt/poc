@@ -13,7 +13,7 @@ import { makeUI, outsideRepo } from '../../../scripts/bootstrap/lib/runtime.mjs'
 import { ensureNamespaceAccess } from '../../../scripts/bootstrap/lib/namespace-access.mjs';
 
 process.umask(0o077);
-const STAGES = ['users', 'pg-bad', 'pg-fix', 'pinned', 'guard', 'sts-bad', 'sts-same', 'sts-fix', 'cleanup'];
+const STAGES = ['users', 'pg-bad', 'pg-fix', 'pinned', 'guard', 'pg-same', 'sts-bad', 'sts-same', 'sts-fix', 'cleanup'];
 const stage = process.argv[2];
 assert(STAGES.includes(stage), 'stage: ' + STAGES.join('|'));
 const dir = process.env.ORCH_TEST_RUN_DIR;
@@ -173,7 +173,9 @@ async function namespaceAccess(ui, app, key) {
   const view = (await ui.get('/applications/' + app.key)).application;
   const namespace = view.environments.find((e) => e.key === ENV).namespaceIdentity;
   if (!kubectl('get', 'namespace', namespace, '--ignore-not-found', '-o', 'name')) return;
-  const rt = { state, save, record: (k, v) => console.log(k, v) };
+  // Per-Application state: the helper pins one namespace UID per run state.
+  const scoped = { deliverySubject: state.deliverySubject, namespaceUid: state[key]?.namespaceUid };
+  const rt = { state: scoped, save: () => { state[key] = { ...state[key], namespaceUid: scoped.namespaceUid }; save(); }, record: (k, v) => console.log(k, v) };
   const config = { runtime: { profile: 'dev-test', timeoutMs: 1_800_000, clusterKubeconfigFile: process.env.KUBECONFIG }, application: { environment: ENV }, platform: { account: { context: CONTEXT }, delivery: { namespaceAccess: { enabled: true, rulesFile: new URL('../../../scripts/bootstrap/applications/acceptance/fleet-access.json', import.meta.url).pathname } } } };
   await ensureNamespaceAccess(ui, config, view, rt, { wait: false });
   state[key] = { ...state[key], namespace, namespaceAccessReady: true };
@@ -335,6 +337,22 @@ async function guard() {
   pass('Developer discarded the selection');
 }
 
+// Scenario 3 on the Terraform path: the default revision now has a wrong image
+// (promoted by \`pinned\`); a new app fails, and deploying again unchanged
+// reports the reason without replacing any Pod.
+async function pgSame() {
+  const { dev, app } = await ensureApp('pg3', 's68pg3');
+  if (!(await dev.get(base(app) + '/workloads')).workloads.some((w) => w.id === 'web')) await authorWorkload(dev, app, { template: 'Frontend web', name: 'web', image: GOOD_WEB, postgres: true });
+  for (const attempt of ['first', 'unchanged']) {
+    const { report, operation, panelText } = await previewAndDeploy(dev, app, 'pg3');
+    assert.notEqual(report.status, 'SUCCEEDED');
+    assert(waits(operation).some((w) => STUCK.test(w.code)), `${attempt}: reason shown ` + JSON.stringify(operation?.podWaits));
+    assert.equal(replacements(operation).length, 0, `${attempt}: no Pod replaced`);
+    assert(!panelText.includes('Hệ thống đã thay pod'), `${attempt}: Console shows no replacement`);
+    pass(`${attempt} Deploy ${report.status} with the reason and no replacement`);
+  }
+}
+
 // Scenario 2 (part 1): StatefulSet workload with a wrong image fails with the reason.
 async function stsBad() {
   const { dev, app } = await ensureApp('sts', 's68sts');
@@ -383,7 +401,7 @@ async function stsFix() {
 
 async function cleanup() {
   const dev = await asDeveloper();
-  for (const key of ['pg', 'sts']) {
+  for (const key of Object.keys(state).filter((k) => state[k]?.app)) {
     if (!state[key]?.app) continue;
     const app = (await dev.get('/applications/' + state[key].app.key)).application;
     const namespace = app.environments.find((e) => e.key === ENV).namespaceIdentity;
@@ -409,7 +427,7 @@ async function cleanup() {
 
 let status = 'FAIL';
 try {
-  await ({ users, 'pg-bad': pgBad, 'pg-fix': pgFix, pinned, guard, 'sts-bad': stsBad, 'sts-same': stsSame, 'sts-fix': stsFix, cleanup })[stage]();
+  await ({ users, 'pg-bad': pgBad, 'pg-fix': pgFix, pinned, guard, 'pg-same': pgSame, 'sts-bad': stsBad, 'sts-same': stsSame, 'sts-fix': stsFix, cleanup })[stage]();
   status = 'PASS';
 } catch (error) {
   console.error(`FAIL ${stage}: ${String(error?.message ?? error).split('\n')[0]}`);

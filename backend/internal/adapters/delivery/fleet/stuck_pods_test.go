@@ -16,7 +16,7 @@ import (
 
 // FAKE kubectl for UC-06 CD-11 (issue #68): a Fleet-synced StatefulSet whose
 // pg-0 is stuck on a bad image; the fixture records every call.
-func stuckFixture(t *testing.T, current, update, deliveryRevision string, deleteFails bool) (*Provider, string) {
+func stuckFixture(t *testing.T, current, update, deliveryRevision string, deleteFails bool, podsFail ...bool) (*Provider, string) {
 	t.Helper()
 	dir := t.TempDir()
 	stale := time.Now().UTC().Add(-2 * time.Minute).Format(time.RFC3339)
@@ -46,7 +46,7 @@ func stuckFixture(t *testing.T, current, update, deliveryRevision string, delete
 printf '%s\n' "$*" >> "` + dir + `/calls"
 case "$*" in
  *"get statefulsets pg "*) cat "` + dir + `/set.json";;
- *"get pods -n app-ns -l app=pg -o json"*) cat "` + dir + `/pods.json";;
+ *"get pods -n app-ns -l app=pg -o json"*) ` + map[bool]string{true: "exit 1", false: `cat "` + dir + `/pods.json"`}[len(podsFail) > 0 && podsFail[0]] + `;;
  *"delete pod pg-0 -n app-ns --wait=false"*) exit ` + deleteExit + `;;
  *) exit 42;;
 esac
@@ -107,6 +107,15 @@ func TestFleetMissingDeletePermissionOnlyReports(t *testing.T) {
 	i, r := stuckIntent()
 	got, err := p.RecoverStuckPods(context.Background(), i, r)
 	if err != nil || len(got.Replaced) != 0 || len(got.Waiting) != 1 {
+		t.Fatalf("got %+v %v", got, err)
+	}
+}
+
+func TestFleetFailedPodQueryKeepsEarlierReasons(t *testing.T) {
+	p, _ := stuckFixture(t, "r1", "r2", "rev-2", false, true)
+	i, r := stuckIntent()
+	got, err := p.RecoverStuckPods(context.Background(), i, r)
+	if err != nil || got.Waiting != nil || len(got.Replaced) != 0 {
 		t.Fatalf("got %+v %v", got, err)
 	}
 }

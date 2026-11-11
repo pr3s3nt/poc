@@ -185,11 +185,15 @@ func (c *Checker) Check(ctx context.Context, req terraformexec.ReadinessRequest)
 	if interval <= 0 {
 		interval = 3 * time.Second
 	}
+	// The last fully answered poll: a query cut off by the deadline must not
+	// turn an observed not-ready result into an unknown one.
+	var lastNotReady []string
+	var lastWaits []terraformexec.PodWait
 	for {
 		var notReady []string
 		// Empty (not nil) so a ready poll clears earlier wait reasons.
 		waits := []terraformexec.PodWait{}
-		queryFailed := false
+		queryFailed, podsKnown := false, true
 		for _, p := range kube {
 			ready, object, err := c.kubeReady(ctx, kubeconfig, req.Env, p)
 			switch {
@@ -199,11 +203,14 @@ func (c *Checker) Check(ctx context.Context, req terraformexec.ReadinessRequest)
 			case !ready:
 				notReady = append(notReady, p.label)
 				if p.kind == "statefulset" {
-					waits = append(waits, c.recoverStuckPods(ctx, kubeconfig, req, p, object)...)
+					found, ok := c.recoverStuckPods(ctx, kubeconfig, req, p, object)
+					podsKnown = podsKnown && ok
+					waits = append(waits, found...)
 				}
 			}
 		}
-		if req.Observe != nil && len(kube) > 0 {
+		// An incomplete poll keeps the previous wait reasons.
+		if req.Observe != nil && len(kube) > 0 && !queryFailed && podsKnown {
 			req.Observe(terraformexec.ReadinessObservation{Waiting: waits})
 		}
 		var awsConn terraformexec.AWSConnection
@@ -227,7 +234,16 @@ func (c *Checker) Check(ctx context.Context, req terraformexec.ReadinessRequest)
 		if len(notReady) == 0 {
 			return nil
 		}
+		if !queryFailed {
+			lastNotReady = notReady
+			if podsKnown {
+				lastWaits = waits
+			}
+		}
 		if ctx.Err() != nil || !c.now().Before(deadline) {
+			if queryFailed && ctx.Err() != nil && lastNotReady != nil {
+				notReady, waits, queryFailed = lastNotReady, lastWaits, false
+			}
 			sort.Strings(notReady)
 			if queryFailed {
 				return ErrUnavailable
@@ -269,20 +285,20 @@ func (c *Checker) kubectl(ctx context.Context, kubeconfig string, env []string, 
 // revision exists, deletes at most one stuck Pod of an older revision. Pod
 // queries and deletion are best effort: a failure (for example a missing
 // delete permission) never changes the readiness verdict.
-func (c *Checker) recoverStuckPods(ctx context.Context, kubeconfig string, req terraformexec.ReadinessRequest, p probe, object map[string]any) []terraformexec.PodWait {
+func (c *Checker) recoverStuckPods(ctx context.Context, kubeconfig string, req terraformexec.ReadinessRequest, p probe, object map[string]any) ([]terraformexec.PodWait, bool) {
 	selector := matchLabels(object)
 	if selector == "" {
-		return nil
+		return nil, true
 	}
 	out, err := c.kubectl(ctx, kubeconfig, req.Env, "get", "pods", "-n", p.ns, "-l", selector, "-o", "json")
 	if err != nil {
-		return nil
+		return nil, false
 	}
 	var list struct {
 		Items []map[string]any `json:"items"`
 	}
 	if json.Unmarshal(out, &list) != nil {
-		return nil
+		return nil, false
 	}
 	now := c.now()
 	decision := stuckpod.Evaluate(object, list.Items, now, c.StuckThreshold)
@@ -296,7 +312,7 @@ func (c *Checker) recoverStuckPods(ctx context.Context, kubeconfig string, req t
 			req.Observe(terraformexec.ReadinessObservation{Waiting: waits, Replaced: &terraformexec.PodReplacement{Wait: podWait(objectName, r.Reason), At: now.UTC()}})
 		}
 	}
-	return waits
+	return waits, true
 }
 
 func podWait(object string, r stuckpod.Reason) terraformexec.PodWait {

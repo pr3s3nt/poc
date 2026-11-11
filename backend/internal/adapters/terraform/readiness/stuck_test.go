@@ -21,12 +21,24 @@ type fakeController struct {
 	update     string
 	deleted    []string
 	denyDelete bool
+	// hangAfter > 0: StatefulSet reads after that many block until the
+	// deadline cuts them off, as a slow API server does.
+	hangAfter int
+	reads     int
 }
 
-func (f *fakeController) run(_ context.Context, _ string, args []string, _ []string) ([]byte, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
+func (f *fakeController) run(ctx context.Context, _ string, args []string, _ []string) ([]byte, error) {
 	cmd := strings.Join(args, " ")
+	f.mu.Lock()
+	if strings.Contains(cmd, "get statefulset pg") {
+		f.reads++
+		if f.hangAfter > 0 && f.reads > f.hangAfter {
+			f.mu.Unlock()
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+	}
+	defer f.mu.Unlock()
 	stale := now().Add(-2 * time.Minute).Format(time.RFC3339)
 	switch {
 	case strings.Contains(cmd, "get statefulset pg"):
@@ -120,5 +132,20 @@ func TestMissingDeletePermissionOnlyReports(t *testing.T) {
 		if o.Replaced != nil {
 			t.Fatal("reported a replacement that was refused")
 		}
+	}
+}
+
+// A query cut off by the deadline keeps the observed not-ready result and the
+// last wait reasons instead of turning them into an unknown outcome.
+func TestDeadlineCutQueryKeepsTheObservedReason(t *testing.T) {
+	ctrl := &fakeController{current: "r1", update: "r1", hangAfter: 2}
+	var observed []terraformexec.ReadinessObservation
+	c := &Checker{Kubectl: "kubectl", Interval: 20 * time.Millisecond, Dir: os.TempDir(), Run: ctrl.run}
+	err := c.Check(context.Background(), stuckRequest(t, &observed))
+	if !errors.Is(err, terraformexec.ErrNotReady) || errors.Is(err, ErrUnavailable) || !strings.Contains(err.Error(), "pg-0: ImagePullBackOff") {
+		t.Fatalf("err = %v", err)
+	}
+	if len(observed) == 0 || len(observed[len(observed)-1].Waiting) != 1 {
+		t.Fatalf("the cut-off poll cleared the reason: %+v", observed)
 	}
 }

@@ -20,8 +20,8 @@ var _ port.StuckPodRecovery = (*Provider)(nil)
 // and a Pod is deleted only when the controller has a new update revision.
 // Every query or delete failure (for example a missing permission) only
 // reduces what is reported; it never changes the rollout verdict.
-func (p *Provider) RecoverStuckPods(ctx context.Context, i port.Intent, r port.Receipt) (port.StuckPods, error) {
-	out := port.StuckPods{Waiting: []workloadwait.PodWait{}}
+func (p *Provider) RecoverStuckPods(ctx context.Context, i port.Intent, r port.Receipt) (out port.StuckPods, err error) {
+	out = port.StuckPods{Waiting: []workloadwait.PodWait{}}
 	if p.Manager == nil || p.Manager.Verifier == nil || r.Handle["completionOnly"] == "true" || r.RevisionID != i.Revision.ID {
 		return out, nil
 	}
@@ -29,18 +29,29 @@ func (p *Provider) RecoverStuckPods(ctx context.Context, i port.Intent, r port.R
 	if json.Unmarshal([]byte(r.Handle["inventory"]), &expected) != nil {
 		return out, nil
 	}
-	cli, closeCLI, err := k8s.OpenCLI(ctx, p.Manager.Verifier.KubectlPath, p.Manager.Verifier.Credentials, i.Target)
-	if err != nil {
-		return out, nil
+	cli, closeCLI, openErr := k8s.OpenCLI(ctx, p.Manager.Verifier.KubectlPath, p.Manager.Verifier.Credentials, i.Target)
+	if openErr != nil {
+		return port.StuckPods{}, nil
 	}
 	defer closeCLI()
 	namespace := i.Target.Namespace
+	// A failed query leaves Waiting nil, so earlier reasons are kept.
+	complete := true
+	defer func() {
+		if !complete {
+			out.Waiting = nil
+		}
+	}()
 	for _, ref := range expected {
 		if ref.Kind != "StatefulSet" || !validObjectName(ref.Name) {
 			continue
 		}
 		object, found, err := cli.Get(ctx, namespace, "statefulsets", ref.Name)
-		if err != nil || !found {
+		if err != nil {
+			complete = false
+			continue
+		}
+		if !found {
 			continue
 		}
 		md, _ := object["metadata"].(map[string]any)
@@ -54,6 +65,7 @@ func (p *Provider) RecoverStuckPods(ctx context.Context, i port.Intent, r port.R
 		}
 		pods, err := listItems(ctx, cli, namespace, "pods", selector)
 		if err != nil {
+			complete = false
 			continue
 		}
 		now := time.Now().UTC()
