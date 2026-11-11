@@ -66,3 +66,36 @@ That rule is unchanged by this branch and by #67; it is reported separately.
    previous reasons and the deadline concludes `NOT_READY` with them.
 3. A running database refusal showed the generic invalid-request text: it now has
    the `DATA_MIGRATION_REQUIRED` code and message.
+
+## Recheck after merging main (#67 landed)
+
+Merge `684b98cd` brings `main` `11c5f7ed` into the branch. Conflicts were
+additive only (locales, code map, traceability with #72) and both sides were
+kept. No PostgreSQL migration changed between the previous Console image and
+this commit.
+
+Full checks ran on `kind-k8s-4f` in a dedicated, owner-labelled namespace with
+one disposable PostgreSQL per pod, Terraform 1.9.8 and Redis as in CI
+(`REQUIRE_POSTGRES=1`, `REQUIRE_TERRAFORM=1`,
+`go test -p 2 -parallel 4 -timeout 30m -count=1 ./...`). A pristine `main`
+archive ran in parallel under the same conditions.
+
+| Check | Branch `684b98cd` | `main` `11c5f7ed` |
+|---|---|---|
+| Go packages ok / failing | 72 / 17 | 71 / 17 |
+| Failing Go tests | 77 | 77 |
+| Failing sets differ | none | — |
+| Frontend typecheck, lint, build | pass | not run |
+| Frontend tests | 107 files / 1027 tests pass | not run |
+
+The extra passing package is `kubernetes/stuckpod`, which exists only on the
+branch. The branch's new tests are absent from the failing set. The first full
+frontend run failed one unchanged timing test in `observability.test.tsx`; it
+passed focused and the complete rerun passed. Full Go stays red because of the
+pre-existing `main` failures; this is not reported as green.
+
+The retained trial Console was backed up (logical dump outside Git), upgraded
+with the same owner setup ("nothing changed") and rolled out on this commit. The
+Tailscale route was opened in a browser with sign-in and same-origin API reads.
+The full-check namespace was deleted after its owner label was checked and its
+absence was confirmed.
