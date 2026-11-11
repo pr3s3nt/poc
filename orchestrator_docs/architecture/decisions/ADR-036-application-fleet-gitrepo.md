@@ -8,6 +8,12 @@ related: [ADR-030, ADR-033, ADR-035]
 
 # One managed Fleet GitRepo per Application
 
+> ADR-042 (2026-11-10): new Environment deliveries publish `<root>/<env>/app/`
+> and `<root>/<env>/migrate/` instead of `<root>/<env>/<workload>/<phase>/`.
+> Publication, lease, receipt, recovery and removal rules below apply unchanged
+> to these two units. Environments with active per-workload units keep them.
+
+
 ## Accepted decision
 
 The user approved one application delivery Git repository and one managed Fleet

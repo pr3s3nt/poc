@@ -1375,3 +1375,15 @@ numeric version components, and owns each card's local version choice. Existing
 `onSelect` receives the exact selected immutable template object. Regression
 coverage is in `TemplatePicker.test.tsx`; actual latest/older pin navigation and
 unchanged drafts are checked by `e2e/scenarios/workload-template-versions/`.
+
+## Environment bundle and versioned secrets — ADR-042
+
+| Concern | Code |
+|---|---|
+| Environment release staging and completion | [`deployment/release.go`](../../backend/internal/application/deployment/release.go), batch flush in [`pending/deploy.go`](../../backend/internal/application/pending/deploy.go) |
+| `app`/`migrate` units, composition, retained secrets, Job naming, secret preparation | [`delivery/environment.go`](../../backend/internal/application/delivery/environment.go) |
+| Fixed workload KV v2 path, version reuse, workload role | [`vault/versioned.go`](../../backend/internal/adapters/vault/versioned.go) |
+| Fixed-identity VSO declarations | [`kubernetes/vso_versioned.go`](../../backend/internal/adapters/kubernetes/vso_versioned.go) |
+| Fleet unit paths | [`fleet/application.go`](../../backend/internal/adapters/delivery/fleet/application.go) |
+| Store selection lock | [`configuration/store_switch.go`](../../backend/internal/application/configuration/store_switch.go), [`SecretStoreSelection.tsx`](../../frontend/src/features/environment/SecretStoreSelection.tsx) |
+| Migration Job template | [`resources/migrate.tpl`](../../backend/template-sources/standard/resources/migrate.tpl) |

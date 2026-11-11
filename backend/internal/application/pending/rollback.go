@@ -141,7 +141,8 @@ func (s *Service) rollbackPlan(ctx context.Context, appKey, envKey string) (roll
 				return plan, err
 			}
 			for _, record := range records {
-				if record.Revision.Phase == deliverydomain.Job && record.Revision.Scope.TargetGeneration == env.TargetGeneration {
+				// ADR-042: rollback keeps the Environment migrate unit as it is.
+				if record.Revision.Phase == deliverydomain.Job && record.Revision.Scope.TargetGeneration == env.TargetGeneration && record.Revision.Scope.UnitKey != deliverydomain.EnvironmentMigrateUnit {
 					return plan, fmt.Errorf("%w: rollback cannot replay one-shot Jobs", ErrInvalid)
 				}
 			}

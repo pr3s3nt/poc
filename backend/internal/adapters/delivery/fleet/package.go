@@ -134,7 +134,7 @@ func PackageUnit(intent port.Intent, manifests []execution.Manifest) (Package, e
 	if len(objects) == 0 {
 		return Package{}, ErrConfig
 	}
-	fleet := map[string]any{"defaultNamespace": cfg.ReleaseNamespace, "deleteNamespace": false, "keepResources": false, "correctDrift": map[string]any{"enabled": intent.Revision.Selection.SelfHeal, "force": false}, "serviceAccount": cfg.ServiceAccount, "helm": map[string]any{"releaseName": name, "takeOwnership": false, "force": false, "atomic": false, "waitForJobs": intent.Revision.Phase == domain.Job, "timeoutSeconds": 300}}
+	fleet := map[string]any{"defaultNamespace": cfg.ReleaseNamespace, "deleteNamespace": false, "keepResources": false, "correctDrift": map[string]any{"enabled": intent.Revision.Selection.SelfHeal, "force": false}, "serviceAccount": cfg.ServiceAccount, "helm": map[string]any{"releaseName": name, "takeOwnership": false, "force": false, "atomic": false, "waitForJobs": intent.Revision.Phase == domain.Job, "timeoutSeconds": helmTimeout(intent)}}
 	if cfg.ApplicationID != "" {
 		fleet["labels"] = ownerLabels(intent, name)
 	}
@@ -209,4 +209,15 @@ func validateReplicaOwnership(manifests []execution.Manifest) error {
 		}
 	}
 	return nil
+}
+
+// helmTimeout keeps Helm's wait of an ADR-042 Environment unit shorter than
+// the coordinator's readiness deadline, so a blocked apply is reported as
+// ErrApplied (and attributed) before the deadline.
+func helmTimeout(intent port.Intent) int {
+	switch intent.Revision.Scope.UnitKey {
+	case domain.EnvironmentAppUnit, domain.EnvironmentMigrateUnit:
+		return 240
+	}
+	return 300
 }

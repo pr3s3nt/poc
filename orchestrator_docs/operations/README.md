@@ -42,6 +42,9 @@ observations separate from authorized Kubernetes lifecycle verification.
 | Persistent Preview Console | [Preview on kind](preview-kind.md) | Separate local services; deployment is explicit |
 | AWS | [AWS verification](aws.md) | Creates paid VPC/EKS/Aurora/ECR resources, then destroys them |
 
+[Đổi Secret Store của Environment](secret-store-change.md) là thủ tục PE/Admin
+theo ADR-042; Developer chọn kho lần đầu nhưng không đổi kho.
+
 [UC-12 Vault on kind](vault-kind.md) documents the persistent Vault release,
 VSO, its sealed/init handoff and the legacy Agent Injector. It is separate from
 the run-scoped kind verification cleanup procedure.

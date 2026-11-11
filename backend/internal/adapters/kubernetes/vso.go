@@ -270,6 +270,9 @@ func (s *VSOSynchronizer) RenderBundle(_ context.Context, target execution.Targe
 	if target.Namespace == "" || bundle.StoreKey == "" || bundle.AuthMount == "" || bundle.Address == "" || bundle.Mount == "" || bundle.Path == "" || bundle.Role == "" || bundle.ServiceAccount == "" || bundle.SecretName == "" || len(bundle.Keys) == 0 {
 		return nil, fmt.Errorf("vso: incomplete workload bundle")
 	}
+	if bundle.Version > 0 {
+		return renderVersionedBundle(target, bundle)
+	}
 	if !strings.HasPrefix(bundle.SecretName, "orch-") {
 		return nil, fmt.Errorf("vso: invalid destination Secret name")
 	}

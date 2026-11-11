@@ -70,7 +70,7 @@ func (f *fixture) selectStore(t *testing.T, env, key string) environment.Environ
 		t.Fatal(err)
 	}
 	scope, _ := f.st.GetConfigurationScope(context.Background(), appKey, env)
-	result, err := f.svc.SetSecretStore(context.Background(), SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: env, StoreKey: key, ExpectedVersion: current.Version, ExpectedConfigVersion: scope.Version})
+	result, err := f.svc.SetSecretStore(context.Background(), SwitchCommand{MayChange: true, OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: env, StoreKey: key, ExpectedVersion: current.Version, ExpectedConfigVersion: scope.Version})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,22 +155,22 @@ func TestStoreSwitchCopiesSecretsAtomicallyAndKeepsOldRevisions(t *testing.T) {
 	scope, _ := f.st.GetConfigurationScope(ctx, appKey, "staging")
 
 	// Same store at the current versions is a no-op: nothing copied, no version.
-	same, err := f.svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-a", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version})
+	same, err := f.svc.SetSecretStore(ctx, SwitchCommand{MayChange: true, OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-a", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version})
 	if err != nil || same.Changed || same.Environment.Version != env.Version || f.registry.Values(org, "vault-b") != 0 {
 		t.Fatalf("same-store no-op: %+v %v", same, err)
 	}
 	// Stale versions lose before anything is copied.
-	if _, err := f.svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version - 1, ExpectedConfigVersion: scope.Version}); !errors.Is(err, persistence.ErrVersionConflict) {
+	if _, err := f.svc.SetSecretStore(ctx, SwitchCommand{MayChange: true, OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version - 1, ExpectedConfigVersion: scope.Version}); !errors.Is(err, persistence.ErrVersionConflict) {
 		t.Fatalf("stale environment version: %v", err)
 	}
-	if _, err := f.svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version - 1}); !errors.Is(err, persistence.ErrVersionConflict) {
+	if _, err := f.svc.SetSecretStore(ctx, SwitchCommand{MayChange: true, OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version - 1}); !errors.Is(err, persistence.ErrVersionConflict) {
 		t.Fatalf("stale configuration version: %v", err)
 	}
 	if f.registry.Values(org, "vault-b") != 0 {
 		t.Fatal("stale switch copied values")
 	}
 
-	result, err := f.svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version})
+	result, err := f.svc.SetSecretStore(ctx, SwitchCommand{MayChange: true, OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version})
 	if err != nil || !result.Changed || result.Copied != 1 || result.Environment.SecretStoreKey != "vault-b" || result.Environment.Version != env.Version+1 || result.Environment.Busy() {
 		t.Fatalf("switch: %+v %v", result, err)
 	}
@@ -210,7 +210,7 @@ func TestStoreSwitchCopyFailureLeavesOldStateAndCleansAttemptObjects(t *testing.
 	env, _ := f.st.GetEnvironment(ctx, appKey, "staging")
 	scope, _ := f.st.GetConfigurationScope(ctx, appKey, "staging")
 	f.registry.LimitWrites("vault-b", 2) // the third copy fails
-	_, err := f.svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version})
+	_, err := f.svc.SetSecretStore(ctx, SwitchCommand{MayChange: true, OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version})
 	if !errors.Is(err, ErrStoreCopy) {
 		t.Fatalf("want copy failure, got %v", err)
 	}
@@ -232,7 +232,7 @@ func TestStoreSwitchCopyFailureLeavesOldStateAndCleansAttemptObjects(t *testing.
 	// An unreadable source secret is also a safe copy failure.
 	f.registry.LimitWrites("vault-b", 10)
 	f.registry.FailReads("vault-a", true)
-	if _, err := f.svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version}); !errors.Is(err, ErrStoreCopy) {
+	if _, err := f.svc.SetSecretStore(ctx, SwitchCommand{MayChange: true, OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version}); !errors.Is(err, ErrStoreCopy) {
 		t.Fatalf("source read failure: %v", err)
 	}
 }
@@ -257,7 +257,7 @@ func TestBusyEnvironmentBlocksConfigurationWritesAndSwitch(t *testing.T) {
 		t.Fatal("a busy environment accepted a secret write")
 	}
 	var busy *envops.ErrBusy
-	_, err = f.svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version})
+	_, err = f.svc.SetSecretStore(ctx, SwitchCommand{MayChange: true, OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version})
 	if !errors.Is(err, persistence.ErrEnvironmentBusy) || errors.As(err, &busy) && busy.Operation.ID != op.ID {
 		t.Fatalf("switch while busy: %v", err)
 	}
@@ -282,7 +282,7 @@ func TestConcurrentStoreSwitchesHaveOneWinner(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, err := f.svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version})
+			_, err := f.svc.SetSecretStore(ctx, SwitchCommand{MayChange: true, OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version})
 			results <- err
 		}()
 	}
@@ -317,12 +317,12 @@ func TestStoreSwitchRejectsForeignAndUnknownStores(t *testing.T) {
 	}
 	env, _ := f.st.GetEnvironment(ctx, appKey, "staging")
 	for _, key := range []string{"foreign", "missing"} {
-		_, err := f.svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: key, ExpectedVersion: env.Version})
+		_, err := f.svc.SetSecretStore(ctx, SwitchCommand{MayChange: true, OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: key, ExpectedVersion: env.Version})
 		if !errors.Is(err, configport.ErrStoreUnavailable) || strings.Contains(err.Error(), "globex") {
 			t.Fatalf("%s: %v", key, err)
 		}
 	}
-	if _, err := f.svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: "globex", ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "foreign", ExpectedVersion: env.Version}); !errors.Is(err, persistence.ErrNotFound) {
+	if _, err := f.svc.SetSecretStore(ctx, SwitchCommand{MayChange: true, OrganizationKey: "globex", ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "foreign", ExpectedVersion: env.Version}); !errors.Is(err, persistence.ErrNotFound) {
 		t.Fatalf("foreign organization session: %v", err)
 	}
 	if got, _ := f.st.GetEnvironment(ctx, appKey, "staging"); got.SecretStoreKey != "" || got.Version != env.Version {
@@ -481,7 +481,7 @@ func TestStoreSwitchCopiesOnlySecretsAndKeepsVariablesExactly(t *testing.T) {
 	env, _ := f.st.GetEnvironment(ctx, appKey, "staging")
 	spy := &spyRegistry{Registry: f.registry}
 	svc := NewService(f.st, spy, envops.NewManager(f.st))
-	result, err := svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: view.Version})
+	result, err := svc.SetSecretStore(ctx, SwitchCommand{MayChange: true, OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: view.Version})
 	if err != nil || result.Copied != 1 {
 		t.Fatalf("switch: %+v %v", result, err)
 	}
@@ -520,7 +520,7 @@ func TestStoreSwitchFailsSafelyForUnavailableOrMismatchedSecretStore(t *testing.
 	}
 	env, _ := f.st.GetEnvironment(ctx, appKey, "staging")
 	scope, _ := f.st.GetConfigurationScope(ctx, appKey, "staging")
-	cmd := SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version}
+	cmd := SwitchCommand{MayChange: true, OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version}
 	// The owning store is unreadable: copy fails, nothing changes.
 	f.registry.FailReads("vault-a", true)
 	if _, err := f.svc.SetSecretStore(ctx, cmd); !errors.Is(err, ErrStoreCopy) {
@@ -559,7 +559,7 @@ func TestStoreSwitchCleanupFailureIsVisibleAndStateIsUntouched(t *testing.T) {
 	scope, _ := f.st.GetConfigurationScope(ctx, appKey, "staging")
 	f.registry.LimitWrites("vault-b", 1) // the second copy fails
 	f.registry.FailDeletes("vault-b", true)
-	_, err := f.svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version})
+	_, err := f.svc.SetSecretStore(ctx, SwitchCommand{MayChange: true, OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version})
 	if !errors.Is(err, ErrStoreCopy) || !strings.Contains(err.Error(), "could not be removed") || strings.Contains(err.Error(), "v-S") || strings.Contains(err.Error(), "kv2://") {
 		t.Fatalf("cleanup failure must be visible and safe: %v", err)
 	}
@@ -574,5 +574,25 @@ func TestStoreSwitchCleanupFailureIsVisibleAndStateIsUntouched(t *testing.T) {
 	}
 	if ids := fmt.Sprint(ops[0].Detail["orphanedObjects"]); strings.Count(ids, "-") != 4 {
 		t.Fatalf("orphaned object ids missing from detail: %+v", ops[0].Detail)
+	}
+}
+
+// ADR-042: anyone with access selects the first store; a selected store
+// changes only for a Platform Engineer or Admin.
+func TestDeveloperSelectsTheFirstStoreButCannotChangeIt(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	env, _ := f.st.GetEnvironment(ctx, appKey, "staging")
+	scope, _ := f.st.GetConfigurationScope(ctx, appKey, "staging")
+	first, err := f.svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-a", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version})
+	if err != nil || first.Environment.SecretStoreKey != "vault-a" {
+		t.Fatalf("first selection: %+v %v", first, err)
+	}
+	scope, _ = f.st.GetConfigurationScope(ctx, appKey, "staging")
+	if _, err := f.svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: first.Environment.Version, ExpectedConfigVersion: scope.Version}); !errors.Is(err, ErrStoreLocked) {
+		t.Fatalf("developer change: %v", err)
+	}
+	if _, err := f.svc.SetSecretStore(ctx, SwitchCommand{MayChange: true, OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: first.Environment.Version, ExpectedConfigVersion: scope.Version}); err != nil {
+		t.Fatalf("platform change of an empty Environment: %v", err)
 	}
 }

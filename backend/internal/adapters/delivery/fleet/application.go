@@ -44,6 +44,15 @@ func applicationRepoName(i port.Intent, cfg Config) string {
 	return "orch-app-" + hex.EncodeToString(sum[:12])
 }
 func sharedUnitPath(i port.Intent) (string, error) {
+	// ADR-042 Environment units: one bundle for every workload and one for Jobs.
+	switch {
+	case i.Revision.Scope.UnitKey == domain.EnvironmentAppUnit && i.Revision.Phase == domain.Rollout:
+		return "app", nil
+	case i.Revision.Scope.UnitKey == domain.EnvironmentMigrateUnit && i.Revision.Phase == domain.Job:
+		return "migrate", nil
+	case i.Revision.Scope.UnitKey == domain.EnvironmentAppUnit || i.Revision.Scope.UnitKey == domain.EnvironmentMigrateUnit:
+		return "", ErrConfig
+	}
 	parts := strings.Split(i.Revision.Scope.UnitKey, "/")
 	if len(parts) == 2 && parts[0] == "_routes" {
 		parts[0] = "routes"

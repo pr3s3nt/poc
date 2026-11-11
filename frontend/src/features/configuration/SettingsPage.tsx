@@ -34,7 +34,7 @@ function describe(err: unknown): string {
   return err.message;
 }
 
-export function SettingsPage({ application, initialEnvironment = 'staging', onTargetChange, onDeletionStarted, onDeleted }: { application: Application; initialEnvironment?: EnvironmentKey; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void; onDeletionStarted?(applicationId: string, operationId: string): void; onDeleted?(applicationId: string): void }) {
+export function SettingsPage({ application, initialEnvironment = 'staging', canSelectStore = false, onTargetChange, onDeletionStarted, onDeleted }: { application: Application; initialEnvironment?: EnvironmentKey; canSelectStore?: boolean; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void; onDeletionStarted?(applicationId: string, operationId: string): void; onDeleted?(applicationId: string): void }) {
   const [deleting, setDeleting] = useState(false);
   const [deletionId, setDeletionId] = useState(application.deletionOperationId);
   const deletionOperation = application.status === 'DELETING' ? deletionId ?? application.deletionOperationId : deletionId;
@@ -198,7 +198,7 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
     <OperationBanner application={application} environment={environment} onTargetChange={change} />
     <EnvironmentDefinitionVersions key={`definitions:${application.id}:${environment}`} applicationId={application.id} environment={environment} busy={busy} onSaved={deliverySaved} />
     <EnvironmentCatalogPanel key={`catalog:${application.id}:${environment}`} applicationId={application.id} environment={environment} busy={busy} onSaved={deliverySaved} />
-    <SecretStoreSelection application={application} environment={environment} configVersion={data?.version ?? 0} onTargetChange={change} onConfigurationChanged={() => setReloadCount((value) => value + 1)} />
+    <SecretStoreSelection application={application} environment={environment} configVersion={data?.version ?? 0} canSelect={canSelectStore} onTargetChange={change} onConfigurationChanged={() => setReloadCount((value) => value + 1)} />
     {needStore && !hasStore ? <div className="form-info" role="status">{t('configuration.settings.chooseASecretStoreAbove')}</div> : null}
     {error ? <div className="form-error" role="alert">{error}{reloadNeeded ? <Button type="button" onClick={() => void retryReload()}>{t('configuration.settings.reloadConfiguration')}</Button> : null}{!data && !loading ? <Button type="button" onClick={() => { setError(''); setLoading(true); setReloadCount((value) => value + 1); }}>{t('configuration.settings.retry')}</Button> : null}</div> : null}
     {notice ? <div className="form-info" role="status">{notice.text}{notice.workloads.length ? t('configuration.settings.affectedWorkloadsValue', { value: notice.workloads.join(', ') }) : ''} {' '}{t('configuration.settings.nothingHasBeenDeployedUse')}{' '} <Button type="button" onClick={() => navigate({ name: 'application', applicationId: application.id, environment })}>{t('configuration.settings.goToPreviewChanges')}</Button></div> : null}

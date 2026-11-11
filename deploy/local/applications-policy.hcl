@@ -37,3 +37,12 @@ path "auth/kubernetes/role/orch-*" {
 path "auth/kubernetes/config" {
   capabilities = ["read"]
 }
+
+# ADR-042: fixed per-workload policy/role are removed with their Application.
+path "sys/policies/acl/orch-wl-*" {
+  capabilities = ["create", "read", "update", "delete"]
+}
+
+path "auth/kubernetes/role/orch-wl-*" {
+  capabilities = ["create", "read", "update", "delete"]
+}

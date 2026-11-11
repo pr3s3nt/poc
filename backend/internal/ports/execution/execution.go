@@ -257,6 +257,9 @@ type ConfigBundle struct {
 	StoreKey, Address, Mount, AuthMount, Path, Role, ServiceAccount, SecretName string
 	CAPEM                                                                       string
 	Keys                                                                        map[string]map[string]string
+	// Version pins the KV v2 version of a fixed workload path (ADR-042). Zero
+	// renders the historical per-deployment bundle.
+	Version int
 }
 
 // VaultInjection supplies only opaque immutable value references to the

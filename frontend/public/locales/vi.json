@@ -4031,5 +4031,9 @@
   "platform.resourceTypes.cancel": "Huỷ",
   "platform.resourceTypes.outputsAddedToKey": "Đã thêm output vào {key}.",
   "platform.resourceTypes.outputNameAlreadyExists": "{key} đã có output trùng tên. Đổi tên rồi lưu lại.",
-  "platform.resourceTypes.typeNoLongerExists": "Loại tài nguyên {key} không còn trong tổ chức. Tải lại danh sách."
+  "platform.resourceTypes.typeNoLongerExists": "Loại tài nguyên {key} không còn trong tổ chức. Tải lại danh sách.",
+  "environment.secretStoreSelection.platformOnly": "Kho bí mật đã chọn thì chỉ Kỹ sư nền tảng hoặc Quản trị viên đổi được.",
+  "environment.secretStoreSelection.locked": "Môi trường còn workload đang chạy nên không đổi được kho bí mật. Xem thủ tục đổi kho trong runbook.",
+  "environment.secretStoreSelection.changeOnlyWhenEmpty": "Chỉ đổi được kho khi môi trường không còn workload. Bí mật mong muốn được sao chép và xác minh trước khi lưu.",
+  "shared.errors.secretStoreLocked": "Môi trường còn workload đang chạy nên không đổi được kho bí mật."
 }

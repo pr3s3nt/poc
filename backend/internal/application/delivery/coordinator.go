@@ -333,6 +333,13 @@ func phaseIntent(req DeployRequest, orgID string, owner persistence.Owner, b dom
 	return port.Intent{ID: stableID("delivery-intent", revision.ID, string(domain.Submit)), OrganizationKey: req.OrganizationKey, Owner: port.Owner{OperationID: owner.OperationID, Instance: owner.Owner, Fence: owner.Fence}, Binding: b, Revision: revision, Target: req.Target, PolicyOnly: req.PolicyOnly}, unit
 }
 func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i port.Intent, unit, workload string, manifests []execution.Manifest) error {
+	return c.runPhaseAccepting(ctx, provider, i, unit, workload, manifests, nil)
+}
+
+// runPhaseAccepting is runPhase with an optional acceptance of a not fully
+// Ready revision (ADR-042 secret preparation): accept reports whether the
+// observation is sufficient for this revision's purpose.
+func (c *Coordinator) runPhaseAccepting(ctx context.Context, provider port.Provider, i port.Intent, unit, workload string, manifests []execution.Manifest, accept func(domain.Observation) bool) error {
 	record, err := c.Store.GetDeliveryExecution(ctx, i.Revision.Scope.OrganizationID, i.ID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		prepared, prepareErr := provider.Prepare(ctx, i, manifests)
@@ -425,10 +432,22 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 	defer cancel()
 	ticker := time.NewTicker(poll)
 	defer ticker.Stop()
+	var last domain.Observation
 	for {
 		observed, err := provider.Observe(wait, i, receipt)
-		if err != nil {
+		if len(observed.Objects) > 0 {
+			last = observed
+		}
+		deadlineFailure := func(err error) error {
+			if wait.Err() != nil && ctx.Err() == nil {
+				// The call was cut off by the expired readiness deadline.
+				record.Inventory = observedInventory(last, receipt)
+				return &observedFailure{cause: c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutNotReady), observation: last}
+			}
 			return err
+		}
+		if err != nil {
+			return deadlineFailure(err)
 		}
 		if observed.Ready(i.Revision, time.Now().UTC(), 30*time.Second) {
 			record.Inventory = []persistence.DeliveryObject{}
@@ -437,20 +456,30 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 			}
 			break
 		}
+		if accept != nil && accept(observed) {
+			// Keep the active inventory and add every observed identity, so
+			// a later revision still prunes what this one did not observe.
+			record.Inventory = mergeInventory(i.SourceInventory, observedInventory(observed, receipt))
+			break
+		}
 		if observed.Health == domain.Degraded {
 			// UC-06 CD-10: the receipted revision was observed failing. This
 			// process is the only writer, so the outcome is known, not held.
-			return c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutDegraded)
+			// Fleet's aggregate failure carries no object list; the last
+			// object-level observation names the failing workload.
+			observed.Objects = append(observed.Objects, last.Objects...)
+			record.Inventory = observedInventory(observed, receipt)
+			return &observedFailure{cause: c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutDegraded), observation: observed}
 		}
 		if observed.Sync == domain.Pending && observed.Health == domain.Progressing {
 			if convergence, ok := provider.(port.PendingConvergence); ok {
 				if err := convergence.ConvergePending(wait, i, receipt); err != nil {
-					return err
+					return deadlineFailure(err)
 				}
 			}
 		}
 		if err := c.prunePending(wait, provider, i, receipt, observed); err != nil {
-			return err
+			return deadlineFailure(err)
 		}
 		select {
 		case <-wait.Done():
@@ -458,7 +487,8 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 				// The owning operation was cancelled or lost: outcome unknown.
 				return ctx.Err()
 			}
-			return c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutNotReady)
+			record.Inventory = observedInventory(last, receipt)
+			return &observedFailure{cause: c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutNotReady), observation: last}
 		case <-ticker.C:
 		}
 	}
@@ -486,6 +516,23 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 			}
 		}
 	}
+	// Objects that only a published, failed revision created (for example a
+	// new versioned secret) are not in any acknowledged inventory; their
+	// observed UIDs were recorded with the failure (ADR-042).
+	for index := range prior {
+		failed := &prior[index]
+		if failed.UnitID != record.UnitID || failed.Mutation.ID == record.Mutation.ID || failed.Mutation.Action != domain.Submit || failed.Mutation.Status != domain.IntentFailed || !published(*failed) {
+			continue
+		}
+		if priorActive != nil && !failed.CreatedAt.After(priorActive.CreatedAt) {
+			continue
+		}
+		for _, o := range failed.Inventory {
+			if _, known := staleByKey[o.Key()]; !known && !currentKeys[o.Key()] && o.UID != "" {
+				staleByKey[o.Key()] = o
+			}
+		}
+	}
 
 	if len(staleByKey) > 0 {
 		pruner, ok := provider.(port.GuardedPrune)
@@ -497,6 +544,14 @@ func (c *Coordinator) runPhase(ctx context.Context, provider port.Provider, i po
 			stale = append(stale, o)
 		}
 		if err := pruner.PruneReleasedObjects(ctx, i, receipt, stale); err != nil {
+			persistence.MarkHold(ctx)
+			return err
+		}
+	}
+	// ADR-042: objects of this release that no recorded inventory covers (for
+	// example created by a failed revision) are swept once this one is Ready.
+	if sweeper, ok := provider.(port.ReleaseSweep); ok && accept == nil && (i.Revision.Scope.UnitKey == domain.EnvironmentAppUnit || i.Revision.Scope.UnitKey == domain.EnvironmentMigrateUnit) {
+		if _, err := sweeper.SweepRelease(ctx, i, receipt); err != nil {
 			persistence.MarkHold(ctx)
 			return err
 		}
@@ -606,4 +661,33 @@ func (c *Coordinator) ValidateForPreview(ctx context.Context, orgKey string, env
 	}
 	_, _, err := c.resolveBinding(ctx, orgKey, env, false)
 	return err
+}
+
+// observedInventory records the objects and UIDs a failing revision was
+// observed with, so a later successful revision can prune what only it created.
+func observedInventory(observed domain.Observation, receipt port.Receipt) []persistence.DeliveryObject {
+	out := []persistence.DeliveryObject{}
+	for _, object := range observed.Objects {
+		if object.UID == "" {
+			continue
+		}
+		out = append(out, persistence.DeliveryObject{ObjectRef: execution.ObjectRef{APIVersion: object.APIVersion, Kind: object.Kind, Name: object.Name}, UID: object.UID, Release: receipt.Handle["release"]})
+	}
+	return out
+}
+
+func mergeInventory(base, observed []persistence.DeliveryObject) []persistence.DeliveryObject {
+	out := []persistence.DeliveryObject{}
+	index := map[string]int{}
+	for _, list := range [][]persistence.DeliveryObject{base, observed} {
+		for _, o := range list {
+			if at, ok := index[o.Key()]; ok {
+				out[at] = o
+				continue
+			}
+			index[o.Key()] = len(out)
+			out = append(out, o)
+		}
+	}
+	return out
 }

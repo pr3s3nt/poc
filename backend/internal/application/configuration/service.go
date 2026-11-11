@@ -29,6 +29,9 @@ var (
 	ErrNoStore = configport.ErrNoStore
 	// ErrStoreCopy reports a failed secret copy; selection and revision are unchanged.
 	ErrStoreCopy = errors.New("configuration: secrets could not be copied to the new store; the selection was not changed")
+	// ErrStoreLocked refuses changing the secret store of an Environment that
+	// still runs workloads (ADR-042); the selection is unchanged.
+	ErrStoreLocked = errors.New("configuration: the secret store of an Environment with running workloads cannot be changed")
 	// ErrReferenceRewriteUnsafe is the 422 failure of a rename whose desired
 	// references cannot be rewritten without losing configuration.
 	ErrReferenceRewriteUnsafe = workloadconfig.ErrReferenceRewriteUnsafe

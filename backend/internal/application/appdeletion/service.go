@@ -141,6 +141,7 @@ type snapshot struct {
 	pins      []tokenEnvironent
 	refs      map[string][]storeRefs
 	deployIDs map[string][]string
+	workloads map[string][]string
 }
 
 type storeRefs struct {
@@ -161,7 +162,7 @@ func (s *Service) load(ctx context.Context, org, appKey string) (*snapshot, erro
 		return nil, err
 	}
 	sort.Slice(envs, func(i, j int) bool { return envs[i].Key < envs[j].Key })
-	snap := &snapshot{app: app, envs: envs, refs: map[string][]storeRefs{}, deployIDs: map[string][]string{}}
+	snap := &snapshot{app: app, envs: envs, refs: map[string][]storeRefs{}, deployIDs: map[string][]string{}, workloads: map[string][]string{}}
 	view := PreviewView{Application: app.Key, Status: string(app.Lifecycle()), ConfirmationName: app.Name,
 		Environments: []EnvironmentPreview{}, Kept: Kept{SecretStores: []string{}, Definitions: []string{}}, Warnings: []string{}}
 	stores := map[string]bool{}
@@ -240,10 +241,16 @@ func (s *Service) load(ctx context.Context, org, appKey string) (*snapshot, erro
 		if err != nil {
 			return nil, err
 		}
+		seenWorkloads := map[string]bool{}
 		for _, d := range deployments {
 			snap.deployIDs[env.Key] = append(snap.deployIDs[env.Key], d.ID)
+			if d.WorkloadID != "" && !seenWorkloads[d.WorkloadID] {
+				seenWorkloads[d.WorkloadID] = true
+				snap.workloads[env.Key] = append(snap.workloads[env.Key], d.WorkloadID)
+			}
 		}
 		sort.Strings(snap.deployIDs[env.Key])
+		sort.Strings(snap.workloads[env.Key])
 		ep.Deployments = len(deployments)
 		view.Environments = append(view.Environments, ep)
 		snap.pins = append(snap.pins, pin)
@@ -749,6 +756,12 @@ type Purger interface {
 	PurgeValues(ctx context.Context, organizationKey, storeKey, applicationKey, environmentKey string, refs, deploymentIDs []string) (int, error)
 }
 
+// WorkloadPurger deletes the fixed per-workload value paths and Vault access
+// of ADR-042.
+type WorkloadPurger interface {
+	PurgeWorkloads(ctx context.Context, organizationKey, storeKey, applicationKey, environmentKey string, workloads []string) (int, error)
+}
+
 // purge deletes the Environment's secret values and delivery bundles by
 // exact reference (UC-18 MS-08, BR-07).
 func (r *runner) purge(ctx context.Context, i int, env string) string {
@@ -768,6 +781,12 @@ func (r *runner) purge(ctx context.Context, i int, env string) string {
 			return FailSecretPurge
 		}
 		total += n
+		if workloadPurger, ok := r.s.secrets.(WorkloadPurger); ok && len(r.snap.workloads[env]) > 0 {
+			if _, err := workloadPurger.PurgeWorkloads(ctx, r.org, sr.store, r.appKey, env, r.snap.workloads[env]); err != nil {
+				log.Printf("appdeletion: purge workload values %s/%s store %s: %v", r.appKey, env, sr.store, err)
+				return FailSecretPurge
+			}
+		}
 	}
 	r.update(ctx, func(d *appdomain.Deletion) { d.Environments[i].SecretsPurged = total })
 	return ""

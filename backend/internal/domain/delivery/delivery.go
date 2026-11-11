@@ -98,6 +98,16 @@ func (s Scope) Validate() error {
 
 type Phase string
 
+// Environment unit keys of ADR-042: every workload of an Environment is one
+// "app" unit and Jobs are one "migrate" unit. EnvironmentWorkload is the
+// reserved execution workload identity of both units; it is not a valid
+// workload name.
+const (
+	EnvironmentAppUnit     = "app"
+	EnvironmentMigrateUnit = "migrate"
+	EnvironmentWorkload    = "_environment"
+)
+
 const (
 	Prerequisite Phase = "PREREQUISITE"
 	Job          Phase = "JOB"
@@ -175,6 +185,9 @@ type ObjectObservation struct {
 	Name       string `json:"name"`
 	Namespace  string `json:"namespace"`
 	UID        string `json:"uid"`
+	// Health of this object, so a failed Environment bundle names the
+	// workload that failed (ADR-042). Empty when not evaluated.
+	Health Health `json:"health,omitempty"`
 }
 
 type Observation struct {

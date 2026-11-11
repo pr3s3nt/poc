@@ -23,7 +23,7 @@ it('shows separate environment tabs and never displays saved secret values', asy
     return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [{ name: 'LOG_LEVEL', kind: 'VARIABLE', value: 'debug', configured: true, usedBy: [] }] });
   }));
   const user = userEvent.setup();
-  render(<SettingsPage application={application} />);
+  render(<SettingsPage application={application} canSelectStore />);
   expect(await screen.findByText('LOG_LEVEL')).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: '+ Thêm bí mật' }));
   await user.type(screen.getByPlaceholderText('API_URL'), 'API_TOKEN');
@@ -49,7 +49,7 @@ it('lets ordinary variables be added without a store but asks for a store before
     return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 0, keys: [] });
   }));
   const user = userEvent.setup();
-  render(<SettingsPage application={unselected} />);
+  render(<SettingsPage application={unselected} canSelectStore />);
   await screen.findByText('Chưa có biến nào trong staging.');
   await user.click(screen.getByRole('button', { name: '+ Thêm biến' }));
   expect(screen.getByPlaceholderText('API_URL')).toBeInTheDocument();
@@ -71,7 +71,7 @@ it('shows the server sentence and reloads on a 409 conflict', async () => {
     return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [] });
   }));
   const user = userEvent.setup();
-  render(<SettingsPage application={application} />);
+  render(<SettingsPage application={application} canSelectStore />);
   await user.click(await screen.findByRole('button', { name: '+ Thêm biến' }));
   await user.type(screen.getByPlaceholderText('API_URL'), 'MODE');
   await user.type(screen.getByLabelText('Giá trị'), 'blue');
@@ -94,18 +94,18 @@ it('holds every configuration write while an operation owns the environment, kee
   }));
   const busyApp: Application = { ...application, environments: { ...application.environments, staging: { ...application.environments.staging, activeOperation: { id: 'op1', kind: 'DEPLOY', status: 'ACTIVE', stage: 'DEPLOY web', startedAt: '', updatedAt: '', heartbeatAt: '', recoverable: false } } } };
   const user = userEvent.setup();
-  const view = render(<SettingsPage application={application} />);
+  const view = render(<SettingsPage application={application} canSelectStore />);
   await screen.findByText('LOG_LEVEL');
   await user.click(screen.getByRole('button', { name: 'Sửa' }));
   await user.clear(screen.getByLabelText('Giá trị'));
   await user.type(screen.getByLabelText('Giá trị'), 'trace');
   // The operation starts after the editor was opened.
-  view.rerender(<SettingsPage application={busyApp} />);
+  view.rerender(<SettingsPage application={busyApp} canSelectStore />);
   expect(screen.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' })).toBeDisabled();
   for (const name of ['+ Thêm biến', '+ Thêm bí mật', 'Sửa', 'Đổi tên', 'Xóa']) expect(screen.getByRole('button', { name })).toBeDisabled();
   expect(screen.getByLabelText('Giá trị')).toHaveValue('trace');
   expect(writes).toEqual([]);
-  view.rerender(<SettingsPage application={application} />);
+  view.rerender(<SettingsPage application={application} canSelectStore />);
   expect(screen.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' })).toBeEnabled();
   expect(screen.getByLabelText('Giá trị')).toHaveValue('trace');
   expect(screen.getByRole('button', { name: 'Đổi tên' })).toBeEnabled();
@@ -123,15 +123,15 @@ it('holds an open rename or delete confirmation while busy', async () => {
   }));
   const busyApp: Application = { ...application, environments: { ...application.environments, staging: { ...application.environments.staging, activeOperation: { id: 'op1', kind: 'DEPLOY', status: 'ACTIVE', stage: 'DEPLOY web', startedAt: '', updatedAt: '', heartbeatAt: '', recoverable: false } } } };
   const user = userEvent.setup();
-  const view = render(<SettingsPage application={application} />);
+  const view = render(<SettingsPage application={application} canSelectStore />);
   await screen.findByText('LOG_LEVEL');
   await user.click(screen.getByRole('button', { name: 'Đổi tên' }));
   await user.clear(screen.getByLabelText('Tên key mới'));
   await user.type(screen.getByLabelText('Tên key mới'), 'LOGS');
-  view.rerender(<SettingsPage application={busyApp} />);
+  view.rerender(<SettingsPage application={busyApp} canSelectStore />);
   expect(screen.getByRole('button', { name: 'Tiếp tục' })).toBeDisabled();
   expect(screen.getByLabelText('Tên key mới')).toHaveValue('LOGS');
-  view.rerender(<SettingsPage application={application} />);
+  view.rerender(<SettingsPage application={application} canSelectStore />);
   expect(screen.getByRole('button', { name: 'Tiếp tục' })).toBeEnabled();
 });
 
@@ -152,7 +152,7 @@ it('notices an operation started elsewhere by polling an idle editor, holds subm
   }));
   function Host() {
     const [current, setCurrent] = useState(application);
-    return <SettingsPage application={current} onTargetChange={(_id, key, target) => setCurrent((c) => ({ ...c, environments: { ...c.environments, [key]: target } }))} />;
+    return <SettingsPage application={current} canSelectStore onTargetChange={(_id, key, target) => setCurrent((c) => ({ ...c, environments: { ...c.environments, [key]: target } }))} />;
   }
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
   render(<Host />);
@@ -191,7 +191,7 @@ it('keeps an open editor and its text when the configuration is refreshed after 
     return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: configGets, keys: [] });
   }));
   const user = userEvent.setup();
-  render(<SettingsPage application={unbound} />);
+  render(<SettingsPage application={unbound} canSelectStore />);
   await user.click(await screen.findByRole('button', { name: '+ Thêm biến' }));
   await user.type(screen.getByLabelText('Giá trị'), 'đang gõ dở');
   const before = configGets;
@@ -214,7 +214,7 @@ it('drops a late save reply that belongs to the environment the user left', asyn
     return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [] });
   }));
   const user = userEvent.setup();
-  render(<SettingsPage application={application} />);
+  render(<SettingsPage application={application} canSelectStore />);
   await user.click(await screen.findByRole('button', { name: '+ Thêm biến' }));
   await user.type(screen.getByPlaceholderText('API_URL'), 'STAGING_KEY');
   await user.type(screen.getByLabelText('Giá trị'), 'x');
@@ -238,7 +238,7 @@ it('warns on rename and delete that references are not rewritten and names the k
     return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [{ name: 'LOG_LEVEL', kind: 'VARIABLE', value: 'debug', configured: true, usedBy: ['frontend'] }] });
   }));
   const user = userEvent.setup();
-  render(<SettingsPage application={application} />);
+  render(<SettingsPage application={application} canSelectStore />);
   await screen.findByText('LOG_LEVEL');
   await user.click(screen.getByRole('button', { name: 'Đổi tên' }));
   expect(screen.getByRole('dialog', { name: 'Đổi tên LOG_LEVEL' })).toHaveTextContent('Đang được tham chiếu bởi frontend. Các tham chiếu sẽ không được cập nhật tự động');
@@ -268,7 +268,7 @@ const saved = (name: string) => Response.json({ applicationKey: 'catalog', envir
 it('keeps a form the user opened while a save was pending, and still shows the saved data', async () => {
   const state = deferredPut();
   const user = userEvent.setup();
-  render(<SettingsPage application={application} />);
+  render(<SettingsPage application={application} canSelectStore />);
   await user.click(await screen.findByRole('button', { name: '+ Thêm biến' }));
   await user.type(screen.getByPlaceholderText('API_URL'), 'FIRST');
   await user.type(screen.getByLabelText('Giá trị'), 'x');
@@ -285,7 +285,7 @@ it('keeps a form the user opened while a save was pending, and still shows the s
 it('closes the form that was saved when the user changed nothing meanwhile', async () => {
   const state = deferredPut();
   const user = userEvent.setup();
-  render(<SettingsPage application={application} />);
+  render(<SettingsPage application={application} canSelectStore />);
   await user.click(await screen.findByRole('button', { name: '+ Thêm biến' }));
   await user.type(screen.getByPlaceholderText('API_URL'), 'ONLY');
   await user.type(screen.getByLabelText('Giá trị'), 'x');
@@ -298,7 +298,7 @@ it('closes the form that was saved when the user changed nothing meanwhile', asy
 it('ignores a conflict reply after the page unmounted, without reloading the configuration', async () => {
   const state = deferredPut();
   const user = userEvent.setup();
-  const view = render(<SettingsPage application={application} />);
+  const view = render(<SettingsPage application={application} canSelectStore />);
   await user.click(await screen.findByRole('button', { name: '+ Thêm biến' }));
   await user.type(screen.getByPlaceholderText('API_URL'), 'GONE');
   await user.type(screen.getByLabelText('Giá trị'), 'x');
@@ -323,7 +323,7 @@ it('claims a reload only after the GET succeeds: a failed stale reload keeps the
     return Response.json({});
   }));
   const user = userEvent.setup();
-  render(<SettingsPage application={application} />);
+  render(<SettingsPage application={application} canSelectStore />);
   await user.click(await screen.findByRole('button', { name: '+ Thêm biến' }));
   await user.type(screen.getByPlaceholderText('API_URL'), 'MODE');
   await user.type(screen.getByLabelText('Giá trị'), 'blue');
@@ -352,7 +352,7 @@ it('does not carry a failed stale reload gate from staging into production, and 
     return Response.json({ applicationKey: 'catalog', environmentKey: 'production', version: 1, keys: [] });
   }));
   const user = userEvent.setup();
-  render(<SettingsPage application={application} />);
+  render(<SettingsPage application={application} canSelectStore />);
   await user.click(await screen.findByRole('button', { name: '+ Thêm biến' }));
   await user.type(screen.getByPlaceholderText('API_URL'), 'MODE');
   await user.type(screen.getByLabelText('Giá trị'), 'blue');

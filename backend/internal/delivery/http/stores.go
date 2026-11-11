@@ -11,6 +11,7 @@ import (
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/secretstores"
 	"orchestrator/internal/domain/environment"
+	identitydomain "orchestrator/internal/domain/identity"
 	"orchestrator/internal/domain/secretstore"
 	"orchestrator/internal/ports/persistence"
 )
@@ -155,6 +156,9 @@ func (s *Server) handleSetSecretStore(w http.ResponseWriter, r *http.Request) {
 	result, err := s.configurations.SetSecretStore(r.Context(), appconfig.SwitchCommand{
 		OrganizationKey: identity.OrganizationKey, ApplicationKey: appKey, EnvironmentKey: envKey, StoreKey: key,
 		ExpectedVersion: version, ExpectedConfigVersion: configVersion,
+		// ADR-042: anyone with access selects the first store; only a
+		// Platform Engineer or Admin changes a selected one.
+		MayChange: identity.Role == identitydomain.RolePlatformEngineer || identity.Role == identitydomain.RoleAdmin,
 	})
 	if err != nil {
 		s.writeError(w, err)
