@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	appconfig "orchestrator/internal/application/configuration"
@@ -14,6 +16,7 @@ import (
 	identitydomain "orchestrator/internal/domain/identity"
 	"orchestrator/internal/domain/progress"
 	"orchestrator/internal/domain/secretstore"
+	"orchestrator/internal/domain/workloadwait"
 	"orchestrator/internal/ports/persistence"
 )
 
@@ -184,6 +187,44 @@ type operationView struct {
 	HeartbeatAt     time.Time       `json:"heartbeatAt"`
 	Failure         string          `json:"failure,omitempty"`
 	Recoverable     bool            `json:"recoverable"`
+	// PodWaits is the re-validated, value-free Pod wait state recorded by
+	// readiness and rollout waits (UC-08 BR-11, UC-06 CD-11). Only the
+	// operations list includes it; busy responses never carry details.
+	PodWaits []podWaitView `json:"podWaits,omitempty"`
+}
+
+type podWaitView struct {
+	Scope    string                        `json:"scope"`
+	Key      string                        `json:"key"`
+	Waiting  []workloadwait.PodWait        `json:"waiting"`
+	Replaced []workloadwait.PodReplacement `json:"replaced,omitempty"`
+}
+
+// podWaitsOf projects only the readiness:/rollout: entries of an operation
+// detail, decoded into the typed shape and sanitized again.
+func podWaitsOf(op environment.Operation) []podWaitView {
+	out := []podWaitView{}
+	for key, raw := range op.Detail {
+		scope, name, ok := strings.Cut(key, ":")
+		if !ok || (scope != "readiness" && scope != "rollout") || name == "" || len(name) > 512 {
+			continue
+		}
+		data, err := json.Marshal(raw)
+		if err != nil {
+			continue
+		}
+		var detail workloadwait.Detail
+		if json.Unmarshal(data, &detail) != nil {
+			continue
+		}
+		detail = workloadwait.Sanitize(detail)
+		if len(detail.Waiting) == 0 && len(detail.Replaced) == 0 {
+			continue
+		}
+		out = append(out, podWaitView{Scope: scope, Key: name, Waiting: detail.Waiting, Replaced: detail.Replaced})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Scope+out[i].Key < out[j].Scope+out[j].Key })
+	return out
 }
 
 func operationViewOf(op environment.Operation) operationView {

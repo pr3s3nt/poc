@@ -1627,3 +1627,22 @@ separate in the Environment rollback verification record.
 | DP-01: exact historical operation, including pre-plan failure | `application/deployment/query`, plan operation ID | `TestProgressHistoryUsesExactOperationBeforeAPlanExists` |
 | DP-02/05: current revision evidence and safe output | Fleet `progress.go`, coordinator, Terraform structured stage log | `TestProgressProjectionDropsUntrustedText`; Fleet/ownership and Terraform regression suites |
 | DP-03/04: timeline, preparation/render counts, failure guidance, banner and Recovery disclosure | `ExecutionProgress`, `OperationBanner`, VI/EN catalogs | `preparation_progress_test.go`, `progress_test.go`, `ExecutionProgress.test.tsx`, `DeploymentPages.test.tsx`, `environment.test.tsx`; user Console acceptance remains separate |
+
+## Stuck StatefulSet Pods and unselected Environments — issue #68
+
+| Requirement | Realization/code | Validation |
+|---|---|---|
+| UC-03 DV-01/02 unselected Environment follows Active | `definitionversions.Effective`/`HasSucceeded`/`Resolve`, `FreezeOrganization` skips Environments without a SUCCEEDED Deployment; first success applies the selection (`pending/deploy.go`) | `TestUnselectedEnvironmentWithoutSuccessFollowsActiveRevision`, `TestSucceededEnvironmentKeepsSystemFreeze`, `TestDefinitionRevisionLifecycleKeepsEnvironmentsPinned`, `TestRevisionAPIsSeparateProposedAndEnvironmentUpgrade`; PostgreSQL definition-version integration tests |
+| UC-03 DV-04 Preview new-revision notice | `pending.newerDefinitions` → Preview `newerDefinitions`; Console Preview notice | `TestNewerDefinitionsNamesOnlyOlderPinnedRevisions`; `ApplicationHomePage.test.tsx` Preview notice |
+| UC-08 BR-11 stuck Pod replacement on Terraform readiness | `kubernetes/stuckpod.Evaluate`; `readiness.Checker.recoverStuckPods`; `tfexec.readinessRecorder` → `envops.Annotate` (operation detail `readiness:<descriptor>`); `-stuck-pod-threshold` | `stuckpod` table tests; `TestFixedRevisionReplacesStuckPodAndBecomesReady`, `TestNoNewRevisionReportsReasonWithoutDeleting`, `TestMissingDeletePermissionOnlyReports`; `TestAnnotatePersistsAcrossStage`; operations `podWaits` projection (`TestPodWaitsProjectOnlySanitizedEntries`) and Console `PodWaits` (`ApplicationHomePage.test.tsx`); kind Console scenario (planned) |
+| UC-06 CD-11 stuck Pod replacement while waiting for Fleet rollout | `port.StuckPodRecovery`; Fleet `Provider.RecoverStuckPods` (owned StatefulSets carrying this delivery revision); coordinator wait loop → `envops.WaitRecorder` (operation detail `rollout:<unit>`) | `TestFleetFixedRevisionReplacesStuckPod`, `TestFleetWithoutFixOrForeignRevisionOnlyReports`, `TestFleetMissingDeletePermissionOnlyReports`, `TestDeployRecoversStuckPodsWhileWaiting`; kind Console scenario (planned) |
+
+## UI/.env — issue #72
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| UC-16 ENVFILE-01/02 | envfile.ts, EnvironmentVariablesEditor, WorkloadEditorPage | envfile.test.ts; EnvironmentVariablesTable.test.tsx; container-identity/collapse guards |
+| ENVFILE-03 | DependencyFields guards; row context; alias rename | parser/DependencyFields tests; workload-envfile browser rename/two PostgreSQL resources |
+| ENVFILE-04 | UTF-8 file review/merge/download | EnvironmentVariablesEditor.test.tsx; real browser merge/download |
+| ENVFILE-05; UC-12 BR-24–28 | BulkSecretsDialog; existing createKey API | bulk/explicit-reuse/partial/unknown tests; real Secret delivery/readback assertions |
+| ENVFILE-06 | current shell/VI-EN/Preview/Deploy | e2e/scenarios/workload-envfile; kind full checks; Tailscale browser handoff |

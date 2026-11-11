@@ -1,4 +1,6 @@
 import type { ExecutionRecord } from "./ExecutionProgress";
+
+import type { PodWaitGroup } from './PodWaits';
 import { api } from '../../shared/api/client';
 import type { EnvironmentKey } from '../../shared/types/application';
 import type { DeploymentReviewData, ReviewProgress, ReviewArtifact } from '../preview/DeploymentReview';
@@ -58,7 +60,7 @@ export function listDeployments(app: string, env: EnvironmentKey, status?: Deplo
   return api<{ deployments: Deployment[] }>(`${scopePath(app, env)}${query}`);
 }
 
-export type ReviewOperation = { id: string; reviewRequestId?: string; status: string; stage?: string };
+export type ReviewOperation = { id: string; reviewRequestId?: string; status: string; stage?: string; podWaits?: PodWaitGroup[] };
 export const listReviewOperations = (app: string, env: EnvironmentKey, requestId?: string) => api<{ operations: ReviewOperation[] }>(`/applications/${encodeURIComponent(app)}/environments/${env}/operations${requestId ? `?reviewRequestId=${encodeURIComponent(requestId)}` : ''}`);
 
 const text = (value: unknown): value is string => typeof value === 'string';

@@ -7,6 +7,20 @@ last_reviewed: 2026-11-11
 
 # Current project state
 
+## Stuck StatefulSet Pods and unselected Environments — issue #68
+
+Implemented on `features/statefulset-stuck-pod-recovery` (built on #67).
+Waiting for Terraform readiness (UC-08 BR-11) or a Fleet rollout (UC-06 CD-11),
+the platform replaces at most one stuck StatefulSet Pod of an older revision
+once a new revision exists (`-stuck-pod-threshold`, default 45s). Safe reasons
+and replacements are kept in the operation detail and shown in the Console's
+deployment status. An Environment without a SUCCEEDED Deployment follows the
+Active Definition revision unless the user selected one (DV-01); Preview names a
+newer default revision (DV-04). A running database change is refused with
+`DATA_MIGRATION_REQUIRED` (DV-06). Kind regression run through
+`e2e/scenarios/stuck-statefulset-recovery/`; awaiting user acceptance.
+[Evidence](verification/2026-11-11-stuck-statefulset.md).
+
 ## One Fleet bundle per Environment, versioned secrets — issue #67
 
 [ADR-042](architecture/decisions/ADR-042-environment-bundle-versioned-secrets.md)
@@ -2390,3 +2404,19 @@ not merged or accepted. See the
 checks and the separate six-case user Console acceptance gate.
 [Verification and cleanup limits](verification/2026-11-11-deploy-recovery-progress.md)
 remain explicit; no full-green or user-acceptance claim.
+
+## Workload UI/.env — issue #72
+
+Integrated into main after user acceptance (merge 9cb29315, 2026-11-11):
+per-container synchronized table/.env editing,
+UTF-8 merge review, five reference sources, alias rename/reserved guards,
+ordered bindings, bulk draft Secret marking and explicit create-only confirmation.
+Partial/unknown outcomes keep per-row status and never replay automatically.
+No backend API/schema/renderer change. User requested merge without rerunning
+tests on main. The verified frontend image was rolled out to kind; backend and
+schema were unchanged. Feature branch and trial stack were removed.
+Specification: [ENVFILE-01–06](usecase/UC-16/envfile-specification.md).
+
+[Verification](verification/2026-11-11-workload-envfile.md): 1025 frontend tests,
+typecheck/lint/build, real browser/Deploy/cleanup pass. Full Go remains red at
+13 packages on the identical main backend tree; this is not a full green gate.

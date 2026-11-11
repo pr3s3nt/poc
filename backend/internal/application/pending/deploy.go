@@ -86,7 +86,14 @@ func (s *Service) DeployWithReview(ctx context.Context, appKey, envKey, actor, t
 	report, err := s.deployClaimed(lease, app.OrganizationKey, appKey, envKey, actor, preview)
 	if err == nil && report.Status == "SUCCEEDED" {
 		err = s.store.Transact(lease.Ctx, func(ctx context.Context) error {
-			if len(preview.Changes) > 0 {
+			// The first successful Deployment of an Environment without an
+			// explicit selection pins it to the snapshots it actually used
+			// (UC-03 DV-01/DV-07), even when the Preview had no changes.
+			selection, selErr := s.store.GetDefinitionSelection(ctx, appKey, envKey)
+			if selErr != nil {
+				return selErr
+			}
+			if len(preview.Changes) > 0 || (selection.Revision == 0 && !selection.AppliedVerified) {
 				if applyErr := s.store.ApplyDefinitionSelection(ctx, appKey, envKey, preview.DefinitionRevision, preview.DefinitionSnapshots, preview.CatalogPin); applyErr != nil {
 					return applyErr
 				}

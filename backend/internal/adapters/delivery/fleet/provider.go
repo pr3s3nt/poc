@@ -28,6 +28,9 @@ type Provider struct {
 	Manager         *Manager
 	Publishers      PublisherResolver
 	RepositoryHosts hosting.Factory
+	// StuckThreshold is the UC-06 CD-11 wait before a stuck StatefulSet Pod
+	// of an older revision is replaced; zero keeps stuckpod.DefaultThreshold.
+	StuckThreshold time.Duration
 }
 
 func Capabilities() domain.Capabilities {

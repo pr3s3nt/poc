@@ -987,3 +987,10 @@ are readable for migration/cleanup, never a deploy fallback.
 selector is used. Missing authentication returns UNAUTHORIZED.
 It performs no writes and exposes no credentials or account list. External API
 seed may require an exact key/name match before other mutations.
+
+## ENVFILE — issue #72
+
+[UC-16 ENVFILE-01–06](../../usecase/UC-16/envfile-specification.md) defines frontend
+text syntax only; HTTP Workload bindings stay unchanged. Marked literals must be
+converted to Secret references through explicit UC-12 create-only confirmation
+before workload Save. No bulk upsert, secret readback or new API/schema is added.

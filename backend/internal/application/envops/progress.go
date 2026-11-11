@@ -92,9 +92,9 @@ func (l *Lease) recordProgress(step progress.Step, check bool) {
 	}
 	next["progress"] = r
 	l.detail = next
-	stage := l.stage
+	stage, merged := l.stage, l.mergedLocked()
 	l.mu.Unlock()
-	_ = l.heartbeatNow(stage, next)
+	_ = l.heartbeatNow(stage, merged)
 }
 
 func (l *Lease) PriorHeartbeat(at time.Time) {
@@ -111,9 +111,9 @@ func (l *Lease) PriorHeartbeat(at time.Time) {
 	}
 	next["progress"] = r
 	l.detail = next
-	stage := l.stage
+	stage, merged := l.stage, l.mergedLocked()
 	l.mu.Unlock()
-	_ = l.heartbeatNow(stage, next)
+	_ = l.heartbeatNow(stage, merged)
 }
 func (l *Lease) finishProgress(status string) {
 	l.mu.Lock()

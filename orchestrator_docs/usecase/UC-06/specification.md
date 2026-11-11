@@ -2,7 +2,7 @@
 id: UC-06-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-11-09
+last_reviewed: 2026-11-10
 ---
 
 > Current managed delivery policy: [ADR-033](../../architecture/decisions/ADR-033-platform-managed-delivery.md)
@@ -469,6 +469,19 @@ per-resource evidence; changing a Definition does not silently upgrade this scop
   of the replacement are absent and every live object of the unit still carries
   the failed revision, the replacement is proven never published, its intent
   becomes FAILED and the Environment is released; otherwise the hold remains.
+- **CD-11 (issue #68):** Fleet only syncs a StatefulSet object; the StatefulSet
+  controller (`OrderedReady` + `RollingUpdate`) never replaces a current Pod
+  that is not Ready, so a fixed revision would wait forever. While the
+  Orchestrator waits for the exact delivery revision of a Deploy, it applies the
+  stuck-Pod replacement rule of [UC-08 BR-11](../UC-08/specification.md) to each
+  owned StatefulSet whose `updateRevision` differs from `currentRevision`: at
+  most one Pod of an older revision, not Ready, not terminating, waiting on a
+  non-recovering reason continuously beyond the threshold, is deleted. This is
+  the only Pod deletion; the "no automatic deletion" of CD-10 still holds for
+  objects, Git, PVCs and rollback. With no new revision nothing is deleted. The
+  latest safe reason (reason code, image, restarts) is reported while waiting
+  and kept on failure; each replacement is recorded as an event. Missing delete
+  permission only reports the reason.
 
 ## Public endpoint resource
 

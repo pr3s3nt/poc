@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"orchestrator/internal/application/envops"
+	"orchestrator/internal/domain/workloadwait"
 	"sort"
 	"strings"
 	"time"
@@ -437,6 +439,10 @@ func (c *Coordinator) runPhaseAccepting(ctx context.Context, provider port.Provi
 	defer ticker.Stop()
 	var last domain.Observation
 	waitDeadline, _ := wait.Deadline()
+
+	// UC-06 CD-11: wait reasons and stuck Pod replacements of this unit.
+	recordWaits := envops.WaitRecorder(ctx, RolloutDetailPrefix+unit, "")
+	recovery, _ := provider.(port.StuckPodRecovery)
 	for {
 		observed, err := provider.Observe(wait, i, receipt)
 		if err == nil {
@@ -470,6 +476,7 @@ func (c *Coordinator) runPhaseAccepting(ctx context.Context, provider port.Provi
 			return deadlineFailure(err)
 		}
 		if observed.Ready(i.Revision, time.Now().UTC(), 30*time.Second) {
+			recordWaits([]workloadwait.PodWait{}, nil)
 			record.Inventory = []persistence.DeliveryObject{}
 			for _, object := range observed.Objects {
 				record.Inventory = append(record.Inventory, persistence.DeliveryObject{ObjectRef: execution.ObjectRef{APIVersion: object.APIVersion, Kind: object.Kind, Name: object.Name}, UID: object.UID, Release: receipt.Handle["release"]})
@@ -490,6 +497,14 @@ func (c *Coordinator) runPhaseAccepting(ctx context.Context, provider port.Provi
 			observed.Objects = append(observed.Objects, last.Objects...)
 			record.Inventory = observedInventory(observed, receipt)
 			return &observedFailure{cause: c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutDegraded), observation: observed}
+		}
+		if recovery != nil {
+			if stuck, err := recovery.RecoverStuckPods(wait, i, receipt); err == nil {
+				for k := range stuck.Replaced {
+					recordWaits(stuck.Waiting, &stuck.Replaced[k])
+				}
+				recordWaits(stuck.Waiting, nil)
+			}
 		}
 		if observed.Sync == domain.Pending && observed.Health == domain.Progressing {
 			if convergence, ok := provider.(port.PendingConvergence); ok {
@@ -603,7 +618,10 @@ const DeployReadinessDeadline = 5 * time.Minute
 // existing diagnostics and logs keep matching.
 var (
 	ErrRolloutDegraded = errors.New("delivery: admitted workload is degraded")
-	ErrRolloutNotReady = errors.New("delivery: exact revision readiness deadline exceeded")
+	// RolloutDetailPrefix keys the safe rollout wait state of one delivery
+	// unit in the owning Environment operation detail (issue #68).
+	RolloutDetailPrefix = "rollout:"
+	ErrRolloutNotReady  = errors.New("delivery: exact revision readiness deadline exceeded")
 )
 
 // determinedFailureAllowed reports whether the owning operation is an ordinary

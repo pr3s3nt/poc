@@ -33,7 +33,9 @@ func (s *Server) handleListOperations(w http.ResponseWriter, r *http.Request) {
 		}
 		views := []operationView{}
 		if err == nil {
-			views = append(views, operationViewOf(op))
+			view := operationViewOf(op)
+			view.PodWaits = podWaitsOf(op)
+			views = append(views, view)
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"operations": views})
 		return
@@ -48,7 +50,9 @@ func (s *Server) handleListOperations(w http.ResponseWriter, r *http.Request) {
 	}
 	views := make([]operationView, 0, len(ops))
 	for _, op := range ops {
-		views = append(views, operationViewOf(op))
+		view := operationViewOf(op)
+		view.PodWaits = podWaitsOf(op)
+		views = append(views, view)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"operations": views})
 }

@@ -3,6 +3,7 @@ package delivery
 
 import (
 	"context"
+	"orchestrator/internal/domain/workloadwait"
 	"time"
 
 	domain "orchestrator/internal/domain/delivery"
@@ -262,4 +263,19 @@ type SubmissionAbsenceRecovery interface {
 // remains read-only. Providers must make repeated requests idempotent.
 type PendingConvergence interface {
 	ConvergePending(context.Context, Intent, Receipt) error
+}
+
+// StuckPodRecovery is an optional guarded write while waiting for an exact
+// revision (UC-06 CD-11): it reports StatefulSet Pods waiting on a
+// non-recovering reason and, only for objects that already carry this
+// revision with a new controller revision, replaces at most one stuck Pod of
+// an older revision per object. Observe remains read-only.
+type StuckPodRecovery interface {
+	RecoverStuckPods(context.Context, Intent, Receipt) (StuckPods, error)
+}
+
+// StuckPods is one safe recovery pass.
+type StuckPods struct {
+	Waiting  []workloadwait.PodWait
+	Replaced []workloadwait.PodReplacement
 }

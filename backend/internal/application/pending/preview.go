@@ -51,9 +51,48 @@ type Change struct {
 	Endpoint *endpoint.Desired `json:"endpoint,omitempty"`
 }
 
+// NewerDefinition tells that a pinned Environment uses a Definition revision
+// older than the current Active one (UC-03 DV-04). It is a notice only.
+type NewerDefinition struct {
+	Key            string `json:"key"`
+	SelectedNumber int64  `json:"selectedNumber"`
+	ActiveNumber   int64  `json:"activeNumber"`
+}
+
+// newerDefinitions lists resolved revisions that are not the Active revision.
+func newerDefinitions(ctx context.Context, st persistence.Store, org string, defs []resource.Definition) ([]NewerDefinition, error) {
+	out := []NewerDefinition{}
+	for _, d := range defs {
+		if d.RevisionID == "" {
+			continue
+		}
+		h, err := st.GetDefinitionHistory(ctx, org, d.Key)
+		if err != nil {
+			return nil, err
+		}
+		if h.ActiveID == "" || h.ActiveID == d.RevisionID {
+			continue
+		}
+		n := NewerDefinition{Key: d.Key}
+		for _, v := range h.Versions {
+			switch v.ID {
+			case d.RevisionID:
+				n.SelectedNumber = v.Number
+			case h.ActiveID:
+				n.ActiveNumber = v.Number
+			}
+		}
+		if n.ActiveNumber > n.SelectedNumber {
+			out = append(out, n)
+		}
+	}
+	return out, nil
+}
+
 type Preview struct {
 	DefinitionRevision            int64                                  `json:"definitionRevision"`
 	DefinitionsPending            bool                                   `json:"definitionsPending"`
+	NewerDefinitions              []NewerDefinition                      `json:"newerDefinitions,omitempty"`
 	DefinitionSnapshots           []resource.Definition                  `json:"-"`
 	DesiredCatalog                *catalogdomain.Selection               `json:"desiredCatalog,omitempty"`
 	AppliedCatalog                *catalogdomain.Selection               `json:"appliedCatalog,omitempty"`
@@ -242,6 +281,10 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	if err != nil {
 		return Preview{}, err
 	}
+	newer, err := newerDefinitions(ctx, st, app.OrganizationKey, definitions)
+	if err != nil {
+		return Preview{}, err
+	}
 	// Active Resources and their baseline plans come from the same snapshot view; the intent
 	// projection below reads only these captured records.
 	active, err := st.ListActiveResources(ctx, app.OrganizationKey)
@@ -330,7 +373,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	if err != nil {
 		return Preview{}, err
 	}
-	preview := Preview{DefinitionRevision: definitionSelection.Revision, DefinitionsPending: definitionsPending, DefinitionSnapshots: append([]resource.Definition{}, definitions...), DesiredCatalog: catalogBinding.Desired, AppliedCatalog: catalogBinding.Applied, CatalogPin: releasePin, CatalogRevision: catalogBinding.Revision, CatalogPending: catalogPending, DeliveryTransfer: transferRequired, DeliveryPending: deliveryPending, DeliveryBindingPin: deliveryPin, ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, ConfigRevisionID: scope.DesiredRevisionID,
+	preview := Preview{DefinitionRevision: definitionSelection.Revision, DefinitionsPending: definitionsPending, NewerDefinitions: newer, DefinitionSnapshots: append([]resource.Definition{}, definitions...), DesiredCatalog: catalogBinding.Desired, AppliedCatalog: catalogBinding.Applied, CatalogPin: releasePin, CatalogRevision: catalogBinding.Revision, CatalogPending: catalogPending, DeliveryTransfer: transferRequired, DeliveryPending: deliveryPending, DeliveryBindingPin: deliveryPin, ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, ConfigRevisionID: scope.DesiredRevisionID,
 		DesiredDelivery: env.DesiredDelivery.Effective(), AppliedDelivery: env.AppliedDelivery.Effective(), DeliveryConfigurationRevision: env.DeliveryConfigRevision, ConfigVersion: scope.Version, Binding: env.Binding(), SecretStoreKey: env.SecretStoreKey, Changes: []Change{}, previous: reviewBaselines}
 	preview.DeliveryPolicyOnly = policyOnly
 	if transferRequired || policyOnly {

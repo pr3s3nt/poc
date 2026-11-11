@@ -2,7 +2,7 @@
 id: UC-08-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-10
 ---
 
 # UC-08 — Provision Infrastructure and Application Resources
@@ -98,6 +98,23 @@ Provision implicit infrastructure cùng private/shared resources theo dependency
   không công bố attribute `id` (ví dụ `kubernetes_manifest`). Không tự tạo ID.
   Kết quả rỗng, deadline hết hoặc query bổ sung thất bại không được coi là
   thành công. Không mở thêm provider, credential hoặc quyền cleanup.
+- **BR-11 (issue #68):** StatefulSet mặc định (`OrderedReady` + `RollingUpdate`)
+  không thay pod hiện tại đang không Ready, nên bản sửa sẽ không bao giờ được áp
+  dụng. Trong lúc chờ readiness, khi `status.updateRevision` khác
+  `status.currentRevision`, executor xóa **một** pod thuộc revision khác
+  `updateRevision` nếu đủ: pod không Ready, không đang `Terminating`; container
+  hoặc init container đang `waiting` với lý do không tự hồi phục
+  (`ImagePullBackOff`, `ErrImagePull`, `InvalidImageName`, `CrashLoopBackOff`,
+  `CreateContainerConfigError`, `CreateContainerError`, `RunContainerError`);
+  và pod không Ready liên tục quá ngưỡng (mặc định 45 giây, cấu hình được).
+  Không xóa gì khi không có revision mới; không xóa/tạo lại StatefulSet, PVC,
+  không rollback, không đổi `podManagementPolicy`. Lý do quan sát gần nhất
+  (mã lý do, image, số lần restart — không kèm message tự do) được ghi lên
+  attempt trong lúc chờ và giữ khi readiness thất bại; mỗi lần thay pod được ghi
+  thành sự kiện (pod, lý do, thời gian kẹt). Thiếu quyền xóa pod không phải lỗi
+  thực thi: chỉ báo lý do và chờ tới hạn như cũ. DV-06 vẫn chặn đổi Definition
+  của database đã chạy, nên quy tắc này chỉ áp dụng cho resource chưa từng Ready
+  hoặc không phải dữ liệu.
 
 ## Luồng nội bộ
 

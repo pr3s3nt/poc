@@ -47,10 +47,11 @@ trước khi mở form con, không lồng dialog. Thêm dependency xong quay l�
 output. Loading/error catalog khác empty và có retry GET. Mục thiếu không bị
 đổi hoặc xóa âm thầm; đích cũ vẫn hiện trên dòng cùng lỗi khi metadata sẵn sàng.
 
-Checkbox Bí mật trên dòng literal là entry mở form tạo Secret tại chỗ (UC-12),
-không làm literal thành secret. Form giải thích Secret lưu trong đúng app/env
-và commit riêng. Secret/reference đã chọn hiển thị phân loại read-only. Không
-prefill secret từ literal hoặc value catalog. Hủy form giữ binding trước đó.
+Checkbox Bí mật trên dòng literal đánh dấu bản nháp theo issue #72; có thể
+chọn nhiều dòng để đánh dấu cùng lúc. Xác nhận chung dùng giá trị đã nhập để tạo
+Secret UC-12 bằng create-only, rồi chuyển từng dòng thành reference. Secret/output
+đã chọn giữ phân loại read-only. Hủy xác nhận giữ literal/marker trong memory;
+không commit key khi chỉ tick hoặc chuyển tab. Xem ENVFILE-05.
 
 Xóa dòng chỉ xóa mapping, không xóa key hoặc dependency. Nhiều dòng được dùng
 cùng key/output. Các giá trị trên là ví dụ; outputs lấy từ Type metadata.
@@ -293,3 +294,16 @@ version updates the card; clicking the card proceeds with its exact immutable pi
 Version controls do not select a template or navigate by themselves. Search
 retains matching groups; closing/reopening or changing Environment resets the new
 selection. Existing edit flows are unchanged.
+
+## Bảng biến và nhập file .env — issue #72
+
+Quyết định nhãn 2026-11-11: bỏ tab/chữ UI. Hiện bảng biến mặc định, bên cạnh có
+nút **Nhập từ file .env** ở góc phải, nền xanh lá cây theo nút primary hiện hành,
+chữ trắng để chuyển sang trình soạn. Khi soạn hiện **Quay lại bảng**;
+text lỗi vẫn khóa quay lại và Lưu. Giữ bảng Name/Value và
+picker. Tab text có textarea, chọn file, tải mẫu/tải .env; trợ giúp grammar ở
+disclosure. Lỗi gắn dòng, khóa UI cũ và Save. Import collision dùng Dialog review,
+mặc định giữ. Checkbox literal đánh dấu draft, toolbar chọn nhiều dòng để đánh
+dấu Bí mật. Xác nhận Secret chung hiển thị tên/result mỗi dòng và boundary commit,
+không lặp value. Reference secrecy read-only. Dùng shared Button/Dialog,
+VI/EN, focus/keyboard hiện hành. [Grammar](../envfile-specification.md).

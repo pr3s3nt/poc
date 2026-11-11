@@ -1401,3 +1401,26 @@ Deployment query and operation DTOs expose the persisted projection.
 structured logs, preparation counts and recovery checks, omitting empty
 disclosure controls; `OperationBanner` summarizes and polls them.
 See [contract](../architecture/contracts/deployment-progress.md).
+
+## Stuck StatefulSet recovery and unselected Environments — issue #68
+
+| Concern | Code |
+|---|---|
+| Stuck Pod evaluation (reasons, threshold, one replacement) | [`kubernetes/stuckpod`](../../backend/internal/adapters/kubernetes/stuckpod/stuckpod.go), allowlist and sanitizing in [`domain/workloadwait`](../../backend/internal/domain/workloadwait/workloadwait.go) |
+| Terraform readiness replacement | [`terraform/readiness/readiness.go`](../../backend/internal/adapters/terraform/readiness/readiness.go), recorder in [`tfexec/readiness_observation.go`](../../backend/internal/application/tfexec/readiness_observation.go) |
+| Fleet rollout replacement | [`fleet/stuck_pods.go`](../../backend/internal/adapters/delivery/fleet/stuck_pods.go), wait loop in [`delivery/coordinator.go`](../../backend/internal/application/delivery/coordinator.go) |
+| Operation detail notes and API projection | [`envops/manager.go`](../../backend/internal/application/envops/manager.go) (`Annotate`), [`envops/waits.go`](../../backend/internal/application/envops/waits.go), `podWaitsOf` in [`http/stores.go`](../../backend/internal/delivery/http/stores.go), [`PodWaits.tsx`](../../frontend/src/features/deployments/PodWaits.tsx) |
+| Active revision for unselected Environments; Preview notice | [`definitionversions/service.go`](../../backend/internal/application/definitionversions/service.go) (`Effective`, `HasSucceeded`), `newerDefinitions` in [`pending/preview.go`](../../backend/internal/application/pending/preview.go) |
+| Running database refusal code | `ErrDataMigrationRequired` in [`catalogrelease/safety.go`](../../backend/internal/application/catalogrelease/safety.go) |
+
+## Workload .env — issue #72
+
+- `frontend/src/features/workloads/envfile.ts`: positional parser, exact-value
+  serializer, reference classification and explicit non-destructive file merge.
+- `EnvironmentVariablesEditor.tsx` in the same directory: synchronized table/text views,
+  invalid-text gate, UTF-8 upload/review/download and bulk confirmation entry.
+- `BulkSecretsDialog.tsx`: sequential UC-12 create-only, advancing version,
+  explicit existing-key reuse and partial/uncertain outcomes without auto replay.
+- `WorkloadEditorPage.tsx`: stable container identities, Save gate for marked
+  literals/invalid text and alias-to-binding rename. Binding flags are memory-only.
+- [Acceptance runner](../../e2e/scenarios/workload-envfile/README.md).

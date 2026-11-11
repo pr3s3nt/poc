@@ -65,3 +65,54 @@ func TestProgressSurvivesHeartbeatStageAndRecovery(t *testing.T) {
 		t.Fatalf("recovery lost facts: %+v", r)
 	}
 }
+
+// Integration of #68 wait annotations and #69 progress: either writer must
+// persist both projections immediately, including after Stage replacement.
+func TestProgressAndWaitAnnotationsPersistTogether(t *testing.T) {
+	st := store.New()
+	app := seedEnvironment(t, st)
+	lease, err := envops.NewManager(st).Begin(context.Background(), envops.Claim{ApplicationKey: app, EnvironmentKey: "staging", Kind: environment.OpDeploy})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lease.End(environment.OpFailed, "test complete")
+	assertBoth := func() {
+		t.Helper()
+		op, err := st.GetOperation(context.Background(), lease.Operation.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if op.Detail["rollout:app"] == nil || len(progress.Read(op.Detail["progress"]).Steps) < 2 {
+			t.Fatalf("lost combined observations: %+v", op.Detail)
+		}
+	}
+	if err := envops.Annotate(lease.Ctx, "rollout:app", map[string]any{"waiting": "ImagePullBackOff"}); err != nil {
+		t.Fatal(err)
+	}
+	progress.Report(lease.Ctx, progress.Step{ID: "wait", Kind: "READINESS", Status: "RUNNING", Reason: "WAITING_READINESS"})
+	assertBoth()
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 10; i++ {
+			progress.Report(lease.Ctx, progress.Step{ID: "wait", Kind: "READINESS", Status: "RUNNING", Reason: "WAITING_READINESS"})
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 10; i++ {
+			if err := envops.Annotate(lease.Ctx, "rollout:app", map[string]any{"waiting": "ImagePullBackOff"}); err != nil {
+				t.Error(err)
+			}
+		}
+	}()
+	wg.Wait()
+	assertBoth()
+	if err := lease.Stage("READINESS", map[string]any{"phase": "retained"}); err != nil {
+		t.Fatal(err)
+	}
+	assertBoth()
+	progress.Report(lease.Ctx, progress.Step{ID: "wait", Kind: "READINESS", Status: "SUCCEEDED"})
+	assertBoth()
+}

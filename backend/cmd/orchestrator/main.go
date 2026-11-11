@@ -76,6 +76,7 @@ func main() {
 	deployDeadline := flag.Duration("deploy-deadline", 0, "finite hold time of one whole Deploy claim (default 45m, at most 4h); an AWS acceptance run sets it to cover the sequential VPC -> EKS -> database chain inside its recorded overall deadline")
 	terraformInvocationTimeout := flag.Duration("terraform-invocation-timeout", 0, "bound of one Terraform session (default 45m); acceptance runs set a finite smaller value")
 	terraformReadinessTimeout := flag.Duration("terraform-readiness-timeout", 0, "bound of the readiness query after an apply (default 5m)")
+	stuckPodThreshold := flag.Duration("stuck-pod-threshold", 0, "how long a StatefulSet Pod must wait on a non-recovering error before a fixed revision replaces it (default 45s)")
 	infrastructureDrift := flag.Bool("infrastructure-drift", envBool("ORCHESTRATOR_INFRASTRUCTURE_DRIFT"), "enable independent read-only Terraform drift scans with encrypted acknowledged baselines")
 	infrastructureDriftInterval := flag.Duration("infrastructure-drift-interval", 15*time.Minute, "jittered infrastructure drift scan cadence (minimum 1m)")
 	platformVaultBootstrap := flag.Bool("platform-vault-bootstrap", envBool("ORCHESTRATOR_PLATFORM_VAULT_BOOTSTRAP"), "explicit opt-in: register the bundled Compose Vault as the ordinary verified store platform-vault at startup")
@@ -219,7 +220,7 @@ func main() {
 
 		PlatformVault: platformVault,
 
-		DeployDeadline: *deployDeadline, TerraformInvocationTimeout: *terraformInvocationTimeout, TerraformReadinessTimeout: *terraformReadinessTimeout,
+		DeployDeadline: *deployDeadline, TerraformInvocationTimeout: *terraformInvocationTimeout, TerraformReadinessTimeout: *terraformReadinessTimeout, StuckPodThreshold: *stuckPodThreshold,
 		InfrastructureDrift: *infrastructureDrift, InfrastructureDriftInterval: *infrastructureDriftInterval,
 
 		OutputSecretStore: *outputSecretStore, OutputSecretVaultAddress: *outputSecretAddress,

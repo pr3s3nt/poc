@@ -2,7 +2,7 @@
 id: OPS-WORKLOAD-AUTHORING
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-11-09
+last_reviewed: 2026-11-11
 ---
 
 # Hướng dẫn sử dụng trang Thêm Workload
@@ -30,6 +30,13 @@ với đúng một Pod.
 | Deployment | Web, API hoặc worker chạy liên tục |
 | StatefulSet | Ứng dụng cần định danh và storage theo Pod; hiện giới hạn 1 replica |
 | CronJob | Tác vụ chạy theo lịch cron |
+
+Template **Backend API có migrate** (template source chuẩn từ `v0.5.0` của repo
+template chung) giống Backend API nhưng chạy thêm Job `<workload>-migrate` bằng
+image container chính với tham số `migrateArgs` (mặc định `migrate`). Job hoàn
+tất trước khi ứng dụng được cập nhật và chỉ chạy lại khi nội dung Job đổi
+([ADR-042](../architecture/decisions/ADR-042-environment-bundle-versioned-secrets.md)).
+Không thấy mẫu này thì Environment đang ghim revision Definition cũ.
 
 Khi chọn template, kiểu thực thi đi theo mẫu. Với tự cấu hình, chọn kiểu thực thi
 trong **Hiện nâng cao Workload → Cấu hình ít thay đổi**.
@@ -314,8 +321,9 @@ Quy trình cập nhật:
 1. Sửa template, tăng version và commit/push lên Git.
 2. Trong **Cấu hình tài nguyên**, mở workload Definition liên quan → **Đổi nguồn → Git**.
 3. Điền repository HTTPS URL, thư mục template và tag/commit mới; kiểm tra template.
-4. Lưu Definition để tạo phiên bản mới; trong **Cài đặt môi trường → Phiên bản tài nguyên**,
-   chủ động chọn revision Definition cần dùng.
+4. Lưu Definition để tạo phiên bản đề xuất; bấm **Phiên bản → Đặt làm mặc định**
+   để Environment mới dùng bản này. Environment đã ghim giữ bản cũ; trong **Cài đặt
+   môi trường → Phiên bản tài nguyên**, chủ động chọn revision cần dùng.
 5. Với workload mới, chọn mẫu/version mới từ danh sách. Workload hiện có giữ pin
    cũ; nếu cần đổi pin, cập nhật Generic Workload qua luồng nhập hợp lệ bằng
    metadata đã kiểm tra, rồi xem lại default và Preview trước Deploy. Trang sửa

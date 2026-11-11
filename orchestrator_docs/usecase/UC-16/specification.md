@@ -347,3 +347,8 @@ available in that scope. Older versions remain selectable through a collapsed
 version control; selecting a card passes the chosen immutable ID/version/digest.
 Editing an existing workload preserves its pin and never upgrades automatically.
 No template records, API visibility or deployment behavior change.
+
+## Hai tab UI/.env — issue #72
+
+[ENVFILE-01–06](envfile-specification.md) mở rộng bảng biến và supersede hành vi
+checkbox tạo Secret ngay ở BR-27. Không thay đổi secret delivery/Preview/Deploy.

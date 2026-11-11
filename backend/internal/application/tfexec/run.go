@@ -613,6 +613,7 @@ func (s *Service) checkReadiness(ctx context.Context, st *execState, out invocat
 	err := s.deps.Readiness.Check(rctx, terraformexec.ReadinessRequest{
 		OrganizationKey: st.req.OrganizationKey, ResourceType: st.req.Type.Key, Module: st.req.Source.ModuleID, Pins: st.req.Pins,
 		Targets: st.req.Targets, Resources: out.resources, Outputs: checked.Module, Env: st.env.Env, Deadline: deadline,
+		Observe: readinessRecorder(ctx, st.req.DeploymentID, st.req.Descriptor),
 	})
 	if err == nil {
 		if baselineErr := s.captureNamespaceBaseline(rctx, st, out.resources); baselineErr == nil {

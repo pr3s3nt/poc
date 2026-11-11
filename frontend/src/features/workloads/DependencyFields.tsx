@@ -17,7 +17,7 @@ export const emptyDependency = (): Dependency => ({ alias: '', type: '', classNa
 export const paramValue = (params: Record<string, string>, name: string): string => (Object.hasOwn(params, name) ? params[name] ?? '' : '');
 
 // Aliases the Workload reserves for virtual resources (Application keys and Service references).
-export const reservedAlias = (alias: string): boolean => alias === 'env' || alias.startsWith('svc_');
+export const reservedAlias = (alias: string): boolean => ['env', 'secret', 'variable', 'service'].includes(alias) || alias.startsWith('svc_');
 
 // The first problem of one dependency (type, required and numeric inputs), or undefined.
 export function dependencyProblem(dependency: Dependency, types: ResourceType[]): string | undefined {
@@ -94,7 +94,7 @@ export function dependencyAliasesProblem(dependencies: Dependency[], serviceAlia
   const seen = new Set<string>();
   for (const { alias } of dependencies) {
     if (!/^[A-Za-z0-9_-]+$/.test(alias)) return t('workloads.addResource.aliasInvalid');
-    if (alias === 'env' || serviceAliases.includes(alias)) return t('workloads.addResource.aliasReserved', { alias });
+    if (['env', 'secret', 'variable', 'service'].includes(alias) || serviceAliases.includes(alias)) return t('workloads.addResource.aliasReserved', { alias });
     if (seen.has(alias)) return t('workloads.addResource.aliasTaken', { alias });
     seen.add(alias);
   }
