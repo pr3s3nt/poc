@@ -306,3 +306,9 @@ provider output. Shell/navigation and the normal Preview/Deploy flow are unchang
 Hide Catalog from the shared sidebar. Existing Catalog routes remain read-only
 for history; Console offers no new Catalog authoring or Environment selection.
 Keep the shared shell and the Resource Type/Definition navigation unchanged.
+
+## UI/.env tabs — issue #72
+
+Reuse container group, Name/Value table, tabs and Dialog. Grammar/help is a
+disclosure; errors and independent Secret commit boundary remain visible where
+needed. [UC-16 screens](../../usecase/UC-16/ui/screens.md) owns the extension.

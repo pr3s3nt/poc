@@ -212,3 +212,10 @@ Quy tắc shared: [ADR-012](../../architecture/decisions/ADR-012-environment-sto
 - **BR-28:** Variable tạo tại chỗ lưu như UC-12 hiện hành, khác với Giá trị nhập
   riêng container ở UC-16 BR-20. Khi chưa có Secret Store, form UC-16 hỗ trợ
   chọn kho lần đầu theo UC-16 BR-24; không khởi chạy copy/migrate tự động.
+
+## Bulk draft secrets — issue #72
+
+[UC-16 ENVFILE-05](../UC-16/envfile-specification.md) extends BR-27 input lifetime:
+unsaved marked literals may live in memory/text draft until bulk confirmation;
+never persist them in workload/storage/logs. Existing create-only/CAS/no-readback
+and independent key commit remain authoritative.

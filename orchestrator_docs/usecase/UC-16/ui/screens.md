@@ -293,3 +293,13 @@ version updates the card; clicking the card proceeds with its exact immutable pi
 Version controls do not select a template or navigate by themselves. Search
 retains matching groups; closing/reopening or changing Environment resets the new
 selection. Existing edit flows are unchanged.
+
+## Hai tab biến môi trường — issue #72
+
+Trong nhóm biến mỗi container thêm tabs UI / Nhập .env; giữ bảng Name/Value và
+picker. Tab text có textarea, chọn file, tải mẫu/tải .env; trợ giúp grammar ở
+disclosure. Lỗi gắn dòng, khóa UI cũ và Save. Import collision dùng Dialog review,
+mặc định giữ. Checkbox literal đánh dấu draft, toolbar chọn nhiều dòng để đánh
+dấu Bí mật. Xác nhận Secret chung hiển thị tên/result mỗi dòng và boundary commit,
+không lặp value. Reference secrecy read-only. Dùng shared tabs/Button/Dialog,
+VI/EN, focus/keyboard hiện hành. [Grammar](../envfile-specification.md).
