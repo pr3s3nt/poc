@@ -259,6 +259,17 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 		for {
 			progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "RUNNING"})
 			observed, observeErr := provider.Observe(wait, intent, receipt)
+			if observeErr == nil {
+				reason := "WAITING_READINESS"
+				if observed.Sync == domain.Pending {
+					reason = "WAITING_FLEET"
+				}
+				if observed.ReasonCode != "" {
+					reason = progress.Reason(observed.ReasonCode)
+				}
+				waitDeadline, _ := wait.Deadline()
+				progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "RUNNING", Reason: reason, Deadline: &waitDeadline, Pods: observed.Pods, Events: observed.Events})
+			}
 			// A read cut off by the expired readiness deadline is the deadline
 			// outcome, not a provider failure.
 			if observeErr != nil && !(determined && wait.Err() != nil && ctx.Err() == nil) {
