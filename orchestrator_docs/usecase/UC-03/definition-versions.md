@@ -56,8 +56,10 @@ Historical cleanup keeps original state/identity/artifact guards.
 DV-06. Database/storage updates require verified migration capability. Until one
 exists, upgrades to existing PostgreSQL/MySQL/Redis or PVC-capability resources
 must have provable RETAIN intent. UPDATE/UNVERIFIED is blocked for both direct
-Definition and Catalog upgrades. Reverting configuration is not data restoration;
-there is no automatic database rollback or target/state adoption.
+Definition and Catalog upgrades; Preview and Deploy refuse it with 409
+`DATA_MIGRATION_REQUIRED` and the Console says a separate migration is needed.
+Reverting configuration is not data restoration; there is no automatic database
+rollback or target/state adoption.
 
 DV-07. Owner migration preserves existing rows/identities and captures current
 Definition configurations/release bindings for old Environments without deployment.

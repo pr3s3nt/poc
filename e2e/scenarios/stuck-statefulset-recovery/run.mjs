@@ -314,21 +314,24 @@ async function guard() {
   const { dev, app } = await ensureApp('pg', 's68pg');
   await dev.page.goto(`${dev.baseURL}/ui/applications/${app.key}/settings?environment=${ENV}`);
   await dev.page.getByText('Phiên bản tài nguyên', { exact: true }).click();
-  const select = dev.page.getByLabel(`Phiên bản cho ${PG_DEFINITION}`, { exact: true });
+  const section = dev.page.locator('section.catalog-fields').filter({ has: dev.page.getByRole('heading', { name: PG_DEFINITION, exact: true }) });
+  const select = section.locator('select');
   await select.selectOption(state.pgOtherRevision.id);
   await dev.page.getByText('Nâng cấp database hoặc storage cần quy trình migration; Preview sẽ chặn thay đổi chưa được hỗ trợ.').waitFor();
   await dev.submit(base(app) + '/definition-versions', 'PUT', dev.page.getByRole('button', { name: 'Chọn để nâng cấp', exact: true }));
   pass(`Developer selected r${state.pgOtherRevision.number} in Settings`);
   const p = await preview(dev, app);
   assert(!p.ok, 'Preview must refuse a running PostgreSQL change');
+  assert.equal(p.body?.code, 'DATA_MIGRATION_REQUIRED', 'refusal code');
   const alert = await dev.page.getByRole('alert').first().innerText();
+  assert(alert.includes('migration'), 'Console says a separate migration is needed: ' + alert);
   await shot(dev, 'refused');
   console.log('REFUSED', p.status, JSON.stringify(p.body), alert);
   pass(`Preview refused (HTTP ${p.status}): ${alert}`);
   // Restore the applied selection so the app stays deployable.
   await dev.page.goto(`${dev.baseURL}/ui/applications/${app.key}/settings?environment=${ENV}`);
   await dev.page.getByText('Phiên bản tài nguyên', { exact: true }).click();
-  await dev.submit(base(app) + '/definition-versions/discard', 'POST', dev.page.getByRole('button', { name: 'Hủy lựa chọn', exact: true }).or(dev.page.getByRole('button', { name: /Bỏ|Hoàn tác/ })).first());
+  await dev.submit(base(app) + '/definition-versions/discard', 'POST', dev.page.getByRole('button', { name: 'Bỏ lựa chọn nâng cấp', exact: true }));
   pass('Developer discarded the selection');
 }
 

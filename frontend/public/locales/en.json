@@ -4043,5 +4043,6 @@
   "environment.secretStoreSelection.platformOnly": "Once selected, only a Platform Engineer or Administrator can change the secret store.",
   "environment.secretStoreSelection.locked": "The Environment still runs workloads, so its secret store cannot change. See the store change runbook.",
   "environment.secretStoreSelection.changeOnlyWhenEmpty": "The store can change only while the Environment has no workloads. Desired secrets are copied and verified before saving.",
+  "shared.errors.dataMigrationRequired": "A running database or storage cannot change configuration without a separate migration. Keep the revision in use.",
   "shared.errors.secretStoreLocked": "The Environment still runs workloads, so its secret store cannot change."
 }
