@@ -163,3 +163,11 @@ Grouped picker cards consume the existing Environment-scoped template list. The
 Console sorts numeric major/minor/patch components, keeps version selection local
 and forwards the exact selected object through the existing onSelect callback.
 No backend query, stored pin or render/Deploy operation is added.
+
+## ENVFILE collaboration — issue #72
+
+Pure parser/serializer projects text to ordered Binding draft atomically. Boundary
+retains invalid text and blocks stale table edits/Save. File merge requires review.
+Bulk confirmation calls existing UC-12 create-only sequentially, advances config
+version per success, replaces only successful rows and stops uncertain mutation.
+Existing save/provenance/Preview/Deploy contracts are unchanged.

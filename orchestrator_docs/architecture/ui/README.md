@@ -306,3 +306,13 @@ provider output. Shell/navigation and the normal Preview/Deploy flow are unchang
 Hide Catalog from the shared sidebar. Existing Catalog routes remain read-only
 for history; Console offers no new Catalog authoring or Environment selection.
 Keep the shared shell and the Resource Type/Definition navigation unchanged.
+
+## Environment import entry — issue #72
+
+Reuse container group, Name/Value table, Button and Dialog. The file-entry action
+aligns right and uses the existing green primary Button with white text; the
+return action keeps the secondary style. The table is
+the default view; Nhập từ file .env opens text editing, with Quay lại bảng to return.
+There is no UI tab label. Grammar/help is a
+disclosure; errors and independent Secret commit boundary remain visible where
+needed. [UC-16 screens](../../usecase/UC-16/ui/screens.md) owns the extension.

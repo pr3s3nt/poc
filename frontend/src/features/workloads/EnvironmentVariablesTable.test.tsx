@@ -1,7 +1,7 @@
 // Legacy paths stay covered with switches enabled; production defaults have separate coverage.
 vi.mock('../../shared/authoringFeatures', () => ({ authoringFeatures: { workloadImport: true, nonGitDefinitionSources: true } }));
 import { openWorkloadGroup } from '../../test/workloadGroups';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { WorkloadEditorPage } from './WorkloadEditorPage';
@@ -172,16 +172,21 @@ it('creates a shared variable with create-only semantics and keeps the parent dr
   expect(api.creates()[0]!.body).toEqual({name:'REGION',kind:'VARIABLE',value:'eu-west',version:1});expect(table().getByRole('button',{name:'Đổi nguồn, dòng 1'})).toHaveTextContent('Ứng dụng / REGION');expect(api.puts()).toHaveLength(0);
 });
 
-it('opens masked Secret creation from the checkbox, retains app/env scope and never serializes its value',async()=>{
-  const api=serve();const user=userEvent.setup();await newWorkload(user);await addRow(user,1,'API_TOKEN');await user.click(table().getByLabelText('Bí mật, dòng 1'));
-  const dialog=within(screen.getByRole('dialog',{name:'Tạo bí mật'}));const value=dialog.getByLabelText('Giá trị bí mật');expect(value).toHaveAttribute('type','password');expect(value).toHaveValue('');
-  await user.type(value,SECRET_VALUE);await user.click(dialog.getByRole('button',{name:'Tạo và chọn'}));await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());await user.click(save());
+it('marks an entered literal in the draft and creates it only after bulk confirmation',async()=>{
+  const api=serve();const user=userEvent.setup();await newWorkload(user);await addRow(user,1,'API_TOKEN');
+  await user.type(table().getByLabelText('Giá trị nhập, dòng 1'),SECRET_VALUE);
+  await user.click(table().getByLabelText('Bí mật, dòng 1'));expect(api.creates()).toHaveLength(0);expect(save()).toBeDisabled();
+  await user.click(screen.getByRole('button',{name:'Xác nhận bí mật'}));
+  const dialog=within(screen.getByRole('dialog',{name:'Xác nhận bí mật'}));expect(dialog.queryByText(SECRET_VALUE)).not.toBeInTheDocument();
+  await user.click(dialog.getByRole('button',{name:'Tạo và gắn tham chiếu'}));
+  await dialog.findByText('Đã tạo');await user.click(dialog.getByRole('button',{name:'Đóng'}));await user.click(save());
   expect(api.creates()[0]!.body).toEqual({name:'API_TOKEN',kind:'SECRET',value:SECRET_VALUE,version:1});expect(api.puts()[0]!.workload.containers.main?.variables).toEqual({API_TOKEN:'${resources.env.API_TOKEN}'});expect(JSON.stringify(api.puts())).not.toContain(SECRET_VALUE);expect(document.body.textContent).not.toContain(SECRET_VALUE);expect(api.calls.some(c=>c.method==='DELETE')).toBe(false);
 });
 
-it('Cancel Secret creation preserves the previous literal without publishing it as a Secret',async()=>{
+it('cancelling bulk confirmation preserves the entered literal and marker without committing',async()=>{
   const api=serve();const user=userEvent.setup();await newWorkload(user);await addRow(user,1,'X');await user.type(table().getByLabelText('Giá trị nhập, dòng 1'),'ordinary');await user.click(table().getByLabelText('Bí mật, dòng 1'));
-  expect(within(screen.getByRole('dialog')).getByLabelText('Giá trị bí mật')).toHaveValue('');await user.keyboard('{Escape}');expect(table().getByRole('button', { name: 'Chọn nguồn, dòng 1' })).toHaveFocus();expect(table().getByLabelText('Giá trị nhập, dòng 1')).toHaveValue('ordinary');expect(api.creates()).toHaveLength(0);
+  const trigger=screen.getByRole('button',{name:'Xác nhận bí mật'});await user.click(trigger);await user.keyboard('{Escape}');expect(trigger).toHaveFocus();expect(table().getByLabelText('Giá trị nhập, dòng 1')).toHaveValue('ordinary');expect(api.creates()).toHaveLength(0);expect(save()).toBeDisabled();
+  await user.click(table().getByLabelText('Bí mật, dòng 1'));expect(save()).toBeEnabled();
 });
 
 it('duplicate create never overwrites and selecting existing remains explicit',async()=>{
@@ -602,4 +607,79 @@ it('selects an existing shared resource inline without copying outputs or creati
   expect(api.puts()[0]!.workload.resources?.db).toEqual(spec);
   expect(api.puts()[0]!.workload.containers.main?.variables).toEqual({ DB_HOST: '${resources.db.host}' });
   expect(api.calls.filter(call => call.method === 'POST')).toEqual([]);
+});
+
+it('edits .env atomically, blocks stale UI on errors, and switches without mutations',async()=>{
+  const api=serve();const user=userEvent.setup();await newWorkload(user);
+  await user.click(screen.getByRole('button',{name:'Nhập từ file .env'}));
+  const text=screen.getByLabelText('Nội dung .env');
+  await user.type(text,'ZETA=one\nALPHA=two');
+  await user.click(screen.getByRole('button',{name:'Quay lại bảng'}));
+  expect(table().getByLabelText('Tên biến, dòng 1')).toHaveValue('ZETA');
+  expect(table().getByLabelText('Tên biến, dòng 2')).toHaveValue('ALPHA');
+  await user.click(table().getByRole('button',{name:'Đưa dòng 2 lên'}));
+  await user.click(screen.getByRole('button',{name:'Nhập từ file .env'}));
+  expect(text).toHaveValue('ALPHA="two"\nZETA="one"');
+  fireEvent.change(text,{target:{value:'NEW=ok\nBROKEN'}});
+  expect(screen.getByRole('button',{name:'Quay lại bảng'})).toBeDisabled();expect(save()).toBeDisabled();
+  expect(screen.getByLabelText('Tên biến, dòng 1')).toHaveValue('ALPHA');
+  const group = text.closest('details')!;
+  group.open = false; fireEvent(group, new Event('toggle'));
+  expect(save()).toBeDisabled();
+  group.open = true; fireEvent(group, new Event('toggle'));
+  expect(screen.getByLabelText('Nội dung .env')).toHaveValue('NEW=ok\nBROKEN');
+  expect(api.creates()).toHaveLength(0);expect(api.puts()).toHaveLength(0);
+  await user.clear(text);await user.type(text,'NEW=ok');
+  await user.click(screen.getByRole('button',{name:'Quay lại bảng'}));
+  expect(table().getByLabelText('Tên biến, dòng 1')).toHaveValue('NEW');
+});
+
+it('synchronizes secret markers, reuses entered values in bulk and advances create versions',async()=>{
+  const api=serve();const user=userEvent.setup();await newWorkload(user);
+  await addRow(user,1,'FIRST');await user.type(table().getByLabelText('Giá trị nhập, dòng 1'),'first-secret');
+  await addRow(user,2,'SECOND');await user.type(table().getByLabelText('Giá trị nhập, dòng 2'),'second-secret');
+  await user.click(table().getByLabelText('Chọn dòng 1'));await user.click(table().getByLabelText('Chọn dòng 2'));
+  await user.click(screen.getByRole('button',{name:'Đánh dấu Bí mật'}));
+  await user.click(screen.getByRole('button',{name:'Nhập từ file .env'}));
+  expect(screen.getByLabelText('Nội dung .env')).toHaveValue('# @secret\nFIRST="first-secret"\n# @secret\nSECOND="second-secret"');
+  await user.click(screen.getByRole('button',{name:'Xác nhận bí mật'}));
+  const dialog=within(screen.getByRole('dialog',{name:'Xác nhận bí mật'}));
+  await user.click(dialog.getByRole('button',{name:'Tạo và gắn tham chiếu'}));
+  await waitFor(()=>expect(dialog.getAllByText('Đã tạo')).toHaveLength(2));
+  expect(api.creates().map(call=>call.body)).toEqual([{name:'FIRST',kind:'SECRET',value:'first-secret',version:1},{name:'SECOND',kind:'SECRET',value:'second-secret',version:2}]);
+  expect(screen.getByLabelText('Nội dung .env')).toHaveValue('FIRST="@secret.FIRST"\nSECOND="@secret.SECOND"');
+  await user.click(dialog.getByRole('button',{name:'Đóng'}));await user.click(save());
+  expect(JSON.stringify(api.puts())).not.toMatch(/first-secret|second-secret/);
+});
+
+it('reports partial success and never automatically replays an uncertain secret create',async()=>{
+  const api=serve({create:(body,count)=>count===1?Response.json({version:2,secretStoreKey:'vault-a',keys:[...catalogKeys,{name:body.name,kind:'SECRET',configured:true,usedBy:[]}]},{status:201}):Promise.reject(new TypeError('network'))});
+  const user=userEvent.setup();await newWorkload(user);
+  await user.click(screen.getByRole('button',{name:'Nhập từ file .env'}));
+  await user.type(screen.getByLabelText('Nội dung .env'),'# @secret\nFIRST=one\n# @secret\nSECOND=two');
+  await user.click(screen.getByRole('button',{name:'Xác nhận bí mật'}));
+  const dialog=within(screen.getByRole('dialog',{name:'Xác nhận bí mật'}));await user.click(dialog.getByRole('button',{name:'Tạo và gắn tham chiếu'}));
+  await dialog.findByText('Đã tạo');await dialog.findByText('Chưa rõ kết quả — tải lại cấu hình để rà soát');
+  expect(api.creates()).toHaveLength(2);expect(dialog.getByRole('button',{name:'Tạo và gắn tham chiếu'})).toBeDisabled();
+  expect(screen.getByLabelText('Nội dung .env')).toHaveValue('FIRST="@secret.FIRST"\n# @secret\nSECOND="two"');
+  expect(save()).toBeDisabled();
+});
+
+it('requires explicit reuse of an existing Secret and never overwrites it',async()=>{
+  const api=serve();const user=userEvent.setup();await newWorkload(user);await addRow(user,1,'DATABASE_PASSWORD');await user.type(table().getByLabelText('Giá trị nhập, dòng 1'),'new-value');await user.click(table().getByLabelText('Bí mật, dòng 1'));
+  await user.click(screen.getByRole('button',{name:'Xác nhận bí mật'}));const dialog=within(screen.getByRole('dialog',{name:'Xác nhận bí mật'}));
+  expect(dialog.getByRole('button',{name:'Tạo và gắn tham chiếu'})).toBeDisabled();
+  await user.click(dialog.getByLabelText('Dùng key hiện có'));await user.click(dialog.getByRole('button',{name:'Tạo và gắn tham chiếu'}));await dialog.findByText('Đã dùng Secret hiện có');
+  expect(api.creates()).toHaveLength(0);expect(api.configurationChanged()).toHaveLength(0);
+});
+
+it('keeps an invalid text draft with its container when an earlier container is removed',async()=>{
+  const api=serve();const user=userEvent.setup();await newWorkload(user);
+  await user.click(screen.getByRole('button',{name:'+ Thêm Container'}));
+  await user.click(screen.getAllByRole('button',{name:'Nhập từ file .env'})[1]!);
+  fireEvent.change(screen.getAllByLabelText('Nội dung .env')[1]!,{target:{value:'BROKEN_SECOND'}});
+  const first=screen.getByRole('heading',{name:'Container 1'}).closest('section')!;
+  await user.click(within(first).getByRole('button',{name:/^Xóa$/}));
+  expect(screen.getByLabelText('Nội dung .env')).toHaveValue('BROKEN_SECOND');
+  expect(screen.getByRole('button',{name:'Quay lại bảng'})).toBeDisabled();expect(save()).toBeDisabled();expect(api.puts()).toHaveLength(0);
 });

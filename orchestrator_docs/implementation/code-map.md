@@ -1398,3 +1398,15 @@ unchanged drafts are checked by `e2e/scenarios/workload-template-versions/`.
 | Operation detail notes and API projection | [`envops/manager.go`](../../backend/internal/application/envops/manager.go) (`Annotate`), [`envops/waits.go`](../../backend/internal/application/envops/waits.go), `podWaitsOf` in [`http/stores.go`](../../backend/internal/delivery/http/stores.go), [`PodWaits.tsx`](../../frontend/src/features/deployments/PodWaits.tsx) |
 | Active revision for unselected Environments; Preview notice | [`definitionversions/service.go`](../../backend/internal/application/definitionversions/service.go) (`Effective`, `HasSucceeded`), `newerDefinitions` in [`pending/preview.go`](../../backend/internal/application/pending/preview.go) |
 | Running database refusal code | `ErrDataMigrationRequired` in [`catalogrelease/safety.go`](../../backend/internal/application/catalogrelease/safety.go) |
+
+## Workload .env — issue #72
+
+- `frontend/src/features/workloads/envfile.ts`: positional parser, exact-value
+  serializer, reference classification and explicit non-destructive file merge.
+- `EnvironmentVariablesEditor.tsx` in the same directory: synchronized table/text views,
+  invalid-text gate, UTF-8 upload/review/download and bulk confirmation entry.
+- `BulkSecretsDialog.tsx`: sequential UC-12 create-only, advancing version,
+  explicit existing-key reuse and partial/uncertain outcomes without auto replay.
+- `WorkloadEditorPage.tsx`: stable container identities, Save gate for marked
+  literals/invalid text and alias-to-binding rename. Binding flags are memory-only.
+- [Acceptance runner](../../e2e/scenarios/workload-envfile/README.md).

@@ -39,3 +39,7 @@ sau specification/UI/contract; đây là yêu cầu chưa implement, không ph�
 [shared contract](../../architecture/contracts/workload-catalog.md) và
 [implementation handoff](../../implementation/workload-catalog.md) mô tả phần
 mở rộng đang review; chưa thay thế current behavior hoặc chứng minh implementation.
+
+## Nhập .env — issue #72
+
+[Specification](envfile-specification.md) sở hữu hai tab đồng bộ và grammar.

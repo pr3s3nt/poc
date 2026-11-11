@@ -57,7 +57,7 @@ it('offers Git only when creating a Terraform Definition', async () => {
   expect(screen.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên' })).toBeDisabled();
 });
 
-it('keeps the Workload form available without import actions or a file picker', async () => {
+it('keeps Workload import hidden while allowing the scoped .env file picker', async () => {
   vi.stubGlobal('fetch', vi.fn(async (input, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
@@ -69,5 +69,6 @@ it('keeps the Workload form available without import actions or a file picker', 
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
   expect(screen.getByLabelText('Tên Workload')).toBeEnabled();
   expect(screen.queryByRole('button', { name: 'Nhập Workload' })).not.toBeInTheDocument();
-  expect(container.querySelector('input[type="file"]')).toBeNull();
+  expect(container.querySelectorAll('input[type="file"]')).toHaveLength(1);
+  expect(screen.getByLabelText('Chọn file UTF-8')).toHaveAttribute('accept', '.env,text/plain');
 });

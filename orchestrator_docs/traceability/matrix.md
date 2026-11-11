@@ -1627,3 +1627,13 @@ separate in the Environment rollback verification record.
 | UC-03 DV-04 Preview new-revision notice | `pending.newerDefinitions` → Preview `newerDefinitions`; Console Preview notice | `TestNewerDefinitionsNamesOnlyOlderPinnedRevisions`; `ApplicationHomePage.test.tsx` Preview notice |
 | UC-08 BR-11 stuck Pod replacement on Terraform readiness | `kubernetes/stuckpod.Evaluate`; `readiness.Checker.recoverStuckPods`; `tfexec.readinessRecorder` → `envops.Annotate` (operation detail `readiness:<descriptor>`); `-stuck-pod-threshold` | `stuckpod` table tests; `TestFixedRevisionReplacesStuckPodAndBecomesReady`, `TestNoNewRevisionReportsReasonWithoutDeleting`, `TestMissingDeletePermissionOnlyReports`; `TestAnnotatePersistsAcrossStage`; operations `podWaits` projection (`TestPodWaitsProjectOnlySanitizedEntries`) and Console `PodWaits` (`ApplicationHomePage.test.tsx`); kind Console scenario (planned) |
 | UC-06 CD-11 stuck Pod replacement while waiting for Fleet rollout | `port.StuckPodRecovery`; Fleet `Provider.RecoverStuckPods` (owned StatefulSets carrying this delivery revision); coordinator wait loop → `envops.WaitRecorder` (operation detail `rollout:<unit>`) | `TestFleetFixedRevisionReplacesStuckPod`, `TestFleetWithoutFixOrForeignRevisionOnlyReports`, `TestFleetMissingDeletePermissionOnlyReports`, `TestDeployRecoversStuckPodsWhileWaiting`; kind Console scenario (planned) |
+
+## UI/.env — issue #72
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| UC-16 ENVFILE-01/02 | envfile.ts, EnvironmentVariablesEditor, WorkloadEditorPage | envfile.test.ts; EnvironmentVariablesTable.test.tsx; container-identity/collapse guards |
+| ENVFILE-03 | DependencyFields guards; row context; alias rename | parser/DependencyFields tests; workload-envfile browser rename/two PostgreSQL resources |
+| ENVFILE-04 | UTF-8 file review/merge/download | EnvironmentVariablesEditor.test.tsx; real browser merge/download |
+| ENVFILE-05; UC-12 BR-24–28 | BulkSecretsDialog; existing createKey API | bulk/explicit-reuse/partial/unknown tests; real Secret delivery/readback assertions |
+| ENVFILE-06 | current shell/VI-EN/Preview/Deploy | e2e/scenarios/workload-envfile; kind full checks; Tailscale browser handoff |

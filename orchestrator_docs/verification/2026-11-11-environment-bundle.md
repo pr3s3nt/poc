@@ -69,6 +69,18 @@ all application checks, job, PVC and scheduled receipt passed again. Backend
 tests cover the first selection by a developer and `SECRET_STORE_LOCKED` for a
 developer change; frontend tests cover both views.
 
+## Main on the shared kind Console — 2026-11-11
+
+`main` `f6fec6d6` was installed in `orchestrator-dev-3070` after a verified
+PostgreSQL backup and PVC archive; the Vault store policy ConfigMap was refreshed
+before Vault restarted. Template sources stayed AVAILABLE and the existing
+per-workload Application (`verify55b`) stayed Ready. A new Application
+(`bundle-main`) with Definitions scoped to its `app_id` (cluster, namespace,
+PostgreSQL, Redis, storage and the branch standard template) ran every stage as
+`platform-engineer`: deploy, image, secret, fail, rollback, resync and cleanup
+all passed; deletion removed its namespace, Fleet GitRepo and workload Vault
+paths. The scoped Definitions remain (no delete operation exists).
+
 ## Defects found and fixed during the run
 
 1. A migration Job needs Secrets the app unit had not published yet: secret

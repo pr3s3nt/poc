@@ -21,13 +21,16 @@ assert(STAGES.includes(stage), 'stage: ' + STAGES.join('|'));
 const dir = process.env.ORCH_TEST_RUN_DIR;
 assert(dir, 'ORCH_TEST_RUN_DIR');
 outsideRepo(dir);
-const ENV = 'staging';
+const ENV = process.env.ORCH_ENVIRONMENT || 'staging';
+const ENV_LABEL = ENV.charAt(0).toUpperCase() + ENV.slice(1);
 const CONTEXT = process.env.ORCH_KUBE_CONTEXT || 'kind-k8s-4f';
 const CONSOLE_NS = process.env.ORCH_CONSOLE_NAMESPACE;
 assert(CONSOLE_NS, 'ORCH_CONSOLE_NAMESPACE: namespace of the Console and its Vault');
 const TAG = process.env.ORCH_ACCEPTANCE_IMAGE_TAG || 'issue67-v1';
 const TAG2 = process.env.ORCH_ACCEPTANCE_IMAGE_TAG2 || 'issue67-v2';
 const STORE = process.env.ORCH_SECRET_STORE_NAME || 'Issue67 Vault';
+// Workload class the shared Console's workload Definition matches; empty keeps the default.
+const WORKLOAD_CLASS = process.env.ORCH_WORKLOAD_CLASS || '';
 const file = join(dir, 'state.json');
 const state = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {};
 const save = () => writeFileSync(file, JSON.stringify(state, null, 2), { mode: 0o600 });
@@ -71,13 +74,16 @@ function fleetBundles() {
 
 // ---------- Console sessions ----------
 const admin = readConsoleConfig();
-const developerConfig = () => ({ ...admin, username: 'developer', password: readPrivateFile(join(dir, 'developer-password'), 'mật khẩu developer') });
+// ORCH_DEVELOPER_USERNAME/ORCH_DEVELOPER_PASSWORD_FILE select an existing
+// account (for example on a shared Console); default is the run's developer.
+const developerConfig = () => ({ ...admin, username: process.env.ORCH_DEVELOPER_USERNAME || 'developer', password: readPrivateFile(process.env.ORCH_DEVELOPER_PASSWORD_FILE || join(dir, 'developer-password'), 'mật khẩu developer') });
+const developerIsPlatform = () => process.env.ORCH_DEVELOPER_IS_PLATFORM === '1';
 let adminSession, devSession;
 async function asAdmin() { adminSession ??= await openConsole(admin, {}); return makeUI(adminSession.page, admin.baseURL, 1_800_000); }
 async function asDeveloper() {
   if (!devSession) {
     const browser = adminSession?.browser ?? (await asAdmin(), adminSession.browser);
-    devSession = await signInContext(browser, developerConfig(), { role: 'DEVELOPER' });
+    devSession = await signInContext(browser, developerConfig(), developerIsPlatform() ? {} : { role: 'DEVELOPER' });
   }
   return makeUI(devSession.page, admin.baseURL, 1_800_000);
 }
@@ -127,7 +133,7 @@ async function openSettings(ui) {
 
 async function selectStore(ui, storeKey) {
   await openSettings(ui);
-  await ui.page.getByLabel('Kho bí mật cho Staging', { exact: true }).selectOption(storeKey);
+  await ui.page.getByLabel('Kho bí mật cho ' + ENV_LABEL, { exact: true }).selectOption(storeKey);
   await ui.submit(base() + '/secret-store', 'PUT', ui.page.getByRole('button', { name: 'Lưu kho bí mật', exact: true }));
 }
 
@@ -282,6 +288,10 @@ async function authorWorkload(ui, spec) {
   await page.getByRole('dialog').getByRole('button', { name: new RegExp('^' + spec.template + '\\s+(Deployment|CronJob|StatefulSet)') }).click();
   await page.getByLabel('Tên Workload', { exact: true }).fill(spec.name);
   await page.getByLabel('Ảnh Container', { exact: true }).fill(spec.image);
+  if (WORKLOAD_CLASS) {
+    const rare = await group(ui, 'Cấu hình ít thay đổi');
+    await rare.getByRole('combobox', { name: 'Class Workload', exact: true }).selectOption(WORKLOAD_CLASS);
+  }
   if (spec.port) {
     const network = await group(ui, 'Service & kết nối');
     await network.getByRole('button', { name: '+ Thêm cổng', exact: true }).click();
@@ -304,6 +314,9 @@ async function authorWorkload(ui, spec) {
       await row.getByLabel('Alias tài nguyên', { exact: true }).fill(dep.alias);
       await row.getByRole('combobox', { name: 'Loại tài nguyên', exact: true }).selectOption(dep.type);
       for (const [k, v] of Object.entries(dep.params ?? {})) await row.getByLabel('Tham số ' + k, { exact: true }).fill(v);
+      // The shared resource class of the acceptance app; explicit when several classes exist.
+      const klass = row.getByLabel(`Cách cung cấp (class) của ${dep.alias}`, { exact: true });
+      if (await klass.inputValue() !== 'in-cluster') await klass.selectOption('in-cluster');
     }
   }
   if (spec.mount) {
@@ -314,6 +327,8 @@ async function authorWorkload(ui, spec) {
     await add.getByRole('combobox', { name: 'Loại', exact: true }).selectOption({ label: 'Lưu trữ bền vững (PVC)' });
     await add.getByRole('button', { name: 'Tạo hoặc chọn lưu trữ', exact: true }).click();
     const storage = page.getByRole('dialog', { name: 'Thêm tài nguyên lưu trữ', exact: true });
+    const storageType = storage.getByRole('combobox', { name: 'Loại tài nguyên', exact: true });
+    if (await storageType.inputValue() !== 'persistent-storage') await storageType.selectOption('persistent-storage');
     await storage.getByLabel('Tham số storage', { exact: true }).fill('1Gi');
     await storage.getByRole('button', { name: 'Thêm và chọn', exact: true }).click();
     await storage.waitFor({ state: 'detached' });
@@ -378,10 +393,12 @@ async function prepare() {
   const appView = (await dev.get('/applications/' + state.app.key)).application;
   if (!appView.environments.find((e) => e.key === ENV).secretStoreKey) await selectStore(dev, store.key);
   await openSettings(dev);
-  await dev.page.getByText('Kho bí mật đã chọn thì chỉ Kỹ sư nền tảng hoặc Quản trị viên đổi được.').waitFor();
-  assert.equal(await dev.page.getByLabel('Kho bí mật cho Staging', { exact: true }).count(), 0, 'developer must not change a selected store');
+  if (!developerIsPlatform()) {
+    await dev.page.getByText('Kho bí mật đã chọn thì chỉ Kỹ sư nền tảng hoặc Quản trị viên đổi được.').waitFor();
+    assert.equal(await dev.page.getByLabel('Kho bí mật cho ' + ENV_LABEL, { exact: true }).count(), 0, 'developer must not change a selected store');
+  }
   await shot(dev, 'developer-store');
-  pass(`Developer selected ${STORE} for staging and then sees it read-only`);
+  pass(`${developerConfig().username} selected ${STORE} for ${ENV}${developerIsPlatform() ? '' : ' and then sees it read-only'}`);
 
   const secret = randomBytes(24).toString('hex');
   state.secretHashes = [createHash('sha256').update(secret).digest('hex')];
