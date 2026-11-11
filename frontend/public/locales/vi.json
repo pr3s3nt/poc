@@ -4124,5 +4124,10 @@
   "execution.reason.FLEET_APPLY_FAILED": "Fleet chưa áp dụng được manifest",
   "execution.hint.fleetAccess": "Cần kỹ sư nền tảng kiểm tra quyền của tài khoản Fleet cho namespace này.",
   "execution.hint.fleetAuth": "Cần kỹ sư nền tảng kiểm tra danh tính và cấu hình xác thực của Fleet.",
-  "execution.workloadStep": "{workload} · {step}"
+  "execution.workloadStep": "{workload} · {step}",
+  "execution.secrets.none": "Không có binding secret cần chuẩn bị.",
+  "execution.secrets.prepared": "Đã chuẩn bị {count} binding secret.",
+  "execution.secrets.required": "Cần chuẩn bị {count} binding secret.",
+  "execution.rendered.total": "Đã render {count} object.",
+  "execution.rendered.other": "Loại khác"
 }

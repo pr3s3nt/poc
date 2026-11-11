@@ -4124,5 +4124,10 @@
   "execution.reason.FLEET_APPLY_FAILED": "Fleet could not apply the manifests",
   "execution.hint.fleetAccess": "A platform engineer must check Fleet account permissions for this namespace.",
   "execution.hint.fleetAuth": "A platform engineer must check Fleet identity and authentication.",
-  "execution.workloadStep": "{workload} · {step}"
+  "execution.workloadStep": "{workload} · {step}",
+  "execution.secrets.none": "No secret bindings required.",
+  "execution.secrets.prepared": "Prepared {count} secret bindings.",
+  "execution.secrets.required": "{count} secret bindings required.",
+  "execution.rendered.total": "Rendered {count} objects.",
+  "execution.rendered.other": "Other"
 }

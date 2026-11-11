@@ -45,3 +45,27 @@ func TestProgressNeverExposesCredentialsEmbeddedInAnImageURL(t *testing.T) {
 		t.Fatal("credential-bearing URL accepted as an identity")
 	}
 }
+
+func TestPreparationFactsAreBoundedSafeAndSurvivePersistence(t *testing.T) {
+	zero := 0
+	source := Step{SecretBindings: &zero, Rendered: &RenderSummary{Objects: 2, Kinds: []ObjectCount{{Kind: "Secret", Count: 1}, {Kind: "PRIVATE", Count: 1}}}}
+	raw, _ := json.Marshal(Record{Steps: []Step{source}})
+	var value any
+	_ = json.Unmarshal(raw, &value)
+	got := Read(value).Steps[0]
+	if got.SecretBindings == nil || *got.SecretBindings != 0 || got.Rendered.Objects != 2 || got.Rendered.Kinds[1].Kind != "Other" {
+		t.Fatalf("lost safe facts: %+v", got)
+	}
+	if strings.Contains(string(mustJSON(got)), "PRIVATE") {
+		t.Fatal("untrusted kind exposed")
+	}
+	negative := -5
+	got = (Step{SecretBindings: &negative, Rendered: &RenderSummary{Objects: 200000, Kinds: []ObjectCount{{Kind: "Secret", Count: -4}}}}).Safe()
+	if *got.SecretBindings != 0 || got.Rendered.Objects != 100000 || got.Rendered.Kinds[0].Count != 0 {
+		t.Fatal("unbounded facts")
+	}
+	if Read(nil).Steps == nil {
+		t.Fatal("legacy record changed")
+	}
+}
+func mustJSON(v any) []byte { b, _ := json.Marshal(v); return b }

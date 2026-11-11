@@ -23,3 +23,23 @@ it('explains a Fleet permission failure without pod evidence or raw controller o
  expect(screen.getByRole('alert')).toHaveTextContent('Fleet chưa có quyền truy cập tài nguyên trong namespace');
  expect(screen.getByRole('alert')).toHaveTextContent('Cần kỹ sư nền tảng kiểm tra quyền');
 });
+it('shows actual preparation results, explicit zero and no empty disclosure for legacy steps',()=>{
+ const base={startedAt:'2026-11-11T01:00:00Z',updatedAt:'2026-11-11T01:00:01Z',status:'SUCCEEDED'};
+ const {container}=render(<ExecutionProgress record={{version:1,steps:[
+ {...base,id:'old',kind:'PLAN'},
+ {...base,id:'none',kind:'SECRETS',secretBindings:0},
+ {...base,id:'secret',kind:'SECRETS',secretBindings:3},
+ {...base,id:'render',kind:'RENDER',rendered:{objects:3,kinds:[{kind:'Deployment',count:1},{kind:'Service',count:2}]}},
+ ]}} />);
+ expect(screen.getByText('Không có binding secret cần chuẩn bị.')).toBeInTheDocument();
+ expect(screen.getByText('Đã chuẩn bị 3 binding secret.')).toBeInTheDocument();
+ expect(screen.getByText('Đã render 3 object.')).toBeInTheDocument();
+ expect(screen.getByText('Service: 2')).toBeInTheDocument();
+ expect(container.querySelectorAll('.execution-step > details')).toHaveLength(3);
+ expect(screen.getByText('Kiểm tra & lập kế hoạch').closest('details')).toBeNull();
+});
+it('does not present an interrupted secret preparation as prepared',()=>{
+ render(<ExecutionProgress record={{version:1,steps:[{...failed.steps[0]!,id:'secret',kind:'SECRETS',status:'INTERRUPTED',pods:[],events:[],secretBindings:2}]}} />);
+ expect(screen.getByText('Cần chuẩn bị 2 binding secret.')).toBeInTheDocument();
+ expect(screen.queryByText(/Đã chuẩn bị/)).not.toBeInTheDocument();
+});

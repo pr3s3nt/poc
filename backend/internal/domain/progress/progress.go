@@ -29,9 +29,20 @@ type Log struct {
 	Stage  string    `json:"stage"`
 	Status string    `json:"status"`
 }
+type ObjectCount struct {
+	Kind  string `json:"kind"`
+	Count int    `json:"count"`
+}
+type RenderSummary struct {
+	Objects int           `json:"objects"`
+	Kinds   []ObjectCount `json:"kinds"`
+}
+
 type Step struct {
-	Logs  []Log  `json:"logs,omitempty"`
-	Stage string `json:"stage,omitempty"`
+	SecretBindings *int           `json:"secretBindings,omitempty"`
+	Rendered       *RenderSummary `json:"rendered,omitempty"`
+	Logs           []Log          `json:"logs,omitempty"`
+	Stage          string         `json:"stage,omitempty"`
 
 	ResourceKind string     `json:"resourceKind,omitempty"`
 	ResourceName string     `json:"resourceName,omitempty"`
@@ -75,7 +86,47 @@ func Reason(v string) string {
 	}
 	return "UNKNOWN"
 }
+func boundedCount(n int) int {
+	if n < 0 {
+		return 0
+	}
+	if n > 100000 {
+		return 100000
+	}
+	return n
+}
+func ObjectKind(kind string) string {
+	switch kind {
+	case "Deployment", "StatefulSet", "DaemonSet", "ReplicaSet", "Pod", "Service", "Ingress", "Job", "CronJob", "ConfigMap", "Secret", "ServiceAccount", "Role", "RoleBinding", "PersistentVolumeClaim", "NetworkPolicy", "HorizontalPodAutoscaler", "PodDisruptionBudget", "VaultAuth", "VaultStaticSecret":
+		return kind
+	default:
+		return "Other"
+	}
+}
 func (s Step) Safe() Step {
+	if s.SecretBindings != nil {
+		n := boundedCount(*s.SecretBindings)
+		s.SecretBindings = &n
+	}
+	if s.Rendered != nil {
+		r := &RenderSummary{Objects: boundedCount(s.Rendered.Objects), Kinds: []ObjectCount{}}
+		for _, item := range s.Rendered.Kinds {
+			kind := ObjectKind(item.Kind)
+			found := false
+			for i := range r.Kinds {
+				if r.Kinds[i].Kind == kind {
+					r.Kinds[i].Count = boundedCount(r.Kinds[i].Count + boundedCount(item.Count))
+					found = true
+					break
+				}
+			}
+			if !found {
+				r.Kinds = append(r.Kinds, ObjectCount{Kind: kind, Count: boundedCount(item.Count)})
+			}
+		}
+		s.Rendered = r
+	}
+
 	s.ResourceKind = Identity(s.ResourceKind)
 	s.ResourceName = Identity(s.ResourceName)
 	s.Namespace = Identity(s.Namespace)

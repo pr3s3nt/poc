@@ -47,6 +47,12 @@ func (l *Lease) recordProgress(step progress.Step, check bool) {
 		if step.DeploymentID == "" {
 			step.DeploymentID = old.DeploymentID
 		}
+		if step.SecretBindings == nil {
+			step.SecretBindings = old.SecretBindings
+		}
+		if step.Rendered == nil {
+			step.Rendered = old.Rendered
+		}
 		if step.Pods == nil {
 			step.Pods = old.Pods
 		}

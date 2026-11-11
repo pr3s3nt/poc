@@ -840,6 +840,14 @@ func (s *Service) applyWorkload(
 	var configSecretKeys map[string]map[string]string
 	var secretDelivery map[string]any
 	var secretManifests []execution.Manifest
+	secretBindingCount := 0
+	for _, entries := range secretEnv {
+		secretBindingCount += len(entries)
+	}
+	for _, entries := range storeRefs {
+		secretBindingCount += len(entries)
+	}
+	progress.Report(ctx, progress.Step{ID: record.ID + ":secret", Workload: workloadID, DeploymentID: record.ID, Kind: "SECRETS", Status: "RUNNING", SecretBindings: &secretBindingCount})
 	hasPrivateValues := false
 	for _, values := range secretEnv {
 		hasPrivateValues = hasPrivateValues || len(values) > 0
@@ -867,7 +875,6 @@ func (s *Service) applyWorkload(
 		}
 		secretEnv = nil // Vault Agent receives only immutable private references.
 	}
-	progress.Report(ctx, progress.Step{ID: record.ID + ":secret", Workload: workloadID, DeploymentID: record.ID, Kind: "SECRETS", Status: "RUNNING"})
 	deliveryRevision := configRevisionID
 	if deliveryRevision == "" {
 		deliveryRevision = record.ID
@@ -974,7 +981,7 @@ func (s *Service) applyWorkload(
 		}
 		renderReferences[name] = value
 	}
-	progress.Report(ctx, progress.Step{ID: record.ID + ":secret", Workload: workloadID, DeploymentID: record.ID, Kind: "SECRETS", Status: "SUCCEEDED"})
+	progress.Report(ctx, progress.Step{ID: record.ID + ":secret", Workload: workloadID, DeploymentID: record.ID, Kind: "SECRETS", Status: "SUCCEEDED", SecretBindings: &secretBindingCount})
 	progress.Report(ctx, progress.Step{ID: record.ID + ":render", Workload: workloadID, DeploymentID: record.ID, Kind: "RENDER", Status: "RUNNING"})
 	manifests, err := s.renderer.Render(ctx, execution.RenderRequest{
 		ResourceReferences: renderReferences,
@@ -1003,8 +1010,8 @@ func (s *Service) applyWorkload(
 		}
 		manifests = append(manifests, route)
 	}
-	progress.Report(ctx, progress.Step{ID: record.ID + ":render", Workload: workloadID, DeploymentID: record.ID, Kind: "RENDER", Status: "SUCCEEDED"})
 	manifests = append(secretManifests, manifests...)
+	progress.Report(ctx, progress.Step{ID: record.ID + ":render", Workload: workloadID, DeploymentID: record.ID, Kind: "RENDER", Status: "SUCCEEDED", Rendered: renderProgressSummary(manifests)})
 	digest, err := manifestDigest(manifests)
 	if err != nil {
 		return err

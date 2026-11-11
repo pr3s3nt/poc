@@ -141,6 +141,10 @@ Deploy progress, show a vertical step timeline grouped by workload, automaticall
 expanding active/failed steps. Each
 step shows status/time and its actual wait deadline, safe pod reason, image,
 restart count and latest three events; all recorded events are a disclosure.
+Secret preparation shows required/prepared binding counts (including no secret
+required); render shows total objects and counts by kind. Never show secret keys,
+values, references or raw manifest bodies here. Older steps without these facts
+remain plain status/time rows; only steps with actual detail have disclosure.
 The failure panel includes fixed localized guidance for recognized reasons.
 Environment operation banner summarizes this same progress with a detail link.
 Recovery shows prior heartbeat before confirmation, then a concise conclusion

@@ -202,7 +202,10 @@ evidence remains UNKNOWN; current-run facts always take precedence.
   image, restart count and Kubernetes event reason; never introduce another
   observer loop or alter Deploy/Recovery decisions. Unavailable diagnostics must
   not be represented as success or replace the last known observation.
-- **DP-03:** Expand running/failed steps in a vertical timeline grouped by workload.
+- **DP-03:** Record secret binding counts and rendered object totals/counts by
+  kind without values, keys, private references or manifest bodies. Explicit zero
+  means no secret binding required; absent historical facts remain unknown.
+  Steps without detail have no disclosure control. Expand running/failed steps in a vertical timeline grouped by workload.
   Show elapsed/remaining time, a concise failure reason and fixed guidance for
   image pull, crash loop, missing configuration, scheduling, OOM, Terraform and Job
   failures. Unknown failures show only a safe reason, never inferred guidance.

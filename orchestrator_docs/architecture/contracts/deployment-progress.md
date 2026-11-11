@@ -29,6 +29,15 @@ that Fleet applied the revision. Fleet permission/authentication failures use
 fixed safe reason codes; controller message text never reaches the API. A failed
 read does not replace the last successful observation.
 
+Steps may also retain `secretBindings` (a count of container variable/file
+bindings, including explicit zero) and `rendered` (total object count and counts
+by safe Kubernetes kind). These are execution facts, never reconstructed for
+older history. Names, keys, values, references and manifest bodies are excluded.
+Unknown object kinds are grouped as Other; counters are bounded and nonnegative.
+Secret preparation records the required count while running and the prepared
+count only on success; render totals are emitted only after successful render.
+Steps without evidence or child steps are plain rows, without empty disclosure.
+
 Evidence may include validated resource kind/name/namespace, Git commit,
 current-revision pod name/image/reason/restart count, Kubernetes event
 object/reason/time/count and structured Terraform stage logs. No raw CLI or

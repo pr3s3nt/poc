@@ -141,6 +141,10 @@ with generic steps; readiness adapters attach safe pod/event evidence to the
 existing observation. No new controller or observation loop is introduced.
 QueryService correlates the selected Deployment with its operation and returns
 only its persisted progress; operation DTOs expose the same safe projection.
+Secret preparation emits binding counts before preparation and after success.
+Successful rendering emits total object counts grouped by allowlisted kind;
+object bodies, secret keys/values and store references never enter these facts.
+The generic Step projection bounds these counts and maps other kinds to Other.
 Recovery records checks under the adopted lease, retaining prior heartbeat
 evidence and the Deploy timeline. Stage replacement retains the progress key
 without changing the existing semantics of other operation detail fields. Storage errors never bypass execution guards.

@@ -4,7 +4,7 @@ import { Status } from '../../shared/ui/Status';
 
 export type ProgressPod = { phase?: string; name: string; image?: string; reason: string; restarts: number };
 export type ProgressEvent = { reason: string; object: string; at: string; count?: number };
-export type ProgressStep = { stage?: string; logs?: {at:string;stage:string;status:string}[]; resourceKind?: string; resourceName?: string; namespace?: string; id: string; parent?: string; workload?: string; deploymentId?: string; kind: string; status: string; reason?: string; startedAt: string; updatedAt: string; finishedAt?: string; deadline?: string; pods?: ProgressPod[]; events?: ProgressEvent[]; commit?: string };
+export type ProgressStep = { secretBindings?: number; rendered?: {objects:number;kinds:{kind:string;count:number}[]}; stage?: string; logs?: {at:string;stage:string;status:string}[]; resourceKind?: string; resourceName?: string; namespace?: string; id: string; parent?: string; workload?: string; deploymentId?: string; kind: string; status: string; reason?: string; startedAt: string; updatedAt: string; finishedAt?: string; deadline?: string; pods?: ProgressPod[]; events?: ProgressEvent[]; commit?: string };
 export type ExecutionRecord = { version: number; steps: ProgressStep[]; checks?: ProgressStep[]; priorHeartbeat?: string };
 export function duration(start: string, end = new Date().toISOString()) {
   const seconds = Math.max(0, Math.floor((Date.parse(end) - Date.parse(start)) / 1000));
@@ -29,8 +29,12 @@ function Step({ step, now, children = [] }: { step: ProgressStep; now: string; c
   const pods = step.pods ?? []; const events = step.events ?? [];
   const baseTitle=step.kind==='TERRAFORM' && step.resourceName ? t('execution.terraformResource',{resource:step.resourceName.split('.')[0]}) : step.kind==='RECOVERY_OBJECT' && step.resourceName ? `${step.resourceKind ?? ''} ${step.resourceName}` : stepLabel(step.kind);
  const title=step.parent && step.workload ? t('execution.workloadStep',{workload:step.workload,step:baseTitle}) : baseTitle;
-  return <li className={`execution-step execution-${step.status.toLowerCase()}`}><details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
-    <summary><strong>{title}</strong> <Status tone={step.status === 'SUCCEEDED' ? 'good' : step.status === 'FAILED' ? 'draft' : 'neutral'}>{progressStatus(step.status)}</Status> <span className="execution-time">{step.status === 'PENDING' ? '—' : duration(step.startedAt, step.finishedAt ?? now)}{step.deadline && step.status === 'RUNNING' ? ` · ${t('execution.remaining', { time: duration(now, step.deadline) })}` : ''}</span></summary>
+ const hasDetail=Boolean(step.reason || step.resourceName || step.logs?.length || step.commit || pods.length || events.length || children.length || step.secretBindings !== undefined || step.rendered);
+ const summary=<><strong>{title}</strong> <Status tone={step.status === 'SUCCEEDED' ? 'good' : step.status === 'FAILED' ? 'draft' : 'neutral'}>{progressStatus(step.status)}</Status> <span className="execution-time">{step.status === 'PENDING' ? '—' : duration(step.startedAt, step.finishedAt ?? now)}{step.deadline && step.status === 'RUNNING' ? ` · ${t('execution.remaining', { time: duration(now, step.deadline) })}` : ''}</span></>;
+ const content=<>
+    {step.secretBindings !== undefined ? <p>{t(step.secretBindings === 0 ? 'execution.secrets.none' : step.status === 'SUCCEEDED' ? 'execution.secrets.prepared' : 'execution.secrets.required', {count:step.secretBindings})}</p> : null}
+    {step.rendered ? <><p>{t('execution.rendered.total',{count:step.rendered.objects})}</p>{step.rendered.kinds.length ? <ul>{step.rendered.kinds.map(item=><li key={item.kind}>{item.kind === 'Other' ? t('execution.rendered.other') : item.kind}: {item.count}</li>)}</ul> : null}</> : null}
+
     {step.reason ? <p>{reasonText(step.reason)}</p> : null}
     {step.resourceName ? <p>{step.resourceKind} <strong>{step.resourceName}</strong> · {step.namespace}</p> : null}
     {step.reason && reasonHint(step.reason) ? <p>{reasonHint(step.reason)}</p> : null}
@@ -39,7 +43,9 @@ function Step({ step, now, children = [] }: { step: ProgressStep; now: string; c
     {pods.length ? <table className="plain-table"><thead><tr><th>Pod</th><th>{t('execution.podStatus')}</th><th>{t('execution.reason')}</th><th>Image</th><th>{t('execution.restarts')}</th></tr></thead><tbody>{pods.map((pod, i) => <tr key={`${pod.name}-${i}`}><td>{pod.name}</td><td>{t(`execution.podStatus.${['Pending','Running','Succeeded','Failed'].includes(pod.phase ?? '') ? pod.phase : 'Unknown'}`)}</td><td>{pod.reason}</td><td className="execution-image">{pod.image || '—'}</td><td>{pod.restarts}</td></tr>)}</tbody></table> : null}
     {events.length ? <><h4>{t('execution.events')}</h4><Events events={events.slice(0, 3)} />{events.length > 3 ? <details><summary>{t('execution.allEvents', { count: events.length })}</summary><Events events={events} /></details> : null}</> : null}
     {children.length ? <ol className="execution-timeline">{children.map((child)=><Step key={child.id} step={child} now={now} />)}</ol> : null}
-  </details></li>;
+
+ </>;
+ return <li className={`execution-step execution-${step.status.toLowerCase()}`}>{hasDetail ? <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}><summary>{summary}</summary>{content}</details> : <div className="execution-step-row">{summary}</div>}</li>;
 }
 export function RecoveryChecks({ record }: { record: ExecutionRecord }) {
  const failures=[...(record.checks ?? [])].reverse().filter((s)=>s.status==='FAILED');

@@ -775,3 +775,5 @@ fieldset.volume-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 .execution-time { float:right; color:var(--muted); font-variant-numeric:tabular-nums; }
 .execution-image { overflow-wrap:anywhere; max-width:420px; }
 .execution-events { padding-left:20px; font-size:13px; color:var(--muted); }
+.execution-step-row { line-height:1.7; }
+.execution-step-row > .status { margin-left:12px; }
