@@ -10,10 +10,11 @@ import { t } from '../../shared/i18n';
 
 export type FocusField = 'name' | 'key' | 'output';
 export type FocusRequest = { rowId: string; field: FocusField };
-type Props = {
+export type EnvironmentVariablesProps = {
   grouped?: boolean;
   container: string; bindings: Binding[]; catalog: KeyCatalog; dependencies: Dependency[];
   types: ResourceType[]; workloads: Workload[]; self: string; context: RowContext;
+  onSelect?(id: string, selected: boolean): void; selected?: Set<string>;
   disabled: boolean; showIncomplete: boolean; focus?: FocusRequest; onFocused(): void;
   onChange(bindings: Binding[]): void; onCreateKey(kind: KeyKind, row: Binding): void;
   onAddResource(row: Binding): void;
@@ -22,7 +23,7 @@ type Choice = { id: string; label: string; group: 'shared' | 'resources' | 'serv
 
 // Direct values stay in the workload. Only scoped Application keys, declared
 // outputs and other Services are candidates: local rows are never source data.
-export function EnvironmentVariablesTable({ grouped, container, bindings, catalog, dependencies, types, workloads, self, context, disabled, showIncomplete, focus, onFocused, onChange, onCreateKey, onAddResource }: Props) {
+export function EnvironmentVariablesGrid({ grouped, container, bindings, catalog, dependencies, types, workloads, self, context, disabled, showIncomplete, focus, onFocused, onChange, onCreateKey, onAddResource, onSelect, selected }: EnvironmentVariablesProps) {
   const fields = useRef(new Map<string, HTMLElement>());
   const [added, setAdded] = useState<string>();
   const [choosing, setChoosing] = useState<string>();
@@ -54,6 +55,7 @@ export function EnvironmentVariablesTable({ grouped, container, bindings, catalo
   };
   const open = (binding: Binding) => { setQuery(''); setChoosing(binding.id); };
   function secret(binding: Binding) {
+    if (binding.source === 'LITERAL') return !!binding.secretDraft;
     if (isKeySource(binding.source)) return sourceOf(binding, catalog) === 'SECRET';
     return binding.source === 'RESOURCE' && !!types.find((type) => type.key === dependencies.find((item) => item.alias === binding.alias)?.type)?.outputs.find((output) => output.name === binding.output)?.secret;
   }
@@ -92,13 +94,13 @@ export function EnvironmentVariablesTable({ grouped, container, bindings, catalo
         const found = rowProblem(binding, position, container, bindings, context);
         const shown = found && (showIncomplete || !found.incomplete) ? found.message : undefined;
         return <tr key={binding.id} data-row={binding.id} aria-invalid={shown ? true : undefined}>
-          <td><input ref={track(binding, 'name')} aria-label={t('workloads.envTable.name', { row: position })} value={binding.name} disabled={disabled} placeholder="API_URL" spellCheck={false} aria-invalid={shown ? true : undefined} aria-describedby={shown ? `error-${binding.id}` : undefined} onChange={(event) => update(binding, { name: event.target.value })} /></td>
+          <td><div className="env-entry-name">{onSelect ? <input type="checkbox" aria-label={t('workloads.envfile.selectRow', { row: position })} checked={selected?.has(binding.id) ?? false} disabled={disabled} onChange={event => onSelect(binding.id, event.target.checked)} /> : null}<input ref={track(binding, 'name')} aria-label={t('workloads.envTable.name', { row: position })} value={binding.name} disabled={disabled} placeholder="API_URL" spellCheck={false} aria-invalid={shown ? true : undefined} aria-describedby={shown ? `error-${binding.id}` : undefined} onChange={(event) => update(binding, { name: event.target.value })} /></div></td>
           <td><div className="env-entry-value">
-            {source === 'LITERAL' ? <><input aria-label={t('workloads.envTable.value', { row: position })} value={binding.value} disabled={disabled} autoComplete="off" spellCheck={false} onChange={(event) => update(binding, { value: event.target.value })} />
+            {source === 'LITERAL' ? <>{/[\r\n]/.test(binding.value) ? <textarea rows={2} aria-label={t('workloads.envTable.value', { row: position })} value={binding.value} disabled={disabled} autoComplete="off" spellCheck={false} onChange={event => update(binding, { value: event.target.value })} /> : <input type={binding.secretDraft ? 'password' : 'text'} aria-label={t('workloads.envTable.value', { row: position })} value={binding.value} disabled={disabled} autoComplete="off" spellCheck={false} onChange={(event) => update(binding, { value: event.target.value })} />}
               <button ref={track(binding, 'key')} type="button" className="button button-quiet" disabled={disabled} aria-label={t('workloads.envEntry.chooseFor', { row: position })} onClick={() => open(binding)}>{t('workloads.envEntry.choose')}</button></>
               : <button ref={track(binding, 'key')} type="button" className="env-entry-reference" disabled={disabled} aria-label={t('workloads.envEntry.changeFor', { row: position })} onClick={() => open(binding)}><span aria-hidden="true">↗</span><code>{referenceLabel(binding)}</code>{secret(binding) ? <small>{t('workloads.envEntry.secret')}</small> : null}</button>}
           </div>{shown ? <p id={`error-${binding.id}`} className="field-error" role="alert">{shown}</p> : null}</td>
-          <td><div className="env-entry-actions"><label><input type="checkbox" aria-label={t('workloads.envEntry.secretFor', { row: position })} checked={!!secret(binding)} disabled={disabled || source !== 'LITERAL' || catalog.status !== 'ready'} onChange={() => onCreateKey('SECRET', binding)} />{t('workloads.envEntry.secret')}</label><Button tone="quiet" disabled={disabled} aria-label={t('workloads.envTable.remove', { row: position, name: binding.name || position })} onClick={() => onChange(bindings.filter((item) => item.id !== binding.id))}>{t('workloads.envTable.removeShort')}</Button></div></td>
+          <td><div className="env-entry-actions">{(['up', 'down'] as const).map(direction => <Button key={direction} tone="quiet" aria-label={t(`workloads.envfile.${direction}`, { row: position })} disabled={disabled || (direction === 'up' ? index === 0 : index === bindings.length - 1)} onClick={() => { const next = [...bindings]; const target = index + (direction === 'up' ? -1 : 1); [next[index], next[target]] = [next[target]!, next[index]!]; onChange(next); }}>{direction === 'up' ? '↑' : '↓'}</Button>)}<label><input type="checkbox" aria-label={t('workloads.envEntry.secretFor', { row: position })} checked={!!secret(binding)} disabled={disabled || source !== 'LITERAL' || catalog.status !== 'ready'} onChange={() => update(binding, { secretDraft: !binding.secretDraft })} />{t('workloads.envEntry.secret')}</label><Button tone="quiet" disabled={disabled} aria-label={t('workloads.envTable.remove', { row: position, name: binding.name || position })} onClick={() => onChange(bindings.filter((item) => item.id !== binding.id))}>{t('workloads.envTable.removeShort')}</Button></div></td>
         </tr>;
       })}</tbody>
     </table></div>}

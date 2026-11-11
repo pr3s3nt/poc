@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-11-09
+last_reviewed: 2026-11-11
 ---
 
 # Verification evidence
@@ -13,6 +13,10 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-11 | Issue #72 latest choice: right-aligned green file-entry action | [Green file entry](2026-11-11-envfile-entry-green.md) |
+| 2026-11-11 | Issue #72: left-aligned blue file-entry action; browser geometry/color/keyboard checks | [File-entry accent](2026-11-11-envfile-entry-accent.md) |
+| 2026-11-11 | Issue #72 follow-up: remove UI tab label, default table and file-entry action, focused/browser checks | [Environment entry labels](2026-11-11-envfile-entry-labels.md) |
+| 2026-11-11 | Issue #72: synchronized UI/.env, bulk create-only Secrets, 1025 frontend tests, real kind/browser acceptance and main Go baseline failures | [Workload .env](2026-11-11-workload-envfile.md) |
 | 2026-11-10 | Final main run for #55/#48; first-Rollout absence recovery compares controller identity instead of resourceVersion; three kind recoveries | [Recovery controller identity](2026-11-10-recovery-controller-identity.md) |
 | 2026-11-10 | First Rollout interrupted after its Prerequisite: absence evidence tests and kind recovery through the Console keeping Prerequisite, Service and controller | [Rollout recovery after Prerequisite](2026-11-10-rollout-recovery-prerequisite.md) |
 | 2026-11-09 | Determined rollout failure ends FAILED and releases the Environment; Recover of held operations; Console reason/log link; kind run with old and new builds | [Rollout failure release](2026-11-09-rollout-failure-release.md) |

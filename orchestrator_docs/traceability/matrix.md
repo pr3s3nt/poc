@@ -1618,3 +1618,13 @@ separate in the Environment rollback verification record.
 | Requirement | Realization/code | Validation |
 |---|---|---|
 | UC-06 CD-10 | delivery `coordinator.go` (`runPhase`), `submission_recovery.go`; deployment `PublicFailure` rollout summaries | coordinator and recovery tests for Degraded, readiness deadline, push failure, observation error and transfer hold; kind Console scenario |
+
+## UI/.env — issue #72
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| UC-16 ENVFILE-01/02 | envfile.ts, EnvironmentVariablesEditor, WorkloadEditorPage | envfile.test.ts; EnvironmentVariablesTable.test.tsx; container-identity/collapse guards |
+| ENVFILE-03 | DependencyFields guards; row context; alias rename | parser/DependencyFields tests; workload-envfile browser rename/two PostgreSQL resources |
+| ENVFILE-04 | UTF-8 file review/merge/download | EnvironmentVariablesEditor.test.tsx; real browser merge/download |
+| ENVFILE-05; UC-12 BR-24–28 | BulkSecretsDialog; existing createKey API | bulk/explicit-reuse/partial/unknown tests; real Secret delivery/readback assertions |
+| ENVFILE-06 | current shell/VI-EN/Preview/Deploy | e2e/scenarios/workload-envfile; kind full checks; Tailscale browser handoff |

@@ -12,7 +12,7 @@ import { t } from '../../shared/i18n';
 export type Source = 'LITERAL' | 'VARIABLE' | 'SECRET' | 'KEY' | 'RESOURCE' | 'SERVICE';
 // id is a stable row identity: late replies and focus never depend on the row position.
 // value is the literal as the user sees it (not escaped); alias is the Service resource alias kept from an import.
-export type Binding = { id: string; name: string; source: Source; value: string; key: string; alias: string; output: string; workload: string; port: string; resourceChanged?: boolean };
+export type Binding = { id: string; name: string; source: Source; value: string; key: string; alias: string; output: string; workload: string; port: string; secretDraft?: boolean; secretUncertain?: boolean; resourceChanged?: boolean };
 export type KeyCatalog = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; keys: ConfigKey[]; version: number; secretStoreKey?: string };
 
 let sequence = 0;

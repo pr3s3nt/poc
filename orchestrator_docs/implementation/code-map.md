@@ -1387,3 +1387,15 @@ unchanged drafts are checked by `e2e/scenarios/workload-template-versions/`.
 | Fleet unit paths | [`fleet/application.go`](../../backend/internal/adapters/delivery/fleet/application.go) |
 | Store selection lock | [`configuration/store_switch.go`](../../backend/internal/application/configuration/store_switch.go), [`SecretStoreSelection.tsx`](../../frontend/src/features/environment/SecretStoreSelection.tsx) |
 | Migration Job template | [`resources/migrate.tpl`](../../backend/template-sources/standard/resources/migrate.tpl) |
+
+## Workload .env — issue #72
+
+- `frontend/src/features/workloads/envfile.ts`: positional parser, exact-value
+  serializer, reference classification and explicit non-destructive file merge.
+- `EnvironmentVariablesEditor.tsx` in the same directory: synchronized table/text views,
+  invalid-text gate, UTF-8 upload/review/download and bulk confirmation entry.
+- `BulkSecretsDialog.tsx`: sequential UC-12 create-only, advancing version,
+  explicit existing-key reuse and partial/uncertain outcomes without auto replay.
+- `WorkloadEditorPage.tsx`: stable container identities, Save gate for marked
+  literals/invalid text and alias-to-binding rename. Binding flags are memory-only.
+- [Acceptance runner](../../e2e/scenarios/workload-envfile/README.md).

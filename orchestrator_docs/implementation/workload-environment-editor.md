@@ -11,6 +11,13 @@ related: UC-12, UC-16, UC-05, UC-06, ADR-020
 Issue triển khai: [GitHub #13](https://github.com/pr3s3nt/poc/issues/13).
 Issue liên kết commit thiết kế `7845786`; đọc HEAD của nhánh để nhận bổ sung mới nhất.
 
+## Extension UI/.env — issue #72
+
+[ENVFILE-01–06](../usecase/UC-16/envfile-specification.md) supersedes the older
+no-.env scope and immediate checkbox dialog below. Two tabs share one draft;
+marked literals await explicit bulk create-only confirmation. Existing HTTP,
+provenance, Secret delivery and independent commit guarantees remain.
+
 ## Outcome và trạng thái
 
 Developer khai báo biến bằng một bảng Tên biến → Nguồn → Giá trị/tham chiếu

@@ -2379,3 +2379,16 @@ renderer library versions, no longer the whole backend executable. A backend reb
 that leaves these unchanged keeps template sources AVAILABLE; templates registered
 with the earlier executable pin are registered again once after this upgrade.
 [Evidence](verification/2026-11-09-stable-template-renderer-pin.md).
+
+## Workload UI/.env — issue #72, feature branch
+
+`features/ui_envfile` implements per-container synchronized UI/.env editing,
+UTF-8 merge review, five reference sources, alias rename/reserved guards,
+ordered bindings, bulk draft Secret marking and explicit create-only confirmation.
+Partial/unknown outcomes keep per-row status and never replay automatically.
+No backend API/schema/renderer change. Awaiting user acceptance; not merged.
+Specification: [ENVFILE-01–06](usecase/UC-16/envfile-specification.md).
+
+[Verification](verification/2026-11-11-workload-envfile.md): 1025 frontend tests,
+typecheck/lint/build, real browser/Deploy/cleanup pass. Full Go remains red at
+13 packages on the identical main backend tree; this is not a full green gate.
