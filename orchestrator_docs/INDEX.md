@@ -245,3 +245,11 @@ Backend APIs and existing stored source revisions are unchanged.
 
 Compatible security template and UI Online Boutique trial (issue #47):
 [verification and remaining gates](verification/2026-11-07-compatible-security-boutique.md).
+
+## Detailed Deploy and Recovery progress — issue #69
+
+[UC-09 DP requirements](usecase/UC-09/specification.md#deploy-and-recovery-progress--issue-69),
+[progress contract](architecture/contracts/deployment-progress.md) and
+[UI design](usecase/UC-09/ui/screens.md#detailed-deployrecovery-progress--issue-69)
+define the persisted timeline and Recovery checks.
+[Implementation and acceptance gate](implementation/deploy-recovery-progress.md).

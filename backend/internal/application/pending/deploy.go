@@ -11,6 +11,7 @@ import (
 	"orchestrator/internal/application/workloadconfig"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/progress"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
 )
@@ -79,6 +80,9 @@ func (s *Service) DeployWithReview(ctx context.Context, appKey, envKey, actor, t
 	if err != nil {
 		return DeployReport{}, err
 	}
+	for _, change := range preview.Changes {
+		progress.Report(lease.Ctx, progress.Step{ID: "workload:" + change.WorkloadID, Workload: change.WorkloadID, Kind: "WORKLOAD", Status: "PENDING", Reason: "WAITING_DEPENDENCY"})
+	}
 	report, err := s.deployClaimed(lease, app.OrganizationKey, appKey, envKey, actor, preview)
 	if err == nil && report.Status == "SUCCEEDED" {
 		err = s.store.Transact(lease.Ctx, func(ctx context.Context) error {
@@ -110,6 +114,13 @@ func (s *Service) DeployWithReview(ctx context.Context, appKey, envKey, actor, t
 	status, failure := environment.OpSucceeded, ""
 	if err != nil || report.Status != "SUCCEEDED" {
 		status, failure = environment.OpFailed, "the deploy did not complete: "+report.Status
+	}
+	for _, item := range report.Results {
+		state := item.Status
+		if state == "SKIPPED" {
+			state = "PENDING"
+		}
+		progress.Report(lease.Ctx, progress.Step{ID: "workload:" + item.WorkloadID, Workload: item.WorkloadID, DeploymentID: item.DeploymentID, Kind: "WORKLOAD", Status: state})
 	}
 	if endErr := lease.End(status, failure); endErr != nil && err == nil {
 		err = endErr
@@ -230,6 +241,7 @@ func (s *Service) deployChanges(lease *envops.Lease, ctx context.Context, orgKey
 			appendSkipped(&report, preview.Changes[index+1:])
 			return report, nil
 		}
+		progress.Report(ctx, progress.Step{ID: "workload:" + change.WorkloadID, Workload: change.WorkloadID, Kind: "WORKLOAD", Status: "RUNNING"})
 		if err := lease.Stage("DEPLOY "+change.WorkloadID, nil); err != nil {
 			report.Results = append(report.Results, WorkloadResult{WorkloadID: change.WorkloadID, Action: change.Action, Status: "FAILED", Error: ErrInterrupted.Error()})
 			report.Status = statusFor(report.Results)

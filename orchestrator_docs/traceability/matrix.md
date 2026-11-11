@@ -1618,3 +1618,12 @@ separate in the Environment rollback verification record.
 | Requirement | Realization/code | Validation |
 |---|---|---|
 | UC-06 CD-10 | delivery `coordinator.go` (`runPhase`), `submission_recovery.go`; deployment `PublicFailure` rollout summaries | coordinator and recovery tests for Degraded, readiness deadline, push failure, observation error and transfer hold; kind Console scenario |
+
+## Deploy/Recovery progress — issue #69
+
+| Requirement | Implementation | Regression checks |
+|---|---|---|
+| UC-09 DP-01/04: durable generic steps/checks and heartbeat | `domain/progress`, `application/envops/progress`, operation JSONB | `TestProgressSurvivesHeartbeatStageAndRecovery`, `TestExecutionProgressSurvivesReopenWithRuntimeRole` |
+| DP-01: exact historical operation, including pre-plan failure | `application/deployment/query`, plan operation ID | `TestProgressHistoryUsesExactOperationBeforeAPlanExists` |
+| DP-02/05: current revision evidence and safe output | Fleet `progress.go`, coordinator, Terraform structured stage log | `TestProgressProjectionDropsUntrustedText`; Fleet/ownership and Terraform regression suites |
+| DP-03/04: timeline, failure guidance, banner and Recovery disclosure | `ExecutionProgress`, `OperationBanner`, VI/EN catalogs | `ExecutionProgress.test.tsx`, `DeploymentPages.test.tsx`, `environment.test.tsx`; user Console acceptance remains separate |

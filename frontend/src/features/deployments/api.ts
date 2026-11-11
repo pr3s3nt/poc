@@ -1,3 +1,4 @@
+import type { ExecutionRecord } from "./ExecutionProgress";
 import { api } from '../../shared/api/client';
 import type { EnvironmentKey } from '../../shared/types/application';
 import type { DeploymentReviewData, ReviewProgress, ReviewArtifact } from '../preview/DeploymentReview';
@@ -29,6 +30,8 @@ export type ResourceAttempt = {
 };
 
 export type DeploymentDetail = {
+ progress?: ExecutionRecord;
+ operationStatus?: string;
   deployment: Deployment;
   deploymentSetId: string;
   planHash: string;

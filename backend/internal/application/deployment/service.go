@@ -22,6 +22,7 @@ import (
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/endpoint"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/progress"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/planning/placeholder"
@@ -323,6 +324,7 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 
 	catalog, types, definitions, active := snapshot.Catalog, snapshot.Types, snapshot.Definitions, snapshot.Active
 
+	progress.Report(ctx, progress.Step{ID: record.ID + ":plan", Workload: workloadID, DeploymentID: record.ID, Kind: "PLAN", Status: "RUNNING"})
 	// MS-02..MS-08: planning pipeline.
 	plan, err := s.planner.Plan(planning.Request{
 		OrganizationKey: cmd.OrganizationKey,
@@ -397,6 +399,7 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		return nil, s.fail(ctx, record, err)
 	}
 
+	planSnapshot["operationId"] = persistence.OperationFrom(ctx)
 	// Transaction A: Deployment + Delta Snapshot + Candidate Set + plan (OC-08).
 	// The failure path must not reference rows the rolled-back transaction
 	// never wrote, so the record only advances once the transaction commits.
@@ -456,6 +459,8 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 			return nil, s.fail(ctx, record, deliverydomain.ErrUnsupported)
 		}
 	}
+	progress.Report(ctx, progress.Step{ID: record.ID + ":plan", Workload: workloadID, DeploymentID: record.ID, Kind: "PLAN", Status: "SUCCEEDED"})
+	progress.Report(ctx, progress.Step{ID: record.ID + ":infrastructure", Workload: workloadID, DeploymentID: record.ID, Kind: "INFRASTRUCTURE", Status: "RUNNING"})
 	// MS-09: UC-08 provisions resource-only batches.
 	// UC-06 owns the combined lifecycle order: resources that depend on a workload
 	// (plan.AfterWorkloads) run after that workload is applied and Ready.
@@ -473,6 +478,7 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		return nil, s.fail(ctx, record, err)
 	}
 
+	progress.Report(ctx, progress.Step{ID: record.ID + ":infrastructure", Workload: workloadID, DeploymentID: record.ID, Kind: "INFRASTRUCTURE", Status: "SUCCEEDED"})
 	result := &DeployResult{DeploymentID: record.ID, PlanHash: plan.PlanHash, WorkloadID: workloadID}
 	record.Status = domain.StatusDeploying
 	if err := s.store.SaveDeployment(ctx, record); err != nil {
@@ -861,6 +867,7 @@ func (s *Service) applyWorkload(
 		}
 		secretEnv = nil // Vault Agent receives only immutable private references.
 	}
+	progress.Report(ctx, progress.Step{ID: record.ID + ":secret", Workload: workloadID, DeploymentID: record.ID, Kind: "SECRETS", Status: "RUNNING"})
 	deliveryRevision := configRevisionID
 	if deliveryRevision == "" {
 		deliveryRevision = record.ID
@@ -967,6 +974,8 @@ func (s *Service) applyWorkload(
 		}
 		renderReferences[name] = value
 	}
+	progress.Report(ctx, progress.Step{ID: record.ID + ":secret", Workload: workloadID, DeploymentID: record.ID, Kind: "SECRETS", Status: "SUCCEEDED"})
+	progress.Report(ctx, progress.Step{ID: record.ID + ":render", Workload: workloadID, DeploymentID: record.ID, Kind: "RENDER", Status: "RUNNING"})
 	manifests, err := s.renderer.Render(ctx, execution.RenderRequest{
 		ResourceReferences: renderReferences,
 		Storage:            storage,
@@ -994,6 +1003,7 @@ func (s *Service) applyWorkload(
 		}
 		manifests = append(manifests, route)
 	}
+	progress.Report(ctx, progress.Step{ID: record.ID + ":render", Workload: workloadID, DeploymentID: record.ID, Kind: "RENDER", Status: "SUCCEEDED"})
 	manifests = append(secretManifests, manifests...)
 	digest, err := manifestDigest(manifests)
 	if err != nil {

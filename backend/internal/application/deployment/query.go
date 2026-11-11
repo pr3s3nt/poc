@@ -10,6 +10,7 @@ import (
 
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/progress"
 	"orchestrator/internal/ports/persistence"
 )
 
@@ -57,18 +58,20 @@ type NodeProgress struct {
 
 // View is the read-only UC-09 deployment view.
 type View struct {
-	Rendering      any                   `json:"rendering,omitempty"`
-	Deployment     domain.Deployment     `json:"deployment"`
-	DeploymentSet  environment.Document  `json:"deploymentSet"`
-	SetID          string                `json:"deploymentSetId"`
-	Delta          *domain.DeltaDocument `json:"delta"`
-	DeltaHash      string                `json:"deltaDocumentHash,omitempty"`
-	Graph          any                   `json:"graph"`
-	Matches        any                   `json:"matches"`
-	Batches        any                   `json:"batches"`
-	Classification any                   `json:"classification"`
-	PlanHash       string                `json:"planHash"`
-	Resources      []ResourceView        `json:"resources"`
+	Progress        *progress.Record      `json:"progress,omitempty"`
+	OperationStatus string                `json:"operationStatus,omitempty"`
+	Rendering       any                   `json:"rendering,omitempty"`
+	Deployment      domain.Deployment     `json:"deployment"`
+	DeploymentSet   environment.Document  `json:"deploymentSet"`
+	SetID           string                `json:"deploymentSetId"`
+	Delta           *domain.DeltaDocument `json:"delta"`
+	DeltaHash       string                `json:"deltaDocumentHash,omitempty"`
+	Graph           any                   `json:"graph"`
+	Matches         any                   `json:"matches"`
+	Batches         any                   `json:"batches"`
+	Classification  any                   `json:"classification"`
+	PlanHash        string                `json:"planHash"`
+	Resources       []ResourceView        `json:"resources"`
 	// ResourceProgress is the safe stage/attempt/status projection of the
 	// persisted Terraform attempts (UC-16 states, ADR-014); never the module
 	// or target snapshots, state, physical IDs or recovery handles.
@@ -208,6 +211,28 @@ func assembleView(ctx context.Context, st persistence.Store, query GetDeployment
 	if err != nil && !isNotFound(err) {
 		return nil, err
 	}
+	opID := ""
+	if plan != nil {
+		opID, _ = plan["operationId"].(string)
+	}
+	var op environment.Operation
+	var opErr error
+	if opID != "" {
+		op, opErr = st.GetOperation(ctx, opID)
+	} else if record.ReviewRequestID != "" {
+		op, opErr = st.GetReviewOperation(ctx, record.ApplicationKey, record.EnvironmentKey, record.ReviewRequestID)
+	} else {
+		opErr = persistence.ErrNotFound
+	}
+	if opErr != nil && !isNotFound(opErr) {
+		return nil, opErr
+	}
+	if opErr == nil && op.ApplicationKey == record.ApplicationKey && op.EnvironmentKey == record.EnvironmentKey {
+		p := progress.Read(op.Detail["progress"])
+		view.Progress = &p
+		view.OperationStatus = string(op.Status)
+	}
+
 	if plan != nil {
 		view.Graph = plan["graph"]
 		view.Matches = plan["matches"]

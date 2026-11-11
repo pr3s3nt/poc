@@ -763,3 +763,15 @@ fieldset.volume-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 
 .template-picker-choice { display:grid; gap:8px; width:100%; padding:0; border:0; background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; }
 .template-picker-choice:focus-visible { outline:2px solid var(--blue); outline-offset:4px; }
+
+.execution-timeline { list-style:none; margin:16px 0; padding:0 0 0 18px; border-left:2px solid var(--border); }
+.execution-step { position:relative; padding:0 0 20px 16px; }
+.execution-step::before { content:""; position:absolute; left:-24px; top:7px; width:10px; height:10px; border-radius:50%; background:var(--muted); }
+.execution-succeeded::before { background:var(--green,#1a7f37); }
+.execution-failed::before { background:var(--red,#cf222e); }
+.execution-running::before { background:var(--blue); }
+.execution-step summary { cursor:pointer; line-height:1.7; }
+.execution-step summary .status { margin-left:12px; }
+.execution-time { float:right; color:var(--muted); font-variant-numeric:tabular-nums; }
+.execution-image { overflow-wrap:anywhere; max-width:420px; }
+.execution-events { padding-left:20px; font-size:13px; color:var(--muted); }

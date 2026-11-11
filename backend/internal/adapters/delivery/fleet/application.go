@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	k8s "orchestrator/internal/adapters/kubernetes"
+	"orchestrator/internal/domain/progress"
 	"path"
 	"reflect"
 	"sort"
@@ -581,6 +582,13 @@ func (p *Provider) recoverUnadmittedApplication(ctx context.Context, i port.Inte
 	objects, err := k8s.InspectDeliveryObjects(ctx, cli, i.Target, pkg.Objects)
 	if err != nil {
 		return port.Receipt{}, err
+	}
+	for _, ref := range pkg.Objects {
+		state, reason := "SUCCEEDED", "ABSENT"
+		if _, exists := objects[ref.Key()]; exists {
+			state, reason = "FAILED", "OWNERSHIP"
+		}
+		progress.Check(ctx, progress.Step{ID: i.ID + ":absence:" + ref.Kind + ":" + ref.Name, Kind: "RECOVERY_OBJECT", Status: state, Reason: reason, ResourceKind: ref.Kind, ResourceName: ref.Name, Namespace: i.Target.Namespace})
 	}
 	if len(objects) != 0 {
 		return port.Receipt{}, ErrOwnership

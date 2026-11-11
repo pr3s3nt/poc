@@ -1372,3 +1372,13 @@ No columns, relationships, grants, schema version or released SQL reference chan
 The [ERD](erd.puml) is unchanged. Retained StatefulSet-generated claims are not
 standalone Terraform resource instances; their live namespace inventory remains
 subject to the existing UID/content deletion guard.
+
+## Execution progress JSON — issue #69
+
+`environment_operations.detail.progress` holds version 1 generic steps and
+recovery checks: stable id, parent/workload identity, state, safe reason code,
+start/update/finish timestamps, optional readiness deadline and bounded safe
+pod/event facts. This uses the existing JSONB column and owner/fence guarded
+heartbeat update; no schema migration, DDL or baseline change is required.
+Stage updates preserve this key; other detail fields keep their existing replacement semantics. History
+reads the operation correlated by review request ID, never a later active claim.

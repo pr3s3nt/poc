@@ -1,3 +1,4 @@
+import type { ExecutionRecord } from "../../features/deployments/ExecutionProgress";
 export type EnvironmentKey = 'staging' | 'production';
 
 export interface Workload {
@@ -8,6 +9,7 @@ export interface Workload {
 
 /** Safe projection of the operation currently owning an Environment. */
 export interface EnvironmentOperation {
+ progress?: ExecutionRecord;
   id: string;
   kind: string;
   status: 'ACTIVE' | 'INTERRUPTED' | 'RECOVERING' | string;

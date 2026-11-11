@@ -12,6 +12,7 @@ import (
 	"orchestrator/internal/application/secretstores"
 	"orchestrator/internal/domain/environment"
 	identitydomain "orchestrator/internal/domain/identity"
+	"orchestrator/internal/domain/progress"
 	"orchestrator/internal/domain/secretstore"
 	"orchestrator/internal/ports/persistence"
 )
@@ -172,21 +173,22 @@ func (s *Server) handleSetSecretStore(w http.ResponseWriter, r *http.Request) {
 
 // operationView is the safe projection of an Environment operation claim.
 type operationView struct {
-	ID              string    `json:"id"`
-	ReviewRequestID string    `json:"reviewRequestId,omitempty"`
-	Kind            string    `json:"kind"`
-	Status          string    `json:"status"`
-	Stage           string    `json:"stage,omitempty"`
-	StartedAt       time.Time `json:"startedAt"`
-	UpdatedAt       time.Time `json:"updatedAt"`
-	HeartbeatAt     time.Time `json:"heartbeatAt"`
-	Failure         string    `json:"failure,omitempty"`
-	Recoverable     bool      `json:"recoverable"`
+	Progress        progress.Record `json:"progress"`
+	ID              string          `json:"id"`
+	ReviewRequestID string          `json:"reviewRequestId,omitempty"`
+	Kind            string          `json:"kind"`
+	Status          string          `json:"status"`
+	Stage           string          `json:"stage,omitempty"`
+	StartedAt       time.Time       `json:"startedAt"`
+	UpdatedAt       time.Time       `json:"updatedAt"`
+	HeartbeatAt     time.Time       `json:"heartbeatAt"`
+	Failure         string          `json:"failure,omitempty"`
+	Recoverable     bool            `json:"recoverable"`
 }
 
 func operationViewOf(op environment.Operation) operationView {
 	return operationView{
-		ID: op.ID, ReviewRequestID: op.ReviewRequestID, Kind: string(op.Kind), Status: string(op.Status), Stage: op.Stage, StartedAt: op.StartedAt, UpdatedAt: op.UpdatedAt,
+		Progress: progress.Read(op.Detail["progress"]), ID: op.ID, ReviewRequestID: op.ReviewRequestID, Kind: string(op.Kind), Status: string(op.Status), Stage: op.Stage, StartedAt: op.StartedAt, UpdatedAt: op.UpdatedAt,
 		HeartbeatAt: op.HeartbeatAt, Failure: op.Failure, Recoverable: op.Status == environment.OpInterrupted,
 	}
 }

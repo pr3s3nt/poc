@@ -3,6 +3,7 @@ package delivery
 
 import (
 	"errors"
+	"orchestrator/internal/domain/progress"
 	"time"
 )
 
@@ -180,6 +181,7 @@ const (
 )
 
 type ObjectObservation struct {
+	Reason     string `json:"reason,omitempty"`
 	APIVersion string `json:"apiVersion"`
 	Kind       string `json:"kind"`
 	Name       string `json:"name"`
@@ -191,6 +193,8 @@ type ObjectObservation struct {
 }
 
 type Observation struct {
+	Pods             []progress.Pod      `json:"pods,omitempty"`
+	Events           []progress.Event    `json:"events,omitempty"`
 	Objects          []ObjectObservation `json:"objects,omitempty"`
 	Scope            Scope               `json:"scope"`
 	IntendedRevision string              `json:"intendedRevision"`

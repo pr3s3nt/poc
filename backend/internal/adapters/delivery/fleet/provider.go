@@ -1,13 +1,13 @@
 package fleet
 
 import (
-	"regexp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"log"
+	"regexp"
 	"time"
 
 	"orchestrator/internal/adapters/delivery/artifact"
@@ -216,7 +216,13 @@ func (p *Provider) Reconcile(context.Context, port.Intent, port.Receipt) (port.R
 func unknown(i port.Intent) domain.Observation {
 	return domain.Observation{Scope: i.Revision.Scope, IntendedRevision: i.Revision.ID, Sync: domain.SyncUnknown, Health: domain.HealthUnknown, Drift: domain.DriftUnknown, ObservedAt: time.Now().UTC()}
 }
-func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (domain.Observation, error) {
+func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (result domain.Observation, resultErr error) {
+	defer func() {
+		if resultErr == nil && result.Health != domain.Healthy {
+			result.Pods, result.Events = p.collectProgress(ctx, i, r)
+		}
+	}()
+
 	if r.Handle["completionOnly"] == "true" {
 		cli, close, err := k8s.OpenCLI(ctx, p.Manager.Verifier.KubectlPath, p.Manager.Verifier.Credentials, i.Target)
 		if err != nil {
@@ -434,6 +440,12 @@ func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (
 			}
 		}
 		out.Objects[len(out.Objects)-1].Health = health
+		if ref.Kind == "VaultStaticSecret" && health != domain.Healthy {
+			out.Objects[len(out.Objects)-1].Reason = "SECRET_NOT_READY"
+		}
+		if ref.Kind == "Job" && health == domain.Degraded {
+			out.Objects[len(out.Objects)-1].Reason = "JOB_FAILED"
+		}
 		if health == domain.Degraded || (health == domain.Progressing && out.Health != domain.Degraded) {
 			out.Health = health
 		}

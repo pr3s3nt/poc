@@ -2379,3 +2379,11 @@ renderer library versions, no longer the whole backend executable. A backend reb
 that leaves these unchanged keeps template sources AVAILABLE; templates registered
 with the earlier executable pin are registered again once after this upgrade.
 [Evidence](verification/2026-11-09-stable-template-renderer-pin.md).
+
+## Issue #69 — feature branch, awaiting acceptance
+
+The `features/deploy-recovery-progress` branch implements persisted generic Deploy
+steps and Recovery checks with Console timeline/banner and safe pod/event/stage
+log projections. It is not merged or accepted. See the
+[implementation handoff](implementation/deploy-recovery-progress.md) for scope,
+checks and the separate six-case user Console acceptance gate.

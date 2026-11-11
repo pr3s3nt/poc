@@ -132,3 +132,15 @@ intent and reads only immutable workload snapshots, stopping at the first
 workload-owning ancestor. It supplies verified READY evidence only to progress
 projection; the current run's Workloads list is unchanged. Missing/ambiguous
 ancestry stays UNKNOWN. No provider calls or persistence writes are introduced.
+
+## Persisted execution progress — issue #69
+
+The operation lease owns progress writes and serializes them with heartbeat and
+Stage updates under the existing owner/fence. Execution calls a context reporter
+with generic steps; readiness adapters attach safe pod/event evidence to the
+existing observation. No new controller or observation loop is introduced.
+QueryService correlates the selected Deployment with its operation and returns
+only its persisted progress; operation DTOs expose the same safe projection.
+Recovery records checks under the adopted lease, retaining prior heartbeat
+evidence and the Deploy timeline. Stage replacement retains the progress key
+without changing the existing semantics of other operation detail fields. Storage errors never bypass execution guards.

@@ -1387,3 +1387,14 @@ unchanged drafts are checked by `e2e/scenarios/workload-template-versions/`.
 | Fleet unit paths | [`fleet/application.go`](../../backend/internal/adapters/delivery/fleet/application.go) |
 | Store selection lock | [`configuration/store_switch.go`](../../backend/internal/application/configuration/store_switch.go), [`SecretStoreSelection.tsx`](../../frontend/src/features/environment/SecretStoreSelection.tsx) |
 | Migration Job template | [`resources/migrate.tpl`](../../backend/template-sources/standard/resources/migrate.tpl) |
+
+## Issue #69 execution progress
+
+`backend/internal/domain/progress/` defines safe facts and the context reporter.
+`application/envops/progress.go` persists them with the lease heartbeat; Deploy,
+pending batch, delivery coordinator, Fleet recovery and Terraform execution
+emit facts. Fleet `progress.go` projects pod/event diagnostics inside readiness
+observation. Deployment query and operation DTOs expose the persisted projection.
+`frontend/src/features/deployments/ExecutionProgress.tsx` renders timeline, safe
+structured logs and recovery checks; `OperationBanner` summarizes and polls them.
+See [contract](../architecture/contracts/deployment-progress.md).

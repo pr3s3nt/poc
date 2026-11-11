@@ -1,3 +1,4 @@
+import { ExecutionProgress } from "./ExecutionProgress";
 import { useEffect, useState } from 'react';
 import { navigate } from '../../app/routes';
 import type { Application, EnvironmentKey } from '../../shared/types/application';
@@ -62,14 +63,14 @@ export function DeploymentDetailsPage({ application, environment, deploymentId }
         const value = await getDeployment(application.id, environment, deploymentId);
         if (cancelled) return;
         hadDetail = true; setDetail(value); setStale(false); setError('');
-        terminal = value.deployment.status === 'SUCCEEDED' || value.deployment.status === 'FAILED';
+        terminal = (value.deployment.status === 'SUCCEEDED' || value.deployment.status === 'FAILED') && !['ACTIVE','RECOVERING'].includes(value.operationStatus ?? '');
       } catch (err) {
         if (cancelled) return;
         if (err instanceof ApiError && err.status === 404 && !hadDetail) { setNotFound(true); terminal = true; }
         else if (hadDetail) setStale(true);
         else setError(t('deployments.deploymentDetails.couldNotLoadTheDeployment'));
       } finally { if (!cancelled) setLoading(false); }
-      if (!cancelled && !terminal) timer = window.setTimeout(() => void refresh(), 2000);
+      if (!cancelled && !terminal) timer = window.setTimeout(() => void refresh(), 3000);
     };
     void refresh();
     return () => { cancelled = true; if (timer) window.clearTimeout(timer); };
@@ -83,9 +84,10 @@ export function DeploymentDetailsPage({ application, environment, deploymentId }
     <header className="page-header"><div><p className="eyebrow">{application.name} · {environment}</p><h1>{t('deployments.deploymentDetails.deploymentDetails')}</h1><p>{t('deployments.deploymentDetails.savedPlanAndExecutionState')}</p></div><Button onClick={reload}>{t('deployments.deploymentDetails.reload')}</Button></header>
     {loading ? <p role="status" aria-busy="true">{t('deployments.deploymentDetails.loadingDeploymentDetails')}</p> : notFound ? <section className="content-panel"><h2>{t('deployments.deploymentDetails.deploymentNotFound')}</h2><p>{t('deployments.deploymentDetails.thisDeploymentDoesNotExist')}</p></section> : error && !detail ? <div role="alert" className="form-error">{error} <Button onClick={reload}>{t('deployments.deploymentDetails.retry')}</Button></div> : detail ? <>
       {stale ? <div className="form-error" role="alert">{t('deployments.deploymentDetails.statusShownIsTheLast')}{' '} <Button onClick={reload}>{t('deployments.deploymentDetails.retry')}</Button></div> : null}
-      <section className="content-panel"><p>{detail.workloads.some((w) => w.status === 'READY') ? t('deployments.deploymentDetails.manifestsOfReadyWorkloadsWere') : t('deployments.deploymentDetails.manifestsShownAreRenderedIntent')}</p><DeploymentReview review={review} progress={detail.nodeProgress} title={t('deployments.deploymentDetails.deploymentMapAndStatus')} /></section>
+      {detail.progress ? <ExecutionProgress record={detail.progress} operationStatus={detail.operationStatus} /> : null}
+ <section className="content-panel"><p>{detail.workloads.some((w) => w.status === 'READY') ? t('deployments.deploymentDetails.manifestsOfReadyWorkloadsWere') : t('deployments.deploymentDetails.manifestsShownAreRenderedIntent')}</p><DeploymentReview review={review} progress={detail.nodeProgress} title={t('deployments.deploymentDetails.deploymentMapAndStatus')} /></section>
       <section className="content-panel"><div className="section-header"><div><h2>{detail.deployment.workloadId} · {lookup(actions, detail.deployment.action)}</h2><p>{detail.deployment.id}</p></div><Status tone={detail.deployment.status === 'SUCCEEDED' ? 'good' : detail.deployment.status === 'FAILED' ? 'draft' : 'neutral'}>{lookup(deploymentStatuses, detail.deployment.status)}</Status></div>
-        {failed ? <div className="form-error" role="alert">{isRolloutFailure(detail.deployment.failureCode) ? <RolloutFailure code={detail.deployment.failureCode} applicationId={application.id} environment={environment} workloadId={detail.deployment.workloadId} /> : t('deployments.deploymentDetails.theDeploymentDidNotComplete')}</div> : null}
+        {failed && !detail.progress?.steps.some((s) => s.status === 'FAILED') ? <div className="form-error" role="alert">{isRolloutFailure(detail.deployment.failureCode) ? <RolloutFailure code={detail.deployment.failureCode} applicationId={application.id} environment={environment} workloadId={detail.deployment.workloadId} /> : t('deployments.deploymentDetails.theDeploymentDidNotComplete')}</div> : null}
         <dl className="detail-grid"><div><dt>{t('deployments.deploymentDetails.started')}</dt><dd>{date(detail.deployment.startedAt)}</dd></div><div><dt>{t('deployments.deploymentDetails.finished')}</dt><dd>{date(detail.deployment.finishedAt)}</dd></div><div><dt>{t('deployments.deploymentDetails.performedBy')}</dt><dd>{detail.deployment.actorRef || t('deployments.deploymentDetails.unknownActor')}</dd></div><div><dt>{t('deployments.deploymentDetails.deploymentSet')}</dt><dd>{detail.deploymentSetId || '—'}</dd></div></dl></section>
       <section className="content-panel"><h2>Workload</h2>{detail.workloads?.length ? <div className="detail-list">{detail.workloads.map((item) => <div key={item.workloadId}><strong>{item.workloadId}</strong><span>{lookup(itemStatuses, item.status)}</span><small>{item.manifestDigest}</small></div>)}</div> : <p>{t('deployments.deploymentDetails.noWorkloadStatusRecordedYet')}</p>}</section>
       <section className="content-panel"><h2>{t('deployments.deploymentDetails.resources')}</h2>{detail.resources?.length ? <div className="detail-list">{detail.resources.map((item) => <div key={item.descriptor}><strong>{item.resourceType || item.descriptor}</strong><span>{lookup(itemStatuses, item.status)} · {item.definitionKey || t('deployments.deploymentDetails.noResourceDefinition')}</span><small>{item.descriptor}</small>{Object.keys(item.outputs ?? {}).length ? <small>{t('deployments.deploymentDetails.outputsValue', { value: Object.entries(item.outputs).map(([key, value]) => `${key}=${outputValue(value)}`).join(', ') })}</small> : null}</div>)}</div> : <p>{t('deployments.deploymentDetails.noResourceStatusRecordedYet')}</p>}</section>
