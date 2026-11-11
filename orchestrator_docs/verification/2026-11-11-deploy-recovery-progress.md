@@ -188,3 +188,17 @@ The user must manually perform all six issue cases through Console on real kind.
 No API call, fake adapter or automated script is counted as that acceptance.
 Keep issue #69 open and do not merge until the user accepts. Full-suite baseline
 failures and the technical cleanup limitation must remain explicit at handoff.
+
+## User layout refinement
+
+At the user's request, the new timeline now sits immediately below the existing
+deployment map and its Deploy progress, before the deployment metadata panels.
+Only the section order and owning UI design changed. The existing shell, styles
+and disclosure content are reused; no extra product copy was added. A real
+browser reopened the same Tailscale deployment detail and verified the two
+sections are adjacent in that order, with the saved failure evidence visible.
+The 55 focused deployment/timeline tests passed. Full frontend checks were
+repeated on kind: 106 files / 1,015 tests, typecheck, lint and build passed.
+The owned UI test namespace was removed with a checked label/UID; backend checks
+were not repeated for this presentation-only
+change, and the baseline failures and cleanup limitation above remain unchanged.

@@ -136,8 +136,9 @@ and independent sync/health/drift presentation. Required design, not implemented
 ## Detailed Deploy/Recovery progress — issue #69
 
 This extension supersedes the earlier no-live-refresh restriction for persisted
-execution progress only. Above the existing detail panels, show a vertical step
-timeline grouped by workload, automatically expanding active/failed steps. Each
+execution progress only. Immediately below the existing deployment map and its
+Deploy progress, show a vertical step timeline grouped by workload, automatically
+expanding active/failed steps. Each
 step shows status/time and its actual wait deadline, safe pod reason, image,
 restart count and latest three events; all recorded events are a disclosure.
 The failure panel includes fixed localized guidance for recognized reasons.
