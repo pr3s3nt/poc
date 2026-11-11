@@ -251,4 +251,5 @@ Compatible security template and UI Online Boutique trial (issue #47):
 [Specification](usecase/UC-16/envfile-specification.md),
 [acceptance runner](../e2e/scenarios/workload-envfile/README.md),
 [verification and main baseline limits](verification/2026-11-11-workload-envfile.md).
-Implementation on the feature branch awaits user acceptance.
+Integrated into main after acceptance; see the
+[merge/deployment record](verification/2026-11-11-envfile-main.md).
