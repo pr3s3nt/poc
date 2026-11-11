@@ -60,6 +60,15 @@ During `bundle3` the first `fail` attempt hit a deadline-cut Git read (fixed,
 item 3 below); the Environment was recovered from Settings and the stage rerun.
 The delivery Git repository history is retained per ADR-033.
 
+## Store selection by developers — 2026-11-11
+
+After the user chose that developers select the first store, `bundle4` ran
+`prepare` and `deploy` on the updated build: the developer selected the store,
+then saw it read-only (no selector), and the one Deploy of four workloads with
+all application checks, job, PVC and scheduled receipt passed again. Backend
+tests cover the first selection by a developer and `SECRET_STORE_LOCKED` for a
+developer change; frontend tests cover both views.
+
 ## Defects found and fixed during the run
 
 1. A migration Job needs Secrets the app unit had not published yet: secret
