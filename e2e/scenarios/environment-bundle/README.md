@@ -41,6 +41,8 @@ export KUBECONFIG=<private kubeconfig> ORCH_KUBE_CONTEXT=kind-k8s-4f
 export ORCH_TEST_RUN_DIR=<private dir outside Git> ORCH_CONSOLE_NAMESPACE=<console namespace>
 export ORCH_PLATFORM_URL=<console> ORCH_PLATFORM_USERNAME=admin ORCH_PLATFORM_PASSWORD_FILE=<file> ORCH_HEADLESS=1
 # optional: ORCH_ACCEPTANCE_IMAGE_TAG, ORCH_ACCEPTANCE_IMAGE_TAG2, ORCH_SECRET_STORE_NAME, ORCH_APP_NAME
+# ORCH_WORKLOAD_CLASS=<class> when the shared workload Definition matches a class (shared Console: git-dev);
+# ORCH_ENVIRONMENT=production to run in another Environment (default staging)
 for s in users prepare deploy image secret fail rollback resync; do node e2e/scenarios/environment-bundle/run.mjs $s || break; done
 node e2e/scenarios/environment-bundle/run.mjs cleanup   # when the trial is over
 ```

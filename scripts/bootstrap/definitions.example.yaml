@@ -9,7 +9,7 @@ console:
   expectedOrganization: your-org
 repository:
   url: https://github.com/pr3s3nt/orchestrator-workload-templates
-  ref: 2a9be1b1b8150ef146a5e629ea4d818eea03f2a8
+  ref: 84f8d9f026d5ff0d44b8783f2fad743b3ca9c427
 parameters:
   driverAccountKey: REPLACE_WITH_EXISTING_ACCOUNT_KEY
   definitionPrefix: platform
