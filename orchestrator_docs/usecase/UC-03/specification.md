@@ -571,3 +571,16 @@ provenance when opened; changing source explicitly uses Git. Endpoint and
 existing-cluster configuration keep their existing behavior. Backend source APIs,
 source validation, Catalog APIs and existing stored revisions are unchanged.
 This UI restriction supersedes earlier multi-source Console choices only.
+
+## PostgreSQL HA — issue #75
+
+- **PGHA-01:** Dependency `postgres` class `ha` trên staging chọn Definition
+  Terraform CNPG theo năm criteria hiện có, không thay class `in-cluster`.
+- **PGHA-02:** Definition dùng module Git `terraform/postgres-ha` từ repo phát
+  hành, pin commit đã inspect; Kubernetes binding kế thừa cluster dependency.
+  CNPG phải được cài trước, theo [ADR-043](../../architecture/decisions/ADR-043-postgres-ha-cnpg.md).
+- **PGHA-03:** Primary và standby (mặc định hai instance) tự failover qua Service
+  `-rw`; tám output giữ tên/kiểu và sensitivity. Deploy chờ Ready; redeploy
+  không đổi giữ Cluster và dữ liệu. Không cung cấp HA mất node trên kind một node.
+- **PGHA-04:** Cleanup xác minh UID Cluster và chuỗi ownerReference của object
+  con; thiếu bằng chứng phải từ chối. Không mở hỗ trợ manifest tùy ý.

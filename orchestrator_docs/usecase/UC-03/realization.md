@@ -221,3 +221,11 @@ Saved source provenance (SP-01–03): the Console resolves the stored exact pin
 against verified capability/template-source metadata, renders its origin read-only
 and keeps the existing save payload. Explicit Change source reveals preparation/
 selection; no GET or reopening causes source preparation or revision mutation.
+
+## PostgreSQL HA — PGHA-01–04
+
+Matcher chọn Definition class `ha` theo flow hiện có. ModuleResolver/Inspector
+pin module phát hành; Terraform tạo Secret rồi CNPG Cluster và chờ Ready.
+Operator quản lý instance và Service `-rw`, không tham gia registration.
+State reader giữ identity computed của Cluster; namespace inspection kiểm
+ownerReference theo UID trước cleanup. Xem [ADR-043](../../architecture/decisions/ADR-043-postgres-ha-cnpg.md).

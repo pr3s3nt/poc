@@ -253,3 +253,5 @@ Compatible security template and UI Online Boutique trial (issue #47):
 [verification and main baseline limits](verification/2026-11-11-workload-envfile.md).
 Integrated into main after acceptance; see the
 [merge/deployment record](verification/2026-11-11-envfile-main.md).
+
+PostgreSQL HA (issue #75): [ADR-043](architecture/decisions/ADR-043-postgres-ha-cnpg.md), [CNPG runbook](operations/postgres-ha-cnpg.md).
