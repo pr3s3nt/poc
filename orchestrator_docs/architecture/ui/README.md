@@ -310,7 +310,7 @@ Keep the shared shell and the Resource Type/Definition navigation unchanged.
 ## Environment import entry — issue #72
 
 Reuse container group, Name/Value table, Button and Dialog. The file-entry action
-aligns left and uses the existing blue/blue-dark tokens with white text; the
+aligns right and uses the existing green primary Button with white text; the
 return action keeps the secondary style. The table is
 the default view; Nhập từ file .env opens text editing, with Quay lại bảng to return.
 There is no UI tab label. Grammar/help is a

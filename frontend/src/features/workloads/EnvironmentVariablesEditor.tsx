@@ -95,7 +95,7 @@ export function EnvironmentVariablesEditor(props: Props) {
   const locked = disabled || bulkBusy || reading;
   return <section className="envfile-editor">
     <div className="envfile-toggle">
-      <Button className={tab === 'ui' ? 'envfile-import' : ''} aria-controls={`${id}-env-panel`} aria-expanded={tab === 'env'} disabled={locked || tab === 'env' && currentProblems.length > 0} onClick={() => setTab(tab === 'ui' ? 'env' : 'ui')}>{t(tab === 'ui' ? 'workloads.envfile.env' : 'workloads.envfile.ui')}</Button>
+      <Button tone={tab === 'ui' ? 'primary' : 'secondary'} aria-controls={`${id}-env-panel`} aria-expanded={tab === 'env'} disabled={locked || tab === 'env' && currentProblems.length > 0} onClick={() => setTab(tab === 'ui' ? 'env' : 'ui')}>{t(tab === 'ui' ? 'workloads.envfile.env' : 'workloads.envfile.ui')}</Button>
     </div>
     <div id={`${id}-ui-panel`} hidden={tab !== 'ui'}>
       <EnvironmentVariablesGrid {...props} disabled={locked || blocked} selected={selected} onSelect={(row, checked) => setSelected(prev => { const next = new Set(prev); if (checked) next.add(row); else next.delete(row); return next; })} onChange={next => { fileVersion.current++; setText(undefined); setProblems([]); publish(next); }} />

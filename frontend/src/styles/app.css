@@ -764,9 +764,7 @@ fieldset.volume-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 .template-picker-choice { display:grid; gap:8px; width:100%; padding:0; border:0; background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; }
 .template-picker-choice:focus-visible { outline:2px solid var(--blue); outline-offset:4px; }
 
-.envfile-toggle { display:flex; justify-content:flex-start; margin-bottom:8px; }
-.envfile-import { background:var(--blue); border-color:var(--blue); color:#fff; }
-.envfile-import:hover:not(:disabled) { background:var(--blue-dark); border-color:var(--blue-dark); }
+.envfile-toggle { display:flex; justify-content:flex-end; margin-bottom:8px; }
 .envfile-text { width:100%; resize:vertical; min-height:200px; font:13px/1.6 ui-monospace,monospace; }
 .envfile-actions { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:12px 0; }
 .envfile-secret-list { display:grid; gap:12px; max-height:45vh; overflow:auto; }

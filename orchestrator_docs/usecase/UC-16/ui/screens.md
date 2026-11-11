@@ -298,7 +298,7 @@ selection. Existing edit flows are unchanged.
 ## Bảng biến và nhập file .env — issue #72
 
 Quyết định nhãn 2026-11-11: bỏ tab/chữ UI. Hiện bảng biến mặc định, bên cạnh có
-nút **Nhập từ file .env** ở góc trái, nền xanh theo token hành động hiện hành,
+nút **Nhập từ file .env** ở góc phải, nền xanh lá cây theo nút primary hiện hành,
 chữ trắng để chuyển sang trình soạn. Khi soạn hiện **Quay lại bảng**;
 text lỗi vẫn khóa quay lại và Lưu. Giữ bảng Name/Value và
 picker. Tab text có textarea, chọn file, tải mẫu/tải .env; trợ giúp grammar ở

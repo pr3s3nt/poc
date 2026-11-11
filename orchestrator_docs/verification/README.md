@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-11 | Issue #72 latest choice: right-aligned green file-entry action | [Green file entry](2026-11-11-envfile-entry-green.md) |
 | 2026-11-11 | Issue #72: left-aligned blue file-entry action; browser geometry/color/keyboard checks | [File-entry accent](2026-11-11-envfile-entry-accent.md) |
 | 2026-11-11 | Issue #72 follow-up: remove UI tab label, default table and file-entry action, focused/browser checks | [Environment entry labels](2026-11-11-envfile-entry-labels.md) |
 | 2026-11-11 | Issue #72: synchronized UI/.env, bulk create-only Secrets, 1025 frontend tests, real kind/browser acceptance and main Go baseline failures | [Workload .env](2026-11-11-workload-envfile.md) |
