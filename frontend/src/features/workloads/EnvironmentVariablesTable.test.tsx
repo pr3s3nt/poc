@@ -611,17 +611,17 @@ it('selects an existing shared resource inline without copying outputs or creati
 
 it('edits .env atomically, blocks stale UI on errors, and switches without mutations',async()=>{
   const api=serve();const user=userEvent.setup();await newWorkload(user);
-  await user.click(screen.getByRole('tab',{name:'Nhập .env'}));
+  await user.click(screen.getByRole('button',{name:'Nhập từ file .env'}));
   const text=screen.getByLabelText('Nội dung .env');
   await user.type(text,'ZETA=one\nALPHA=two');
-  await user.click(screen.getByRole('tab',{name:'UI'}));
+  await user.click(screen.getByRole('button',{name:'Quay lại bảng'}));
   expect(table().getByLabelText('Tên biến, dòng 1')).toHaveValue('ZETA');
   expect(table().getByLabelText('Tên biến, dòng 2')).toHaveValue('ALPHA');
   await user.click(table().getByRole('button',{name:'Đưa dòng 2 lên'}));
-  await user.click(screen.getByRole('tab',{name:'Nhập .env'}));
+  await user.click(screen.getByRole('button',{name:'Nhập từ file .env'}));
   expect(text).toHaveValue('ALPHA="two"\nZETA="one"');
   fireEvent.change(text,{target:{value:'NEW=ok\nBROKEN'}});
-  expect(screen.getByRole('tab',{name:'UI'})).toBeDisabled();expect(save()).toBeDisabled();
+  expect(screen.getByRole('button',{name:'Quay lại bảng'})).toBeDisabled();expect(save()).toBeDisabled();
   expect(screen.getByLabelText('Tên biến, dòng 1')).toHaveValue('ALPHA');
   const group = text.closest('details')!;
   group.open = false; fireEvent(group, new Event('toggle'));
@@ -630,7 +630,7 @@ it('edits .env atomically, blocks stale UI on errors, and switches without mutat
   expect(screen.getByLabelText('Nội dung .env')).toHaveValue('NEW=ok\nBROKEN');
   expect(api.creates()).toHaveLength(0);expect(api.puts()).toHaveLength(0);
   await user.clear(text);await user.type(text,'NEW=ok');
-  await user.click(screen.getByRole('tab',{name:'UI'}));
+  await user.click(screen.getByRole('button',{name:'Quay lại bảng'}));
   expect(table().getByLabelText('Tên biến, dòng 1')).toHaveValue('NEW');
 });
 
@@ -640,7 +640,7 @@ it('synchronizes secret markers, reuses entered values in bulk and advances crea
   await addRow(user,2,'SECOND');await user.type(table().getByLabelText('Giá trị nhập, dòng 2'),'second-secret');
   await user.click(table().getByLabelText('Chọn dòng 1'));await user.click(table().getByLabelText('Chọn dòng 2'));
   await user.click(screen.getByRole('button',{name:'Đánh dấu Bí mật'}));
-  await user.click(screen.getByRole('tab',{name:'Nhập .env'}));
+  await user.click(screen.getByRole('button',{name:'Nhập từ file .env'}));
   expect(screen.getByLabelText('Nội dung .env')).toHaveValue('# @secret\nFIRST="first-secret"\n# @secret\nSECOND="second-secret"');
   await user.click(screen.getByRole('button',{name:'Xác nhận bí mật'}));
   const dialog=within(screen.getByRole('dialog',{name:'Xác nhận bí mật'}));
@@ -655,7 +655,7 @@ it('synchronizes secret markers, reuses entered values in bulk and advances crea
 it('reports partial success and never automatically replays an uncertain secret create',async()=>{
   const api=serve({create:(body,count)=>count===1?Response.json({version:2,secretStoreKey:'vault-a',keys:[...catalogKeys,{name:body.name,kind:'SECRET',configured:true,usedBy:[]}]},{status:201}):Promise.reject(new TypeError('network'))});
   const user=userEvent.setup();await newWorkload(user);
-  await user.click(screen.getByRole('tab',{name:'Nhập .env'}));
+  await user.click(screen.getByRole('button',{name:'Nhập từ file .env'}));
   await user.type(screen.getByLabelText('Nội dung .env'),'# @secret\nFIRST=one\n# @secret\nSECOND=two');
   await user.click(screen.getByRole('button',{name:'Xác nhận bí mật'}));
   const dialog=within(screen.getByRole('dialog',{name:'Xác nhận bí mật'}));await user.click(dialog.getByRole('button',{name:'Tạo và gắn tham chiếu'}));
@@ -676,10 +676,10 @@ it('requires explicit reuse of an existing Secret and never overwrites it',async
 it('keeps an invalid text draft with its container when an earlier container is removed',async()=>{
   const api=serve();const user=userEvent.setup();await newWorkload(user);
   await user.click(screen.getByRole('button',{name:'+ Thêm Container'}));
-  await user.click(screen.getAllByRole('tab',{name:'Nhập .env'})[1]!);
+  await user.click(screen.getAllByRole('button',{name:'Nhập từ file .env'})[1]!);
   fireEvent.change(screen.getAllByLabelText('Nội dung .env')[1]!,{target:{value:'BROKEN_SECOND'}});
   const first=screen.getByRole('heading',{name:'Container 1'}).closest('section')!;
   await user.click(within(first).getByRole('button',{name:/^Xóa$/}));
   expect(screen.getByLabelText('Nội dung .env')).toHaveValue('BROKEN_SECOND');
-  expect(screen.getByRole('tab',{name:'UI'})).toBeDisabled();expect(save()).toBeDisabled();expect(api.puts()).toHaveLength(0);
+  expect(screen.getByRole('button',{name:'Quay lại bảng'})).toBeDisabled();expect(save()).toBeDisabled();expect(api.puts()).toHaveLength(0);
 });

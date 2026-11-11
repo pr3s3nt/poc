@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-11 | Issue #72 follow-up: remove UI tab label, default table and file-entry action, focused/browser checks | [Environment entry labels](2026-11-11-envfile-entry-labels.md) |
 | 2026-11-11 | Issue #72: synchronized UI/.env, bulk create-only Secrets, 1025 frontend tests, real kind/browser acceptance and main Go baseline failures | [Workload .env](2026-11-11-workload-envfile.md) |
 | 2026-11-10 | Final main run for #55/#48; first-Rollout absence recovery compares controller identity instead of resourceVersion; three kind recoveries | [Recovery controller identity](2026-11-10-recovery-controller-identity.md) |
 | 2026-11-10 | First Rollout interrupted after its Prerequisite: absence evidence tests and kind recovery through the Console keeping Prerequisite, Service and controller | [Rollout recovery after Prerequisite](2026-11-10-rollout-recovery-prerequisite.md) |

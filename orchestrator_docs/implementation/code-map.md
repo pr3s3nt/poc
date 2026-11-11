@@ -1392,7 +1392,7 @@ unchanged drafts are checked by `e2e/scenarios/workload-template-versions/`.
 
 - `frontend/src/features/workloads/envfile.ts`: positional parser, exact-value
   serializer, reference classification and explicit non-destructive file merge.
-- `EnvironmentVariablesEditor.tsx` in the same directory: synchronized tabs,
+- `EnvironmentVariablesEditor.tsx` in the same directory: synchronized table/text views,
   invalid-text gate, UTF-8 upload/review/download and bulk confirmation entry.
 - `BulkSecretsDialog.tsx`: sequential UC-12 create-only, advancing version,
   explicit existing-key reuse and partial/uncertain outcomes without auto replay.

@@ -6,14 +6,16 @@ last_reviewed: 2026-11-11
 related: UC-12, UC-16
 ---
 
-# Hai tab biến môi trường — issue #72
+# Bảng biến và nhập file .env — issue #72
 
 Quyết định người dùng 2026-11-11. Extension này thay phần checkbox tạo Secret
 ngay của BR-27; các quyền, safe literal provenance và Preview/Deploy giữ nguyên.
 
 ## ENVFILE-01 — Một draft mỗi container
 
-UI và Nhập .env cùng chỉnh bindings có thứ tự. Chuyển tab không commit.
+Bảng biến mặc định và trình soạn .env cùng chỉnh bindings có thứ tự. Theo quyết
+định nhãn mới, bỏ chữ/tab UI; nút Nhập từ file .env mở trình soạn và Quay lại bảng
+trở về bảng biến. Chuyển tab không commit.
 Thêm/sửa/xóa/đổi nguồn/thứ tự/Bí mật đồng bộ. Text sai được giữ nguyên, báo dòng,
 không cập nhật từng phần và chặn Save cùng chỉnh UI cũ cho tới khi sửa text.
 Draft chỉ ở memory; không storage/log/telemetry. Secret literal chưa lưu có thể

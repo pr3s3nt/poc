@@ -94,16 +94,14 @@ export function EnvironmentVariablesEditor(props: Props) {
   }
   const locked = disabled || bulkBusy || reading;
   return <section className="envfile-editor">
-    <div className="tabs envfile-tabs" role="tablist" aria-label={t('workloads.envTable.region', { container: props.container })}>
-      {(['ui', 'env'] as const).map((value, index) => <button key={value} id={`${id}-${value}-tab`} type="button" role="tab" aria-controls={`${id}-${value}-panel`} aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} className={`tab ${tab === value ? 'tab-active' : ''}`} disabled={locked || value === 'ui' && currentProblems.length > 0} onClick={() => setTab(value)} onKeyDown={event => {
-        if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { event.preventDefault(); const target = event.key === 'Home' ? 'ui' : event.key === 'End' ? 'env' : index === 0 ? 'env' : 'ui'; if (target === 'ui' && currentProblems.length) return; setTab(target); document.getElementById(`${id}-${target}-tab`)?.focus(); }
-      }}>{t(`workloads.envfile.${value}`)}</button>)}
+    <div className="envfile-toggle">
+      <Button tone="quiet" aria-controls={`${id}-env-panel`} aria-expanded={tab === 'env'} disabled={locked || tab === 'env' && currentProblems.length > 0} onClick={() => setTab(tab === 'ui' ? 'env' : 'ui')}>{t(tab === 'ui' ? 'workloads.envfile.env' : 'workloads.envfile.ui')}</Button>
     </div>
-    <div role="tabpanel" id={`${id}-ui-panel`} aria-labelledby={`${id}-ui-tab`} hidden={tab !== 'ui'}>
+    <div id={`${id}-ui-panel`} hidden={tab !== 'ui'}>
       <EnvironmentVariablesGrid {...props} disabled={locked || blocked} selected={selected} onSelect={(row, checked) => setSelected(prev => { const next = new Set(prev); if (checked) next.add(row); else next.delete(row); return next; })} onChange={next => { fileVersion.current++; setText(undefined); setProblems([]); publish(next); }} />
       {selected.size > 0 ? <div className="form-actions"><Button disabled={locked || blocked || !bindings.some(row => selected.has(row.id) && row.source === 'LITERAL')} onClick={() => publish(bindings.map(row => selected.has(row.id) && row.source === 'LITERAL' ? { ...row, secretDraft: true } : row))}>{t('workloads.envfile.markSecrets')}</Button></div> : null}
     </div>
-    <div role="tabpanel" id={`${id}-env-panel`} aria-labelledby={`${id}-env-tab`} hidden={tab !== 'env'}>
+    <div id={`${id}-env-panel`} hidden={tab !== 'env'}>
       <label className="field">{t('workloads.envfile.content')}<textarea aria-label={t('workloads.envfile.content')} className="envfile-text" rows={12} value={importText ?? text ?? canonical} disabled={locked || serializationError} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} aria-invalid={currentProblems.length > 0} aria-describedby={`${id}-errors`} onChange={event => edit(event.target.value)} /></label>
       <div className="envfile-actions"><label className="field">{t('workloads.envfile.file')}<input type="file" accept=".env,text/plain" disabled={locked || currentProblems.length > 0} onChange={event => { void readFile(event.target.files?.[0]); event.target.value = ''; }} /></label><Button disabled={locked || serializationError} onClick={sample}>{t('workloads.envfile.sample')}</Button><Button disabled={locked || serializationError || currentProblems.length > 0} onClick={() => download(text ?? canonical, '.env')}>{t('workloads.envfile.download')}</Button></div>
       <details><summary>{t('workloads.envEntry.help')}</summary><p>{t('workloads.envfile.help')}</p></details>

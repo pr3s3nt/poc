@@ -309,6 +309,8 @@ Keep the shared shell and the Resource Type/Definition navigation unchanged.
 
 ## UI/.env tabs — issue #72
 
-Reuse container group, Name/Value table, tabs and Dialog. Grammar/help is a
+Reuse container group, Name/Value table, quiet Button and Dialog. The table is
+the default view; Nhập từ file .env opens text editing, with Quay lại bảng to return.
+There is no UI tab label. Grammar/help is a
 disclosure; errors and independent Secret commit boundary remain visible where
 needed. [UC-16 screens](../../usecase/UC-16/ui/screens.md) owns the extension.

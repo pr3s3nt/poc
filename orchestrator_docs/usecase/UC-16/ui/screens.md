@@ -295,9 +295,11 @@ Version controls do not select a template or navigate by themselves. Search
 retains matching groups; closing/reopening or changing Environment resets the new
 selection. Existing edit flows are unchanged.
 
-## Hai tab biến môi trường — issue #72
+## Bảng biến và nhập file .env — issue #72
 
-Trong nhóm biến mỗi container thêm tabs UI / Nhập .env; giữ bảng Name/Value và
+Quyết định nhãn 2026-11-11: bỏ tab/chữ UI. Hiện bảng biến mặc định, bên cạnh có
+nút **Nhập từ file .env** để chuyển sang trình soạn. Khi soạn hiện **Quay lại bảng**;
+text lỗi vẫn khóa quay lại và Lưu. Giữ bảng Name/Value và
 picker. Tab text có textarea, chọn file, tải mẫu/tải .env; trợ giúp grammar ở
 disclosure. Lỗi gắn dòng, khóa UI cũ và Save. Import collision dùng Dialog review,
 mặc định giữ. Checkbox literal đánh dấu draft, toolbar chọn nhiều dòng để đánh

@@ -16,7 +16,7 @@ function setup(initial: Binding[] = [{ ...emptyBinding(), name: 'KEEP', value: '
 }
 function file(text: string) { const result = new File([text], '.env', { type: 'text/plain' }); Object.defineProperty(result, 'arrayBuffer', { value: async () => new TextEncoder().encode(text).buffer }); return result; }
 it('reviews file collisions with keep default and preserves absent variables', async () => {
-  const { user } = setup(); await user.click(screen.getByRole('tab', { name: 'Nhập .env' }));
+  const { user } = setup(); await user.click(screen.getByRole('button', { name: 'Nhập từ file .env' }));
   await user.upload(screen.getByLabelText('Chọn file UTF-8'), file('KEEP=new\nADDED=next'));
   const dialog = within(await screen.findByRole('dialog', { name: 'Rà soát file .env' }));
   expect(dialog.getByLabelText('KEEP')).toHaveValue('keep');
@@ -29,7 +29,7 @@ it('reviews file collisions with keep default and preserves absent variables', a
   expect(screen.getByLabelText('Nội dung .env')).toHaveValue('KEEP="replaced"\nADDED="next"');
 });
 it('retains an invalid file for correction without overwriting current rows', async () => {
-  const { user, blocked } = setup(); await user.click(screen.getByRole('tab', { name: 'Nhập .env' }));
+  const { user, blocked } = setup(); await user.click(screen.getByRole('button', { name: 'Nhập từ file .env' }));
   await user.upload(screen.getByLabelText('Chọn file UTF-8'), file('NEW=ok\nBROKEN'));
   await waitFor(() => expect(screen.getByLabelText('Nội dung .env')).toHaveValue('NEW=ok\nBROKEN'));
   expect(screen.getByLabelText('Tên biến, dòng 1')).toHaveValue('KEEP');
@@ -43,7 +43,7 @@ it('keeps invalid text when another draft field refreshes bindings', async () =>
   const blocked = vi.fn(), onChange = vi.fn(); const row = { ...emptyBinding(), name: 'OLD', value: 'kept' };
   const props = { editorId: 0, container: 'main', bindings: [row], catalog: context.catalog, dependencies: [], types: [], workloads: [], self: 'test', context, disabled: false, showIncomplete: false, onFocused() {}, onChange, onCreateKey() {}, onAddResource() {}, application: { id: 'test', name: 'Test', environments: bothConfigured(), workloads: { staging: [], production: [] } }, environment: 'staging' as const, onConfiguration() {}, onBlocked: blocked, onBusy() {}, onReplaceSecret() {} };
   const view = render(<EnvironmentVariablesEditor {...props} />); const user = userEvent.setup();
-  await user.click(screen.getByRole('tab', { name: 'Nhập .env' }));
+  await user.click(screen.getByRole('button', { name: 'Nhập từ file .env' }));
   fireEvent.change(screen.getByLabelText('Nội dung .env'), { target: { value: 'BROKEN' } });
   view.rerender(<EnvironmentVariablesEditor {...props} bindings={[{ ...row }]} />);
   expect(screen.getByLabelText('Nội dung .env')).toHaveValue('BROKEN');expect(onChange).not.toHaveBeenCalled();
@@ -52,7 +52,7 @@ it('publishes formerly invalid text atomically when its missing dependency becom
   const blocked = vi.fn(), onChange = vi.fn(); const row = { ...emptyBinding(), name: 'OLD', value: 'kept' };
   const props = { editorId: 0, container: 'main', bindings: [row], catalog: context.catalog, dependencies: [], types: [], workloads: [], self: 'test', context, disabled: false, showIncomplete: false, onFocused() {}, onChange, onCreateKey() {}, onAddResource() {}, application: { id: 'test', name: 'Test', environments: bothConfigured(), workloads: { staging: [], production: [] } }, environment: 'staging' as const, onConfiguration() {}, onBlocked: blocked, onBusy() {}, onReplaceSecret() {} };
   const view = render(<EnvironmentVariablesEditor {...props} />); const user = userEvent.setup();
-  await user.click(screen.getByRole('tab', { name: 'Nhập .env' }));
+  await user.click(screen.getByRole('button', { name: 'Nhập từ file .env' }));
   fireEvent.change(screen.getByLabelText('Nội dung .env'), { target: { value: 'ADDED=@db.host' } });
   expect(onChange).not.toHaveBeenCalled();expect(blocked).toHaveBeenLastCalledWith(0, true);
   const ready: RowContext = { ...context, dependencies: [{ alias: 'db', type: 'postgres' }], outputs: () => ['host'] };
@@ -64,6 +64,6 @@ it('publishes formerly invalid text atomically when its missing dependency becom
   expect(blocked).toHaveBeenLastCalledWith(0, true);
   view.rerender(<EnvironmentVariablesEditor {...props} context={ready} bindings={next} />);
   await waitFor(() => expect(blocked).toHaveBeenLastCalledWith(0, false));
-  await user.click(screen.getByRole('tab', { name: 'UI' }));
+  await user.click(screen.getByRole('button', { name: 'Quay lại bảng' }));
   expect(screen.getByLabelText('Tên biến, dòng 1')).toHaveValue('ADDED');
 });

@@ -18,7 +18,7 @@ const base = () => `/applications/${state.app.key}/environments/staging`;
 const kube = (...args) => execFileSync('kubectl', ['--kubeconfig', process.env.KUBECONFIG, '--context', 'kind-k8s-4f', ...args], { encoding: 'utf8', timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const rows = () => page.getByLabel(/^Tên biến, dòng \d+$/).evaluateAll(inputs => inputs.map(input => input.value));
 async function open(name) { await page.goto(config.baseURL + `/ui/applications/${state.app.key}/environments/staging/workloads/${name}`); await page.getByRole('heading', { name: 'Sửa ' + name, exact: true }).waitFor(); await page.getByLabel('Tên biến, dòng 1', { exact: true }).waitFor(); }
-async function textTab() { await page.getByRole('tab', { name: 'Nhập .env', exact: true }).click(); return page.getByLabel('Nội dung .env', { exact: true }); }
+async function textTab() { await page.getByRole('button', { name: 'Nhập từ file .env', exact: true }).click(); return page.getByLabel('Nội dung .env', { exact: true }); }
 async function group(title) { const item = page.locator('details').filter({ has: page.locator('summary strong').getByText(title, { exact: true }) }).first(); if (await item.getAttribute('open') === null) await item.locator('summary').first().click(); return item; }
 async function prepare() {
   if (!state.app) {
@@ -83,7 +83,7 @@ async function author() {
   }
   const content = ['ZETA=production', 'REGION=@variable.REGION', 'DB_HOST=@db-chinh.host', 'DB_PASSWORD=@db-chinh.password', 'REPORT_HOST=@db-baocao.host', 'API_URL=@service.backend.http', 'CONTACT=@@team.example', 'EMPTY=', 'MULTILINE="Tiếng Việt\\nline=two"', '# @secret', 'TOKEN=issue72-synthetic-token', '# @secret', 'SIGNING=issue72-synthetic-signing', ...Array.from({ length: 25 }, (_, i) => `EXTRA_${i}=value-${i}`)].join('\n');
   await (await textTab()).fill(content);
-  await page.getByRole('tab', { name: 'UI', exact: true }).click();
+  await page.getByRole('button', { name: 'Quay lại bảng', exact: true }).click();
   assert.equal((await rows()).length, 36);
   // Rename is local, keeping all bindings; no resource/provision mutation.
   await page.getByLabel('Alias tài nguyên', { exact: true }).first().fill('db-primary');
@@ -114,13 +114,13 @@ async function editor() {
   page.on('request', observe);
   const text = await textTab(), original = await text.inputValue();
   await text.fill(original + '\nMETADATA_CASE=@late-check.host');
-  assert(await page.getByRole('tab', { name: 'UI', exact: true }).isDisabled());
+  assert(await page.getByRole('button', { name: 'Quay lại bảng', exact: true }).isDisabled());
   assert(await page.getByRole('button', { name: 'Lưu draft Workload', exact: true }).isDisabled());
   const count = await page.getByLabel('Alias tài nguyên', { exact: true }).count();
   await page.getByRole('button', { name: '+ Thêm tài nguyên', exact: true }).click();
   await page.getByLabel('Alias tài nguyên', { exact: true }).nth(count).fill('late-check');
   await page.getByLabel('Loại tài nguyên', { exact: true }).nth(count).selectOption('postgres');
-  await page.getByRole('tab', { name: 'UI', exact: true }).click();
+  await page.getByRole('button', { name: 'Quay lại bảng', exact: true }).click();
   assert.equal(await page.getByLabel('Tên biến, dòng 37', { exact: true }).inputValue(), 'METADATA_CASE');
   assert((await page.getByRole('button', { name: 'Đổi nguồn, dòng 37', exact: true }).innerText()).includes('late-check.host'));
   await page.getByRole('button', { name: 'Hủy', exact: true }).click();
@@ -164,11 +164,11 @@ async function verify() {
   const pods = JSON.parse(kube('-n', state.namespace, 'get', 'pods', '-l', 'app.kubernetes.io/name=envfile', '-o', 'json')).items;
   const token = kube('-n', state.namespace, 'exec', pods[0].metadata.name, '--', 'sh', '-c', 'test "$TOKEN" = issue72-synthetic-token && test "$SIGNING" = issue72-synthetic-signing && test -n "$DB_PASSWORD" && echo PASS');
   assert.equal(token, 'PASS');
-  await open('envfile'); await page.getByRole('tab', { name: 'UI', exact: true }).waitFor(); assert.deepEqual(await rows(), state.order);
+  await open('envfile'); await page.getByRole('button', { name: 'Nhập từ file .env', exact: true }).waitFor(); assert.deepEqual(await rows(), state.order);
   const value = await (await textTab()).inputValue(); assert(value.includes('@service.backend.http')); assert(!value.includes('issue72-synthetic'));
   await page.screenshot({ path: dir + '/reopen-vi.png', fullPage: true });
   await page.locator('.language-select select').selectOption('en');
-  await page.getByRole('tab', { name: 'Enter .env', exact: true }).click();
+  await page.getByRole('button', { name: 'Import from .env file', exact: true }).click();
   assert(!(await page.getByLabel('.env content').inputValue()).includes('issue72-synthetic'));
   await page.screenshot({ path: dir + '/reopen-en.png', fullPage: true });
   await page.locator('.language-select select').selectOption('vi');
