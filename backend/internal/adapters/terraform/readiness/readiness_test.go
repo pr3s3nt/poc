@@ -421,3 +421,51 @@ func TestEC2RoleReadinessRetrievesFreshScopedCredentialsEachPoll(t *testing.T) {
 		t.Fatal("readiness accepted unauthorized source", err)
 	}
 }
+
+func TestVerifyAbsentCNPGClusterFailsClosed(t *testing.T) {
+	file := t.TempDir() + "/k"
+	if err := os.WriteFile(file, []byte("kubeconfig"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	good := terraformexec.StateResource{Type: "kubernetes_manifest", APIVersion: "postgresql.cnpg.io/v1", Kind: "Cluster", Name: "db", Namespace: "ha-test", UID: "cluster-uid"}
+	for _, tc := range []struct {
+		name   string
+		modify func(*terraformexec.StateResource)
+		result error
+		want   bool
+	}{
+		{name: "absent", want: true, result: terraformexec.ErrNamespaceAbsent},
+		{name: "surviving", result: nil},
+		{name: "api unavailable", result: errors.New("forbidden")},
+		{name: "other kind", modify: func(r *terraformexec.StateResource) { r.Kind = "Database" }, result: terraformexec.ErrNamespaceAbsent},
+		{name: "other version", modify: func(r *terraformexec.StateResource) { r.APIVersion = "other/v1" }, result: terraformexec.ErrNamespaceAbsent},
+		{name: "wrong namespace", modify: func(r *terraformexec.StateResource) { r.Namespace = "other" }, result: terraformexec.ErrNamespaceAbsent},
+		{name: "missing uid", modify: func(r *terraformexec.StateResource) { r.UID = "" }, result: terraformexec.ErrNamespaceAbsent},
+		{name: "missing name", modify: func(r *terraformexec.StateResource) { r.Name = "" }, result: terraformexec.ErrNamespaceAbsent},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := good
+			if tc.modify != nil {
+				tc.modify(&r)
+			}
+			queried := false
+			c := &Checker{Kubectl: "kubectl", Dir: t.TempDir(), Run: func(_ context.Context, _ string, args []string, _ []string) ([]byte, error) {
+				if args[3] == "namespace" {
+					return nil, terraformexec.ErrNamespaceAbsent
+				}
+				if strings.Join(args[2:], " ") != "get clusters.postgresql.cnpg.io db -n ha-test -o name" {
+					t.Fatalf("unexpected query %v", args)
+				}
+				queried = true
+				return nil, tc.result
+			}}
+			err := c.VerifyAbsent(context.Background(), []string{"KUBE_CONFIG_PATH=" + file}, "ha-test", []terraformexec.StateResource{r})
+			if (err == nil) != tc.want {
+				t.Fatalf("got %v, want success %v", err, tc.want)
+			}
+			if tc.want && !queried {
+				t.Fatal("Cluster not queried")
+			}
+		})
+	}
+}

@@ -92,7 +92,20 @@ func parseStateResources(data []byte) ([]terraformexec.StateResource, error) {
 				continue
 			}
 			id, _ := r.Values["id"].(string)
-			out = append(out, terraformexec.StateResource{Address: r.Address, Type: r.Type, Provider: r.ProviderName, ID: id, UID: uidOf(r.Values)})
+			resource := terraformexec.StateResource{Address: r.Address, Type: r.Type, Provider: r.ProviderName, ID: id, UID: uidOf(r.Values)}
+			if r.Type == "kubernetes_manifest" {
+				// Desired manifest does not prove a physical object's identity.
+				if object, ok := r.Values["object"].(map[string]any); ok {
+					resource.APIVersion, _ = object["apiVersion"].(string)
+					resource.Kind, _ = object["kind"].(string)
+					resource.UID = uidOf(object)
+					if metadata, ok := object["metadata"].(map[string]any); ok {
+						resource.Name, _ = metadata["name"].(string)
+						resource.Namespace, _ = metadata["namespace"].(string)
+					}
+				}
+			}
+			out = append(out, resource)
 		}
 		for _, c := range m.ChildModules {
 			walk(c)

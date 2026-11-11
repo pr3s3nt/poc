@@ -229,10 +229,15 @@ func judgeNamespaceWithBaseline(ns stateNamespace, inspected terraformexec.Names
 	ownUID := map[string]string{} // kind/name -> UID recorded in state
 	for _, r := range own {
 		kind, ok := ownKinds[r.Type]
+		id := r.ID
+		if r.IsCNPGCluster() && r.Name != "" && !strings.Contains(r.Name, "/") && r.Namespace == ns.Name {
+			kind, ok = "Cluster", true
+			id = r.Namespace + "/" + r.Name
+		}
 		if !ok || r.UID == "" {
 			continue
 		}
-		if namespace, name, found := strings.Cut(r.ID, "/"); found && namespace == ns.Name {
+		if namespace, name, found := strings.Cut(id, "/"); found && namespace == ns.Name {
 			ownUID[kind+"/"+name] = r.UID
 		}
 	}

@@ -292,3 +292,43 @@ func TestNamespaceCleanupReadsLegacyBaselineButNeverFallsBackFromCorruption(t *t
 		t.Fatalf("corrupt new proof fell back to a legacy proof: %v", err)
 	}
 }
+
+func TestCNPGChildrenRequireStateClusterUIDChain(t *testing.T) {
+	cluster := terraformexec.StateResource{Type: "kubernetes_manifest", APIVersion: "postgresql.cnpg.io/v1", Kind: "Cluster", Name: "db", Namespace: "ns", UID: "cluster-uid"}
+	objects := []terraformexec.NamespaceObject{
+		{Kind: "Cluster", Name: "db", UID: "cluster-uid"},
+		{Kind: "Pod", Name: "db-1", UID: "pod-uid", Owners: []terraformexec.NamespaceOwner{{Kind: "Cluster", Name: "db", UID: "cluster-uid"}}},
+		{Kind: "PersistentVolumeClaim", Name: "db-1", UID: "pvc-uid", Owners: []terraformexec.NamespaceOwner{{Kind: "Cluster", Name: "db", UID: "cluster-uid"}}},
+		{Kind: "Service", Name: "db-rw", UID: "svc-uid", Owners: []terraformexec.NamespaceOwner{{Kind: "Cluster", Name: "db", UID: "cluster-uid"}}},
+		{Kind: "EndpointSlice", Name: "db-rw-1", UID: "slice-uid", Owners: []terraformexec.NamespaceOwner{{Kind: "Service", Name: "db-rw", UID: "svc-uid"}}},
+	}
+	inspect := terraformexec.NamespaceInspection{UID: "ns-uid", Objects: objects}
+	ns := stateNamespace{Name: "ns", UID: "ns-uid"}
+	if foreign, ours := judgeNamespace(ns, inspect, []terraformexec.StateResource{cluster}); !ours || len(foreign) != 0 {
+		t.Fatalf("owned chain refused: %v %v", foreign, ours)
+	}
+	for _, tc := range []struct {
+		name   string
+		change func(*terraformexec.StateResource, []terraformexec.NamespaceObject)
+	}{
+		{"wrong cluster uid", func(r *terraformexec.StateResource, _ []terraformexec.NamespaceObject) { r.UID = "replaced" }},
+		{"other manifest", func(r *terraformexec.StateResource, _ []terraformexec.NamespaceObject) { r.APIVersion = "other/v1" }},
+		{"owner uid mismatch", func(_ *terraformexec.StateResource, o []terraformexec.NamespaceObject) {
+			o[2].Owners = []terraformexec.NamespaceOwner{{Kind: "Cluster", Name: "db", UID: "old"}}
+		}},
+		{"unowned storage", func(_ *terraformexec.StateResource, o []terraformexec.NamespaceObject) { o[2].Owners = nil }},
+		{"additional foreign owner", func(_ *terraformexec.StateResource, o []terraformexec.NamespaceObject) {
+			o[2].Owners = append(o[2].Owners, terraformexec.NamespaceOwner{Kind: "Cluster", Name: "foreign", UID: "foreign"})
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := cluster
+			items := append([]terraformexec.NamespaceObject(nil), objects...)
+			tc.change(&r, items)
+			foreign, _ := judgeNamespace(ns, terraformexec.NamespaceInspection{UID: "ns-uid", Objects: items}, []terraformexec.StateResource{r})
+			if len(foreign) == 0 {
+				t.Fatal("unproven CNPG objects accepted")
+			}
+		})
+	}
+}

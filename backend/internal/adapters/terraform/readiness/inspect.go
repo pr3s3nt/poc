@@ -213,14 +213,18 @@ func (c *Checker) VerifyAbsent(ctx context.Context, env []string, namespace stri
 			continue
 		}
 		plural, ok := absenceResource[r.Type]
+		idNamespace, name, found := strings.Cut(r.ID, "/")
+		if r.IsCNPGCluster() {
+			plural, ok = "clusters.postgresql.cnpg.io", true
+			idNamespace, name, found = r.Namespace, r.Name, true
+		}
 		if !ok {
 			if strings.HasPrefix(r.Type, "kubernetes_") {
 				return ErrUnavailable
 			}
 			continue
 		}
-		idNamespace, name, found := strings.Cut(r.ID, "/")
-		if !found || idNamespace != namespace || name == "" || strings.Contains(name, "/") || r.UID == "" {
+		if !found || idNamespace != namespace || !validName(name) || strings.Contains(name, "/") || r.UID == "" {
 			return ErrUnavailable
 		}
 		out, err := c.run()(ctx, c.Kubectl, append(append([]string(nil), base...), "get", plural, name, "-n", namespace, "-o", "name"), cmdEnv)

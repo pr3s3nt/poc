@@ -228,6 +228,16 @@ type StateResource struct {
 	// UID is the provider-assigned object UID recorded in state (for example
 	// metadata.uid of a Kubernetes object); empty when the type has none.
 	UID string
+	// Manifest identity comes from the provider's computed object, including UID.
+	APIVersion string
+	Kind       string
+	Name       string
+	Namespace  string
+}
+
+// IsCNPGCluster limits manifest cleanup to the explicitly supported CNPG GVK.
+func (r StateResource) IsCNPGCluster() bool {
+	return r.Type == "kubernetes_manifest" && r.APIVersion == "postgresql.cnpg.io/v1" && r.Kind == "Cluster"
 }
 
 // Runner opens sessions.

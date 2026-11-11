@@ -19,3 +19,20 @@ func TestStateResourcesCarryProviderUIDs(t *testing.T) {
 		t.Fatalf("uids %v", uids)
 	}
 }
+
+func TestManifestIdentityUsesComputedObjectOnly(t *testing.T) {
+	state := []byte(`{"values":{"root_module":{"resources":[
+ {"address":"kubernetes_manifest.db","mode":"managed","type":"kubernetes_manifest","values":{"object":{"apiVersion":"postgresql.cnpg.io/v1","kind":"Cluster","metadata":{"name":"db","namespace":"ns","uid":"cluster-uid"}},"manifest":{"metadata":{"uid":"untrusted"}}}},
+ {"address":"kubernetes_manifest.desired","mode":"managed","type":"kubernetes_manifest","values":{"manifest":{"apiVersion":"postgresql.cnpg.io/v1","kind":"Cluster","metadata":{"name":"db","namespace":"ns","uid":"untrusted"}}}}
+ ]}}}`)
+	got, err := parseStateResources(state)
+	if err != nil || len(got) != 2 {
+		t.Fatalf("%+v: %v", got, err)
+	}
+	if !got[0].IsCNPGCluster() || got[0].UID != "cluster-uid" || got[0].Name != "db" || got[0].Namespace != "ns" || got[0].ID != "" {
+		t.Fatalf("computed identity: %+v", got[0])
+	}
+	if got[1].IsCNPGCluster() || got[1].UID != "" {
+		t.Fatalf("desired manifest trusted: %+v", got[1])
+	}
+}
