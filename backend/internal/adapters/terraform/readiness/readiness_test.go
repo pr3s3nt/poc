@@ -278,7 +278,7 @@ func TestInspectListsObjectsWithUIDsOwnersAndManagers(t *testing.T) {
 		items: `{"items":[
 		 {"kind":"ConfigMap","metadata":{"name":"kube-root-ca.crt","uid":"u1","annotations":{"kubernetes.io/description":"x"},"managedFields":[{"manager":"kube-controller-manager"}]},"data":{"ca.crt":"x"}},
 		 {"kind":"ServiceAccount","metadata":{"name":"default","uid":"u2","managedFields":[{"manager":"kube-controller-manager"},{"manager":"kubectl-edit"}]},"secrets":[],"imagePullSecrets":[{"name":"pull"}]},
-		 {"kind":"Pod","metadata":{"name":"redis-0","uid":"u3","ownerReferences":[{"kind":"StatefulSet","name":"redis","uid":"owner-uid"}]}},
+		 {"apiVersion":"v1","kind":"Pod","metadata":{"name":"redis-0","uid":"u3","ownerReferences":[{"apiVersion":"apps/v1","kind":"StatefulSet","name":"redis","uid":"owner-uid"}]}},
 		 {"kind":"Endpoints","metadata":{"name":"custom","uid":"u4","labels":{"x":"y"},"managedFields":[{"manager":"kubectl-create"}]}},
 		 {"kind":"Secret","metadata":{"name":"foreign","uid":"u5"},"data":{"password":"x"}}]}`,
 	}
@@ -290,7 +290,7 @@ func TestInspectListsObjectsWithUIDsOwnersAndManagers(t *testing.T) {
 	o := got.Objects
 	if o[0].Managers[0] != "kube-controller-manager" || o[0].DataKeys[0] != "ca.crt" || o[0].AnnotationKeys[0] != "kubernetes.io/description" ||
 		len(o[1].Managers) != 2 || o[1].ImagePullSecrets != 1 ||
-		o[2].Owners[0] != (terraformexec.NamespaceOwner{Kind: "StatefulSet", Name: "redis", UID: "owner-uid"}) ||
+		o[2].APIVersion != "v1" || o[2].Owners[0] != (terraformexec.NamespaceOwner{APIVersion: "apps/v1", Kind: "StatefulSet", Name: "redis", UID: "owner-uid"}) ||
 		o[3].Kind != "Endpoints" || o[3].LabelKeys[0] != "x" || o[3].Managers[0] != "kubectl-create" || o[4].DataKeys[0] != "password" {
 		t.Fatalf("object facts %+v", o)
 	}
@@ -440,7 +440,7 @@ func TestVerifyAbsentCNPGClusterFailsClosed(t *testing.T) {
 		{name: "other kind", modify: func(r *terraformexec.StateResource) { r.Kind = "Database" }, result: terraformexec.ErrNamespaceAbsent},
 		{name: "other version", modify: func(r *terraformexec.StateResource) { r.APIVersion = "other/v1" }, result: terraformexec.ErrNamespaceAbsent},
 		{name: "wrong namespace", modify: func(r *terraformexec.StateResource) { r.Namespace = "other" }, result: terraformexec.ErrNamespaceAbsent},
-		{name: "missing uid", modify: func(r *terraformexec.StateResource) { r.UID = "" }, result: terraformexec.ErrNamespaceAbsent},
+		{name: "provider omits uid but exact object is absent", modify: func(r *terraformexec.StateResource) { r.UID = "" }, result: terraformexec.ErrNamespaceAbsent, want: true},
 		{name: "missing name", modify: func(r *terraformexec.StateResource) { r.Name = "" }, result: terraformexec.ErrNamespaceAbsent},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

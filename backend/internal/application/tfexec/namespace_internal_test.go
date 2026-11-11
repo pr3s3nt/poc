@@ -296,10 +296,10 @@ func TestNamespaceCleanupReadsLegacyBaselineButNeverFallsBackFromCorruption(t *t
 func TestCNPGChildrenRequireStateClusterUIDChain(t *testing.T) {
 	cluster := terraformexec.StateResource{Type: "kubernetes_manifest", APIVersion: "postgresql.cnpg.io/v1", Kind: "Cluster", Name: "db", Namespace: "ns", UID: "cluster-uid"}
 	objects := []terraformexec.NamespaceObject{
-		{Kind: "Cluster", Name: "db", UID: "cluster-uid"},
-		{Kind: "Pod", Name: "db-1", UID: "pod-uid", Owners: []terraformexec.NamespaceOwner{{Kind: "Cluster", Name: "db", UID: "cluster-uid"}}},
-		{Kind: "PersistentVolumeClaim", Name: "db-1", UID: "pvc-uid", Owners: []terraformexec.NamespaceOwner{{Kind: "Cluster", Name: "db", UID: "cluster-uid"}}},
-		{Kind: "Service", Name: "db-rw", UID: "svc-uid", Owners: []terraformexec.NamespaceOwner{{Kind: "Cluster", Name: "db", UID: "cluster-uid"}}},
+		{APIVersion: "postgresql.cnpg.io/v1", Kind: "Cluster", Name: "db", UID: "cluster-uid"},
+		{Kind: "Pod", Name: "db-1", UID: "pod-uid", Owners: []terraformexec.NamespaceOwner{{APIVersion: "postgresql.cnpg.io/v1", Kind: "Cluster", Name: "db", UID: "cluster-uid"}}},
+		{Kind: "PersistentVolumeClaim", Name: "db-1", UID: "pvc-uid", Owners: []terraformexec.NamespaceOwner{{APIVersion: "postgresql.cnpg.io/v1", Kind: "Cluster", Name: "db", UID: "cluster-uid"}}},
+		{Kind: "Service", Name: "db-rw", UID: "svc-uid", Owners: []terraformexec.NamespaceOwner{{APIVersion: "postgresql.cnpg.io/v1", Kind: "Cluster", Name: "db", UID: "cluster-uid"}}},
 		{Kind: "EndpointSlice", Name: "db-rw-1", UID: "slice-uid", Owners: []terraformexec.NamespaceOwner{{Kind: "Service", Name: "db-rw", UID: "svc-uid"}}},
 	}
 	inspect := terraformexec.NamespaceInspection{UID: "ns-uid", Objects: objects}
@@ -311,6 +311,10 @@ func TestCNPGChildrenRequireStateClusterUIDChain(t *testing.T) {
 		name   string
 		change func(*terraformexec.StateResource, []terraformexec.NamespaceObject)
 	}{
+		{"wrong owner api", func(_ *terraformexec.StateResource, o []terraformexec.NamespaceObject) {
+			o[2].Owners = []terraformexec.NamespaceOwner{{APIVersion: "other/v1", Kind: "Cluster", Name: "db", UID: "cluster-uid"}}
+		}},
+		{"wrong cluster api", func(_ *terraformexec.StateResource, o []terraformexec.NamespaceObject) { o[0].APIVersion = "other/v1" }},
 		{"wrong cluster uid", func(r *terraformexec.StateResource, _ []terraformexec.NamespaceObject) { r.UID = "replaced" }},
 		{"other manifest", func(r *terraformexec.StateResource, _ []terraformexec.NamespaceObject) { r.APIVersion = "other/v1" }},
 		{"owner uid mismatch", func(_ *terraformexec.StateResource, o []terraformexec.NamespaceObject) {

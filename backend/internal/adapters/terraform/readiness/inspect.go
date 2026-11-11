@@ -92,16 +92,18 @@ func (c *Checker) Inspect(ctx context.Context, env []string, namespace string) (
 	}
 	var doc struct {
 		Items []struct {
-			Kind     string `json:"kind"`
-			Metadata struct {
+			APIVersion string `json:"apiVersion"`
+			Kind       string `json:"kind"`
+			Metadata   struct {
 				Name            string            `json:"name"`
 				UID             string            `json:"uid"`
 				Labels          map[string]string `json:"labels"`
 				Annotations     map[string]string `json:"annotations"`
 				OwnerReferences []struct {
-					Kind string `json:"kind"`
-					Name string `json:"name"`
-					UID  string `json:"uid"`
+					APIVersion string `json:"apiVersion"`
+					Kind       string `json:"kind"`
+					Name       string `json:"name"`
+					UID        string `json:"uid"`
 				} `json:"ownerReferences"`
 				ManagedFields []struct {
 					Manager string `json:"manager"`
@@ -123,11 +125,11 @@ func (c *Checker) Inspect(ctx context.Context, env []string, namespace string) (
 			return none, ErrUnavailable
 		}
 		object := terraformexec.NamespaceObject{
-			Kind: item.Kind, Name: item.Metadata.Name, UID: item.Metadata.UID,
+			APIVersion: item.APIVersion, Kind: item.Kind, Name: item.Metadata.Name, UID: item.Metadata.UID,
 			SecretRefs: len(item.Secrets), ImagePullSecrets: len(item.ImagePullSecrets), AutomountSet: item.AutomountServiceAccountToken != nil,
 		}
 		for _, o := range item.Metadata.OwnerReferences {
-			object.Owners = append(object.Owners, terraformexec.NamespaceOwner{Kind: o.Kind, Name: o.Name, UID: o.UID})
+			object.Owners = append(object.Owners, terraformexec.NamespaceOwner{APIVersion: o.APIVersion, Kind: o.Kind, Name: o.Name, UID: o.UID})
 		}
 		for key := range item.Data {
 			object.DataKeys = append(object.DataKeys, key)
@@ -215,6 +217,8 @@ func (c *Checker) VerifyAbsent(ctx context.Context, env []string, namespace stri
 		plural, ok := absenceResource[r.Type]
 		idNamespace, name, found := strings.Cut(r.ID, "/")
 		if r.IsCNPGCluster() {
+			// The manifest provider removes server-side UID from state. Exact
+			// NotFound proves absence without granting ownership of a live object.
 			plural, ok = "clusters.postgresql.cnpg.io", true
 			idNamespace, name, found = r.Namespace, r.Name, true
 		}
@@ -224,7 +228,7 @@ func (c *Checker) VerifyAbsent(ctx context.Context, env []string, namespace stri
 			}
 			continue
 		}
-		if !found || idNamespace != namespace || !validName(name) || strings.Contains(name, "/") || r.UID == "" {
+		if !found || idNamespace != namespace || !validName(name) || strings.Contains(name, "/") || (r.UID == "" && !r.IsCNPGCluster()) {
 			return ErrUnavailable
 		}
 		out, err := c.run()(ctx, c.Kubectl, append(append([]string(nil), base...), "get", plural, name, "-n", namespace, "-o", "name"), cmdEnv)

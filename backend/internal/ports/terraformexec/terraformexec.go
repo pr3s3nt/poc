@@ -434,19 +434,21 @@ type AWSStatusAPI interface {
 // NamespaceOwner is one ownerReference of a Kubernetes object, with the UID
 // of the owner it names: a recreated or spoofed same-name owner has another UID.
 type NamespaceOwner struct {
-	Kind string
-	Name string
-	UID  string
+	APIVersion string
+	Kind       string
+	Name       string
+	UID        string
 }
 
 // NamespaceObject is the safe summary of one object found in a namespace: its
 // identity, UID, owners and the provenance facts the ownership policy needs.
 // It never carries values or label/annotation values.
 type NamespaceObject struct {
-	Kind   string
-	Name   string
-	UID    string
-	Owners []NamespaceOwner
+	APIVersion string
+	Kind       string
+	Name       string
+	UID        string
+	Owners     []NamespaceOwner
 	// DataKeys are the sorted data key names of a ConfigMap or Secret.
 	DataKeys []string
 	// SecretRefs and ImagePullSecrets count the secrets a ServiceAccount

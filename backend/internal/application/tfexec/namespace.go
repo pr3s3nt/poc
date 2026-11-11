@@ -227,12 +227,14 @@ func judgeNamespace(ns stateNamespace, inspected terraformexec.NamespaceInspecti
 func judgeNamespaceWithBaseline(ns stateNamespace, inspected terraformexec.NamespaceInspection, own []terraformexec.StateResource, baseline *namespaceCreationBaseline) (foreign []string, namespaceIsOurs bool) {
 	namespaceIsOurs = ns.UID != "" && inspected.UID == ns.UID
 	ownUID := map[string]string{} // kind/name -> UID recorded in state
+	cnpgUID := map[string]bool{}
 	for _, r := range own {
 		kind, ok := ownKinds[r.Type]
 		id := r.ID
 		if r.IsCNPGCluster() && r.Name != "" && !strings.Contains(r.Name, "/") && r.Namespace == ns.Name {
 			kind, ok = "Cluster", true
 			id = r.Namespace + "/" + r.Name
+			cnpgUID[r.UID] = true
 		}
 		if !ok || r.UID == "" {
 			continue
@@ -248,7 +250,7 @@ func judgeNamespaceWithBaseline(ns stateNamespace, inspected terraformexec.Names
 		if o.UID == "" {
 			continue
 		}
-		if uid, ok := ownUID[o.Kind+"/"+o.Name]; ok && uid == o.UID {
+		if uid, ok := ownUID[o.Kind+"/"+o.Name]; ok && uid == o.UID && (!cnpgUID[uid] || o.APIVersion == "postgresql.cnpg.io/v1") {
 			accounted[o.UID] = true
 		}
 		if generatedDefault(o) {
@@ -274,7 +276,8 @@ func judgeNamespaceWithBaseline(ns stateNamespace, inspected terraformexec.Names
 				all := true
 				for _, owner := range o.Owners {
 					target, ok := byKey[owner.Kind+"/"+owner.Name]
-					if !ok || owner.UID == "" || target.UID != owner.UID || !accounted[owner.UID] {
+					if !ok || owner.UID == "" || target.UID != owner.UID || !accounted[owner.UID] ||
+						(cnpgUID[owner.UID] && owner.APIVersion != "postgresql.cnpg.io/v1") {
 						all = false
 						break
 					}

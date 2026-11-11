@@ -816,3 +816,25 @@ of the shared layout is pending explicit external mutation authorization. Do not
 reuse prior six-controller evidence as proof of the new layout. Full backend
 suite baseline failures remain independently reproduced; see
 [verification](../verification/2026-11-05-application-fleet-gitrepo.md).
+
+## IMP-043 — CNPG Cluster UID absent from Terraform manifest state
+
+Issue #75 / [ADR-043](../architecture/decisions/ADR-043-postgres-ha-cnpg.md)
+requires exact Cluster UID provenance before accepting operator-owned children
+in namespace destruction. Live Terraform 1.9.8 / Kubernetes provider 2.38.0
+verification found `kubernetes_manifest.object.metadata.uid = null`, although
+the real CNPG Cluster has a UID. The provider removes server-side fields before
+writing object state (upstream `manifest/provider/apply.go`,
+`RemoveServerSideFields`). Desired manifest/labels or a current API GET cannot
+replace the historical UID proof.
+
+The backend can carry a computed manifest identity and validate a complete
+ownerReference chain when the state contains its UID. When UID is unavailable,
+namespace ownership checks remain fail closed; do not bypass the guard. Normal
+dependency teardown must delete the Cluster and wait for children to disappear
+before deleting its namespace. Authoritative namespace/Cluster NotFound can
+still verify absence using the exact GVK/name/namespace in state. No support
+for arbitrary Kubernetes manifests is added. A durable historical Cluster UID
+capture mechanism is not implemented in this slice; report any blocked cleanup
+rather than treating it as accepted. The issue explicitly permits recording
+this limitation and completing independent work.
