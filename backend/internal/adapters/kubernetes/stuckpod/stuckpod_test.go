@@ -1,6 +1,7 @@
 package stuckpod
 
 import (
+	"orchestrator/internal/domain/workloadwait"
 	"testing"
 	"time"
 )
@@ -112,7 +113,7 @@ func TestReasonsAreSafeSummaries(t *testing.T) {
 	if d.Reasons[0].StuckSeconds != 120 {
 		t.Fatal(d.Reasons[0].StuckSeconds)
 	}
-	if safeImage("https://user:pass@x/y") != "" || safeImage("a b") != "" || safeImage("registry.local:5000/pg:16") == "" {
+	if workloadwait.SafeImage("https://user:pass@x/y") != "" || workloadwait.SafeImage("a b") != "" || workloadwait.SafeImage("registry.local:5000/pg:16") == "" {
 		t.Fatal("unsafe image reference kept")
 	}
 }

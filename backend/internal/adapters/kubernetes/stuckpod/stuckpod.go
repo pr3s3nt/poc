@@ -11,6 +11,7 @@ package stuckpod
 
 import (
 	"fmt"
+	"orchestrator/internal/domain/workloadwait"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,13 +24,6 @@ const DefaultThreshold = 45 * time.Second
 
 // RevisionLabel is the StatefulSet controller's Pod revision label.
 const RevisionLabel = "controller-revision-hash"
-
-// stuckReasons do not recover without a new Pod or a template change.
-var stuckReasons = map[string]bool{
-	"ImagePullBackOff": true, "ErrImagePull": true, "InvalidImageName": true,
-	"CrashLoopBackOff": true, "CreateContainerConfigError": true,
-	"CreateContainerError": true, "RunContainerError": true,
-}
 
 // Reason is one safe observation of a Pod that is not Ready.
 type Reason struct {
@@ -182,24 +176,16 @@ func waitingReason(status map[string]any) (Reason, bool) {
 			state, _ := c["state"].(map[string]any)
 			waiting, _ := state["waiting"].(map[string]any)
 			code, _ := waiting["reason"].(string)
-			if !stuckReasons[code] {
+			if !workloadwait.StuckReason(code) {
 				continue
 			}
 			name, _ := c["name"].(string)
 			image, _ := c["image"].(string)
 			restarts, _ := c["restartCount"].(float64)
-			return Reason{Container: name, Code: code, Image: safeImage(image), Restarts: int64(restarts)}, true
+			return Reason{Container: name, Code: code, Image: workloadwait.SafeImage(image), Restarts: int64(restarts)}, true
 		}
 	}
 	return Reason{}, false
-}
-
-// safeImage keeps an image reference and drops anything that is not one.
-func safeImage(image string) string {
-	if len(image) > 256 || strings.ContainsAny(image, " \t\n\"'\\") || strings.Contains(image, "://") {
-		return ""
-	}
-	return image
 }
 
 func parseTime(v any) time.Time {
