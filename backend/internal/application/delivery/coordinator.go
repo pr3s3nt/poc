@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"orchestrator/internal/application/envops"
+	"orchestrator/internal/domain/workloadwait"
 	"sort"
 	"strings"
 	"time"
@@ -454,6 +455,7 @@ func (c *Coordinator) runPhaseAccepting(ctx context.Context, provider port.Provi
 			return deadlineFailure(err)
 		}
 		if observed.Ready(i.Revision, time.Now().UTC(), 30*time.Second) {
+			recordWaits([]workloadwait.PodWait{}, nil)
 			record.Inventory = []persistence.DeliveryObject{}
 			for _, object := range observed.Objects {
 				record.Inventory = append(record.Inventory, persistence.DeliveryObject{ObjectRef: execution.ObjectRef{APIVersion: object.APIVersion, Kind: object.Kind, Name: object.Name}, UID: object.UID, Release: receipt.Handle["release"]})

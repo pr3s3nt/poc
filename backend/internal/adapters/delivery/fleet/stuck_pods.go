@@ -21,7 +21,7 @@ var _ port.StuckPodRecovery = (*Provider)(nil)
 // Every query or delete failure (for example a missing permission) only
 // reduces what is reported; it never changes the rollout verdict.
 func (p *Provider) RecoverStuckPods(ctx context.Context, i port.Intent, r port.Receipt) (port.StuckPods, error) {
-	out := port.StuckPods{}
+	out := port.StuckPods{Waiting: []workloadwait.PodWait{}}
 	if p.Manager == nil || p.Manager.Verifier == nil || r.Handle["completionOnly"] == "true" || r.RevisionID != i.Revision.ID {
 		return out, nil
 	}

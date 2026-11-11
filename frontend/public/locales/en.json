@@ -3780,7 +3780,7 @@
   "versions.environmentNote": "Choose a version, review differences, then Preview and deploy.",
   "versions.unverifiedBaseline": "Previous configuration is retained. Applied versions will be confirmed after a successful deployment.",
   "versions.available": "New version available",
-  "versions.newerInPreview": "{key} uses r{selected}; r{active} is Active. Select it in Environment Settings to use it.",
+  "versions.newerInPreview": "{key} uses r{selected}; the default is r{active}. Select it in Environment Settings to use it.",
   "versions.choose": "Version for {key}",
   "versions.frozen": "Pinned configuration",
   "versions.changes": "Configuration changes",

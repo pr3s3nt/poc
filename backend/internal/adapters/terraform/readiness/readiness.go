@@ -187,7 +187,8 @@ func (c *Checker) Check(ctx context.Context, req terraformexec.ReadinessRequest)
 	}
 	for {
 		var notReady []string
-		var waits []terraformexec.PodWait
+		// Empty (not nil) so a ready poll clears earlier wait reasons.
+		waits := []terraformexec.PodWait{}
 		queryFailed := false
 		for _, p := range kube {
 			ready, object, err := c.kubeReady(ctx, kubeconfig, req.Env, p)

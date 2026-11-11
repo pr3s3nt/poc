@@ -642,7 +642,7 @@ it('names a pinned Definition revision older than Active in Preview (issue #68)'
   }));
   const user = userEvent.setup(); render(<ApplicationHomePage application={application} />);
   await user.click(await screen.findByRole('button', { name: 'Xem trước thay đổi' }));
-  expect(await screen.findByText('postgres-main đang dùng r1; bản Active là r2. Chọn trong Cài đặt môi trường để dùng.')).toBeVisible();
+  expect(await screen.findByText('postgres-main đang dùng r1; bản mặc định là r2. Chọn trong Cài đặt môi trường để dùng.')).toBeVisible();
 });
 
 it('dismisses the Add Workload picker while templates are loading and lets it reopen',async()=>{

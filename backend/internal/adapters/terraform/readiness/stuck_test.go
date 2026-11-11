@@ -87,6 +87,9 @@ func TestFixedRevisionReplacesStuckPodAndBecomesReady(t *testing.T) {
 	if replaced == nil || replaced.Wait.Pod != "pg-0" || replaced.Wait.Code != "ImagePullBackOff" || replaced.Wait.Image != "postgres:bad" || replaced.Wait.Object != "orc-ns/pg" {
 		t.Fatalf("replacement not observed: %+v", observed)
 	}
+	if last := observed[len(observed)-1]; last.Waiting == nil || len(last.Waiting) != 0 {
+		t.Fatalf("a ready poll must clear earlier wait reasons: %+v", last)
+	}
 }
 
 func TestNoNewRevisionReportsReasonWithoutDeleting(t *testing.T) {
