@@ -68,7 +68,7 @@ func Identity(v string) string {
 }
 func Reason(v string) string {
 	switch v {
-	case "ABSENT", "PUBLISHED", "DELIVERY_CONFIRMED", "WAITING_DEPENDENCY", "ImagePullBackOff", "ErrImagePull", "InvalidImageName", "CrashLoopBackOff", "CreateContainerConfigError", "CreateContainerError", "FailedScheduling", "Pending", "OOMKilled", "Error", "Completed", "Running", "ContainerCreating", "PodInitializing", "Failed", "BackOff", "FailedMount", "FailedAttachVolume", "Unhealthy", "FailedToRetrieveImagePullSecret", "Scheduled", "Pulled", "Created", "Started", "SuccessfulCreate", "NotReady", "OWNERSHIP", "CONTROLLER", "CONFIG", "TARGET", "UNKNOWN", "GIT", "GIT_CONFLICT", "GIT_INVALID", "TERRAFORM", "JOB_FAILED", "SECRET_NOT_READY", "WAITING_FLEET", "WAITING_READINESS", "RECOVERY_REQUIRED", "PRIOR_STOPPED":
+	case "FLEET_FORBIDDEN", "FLEET_AUTH", "FLEET_APPLY_FAILED", "ABSENT", "PUBLISHED", "DELIVERY_CONFIRMED", "WAITING_DEPENDENCY", "ImagePullBackOff", "ErrImagePull", "InvalidImageName", "CrashLoopBackOff", "CreateContainerConfigError", "CreateContainerError", "FailedScheduling", "Pending", "OOMKilled", "Error", "Completed", "Running", "ContainerCreating", "PodInitializing", "Failed", "BackOff", "FailedMount", "FailedAttachVolume", "Unhealthy", "FailedToRetrieveImagePullSecret", "Scheduled", "Pulled", "Created", "Started", "SuccessfulCreate", "NotReady", "OWNERSHIP", "CONTROLLER", "CONFIG", "TARGET", "UNKNOWN", "GIT", "GIT_CONFLICT", "GIT_INVALID", "TERRAFORM", "JOB_FAILED", "SECRET_NOT_READY", "WAITING_FLEET", "WAITING_READINESS", "RECOVERY_REQUIRED", "PRIOR_STOPPED":
 		return v
 	}
 	return "UNKNOWN"
@@ -192,3 +192,5 @@ func Check(ctx context.Context, s Step) {
 		f(s.Safe(), true)
 	}
 }
+
+func Enabled(ctx context.Context) bool { _, ok := ctx.Value(reporterKey{}).(Reporter); return ok }

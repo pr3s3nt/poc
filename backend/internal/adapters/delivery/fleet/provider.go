@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"orchestrator/internal/domain/progress"
 	"regexp"
+	"strings"
 	"time"
 
 	"orchestrator/internal/adapters/delivery/artifact"
@@ -218,7 +220,7 @@ func unknown(i port.Intent) domain.Observation {
 }
 func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (result domain.Observation, resultErr error) {
 	defer func() {
-		if resultErr == nil && result.Health != domain.Healthy {
+		if resultErr == nil && progress.Enabled(ctx) {
 			result.Pods, result.Events = p.collectProgress(ctx, i, r)
 		}
 	}()
@@ -341,6 +343,15 @@ func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (
 		// Fleet names the objects that blocked the apply; they let the
 		// coordinator attribute an Environment failure to its workload.
 		message, _ := display["deployed"].(string)
+		messages := []string{message}
+		conditions, _ := bdStatus["conditions"].([]any)
+		for _, raw := range conditions {
+			condition, _ := raw.(map[string]any)
+			if text, ok := condition["message"].(string); ok {
+				messages = append(messages, text)
+			}
+		}
+		out.ReasonCode = applyReasonCode(strings.Join(messages, " "))
 		out.Objects = append(out.Objects, notReadyObjects(message, i.Target.Namespace)...)
 		if desired == "" || desired == applied {
 			out.Sync = domain.OutOfSync
@@ -701,4 +712,16 @@ func notReadyObjects(message, namespace string) []domain.ObjectObservation {
 		}
 	}
 	return out
+}
+
+// The controller text is used only for classification, never persisted or returned.
+func applyReasonCode(message string) string {
+	lower := strings.ToLower(message)
+	if strings.Contains(lower, "forbidden") {
+		return "FLEET_FORBIDDEN"
+	}
+	if strings.Contains(lower, "unauthorized") || strings.Contains(lower, "authentication required") {
+		return "FLEET_AUTH"
+	}
+	return "FLEET_APPLY_FAILED"
 }

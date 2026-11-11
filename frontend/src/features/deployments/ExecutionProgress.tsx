@@ -10,11 +10,13 @@ export function duration(start: string, end = new Date().toISOString()) {
   const seconds = Math.max(0, Math.floor((Date.parse(end) - Date.parse(start)) / 1000));
   return Number.isFinite(seconds) ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : '—';
 }
-const kinds = new Set(['CLAIM', 'FINALIZE', 'VSO', 'JOB', 'WORKLOAD', 'TERRAFORM', 'PLAN', 'INFRASTRUCTURE', 'SECRETS', 'RENDER', 'PUBLISH', 'READINESS', 'RECOVERY', 'RECOVERY_DELIVERY', 'RECOVERY_RECORDS', 'RECOVERY_PUBLICATION', 'RECOVERY_CONTROLLER', 'RECOVERY_OBJECT', 'absence', 'receipt', 'submission', 'PRIOR_STOPPED', 'initialize', 'binding', 'publication-lease', 'rebind', 'artifact', 'recover-receipt', 'recover-submission', 'observe']);
+const kinds = new Set(['APPLY', 'CLAIM', 'FINALIZE', 'VSO', 'JOB', 'WORKLOAD', 'TERRAFORM', 'PLAN', 'INFRASTRUCTURE', 'SECRETS', 'RENDER', 'PUBLISH', 'READINESS', 'RECOVERY', 'RECOVERY_DELIVERY', 'RECOVERY_RECORDS', 'RECOVERY_PUBLICATION', 'RECOVERY_CONTROLLER', 'RECOVERY_OBJECT', 'absence', 'receipt', 'submission', 'PRIOR_STOPPED', 'initialize', 'binding', 'publication-lease', 'rebind', 'artifact', 'recover-receipt', 'recover-submission', 'observe']);
 export const stepLabel = (kind: string) => t(`execution.kind.${kinds.has(kind) ? kind : 'UNKNOWN'}`);
 export const progressStatus = (status: string) => t(`execution.status.${['RUNNING', 'PENDING', 'SUCCEEDED', 'FAILED', 'INTERRUPTED'].includes(status) ? status : 'PENDING'}`);
+const reasons = new Set(['FLEET_FORBIDDEN','FLEET_AUTH','FLEET_APPLY_FAILED','ABSENT','PUBLISHED','DELIVERY_CONFIRMED','SECRET_NOT_READY','JOB_FAILED','WAITING_DEPENDENCY','WAITING_FLEET','WAITING_READINESS','RECOVERY_REQUIRED','OWNERSHIP']);
+const reasonText=(reason:string)=>t(`execution.reason.${reasons.has(reason)?reason:'UNKNOWN'}`);
 export function reasonHint(reason: string) {
-  const hints = { ImagePullBackOff: 'image', ErrImagePull: 'image', InvalidImageName: 'image', CrashLoopBackOff: 'crash', CreateContainerConfigError: 'config', FailedMount: 'config', FailedToRetrieveImagePullSecret: 'config', Pending: 'resources', FailedScheduling: 'resources', OOMKilled: 'oom', TERRAFORM: 'terraform', JOB_FAILED: 'job', OWNERSHIP: 'ownership' } as Record<string, string>;
+  const hints = { FLEET_FORBIDDEN:'fleetAccess', FLEET_AUTH:'fleetAuth', ImagePullBackOff: 'image', ErrImagePull: 'image', InvalidImageName: 'image', CrashLoopBackOff: 'crash', CreateContainerConfigError: 'config', FailedMount: 'config', FailedToRetrieveImagePullSecret: 'config', Pending: 'resources', FailedScheduling: 'resources', OOMKilled: 'oom', TERRAFORM: 'terraform', JOB_FAILED: 'job', OWNERSHIP: 'ownership' } as Record<string, string>;
  const category=Object.hasOwn(hints,reason) ? hints[reason] : undefined;
   return category ? t(`execution.hint.${category}`) : '';
 }
@@ -25,9 +27,10 @@ function Step({ step, now, children = [] }: { step: ProgressStep; now: string; c
   const [open, setOpen] = useState(step.status === 'RUNNING' || step.status === 'FAILED');
   useEffect(() => { if (step.status === 'RUNNING' || step.status === 'FAILED') setOpen(true); }, [step.status]);
   const pods = step.pods ?? []; const events = step.events ?? [];
+  const title=step.kind==='TERRAFORM' && step.resourceName ? t('execution.terraformResource',{resource:step.resourceName.split('.')[0]}) : step.kind==='RECOVERY_OBJECT' && step.resourceName ? `${step.resourceKind ?? ''} ${step.resourceName}` : stepLabel(step.kind);
   return <li className={`execution-step execution-${step.status.toLowerCase()}`}><details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
-    <summary><strong>{stepLabel(step.kind)}</strong> <Status tone={step.status === 'SUCCEEDED' ? 'good' : step.status === 'FAILED' ? 'draft' : 'neutral'}>{progressStatus(step.status)}</Status> <span className="execution-time">{step.status === 'PENDING' ? '—' : duration(step.startedAt, step.finishedAt ?? now)}{step.deadline && step.status === 'RUNNING' ? ` · ${t('execution.remaining', { time: duration(now, step.deadline) })}` : ''}</span></summary>
-    {step.reason ? <p>{t(`execution.reason.${['ABSENT', 'PUBLISHED', 'DELIVERY_CONFIRMED', 'SECRET_NOT_READY', 'JOB_FAILED', 'WAITING_DEPENDENCY', 'WAITING_FLEET', 'WAITING_READINESS', 'RECOVERY_REQUIRED', 'OWNERSHIP'].includes(step.reason) ? step.reason : 'UNKNOWN'}`)}</p> : null}
+    <summary><strong>{title}</strong> <Status tone={step.status === 'SUCCEEDED' ? 'good' : step.status === 'FAILED' ? 'draft' : 'neutral'}>{progressStatus(step.status)}</Status> <span className="execution-time">{step.status === 'PENDING' ? '—' : duration(step.startedAt, step.finishedAt ?? now)}{step.deadline && step.status === 'RUNNING' ? ` · ${t('execution.remaining', { time: duration(now, step.deadline) })}` : ''}</span></summary>
+    {step.reason ? <p>{reasonText(step.reason)}</p> : null}
     {step.resourceName ? <p>{step.resourceKind} <strong>{step.resourceName}</strong> · {step.namespace}</p> : null}
     {step.reason && reasonHint(step.reason) ? <p>{reasonHint(step.reason)}</p> : null}
     {step.logs?.length ? <details><summary>{t('execution.terraformLog')}</summary><p><small>{t('execution.structuredLog')}</small></p><ol>{step.logs.map((log,i)=><li key={i}>{new Date(log.at).toLocaleString(intlLocale())} · {log.stage} · {progressStatus(log.status)}</li>)}</ol></details> : null}
@@ -47,13 +50,14 @@ export function ExecutionProgress({ record, operationStatus }: { record: Executi
   const running = record.steps.some((s) => s.status === 'RUNNING');
   useEffect(() => { if (!running) return; const timer = window.setInterval(() => setNow(new Date().toISOString()), 1000); return () => window.clearInterval(timer); }, [running]);
   const roots=record.steps.filter((s)=>!s.parent || !record.steps.some((parent)=>parent.id===s.parent));
- const groups = [...new Set(roots.map((s) => s.workload || ''))];
+ const groups: {workload:string;steps:ProgressStep[]}[]=[];
+ for (const step of roots) {const workload=step.workload || '';const last=groups.at(-1);if(last?.workload===workload) last.steps.push(step);else groups.push({workload,steps:[step]});}
   const failures=[...record.steps].reverse().filter((s)=>s.status==='FAILED');
  const failure=failures.find((s)=>!['FINALIZE','WORKLOAD'].includes(s.kind)) ?? failures[0];
  const pod=failure?.pods?.find((p)=>Boolean(reasonHint(p.reason)));
   return <section className="content-panel" aria-label={t('execution.title')}><h2>{t('execution.title')}</h2>
-    {failure ? <div className="form-error" role="alert"><strong>{pod ? `${pod.name}: ${pod.reason}` : stepLabel(failure.kind)}</strong>{pod?.image ? <p className="execution-image">{pod.image}</p> : null}{reasonHint(pod?.reason ?? failure.reason ?? '') ? <p>{reasonHint(pod?.reason ?? failure.reason ?? '')}</p> : null}{operationStatus ? <p>{t(`execution.${['SUCCEEDED', 'FAILED', 'RECOVERED'].includes(operationStatus) ? 'unlocked' : 'held'}`)}</p> : null}</div> : null}
-    {record.steps.length ? groups.map((group) => <div key={group}><h3>{!group || group === '_environment' ? t('execution.environment') : group}</h3><ol className="execution-timeline">{roots.filter((s) => (s.workload || '') === group).map((step) => <Step key={step.id} step={step} now={now} children={record.steps.filter((s)=>s.parent===step.id)} />)}</ol></div>) : <p>{t('execution.noProgress')}</p>}
+    {failure ? <div className="form-error" role="alert"><strong>{pod ? `${pod.name}: ${pod.reason}` : stepLabel(failure.kind)}</strong>{!pod && failure.reason ? <p>{reasonText(failure.reason)}</p> : null}{pod?.image ? <p className="execution-image">{pod.image}</p> : null}{reasonHint(pod?.reason ?? failure.reason ?? '') ? <p>{reasonHint(pod?.reason ?? failure.reason ?? '')}</p> : null}{operationStatus ? <p>{t(`execution.${['SUCCEEDED', 'FAILED', 'RECOVERED'].includes(operationStatus) ? 'unlocked' : 'held'}`)}</p> : null}</div> : null}
+    {record.steps.length ? groups.map((group,index) => <div key={`${group.workload}-${index}`}><h3>{!group.workload || group.workload === '_environment' ? t('execution.environment') : group.workload}</h3><ol className="execution-timeline">{group.steps.map((step) => <Step key={step.id} step={step} now={now} children={record.steps.filter((s)=>s.parent===step.id)} />)}</ol></div>) : <p>{t('execution.noProgress')}</p>}
     {record.checks?.length ? <RecoveryChecks record={record} /> : null}
   </section>;
 }

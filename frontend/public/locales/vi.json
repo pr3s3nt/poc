@@ -4057,7 +4057,7 @@
   "execution.kind.INFRASTRUCTURE": "Hạ tầng",
   "execution.kind.SECRETS": "Chuẩn bị secret",
   "execution.kind.RENDER": "Render manifest",
-  "execution.kind.PUBLISH": "Git · Fleet apply",
+  "execution.kind.PUBLISH": "Xuất bản Git",
   "execution.kind.READINESS": "Chờ ổn định",
   "execution.kind.RECOVERY": "Khôi phục",
   "execution.kind.RECOVERY_DELIVERY": "Kiểm tra delivery",
@@ -4116,5 +4116,12 @@
   "execution.podStatus.Unknown": "Chưa xác định",
   "execution.reason.ABSENT": "Object chưa tồn tại trên cluster",
   "execution.reason.PUBLISHED": "Manifest đã được xuất bản",
-  "execution.reason.DELIVERY_CONFIRMED": "Fleet đã xác nhận bản triển khai này"
+  "execution.reason.DELIVERY_CONFIRMED": "Fleet đã xác nhận bản triển khai này",
+  "execution.terraformResource": "{resource} (Terraform)",
+  "execution.kind.APPLY": "Fleet apply",
+  "execution.reason.FLEET_FORBIDDEN": "Fleet chưa có quyền truy cập tài nguyên trong namespace",
+  "execution.reason.FLEET_AUTH": "Fleet chưa xác thực được với cluster",
+  "execution.reason.FLEET_APPLY_FAILED": "Fleet chưa áp dụng được manifest",
+  "execution.hint.fleetAccess": "Cần kỹ sư nền tảng kiểm tra quyền của tài khoản Fleet cho namespace này.",
+  "execution.hint.fleetAuth": "Cần kỹ sư nền tảng kiểm tra danh tính và cấu hình xác thực của Fleet."
 }

@@ -193,6 +193,7 @@ type ObjectObservation struct {
 }
 
 type Observation struct {
+	ReasonCode       string              `json:"reasonCode,omitempty"`
 	Pods             []progress.Pod      `json:"pods,omitempty"`
 	Events           []progress.Event    `json:"events,omitempty"`
 	Objects          []ObjectObservation `json:"objects,omitempty"`

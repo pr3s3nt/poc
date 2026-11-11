@@ -4057,7 +4057,7 @@
   "execution.kind.INFRASTRUCTURE": "Infrastructure",
   "execution.kind.SECRETS": "Prepare secrets",
   "execution.kind.RENDER": "Render manifests",
-  "execution.kind.PUBLISH": "Git · Fleet apply",
+  "execution.kind.PUBLISH": "Publish Git",
   "execution.kind.READINESS": "Wait for stability",
   "execution.kind.RECOVERY": "Recovery",
   "execution.kind.RECOVERY_DELIVERY": "Check delivery",
@@ -4116,5 +4116,12 @@
   "execution.podStatus.Unknown": "Unknown",
   "execution.reason.ABSENT": "Object is absent from the cluster",
   "execution.reason.PUBLISHED": "Manifests have been published",
-  "execution.reason.DELIVERY_CONFIRMED": "Fleet has acknowledged this delivery"
+  "execution.reason.DELIVERY_CONFIRMED": "Fleet has acknowledged this delivery",
+  "execution.terraformResource": "{resource} (Terraform)",
+  "execution.kind.APPLY": "Fleet apply",
+  "execution.reason.FLEET_FORBIDDEN": "Fleet lacks permission to access resources in the namespace",
+  "execution.reason.FLEET_AUTH": "Fleet could not authenticate to the cluster",
+  "execution.reason.FLEET_APPLY_FAILED": "Fleet could not apply the manifests",
+  "execution.hint.fleetAccess": "A platform engineer must check Fleet account permissions for this namespace.",
+  "execution.hint.fleetAuth": "A platform engineer must check Fleet identity and authentication."
 }

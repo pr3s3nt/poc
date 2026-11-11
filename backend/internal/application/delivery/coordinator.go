@@ -439,17 +439,22 @@ func (c *Coordinator) runPhaseAccepting(ctx context.Context, provider port.Provi
 	waitDeadline, _ := wait.Deadline()
 	for {
 		observed, err := provider.Observe(wait, i, receipt)
-		state, reason := "RUNNING", "WAITING_READINESS"
-		if observed.Sync == domain.Pending {
-			reason = "WAITING_FLEET"
+		if err == nil {
+			state, reason := "RUNNING", "WAITING_READINESS"
+			if observed.Sync == domain.Pending {
+				reason = "WAITING_FLEET"
+			}
+			if observed.Ready(i.Revision, time.Now().UTC(), 30*time.Second) {
+				state = "SUCCEEDED"
+			}
+			if observed.Health == domain.Degraded {
+				state = "FAILED"
+			}
+			if observed.ReasonCode != "" {
+				reason = progress.Reason(observed.ReasonCode)
+			}
+			reportReadiness(ctx, i.ID, record.WorkloadID, state, reason, waitDeadline, observed, receipt.Handle["commit"])
 		}
-		if observed.Ready(i.Revision, time.Now().UTC(), 30*time.Second) {
-			state = "SUCCEEDED"
-		}
-		if observed.Health == domain.Degraded {
-			state = "FAILED"
-		}
-		reportReadiness(ctx, i.ID, record.WorkloadID, state, reason, waitDeadline, observed, receipt.Handle["commit"])
 		if len(observed.Objects) > 0 {
 			last = observed
 		}

@@ -9,7 +9,13 @@ import (
 )
 
 func reportReadiness(ctx context.Context, id, workload, state, reason string, deadline time.Time, observed domain.Observation, commit string) {
-	progress.Report(ctx, progress.Step{ID: id + ":readiness", Workload: workload, Kind: "READINESS", Status: state, Reason: reason, Deadline: &deadline, Pods: observed.Pods, Events: observed.Events, Commit: commit})
+	applied := observed.Complete && observed.ObservedRevision != "" && observed.ObservedRevision == observed.IntendedRevision
+	kind, suffix := "APPLY", ":apply"
+	if applied {
+		progress.Report(ctx, progress.Step{ID: id + ":apply", Workload: workload, Kind: "APPLY", Status: "SUCCEEDED", Commit: commit})
+		kind, suffix = "READINESS", ":readiness"
+	}
+	progress.Report(ctx, progress.Step{ID: id + suffix, Workload: workload, Kind: kind, Status: state, Reason: reason, Deadline: &deadline, Pods: observed.Pods, Events: observed.Events, Commit: commit})
 	for _, object := range observed.Objects {
 		if object.Kind != "VaultStaticSecret" && object.Kind != "Job" {
 			continue
@@ -48,6 +54,9 @@ func reportReadiness(ctx context.Context, id, workload, state, reason string, de
 		}
 		// The enclosing release owns the final outcome. Per-workload diagnostics do
 		// not infer success from a Running pod before the stability gate succeeds.
-		progress.Report(ctx, progress.Step{ID: id + ":workload:" + name, Workload: name, Kind: "READINESS", Status: state, Reason: reason, Deadline: &deadline, Pods: pods, Events: events, Commit: commit})
+		if applied {
+			progress.Report(ctx, progress.Step{ID: id + ":workload:" + name + ":apply", Workload: name, Kind: "APPLY", Status: "SUCCEEDED", Commit: commit})
+		}
+		progress.Report(ctx, progress.Step{ID: id + ":workload:" + name + suffix, Workload: name, Kind: kind, Status: state, Reason: reason, Deadline: &deadline, Pods: pods, Events: events, Commit: commit})
 	}
 }

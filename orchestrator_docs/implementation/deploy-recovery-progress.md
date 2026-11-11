@@ -23,7 +23,9 @@ operation, including failures before planning; legacy uncorrelated records retai
 the old view. No schema migration or released baseline is changed.
 
 Deploy emits claim, planned workload, plan, resource/structured Terraform stages,
-secret preparation, rendering, publication and readiness facts. Fleet diagnostics
+secret preparation, rendering, Git publication, Fleet apply and readiness facts.
+Publication never reports apply success prematurely; known Fleet permission/auth
+errors are classified without publishing controller text. Fleet diagnostics
 are read inside its existing observation; only exact revision/release controllers
 and current-revision Pods contribute evidence. Pod/events use safe fields, never
 raw error messages. VSO and Job observations remain governed by existing readiness.

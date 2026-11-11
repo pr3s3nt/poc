@@ -71,7 +71,7 @@ export function OperationBanner({ application, environment, onTargetChange, poll
     {operation ? <>
       <div className="section-header"><div><h2>{operation.status === 'INTERRUPTED' ? t('environment.operationBanner.operationInterrupted') : t('environment.operationBanner.operationRunning')}</h2><p>{t('environment.operationBanner.toLowerCaseStatusLabelValueSettingsConfiguration', { toLowerCase: operation.kind.replace('_', ' ').toLowerCase(), statusLabel: statusLabel(operation.status), value: operation.stage ? ` · ${operation.stage}` : '' })}</p></div><span className="pending-pill">{statusLabel(operation.status)}</span></div>
       <p>{t('execution.elapsed', { time: duration(operation.startedAt) })}</p>
-      {active ? <p>{t('execution.current', { step: steps.indexOf(active)+1, total: steps.length, workload: active.workload === '_environment' ? environment : active.workload ?? '', label: stepLabel(active.kind) })}</p> : null}
+      {active ? <p>{t('execution.current', { step: steps.indexOf(active)+1, total: steps.length, workload: active.workload === '_environment' ? environment : active.workload || environment, label: stepLabel(active.kind) })}</p> : null}
       {warning ? <p className="form-warning">{warning.name}: {warning.reason} {warning.image}</p> : null}
       {deploymentId ? <Button onClick={()=>navigate({name:'deployment',applicationId:application.id,environment,deploymentId})}>{t('execution.details')}</Button> : null}
       {operation.status === 'INTERRUPTED' ? <div className="recovery">

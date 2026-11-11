@@ -64,3 +64,11 @@ esac
 		})
 	}
 }
+
+func TestFleetApplyReasonNeverPublishesControllerText(t *testing.T) {
+	for _, tc := range []struct{ message, want string }{{"services backend is forbidden; token=PRIVATE", "FLEET_FORBIDDEN"}, {"Unauthorized password=PRIVATE", "FLEET_AUTH"}, {"provider error /private/path", "FLEET_APPLY_FAILED"}} {
+		if got := applyReasonCode(tc.message); got != tc.want {
+			t.Fatalf("got %s want %s", got, tc.want)
+		}
+	}
+}

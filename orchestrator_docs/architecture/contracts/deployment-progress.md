@@ -20,7 +20,14 @@ worker's `priorHeartbeat`. A step has stable `id`, optional `parent`, `workload`
 optional readiness `deadline`. PENDING has no execution duration; entering
 RUNNING starts its clock. Terminal timestamps remain fixed on repeated writes.
 The structure supports actual phase ordering, including Environment-wide Fleet
-bundles, without inventing sequential per-workload publications.
+bundles, without inventing sequential per-workload publications. Adjacent steps are grouped
+by workload while retaining execution order; shared release steps never move
+ahead of earlier workload preparation merely because their group is Environment.
+
+Git publication and Fleet apply have separate steps: a receipt does not prove
+that Fleet applied the revision. Fleet permission/authentication failures use
+fixed safe reason codes; controller message text never reaches the API. A failed
+read does not replace the last successful observation.
 
 Evidence may include validated resource kind/name/namespace, Git commit,
 current-revision pod name/image/reason/restart count, Kubernetes event
