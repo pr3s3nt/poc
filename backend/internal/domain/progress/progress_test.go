@@ -29,3 +29,19 @@ func TestPersistedReadRetainsStructuredFacts(t *testing.T) {
 		t.Fatalf("lost persisted facts: %+v", got)
 	}
 }
+
+func TestProgressNeverExposesCredentialsEmbeddedInAnImageURL(t *testing.T) {
+	for _, value := range []string{"https://user:PRIVATE@registry/image", "user:PRIVATE@registry/image"} {
+		got := Step{Pods: []Pod{{Name: "pod", Image: value}}}.Safe()
+		if got.Pods[0].Image != "" {
+			t.Fatal("credential-bearing image exposed")
+		}
+	}
+	valid := "ghcr.io/acme/image@sha256:" + strings.Repeat("a", 64)
+	if got := (Step{Pods: []Pod{{Name: "pod", Image: valid}}}.Safe()).Pods[0].Image; got != valid {
+		t.Fatal("valid immutable image reference hidden")
+	}
+	if Identity("https://user:PRIVATE@host/path") != "" {
+		t.Fatal("credential-bearing URL accepted as an identity")
+	}
+}

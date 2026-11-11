@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -58,10 +59,11 @@ type Record struct {
 }
 
 var identity = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._:/#@+-]{0,255}$`)
+var digest = regexp.MustCompile(`^[A-Za-z0-9_+.-]+:[a-fA-F0-9]{32,128}$`)
 var image = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._/:@-]{0,511}$`)
 
 func Identity(v string) string {
-	if identity.MatchString(v) {
+	if identity.MatchString(v) && !strings.Contains(v, "://") {
 		return v
 	}
 	return ""
@@ -127,7 +129,7 @@ func (s Step) Safe() Step {
 		}
 		p.Workload = Identity(p.Workload)
 		p.Name = Identity(p.Name)
-		if !image.MatchString(p.Image) {
+		if !image.MatchString(p.Image) || strings.Contains(p.Image, "://") || strings.Contains(p.Image, "@") && !digest.MatchString(strings.SplitN(p.Image, "@", 2)[1]) {
 			p.Image = ""
 		}
 		p.Reason = Reason(p.Reason)
