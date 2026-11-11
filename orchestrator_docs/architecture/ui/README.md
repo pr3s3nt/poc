@@ -307,9 +307,11 @@ Hide Catalog from the shared sidebar. Existing Catalog routes remain read-only
 for history; Console offers no new Catalog authoring or Environment selection.
 Keep the shared shell and the Resource Type/Definition navigation unchanged.
 
-## UI/.env tabs — issue #72
+## Environment import entry — issue #72
 
-Reuse container group, Name/Value table, quiet Button and Dialog. The table is
+Reuse container group, Name/Value table, Button and Dialog. The file-entry action
+aligns left and uses the existing blue/blue-dark tokens with white text; the
+return action keeps the secondary style. The table is
 the default view; Nhập từ file .env opens text editing, with Quay lại bảng to return.
 There is no UI tab label. Grammar/help is a
 disclosure; errors and independent Secret commit boundary remain visible where

@@ -298,11 +298,12 @@ selection. Existing edit flows are unchanged.
 ## Bảng biến và nhập file .env — issue #72
 
 Quyết định nhãn 2026-11-11: bỏ tab/chữ UI. Hiện bảng biến mặc định, bên cạnh có
-nút **Nhập từ file .env** để chuyển sang trình soạn. Khi soạn hiện **Quay lại bảng**;
+nút **Nhập từ file .env** ở góc trái, nền xanh theo token hành động hiện hành,
+chữ trắng để chuyển sang trình soạn. Khi soạn hiện **Quay lại bảng**;
 text lỗi vẫn khóa quay lại và Lưu. Giữ bảng Name/Value và
 picker. Tab text có textarea, chọn file, tải mẫu/tải .env; trợ giúp grammar ở
 disclosure. Lỗi gắn dòng, khóa UI cũ và Save. Import collision dùng Dialog review,
 mặc định giữ. Checkbox literal đánh dấu draft, toolbar chọn nhiều dòng để đánh
 dấu Bí mật. Xác nhận Secret chung hiển thị tên/result mỗi dòng và boundary commit,
-không lặp value. Reference secrecy read-only. Dùng shared tabs/Button/Dialog,
+không lặp value. Reference secrecy read-only. Dùng shared Button/Dialog,
 VI/EN, focus/keyboard hiện hành. [Grammar](../envfile-specification.md).
