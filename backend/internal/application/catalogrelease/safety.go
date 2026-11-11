@@ -7,6 +7,10 @@ import (
 	"orchestrator/internal/planning"
 )
 
+// ErrDataMigrationRequired refuses an update of an existing database or
+// persistent storage (UC-03 DV-06). It is also domain.ErrInvalid.
+var ErrDataMigrationRequired = fmt.Errorf("%w: data migration required", domain.ErrInvalid)
+
 // Catalog publication does not establish database/data migration capability.
 // Existing database and persistent-storage updates require a separate reviewed
 // workflow until an explicit, verified upgrade capability is available.
@@ -22,7 +26,7 @@ func ValidateDataUpdates(plan *planning.Plan, previous func(planning.Node) *plan
 		}
 		dataResource = dataResource || (fields["claimName"] && fields["namespace"])
 		if dataResource {
-			return fmt.Errorf("%w: catalog update of database or persistent storage requires a separately reviewed migration; retain its current component pin", domain.ErrInvalid)
+			return fmt.Errorf("%w: catalog update of database or persistent storage requires a separately reviewed migration; retain its current component pin", ErrDataMigrationRequired)
 		}
 	}
 	return nil

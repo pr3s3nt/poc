@@ -7,6 +7,20 @@ last_reviewed: 2026-11-11
 
 # Current project state
 
+## Stuck StatefulSet Pods and unselected Environments — issue #68
+
+Implemented on `features/statefulset-stuck-pod-recovery` (built on #67).
+Waiting for Terraform readiness (UC-08 BR-11) or a Fleet rollout (UC-06 CD-11),
+the platform replaces at most one stuck StatefulSet Pod of an older revision
+once a new revision exists (`-stuck-pod-threshold`, default 45s). Safe reasons
+and replacements are kept in the operation detail and shown in the Console's
+deployment status. An Environment without a SUCCEEDED Deployment follows the
+Active Definition revision unless the user selected one (DV-01); Preview names a
+newer default revision (DV-04). A running database change is refused with
+`DATA_MIGRATION_REQUIRED` (DV-06). Kind regression run through
+`e2e/scenarios/stuck-statefulset-recovery/`; awaiting user acceptance.
+[Evidence](verification/2026-11-11-stuck-statefulset.md).
+
 ## One Fleet bundle per Environment, versioned secrets — issue #67
 
 [ADR-042](architecture/decisions/ADR-042-environment-bundle-versioned-secrets.md)

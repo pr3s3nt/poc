@@ -35,6 +35,28 @@ it('binds a fresh review request ID and polls only exact scoped deployments', as
   expect(await screen.findByRole('link',{name:/api · SUCCEEDED/})).toBeInTheDocument();
 });
 
+it('shows stuck Pod reasons and replacements while tracking a deployment (issue #68)', async () => {
+  let requestId = '';
+  const wait = { object: 'app-ns/pg', pod: 'pg-0', code: 'ImagePullBackOff', image: 'postgres:bad', stuckSeconds: 60 };
+  vi.stubGlobal('fetch',vi.fn(async (input:string|URL|Request,init?:RequestInit)=>{
+    const url=new URL(String(input),'http://localhost');
+    if (url.pathname.endsWith('/workloads')) return Response.json({applicationKey:'catalog',environmentKey:'staging',draftVersion:1,workloads:[{id:'api',state:'PENDING_UPSERT',ready:false,workload:{}}]});
+    if (url.pathname.endsWith('/preview')) return Response.json({token:'pin',changes:[{workloadId:'api',action:'DEPLOY',resources:{existing:[],new:[],unreferenced:[]},planHash:'plan'}]});
+    if (url.pathname.endsWith('/deploy') && init?.method==='POST') {requestId=(JSON.parse(String(init.body)) as {reviewRequestId:string}).reviewRequestId;return Response.json({status:'SUCCEEDED',results:[]});}
+    if (url.pathname.endsWith('/deployments')) return Response.json({deployments:[]});
+    if (url.pathname.endsWith('/operations')) return Response.json({operations:requestId?[{id:'op',reviewRequestId:requestId,status:'SUCCEEDED',podWaits:[{scope:'readiness',key:'postgres.main',waiting:[{...wait, pod:'pg-1', code:'CrashLoopBackOff', image:'', restarts:4}],replaced:[{wait,at:'2026-11-11T10:00:00Z'}]}]}]:[]});
+    if (url.pathname.endsWith('/resources')) return Response.json({resources:[]});
+    return Response.json({},{status:404});
+  }));
+  const user=userEvent.setup();render(<ApplicationHomePage application={application}/>);
+  await screen.findByText('api');await user.click(screen.getByRole('button',{name:'Xem trước thay đổi'}));
+  await user.click(await screen.findByRole('button',{name:'Triển khai các thay đổi này'}));
+  const panel = await screen.findByRole('status',{name:'Trạng thái chờ pod'});
+  expect(within(panel).getByText('pg-1: CrashLoopBackOff · 4 lần khởi động lại · 60 giây')).toBeInTheDocument();
+  expect(within(panel).getByText('Hệ thống đã thay pod')).toBeInTheDocument();
+  expect(within(panel).getByText(/^pg-0 \(ImagePullBackOff trong 60 giây\) lúc /)).toBeInTheDocument();
+});
+
 it('previews pending changes and deploys only after confirmation', async () => {
   let deployToken = '';
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -606,6 +628,21 @@ it('admits a catalog-only deployment when component content is unchanged', async
   expect(await screen.findByText('Áp dụng phiên bản catalog mục tiêu cho môi trường này.')).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Triển khai các thay đổi này' }));
   expect(await screen.findByRole('heading', { name: 'Triển khai thành công' })).toBeInTheDocument(); expect(submits).toBe(1);
+});
+
+it('names a pinned Definition revision older than Active in Preview (issue #68)', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const path = new URL(String(input), 'http://localhost').pathname;
+    if (path.endsWith('/workloads')) return Response.json({ draftVersion: 1, workloads: [] });
+    if (path.endsWith('/preview')) return Response.json({ token: 'pinned', changes: [], catalogPending: true, catalogRevision: 2, newerDefinitions: [{ key: 'postgres-main', selectedNumber: 1, activeNumber: 2 }] });
+    if (path.endsWith('/deployments')) return Response.json({ deployments: [] });
+    if (path.endsWith('/operations')) return Response.json({ operations: [] });
+    if (path.endsWith('/resources')) return Response.json({ resources: [] });
+    return Response.json({}, { status: 404 });
+  }));
+  const user = userEvent.setup(); render(<ApplicationHomePage application={application} />);
+  await user.click(await screen.findByRole('button', { name: 'Xem trước thay đổi' }));
+  expect(await screen.findByText('postgres-main đang dùng r1; bản mặc định là r2. Chọn trong Cài đặt môi trường để dùng.')).toBeVisible();
 });
 
 it('dismisses the Add Workload picker while templates are loading and lets it reopen',async()=>{

@@ -53,6 +53,7 @@ const messageTable = {
   REFERENCE_REWRITE_UNSAFE: t('shared.errors.referencesCannotBeUpdatedAutomatically'),
   SECRET_COPY_FAILED: t('shared.errors.couldNotCopyTheSecrets'),
   SECRET_STORE_LOCKED: t('shared.errors.secretStoreLocked'),
+  DATA_MIGRATION_REQUIRED: t('shared.errors.dataMigrationRequired'),
   RECOVERY_CONFIRMATION_REQUIRED: t('shared.errors.confirmThatTheInterruptedOperation'),
   CLEANUP_REFUSED: t('shared.errors.theResourceCannotBeDeleted'),
   RESOURCE_CONFIRMATION_MISMATCH: t('shared.errors.theReEnteredNameDoes'),

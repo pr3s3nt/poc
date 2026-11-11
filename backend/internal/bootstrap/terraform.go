@@ -81,7 +81,7 @@ func newTerraformExecutor(opts Options, tf *terraformRuntime, resolver *connecti
 	if kubectl == "" {
 		kubectl = "kubectl"
 	}
-	checker := &readiness.Checker{Kubectl: kubectl, AWS: aws, Dir: work}
+	checker := &readiness.Checker{Kubectl: kubectl, AWS: aws, Dir: work, StuckThreshold: opts.StuckPodThreshold}
 	return tfexec.New(tfexec.Config{BackendBase: listener.Address, Tags: tags, CreationTags: creation, InvocationTimeout: opts.TerraformInvocationTimeout, ReadinessTimeout: opts.TerraformReadinessTimeout}, tfexec.Deps{
 		Baselines: tf.repo, Cipher: tf.cipher,
 		StateWriter: tf.svc,

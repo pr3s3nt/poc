@@ -13,6 +13,7 @@ import (
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/authentication"
 	"orchestrator/internal/application/catalog"
+	catalogapp "orchestrator/internal/application/catalogrelease"
 	appconfig "orchestrator/internal/application/configuration"
 	connectionapp "orchestrator/internal/application/connection"
 	deliveryapp "orchestrator/internal/application/delivery"
@@ -89,6 +90,7 @@ const (
 	codeSecretStoreUnavailable    = "SECRET_STORE_UNAVAILABLE"
 	codeSecretCopyFailed          = "SECRET_COPY_FAILED"
 	codeSecretStoreLocked         = "SECRET_STORE_LOCKED"
+	codeDataMigrationRequired     = "DATA_MIGRATION_REQUIRED"
 	codeRefRewriteUnsafe          = "REFERENCE_REWRITE_UNSAFE"
 	codeRecoveryConfirmRequired   = "RECOVERY_CONFIRMATION_REQUIRED"
 	codeRecoveryIncomplete        = "RECOVERY_INCOMPLETE"
@@ -168,6 +170,7 @@ var publicErrors = map[string]publicError{
 	codeSecretStoreUnavailable:          {http.StatusUnprocessableEntity, "the selected secret store is not available"},
 	codeSecretCopyFailed:                {http.StatusBadGateway, "secrets could not be copied to the new store"},
 	codeSecretStoreLocked:               {http.StatusConflict, "the secret store cannot change while the Environment runs workloads"},
+	codeDataMigrationRequired:           {http.StatusConflict, "an existing database or persistent storage cannot change without a separate migration"},
 	codeRefRewriteUnsafe:                {http.StatusUnprocessableEntity, "the references cannot be updated without losing configuration"},
 	codeRecoveryConfirmRequired:         {http.StatusUnprocessableEntity, "recovery needs confirmation that the prior execution stopped"},
 	codeRecoveryIncomplete:              {http.StatusConflict, "recovery remains incomplete; the Environment is held"},
@@ -444,6 +447,8 @@ func classify(err error) (failure, bool) {
 		return failure{code: codeSecretCopyFailed}, true
 	case errors.Is(err, appconfig.ErrStoreLocked):
 		return failure{code: codeSecretStoreLocked, field: "secretStoreKey"}, true
+	case errors.Is(err, catalogapp.ErrDataMigrationRequired):
+		return failure{code: codeDataMigrationRequired}, true
 	case errors.Is(err, persistence.ErrOperationLost):
 		return failure{code: codeOperationLost}, true
 	case errors.Is(err, persistence.ErrNotFound), errors.Is(err, catalog.ErrPreviewNotFound), errors.Is(err, catalog.ErrNotFound):

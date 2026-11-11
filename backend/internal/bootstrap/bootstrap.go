@@ -179,8 +179,11 @@ type Options struct {
 	// DeployDeadline is the finite hold time of one whole Deploy (all sequential
 	// Terraform nodes and the delivery). Zero keeps the default; it is bounded
 	// by envops.MaxDeadline.
-	DeployDeadline              time.Duration
-	TerraformReadinessTimeout   time.Duration
+	DeployDeadline            time.Duration
+	TerraformReadinessTimeout time.Duration
+	// StuckPodThreshold is the UC-08 BR-11 / UC-06 CD-11 wait before a stuck
+	// StatefulSet Pod of an older revision is replaced; zero keeps 45s.
+	StuckPodThreshold           time.Duration
 	InfrastructureDrift         bool
 	InfrastructureDriftInterval time.Duration
 

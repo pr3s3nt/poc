@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"orchestrator/internal/domain/workloadwait"
 	"time"
 
 	"orchestrator/internal/domain/tfmodule"
@@ -292,6 +293,21 @@ type ReadinessRequest struct {
 	// Env is the private provider environment of the invocation.
 	Env      []string
 	Deadline time.Time
+	// Observe, when set, receives safe progress while waiting (UC-08 BR-11):
+	// Pods waiting on a non-recovering reason and stuck Pod replacements.
+	Observe func(ReadinessObservation)
+}
+
+// PodWait and PodReplacement are the shared safe Pod observations.
+type (
+	PodWait        = workloadwait.PodWait
+	PodReplacement = workloadwait.PodReplacement
+)
+
+// ReadinessObservation is the latest wait state of one readiness poll.
+type ReadinessObservation struct {
+	Waiting  []PodWait
+	Replaced *PodReplacement
 }
 
 // ErrNotReady means a readiness query ran to completion and the objects are

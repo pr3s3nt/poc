@@ -58,7 +58,7 @@ func (s *Server) handleDefinitionVersions(w http.ResponseWriter, r *http.Request
 			return
 		}
 		for _, env := range envs {
-			sel, err := s.store.GetDefinitionSelection(r.Context(), app.Key, env.Key)
+			sel, err := versions.Effective(r.Context(), s.store, app.Key, env.Key)
 			if err != nil {
 				s.writeError(w, err)
 				return
@@ -137,7 +137,7 @@ func (s *Server) handleEnvironmentDefinitionVersions(w http.ResponseWriter, r *h
 		if err != nil {
 			return err
 		}
-		sel, err := view.GetDefinitionSelection(ctx, app, env)
+		sel, err := versions.Effective(ctx, view, app, env)
 		if err != nil {
 			return err
 		}

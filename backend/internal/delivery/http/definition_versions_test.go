@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"strings"
 	"testing"
@@ -37,6 +38,11 @@ func TestRevisionAPIsSeparateProposedAndEnvironmentUpgrade(t *testing.T) {
 		t.Fatal(out)
 	}
 	first := history.History.ActiveID
+	// A running legacy Environment (deployed before versioning) is pinned by
+	// authoring; one that never deployed successfully is not (issue #68).
+	if err := st.UpsertWorkloadInstance(context.Background(), deployment.WorkloadInstance{EnvironmentKey: opts.ApplicationKey + "/staging", WorkloadID: "legacy", LastDeploymentID: "pre-versioning"}); err != nil {
+		t.Fatal(err)
+	}
 	edit := strings.TrimSuffix(strings.Replace(body, "Version one", "Version two", 1), "}") + `,"version":1}`
 	if status, out := request(t, pe, http.MethodPut, base+"/version-api", edit); status != 200 {
 		t.Fatal(status, out)

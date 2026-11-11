@@ -1619,6 +1619,15 @@ separate in the Environment rollback verification record.
 |---|---|---|
 | UC-06 CD-10 | delivery `coordinator.go` (`runPhase`), `submission_recovery.go`; deployment `PublicFailure` rollout summaries | coordinator and recovery tests for Degraded, readiness deadline, push failure, observation error and transfer hold; kind Console scenario |
 
+## Stuck StatefulSet Pods and unselected Environments — issue #68
+
+| Requirement | Realization/code | Validation |
+|---|---|---|
+| UC-03 DV-01/02 unselected Environment follows Active | `definitionversions.Effective`/`HasSucceeded`/`Resolve`, `FreezeOrganization` skips Environments without a SUCCEEDED Deployment; first success applies the selection (`pending/deploy.go`) | `TestUnselectedEnvironmentWithoutSuccessFollowsActiveRevision`, `TestSucceededEnvironmentKeepsSystemFreeze`, `TestDefinitionRevisionLifecycleKeepsEnvironmentsPinned`, `TestRevisionAPIsSeparateProposedAndEnvironmentUpgrade`; PostgreSQL definition-version integration tests |
+| UC-03 DV-04 Preview new-revision notice | `pending.newerDefinitions` → Preview `newerDefinitions`; Console Preview notice | `TestNewerDefinitionsNamesOnlyOlderPinnedRevisions`; `ApplicationHomePage.test.tsx` Preview notice |
+| UC-08 BR-11 stuck Pod replacement on Terraform readiness | `kubernetes/stuckpod.Evaluate`; `readiness.Checker.recoverStuckPods`; `tfexec.readinessRecorder` → `envops.Annotate` (operation detail `readiness:<descriptor>`); `-stuck-pod-threshold` | `stuckpod` table tests; `TestFixedRevisionReplacesStuckPodAndBecomesReady`, `TestNoNewRevisionReportsReasonWithoutDeleting`, `TestMissingDeletePermissionOnlyReports`; `TestAnnotatePersistsAcrossStage`; operations `podWaits` projection (`TestPodWaitsProjectOnlySanitizedEntries`) and Console `PodWaits` (`ApplicationHomePage.test.tsx`); kind Console scenario (planned) |
+| UC-06 CD-11 stuck Pod replacement while waiting for Fleet rollout | `port.StuckPodRecovery`; Fleet `Provider.RecoverStuckPods` (owned StatefulSets carrying this delivery revision); coordinator wait loop → `envops.WaitRecorder` (operation detail `rollout:<unit>`) | `TestFleetFixedRevisionReplacesStuckPod`, `TestFleetWithoutFixOrForeignRevisionOnlyReports`, `TestFleetMissingDeletePermissionOnlyReports`, `TestDeployRecoversStuckPodsWhileWaiting`; kind Console scenario (planned) |
+
 ## UI/.env — issue #72
 
 | Requirement | Implementation | Verification |

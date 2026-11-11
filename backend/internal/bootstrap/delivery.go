@@ -47,7 +47,7 @@ func setupDelivery(opts Options, st persistence.Store, source execution.Kubeconf
 	coordinator := &appdelivery.Coordinator{Store: repo, Registry: registry, Artifacts: &appdelivery.Artifacts{Store: tf.repo, Cipher: tf.cipher}}
 	hosts := &githubhost.Factory{Credentials: creds, Organizations: repo}
 	coordinator.Repositories = &appdelivery.Repositories{Store: repo, Hosts: hosts}
-	provider := &fleetadapter.Provider{Manager: &fleetadapter.Manager{Verifier: &fleetadapter.Verifier{KubectlPath: opts.KubectlPath, Credentials: source, Targets: appdelivery.Targets{Store: st, Identity: repo}}, Guard: coordinator.Guard, RecoveryGuard: coordinator.GuardRecovery}, Publishers: publishers, RepositoryHosts: hosts}
+	provider := &fleetadapter.Provider{Manager: &fleetadapter.Manager{Verifier: &fleetadapter.Verifier{KubectlPath: opts.KubectlPath, Credentials: source, Targets: appdelivery.Targets{Store: st, Identity: repo}}, Guard: coordinator.Guard, RecoveryGuard: coordinator.GuardRecovery}, Publishers: publishers, RepositoryHosts: hosts, StuckThreshold: opts.StuckPodThreshold}
 	provider.Manager.ReaderCredentials = func(ctx context.Context, b port.BindingVersion) ([]byte, error) {
 		org, err := repo.GetOrganizationByID(ctx, b.OrganizationID)
 		if err != nil {
