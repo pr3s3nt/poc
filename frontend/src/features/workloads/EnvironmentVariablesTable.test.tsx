@@ -672,3 +672,14 @@ it('requires explicit reuse of an existing Secret and never overwrites it',async
   await user.click(dialog.getByLabelText('Dùng key hiện có'));await user.click(dialog.getByRole('button',{name:'Tạo và gắn tham chiếu'}));await dialog.findByText('Đã dùng Secret hiện có');
   expect(api.creates()).toHaveLength(0);expect(api.configurationChanged()).toHaveLength(0);
 });
+
+it('keeps an invalid text draft with its container when an earlier container is removed',async()=>{
+  const api=serve();const user=userEvent.setup();await newWorkload(user);
+  await user.click(screen.getByRole('button',{name:'+ Thêm Container'}));
+  await user.click(screen.getAllByRole('tab',{name:'Nhập .env'})[1]!);
+  fireEvent.change(screen.getAllByLabelText('Nội dung .env')[1]!,{target:{value:'BROKEN_SECOND'}});
+  const first=screen.getByRole('heading',{name:'Container 1'}).closest('section')!;
+  await user.click(within(first).getByRole('button',{name:/^Xóa$/}));
+  expect(screen.getByLabelText('Nội dung .env')).toHaveValue('BROKEN_SECOND');
+  expect(screen.getByRole('tab',{name:'UI'})).toBeDisabled();expect(save()).toBeDisabled();expect(api.puts()).toHaveLength(0);
+});

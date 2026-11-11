@@ -47,10 +47,11 @@ trước khi mở form con, không lồng dialog. Thêm dependency xong quay l�
 output. Loading/error catalog khác empty và có retry GET. Mục thiếu không bị
 đổi hoặc xóa âm thầm; đích cũ vẫn hiện trên dòng cùng lỗi khi metadata sẵn sàng.
 
-Checkbox Bí mật trên dòng literal là entry mở form tạo Secret tại chỗ (UC-12),
-không làm literal thành secret. Form giải thích Secret lưu trong đúng app/env
-và commit riêng. Secret/reference đã chọn hiển thị phân loại read-only. Không
-prefill secret từ literal hoặc value catalog. Hủy form giữ binding trước đó.
+Checkbox Bí mật trên dòng literal đánh dấu bản nháp theo issue #72; có thể
+chọn nhiều dòng để đánh dấu cùng lúc. Xác nhận chung dùng giá trị đã nhập để tạo
+Secret UC-12 bằng create-only, rồi chuyển từng dòng thành reference. Secret/output
+đã chọn giữ phân loại read-only. Hủy xác nhận giữ literal/marker trong memory;
+không commit key khi chỉ tick hoặc chuyển tab. Xem ENVFILE-05.
 
 Xóa dòng chỉ xóa mapping, không xóa key hoặc dependency. Nhiều dòng được dùng
 cùng key/output. Các giá trị trên là ví dụ; outputs lấy từ Type metadata.

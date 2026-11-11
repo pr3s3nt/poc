@@ -92,7 +92,7 @@ export function EnvironmentVariablesEditor(props: Props) {
     </div>
     <div role="tabpanel" id={`${id}-ui-panel`} aria-labelledby={`${id}-ui-tab`} hidden={tab !== 'ui'}>
       <EnvironmentVariablesGrid {...props} disabled={locked || blocked} selected={selected} onSelect={(row, checked) => setSelected(prev => { const next = new Set(prev); if (checked) next.add(row); else next.delete(row); return next; })} onChange={next => { fileVersion.current++; setText(undefined); setProblems([]); publish(next); }} />
-      <div className="form-actions"><Button disabled={locked || blocked || !bindings.some(row => selected.has(row.id) && row.source === 'LITERAL')} onClick={() => publish(bindings.map(row => selected.has(row.id) && row.source === 'LITERAL' ? { ...row, secretDraft: true } : row))}>{t('workloads.envfile.markSecrets')}</Button></div>
+      {selected.size > 0 ? <div className="form-actions"><Button disabled={locked || blocked || !bindings.some(row => selected.has(row.id) && row.source === 'LITERAL')} onClick={() => publish(bindings.map(row => selected.has(row.id) && row.source === 'LITERAL' ? { ...row, secretDraft: true } : row))}>{t('workloads.envfile.markSecrets')}</Button></div> : null}
     </div>
     <div role="tabpanel" id={`${id}-env-panel`} aria-labelledby={`${id}-env-tab`} hidden={tab !== 'env'}>
       <label className="field">{t('workloads.envfile.content')}<textarea aria-label={t('workloads.envfile.content')} className="envfile-text" rows={12} value={importText ?? text ?? canonical} disabled={locked || serializationError} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} aria-invalid={currentProblems.length > 0} aria-describedby={`${id}-errors`} onChange={event => edit(event.target.value)} /></label>
