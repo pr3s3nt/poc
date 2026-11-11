@@ -579,6 +579,9 @@ This UI restriction supersedes earlier multi-source Console choices only.
 - **PGHA-02:** Definition dùng module Git `terraform/postgres-ha` từ repo phát
   hành, pin commit đã inspect; Kubernetes binding kế thừa cluster dependency.
   CNPG phải được cài trước, theo [ADR-043](../../architecture/decisions/ADR-043-postgres-ha-cnpg.md).
+  Người dùng duyệt 2026-11-12: Type `postgres` bổ sung output tùy chọn
+  `asyncUri` kiểu string, secret, qua cơ chế mở rộng output UC-02. Giữ các
+  output cũ và Definition `in-cluster`; HA mapping cung cấp đủ tám output.
 - **PGHA-03:** Primary và standby (mặc định hai instance) tự failover qua Service
   `-rw`; tám output giữ tên/kiểu và sensitivity. Deploy chờ Ready; redeploy
   không đổi giữ Cluster và dữ liệu. Không cung cấp HA mất node trên kind một node.

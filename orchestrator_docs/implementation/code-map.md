@@ -7,6 +7,22 @@ last_reviewed: 2026-11-07
 
 # Design-to-code map
 
+## PostgreSQL HA — PGHA-01–04
+
+`backend/internal/adapters/terraform/runner/plan.go` extracts computed manifest
+GVK/name/namespace/UID into `ports/terraformexec.StateResource`.
+`readiness/inspect.go` captures object/owner API versions and verifies absence
+only for `postgresql.cnpg.io/v1 Cluster` among manifest types. Exact NotFound
+queries do not require a UID the provider omits. `application/tfexec/namespace.go`
+requires historical Cluster UID and matching ownerReference GVK/UID chains for
+children; missing UID remains refused (IMP-043). Runner/readiness/namespace unit
+tests cover identity, wrong GVK/UID, surviving objects, API uncertainty and
+unowned PVCs. The module is authored in
+[the release repo](https://github.com/pr3s3nt/orchestrator-workload-templates/tree/features/postgres-ha/terraform/postgres-ha),
+not duplicated here. `e2e/scenarios/postgres-ha/` exercises real Console
+Preview/Deploy, HA failover, in-cluster regression, unchanged Preview/client
+update and product cleanup. [Verification](../verification/2026-11-12-postgres-ha.md).
+
 ## Custom workload runtime authoring — GW-06/07
 
 `environment/volumes.go`, `probes.go`, `execution.go` and `workloadspec/workload.go`

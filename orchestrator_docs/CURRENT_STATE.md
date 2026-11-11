@@ -7,6 +7,26 @@ last_reviewed: 2026-11-11
 
 # Current project state
 
+## PostgreSQL HA bằng CNPG — issue #75
+
+Implementation on `features/postgres-ha`, not merged or accepted.
+[ADR-043](architecture/decisions/ADR-043-postgres-ha-cnpg.md) selects CNPG
+1.30.1 and a Git-owned `terraform/postgres-ha` module in the release repository.
+The module passes fmt/validate and five contract tests. Direct module runtime on
+kind verified two instances, host/URI connectivity, 5.09-second failover with
+preserved rows, and unchanged Cluster identity/data after no-op apply.
+Product browser acceptance on the task stack deployed HA and in-cluster
+postgres, verified host/URI reads/writes, 5.369-second failover and retained
+identity/data after a client-only update. Unchanged Preview disables empty
+Deploy; direct Terraform no-op apply was separately checked. The user approved
+optional secret `asyncUri` on 2026-11-12; it is added to the shared Type and the
+HA Definition now maps all eight outputs, pinned to release commit `721b154`.
+Product cleanup passed after restoring its task-owned Vault forward; full
+backend remains red and is being compared with pristine main. [IMP-043](implementation/deviations.md#imp-043--cnpg-cluster-uid-absent-from-terraform-manifest-state)
+records missing historical Cluster UID in provider state; ownership stays fail
+closed. No tag or release promotion has occurred. Full-check and cleanup results
+are recorded in [verification](verification/2026-11-12-postgres-ha.md).
+
 ## Stuck StatefulSet Pods and unselected Environments — issue #68
 
 Implemented on `features/statefulset-stuck-pod-recovery` (built on #67).

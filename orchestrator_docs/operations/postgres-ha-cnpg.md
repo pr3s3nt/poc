@@ -28,7 +28,9 @@ cho tới khi mọi Cluster/Pod/PVC thử đã dọn xong.
 
 Tạo trên Console `staging-k8s-4f-postgres-ha`, Type `postgres`, driver Terraform,
 Git repo phát hành, path `terraform/postgres-ha`, ref commit SHA đã kiểm tra.
-Sao variables/input_mapping/output_mapping/provider_bindings từ Definition
+Resource Type `postgres` phải khai báo `asyncUri` tùy chọn, string, secret
+(người dùng duyệt 2026-11-12); nếu thiếu, thêm qua UI mở rộng output UC-02,
+không sửa/xóa output cũ. Sao variables/input_mapping/output_mapping/provider_bindings từ Definition
 `in-cluster`, đổi criteria thành `{env_type: staging, class: ha}`; giữ đủ tám
 output. Không sửa Definition nguồn, không lưu Definition/credential vào Git.
 

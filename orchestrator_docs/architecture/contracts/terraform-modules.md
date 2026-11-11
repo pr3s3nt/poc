@@ -158,7 +158,7 @@ hiệu lực nếu Type hoặc module đánh dấu secret; không downgrade đ�
 
 | Type | Contract dùng cho ứng dụng |
 |---|---|
-| `postgres` | Giữ contract catalog hiện hành: `host` string, `port` number, `database` string, `username` string, `password` secret string; tuỳ chọn `uri` secret string, `jdbcUrl` string |
+| `postgres` | Giữ contract catalog hiện hành: `host` string, `port` number, `database` string, `username` string, `password` secret string; tuỳ chọn `uri` secret string, `jdbcUrl` string, `asyncUri` secret string (asyncpg, issue #75) |
 | `redis` | `host` string, `port` number, `username` string, `password` secret string, `tls` bool; credentials không rỗng khi auth yêu cầu; tuỳ chọn `uri` secret string |
 | `mysql`, `mariadb` (Git resource assets) | `host` string, `port` number, `database` string, `username` string, `password` secret string, `claimName` string, `namespace` string; tuỳ chọn `uri` secret string, `jdbcUrl` string |
 | `mongodb` (Git resource assets) | `host` string, `port` number, `database` string, `username` string, `password` secret string, `claimName` string, `namespace` string; tuỳ chọn `connection` secret string |
