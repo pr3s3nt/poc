@@ -1,3 +1,4 @@
+import { EnvironmentVariablesEditor } from './EnvironmentVariablesEditor';
 import { authoringFeatures } from '../../shared/authoringFeatures';
 import { AdvancedFields } from './AdvancedFields';
 import { ConfigGroup, fieldValue, RuntimePolicyFields, SecurityFields, wd, type SecurityContext, type Resolution } from './RuntimePolicyFields';
@@ -13,7 +14,7 @@ import { getResourceTypes, getWorkloads, parseWorkloadImport, saveWorkload, type
 import { AddResourceDialog } from './AddResourceDialog';
 import { CreateKeyDialog } from './CreateKeyDialog';
 import { DependencyFields, dependencyProblem, dependencyAliasesProblem, emptyDependency, type ClassMetadata, type Dependency } from './DependencyFields';
-import { EnvironmentVariablesTable, type FocusRequest } from './EnvironmentVariablesTable';
+import { type FocusRequest } from './EnvironmentVariablesTable';
 import { ExecutionFields } from './ExecutionFields';
 import { ContainerVolumeFields, UnassignedVolumeMounts } from './ContainerVolumeFields';
 import { getWorkloadTemplates, templateKey, customExecution, type Execution, type WorkloadTemplate } from './templates';
@@ -116,6 +117,7 @@ function buildScore(form: Form, types: ResourceType[]): Record<string, unknown> 
     const variables: [string, string][] = [];
     const names = new Set<string>();
     for (const binding of container.bindings) {
+      if (binding.secretDraft) throw new Error(t('workloads.envfile.confirmSecrets'));
       // bindingProblem runs first; this guard only refuses a silent overwrite.
       if (names.has(binding.name)) throw new Error(t('workloads.workloadEditor.containerNameNameName2Is', { name: container.name, name2: binding.name }));
       names.add(binding.name);
@@ -234,6 +236,13 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   const [dirty, setDirty] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [envfileBlocked, setEnvfileBlocked] = useState<Record<number, boolean>>({});
+  const [secretBusy, setSecretBusy] = useState(false);
+  const reportEnvfileBlocked = useCallback((id: number, value: boolean) => setEnvfileBlocked(prev => prev[id] === value ? prev : { ...prev, [id]: value }), []);
+  const replaceSecretRow = useCallback((id: string, binding: Binding) => {
+    setForm(prev => ({ ...prev, containers: prev.containers.map(container => ({ ...container, bindings: container.bindings.map(row => row.id === id ? binding : row) })) }));
+    setDirty(true);
+  }, []);
   const [error, setError] = useState('');
   const [blocked, setBlocked] = useState(false);
   const [advancedScore, setAdvancedScore] = useState(false);
@@ -264,6 +273,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   // over (a pending reload's finally ignores the new scope by design).
   useEffect(() => {
     scope.current += 1;
+    setEnvfileBlocked({}); setSecretBusy(false);
     setWorkloadMeta({ classes: [], defaultAvailable: false });
     setTemplateMetadata(undefined); setTemplateInputProblems(0); setForm(emptyForm()); setImported(undefined); setDirty(false); setMode('form'); setAdvancedScore(false); setBlocked(false); setSaving(false); setReloading(false); setWorkloads([]); setDialog(undefined); setFocusRequest(undefined); setShowIncomplete(false); setShowNameProblem(false);
   }, [application.id, environment, workloadId, selectedTemplate]);
@@ -393,7 +403,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     const previous = form.dependencies[index];
     const changed = patch.type !== undefined && patch.type !== previous?.type;
     updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, ...patch } : item),
-      containers: form.containers.map((container) => ({ ...container, bindings: container.bindings.map((row) => changed && row.source === 'RESOURCE' && row.alias === previous?.alias ? { ...row, resourceChanged: true } : row) })) });
+      containers: form.containers.map((container) => ({ ...container, bindings: container.bindings.map((row) => row.source === 'RESOURCE' && row.alias === previous?.alias ? { ...row, ...(patch.alias !== undefined ? { alias: patch.alias } : {}), ...(changed ? { resourceChanged: true } : {}) } : row) })) });
   }
   function updatePort(index: number, patch: Partial<ServicePort>) { updateForm({ ...form, servicePorts: form.servicePorts.map((item, i) => i === index ? { ...item, ...patch } : item) }); }
   async function importFile(file: File) {
@@ -435,6 +445,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   const nameProblem = !workloadId && showNameProblem ? workloadNameProblem(form.name, form.execution?.kind) : '';
   const rowContext = buildRowContext(catalog, form.dependencies, types, workloads, form.name);
   async function save() {
+    if (secretBusy || Object.values(envfileBlocked).some(Boolean) || form.containers.some(container => container.bindings.some(row => row.secretDraft))) return;
     if (environmentBusy) return;
     if (blocked || stale || templateInputProblems > 0) return;
     if (form.execution?.mounts?.some(mount => !form.dependencies.some(dep => dep.alias === mount.resource) || !form.containers.some(c => c.name === mount.container) || !mount.path.startsWith('/'))) { setError(t('workloads.templates.mountInvalid')); return; }
@@ -489,7 +500,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
       {catalog.status === 'error' ? <div className="form-error" role="alert">{t('workloads.workloadEditor.couldNotLoadApplicationVariables2')}{' '} {catalog.message} {' '}{t('workloads.workloadEditor.yourSelectionsAreKept')}{' '} <Button onClick={() => setCatalogAttempt((value) => value + 1)}>{t('workloads.workloadEditor.retryLoadingKeys')}</Button></div> : null}
       {form.containers.map((container, ci) => <section className="content-panel editor-grid" key={ci}><div className="section-header"><h2>Container {ci + 1}</h2>{form.containers.length > 1 ? <Button tone="danger" onClick={() => updateForm({ ...form, containers: form.containers.filter((_, index) => index !== ci) })}>{t('workloads.workloadEditor.remove')}</Button> : null}</div><div className="field-grid"><label>{t('workloads.workloadEditor.containerName')}<input value={container.name} onChange={(event) => updateContainer(ci, { ...container, name: event.target.value })} /></label><label>{t('workloads.workloadEditor.containerImage')}<input value={container.image} onChange={(event) => updateContainer(ci, { ...container, image: event.target.value })} placeholder={String(fieldValue(resolution,`containers.${container.name}.image`)??'')} /></label></div>
 
-        <ConfigGroup title={wd('environment')} initialOpen summary={container.bindings.length} invalid={Boolean(error)}><EnvironmentVariablesTable grouped container={container.name || String(ci + 1)} bindings={container.bindings} catalog={catalog} dependencies={form.dependencies} types={types} workloads={workloads} self={form.name} context={rowContext} disabled={saving} showIncomplete={showIncomplete} focus={focusRequest} onFocused={clearFocus}
+        <ConfigGroup title={wd('environment')} keepMounted initialOpen summary={container.bindings.length} invalid={Boolean(error)}><EnvironmentVariablesEditor key={`${application.id}:${environment}:${workloadId ?? 'new'}:${ci}`} editorId={ci} application={application} environment={environment} onBlocked={reportEnvfileBlocked} onBusy={setSecretBusy} onReplaceSecret={replaceSecretRow} onConfiguration={acceptConfiguration(scope.current)} onTargetChange={onTargetChange} grouped container={container.name || String(ci + 1)} bindings={container.bindings} catalog={catalog} dependencies={form.dependencies} types={types} workloads={workloads} self={form.name} context={rowContext} disabled={saving} showIncomplete={showIncomplete} focus={focusRequest} onFocused={clearFocus}
           onChange={(bindings) => updateContainer(ci, { ...container, bindings })} onCreateKey={openKeyDialog} onAddResource={(row) => setDialog({ type: 'resource', rowId: row.id })} /></ConfigGroup>
         <AdvancedFields label={`Container ${container.name}`} invalid={Boolean(error)}>
         <ConfigGroup title={wd('compute')} summary={form.execution?.template ? resolutionState==='ready' ? `CPU ${effectiveValue(resolution,`containers.${container.name}.resources.requests.cpu`)} · RAM ${effectiveValue(resolution,`containers.${container.name}.resources.requests.memory`)}` : wd('notConfigured') : `CPU ${container.cpuRequest||container.cpuLimit||wd('notConfigured')} · RAM ${container.memoryRequest||container.memoryLimit||wd('notConfigured')}`} invalid={Boolean(error)}>          <div className="field-grid field-grid-four"><label>{t('workloads.workloadEditor.cPURequest')}<input value={container.cpuRequest} aria-label={t('workloads.workloadEditor.cPURequest')} onChange={(event) => updateContainer(ci, { ...container, cpuRequest: event.target.value })} placeholder={String(fieldValue(resolution,`containers.${container.name}.resources.requests.cpu`)??(!form.execution?.template?container.cpuLimit||'':''))} /></label><label>{t('workloads.workloadEditor.memoryRequest')}<input value={container.memoryRequest} aria-label={t('workloads.workloadEditor.memoryRequest')} onChange={(event) => updateContainer(ci, { ...container, memoryRequest: event.target.value })} placeholder={String(fieldValue(resolution,`containers.${container.name}.resources.requests.memory`)??(!form.execution?.template?container.memoryLimit||'':''))} /></label><label>{t('workloads.workloadEditor.cPULimit')}<input value={container.cpuLimit} aria-label={t('workloads.workloadEditor.cPULimit')} onChange={(event) => updateContainer(ci, { ...container, cpuLimit: event.target.value })} placeholder={String(fieldValue(resolution,`containers.${container.name}.resources.limits.cpu`)??'')} /></label><label>{t('workloads.workloadEditor.memoryLimit')}<input value={container.memoryLimit} aria-label={t('workloads.workloadEditor.memoryLimit')} onChange={(event) => updateContainer(ci, { ...container, memoryLimit: event.target.value })} placeholder={String(fieldValue(resolution,`containers.${container.name}.resources.limits.memory`)??'')} /></label></div>
@@ -578,6 +589,6 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
         setFocusRequest({ rowId, field: 'output' });
       })(scope.current, dialog.rowId)} /> : null}
     {!loading && environmentBusy ? <div className="form-info" role="status">{t('workloads.workloadEditor.anEnvironmentOperationIsRunning', { environment })}</div> : null}
-    {!loading ? <div className="form-actions editor-actions"><Button onClick={() => navigate({ name: 'application', applicationId: application.id, environment })}>{t('workloads.workloadEditor.cancel')}</Button><Button tone="primary" disabled={environmentBusy || blocked || saving || stale || loadFailed || (mode === 'import' && !imported)} onClick={() => void save()}>{t('workloads.workloadEditor.saveWorkloadDraft')}</Button></div> : null}
+    {!loading ? <div className="form-actions editor-actions"><Button disabled={secretBusy} onClick={() => navigate({ name: 'application', applicationId: application.id, environment })}>{t('workloads.workloadEditor.cancel')}</Button><Button tone="primary" disabled={secretBusy || Object.values(envfileBlocked).some(Boolean) || form.containers.some(c => c.bindings.some(row => row.secretDraft)) || environmentBusy || blocked || saving || stale || loadFailed || (mode === 'import' && !imported)} onClick={() => void save()}>{t('workloads.workloadEditor.saveWorkloadDraft')}</Button></div> : null}
   </section>;
 }
