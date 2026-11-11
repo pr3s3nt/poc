@@ -71,13 +71,16 @@ function fleetBundles() {
 
 // ---------- Console sessions ----------
 const admin = readConsoleConfig();
-const developerConfig = () => ({ ...admin, username: 'developer', password: readPrivateFile(join(dir, 'developer-password'), 'mật khẩu developer') });
+// ORCH_DEVELOPER_USERNAME/ORCH_DEVELOPER_PASSWORD_FILE select an existing
+// account (for example on a shared Console); default is the run's developer.
+const developerConfig = () => ({ ...admin, username: process.env.ORCH_DEVELOPER_USERNAME || 'developer', password: readPrivateFile(process.env.ORCH_DEVELOPER_PASSWORD_FILE || join(dir, 'developer-password'), 'mật khẩu developer') });
+const developerIsPlatform = () => process.env.ORCH_DEVELOPER_IS_PLATFORM === '1';
 let adminSession, devSession;
 async function asAdmin() { adminSession ??= await openConsole(admin, {}); return makeUI(adminSession.page, admin.baseURL, 1_800_000); }
 async function asDeveloper() {
   if (!devSession) {
     const browser = adminSession?.browser ?? (await asAdmin(), adminSession.browser);
-    devSession = await signInContext(browser, developerConfig(), { role: 'DEVELOPER' });
+    devSession = await signInContext(browser, developerConfig(), developerIsPlatform() ? {} : { role: 'DEVELOPER' });
   }
   return makeUI(devSession.page, admin.baseURL, 1_800_000);
 }
@@ -304,6 +307,9 @@ async function authorWorkload(ui, spec) {
       await row.getByLabel('Alias tài nguyên', { exact: true }).fill(dep.alias);
       await row.getByRole('combobox', { name: 'Loại tài nguyên', exact: true }).selectOption(dep.type);
       for (const [k, v] of Object.entries(dep.params ?? {})) await row.getByLabel('Tham số ' + k, { exact: true }).fill(v);
+      // The shared resource class of the acceptance app; explicit when several classes exist.
+      const klass = row.getByLabel(`Cách cung cấp (class) của ${dep.alias}`, { exact: true });
+      if (await klass.inputValue() !== 'in-cluster') await klass.selectOption('in-cluster');
     }
   }
   if (spec.mount) {
@@ -314,6 +320,8 @@ async function authorWorkload(ui, spec) {
     await add.getByRole('combobox', { name: 'Loại', exact: true }).selectOption({ label: 'Lưu trữ bền vững (PVC)' });
     await add.getByRole('button', { name: 'Tạo hoặc chọn lưu trữ', exact: true }).click();
     const storage = page.getByRole('dialog', { name: 'Thêm tài nguyên lưu trữ', exact: true });
+    const storageType = storage.getByRole('combobox', { name: 'Loại tài nguyên', exact: true });
+    if (await storageType.inputValue() !== 'persistent-storage') await storageType.selectOption('persistent-storage');
     await storage.getByLabel('Tham số storage', { exact: true }).fill('1Gi');
     await storage.getByRole('button', { name: 'Thêm và chọn', exact: true }).click();
     await storage.waitFor({ state: 'detached' });
@@ -378,10 +386,12 @@ async function prepare() {
   const appView = (await dev.get('/applications/' + state.app.key)).application;
   if (!appView.environments.find((e) => e.key === ENV).secretStoreKey) await selectStore(dev, store.key);
   await openSettings(dev);
-  await dev.page.getByText('Kho bí mật đã chọn thì chỉ Kỹ sư nền tảng hoặc Quản trị viên đổi được.').waitFor();
-  assert.equal(await dev.page.getByLabel('Kho bí mật cho Staging', { exact: true }).count(), 0, 'developer must not change a selected store');
+  if (!developerIsPlatform()) {
+    await dev.page.getByText('Kho bí mật đã chọn thì chỉ Kỹ sư nền tảng hoặc Quản trị viên đổi được.').waitFor();
+    assert.equal(await dev.page.getByLabel('Kho bí mật cho Staging', { exact: true }).count(), 0, 'developer must not change a selected store');
+  }
   await shot(dev, 'developer-store');
-  pass(`Developer selected ${STORE} for staging and then sees it read-only`);
+  pass(`${developerConfig().username} selected ${STORE} for staging${developerIsPlatform() ? '' : ' and then sees it read-only'}`);
 
   const secret = randomBytes(24).toString('hex');
   state.secretHashes = [createHash('sha256').update(secret).digest('hex')];
