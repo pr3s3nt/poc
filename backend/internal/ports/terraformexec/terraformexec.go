@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"orchestrator/internal/domain/workloadwait"
 	"time"
 
 	"orchestrator/internal/domain/tfmodule"
@@ -297,24 +298,11 @@ type ReadinessRequest struct {
 	Observe func(ReadinessObservation)
 }
 
-// PodWait is one safe observation of a Pod that is not Ready: reason code,
-// image reference and restarts only, never a free-form message.
-type PodWait struct {
-	Object       string `json:"object"`
-	Pod          string `json:"pod"`
-	Container    string `json:"container,omitempty"`
-	Code         string `json:"code"`
-	Image        string `json:"image,omitempty"`
-	Restarts     int64  `json:"restarts,omitempty"`
-	StuckSeconds int64  `json:"stuckSeconds"`
-}
-
-// PodReplacement records that a stuck Pod of an older revision was deleted so
-// the StatefulSet controller recreates it from the fixed revision.
-type PodReplacement struct {
-	Wait PodWait   `json:"wait"`
-	At   time.Time `json:"at"`
-}
+// PodWait and PodReplacement are the shared safe Pod observations.
+type (
+	PodWait        = workloadwait.PodWait
+	PodReplacement = workloadwait.PodReplacement
+)
 
 // ReadinessObservation is the latest wait state of one readiness poll.
 type ReadinessObservation struct {

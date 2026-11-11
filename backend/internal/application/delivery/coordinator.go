@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"orchestrator/internal/application/envops"
 	"sort"
 	"strings"
 	"time"
@@ -433,6 +434,9 @@ func (c *Coordinator) runPhaseAccepting(ctx context.Context, provider port.Provi
 	ticker := time.NewTicker(poll)
 	defer ticker.Stop()
 	var last domain.Observation
+	// UC-06 CD-11: wait reasons and stuck Pod replacements of this unit.
+	recordWaits := envops.WaitRecorder(ctx, RolloutDetailPrefix+unit, "")
+	recovery, _ := provider.(port.StuckPodRecovery)
 	for {
 		observed, err := provider.Observe(wait, i, receipt)
 		if len(observed.Objects) > 0 {
@@ -470,6 +474,14 @@ func (c *Coordinator) runPhaseAccepting(ctx context.Context, provider port.Provi
 			observed.Objects = append(observed.Objects, last.Objects...)
 			record.Inventory = observedInventory(observed, receipt)
 			return &observedFailure{cause: c.failRollout(ctx, i, &record, publication, &effectPending, ErrRolloutDegraded), observation: observed}
+		}
+		if recovery != nil {
+			if stuck, err := recovery.RecoverStuckPods(wait, i, receipt); err == nil {
+				for k := range stuck.Replaced {
+					recordWaits(stuck.Waiting, &stuck.Replaced[k])
+				}
+				recordWaits(stuck.Waiting, nil)
+			}
 		}
 		if observed.Sync == domain.Pending && observed.Health == domain.Progressing {
 			if convergence, ok := provider.(port.PendingConvergence); ok {
@@ -583,7 +595,10 @@ const DeployReadinessDeadline = 5 * time.Minute
 // existing diagnostics and logs keep matching.
 var (
 	ErrRolloutDegraded = errors.New("delivery: admitted workload is degraded")
-	ErrRolloutNotReady = errors.New("delivery: exact revision readiness deadline exceeded")
+	// RolloutDetailPrefix keys the safe rollout wait state of one delivery
+	// unit in the owning Environment operation detail (issue #68).
+	RolloutDetailPrefix = "rollout:"
+	ErrRolloutNotReady  = errors.New("delivery: exact revision readiness deadline exceeded")
 )
 
 // determinedFailureAllowed reports whether the owning operation is an ordinary
