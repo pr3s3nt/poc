@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/progress"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
 )
@@ -120,6 +121,7 @@ type Lease struct {
 	cancel      context.CancelFunc
 	stop        chan struct{}
 	done        sync.WaitGroup
+	writeMu     sync.Mutex
 	mu          sync.Mutex
 	stage       string
 	detail      map[string]any
@@ -172,9 +174,12 @@ func (m *Manager) start(parent context.Context, op environment.Operation) *Lease
 	// The recorded deadline bounds every executor call made under the lease.
 	ctx, cancel := context.WithDeadline(base, op.Deadline)
 	lease := &Lease{Operation: op, owner: owner, manager: m, cancel: cancel, stop: make(chan struct{}), detail: op.Detail}
-	lease.Ctx = context.WithValue(ctx, leaseKey{}, lease)
+	lease.Ctx = progress.WithReporter(context.WithValue(ctx, leaseKey{}, lease), lease.recordProgress)
 	lease.done.Add(1)
 	go lease.beat()
+	if op.Kind == environment.OpDeploy && op.Status == environment.OpActive {
+		progress.Report(lease.Ctx, progress.Step{ID: "environment:claim", Kind: "CLAIM", Status: "SUCCEEDED", StartedAt: op.StartedAt})
+	}
 	return lease
 }
 
@@ -251,10 +256,12 @@ func (l *Lease) beat() {
 		case <-l.stop:
 			return
 		case <-ticker.C:
+			l.writeMu.Lock()
 			l.mu.Lock()
 			stage, detail := l.stage, l.mergedLocked()
 			l.mu.Unlock()
 			err := l.heartbeatNow(stage, detail)
+			l.writeMu.Unlock()
 			switch {
 			case err == nil:
 				lastOK = time.Now()
@@ -289,6 +296,8 @@ func Annotate(ctx context.Context, key string, value any) error {
 	if !ok || l == nil {
 		return nil
 	}
+	l.writeMu.Lock()
+	defer l.writeMu.Unlock()
 	l.mu.Lock()
 	if l.notes == nil {
 		l.notes = map[string]any{}
@@ -320,10 +329,19 @@ func (l *Lease) mergedLocked() map[string]any {
 
 // Stage persists the current stage and nonsecret detail immediately.
 func (l *Lease) Stage(stage string, detail map[string]any) error {
+	l.writeMu.Lock()
+	defer l.writeMu.Unlock()
 	l.mu.Lock()
 	l.stage = stage
 	if detail != nil {
-		l.detail = detail
+		next := map[string]any{}
+		for k, v := range detail {
+			next[k] = v
+		}
+		if retained, ok := l.detail["progress"]; ok {
+			next["progress"] = retained
+		}
+		l.detail = next
 	}
 	d := l.mergedLocked()
 	l.mu.Unlock()
@@ -336,6 +354,17 @@ func (l *Lease) Stage(stage string, detail map[string]any) error {
 
 // End stops the heartbeat and releases the Environment with a terminal status.
 func (l *Lease) End(status environment.OperationStatus, failure string) error {
+	final := "FAILED"
+	if status == environment.OpSucceeded {
+		final = "SUCCEEDED"
+	}
+	if persistence.Held(l.Ctx) {
+		final = "INTERRUPTED"
+	}
+	l.finishProgress(final)
+	if l.Operation.Kind == environment.OpDeploy {
+		progress.Report(l.Ctx, progress.Step{ID: "environment:finalize", Kind: "FINALIZE", Status: final})
+	}
 	// An executor marked an unknown outcome: the Environment is never
 	// released, whatever status the caller asks for. It is suspended visibly
 	// (INTERRUPTED) until an operator confirms the external work stopped.
@@ -374,6 +403,7 @@ func (l *Lease) End(status environment.OperationStatus, failure string) error {
 // visible failure, keeping the Environment held: used when compensation or
 // recovery could not complete and an operator must act.
 func (l *Lease) Suspend(failure string) error {
+	l.finishProgress("INTERRUPTED")
 	l.mu.Lock()
 	if l.ended {
 		l.mu.Unlock()

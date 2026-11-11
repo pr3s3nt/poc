@@ -7,6 +7,7 @@ control DeploymentQueryService as Service
 control DeploymentViewAssembler as Assembler
 control OutputRedactor as Redactor
 control NodeProgressProjector as Progress
+database EnvironmentOperationRepository as OperationRepo
 database DeploymentRepository as DeploymentRepo
 database DeploymentSetRepository as SetRepo
 database DeploymentResourceRepository as DeploymentResourceRepo
@@ -17,6 +18,8 @@ Developer -> API: GetDeployment(appID, envID, deploymentID) [MS-01]
 API -> Service: GetDeployment(ctx, query)
 Service -> DeploymentRepo: FindScoped(query) [MS-02]
 DeploymentRepo --> Service: Deployment + persisted plan
+Service -> OperationRepo: Read exact correlated operation [DP-01..05]
+OperationRepo --> Service: Persisted safe steps, pod/events and recovery checks
 Service -> SetRepo: FindSnapshot(candidateSetID)
 SetRepo --> Service: DeploymentSet
 Service -> DeploymentResourceRepo: ListByDeployment(deploymentID) [MS-03]

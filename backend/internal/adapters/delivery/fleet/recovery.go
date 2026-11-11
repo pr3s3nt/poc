@@ -7,12 +7,28 @@ import (
 	"log"
 	k8s "orchestrator/internal/adapters/kubernetes"
 	domain "orchestrator/internal/domain/delivery"
+	"orchestrator/internal/domain/progress"
 	port "orchestrator/internal/ports/delivery"
 )
 
 // RecoverSubmission neither pushes Git nor calls Submit/apply. It requires the
 // persisted exact controller/publication receipt and source incarnation proof.
-func (p *Provider) RecoverSubmission(ctx context.Context, i port.Intent, prepared port.Prepared, r port.Receipt, source port.TransferSource) (port.Receipt, error) {
+func (p *Provider) RecoverSubmission(ctx context.Context, i port.Intent, prepared port.Prepared, r port.Receipt, source port.TransferSource) (result port.Receipt, resultErr error) {
+	check := progress.Step{ID: i.ID + ":publication", Kind: "RECOVERY_PUBLICATION", Status: "RUNNING"}
+	progress.Check(ctx, check)
+	defer func() {
+		if resultErr != nil {
+			check.Status = "FAILED"
+			check.Reason = "RECOVERY_REQUIRED"
+			if errors.Is(resultErr, ErrOwnership) {
+				check.Reason = "OWNERSHIP"
+			}
+		} else {
+			check.Status = "SUCCEEDED"
+		}
+		progress.Check(ctx, check)
+	}()
+
 	if p.Manager == nil || p.Manager.RecoveryGuard == nil || p.Publishers == nil {
 		return r, domain.ErrUnsupported
 	}
@@ -34,11 +50,17 @@ func (p *Provider) RecoverSubmission(ctx context.Context, i port.Intent, prepare
 	if !found || (r.Handle["layout"] != applicationLayout && published.Commit != r.Handle["commit"]) || published.TreeDigest != r.PayloadDigest {
 		return r, domain.ErrOutcomeUnknown
 	}
+	check.Status = "SUCCEEDED"
+	check.Reason = "PUBLISHED"
+	progress.Check(ctx, check)
+	check = progress.Step{ID: i.ID + ":controller", Kind: "RECOVERY_CONTROLLER", Status: "RUNNING", ResourceKind: "GitRepo", ResourceName: r.Handle["gitrepo"]}
+	progress.Check(ctx, check)
 	cli, close, cfg, err := p.Manager.open(ctx, i)
 	if err != nil {
 		return r, err
 	}
 	defer close()
+	check.Namespace = cfg.Workspace
 	if r.Handle["release"] != pkg.ReleaseName || r.Handle["releaseNamespace"] != cfg.ReleaseNamespace || r.Handle["namespace"] != i.Target.Namespace || r.Handle["commit"] == "" || r.Handle["gitrepoUID"] == "" {
 		return r, ErrOwnership
 	}
@@ -118,6 +140,10 @@ func (p *Provider) RecoverSubmission(ctx context.Context, i port.Intent, prepare
 		expected[o.Key()] = true
 	}
 	for _, o := range source.Inventory {
+		check.Status = "SUCCEEDED"
+		progress.Check(ctx, check)
+		check = progress.Step{ID: i.ID + ":object:" + o.Kind + ":" + o.Name, Kind: "RECOVERY_OBJECT", Status: "RUNNING", ResourceKind: o.Kind, ResourceName: o.Name, Namespace: i.Target.Namespace}
+		progress.Check(ctx, check)
 		if !expected[o.Key()] {
 			continue
 		}

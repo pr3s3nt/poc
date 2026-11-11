@@ -658,3 +658,19 @@ it('dismisses the Add Workload picker while templates are loading and lets it re
  await user.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Hủy'}));expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
  await user.click(add);expect(screen.getByRole('dialog')).toBeVisible();await user.keyboard('{Escape}');expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
+
+it('shows the current deployment step and warning on the main Environment page', async () => {
+  const operation = { id: 'op-progress', kind: 'DEPLOY', status: 'ACTIVE', startedAt: '2026-11-11T00:00:00Z', updatedAt: '2026-11-11T00:01:00Z', heartbeatAt: '2026-11-11T00:01:00Z', recoverable: false, progress: { version: 1, steps: [{ id: 'wait', deploymentId: 'dep-progress', workload: 'backend', kind: 'READINESS', status: 'RUNNING', startedAt: '2026-11-11T00:00:00Z', updatedAt: '2026-11-11T00:01:00Z', pods: [{ name: 'backend-1', reason: 'ImagePullBackOff', image: 'ghcr.io/acme/backend:missing', restarts: 0 }] }] } };
+  const app = { ...application, environments: { ...application.environments, staging: { ...application.environments.staging, activeOperation: operation } } };
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith('/operations')) return Response.json({ operations: [operation] });
+    if (url.endsWith('/workloads')) return Response.json({ workloads: [], applicationKey: app.id, environmentKey: 'staging', draftVersion: 1 });
+    if (url.endsWith('/resources')) return Response.json({ resources: [] });
+    return Response.json({ deployments: [] });
+  }));
+  render(<ApplicationHomePage application={app} onTargetChange={vi.fn()} />);
+  expect(await screen.findByText(/backend-1: ImagePullBackOff/)).toBeInTheDocument();
+  expect(screen.getByText(/backend — Chờ ổn định/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Xem chi tiết →' })).toBeEnabled();
+});

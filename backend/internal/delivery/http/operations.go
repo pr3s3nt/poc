@@ -11,6 +11,7 @@ import (
 	deliverydomain "orchestrator/internal/domain/delivery"
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/progress"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
 )
@@ -138,12 +139,16 @@ func (s *Server) handleRecoverOperation(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	_, _ = s.operations.Sweep(r.Context())
+	priorHeartbeat := op.HeartbeatAt
 	op, err = s.store.BeginRecovery(r.Context(), op.ID, s.operations.InstanceID()+"-recovery-"+ids.New()[:8], strings.TrimSpace(identity.Username))
 	if err != nil {
 		s.writeError(w, err)
 		return
 	}
 	lease := s.operations.Adopt(r.Context(), op)
+	lease.PriorHeartbeat(priorHeartbeat)
+	progress.Check(lease.Ctx, progress.Step{ID: "prior-stopped", Kind: "PRIOR_STOPPED", Status: "SUCCEEDED"})
+
 	result := map[string]any{"operationId": op.ID, "kind": string(op.Kind)}
 	if op.Kind == environment.OpDriftScan {
 		scanID, _ := op.Detail["driftScanId"].(string)
@@ -205,6 +210,7 @@ func (s *Server) handleRecoverOperation(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusOK, map[string]any{"recovery": map[string]any{"operationId": op.ID, "kind": string(op.Kind), "outcome": "RECOVERED"}})
 		return
 	}
+	progress.Check(lease.Ctx, progress.Step{ID: "delivery", Kind: "RECOVERY_DELIVERY", Status: "RUNNING"})
 	if s.reconciliation != nil {
 		env, err := s.store.GetEnvironment(lease.Ctx, appKey, envKey)
 		if err == nil {
@@ -214,11 +220,14 @@ func (s *Server) handleRecoverOperation(w http.ResponseWriter, r *http.Request) 
 			err = s.reconciliation.RecoverSubmissions(lease.Ctx, app.OrganizationKey, env)
 		}
 		if err != nil {
+			progress.Check(lease.Ctx, progress.Step{ID: "delivery", Kind: "RECOVERY_DELIVERY", Status: "FAILED", Reason: "RECOVERY_REQUIRED"})
 			_ = lease.Suspend("delivery submission requires further recovery")
 			writeCode(w, codeRecoveryIncomplete, "")
 			return
 		}
 	}
+	progress.Check(lease.Ctx, progress.Step{ID: "delivery", Kind: "RECOVERY_DELIVERY", Status: "SUCCEEDED"})
+	progress.Check(lease.Ctx, progress.Step{ID: "records", Kind: "RECOVERY_RECORDS", Status: "RUNNING"})
 	list, err := s.store.ListDeployments(lease.Ctx, app.Key, envKey)
 	if err == nil {
 		for _, item := range list {
@@ -251,6 +260,7 @@ func (s *Server) handleRecoverOperation(w http.ResponseWriter, r *http.Request) 
 		writeFailure(w, failure{code: codeRecoveryIncomplete, extra: map[string]any{"recovery": map[string]any{"operationId": op.ID, "outcome": reason}}})
 		return
 	}
+	progress.Check(lease.Ctx, progress.Step{ID: "records", Kind: "RECOVERY_RECORDS", Status: "SUCCEEDED"})
 	if err := lease.End(environment.OpRecovered, "interrupted delivery records were marked failed; preview the desired state before retrying"); err != nil {
 		s.writeError(w, err)
 		return

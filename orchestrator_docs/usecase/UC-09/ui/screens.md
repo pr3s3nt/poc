@@ -132,3 +132,21 @@ inside their rows while retaining visible status; they do not widen the viewport
 
 [Interaction design](../../UC-01/ui/delivery-reconciliation.md) defines the Environment opt-in, transition review
 and independent sync/health/drift presentation. Required design, not implemented UI.
+
+## Detailed Deploy/Recovery progress — issue #69
+
+This extension supersedes the earlier no-live-refresh restriction for persisted
+execution progress only. Immediately below the existing deployment map and its
+Deploy progress, show a vertical step timeline grouped by workload, automatically
+expanding active/failed steps. Each
+step shows status/time and its actual wait deadline, safe pod reason, image,
+restart count and latest three events; all recorded events are a disclosure.
+Secret preparation shows required/prepared binding counts (including no secret
+required); render shows total objects and counts by kind. Never show secret keys,
+values, references or raw manifest bodies here. Older steps without these facts
+remain plain status/time rows; only steps with actual detail have disclosure.
+The failure panel includes fixed localized guidance for recognized reasons.
+Environment operation banner summarizes this same progress with a detail link.
+Recovery shows prior heartbeat before confirmation, then a concise conclusion
+and required action plus a collapsible, readable-by-all check list. Preserve
+current shell/components, VI/EN catalogs and existing permissions.

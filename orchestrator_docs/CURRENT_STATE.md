@@ -2394,6 +2394,16 @@ that leaves these unchanged keeps template sources AVAILABLE; templates register
 with the earlier executable pin are registered again once after this upgrade.
 [Evidence](verification/2026-11-09-stable-template-renderer-pin.md).
 
+## Issue #69 — accepted main integration
+
+The user requested merge on 2026-11-12. Main includes persisted generic Deploy
+steps, Recovery checks, Console timeline/banner, safe pod/event/stage facts and
+preparation/render counts, with empty disclosures removed. Integration preserves
+#68 wait diagnostics under the same serialized lease writer. No HA/topology
+product change was made. See the [main verification](verification/2026-11-12-deploy-recovery-progress-main.md)
+for the same-red-baseline full-check comparison and the issue rollout receipt.
+Earlier technical cleanup limits remain explicit in the [original record](verification/2026-11-11-deploy-recovery-progress.md).
+
 ## Workload UI/.env — issue #72
 
 Integrated into main after user acceptance (merge 9cb29315, 2026-11-11):

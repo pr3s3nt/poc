@@ -5,6 +5,7 @@ import (
 	"log"
 	domain "orchestrator/internal/domain/delivery"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/progress"
 	port "orchestrator/internal/ports/delivery"
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/ports/persistence"
@@ -46,7 +47,12 @@ func (c *Coordinator) GuardRecovery(ctx context.Context, i port.Intent) error {
 }
 func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env environment.Environment) (resultErr error) {
 	stage := "initialize"
+	checkID := "submission"
+	progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "RUNNING"})
 	defer func() {
+		if resultErr == nil {
+			progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "SUCCEEDED"})
+		}
 		if resultErr != nil {
 			code := "UNCLASSIFIED"
 			// Only fixed messages are eligible; arbitrary provider output stays private.
@@ -63,6 +69,7 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 			if v, ok := known[resultErr.Error()]; ok {
 				code = v
 			}
+			progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "FAILED", Reason: code})
 			log.Printf("delivery submission recovery stopped: stage=%s code=%s type=%T", stage, code, resultErr)
 		}
 	}()
@@ -91,13 +98,21 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 		return err
 	}
 	for _, record := range records {
+		if record.Mutation.OperationID == owner.OperationID && record.Mutation.Status == domain.IntentAcknowledged {
+			progress.Check(ctx, progress.Step{ID: record.Mutation.ID + ":acknowledged", Kind: "RECOVERY_DELIVERY", Workload: record.WorkloadID, ResourceKind: string(record.Revision.Phase), Status: "SUCCEEDED", Reason: "DELIVERY_CONFIRMED"})
+		}
 		if record.Mutation.OperationID != owner.OperationID || (record.Mutation.Status == domain.IntentAcknowledged || record.Mutation.Status == domain.IntentFailed) {
 			continue
 		}
+		progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "SUCCEEDED"})
+		checkID = "submission:" + record.Mutation.ID
+		stage = "initialize"
 		if record.Mutation.Action != domain.Submit || (record.Receipt.IntentID != "" && record.Receipt.IntentID != record.Mutation.ID) {
 			return domain.ErrOutcomeUnknown
 		}
+		progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "SUCCEEDED"})
 		stage = "binding"
+		progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "RUNNING"})
 		binding, provider, err := c.sourceProvider(ctx, record)
 		if err != nil {
 			return err
@@ -112,17 +127,23 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 			if err != nil {
 				return err
 			}
+			progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "SUCCEEDED"})
 			stage = "publication-lease"
+			progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "RUNNING"})
 			if err = repo.RecoverGitPublication(ctx, org.ID, destination); err != nil {
 				return err
 			}
 		}
+		progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "SUCCEEDED"})
 		stage = "rebind"
+		progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "RUNNING"})
 		record, err = repo.RebindDeliverySubmission(ctx, org.ID, record.Mutation.ID, record.Mutation.Version)
 		if err != nil {
 			return err
 		}
+		progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "SUCCEEDED"})
 		stage = "artifact"
+		progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "RUNNING"})
 		raw, err := c.providerArtifact(ctx, record)
 		if err != nil {
 			return err
@@ -162,7 +183,9 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 		}
 		if record.Receipt.IntentID == "" {
 			if absentObserver, ok := provider.(port.SubmissionAbsenceRecovery); ok {
+				progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "SUCCEEDED"})
 				stage = "absence"
+				progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "RUNNING"})
 				absent, err := absentObserver.ObserveSubmissionAbsent(ctx, intent, port.Prepared{Revision: record.Revision, Payload: raw})
 				if err != nil {
 					return err
@@ -192,7 +215,9 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 			if !ok {
 				return domain.ErrOutcomeUnknown
 			}
+			progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "SUCCEEDED"})
 			stage = "receipt"
+			progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "RUNNING"})
 			receipt, err := observer.RecoverReceipt(ctx, intent, port.Prepared{Revision: record.Revision, Payload: raw})
 			if err != nil {
 				return err
@@ -204,7 +229,9 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 				return err
 			}
 		}
+		progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "SUCCEEDED"})
 		stage = "submission"
+		progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "RUNNING"})
 		receipt, err := recoverer.RecoverSubmission(ctx, intent, port.Prepared{Revision: record.Revision, Payload: raw}, record.Receipt, source)
 		if err != nil {
 			return err
@@ -227,9 +254,22 @@ func (c *Coordinator) RecoverSubmissions(ctx context.Context, orgKey string, env
 		}
 		wait, cancel := context.WithTimeout(ctx, deadline)
 		failed := false
+		progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "SUCCEEDED"})
+		stage = "observe"
 		for {
-			stage = "observe"
+			progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "RUNNING"})
 			observed, observeErr := provider.Observe(wait, intent, receipt)
+			if observeErr == nil {
+				reason := "WAITING_READINESS"
+				if observed.Sync == domain.Pending {
+					reason = "WAITING_FLEET"
+				}
+				if observed.ReasonCode != "" {
+					reason = progress.Reason(observed.ReasonCode)
+				}
+				waitDeadline, _ := wait.Deadline()
+				progress.Check(ctx, progress.Step{ID: checkID + ":" + stage, Kind: stage, Status: "RUNNING", Reason: reason, Deadline: &waitDeadline, Pods: observed.Pods, Events: observed.Events})
+			}
 			// A read cut off by the expired readiness deadline is the deadline
 			// outcome, not a provider failure.
 			if observeErr != nil && !(determined && wait.Err() != nil && ctx.Err() == nil) {

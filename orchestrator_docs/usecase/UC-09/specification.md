@@ -192,3 +192,29 @@ generation, unchanged module intent along that ancestry and exact snapshot
 Deployment/workload identity. Current instance state, later deployments or overall
 SUCCEEDED alone are not proof. Missing, conflicting, failed or changed baseline
 evidence remains UNKNOWN; current-run facts always take precedence.
+
+## Deploy and Recovery progress — issue #69
+
+- **DP-01:** Persist generic step identity, parent/workload, state, start/update/end
+  timestamps, finite wait deadline and latest safe observation. Read historical
+  facts after termination/restart; GET never observes providers. Poll every 3–5s.
+- **DP-02:** Reuse execution readiness observations for current-revision pods,
+  image, restart count and Kubernetes event reason; never introduce another
+  observer loop or alter Deploy/Recovery decisions. Unavailable diagnostics must
+  not be represented as success or replace the last known observation.
+- **DP-03:** Record secret binding counts and rendered object totals/counts by
+  kind without values, keys, private references or manifest bodies. Explicit zero
+  means no secret binding required; absent historical facts remain unknown.
+  Steps without detail have no disclosure control. Expand running/failed steps in a vertical timeline grouped by workload.
+  Show elapsed/remaining time, a concise failure reason and fixed guidance for
+  image pull, crash loop, missing configuration, scheduling, OOM, Terraform and Job
+  failures. Unknown failures show only a safe reason, never inferred guidance.
+- **DP-04:** Environment banner shows elapsed time, current step, latest warning
+  and a detail link. Before Recovery show the last prior-worker heartbeat. Persist
+  recovery checks and their outcomes; everyone allowed to view the Environment
+  can inspect the conclusion, action required and collapsible check list.
+- **DP-05:** Persist only allowlisted codes and validated resource identities.
+  Raw provider errors, event messages, secret values, credentials, kubeconfig and
+  private paths never enter the public progress record. Kubernetes event messages
+  are reconstructed from safe reason/resource fields. Terraform logs may only be
+  exposed after explicit secret filtering; raw logs remain private.

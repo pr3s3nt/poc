@@ -1,6 +1,6 @@
 import { api } from '../../shared/api/client';
 import { toTarget, type APIEnvironment } from '../../shared/api/environment';
-import type { EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
+import type { EnvironmentKey, EnvironmentTarget, EnvironmentOperation } from '../../shared/types/application';
 
 export type RecoveryResult = { operationId: string; kind: string; outcome: string; compensation?: string[]; compensationFailed?: string[] };
 export type StoreChoice = { key: string; name: string; provider: string; status: string };
@@ -22,3 +22,5 @@ export const fetchOperationEnvironment = async (app: string, key: EnvironmentKey
   return fetchEnvironment(app, key);
 };
 export const recoverOperation = (app: string, key: EnvironmentKey, operationId: string) => post(`${env(app, key)}/operations/${encodeURIComponent(operationId)}/recover`, { priorExecutionStopped: true }) as unknown as Promise<{ recovery: RecoveryResult }>;
+
+export const listOperations = (app: string, key: EnvironmentKey) => api<{ operations: EnvironmentOperation[] }>(`${env(app,key)}/operations`);

@@ -1,3 +1,5 @@
+import type { ExecutionRecord } from "./ExecutionProgress";
+
 import type { PodWaitGroup } from './PodWaits';
 import { api } from '../../shared/api/client';
 import type { EnvironmentKey } from '../../shared/types/application';
@@ -30,6 +32,8 @@ export type ResourceAttempt = {
 };
 
 export type DeploymentDetail = {
+ progress?: ExecutionRecord;
+ operationStatus?: string;
   deployment: Deployment;
   deploymentSetId: string;
   planHash: string;

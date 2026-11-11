@@ -8,6 +8,7 @@ import (
 
 	domain "orchestrator/internal/domain/delivery"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/progress"
 	"orchestrator/internal/platform/ids"
 	port "orchestrator/internal/ports/delivery"
 	"orchestrator/internal/ports/persistence"
@@ -223,15 +224,24 @@ func TestRecoveryFailsObservedDegradedRolloutWithoutReplay(t *testing.T) {
 	recovery := heldRollout(t, c, p, ctx, req)
 	submitted := len(p.order)
 	c.Registry = port.NewRegistry()
-	if err := c.Registry.Register("fleet", &notReadyProvider{rolloutProvider: p, degraded: true}); err != nil {
+	if err := c.Registry.Register("fleet", &notReadyProvider{rolloutProvider: p, degraded: true, pods: []progress.Pod{{Name: "backend-1", Reason: "CrashLoopBackOff", Restarts: 4}}}); err != nil {
 		t.Fatal(err)
 	}
+	var observedCheck bool
+	recovery = progress.WithReporter(recovery, func(step progress.Step, check bool) {
+		if check && step.Kind == "observe" && len(step.Pods) == 1 && step.Pods[0].Restarts == 4 {
+			observedCheck = true
+		}
+	})
 	started := time.Now()
 	if err := c.RecoverSubmissions(recovery, req.OrganizationKey, req.Environment); err != nil {
 		t.Fatal("recovery of a degraded rollout", err)
 	}
 	if time.Since(started) > 10*time.Second {
 		t.Fatal("recovery waited for the full deadline")
+	}
+	if !observedCheck {
+		t.Fatal("recovery lost the latest pod observation")
 	}
 	status := rolloutStatus(t, c, recovery, req)
 	if status[domain.Prerequisite] != domain.IntentFailed || len(p.order) != submitted || p.recoveries != 1 {
@@ -278,11 +288,13 @@ func TestTransferRecoveryKeepsHoldForDegradedRollout(t *testing.T) {
 type notReadyProvider struct {
 	*rolloutProvider
 	degraded bool
+	pods     []progress.Pod
 }
 
 func (p *notReadyProvider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (domain.Observation, error) {
 	observed, err := p.neutralProvider.Observe(ctx, i, r)
 	observed.Health = domain.Progressing
+	observed.Pods = p.pods
 	if p.degraded {
 		observed.Health = domain.Degraded
 	}

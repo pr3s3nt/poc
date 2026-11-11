@@ -1,3 +1,4 @@
+import { OperationBanner } from "../environment/OperationBanner";
 import { JobHistoryDialog } from '../workloads/JobHistoryDialog';
 import { TemplatePicker } from '../workloads/TemplatePicker';
 import { templateKey } from '../workloads/templates';
@@ -179,6 +180,7 @@ export function ApplicationHomePage({ application, initialEnvironment = 'staging
     <header className="page-header application-header"><div><p className="eyebrow">{t('applications.applicationHome.application')}</p><h1>{application.name}</h1>{application.environments[environment]?.endpoints?.length ? <ul className="endpoint-list" aria-label={t('preview.endpoint')}>{application.environments[environment]!.endpoints!.map((endpoint) => <li key={endpoint.workloadId + endpoint.url}>{endpoint.workloadId} · <a href={endpoint.url} target="_blank" rel="noreferrer">{endpoint.url}</a></li>)}</ul> : null}<ApplicationTarget application={application} environment={environment} /></div><Button disabled={busy === 'deploy'} onClick={() => navigate({ name: 'settings', applicationId: application.id, environment })}>{t('applications.applicationHome.environmentSettings')}</Button></header>
     {created ? <div className="form-success" role="status">{t('applications.applicationHome.applicationCreatedTheDeploymentTarget')}</div> : null}
     <div className="tabs" role="tablist"><button className={environment === 'staging' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => setEnvironment('staging')}>staging<span>{endpointFor(application, 'staging')}</span></button><button className={environment === 'production' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => setEnvironment('production')}>production<span>{endpointFor(application, 'production')}</span></button></div>
+    {onTargetChange ? <OperationBanner application={application} environment={environment} onTargetChange={onTargetChange} /> : null}
     {application.environments[environment].reconciliationEnabled ? <ReconciliationPanel key={`${application.id}/${environment}`} applicationId={application.id} environment={environment} refreshKey={String(reload)} /> : null}
     {application.environments[environment].infrastructureDriftEnabled ? <InfrastructureDriftPanel key={`infrastructure/${application.id}/${environment}`} applicationId={application.id} environment={environment} canManage={canManageInfrastructure} busy={environmentBusy} refreshKey={String(reload)} /> : null}
     <OverviewPanel applicationId={application.id} environment={environment} refreshKey={String(reload)} />

@@ -15,6 +15,7 @@ import (
 
 	domain "orchestrator/internal/domain/delivery"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/progress"
 	port "orchestrator/internal/ports/delivery"
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/ports/persistence"
@@ -402,6 +403,7 @@ func (c *Coordinator) runPhaseAccepting(ctx context.Context, provider port.Provi
 			persistence.MarkHold(ctx)
 		}
 	}()
+	progress.Report(ctx, progress.Step{ID: i.ID + ":publish", Workload: record.WorkloadID, Kind: "PUBLISH", Status: "RUNNING"})
 	receipt, err := provider.Submit(ctx, i, port.Prepared{Revision: record.Revision, Payload: raw})
 	if err != nil {
 		// Even a failed push can have reached the remote. Preserve mutation and lease
@@ -413,6 +415,7 @@ func (c *Coordinator) runPhaseAccepting(ctx context.Context, provider port.Provi
 		persistence.MarkHold(ctx)
 		return err
 	}
+	progress.Report(ctx, progress.Step{ID: i.ID + ":publish", Workload: record.WorkloadID, Kind: "PUBLISH", Status: "SUCCEEDED", Commit: receipt.Handle["commit"]})
 	record.Receipt = receipt
 	// Persist the receipt before polling. Same-state updates keep its version and
 	// are guarded by the same owner; no external effect is repeated by observation.
@@ -435,11 +438,29 @@ func (c *Coordinator) runPhaseAccepting(ctx context.Context, provider port.Provi
 	ticker := time.NewTicker(poll)
 	defer ticker.Stop()
 	var last domain.Observation
+	waitDeadline, _ := wait.Deadline()
+
 	// UC-06 CD-11: wait reasons and stuck Pod replacements of this unit.
 	recordWaits := envops.WaitRecorder(ctx, RolloutDetailPrefix+unit, "")
 	recovery, _ := provider.(port.StuckPodRecovery)
 	for {
 		observed, err := provider.Observe(wait, i, receipt)
+		if err == nil {
+			state, reason := "RUNNING", "WAITING_READINESS"
+			if observed.Sync == domain.Pending {
+				reason = "WAITING_FLEET"
+			}
+			if observed.Ready(i.Revision, time.Now().UTC(), 30*time.Second) {
+				state = "SUCCEEDED"
+			}
+			if observed.Health == domain.Degraded {
+				state = "FAILED"
+			}
+			if observed.ReasonCode != "" {
+				reason = progress.Reason(observed.ReasonCode)
+			}
+			reportReadiness(ctx, i.ID, record.WorkloadID, state, reason, waitDeadline, observed, receipt.Handle["commit"])
+		}
 		if len(observed.Objects) > 0 {
 			last = observed
 		}

@@ -7,6 +7,7 @@ import (
 	"sort"
 	"time"
 
+	"orchestrator/internal/domain/progress"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/domain/tfresource"
 	"orchestrator/internal/ports/execution"
@@ -295,6 +296,26 @@ func (s *Service) write(ctx context.Context, st *execState, stage string, status
 	})
 	if err == nil {
 		st.attempt = updated
+		state := "RUNNING"
+		switch status {
+		case tfresource.AttemptSucceeded:
+			state = "SUCCEEDED"
+		case tfresource.AttemptFailed:
+			state = "FAILED"
+		case tfresource.AttemptInterrupted, tfresource.AttemptNeedsAttention:
+			state = "INTERRUPTED"
+		}
+		reason := ""
+		if state == "FAILED" || state == "INTERRUPTED" {
+			reason = "TERRAFORM"
+		}
+		if st.req.DeploymentID != "" {
+			deadline := updated.Deadline
+			if stage == StageReadiness {
+				deadline = s.now().Add(s.cfg.ReadinessTimeout)
+			}
+			progress.Report(ctx, progress.Step{ID: st.req.DeploymentID + ":terraform:" + st.req.Descriptor, Parent: st.req.DeploymentID + ":infrastructure", DeploymentID: st.req.DeploymentID, Kind: "TERRAFORM", ResourceName: st.req.Descriptor, Stage: stage, Status: state, Reason: reason, Deadline: &deadline})
+		}
 	}
 	return err
 }

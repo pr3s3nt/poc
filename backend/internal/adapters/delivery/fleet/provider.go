@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"orchestrator/internal/domain/progress"
 	"regexp"
+	"strings"
 	"time"
 
 	"orchestrator/internal/adapters/delivery/artifact"
@@ -219,7 +221,13 @@ func (p *Provider) Reconcile(context.Context, port.Intent, port.Receipt) (port.R
 func unknown(i port.Intent) domain.Observation {
 	return domain.Observation{Scope: i.Revision.Scope, IntendedRevision: i.Revision.ID, Sync: domain.SyncUnknown, Health: domain.HealthUnknown, Drift: domain.DriftUnknown, ObservedAt: time.Now().UTC()}
 }
-func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (domain.Observation, error) {
+func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (result domain.Observation, resultErr error) {
+	defer func() {
+		if resultErr == nil && progress.Enabled(ctx) {
+			result.Pods, result.Events = p.collectProgress(ctx, i, r)
+		}
+	}()
+
 	if r.Handle["completionOnly"] == "true" {
 		cli, close, err := k8s.OpenCLI(ctx, p.Manager.Verifier.KubectlPath, p.Manager.Verifier.Credentials, i.Target)
 		if err != nil {
@@ -338,6 +346,15 @@ func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (
 		// Fleet names the objects that blocked the apply; they let the
 		// coordinator attribute an Environment failure to its workload.
 		message, _ := display["deployed"].(string)
+		messages := []string{message}
+		conditions, _ := bdStatus["conditions"].([]any)
+		for _, raw := range conditions {
+			condition, _ := raw.(map[string]any)
+			if text, ok := condition["message"].(string); ok {
+				messages = append(messages, text)
+			}
+		}
+		out.ReasonCode = applyReasonCode(strings.Join(messages, " "))
 		out.Objects = append(out.Objects, notReadyObjects(message, i.Target.Namespace)...)
 		if desired == "" || desired == applied {
 			out.Sync = domain.OutOfSync
@@ -437,6 +454,12 @@ func (p *Provider) Observe(ctx context.Context, i port.Intent, r port.Receipt) (
 			}
 		}
 		out.Objects[len(out.Objects)-1].Health = health
+		if ref.Kind == "VaultStaticSecret" && health != domain.Healthy {
+			out.Objects[len(out.Objects)-1].Reason = "SECRET_NOT_READY"
+		}
+		if ref.Kind == "Job" && health == domain.Degraded {
+			out.Objects[len(out.Objects)-1].Reason = "JOB_FAILED"
+		}
 		if health == domain.Degraded || (health == domain.Progressing && out.Health != domain.Degraded) {
 			out.Health = health
 		}
@@ -692,4 +715,16 @@ func notReadyObjects(message, namespace string) []domain.ObjectObservation {
 		}
 	}
 	return out
+}
+
+// The controller text is used only for classification, never persisted or returned.
+func applyReasonCode(message string) string {
+	lower := strings.ToLower(message)
+	if strings.Contains(lower, "forbidden") {
+		return "FLEET_FORBIDDEN"
+	}
+	if strings.Contains(lower, "unauthorized") || strings.Contains(lower, "authentication required") {
+		return "FLEET_AUTH"
+	}
+	return "FLEET_APPLY_FAILED"
 }

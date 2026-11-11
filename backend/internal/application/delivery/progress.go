@@ -1,0 +1,76 @@
+package delivery
+
+import (
+	"context"
+	domain "orchestrator/internal/domain/delivery"
+	"orchestrator/internal/domain/progress"
+	"sort"
+	"time"
+)
+
+func reportReadiness(ctx context.Context, id, workload, state, reason string, deadline time.Time, observed domain.Observation, commit string) {
+	groups := map[string][]progress.Pod{}
+	ungroupedPods := []progress.Pod{}
+	for _, pod := range observed.Pods {
+		if pod.Workload != "" {
+			groups[pod.Workload] = append(groups[pod.Workload], pod)
+		} else {
+			ungroupedPods = append(ungroupedPods, pod)
+		}
+	}
+	aggregatePods, aggregateEvents := observed.Pods, observed.Events
+	if len(groups) > 0 {
+		aggregatePods = ungroupedPods
+		aggregateEvents = []progress.Event{}
+		for _, event := range observed.Events {
+			if event.Workload == "" {
+				aggregateEvents = append(aggregateEvents, event)
+			}
+		}
+	}
+	applied := observed.Complete && observed.ObservedRevision != "" && observed.ObservedRevision == observed.IntendedRevision
+	kind, suffix := "APPLY", ":apply"
+	if applied {
+		progress.Report(ctx, progress.Step{ID: id + ":apply", Workload: workload, Kind: "APPLY", Status: "SUCCEEDED", Commit: commit})
+		kind, suffix = "READINESS", ":readiness"
+	}
+	progress.Report(ctx, progress.Step{ID: id + suffix, Workload: workload, Kind: kind, Status: state, Reason: reason, Deadline: &deadline, Pods: aggregatePods, Events: aggregateEvents, Commit: commit})
+	for _, object := range observed.Objects {
+		if object.Kind != "VaultStaticSecret" && object.Kind != "Job" {
+			continue
+		}
+		status := "RUNNING"
+		if object.Health == domain.Healthy {
+			status = "SUCCEEDED"
+		}
+		if object.Health == domain.Degraded {
+			status = "FAILED"
+		}
+		kind := "VSO"
+		if object.Kind == "Job" {
+			kind = "JOB"
+		}
+		progress.Report(ctx, progress.Step{ID: id + ":object:" + object.Kind + ":" + object.Name, Workload: workload, Kind: kind, Status: status, Reason: object.Reason, ResourceKind: object.Kind, ResourceName: object.Name, Namespace: object.Namespace, Deadline: &deadline})
+	}
+
+	names := []string{}
+	for name := range groups {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		pods := groups[name]
+		events := []progress.Event{}
+		for _, e := range observed.Events {
+			if e.Workload == name {
+				events = append(events, e)
+			}
+		}
+		// The enclosing release owns the final outcome. Per-workload diagnostics do
+		// not infer success from a Running pod before the stability gate succeeds.
+		if applied {
+			progress.Report(ctx, progress.Step{ID: id + ":workload:" + name + ":apply", Parent: id + ":apply", Workload: name, Kind: "APPLY", Status: "SUCCEEDED", Commit: commit})
+		}
+		progress.Report(ctx, progress.Step{ID: id + ":workload:" + name + suffix, Parent: id + suffix, Workload: name, Kind: kind, Status: state, Reason: reason, Deadline: &deadline, Pods: pods, Events: events, Commit: commit})
+	}
+}
