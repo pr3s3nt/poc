@@ -25,3 +25,17 @@ func TestPublishedGitDoesNotClaimFleetApplyOrReadinessCompleted(t *testing.T) {
 		t.Fatalf("apply and readiness collapsed: %+v", steps)
 	}
 }
+
+func TestSharedReleaseGroupsPodEvidenceOnceUnderItsWorkload(t *testing.T) {
+	var steps []progress.Step
+	ctx := progress.WithReporter(context.Background(), func(s progress.Step, _ bool) { steps = append(steps, s) })
+	observation := domain.Observation{Pods: []progress.Pod{{Name: "backend-1", Workload: "backend", Reason: "ImagePullBackOff"}}, Events: []progress.Event{{Object: "backend-1", Workload: "backend", Reason: "Failed"}}}
+	reportReadiness(ctx, "intent", "_environment", "RUNNING", "WAITING_FLEET", time.Now().Add(time.Minute), observation, "commit")
+	count := 0
+	for _, step := range steps {
+		count += len(step.Pods)
+	}
+	if count != 1 || len(steps) != 2 || steps[1].Parent != steps[0].ID || steps[1].Workload != "backend" {
+		t.Fatalf("duplicated or ungrouped evidence: %+v", steps)
+	}
+}

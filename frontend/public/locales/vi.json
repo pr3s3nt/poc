@@ -4123,5 +4123,6 @@
   "execution.reason.FLEET_AUTH": "Fleet chưa xác thực được với cluster",
   "execution.reason.FLEET_APPLY_FAILED": "Fleet chưa áp dụng được manifest",
   "execution.hint.fleetAccess": "Cần kỹ sư nền tảng kiểm tra quyền của tài khoản Fleet cho namespace này.",
-  "execution.hint.fleetAuth": "Cần kỹ sư nền tảng kiểm tra danh tính và cấu hình xác thực của Fleet."
+  "execution.hint.fleetAuth": "Cần kỹ sư nền tảng kiểm tra danh tính và cấu hình xác thực của Fleet.",
+  "execution.workloadStep": "{workload} · {step}"
 }

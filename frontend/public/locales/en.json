@@ -4123,5 +4123,6 @@
   "execution.reason.FLEET_AUTH": "Fleet could not authenticate to the cluster",
   "execution.reason.FLEET_APPLY_FAILED": "Fleet could not apply the manifests",
   "execution.hint.fleetAccess": "A platform engineer must check Fleet account permissions for this namespace.",
-  "execution.hint.fleetAuth": "A platform engineer must check Fleet identity and authentication."
+  "execution.hint.fleetAuth": "A platform engineer must check Fleet identity and authentication.",
+  "execution.workloadStep": "{workload} · {step}"
 }

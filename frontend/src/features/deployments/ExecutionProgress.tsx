@@ -27,7 +27,8 @@ function Step({ step, now, children = [] }: { step: ProgressStep; now: string; c
   const [open, setOpen] = useState(step.status === 'RUNNING' || step.status === 'FAILED');
   useEffect(() => { if (step.status === 'RUNNING' || step.status === 'FAILED') setOpen(true); }, [step.status]);
   const pods = step.pods ?? []; const events = step.events ?? [];
-  const title=step.kind==='TERRAFORM' && step.resourceName ? t('execution.terraformResource',{resource:step.resourceName.split('.')[0]}) : step.kind==='RECOVERY_OBJECT' && step.resourceName ? `${step.resourceKind ?? ''} ${step.resourceName}` : stepLabel(step.kind);
+  const baseTitle=step.kind==='TERRAFORM' && step.resourceName ? t('execution.terraformResource',{resource:step.resourceName.split('.')[0]}) : step.kind==='RECOVERY_OBJECT' && step.resourceName ? `${step.resourceKind ?? ''} ${step.resourceName}` : stepLabel(step.kind);
+ const title=step.parent && step.workload ? t('execution.workloadStep',{workload:step.workload,step:baseTitle}) : baseTitle;
   return <li className={`execution-step execution-${step.status.toLowerCase()}`}><details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
     <summary><strong>{title}</strong> <Status tone={step.status === 'SUCCEEDED' ? 'good' : step.status === 'FAILED' ? 'draft' : 'neutral'}>{progressStatus(step.status)}</Status> <span className="execution-time">{step.status === 'PENDING' ? '—' : duration(step.startedAt, step.finishedAt ?? now)}{step.deadline && step.status === 'RUNNING' ? ` · ${t('execution.remaining', { time: duration(now, step.deadline) })}` : ''}</span></summary>
     {step.reason ? <p>{reasonText(step.reason)}</p> : null}

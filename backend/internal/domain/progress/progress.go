@@ -68,7 +68,7 @@ func Identity(v string) string {
 }
 func Reason(v string) string {
 	switch v {
-	case "FLEET_FORBIDDEN", "FLEET_AUTH", "FLEET_APPLY_FAILED", "ABSENT", "PUBLISHED", "DELIVERY_CONFIRMED", "WAITING_DEPENDENCY", "ImagePullBackOff", "ErrImagePull", "InvalidImageName", "CrashLoopBackOff", "CreateContainerConfigError", "CreateContainerError", "FailedScheduling", "Pending", "OOMKilled", "Error", "Completed", "Running", "ContainerCreating", "PodInitializing", "Failed", "BackOff", "FailedMount", "FailedAttachVolume", "Unhealthy", "FailedToRetrieveImagePullSecret", "Scheduled", "Pulled", "Created", "Started", "SuccessfulCreate", "NotReady", "OWNERSHIP", "CONTROLLER", "CONFIG", "TARGET", "UNKNOWN", "GIT", "GIT_CONFLICT", "GIT_INVALID", "TERRAFORM", "JOB_FAILED", "SECRET_NOT_READY", "WAITING_FLEET", "WAITING_READINESS", "RECOVERY_REQUIRED", "PRIOR_STOPPED":
+	case "Pulling", "Killing", "SuccessfulDelete", "ScalingReplicaSet", "FLEET_FORBIDDEN", "FLEET_AUTH", "FLEET_APPLY_FAILED", "ABSENT", "PUBLISHED", "DELIVERY_CONFIRMED", "WAITING_DEPENDENCY", "ImagePullBackOff", "ErrImagePull", "InvalidImageName", "CrashLoopBackOff", "CreateContainerConfigError", "CreateContainerError", "FailedScheduling", "Pending", "OOMKilled", "Error", "Completed", "Running", "ContainerCreating", "PodInitializing", "Failed", "BackOff", "FailedMount", "FailedAttachVolume", "Unhealthy", "FailedToRetrieveImagePullSecret", "Scheduled", "Pulled", "Created", "Started", "SuccessfulCreate", "NotReady", "OWNERSHIP", "CONTROLLER", "CONFIG", "TARGET", "UNKNOWN", "GIT", "GIT_CONFLICT", "GIT_INVALID", "TERRAFORM", "JOB_FAILED", "SECRET_NOT_READY", "WAITING_FLEET", "WAITING_READINESS", "RECOVERY_REQUIRED", "PRIOR_STOPPED":
 		return v
 	}
 	return "UNKNOWN"
@@ -116,6 +116,9 @@ func (s Step) Safe() Step {
 	}
 	s.Commit = Identity(s.Commit)
 	var pods []Pod
+	if s.Pods != nil {
+		pods = []Pod{}
+	}
 	for _, p := range s.Pods {
 		switch p.Phase {
 		case "Pending", "Running", "Succeeded", "Failed", "Unknown", "":
@@ -140,6 +143,9 @@ func (s Step) Safe() Step {
 	}
 	s.Pods = pods
 	var events []Event
+	if s.Events != nil {
+		events = []Event{}
+	}
 	for _, e := range s.Events {
 		e.Workload = Identity(e.Workload)
 		e.Reason = Reason(e.Reason)
