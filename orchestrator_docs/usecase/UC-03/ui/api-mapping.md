@@ -254,7 +254,31 @@ session Organization and PE/Admin gate; pin/provenance mismatch rejects Save.
 
 `POST /api/v1/resource-definitions/import` accepts strict DefinitionDraft JSON;
 Console parses YAML/JSON. Same source/account/reference validation as registration.
+Git authoring source first uses preparation below; registration consumes its canonical pin.
 PE/Admin, 1 MiB maximum. HTTP 200 returns
 `{status: CREATED|REUSED|CONFLICT, fields?: string[]}`. Reuse/conflict do not
 write revisions/associations. Existing form POST and PUT behavior is unchanged.
-Export projects only public DefinitionDraft fields from the displayed revision.
+Export projects only public DefinitionDraft fields from the displayed revision,
+with Git authoring source supplied by the document endpoint below.
+
+
+## Git document preparation/export — issue #79
+
+- `POST /api/v1/resource-definitions/import/prepare`: strict DefinitionDraft JSON,
+  PE/Admin và Organization hiện hành, 1 MiB. Terraform source nhận chính xác ba
+  string `url/ref/path` hoặc pin hiện hành; không trộn, không unknown key.
+  Dùng timeout 2 phút như module inspect. Thành công HTTP 200:
+  `{definition: DefinitionDraft, source?: {url, path, revision}}`; source trong
+  definition là verified pin canonical. Toàn bộ Definition được validate;
+  không ghi registry Definition/revision hoặc provision.
+- `POST /api/v1/resource-definitions/import`: canonical draft từ prepare; giữ
+  body/result/insert-only hiện hành, revalidate immutable pin, không resolve ref.
+  Các API pin/form cũ giữ nguyên; portable source cần prepare trước import.
+- `GET /api/v1/resource-definitions/{key}/document?revision=<id>`: PE/Admin,
+  same Organization. Bỏ revision lấy Definition hiện hành; có revision lấy đúng
+  revision của key (không dùng revision của key/Organization khác). HTTP 200
+  DefinitionDraft với portable Git source nếu có. Read-only metadata, không fetch.
+
+Errors dùng public error codes/field paths hiện hành, không trả Git stderr,
+credential hoặc giá trị cấu hình trong error. Git source lỗi đặt tại
+`definition.driverInputs.values.source`; mapping/account giữ đường dẫn chuẩn.

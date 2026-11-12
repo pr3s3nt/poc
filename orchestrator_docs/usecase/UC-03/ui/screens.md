@@ -345,3 +345,13 @@ Definition đặt hai tab trong luồng Tạo cấu hình, không hiện import 
 Lỗi giữ nội dung, status CREATED/REUSED/CONFLICT rõ ràng.
 CONFLICT hiện field paths không hiện values. Tải file nằm tại chi tiết schema
 hoặc Definition và từng revision. Trợ giúp định dạng nằm trong disclosure.
+
+
+## Definition document Git source — issue #79
+
+Trong tab Nhập YAML/JSON, thêm nút **Kiểm tra cấu hình** trước **Đăng ký**.
+Giữ editor, tabs, shell và pattern lỗi hiện hành; không bắt nhập internal IDs/hash.
+Kết quả thành công có một dòng trạng thái ngắn và SavedSourceSummary cho Git
+(repository/path/full commit); không mặc định hiển thị canonical JSON/pin.
+Nội dung trợ giúp chỉ mô tả source url/ref/path, đặt trong Định dạng.
+Tải file ở danh sách và revision dùng server projection để có Git source portable.

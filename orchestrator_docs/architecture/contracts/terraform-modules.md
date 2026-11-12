@@ -445,3 +445,13 @@ records `{sourceId,tag,componentId}` outside runtime variable values in existing
 JSONB; registration verifies its scoped component against every source-pin field.
 Catalog discovery never upgrades an authored Definition. See the
 [Catalog API contract](catalog-releases.md#catalog-module-selection-for-definition-forms).
+
+
+## Git source authoring in Definition files — issue #79
+
+`{url, ref, path}` là authoring source của bước prepare document (UC-03 GFILE),
+không phải execution pin. Git inspection resolve/ref/hash theo cùng registry hiện
+hành và trả canonical Definition với năm trường pin. Import registration và
+Terraform executor chỉ nhận/verify immutable pin; không tự resolve authoring
+branch ở Deploy. Export Git Definition dùng origin/exact commit/path từ verified
+metadata, không chuyển IDs/hash giữa installations.

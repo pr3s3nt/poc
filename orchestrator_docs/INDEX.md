@@ -276,3 +276,10 @@ mẫu YAML/JSON, source pins, mapping, criteria, fallback và cách dùng tab nh
 
 [Accepted main integration and rollout — issue #76](verification/2026-11-12-catalog-documents-main.md)
 records the complete baseline comparison, preserved data and post-rollout checks.
+
+## Definition Git document source — issue #79
+
+[UC-03 GFILE](usecase/UC-03/specification.md#nguồn-git-trong-file-definition--issue-79),
+[prepare/export API](usecase/UC-03/ui/api-mapping.md#git-document-preparationexport--issue-79)
+and [file authoring guide](operations/resource-catalog-files.md) cover
+url/ref/path authoring, explicit check then pinned registration and portable Git exports.
