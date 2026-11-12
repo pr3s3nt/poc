@@ -226,6 +226,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/resource-types", s.handleResourceTypes)
 	s.mux.HandleFunc("POST /api/v1/resource-types/import", s.handleImportResourceType)
 	s.mux.HandleFunc("POST /api/v1/resource-definitions/import", s.handleImportResourceDefinition)
+	s.mux.HandleFunc("POST /api/v1/resource-definitions/import/prepare", s.handlePrepareDefinitionDocument)
+	s.mux.HandleFunc("GET /api/v1/resource-definitions/{key}/document", s.handleExportDefinitionDocument)
 	s.mux.HandleFunc("POST /api/v1/resource-types", s.handleRegisterResourceType)
 	s.mux.HandleFunc("POST /api/v1/resource-types/{key}/outputs", s.handleAddResourceTypeOutputs)
 	s.mux.HandleFunc("GET /api/v1/resource-definitions/{key}/versions", s.handleDefinitionVersions)

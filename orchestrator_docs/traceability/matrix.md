@@ -1655,3 +1655,13 @@ separate in the Environment rollback verification record.
 | UC-02/03 FILE-03 | Insert-only registration and duplicate winner comparison | catalog/document_import.go and document_import_test.go; Type/Definition CREATED/REUSED/CONFLICT browser assertions |
 | UC-02/03 FILE-04 | Public authoring projection of displayed revision | catalogDocument.ts, DefinitionVersions.tsx; export allowlist test and real YAML round-trip scenario |
 | UC-02/03 FILE-05 | Existing capability/source/driver validation | Existing registration tests; Preview/Deploy acceptance remains a runtime gate until recorded |
+
+
+## Portable Git Definition files — issue #79
+
+| Requirement | Realization | Code and validation |
+|---|---|---|
+| UC-03 GFILE-01/02 | Shared Git inspection and full canonical preparation | catalog/definition_document.go; TestGitDocumentRejectsAmbiguousSourcesAndInvalidMappings; HTTP strict/RBAC tests |
+| UC-03 GFILE-03 | Canonical immutable pin plus draft/scope invalidation | CatalogDocumentImport; component late-reply/upload/edit tests; TestGitDocumentPreparePinsBranchWithoutDefinitionWritesAndRoundTrips |
+| UC-03 GFILE-04 | Metadata-only scoped export of exact revision | ExportDefinitionDocument; DefinitionDocumentDownload; scoped/revision/download tests and real Git MongoDB round-trip |
+| UC-03 GFILE-05 | Existing insert-only import and normalized comparison | Existing document_import tests; real CREATED/REUSED/CONFLICT/history invariance scenario |

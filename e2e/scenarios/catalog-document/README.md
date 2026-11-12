@@ -15,7 +15,8 @@ ORCH_HEADLESS=1 node e2e/scenarios/catalog-document/run.mjs
 ```
 
 Optional `ORCH_EVIDENCE_DIR` is an existing directory outside Git for screenshots.
-Assertions: upload JSON, edit before registration, CREATED, equivalent REUSED,
+Assertions: upload JSON, edit before registration, explicit Definition check before
+registering (issue #79), CREATED, equivalent REUSED,
 CONFLICT without clearing draft, syntax/non-finite-number error retention without
 submitting invalid values to the API, download YAML and re-import
 REUSED for Type and endpoint Definition. Endpoint Type is prepared through the API;

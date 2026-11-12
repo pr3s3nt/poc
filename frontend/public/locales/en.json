@@ -4189,5 +4189,11 @@
   "catalogDocument.utf8": "File must use UTF-8.",
   "catalogDocument.failed": "Registration failed. Check data and references.",
   "catalogDocument.form": "Form",
-  "catalogDocument.method": "Registration method"
+  "catalogDocument.method": "Registration method",
+  "catalogDocument.check": "Check configuration",
+  "catalogDocument.checking": "Checking configuration…",
+  "catalogDocument.checked": "Configuration is valid. Ready to register.",
+  "catalogDocument.checkFailed": "Could not check the configuration.",
+  "catalogDocument.downloadFailed": "Could not download the configuration. Try again.",
+  "catalogDocument.definitionFormat": "One object, UTF-8, up to 1 MiB. Git modules use source: {url, ref, path}. Check the configuration before registering."
 }

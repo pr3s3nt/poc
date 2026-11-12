@@ -7,6 +7,16 @@ last_reviewed: 2026-11-11
 
 # Current project state
 
+## Portable Git Definition files — issue #79
+
+Implemented on `features/definition-git-import`, awaiting final checks and user
+acceptance. Terraform Definition files author `source: {url, ref, path}`; explicit
+Check validates the full document and reviews the immutable commit before
+registration. Git Definition/revision downloads use URL/exact commit/path.
+Existing form/pinned registration and other drivers remain available. Real
+MongoDB Git file import/export and unchanged REUSED/CONFLICT history passed on
+an isolated feature Console; no Terraform apply or workload deployment performed.
+
 ## Stuck StatefulSet Pods and unselected Environments — issue #68
 
 Implemented on `features/statefulset-stuck-pod-recovery` (built on #67).

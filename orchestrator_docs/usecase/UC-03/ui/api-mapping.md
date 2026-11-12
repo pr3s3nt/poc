@@ -275,7 +275,9 @@ with Git authoring source supplied by the document endpoint below.
   body/result/insert-only hiện hành, revalidate immutable pin, không resolve ref.
   Các API pin/form cũ giữ nguyên; portable source cần prepare trước import.
 - `GET /api/v1/resource-definitions/{key}/document?revision=<id>`: PE/Admin,
-  same Organization. Bỏ revision lấy Definition hiện hành; có revision lấy đúng
+  same Organization. Bỏ revision/version lấy Definition hiện hành; danh sách gửi `version=<n>` để
+  tải đúng version đang hiển thị (kể cả version cũ); history gửi revision.
+  Không trộn revision/version, version phải là số nguyên dương. Có revision lấy đúng
   revision của key (không dùng revision của key/Organization khác). HTTP 200
   DefinitionDraft với portable Git source nếu có. Read-only metadata, không fetch.
 

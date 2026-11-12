@@ -1435,3 +1435,15 @@ Type/Definition pages and `DefinitionVersions.tsx` (revision download).
 boundaries; `application/catalog/document_import.go` reuses insert-only validation
 and compares normalized public contracts/defaults without upsert. Focused tests
 sit beside these modules; browser runner is `e2e/scenarios/catalog-document/`.
+
+
+## Git Definition document authoring — issue #79
+
+UC-03 GFILE-01..05: `application/catalog/definition_document.go` prepares portable
+Git sources with the shared inspector/full validation and exports scoped saved
+Definition/revision metadata without fetching. HTTP prepare/document routes are
+in `delivery/http/document_import.go`; existing import remains canonical-pin
+registration. `CatalogDocumentImport.tsx` owns check/review/invalidation;
+`DefinitionDocumentDownload.tsx` downloads the server's portable projection for
+list/history. Focused catalog/HTTP/component tests cover these boundaries;
+`e2e/scenarios/definition-git-import/` checks real MongoDB Git file registration.

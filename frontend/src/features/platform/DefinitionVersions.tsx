@@ -1,4 +1,4 @@
-import { downloadDocument } from './catalogDocument';
+import { DefinitionDocumentDownload } from './DefinitionDocumentDownload';
 import { useEffect, useRef, useState } from 'react';
 import { api, describeError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
@@ -51,7 +51,7 @@ export function DefinitionVersions({ definitionKey, onClose }: { definitionKey: 
       {revisions.length === 0 ? <p>{t('versions.empty')}</p> : <div className="catalog-list">{revisions.slice().reverse().map(v => <div className="catalog-entry" key={v.id}>
         <div><strong>r{v.number}</strong> · {v.archived ? t('versions.archived') : v.id === data.history.activeId ? t('versions.active') : t('versions.proposed')}</div>
         <div className="form-actions">
-          <Button disabled={busy} onClick={() => downloadDocument('resource-definitions', v.definition, `r${v.number}`)}>{t('catalogDocument.download')} · r{v.number}</Button><Button disabled={busy} onClick={() => setCompare(v.id)}>{t('versions.compare')}</Button>
+          <DefinitionDocumentDownload definitionKey={definitionKey} revisionId={v.id} label={`r${v.number}`} disabled={busy} /><Button disabled={busy} onClick={() => setCompare(v.id)}>{t('versions.compare')}</Button>
           <Button disabled={busy || uncertain || v.archived || v.id === data.history.activeId} onClick={() => void act(v.id, 'promote')}>{t('versions.promote')}</Button>
           <Button disabled={busy || uncertain || v.archived || v.id === data.history.activeId} onClick={() => void act(v.id, 'archive')}>{t('versions.archive')}</Button>
         </div>
