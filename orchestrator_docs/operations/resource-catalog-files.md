@@ -62,7 +62,7 @@ cấu hình. Nếu cần thay đổi Definition hiện có, dùng **Sửa**, kh�
 
 - Phần mở rộng `.yaml`, `.yml` hoặc `.json`, mã hóa **UTF-8**, tối đa **1 MiB**.
 - Mỗi lần nhập đúng **một đối tượng**. Tạo hai file riêng cho Type và Definition.
-- Nội dung là body đăng ký trực tiếp như các mẫu dưới đây: không có wrapper
+- Nội dung là một đối tượng cấu hình như các mẫu dưới đây: không có wrapper
   `apiVersion`, `kind`, `metadata`, `resourceTypes` hay `definitions`.
 - Không dùng YAML nhiều document (`---` để ghép các đối tượng), key trùng,
   key dạng object/list, số `.nan`/`.inf` hoặc các giá trị JSON không biểu diễn được.

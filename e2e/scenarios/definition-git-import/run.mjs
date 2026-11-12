@@ -59,7 +59,10 @@ try {
   const types = (await get('/resource-types')).resourceTypes;
   const existing = types.find(t => t.key === schema.key);
   if (existing) {
-    assert.deepEqual({ key: existing.key, inputs: existing.inputs, outputs: existing.outputs }, schema, 'Existing MongoDB Type differs; leave it untouched');
+    // Go omitempty drops false flags from reads; compare the same schema semantics.
+    const inputs = existing.inputs.map(f => ({ name: f.name, type: f.type, required: f.required ?? false }));
+    const outputs = existing.outputs.map(f => ({ name: f.name, type: f.type, required: f.required ?? false, secret: f.secret ?? false }));
+    assert.deepEqual({ key: existing.key, inputs, outputs }, schema, 'Existing MongoDB Type differs; leave it untouched');
   } else {
     await page.goto(c.baseURL + '/ui/platform/resource-types');
     await page.getByRole('tab', { name: 'Nhập YAML/JSON', exact: true }).click();
