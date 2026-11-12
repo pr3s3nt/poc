@@ -1424,3 +1424,17 @@ See [contract](../architecture/contracts/deployment-progress.md).
 - `WorkloadEditorPage.tsx`: stable container identities, Save gate for marked
   literals/invalid text and alias-to-binding rename. Binding flags are memory-only.
 - [Acceptance runner](../../e2e/scenarios/workload-envfile/README.md).
+
+## Keycloak SSO — issue #77
+
+- OIDC discovery/exchange/verification: `backend/internal/adapters/oidc`.
+- Browser transactions, issuer/subject accounts and refresh-bound sessions:
+  `backend/internal/application/authentication/federation.go`.
+- Server configuration: `backend/internal/bootstrap/oidc.go`;
+  delivery: `backend/internal/delivery/http/oidc.go`.
+- External account fields: `internal/domain/identity`, PostgreSQL repositories
+  and immutable migration/reference 011.
+- Console: `SignInEntry`, `SignInPage`, App/AuthProvider, AppShell external controls.
+- Dedicated runtime: `deploy/local/compose.keycloak.yml`; fixtures/acceptance
+  under `e2e/setup/keycloak` and `e2e/scenarios/keycloak-sso`. Shared Console
+  helper `scripts/bootstrap/lib/console.mjs` supports verified OIDC issuer entry.

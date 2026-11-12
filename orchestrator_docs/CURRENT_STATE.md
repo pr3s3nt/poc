@@ -1701,7 +1701,9 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
 - Conformance loader bỏ Definition thiếu criteria hoặc `criteria: []` khỏi
   challenge catalog và giữ criterion `{}` thành wildcard điểm 0; product planner
   vẫn từ chối catalog có Definition không có criterion.
-- UC-00 có cookie session cho local/test, chưa có production-grade RBAC. UC-04
+- UC-00 có cookie session cho local/test và tùy chọn Keycloak OIDC (issue #77,
+  một backend instance, role refresh theo request tối đa mỗi 30 giây); chưa có
+  production-grade RBAC/HA. UC-04
   chưa có AWS registration/durable credential flow. UC-05 standalone Preview và
   UC-07 update/remove đã có local verification. UC-02/03 đã có đăng
   ký catalog và PostgreSQL persistence nhưng chưa có đầy đủ lifecycle quản trị.
@@ -2419,3 +2421,20 @@ Specification: [ENVFILE-01–06](usecase/UC-16/envfile-specification.md).
 [Verification](verification/2026-11-11-workload-envfile.md): 1025 frontend tests,
 typecheck/lint/build, real browser/Deploy/cleanup pass. Full Go remains red at
 13 packages on the identical main backend tree; this is not a full green gate.
+
+## Keycloak SSO — issue #77
+
+Implemented on `features/keycloak`, awaiting acceptance. UC-00 adds configured
+OIDC Authorization Code + PKCE with backend-owned tokens and the existing opaque
+session cookie. Issuer/subject identity persists through schema version 11; no
+old-account migration/linking. Three client roles map to existing backend/UI
+authorization. Local account/password management is disabled in OIDC mode.
+
+Dedicated Keycloak/PostgreSQL browser acceptance passed for all three roles,
+missing-role rejection, active-session promotion/demotion, user disabling and
+logout. Tokens stay in backend memory: restart requires login; this is a
+single-instance test slice, not company integration/HA. Full-suite result and
+main-baseline failures are recorded in the task verification/handoff.
+
+[Configuration and lifecycle](operations/keycloak-sso.md),
+[browser scenario](../e2e/scenarios/keycloak-sso/README.md).

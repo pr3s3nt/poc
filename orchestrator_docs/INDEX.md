@@ -263,3 +263,9 @@ define the persisted timeline and Recovery checks.
 [verification and main baseline limits](verification/2026-11-11-workload-envfile.md).
 Integrated into main after acceptance; see the
 [merge/deployment record](verification/2026-11-11-envfile-main.md).
+
+## Keycloak SSO — issue #77
+
+[UC-00 SSO](usecase/UC-00/specification.md#keycloak-sso--issue-77),
+[configuration/test lifecycle](operations/keycloak-sso.md),
+[browser acceptance](../e2e/scenarios/keycloak-sso/README.md).

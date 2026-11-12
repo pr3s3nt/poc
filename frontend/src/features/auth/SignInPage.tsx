@@ -7,7 +7,7 @@ import { t } from '../../shared/i18n';
 
 type FieldErrors = { username?: string; password?: string };
 
-export function SignInPage({ onSuccess, notice }: { onSuccess(username: string, password: string): Promise<void>; notice?: string }) {
+export function SignInPage({ onSuccess, notice, mode = 'local' }: { onSuccess(username: string, password: string): Promise<void>; notice?: string; mode?: 'local' | 'oidc' }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -44,10 +44,15 @@ export function SignInPage({ onSuccess, notice }: { onSuccess(username: string, 
         <p>{t('auth.signIn.signInToCreateAnd')}</p>
         {notice && !error ? <div className="form-info" role="status">{notice}</div> : null}
         {error ? <div className="form-error" role="alert">{error}</div> : null}
+        {mode === 'oidc' ? <>
+          {new URLSearchParams(window.location.search).has('sso_error') ? <div className="form-error" role="alert">{t('auth.sso.failed')}</div> : null}
+          <Button tone="primary" type="button" onClick={() => window.location.assign('/api/v1/auth/oidc/start')}>{t('auth.sso.signIn')}</Button>
+        </> : <>
         <label>{t('auth.signIn.username')}<input autoComplete="username" value={username} disabled={submitting} aria-invalid={Boolean(fieldErrors.username)} onChange={(event) => setUsername(event.target.value)} />{fieldErrors.username ? <span className="field-error">{fieldErrors.username}</span> : null}</label>
         <label>{t('auth.signIn.password')}<PasswordInput autoComplete="current-password" value={password} disabled={submitting} aria-invalid={Boolean(fieldErrors.password)} onChange={(event) => setPassword(event.target.value)} />{fieldErrors.password ? <span className="field-error">{fieldErrors.password}</span> : null}</label>
         <Button tone="primary" type="submit" disabled={submitting}>{submitting ? t('auth.signIn.signingIn') : t('auth.signIn.signIn')}</Button>
         <small>{t('auth.signIn.useYourLocalTestAccount')}</small>
+        </>}
         <LanguageSelect />
       </form>
     </section>

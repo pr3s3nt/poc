@@ -4173,5 +4173,9 @@
   "workloads.envfile.error.binding": "Dòng {line}: giá trị hoặc đích tham chiếu không hợp lệ.",
   "workloads.envfile.error.metadata": "Dòng {line}: cần tải metadata để xác minh tham chiếu.",
   "workloads.envfile.up": "Đưa dòng {row} lên",
-  "workloads.envfile.down": "Đưa dòng {row} xuống"
+  "workloads.envfile.down": "Đưa dòng {row} xuống",
+  "auth.sso.signIn": "Đăng nhập SSO",
+  "auth.sso.failed": "Không thể đăng nhập SSO. Kiểm tra quyền truy cập hoặc thử lại.",
+  "auth.sso.configError": "Không thể tải cấu hình đăng nhập.",
+  "auth.sso.managed": "Tài khoản và quyền được quản lý trong hệ thống danh tính của công ty."
 }

@@ -22,6 +22,7 @@ function stubBackend() {
     requests.push({ url, method: init?.method ?? 'GET', body: init?.body ? String(init.body) : undefined });
     const custom = await override?.(url, init);
     if (custom) return custom;
+    if (url.endsWith('/auth/config')) return Response.json({ mode: 'local' });
     if (url.endsWith('/auth/session')) return authenticated ? Response.json({ user: { Username: 'developer', Role: 'DEVELOPER' } }) : Response.json({ error: 'unauthorized' }, { status: 401 });
     if (url.endsWith('/auth/sign-in')) { authenticated = true; return Response.json({ user: { Username: 'developer', Role: 'DEVELOPER' } }); }
     if (url.endsWith('/auth/sign-out')) { authenticated = false; return new Response(null, { status: 204 }); }
@@ -380,7 +381,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       await screen.findByText('Payment');
       authenticated = false;
       await user.click(screen.getByText('Payment'));
-      expect(await screen.findByRole('status')).toHaveTextContent('Phiên đăng nhập đã kết thúc. Đăng nhập lại để tiếp tục.');
+      expect(await screen.findByText('Phiên đăng nhập đã kết thúc. Đăng nhập lại để tiếp tục.')).toHaveAttribute('role', 'status');
     });
 
     it('shows a Vietnamese retryable error on an application route', async () => {

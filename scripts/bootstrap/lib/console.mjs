@@ -10,6 +10,7 @@
 // presets may supply the known product seed password as a fallback. Neither is printed. No browser session or trace is stored. Scenarios may opt into video by passing
 // recordVideo to signInContext; evidence must stay outside Git.
 import { chromium } from '@playwright/test';
+export { chromium };
 import { readFileSync, statSync } from 'node:fs';
 
 export class ConsoleError extends Error {}
@@ -27,7 +28,7 @@ export function readConsoleConfig(env = process.env, { defaultPassword } = {}) {
   if (!username) throw new ConsoleError('Thiếu ORCH_PLATFORM_USERNAME, ví dụ platform-engineer');
   const passwordFile = (env.ORCH_PLATFORM_PASSWORD_FILE ?? '').trim();
   if (!passwordFile && !defaultPassword) throw new ConsoleError('Thiếu ORCH_PLATFORM_PASSWORD_FILE: đường dẫn file chỉ chứa mật khẩu');
-  return { baseURL: url.origin, username, password: passwordFile ? readPrivateFile(passwordFile, 'mật khẩu') : defaultPassword, headless: env.ORCH_HEADLESS === '1' };
+  return { baseURL: url.origin, username, password: passwordFile ? readPrivateFile(passwordFile, 'mật khẩu') : defaultPassword, oidcIssuer: env.ORCH_OIDC_ISSUER, headless: env.ORCH_HEADLESS === '1' };
 }
 
 // A second account of the same Console (for example the developer next to the
@@ -70,6 +71,26 @@ export async function ensureSignedIn(page, config, { role } = {}) {
   }
   if (!user) {
     const form = page.locator('form.sign-in-form');
+    const authConfig = await page.request.get(`${config.baseURL}/api/v1/auth/config`);
+    if (!authConfig.ok()) throw new ConsoleError('Không đọc được cấu hình đăng nhập');
+    const { mode } = await authConfig.json();
+    if (mode === 'oidc') {
+      if (!config.oidcIssuer) throw new ConsoleError('SSO cần ORCH_OIDC_ISSUER để xác nhận nơi nhập mật khẩu');
+      const issuer = new URL(config.oidcIssuer);
+      await form.getByRole('button', { name: /SSO/ }).click();
+      // An existing Keycloak SSO session may return directly without a form.
+      await page.waitForFunction(({ issuerOrigin, issuerPath, consoleOrigin }) =>
+        (location.origin === issuerOrigin && location.pathname.startsWith(issuerPath + '/') && document.querySelector('#username')) ||
+        (location.origin === consoleOrigin && (document.querySelector('.app-shell') || new URLSearchParams(location.search).has('sso_error'))),
+      { issuerOrigin: issuer.origin, issuerPath: issuer.pathname, consoleOrigin: config.baseURL });
+      if (new URL(page.url()).origin === issuer.origin) {
+        await page.locator('#username').fill(config.username);
+        await page.locator('#password').fill(config.password);
+        await page.locator('#kc-login').click();
+      }
+      await page.waitForURL((url) => url.origin === config.baseURL && url.pathname.startsWith('/ui/'));
+      await page.waitForFunction(() => document.querySelector('.app-shell') || new URLSearchParams(location.search).has('sso_error'));
+    } else if (mode === 'local') {
     await form.locator('input[autocomplete="username"]').fill(config.username);
     await form.locator('input[autocomplete="current-password"]').fill(config.password);
     const reply = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/auth/sign-in');
@@ -78,6 +99,9 @@ export async function ensureSignedIn(page, config, { role } = {}) {
     if (response.status() === 401) throw new ConsoleError(`Sai tên đăng nhập hoặc mật khẩu cho ${config.username}`);
     if (!response.ok()) throw new ConsoleError(`Đăng nhập thất bại: HTTP ${response.status()}`);
     await form.waitFor({ state: 'hidden' });
+    } else {
+      throw new ConsoleError('Chế độ đăng nhập không được hỗ trợ');
+    }
     user = await currentUser(page, config.baseURL);
     if (user?.username !== config.username) throw new ConsoleError('Đăng nhập xong nhưng không xác nhận được phiên');
   }
@@ -93,8 +117,10 @@ export async function signInContext(browser, config, { role, recordVideo } = {})
   await context.addInitScript(() => { if (!globalThis.localStorage.getItem('orchestrator.locale')) globalThis.localStorage.setItem('orchestrator.locale', 'vi'); });
   const page = await context.newPage();
   page.setDefaultTimeout(30_000);
-  const user = await ensureSignedIn(page, config, { role });
-  return { context, page, user };
+  try {
+    const user = await ensureSignedIn(page, config, { role });
+    return { context, page, user };
+  } catch (error) { await context.close(); throw error; }
 }
 
 export async function openConsole(config, { role } = {}) {

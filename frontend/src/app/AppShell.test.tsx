@@ -60,3 +60,11 @@ it('keeps Definition navigation and hides Catalog authoring entry', () => {
  expect(screen.getByRole('link',{name:'Cấu hình tài nguyên'})).toBeVisible();
  expect(screen.queryByRole('link',{name:'Catalog'})).not.toBeInTheDocument();
 });
+
+it('keeps platform role navigation but hides local account controls for SSO admins', () => {
+  render(<AppShell {...props} role="ADMIN" externalIdentity><p>Content</p></AppShell>);
+  expect(screen.getByRole('link', { name: 'Loại tài nguyên' })).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Người dùng' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Đổi mật khẩu' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Đăng xuất' })).toBeInTheDocument();
+});

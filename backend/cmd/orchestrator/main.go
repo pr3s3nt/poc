@@ -148,6 +148,7 @@ func main() {
 	opts.NamespaceIdentity = *namespace
 	opts.ApplicationKey = *applicationKey
 	opts.Profile = *profile
+	optsOIDCFile := os.Getenv("ORCHESTRATOR_OIDC_CONFIG_FILE")
 	opts.Catalog = *seedCatalog
 	if opts.Profile == seed.ProfileAcceptanceV2 && (opts.Catalog == "" || opts.Catalog == seed.CatalogStaging) {
 		opts.Catalog = seed.CatalogNone
@@ -189,6 +190,7 @@ func main() {
 	}
 
 	app, err := bootstrap.Build(context.Background(), bootstrap.Options{
+		OIDCConfigFile:                optsOIDCFile,
 		RequireTemplateRenderer:       true,
 		Seed:                          opts,
 		UIDir:                         *uiDir,

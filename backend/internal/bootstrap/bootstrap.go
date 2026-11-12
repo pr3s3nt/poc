@@ -82,13 +82,14 @@ const (
 
 // Options configures one orchestrator instance.
 type Options struct {
-	Seed          seed.Options
-	UIDir         string
-	StatePath     string
-	DatabaseURL   string
-	Adapters      AdapterMode
-	KubectlPath   string
-	TerraformPath string
+	OIDCConfigFile string
+	Seed           seed.Options
+	UIDir          string
+	StatePath      string
+	DatabaseURL    string
+	Adapters       AdapterMode
+	KubectlPath    string
+	TerraformPath  string
 	// RequireTemplateRenderer is the product mode (UC-05 BR-09, UC-06 BR-17):
 	// every Workload needs exactly one compatible template Definition and an
 	// installed bundle on both profiles; there is no native renderer
@@ -502,6 +503,9 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		}
 	}
 	auth := authentication.NewService(st, rejectedAccountIDs...)
+	if err := configureOIDC(ctx, st, auth, opts.OIDCConfigFile); err != nil {
+		return nil, err
+	}
 	applications := appcreate.NewService(st)
 	if !fakeRenderer {
 		applications.SetDeliveryDefaults(deliveryBindings)

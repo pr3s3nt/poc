@@ -4173,5 +4173,9 @@
   "workloads.envfile.error.binding": "Line {line}: invalid value or reference target.",
   "workloads.envfile.error.metadata": "Line {line}: load metadata to verify the reference.",
   "workloads.envfile.up": "Move row {row} up",
-  "workloads.envfile.down": "Move row {row} down"
+  "workloads.envfile.down": "Move row {row} down",
+  "auth.sso.signIn": "Sign in with SSO",
+  "auth.sso.failed": "SSO sign-in failed. Check your access or try again.",
+  "auth.sso.configError": "Could not load sign-in configuration.",
+  "auth.sso.managed": "Your account and access are managed in the company identity system."
 }
