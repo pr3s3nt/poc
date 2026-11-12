@@ -4187,5 +4187,7 @@
   "catalogDocument.object": "Nội dung phải là một đối tượng.",
   "catalogDocument.extension": "Chọn file .yaml, .yml hoặc .json.",
   "catalogDocument.utf8": "File phải dùng UTF-8.",
-  "catalogDocument.failed": "Không thể đăng ký. Kiểm tra dữ liệu và tham chiếu."
+  "catalogDocument.failed": "Không thể đăng ký. Kiểm tra dữ liệu và tham chiếu.",
+  "catalogDocument.form": "Biểu mẫu",
+  "catalogDocument.method": "Cách đăng ký"
 }

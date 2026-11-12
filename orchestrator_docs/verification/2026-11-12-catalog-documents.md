@@ -125,3 +125,29 @@ Namespace absence was verified. The full-check namespace was separately deleted
 with its recorded UID precondition and cleanup verified; no user-owned namespace
 or existing local service was removed. The starting checkout was clean, so no
 preexisting user-owned changes were included or discarded.
+
+## Acceptance feedback: adjacent method tabs
+
+The user requested file upload/paste as a tab beside the existing form. The Type
+registration area now has Biểu mẫu / Nhập YAML/JSON tabs. Definition creation
+uses the same pair inside Tạo cấu hình; edit retains the form. The shared
+`CatalogEntryTabs` keeps both independent drafts mounted, supports named ARIA tabs
+and keyboard navigation, and prevents method changes while a write/upload runs.
+Upload and paste remain together in the import tab. Format help stays collapsed.
+
+Focused Type/Definition/import/history tests pass (91 tests), plus the new method
+navigation/draft retention test. Browser checks at the exact feature URL pass for
+both pages: mouse/keyboard switches preserve form and import drafts, and the full
+upload/edit/create/reuse/conflict/error/export/round-trip scenario still passes.
+The live Type/Definition screens and their existing tabs/styles were the visual
+reference; shell/navigation remain unchanged, with no added instructional banner.
+The E2E runners now enter Definition import through Tạo cấu hình.
+
+This follow-up changes frontend presentation only. Backend source and APIs are
+unchanged; the backend full-suite failure/timeout limits above still apply.
+
+Follow-up full frontend validation on kind: typecheck/lint, **111 files / 1049 tests**, and production build pass. The preexisting Definition layout assertion
+was scoped to its own Configuration/Criteria tablist, retaining its two-tab check
+and all existing draft/keyboard assertions. No backend tests were rerun for this
+presentation-only change; the backend code and previously recorded baseline are
+unchanged. The scoped frontend-check namespace was cleaned after validation.

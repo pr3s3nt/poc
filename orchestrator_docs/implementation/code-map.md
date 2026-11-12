@@ -1428,7 +1428,8 @@ See [contract](../architecture/contracts/deployment-progress.md).
 ## Catalog documents — issue #76
 
 UC-02/03 FILE-01..05: `frontend/src/features/platform/catalogDocument.ts`
-(parsing/public export), `CatalogDocumentImport.tsx` (upload/edit/result), existing
+(parsing/public export), `CatalogDocumentImport.tsx` (upload/edit/result), `CatalogEntryTabs.tsx`
+(adjacent method tabs with retained drafts), existing
 Type/Definition pages and `DefinitionVersions.tsx` (revision download).
 `backend/internal/delivery/http/document_import.go` owns strict scoped import
 boundaries; `application/catalog/document_import.go` reuses insert-only validation

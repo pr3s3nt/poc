@@ -1,4 +1,4 @@
-import { CatalogDocumentImport } from './CatalogDocumentImport';
+import { CatalogEntryTabs } from './CatalogEntryTabs';
 import { downloadDocument } from './catalogDocument';
 import { useRef, useState, type FormEvent } from 'react';
 import { specificGuidance, fieldNote } from '../../shared/api/errors';
@@ -161,7 +161,7 @@ export function ResourceTypesPage() {
       {capabilityList.loadError ? <div className="form-error" role="alert" aria-label={t('platform.resourceTypes.supportMetadataLoadError')}>{capabilityList.loadError} {' '}{t('platform.resourceTypes.itCouldNotBeConfirmed')}{' '} <Button type="button" onClick={() => void capabilityList.reload()}>{t('platform.resourceTypes.retry')}</Button></div> : null}
       {addNotice ? <div className="form-success" role="status">{addNotice}</div> : null}
       {loadError ? <div className="form-error" role="alert" aria-label={t('platform.resourceTypes.listLoadError')}>{loadError} <Button type="button" onClick={() => void reload()}>{t('platform.resourceTypes.retry')}</Button></div> : loading ? <p role="status">{t('platform.resourceTypes.loadingResourceTypes')}</p> : types.length === 0 ? <p>{t('platform.resourceTypes.noResourceTypesYet')}</p> : <div className="catalog-list">{types.map(renderEntry)}</div>}</section>
-    <CatalogDocumentImport kind="resource-types" onRegistered={reload} />
+    <CatalogEntryTabs kind="resource-types" onRegistered={reload} disabled={saving}>
     <section className="content-panel"><div className="section-header"><div><h2>{t('platform.resourceTypes.registerResourceType')}</h2><p>{t('platform.resourceTypes.theContractIsIndependentOf')}</p></div></div>
       <form onSubmit={submit}><fieldset className="editor-grid form-fieldset" disabled={saving} aria-busy={saving}><label>{t('platform.resourceTypes.resourceTypeID')}<input ref={idField} value={key} required aria-describedby="resource-type-id-hint" onChange={(event) => setKey(event.target.value)} /></label>
         <p id="resource-type-id-hint" className="feature-note">{t('platform.resourceTypes.useLowercaseLettersDigitsAnd')}{' '} <code>postgres-ha</code>{t('platform.resourceTypes.theIDIsNeverCorrected')}{' '} <code>environment</code> {' '}{t('platform.resourceTypes.and')}{' '} <code>service</code> {' '}{t('platform.resourceTypes.areReservedIDs')}</p>
@@ -170,5 +170,6 @@ export function ResourceTypesPage() {
         {error ? <div className="form-error" role="alert">{error}</div> : null}{notice ? <div className="form-success" role="status">{notice}</div> : null}<div className="form-actions"><Button type="submit" tone="primary" disabled={saving}>{saving ? t('platform.resourceTypes.registering') : t('platform.resourceTypes.registerResourceType')}</Button></div>
       </fieldset></form>
     </section>
+    </CatalogEntryTabs>
   </section>;
 }

@@ -8,7 +8,6 @@ it('retains a conflict draft, reports field paths and never reloads as a write',
   vi.stubGlobal('fetch', fetch);
   const reload = vi.fn(); const user = userEvent.setup();
   render(<CatalogDocumentImport kind="resource-definitions" onRegistered={reload} />);
-  await user.click(screen.getByText('Nhập YAML/JSON'));
   const editor = screen.getByLabelText('Nội dung YAML/JSON', { exact: true });
   await user.type(editor, 'key: example'); await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
   expect(await screen.findByRole('status')).toHaveTextContent('CONFLICT: name');
@@ -18,7 +17,6 @@ it('retains a conflict draft, reports field paths and never reloads as a write',
 it('rejects duplicate keys before making a request and preserves editable content', async () => {
   const fetch = vi.fn(); vi.stubGlobal('fetch', fetch); const user = userEvent.setup();
   render(<CatalogDocumentImport kind="resource-types" onRegistered={vi.fn()} />);
-  await user.click(screen.getByText('Nhập YAML/JSON'));
   const editor = screen.getByLabelText('Nội dung YAML/JSON', { exact: true });
   await user.type(editor, 'key: a\nkey: b'); await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('key trùng');

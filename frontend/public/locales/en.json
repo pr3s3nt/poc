@@ -4187,5 +4187,7 @@
   "catalogDocument.object": "Content must be an object.",
   "catalogDocument.extension": "Choose a .yaml, .yml or .json file.",
   "catalogDocument.utf8": "File must use UTF-8.",
-  "catalogDocument.failed": "Registration failed. Check data and references."
+  "catalogDocument.failed": "Registration failed. Check data and references.",
+  "catalogDocument.form": "Form",
+  "catalogDocument.method": "Registration method"
 }

@@ -21,8 +21,8 @@ if(stage==='prepare') {
   const fields=['key','name','resourceType','driverType','driverAccount','driverInputs','criteria','provision'];const doc=Object.fromEntries(fields.filter(k=>source[k]!==undefined).map(k=>[k,source[k]]));
   doc.key=source.key.replace(preparedPrefix,importedPrefix);doc.name=source.name.replace('prepared','imported');doc.criteria=doc.criteria.map(x=>({...x,app_id:state.app.key}));
   if(doc.resourceType==='postgres')doc.driverInputs.values.variables.username='fallback76';
-  await page.goto(c.baseURL+'/ui/platform/resource-definitions');await page.getByText('Nhập YAML/JSON',{exact:true}).click();await page.getByLabel('Nội dung YAML/JSON',{exact:true}).fill(JSON.stringify(doc));
-  await page.locator('details').filter({has:page.getByLabel('Nội dung YAML/JSON',{exact:true})}).getByRole('button',{name:'Đăng ký',exact:true}).click();
+  await page.goto(c.baseURL+'/ui/platform/resource-definitions');await page.getByRole('button',{name:'Tạo cấu hình',exact:true}).click();await page.getByRole('tab',{name:'Nhập YAML/JSON',exact:true}).click();await page.getByLabel('Nội dung YAML/JSON',{exact:true}).fill(JSON.stringify(doc));
+  await page.getByRole('tabpanel').filter({has:page.getByLabel('Nội dung YAML/JSON',{exact:true})}).getByRole('button',{name:'Đăng ký',exact:true}).click();
   await page.getByRole('status').filter({hasText:/CREATED|REUSED/}).waitFor();console.log('IMPORTED',doc.key);
  }
  state.namespace=state.app.environments.find(x=>x.key==='staging').namespaceIdentity;save();console.log('PASS prepared imported definitions');
@@ -64,7 +64,7 @@ if(stage==='verify') {
  assert(cap);const image=cap.variables.find(x=>x.name==='image');assert(image?.hasDefault);assert.equal(def.driverInputs.values.variables.image,undefined);assert(pg.every(x=>x.spec.template.spec.containers[0].image===image.default));
  const historyPath=`/resource-definitions/${def.key}/versions`;const history=await ui.get(historyPath);
  const fields=['key','name','resourceType','driverType','driverAccount','driverInputs','criteria','provision'];const doc=Object.fromEntries(fields.filter(k=>def[k]!==undefined).map(k=>[k,structuredClone(def[k])]));doc.driverInputs.values.variables.image=image.default;
- await page.goto(c.baseURL+'/ui/platform/resource-definitions');await page.getByText('Nhập YAML/JSON',{exact:true}).click();const editor=page.getByLabel('Nội dung YAML/JSON',{exact:true});await editor.fill(JSON.stringify(doc));await page.locator('details').filter({has:editor}).getByRole('button',{name:'Đăng ký',exact:true}).click();await page.getByRole('status').filter({hasText:'REUSED'}).waitFor();assert.deepEqual(await ui.get(historyPath),history);
+ await page.goto(c.baseURL+'/ui/platform/resource-definitions');await page.getByRole('button',{name:'Tạo cấu hình',exact:true}).click();await page.getByRole('tab',{name:'Nhập YAML/JSON',exact:true}).click();const editor=page.getByLabel('Nội dung YAML/JSON',{exact:true});await editor.fill(JSON.stringify(doc));await page.getByRole('tabpanel').filter({has:editor}).getByRole('button',{name:'Đăng ký',exact:true}).click();await page.getByRole('status').filter({hasText:'REUSED'}).waitFor();assert.deepEqual(await ui.get(historyPath),history);
  console.log('PASS explicit module default equals omission, without a revision write');
  console.log('PASS imported pins/mappings/binding, module defaults and required params override deployed');
 }
