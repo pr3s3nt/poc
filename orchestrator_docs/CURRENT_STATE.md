@@ -2420,7 +2420,7 @@ Specification: [ENVFILE-01–06](usecase/UC-16/envfile-specification.md).
 typecheck/lint/build, real browser/Deploy/cleanup pass. Full Go remains red at
 13 packages on the identical main backend tree; this is not a full green gate.
 
-## Catalog document registration — issue #76 (task branch)
+## Catalog document registration — issue #76 (accepted main integration)
 
 Type/Definition pages retain their forms and add upload/paste YAML/JSON plus YAML
 export. Acceptance feedback places Form and YAML/JSON in adjacent method tabs;
@@ -2433,4 +2433,7 @@ Preview/Deploy, module-default equivalence and required-param overrides passed.
 Full frontend on kind passed 1049 tests and build; backend build passed, while
 full backend tests reproduce the main failure set and PostgreSQL timeout. See
 [verification](verification/2026-11-12-catalog-documents.md) for evidence and limits.
-The feature awaits user acceptance; it is not merged or globally test-green.
+Merged into main at `48f28ad1` after user acceptance and deployed on the retained
+kind Console. Main import/export smoke passed without changing catalog/revision
+history or existing Applications. Full backend remains baseline-red; the complete
+comparison and rollout are in [main verification](verification/2026-11-12-catalog-documents-main.md).

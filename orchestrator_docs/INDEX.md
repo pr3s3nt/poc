@@ -273,3 +273,6 @@ mẫu YAML/JSON, source pins, mapping, criteria, fallback và cách dùng tab nh
 [UC-03 FILE](usecase/UC-03/specification.md#nhậpxuất-document--issue-76),
 [browser scenarios](../e2e/scenarios/catalog-document/README.md) and
 [verification / full-suite baseline limits](verification/2026-11-12-catalog-documents.md).
+
+[Accepted main integration and rollout — issue #76](verification/2026-11-12-catalog-documents-main.md)
+records the complete baseline comparison, preserved data and post-rollout checks.
