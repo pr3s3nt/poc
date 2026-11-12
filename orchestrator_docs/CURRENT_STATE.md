@@ -2429,7 +2429,7 @@ Comparison uses typed flags, unordered schema/criteria and module/template defau
 export drops system metadata and preserves public source pins/references.
 Focused checks, real feature-stack browser round-trip, Terraform/template
 Preview/Deploy, module-default equivalence and required-param overrides passed.
-Full frontend on kind passed 1044 tests and build; backend build passed, while
+Full frontend on kind passed 1048 tests and build; backend build passed, while
 full backend tests reproduce the main failure set and PostgreSQL timeout. See
 [verification](verification/2026-11-12-catalog-documents.md) for evidence and limits.
 The feature awaits user acceptance; it is not merged or globally test-green.

@@ -23,6 +23,8 @@ try {
  await editor.fill(JSON.stringify(changed));await register.click();await page.getByRole('status').filter({hasText:'CONFLICT'}).waitFor();assert.equal(await editor.inputValue(),JSON.stringify(changed));
  assert.deepEqual(await (await page.request.get(c.baseURL+'/api/v1'+snapshotPath)).json(),before,'reuse/conflict must not mutate Type or revision history');
  await editor.fill('key: [');await register.click();await page.getByRole('alert').waitFor();assert.equal(await editor.inputValue(),'key: [');
+ let nonFiniteWrites=0;const record=request=>{if(request.method()==='POST'&&request.url().endsWith('/import'))nonFiniteWrites++;};page.on('request',record);
+ await editor.fill('value: .inf');await register.click();await page.getByRole('alert').filter({hasText:'Cú pháp'}).waitFor();assert.equal(await editor.inputValue(),'value: .inf');assert.equal(nonFiniteWrites,0);page.off('request',record);
  if(kind==='resource-types')await page.getByRole('button',{name:'Xem schema '+type.key,exact:true}).click();
  const downloadButton=kind==='resource-types'?page.locator('.catalog-entry').filter({has:page.locator('strong',{hasText:type.key})}).getByRole('button',{name:'Tải file',exact:true}):page.locator(`[data-definition="${doc.key}"]`).getByRole('button',{name:'Tải file · v1',exact:true});
  const [download]=await Promise.all([page.waitForEvent('download'),downloadButton.click()]);const path=await download.path();

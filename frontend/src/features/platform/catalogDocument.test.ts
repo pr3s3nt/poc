@@ -6,8 +6,11 @@ describe('catalog document', () => {
     expect(parseCatalogDocument(yaml)).toEqual(parseCatalogDocument('{"outputs":[],"key":"demo","inputs":[]}'));
     expect(parseCatalogDocument('value: "${resources.test.outputs.host}"').value).toBe('${resources.test.outputs.host}');
   });
-  it.each(['key: a\nkey: b', 'key: a\n---\nkey: b', '[a,b]', 'key: [', 'key: &a [*a]', 'a'.repeat(1024 * 1024 + 1)])('rejects malformed or unbounded documents', value => {
+  it.each(['key: a\nkey: b', 'key: a\n---\nkey: b', '[a,b]', 'key: [', 'key: &a [*a]', 'required: .nan', 'required: .inf', '? [a,b]\n: value', 'a'.repeat(1024 * 1024 + 1)])('rejects malformed or unbounded documents', value => {
     expect(() => parseCatalogDocument(value)).toThrow();
+  });
+  it('accepts bounded YAML aliases that represent ordinary JSON values', () => {
+    expect(parseCatalogDocument('first: &value {name: host}\nsecond: *value')).toEqual({ first: { name: 'host' }, second: { name: 'host' } });
   });
   it('exports only authoring fields and preserves source and secret flags', () => {
     const source = { key: 'db', version: 4, revisionId: 'r4', renderPin: { credential: 'hidden' }, driverInputs: { values: { source: { revision: 'pin' } } }, criteria: [{}] };

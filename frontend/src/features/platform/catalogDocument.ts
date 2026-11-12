@@ -7,12 +7,17 @@ export class DocumentProblem extends Error {
 }
 export function parseCatalogDocument(text: string): Record<string, unknown> {
   if (new TextEncoder().encode(text).length > documentLimit) throw new DocumentProblem('size');
-  const documents = parseAllDocuments(text.replace(/^\uFEFF/, ''), { uniqueKeys: true, strict: true, prettyErrors: false });
+  const documents = parseAllDocuments(text.replace(/^\uFEFF/, ''), { uniqueKeys: true, strict: true, stringKeys: true, prettyErrors: false });
   if (documents.length !== 1) throw new DocumentProblem('single');
   const doc = documents[0]!;
   if (doc.errors.length || doc.warnings.length) throw new DocumentProblem('syntax', doc.errors[0]?.linePos?.[0]?.line ?? 0);
   let value: unknown;
-  try { value = doc.toJS({ maxAliasCount: 0 }); } catch { throw new DocumentProblem('syntax'); }
+  try { value = doc.toJS({ maxAliasCount: 100 }); } catch { throw new DocumentProblem('syntax'); }
+  // YAML non-finite numbers must not silently become JSON null on submit.
+  try { JSON.stringify(value, (_key, item: unknown) => {
+    if (typeof item === 'number' && !Number.isFinite(item)) throw new DocumentProblem('syntax');
+    return item;
+  }); } catch { throw new DocumentProblem('syntax'); }
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new DocumentProblem('object');
   return value as Record<string, unknown>;
 }

@@ -577,7 +577,8 @@ This UI restriction supersedes earlier multi-source Console choices only.
 
 - **FILE-01:** PE/Admin nhập một body đăng ký bằng YAML/JSON, qua upload hoặc
   nhập/dán. UTF-8, tối đa 1 MiB; không wrapper, nhiều document, duplicate key,
-  unknown/system/retired fields. Upload hiện trong editor và sửa được; lỗi giữ draft.
+  unknown/system/retired fields hoặc scalar không biểu diễn được bằng JSON
+  (như số vô hạn/NaN). Upload hiện trong editor và sửa được; lỗi giữ draft.
 - **FILE-02:** Validation dùng contract đăng ký hiện có, gồm source pin/tham chiếu
   chuẩn bị trước. Không inspect Git hoặc provision/deploy khi import.
 - **FILE-03:** Key mới trả CREATED; cấu hình tương đương sau chuẩn hóa contract

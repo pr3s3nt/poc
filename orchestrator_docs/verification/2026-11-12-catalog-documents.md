@@ -28,7 +28,8 @@ revision, excluding system metadata; source pins and symbolic references remain.
   system/retired/unknown fields, body size, conflict without overwriting,
   Definition revision preservation, default equivalence and meaningful null values.
 - Frontend parser, import control, Type form and revision tests pass. Parser checks
-  duplicate keys, aliases, malformed/multiple documents and oversized content.
+  duplicate keys, cyclic aliases, malformed/multiple documents, oversized content,
+  non-string mapping keys and non-finite numbers; bounded ordinary aliases work.
 - Real feature-stack browser scenario `e2e/scenarios/catalog-document/run.mjs`
   passes upload/edit/create/reuse/conflict, error draft retention, YAML download
   and round-trip for Type and endpoint Definition. It compares Type/revision
@@ -68,7 +69,7 @@ Full checks ran on the existing kind cluster in a disposable namespace, with rea
 PostgreSQL and `REQUIRE_POSTGRES=1`. Main comparison used an independent checkout
 of `9d80dbe4` in the same test environment.
 
-- Frontend: typecheck, lint, **110 files / 1044 tests**, production build pass.
+- Frontend: typecheck, lint, **110 files / 1048 tests**, production build pass.
   Lint retains the existing `PlatformSettingsPage` effect-ref warning; build retains
   the existing bundle-size notice.
 - Backend: full `go test -p 2 -parallel 4 -timeout 20m ./...` fails; `go build ./...`
