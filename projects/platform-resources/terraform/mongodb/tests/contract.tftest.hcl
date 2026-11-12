@@ -3,7 +3,6 @@ variables {
   namespace              = "company-staging"
   image                  = "registry.company.example:5000/platform/mongodb@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   database               = "appdb"
-  username               = "app"
   password               = "p@ss:w/rd%1"
   master_password        = "root-secret"
   image_pull_secret_name = "company-registry"
@@ -16,7 +15,7 @@ run "company_database_plan" {
     error_message = "Company image, pull Secret and instance auth Secret must reach the pod."
   }
   assert {
-    condition     = kubernetes_persistent_volume_claim_v1.data.metadata[0].labels["orchestrator-instance"] == var.tags["orchestrator-instance"] && output.port == 27017 && output.namespace == var.namespace && kubernetes_persistent_volume_claim_v1.data.spec[0].resources[0].requests.storage == "10Gi" && kubernetes_stateful_set_v1.this.wait_for_rollout == false
+    condition     = kubernetes_persistent_volume_claim_v1.data.metadata[0].labels["orchestrator-instance"] == var.tags["orchestrator-instance"] && output.port == 27017 && output.username == "app" && kubernetes_persistent_volume_claim_v1.data.metadata[0].namespace == var.namespace && kubernetes_persistent_volume_claim_v1.data.spec[0].resources[0].requests.storage == "10Gi" && kubernetes_stateful_set_v1.this.wait_for_rollout == false
     error_message = "Outputs, PVC and executor-owned readiness must match the contract."
   }
 

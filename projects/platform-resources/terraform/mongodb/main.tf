@@ -30,7 +30,8 @@ variable "database" {
   }
 }
 variable "username" {
-  type = string
+  type    = string
+  default = "app"
   validation {
     condition     = can(regex("^[A-Za-z_][A-Za-z0-9_]{0,31}$", var.username)) && !contains(["root", "mysql", "mariadb.sys"], lower(var.username))
     error_message = "username must be a non-root application identifier."
@@ -259,8 +260,6 @@ output "host" { value = "${kubernetes_service_v1.this.metadata[0].name}.${var.na
 output "port" { value = 27017 }
 output "database" { value = var.database }
 output "username" { value = var.username }
-output "claimName" { value = kubernetes_persistent_volume_claim_v1.data.metadata[0].name }
-output "namespace" { value = var.namespace }
 
 output "password" {
   value     = var.password

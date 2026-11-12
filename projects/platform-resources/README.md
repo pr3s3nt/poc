@@ -6,6 +6,7 @@
 terraform/             # 11 Terraform modules
 templates/standard/  # bộ template chuẩn
 bootstrap/             # Resource Types, Definitions, Workloads, policy
+resource-catalog/      # File Type/Definition nhập trực tiếp trên Console
 README.md
 AGENTS.md
 ```
@@ -14,6 +15,9 @@ Không tạo thêm tầng `platform-resources/` trong repo mới. Definitions n�
 `bootstrap/definitions/`; chúng tham chiếu module trong `terraform/` qua các
 tham số input. Preset staging đăng ký namespace/postgres/redis/storage và mysql/mariadb/mongodb;
 các module AWS chỉ là mã nguồn bổ sung, không phải quyền triển khai AWS.
+
+[MongoDB Type và Definition](resource-catalog/mongodb/README.md) là hai file
+YAML độc lập để nhập trực tiếp. Module tương ứng nằm tại `terraform/mongodb`.
 
 ## Chuyển sang Git công ty
 

@@ -59,11 +59,16 @@ resources:
       storage: 10Gi
 ```
 
-Đổi `type`, `image`, `id` cho MariaDB hoặc MongoDB.
+Đổi `type`, `image`, `id` cho MariaDB. Với MongoDB, chỉ cần params `database`;
+`username` và `storage` tuỳ chọn, fallback từ Definition/module (`app`, `10Gi`
+trong mẫu). Image MongoDB do Definition quản lý, không truyền qua params.
 Các Type params bắt buộc vẫn phải được khai báo; chúng ưu tiên hơn fallback
 trong Definition. Chọn cùng image/Secret đã chuẩn bị trong input. Outputs của
-cả ba là `host`, `port`, `database`, `username`, `password` 🔒, `claimName`,
-`namespace`, cộng chuỗi kết nối ở bảng trên.
+MySQL/MariaDB là `host`, `port`, `database`, `username`, `password` 🔒, `claimName`,
+`namespace`, cộng chuỗi kết nối ở bảng trên. MongoDB có đúng sáu output bắt buộc:
+`host`, `port`, `database`, `username`, `password` 🔒, `connection` 🔒;
+không xuất PVC/namespace. File nhập riêng ở
+[resource-catalog/mongodb](../resource-catalog/mongodb/README.md).
 MongoDB khởi tạo app user với role readWrite; kết nối bằng authSource=database
 ứng dụng, không dùng tài khoản root cho workload.
 

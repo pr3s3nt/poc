@@ -343,11 +343,6 @@
     "key": "mongodb",
     "inputs": [
       {
-        "name": "image",
-        "type": "string",
-        "required": true
-      },
-      {
         "name": "database",
         "type": "string",
         "required": true
@@ -355,7 +350,7 @@
       {
         "name": "username",
         "type": "string",
-        "required": true
+        "required": false
       },
       {
         "name": "storage",
@@ -389,18 +384,6 @@
         "secret": false
       },
       {
-        "name": "claimName",
-        "type": "string",
-        "required": true,
-        "secret": false
-      },
-      {
-        "name": "namespace",
-        "type": "string",
-        "required": true,
-        "secret": false
-      },
-      {
         "name": "password",
         "type": "string",
         "required": true,
@@ -409,7 +392,7 @@
       {
         "name": "connection",
         "type": "string",
-        "required": false,
+        "required": true,
         "secret": true
       }
     ]

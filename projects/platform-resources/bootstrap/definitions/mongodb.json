@@ -23,9 +23,6 @@
         "content_sha256": "${bootstrap.mongodbModuleSHA256}"
       },
       "input_mapping": {
-        "image": {
-          "param": "image"
-        },
         "database": {
           "param": "database"
         },
@@ -41,8 +38,6 @@
         "port": "port",
         "database": "database",
         "username": "username",
-        "claimName": "claimName",
-        "namespace": "namespace",
         "password": "password",
         "connection": "connection"
       },

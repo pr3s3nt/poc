@@ -38,14 +38,14 @@ export const WORKLOADS=[
   script:`${split} until MYSQL_PWD="$2" mysql -h "$3" -P "$4" -u "$1" "$5" -e "select 1" >/dev/null 2>&1; do sleep 3; done; echo CONNECTION_OK mysql; case "$JDBC_URL" in jdbc:mysql://*:3306/appdb) echo JDBC_OK;; esac; ${keep}`},
  {name:'mariadb-check',type:'mariadb',params:{image:IMAGES.mariadb,database:'appdb',username:'app'},env:{DATABASE_URL:ref('db.uri'),JDBC_URL:ref('db.jdbcUrl')},
   script:`${split} until MYSQL_PWD="$2" mariadb -h "$3" -P "$4" -u "$1" "$5" -e "select 1" >/dev/null 2>&1; do sleep 3; done; echo CONNECTION_OK mariadb; case "$JDBC_URL" in jdbc:mariadb://*:3306/appdb) echo JDBC_OK;; esac; ${keep}`},
- {name:'mongo-check',type:'mongodb',params:{image:IMAGES.mongodb,database:'appdb',username:'app'},env:{DATABASE_URL:ref('db.connection')},
+ {name:'mongo-check',type:'mongodb',params:{database:'appdb'},env:{DATABASE_URL:ref('db.connection')},
   script:`until mongosh "$DATABASE_URL" --quiet --eval "quit(db.runCommand({ping:1}).ok===1?0:1)" >/dev/null 2>&1; do sleep 3; done; echo CONNECTION_OK mongodb; ${keep}`},
 ];
 const NAMESPACE_REF="${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}";
 const OUTPUTS={postgres:['host','port','database','username','password','uri','jdbcUrl'],redis:['host','port','username','password','tls','uri'],
  mysql:['host','port','database','username','password','claimName','namespace','uri','jdbcUrl'],mariadb:['host','port','database','username','password','claimName','namespace','uri','jdbcUrl'],
- mongodb:['host','port','database','username','password','claimName','namespace','connection']};
-const INPUTS={postgres:['database','username'],redis:[],mysql:['image','database','username','storage'],mariadb:['image','database','username','storage'],mongodb:['image','database','username','storage']};
+ mongodb:['host','port','database','username','password','connection']};
+const INPUTS={postgres:['database','username'],redis:[],mysql:['image','database','username','storage'],mariadb:['image','database','username','storage'],mongodb:['database','username','storage']};
 const c=readConsoleConfig(),s=await openConsole(c,{}),ui=makeUI(s.page,c.baseURL,1800000),{page}=ui;
 const appBase=()=>`/applications/${state.app.key}/environments/${ENV}`;
 const call=async(path,method,body)=>{const r=await page.request.fetch(c.baseURL+'/api/v1'+path,{method,data:body});const text=await r.text();assert(r.ok(),`${method} ${path}: HTTP ${r.status()} ${text.slice(0,300)}`);return JSON.parse(text);};
@@ -84,7 +84,7 @@ async function platform(){
   assert(capability?.source,'inspect '+type);state.pins??={};state.pins[type]=capability.source;save();
   const mapping=Object.fromEntries(OUTPUTS[type].map(n=>[n,n]));
   await ensureDefinition({key:'issue52-'+type,name:'Issue 52 '+type,resourceType:type,driverType:'terraform',
-   driverInputs:{values:{variables:{namespace:NAMESPACE_REF},source:{source_id:capability.source.sourceId,module_id:capability.source.moduleId,revision:capability.source.revision,subdirectory:capability.source.subdirectory,content_sha256:capability.source.contentSha256},
+   driverInputs:{values:{variables:{namespace:NAMESPACE_REF,...(type==='mongodb'?{image:IMAGES.mongodb,username:'app',storage:'10Gi'}:{})},source:{source_id:capability.source.sourceId,module_id:capability.source.moduleId,revision:capability.source.revision,subdirectory:capability.source.subdirectory,content_sha256:capability.source.contentSha256},
     input_mapping:Object.fromEntries(INPUTS[type].map(n=>[n,{param:n}])),output_mapping:mapping,
     provider_bindings:{kubernetes:{target:'resource',resource_ref:'k8s-cluster.git-dev#environments.@app.@env'}}}},
    provision:{},criteria:[{env_type:ENV,class:'in-cluster'}]});

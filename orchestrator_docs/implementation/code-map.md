@@ -1189,8 +1189,12 @@ Database Git assets: `projects/platform-resources/terraform/{mysql,mariadb,mongo
 and matching `bootstrap/definitions/*.json`; Types are declared in
 `bootstrap/resource-types.json`, input/pin fields in enterprise staging input.
 Setup and credential/storage contract: `projects/platform-resources/bootstrap/DATABASES.md`.
-The MySQL Type schema remains compatible; new types use the same nonsecret
-Secret-reference contract. No embedded release/runtime code changed.
+MongoDB standalone import files: `projects/platform-resources/resource-catalog/mongodb/`;
+release repository: `pr3s3nt/orchestrator-workload-templates` at
+`resource-catalog/mongodb/` and `terraform/mongodb/`. MongoDB Type takes required
+database and optional username/storage; image is Definition-owned. Its six
+required outputs exclude PVC/namespace, include secret password/connection.
+No embedded release/runtime code changed.
 
 Console staging bootstrap: `execution-profile.mjs` guards native CLI access;
 `enterprise-prepare.mjs` / `prepare-enterprise-input.mjs` prepare local snapshots;

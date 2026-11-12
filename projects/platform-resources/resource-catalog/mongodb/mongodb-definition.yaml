@@ -1,10 +1,10 @@
 # Nhập sau mongodb-type.yaml: Console > Cấu hình tài nguyên > Nhập YAML/JSON.
-# Chuẩn file: orchestrator_docs/operations/resource-catalog-files.md.
+# Hướng dẫn: resource-catalog/mongodb/README.md trong repo phát hành.
 # Thay TẤT CẢ giá trị <...> trước khi nhập; đây chưa phải source pin đã xác minh.
 # Inspect module MongoDB từ Git trên Console đích rồi chép đủ năm trường source
 # từ CÙNG kết quả inspect. Module tham chiếu trong repo này:
-# projects/platform-resources/terraform/mongodb (terraform/mongodb khi publish
-# riêng bộ platform-resources). subdirectory phải theo kết quả inspect thực tế.
+# terraform/mongodb trong repo orchestrator-workload-templates.
+# subdirectory phải theo kết quả inspect thực tế.
 # Module phải nhận image/database/username/storage/namespace và xuất đủ sáu
 # output được map bên dưới; password/master_password do executor cung cấp.
 # Không thêm password hoặc master_password vào variables/input_mapping.

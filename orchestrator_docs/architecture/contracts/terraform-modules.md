@@ -161,7 +161,12 @@ hiệu lực nếu Type hoặc module đánh dấu secret; không downgrade đ�
 | `postgres` | Giữ contract catalog hiện hành: `host` string, `port` number, `database` string, `username` string, `password` secret string; tuỳ chọn `uri` secret string, `jdbcUrl` string |
 | `redis` | `host` string, `port` number, `username` string, `password` secret string, `tls` bool; credentials không rỗng khi auth yêu cầu; tuỳ chọn `uri` secret string |
 | `mysql`, `mariadb` (Git resource assets) | `host` string, `port` number, `database` string, `username` string, `password` secret string, `claimName` string, `namespace` string; tuỳ chọn `uri` secret string, `jdbcUrl` string |
-| `mongodb` (Git resource assets) | `host` string, `port` number, `database` string, `username` string, `password` secret string, `claimName` string, `namespace` string; tuỳ chọn `connection` secret string |
+| `mongodb` (Git resource assets) | Sáu outputs bắt buộc: `host` string, `port` number, `database` string, `username` string, `password` secret string, `connection` secret string |
+
+MongoDB Type nhận `database` string bắt buộc, `username` và `storage` string
+tuỳ chọn. Definition/module cung cấp fallback cho username/storage; image,
+storage class và placement do Definition quản lý, không phải Type inputs.
+`claimName` và `namespace` là chi tiết triển khai, không thuộc MongoDB outputs.
 
 Redis v2 dùng auth cho cả in-cluster/managed; in-cluster có thể không TLS,
 ElastiCache dùng TLS và app phải hỗ trợ theo output `tls`. Module sinh username/
