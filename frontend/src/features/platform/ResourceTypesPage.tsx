@@ -17,7 +17,16 @@ const fieldTypes = ['string', 'number', 'bool', 'any'];
 const newInput = (): InputField => ({ name: '', type: 'string', required: false });
 const newOutput = (): OutputField => ({ name: '', type: 'string', required: false, secret: false });
 const yesNo = (value: boolean | undefined) => (value === true ? t('platform.resourceTypes.yes') : t('platform.resourceTypes.no'));
-const driverText = (pair: Capability) => `Terraform/${pair.module}`;
+const supportsProvisioning = (pair: Capability) => isVerifiedPin(pair) || ['template', 'endpoint', 'existing-cluster'].includes(pair.driverType);
+const driverText = (pair: Capability) => {
+  switch (pair.driverType) {
+    case 'terraform': return `Terraform/${pair.module}`;
+    case 'template': return 'Template';
+    case 'endpoint': return t('endpointDriver.driver');
+    case 'existing-cluster': return t('platform.resourceDefinitions.existingClusterExistingCluster');
+    default: return pair.driverType;
+  }
+};
 
 // Flags and types are copied exactly as the GET returned them; nothing is
 // inferred from field names. A missing flag is false (the API omits false).
@@ -128,15 +137,15 @@ export function ResourceTypesPage() {
   function renderEntry(type: ResourceType) {
     // Support comes only from the authoritative metadata; loading/error never reads as "contract only" or "supported".
     const metadataPending = capabilityList.loading || capabilityList.loadError !== '';
-    // Only registry-verified module pins count as a way to create the Type.
-    const pairs = metadataPending ? [] : capabilitiesForType(capabilityList.items, type.key).filter(isVerifiedPin);
-    const rule = pairs.length > 0 || (!metadataPending && type.key === 'workload' && capabilityList.items.some((item) => item.resourceType === 'workload' && item.driverType === 'template'));
+    // Terraform needs a verified pin; built-in drivers have no module pin.
+    const pairs = metadataPending ? [] : capabilitiesForType(capabilityList.items, type.key).filter(supportsProvisioning);
+    const rule = pairs.length > 0;
     const supportLabel = capabilityList.loading ? t('platform.resourceTypes.checkingSupport') : capabilityList.loadError ? t('platform.resourceTypes.supportNotConfirmed') : rule ? t('platform.resourceTypes.provisioningSupported') : t('platform.resourceTypes.contractOnly');
     const open = expanded === type.key;
     const inputList = type.inputs ?? [];
     const outputList = type.outputs ?? [];
     return <div key={type.key} className="catalog-entry catalog-entry-rich"><div className="section-header"><div><strong>{type.key}</strong> <span className="status-pill">{supportLabel}</span><br />
-      <span>{t('platform.resourceTypes.inputListCountInputsOutputListCountOutputs', { inputListCount: inputList.length, outputListCount: outputList.length })}</span>{rule ? <span>{' '}{t('platform.resourceTypes.provisioningValue', { value: pairs.map(driverText).join(t('platform.resourceTypes.or')) })}</span> : null}{type.classes && type.classes.length > 0 ? <span>{' '}{t('platform.resourceTypes.publishedClassesValue', { value: type.classes.join(', ') })}</span> : null}</div>
+      <span>{t('platform.resourceTypes.inputListCountInputsOutputListCountOutputs', { inputListCount: inputList.length, outputListCount: outputList.length })}</span>{rule ? <span>{' '}{t('platform.resourceTypes.provisioningValue', { value: [...new Set(pairs.map(driverText))].join(t('platform.resourceTypes.or')) })}</span> : null}{type.classes && type.classes.length > 0 ? <span>{' '}{t('platform.resourceTypes.publishedClassesValue', { value: type.classes.join(', ') })}</span> : null}</div>
       <div className="form-actions">
         <Button type="button" aria-expanded={open} aria-label={`${open ? t('platform.resourceTypes.hide') : t('platform.resourceTypes.view')} schema ${type.key}`} onClick={() => setExpanded(open ? '' : type.key)}>{open ? t('platform.resourceTypes.hideSchema') : 'Xem schema'}</Button>
         {rule ? <a className="button" href={href({ name: 'resource-definitions', resourceType: type.key })} aria-label={t('platform.resourceTypes.createAResourceDefinitionFor', { key: type.key })} onClick={(event) => { event.preventDefault(); navigate({ name: 'resource-definitions', resourceType: type.key }); }}>{t('platform.resourceTypes.createResourceDefinition')}</a> : null}

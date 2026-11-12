@@ -15,7 +15,7 @@ const cache: Body = {
 };
 const seeded = ['vpc', 'k8s-cluster', 'k8s-namespace', 'postgres', 'workload', 'postgres-ha', 'constructor', 'toString'].map((key) => ({ key, inputs: [], outputs: [] }));
 
-function backend(options: { types?: Body[]; post?: (body: Body) => Response | Promise<Response>; lists?: (() => Response)[] } = {}) {
+function backend(options: { types?: Body[]; capabilities?: Body[]; post?: (body: Body) => Response | Promise<Response>; lists?: (() => Response)[] } = {}) {
   const posted: Body[] = [];
   const gets: string[] = [];
   const lists = options.lists;
@@ -25,7 +25,7 @@ function backend(options: { types?: Body[]; post?: (body: Body) => Response | Pr
       posted.push(body);
       return (options.post ?? (() => Response.json(body, { status: 201 })))(body);
     }
-    if (String(input).endsWith('/resource-definition-capabilities')) return Response.json({ capabilities: capabilityFixture });
+    if (String(input).endsWith('/resource-definition-capabilities')) return Response.json({ capabilities: options.capabilities ?? capabilityFixture });
     gets.push(String(input));
     if (lists?.length) return (lists.shift() as () => Response)();
     return Response.json({ resourceTypes: options.types ?? [cache] });
@@ -265,8 +265,8 @@ describe('UC-02 resource type details and copy', () => {
   });
 });
 
-describe('UC-02 supported whitelist and definition CTA', () => {
-  it('labels exactly the four runtime-supported types and every other ID as contract-only', async () => {
+describe('UC-02 capability support and definition CTA', () => {
+  it('labels types with verified capabilities as supported and unmatched IDs as contract-only', async () => {
     backend({ types: seeded });
     render(<ResourceTypesPage />);
     await screen.findByText('vpc', { selector: 'strong' });
@@ -308,6 +308,66 @@ describe('UC-02 supported whitelist and definition CTA', () => {
     render(<ResourceTypesPage />);
     await user.click(await screen.findByRole('link', { name: 'Tạo Cấu hình tài nguyên cho postgres' }));
     expect(window.location.pathname + window.location.search).toBe('/ui/platform/resource-definitions?resourceType=postgres');
+  });
+});
+
+describe('UC-02 built-in driver support (issue #81)', () => {
+  const builtin = (resourceType: string, driverType: string): Body => ({ resourceType, driverType, module: '', variables: [], outputs: [], executorOwned: [], account: { required: false }, bindings: [] });
+  const type = (key: string): Body => ({ key, inputs: [], outputs: [] });
+
+  it('shows endpoint support and a Definition CTA from the built-in capability without a module pin', async () => {
+    const user = userEvent.setup();
+    const { gets } = backend({ types: [type('endpoint')], capabilities: [builtin('endpoint', 'endpoint')] });
+    render(<ResourceTypesPage />);
+    const cta = await screen.findByRole('link', { name: 'Tạo Cấu hình tài nguyên cho endpoint' });
+    expect(entry('endpoint')).toHaveTextContent('Có cách tạo hỗ trợ');
+    expect(entry('endpoint')).toHaveTextContent('Cách tạo: Endpoint');
+    expect(entry('endpoint')).not.toHaveTextContent('Terraform/');
+    expect(gets.some(path => path.endsWith('/resource-definitions'))).toBe(false);
+    await user.click(cta);
+    expect(window.location.pathname + window.location.search).toBe('/ui/platform/resource-definitions?resourceType=endpoint');
+  });
+
+  it('supports an existing cluster without Terraform and gives template its actual driver label', async () => {
+    backend({ types: [type('k8s-cluster'), type('workload')], capabilities: [builtin('k8s-cluster', 'existing-cluster'), builtin('workload', 'template')] });
+    render(<ResourceTypesPage />);
+    await screen.findByRole('link', { name: 'Tạo Cấu hình tài nguyên cho k8s-cluster' });
+    expect(entry('k8s-cluster')).toHaveTextContent('Có cách tạo hỗ trợ');
+    expect(entry('k8s-cluster')).toHaveTextContent('Cách tạo: Cluster có sẵn (existing-cluster)');
+    expect(entry('k8s-cluster')).not.toHaveTextContent('Terraform/');
+    expect(entry('workload')).toHaveTextContent('Cách tạo: Template');
+    expect(within(entry('workload')).getByRole('link', { name: 'Tạo Cấu hình tài nguyên cho workload' })).toBeInTheDocument();
+  });
+
+  it('uses the Type/capability pair without a Type whitelist and deduplicates driver labels across revisions', async () => {
+    const original = capabilityFixture.find(c => c.driverType === 'terraform' && c.module === 'eks')!;
+    const first = { ...original, resourceType: 'custom-cluster' };
+    const second = { ...first, source: { ...first.source, revision: 'another-verified-revision' } };
+    backend({ types: [type('custom-cluster')], capabilities: [first, second, builtin('custom-cluster', 'existing-cluster')] });
+    render(<ResourceTypesPage />);
+    await screen.findByRole('link', { name: 'Tạo Cấu hình tài nguyên cho custom-cluster' });
+    expect(entry('custom-cluster')).toHaveTextContent('Terraform/eks hoặc Cluster có sẵn (existing-cluster)');
+    expect(entry('custom-cluster').textContent?.match(/Terraform\/eks/g)).toHaveLength(1);
+  });
+
+  it('keeps absent and unsupported driver capabilities contract-only without a Definition CTA', async () => {
+    backend({ types: [type('contract-only'), type('endpoint'), type('constructor')], capabilities: [builtin('endpoint', 'unknown-driver')] });
+    render(<ResourceTypesPage />);
+    await screen.findByRole('button', { name: 'Xem schema endpoint' });
+    for (const key of ['contract-only', 'endpoint', 'constructor']) {
+      expect(entry(key)).toHaveTextContent('Chỉ có contract');
+      expect(within(entry(key)).queryByRole('link')).not.toBeInTheDocument();
+      expect(entry(key)).not.toHaveTextContent('Cách tạo:');
+    }
+  });
+
+  it('does not treat an unverified Terraform capability as supported or as a contract-only result', async () => {
+    backend({ types: [type('endpoint')], capabilities: [builtin('endpoint', 'terraform')] });
+    render(<ResourceTypesPage />);
+    await screen.findByRole('alert', { name: 'Lỗi tải metadata hỗ trợ' });
+    expect(entry('endpoint')).toHaveTextContent('Chưa xác nhận hỗ trợ');
+    expect(entry('endpoint')).not.toHaveTextContent('Chỉ có contract');
+    expect(within(entry('endpoint')).queryByRole('link')).not.toBeInTheDocument();
   });
 });
 

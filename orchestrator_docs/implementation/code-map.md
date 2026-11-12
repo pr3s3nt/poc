@@ -1447,3 +1447,13 @@ registration. `CatalogDocumentImport.tsx` owns check/review/invalidation;
 `DefinitionDocumentDownload.tsx` downloads the server's portable projection for
 list/history. Focused catalog/HTTP/component tests cover these boundaries;
 `e2e/scenarios/definition-git-import/` checks real MongoDB Git file registration.
+
+
+## Resource Type driver support — issue #81
+
+`frontend/src/features/platform/ResourceTypesPage.tsx` projects support/CTA and
+deduplicated driver labels from capability metadata. Verified Terraform pins and
+built-in endpoint/existing-cluster/template capabilities are recognized without
+a Type-ID whitelist; absent/unknown driver capability stays contract-only and
+loading/errors stay unconfirmed. Focused coverage is in ResourceTypesPage.test.tsx.
+Backend capability/provisioning/Definition behavior is unchanged.
