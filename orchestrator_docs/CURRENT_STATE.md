@@ -9,16 +9,17 @@ last_reviewed: 2026-11-11
 
 ## Portable Git Definition files — issue #79
 
-Implemented on `features/definition-git-import`, focused checks and real browser
-checks pass; awaiting user acceptance. Terraform Definition files author `source: {url, ref, path}`; explicit
-Check validates the full document and reviews the immutable commit before
-registration. Git Definition/revision downloads use URL/exact commit/path.
-Existing form/pinned registration and other drivers remain available. Real
-MongoDB Git file import/export and unchanged REUSED/CONFLICT history passed on
-an isolated feature Console; no Terraform apply or workload deployment performed.
-Full checks were stopped at the user's request; the owned test namespace was
-removed with UID/resourceVersion preconditions and absence verified.
-[Verification](verification/2026-11-12-definition-git-import.md).
+Accepted and merged into main at `9bf70931`; the retained kind Console runs the
+matching backend/frontend images. Release repository sample merged at `3e4d54f`.
+Terraform Definition files use `source: {url, ref, path}`; explicit Check validates
+and reviews the immutable commit before registration. Git Definition/revision
+exports use URL/exact commit/path. Existing form/pinned registration and other
+drivers remain available. Scoped Go tests and 24 frontend tests pass; real
+browser on retained main confirmed export/check/REUSED without changing history
+or existing Applications. Git settings and the READY default CD were preserved.
+The user limited checks to affected areas; no full-suite green claim. The owned
+kind test namespace and merged branches were removed; feature stack stopped with
+its volumes retained. [Verification](verification/2026-11-12-definition-git-import.md).
 
 ## Stuck StatefulSet Pods and unselected Environments — issue #68
 

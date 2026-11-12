@@ -107,3 +107,50 @@ running for review. No user-owned checkout changes, other Docker projects or
 retained Console resources were changed. Local handoff records the restart
 command, private password-file path and verified Tailscale URL. Both feature
 branches remain unmerged pending user acceptance.
+
+
+## Accepted main integration and retained Console rollout
+
+The user authorized main merge. Product merge `9bf70931` and release repository
+merge `3e4d54f` were pushed; product source is byte-equivalent to the checked
+feature head. Release documentation subsequently records acceptance without
+changing the Type/module/sample behavior.
+
+Only affected checks were run again: five selected Go catalog/HTTP tests and
+24 frontend parser/import/download/revision tests passed. Docs and diff checks
+passed. No full suite was restarted, in accordance with the user's instruction.
+
+The retained Console had no active/recovering work at preflight. Its four visible
+Applications were recorded. The upgrade quiesced backend/frontend/Vault writers,
+created a private SQL dump and successfully restored it into an isolated
+verification database (11 Application rows), then backed up the retained PVC
+content including Vault, credential references, state key and source caches.
+Owner setup ran before runtime and reported the baseline/grants already current;
+no schema migration or reset was needed. Runtime has no owner env/mount.
+
+Tested product images were retagged `main-9bf70931`, imported into the existing
+kind node and deployed; backend/frontend/Vault/PostgreSQL are Ready. The
+run-owned backup Pod was deleted with recorded UID/resourceVersion guards and
+absence verified. Backups/evidence remain private outside Git.
+
+The former single port-forward exited during the frontend replacement, producing
+502 on the Tailscale path while in-cluster API returned the expected unauthenticated
+401. A task-owned reconnecting loopback forward restored the upstream used by
+the existing MagicDNS Serve route, without changing the other Serve ports or
+closing user tmux sessions. The exact URL was then opened in a real browser.
+
+Main browser smoke exported an existing Git Terraform Definition at its displayed
+version, checked the portable document, reviewed the exact commit and re-imported
+it as REUSED. Its revision history was unchanged and all four visible Application
+identities match preflight. Git credentials remained configured and the existing
+`dev-fleet` binding remained READY and selected as the platform default; no
+credential or CD configuration was overwritten. The CD screen was also opened
+and checked. The first CD-screen assertion used an exact text selector although
+the default badge shares the cell; correcting that private selector made the
+smoke pass without product changes.
+
+Feature branches were deleted in both repos. Only the task's Docker feature
+stack was stopped, with its volumes/data retained; the feature URL is retired.
+The retained main forward remains running. Public comments omit the private
+Tailscale URL, password paths and infrastructure evidence. No preexisting
+user-owned checkout changes were present or modified. Issue #79 is complete.
