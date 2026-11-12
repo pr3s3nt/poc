@@ -333,3 +333,12 @@ Catalog is absent from navigation and has no create/edit/refresh controls in
 Console. Direct legacy URLs retain read-only source/release inspection.
 Environment Catalog selection is hidden when empty and read-only when pinned.
 Resource Types/Definitions remain the normal authoring screens.
+
+
+## Nhập/xuất — issue #76
+
+Giữ shell/form hiện hành. Thêm disclosure Nhập YAML/JSON với file picker và
+textarea có nhãn, nút Đăng ký; upload điền editor trước khi submit. Busy khóa
+editor/upload/submit; lỗi giữ nội dung, status CREATED/REUSED/CONFLICT rõ ràng.
+CONFLICT hiện field paths không hiện values. Tải file nằm tại chi tiết schema
+hoặc Definition và từng revision. Trợ giúp định dạng nằm trong disclosure.

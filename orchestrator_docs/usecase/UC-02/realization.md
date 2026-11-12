@@ -83,3 +83,12 @@ key, outputs)` hiện thực specification EXT-01..06 theo
   `SaveResourceType` (seed/upsert) thành public update.
 - Planner (EXT-05) kiểm, khi đã chọn Terraform Definition cho node, mọi tham
   chiếu output tới node đó phải nằm trong output Definition cung cấp.
+
+
+## Document registration — issue #76
+
+Console parse một YAML/JSON document thành body JSON strict. HTTP import boundary
+kiểm role/size/DTO; catalog dùng validation đăng ký hiện có, chuẩn hóa public
+contract và so sánh key scoped Organization. Insert-only registration giữ unique
+constraint làm chốt race; duplicate được đọc/so sánh lại, không upsert. Export là
+projection public authoring từ Type hoặc Definition revision, không thêm entity.
