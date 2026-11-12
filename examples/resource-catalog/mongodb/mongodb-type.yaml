@@ -1,0 +1,38 @@
+# Nhập file này trước trong Console > Loại tài nguyên > Nhập YAML/JSON.
+# Contract mới: database bắt buộc; username/storage có fallback ở Definition.
+key: mongodb
+inputs:
+  - name: database
+    type: string
+    required: true
+  - name: username
+    type: string
+    required: false
+  - name: storage
+    type: string
+    required: false
+outputs:
+  - name: host
+    type: string
+    required: true
+    secret: false
+  - name: port
+    type: number
+    required: true
+    secret: false
+  - name: database
+    type: string
+    required: true
+    secret: false
+  - name: username
+    type: string
+    required: true
+    secret: false
+  - name: password
+    type: string
+    required: true
+    secret: true
+  - name: connection
+    type: string
+    required: true
+    secret: true
