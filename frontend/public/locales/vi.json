@@ -4173,5 +4173,19 @@
   "workloads.envfile.error.binding": "Dòng {line}: giá trị hoặc đích tham chiếu không hợp lệ.",
   "workloads.envfile.error.metadata": "Dòng {line}: cần tải metadata để xác minh tham chiếu.",
   "workloads.envfile.up": "Đưa dòng {row} lên",
-  "workloads.envfile.down": "Đưa dòng {row} xuống"
+  "workloads.envfile.down": "Đưa dòng {row} xuống",
+  "catalogDocument.title": "Nhập YAML/JSON",
+  "catalogDocument.file": "Chọn file",
+  "catalogDocument.content": "Nội dung YAML/JSON",
+  "catalogDocument.help": "Định dạng",
+  "catalogDocument.format": "Một đối tượng theo body API đăng ký, UTF-8, tối đa 1 MiB. Chuẩn bị source và tham chiếu trước khi nhập.",
+  "catalogDocument.register": "Đăng ký",
+  "catalogDocument.download": "Tải file",
+  "catalogDocument.size": "Nội dung vượt quá 1 MiB.",
+  "catalogDocument.single": "Chỉ nhập một document.",
+  "catalogDocument.syntax": "Cú pháp không hợp lệ hoặc key trùng. Kiểm tra YAML/JSON.",
+  "catalogDocument.object": "Nội dung phải là một đối tượng.",
+  "catalogDocument.extension": "Chọn file .yaml, .yml hoặc .json.",
+  "catalogDocument.utf8": "File phải dùng UTF-8.",
+  "catalogDocument.failed": "Không thể đăng ký. Kiểm tra dữ liệu và tham chiếu."
 }

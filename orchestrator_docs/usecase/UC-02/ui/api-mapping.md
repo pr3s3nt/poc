@@ -63,3 +63,10 @@ Platform Engineer/Admin only. Body bounded strict JSON
 404, tên output đã tồn tại (kể cả đồng thời) 409, thiếu session 401, sai role
 403, oversize 413. Lỗi theo public error contract T20; không echo payload.
 POST `/api/v1/resource-types` giữ insert-only, không trở thành upsert.
+
+## Document import — issue #76
+
+`POST /api/v1/resource-types/import` accepts the same strict JSON Type body as
+registration (Console converts one YAML/JSON document). PE/Admin, 1 MiB maximum.
+HTTP 200 returns `{status: CREATED|REUSED|CONFLICT, fields?: string[]}`; fields
+contain changed paths only. No overwrite. Existing form POST retains 201/409.

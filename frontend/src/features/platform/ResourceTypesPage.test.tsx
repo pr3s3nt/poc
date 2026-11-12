@@ -260,7 +260,7 @@ describe('UC-02 resource type details and copy', () => {
     render(<ResourceTypesPage />);
     await open(user, 'cache');
     const scope = within(entry('cache'));
-    expect(scope.getAllByRole('button').map((button) => button.textContent)).toEqual(['Ẩn schema', 'Sao chép schema', 'Thêm output']);
+    expect(scope.getAllByRole('button').map((button) => button.textContent)).toEqual(['Ẩn schema', 'Tải file', 'Sao chép schema', 'Thêm output']);
     expect(screen.queryByRole('button', { name: /sửa|xóa loại|phiên bản|version|delete|edit/i })).not.toBeInTheDocument();
   });
 });

@@ -1,0 +1,30 @@
+@startuml
+title Type/Definition document registration - issue 76
+autonumber
+actor "Platform Engineer/Admin" as PE
+boundary Console
+boundary HTTP
+control Catalog
+database Repository
+PE -> Console: Upload or paste YAML/JSON
+Console -> Console: UTF-8/size/single document/unique keys
+PE -> Console: Edit then Register
+Console -> HTTP: POST .../import (strict JSON body)
+HTTP -> Catalog: ImportResourceType / ImportResourceDefinition
+Catalog -> Catalog: Existing registration validation
+Catalog -> Repository: Insert-only registration
+alt New key
+Repository --> Catalog: committed
+Catalog --> HTTP: CREATED
+else Duplicate (including insert race)
+Catalog -> Repository: Read winner in Organization
+Repository --> Catalog: current configuration
+Catalog -> Catalog: Compare normalized public contract/defaults
+Catalog --> HTTP: REUSED or CONFLICT + field paths (no writes)
+end
+HTTP --> Console: result
+Console --> PE: Keep content and show result
+PE -> Console: Download displayed Type/Definition/revision
+Console -> Console: Allowlist public fields, serialize YAML
+Console --> PE: key[-revision].yaml
+@enduml

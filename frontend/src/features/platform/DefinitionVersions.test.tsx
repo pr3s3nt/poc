@@ -16,8 +16,8 @@ it('shows proposed revisions and compares before explicit promotion without depl
   }));
   const user = userEvent.setup();
   render(<DefinitionVersions definitionKey="pg" onClose={() => {}} />);
-  expect((await screen.findByText(/r2/)).closest('.catalog-entry')).toHaveTextContent('Đề xuất');
-  expect(screen.getByText(/r1/).closest('.catalog-entry')).toHaveTextContent('Mặc định');
+  expect((await screen.findByText('r2', { selector: 'strong' })).closest('.catalog-entry')).toHaveTextContent('Đề xuất');
+  expect(screen.getByText('r1', { selector: 'strong' }).closest('.catalog-entry')).toHaveTextContent('Mặc định');
   await user.click(screen.getAllByRole('button', { name: 'So sánh' })[0]!);
   expect(screen.getByText('driverInputs')).toBeInTheDocument();
   const promote = screen.getAllByRole('button', { name: 'Đặt làm mặc định' });

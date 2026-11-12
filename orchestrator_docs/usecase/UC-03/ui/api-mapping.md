@@ -249,3 +249,12 @@ GET routes. Compatible modules use GET
 Create/Update sends `driverInputs.catalog` beside `values`; listing returns it for
 Edit. Matching preview serializes the same draft. All Catalog reads retain the
 session Organization and PE/Admin gate; pin/provenance mismatch rejects Save.
+
+## Document import — issue #76
+
+`POST /api/v1/resource-definitions/import` accepts strict DefinitionDraft JSON;
+Console parses YAML/JSON. Same source/account/reference validation as registration.
+PE/Admin, 1 MiB maximum. HTTP 200 returns
+`{status: CREATED|REUSED|CONFLICT, fields?: string[]}`. Reuse/conflict do not
+write revisions/associations. Existing form POST and PUT behavior is unchanged.
+Export projects only public DefinitionDraft fields from the displayed revision.
