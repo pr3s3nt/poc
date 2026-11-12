@@ -7,6 +7,9 @@ last_reviewed: 2026-10-28
 
 # Operations index
 
+[Viết và nhập file Resource Type / Resource Definition](resource-catalog-files.md)
+hướng dẫn YAML/JSON, upload/paste qua tab nhập, source pin, mapping và xử lý lỗi.
+
 Khi đưa ứng dụng/Console/UI cho người dùng thử, làm theo
 [bàn giao qua Tailscale](tailscale-handoff.md): gửi URL đã mở kiểm tra trên browser,
 giữ dịch vụ hoạt động và cung cấp đúng trang cần thử.

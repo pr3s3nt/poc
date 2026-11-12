@@ -13,6 +13,8 @@ Xem [CURRENT_STATE](../../CURRENT_STATE.md) và
 [IMP-021](../../implementation/deviations.md#imp-021-terraform-v2-designimplementation-gap).
 Specification/realization định nghĩa yêu cầu, không chứng minh implementation.
 
+Hướng dẫn người dùng: [viết và nhập file Type/Definition](../../operations/resource-catalog-files.md).
+
 ## Read in this order
 
 1. [Specification](specification.md)

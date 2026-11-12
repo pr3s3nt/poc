@@ -266,6 +266,9 @@ Integrated into main after acceptance; see the
 
 ## Catalog document registration — issue #76
 
+[Hướng dẫn viết và nhập file Type/Definition](operations/resource-catalog-files.md):
+mẫu YAML/JSON, source pins, mapping, criteria, fallback và cách dùng tab nhập.
+
 [UC-02 FILE](usecase/UC-02/specification.md#nhậpxuất-document--issue-76),
 [UC-03 FILE](usecase/UC-03/specification.md#nhậpxuất-document--issue-76),
 [browser scenarios](../e2e/scenarios/catalog-document/README.md) and
