@@ -8,7 +8,17 @@ control Catalog
 database Repository
 PE -> Console: Upload or paste YAML/JSON
 Console -> Console: UTF-8/size/single document/unique keys
-PE -> Console: Edit then Register
+opt Resource Definition file
+PE -> Console: Check configuration
+Console -> HTTP: POST resource-definitions/import/prepare
+HTTP -> Catalog: PrepareDefinitionDocument (scoped)
+Catalog -> Catalog: Inspect Git url/ref/path -> exact pin
+Catalog -> Catalog: Validate full canonical Definition
+Catalog --> HTTP: canonical draft + source/commit summary
+HTTP --> Console: prepared result (no Definition write)
+Console -> Console: Invalidate on edits/scope; discard stale replies
+end
+PE -> Console: Register checked configuration
 Console -> HTTP: POST .../import (strict JSON body)
 HTTP -> Catalog: ImportResourceType / ImportResourceDefinition
 Catalog -> Catalog: Existing registration validation
@@ -25,6 +35,13 @@ end
 HTTP --> Console: result
 Console --> PE: Keep content and show result
 PE -> Console: Download displayed Type/Definition/revision
+opt Definition/revision download
+Console -> HTTP: GET resource-definitions/{key}/document?revision=id
+HTTP -> Catalog: Export scoped saved Definition/revision
+Catalog -> Repository: Read saved source metadata (no Git fetch)
+Catalog --> HTTP: public draft with url/exactCommit/path for Git
+HTTP --> Console: portable DefinitionDraft
+end
 Console -> Console: Allowlist public fields, serialize YAML
 Console --> PE: key[-revision].yaml
 @enduml

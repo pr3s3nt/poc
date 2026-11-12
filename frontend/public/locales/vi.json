@@ -4189,5 +4189,11 @@
   "catalogDocument.utf8": "File phải dùng UTF-8.",
   "catalogDocument.failed": "Không thể đăng ký. Kiểm tra dữ liệu và tham chiếu.",
   "catalogDocument.form": "Biểu mẫu",
-  "catalogDocument.method": "Cách đăng ký"
+  "catalogDocument.method": "Cách đăng ký",
+  "catalogDocument.check": "Kiểm tra cấu hình",
+  "catalogDocument.checking": "Đang kiểm tra cấu hình…",
+  "catalogDocument.checked": "Cấu hình hợp lệ. Có thể đăng ký.",
+  "catalogDocument.checkFailed": "Không thể kiểm tra cấu hình.",
+  "catalogDocument.downloadFailed": "Không thể tải file cấu hình. Thử lại.",
+  "catalogDocument.definitionFormat": "Một đối tượng, UTF-8, tối đa 1 MiB. Nguồn module Git dùng source: {url, ref, path}. Kiểm tra cấu hình trước khi đăng ký."
 }

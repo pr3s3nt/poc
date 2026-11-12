@@ -580,14 +580,44 @@ This UI restriction supersedes earlier multi-source Console choices only.
   unknown/system/retired fields hoặc scalar không biểu diễn được bằng JSON
   (như số vô hạn/NaN). Upload hiện trong editor và sửa được; lỗi giữ draft.
 - **FILE-02:** Validation dùng contract đăng ký hiện có, gồm source pin/tham chiếu
-  chuẩn bị trước. Không inspect Git hoặc provision/deploy khi import.
+  chuẩn bị trước hoặc qua GFILE-01..05 bên dưới. Bước đăng ký không resolve Git
+  ref hoặc provision/deploy; bước kiểm tra được phép inspect Git.
 - **FILE-03:** Key mới trả CREATED; cấu hình tương đương sau chuẩn hóa contract
   trả REUSED; khác trả CONFLICT với đường dẫn field khác biệt, không trả giá trị.
   Reuse/conflict không ghi record, revision hoặc association. Race insert kiểm lại
   bản thắng; không replay mutation có kết quả chưa rõ.
 - **FILE-04:** Tải YAML body có thể nhập lại, chỉ public authoring fields; bỏ
   version/revisionId/sourceFingerprint/renderPin, credential và giá trị secret.
-  Giữ source pin, symbolic refs. Definition xuất đúng revision đang hiển thị và
+  Giữ symbolic refs; Git Terraform xuất authoring source theo GFILE-04, các
+  nguồn khác giữ pin. Definition xuất đúng revision đang hiển thị và
   ghi revision ở tên file/nút; round-trip không đổi trả REUSED.
 - **FILE-05:** Không thay form, matching, binding, Preview/Deploy hay mặc định
   của Type; fallback/override và dependency tuân contract hiện có.
+
+
+## Nguồn Git trong file Definition — issue #79
+
+- **GFILE-01:** File Terraform Definition được khai báo nguồn tại
+  `driverInputs.values.source: {url, ref, path}`. URL HTTPS không chứa credential;
+  ref có thể là branch/tag/commit; path tương đối trong repository. Không trộn
+  ba trường authoring với các trường pin nội bộ hoặc Catalog provenance.
+  Các driver khác và body pin đã hỗ trợ tiếp tục giữ contract hiện hành.
+- **GFILE-02:** Người dùng bấm **Kiểm tra cấu hình** trước đăng ký file Definition.
+  Backend dùng cùng Git inspection (Git settings/policy/Organization) và pipeline
+  validation đăng ký: Type, module, mappings, accounts, bindings, references.
+  Resolve ref thành commit bất biến; chỉ chuẩn bị verified bundle/cache, không
+  ghi Definition/revision/association, không provision. Lỗi an toàn giữ draft.
+- **GFILE-03:** Kết quả gồm canonical DefinitionDraft với pin đã xác minh và
+  nguồn Git/commit để review. Đăng ký gửi đúng canonical draft đó qua import
+  hiện hành, kiểm tra lại pin và cấu hình; không resolve lại branch/tag.
+  Sửa nội dung, upload mới hoặc đổi scope hủy kết quả; late replies không phục
+  hồi kết quả cũ. Git branch đổi sau kiểm tra không đổi commit được lưu.
+- **GFILE-04:** Export Definition/revision Terraform có Git provenance đã lưu
+  dùng `{url, ref: exactCommit, path}` thay pin installation. Không fetch Git
+  hay resolve lại branch khi export. Non-Git giữ dạng hiện hành; thiếu metadata
+  Git cần thiết báo lỗi an toàn thay vì đoán source. Chỉ public authoring fields,
+  không credential, fingerprint/runtime metadata. File được kiểm tra lại trên
+  installation đích; export không hứa account/Type/dependencies đã có ở đó.
+- **GFILE-05:** REUSED/CONFLICT vẫn so canonical cấu hình sau chuẩn bị, insert-only
+  và scoped Organization; không cập nhật Definition/revision khi trùng key.
+  Existing form POST/PUT, pin execution và template sources không thay đổi.

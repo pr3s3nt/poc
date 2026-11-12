@@ -246,3 +246,19 @@ re-upload. Leaving/resetting drafts never implicitly repeats an upload.
 
 [GA-01–06 UI states and API contract](../git-access.md) defines the platform
 settings screen at `/ui/platform/settings`, separate from Definition authoring.
+
+
+## Definition file Git source — issue #79
+
+| State | Behavior |
+|---|---|
+| Chưa kiểm tra / đã sửa / mới upload | Giữ editor; bật Kiểm tra cấu hình, khóa Đăng ký |
+| Đang kiểm tra | Hiện tiến độ, chặn đăng ký và check trùng; edits có thể invalidate request |
+| Đã kiểm tra | Hiện nguồn/commit bằng source summary chung; bật Đăng ký canonical draft |
+| Kiểm tra lỗi | Error an toàn, giữ nội dung; cho sửa và kiểm tra lại |
+| Đổi kind/unmount | Hủy hiệu lực request; không hiện kết quả hoặc trigger reload từ scope cũ |
+| Đang đăng ký | Khóa editor/upload/tab/actions; không replay mutation |
+| CREATED / REUSED / CONFLICT | Giữ nội dung và kết quả kiểm tra; status hiện hành, conflict chỉ field paths |
+
+Non-Terraform Definitions cũng được check bằng cùng full validation; không hiện
+source summary khi không có Git source. Resource Type import giữ luồng một bước.

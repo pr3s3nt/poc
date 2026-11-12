@@ -35,7 +35,9 @@ cấu hình; tài nguyên được tạo khi ứng dụng thực hiện **Previe
 1. Mở **Cấu hình tài nguyên** (`/ui/platform/resource-definitions`).
 2. Bấm **Tạo cấu hình**.
 3. Chọn tab **Nhập YAML/JSON** cạnh **Biểu mẫu**.
-4. Upload hoặc dán nội dung, sửa nếu cần, rồi bấm **Đăng ký**.
+4. Upload hoặc dán nội dung, sửa nếu cần, rồi bấm **Kiểm tra cấu hình**.
+5. Xem kết quả và commit Git đã xác minh, rồi bấm **Đăng ký**. Sửa nội dung
+   hoặc upload file khác thì phải kiểm tra lại.
 
 Upload và dán dùng cùng cách kiểm tra dữ liệu. Chuyển tab giữ hai bản nháp
 riêng biệt: nội dung YAML/JSON không tự điền sang các trường của Biểu mẫu và
@@ -60,7 +62,7 @@ cấu hình. Nếu cần thay đổi Definition hiện có, dùng **Sửa**, kh�
 
 - Phần mở rộng `.yaml`, `.yml` hoặc `.json`, mã hóa **UTF-8**, tối đa **1 MiB**.
 - Mỗi lần nhập đúng **một đối tượng**. Tạo hai file riêng cho Type và Definition.
-- Nội dung là body đăng ký trực tiếp như các mẫu dưới đây: không có wrapper
+- Nội dung là một đối tượng cấu hình như các mẫu dưới đây: không có wrapper
   `apiVersion`, `kind`, `metadata`, `resourceTypes` hay `definitions`.
 - Không dùng YAML nhiều document (`---` để ghép các đối tượng), key trùng,
   key dạng object/list, số `.nan`/`.inf` hoặc các giá trị JSON không biểu diễn được.
@@ -144,19 +146,22 @@ Type tương ứng. Một Type được đăng ký thành công chưa có nghĩa
 ### Chuẩn bị trước khi viết
 
 1. Xác nhận Resource Type đã có, xem đúng input/output và cờ required/secret.
-2. Với Terraform hoặc template, chuẩn bị nguồn bằng luồng Git trên Console,
-   inspect/xác minh nguồn rồi lấy **pin đã lưu** hoặc **template source ID**.
-   Có thể thực hiện trong **Tạo cấu hình → Biểu mẫu**: chọn Type, chọn nguồn Git,
-   xác minh rồi mở phần chi tiết module/nguồn hoặc phần xem lại JSON. Chép pin/ID
-   từ đó trước khi chuyển sang tab nhập; không tự suy chúng từ URL/ref đã gõ.
+2. Với Terraform Git, điền URL HTTPS, ref và path của module vào `source` như
+   mẫu dưới. Không cần tự điền source ID, module ID hoặc hash. Git private dùng
+   **Cấu hình Git** đã lưu trên installation; không nhúng credential vào URL.
 3. Chuẩn bị Driver Account nếu driver cần; account phải thuộc Organization hiện
    tại, đúng loại và ở trạng thái sẵn sàng.
 4. Xác định class, môi trường và các resource phụ thuộc, chẳng hạn cluster và
    namespace. Các Definition liên quan phải match được ngữ cảnh đó.
+5. Bấm **Kiểm tra cấu hình** để hệ thống lấy nguồn và validate toàn bộ file.
+   Kiểm tra chỉ chuẩn bị metadata/cache, chưa đăng ký Definition hay provision.
+   Đăng ký sau đó dùng đúng commit vừa kiểm tra, kể cả branch/tag đã thay đổi.
 
-Import không tự inspect Git, tạo account hoặc chuẩn bị source. Cách ít sai nhất
-khi đã có cấu hình gần giống là **Tải file** từ Definition đó rồi sửa phần cần
-thay đổi. Pin/source ID trên installation khác không tự chuyển đổi khi import.
+Template driver vẫn dùng `template_source` ID đã chuẩn bị trên Console đích;
+luồng nguồn template không đổi trong cải tiến này. Các file pin Terraform đầy đủ
+đang có vẫn được kiểm tra/nhập theo contract cũ. Tải file từ Definition hoặc
+revision Terraform Git hiện hành sẽ nhận URL, exact commit và path để nhập lại;
+installation đích vẫn cần Type/accounts/dependencies tương ứng.
 
 ### Trường chung
 
@@ -176,7 +181,7 @@ không phải điều kiện matching; không dùng chúng để thay cho `crite
 
 ### Terraform trên Kubernetes: `staging-postgres.yaml`
 
-Mẫu dưới dùng schema Type ở mục 3. Tên module variables/outputs và pin phải khớp
+Mẫu dưới dùng schema Type ở mục 3. Tên module variables/outputs phải khớp
 module thật; nếu Type hiện có thêm output required, phải bổ sung mapping cho chúng.
 
 ```yaml
@@ -187,11 +192,9 @@ driverType: terraform
 driverInputs:
   values:
     source:
-      source_id: "<source ID đã đăng ký>"
-      module_id: "<module ID PostgreSQL đã inspect>"
-      revision: "<revision chính xác đã inspect>"
-      subdirectory: "<subdirectory chính xác đã inspect>"
-      content_sha256: "<SHA256 đầy đủ của module>"
+      url: https://github.com/pr3s3nt/orchestrator-workload-templates
+      ref: main
+      path: terraform/postgres
     variables:
       namespace: "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
       username: app
@@ -214,19 +217,21 @@ criteria:
 provision: {}
 ```
 
-#### Pin module: sao chép đủ năm trường
+#### Nguồn Git và commit được lưu
 
-| Trường trong file | Giá trị cần lấy |
+| Trường | Cách điền |
 |---|---|
-| `source_id` | `sourceId` của nguồn đã đăng ký |
-| `module_id` | `moduleId` của module đã inspect |
-| `revision` | Revision bất biến đã xác minh, không tự đổi thành branch/tag mới |
-| `subdirectory` | Đường dẫn module trong source; sao chép nguyên giá trị đã inspect |
-| `content_sha256` | `contentSha256` đầy đủ, 64 ký tự hex, không phải SHA rút gọn |
+| `url` | HTTPS clone URL repository, không chứa token/user/password |
+| `ref` | Branch, tag hoặc full commit SHA muốn kiểm tra |
+| `path` | Thư mục module tính từ root repository; `.` nếu module ở root |
 
-Giữ cả bộ pin cùng một kết quả inspect. Không điền Git URL hoặc đường dẫn máy
-cá nhân thay cho `source_id`; không tự tính digest từ một file module riêng lẻ.
-Nếu thay module/revision, chuẩn bị nguồn mới rồi lấy bộ pin mới.
+Bấm **Kiểm tra cấu hình**: hệ thống tự resolve ref, tính hash và xác minh module,
+inputs/outputs/mapping/accounts/references. Nguồn và full commit được hiện để
+review. Khi hợp lệ, bấm **Đăng ký**; không phải chép thông tin từ DevTools.
+
+Hệ thống lưu bộ pin bất biến nội bộ. Git đổi không tự nâng cấp Definition;
+muốn thay nguồn phải chủ động tạo revision mới. Sửa nội dung file/upload mới
+làm mất kết quả kiểm tra và khóa Đăng ký cho tới lần kiểm tra tiếp theo.
 
 #### Variables và mapping
 

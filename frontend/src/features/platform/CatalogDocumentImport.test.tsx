@@ -1,18 +1,84 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CatalogDocumentImport } from './CatalogDocumentImport';
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 it('retains a conflict draft, reports field paths and never reloads as a write', async () => {
-  const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'CONFLICT', fields: ['name'] }), { status: 200 }));
+  const fetch = vi.fn().mockImplementation(async (path: string) => path.endsWith('/prepare') ? Response.json({ definition: { key: 'canonical' } }) : Response.json({ status: 'CONFLICT', fields: ['name'] }));
   vi.stubGlobal('fetch', fetch);
   const reload = vi.fn(); const user = userEvent.setup();
   render(<CatalogDocumentImport kind="resource-definitions" onRegistered={reload} />);
   const editor = screen.getByLabelText('Nội dung YAML/JSON', { exact: true });
-  await user.type(editor, 'key: example'); await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
+  await user.type(editor, 'key: example');
+  expect(screen.getByRole('button', { name: 'Đăng ký' })).toBeDisabled();
+  await user.click(screen.getByRole('button', { name: 'Kiểm tra cấu hình' }));
+  await screen.findByText('Cấu hình hợp lệ. Có thể đăng ký.');
+  await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
   expect(await screen.findByRole('status')).toHaveTextContent('CONFLICT: name');
   expect(editor).toHaveValue('key: example'); expect(reload).not.toHaveBeenCalled();
   expect(fetch.mock.calls[0]?.[1].body).toBe('{"key":"example"}');
+  expect(fetch.mock.calls[1]?.[1].body).toBe('{"key":"canonical"}');
+});
+
+it('reviews the Git commit and registers the canonical pin without rewriting the authored file', async () => {
+  const authored = { key: 'mongo', driverType: 'terraform', driverInputs: { values: { source: { url: 'https://github.com/example/resources', ref: 'main', path: 'terraform/mongodb' } } } };
+  const canonical = { ...authored, driverInputs: { values: { source: { source_id: 'git-test', module_id: 'module-test', revision: 'a'.repeat(40), subdirectory: 'terraform/mongodb', content_sha256: 'b'.repeat(64) } } } };
+  const fetch = vi.fn().mockImplementation(async (path: string) => path.endsWith('/prepare') ? Response.json({ definition: canonical, source: { url: 'https://github.com/example/resources', path: 'terraform/mongodb', revision: 'a'.repeat(40) } }) : Response.json({ status: 'CREATED' }));
+  vi.stubGlobal('fetch', fetch); const reload = vi.fn(); const user = userEvent.setup();
+  render(<CatalogDocumentImport kind="resource-definitions" onRegistered={reload} />);
+  const editor = screen.getByLabelText('Nội dung YAML/JSON', { exact: true });
+  fireEvent.change(editor, { target: { value: JSON.stringify(authored) } });
+  await user.click(screen.getByRole('button', { name: 'Kiểm tra cấu hình' }));
+  expect(await screen.findByText('a'.repeat(40))).toBeInTheDocument();
+  expect(editor).toHaveValue(JSON.stringify(authored));
+  await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('CREATED');
+  expect(JSON.parse(fetch.mock.calls[1]?.[1].body)).toEqual(canonical);
+  expect(reload).toHaveBeenCalledTimes(1);
+  fireEvent.change(editor, { target: { value: 'key: changed' } });
+  expect(screen.getByRole('button', { name: 'Đăng ký' })).toBeDisabled();
+  expect(screen.queryByText('a'.repeat(40))).not.toBeInTheDocument();
+});
+
+it('discards late checks after edits and scope changes, allowing a fresh check', async () => {
+  const responses: ((r: Response) => void)[] = [];
+  vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(resolve => responses.push(resolve))));
+  const reload = vi.fn(); const user = userEvent.setup();
+  const { rerender } = render(<CatalogDocumentImport kind="resource-definitions" onRegistered={reload} />);
+  const editor = screen.getByLabelText('Nội dung YAML/JSON', { exact: true });
+  fireEvent.change(editor, { target: { value: 'key: first' } });
+  await user.click(screen.getByRole('button', { name: 'Kiểm tra cấu hình' }));
+  fireEvent.change(editor, { target: { value: 'key: second' } });
+  await user.click(screen.getByRole('button', { name: 'Kiểm tra cấu hình' }));
+  await act(async () => { responses[0]!(Response.json({ definition: { key: 'first' } })); });
+  expect(screen.getByRole('button', { name: 'Đăng ký' })).toBeDisabled();
+  await act(async () => { responses[1]!(Response.json({ definition: { key: 'second' } })); });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Đăng ký' })).toBeEnabled());
+  fireEvent.change(editor, { target: { value: 'key: third' } });
+  await user.click(screen.getByRole('button', { name: 'Kiểm tra cấu hình' }));
+  rerender(<CatalogDocumentImport kind="resource-types" onRegistered={reload} />);
+  await act(async () => { responses[2]!(Response.json({ definition: { key: 'third' } })); });
+  expect(screen.queryByText('Cấu hình hợp lệ. Có thể đăng ký.')).not.toBeInTheDocument();
+  expect(reload).not.toHaveBeenCalled();
+});
+
+it('keeps a failed check editable and invalidates a checked draft when a new file is uploaded', async () => {
+  const fetch = vi.fn().mockResolvedValueOnce(Response.json({ code: 'INVALID_DOCUMENT' }, { status: 400 })).mockResolvedValueOnce(Response.json({ definition: { key: 'ok' } }));
+  vi.stubGlobal('fetch', fetch); const user = userEvent.setup();
+  render(<CatalogDocumentImport kind="resource-definitions" onRegistered={vi.fn()} />);
+  const editor = screen.getByLabelText('Nội dung YAML/JSON', { exact: true });
+  fireEvent.change(editor, { target: { value: 'key: original' } });
+  await user.click(screen.getByRole('button', { name: 'Kiểm tra cấu hình' }));
+  expect(await screen.findByRole('alert')).toBeInTheDocument();
+  expect(editor).toHaveValue('key: original');
+  expect(screen.getByRole('button', { name: 'Đăng ký' })).toBeDisabled();
+  await user.click(screen.getByRole('button', { name: 'Kiểm tra cấu hình' }));
+  await screen.findByText('Cấu hình hợp lệ. Có thể đăng ký.');
+  const file = new File(['key: uploaded'], 'definition.yaml', { type: 'application/yaml' });
+  Object.defineProperty(file, 'arrayBuffer', { value: async () => new TextEncoder().encode('key: uploaded').buffer });
+  await user.upload(screen.getByLabelText('Chọn file', { exact: true }), file);
+  expect(editor).toHaveValue('key: uploaded');
+  expect(screen.getByRole('button', { name: 'Đăng ký' })).toBeDisabled();
 });
 it('rejects duplicate keys before making a request and preserves editable content', async () => {
   const fetch = vi.fn(); vi.stubGlobal('fetch', fetch); const user = userEvent.setup();

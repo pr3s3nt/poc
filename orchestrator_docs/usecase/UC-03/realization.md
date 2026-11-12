@@ -230,3 +230,15 @@ kiểm role/size/DTO; catalog dùng validation đăng ký hiện có, chuẩn h�
 contract và so sánh key scoped Organization. Insert-only registration giữ unique
 constraint làm chốt race; duplicate được đọc/so sánh lại, không upsert. Export là
 projection public authoring từ Type hoặc Definition revision, không thêm entity.
+
+
+## Portable Git Definition document — issue #79
+
+Console parse file thành DefinitionDraft; prepare endpoint nhận authoring source,
+Catalog gọi InspectTerraformModule theo Organization rồi thay source bằng verified
+pin, chạy pipeline prepareDefinition và trả canonical draft cùng source summary.
+Console giữ draft/pin riêng, invalidate theo nội dung/scope; Register dùng import
+hiện có, không kiểm tra lại branch. Export endpoint đọc Definition hoặc revision
+scoped và verified bundle metadata đã lưu, project Git URL/exact commit/path.
+Không thêm table hay receipt store: canonical immutable pin được registry kiểm
+tra lại tại registration; client không thể bypass validation bằng prepared draft.
