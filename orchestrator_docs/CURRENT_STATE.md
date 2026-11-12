@@ -2427,6 +2427,9 @@ export. Strict import endpoints reuse registration validation and insert-only
 persistence, returning CREATED/REUSED/CONFLICT without overwriting duplicate keys.
 Comparison uses typed flags, unordered schema/criteria and module/template defaults;
 export drops system metadata and preserves public source pins/references.
-Focused backend/frontend checks and real feature-stack browser Type/endpoint
-round-trip have passed. Full kind validation and Terraform/template Preview/Deploy
-acceptance are still in progress; this paragraph does not claim final acceptance.
+Focused checks, real feature-stack browser round-trip, Terraform/template
+Preview/Deploy, module-default equivalence and required-param overrides passed.
+Full frontend on kind passed 1044 tests and build; backend build passed, while
+full backend tests reproduce the main failure set and PostgreSQL timeout. See
+[verification](verification/2026-11-12-catalog-documents.md) for evidence and limits.
+The feature awaits user acceptance; it is not merged or globally test-green.

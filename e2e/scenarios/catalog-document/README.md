@@ -26,3 +26,53 @@ Side effects: creates run-suffixed Type and Definition plus endpoint Type if abs
 Keeps data in the disposable feature database for review; no deletion API exists
 for these catalog entities. Cleanup by removing only that feature stack/volumes
 after acceptance, as documented in the runbook. Never point at a shared installation.
+
+## Real Terraform/template Preview and Deploy
+
+`runtime.mjs` uses prepared cluster/namespace/PostgreSQL/workload Definitions as
+source-pin fixtures, imports new Definitions through the Console with `app_id`
+criteria scoped to its newly created Application, authors one workload and two
+PostgreSQL dependencies through the existing form, then deploys once for the
+Environment. This is a mutating kind scenario: run only on the authorized
+`kind-k8s-4f` context with task-owned state and a disposable feature stack.
+
+Prerequisites beyond the round-trip scenario: Git sources already inspected and
+available (for example prepared with `scripts/bootstrap/seed-definitions.mjs`),
+READY Internal account and default Fleet delivery binding named `dev-fleet`, kind
+network access from the feature backend, `compose.bootstrap.yml` delivery storage,
+and `KUBECONFIG` pointing to a private host kubeconfig for technical reads and
+namespace-scoped Fleet access setup. It does not install controllers or change
+shared cluster RBAC. Prepared keys default to `issue76-prepared-*`; override
+`ORCH_PREPARED_PREFIX` if needed. They must contain exactly the four resource types
+above, and provide the public `image` default in the PostgreSQL module contract.
+The existing PostgreSQL Type must require database/username. No Type is modified.
+
+Set the Console variables above, `KUBECONFIG`, and `ORCH_TEST_RUN_DIR` to a new
+private directory outside Git. Optional `ORCH_APP_NAME` and `ORCH_IMPORT_PREFIX`
+control new identities. Run stages sequentially and inspect a failure before
+retrying; never clear a recorded Deploy attempt to replay it blindly:
+
+```bash
+node e2e/scenarios/catalog-document/runtime.mjs prepare
+node e2e/scenarios/catalog-document/runtime.mjs author
+node e2e/scenarios/catalog-document/runtime.mjs deploy
+node e2e/scenarios/catalog-document/runtime.mjs verify
+node e2e/scenarios/catalog-document/runtime.mjs cleanup
+```
+
+Assertions cover the four imported winners in Preview, unchanged source pins and
+mappings/bindings, READY namespace/two PostgreSQL resources, Ready workload, two
+required username params overriding Definition fallback, and deployed PostgreSQL
+image matching the default of the exact inspected pin. Verification imports that
+default explicitly and requires REUSED with byte-equivalent revision history.
+Required Type inputs still cannot be omitted even when Definition fallback exists.
+It reads only the username key from a Kubernetes Secret to check the override;
+passwords are never read or printed. Platform cluster resources are deliberately
+absent from the Environment resource-list API.
+
+State, Preview receipt and failure screenshots stay in the private run directory.
+Cleanup checks namespace UID/ownership, removes only its labelled technical
+Role/RoleBinding with UID preconditions, deletes the Application through the
+product UI, polls its deletion operation and verifies namespace absence. Catalog
+Types/Definitions remain in the disposable feature database for review. A completed
+run requires a new state directory; preserve failed-run evidence until resolved.
