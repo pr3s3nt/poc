@@ -171,3 +171,39 @@ Giới hạn còn lại ở [IMP-038](../../implementation/deviations.md#imp-038
   recreate objects, or mark application deleted on Git path removal alone.
 
 - **CD-04:** Application deletion withdraws both Environment trees and retires the single owned Fleet GitRepo only after all admitted units are withdrawn; one Environment cleanup cannot remove the other Environment controller authority ([ADR-036](../../architecture/decisions/ADR-036-application-fleet-gitrepo.md)).
+
+## Complete deletion and persisted progress — issue #80
+
+- DEL-01: The deletion scope includes every owned generation and every unit
+  proven published, including failed first deployments and failed migrate units.
+  Successful rollout is not a prerequisite for withdrawal or resource cleanup.
+- DEL-02: Every destroy admission re-establishes the workload withdrawal
+  prerequisite from persisted delivery history, even on retries whose saved
+  stage is DESTROYING_RESOURCES. A verified completed Environment is not replayed.
+  Known published failures must be withdrawn with original receipts/UID inventory;
+  unknown outcomes require recovery before downstream effects.
+- DEL-03: After workloads/drafts are empty, whole-Application cleanup may
+  establish an eligible UNREFERENCED root under the Environment claim, preserving
+  ownership, original state/module/target and external-consumer guards. It must
+  not require a previous successful deployment or a synthetic deployment.
+- DEL-04: Cleanup persists progress before effects and exposes each selected
+  resource's current action, timestamps, verification outcome, remaining IDs and
+  allowlisted reason code. UI polling/reload never starts mutations. Missing
+  absence evidence is not completion; PVC/PV/storage follow original driver and
+  reclaim policy, with retained/unverified data reported as incomplete.
+- DEL-05: Retry revalidates remaining resources and reuses completed absence
+  proofs. Interrupted operations require explicit prior-executor-stop confirmation,
+  a newly fenced recovery owner and reconciliation of durable attempts/state;
+  neither stale heartbeat nor an empty inventory authorizes unlocking unknown
+  Terraform effects. Missing recovery evidence remains visibly blocked.
+- DEL-06: The existing Settings DeletionPanel owns detailed progress. It shows
+  Environment/stage, current resource/action, elapsed time, completed and pending
+  work, safe failure cause and next action. Distinguish waiting, known failure and
+  recovery required; preserve progress across reload/restart, without fabricated
+  percentages or raw provider text/secrets. Recover is permitted for a DELETING
+  Application only for that Application's held operation; ordinary writes stay frozen.
+- DEL-07: Validation uses the Console delete/retry actions on real kind for empty,
+  successful, first-failed, migrate-failed and storage workloads, plus interruption.
+  Verify physical absence and preservation of foreign/platform resources. No
+  database edits, detach, manual resource deletion or forced finalizer removal
+  may substitute for product completion.

@@ -40,3 +40,15 @@ Environment the stage (Gỡ workload → Xóa tài nguyên → Xác minh → Xó
 and per-resource results. On failure show stage, remaining IDs and **Thử lại**,
 which reopens the dialog with a fresh preview of the remainder. On success
 navigate to the Applications list with a short notice. No undo.
+
+### Detailed deletion progress — issue #80
+
+Extend the existing Settings DeletionPanel in place. Show per-Environment stages,
+current resource and action, started/updated/finished timestamps and elapsed time.
+Keep completed resources, remaining objects and safe reason codes readable after
+reload. Poll persisted progress while running; waiting is not an error. Known
+failures expose Retry with fresh scope confirmation; interrupted work exposes
+Recovery with explicit prior-executor-stop confirmation, followed by Retry only
+when recovery proves it safe. Error details must identify the affected resource
+and next action without raw provider diagnostics. Reuse shared Button/details and
+VI/EN catalogs; do not add navigation, a second progress screen or percentages.

@@ -127,3 +127,16 @@ trees. It verifies retained unit trees before moving the common SHA and correlat
 observations to the receipted Bundle/release. Withdrawal removes only its unit;
 last-unit cleanup retires the owned GitRepo. See the updated
 [shared sequence](../../architecture/components/platform-managed-delivery-sequence.puml).
+
+## Complete cleanup — issue #80
+
+Delivery withdrawal uses the latest published authority per unit (including a
+failed published revision), independently of successful readiness. Every retry
+re-establishes this prerequisite before admitting resource destruction. Resource
+cleanup establishes an eligible whole-Application root in its claim transaction,
+after proving the Set/drafts empty and checking external consumers. Persisted
+Environment-operation detail is the source of live per-resource cleanup progress;
+Application progress retains terminal results. Settings uses its existing
+DeletionPanel and shared progress/detail patterns. Recovery uses the existing
+operation fence and exact admitted cleanup selection; unknown effects stay held
+until state/physical evidence can be reconciled. See UC-18 DEL-01..07.
