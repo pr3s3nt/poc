@@ -12,8 +12,8 @@ import (
 
 	coreoidc "github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
-	"orchestrator/internal/application/authentication"
 	"orchestrator/internal/domain/identity"
+	oidcport "orchestrator/internal/ports/oidc"
 )
 
 var errProvider = errors.New("oidc: provider authentication failed")
@@ -90,31 +90,31 @@ func New(ctx context.Context, c Config) (*Provider, error) {
 func (p *Provider) AuthorizationURL(state, nonce, verifier string) string {
 	return p.oauth.AuthCodeURL(state, coreoidc.Nonce(nonce), oauth2.S256ChallengeOption(verifier))
 }
-func (p *Provider) Exchange(ctx context.Context, code, verifier, nonce string) (authentication.Grant, error) {
+func (p *Provider) Exchange(ctx context.Context, code, verifier, nonce string) (oidcport.Grant, error) {
 	t, err := p.oauth.Exchange(coreoidc.ClientContext(ctx, p.client), code, oauth2.VerifierOption(verifier))
 	if err != nil {
 		log.Print("oidc: code exchange failed")
-		return authentication.Grant{}, errProvider
+		return oidcport.Grant{}, errProvider
 	}
 	return p.grant(ctx, t, nonce)
 }
-func (p *Provider) Refresh(ctx context.Context, refresh string) (authentication.Grant, error) {
+func (p *Provider) Refresh(ctx context.Context, refresh string) (oidcport.Grant, error) {
 	t, err := p.oauth.TokenSource(coreoidc.ClientContext(ctx, p.client), &oauth2.Token{RefreshToken: refresh}).Token()
 	if err != nil {
-		return authentication.Grant{}, errProvider
+		return oidcport.Grant{}, errProvider
 	}
 	return p.grant(ctx, t, "")
 }
-func (p *Provider) grant(ctx context.Context, t *oauth2.Token, nonce string) (authentication.Grant, error) {
+func (p *Provider) grant(ctx context.Context, t *oauth2.Token, nonce string) (oidcport.Grant, error) {
 	raw, ok := t.Extra("id_token").(string)
 	if !ok {
 		log.Print("oidc: missing ID token")
-		return authentication.Grant{}, errProvider
+		return oidcport.Grant{}, errProvider
 	}
 	id, err := p.verifier.Verify(coreoidc.ClientContext(ctx, p.client), raw)
 	if err != nil || id.Subject == "" || (nonce != "" && id.Nonce != nonce) {
 		log.Print("oidc: ID token validation failed")
-		return authentication.Grant{}, errProvider
+		return oidcport.Grant{}, errProvider
 	}
 	var claims struct {
 		Username       string `json:"preferred_username"`
@@ -123,7 +123,7 @@ func (p *Provider) grant(ctx context.Context, t *oauth2.Token, nonce string) (au
 		} `json:"resource_access"`
 	}
 	if id.Claims(&claims) != nil {
-		return authentication.Grant{}, errProvider
+		return oidcport.Grant{}, errProvider
 	}
 	roles := claims.ResourceAccess[p.config.ClientID].Roles
 	has := func(role string) bool {
@@ -144,7 +144,7 @@ func (p *Provider) grant(ctx context.Context, t *oauth2.Token, nonce string) (au
 		role = identity.RoleDeveloper
 	default:
 		log.Print("oidc: no mapped client role in ID token")
-		return authentication.Grant{}, errProvider
+		return oidcport.Grant{}, errProvider
 	}
 	expiry := id.Expiry
 	if t.Expiry.Before(expiry) {
@@ -152,9 +152,9 @@ func (p *Provider) grant(ctx context.Context, t *oauth2.Token, nonce string) (au
 	}
 	if t.RefreshToken == "" || !expiry.After(time.Now()) {
 		log.Print("oidc: missing refresh token or expired grant")
-		return authentication.Grant{}, errProvider
+		return oidcport.Grant{}, errProvider
 	}
-	return authentication.Grant{Subject: id.Subject, Username: claims.Username, Role: role, RefreshToken: t.RefreshToken, ExpiresAt: expiry}, nil
+	return oidcport.Grant{Subject: id.Subject, Username: claims.Username, Role: role, RefreshToken: t.RefreshToken, ExpiresAt: expiry}, nil
 }
 func (p *Provider) Revoke(ctx context.Context, refresh string) error {
 	form := url.Values{"client_id": {p.config.ClientID}, "client_secret": {p.config.ClientSecret}, "token": {refresh}, "token_type_hint": {"refresh_token"}}

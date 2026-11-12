@@ -1427,6 +1427,7 @@ See [contract](../architecture/contracts/deployment-progress.md).
 
 ## Keycloak SSO — issue #77
 
+- OIDC provider contract: `backend/internal/ports/oidc`.
 - OIDC discovery/exchange/verification: `backend/internal/adapters/oidc`.
 - Browser transactions, issuer/subject accounts and refresh-bound sessions:
   `backend/internal/application/authentication/federation.go`.

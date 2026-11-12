@@ -12,21 +12,14 @@ import (
 	"time"
 
 	"orchestrator/internal/domain/identity"
+	oidcport "orchestrator/internal/ports/oidc"
 	"orchestrator/internal/ports/persistence"
 )
 
-// Grant contains provider credentials only in memory, never in HTTP DTOs/logs.
-type Grant struct {
-	Subject, Username, RefreshToken string
-	Role                            identity.Role
-	ExpiresAt                       time.Time
-}
-type OIDCProvider interface {
-	AuthorizationURL(state, nonce, verifier string) string
-	Exchange(context.Context, string, string, string) (Grant, error)
-	Refresh(context.Context, string) (Grant, error)
-	Revoke(context.Context, string) error
-}
+// Provider contracts live at the port boundary; aliases retain the service API.
+type Grant = oidcport.Grant
+type OIDCProvider = oidcport.Provider
+
 type transaction struct {
 	binding, nonce, verifier string
 	expires                  time.Time
