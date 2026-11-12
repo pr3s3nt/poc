@@ -7,6 +7,16 @@ last_reviewed: 2026-11-11
 
 # Current project state
 
+## Resource Type driver support — issue #81
+
+Implemented directly on main at `86d79cc5` at the user's request. Resource Types
+recognize built-in endpoint/existing-cluster/template capabilities and show their
+actual driver labels and Definition CTA. Support is independent of Definition
+count; verified Terraform pins and metadata failure states remain intact. The
+retained Console received a frontend-only rollout; real Tailscale browser checks
+and 23 focused component tests pass. Backend and existing catalog records were
+unchanged. [Verification](verification/2026-11-12-resource-type-driver-support.md).
+
 ## Portable Git Definition files — issue #79
 
 Accepted and merged into main at `9bf70931`; the retained kind Console runs the
