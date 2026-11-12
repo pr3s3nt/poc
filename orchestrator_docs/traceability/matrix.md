@@ -1646,3 +1646,9 @@ separate in the Environment rollback verification record.
 | ENVFILE-04 | UTF-8 file review/merge/download | EnvironmentVariablesEditor.test.tsx; real browser merge/download |
 | ENVFILE-05; UC-12 BR-24–28 | BulkSecretsDialog; existing createKey API | bulk/explicit-reuse/partial/unknown tests; real Secret delivery/readback assertions |
 | ENVFILE-06 | current shell/VI-EN/Preview/Deploy | e2e/scenarios/workload-envfile; kind full checks; Tailscale browser handoff |
+
+## Keycloak SSO — issue #77
+
+| Requirement | Realization | Implementation / checks |
+|---|---|---|
+| UC-00 SSO-01..06 | UC-00 OIDC collaboration | authentication federation, OIDC adapter, HTTP auth handlers; focused Go tests and keycloak-sso browser scenario |

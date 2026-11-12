@@ -75,7 +75,7 @@ Organization của họ.
 - **OOS-01:** Vô hiệu hóa hoặc đổi role account.
 - **OOS-02:** MFA, self-service password reset (quên mật khẩu qua email) và
   email verification; Admin đặt lại password theo BR-11 nằm trong phạm vi.
-- **OOS-03:** OAuth, OIDC, SAML hoặc external IdP.
+- **OOS-03:** SAML và external IdP ngoài OIDC đã cấu hình ở SSO bên dưới.
 - **OOS-04:** Fine-grained RBAC, audit login và account lockout.
 
 ## Organization identity for installation seed — issue #47
@@ -92,3 +92,37 @@ characters. Legacy installations without an identity file retain the existing de
 Authenticated `GET /api/v1/organization` returns only the session Organization.
 The API importer verifies both key and name before platform writes. Different
 login Organization or name is a conflict, never an instruction to migrate data.
+
+## Keycloak SSO — issue #77
+
+- **SSO-01:** Installation chọn local account hoặc OIDC bằng cấu hình server.
+  OIDC dùng một issuer, confidential client, redirect URI cố định và Organization
+  đã tồn tại. Khi bật OIDC, local sign-in và các API quản lý/password nội bộ bị
+  từ chối; quản lý nhân viên/password/role tại Keycloak.
+- **SSO-02:** Console giữ giao diện đăng nhập hiện hành, thay form local bằng nút
+  đăng nhập SSO. Backend dùng Authorization Code + PKCE S256, state và nonce
+  ngẫu nhiên; callback chỉ chấp nhận giao dịch chưa dùng, còn hạn 5 phút và
+  cookie giao dịch đúng browser. Xác minh chữ ký, issuer, audience, expiry,
+  nonce và subject. Redirect sau đăng nhập về `/ui/`, không nhận return URL.
+- **SSO-03:** Danh tính ngoài được xác định bởi issuer + subject; ID nội bộ được
+  suy ra ổn định từ cặp này. Lần đầu tạo account ACTIVE không có mật khẩu local,
+  gắn Organization server đã cấu hình. Không ghép account bằng email/username;
+  username trùng account khác bị từ chối. Chưa có migration tài khoản cũ.
+- **SSO-04:** Chỉ đọc client roles của client đã cấu hình. Mapping mặc định:
+  developer → DEVELOPER, platform-engineer → PLATFORM_ENGINEER, admin → ADMIN.
+  Mapping thay đổi qua cấu hình. Nhiều role hợp lệ chọn ADMIN rồi
+  PLATFORM_ENGINEER rồi DEVELOPER; không có role hợp lệ thì từ chối.
+  Tái sử dụng mọi authorization/Organization guard của các use case hiện có.
+- **SSO-05:** Platform tiếp tục dùng opaque HttpOnly SameSite=Lax cookie,
+  Secure với public URL HTTPS, TTL tối đa 8 giờ. Token OIDC chỉ ở bộ nhớ backend;
+  restart backend yêu cầu đăng nhập lại, account/domain data được giữ.
+  Mỗi phiên refresh và xác minh role tối đa mỗi 30 giây khi có request; token
+  hết hạn phải refresh sớm hơn. Keycloak lỗi, refresh bị từ chối, thiếu role hoặc
+  subject thay đổi thì kết thúc phiên và từ chối request, không fallback local.
+  Đổi role/khóa account được áp dụng ở lần refresh tiếp theo; không tuyên bố
+  thu hồi tức thời. Logout cục bộ thu hồi session và refresh token, không tự
+  đăng xuất các ứng dụng khác dùng chung SSO.
+- **SSO-06:** Keycloak test riêng, ba tài khoản đại diện, role mapping và negative
+  cases kiểm tra bằng instance thật. Credential sinh ngoài Git. HTTP chỉ được
+  bật rõ cho môi trường test; khi kết nối công ty dùng HTTPS và trust CA chuẩn.
+  Không thay đổi Keycloak công ty trong task này.

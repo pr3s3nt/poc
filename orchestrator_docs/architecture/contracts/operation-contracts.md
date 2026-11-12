@@ -994,3 +994,16 @@ seed may require an exact key/name match before other mutations.
 text syntax only; HTTP Workload bindings stay unchanged. Marked literals must be
 converted to Secret references through explicit UC-12 create-only confirmation
 before workload Save. No bulk upsert, secret readback or new API/schema is added.
+
+## OIDC authentication — issue #77
+
+UC-00 SSO-01..06 owns behavior. `GET /api/v1/auth/config` returns `{mode:
+"local"|"oidc"}` without secrets. `GET /api/v1/auth/oidc/start` creates a
+browser-bound transaction and redirects to the configured provider;
+`GET /api/v1/auth/oidc/callback` consumes state/code and redirects to `/ui/` or
+`/ui/?sso_error=1` on any safe generic failure. Existing session response adds
+`AuthProvider` (`local` or `oidc`); no token is exposed. Existing sign-out remains
+POST, returns 204, clears/revokes the platform session and best-effort revokes
+provider refresh credentials. Local sign-in/user management/password endpoints
+return 403 in OIDC mode. Tokens, provider errors and callback parameters are not
+logged. Organization and role always come from trusted server/provider state.

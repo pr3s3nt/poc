@@ -1386,3 +1386,14 @@ This uses the existing JSONB column and owner/fence guarded
 heartbeat update; no schema migration, DDL or baseline change is required.
 Stage updates preserve this key; other detail fields keep their existing replacement semantics. History
 reads the operation correlated by review request ID, never a later active claim.
+
+## Version 11 — Keycloak identity, issue #77
+
+`user_accounts` adds `oidc_issuer text NOT NULL DEFAULT ''` and
+`oidc_subject text NOT NULL DEFAULT ''`. Both are empty for local accounts, both
+nonempty for external accounts; external accounts have an empty password hash.
+A partial unique index on issuer/subject enforces external identity uniqueness.
+Existing IDs, Organization relationships, sessions, domain and Terraform state
+remain unchanged. Owner migration 011 adds only these fields/constraints/index;
+frozen v10 remains immutable and v11 is the active complete reference. No tokens
+or provider credentials are stored in PostgreSQL.

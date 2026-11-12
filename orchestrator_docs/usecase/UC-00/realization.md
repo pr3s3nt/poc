@@ -66,3 +66,15 @@ The first Admin remains a local CLI operation. After sign-in, the read-only
 Organization handler resolves only the session Organization through the store.
 Importer checks key/name before any platform writes; this adds no anonymous
 bootstrap, Organization rename or account reassignment flow.
+
+## OIDC collaboration — issue #77
+
+OIDC adapter discovers the configured provider and verifies ID tokens. The
+AuthenticationService owns bounded, expiring browser transactions and in-memory
+refresh credentials keyed by hashed platform session token. HTTP start sets an
+HttpOnly transaction cookie, callback consumes it and sets the ordinary session
+cookie. Both Authorization Code and refresh validation pass through the adapter.
+Issuer/subject persist on UserAccount; no OIDC tokens are persisted. A missing
+in-memory grant after restart makes an external account session unauthorized.
+Refresh serializes per session; current role is derived from the validated grant,
+not client input. Local identity/session paths remain available only in local mode.
