@@ -42,7 +42,10 @@ Authenticated, same-origin, application-scoped GET endpoints:
 - `/api/v1/applications/{id}/environments/{env}/observability/metrics`
 
 Session supplies organization. `from`/`to` are RFC3339 instants (`from < to`),
-default last hour, within retention, with at most one minute future skew.
+default last hour, with the start bounded by retention. Future endpoints are
+accepted without a clock-skew cutoff: return available interval history or no
+matching observations when the interval is entirely in the future. Latest/source
+health fields remain independent of the selected interval.
 `workload` is optional; `q` is a literal substring (max 200 characters);
 `level` is ALL/ERROR/WARN/INFO/DEBUG/UNKNOWN. ERROR includes FATAL/PANIC.
 Log page size defaults 100, maximum 200. Cursor encodes the last `(timestamp,id)`

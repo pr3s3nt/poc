@@ -167,3 +167,70 @@ func TestCollectorStartsImmediatelyAndStopsBeforeStoreClose(t *testing.T) {
 		t.Fatalf("stop left a collection lease: %v", err)
 	}
 }
+
+// Windows/browser clocks ahead of the backend must not block stored history.
+func TestQueryAcceptsFutureIntervals(t *testing.T) {
+	st := store.New()
+	f := persistencetest.Telemetry(t, st)
+	svc := New(st, nil)
+	svc.SetClock(func() time.Time { return f.Now })
+	for _, kind := range []string{"overview", "logs", "metrics"} {
+		t.Run(kind, func(t *testing.T) {
+			for _, tc := range []struct {
+				name     string
+				from     time.Time
+				to       time.Time
+				wantLogs int64
+			}{
+				{"browser ahead 84 seconds", f.Now.Add(-time.Hour + 84*time.Second), f.Now.Add(84 * time.Second), 3},
+				{"entirely future", f.Now.Add(time.Hour), f.Now.Add(2 * time.Hour), 0},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					view, err := svc.Query(context.Background(), f.Scope, kind, Params{From: tc.from.Format(time.RFC3339Nano), To: tc.to.Format(time.RFC3339Nano)})
+					if err != nil {
+						t.Fatal(err)
+					}
+					wantLogs := tc.wantLogs
+					if kind == "metrics" {
+						wantLogs = 0
+					}
+					if view.LogCount != wantLogs {
+						t.Fatalf("log count = %d, want %d", view.LogCount, wantLogs)
+					}
+					if kind == "metrics" && tc.wantLogs > 0 {
+						received := false
+						for _, point := range view.Points {
+							received = received || point.CPU != nil
+						}
+						if !received {
+							t.Fatal("clock skew hid stored metrics")
+						}
+					}
+					if !view.From.Equal(tc.from) || !view.To.Equal(tc.to) {
+						t.Fatalf("query interval changed: %s..%s", view.From, view.To)
+					}
+					if tc.wantLogs == 0 {
+						if len(view.Logs) != 0 || len(view.Events) != 0 || view.EventCount != 0 {
+							t.Fatal("future interval returned historical observations")
+						}
+						for _, point := range view.Points {
+							if point.CPU != nil || point.Memory != nil {
+								t.Fatal("future interval returned metric values")
+							}
+						}
+					}
+				})
+			}
+		})
+	}
+	for _, p := range []Params{
+		{From: "bad"}, {To: "bad"},
+		{From: f.Now.Format(time.RFC3339Nano), To: f.Now.Format(time.RFC3339Nano)},
+		{From: f.Now.Add(2 * time.Hour).Format(time.RFC3339Nano), To: f.Now.Add(time.Hour).Format(time.RFC3339Nano)},
+	} {
+		var field *FieldError
+		if _, err := svc.Query(context.Background(), f.Scope, "logs", p); !errors.As(err, &field) {
+			t.Fatalf("invalid interval accepted: %+v, %v", p, err)
+		}
+	}
+}

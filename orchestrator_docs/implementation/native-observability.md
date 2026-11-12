@@ -30,7 +30,9 @@ checkpoints; expiration frees retained observation capacity.
 
 Three authenticated stored-query routes serve overview/logs/metrics. Tenant,
 application, Environment and generation filter every query; GETs do not collect.
-History is independent of current app readiness. Missing values stay null;
+History is independent of current app readiness. Stored queries accept future
+interval endpoints without rejecting browser/backend clock skew; intervals with
+no observations return no matching history. Missing values stay null;
 percentage uses each sample's complete positive limit. HTTP responses exclude
 private source target, credential, checkpoints, lease owner and fence.
 

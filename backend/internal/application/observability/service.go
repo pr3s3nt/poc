@@ -282,7 +282,7 @@ func (s *Service) Query(ctx context.Context, scope telemetry.Scope, kind string,
 	if kind == "metrics" {
 		retention = telemetry.MetricRetention
 	}
-	if !from.Before(to) || from.Before(now.Add(-retention-time.Minute)) || to.After(now.Add(time.Minute)) {
+	if !from.Before(to) || from.Before(now.Add(-retention-time.Minute)) {
 		return out, &FieldError{"from"}
 	}
 	if p.Workload != "" && !workloadShape.MatchString(p.Workload) {

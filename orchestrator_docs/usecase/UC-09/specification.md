@@ -152,7 +152,9 @@ TEL adds separate application telemetry queries backed by a background collector
   updates. Metrics show CPU/memory history with units, workload series, true
   timestamps and null gaps. History may include removed pods/workloads.
 - **TEL-05:** All GETs authorize the session organization and app/environment,
-  read persisted telemetry only and enforce range/page/response limits. Resolve
+  read persisted telemetry only and enforce range/page/response limits. Valid
+  ordered intervals may extend into the future: return available history or an
+  empty interval, without rejecting browser/backend clock skew. Resolve
   collection credentials privately, fail closed on foreign targets and protect
   platform diagnostics. Native API logs are combined stdout/stderr; do not
   fabricate stream-specific filtering or infer ERROR from stderr.

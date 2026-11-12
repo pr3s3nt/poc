@@ -1190,7 +1190,7 @@ Evidence record: [2026-10-24 DEVEX-ENV implementation](../verification/2026-10-2
 |---|---|---|
 | UC-09 TEL-01/02/07 | ADR-023; telemetry contract; source/lease/checkpoint schema | `kubernetes/telemetry_test.go`, adapter-neutral `persistencetest/telemetry.go`, store/SQL telemetry tests; [execution](../verification/2026-10-25-native-observability.md) |
 | UC-09 TEL-03/04/06 | UC-09 UI; approved Logging & Monitoring mock | `observability.test.tsx`, `observability.mjs`: summary/detail, peaks/current/null gaps, filters, scoped navigation; [browser](../verification/2026-10-25-native-observability.md) |
-| UC-09 TEL-05 | Scoped stored-query API, credential boundary | `application/observability/service_test.go`, `http/observability_test.go`, Kubernetes transport cap/credential guards |
+| UC-09 TEL-05 | Scoped stored-query API, credential boundary; future intervals accepted (`TestQueryAcceptsFutureIntervals`) | `application/observability/service_test.go`, `http/observability_test.go`, Kubernetes transport cap/credential guards |
 
 Local SQL/HTTP tests are complemented by [48 real new-user Kubernetes checks](../verification/2026-10-25-native-observability-live.md): native collection, history, UI queries, restart/update/backend persistence and product cleanup. EKS-specific verification and retained-database rollout remain separate; synthetic fixtures do not establish those claims.
 
