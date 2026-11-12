@@ -1646,3 +1646,12 @@ separate in the Environment rollback verification record.
 | ENVFILE-04 | UTF-8 file review/merge/download | EnvironmentVariablesEditor.test.tsx; real browser merge/download |
 | ENVFILE-05; UC-12 BR-24–28 | BulkSecretsDialog; existing createKey API | bulk/explicit-reuse/partial/unknown tests; real Secret delivery/readback assertions |
 | ENVFILE-06 | current shell/VI-EN/Preview/Deploy | e2e/scenarios/workload-envfile; kind full checks; Tailscale browser handoff |
+
+## Catalog document registration — issue #76
+
+| Requirement | Realization | Code and validation |
+|---|---|---|
+| UC-02/03 FILE-01/02 | UC-02/03 realization and sequence-document.puml | catalogDocument, CatalogDocumentImport; strict HTTP import and focused parser/HTTP tests |
+| UC-02/03 FILE-03 | Insert-only registration and duplicate winner comparison | catalog/document_import.go and document_import_test.go; Type/Definition CREATED/REUSED/CONFLICT browser assertions |
+| UC-02/03 FILE-04 | Public authoring projection of displayed revision | catalogDocument.ts, DefinitionVersions.tsx; export allowlist test and real YAML round-trip scenario |
+| UC-02/03 FILE-05 | Existing capability/source/driver validation | Existing registration tests; Preview/Deploy acceptance remains a runtime gate until recorded |

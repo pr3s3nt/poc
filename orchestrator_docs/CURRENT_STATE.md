@@ -2419,3 +2419,14 @@ Specification: [ENVFILE-01–06](usecase/UC-16/envfile-specification.md).
 [Verification](verification/2026-11-11-workload-envfile.md): 1025 frontend tests,
 typecheck/lint/build, real browser/Deploy/cleanup pass. Full Go remains red at
 13 packages on the identical main backend tree; this is not a full green gate.
+
+## Catalog document registration — issue #76 (task branch)
+
+Type/Definition pages retain their forms and add upload/paste YAML/JSON plus YAML
+export. Strict import endpoints reuse registration validation and insert-only
+persistence, returning CREATED/REUSED/CONFLICT without overwriting duplicate keys.
+Comparison uses typed flags, unordered schema/criteria and module/template defaults;
+export drops system metadata and preserves public source pins/references.
+Focused backend/frontend checks and real feature-stack browser Type/endpoint
+round-trip have passed. Full kind validation and Terraform/template Preview/Deploy
+acceptance are still in progress; this paragraph does not claim final acceptance.

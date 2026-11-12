@@ -1424,3 +1424,13 @@ See [contract](../architecture/contracts/deployment-progress.md).
 - `WorkloadEditorPage.tsx`: stable container identities, Save gate for marked
   literals/invalid text and alias-to-binding rename. Binding flags are memory-only.
 - [Acceptance runner](../../e2e/scenarios/workload-envfile/README.md).
+
+## Catalog documents — issue #76
+
+UC-02/03 FILE-01..05: `frontend/src/features/platform/catalogDocument.ts`
+(parsing/public export), `CatalogDocumentImport.tsx` (upload/edit/result), existing
+Type/Definition pages and `DefinitionVersions.tsx` (revision download).
+`backend/internal/delivery/http/document_import.go` owns strict scoped import
+boundaries; `application/catalog/document_import.go` reuses insert-only validation
+and compares normalized public contracts/defaults without upsert. Focused tests
+sit beside these modules; browser runner is `e2e/scenarios/catalog-document/`.
