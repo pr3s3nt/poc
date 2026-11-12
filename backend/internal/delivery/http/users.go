@@ -31,13 +31,17 @@ type changePasswordRequest struct {
 // current password, chooses a new one and every session of the account ends,
 // including this one; the cookie is cleared so the client signs in again.
 func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
-	if s.auth.OIDCEnabled() {
+	if s.auth.OIDCEnabled() && !s.auth.LocalTestLoginAllowed() {
 		writeCode(w, codeForbidden, "")
 		return
 	}
 	who, ok := s.sessionIdentity(r)
 	if !ok {
 		writeCode(w, codeUnauthorized, "")
+		return
+	}
+	if s.auth.OIDCEnabled() && who.AuthProvider != "local" {
+		writeCode(w, codeForbidden, "")
 		return
 	}
 	var req changePasswordRequest
@@ -60,6 +64,9 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	err := s.auth.ChangePassword(r.Context(), who.UserID, req.CurrentPassword, req.NewPassword)
 	switch {
 	case err == nil:
+	case errors.Is(err, authentication.ErrForbidden):
+		writeCode(w, codeForbidden, "")
+		return
 	case errors.Is(err, authentication.ErrInvalidCredentials):
 		writeCode(w, codeInvalidCredentials, "")
 		return

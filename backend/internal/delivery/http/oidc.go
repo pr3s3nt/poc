@@ -10,7 +10,7 @@ func (s *Server) handleAuthConfig(w http.ResponseWriter, r *http.Request) {
 		mode = "oidc"
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, 200, map[string]string{"mode": mode})
+	writeJSON(w, 200, map[string]any{"mode": mode, "localLoginAllowed": s.auth.LocalTestLoginAllowed()})
 }
 func (s *Server) handleOIDCStart(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")

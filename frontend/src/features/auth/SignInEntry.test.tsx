@@ -21,3 +21,14 @@ it('fails closed on config errors and can retry', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
   expect(await screen.findByLabelText('Mật khẩu')).toBeInTheDocument();
 });
+it('offers a local test disclosure alongside SSO only when enabled', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ mode: 'oidc', localLoginAllowed: true })));
+  const login = vi.fn(async () => undefined);
+  render(<SignInEntry onSuccess={login} />);
+  expect(await screen.findByRole('button', { name: 'Đăng nhập SSO' })).toBeEnabled();
+  await userEvent.click(screen.getByText('Tài khoản test'));
+  await userEvent.type(screen.getByLabelText('Tên đăng nhập'), 'local-admin');
+  await userEvent.type(screen.getByLabelText('Mật khẩu'), 'private-test-password');
+  await userEvent.click(screen.getByRole('button', { name: 'Đăng nhập local' }));
+  expect(login).toHaveBeenCalledWith('local-admin', 'private-test-password');
+});

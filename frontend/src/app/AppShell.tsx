@@ -27,7 +27,7 @@ function NavigationIcon({ name }: { name: string }) {
   return <svg viewBox="0 0 20 20" aria-hidden="true">{paths[name]}</svg>;
 }
 
-export function AppShell({ children, onSignOut, username, role, activeRoute, externalIdentity = false }: PropsWithChildren<{ onSignOut(): void; username: string; role: string; activeRoute: string; externalIdentity?: boolean }>) {
+export function AppShell({ children, onSignOut, username, role, activeRoute, externalIdentity = false, manageUsers = true }: PropsWithChildren<{ onSignOut(): void; username: string; role: string; activeRoute: string; externalIdentity?: boolean; manageUsers?: boolean }>) {
   const [collapsed, setCollapsed] = useState(() => {
     try { return window.localStorage.getItem('orchestrator.sidebar.collapsed') === 'true'; }
     catch { return false; }
@@ -63,7 +63,7 @@ export function AppShell({ children, onSignOut, username, role, activeRoute, ext
           <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="3" width="16" height="14" rx="2" /><path d="M7 3v14" /><path d={collapsed ? 'm10 7 3 3-3 3' : 'm14 7-3 3 3 3'} /></svg><span className="sidebar-label">{t('app.appShell.collapseSidebar')}</span>
         </button>
         <nav className="nav" id="primary-navigation" aria-label={t('app.appShell.mainNavigation')}>
-          {links.filter((item) => (!item.platform || isPlatformEngineer) && (!item.admin || (isAdmin && !externalIdentity))).map((item) => <a key={item.route} className={navClass(item.route)} aria-current={activeNav === item.route ? 'page' : undefined} title={item.label} href={href({ name: item.route })} onClick={(event) => { event.preventDefault(); navigate({ name: item.route }); }}><span className="nav-icon" data-tone={item.tone} aria-hidden="true"><NavigationIcon name={item.route} /></span><span className="sidebar-label">{item.label}</span></a>)}
+          {links.filter((item) => (!item.platform || isPlatformEngineer) && (!item.admin || (isAdmin && !externalIdentity && manageUsers))).map((item) => <a key={item.route} className={navClass(item.route)} aria-current={activeNav === item.route ? 'page' : undefined} title={item.label} href={href({ name: item.route })} onClick={(event) => { event.preventDefault(); navigate({ name: item.route }); }}><span className="nav-icon" data-tone={item.tone} aria-hidden="true"><NavigationIcon name={item.route} /></span><span className="sidebar-label">{item.label}</span></a>)}
           <span className="nav-item nav-item-disabled" aria-disabled="true" aria-label={t('app.appShell.deploymentHistoryComingSoon')} title={t('app.appShell.deploymentHistoryComingSoon')}><span className="nav-icon" aria-hidden="true"><NavigationIcon name="history" /></span><span className="sidebar-label">{t('app.appShell.deploymentHistory')}</span><small className="sidebar-label">{t('app.appShell.comingSoon')}</small></span>
         </nav>
         <div className="sidebar-footer">

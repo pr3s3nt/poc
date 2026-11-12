@@ -78,3 +78,10 @@ Issuer/subject persist on UserAccount; no OIDC tokens are persisted. A missing
 in-memory grant after restart makes an external account session unauthorized.
 Refresh serializes per session; current role is derived from the validated grant,
 not client input. Local identity/session paths remain available only in local mode.
+
+SSO-07 allows one explicitly configured local Admin on the same Console. Local
+password verification and each session restore check username, ACTIVE, ADMIN,
+empty OIDC issuer/subject and the configured Organization. Identity exposes
+UserManagement=false in OIDC mode so both local test Admin and SSO users keep
+company-managed account boundaries. Self password change is local-only for this
+account; all OIDC user-management endpoints remain denied.

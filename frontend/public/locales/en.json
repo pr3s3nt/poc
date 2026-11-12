@@ -4177,5 +4177,7 @@
   "auth.sso.signIn": "Sign in with SSO",
   "auth.sso.failed": "SSO sign-in failed. Check your access or try again.",
   "auth.sso.configError": "Could not load sign-in configuration.",
-  "auth.sso.managed": "Your account and access are managed in the company identity system."
+  "auth.sso.managed": "Your account and access are managed in the company identity system.",
+  "auth.sso.localAccount": "Test account",
+  "auth.sso.localSignIn": "Sign in locally"
 }

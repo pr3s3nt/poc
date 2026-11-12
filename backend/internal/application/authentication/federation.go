@@ -32,6 +32,7 @@ type federationSession struct {
 type Federation struct {
 	Provider                OIDCProvider
 	Issuer, OrganizationKey string
+	LocalTestAdminUsername  string
 	Secure                  bool
 	mu                      sync.Mutex
 	pending                 map[string]transaction

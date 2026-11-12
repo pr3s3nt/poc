@@ -15,6 +15,8 @@ const clientSecret = secret();
 const controllerSecret = secret();
 const consoleURL = `http://keycloak.${domain}:8088`;
 const providerURL = `http://sso-keycloak.${domain}:8088`;
+const localTestAdminUsername = process.env.KEYCLOAK_LOCAL_TEST_ADMIN_USERNAME ?? '';
+if (localTestAdminUsername && !/^[a-z0-9][a-z0-9._-]{1,62}$/.test(localTestAdminUsername)) throw new Error('Invalid local test Admin username');
 const roles = ['developer', 'platform-engineer', 'admin'];
 const users = [...roles, 'no-role'].map((username) => {
   const password = secret(); put(`${username}-password`, password);
@@ -24,7 +26,7 @@ const users = [...roles, 'no-role'].map((username) => {
 });
 put('keycloak-admin-password', secret());
 put('controller-secret', controllerSecret);
-put('oidc.json', JSON.stringify({ issuer: `${providerURL}/realms/platform-test`, clientId, clientSecret, publicUrl: consoleURL, organizationKey: 'acme', allowHttp: true }, null, 2));
+put('oidc.json', JSON.stringify({ issuer: `${providerURL}/realms/platform-test`, clientId, clientSecret, publicUrl: consoleURL, organizationKey: 'acme', allowHttp: true, ...(localTestAdminUsername ? { localTestAdminUsername } : {}) }, null, 2));
 put('realm.json', JSON.stringify({ realm: 'platform-test', enabled: true, sslRequired: 'none', registrationAllowed: false, resetPasswordAllowed: false,
   accessTokenLifespan: 120, ssoSessionIdleTimeout: 1800, ssoSessionMaxLifespan: 28800,
   roles: { client: { [clientId]: roles.map((name) => ({ name })) } },

@@ -16,7 +16,8 @@ no company Keycloak is changed. Existing backend authorization remains in place.
 Set `ORCHESTRATOR_OIDC_CONFIG_FILE` to an owner-only JSON file readable by the
 backend runtime user. It contains `issuer`, `clientId`, `clientSecret`, `publicUrl`
 (the Console origin), `organizationKey` (an existing Organization), and optional
-`developerRole`, `engineerRole`, `adminRole` names. Defaults are developer,
+`developerRole`, `engineerRole`, `adminRole` names and the optional
+`localTestAdminUsername` for one personal local test Admin. Defaults are developer,
 platform-engineer, admin. `allowHttp` defaults false; enable only in the isolated
 HTTP test environment. Use HTTPS/trusted CA when connecting a company realm.
 Configuration/discovery/Organization errors block startup; no fallback local login.
@@ -28,8 +29,9 @@ string. Configure only that client's three roles or map existing company roles
 into them. Realm-admin and roles from other clients never grant platform access.
 Do not grant platform users Keycloak realm-management privileges.
 
-When OIDC is configured, local password login, local user management and password
-APIs are disabled. Remove SSO configuration to return to deliberate local mode;
+When OIDC is configured, local password login and password APIs are disabled by
+default; the explicit SSO-07 exception admits one local test Admin and only its
+own password change. Employee account management remains disabled. Remove SSO configuration to return to deliberate local mode;
 external accounts remain unable to use local passwords. No account migration or
 automatic email/username linking is implemented. Duplicate usernames are refused.
 
@@ -97,3 +99,46 @@ After acceptance/merge, `down -v` with all three Compose files removes only
 `poc-keycloak` volumes/data; remove the private input directory and task images.
 Keep shared proxy and other feature stacks. Kind full-check namespaces use their
 own run label and must be UID/ownership verified and removed independently.
+
+## Personal local Admin on the same Console — SSO-07
+
+User decision 2026-11-12: keep SSO for every employee and provide local password
+login on the same Console only for the owner's test Admin. Do not create a
+separate local preview or enable local login for other accounts.
+
+Set `localTestAdminUsername` (for example `local-admin`) in the backend's private
+OIDC JSON. An empty/missing value disables this path, including existing local
+sessions. Account must be local (no issuer/subject), ACTIVE, ADMIN and belong to
+the configured Organization on every request. Other local Admins are denied too.
+No public username/registration endpoint is added. SSO identities cannot use
+local passwords; the local test account never acquires OIDC tokens.
+
+Bootstrap this account with the existing CLI and an owner-provided private
+password file. For the dedicated feature stack, copy the password by stdin to
+a temporary mode-0600 file, run the CLI with OIDC configuration deliberately
+unset for this operator-only command, and remove the temporary file:
+
+```bash
+docker exec -i poc-keycloak-backend-1 sh -c \
+  'umask 077; cat > /tmp/personal-test-password' < "$KEYCLOAK_PRIVATE_DIR/local-admin-password"
+docker exec -e ORCHESTRATOR_OIDC_CONFIG_FILE= poc-keycloak-backend-1 sh -c \
+  '/usr/local/bin/orchestrator -profile production -bootstrap-admin \
+   -bootstrap-admin-username local-admin \
+   -bootstrap-admin-password-file /tmp/personal-test-password; \
+   rc=$?; rm -f /tmp/personal-test-password; exit $rc'
+```
+
+Copy updated private config via the input-copy job/restart backend, using the
+same Compose files above. Fresh test input generation optionally accepts
+`KEYCLOAK_LOCAL_TEST_ADMIN_USERNAME`; it never creates a default password.
+
+Console keeps SSO primary and offers a “Tài khoản test” disclosure. This Admin
+can change its own local password but cannot list/create/reset employee accounts
+in OIDC mode; employees remain managed by Keycloak. Local sessions survive
+backend restart only while the configured username/account remains eligible.
+
+For shared Console automation, set `ORCH_AUTH_MODE=local` and the local account's
+normal username/password-file variables. Omit that override for employee SSO.
+The scenario's `ORCH_LOCAL_TEST_ADMIN_USERNAME` and
+`ORCH_LOCAL_TEST_ADMIN_PASSWORD_FILE` add a same-Console test proving no Keycloak
+requests are made during local login and no employee-management exception leaks.

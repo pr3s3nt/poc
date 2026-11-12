@@ -42,5 +42,6 @@ password exists. Every password input offers a show/hide plain-text toggle.
 The optional single-instance OIDC slice uses a dedicated Keycloak test realm,
 server-owned code exchange, stable issuer/subject accounts and existing role
 gates. See SSO-01..06 in the specification and
-[operations](../../operations/keycloak-sso.md). Local account APIs are disabled
-when OIDC is enabled; provider grants in memory require new login after restart.
+[operations](../../operations/keycloak-sso.md). Employee account APIs are disabled
+when OIDC is enabled; SSO-07 optionally admits one personal local Admin and its
+own password change on the same Console; provider grants in memory require new login after restart.

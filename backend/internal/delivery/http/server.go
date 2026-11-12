@@ -387,7 +387,7 @@ type signInRequest struct {
 }
 
 func (s *Server) handleSignIn(w http.ResponseWriter, r *http.Request) {
-	if s.auth.OIDCEnabled() {
+	if s.auth.OIDCEnabled() && !s.auth.LocalTestLoginAllowed() {
 		writeCode(w, codeForbidden, "")
 		return
 	}
@@ -398,10 +398,14 @@ func (s *Server) handleSignIn(w http.ResponseWriter, r *http.Request) {
 	}
 	token, identity, err := s.auth.SignIn(r.Context(), req.Username, req.Password)
 	if err != nil {
+		if errors.Is(err, authentication.ErrForbidden) {
+			writeCode(w, codeForbidden, "")
+			return
+		}
 		writeCode(w, codeInvalidCredentials, "")
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 8 * 60 * 60})
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, Secure: s.auth.SecureCookie(), SameSite: http.SameSiteLaxMode, MaxAge: 8 * 60 * 60})
 	writeJSON(w, http.StatusOK, map[string]any{"user": identity})
 }
 func (s *Server) sessionIdentity(r *http.Request) (authentication.Identity, bool) {

@@ -4177,5 +4177,7 @@
   "auth.sso.signIn": "Đăng nhập SSO",
   "auth.sso.failed": "Không thể đăng nhập SSO. Kiểm tra quyền truy cập hoặc thử lại.",
   "auth.sso.configError": "Không thể tải cấu hình đăng nhập.",
-  "auth.sso.managed": "Tài khoản và quyền được quản lý trong hệ thống danh tính của công ty."
+  "auth.sso.managed": "Tài khoản và quyền được quản lý trong hệ thống danh tính của công ty.",
+  "auth.sso.localAccount": "Tài khoản test",
+  "auth.sso.localSignIn": "Đăng nhập local"
 }

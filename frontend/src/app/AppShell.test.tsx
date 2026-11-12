@@ -68,3 +68,8 @@ it('keeps platform role navigation but hides local account controls for SSO admi
   expect(screen.queryByRole('button', { name: 'Đổi mật khẩu' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Đăng xuất' })).toBeInTheDocument();
 });
+it('allows personal password change but hides employee management for a local test admin', () => {
+  render(<AppShell {...props} role="ADMIN" manageUsers={false}><p>Content</p></AppShell>);
+  expect(screen.getByRole('button', { name: 'Đổi mật khẩu' })).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Người dùng' })).not.toBeInTheDocument();
+});

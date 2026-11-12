@@ -87,3 +87,9 @@ localized error, never provider text. While config is unavailable, show retry/er
 and do not enable local login. Hide local user management and password navigation
 for SSO identity; deep links show a short managed-at-company notice. Keep every
 other role gate and shell pattern unchanged.
+
+SSO-07: when the server advertises localLoginAllowed, retain SSO as the primary
+action and put the existing local form in a “Tài khoản test” disclosure. Only the
+configured local Admin can use it. Its own password-change action remains; user
+management stays hidden/blocked in OIDC mode, including for that Admin. Do not
+add self-registration or local login for employees.

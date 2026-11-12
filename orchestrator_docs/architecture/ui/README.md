@@ -316,3 +316,10 @@ the default view; Nhập từ file .env opens text editing, with Quay lại bả
 There is no UI tab label. Grammar/help is a
 disclosure; errors and independent Secret commit boundary remain visible where
 needed. [UC-16 screens](../../usecase/UC-16/ui/screens.md) owns the extension.
+
+## Personal test login alongside SSO — issue #77
+
+UC-00 SSO-07 and its screen design own the optional same-Console local Admin
+path. Reuse sign-in fields, Button, details/summary disclosure and current error
+patterns; keep SSO primary. Employee management stays Keycloak-owned and the
+local test Admin retains only its own password-change control.

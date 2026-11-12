@@ -7,7 +7,7 @@ import { t } from '../../shared/i18n';
 
 type FieldErrors = { username?: string; password?: string };
 
-export function SignInPage({ onSuccess, notice, mode = 'local' }: { onSuccess(username: string, password: string): Promise<void>; notice?: string; mode?: 'local' | 'oidc' }) {
+export function SignInPage({ onSuccess, notice, mode = 'local', localLoginAllowed = false }: { onSuccess(username: string, password: string): Promise<void>; notice?: string; mode?: 'local' | 'oidc'; localLoginAllowed?: boolean }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -30,6 +30,14 @@ export function SignInPage({ onSuccess, notice, mode = 'local' }: { onSuccess(us
     });
   }
 
+  const localFields = <>
+        <label>{t('auth.signIn.username')}<input autoComplete="username" value={username} disabled={submitting} aria-invalid={Boolean(fieldErrors.username)} onChange={(event) => setUsername(event.target.value)} />{fieldErrors.username ? <span className="field-error">{fieldErrors.username}</span> : null}</label>
+        <label>{t('auth.signIn.password')}<PasswordInput autoComplete="current-password" value={password} disabled={submitting} aria-invalid={Boolean(fieldErrors.password)} onChange={(event) => setPassword(event.target.value)} />{fieldErrors.password ? <span className="field-error">{fieldErrors.password}</span> : null}</label>
+        <Button tone={mode === 'oidc' ? 'secondary' : 'primary'} type="submit" disabled={submitting}>{submitting ? t('auth.signIn.signingIn') : t(mode === 'oidc' ? 'auth.sso.localSignIn' : 'auth.signIn.signIn')}</Button>
+        {mode === 'local' ? <small>{t('auth.signIn.useYourLocalTestAccount')}</small> : null}
+
+  </>;
+
   return <div className="sign-in-page">
     <section className="sign-in-brand">
       <a className="wordmark wordmark-light" href="#sign-in"><span className="wordmark-mark">◆</span> Orchestrator</a>
@@ -47,11 +55,9 @@ export function SignInPage({ onSuccess, notice, mode = 'local' }: { onSuccess(us
         {mode === 'oidc' ? <>
           {new URLSearchParams(window.location.search).has('sso_error') ? <div className="form-error" role="alert">{t('auth.sso.failed')}</div> : null}
           <Button tone="primary" type="button" onClick={() => window.location.assign('/api/v1/auth/oidc/start')}>{t('auth.sso.signIn')}</Button>
+          {localLoginAllowed ? <details className="sign-in-local"><summary>{t('auth.sso.localAccount')}</summary>{localFields}</details> : null}
         </> : <>
-        <label>{t('auth.signIn.username')}<input autoComplete="username" value={username} disabled={submitting} aria-invalid={Boolean(fieldErrors.username)} onChange={(event) => setUsername(event.target.value)} />{fieldErrors.username ? <span className="field-error">{fieldErrors.username}</span> : null}</label>
-        <label>{t('auth.signIn.password')}<PasswordInput autoComplete="current-password" value={password} disabled={submitting} aria-invalid={Boolean(fieldErrors.password)} onChange={(event) => setPassword(event.target.value)} />{fieldErrors.password ? <span className="field-error">{fieldErrors.password}</span> : null}</label>
-        <Button tone="primary" type="submit" disabled={submitting}>{submitting ? t('auth.signIn.signingIn') : t('auth.signIn.signIn')}</Button>
-        <small>{t('auth.signIn.useYourLocalTestAccount')}</small>
+        {localFields}
         </>}
         <LanguageSelect />
       </form>

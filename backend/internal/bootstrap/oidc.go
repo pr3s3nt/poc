@@ -14,15 +14,16 @@ import (
 
 // OIDCConfig is read from an owner-only file; its client secret never enters logs.
 type OIDCConfig struct {
-	Issuer          string `json:"issuer"`
-	ClientID        string `json:"clientId"`
-	ClientSecret    string `json:"clientSecret"`
-	PublicURL       string `json:"publicUrl"`
-	OrganizationKey string `json:"organizationKey"`
-	DeveloperRole   string `json:"developerRole"`
-	EngineerRole    string `json:"engineerRole"`
-	AdminRole       string `json:"adminRole"`
-	AllowHTTP       bool   `json:"allowHttp"`
+	Issuer                 string `json:"issuer"`
+	ClientID               string `json:"clientId"`
+	ClientSecret           string `json:"clientSecret"`
+	PublicURL              string `json:"publicUrl"`
+	OrganizationKey        string `json:"organizationKey"`
+	DeveloperRole          string `json:"developerRole"`
+	EngineerRole           string `json:"engineerRole"`
+	AdminRole              string `json:"adminRole"`
+	LocalTestAdminUsername string `json:"localTestAdminUsername"`
+	AllowHTTP              bool   `json:"allowHttp"`
 }
 
 func configureOIDC(ctx context.Context, st persistence.Store, auth *authentication.Service, file string) error {
@@ -48,6 +49,6 @@ func configureOIDC(ctx context.Context, st persistence.Store, auth *authenticati
 	if err != nil {
 		return err
 	}
-	auth.EnableOIDC(&authentication.Federation{Provider: p, Issuer: c.Issuer, OrganizationKey: c.OrganizationKey, Secure: strings.HasPrefix(c.PublicURL, "https://")})
+	auth.EnableOIDC(&authentication.Federation{Provider: p, Issuer: c.Issuer, OrganizationKey: c.OrganizationKey, Secure: strings.HasPrefix(c.PublicURL, "https://"), LocalTestAdminUsername: strings.ToLower(strings.TrimSpace(c.LocalTestAdminUsername))})
 	return nil
 }

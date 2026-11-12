@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { chromium, readConsoleConfig, readPrivateFile, signInContext, signOutContext } from '../../lib/console.mjs';
+import { chromium, readConsoleConfig, readPrivateFile, signInContext, signOutContext, ensureSignedIn } from '../../lib/console.mjs';
 
 const privateDir = process.env.KEYCLOAK_PRIVATE_DIR;
 if (!privateDir) throw new Error('KEYCLOAK_PRIVATE_DIR required');
@@ -13,11 +13,17 @@ const realm = 'platform-test';
 const output = resolve(process.env.ORCH_RESULT_DIR ?? '/tmp/poc-keycloak-77-evidence');
 mkdirSync(output, { recursive: true, mode: 0o700 });
 const controller = readPrivateFile(`${privateDir}/controller-secret`);
-const tokenResponse = await fetch(`${config.oidcIssuer}/protocol/openid-connect/token`, { method: 'POST', body: new URLSearchParams({ grant_type: 'client_credentials', client_id: 'test-controller', client_secret: controller }) });
-assert.equal(tokenResponse.status, 200, 'test controller authentication');
-const { access_token: controllerToken } = await tokenResponse.json();
+let controllerToken;
+let controllerExpiry = 0;
+async function controllerAccess() {
+  if (controllerToken && Date.now() + 10000 < controllerExpiry) return controllerToken;
+  const response = await fetch(`${config.oidcIssuer}/protocol/openid-connect/token`, { method: 'POST', body: new URLSearchParams({ grant_type: 'client_credentials', client_id: 'test-controller', client_secret: controller }) });
+  assert.equal(response.status, 200, 'test controller authentication');
+  const result = await response.json();controllerToken = result.access_token;controllerExpiry = Date.now() + result.expires_in * 1000;
+  return controllerToken;
+}
 async function admin(path, options = {}) {
-  const response = await fetch(`${base}/admin/realms/${realm}${path}`, { ...options, headers: { Authorization: `Bearer ${controllerToken}`, 'Content-Type': 'application/json' } });
+  const response = await fetch(`${base}/admin/realms/${realm}${path}`, { ...options, headers: { Authorization: `Bearer ${await controllerAccess()}`, 'Content-Type': 'application/json' } });
   assert.ok(response.ok, `test realm admin API: ${response.status}`);
   return response.status === 204 ? undefined : response.json();
 }
@@ -56,6 +62,31 @@ try {
     assert.ok(!/refresh_token|access_token|id_token|clientSecret/.test(body), 'session DTO contains no OIDC credentials');
     await page.screenshot({ path: `${output}/${username}.png`, fullPage: true });
     checks.push(`${username}: browser, API gates, session cookie, no local bypass`);
+  }
+  if (process.env.ORCH_LOCAL_TEST_ADMIN_USERNAME) {
+    const localConfig = { ...config, authMode: 'local', username: process.env.ORCH_LOCAL_TEST_ADMIN_USERNAME,
+      password: readPrivateFile(process.env.ORCH_LOCAL_TEST_ADMIN_PASSWORD_FILE) };
+    const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    await context.addInitScript(() => localStorage.setItem('orchestrator.locale', 'vi'));
+    let providerRequests = 0;
+    context.on('request', (request) => { if (new URL(request.url()).origin === issuer.origin) providerRequests++; });
+    const page = await context.newPage();
+    sessions.push({ context, page, config: localConfig });
+    await ensureSignedIn(page, localConfig, { role: 'ADMIN' });
+    const response = await page.request.get(`${config.baseURL}/api/v1/auth/session`);
+    const { user } = await response.json();
+    assert.equal(user.AuthProvider, 'local');assert.equal(user.UserManagement, false);
+    assert.equal(providerRequests, 0, 'local login must make no Keycloak requests');
+    assert.equal((await page.request.get(`${config.baseURL}/api/v1/users`)).status(), 403);
+    assert.equal((await page.request.post(`${config.baseURL}/api/v1/users`, { data: {} })).status(), 403);
+    assert.equal(await page.getByRole('link', { name: 'Người dùng', exact: true }).count(), 0);
+    await page.getByRole('button', { name: 'Đổi mật khẩu', exact: true }).click();
+    await page.getByRole('heading', { name: 'Đổi mật khẩu', exact: true }).waitFor();
+    const badCurrent = await page.request.post(`${config.baseURL}/api/v1/auth/change-password`, { data: { currentPassword: 'deliberately-wrong', newPassword: 'not-applied-test-password', confirmPassword: 'not-applied-test-password' } });
+    assert.equal(badCurrent.status(), 401);assert.equal((await badCurrent.json()).code, 'INVALID_CREDENTIALS');
+    assert.equal((await page.request.get(`${config.baseURL}/api/v1/auth/session`)).status(), 200);
+    await page.screenshot({ path: `${output}/local-admin.png`, fullPage: true });
+    checks.push('same Console: only personal local Admin uses password; no Keycloak request; employee management remains blocked');
   }
   let noRoleRejected = false;
   try { const unexpected = await signInContext(browser, accountConfig('no-role')); sessions.push({ ...unexpected, config: accountConfig('no-role') }); }

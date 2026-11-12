@@ -47,3 +47,11 @@ retrying. Do not run against a shared/company realm.
 Screenshots and safe `result.json` remain outside Git; no traces/storage-state or
 provider responses are saved. A PASS proves this installation/path at run time,
 not company realm compatibility, HA, or every tailnet client's ACL access.
+
+For SSO-07, also set `ORCH_LOCAL_TEST_ADMIN_USERNAME` and
+`ORCH_LOCAL_TEST_ADMIN_PASSWORD_FILE` to the operator-bootstrapped personal local
+Admin. The same Console must advertise localLoginAllowed. The scenario verifies
+local login without any provider requests, UserManagement=false, blocked employee
+APIs, and the own-password form. It submits a deliberately incorrect current
+password to confirm local verification without changing the real password. The
+local context is signed out in cleanup; its account/password are preserved.

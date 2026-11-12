@@ -2428,7 +2428,9 @@ Implemented on `features/keycloak`, awaiting acceptance. UC-00 adds configured
 OIDC Authorization Code + PKCE with backend-owned tokens and the existing opaque
 session cookie. Issuer/subject identity persists through schema version 11; no
 old-account migration/linking. Three client roles map to existing backend/UI
-authorization. Local account/password management is disabled in OIDC mode.
+authorization. Employee account management is disabled in OIDC mode. SSO-07 optionally admits
+one configured personal local Admin for fast testing on the same Console; only
+its own password change is allowed, and every other employee still requires SSO.
 
 Dedicated Keycloak/PostgreSQL browser acceptance passed for all three roles,
 missing-role rejection, active-session promotion/demotion, user disabling and

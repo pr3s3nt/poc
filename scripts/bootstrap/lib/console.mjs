@@ -28,7 +28,7 @@ export function readConsoleConfig(env = process.env, { defaultPassword } = {}) {
   if (!username) throw new ConsoleError('Thiếu ORCH_PLATFORM_USERNAME, ví dụ platform-engineer');
   const passwordFile = (env.ORCH_PLATFORM_PASSWORD_FILE ?? '').trim();
   if (!passwordFile && !defaultPassword) throw new ConsoleError('Thiếu ORCH_PLATFORM_PASSWORD_FILE: đường dẫn file chỉ chứa mật khẩu');
-  return { baseURL: url.origin, username, password: passwordFile ? readPrivateFile(passwordFile, 'mật khẩu') : defaultPassword, oidcIssuer: env.ORCH_OIDC_ISSUER, headless: env.ORCH_HEADLESS === '1' };
+  return { baseURL: url.origin, username, password: passwordFile ? readPrivateFile(passwordFile, 'mật khẩu') : defaultPassword, authMode: env.ORCH_AUTH_MODE, oidcIssuer: env.ORCH_OIDC_ISSUER, headless: env.ORCH_HEADLESS === '1' };
 }
 
 // A second account of the same Console (for example the developer next to the
@@ -73,7 +73,10 @@ export async function ensureSignedIn(page, config, { role } = {}) {
     const form = page.locator('form.sign-in-form');
     const authConfig = await page.request.get(`${config.baseURL}/api/v1/auth/config`);
     if (!authConfig.ok()) throw new ConsoleError('Không đọc được cấu hình đăng nhập');
-    const { mode } = await authConfig.json();
+    const auth = await authConfig.json();
+    const mode = config.authMode === 'local' && auth.mode === 'oidc' && auth.localLoginAllowed === true ? 'local' : auth.mode;
+    if (config.authMode === 'local' && auth.mode === 'oidc' && auth.localLoginAllowed !== true) throw new ConsoleError('Local test login không được bật');
+    if (mode === 'local' && auth.mode === 'oidc') await form.locator('details summary').click();
     if (mode === 'oidc') {
       if (!config.oidcIssuer) throw new ConsoleError('SSO cần ORCH_OIDC_ISSUER để xác nhận nơi nhập mật khẩu');
       const issuer = new URL(config.oidcIssuer);

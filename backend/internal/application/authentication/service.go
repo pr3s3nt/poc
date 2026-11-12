@@ -52,6 +52,7 @@ type Identity struct {
 	UserID, OrganizationKey, Username string
 	Role                              identity.Role
 	AuthProvider                      string
+	UserManagement                    bool
 }
 type Service struct {
 	federation *Federation
@@ -77,11 +78,11 @@ func (s *Service) accepted(account identity.UserAccount) bool {
 }
 
 func (s *Service) SignIn(ctx context.Context, username, rawPassword string) (string, Identity, error) {
-	if s.OIDCEnabled() {
+	if s.OIDCEnabled() && !strings.EqualFold(strings.TrimSpace(username), s.federation.LocalTestAdminUsername) {
 		return "", Identity{}, ErrForbidden
 	}
 	account, err := s.store.GetUserAccountByUsername(ctx, strings.ToLower(strings.TrimSpace(username)))
-	if err != nil || !s.accepted(account) || account.OIDCIssuer != "" || !password.Verify(account.PasswordHash, rawPassword) {
+	if err != nil || !s.accepted(account) || !s.localAccountAllowed(account) || !password.Verify(account.PasswordHash, rawPassword) {
 		return "", Identity{}, ErrInvalidCredentials
 	}
 	return s.newSession(ctx, account)
@@ -97,7 +98,7 @@ func (s *Service) newSession(ctx context.Context, account identity.UserAccount) 
 	if err := s.store.Transact(ctx, func(ctx context.Context) error { return s.store.SaveSession(ctx, session) }); err != nil {
 		return "", Identity{}, err
 	}
-	return token, Identity{UserID: account.ID, OrganizationKey: account.OrganizationKey, Username: account.Username, Role: account.Role, AuthProvider: "local"}, nil
+	return token, s.localIdentity(account), nil
 }
 func (s *Service) IdentityForToken(ctx context.Context, token string) (Identity, error) {
 	session, err := s.store.GetSessionByTokenHash(ctx, hashToken(token))
@@ -111,10 +112,10 @@ func (s *Service) IdentityForToken(ctx context.Context, token string) (Identity,
 	if account.OIDCIssuer != "" {
 		return s.externalIdentity(ctx, token, account)
 	}
-	if s.OIDCEnabled() {
+	if !s.localAccountAllowed(account) {
 		return Identity{}, ErrUnauthorized
 	}
-	return Identity{UserID: account.ID, OrganizationKey: account.OrganizationKey, Username: account.Username, Role: account.Role, AuthProvider: "local"}, nil
+	return s.localIdentity(account), nil
 }
 func (s *Service) SignOut(ctx context.Context, token string) error {
 	s.revokeExternal(ctx, token, true)
@@ -142,7 +143,10 @@ func (s *Service) revokeSession(ctx context.Context, token string) error {
 // successful change ends all sign-ins including the current one (BR-08).
 func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
 	if s.OIDCEnabled() {
-		return ErrForbidden
+		account, err := s.store.GetUserAccount(ctx, userID)
+		if err != nil || !s.localAccountAllowed(account) {
+			return ErrForbidden
+		}
 	}
 	if len(newPassword) < MinPasswordLength {
 		return ErrInvalidPassword
@@ -281,4 +285,21 @@ func (s *Service) BootstrapAdmin(ctx context.Context, organizationKey, username,
 func hashToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
+}
+
+// LocalTestLoginAllowed advertises availability, never the configured username.
+func (s *Service) LocalTestLoginAllowed() bool {
+	return s.federation != nil && s.federation.LocalTestAdminUsername != ""
+}
+func (s *Service) localAccountAllowed(a identity.UserAccount) bool {
+	if a.OIDCIssuer != "" || a.OIDCSubject != "" {
+		return false
+	}
+	if s.federation == nil {
+		return true
+	}
+	return s.LocalTestLoginAllowed() && a.Username == s.federation.LocalTestAdminUsername && a.Role == identity.RoleAdmin && a.OrganizationKey == s.federation.OrganizationKey
+}
+func (s *Service) localIdentity(a identity.UserAccount) Identity {
+	return Identity{UserID: a.ID, OrganizationKey: a.OrganizationKey, Username: a.Username, Role: a.Role, AuthProvider: "local", UserManagement: !s.OIDCEnabled()}
 }

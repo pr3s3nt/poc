@@ -180,3 +180,81 @@ func TestOIDCReplacingCookieDoesNotRevokeNewProviderGrant(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+func TestOIDCOnlyConfiguredLocalAdminMayUsePassword(t *testing.T) {
+	owner := identity.UserAccount{ID: "owner", OrganizationKey: "acme", Username: "local-admin", Role: identity.RoleAdmin, Status: identity.AccountActive}
+	other := owner
+	other.ID = "other"
+	other.Username = "other-admin"
+	member := developer
+	s, _ := newTestService(t, owner, other, member)
+	provider := &providerStub{}
+	s.EnableOIDC(&Federation{Provider: provider, Issuer: "https://idp.test", OrganizationKey: "acme", LocalTestAdminUsername: "local-admin"})
+	ctx := context.Background()
+	token, who, err := s.SignIn(ctx, "LOCAL-ADMIN", "test-password")
+	if err != nil || who.AuthProvider != "local" || who.Role != identity.RoleAdmin || who.UserManagement {
+		t.Fatal("configured local admin", who, err)
+	}
+	if restored, err := s.IdentityForToken(ctx, token); err != nil || restored != who {
+		t.Fatal("local restore", err)
+	}
+	for _, name := range []string{"developer", "other-admin"} {
+		if _, _, err := s.SignIn(ctx, name, "test-password"); !errors.Is(err, ErrForbidden) {
+			t.Fatal("non-allowlisted account admitted", name, err)
+		}
+	}
+	if _, err := s.ListUsers(ctx, who); !errors.Is(err, ErrForbidden) {
+		t.Fatal("local Admin gained employee management", err)
+	}
+	if _, err := s.CreateUser(ctx, who, "employee", "password-1", identity.RoleDeveloper); !errors.Is(err, ErrForbidden) {
+		t.Fatal("created local employee", err)
+	}
+	if err := s.ResetUserPassword(ctx, who, other.ID, "password-1"); !errors.Is(err, ErrForbidden) {
+		t.Fatal("reset employee password", err)
+	}
+	if provider.refreshes != 0 {
+		t.Fatal("local password touched Keycloak")
+	}
+	if err := s.ChangePassword(ctx, owner.ID, "test-password", "new-test-password"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.IdentityForToken(ctx, token); err == nil {
+		t.Fatal("password change failed to revoke local session")
+	}
+	if _, _, err := s.SignIn(ctx, "local-admin", "new-test-password"); err != nil {
+		t.Fatal(err)
+	}
+}
+func TestOIDCLocalAdminSessionCannotSurviveLossOfEligibility(t *testing.T) {
+	for _, kind := range []string{"disabled-config", "role", "status", "organization", "external"} {
+		t.Run(kind, func(t *testing.T) {
+			owner := identity.UserAccount{ID: "owner", OrganizationKey: "acme", Username: "local-admin", Role: identity.RoleAdmin, Status: identity.AccountActive}
+			s, st := newTestService(t, owner)
+			s.EnableOIDC(&Federation{Provider: &providerStub{}, Issuer: "https://idp.test", OrganizationKey: "acme", LocalTestAdminUsername: "local-admin"})
+			token, _, err := s.SignIn(context.Background(), "local-admin", "test-password")
+			if err != nil {
+				t.Fatal(err)
+			}
+			account, _ := st.GetUserAccount(context.Background(), owner.ID)
+			switch kind {
+			case "disabled-config":
+				s.federation.LocalTestAdminUsername = ""
+			case "role":
+				account.Role = identity.RoleDeveloper
+			case "status":
+				account.Status = identity.AccountDisabled
+			case "organization":
+				account.OrganizationKey = "other"
+			case "external":
+				account.OIDCIssuer = "https://idp.test"
+				account.OIDCSubject = "subject"
+			}
+			if err := st.SaveUserAccount(context.Background(), account); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.IdentityForToken(context.Background(), token); !errors.Is(err, ErrUnauthorized) {
+				t.Fatal("ineligible local session accepted", err)
+			}
+		})
+	}
+}
