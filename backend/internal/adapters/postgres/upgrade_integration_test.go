@@ -501,6 +501,11 @@ func retainedFingerprints(t *testing.T, url string) map[string]string {
 	result := map[string]string{}
 	for _, table := range tables {
 		expr := `to_jsonb(t)`
+		if table == "user_accounts" {
+			// Compare every retained pre-v11 field. Additive identity defaults
+			// are checked separately by TestOIDCUpgradeFromPopulatedVersionTen.
+			expr += ` - 'oidc_issuer' - 'oidc_subject'`
+		}
 		if table == "active_resources" {
 			expr += ` - 'catalog_source' - 'catalog_tag' - 'catalog_definition_key'`
 		}
