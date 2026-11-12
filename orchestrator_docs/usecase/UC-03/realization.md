@@ -221,3 +221,12 @@ Saved source provenance (SP-01–03): the Console resolves the stored exact pin
 against verified capability/template-source metadata, renders its origin read-only
 and keeps the existing save payload. Explicit Change source reveals preparation/
 selection; no GET or reopening causes source preparation or revision mutation.
+
+
+## Document registration — issue #76
+
+Console parse một YAML/JSON document thành body JSON strict. HTTP import boundary
+kiểm role/size/DTO; catalog dùng validation đăng ký hiện có, chuẩn hóa public
+contract và so sánh key scoped Organization. Insert-only registration giữ unique
+constraint làm chốt race; duplicate được đọc/so sánh lại, không upsert. Export là
+projection public authoring từ Type hoặc Definition revision, không thêm entity.

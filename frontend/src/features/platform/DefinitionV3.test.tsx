@@ -18,7 +18,7 @@ describe('Resource Definition v3 task layout', () => {
     renderDefinition(<ResourceDefinitionsPage />);
     await waitFor(() => expect(screen.getByRole('option', { name: 'vpc' })).toBeEnabled());
     await user.selectOptions(field('Loại tài nguyên'), 'k8s-namespace');
-    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(within(screen.getByRole('tablist', { name: 'Tác vụ cấu hình tài nguyên' })).getAllByRole('tab')).toHaveLength(2);
     expect(screen.getByText('Thiết lập nâng cao · ánh xạ & tài nguyên liên quan').closest('details')).not.toHaveAttribute('open');
     await completeDefinition(user, { id: 'ns-v3', type: 'k8s-namespace' });
     await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên đi kèm' }));

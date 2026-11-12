@@ -43,3 +43,15 @@ Chi tiết Type có nút **Thêm output** (ẩn với `workload` và với vai t
 được phép). Form gồm các dòng name, type, “Bí mật”; không có “Bắt buộc” vì
 output mới luôn tuỳ chọn. Output hiện có hiện chỉ đọc. Trợ giúp ngắn: output
 mới không bắt buộc; Definition cần revision mới để cung cấp nó.
+
+
+## Nhập/xuất — issue #76
+
+Theo phản hồi nghiệm thu, giữ shell/form hiện hành trong tab Biểu mẫu; tab
+Nhập YAML/JSON bên cạnh chứa cả file picker và
+textarea có nhãn, nút Đăng ký; upload điền editor trước khi submit. Busy khóa
+editor/upload/submit và chuyển tab; hai bản nháp được giữ khi chuyển tab.
+Definition đặt hai tab trong luồng Tạo cấu hình, không hiện import khi sửa.
+Lỗi giữ nội dung, status CREATED/REUSED/CONFLICT rõ ràng.
+CONFLICT hiện field paths không hiện values. Tải file nằm tại chi tiết schema
+hoặc Definition và từng revision. Trợ giúp định dạng nằm trong disclosure.

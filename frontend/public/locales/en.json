@@ -4173,5 +4173,21 @@
   "workloads.envfile.error.binding": "Line {line}: invalid value or reference target.",
   "workloads.envfile.error.metadata": "Line {line}: load metadata to verify the reference.",
   "workloads.envfile.up": "Move row {row} up",
-  "workloads.envfile.down": "Move row {row} down"
+  "workloads.envfile.down": "Move row {row} down",
+  "catalogDocument.title": "Import YAML/JSON",
+  "catalogDocument.file": "Choose file",
+  "catalogDocument.content": "YAML/JSON content",
+  "catalogDocument.help": "Format",
+  "catalogDocument.format": "One registration API body, UTF-8, up to 1 MiB. Prepare sources and references before importing.",
+  "catalogDocument.register": "Register",
+  "catalogDocument.download": "Download file",
+  "catalogDocument.size": "Content exceeds 1 MiB.",
+  "catalogDocument.single": "Import one document only.",
+  "catalogDocument.syntax": "Invalid syntax or duplicate key. Check YAML/JSON.",
+  "catalogDocument.object": "Content must be an object.",
+  "catalogDocument.extension": "Choose a .yaml, .yml or .json file.",
+  "catalogDocument.utf8": "File must use UTF-8.",
+  "catalogDocument.failed": "Registration failed. Check data and references.",
+  "catalogDocument.form": "Form",
+  "catalogDocument.method": "Registration method"
 }

@@ -1,3 +1,5 @@
+import { CatalogEntryTabs } from './CatalogEntryTabs';
+import { downloadDocument } from './catalogDocument';
 import { useRef, useState, type FormEvent } from 'react';
 import { specificGuidance, fieldNote } from '../../shared/api/errors';
 import { href, navigate } from '../../app/routes';
@@ -140,7 +142,7 @@ export function ResourceTypesPage() {
         {rule ? <a className="button" href={href({ name: 'resource-definitions', resourceType: type.key })} aria-label={t('platform.resourceTypes.createAResourceDefinitionFor', { key: type.key })} onClick={(event) => { event.preventDefault(); navigate({ name: 'resource-definitions', resourceType: type.key }); }}>{t('platform.resourceTypes.createResourceDefinition')}</a> : null}
       </div></div>
       {open ? <section className="catalog-details" aria-label={t('platform.resourceTypes.schemaOfKey', { key: type.key })}>
-        <h3>{t('platform.resourceTypes.inputs')}</h3>{inputList.length === 0 ? <p className="muted">{t('platform.resourceTypes.noInputParametersDeclared')}</p> : <SchemaTable label={t('platform.resourceTypes.inputsOfKey', { key: type.key })} fields={inputList} secret={false} />}
+        <Button type="button" onClick={() => downloadDocument('resource-types', type)}>{t('catalogDocument.download')}</Button><h3>{t('platform.resourceTypes.inputs')}</h3>{inputList.length === 0 ? <p className="muted">{t('platform.resourceTypes.noInputParametersDeclared')}</p> : <SchemaTable label={t('platform.resourceTypes.inputsOfKey', { key: type.key })} fields={inputList} secret={false} />}
         <h3>{t('platform.resourceTypes.outputs')}</h3>{outputList.length === 0 ? <p className="muted">{t('platform.resourceTypes.noOutputParametersDeclared')}</p> : <SchemaTable label={t('platform.resourceTypes.outputsOfKey', { key: type.key })} fields={outputList} secret />}
         <div className="form-actions"><Button type="button" disabled={saving} aria-label={t('platform.resourceTypes.copySchemaKey', { key: type.key })} onClick={() => copySchema(type)}>{t('platform.resourceTypes.copySchema')}</Button>
           {type.key !== 'workload' && adding !== type.key ? <Button type="button" disabled={addSaving} aria-label={t('platform.resourceTypes.addOutputsToKey', { key: type.key })} onClick={() => startAdding(type.key)}>{t('platform.resourceTypes.addOutputs')}</Button> : null}</div>
@@ -159,6 +161,7 @@ export function ResourceTypesPage() {
       {capabilityList.loadError ? <div className="form-error" role="alert" aria-label={t('platform.resourceTypes.supportMetadataLoadError')}>{capabilityList.loadError} {' '}{t('platform.resourceTypes.itCouldNotBeConfirmed')}{' '} <Button type="button" onClick={() => void capabilityList.reload()}>{t('platform.resourceTypes.retry')}</Button></div> : null}
       {addNotice ? <div className="form-success" role="status">{addNotice}</div> : null}
       {loadError ? <div className="form-error" role="alert" aria-label={t('platform.resourceTypes.listLoadError')}>{loadError} <Button type="button" onClick={() => void reload()}>{t('platform.resourceTypes.retry')}</Button></div> : loading ? <p role="status">{t('platform.resourceTypes.loadingResourceTypes')}</p> : types.length === 0 ? <p>{t('platform.resourceTypes.noResourceTypesYet')}</p> : <div className="catalog-list">{types.map(renderEntry)}</div>}</section>
+    <CatalogEntryTabs kind="resource-types" onRegistered={reload} disabled={saving}>
     <section className="content-panel"><div className="section-header"><div><h2>{t('platform.resourceTypes.registerResourceType')}</h2><p>{t('platform.resourceTypes.theContractIsIndependentOf')}</p></div></div>
       <form onSubmit={submit}><fieldset className="editor-grid form-fieldset" disabled={saving} aria-busy={saving}><label>{t('platform.resourceTypes.resourceTypeID')}<input ref={idField} value={key} required aria-describedby="resource-type-id-hint" onChange={(event) => setKey(event.target.value)} /></label>
         <p id="resource-type-id-hint" className="feature-note">{t('platform.resourceTypes.useLowercaseLettersDigitsAnd')}{' '} <code>postgres-ha</code>{t('platform.resourceTypes.theIDIsNeverCorrected')}{' '} <code>environment</code> {' '}{t('platform.resourceTypes.and')}{' '} <code>service</code> {' '}{t('platform.resourceTypes.areReservedIDs')}</p>
@@ -167,5 +170,6 @@ export function ResourceTypesPage() {
         {error ? <div className="form-error" role="alert">{error}</div> : null}{notice ? <div className="form-success" role="status">{notice}</div> : null}<div className="form-actions"><Button type="submit" tone="primary" disabled={saving}>{saving ? t('platform.resourceTypes.registering') : t('platform.resourceTypes.registerResourceType')}</Button></div>
       </fieldset></form>
     </section>
+    </CatalogEntryTabs>
   </section>;
 }

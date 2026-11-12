@@ -571,3 +571,23 @@ provenance when opened; changing source explicitly uses Git. Endpoint and
 existing-cluster configuration keep their existing behavior. Backend source APIs,
 source validation, Catalog APIs and existing stored revisions are unchanged.
 This UI restriction supersedes earlier multi-source Console choices only.
+
+
+## Nhập/xuất document — issue #76
+
+- **FILE-01:** PE/Admin nhập một body đăng ký bằng YAML/JSON, qua upload hoặc
+  nhập/dán. UTF-8, tối đa 1 MiB; không wrapper, nhiều document, duplicate key,
+  unknown/system/retired fields hoặc scalar không biểu diễn được bằng JSON
+  (như số vô hạn/NaN). Upload hiện trong editor và sửa được; lỗi giữ draft.
+- **FILE-02:** Validation dùng contract đăng ký hiện có, gồm source pin/tham chiếu
+  chuẩn bị trước. Không inspect Git hoặc provision/deploy khi import.
+- **FILE-03:** Key mới trả CREATED; cấu hình tương đương sau chuẩn hóa contract
+  trả REUSED; khác trả CONFLICT với đường dẫn field khác biệt, không trả giá trị.
+  Reuse/conflict không ghi record, revision hoặc association. Race insert kiểm lại
+  bản thắng; không replay mutation có kết quả chưa rõ.
+- **FILE-04:** Tải YAML body có thể nhập lại, chỉ public authoring fields; bỏ
+  version/revisionId/sourceFingerprint/renderPin, credential và giá trị secret.
+  Giữ source pin, symbolic refs. Definition xuất đúng revision đang hiển thị và
+  ghi revision ở tên file/nút; round-trip không đổi trả REUSED.
+- **FILE-05:** Không thay form, matching, binding, Preview/Deploy hay mặc định
+  của Type; fallback/override và dependency tuân contract hiện có.

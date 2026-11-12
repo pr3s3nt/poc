@@ -316,3 +316,14 @@ the default view; Nhập từ file .env opens text editing, with Quay lại bả
 There is no UI tab label. Grammar/help is a
 disclosure; errors and independent Secret commit boundary remain visible where
 needed. [UC-16 screens](../../usecase/UC-16/ui/screens.md) owns the extension.
+
+
+## Catalog registration methods — issue #76 acceptance feedback
+
+Resource Type registration and the Definition creation editor use adjacent
+Biểu mẫu / Nhập YAML/JSON tabs, inheriting the existing tabs and panel styles.
+The second tab contains both upload and paste/edit. Keep both drafts mounted
+across switches, use named tablist/tab/tabpanel relations and arrow/Home/End
+keyboard navigation; disable method changes during registration/upload. Definition
+edit keeps its existing form without a new registration import entry. Format help
+remains a disclosure within the import panel; no shell/navigation change.

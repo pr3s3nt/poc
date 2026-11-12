@@ -263,3 +263,13 @@ define the persisted timeline and Recovery checks.
 [verification and main baseline limits](verification/2026-11-11-workload-envfile.md).
 Integrated into main after acceptance; see the
 [merge/deployment record](verification/2026-11-11-envfile-main.md).
+
+## Catalog document registration — issue #76
+
+[Hướng dẫn viết và nhập file Type/Definition](operations/resource-catalog-files.md):
+mẫu YAML/JSON, source pins, mapping, criteria, fallback và cách dùng tab nhập.
+
+[UC-02 FILE](usecase/UC-02/specification.md#nhậpxuất-document--issue-76),
+[UC-03 FILE](usecase/UC-03/specification.md#nhậpxuất-document--issue-76),
+[browser scenarios](../e2e/scenarios/catalog-document/README.md) and
+[verification / full-suite baseline limits](verification/2026-11-12-catalog-documents.md).
