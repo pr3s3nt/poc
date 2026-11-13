@@ -43,3 +43,8 @@ mở rộng đang review; chưa thay thế current behavior hoặc chứng minh 
 ## Nhập .env — issue #72
 
 [Specification](envfile-specification.md) sở hữu hai tab đồng bộ và grammar.
+
+## User Guide trong Console — issue #82
+
+[GUIDE-01–03](user-guide-specification.md) định nghĩa entry, nội dung và phạm vi
+bài hướng dẫn biến môi trường, tại `/ui/user-guide`.

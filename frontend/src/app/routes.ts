@@ -3,6 +3,7 @@ export type TelemetryRouteQuery = { from?: string; to?: string; workload?: strin
 export type Route =
   | { name: 'sign-in' }
   | { name: 'applications' }
+  | { name: 'user-guide' }
   | { name: 'resource-types' }
   | { name: 'resource-definitions'; resourceType?: string }
   | { name: 'driver-accounts'; account?: string; tab?: 'diagnose'; purpose?: 'use-case'; report?: string }
@@ -36,6 +37,7 @@ export function parseRoute(path = window.location.pathname): Route {
   const relative = pathname.startsWith(base) ? pathname.slice(base.length) || '/' : pathname;
   if (relative === '/' || relative === '/sign-in') return { name: 'sign-in' };
   if (relative === '/applications') return { name: 'applications' };
+  if (relative === '/user-guide') return { name: 'user-guide' };
   if (relative === '/platform/resource-types') return { name: 'resource-types' };
   if (relative === '/platform/resource-definitions') {
     // Raw query value: the page validates it against the loaded catalog (T04).
@@ -98,6 +100,7 @@ export function href(route: Route): string {
   switch (route.name) {
     case 'sign-in': return `${base}/sign-in`;
     case 'applications': return `${base}/applications`;
+    case 'user-guide': return `${base}/user-guide`;
     case 'resource-types': return `${base}/platform/resource-types`;
     case 'resource-definitions': return `${base}/platform/resource-definitions${route.resourceType ? `?resourceType=${encodeURIComponent(route.resourceType)}` : ''}`;
     case 'driver-accounts': {

@@ -327,3 +327,12 @@ across switches, use named tablist/tab/tabpanel relations and arrow/Home/End
 keyboard navigation; disable method changes during registration/upload. Definition
 edit keeps its existing form without a new registration import entry. Format help
 remains a disclosure within the import panel; no shell/navigation change.
+
+## User Guide — issue #82
+
+Sidebar thêm **Hướng dẫn sử dụng / User Guide**, `/ui/user-guide`, dùng cho mọi
+vai trò đã đăng nhập. Dùng icon sách cùng hệ SVG, active link và collapsed rail
+hiện hành. Chỉ bài biến môi trường được xuất bản; giữ các mục platform và role
+gates. [UC-16 GUIDE](../../usecase/UC-16/user-guide-specification.md) sở hữu scope.
+Trang hướng dẫn là nơi đọc tài liệu theo tác vụ; không mở rộng nội dung trợ giúp
+mặc định trên các màn hình thao tác.

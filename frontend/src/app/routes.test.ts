@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { href, parseRoute } from './routes';
 
 describe('console routes', () => {
+  it('round trips the authenticated User Guide entry', () => {
+    expect(href({ name: 'user-guide' })).toBe('/ui/user-guide');
+    expect(parseRoute('/ui/user-guide')).toEqual({ name: 'user-guide' });
+  });
   it('parses the public application routes under the UI base path', () => {
     expect(parseRoute('/ui/sign-in')).toEqual({ name: 'sign-in' });
     expect(parseRoute('/ui/applications')).toEqual({ name: 'applications' });

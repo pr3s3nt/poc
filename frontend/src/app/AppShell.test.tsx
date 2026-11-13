@@ -6,6 +6,15 @@ import { AppShell } from './AppShell';
 afterEach(() => { vi.restoreAllMocks(); window.localStorage.clear(); });
 const props = { onSignOut: vi.fn(), username: 'platform-engineer', role: 'PLATFORM_ENGINEER', activeRoute: 'application' };
 
+it.each(['ADMIN', 'PLATFORM_ENGINEER', 'DEVELOPER'])('makes User Guide available in the collapsed rail for %s', role => {
+  window.localStorage.setItem('orchestrator.sidebar.collapsed', 'true');
+  render(<AppShell {...props} role={role} activeRoute="user-guide">Guide</AppShell>);
+  const link = screen.getByRole('link', { name: 'Hướng dẫn sử dụng' });
+  expect(link).toHaveAttribute('href', '/ui/user-guide');
+  expect(link).toHaveAttribute('title', 'Hướng dẫn sử dụng');
+  expect(link).toHaveAttribute('aria-current', 'page');
+});
+
 it('collapses by keyboard, preserves the mounted draft and keeps navigation and sign-out named', async () => {
   const user = userEvent.setup();
   const { container } = render(<AppShell {...props}><input aria-label="Draft" defaultValue="" /></AppShell>);

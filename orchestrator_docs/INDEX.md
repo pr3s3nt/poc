@@ -283,3 +283,9 @@ records the complete baseline comparison, preserved data and post-rollout checks
 [prepare/export API](usecase/UC-03/ui/api-mapping.md#git-document-preparationexport--issue-79)
 and [file authoring guide](operations/resource-catalog-files.md) cover
 url/ref/path authoring, explicit check then pinned registration and portable Git exports.
+
+## User Guide trong Console — issue #82
+
+[GUIDE-01–03](usecase/UC-16/user-guide-specification.md) và
+[browser scenario](../e2e/scenarios/user-guide/README.md): mục Hướng dẫn sử dụng
+trong sidebar, trước mắt chỉ bài viết/nhập biến môi trường, .env và Secret.

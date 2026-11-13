@@ -788,3 +788,33 @@ fieldset.volume-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 .env-entry-name { display:flex; align-items:center; gap:8px; }
 .env-entry-name > input[type=checkbox] { width:auto; flex:none; }
 .env-entry-name > input:not([type=checkbox]) { min-width:0; flex:1; }
+
+/* User Guide reuses the Console panels, typography and sidebar. */
+.guide-page .page-header h1 { margin-top:0; }
+.guide-layout { display:grid; grid-template-columns:220px minmax(0,1fr); align-items:start; gap:24px; }
+.guide-contents { position:sticky; top:24px; font-size:14px; }
+.guide-contents h2 { font-size:16px; margin:0 0 16px; }
+.guide-contents ul { padding-left:20px; margin-bottom:0; }
+.guide-contents li { margin:10px 0; }
+.guide-contents a { color:var(--blue); text-decoration:none; }
+.guide-contents a:hover { text-decoration:underline; }
+.guide-article { min-width:0; line-height:1.7; overflow-wrap:anywhere; }
+.guide-article > h2 { margin-top:0; font-size:24px; }
+.guide-section { margin-top:32px; }
+.guide-section h3 { font-size:18px; margin:0 0 12px; }
+.guide-section h3,.guide-article > h2 { scroll-margin-top:24px; }
+.guide-section li { margin:8px 0; }
+.guide-section pre { max-width:100%; overflow-x:auto; padding:16px; background:var(--canvas); border:1px solid var(--border); border-radius:6px; line-height:1.65; font-size:13px; }
+.guide-table-scroll { max-width:100%; overflow-x:auto; }
+.guide-table-scroll table { width:100%; border-collapse:collapse; font-size:14px; }
+.guide-table-scroll caption { text-align:left; color:var(--muted); margin-bottom:12px; }
+.guide-table-scroll th,.guide-table-scroll td { padding:10px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; }
+.guide-table-scroll th { font-weight:600; }
+.guide-table-scroll code { white-space:nowrap; }
+.guide-section dt { font-weight:600; margin-top:16px; }
+.guide-section dd { margin:4px 0 0; }
+@media (max-width:1100px) {
+  .guide-layout { grid-template-columns:minmax(0,1fr); }
+  .guide-contents { position:static; }
+  .guide-contents ul { display:flex; flex-wrap:wrap; gap:0 24px; }
+}

@@ -1665,3 +1665,11 @@ separate in the Environment rollback verification record.
 | UC-03 GFILE-03 | Canonical immutable pin plus draft/scope invalidation | CatalogDocumentImport; component late-reply/upload/edit tests; TestGitDocumentPreparePinsBranchWithoutDefinitionWritesAndRoundTrips |
 | UC-03 GFILE-04 | Metadata-only scoped export of exact revision | ExportDefinitionDocument; DefinitionDocumentDownload; scoped/revision/download tests and real Git MongoDB round-trip |
 | UC-03 GFILE-05 | Existing insert-only import and normalized comparison | Existing document_import tests; real CREATED/REUSED/CONFLICT/history invariance scenario |
+
+## User Guide — issue #82
+
+| Requirement | Implementation | Validation |
+|---|---|---|
+| [UC-16 GUIDE-01–03](../usecase/UC-16/user-guide-specification.md) | AppShell, routes/App, UserGuidePage, VI/EN catalogs | AppShell/App/routes and UserGuidePage tests; [real browser](../../e2e/scenarios/user-guide/README.md) |
+
+The guide only explains ENVFILE/UC-12 behavior; it adds no API or persistence.

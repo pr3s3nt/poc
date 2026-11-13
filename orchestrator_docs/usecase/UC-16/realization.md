@@ -171,3 +171,11 @@ retains invalid text and blocks stale table edits/Save. File merge requires revi
 Bulk confirmation calls existing UC-12 create-only sequentially, advances config
 version per success, replaces only successful rows and stops uncertain mutation.
 Existing save/provenance/Preview/Deploy contracts are unchanged.
+
+## Read-only User Guide — issue #82
+
+[GUIDE-01–03](user-guide-specification.md): AppShell links to the authenticated
+`/ui/user-guide` route; App renders the catalog-backed UserGuidePage. The page
+reads no workload/configuration API and performs no mutation. The article
+explains the existing UC-16 editor and UC-12 create-only Secret boundary; those
+collaborations, contracts, sequence and persistence are unchanged.

@@ -307,3 +307,15 @@ mặc định giữ. Checkbox literal đánh dấu draft, toolbar chọn nhiều
 dấu Bí mật. Xác nhận Secret chung hiển thị tên/result mỗi dòng và boundary commit,
 không lặp value. Reference secrecy read-only. Dùng shared Button/Dialog,
 VI/EN, focus/keyboard hiện hành. [Grammar](../envfile-specification.md).
+
+## User Guide — issue #82
+
+Theo [GUIDE-01–03](../user-guide-specification.md), `/ui/user-guide` nằm trong
+AppShell, mọi vai trò đã đăng nhập. Header Hướng dẫn sử dụng; mục lục bài chỉ có
+Viết và nhập biến môi trường. Bài có mục lục anchor theo tác vụ, nội dung đọc
+trong content-panel hiện hành, section heading và ví dụ code cuộn ngang trong
+khung. Dùng khoảng cách/màu/typography shell; không thêm nút mutation, banner
+hoặc chương chưa có nội dung. Các lỗi thường gặp ở cuối bài, linked từ mục lục.
+Nhãn/nội dung theo VI/EN catalogs, technical syntax giữ nguyên. Anchor có focus
+bàn phím, title/active link của sidebar giữ khi collapse. Trang static không gọi
+API nội dung hoặc hiển thị Secret thật; auth/catalog states kế thừa shell.

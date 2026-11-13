@@ -59,6 +59,24 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
+  it('opens User Guide for a Developer on a deep link even if applications fail to load', async () => {
+    authenticated = true;
+    window.history.replaceState({}, '', '/ui/user-guide');
+    override = url => url.endsWith('/applications') ? Response.json({}, { status: 503 }) : undefined;
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: 'Viết và nhập biến môi trường' })).toBeInTheDocument();
+    await waitFor(() => expect(requests.some(request => request.url.endsWith('/applications'))).toBe(true));
+    expect(requests.every(request => request.method === 'GET')).toBe(true);
+    expect(screen.getByRole('link', { name: 'Hướng dẫn sử dụng' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('requires a session to read User Guide', async () => {
+    window.history.replaceState({}, '', '/ui/user-guide');
+    render(<App />);
+    expect(await screen.findByLabelText('Tên đăng nhập')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Viết và nhập biến môi trường' })).not.toBeInTheDocument();
+  });
+
   it('signs in to the applications home', async () => {
     const user = userEvent.setup();
     render(<App />);

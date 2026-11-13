@@ -1457,3 +1457,13 @@ built-in endpoint/existing-cluster/template capabilities are recognized without
 a Type-ID whitelist; absent/unknown driver capability stays contract-only and
 loading/errors stay unconfirmed. Focused coverage is in ResourceTypesPage.test.tsx.
 Backend capability/provisioning/Definition behavior is unchanged.
+
+## Console User Guide — issue #82
+
+`frontend/src/features/user-guide/UserGuidePage.tsx` renders the read-only,
+catalog-backed environment-variable article and contents. `app/routes.ts`,
+`App.tsx` and `AppShell.tsx` supply the authenticated `/ui/user-guide` entry for
+all roles. `public/locales/{vi,en}.json` own displayed prose. Examples are
+checked using the existing workload envfile parser; no backend change.
+[GUIDE specification](../usecase/UC-16/user-guide-specification.md),
+[browser scenario](../../e2e/scenarios/user-guide/README.md).
