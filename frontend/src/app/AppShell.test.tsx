@@ -13,6 +13,8 @@ it.each(['ADMIN', 'PLATFORM_ENGINEER', 'DEVELOPER'])('makes User Guide available
   expect(link).toHaveAttribute('href', '/ui/user-guide');
   expect(link).toHaveAttribute('title', 'Hướng dẫn sử dụng');
   expect(link).toHaveAttribute('aria-current', 'page');
+  expect(link.parentElement?.lastElementChild).toBe(link);
+  expect(link.previousElementSibling).toHaveAttribute('aria-disabled', 'true');
 });
 
 it('collapses by keyboard, preserves the mounted draft and keeps navigation and sign-out named', async () => {

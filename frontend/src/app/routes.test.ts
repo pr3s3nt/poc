@@ -5,6 +5,9 @@ describe('console routes', () => {
   it('round trips the authenticated User Guide entry', () => {
     expect(href({ name: 'user-guide' })).toBe('/ui/user-guide');
     expect(parseRoute('/ui/user-guide')).toEqual({ name: 'user-guide' });
+    expect(href({ name: 'user-guide', topic: 'workloads' })).toBe('/ui/user-guide?topic=workloads');
+    expect(parseRoute('/ui/user-guide?topic=workloads')).toEqual({ name: 'user-guide', topic: 'workloads' });
+    expect(parseRoute('/ui/user-guide?topic=unknown')).toEqual({ name: 'user-guide' });
   });
   it('parses the public application routes under the UI base path', () => {
     expect(parseRoute('/ui/sign-in')).toEqual({ name: 'sign-in' });

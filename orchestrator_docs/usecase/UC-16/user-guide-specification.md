@@ -8,18 +8,23 @@ related: UC-12, UC-16
 
 # Hướng dẫn sử dụng trong Console — issue #82
 
-Phạm vi người dùng duyệt: thêm mục User Guide trong sidebar; giai đoạn này chỉ
-viết bài nhập biến môi trường. Bài hướng dẫn giải thích behavior hiện hành của
+Phạm vi người dùng duyệt và bổ sung ngày 2026-11-13: đặt User Guide cuối sidebar,
+viết bài nhập biến môi trường và bài Sử dụng Workload. Bài hướng dẫn giải thích behavior hiện hành của
 [UC-16](specification.md), [ENVFILE](envfile-specification.md) và UC-12, không thay
 đổi grammar, API, Secret hoặc Preview/Deploy.
 
 ## GUIDE-01 — Entry và phạm vi
 
 Mọi vai trò đã đăng nhập mở được mục **Hướng dẫn sử dụng / User Guide** ở sidebar,
-route `/ui/user-guide`. Mục này có icon, active state, accessible name khi thu gọn
+route `/ui/user-guide`. Entry nằm cuối danh sách Điều hướng chính, sau cả mục
+Lịch sử triển khai chưa khả dụng; footer tài khoản/ngôn ngữ giữ nguyên. Mục này
+có icon, active state, accessible name khi thu gọn
 và giữ pattern shell hiện hành. Đăng nhập vẫn dùng boundary UC-00. Route hỗ trợ
-refresh, back/forward. Trang có mục lục theo bài; hiện chỉ xuất bản **Viết và nhập
-biến môi trường**, không hiển thị placeholder cho chương chưa viết.
+refresh, back/forward. Trang có mục lục theo bài: **Viết và nhập biến môi trường**
+(mặc định) và **Sử dụng Workload** (`/ui/user-guide?topic=workloads`). Chỉ một bài
+hiện tại được render, có mục lục anchor riêng. Đổi bài cập nhật URL, đưa focus
+về tiêu đề bài và cuộn về đầu bài; refresh/history giữ bài được chọn. Topic không
+hợp lệ trở về bài mặc định. Không hiển thị placeholder cho chương chưa viết.
 
 ## GUIDE-02 — Nội dung theo tác vụ
 
@@ -48,3 +53,24 @@ và tải catalog giữ boundary hiện hành. UI design ở [screens](ui/screen
 Kiểm tra route/auth/navigation, VI/EN, collapsed sidebar, keyboard, deep link và
 refresh; đối chiếu ví dụ bằng parser hiện hành. Browser với backend thật kiểm
 reference Applications và link feature theo [runbook](../../operations/tailscale-handoff.md).
+
+## GUIDE-04 — Sử dụng Workload
+
+Bài mới hướng dẫn chọn ứng dụng/môi trường, chọn template và version được công
+bố hoặc tự cấu hình; phân biệt Deployment, StatefulSet (hiện một replica) và
+CronJob. Theo [hướng dẫn authoring](../../operations/workload-authoring.md),
+[WD](workload-defaults-specification.md), [WC](workload-catalog-specification.md),
+UC-16 và UC-07 hiện hành: tên DNS cố định sau lưu đầu (63 ký tự, CronJob 52),
+container/image/roles, default mờ và Restore defaults, biến môi trường (link sang
+bài hiện có), Service/target port và endpoint riêng khi được yêu cầu, dependency
+và resource reuse, compute/probes/command/security, storage/PVC/retention, CronJob
+schedule/policy, Save → Preview → Deploy, cập nhật/xóa pending/undo và lỗi thường
+gặp. Service/Dependencies hiện trực tiếp, không hướng dẫn người dùng tìm chúng
+trong nhóm nâng cao cũ. Không hướng dẫn tab nhập Workload đang ẩn.
+
+Có ví dụ web theo trường form với dữ liệu minh họa và cấu hình cổng rõ ràng; không
+khẳng định đã deploy workload qua việc đọc hướng dẫn. Nội dung giải thích riêng
+namespace/workload/container, biến theo container, tài nguyên bền không bị xóa
+ngầm và required platform setup trước Deploy. Không tạo requirement nghiệp vụ mới.
+VI/EN, link bài/anchor và active article dùng shared shell/style; backend/API và
+semantics Save/Preview/Deploy giữ nguyên.

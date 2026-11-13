@@ -1,6 +1,6 @@
 # Console User Guide — issue #82
 
-Checks [GUIDE-01–03](../../../orchestrator_docs/usecase/UC-16/user-guide-specification.md)
+Checks [GUIDE-01–04](../../../orchestrator_docs/usecase/UC-16/user-guide-specification.md)
 against a real feature Console/backend. Uses the shared
 [Console helper](../../README.md) and [Tailscale handoff](../../../orchestrator_docs/operations/tailscale-handoff.md).
 
@@ -28,7 +28,10 @@ check article/table of contents, keyboard anchor to secret instructions, exact
 synthetic marker example and independent Secret boundary. Verify deep-link,
 refresh/back/forward, active collapsed link, 1280/1512 width without overflow,
 VI/EN through product language selector, no browser errors or content mutations,
-and anonymous deep-link auth gate. The component test validates all examples
+and anonymous deep-link auth gate. The guide is the final sidebar entry, after
+disabled History. Select both environment and Workload articles; verify query
+URLs, heading focus, per-article anchors, Workload example and pending deletion
+instructions, refresh/history and VI/EN without blending article bodies. The component test validates all examples
 against the actual .env parser. This runner reads instructions; it does not claim
 that environment authoring or deployment was retested.
 

@@ -174,8 +174,13 @@ Existing save/provenance/Preview/Deploy contracts are unchanged.
 
 ## Read-only User Guide — issue #82
 
-[GUIDE-01–03](user-guide-specification.md): AppShell links to the authenticated
+[GUIDE-01–04](user-guide-specification.md): AppShell links to the authenticated
 `/ui/user-guide` route; App renders the catalog-backed UserGuidePage. The page
 reads no workload/configuration API and performs no mutation. The article
 explains the existing UC-16 editor and UC-12 create-only Secret boundary; those
 collaborations, contracts, sequence and persistence are unchanged.
+
+Article selection uses the `topic=workloads` query through routes/App; the
+UserGuidePage renders only the chosen article and its anchors, with focus/scroll
+on article changes. GuideContent shares heading/list markup. WorkloadGuideArticle
+only explains UC-16/UC-07 behavior; no authoring API call is added.

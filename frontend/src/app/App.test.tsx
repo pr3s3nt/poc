@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { capabilityFixture } from '../test/capabilities';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -75,6 +75,20 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     render(<App />);
     expect(await screen.findByLabelText('Tên đăng nhập')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Viết và nhập biến môi trường' })).not.toBeInTheDocument();
+  });
+
+  it('selects the Workload article with a shareable URL and moves focus to its heading', async () => {
+    authenticated = true;
+    window.history.replaceState({}, '', '/ui/user-guide');
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Viết và nhập biến môi trường' });
+    await user.click(within(screen.getByRole('navigation', { name: 'Mục lục' })).getByRole('link', { name: 'Sử dụng Workload' }));
+    expect(window.location.search).toBe('?topic=workloads');
+    expect(screen.getByRole('heading', { name: 'Sử dụng Workload' })).toHaveFocus();
+    expect(screen.getAllByRole('article')).toHaveLength(1);
+    expect(screen.queryByRole('heading', { name: 'Viết và nhập biến môi trường' })).not.toBeInTheDocument();
+    expect(requests.every(request => request.method === 'GET')).toBe(true);
   });
 
   it('signs in to the applications home', async () => {

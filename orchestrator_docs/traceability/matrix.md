@@ -1670,6 +1670,10 @@ separate in the Environment rollback verification record.
 
 | Requirement | Implementation | Validation |
 |---|---|---|
-| [UC-16 GUIDE-01–03](../usecase/UC-16/user-guide-specification.md) | AppShell, routes/App, UserGuidePage, VI/EN catalogs | AppShell/App/routes and UserGuidePage tests; [real browser](../../e2e/scenarios/user-guide/README.md) |
+| [UC-16 GUIDE-01–04](../usecase/UC-16/user-guide-specification.md) | AppShell, routes/App, UserGuidePage, VI/EN catalogs | AppShell/App/routes and UserGuidePage tests; [real browser](../../e2e/scenarios/user-guide/README.md) |
 
 The guide only explains ENVFILE/UC-12 behavior; it adds no API or persistence.
+
+GUIDE-04 also maps to WorkloadGuideArticle/GuideContent, query-aware routing and
+VI/EN catalogs; tests check selected article, all anchors and heading focus, and
+the browser scenario checks both articles and the final sidebar entry.

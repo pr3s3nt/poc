@@ -2465,8 +2465,11 @@ comparison and rollout are in [main verification](verification/2026-11-12-catalo
 ## Console User Guide — issue #82 (feature branch)
 
 On `features/user-guide-env`, the authenticated sidebar has a User Guide entry
-with the environment-variable article only: table entry, .env grammar/import,
-source references, create-only Secrets and Save/Preview/Deploy. VI/EN and an
+at the end of primary navigation, with separate environment-variable and
+Workload articles. The Workload article covers templates/controllers, containers,
+defaults, Service/endpoint, dependencies, storage, scheduling and the
+Save/Preview/Deploy/update/removal boundary. The environment-variable article
+keeps table entry, .env grammar/import, references and create-only Secrets. VI/EN and an
 anchor contents list reuse the existing shell. No backend/parser/API semantics
 changed. [GUIDE specification](usecase/UC-16/user-guide-specification.md) and
 [browser scenario](../e2e/scenarios/user-guide/README.md). [Validation and baseline limits](verification/2026-11-13-user-guide-env.md):

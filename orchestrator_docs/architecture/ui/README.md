@@ -332,7 +332,9 @@ remains a disclosure within the import panel; no shell/navigation change.
 
 Sidebar thêm **Hướng dẫn sử dụng / User Guide**, `/ui/user-guide`, dùng cho mọi
 vai trò đã đăng nhập. Dùng icon sách cùng hệ SVG, active link và collapsed rail
-hiện hành. Chỉ bài biến môi trường được xuất bản; giữ các mục platform và role
+hiện hành. Theo bổ sung ngày 2026-11-13, entry nằm cuối Điều hướng chính, sau cả Lịch sử
+triển khai. Xuất bản bài biến môi trường và Sử dụng Workload; mỗi lần đọc một bài,
+chọn bài bằng link có URL và mục lục anchor riêng. Giữ các mục platform và role
 gates. [UC-16 GUIDE](../../usecase/UC-16/user-guide-specification.md) sở hữu scope.
 Trang hướng dẫn là nơi đọc tài liệu theo tác vụ; không mở rộng nội dung trợ giúp
 mặc định trên các màn hình thao tác.

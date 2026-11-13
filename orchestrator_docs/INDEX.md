@@ -286,8 +286,9 @@ url/ref/path authoring, explicit check then pinned registration and portable Git
 
 ## User Guide trong Console — issue #82
 
-[GUIDE-01–03](usecase/UC-16/user-guide-specification.md) và
+[GUIDE-01–04](usecase/UC-16/user-guide-specification.md) và
 [browser scenario](../e2e/scenarios/user-guide/README.md): mục Hướng dẫn sử dụng
-trong sidebar, trước mắt chỉ bài viết/nhập biến môi trường, .env và Secret.
+cuối sidebar, gồm bài viết/nhập biến môi trường, .env, Secret và bài Sử dụng
+Workload riêng tại `/ui/user-guide?topic=workloads`.
 
 [User Guide verification and baseline limits](verification/2026-11-13-user-guide-env.md).

@@ -46,5 +46,6 @@ mở rộng đang review; chưa thay thế current behavior hoặc chứng minh 
 
 ## User Guide trong Console — issue #82
 
-[GUIDE-01–03](user-guide-specification.md) định nghĩa entry, nội dung và phạm vi
-bài hướng dẫn biến môi trường, tại `/ui/user-guide`.
+[GUIDE-01–04](user-guide-specification.md) định nghĩa entry, nội dung và phạm vi
+hai bài biến môi trường và Sử dụng Workload, tại `/ui/user-guide` và
+`/ui/user-guide?topic=workloads`.

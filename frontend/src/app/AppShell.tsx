@@ -45,7 +45,6 @@ export function AppShell({ children, onSignOut, username, role, activeRoute }: P
   const navClass = (name: string) => `nav-item${activeNav === name ? ' nav-item-active' : ''}`;
   const links = [
     { route: 'applications', label: t('app.appShell.applications'), tone: 'blue', platform: false, admin: false },
-    { route: 'user-guide', label: t('guide.title'), tone: 'teal', platform: false, admin: false },
     { route: 'resource-types', label: t('app.appShell.resourceTypes'), tone: 'teal', platform: true, admin: false },
     { route: 'resource-definitions', label: t('app.appShell.resourceDefinitions'), tone: 'violet', platform: true, admin: false },
     { route: 'driver-accounts', label: t('app.appShell.infrastructureAccounts'), tone: 'blue', platform: true, admin: false },
@@ -67,6 +66,7 @@ export function AppShell({ children, onSignOut, username, role, activeRoute }: P
         <nav className="nav" id="primary-navigation" aria-label={t('app.appShell.mainNavigation')}>
           {links.filter((item) => (!item.platform || isPlatformEngineer) && (!item.admin || isAdmin)).map((item) => <a key={item.route} className={navClass(item.route)} aria-current={activeNav === item.route ? 'page' : undefined} title={item.label} href={href({ name: item.route })} onClick={(event) => { event.preventDefault(); navigate({ name: item.route }); }}><span className="nav-icon" data-tone={item.tone} aria-hidden="true"><NavigationIcon name={item.route} /></span><span className="sidebar-label">{item.label}</span></a>)}
           <span className="nav-item nav-item-disabled" aria-disabled="true" aria-label={t('app.appShell.deploymentHistoryComingSoon')} title={t('app.appShell.deploymentHistoryComingSoon')}><span className="nav-icon" aria-hidden="true"><NavigationIcon name="history" /></span><span className="sidebar-label">{t('app.appShell.deploymentHistory')}</span><small className="sidebar-label">{t('app.appShell.comingSoon')}</small></span>
+          <a className={navClass('user-guide')} aria-current={activeNav === 'user-guide' ? 'page' : undefined} title={t('guide.title')} href={href({ name: 'user-guide' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'user-guide' }); }}><span className="nav-icon" data-tone="teal" aria-hidden="true"><NavigationIcon name="user-guide" /></span><span className="sidebar-label">{t('guide.title')}</span></a>
         </nav>
         <div className="sidebar-footer">
           <div className="user-chip" aria-label={`${username} · ${roleLabel(role)}`} title={`${username} · ${roleLabel(role)}`}><span className="avatar" aria-hidden="true">{username.slice(0, 2).toUpperCase()}</span><span className="sidebar-label"><strong>{username}</strong><small>{roleLabel(role)}</small></span></div>

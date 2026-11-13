@@ -9,18 +9,35 @@ import { environmentExample, secretExample, syntaxExample, UserGuidePage } from 
 
 afterEach(() => setCatalogs('vi', viCatalog));
 
-it.each([['vi', viCatalog], ['en', enCatalog]] as const)('publishes only the environment article, with working contents in %s', (locale, catalog) => {
+it.each([['vi', viCatalog], ['en', enCatalog]] as const)('publishes the selected article, with working contents in %s', (locale, catalog) => {
   setCatalogs(locale, catalog);
   render(<UserGuidePage />);
   expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   expect(screen.getAllByRole('article')).toHaveLength(1);
   for (const link of within(screen.getByRole('navigation')).getAllByRole('link')) {
-    const target = document.getElementById(link.getAttribute('href')!.slice(1));
+    const href = link.getAttribute('href')!;
+    if (!href.startsWith('#')) continue;
+    const target = document.getElementById(href.slice(1));
     expect(target).not.toBeNull();
     expect(target).toHaveAttribute('tabindex', '-1');
   }
   expect(screen.queryByRole('button')).not.toBeInTheDocument();
   expect(document.body.textContent).not.toContain('guide.');
+});
+
+it.each([['vi', viCatalog], ['en', enCatalog]] as const)('renders the Workload article and resolves all its anchors in %s', (locale, catalog) => {
+  setCatalogs(locale, catalog);
+  render(<UserGuidePage topic="workloads" />);
+  expect(screen.getAllByRole('article')).toHaveLength(1);
+  expect(screen.getByRole('heading', { level: 2, name: catalog['guide.workload.title'] })).toBeVisible();
+  expect(screen.queryByRole('heading', { name: catalog['guide.environment.title'] })).not.toBeInTheDocument();
+  for (const link of within(screen.getByRole('navigation')).getAllByRole('link')) {
+    const href = link.getAttribute('href')!;
+    if (href.startsWith('#')) expect(document.getElementById(href.slice(1))).toHaveAttribute('tabindex', '-1');
+  }
+  expect(within(screen.getByRole('navigation')).getByRole('link', { name: catalog['guide.workload.title'] })).toHaveAttribute('aria-current', 'page');
+  expect(document.body.textContent).not.toContain('guide.');
+  expect(screen.queryByRole('button')).not.toBeInTheDocument();
 });
 
 it('keeps published examples valid against the actual .env parser', () => {

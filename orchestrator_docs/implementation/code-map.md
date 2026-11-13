@@ -1467,3 +1467,8 @@ all roles. `public/locales/{vi,en}.json` own displayed prose. Examples are
 checked using the existing workload envfile parser; no backend change.
 [GUIDE specification](../usecase/UC-16/user-guide-specification.md),
 [browser scenario](../../e2e/scenarios/user-guide/README.md).
+
+Issue #82 refinement: UserGuidePage switches between the environment article and
+`WorkloadGuideArticle.tsx` using the route topic query. `GuideContent.tsx` shares
+section/step markup. AppShell puts User Guide after the disabled history entry.
+No authoring/backend changes.

@@ -131,7 +131,8 @@ thúc, **Sidecar** chạy hỗ trợ bên cạnh ứng dụng. Init/Sidecar cầ
 
 ## 6. Mở nâng cao của Workload khi cần
 
-Bấm **Hiện nâng cao Workload**, ở ngoài các khối container.
+Service và Tài nguyên phụ thuộc hiện trực tiếp trên form. Các nhóm còn lại mở
+bằng **Hiện nâng cao Workload**, ở ngoài các khối container.
 
 ### Service & kết nối / Service & networking
 
@@ -254,9 +255,9 @@ web cho CronJob. Workload chạy theo lịch dùng lịch thay cho số replica.
 Deploy mới thay đổi môi trường chạy. Nếu cấu hình/pin đã đổi sau Preview, cần
 Preview lại theo yêu cầu của hệ thống.
 
-Tab **Nhập Workload** nhận Generic Workload YAML/JSON được nền tảng hỗ trợ;
-không nhận nguyên manifest Kubernetes Deployment/Service tùy ý. Sau khi phân tích,
-kiểm tra lại cấu hình rồi lưu draft và thực hiện cùng luồng Preview → Deploy.
+Console hiện tạo/sửa Workload qua biểu mẫu; tab **Nhập Workload** đã ẩn theo
+issue #45. Hướng dẫn này không yêu cầu upload manifest Kubernetes hoặc file
+Generic Workload vào Console.
 
 ## 10. Ví dụ: thêm một web Nginx đơn giản
 
@@ -267,7 +268,7 @@ Ví dụ để tập điền form, chưa cần database, Secret, volume hay PDB:
 3. Nhập image `nginxinc/nginx-unprivileged:1.27-alpine`.
 4. Giữ CPU/RAM và các default phù hợp; không cần điền lại giá trị mờ.
 5. Trong nâng cao của container, thêm cổng tên `http`, số `8080`, protocol `TCP`.
-6. Trong nâng cao Workload, cấu hình Service `http`, port `80`, target port `8080`,
+6. Trong phần Service của Workload, cấu hình Service `http`, port `80`, target port `8080`,
    protocol `TCP` như mục 6.
 7. Nếu muốn probe, bật Readiness HTTP với path `/`, port `8080`.
 8. Giữ 1 replica và không bật PDB.
@@ -338,3 +339,7 @@ nâng tất cả workload.
 Nguồn chuẩn: [UC-16](../usecase/UC-16/README.md),
 [contract default](../architecture/contracts/workload-defaults.md),
 [contract Generic Workload](../architecture/contracts/generic-workload.md).
+
+Bài hướng dẫn trong Console: **Hướng dẫn sử dụng → Sử dụng Workload**,
+`/ui/user-guide?topic=workloads`. [GUIDE-04](../usecase/UC-16/user-guide-specification.md)
+bao gồm Service/endpoint, cấu hình và các giới hạn hiện hành.

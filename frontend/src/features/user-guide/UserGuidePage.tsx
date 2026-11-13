@@ -1,8 +1,10 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef } from 'react';
+import { href, navigate } from '../../app/routes';
+import { GuideSection, GuideSteps } from './GuideContent';
+import { WorkloadGuideArticle, workloadSections, workloadSectionKey, workloadSectionId } from './WorkloadGuideArticle';
 import { t } from '../../shared/i18n';
 
 const sections = ['start', 'table', 'sources', 'envfile', 'syntax', 'secrets', 'import', 'save', 'problems'] as const;
-type Section = typeof sections[number];
 
 // Synthetic examples only. These are import grammar, never resolved config values.
 export const environmentExample = [
@@ -27,30 +29,33 @@ export const syntaxExample = [
   'CONTACT=@@team.example',
 ].join('\n');
 
-function Steps({ section, count }: { section: Section; count: number }) {
-  return <ol>{Array.from({ length: count }, (_, i) => <li key={i}>{t(`guide.${section}.step${i + 1}`)}</li>)}</ol>;
-}
-
-function GuideSection({ id, children }: { id: Section; children: ReactNode }) {
-  return <section className="guide-section" aria-labelledby={`guide-${id}`}>
-    <h3 id={`guide-${id}`} tabIndex={-1}>{t(`guide.${id}.title`)}</h3>{children}
-  </section>;
-}
-
-export function UserGuidePage() {
+export function UserGuidePage({ topic }: { topic?: 'workloads' }) {
+  const articleId = topic === 'workloads' ? 'workloads' : 'environment-variables';
+  const previousArticle = useRef(articleId);
+  useEffect(() => {
+    if (previousArticle.current !== articleId) {
+      const title = document.getElementById(articleId);
+      title?.focus({ preventScroll: true });
+      title?.scrollIntoView?.({ block: 'start' });
+      previousArticle.current = articleId;
+    }
+  }, [articleId]);
   return <section className="page guide-page">
     <header className="page-header"><h1>{t('guide.title')}</h1></header>
     <div className="guide-layout">
       <nav className="content-panel guide-contents" aria-label={t('guide.contents')}>
         <h2>{t('guide.contents')}</h2>
-        <a href="#environment-variables">{t('guide.environment.title')}</a>
-        <ul>{sections.map(id => <li key={id}><a href={`#guide-${id}`}>{t(`guide.${id}.title`)}</a></li>)}</ul>
+        <ul className="guide-topics">{([undefined, 'workloads'] as const).map(item => <li key={item ?? 'environment'}><a aria-current={topic === item ? 'page' : undefined} href={href({ name: 'user-guide', topic: item })} onClick={event => { event.preventDefault(); navigate({ name: 'user-guide', topic: item }); }}>{t(item === 'workloads' ? 'guide.workload.title' : 'guide.environment.title')}</a></li>)}</ul>
+        <ul>{topic === 'workloads'
+          ? workloadSections.map(id => <li key={id}><a href={`#guide-${workloadSectionId(id)}`}>{t(workloadSectionKey(id))}</a></li>)
+          : sections.map(id => <li key={id}><a href={`#guide-${id}`}>{t(`guide.${id}.title`)}</a></li>)}</ul>
       </nav>
-      <article className="content-panel guide-article" aria-labelledby="environment-variables">
+      <article className="content-panel guide-article" aria-labelledby={articleId}>
+        {topic === 'workloads' ? <WorkloadGuideArticle /> : <>
         <h2 id="environment-variables" tabIndex={-1}>{t('guide.environment.title')}</h2>
         <p>{t('guide.environment.scope')}</p>
-        <GuideSection id="start"><Steps section="start" count={3} /></GuideSection>
-        <GuideSection id="table"><Steps section="table" count={3} /><p>{t('guide.table.secret')}</p></GuideSection>
+        <GuideSection id="start"><GuideSteps prefix="guide.start" count={3} /></GuideSection>
+        <GuideSection id="table"><GuideSteps prefix="guide.table" count={3} /><p>{t('guide.table.secret')}</p></GuideSection>
         <GuideSection id="sources">
           <div className="guide-table-scroll" role="region" aria-label={t('guide.sources.title')} tabIndex={0}>
             <table><caption>{t('guide.sources.caption')}</caption>
@@ -68,14 +73,15 @@ export function UserGuidePage() {
         </GuideSection>
         <GuideSection id="secrets">
           <p>{t('guide.secrets.direct')}</p><pre tabIndex={0} aria-label={t('guide.secrets.example')}><code>{secretExample}</code></pre>
-          <Steps section="secrets" count={4} />
+          <GuideSteps prefix="guide.secrets" count={4} />
           <p>{t('guide.secrets.marker')}</p><p>{t('guide.secrets.boundary')}</p><p>{t('guide.secrets.results')}</p>
         </GuideSection>
-        <GuideSection id="import"><Steps section="import" count={3} /><p>{t('guide.import.edit')}</p><p>{t('guide.import.download')}</p></GuideSection>
-        <GuideSection id="save"><Steps section="save" count={3} /></GuideSection>
+        <GuideSection id="import"><GuideSteps prefix="guide.import" count={3} /><p>{t('guide.import.edit')}</p><p>{t('guide.import.download')}</p></GuideSection>
+        <GuideSection id="save"><GuideSteps prefix="guide.save" count={3} /></GuideSection>
         <GuideSection id="problems">
           <dl>{['name', 'reference', 'quote', 'marker', 'file', 'metadata', 'secret'].map(kind => <div key={kind}><dt>{t(`guide.problems.${kind}.title`)}</dt><dd>{t(`guide.problems.${kind}.body`)}</dd></div>)}</dl>
         </GuideSection>
+        </>}
       </article>
     </div>
   </section>;

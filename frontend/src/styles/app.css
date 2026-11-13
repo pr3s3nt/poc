@@ -818,3 +818,7 @@ fieldset.volume-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
   .guide-contents { position:static; }
   .guide-contents ul { display:flex; flex-wrap:wrap; gap:0 24px; }
 }
+.guide-contents .guide-topics { list-style:none; padding:0; margin:0; }
+.guide-topics a[aria-current="page"] { font-weight:700; color:var(--ink); }
+.guide-contents { max-height:calc(100vh - 48px); overflow-y:auto; }
+@media (max-width:1100px) { .guide-contents { max-height:none; } }
