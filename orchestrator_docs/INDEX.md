@@ -289,3 +289,5 @@ url/ref/path authoring, explicit check then pinned registration and portable Git
 [GUIDE-01–03](usecase/UC-16/user-guide-specification.md) và
 [browser scenario](../e2e/scenarios/user-guide/README.md): mục Hướng dẫn sử dụng
 trong sidebar, trước mắt chỉ bài viết/nhập biến môi trường, .env và Secret.
+
+[User Guide verification and baseline limits](verification/2026-11-13-user-guide-env.md).

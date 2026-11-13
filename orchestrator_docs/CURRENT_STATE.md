@@ -2469,5 +2469,7 @@ with the environment-variable article only: table entry, .env grammar/import,
 source references, create-only Secrets and Save/Preview/Deploy. VI/EN and an
 anchor contents list reuse the existing shell. No backend/parser/API semantics
 changed. [GUIDE specification](usecase/UC-16/user-guide-specification.md) and
-[browser scenario](../e2e/scenarios/user-guide/README.md). Awaiting full-check
-report and user acceptance; not merged or rolled out to the retained Console.
+[browser scenario](../e2e/scenarios/user-guide/README.md). [Validation and baseline limits](verification/2026-11-13-user-guide-env.md):
+full frontend passes; full backend has reproduced main failures and timeout
+limits. Check namespace cleanup verified. Awaiting user acceptance; not merged
+or rolled out to the retained Console.
