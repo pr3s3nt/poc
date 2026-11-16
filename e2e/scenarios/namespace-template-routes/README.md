@@ -94,8 +94,10 @@ Cleanup sequence (never force-delete the product namespace):
    evidence directory and only reuses catalog Definitions after comparing values.
 
 After backend changes, the full backend candidate suite must run again. Partial
-reruns use `ORCH_FULL_CHECK_PARTS=candidate|frontend|candidate,frontend` and
-`ORCH_REUSE_FULL_RECEIPT=/private/completed/full-kind-receipt.json`. Prior cleanup
+reruns use `ORCH_FULL_CHECK_PARTS=candidate|frontend|candidate,frontend`.
+Without a reuse receipt they run only the requested parts, explicitly recording
+that subset; absent results are never treated as passed. To copy prior evidence,
+set `ORCH_REUSE_FULL_RECEIPT=/private/completed/full-kind-receipt.json`. Prior cleanup
 must be confirmed and main SHA identical. Reusing candidate backend results
 requires the identical backend Git tree; reusing frontend requires all its checks
 passed and its Git tree unchanged. The runner copies earlier evidence without

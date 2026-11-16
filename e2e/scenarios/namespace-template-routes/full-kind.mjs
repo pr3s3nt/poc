@@ -20,9 +20,9 @@ const baselineSHA = execFileSync('git', ['rev-parse', baseline], { encoding: 'ut
 const receipt = { runID, namespace, candidate, baseline: baselineSHA, results: {}, cleanup: false };
 const parts = (process.env.ORCH_FULL_CHECK_PARTS ?? 'candidate,main,frontend').split(',');
 assert(parts.length > 0 && new Set(parts).size === parts.length && parts.every(p => ['candidate','main','frontend'].includes(p)), 'Invalid full-check parts');
-if (parts.length !== 3) {
+receipt.requestedParts = parts;
+if (process.env.ORCH_REUSE_FULL_RECEIPT) {
   const previousPath = process.env.ORCH_REUSE_FULL_RECEIPT;
-  assert(previousPath, 'Partial reruns require a completed full-check receipt');
   const previous = JSON.parse(readFileSync(previousPath,'utf8'));
   assert(previous.cleanup && previous.baseline === baselineSHA, 'Baseline/cleanup mismatch');
   for (const name of ['candidate','main','frontend']) {
