@@ -3,6 +3,7 @@ package templatesource
 import "orchestrator/internal/domain/environment"
 
 const (
+	EndpointHTTPRouteV1  = "endpoint-httproute-v1"
 	TemplateDefaultsV1   = "template-defaults-v1"
 	RuntimeSecurityV1    = "runtime-security-v1"
 	ControllerPolicyV1   = "controller-policy-v1"
@@ -18,7 +19,7 @@ func validateCapabilities(names []string) error {
 	seen := map[string]bool{}
 	for _, name := range names {
 		// The retired token is readable registry metadata only; it has no resolver.
-		if seen[name] || (name != "workload-defaults-v1" && name != TemplateDefaultsV1 && name != RuntimeSecurityV1 && name != ControllerPolicyV1 && name != StatefulClaimsV1 && name != CustomExecutionV1 && name != ContainerLifecycleV1 && name != PodVolumesV1 && name != ContainerProbesV1 && name != HostPathVolumesV1) {
+		if seen[name] || (name != "workload-defaults-v1" && name != TemplateDefaultsV1 && name != RuntimeSecurityV1 && name != ControllerPolicyV1 && name != StatefulClaimsV1 && name != CustomExecutionV1 && name != ContainerLifecycleV1 && name != PodVolumesV1 && name != ContainerProbesV1 && name != HostPathVolumesV1 && name != EndpointHTTPRouteV1) {
 			return invalid(ManifestFile, "unsupported or duplicate workload capability")
 		}
 		seen[name] = true

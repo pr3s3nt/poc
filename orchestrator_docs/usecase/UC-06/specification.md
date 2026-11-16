@@ -510,3 +510,10 @@ Job replay is selected silently. Rollback restores declared configuration and
 owned workload resources; it does not rewind database contents. An initial-empty
 rollback is separately confirmed and physically verifies removal of its exact
 owned resource selection while retaining platform/preexisting resources.
+
+## Namespace placement and template routes — issue #84
+
+[NP-01, GW-01/02 and RT-01–03](../../architecture/contracts/namespace-template-routes.md)
+apply to this use case. Registration/Preview remain read-only; Deploy uses pinned
+namespace/Gateway target identities and template-rendered HTTPRoute; updates and
+removal retain existing claims, state and ownership guarantees.

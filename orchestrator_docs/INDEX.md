@@ -149,6 +149,7 @@ và deploy acceptance app ở cuối lệnh đầy đủ; schemaVersion 2 Catalo
 
 Namespace/provider inheritance and template-owned HTTPRoute — issue #84:
 [accepted decision](architecture/decisions/ADR-043-namespace-placement-template-routes.md),
+[contract/sequence](architecture/contracts/namespace-template-routes.md),
 [implementation and live inspection](implementation/namespace-template-routes.md).
 
 [Score admission and extensions](architecture/contracts/score-workload.md) defines

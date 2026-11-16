@@ -21,6 +21,7 @@ type Props = {
   mapping: MappingDraft;
   mappingEditable: boolean;
   clusterClasses: string[];
+  namespaceClasses?: string[];
   onBinding: (provider: string, binding: BindingDraft) => void;
   problems: MappingProblem[];
   disabled?: boolean;
@@ -28,7 +29,7 @@ type Props = {
 
 const accountLabel = (account: Account) => (account.name && account.name !== account.key ? `${account.name} (${account.key})` : account.key);
 
-export function InfrastructureConnection({ capability, accountRequired, accounts, account, region, regionRequired, onAccount, onRegion, mapping, mappingEditable, clusterClasses, onBinding, problems, disabled = false }: Props) {
+export function InfrastructureConnection({ capability, accountRequired, accounts, account, region, regionRequired, onAccount, onRegion, mapping, mappingEditable, clusterClasses, namespaceClasses = [], onBinding, problems, disabled = false }: Props) {
   const providers = bindingProviders(capability);
   const awsProviders = providers.filter((provider) => provider.binding === 'aws');
   const kubernetesProviders = providers.filter((provider) => provider.binding === 'kubernetes');
@@ -39,11 +40,13 @@ export function InfrastructureConnection({ capability, accountRequired, accounts
   const providerNote = (list: typeof providers) => list.map((provider) => `${provider.source} ${provider.version}`.trim()).join(' · ');
   // UC-16 BR-33: a provider without binding takes the only published cluster class; one provider per render
   // because each binding change replaces the draft.
-  const onlyClass = clusterClasses.length === 1 ? clusterClasses[0] : undefined;
   const unbound = kubernetesProviders.find((provider) => (mapping.bindings[provider.name]?.target ?? '') === '' && capability.bindings.some((item) => item.provider === provider.name && item.targets.some((target) => target.target === 'resource')));
+  const pendingType = unbound ? mapping.bindings[unbound.name]?.resourceType : undefined;
+  const availableClasses = pendingType === 'k8s-namespace' ? namespaceClasses : clusterClasses;
+  const onlyClass = availableClasses.length === 1 ? availableClasses[0] : undefined;
   useEffect(() => {
-    if (!disabled && mappingEditable && onlyClass && unbound) onBinding(unbound.name, { target: 'resource', clusterClass: onlyClass });
-  }, [disabled, mappingEditable, onlyClass, unbound, onBinding]);
+    if (!disabled && mappingEditable && onlyClass && unbound) onBinding(unbound.name, { target: 'resource', clusterClass: onlyClass, ...(pendingType ? { resourceType: pendingType } : {}) });
+  }, [disabled, mappingEditable, onlyClass, unbound, pendingType, onBinding]);
   if (!accountRequired && kubernetesProviders.length === 0) return <p className="feature-note" role="note">{t('platform.infrastructureConnection.thisModuleNeedsNoInfrastructure')}</p>;
 
   return <div className="connection-section" aria-label={t('platform.infrastructureConnection.infrastructureConnection')}>
@@ -62,19 +65,21 @@ export function InfrastructureConnection({ capability, accountRequired, accounts
     </section> : null}
     {kubernetesProviders.map((provider) => {
       const binding = mapping.bindings[provider.name] ?? { target: '', clusterClass: '' };
+      const classes = binding.resourceType === 'k8s-namespace' ? namespaceClasses : clusterClasses;
       const problem = problems.find((item) => item.field === `binding:${provider.name}`)?.message;
       const supported = capability.bindings.find((item) => item.provider === provider.name)?.targets.some((item) => item.target === 'resource') ?? false;
       return <section key={provider.name} className="connection-card" aria-label={t('platform.infrastructureConnection.kubernetesConnectionName', { name: provider.name })} data-provider={provider.name}>
         <div className="connection-head"><span className="connection-icon connection-icon-k8s" aria-hidden="true">⎈</span><div><h4>{t('platform.infrastructureConnection.kubernetesConnection')}</h4><p className="muted">Provider <code>{provider.name}</code> · {provider.source} {provider.version}</p></div></div>
         {supported ? <>
           <div className="field-grid">
-            <label>{t('platform.infrastructureConnection.clusterClass')}<select aria-label={t('platform.infrastructureConnection.clusterClassOfProviderName', { name: provider.name })} aria-invalid={problem ? true : undefined} value={binding.clusterClass} disabled={disabled || !mappingEditable} onChange={(event) => onBinding(provider.name, event.target.value === '' ? { target: '', clusterClass: '' } : { target: 'resource', clusterClass: event.target.value })}>
+            {capability.resourceType !== 'k8s-namespace' && capability.variables.some((variable) => variable.name === 'namespace') ? <label>{t('gatewayDriver.providerSource')}<select value={binding.resourceType ?? 'k8s-cluster'} disabled={disabled || !mappingEditable} onChange={(event) => onBinding(provider.name, {target:'',clusterClass:'',resourceType:event.target.value === 'k8s-namespace' ? 'k8s-namespace' : 'k8s-cluster'})}><option value="k8s-namespace">Namespace</option><option value="k8s-cluster">Cluster</option></select></label> : null}
+            <label>{binding.resourceType === 'k8s-namespace' ? t('gatewayDriver.namespaceClass') : t('platform.infrastructureConnection.clusterClass')}<select aria-label={binding.resourceType === 'k8s-namespace' ? t('gatewayDriver.namespaceClass') : t('platform.infrastructureConnection.clusterClassOfProviderName', { name: provider.name })} aria-invalid={problem ? true : undefined} value={binding.clusterClass} disabled={disabled || !mappingEditable} onChange={(event) => onBinding(provider.name, event.target.value === '' ? { ...binding, target: '', clusterClass: '' } : { ...binding, target: 'resource', clusterClass: event.target.value })}>
               <option value="">{t('platform.infrastructureConnection.notSelected')}</option>
-              {binding.clusterClass && !clusterClasses.includes(binding.clusterClass) ? <option value={binding.clusterClass}>{t('platform.infrastructureConnection.clusterClassNoLongerInMetadata', { clusterClass: binding.clusterClass })}</option> : null}
-              {clusterClasses.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+              {binding.clusterClass && !classes.includes(binding.clusterClass) ? <option value={binding.clusterClass}>{t('platform.infrastructureConnection.clusterClassNoLongerInMetadata', { clusterClass: binding.clusterClass })}</option> : null}
+              {classes.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
           </div>
           <div className="connection-note"><strong>{t('platform.infrastructureConnection.usesAccessInformationFromThe')}</strong><span>{t('platform.infrastructureConnection.doNotEnterAccountsTokens')}</span></div>
-          {clusterClasses.length === 0 ? <p className="feature-note" role="note">{t('platform.infrastructureConnection.theCatalogHasNotPublished')}</p> : null}
+          {classes.length === 0 ? <p className="feature-note" role="note">{t('platform.infrastructureConnection.theCatalogHasNotPublished')}</p> : null}
           {!mappingEditable ? <p className="feature-note" role="note">{t('platform.infrastructureConnection.theModuleMappingIsBeing')}</p> : null}
           {problem ? <span className="form-error" role="note">{problem}</span> : null}
         </> : <p className="feature-note" role="note">{t('platform.infrastructureConnection.metadataHasNotPublishedA')}</p>}

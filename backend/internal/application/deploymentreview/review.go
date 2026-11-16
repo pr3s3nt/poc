@@ -13,6 +13,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"orchestrator/internal/domain/endpoint"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
@@ -793,7 +794,7 @@ func (a Assembler) manifests(ctx context.Context, plan *planning.Plan, descripto
 		references[name] = "orchestrator-preview-unknown"
 		unknown = append(unknown, "resources."+name)
 	}
-	manifests, err := a.Renderer.Render(deadline, execution.RenderRequest{ResourceReferences: references, ConfigSecretName: configName, ConfigSecretKeys: configKeys, Storage: storage, Selection: selection, WorkloadID: workloadID, Module: symbolicModule, Namespace: namespace, PlainEnv: plain, SecretEnv: secret, Labels: map[string]string{},
+	manifests, err := a.Renderer.Render(deadline, execution.RenderRequest{Endpoint: plan.Endpoints[workloadID].Intent(endpoint.Owner{Workload: workloadID}), ResourceReferences: references, ConfigSecretName: configName, ConfigSecretKeys: configKeys, Storage: storage, Selection: selection, WorkloadID: workloadID, Module: symbolicModule, Namespace: namespace, PlainEnv: plain, SecretEnv: secret, Labels: map[string]string{},
 		Services: execution.ServicePortsOf(plan.CandidateSet.Modules), UnknownPaths: unknown})
 	if err != nil {
 		return []Artifact{{ID: descriptor + ":manifest", NodeID: descriptor, Kind: "kubernetes-manifest", Path: "Deployment/" + workloadID, Language: "yaml", Before: beforeFor(old, "kubernetes-manifest", "Deployment/"+workloadID, !existed), After: unavailable("RENDER_UNAVAILABLE")}}

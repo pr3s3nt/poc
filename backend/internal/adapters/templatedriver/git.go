@@ -193,6 +193,7 @@ func neutralInput(req execution.RenderRequest, delivery kubernetes.Delivery) (ma
 		"services":  services,
 		"unknowns":  unknowns,
 		"resources": req.ResourceReferences,
+		"endpoint":  req.Endpoint,
 	}
 	// One JSON round trip: the templates see only JSON values.
 	out, err := toTree(input)
@@ -240,6 +241,17 @@ func (r *Renderer) renderGit(ctx context.Context, req execution.RenderRequest) (
 	defer cancel()
 	if err := templatesource.ValidateWorkloadCapabilities(bundle.Contract.Manifest, req.Module.Spec.Containers, req.Module.Spec.Execution); err != nil {
 		return nil, err
+	}
+	if req.Endpoint != nil {
+		supported := false
+		for _, capability := range bundle.Contract.Manifest.WorkloadCapabilities {
+			if capability == templatesource.EndpointHTTPRouteV1 {
+				supported = true
+			}
+		}
+		if !supported {
+			return nil, &RenderError{Stage: "input", Code: "ENDPOINT_TEMPLATE_UNAVAILABLE"}
+		}
 	}
 	if err := environment.ValidateContainerRoles(req.Module.Spec.Containers); err != nil {
 		return nil, err

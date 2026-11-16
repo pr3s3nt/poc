@@ -559,8 +559,8 @@ in CM-04. Existing Environments retain frozen revisions until explicitly upgrade
 ## Public endpoint resource
 
 Issue #84: [ADR-043](../../architecture/decisions/ADR-043-namespace-placement-template-routes.md)
-adds namespace-bound Kubernetes providers, cluster-owned existing Gateway
-configurations and endpoint selection of one such configuration. Registration
+adds namespace-bound Kubernetes providers, separate existing Gateway
+resources/Definitions and endpoint references to those resources. Registration
 must validate reference kinds and nonsecret policy without provisioning or
 changing existing infrastructure. Legacy immutable revisions remain readable.
 
@@ -627,3 +627,10 @@ This UI restriction supersedes earlier multi-source Console choices only.
 - **GFILE-05:** REUSED/CONFLICT vẫn so canonical cấu hình sau chuẩn bị, insert-only
   và scoped Organization; không cập nhật Definition/revision khi trùng key.
   Existing form POST/PUT, pin execution và template sources không thay đổi.
+
+## Namespace placement and template routes — issue #84
+
+[NP-01, GW-01/02 and RT-01–03](../../architecture/contracts/namespace-template-routes.md)
+apply to this use case. Registration/Preview remain read-only; Deploy uses pinned
+namespace/Gateway target identities and template-rendered HTTPRoute; updates and
+removal retain existing claims, state and ownership guarantees.

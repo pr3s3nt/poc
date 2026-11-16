@@ -2480,3 +2480,11 @@ Merged into main at `48f28ad1` after user acceptance and deployed on the retaine
 kind Console. Main import/export smoke passed without changing catalog/revision
 history or existing Applications. Full backend remains baseline-red; the complete
 comparison and rollout are in [main verification](verification/2026-11-12-catalog-documents-main.md).
+
+## Namespace placement / template routes — issue #84, in progress
+
+On `features/Httproute` (including the explicitly requested Score branch base),
+namespace-inherited providers, separate preexisting Gateway Definitions and
+explicit template-rendered HTTPRoute are implemented with focused validation.
+No main merge/upgrade, full-suite pass or real task application acceptance is
+claimed. See [implementation and remaining gates](implementation/namespace-template-routes.md).

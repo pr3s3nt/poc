@@ -4206,5 +4206,12 @@
   "workloads.score.viewDocument": "Xem cấu hình đã phân tích",
   "workloads.score.content": "Nội dung Score (YAML/JSON)",
   "workloads.score.extensionContent": "Nội dung extension (tùy chọn)",
-  "workloads.score.check": "Kiểm tra"
+  "workloads.score.check": "Kiểm tra",
+  "gatewayDriver.title": "Gateway có sẵn",
+  "gatewayDriver.cluster": "Tham chiếu cluster",
+  "gatewayDriver.reference": "Tham chiếu Gateway",
+  "gatewayDriver.invalidReference": "Chọn tham chiếu output gateway của resource k8s-gateway.",
+  "gatewayDriver.invalidCluster": "Chọn tham chiếu output cluster của resource k8s-cluster.",
+  "gatewayDriver.providerSource": "Nguồn kết nối",
+  "gatewayDriver.namespaceClass": "Class namespace"
 }

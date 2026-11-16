@@ -18,7 +18,7 @@ export type TypeContract = {
   defaultAvailable?: boolean;
 };
 
-export type BindingDraft = { target: '' | 'resource'; clusterClass: string };
+export type BindingDraft = { target: '' | 'resource'; clusterClass: string; resourceType?: 'k8s-cluster' | 'k8s-namespace' };
 export type MappingDraft = {
   inputs: Record<string, string>; // Resource Type input -> module variable
   outputs: Record<string, string>; // Resource Type output -> module output
@@ -31,7 +31,7 @@ export const clusterType = 'k8s-cluster';
 export const endpointType = 'endpoint';
 // The EKS cluster node of the Environment, addressed by a class the catalog serves.
 export const clusterRef = (clusterClass: string) => `${clusterType}.${clusterClass}#environments.@app.@env`;
-const clusterRefPattern = /^k8s-cluster\.([^#]+)#environments\.@app\.@env$/;
+const clusterRefPattern = /^(k8s-cluster|k8s-namespace)\.([^#]+)#environments\.@app\.@env$/;
 
 const has = (table: object, key: string) => Object.prototype.hasOwnProperty.call(table, key);
 
@@ -64,7 +64,7 @@ export function mappingToObject(draft: MappingDraft, capability: Capability): { 
   for (const provider of bindingProviders(capability)) {
     const binding = draft.bindings[provider.name];
     if (provider.binding === 'aws') provider_bindings[provider.name] = { target: 'account' };
-    else if (binding?.target === 'resource' && binding.clusterClass !== '') provider_bindings[provider.name] = { target: 'resource', resource_ref: clusterRef(binding.clusterClass) };
+    else if (binding?.target === 'resource' && binding.clusterClass !== '') provider_bindings[provider.name] = { target: 'resource', resource_ref: `${binding.resourceType ?? clusterType}.${binding.clusterClass}#environments.@app.@env` };
   }
   return { input_mapping, output_mapping, provider_bindings };
 }
@@ -73,7 +73,7 @@ const isObject = (value: unknown): value is JsonObject => typeof value === 'obje
 
 // Advanced JSON -> typed. A reason (Vietnamese) means the typed controls cannot
 // hold the object safely and the JSON stays authoritative.
-export function objectToMapping(value: JsonObject, capability: Capability, type: TypeContract | undefined, clusterClasses: string[]): { draft?: MappingDraft; reason?: string } {
+export function objectToMapping(value: JsonObject, capability: Capability, type: TypeContract | undefined, clusterClasses: string[], namespaceClasses: string[] = []): { draft?: MappingDraft; reason?: string } {
   for (const key of Object.keys(value)) if (!['input_mapping', 'output_mapping', 'provider_bindings'].includes(key)) return { reason: t('platform.moduleMapping.fieldKeyHasNoTyped', { key }) };
   const draft = emptyMapping();
   const variables = new Set(capability.variables.map((variable) => variable.name));
@@ -109,7 +109,7 @@ export function objectToMapping(value: JsonObject, capability: Capability, type:
       return { reason: t('platform.moduleMapping.theBindingOfNameMust', { name }) };
     }
     const ref = typeof entry.resource_ref === 'string' ? clusterRefPattern.exec(entry.resource_ref) : null;
-    if (provider.binding === 'kubernetes' && entry.target === 'resource' && Object.keys(entry).length === 2 && ref?.[1] && clusterClasses.includes(ref[1])) { draft.bindings[name] = { target: 'resource', clusterClass: ref[1] }; continue; }
+    if (provider.binding === 'kubernetes' && entry.target === 'resource' && Object.keys(entry).length === 2 && ref?.[2] && (ref[1] === 'k8s-namespace' ? namespaceClasses : clusterClasses).includes(ref[2])) { draft.bindings[name] = { target: 'resource', clusterClass: ref[2], ...(ref[1] === 'k8s-namespace' ? {resourceType: 'k8s-namespace' as const} : {}) }; continue; }
     return { reason: t('platform.moduleMapping.theBindingOfNameCannot', { name }) };
   }
   return { draft };

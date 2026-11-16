@@ -23,7 +23,7 @@ async function open(options: Parameters<typeof backend>[0] = {}) {
 }
 
 describe('endpoint Definition in the shared editor', () => {
-  it('registers literal routing policy without account, module or advanced mapping', async () => {
+  it('registers a Gateway reference without duplicating infrastructure policy', async () => {
     const user = userEvent.setup();
     const { posted } = await open();
     await user.click(screen.getByRole('button', { name: 'Tạo cấu hình' }));
@@ -33,20 +33,19 @@ describe('endpoint Definition in the shared editor', () => {
     expect(screen.queryByLabelText('Tài khoản hạ tầng')).not.toBeInTheDocument();
     await user.type(within(section()).getByLabelText('ID cấu hình (Definition ID)'), 'public-endpoint');
     await user.type(within(section()).getByLabelText('Tên hiển thị'), 'Public endpoint');
-    await user.type(field('Domain gốc'), 'localhost');
-    await user.type(field('Tên Gateway'), 'public');
-    await user.type(field('Namespace của Gateway'), 'gateway-system');
+    expect(screen.queryByLabelText('Domain gốc')).not.toBeInTheDocument();
+    await user.clear(field('Tham chiếu Gateway'));
+    await user.type(field('Tham chiếu Gateway'), 'not-a-reference');
     await user.click(within(section()).getByRole('button', { name: 'Đăng ký cấu hình tài nguyên' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('domain gốc');
+    expect(await screen.findByRole('alert')).toHaveTextContent('k8s-gateway');
     expect(posted).toEqual([]);
-    await user.clear(field('Domain gốc'));
-    await user.type(field('Domain gốc'), 'apps.example.com');
-    await user.type(field('Listener (tùy chọn)'), 'websecure');
-    await user.type(field('Tên đã dùng ngoài hệ thống (tùy chọn)'), 'www, api');
-    expect(screen.getByText('https://<name>.apps.example.com/')).toBeInTheDocument();
+    const reference = "${resources['k8s-gateway.default#environments.@app.@env'].outputs.gateway}";
+    await user.clear(field('Tham chiếu Gateway'));
+    await user.click(field('Tham chiếu Gateway'));
+    await user.paste(reference);
     await user.click(within(section()).getByRole('button', { name: 'Đăng ký cấu hình tài nguyên' }));
     await waitFor(() => expect(posted).toHaveLength(1));
-    expect(posted[0]).toEqual({ key: 'public-endpoint', name: 'Public endpoint', resourceType: 'endpoint', driverType: 'endpoint', driverInputs: { values: { variables: { rootDomain: 'apps.example.com', scheme: 'https', gatewayName: 'public', gatewayNamespace: 'gateway-system', gatewaySectionName: 'websecure', reservedNames: ['www', 'api'] } } }, provision: {}, criteria: [{}] });
+    expect(posted[0]).toEqual({ key: 'public-endpoint', name: 'Public endpoint', resourceType: 'endpoint', driverType: 'endpoint', driverInputs: { values: { variables: { gateway: reference } } }, provision: {}, criteria: [{}] });
   });
 
   it('edits a stored endpoint policy with its version', async () => {
@@ -71,4 +70,22 @@ describe('endpoint policy conversion', () => {
     expect(endpointToVariables({ ...draft, reservedNames: 'a.b' }).problem).toBeTruthy();
     expect(endpointToVariables(emptyEndpointDriver()).problem).toBeTruthy();
   });
+});
+
+it('registers a separate existing Gateway with its cluster and policy', async () => {
+  const user = userEvent.setup();
+  const gatewayType = { key: 'k8s-gateway', inputs: [], outputs: [{name:'gateway',type:'any'}],classes:['default'] };
+  const gatewayCapability = { ...endpointCapability, resourceType:'k8s-gateway',driverType:'existing-gateway',outputs:[{name:'gateway',type:'any',sensitive:false}] };
+  const {posted} = await open({ types:[...typeFixture,endpointType,gatewayType],capabilities:[...capabilityFixture,endpointCapability,gatewayCapability] });
+  await user.click(screen.getByRole('button',{name:'Tạo cấu hình'}));
+  await user.selectOptions(field('Loại tài nguyên'),'k8s-gateway');
+  await user.type(within(section()).getByLabelText('ID cấu hình (Definition ID)'),'existing-edge');
+  await user.type(within(section()).getByLabelText('Tên hiển thị'),'Existing edge');
+  await user.type(field('Domain gốc'),'apps.example.com');
+  await user.type(field('Tên Gateway'),'public');
+  await user.type(field('Namespace của Gateway'),'gateway-system');
+  expect(screen.queryByRole('region',{name:'Module Terraform'})).not.toBeInTheDocument();
+  await user.click(within(section()).getByRole('button',{name:'Đăng ký cấu hình tài nguyên'}));
+  await waitFor(()=>expect(posted).toHaveLength(1));
+  expect(posted[0]).toMatchObject({ resourceType:'k8s-gateway',driverType:'existing-gateway',driverInputs:{values:{variables:{gatewayName:'public',gatewayNamespace:'gateway-system',cluster:"${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"}}} });
 });

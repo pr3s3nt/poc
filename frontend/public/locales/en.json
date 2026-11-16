@@ -4206,5 +4206,12 @@
   "workloads.score.viewDocument": "View parsed configuration",
   "workloads.score.content": "Score content (YAML/JSON)",
   "workloads.score.extensionContent": "Extension content (optional)",
-  "workloads.score.check": "Check"
+  "workloads.score.check": "Check",
+  "gatewayDriver.title": "Existing Gateway",
+  "gatewayDriver.cluster": "Cluster reference",
+  "gatewayDriver.reference": "Gateway reference",
+  "gatewayDriver.invalidReference": "Select the gateway output reference of a k8s-gateway resource.",
+  "gatewayDriver.invalidCluster": "Select the cluster output reference of a k8s-cluster resource.",
+  "gatewayDriver.providerSource": "Connection source",
+  "gatewayDriver.namespaceClass": "Namespace class"
 }

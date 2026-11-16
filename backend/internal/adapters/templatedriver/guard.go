@@ -128,6 +128,9 @@ func guard(req execution.RenderRequest, delivery kubernetes.Delivery, objects []
 	if err := guardConfigMaps(req, objects); err != nil {
 		return err
 	}
+	if err := guardEndpoint(req, delivery, objects); err != nil {
+		return err
+	}
 	if service != nil {
 		return guardService(req, delivery, service)
 	}

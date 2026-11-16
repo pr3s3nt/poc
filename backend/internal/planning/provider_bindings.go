@@ -30,17 +30,17 @@ func (b *graphBuilder) driverBindings(def resource.Definition) (tfmodule.DriverI
 	return inputs, contract, true
 }
 
-// clusterProvider resolves the explicitly referenced Kubernetes cluster.
+// providerResource resolves the authored cluster or namespace dependency.
 // Product Environment targets are retired; read-only planner conformance may
 // name its synthetic registered cluster. No target is inferred from variables.
-func (b *graphBuilder) clusterProvider(node *Node, binding tfmodule.Binding) (resource.Descriptor, error) {
+func (b *graphBuilder) providerResource(node *Node, binding tfmodule.Binding) (resource.Descriptor, error) {
 	if binding.Target == tfmodule.TargetResource {
 		target, err := ParseDescriptorText(binding.ResourceRef, node, b.ctx)
 		if err != nil {
 			return resource.Descriptor{}, fmt.Errorf("resource_ref is not a valid resource descriptor")
 		}
-		if target.Type != TypeCluster {
-			return resource.Descriptor{}, fmt.Errorf("resource_ref must reference a Kubernetes cluster resource")
+		if target.Type != TypeCluster && target.Type != TypeNamespace {
+			return resource.Descriptor{}, fmt.Errorf("resource_ref must reference a Kubernetes cluster or namespace resource")
 		}
 		return target, nil
 	}
@@ -51,6 +51,61 @@ func (b *graphBuilder) clusterProvider(node *Node, binding tfmodule.Binding) (re
 		return InternalClusterDescriptor(b.ctx.Connection.Key)
 	}
 	return resource.Descriptor{}, fmt.Errorf("no resource-bound cluster target is available")
+}
+
+// clusterProvider follows a namespace's own selected provider, never a display
+// name, Environment account or arbitrary cluster found elsewhere in the graph.
+func (b *graphBuilder) clusterProvider(node *Node, def resource.Definition, binding tfmodule.Binding, matches map[string]Match) (resource.Descriptor, error) {
+	target, err := b.providerResource(node, binding)
+	if err != nil || target.Type == TypeCluster {
+		return target, err
+	}
+	if node.ResourceType == TypeNamespace {
+		return resource.Descriptor{}, fmt.Errorf("namespace provider must reference a cluster directly")
+	}
+	ns := b.nodes[target.String()]
+	if ns == nil {
+		return resource.Descriptor{}, fmt.Errorf("provider namespace is missing")
+	}
+	input, ok := def.Variables()[resource.VariableNamespace].(string)
+	ref, output, whole := resource.WorkloadReference(input)
+	selected, parseErr := ParseDescriptorText(ref, node, b.ctx)
+	if !ok || !whole || output != "name" || parseErr != nil || selected.String() != target.String() {
+		return resource.Descriptor{}, fmt.Errorf("namespace input must reference the provider namespace name output")
+	}
+	inputs, err := tfmodule.ParseDriverInputs(def.DriverValues())
+	if err != nil {
+		return resource.Descriptor{}, err
+	}
+	if _, mapped := inputs.InputMapping[resource.VariableNamespace]; mapped {
+		return resource.Descriptor{}, fmt.Errorf("provider namespace cannot be overridden by a resource input")
+	}
+	match, matched := matches[ns.Descriptor]
+	nsDef, found := b.definition(match.DefinitionKey)
+	nsInputs, contract, valid := b.driverBindings(nsDef)
+	if !matched || !found || !valid {
+		return resource.Descriptor{}, fmt.Errorf("namespace has no verified Kubernetes provider")
+	}
+	var cluster resource.Descriptor
+	count := 0
+	for _, name := range sortedKeys(nsInputs.ProviderBindings) {
+		if contract.ProviderKinds[name] != tfmodule.BindingKubernetes {
+			continue
+		}
+		resolved, err := b.providerResource(ns, nsInputs.ProviderBindings[name])
+		if err != nil || resolved.Type != TypeCluster {
+			return resource.Descriptor{}, fmt.Errorf("namespace provider must reference a cluster directly")
+		}
+		if count > 0 && cluster.String() != resolved.String() {
+			return resource.Descriptor{}, fmt.Errorf("namespace has ambiguous cluster providers")
+		}
+		cluster = resolved
+		count++
+	}
+	if count == 0 {
+		return resource.Descriptor{}, fmt.Errorf("namespace has no Kubernetes cluster provider")
+	}
+	return cluster, nil
 }
 
 // expandProviderBindings adds the deterministic dependency edge of every
@@ -65,7 +120,7 @@ func (b *graphBuilder) expandProviderBindings(node *Node, def resource.Definitio
 		if contract.ProviderKinds[name] != tfmodule.BindingKubernetes {
 			continue
 		}
-		provider, err := b.clusterProvider(node, inputs.ProviderBindings[name])
+		provider, err := b.providerResource(node, inputs.ProviderBindings[name])
 		if err != nil {
 			return fmt.Errorf("planning: %s provider binding %s: %w", node.Descriptor, name, err)
 		}
@@ -136,7 +191,7 @@ func (b *graphBuilder) providerPins(node *Node, def resource.Definition, contrac
 			}
 			pin.ConnectionKey, pin.ConnectionKind, pin.Region, pin.AccountVersion = account.Key, string(application.ConnectionAWS), region, account.Version
 		case tfmodule.BindingKubernetes:
-			provider, err := b.clusterProvider(node, binding)
+			provider, err := b.clusterProvider(node, def, binding, matches)
 			if err != nil {
 				return nil, fmt.Errorf("planning: %s provider binding %s: %w", node.Descriptor, name, err)
 			}
@@ -144,6 +199,9 @@ func (b *graphBuilder) providerPins(node *Node, def resource.Definition, contrac
 				return nil, fmt.Errorf("planning: %s provider binding %s names a cluster %s that is not part of the plan", node.Descriptor, name, provider)
 			}
 			pin.Provider = provider.String()
+			if authored, err := b.providerResource(node, binding); err == nil && authored.Type == TypeNamespace {
+				pin.Namespace = authored.String()
+			}
 			if b.ctx.DefinitionPlaced() {
 				src, err := b.clusterSourceOf(b.nodes[provider.String()], matches)
 				if err != nil {

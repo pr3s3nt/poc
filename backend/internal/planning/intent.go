@@ -176,7 +176,7 @@ func (p *Plan) ResourceIntents(previous func(Node) *Plan) []ResourceIntent {
 			Scope: node.Scope.Key(), Ownership: OwnerOrchestrator,
 			DefinitionKey: match.DefinitionKey, DriverType: string(match.DriverType),
 		}
-		if match.DriverType == resource.DriverExistingCluster {
+		if match.DriverType == resource.DriverExistingCluster || match.DriverType == resource.DriverExistingGateway {
 			intent.DriverAccount, intent.AccountVersion = match.DriverAccount, match.AccountVersion
 			intent.Ownership = OwnerPreexisting
 		}

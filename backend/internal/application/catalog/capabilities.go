@@ -221,10 +221,18 @@ func platformCapabilities(types map[string]resource.Type) []Capability {
 	out := []Capability{}
 	if _, ok := types["endpoint"]; ok {
 		out = append(out, Capability{ResourceType: "endpoint", DriverType: string(resource.DriverEndpoint), Variables: []CapabilityVariable{
-			{Name: "rootDomain", Type: "string", Required: true}, {Name: "scheme", Type: "string", Required: true},
-			{Name: "gatewayName", Type: "string", Required: true}, {Name: "gatewayNamespace", Type: "string", Required: true},
-			{Name: "gatewaySectionName", Type: "string"}, {Name: "reservedNames", Type: "list(string)"},
+			{Name: "gateway", Type: "string", Required: true, Preset: "${resources['k8s-gateway.default#environments.@app.@env'].outputs.gateway}"},
 		}, Outputs: []CapabilityOutput{{Name: "hostname", Type: "string"}, {Name: "url", Type: "string"}}, ExecutorOwned: []string{}, Bindings: []CapabilityBinding{}})
+	}
+	if typ, ok := types["k8s-gateway"]; ok {
+		if field, found := typ.Output("gateway"); found && !field.Secret && field.Type == "any" {
+			out = append(out, Capability{ResourceType: typ.Key, DriverType: string(resource.DriverExistingGateway),
+				Variables: []CapabilityVariable{{Name: "cluster", Type: "string", Required: true, Preset: ClusterReferencePreset},
+					{Name: "rootDomain", Type: "string", Required: true}, {Name: "scheme", Type: "string", Required: true},
+					{Name: "gatewayName", Type: "string", Required: true}, {Name: "gatewayNamespace", Type: "string", Required: true},
+					{Name: "gatewaySectionName", Type: "string"}, {Name: "reservedNames", Type: "list(string)"}},
+				Outputs: []CapabilityOutput{{Name: "gateway", Type: "any"}}, ExecutorOwned: []string{}, Bindings: []CapabilityBinding{}})
+		}
 	}
 	if typ, ok := types[resource.ClusterTargetType]; ok {
 		if field, declared := typ.Output(resource.ClusterTargetOutput); declared && !field.Secret {

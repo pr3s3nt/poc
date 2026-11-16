@@ -1469,3 +1469,13 @@ Backend capability/provisioning/Definition behavior is unchanged.
   Score/extension file admission and export of current edits.
 - [Contract](../architecture/contracts/score-workload.md); no graph/provisioning
   algorithms changed. See [implementation and evidence](score-workload.md).
+
+## Namespace placement and template routes — issue #84
+
+[Contract/sequence](../architecture/contracts/namespace-template-routes.md) →
+`planning/provider_bindings.go`, `planning/endpoint.go`, `catalog/service.go`,
+`kubernetes/existing_gateway.go`, `templatedriver/endpoint.go` and
+`template-sources/standard/resources/httproute.tpl`. Console uses
+`EndpointDriverFields.tsx`, `ResourceDefinitionsPage.tsx`,
+`InfrastructureConnection.tsx` and `moduleMapping.ts`.
+[Checkpoint and remaining runtime gates](namespace-template-routes.md).

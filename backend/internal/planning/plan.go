@@ -193,6 +193,23 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 	if err != nil {
 		return nil, stageErr(StageCatalog, err)
 	}
+	for workload, desired := range plan.Endpoints {
+		if !desired.TemplateOwned {
+			continue
+		}
+		bundle, ok := req.Catalog.TemplateSources[plan.Rendering[workload].Bundle.ID]
+		supported := false
+		if ok {
+			for _, capability := range bundle.Contract.Manifest.WorkloadCapabilities {
+				if capability == "endpoint-httproute-v1" {
+					supported = true
+				}
+			}
+		}
+		if !supported {
+			return nil, endpointErr(ReasonEndpointPolicy, fmt.Errorf("endpoint: selected template does not support HTTPRoute rendering"))
+		}
+	}
 	// A successful deployment freezes resolved renderer evidence as well as the
 	// authored configuration. Future reads do not need a historical Plan to
 	// reinterpret this snapshot, and legacy resource baselines may remain unknown.

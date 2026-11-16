@@ -8,7 +8,7 @@ last_reviewed: 2026-11-05
 # Public endpoint resource
 
 Issue #84 amendment: [ADR-043](../decisions/ADR-043-namespace-placement-template-routes.md)
-owns cluster-bound Gateway selection and template-owned HTTPRoute. EP-02/04
+and [NP/GW/RT contract](namespace-template-routes.md) own separate Gateway resource selection and template-owned HTTPRoute. EP-02/04
 below describe the legacy literal-policy/backend-rendering path, retained only
 for existing revisions during explicit transition. EP-01/03/05/06/07 reservation,
 ownership and public-address semantics remain unchanged.

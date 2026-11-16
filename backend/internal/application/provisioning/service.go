@@ -164,7 +164,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		return err
 	}
 	nodeParams := node.Params
-	if match.DriverType == resource.DriverExistingCluster && len(nodeParams) > 0 {
+	if (match.DriverType == resource.DriverExistingCluster || match.DriverType == resource.DriverExistingGateway) && len(nodeParams) > 0 {
 		return fmt.Errorf("provisioning: %s: an existing cluster accepts no params; its identity comes from the driver account", descriptor)
 	}
 	params, err := expand(mapOrEmpty(nodeParams), "param")
@@ -201,6 +201,15 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	}
 
 	target := ResolveTarget(req.Plan.Graph, result, descriptor)
+	if placement := req.Plan.Placements[descriptor]; placement.Namespace != "" && isTerraform {
+		target, err = ResolveWorkloadTarget(req.Plan, result, descriptor, req.Context.OrganizationKey)
+		if err != nil {
+			return err
+		}
+		if inputMap[resource.VariableNamespace] != target.Namespace {
+			return fmt.Errorf("%w: resource namespace differs from its pinned namespace", ErrWorkloadTarget)
+		}
+	}
 
 	// A Terraform v2 executor verifies the pinned module itself and resolves
 	// the plan's provider pins; it never receives a pre-verified artifact.
@@ -613,6 +622,9 @@ func effectiveConnection(def resource.Definition, pins []tfmodule.ProviderPin, s
 		}
 		return "", ""
 	}
+	if def.DriverType == resource.DriverExistingGateway && target.Provider == "eks" {
+		return target.Connection, appdomain.ConnectionAWS
+	}
 	// A non-Terraform Kubernetes driver runs with the account of the cluster its references resolved to.
 	return target.Connection, appdomain.ConnectionKubernetes
 }
@@ -795,8 +807,28 @@ func checkPinsAgainstPlan(plan *planning.Plan, descriptor string, pins []tfmodul
 				return errPinStale
 			}
 		case tfmodule.BindingKubernetes:
-			if pin.Provider == "" || !providers[pin.Provider] {
+			if pin.Provider == "" {
 				return errPinForeign
+			}
+			if pin.Namespace == "" {
+				if !providers[pin.Provider] {
+					return errPinForeign
+				}
+			} else {
+				if !providers[pin.Namespace] {
+					return errPinForeign
+				}
+				nsCluster := false
+				for _, provider := range plan.Graph.Providers(pin.Namespace) {
+					if provider == pin.Provider {
+						nsCluster = true
+					}
+				}
+				placement, placed := plan.Placements[descriptor]
+				nsPlacement, nsPlaced := plan.Placements[pin.Namespace]
+				if !nsCluster || !placed || !nsPlaced || placement.Namespace != pin.Namespace || placement.Cluster != pin.Provider || nsPlacement.Cluster != pin.Provider {
+					return errPinForeign
+				}
 			}
 			if pin.ClusterProvider == planning.ClusterEKS {
 				// A cluster the plan itself creates (ADR-017): no Kubernetes Connection exists. The node

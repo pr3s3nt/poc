@@ -11,6 +11,14 @@ const capability = (module: string) => {
 const type = (key: string) => typeFixture.find((candidate) => candidate.key === key);
 
 describe('module mapping rules mirror the backend contract', () => {
+  it('round-trips a namespace provider without adding a separate cluster binding', () => {
+    const pg = capability('postgres-k8s');
+    const draft = emptyMapping();
+    draft.bindings.kubernetes = { target: 'resource', resourceType: 'k8s-namespace', clusterClass: 'default' };
+    const serialized = mappingToObject(draft, pg);
+    expect(serialized.provider_bindings).toEqual({ kubernetes: { target: 'resource', resource_ref: 'k8s-namespace.default#environments.@app.@env' } });
+    expect(objectToMapping(serialized, pg, type('postgres'), ['internal'], ['default']).draft).toEqual(draft);
+  });
   it('accepts the platform-produced typed cluster without requiring a Terraform output mapping', () => {
     const eks = capability('eks');
     const contract = { key: 'k8s-cluster', classes: ['eks'], inputs: [], outputs: [{ name: 'cluster', type: 'any', required: true }] };

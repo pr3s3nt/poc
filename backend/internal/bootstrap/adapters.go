@@ -56,7 +56,10 @@ func realAdapters(opts Options, credentials *connection.CredentialResolver, kube
 	kubernetesExecutor.Credentials = kubeconfig
 	existingCluster := k8s.NewExistingClusterAdapter(opts.KubectlPath)
 	existingCluster.Credentials = kubeconfig
+	existingGateway := k8s.NewExistingGatewayAdapter(opts.KubectlPath)
+	existingGateway.Credentials = kubeconfig
 	executors := map[resource.DriverType]execution.ResourceExecutor{
+		resource.DriverExistingGateway: existingGateway,
 		resource.DriverKubernetes:      kubernetesExecutor,
 		resource.DriverExistingCluster: existingCluster,
 	}

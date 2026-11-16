@@ -485,6 +485,9 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		deployments = appsvc.NewSimulationService(st, planner, prov, renderer, deployer, inspector, c)
 	}
 	deployments.SetReviewer(reviewer)
+	if !fakeRenderer {
+		deployments.SetGatewayReadiness(&k8s.ExistingGatewayAdapter{KubectlPath: opts.KubectlPath, Credentials: kubeconfigSource})
+	}
 	if opts.DeliveryGitRoot != "" && opts.HarborPullSecretName != "" {
 		deployments.SetImagePullSecret(opts.HarborPullSecretName)
 	}

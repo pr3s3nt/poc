@@ -30,18 +30,23 @@ on them. No automatic cross-cluster move, multi-cluster networking or state rese
 
 ## Existing Gateway configuration
 
-Gateway policy is nonsecret configuration attached to the cluster Definition,
-keyed by a stable Gateway configuration name. Each entry contains the endpoint
-policy fields (domain, scheme, Gateway name/namespace/listener and reserved names).
-An endpoint Definition selects that cluster and configuration name. Planning
-pins the selected cluster Definition revision and resolved policy, and requires
-the same cluster as the consuming workload's namespace. Matching criteria alone
-are not evidence that two targets agree. Multiple policies per cluster allow
-separate public/private listeners and domains without putting routing policy on
-the namespace or requiring a new Gateway to be provisioned per application.
+User refinement (2026-11-16): Gateway is a distinct `k8s-gateway` Resource Type
+with its own `existing-gateway` Definition, not a map in the cluster Definition.
+The Gateway Definition holds a whole cluster target reference, Gateway
+name/namespace/listener and nonsecret domain/scheme/reserved-name policy. It
+references the shared preexisting Gateway and never creates, adopts, updates or
+destroys it. Cluster Definitions retain their existing identity-only contract.
+
+An endpoint Definition references the Gateway resource's nonsecret `gateway`
+output. The graph is endpoint → Gateway → cluster, with workload → namespace →
+cluster. Planning resolves and pins the selected Gateway Definition policy and
+requires the same cluster as the consuming workload's namespace. Provisioning
+reads the Gateway/listener readiness and allowed namespace without mutating
+shared infrastructure. Multiple Gateway Definitions permit distinct listeners
+or domains without duplicating Gateway objects.
 
 Existing literal endpoint Definitions remain explicit legacy configurations;
-new cluster-bound configurations cannot fall back to another cluster or a legacy
+new Gateway-bound configurations cannot fall back to another cluster or a legacy
 policy when missing. Developer inputs stay name, Service port and path.
 
 ## Rendering

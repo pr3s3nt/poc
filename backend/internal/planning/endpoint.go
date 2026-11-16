@@ -51,13 +51,17 @@ func planEndpoints(plan *Plan, catalog Catalog) (map[string]endpoint.Desired, er
 		if def.DriverType != resource.DriverEndpoint {
 			return nil, endpointErr(ReasonEndpointPolicy, fmt.Errorf("endpoint: endpoint requires the built-in endpoint driver"))
 		}
-		policy, err := endpoint.ParsePolicy(def.Variables())
+		policy, cluster, selected, err := endpointPolicyForPlan(plan, node, def, catalog)
 		if err != nil {
 			return nil, endpointErr(ReasonEndpointPolicy, err)
 		}
 		desired, err := endpoint.Resolve(policy, node.Params)
 		if err != nil {
 			return nil, endpointErr(ReasonEndpointInvalid, err)
+		}
+		desired.Cluster, desired.TemplateOwned = cluster, selected
+		if selected && endpointWorkloadCluster(plan, workload) != cluster {
+			return nil, endpointErr(ReasonEndpointPolicy, fmt.Errorf("endpoint: Gateway cluster differs from workload namespace cluster"))
 		}
 		module, ok := plan.CandidateSet.Modules[workload]
 		if !ok || module.Spec.EffectiveService() == nil {
@@ -77,4 +81,48 @@ func planEndpoints(plan *Plan, catalog Catalog) (map[string]endpoint.Desired, er
 		out[workload] = desired
 	}
 	return out, nil
+}
+
+func endpointWorkloadCluster(plan *Plan, workload string) string {
+	for _, node := range plan.Graph.Nodes {
+		if node.Kind == NodeWorkload && descriptorID(node.Descriptor) == "modules."+workload {
+			return plan.Placements[node.Descriptor].Cluster
+		}
+	}
+	return ""
+}
+
+func endpointPolicyForPlan(plan *Plan, node Node, def resource.Definition, catalog Catalog) (endpoint.Policy, string, bool, error) {
+	ref, selected, err := endpoint.GatewaySelection(def.Variables())
+	if err != nil {
+		return endpoint.Policy{}, "", selected, err
+	}
+	if !selected {
+		p, err := endpoint.ParsePolicy(def.Variables())
+		return p, "", false, err
+	}
+	descriptor := node.Bindings[ref]
+	gateway, exists := plan.Graph.Node(descriptor)
+	match, matched := plan.Matches[descriptor]
+	if !exists || !matched || gateway.ResourceType != endpoint.GatewayType || match.DriverType != resource.DriverExistingGateway {
+		return endpoint.Policy{}, "", true, fmt.Errorf("endpoint: Gateway resource is unresolved or has the wrong driver")
+	}
+	for _, definition := range catalog.Definitions {
+		if definition.Key != match.DefinitionKey {
+			continue
+		}
+		if len(gateway.Params) != 0 {
+			return endpoint.Policy{}, "", true, fmt.Errorf("Gateway accepts no developer inputs")
+		}
+		policy, err := endpoint.GatewayPolicy(definition.Variables())
+		if err != nil {
+			return endpoint.Policy{}, "", true, err
+		}
+		placement, ok := plan.Placements[descriptor]
+		if !ok || placement.Cluster == "" {
+			return endpoint.Policy{}, "", true, fmt.Errorf("Gateway has no pinned cluster")
+		}
+		return policy, placement.Cluster, true, nil
+	}
+	return endpoint.Policy{}, "", true, fmt.Errorf("endpoint: Gateway Definition is unavailable")
 }

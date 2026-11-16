@@ -80,6 +80,9 @@ func (s *Service) validateTerraform(ctx context.Context, org string, def *resour
 	if err := checkBindings(bundle, inputs.ProviderBindings, types); err != nil {
 		return tfmodule.Bundle{}, invalidField(bindingsPath, fmt.Errorf("%w: %v", ErrInvalid, err))
 	}
+	if err := checkNamespaceProvider(*def, inputs, types); err != nil {
+		return tfmodule.Bundle{}, invalidField(bindingsPath, fmt.Errorf("%w: %v", ErrInvalid, err))
+	}
 	if err := checkInputs(bundle, typ, inputs); err != nil {
 		return tfmodule.Bundle{}, invalidField(mappingPath, fmt.Errorf("%w: %v", ErrInvalid, err))
 	}
@@ -172,8 +175,8 @@ func checkClusterRef(ref string, types []resource.Type) error {
 	if err != nil {
 		return errors.New("is not a valid resource descriptor")
 	}
-	if descriptor.Type != planning.TypeCluster {
-		return errors.New("must reference a Kubernetes cluster resource")
+	if descriptor.Type != planning.TypeCluster && descriptor.Type != planning.TypeNamespace {
+		return errors.New("must reference a Kubernetes cluster or namespace resource")
 	}
 	for _, typ := range types {
 		if typ.Key == descriptor.Type {
@@ -389,6 +392,44 @@ func checkPublicAccessCIDRs(path string, value any) error {
 			return fmt.Errorf("%s[%d] repeats an address", path, i)
 		}
 		seen[text] = true
+	}
+	return nil
+}
+
+// checkNamespaceProvider prevents a caller from inheriting credentials from one
+// namespace while naming another namespace in Terraform variables.
+func checkNamespaceProvider(def resource.Definition, inputs tfmodule.DriverInputs, types []resource.Type) error {
+	ctx := planning.Context{App: application.Application{Key: "sample-app"}, Env: environment.Environment{Key: "staging"}}
+	current := &planning.Node{Descriptor: def.ResourceTypeKey + ".default#sample", Class: "default"}
+	for _, binding := range inputs.ProviderBindings {
+		if binding.Target != tfmodule.TargetResource {
+			continue
+		}
+		target, err := planning.ParseDescriptorText(binding.ResourceRef, current, ctx)
+		if err != nil || target.Type != planning.TypeNamespace {
+			continue
+		}
+		if def.ResourceTypeKey == planning.TypeNamespace {
+			return errors.New("namespace provider must reference a cluster directly")
+		}
+		text, _ := inputs.Variables[resource.VariableNamespace].(string)
+		ref, output, whole := resource.WorkloadReference(text)
+		ns, err := planning.ParseDescriptorText(ref, current, ctx)
+		if !whole || output != "name" || err != nil || ns.String() != target.String() {
+			return errors.New("namespace input must reference the provider namespace name output")
+		}
+		if _, mapped := inputs.InputMapping[resource.VariableNamespace]; mapped {
+			return errors.New("provider namespace cannot be overridden by a resource input")
+		}
+		for _, typ := range types {
+			if typ.Key != planning.TypeNamespace {
+				continue
+			}
+			field, ok := typ.Output("name")
+			if !ok || field.Secret || field.Type != "string" {
+				return errors.New("provider namespace must expose a nonsecret string name output")
+			}
+		}
 	}
 	return nil
 }

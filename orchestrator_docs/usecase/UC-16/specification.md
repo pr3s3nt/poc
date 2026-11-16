@@ -374,3 +374,10 @@ uses the existing scoped parse API; edits immediately invalidate earlier results
 and block stale Save/export until the current content passes validation. File
 imports retain their existing automatic check. Empty extension means no extension.
 No backend, graph, matching or provisioning behavior changes.
+
+## Namespace placement and template routes — issue #84
+
+[NP-01, GW-01/02 and RT-01–03](../../architecture/contracts/namespace-template-routes.md)
+apply to this use case. Registration/Preview remain read-only; Deploy uses pinned
+namespace/Gateway target identities and template-rendered HTTPRoute; updates and
+removal retain existing claims, state and ownership guarantees.

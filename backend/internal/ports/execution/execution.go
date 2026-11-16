@@ -6,6 +6,7 @@ import (
 	"context"
 
 	"orchestrator/internal/domain/application"
+	"orchestrator/internal/domain/endpoint"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
@@ -187,6 +188,8 @@ type StorageBinding struct {
 }
 
 type RenderRequest struct {
+	Endpoint *endpoint.Intent
+
 	ResourceReferences map[string]any
 	Storage            map[string]StorageBinding
 
