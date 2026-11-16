@@ -6,6 +6,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openConsole, readConsoleConfig, closeConsole } from '../../lib/console.mjs';
+import { ensureScoreNamespaceAccess } from '../../setup/score-authoring-namespace/access.mjs';
 
 const config = readConsoleConfig();
 const evidence = resolve(process.env.ORCH_EVIDENCE_DIR ?? '');
@@ -25,7 +26,7 @@ const api = async (path, data) => {
 };
 const fixture = name => fileURLToPath(new URL(name, import.meta.url));
 try {
- if (phase === 'author') {
+ if (phase === 'author' || phase === 'update') {
   if (!receipt.appId) {
   await page.goto(config.baseURL + '/ui/applications/new');
   await page.getByLabel('Tên ứng dụng', { exact: true }).fill(receipt.name);
@@ -41,15 +42,18 @@ try {
    assert.equal(existing.application.name, receipt.name, 'Receipt does not own this Application');
   }
   const base = `/applications/${receipt.appId}/environments/staging`;
+  if (phase === 'update') { receipt.savedBeforeUpdate = receipt.saved; receipt.saved = []; receipt.updateStarted = true; save(); }
   for (const [name, workload] of [['deployment', 'database-client'], ['cronjob', 'scheduled-report']]) {
    if (receipt.saved?.includes(workload)) continue;
-   await page.goto(config.baseURL + '/ui' + base + '/workloads/new');
-   await page.getByRole('heading', { name: 'Thông tin cơ bản' }).waitFor();
+   await page.goto(config.baseURL + '/ui' + base + '/workloads/' + (phase === 'update' ? workload : 'new'));
+   await page.getByRole('button', { name: 'Nhập Workload', exact: true }).waitFor();
    if (name === 'deployment') await page.screenshot({ path: join(evidence, 'form-reference.png'), fullPage: true });
    await page.getByRole('button', { name: 'Nhập Workload', exact: true }).click();
    await page.getByLabel('File extension (tùy chọn)', { exact: true }).setInputFiles(fixture(`${name}.extension.yaml`));
    const parsed = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/workloads/parse'));
-   await page.getByLabel('File Workload', { exact: true }).setInputFiles(fixture(`${name}.yaml`));
+   let content = readFileSync(fixture(`${name}.yaml`), 'utf8');
+   if (phase === 'update') content = name === 'deployment' ? content.replace('    variables:\n', '    variables:\n      ACCEPTANCE_REVISION: second\n') : content.replace('score83-scheduled-report', 'score83-scheduled-report-second');
+   await page.getByLabel('File Workload', { exact: true }).setInputFiles({name:`${name}.yaml`,mimeType:'text/yaml',buffer:Buffer.from(content)});
    const parseResponse = await parsed;
    if (!parseResponse.ok()) throw new Error('Score import HTTP ' + parseResponse.status() + ' ' + (await parseResponse.json()).code);
    const normalized = (await parseResponse.json()).workload;
@@ -80,8 +84,15 @@ try {
   assert(workloads.workloads.every(x => x.state === 'PENDING_UPSERT'));
   receipt.allSaved = true; save();
   console.log('PASS: real Console Score + extension import, pinned profiles, export/reimport and two saved drafts');
- } else if (phase === 'deploy') {
-  assert(receipt.allSaved && !receipt.deployStarted, 'Require saved drafts and no prior deployment submission');
+ } else if (phase === 'deploy' || phase === 'retry' || phase === 'deploy-update') {
+  assert(receipt.allSaved, 'Require saved drafts');
+  if (phase === 'retry' || phase === 'deploy-update') {
+   if (phase === 'deploy-update') assert(receipt.updateStarted && receipt.report?.status === 'SUCCEEDED', 'Require explicit update after a successful deployment');
+   else assert(receipt.report?.status === 'FAILED' && receipt.report.results.every(x => x.errorCode === 'ROLLOUT_NOT_READY'), 'Retry requires the known readiness failure');
+   const operations = await api(`/applications/${receipt.appId}/environments/staging/operations`);
+   assert(operations.operations.every(x => ['FAILED', 'SUCCEEDED', 'RECOVERED'].includes(x.status)), 'An operation is still active or held');
+   receipt.attempts = [...(receipt.attempts ?? []), { report: receipt.report, error: receipt.lastError, capturedAt: new Date().toISOString() }]; save();
+  } else assert(!receipt.deployStarted, 'Inspect server operations before retrying a previous submission');
   const base = `/applications/${receipt.appId}/environments/staging`;
   await page.goto(config.baseURL + '/ui/applications/' + receipt.appId);
   const preview = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/environments/staging/preview'), { timeout: 180_000 });
@@ -94,6 +105,7 @@ try {
   const deployment = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/environments/staging/deploy'), { timeout: 600_000 });
   receipt.deployStarted = true; save();
   await page.getByRole('button', { name: 'Triển khai các thay đổi này', exact: true }).click();
+  await ensureScoreNamespaceAccess(page, config, receipt, save);
   const deployed = await deployment;
   receipt.deployHTTP = deployed.status();
   const report = await deployed.json(); receipt.report = report; save();
@@ -102,7 +114,7 @@ try {
   const workloads = await api(base + '/workloads');
   assert.equal(workloads.workloads.length, 2);
   assert(workloads.workloads.every(x => x.ready && !x.state));
-  receipt.deployed = true; save();
+  receipt.deployed = true; delete receipt.lastError; save();
   console.log('PASS: one Preview and one Environment Deploy for both Score workloads');
  } else throw new Error('Unknown ORCH_SCORE_PHASE');
 } catch (error) {

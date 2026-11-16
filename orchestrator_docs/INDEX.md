@@ -2,7 +2,7 @@
 id: DOC-INDEX
 artifact: documentation-index
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-16
 ---
 
 # Documentation index
@@ -149,6 +149,9 @@ và deploy acceptance app ở cuối lệnh đầy đủ; schemaVersion 2 Catalo
 
 [Score admission and extensions](architecture/contracts/score-workload.md) defines
 standard input, profile resolution and the unchanged infrastructure boundary.
+[Implementation](implementation/score-workload.md) and
+[verification](verification/2026-11-16-score-authoring.md) record feature-branch
+status and baseline/runtime limits.
 
 ## Generic Workload and Template Driver
 

@@ -46,3 +46,34 @@ its namespace UID/application label receipt and remove it only after CD withdraw
 A receipt-owned Application can resume authoring after a read-only parse failure;
 already confirmed saved workloads are kept. The runner refuses another deployment
 submission after `deployStarted`: inspect server operations before retry/recovery.
+
+For a development target requiring app-scoped Fleet permissions, configure
+[the namespace setup helper](../../setup/score-authoring-namespace/README.md)
+before starting the deploy phase; the runner performs this setup as soon as the
+product namespace exists, before waiting for the deploy response.
+
+
+After a successful initial deployment, exercise a valid update and native checks:
+
+```sh
+ORCH_SCORE_PHASE=update node e2e/scenarios/score-authoring/run.mjs
+ORCH_SCORE_PHASE=deploy-update node e2e/scenarios/score-authoring/run.mjs
+node e2e/scenarios/score-authoring/verify-kind.mjs
+```
+
+Native verification requires explicit ORCH_SCORE_KUBECONFIG and
+ORCH_SCORE_CONTEXT and writes only nonsecret identity/assertion evidence.
+ORCH_SCORE_BEFORE_IDENTITIES optionally points to a private array of resource
+kind/name/UID records to check preservation. No native workload mutation occurs.
+
+`retry` is only for a recorded ROLLOUT_NOT_READY failure after verifying every
+operation terminal; it keeps failed reports and requires a fresh Preview. An
+unchanged Preview may correctly be empty after a delivered-but-not-ready failure;
+inspect applied state and make an explicit valid update rather than resetting
+receipts or replaying an unknown operation.
+
+Before cleanup, suspend the owned CronJob through Save/Preview/Deploy. Then use
+Application deletion, remove only receipt-owned setup RBAC after withdrawal and
+resume product cleanup if namespace guards stopped at that setup. Verify
+namespace, controller and PV absence; a successful DELETE response alone is not
+proof that cleanup finished.

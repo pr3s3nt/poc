@@ -1468,4 +1468,4 @@ Backend capability/provisioning/Definition behavior is unchanged.
 - `frontend/src/features/workloads/WorkloadEditorPage.tsx`: existing form,
   Score/extension file admission and export of current edits.
 - [Contract](../architecture/contracts/score-workload.md); no graph/provisioning
-  algorithms changed. Runtime verification is pending on the feature branch.
+  algorithms changed. See [implementation and evidence](score-workload.md).

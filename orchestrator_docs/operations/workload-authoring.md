@@ -254,7 +254,7 @@ web cho CronJob. Workload chạy theo lịch dùng lịch thay cho số replica.
 Deploy mới thay đổi môi trường chạy. Nếu cấu hình/pin đã đổi sau Preview, cần
 Preview lại theo yêu cầu của hệ thống.
 
-Tab **Nhập Workload** nhận Generic Workload YAML/JSON được nền tảng hỗ trợ;
+Tab **Nhập Workload** nhận Score YAML/JSON cùng extension tùy chọn và vẫn nhận Generic Workload cũ;
 không nhận nguyên manifest Kubernetes Deployment/Service tùy ý. Sau khi phân tích,
 kiểm tra lại cấu hình rồi lưu draft và thực hiện cùng luồng Preview → Deploy.
 

@@ -7,6 +7,19 @@ last_reviewed: 2026-11-11
 
 # Current project state
 
+## Score authoring — issue #83, 2026-11-16
+
+Implemented on `features/score`, not merged or deployed to retained main. Score
+v1b1 plus a supported Humanitec-format extension resolves profiles within the
+matched Definition source, preserving existing internal storage, immutable pins,
+template defaults and infrastructure algorithms. Console import/export and legacy
+workload readers are retained. See [implementation](implementation/score-workload.md)
+and [verification](verification/2026-11-16-score-authoring.md). Full frontend passes;
+full backend has the same 70 top-level failures as main, with no additional
+candidate failures/skips and both builds passing. This is baseline parity, not a
+green backend suite. User acceptance and merge remain pending.
+
+
 ## Resource Type driver support — issue #81
 
 Implemented directly on main at `86d79cc5` at the user's request. Resource Types

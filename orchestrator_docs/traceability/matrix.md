@@ -1671,4 +1671,6 @@ separate in the Environment rollback verification record.
 SC-01–05: [contract](../architecture/contracts/score-workload.md) →
 [UC-16](../usecase/UC-16/specification.md#score-input-and-extensions--issue-83) →
 [realization](../usecase/UC-16/realization.md#score-authoring-adapter--issue-83).
-Implementation and runtime evidence are pending on features/score.
+[Implementation/tests](../implementation/score-workload.md) and
+[verification](../verification/2026-11-16-score-authoring.md) record the feature
+branch checks and real runtime evidence; acceptance/merge remain pending.
