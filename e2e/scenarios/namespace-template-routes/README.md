@@ -37,7 +37,7 @@ All logs/state/screenshots/credentials stay outside Git.
 
 ## Application acceptance
 
-Pending runner completion: use the shared Console sign-in helper from
+`run.mjs` uses the shared Console sign-in helper from
 `e2e/lib/console.mjs`; create Gateway/endpoint Definitions and both native/Score
 workloads through UI, save all drafts, Preview and Deploy once for the Environment.
 Assert inherited database placement, Gateway identity preservation, rendered
@@ -45,3 +45,29 @@ HTTPRoute/Service/host/path/parent, real browser reachability, update/reuse and
 ownership-protected API cleanup. Bootstrap configuration or an HTML shell is not
 application acceptance. Read-only native assertions and namespace-local Fleet
 access setup use existing shared helpers and separate owner/UID receipts.
+
+Run phases with `ORCH_ROUTE_PHASE=configure|author|deploy|update|deploy-update|browser`.
+Supply shared Console environment variables from `e2e/README.md` and an external
+`ORCH_EVIDENCE_DIR`. Configuration requires explicit `ORCH_GATEWAY_CLUSTER_REFERENCE`,
+`ORCH_GATEWAY_ROOT_DOMAIN`, `ORCH_GATEWAY_NAME`, `ORCH_GATEWAY_NAMESPACE`, and
+`ORCH_GATEWAY_LISTENER`; no shared infrastructure identity is guessed. Authoring
+requires `ORCH_WORKLOAD_CLASS`, digest-pinned `ORCH_ROUTE_IMAGE`,
+`ORCH_SCORE_ENDPOINT_NAME` and `ORCH_NATIVE_ENDPOINT_NAME`. Browser checks require
+actual `ORCH_NATIVE_APP_URL` and `ORCH_SCORE_APP_URL` verified over Tailscale.
+
+The two workloads use the same namespace-bound PostgreSQL resource. A PostgreSQL
+client init container checks real database availability before each web workload
+starts. Native assertions separately check authenticated SQL, preserved database/
+PVC/Gateway identities, HTTPRoute status and exact Service/host/parent intent.
+Optional namespace-local Fleet setup reuses the existing shared helper with
+`ORCH_SCORE_KUBECONFIG` and `ORCH_SCORE_CONTEXT`; it does not create/adopt namespace
+or alter controller/global RBAC. Record and remove only the setup-owned Role and
+RoleBinding (labels/UIDs must match) when application cleanup reaches that guard.
+
+After backend changes, the full backend candidate suite must run again. The
+runner accepts `ORCH_FULL_CHECK_PARTS=candidate` with
+`ORCH_REUSE_FULL_RECEIPT=/private/completed/full-kind-receipt.json` only when prior
+cleanup is confirmed, main SHA is identical, frontend checks passed and frontend
+Git tree is unchanged. It copies earlier evidence without claiming a fresh run;
+compare actual Go/Terraform tool versions and exact failure/skip sets. Failed or
+changed frontend checks require including `frontend` in the rerun.

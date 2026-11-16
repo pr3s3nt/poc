@@ -274,6 +274,12 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	if err == nil && match.DriverType == resource.DriverExistingCluster && (connection.Key != match.DriverAccount || connection.Version != match.AccountVersion) {
 		err = fmt.Errorf("the driver account changed after the plan; plan again")
 	}
+	if err == nil && def.DriverType == resource.DriverExistingGateway {
+		placement, pinned := req.Plan.Placements[descriptor]
+		if !pinned || placement.Account != connection.Key || placement.AccountVersion != connection.Version {
+			err = errPinStale
+		}
+	}
 	if def.DriverType == resource.DriverEndpoint {
 		// The built-in endpoint driver is a database reservation: it has no
 		// Driver Account, Connection or cluster access (EP-02).

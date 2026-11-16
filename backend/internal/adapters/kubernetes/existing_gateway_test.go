@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/endpoint"
 	"orchestrator/internal/ports/execution"
 )
@@ -43,7 +44,7 @@ func TestExistingGatewayReadsInfrastructureWithoutTakingOwnership(t *testing.T) 
 		t.Fatal(err)
 	}
 	inputs["cluster"] = target.ClusterOutput("k8s-cluster.default#environments.shop.staging", 3)
-	result, err := adapter.Provision(context.Background(), execution.ProvisionRequest{OrganizationKey: target.Organization, Target: target, Inputs: inputs})
+	result, err := adapter.Provision(context.Background(), execution.ProvisionRequest{OrganizationKey: target.Organization, Target: target, Inputs: inputs, Connection: application.Connection{Key: target.Connection, Version: 3}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,6 +53,9 @@ func TestExistingGatewayReadsInfrastructureWithoutTakingOwnership(t *testing.T) 
 	}
 	if _, ok := result.Outputs["gateway"]; !ok {
 		t.Fatal("typed Gateway output missing")
+	}
+	if _, err := adapter.Provision(context.Background(), execution.ProvisionRequest{OrganizationKey: target.Organization, Target: target, Inputs: inputs, Connection: application.Connection{Key: target.Connection, Version: 4}}); err == nil {
+		t.Fatal("Gateway used an account revision different from its cluster pin")
 	}
 	target.Namespace = "app-ns"
 	if err := adapter.CheckGateway(context.Background(), target, gatewayDesired()); err != nil {

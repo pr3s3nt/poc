@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve, join } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
+import { resolve, join, dirname } from 'node:path';
 
 const evidence = resolve(process.env.ORCH_EVIDENCE_DIR ?? '');
 assert(process.env.ORCH_EVIDENCE_DIR && !evidence.startsWith(resolve('.') + '/'), 'Evidence must be outside Git');
@@ -18,6 +18,29 @@ const candidate = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' 
 const baseline = process.env.ORCH_MAIN_REF ?? 'origin/main';
 const baselineSHA = execFileSync('git', ['rev-parse', baseline], { encoding: 'utf8' }).trim();
 const receipt = { runID, namespace, candidate, baseline: baselineSHA, results: {}, cleanup: false };
+const parts = (process.env.ORCH_FULL_CHECK_PARTS ?? 'candidate,main,frontend').split(',');
+assert(parts.length > 0 && new Set(parts).size === parts.length && parts.every(p => ['candidate','main','frontend'].includes(p)), 'Invalid full-check parts');
+if (parts.length !== 3) {
+  const previousPath = process.env.ORCH_REUSE_FULL_RECEIPT;
+  assert(previousPath, 'Partial reruns require a completed full-check receipt');
+  const previous = JSON.parse(readFileSync(previousPath,'utf8'));
+  assert(previous.cleanup && previous.baseline === baselineSHA, 'Baseline/cleanup mismatch');
+  assert(parts.includes('candidate'), 'Candidate backend full suite must run');
+  for (const name of ['main','frontend']) {
+    if (parts.includes(name)) continue;
+    assert(previous.results[name], 'Missing earlier '+name+' result');
+    if (name === 'frontend') {
+      assert(Object.values(previous.results.frontend).every(code => code === 0), 'Failed frontend checks cannot be reused');
+      const tree = sha => execFileSync('git',['rev-parse',sha+':frontend'],{encoding:'utf8'}).trim();
+      assert.equal(tree(previous.candidate),tree(candidate),'Frontend source changed');
+    }
+    const files = name === 'frontend' ? ['tools','install.log','tests.log','typecheck.log','lint.log','build.log'] : ['tools','tests.jsonl','tests.stderr','build.log'];
+    for (const file of files) copyFileSync(join(dirname(previousPath),name+'-'+file),join(evidence,name+'-'+file));
+    receipt.results[name]=previous.results[name];
+  }
+  receipt.reusedFrom=previous.runID;
+}
+
 const save = () => writeFileSync(join(evidence, 'full-kind-receipt.json'), JSON.stringify(receipt, null, 2), { mode: 0o600 });
 save();
 const pod = (name, frontend) => ({ apiVersion: 'v1', kind: 'Pod', metadata: { name, namespace, labels: { 'orchestrator.task': runID } }, spec: {
@@ -36,7 +59,7 @@ const pod = (name, frontend) => ({ apiVersion: 'v1', kind: 'Pod', metadata: { na
 try {
   const created = JSON.parse(kubectl(['create', '-f', '-', '-o', 'json'], JSON.stringify({ apiVersion: 'v1', kind: 'Namespace', metadata: { name: namespace, labels: { 'orchestrator.task': runID } } })));
   receipt.namespaceUID = created.metadata.uid; save();
-  for (const [name, frontend, sha] of [['candidate', false, candidate], ['main', false, baselineSHA], ['frontend', true, candidate]]) {
+  for (const [name, frontend, sha] of [['candidate', false, candidate], ['main', false, baselineSHA], ['frontend', true, candidate]].filter(([name])=>parts.includes(name))) {
     kubectl(['create', '-f', '-'], JSON.stringify(pod(name, frontend)));
     const deadline = Date.now() + 300_000;
     for (;;) {
@@ -57,7 +80,7 @@ try {
     console.log('STARTED', name, sha);
   }
   const deadline = Date.now() + 45 * 60_000;
-  const pending = new Set(['candidate', 'main', 'frontend']);
+  const pending = new Set(parts);
   while (pending.size) {
     assert(Date.now() < deadline, 'Full checks deadline exceeded');
     for (const name of pending) {

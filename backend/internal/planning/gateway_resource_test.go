@@ -51,7 +51,7 @@ func TestGatewayIsSeparatePreexistingResourceAndEndpointUsesItsPolicy(t *testing
 }
 
 func TestGatewayEndpointRejectsWrongResourceOrMissingTemplateCapability(t *testing.T) {
-	for _, mode := range []string{"wrong-resource", "missing-capability", "missing-policy"} {
+	for _, mode := range []string{"wrong-resource", "wrong-cluster-output", "missing-capability", "missing-policy"} {
 		t.Run(mode, func(t *testing.T) {
 			req := gatewayRequest(t)
 			switch mode {
@@ -59,6 +59,12 @@ func TestGatewayEndpointRejectsWrongResourceOrMissingTemplateCapability(t *testi
 				for i := range req.Catalog.Definitions {
 					if req.Catalog.Definitions[i].Key == "gateway-bound-endpoint" {
 						req.Catalog.Definitions[i].Variables()["gateway"] = clusterRef
+					}
+				}
+			case "wrong-cluster-output":
+				for i := range req.Catalog.Definitions {
+					if req.Catalog.Definitions[i].Key == "existing-public-gateway" {
+						req.Catalog.Definitions[i].Variables()["cluster"] = strings.Replace(clusterRef, ".outputs.cluster", ".outputs.name", 1)
 					}
 				}
 			case "missing-capability":

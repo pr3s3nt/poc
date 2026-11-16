@@ -114,6 +114,12 @@ func endpointPolicyForPlan(plan *Plan, node Node, def resource.Definition, catal
 		if len(gateway.Params) != 0 {
 			return endpoint.Policy{}, "", true, fmt.Errorf("Gateway accepts no developer inputs")
 		}
+		clusterText, _ := definition.Variables()[resource.VariableCluster].(string)
+		clusterReference, output, whole := resource.WorkloadReference(clusterText)
+		clusterNode, found := plan.Graph.Node(gateway.Bindings[clusterReference])
+		if !whole || output != resource.ClusterTargetOutput || !found || clusterNode.ResourceType != TypeCluster {
+			return endpoint.Policy{}, "", true, fmt.Errorf("Gateway must reference a whole Kubernetes cluster target output")
+		}
 		policy, err := endpoint.GatewayPolicy(definition.Variables())
 		if err != nil {
 			return endpoint.Policy{}, "", true, err
