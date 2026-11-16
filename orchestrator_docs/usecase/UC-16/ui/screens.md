@@ -316,3 +316,7 @@ choices and prevent saving a previous import. Scope changes discard late replies
 Export downloads Score and, when needed, an extension from the current authored
 document using the same authorized API; errors preserve the editor. No shell,
 navigation or field-group redesign. The native read-only document remains available.
+
+The parsed internal document and frozen defaults sit in a collapsed native
+`details` disclosure. Name, file selection and Save/export actions remain visible;
+the user can inspect the full configuration with keyboard or pointer when needed.

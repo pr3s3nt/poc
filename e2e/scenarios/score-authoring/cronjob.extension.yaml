@@ -1,0 +1,12 @@
+apiVersion: humanitec.org/v1b1
+profile: scheduled
+spec:
+  orchestrator:
+    metadata:
+      class: git-dev
+  schedules:
+    every-minute:
+      schedule: '* * * * *'
+  cronjob:
+    timeZone: Asia/Bangkok
+    concurrencyPolicy: Forbid

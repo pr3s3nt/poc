@@ -4202,5 +4202,6 @@
   "workloads.score.checking": "Đang kiểm tra…",
   "workloads.score.schemaError": "File không đúng cấu trúc Score score.dev/v1b1.",
   "workloads.score.unsupportedError": "Score hoặc extension chứa cấu hình chưa được nền tảng hỗ trợ.",
-  "workloads.score.profileError": "Profile không có, không duy nhất hoặc không tương thích với nguồn Workload đã chọn. Kiểm tra ID và phiên bản profile."
+  "workloads.score.profileError": "Profile không có, không duy nhất hoặc không tương thích với nguồn Workload đã chọn. Kiểm tra ID và phiên bản profile.",
+  "workloads.score.viewDocument": "Xem cấu hình đã phân tích"
 }
