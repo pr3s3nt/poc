@@ -145,6 +145,11 @@ Kết quả và cleanup cuối: [bàn giao M04](verification/2026-10-16-m04-comp
 SchemaVersion 3 nhận input môi trường, bootstrap Definitions không cần Catalog
 và deploy acceptance app ở cuối lệnh đầy đủ; schemaVersion 2 Catalog được giữ.
 
+## Score authoring — issue #83
+
+[Score admission and extensions](architecture/contracts/score-workload.md) defines
+standard input, profile resolution and the unchanged infrastructure boundary.
+
 ## Generic Workload and Template Driver
 
 Approved replacement: [ADR-035](architecture/decisions/ADR-035-generic-workload-template-driver.md),

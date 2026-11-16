@@ -352,3 +352,10 @@ No template records, API visibility or deployment behavior change.
 
 [ENVFILE-01–06](envfile-specification.md) mở rộng bảng biến và supersede hành vi
 checkbox tạo Secret ngay ở BR-27. Không thay đổi secret delivery/Preview/Deploy.
+
+## Score input and extensions — issue #83
+
+SC-01–05 in the [Score contract](../../architecture/contracts/score-workload.md)
+own admission/export/profile behavior. Restore Console file import (superseding
+issue #45 for workload import only), retain the form, add optional extension input
+and lossless export. No graph/matching/provisioning behavior changes.

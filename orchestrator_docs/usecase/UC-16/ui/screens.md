@@ -307,3 +307,12 @@ mặc định giữ. Checkbox literal đánh dấu draft, toolbar chọn nhiều
 dấu Bí mật. Xác nhận Secret chung hiển thị tên/result mỗi dòng và boundary commit,
 không lặp value. Reference secrecy read-only. Dùng shared Button/Dialog,
 VI/EN, focus/keyboard hiện hành. [Grammar](../envfile-specification.md).
+
+## Score import/export — issue #83
+
+Restore the existing form/import tabs. Import accepts a Score file plus an optional
+extension file using the current file-input pattern. Parse errors retain file
+choices and prevent saving a previous import. Scope changes discard late replies.
+Export downloads Score and, when needed, an extension from the current authored
+document using the same authorized API; errors preserve the editor. No shell,
+navigation or field-group redesign. The native read-only document remains available.

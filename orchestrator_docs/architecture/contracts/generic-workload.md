@@ -7,6 +7,10 @@ last_reviewed: 2026-11-04
 
 # Generic Workload and Template Driver
 
+Score authoring is restored by the [Score admission contract](score-workload.md)
+(issue #83). Generic Workload remains the normalized internal and legacy input;
+the Score-removal clauses below are superseded only for authoring.
+
 ## GW-01 — Workload
 
 The versioned Generic Workload contract is independent of Kubernetes manifests.
