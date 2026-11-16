@@ -359,3 +359,12 @@ SC-01–05 in the [Score contract](../../architecture/contracts/score-workload.m
 own admission/export/profile behavior. Restore Console file import (superseding
 issue #45 for workload import only), retain the form, add optional extension input
 and lossless export. No graph/matching/provisioning behavior changes.
+
+## Direct document entry — issue #83 refinement, 2026-11-16
+
+Users can type/paste Score and optional extension YAML/JSON directly in the
+existing import tab. File selection fills the same editable text. A Check action
+uses the existing scoped parse API; edits immediately invalidate earlier results
+and block stale Save/export until the current content passes validation. File
+imports retain their existing automatic check. Empty extension means no extension.
+No backend, graph, matching or provisioning behavior changes.

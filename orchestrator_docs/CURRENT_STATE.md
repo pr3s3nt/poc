@@ -9,6 +9,12 @@ last_reviewed: 2026-11-11
 
 ## Score authoring — issue #83, 2026-11-16
 
+Manual text-entry follow-up is a commit checkpoint: editable Score/extension
+fields and shared validation are implemented; full frontend/kind and browser
+verification of this refinement remain pending. The existing runtime/full-suite
+evidence below applies to the preceding Score implementation.
+
+
 Implemented on `features/score`, not merged or deployed to retained main. Score
 v1b1 plus a supported Humanitec-format extension resolves profiles within the
 matched Definition source, preserving existing internal storage, immutable pins,

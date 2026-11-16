@@ -233,7 +233,8 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   const [workloads, setWorkloads] = useState<Workload[]>([]);
   const [version, setVersion] = useState(0);
   const [mode, setMode] = useState<'form' | 'import'>('form');
-  const documentFiles = useRef<{ content?: File; extensions?: File }>({});
+  const documentInputs = useRef<{ content: string | Promise<string>; extensions: string | Promise<string> }>({content: '', extensions: ''});
+  const [documentText, setDocumentText] = useState({content: '', extensions: ''});
   const importAttempt = useRef(0);
   const [importPending, setImportPending] = useState(false);
   const [exportPending, setExportPending] = useState(false);
@@ -280,7 +281,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     scope.current += 1;
     setEnvfileBlocked({}); setSecretBusy(false);
     setWorkloadMeta({ classes: [], defaultAvailable: false });
-    documentFiles.current = {}; importAttempt.current += 1; setImportPending(false); setExportPending(false);
+    documentInputs.current = {content: '', extensions: ''}; setDocumentText({content: '', extensions: ''}); importAttempt.current += 1; setImportPending(false); setExportPending(false);
     setTemplateMetadata(undefined); setTemplateInputProblems(0); setForm(emptyForm()); setImported(undefined); setDirty(false); setMode('form'); setAdvancedScore(false); setBlocked(false); setSaving(false); setReloading(false); setWorkloads([]); setDialog(undefined); setFocusRequest(undefined); setShowIncomplete(false); setShowNameProblem(false);
   }, [application.id, environment, workloadId, selectedTemplate]);
 
@@ -412,16 +413,36 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
       containers: form.containers.map((container) => ({ ...container, bindings: container.bindings.map((row) => row.source === 'RESOURCE' && row.alias === previous?.alias ? { ...row, ...(patch.alias !== undefined ? { alias: patch.alias } : {}), ...(changed ? { resourceChanged: true } : {}) } : row) })) });
   }
   function updatePort(index: number, patch: Partial<ServicePort>) { updateForm({ ...form, servicePorts: form.servicePorts.map((item, i) => i === index ? { ...item, ...patch } : item) }); }
-  async function importFile(file: File, extension = false) {
-    const at = scope.current;
+  function invalidateImport() {
     const attempt = ++importAttempt.current;
-    documentFiles.current = { ...documentFiles.current, [extension ? 'extensions' : 'content']: file };
-    setError(''); setImported(undefined); setBlocked(true); setImportPending(true);
+    setError(''); setImported(undefined); setBlocked(true); setImportPending(false);
+    return attempt;
+  }
+  function editDocument(field: 'content' | 'extensions', value: string) {
+    documentInputs.current[field] = value;
+    setDocumentText(previous => ({...previous, [field]: value}));
+    invalidateImport();
+  }
+  function importFile(file: File, extension = false) {
+    const at = scope.current, field = extension ? 'extensions' : 'content';
+    const pending = file.text();
+    documentInputs.current[field] = pending;
+    const attempt = invalidateImport();
+    void pending.then(value => {
+      if (at === scope.current && documentInputs.current[field] === pending) {
+        documentInputs.current[field] = value;
+        setDocumentText(previous => ({...previous, [field]: value}));
+      }
+    }).catch(() => {}); // The shared check below reports the read error.
+    void checkDocuments(attempt);
+  }
+  async function checkDocuments(attempt = invalidateImport()) {
+    const at = scope.current;
+    setImportPending(true);
     try {
-      const files = documentFiles.current;
-      if (!files.content) return;
-      const [content, extensions] = await Promise.all([files.content.text(), files.extensions?.text()]);
+      const [content, extensions] = await Promise.all([documentInputs.current.content, documentInputs.current.extensions]);
       if (at !== scope.current || attempt !== importAttempt.current) return;
+      if (!content.trim()) return;
       const result = await parseWorkloadImport(application.id, environment, content, extensions);
       if (at !== scope.current || attempt !== importAttempt.current) return;
       setImported(result.workload); setForm(readForm(result.workload)); setAdvancedScore(needsScoreEditor(result.workload, types)); setDirty(false); setBlocked(false);
@@ -522,7 +543,13 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     {error ? <div className="form-error" role="alert">{error}{loadFailed ? <> <Button onClick={() => setLoadAttempt((value) => value + 1)}>{t('workloads.workloadEditor.retry')}</Button></> : null}</div> : null}
     {stale ? <div className="form-error" role="alert" aria-label={t('workloads.workloadEditor.workloadDraftIsStale')}>{t('workloads.workloadEditor.workloadsIn')}{' '} {environment} {' '}{t('workloads.workloadEditor.changedAfterThisPageWas')}{' '} <Button disabled={reloading} onClick={() => void reloadCurrent()}>{reloading ? t('workloads.workloadEditor.reloading') : t('workloads.workloadEditor.reloadCurrentState')}</Button>{reloadError ? <p>{reloadError}</p> : null}</div> : null}
     {current ? <div className="form-info" role="status">{t('workloads.workloadEditor.reloadedDraftVersion')}{' '} {current.version}{t('workloads.workloadEditor.currentStateOfThisWorkload')}{' '} {currentState}{t('workloads.workloadEditor.theEditsBelowAreUnchanged')}{current.workload ? <details><summary>{t('workloads.workloadEditor.currentScore')}</summary><pre className="workload-preview">{JSON.stringify(current.workload, null, 2)}</pre></details> : null}</div> : null}
-    {loading ? <p>{t('workloads.workloadEditor.loadingWorkloadOptions')}</p> : mode === 'import' ? <section className="content-panel">{authoringFeatures.workloadImport ? <><h2>{t('workloads.workloadEditor.importAScoreFile')}</h2><p>{t('workloads.workloadEditor.yAMLOrJSONTheSame')}</p><input aria-label={t('workloads.workloadEditor.scoreFile')} type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} /><label>{t('workloads.score.extensionFile')}<input aria-label={t('workloads.score.extensionFile')} type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file, true); }} /></label>{importPending ? <p role="status">{t('workloads.score.checking')}</p> : null}</> : null}{imported ? <><p>{t('workloads.workloadEditor.parsedWorkload')}{' '} <strong>{String((imported.metadata as { name?: string } | undefined)?.name ?? '')}</strong></p><details><summary>{t('workloads.score.viewDocument')}</summary><pre className="workload-preview">{JSON.stringify(imported, null, 2)}</pre></details></> : null}</section> : <>
+    {loading ? <p>{t('workloads.workloadEditor.loadingWorkloadOptions')}</p> : mode === 'import' ? <section className="content-panel">{authoringFeatures.workloadImport ? <><div className="preview-form">
+        <label>{t('workloads.score.content')}<textarea rows={12} spellCheck={false} value={documentText.content} onChange={event => editDocument('content', event.target.value)} /></label>
+        <input aria-label={t('workloads.workloadEditor.scoreFile')} type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={event => { const file = event.target.files?.[0]; if (file) importFile(file); }} />
+        <label>{t('workloads.score.extensionContent')}<textarea rows={7} spellCheck={false} value={documentText.extensions} onChange={event => editDocument('extensions', event.target.value)} /></label>
+        <input aria-label={t('workloads.score.extensionFile')} type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={event => { const file = event.target.files?.[0]; if (file) importFile(file, true); }} />
+        <div><Button disabled={importPending || !documentText.content.trim()} onClick={() => void checkDocuments()}>{t('workloads.score.check')}</Button></div>
+      </div>{importPending ? <p role="status">{t('workloads.score.checking')}</p> : null}</> : null}{imported ? <><p>{t('workloads.workloadEditor.parsedWorkload')}{' '} <strong>{String((imported.metadata as { name?: string } | undefined)?.name ?? '')}</strong></p><details><summary>{t('workloads.score.viewDocument')}</summary><pre className="workload-preview">{JSON.stringify(imported, null, 2)}</pre></details></> : null}</section> : <>
       {workloadId ? resolutionStatus : <section className="content-panel editor-grid"><h2>{t('workloads.workloadEditor.basicInformation')}</h2><label>{t('workloads.workloadEditor.workloadName')}<input ref={nameInput} value={form.name} aria-invalid={Boolean(nameProblem)} aria-describedby="workload-name-note" onChange={(event) => { setShowNameProblem(true); updateForm({ ...form, name: event.target.value }); }} placeholder="frontend" /></label>{nameProblem ? <span id="workload-name-note" className="field-error">{nameProblem}</span> : <small id="workload-name-note" className="muted">{t('workloads.workloadEditor.nameFixedHint')}</small>}{resolutionStatus}</section>}
       {catalog.status === 'error' ? <div className="form-error" role="alert">{t('workloads.workloadEditor.couldNotLoadApplicationVariables2')}{' '} {catalog.message} {' '}{t('workloads.workloadEditor.yourSelectionsAreKept')}{' '} <Button onClick={() => setCatalogAttempt((value) => value + 1)}>{t('workloads.workloadEditor.retryLoadingKeys')}</Button></div> : null}
       {form.containers.map((container, ci) => <section className="content-panel editor-grid" key={container.editorId}><div className="section-header"><h2>Container {ci + 1}</h2>{form.containers.length > 1 ? <Button tone="danger" onClick={() => updateForm({ ...form, containers: form.containers.filter((_, index) => index !== ci) })}>{t('workloads.workloadEditor.remove')}</Button> : null}</div><div className="field-grid"><label>{t('workloads.workloadEditor.containerName')}<input value={container.name} onChange={(event) => updateContainer(ci, { ...container, name: event.target.value })} /></label><label>{t('workloads.workloadEditor.containerImage')}<input value={container.image} onChange={(event) => updateContainer(ci, { ...container, image: event.target.value })} placeholder={String(fieldValue(resolution,`containers.${container.name}.image`)??'')} /></label></div>

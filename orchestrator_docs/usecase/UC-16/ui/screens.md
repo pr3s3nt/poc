@@ -320,3 +320,12 @@ navigation or field-group redesign. The native read-only document remains availa
 The parsed internal document and frozen defaults sit in a collapsed native
 `details` disclosure. Name, file selection and Save/export actions remain visible;
 the user can inspect the full configuration with keyboard or pointer when needed.
+
+## Direct document entry — issue #83 refinement, 2026-11-16
+
+Users can type/paste Score and optional extension YAML/JSON directly in the
+existing import tab. File selection fills the same editable text. A Check action
+uses the existing scoped parse API; edits immediately invalidate earlier results
+and block stale Save/export until the current content passes validation. File
+imports retain their existing automatic check. Empty extension means no extension.
+No backend, graph, matching or provisioning behavior changes.

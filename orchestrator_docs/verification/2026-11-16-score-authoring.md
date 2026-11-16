@@ -197,3 +197,15 @@ retention; no live GitRepo/controller watches it.
 The feature Docker stack is retained for user review. Access URL and private
 login/restart instructions are provided only in the user handoff, not this public
 record. User acceptance is required before merge or retained main deployment.
+
+## Manual document entry — commit checkpoint
+
+User requested editable Score/extension text alongside the file pickers. Both
+inputs share the existing parse API. Edits invalidate earlier results and block
+stale Save/export; selected files fill the same editable textareas.
+The TypeScript test locator error was corrected. Focused authoring tests,
+typecheck/lint/build and docs/whitespace checks are run for this checkpoint.
+The full frontend/kind and browser acceptance for this refinement remain pending;
+the full-suite/runtime results above belong to the preceding committed version.
+Backend sources/configuration are unchanged. No merge or stack update is claimed
+for this checkpoint.

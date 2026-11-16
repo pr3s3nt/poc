@@ -4203,5 +4203,8 @@
   "workloads.score.schemaError": "The file does not match the Score score.dev/v1b1 schema.",
   "workloads.score.unsupportedError": "The Score or extension contains configuration this platform does not support.",
   "workloads.score.profileError": "The profile is unavailable, ambiguous or incompatible with the selected workload source. Check the profile ID and version.",
-  "workloads.score.viewDocument": "View parsed configuration"
+  "workloads.score.viewDocument": "View parsed configuration",
+  "workloads.score.content": "Score content (YAML/JSON)",
+  "workloads.score.extensionContent": "Extension content (optional)",
+  "workloads.score.check": "Check"
 }

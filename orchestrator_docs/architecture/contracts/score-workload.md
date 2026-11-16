@@ -100,3 +100,12 @@ from parser tests alone.
 - [Humanitec extensions](https://developer.humanitec.com/platform-orchestrator/docs/platform-orchestrator/score/).
 - [Humanitec profiles](https://developer.humanitec.com/platform-orchestrator/docs/integration-and-extensions/workload-profiles/overview/).
 - [Generic Workload](generic-workload.md), [defaults](workload-defaults.md).
+
+## Direct document entry — issue #83 refinement, 2026-11-16
+
+Users can type/paste Score and optional extension YAML/JSON directly in the
+existing import tab. File selection fills the same editable text. A Check action
+uses the existing scoped parse API; edits immediately invalidate earlier results
+and block stale Save/export until the current content passes validation. File
+imports retain their existing automatic check. Empty extension means no extension.
+No backend, graph, matching or provisioning behavior changes.

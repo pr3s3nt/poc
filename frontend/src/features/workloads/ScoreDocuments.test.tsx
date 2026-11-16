@@ -74,3 +74,44 @@ it('exports the current form edits and downloads both documents', async () => {
   expect((exported?.containers as Record<string, { image: string }>).main?.image).toBe('example/api:edited');
  } finally { click.mockRestore(); }
 });
+it('accepts pasted Score and extension and requires checking each edit before Save or export', async () => {
+ const calls = fixture(async body => body.content === 'invalid' ? Response.json({ code: 'SCORE_SCHEMA_INVALID' }, { status: 400 }) : Response.json({ workload: native }));
+ const user = userEvent.setup(); render(<WorkloadEditorPage application={application} environment="staging" />);
+ await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
+ await user.click(screen.getByRole('button', { name: 'Nhập Workload' }));
+ const score = screen.getByRole('textbox', { name: 'Nội dung Score (YAML/JSON)' });
+ const extension = screen.getByRole('textbox', { name: 'Nội dung extension (tùy chọn)' });
+ await user.click(score); await user.paste('apiVersion: score.dev/v1b1\nmetadata: {name: api}');
+ await user.click(extension); await user.paste('apiVersion: humanitec.org/v1b1\nprofile: backend');
+ expect(calls).toHaveLength(0);
+ expect(screen.getByRole('button', { name: 'Lưu draft Workload' })).toBeDisabled();
+ expect(screen.getByRole('button', { name: 'Tải Score + extension' })).toBeDisabled();
+ await user.click(screen.getByRole('button', { name: 'Kiểm tra' }));
+ await screen.findByText('api', { selector: 'strong' });
+ expect(calls[0]?.content).toContain('metadata: {name: api}');
+ expect(calls[0]?.extensions).toContain('profile: backend');
+ expect(screen.getByRole('button', { name: 'Lưu draft Workload' })).toBeEnabled();
+ await user.clear(score); await user.paste('invalid');
+ expect(screen.queryByText('api', { selector: 'strong' })).not.toBeInTheDocument();
+ expect(screen.getByRole('button', { name: 'Lưu draft Workload' })).toBeDisabled();
+ await user.click(screen.getByRole('button', { name: 'Kiểm tra' }));
+ await screen.findByRole('alert');
+ expect(score).toHaveValue('invalid');
+ expect(screen.getByRole('button', { name: 'Tải Score + extension' })).toBeDisabled();
+});
+it('loads selected files into editable text and omits a manually cleared extension', async () => {
+ const calls = fixture(async () => Response.json({ workload: native }));
+ const user = userEvent.setup(); render(<WorkloadEditorPage application={application} environment="staging" />);
+ await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
+ await user.click(screen.getByRole('button', { name: 'Nhập Workload' }));
+ await user.upload(screen.getByLabelText('File extension (tùy chọn)'), file('profile: backend', 'extension.yaml'));
+ await user.upload(screen.getByLabelText('File Workload'), file('score from file', 'score.yaml'));
+ await screen.findByText('api', { selector: 'strong' });
+ expect(screen.getByRole('textbox', { name: 'Nội dung Score (YAML/JSON)' })).toHaveValue('score from file');
+ const extension = screen.getByRole('textbox', { name: 'Nội dung extension (tùy chọn)' });
+ expect(extension).toHaveValue('profile: backend');
+ await user.clear(extension);
+ await user.click(screen.getByRole('button', { name: 'Kiểm tra' }));
+ await screen.findByText('api', { selector: 'strong' });
+ expect(calls.at(-1)?.extensions).toBeUndefined();
+});
