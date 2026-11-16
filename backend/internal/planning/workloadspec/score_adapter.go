@@ -452,6 +452,17 @@ func applyExtension(m, s map[string]any) error {
 					return err
 				}
 			case "suspend":
+				// The false inserted by schedules is a normalization default;
+				// an explicitly authored native value must not be overwritten.
+				if native, ok := s["orchestrator"].(map[string]any); ok {
+					if execution, ok := native["workloadExecution"].(map[string]any); ok {
+						if schedule, ok := execution["schedule"].(map[string]any); ok {
+							if _, present := schedule["suspend"]; present {
+								return scoreInvalid("overlapping extension field suspend")
+							}
+						}
+					}
+				}
 				sched[k] = v
 			default:
 				return scoreInvalid("unsupported CronJob field %q", k)

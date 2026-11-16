@@ -128,3 +128,25 @@ func TestScoreExtensionCannotOverwritePortableOrPlatformFields(t *testing.T) {
 		t.Fatal("overlapping extension values accepted")
 	}
 }
+
+func TestScoreCronSuspendRejectsConflictingNativeIntent(t *testing.T) {
+	raw := scoreExample()
+	delete(raw, "service")
+	ext := map[string]any{"apiVersion": ExtensionAPIVersion, "profile": "humanitec/default-cronjob", "spec": map[string]any{
+		"orchestrator": map[string]any{"workloadExecution": map[string]any{"version": 1, "kind": "CronJob", "schedule": map[string]any{"expression": "* * * * *", "suspend": false, "timeZone": "UTC", "concurrencyPolicy": "Forbid"}}},
+		"cronjob":      map[string]any{"suspend": true},
+	}}
+	if _, err := DecodeScore(raw, ext); err == nil {
+		t.Fatal("Humanitec field overwrote explicit native suspend=false")
+	}
+	delete(ext["spec"].(map[string]any), "orchestrator")
+	ext["spec"].(map[string]any)["schedules"] = map[string]any{"daily": map[string]any{"schedule": "* * * * *"}}
+	converted, err := DecodeScore(raw, ext)
+	if err != nil {
+		t.Fatal(err)
+	}
+	schedule := converted.Workload["workloadExecution"].(map[string]any)["schedule"].(map[string]any)
+	if schedule["suspend"] != true {
+		t.Fatal("Explicit Humanitec suspend did not override normalization default")
+	}
+}
