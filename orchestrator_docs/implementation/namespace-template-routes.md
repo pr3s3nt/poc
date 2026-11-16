@@ -22,12 +22,14 @@ Required shared design: [ADR-043](../architecture/decisions/ADR-043-namespace-pl
   separately to namespace output and cluster provider. No definition was edited.
 - The separate Score review installation has no endpoint Definition; its catalog
   must not be mistaken for the retained Console catalog.
-- The release template repository at `b9437b4bdbd4da696e946b964540ef5592a521c6`
-  has Service templates but no public-domain/HTTPRoute template.
-- Design checkpoint committed at `2b549bdd`. User refinement requires a separate
-  Gateway resource/Definition; the uncommitted cluster-policy-map draft is being
-  replaced. Namespace provider planning checks pass; runtime and acceptance
-  remain outstanding. No task readiness or full-suite pass is claimed.
+- The inspected release base `b9437b4bdbd4da696e946b964540ef5592a521c6` had
+  Service templates without HTTPRoute. The feature branch now publishes the
+  capability, route template and Gateway/endpoint/MongoDB Definition examples at
+  `5407998b0e08dc0da51c19c28517dfa191e7a3ee`; no main merge or tag was made.
+- Design checkpoint `2b549bdd` was refined following the user's explicit
+  decision: Gateway is a separate resource/Definition. Implementation checkpoint
+  `1a33bed7`, security/runtime checks `d5293723`, full-check collector `dc9d8b49`.
+  Cluster Definitions do not contain Gateway policy maps.
 
 ## Environment
 
@@ -39,11 +41,10 @@ network addresses remain outside this public handoff.
 
 ## Remaining stages
 
-Implement namespace provider inheritance and focused tests; separate Gateway resource
-policy resolution; neutral endpoint input and template capability/guards;
-release-repository template changes; Definition samples and traceability;
-real Score/native acceptance and full kind checks; verified Tailscale handoff.
-Preserve the known Score baseline limits in its own verification record.
+Complete product cleanup, compare full kind candidate/main results, publish the
+execution record and keep a browser-verified trial installation for acceptance.
+Preserve the known Score baseline limits in its own verification record. User
+acceptance, main integration and any release tag are still outstanding.
 
 ## Implementation checkpoint
 
@@ -72,8 +73,14 @@ Preserve the known Score baseline limits in its own verification record.
   not a green test and is not removed or relaxed.
 - A separate task Docker stack is running with candidate binaries/assets and
   fresh isolated PostgreSQL/Vault volumes. No retained installation was upgraded.
-  HTTP shell/health checks pass; application acceptance and full kind checks are
-  still pending, as are release-template branch publication and verified handoff.
+  Gateway and endpoint Definitions were created through their new Console forms.
+  Native and Score workloads were saved before one Environment Deploy: both
+  succeeded through Fleet with one shared namespace-bound PostgreSQL. Browser
+  checks reached both real workloads through the existing Gateway over Tailscale.
+  Batch update and a UID-protected native Pod restart passed; authenticated SQL,
+  init clients, accepted routes and all preserved resource UIDs were verified.
+  Product cleanup and full kind comparison remain in progress.
 - UI reference: signed-in real Score review Console, Resource Definitions list,
   AppShell, styles/tokens and Button. No unrelated UI was redesigned. The candidate
-  still needs final browser comparison; setup/bootstrap is not app acceptance.
+  forms retain the same shell/styles and short field labels. Final handoff must
+  record the reviewed screens; setup/bootstrap is not app acceptance.

@@ -25,10 +25,13 @@ if (parts.length !== 3) {
   assert(previousPath, 'Partial reruns require a completed full-check receipt');
   const previous = JSON.parse(readFileSync(previousPath,'utf8'));
   assert(previous.cleanup && previous.baseline === baselineSHA, 'Baseline/cleanup mismatch');
-  assert(parts.includes('candidate'), 'Candidate backend full suite must run');
-  for (const name of ['main','frontend']) {
+  for (const name of ['candidate','main','frontend']) {
     if (parts.includes(name)) continue;
     assert(previous.results[name], 'Missing earlier '+name+' result');
+    if (name === 'candidate') {
+      const tree = sha => execFileSync('git',['rev-parse',sha+':backend'],{encoding:'utf8'}).trim();
+      assert.equal(tree(previous.candidate),tree(candidate),'Backend source changed; full candidate suite required');
+    }
     if (name === 'frontend') {
       assert(Object.values(previous.results.frontend).every(code => code === 0), 'Failed frontend checks cannot be reused');
       const tree = sha => execFileSync('git',['rev-parse',sha+':frontend'],{encoding:'utf8'}).trim();
@@ -47,7 +50,8 @@ const pod = (name, frontend) => ({ apiVersion: 'v1', kind: 'Pod', metadata: { na
   restartPolicy: 'Never', automountServiceAccountToken: false,
   volumes: [{ name: 'source', emptyDir: {} }, { name: 'results', emptyDir: {} }, { name: 'tools', emptyDir: {} }],
   ...(!frontend ? { initContainers: [{ name: 'tools', image: 'hashicorp/terraform:1.9.8', command: ['sh', '-ec', 'cp /bin/terraform /tools/terraform'], volumeMounts: [{ name: 'tools', mountPath: '/tools' }] }] } : {}),
-  containers: [{ name: 'checks', image: frontend ? 'mirror.gcr.io/library/node:22-alpine' : 'mirror.gcr.io/library/golang:1.25', imagePullPolicy: 'IfNotPresent',
+  // Cleanup-gate unit tests invoke bash; Alpine's base Node image lacks it.
+  containers: [{ name: 'checks', image: frontend ? 'mirror.gcr.io/library/node:22-bookworm' : 'mirror.gcr.io/library/golang:1.25', imagePullPolicy: 'IfNotPresent',
     command: ['sh', '-c', frontend ?
       'while [ ! -f /source/.ready ]; do sleep 1; done; cd /source/frontend; node --version > /results/tools; npm ci > /results/install.log 2>&1; install=$?; if [ "$install" = 0 ]; then npm test -- --maxWorkers=2 > /results/tests.log 2>&1; test=$?; npm run typecheck > /results/typecheck.log 2>&1; types=$?; npm run lint > /results/lint.log 2>&1; lint=$?; npm run build > /results/build.log 2>&1; build=$?; else test=99; types=99; lint=99; build=99; fi; echo "$install $test $types $lint $build" > /results/status; touch /results/.done; sleep 7200' :
       'while [ ! -f /source/.ready ]; do sleep 1; done; cd /source/backend; go version > /results/tools; terraform version >> /results/tools; go test -json -p 2 -parallel 4 -count=1 -timeout 30m ./... > /results/tests.jsonl 2>/results/tests.stderr; test=$?; go build ./... > /results/build.log 2>&1; build=$?; echo "$test $build" > /results/status; touch /results/.done; sleep 7200'],

@@ -10,7 +10,8 @@ it never creates/adopts/updates/destroys shared Gateway, DNS or TLS objects.
 `full-kind.mjs` requires Node >=22, Git, kubectl on PATH, an explicit scoped
 KUBECONFIG and access to the existing `kind-k8s-4f` cluster. It creates one labelled
 namespace and three disposable Pods: candidate/main backend (each with its own
-real PostgreSQL 16 and Terraform 1.9.8), and candidate frontend. Sources are exact
+real PostgreSQL 16 and Terraform 1.9.8), and candidate frontend (Node 22 Bookworm,
+including bash for the cleanup-gate unit tests). Sources are exact
 Git commit archives, never host directories or credentials. Database passwords
 are fixture-only values local to disposable test Pods, with no exposed Service.
 No AWS or retained application mutation is authorized by this runner.
@@ -64,10 +65,39 @@ Optional namespace-local Fleet setup reuses the existing shared helper with
 or alter controller/global RBAC. Record and remove only the setup-owned Role and
 RoleBinding (labels/UIDs must match) when application cleanup reaches that guard.
 
-After backend changes, the full backend candidate suite must run again. The
-runner accepts `ORCH_FULL_CHECK_PARTS=candidate` with
-`ORCH_REUSE_FULL_RECEIPT=/private/completed/full-kind-receipt.json` only when prior
-cleanup is confirmed, main SHA is identical, frontend checks passed and frontend
-Git tree is unchanged. It copies earlier evidence without claiming a fresh run;
-compare actual Go/Terraform tool versions and exact failure/skip sets. Failed or
-changed frontend checks require including `frontend` in the rerun.
+Run `verify.mjs` with the same evidence directory, explicit
+`ORCH_SCORE_KUBECONFIG` / `ORCH_SCORE_CONTEXT`, Gateway name/namespace/listener and
+both browser URLs. It reads Kubernetes metadata/status and runs an authenticated
+`SELECT 1` inside the receipt-owned PostgreSQL container; no credential is printed.
+It records and compares namespace/database/PVC/Gateway/Deployment/HTTPRoute UIDs.
+After `deploy-update`, `ORCH_ROUTE_VERIFY_ACTION=restart` recreates only the
+native web Pod, checking namespace ownership, app/environment labels,
+ReplicaSet-to-Deployment UID chain and API UID/resourceVersion preconditions.
+It waits for a new ready Pod and repeats SQL/init/route/identity assertions.
+Run the browser phase again after restart.
+
+Cleanup sequence (never force-delete the product namespace):
+
+1. Run UI phase `remove-workloads`, accepting each named workload confirmation;
+   then `deploy-removal` previews both changes and submits one Environment Deploy.
+2. Run native `ORCH_ROUTE_VERIFY_ACTION=cleanup-rbac`. It requires the successful
+   removal receipt and empty Deployment/HTTPRoute inventory, then deletes only
+   setup-owned RoleBinding/Role matching the recorded app label and UIDs, using
+   API preconditions. This is setup cleanup, not Application cleanup evidence.
+3. Run UI phase `delete-application`. Review the server-computed scope, confirm
+   the exact receipt-owned Application name, submit once and observe the admitted
+   deletion operation. A failed/unknown operation must be inspected before retry;
+   never manually delete product resources to manufacture success.
+4. Run native `ORCH_ROUTE_VERIFY_ACTION=cleanup-check`: namespace/PV must be absent
+   and the preexisting Gateway UID unchanged. Preserve all receipts/logs outside
+   Git, including failed harness attempts. A new review Application uses a new
+   evidence directory and only reuses catalog Definitions after comparing values.
+
+After backend changes, the full backend candidate suite must run again. Partial
+reruns use `ORCH_FULL_CHECK_PARTS=candidate|frontend|candidate,frontend` and
+`ORCH_REUSE_FULL_RECEIPT=/private/completed/full-kind-receipt.json`. Prior cleanup
+must be confirmed and main SHA identical. Reusing candidate backend results
+requires the identical backend Git tree; reusing frontend requires all its checks
+passed and its Git tree unchanged. The runner copies earlier evidence without
+claiming a fresh run; compare actual Go/Terraform tool versions and exact
+failure/skip sets. Failed frontend checks require including `frontend` in rerun.

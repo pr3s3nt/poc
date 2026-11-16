@@ -87,8 +87,19 @@ try {
    await page.screenshot({path:join(evidence,phase+'-'+name+'.png'),fullPage:true});
   }
   receipt.allSaved=true;receipt.updated=phase==='update';save();console.log('PASS: native and Score workloads saved before Environment Deploy');
- } else if (phase==='deploy' || phase==='deploy-update') {
-  assert(receipt.allSaved); assert(phase==='deploy-update'?receipt.updated:!receipt.deployStarted,'Inspect prior operation before resubmission');
+ } else if (phase==='remove-workloads') {
+  assert(receipt.restart && receipt.nativeVerified,'Verify update/restart first');
+  const app=(await get('/applications/'+receipt.appId)).application;assert.equal(app.name,receipt.name);
+  await page.goto(config.baseURL+'/ui/applications/'+receipt.appId);
+  for(const name of ['native-web','score-web']){
+   const removed=page.waitForResponse(r=>r.request().method()==='DELETE'&&r.url().includes('/workloads/'+name));
+   page.once('dialog',async dialog=>{assert.equal(dialog.type(),'confirm');assert(dialog.message().includes(name));await dialog.accept();});
+   await page.locator('.table-row').filter({has:page.locator('.workload-name',{hasText:name})}).getByRole('button',{name:'Xóa',exact:true}).click();
+   assert((await removed).ok(),'Workload removal draft failed');
+  }
+  receipt.removalDrafts=true;save();console.log('PASS: both workload removals saved through Console');
+ } else if (phase==='deploy' || phase==='deploy-update' || phase==='deploy-removal') {
+  assert(receipt.allSaved); assert(phase==='deploy-update'?receipt.updated:phase==='deploy-removal'?receipt.removalDrafts:!receipt.deployStarted,'Inspect prior operation before resubmission');
   const app=(await get('/applications/'+receipt.appId)).application;assert.equal(app.name,receipt.name);
   await page.goto(config.baseURL+'/ui/applications/'+receipt.appId);
   const preview=page.waitForResponse(r=>r.request().method()==='POST' && r.url().endsWith('/environments/staging/preview'),{timeout:180000});
@@ -103,8 +114,33 @@ try {
   await ensureScoreNamespaceAccess(page,config,receipt,save);
   const reply=await deployed;receipt.report=await reply.json();save();
   assert(reply.ok() && receipt.report.status==='SUCCEEDED','Deployment failed: '+JSON.stringify(receipt.report));
+  if(phase==='deploy-update')receipt.deployedUpdate=true;
+  if(phase==='deploy-removal')receipt.workloadsRemoved=true;
+  save();
   await page.screenshot({path:join(evidence,phase+'-done.png'),fullPage:true});
   console.log('PASS: one Environment Deploy succeeded for both workloads');
+ } else if (phase==='delete-application') {
+  assert(receipt.workloadsRemoved&&receipt.setupRemoved,'Remove workloads and receipt-owned setup first');
+  const app=(await get('/applications/'+receipt.appId)).application;assert.equal(app.name,receipt.name);
+  await page.goto(config.baseURL+'/ui/applications/'+receipt.appId+'/settings');
+  const preview=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith('/deletion-preview'));
+  await page.locator('.danger-zone').getByRole('button').click();
+  const reply=await preview;assert(reply.ok());const {preview:scope}=await reply.json();
+  assert(!scope.blocked&&scope.token,'Deletion blocked; inspect product scope');assert.equal(scope.confirmationName,receipt.name);
+  const dialog=page.getByRole('dialog',{name:'Xóa ứng dụng',exact:true});
+  await dialog.locator('input').fill(receipt.name);
+  const admission=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith('/deletions'));
+  await dialog.getByRole('button',{name:'Xóa vĩnh viễn ứng dụng',exact:true}).click();
+  const admitted=await admission;assert(admitted.ok());receipt.deletion=(await admitted.json()).deletion;save();
+  const deadline=Date.now()+600000;
+  for(;;){
+   const {deletion}=await get(`/applications/${receipt.appId}/deletions/${receipt.deletion.operationId}`);
+   receipt.deletionProgress=deletion;save();
+   if(!deletion.running){assert.equal(deletion.status,'SUCCEEDED','Application cleanup failed: '+JSON.stringify(deletion));break;}
+   assert(Date.now()<deadline,'Deletion timed out; inspect existing operation before retry');await page.waitForTimeout(3000);
+  }
+  receipt.deletionSucceeded=true;save();await page.screenshot({path:join(evidence,'cleanup-done.png'),fullPage:true});
+  console.log('PASS: receipt-owned Application deleted through product UI');
  } else if (phase==='browser') {
   assert.equal(receipt.report?.status,'SUCCEEDED');
   for (const [name,url] of [['native',required('ORCH_NATIVE_APP_URL')],['score',required('ORCH_SCORE_APP_URL')]]) {
