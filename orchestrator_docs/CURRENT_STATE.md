@@ -2436,7 +2436,8 @@ Dedicated Keycloak/PostgreSQL browser acceptance passed for all three roles,
 missing-role rejection, active-session promotion/demotion, user disabling and
 logout. Tokens stay in backend memory: restart requires login; this is a
 single-instance test slice, not company integration/HA. Full-suite result and
-main-baseline failures are recorded in the task verification/handoff.
+main-baseline failures are recorded in the
+[verification](verification/2026-11-13-keycloak-sso.md).
 
 [Configuration and lifecycle](operations/keycloak-sso.md),
 [browser scenario](../e2e/scenarios/keycloak-sso/README.md).

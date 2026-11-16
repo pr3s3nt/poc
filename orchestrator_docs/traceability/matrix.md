@@ -1651,4 +1651,4 @@ separate in the Environment rollback verification record.
 
 | Requirement | Realization | Implementation / checks |
 |---|---|---|
-| UC-00 SSO-01..06 | UC-00 OIDC collaboration | authentication federation, OIDC adapter, HTTP auth handlers; focused Go tests and keycloak-sso browser scenario |
+| UC-00 SSO-01..07 | UC-00 OIDC collaboration | authentication federation, OIDC adapter, HTTP auth handlers; focused Go tests and keycloak-sso browser scenario |

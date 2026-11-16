@@ -1439,3 +1439,10 @@ See [contract](../architecture/contracts/deployment-progress.md).
 - Dedicated runtime: `deploy/local/compose.keycloak.yml`; fixtures/acceptance
   under `e2e/setup/keycloak` and `e2e/scenarios/keycloak-sso`. Shared Console
   helper `scripts/bootstrap/lib/console.mjs` supports verified OIDC issuer entry.
+
+SSO-07 personal local Admin: configured `localTestAdminUsername` is enforced
+in authentication on both password login and every restored session; auth/config
+exposes only availability and session identity exposes UserManagement=false.
+SignInEntry/SignInPage offer the scoped disclosure on the same Console; AppShell
+keeps own password change and hides employee management. The shared Console
+helper accepts ORCH_AUTH_MODE=local only when the server explicitly allows it.

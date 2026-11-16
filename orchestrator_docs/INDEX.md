@@ -268,4 +268,5 @@ Integrated into main after acceptance; see the
 
 [UC-00 SSO](usecase/UC-00/specification.md#keycloak-sso--issue-77),
 [configuration/test lifecycle](operations/keycloak-sso.md),
-[browser acceptance](../e2e/scenarios/keycloak-sso/README.md).
+[browser acceptance](../e2e/scenarios/keycloak-sso/README.md),
+[verification](verification/2026-11-13-keycloak-sso.md).

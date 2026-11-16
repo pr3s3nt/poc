@@ -7,7 +7,7 @@ last_reviewed: 2026-11-12
 
 # Keycloak SSO
 
-[UC-00 SSO-01..06](../usecase/UC-00/specification.md#keycloak-sso--issue-77)
+[UC-00 SSO-01..07](../usecase/UC-00/specification.md#keycloak-sso--issue-77)
 owns product behavior. This procedure is for issue #77's dedicated test setup;
 no company Keycloak is changed. Existing backend authorization remains in place.
 

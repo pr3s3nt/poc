@@ -1,6 +1,6 @@
 # Keycloak SSO acceptance
 
-Checks [UC-00 SSO-01..06](../../../orchestrator_docs/usecase/UC-00/specification.md#keycloak-sso--issue-77)
+Checks [UC-00 SSO-01..07](../../../orchestrator_docs/usecase/UC-00/specification.md#keycloak-sso--issue-77)
 against the real dedicated Keycloak and PostgreSQL platform. Setup:
 [private test inputs](../../setup/keycloak/README.md),
 [operations](../../../orchestrator_docs/operations/keycloak-sso.md).
