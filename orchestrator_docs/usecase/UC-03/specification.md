@@ -558,6 +558,12 @@ in CM-04. Existing Environments retain frozen revisions until explicitly upgrade
 
 ## Public endpoint resource
 
+Issue #84: [ADR-043](../../architecture/decisions/ADR-043-namespace-placement-template-routes.md)
+adds namespace-bound Kubernetes providers, cluster-owned existing Gateway
+configurations and endpoint selection of one such configuration. Registration
+must validate reference kinds and nonsecret policy without provisioning or
+changing existing infrastructure. Legacy immutable revisions remain readable.
+
 [EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
 preview, atomic hostname reservation, manifest delivery and safe release.
 

@@ -82,3 +82,4 @@ ZIP source upload: [ADR-026](ADR-026-zip-source-upload.md).
 - [ADR-041 — Stable template renderer pin](ADR-041-stable-template-renderer-pin.md) — issue #57
 - [ADR-038 — Readable names for IDP-managed resources](ADR-038-readable-idp-names.md).
 - [ADR-042 — Một Fleet bundle mỗi Environment, secret theo version](ADR-042-environment-bundle-versioned-secrets.md) — issue #67.
+- [ADR-043 — Namespace-owned placement and template-owned HTTPRoute](ADR-043-namespace-placement-template-routes.md) — issue #84.

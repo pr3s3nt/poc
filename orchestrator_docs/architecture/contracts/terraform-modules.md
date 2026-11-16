@@ -342,6 +342,12 @@ explicit Preview/Deploy and preserve state identity.
 
 ## V03 internal provider placement
 
+Issue #84 amendment: [ADR-043](../decisions/ADR-043-namespace-placement-template-routes.md)
+also permits Kubernetes provider bindings to namespace resources. The provider
+inherits the namespace's pinned cluster, while the consumer's namespace input
+must reference that same namespace. Existing explicit cluster bindings and AWS
+bindings retain their original semantics.
+
 [ADR-016](../decisions/ADR-016-definition-selected-workload-targets.md) removes internal `{target: environment}` fallback. Kubernetes modules use `{target: resource, resource_ref: <cluster descriptor>}`. That cluster is a normal matched resource with its own Internal Driver Account. Namespace and workload typed cluster references must agree with this provider pin; known mismatch fails planning, unresolved output mismatch fails before consumer call. Do not derive account from Environment or the last cluster output. Original state/target/module/digest checks remain; AWS removal deferred V05–V06.
 
 ## V04–V06 dependency and target replacement

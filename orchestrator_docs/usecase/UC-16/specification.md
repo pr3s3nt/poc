@@ -311,6 +311,12 @@ as specified above.
 
 ## Public endpoint resource
 
+Issue #84: [ADR-043](../../architecture/decisions/ADR-043-namespace-placement-template-routes.md)
+keeps Developer endpoint authoring at name/Service-port/path. The platform pins
+the selected Gateway policy and validates agreement with the workload namespace's
+cluster; capable Git templates render HTTPRoute. Score and native input must
+produce equivalent endpoint intent and retain explicit Save/Preview/Deploy.
+
 [EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
 preview, atomic hostname reservation, manifest delivery and safe release.
 
