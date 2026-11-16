@@ -49,8 +49,8 @@ const pod = (name, frontend) => ({ apiVersion: 'v1', kind: 'Pod', metadata: { na
   ...(!frontend ? { initContainers: [{ name: 'tools', image: 'hashicorp/terraform:1.9.8', command: ['sh', '-ec', 'cp /bin/terraform /tools/terraform'], volumeMounts: [{ name: 'tools', mountPath: '/tools' }] }] } : {}),
   containers: [{ name: 'checks', image: frontend ? 'mirror.gcr.io/library/node:22-alpine' : 'mirror.gcr.io/library/golang:1.25', imagePullPolicy: 'IfNotPresent',
     command: ['sh', '-c', frontend ?
-      'while [ ! -f /source/.ready ]; do sleep 1; done; cd /source/frontend; node --version > /results/tools; npm ci > /results/install.log 2>&1; install=$?; if [ "$install" = 0 ]; then npm test -- --maxWorkers=2 > /results/tests.log 2>&1; test=$?; npm run typecheck > /results/typecheck.log 2>&1; types=$?; npm run lint > /results/lint.log 2>&1; lint=$?; npm run build > /results/build.log 2>&1; build=$?; else test=99; types=99; lint=99; build=99; fi; printf "{\"install\":%s,\"test\":%s,\"typecheck\":%s,\"lint\":%s,\"build\":%s}" "$install" "$test" "$types" "$lint" "$build" > /results/result.json; touch /results/.done; sleep 7200' :
-      'while [ ! -f /source/.ready ]; do sleep 1; done; cd /source/backend; go version > /results/tools; terraform version >> /results/tools; go test -json -p 2 -parallel 4 -count=1 -timeout 30m ./... > /results/tests.jsonl 2>/results/tests.stderr; test=$?; go build ./... > /results/build.log 2>&1; build=$?; printf "{\"test\":%s,\"build\":%s}" "$test" "$build" > /results/result.json; touch /results/.done; sleep 7200'],
+      'while [ ! -f /source/.ready ]; do sleep 1; done; cd /source/frontend; node --version > /results/tools; npm ci > /results/install.log 2>&1; install=$?; if [ "$install" = 0 ]; then npm test -- --maxWorkers=2 > /results/tests.log 2>&1; test=$?; npm run typecheck > /results/typecheck.log 2>&1; types=$?; npm run lint > /results/lint.log 2>&1; lint=$?; npm run build > /results/build.log 2>&1; build=$?; else test=99; types=99; lint=99; build=99; fi; echo "$install $test $types $lint $build" > /results/status; touch /results/.done; sleep 7200' :
+      'while [ ! -f /source/.ready ]; do sleep 1; done; cd /source/backend; go version > /results/tools; terraform version >> /results/tools; go test -json -p 2 -parallel 4 -count=1 -timeout 30m ./... > /results/tests.jsonl 2>/results/tests.stderr; test=$?; go build ./... > /results/build.log 2>&1; build=$?; echo "$test $build" > /results/status; touch /results/.done; sleep 7200'],
     env: frontend ? [] : [{ name: 'PATH', value: '/tools:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' }, { name: 'GOMAXPROCS', value: '4' }, { name: 'REQUIRE_POSTGRES', value: '1' }, { name: 'REQUIRE_TERRAFORM', value: '1' }, { name: 'ORCHESTRATOR_POSTGRES_TEST_URL', value: 'postgres://postgres:fixture-only@127.0.0.1:5432/postgres?sslmode=disable' }],
     resources: { requests: { cpu: '500m', memory: '512Mi' }, limits: { cpu: '4', memory: '5Gi' } },
     volumeMounts: [{ name: 'source', mountPath: '/source' }, { name: 'results', mountPath: '/results' }, { name: 'tools', mountPath: '/tools' }],
@@ -85,7 +85,10 @@ try {
     assert(Date.now() < deadline, 'Full checks deadline exceeded');
     for (const name of pending) {
       try { kubectl(['-n', namespace, 'exec', name, '-c', 'checks', '--', 'test', '-f', '/results/.done']); } catch { continue; }
-      const result = JSON.parse(kubectl(['-n', namespace, 'exec', name, '-c', 'checks', '--', 'cat', '/results/result.json']));
+      const exitCodes = kubectl(['-n', namespace, 'exec', name, '-c', 'checks', '--', 'cat', '/results/status']).trim().split(/\s+/).map(Number);
+      const keys = name === 'frontend' ? ['install','test','typecheck','lint','build'] : ['test','build'];
+      assert(exitCodes.length === keys.length && exitCodes.every(n => Number.isInteger(n) && n >= 0 && n <= 255), 'Invalid check exit status');
+      const result = Object.fromEntries(keys.map((key,i)=>[key,exitCodes[i]]));
       const files = name === 'frontend' ? ['tools', 'install.log', 'tests.log', 'typecheck.log', 'lint.log', 'build.log'] : ['tools', 'tests.jsonl', 'tests.stderr', 'build.log'];
       for (const file of files) writeFileSync(join(evidence, name + '-' + file), kubectl(['-n', namespace, 'exec', name, '-c', 'checks', '--', 'cat', '/results/' + file]), { mode: 0o600 });
       receipt.results[name] = result; save(); pending.delete(name); console.log('COMPLETED', name, JSON.stringify(result));
