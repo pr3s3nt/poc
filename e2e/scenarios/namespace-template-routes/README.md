@@ -36,6 +36,14 @@ any preexisting namespace or other task's resources. Preserve the private receip
 and logs if interrupted; inspect ownership and unfinished Pods before resuming.
 All logs/state/screenshots/credentials stay outside Git.
 
+If the collector was interrupted, do not rerun completed tests. Confirm its
+process is stopped, then use the same evidence directory and
+`ORCH_RESUME_FULL_RECEIPT=/private/task/full-kind-receipt.json`. Resume validates
+the recorded namespace name/UID/owner and Pod owner labels, collects the existing
+results and performs guarded cleanup. It does not recreate Pods or upload sources;
+the receipt retains its original source SHA. Never resume a completed/cleaned
+receipt or run two collectors against one namespace.
+
 ## Application acceptance
 
 `run.mjs` uses the shared Console sign-in helper from

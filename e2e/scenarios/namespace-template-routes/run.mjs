@@ -143,12 +143,19 @@ try {
   console.log('PASS: receipt-owned Application deleted through product UI');
  } else if (phase==='browser') {
   assert.equal(receipt.report?.status,'SUCCEEDED');
+  const app=(await get('/applications/'+receipt.appId)).application;assert.equal(app.name,receipt.name);
+  await page.goto(config.baseURL+'/ui/applications/'+receipt.appId);
+  await expect(page.getByRole('heading',{name:receipt.name,exact:true})).toBeVisible();
+  await expect(page.locator('.workload-table .table-row')).toHaveCount(2);
+  await page.screenshot({path:join(evidence,'console-live.png'),fullPage:true});
   for (const [name,url] of [['native',required('ORCH_NATIVE_APP_URL')],['score',required('ORCH_SCORE_APP_URL')]]) {
    const response=await page.goto(url);assert(response?.ok(),name+' application not reachable');
    await expect(page.locator('body')).toContainText('Welcome to nginx');
    await page.screenshot({path:join(evidence,name+'-live.png'),fullPage:true});
   }
-  receipt.browserPassed=true;save();console.log('PASS: both real applications reached through the existing Gateway over Tailscale');
+  receipt.browserPassed=true;
+  receipt.browserVerification={at:new Date().toISOString(),consoleURL:config.baseURL+'/ui/applications/'+receipt.appId,nativeURL:required('ORCH_NATIVE_APP_URL'),scoreURL:required('ORCH_SCORE_APP_URL')};
+  save();console.log('PASS: both real applications reached through the existing Gateway over Tailscale');
  } else throw new Error('Unknown ORCH_ROUTE_PHASE');
 } catch(error) {
  receipt.lastError=error.message;save();await page.screenshot({path:join(evidence,phase+'-failure.png'),fullPage:true}).catch(()=>{});throw error;

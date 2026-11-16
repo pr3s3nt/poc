@@ -2481,10 +2481,16 @@ kind Console. Main import/export smoke passed without changing catalog/revision
 history or existing Applications. Full backend remains baseline-red; the complete
 comparison and rollout are in [main verification](verification/2026-11-12-catalog-documents-main.md).
 
-## Namespace placement / template routes — issue #84, in progress
+## Namespace placement / template routes — issue #84, awaiting acceptance
 
 On `features/Httproute` (including the explicitly requested Score branch base),
 namespace-inherited providers, separate preexisting Gateway Definitions and
 explicit template-rendered HTTPRoute are implemented with focused validation.
-No main merge/upgrade, full-suite pass or real task application acceptance is
-claimed. See [implementation and remaining gates](implementation/namespace-template-routes.md).
+Real native/Score batch Deploy, authenticated PostgreSQL, browser reachability,
+update/restart UID preservation and Console product cleanup passed on kind.
+A fresh review application reuses the released endpoint names. Full frontend
+passes 1067 tests/typecheck/lint/build. Full backend and main share the exact same
+103 failing top-level tests / 20 packages and 8 skips; both builds pass. No main
+merge/upgrade, user acceptance or full green backend suite is claimed. See
+[implementation and remaining gates](implementation/namespace-template-routes.md)
+and [execution evidence](verification/2026-11-16-namespace-template-routes.md).

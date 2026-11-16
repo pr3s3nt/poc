@@ -8,20 +8,24 @@ assert(process.env.ORCH_EVIDENCE_DIR && !evidence.startsWith(resolve('.') + '/')
 mkdirSync(evidence, { recursive: true, mode: 0o700 });
 const kubeconfig = process.env.ORCH_KUBECONFIG;
 assert(kubeconfig && process.env.ORCH_CONTEXT === 'kind-k8s-4f', 'Explicit authorized kind context required');
-const runID = 'httproute84-full-' + Date.now().toString(36);
-const namespace = runID;
+const resumed = process.env.ORCH_RESUME_FULL_RECEIPT ? JSON.parse(readFileSync(process.env.ORCH_RESUME_FULL_RECEIPT,'utf8')) : undefined;
+const runID = resumed?.runID ?? 'httproute84-full-' + Date.now().toString(36);
+const namespace = resumed?.namespace ?? runID;
+assert(namespace === runID && /^httproute84-full-[a-z0-9]+$/.test(runID),'Invalid full-check receipt identity');
 const base = ['--kubeconfig', kubeconfig, '--context', process.env.ORCH_CONTEXT, '--request-timeout=60s'];
 const kubectl = (args, input) => execFileSync('kubectl', [...base, ...args], { input, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
 const json = args => JSON.parse(kubectl(args));
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-const candidate = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+const candidate = resumed?.candidate ?? execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+assert(/^[0-9a-f]{40}$/.test(candidate),'Invalid source SHA');
 const baseline = process.env.ORCH_MAIN_REF ?? 'origin/main';
 const baselineSHA = execFileSync('git', ['rev-parse', baseline], { encoding: 'utf8' }).trim();
-const receipt = { runID, namespace, candidate, baseline: baselineSHA, results: {}, cleanup: false };
-const parts = (process.env.ORCH_FULL_CHECK_PARTS ?? 'candidate,main,frontend').split(',');
+const receipt = resumed ?? { runID, namespace, candidate, baseline: baselineSHA, results: {}, cleanup: false };
+assert(!receipt.cleanup && receipt.baseline === baselineSHA,'Completed receipt or changed baseline');
+const parts = resumed?.requestedParts ?? (process.env.ORCH_FULL_CHECK_PARTS ?? 'candidate,main,frontend').split(',');
 assert(parts.length > 0 && new Set(parts).size === parts.length && parts.every(p => ['candidate','main','frontend'].includes(p)), 'Invalid full-check parts');
 receipt.requestedParts = parts;
-if (process.env.ORCH_REUSE_FULL_RECEIPT) {
+if (!resumed && process.env.ORCH_REUSE_FULL_RECEIPT) {
   const previousPath = process.env.ORCH_REUSE_FULL_RECEIPT;
   const previous = JSON.parse(readFileSync(previousPath,'utf8'));
   assert(previous.cleanup && previous.baseline === baselineSHA, 'Baseline/cleanup mismatch');
@@ -61,6 +65,13 @@ const pod = (name, frontend) => ({ apiVersion: 'v1', kind: 'Pod', metadata: { na
   }, ...(!frontend ? [{ name: 'postgres', image: 'postgres:16-alpine', args: ['postgres', '-c', 'max_locks_per_transaction=1024', '-c', 'max_connections=512'], env: [{ name: 'POSTGRES_PASSWORD', value: 'fixture-only' }], resources: { requests: { cpu: '100m', memory: '256Mi' }, limits: { cpu: '2', memory: '2Gi' } } }] : [])],
 } });
 try {
+ if(resumed){
+  const current=json(['get','namespace',namespace,'-o','json']);
+  assert.equal(current.metadata.uid,receipt.namespaceUID,'Resume namespace UID mismatch');
+  assert.equal(current.metadata.labels['orchestrator.task'],runID,'Resume owner mismatch');
+  for(const name of parts){const existing=json(['-n',namespace,'get','pod',name,'-o','json']);assert.equal(existing.metadata.labels['orchestrator.task'],runID,'Resume Pod owner mismatch');}
+  receipt.resumed=true;save();
+ } else {
   const created = JSON.parse(kubectl(['create', '-f', '-', '-o', 'json'], JSON.stringify({ apiVersion: 'v1', kind: 'Namespace', metadata: { name: namespace, labels: { 'orchestrator.task': runID } } })));
   receipt.namespaceUID = created.metadata.uid; save();
   for (const [name, frontend, sha] of [['candidate', false, candidate], ['main', false, baselineSHA], ['frontend', true, candidate]].filter(([name])=>parts.includes(name))) {
@@ -83,8 +94,9 @@ try {
     kubectl(['-n', namespace, 'exec', name, '-c', 'checks', '--', 'touch', '/source/.ready']);
     console.log('STARTED', name, sha);
   }
+ }
   const deadline = Date.now() + 45 * 60_000;
-  const pending = new Set(parts);
+  const pending = new Set(parts.filter(name=>!receipt.results[name]));
   while (pending.size) {
     assert(Date.now() < deadline, 'Full checks deadline exceeded');
     for (const name of pending) {

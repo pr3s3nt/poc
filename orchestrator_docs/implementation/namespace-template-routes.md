@@ -41,8 +41,9 @@ network addresses remain outside this public handoff.
 
 ## Remaining stages
 
-Complete product cleanup, compare full kind candidate/main results, publish the
-execution record and keep a browser-verified trial installation for acceptance.
+Keep the browser-verified trial installation for acceptance. Real execution,
+cleanup and completed full kind comparison are recorded in
+[verification](../verification/2026-11-16-namespace-template-routes.md).
 Preserve the known Score baseline limits in its own verification record. User
 acceptance, main integration and any release tag are still outstanding.
 
@@ -79,7 +80,14 @@ acceptance, main integration and any release tag are still outstanding.
   checks reached both real workloads through the existing Gateway over Tailscale.
   Batch update and a UID-protected native Pod restart passed; authenticated SQL,
   init clients, accepted routes and all preserved resource UIDs were verified.
-  Product cleanup and full kind comparison remain in progress.
+  Console product cleanup succeeded: PostgreSQL then namespace destroyed;
+  namespace/PV absence and unchanged Gateway UID were verified. A fresh review
+  application redeployed both released endpoint names successfully with new
+  namespace/database/PVC identities. Full kind backend comparison has the exact
+  same 103 failing top-level tests (143 including subtests), 20 failing packages
+  and 8 skips on candidate/main; builds pass, no additional failures. Corrected
+  full frontend environment passes 1067 tests/typecheck/lint/build. Both test
+  namespaces were removed with ownership/UID guards. Backend remains baseline-red.
 - UI reference: signed-in real Score review Console, Resource Definitions list,
   AppShell, styles/tokens and Button. No unrelated UI was redesigned. The candidate
   forms retain the same shell/styles and short field labels. Final handoff must
