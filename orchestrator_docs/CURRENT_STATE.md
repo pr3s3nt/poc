@@ -9,10 +9,11 @@ last_reviewed: 2026-11-11
 
 ## Score authoring — issue #83, 2026-11-16
 
-Manual text-entry follow-up is a commit checkpoint: editable Score/extension
-fields and shared validation are implemented; full frontend/kind and browser
-verification of this refinement remain pending. The existing runtime/full-suite
-evidence below applies to the preceding Score implementation.
+Manual Score/extension entry and file-to-text editing are verified through the
+real feature Console, including explicit Check, stale Save/export prevention,
+round-trip and VI/EN keyboard use. Full frontend on kind passes 1065 tests.
+Backend sources are unchanged; the existing backend comparison/runtime evidence
+is reused. See the verification record for first-run test instability and checks.
 
 
 Implemented on `features/score`, not merged or deployed to retained main. Score
