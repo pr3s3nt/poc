@@ -338,3 +338,47 @@ nâng tất cả workload.
 Nguồn chuẩn: [UC-16](../usecase/UC-16/README.md),
 [contract default](../architecture/contracts/workload-defaults.md),
 [contract Generic Workload](../architecture/contracts/generic-workload.md).
+
+## Score và extension — issue #83
+
+Trong tab **Nhập Workload**, chọn `score.yaml` với
+`apiVersion: score.dev/v1b1`. Chọn thêm file extension
+`apiVersion: humanitec.org/v1b1` nếu cần profile hoặc cấu hình nâng cao.
+Nhập file chỉ kiểm tra/chuyển đổi; vẫn phải Lưu draft → Preview → Deploy.
+**Tải Score + extension** xuất cấu hình đang chỉnh thành hai file YAML.
+
+Extension `profile: backend@1.1.0` chọn đúng ID/version template trong nguồn của
+Workload Definition đã chọn; thay bằng ID/version thực tế trong installation.
+Không chọn lại driver hạ tầng. Alias `humanitec/default-module` (Deployment) và
+`humanitec/default-cronjob` (CronJob) chỉ dùng được khi nguồn có duy nhất một ID
+phù hợp; có nhiều mẫu thì chỉ định ID. Version không ghi sẽ được resolve và ghim
+khi nhập, không tự nâng khi mở lại. Không có alias Job.
+
+Ví dụ extension CronJob:
+
+```yaml
+apiVersion: humanitec.org/v1b1
+profile: scheduled
+spec:
+  schedules:
+    daily:
+      schedule: "0 2 * * *"
+  cronjob:
+    timeZone: Asia/Bangkok
+    concurrencyPolicy: Forbid
+```
+
+Score chứa containers/resources/service chuẩn; CronJob không khai báo Service.
+Template được chọn phải cung cấp các defaults còn thiếu. Chỉ hỗ trợ một schedule
+mỗi workload. Native advanced fields xuất trong `spec.orchestrator` để không mất
+cấu hình; không phải khả năng tương thích Humanitec. File đã lưu định dạng cũ
+vẫn đọc/nhập được và không được tự reset hoặc bulk rewrite.
+
+Phạm vi Score hiện nhận: name/annotations, containers image/command/args/variables/
+CPU-memory, HTTP/exec readiness/liveness, Service TCP/UDP và resource
+ type/class/id/params. `${metadata.name}` được expand; resource references giữ
+quy tắc binding hiện có. Files/volumes của Score, custom metadata/resource metadata,
+probe host/headers và chuỗi resource reference không biểu diễn được bởi form
+hiện tại bị từ chối; không đọc file host, tải mạng hoặc bỏ qua trường.
+Schema/unsupported/profile errors là lỗi riêng, không trả raw values.
+Xem [contract và bảng mapping](../architecture/contracts/score-workload.md).

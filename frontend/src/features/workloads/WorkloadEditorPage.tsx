@@ -10,7 +10,7 @@ import { Button } from '../../shared/ui/Button';
 import { ApiError, describeError, isBusy, isStaleConflict } from '../../shared/api/client';
 import { useEnvironmentBusy } from '../environment/useEnvironmentBusy';
 import { getConfiguration, type Configuration, type KeyKind } from '../configuration/api';
-import { getResourceTypes, getWorkloads, parseWorkloadImport, saveWorkload, type ResourceType, type Workload } from './api';
+import { getResourceTypes, getWorkloads, exportWorkload, parseWorkloadImport, saveWorkload, type ResourceType, type Workload } from './api';
 import { AddResourceDialog } from './AddResourceDialog';
 import { CreateKeyDialog } from './CreateKeyDialog';
 import { DependencyFields, dependencyProblem, dependencyAliasesProblem, emptyDependency, type ClassMetadata, type Dependency } from './DependencyFields';
@@ -233,6 +233,10 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   const [workloads, setWorkloads] = useState<Workload[]>([]);
   const [version, setVersion] = useState(0);
   const [mode, setMode] = useState<'form' | 'import'>('form');
+  const documentFiles = useRef<{ content?: File; extensions?: File }>({});
+  const importAttempt = useRef(0);
+  const [importPending, setImportPending] = useState(false);
+  const [exportPending, setExportPending] = useState(false);
   const [imported, setImported] = useState<Record<string, unknown>>();
   const [dirty, setDirty] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -276,6 +280,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     scope.current += 1;
     setEnvfileBlocked({}); setSecretBusy(false);
     setWorkloadMeta({ classes: [], defaultAvailable: false });
+    documentFiles.current = {}; importAttempt.current += 1; setImportPending(false); setExportPending(false);
     setTemplateMetadata(undefined); setTemplateInputProblems(0); setForm(emptyForm()); setImported(undefined); setDirty(false); setMode('form'); setAdvancedScore(false); setBlocked(false); setSaving(false); setReloading(false); setWorkloads([]); setDialog(undefined); setFocusRequest(undefined); setShowIncomplete(false); setShowNameProblem(false);
   }, [application.id, environment, workloadId, selectedTemplate]);
 
@@ -407,18 +412,39 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
       containers: form.containers.map((container) => ({ ...container, bindings: container.bindings.map((row) => row.source === 'RESOURCE' && row.alias === previous?.alias ? { ...row, ...(patch.alias !== undefined ? { alias: patch.alias } : {}), ...(changed ? { resourceChanged: true } : {}) } : row) })) });
   }
   function updatePort(index: number, patch: Partial<ServicePort>) { updateForm({ ...form, servicePorts: form.servicePorts.map((item, i) => i === index ? { ...item, ...patch } : item) }); }
-  async function importFile(file: File) {
+  async function importFile(file: File, extension = false) {
     const at = scope.current;
-    setError('');
+    const attempt = ++importAttempt.current;
+    documentFiles.current = { ...documentFiles.current, [extension ? 'extensions' : 'content']: file };
+    setError(''); setImported(undefined); setBlocked(true); setImportPending(true);
     try {
-      const content = await file.text();
-      if (at !== scope.current) return;
-      const result = await parseWorkloadImport(application.id, environment, content);
-      if (at !== scope.current) return;
-      setImported(result.workload); setForm(readForm(result.workload)); setAdvancedScore(needsScoreEditor(result.workload, types)); setDirty(false);
+      const files = documentFiles.current;
+      if (!files.content) return;
+      const [content, extensions] = await Promise.all([files.content.text(), files.extensions?.text()]);
+      if (at !== scope.current || attempt !== importAttempt.current) return;
+      const result = await parseWorkloadImport(application.id, environment, content, extensions);
+      if (at !== scope.current || attempt !== importAttempt.current) return;
+      setImported(result.workload); setForm(readForm(result.workload)); setAdvancedScore(needsScoreEditor(result.workload, types)); setDirty(false); setBlocked(false);
     }
-    catch (err) { if (at === scope.current) setError(describeError(err, t('workloads.workloadEditor.couldNotImportTheScore'))); }
+    catch (err) { if (at === scope.current && attempt === importAttempt.current) setError(describeError(err, t('workloads.workloadEditor.couldNotImportTheScore'))); }
+    finally { if (at === scope.current && attempt === importAttempt.current) setImportPending(false); }
   }
+  async function downloadScore() {
+    const at = scope.current;
+    setError(''); setExportPending(true);
+    try {
+      const workload = !dirty && imported ? imported : buildScore(form, types);
+      const result = await exportWorkload(application.id, environment, workload);
+      if (at !== scope.current) return;
+      for (const [name, content] of [['score.yaml', result.score], ['humanitec.score.yaml', result.extensions]]) {
+        const url = URL.createObjectURL(new Blob([content!], { type: 'application/yaml' }));
+        const link = document.createElement('a'); link.href = url; link.download = name!;
+        document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    } catch (err) { if (at === scope.current) setError(describeError(err, t('workloads.score.exportError'))); }
+    finally { if (at === scope.current) setExportPending(false); }
+  }
+
   const resourceChoices = sharedResources(workloads, types);
   const storageTypes = types.filter(type => ['claimName', 'namespace'].every(name => (type.outputs ?? []).some(field => field.name === name && field.type === 'string' && !field.secret)));
   const storageKeys = new Set(storageTypes.map(type => type.key));
@@ -496,7 +522,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     {error ? <div className="form-error" role="alert">{error}{loadFailed ? <> <Button onClick={() => setLoadAttempt((value) => value + 1)}>{t('workloads.workloadEditor.retry')}</Button></> : null}</div> : null}
     {stale ? <div className="form-error" role="alert" aria-label={t('workloads.workloadEditor.workloadDraftIsStale')}>{t('workloads.workloadEditor.workloadsIn')}{' '} {environment} {' '}{t('workloads.workloadEditor.changedAfterThisPageWas')}{' '} <Button disabled={reloading} onClick={() => void reloadCurrent()}>{reloading ? t('workloads.workloadEditor.reloading') : t('workloads.workloadEditor.reloadCurrentState')}</Button>{reloadError ? <p>{reloadError}</p> : null}</div> : null}
     {current ? <div className="form-info" role="status">{t('workloads.workloadEditor.reloadedDraftVersion')}{' '} {current.version}{t('workloads.workloadEditor.currentStateOfThisWorkload')}{' '} {currentState}{t('workloads.workloadEditor.theEditsBelowAreUnchanged')}{current.workload ? <details><summary>{t('workloads.workloadEditor.currentScore')}</summary><pre className="workload-preview">{JSON.stringify(current.workload, null, 2)}</pre></details> : null}</div> : null}
-    {loading ? <p>{t('workloads.workloadEditor.loadingWorkloadOptions')}</p> : mode === 'import' ? <section className="content-panel">{authoringFeatures.workloadImport ? <><h2>{t('workloads.workloadEditor.importAScoreFile')}</h2><p>{t('workloads.workloadEditor.yAMLOrJSONTheSame')}</p><input aria-label={t('workloads.workloadEditor.scoreFile')} type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} /></> : null}{imported ? <><p>{t('workloads.workloadEditor.parsedWorkload')}{' '} <strong>{String((imported.metadata as { name?: string } | undefined)?.name ?? '')}</strong></p><pre className="workload-preview">{JSON.stringify(imported, null, 2)}</pre></> : null}</section> : <>
+    {loading ? <p>{t('workloads.workloadEditor.loadingWorkloadOptions')}</p> : mode === 'import' ? <section className="content-panel">{authoringFeatures.workloadImport ? <><h2>{t('workloads.workloadEditor.importAScoreFile')}</h2><p>{t('workloads.workloadEditor.yAMLOrJSONTheSame')}</p><input aria-label={t('workloads.workloadEditor.scoreFile')} type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} /><label>{t('workloads.score.extensionFile')}<input aria-label={t('workloads.score.extensionFile')} type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file, true); }} /></label>{importPending ? <p role="status">{t('workloads.score.checking')}</p> : null}</> : null}{imported ? <><p>{t('workloads.workloadEditor.parsedWorkload')}{' '} <strong>{String((imported.metadata as { name?: string } | undefined)?.name ?? '')}</strong></p><pre className="workload-preview">{JSON.stringify(imported, null, 2)}</pre></> : null}</section> : <>
       {workloadId ? resolutionStatus : <section className="content-panel editor-grid"><h2>{t('workloads.workloadEditor.basicInformation')}</h2><label>{t('workloads.workloadEditor.workloadName')}<input ref={nameInput} value={form.name} aria-invalid={Boolean(nameProblem)} aria-describedby="workload-name-note" onChange={(event) => { setShowNameProblem(true); updateForm({ ...form, name: event.target.value }); }} placeholder="frontend" /></label>{nameProblem ? <span id="workload-name-note" className="field-error">{nameProblem}</span> : <small id="workload-name-note" className="muted">{t('workloads.workloadEditor.nameFixedHint')}</small>}{resolutionStatus}</section>}
       {catalog.status === 'error' ? <div className="form-error" role="alert">{t('workloads.workloadEditor.couldNotLoadApplicationVariables2')}{' '} {catalog.message} {' '}{t('workloads.workloadEditor.yourSelectionsAreKept')}{' '} <Button onClick={() => setCatalogAttempt((value) => value + 1)}>{t('workloads.workloadEditor.retryLoadingKeys')}</Button></div> : null}
       {form.containers.map((container, ci) => <section className="content-panel editor-grid" key={container.editorId}><div className="section-header"><h2>Container {ci + 1}</h2>{form.containers.length > 1 ? <Button tone="danger" onClick={() => updateForm({ ...form, containers: form.containers.filter((_, index) => index !== ci) })}>{t('workloads.workloadEditor.remove')}</Button> : null}</div><div className="field-grid"><label>{t('workloads.workloadEditor.containerName')}<input value={container.name} onChange={(event) => updateContainer(ci, { ...container, name: event.target.value })} /></label><label>{t('workloads.workloadEditor.containerImage')}<input value={container.image} onChange={(event) => updateContainer(ci, { ...container, image: event.target.value })} placeholder={String(fieldValue(resolution,`containers.${container.name}.image`)??'')} /></label></div>
@@ -590,6 +616,6 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
         setFocusRequest({ rowId, field: 'output' });
       })(scope.current, dialog.rowId)} /> : null}
     {!loading && environmentBusy ? <div className="form-info" role="status">{t('workloads.workloadEditor.anEnvironmentOperationIsRunning', { environment })}</div> : null}
-    {!loading ? <div className="form-actions editor-actions"><Button disabled={secretBusy} onClick={() => navigate({ name: 'application', applicationId: application.id, environment })}>{t('workloads.workloadEditor.cancel')}</Button><Button tone="primary" disabled={secretBusy || Object.values(envfileBlocked).some(Boolean) || form.containers.some(c => c.bindings.some(row => row.secretDraft)) || environmentBusy || blocked || saving || stale || loadFailed || (mode === 'import' && !imported)} onClick={() => void save()}>{t('workloads.workloadEditor.saveWorkloadDraft')}</Button></div> : null}
+    {!loading ? <div className="form-actions editor-actions"><Button disabled={exportPending || importPending || blocked || loading || secretBusy} onClick={() => void downloadScore()}>{t('workloads.score.export')}</Button><Button disabled={secretBusy} onClick={() => navigate({ name: 'application', applicationId: application.id, environment })}>{t('workloads.workloadEditor.cancel')}</Button><Button tone="primary" disabled={importPending || secretBusy || Object.values(envfileBlocked).some(Boolean) || form.containers.some(c => c.bindings.some(row => row.secretDraft)) || environmentBusy || blocked || saving || stale || loadFailed || (mode === 'import' && !imported)} onClick={() => void save()}>{t('workloads.workloadEditor.saveWorkloadDraft')}</Button></div> : null}
   </section>;
 }

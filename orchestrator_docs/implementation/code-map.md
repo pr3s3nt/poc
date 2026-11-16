@@ -1457,3 +1457,15 @@ built-in endpoint/existing-cluster/template capabilities are recognized without
 a Type-ID whitelist; absent/unknown driver capability stays contract-only and
 loading/errors stay unconfirmed. Focused coverage is in ResourceTypesPage.test.tsx.
 Backend capability/provisioning/Definition behavior is unchanged.
+
+## Score authoring — issue #83
+
+- `backend/internal/planning/workloadspec/score_adapter.go`: upstream schema,
+  Humanitec-format subset, portable/native conversion and lossless export.
+- `backend/internal/application/workloadconfig/score.go`: read-only profile
+  resolution using existing Definition matching and selected source metadata.
+- `backend/internal/delivery/http/workloads.go`: scoped parse/export boundaries.
+- `frontend/src/features/workloads/WorkloadEditorPage.tsx`: existing form,
+  Score/extension file admission and export of current edits.
+- [Contract](../architecture/contracts/score-workload.md); no graph/provisioning
+  algorithms changed. Runtime verification is pending on the feature branch.

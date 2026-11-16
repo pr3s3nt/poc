@@ -4195,5 +4195,12 @@
   "catalogDocument.checked": "Cấu hình hợp lệ. Có thể đăng ký.",
   "catalogDocument.checkFailed": "Không thể kiểm tra cấu hình.",
   "catalogDocument.downloadFailed": "Không thể tải file cấu hình. Thử lại.",
-  "catalogDocument.definitionFormat": "Một đối tượng, UTF-8, tối đa 1 MiB. Nguồn module Git dùng source: {url, ref, path}. Kiểm tra cấu hình trước khi đăng ký."
+  "catalogDocument.definitionFormat": "Một đối tượng, UTF-8, tối đa 1 MiB. Nguồn module Git dùng source: {url, ref, path}. Kiểm tra cấu hình trước khi đăng ký.",
+  "workloads.score.extensionFile": "File extension (tùy chọn)",
+  "workloads.score.export": "Tải Score + extension",
+  "workloads.score.exportError": "Không thể xuất Workload sang Score.",
+  "workloads.score.checking": "Đang kiểm tra…",
+  "workloads.score.schemaError": "File không đúng cấu trúc Score score.dev/v1b1.",
+  "workloads.score.unsupportedError": "Score hoặc extension chứa cấu hình chưa được nền tảng hỗ trợ.",
+  "workloads.score.profileError": "Profile không có, không duy nhất hoặc không tương thích với nguồn Workload đã chọn. Kiểm tra ID và phiên bản profile."
 }
