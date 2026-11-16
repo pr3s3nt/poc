@@ -36,7 +36,7 @@ The supported subset is documented here, not a claim of complete Humanitec suppo
 Score is validated against the upstream versioned schema before conversion.
 Unsupported valid Score features (including unresolved local file sources) fail
 rather than triggering host file reads, network access or silent truncation.
-Metadata placeholders are expanded into supported variables/params before the
+The supported `${metadata.name}` placeholder is expanded into variables/params before the
 existing reference conversion. Resource output placeholders keep existing guards.
 Annotations remain authoring metadata, not arbitrary Kubernetes object metadata.
 
@@ -60,6 +60,9 @@ workloadExecution. It cannot replace Score identity/image/variables/resources/se
 authorize extra targets or inject templateDefaults snapshots. Overlapping authored
 values between native and Humanitec fields are rejected, not ordered implicitly.
 Export includes an exact template pin when present; import verifies that pin.
+The `orchestrator/custom` profile preserves unpinned native authoring without
+inventing a preset or defaults. Unsupported metadata beyond name/annotations,
+metadata placeholders beyond name and resource metadata are rejected explicitly.
 
 ## SC-04 — Round trip and API
 
@@ -68,6 +71,10 @@ single YAML/JSON mappings. It returns {workload}, the normalized document. Scope
 POST workloads/export accepts {workload} and returns {score,extensions}, YAML strings.
 Export validates both sides and lossless normalization before returning data; no
 secret resolution/provider calls. Unsupported export is an error, not partial output.
+Safe HTTP 400 codes distinguish SCORE_SCHEMA_INVALID, SCORE_UNSUPPORTED and
+SCORE_PROFILE_INVALID; raw schema errors, values and source credentials are not
+returned to clients.
+
 Stored drafts and Deployment Set snapshots continue to use the existing internal
 model. No SQL migration, bulk rewrite or installation reset is part of this change.
 
