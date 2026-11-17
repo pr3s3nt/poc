@@ -2,13 +2,14 @@
 id: IMP-SCORE-WORKLOAD
 artifact: implementation-handoff
 status: current
-last_reviewed: 2026-11-16
+last_reviewed: 2026-11-17
 ---
 
 # Score authoring — issue #83
 
-Implemented on `features/score`, awaiting user acceptance. Required behavior is
-owned by [SC-01–05](../architecture/contracts/score-workload.md); this record maps
+Accepted and integrated into main at `8651a603`, with retained kind Console
+rollout verified. See [main integration](../verification/2026-11-17-score-main.md).
+Required behavior is owned by [SC-01–06](../architecture/contracts/score-workload.md); this record maps
 that contract to implementation and its verification limits.
 
 ## Implementation

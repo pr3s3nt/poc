@@ -1,6 +1,6 @@
 # Keycloak qua Score — bản thử issue #83
 
-Hai file dùng với Console của nhánh `features/score`:
+Hai file dùng với Console có Score admission (đã tích hợp vào `main`):
 
 - `score.yaml`: Keycloak, Service HTTP 8080, PostgreSQL riêng, tham chiếu Secret và endpoint
   do nền tảng quản lý.

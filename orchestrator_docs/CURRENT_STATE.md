@@ -23,7 +23,12 @@ stack after repairing its Vault Kubernetes auth and workload address configurati
 The user Secret was preserved through the product Store-copy operation; real
 login-page/OIDC checks pass. See [Keycloak verification](verification/2026-11-17-keycloak-score.md).
 
-Implemented on `features/score`, not merged or deployed to retained main. Score
+Accepted and merged into main at `8651a603`; backend/frontend are deployed to
+the retained kind Console. Post-rollout browser/API checks and preservation of
+existing inventory pass; see [main integration](verification/2026-11-17-score-main.md).
+The live Keycloak trial remains managed by its separate stack, deliberately
+retained to preserve user-owned data and secret delivery; no cross-installation
+migration occurred. Score
 v1b1 plus a supported Humanitec-format extension resolves profiles within the
 matched Definition source, preserving existing internal storage, immutable pins,
 template defaults and infrastructure algorithms. Console import/export and legacy
@@ -31,7 +36,7 @@ workload readers are retained. See [implementation](implementation/score-workloa
 and [verification](verification/2026-11-16-score-authoring.md). Full frontend passes;
 full backend has the same 70 top-level failures as main, with no additional
 candidate failures/skips and both builds passing. This is baseline parity, not a
-green backend suite. User acceptance and merge remain pending.
+green backend suite. Pre-merge retesting was explicitly waived by the user.
 
 
 ## Resource Type driver support — issue #81
