@@ -171,3 +171,18 @@ retains invalid text and blocks stale table edits/Save. File merge requires revi
 Bulk confirmation calls existing UC-12 create-only sequentially, advances config
 version per success, replaces only successful rows and stops uncertain mutation.
 Existing save/provenance/Preview/Deploy contracts are unchanged.
+
+## Score authoring adapter — issue #83
+
+The HTTP document boundary validates Score and the optional extension, resolves
+the profile within the selected Workload Definition source, freezes the existing
+template pin, then calls WorkloadConfigService with Generic Workload. Existing
+Save/Preview/planner/deployment collaborations and dependency identities stay
+unchanged. Export reverses the authoring conversion without resolving secrets.
+See the [contract](../../architecture/contracts/score-workload.md).
+
+SC-06: the Console coordinates tab transitions through the existing scoped
+export/parse endpoints. Export fills document inputs from current authored state;
+parse success replaces the form atomically. Conversion failures and late replies
+retain the owning draft. No planner, persistence or deployment collaboration is
+added; unrepresentable fields retain the advanced-document path.

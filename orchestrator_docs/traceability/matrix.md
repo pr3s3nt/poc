@@ -1665,3 +1665,19 @@ separate in the Environment rollback verification record.
 | UC-03 GFILE-03 | Canonical immutable pin plus draft/scope invalidation | CatalogDocumentImport; component late-reply/upload/edit tests; TestGitDocumentPreparePinsBranchWithoutDefinitionWritesAndRoundTrips |
 | UC-03 GFILE-04 | Metadata-only scoped export of exact revision | ExportDefinitionDocument; DefinitionDocumentDownload; scoped/revision/download tests and real Git MongoDB round-trip |
 | UC-03 GFILE-05 | Existing insert-only import and normalized comparison | Existing document_import tests; real CREATED/REUSED/CONFLICT/history invariance scenario |
+
+## Score authoring — issue #83
+
+SC-01–05: [contract](../architecture/contracts/score-workload.md) →
+[UC-16](../usecase/UC-16/specification.md#score-input-and-extensions--issue-83) →
+[realization](../usecase/UC-16/realization.md#score-authoring-adapter--issue-83).
+[Implementation/tests](../implementation/score-workload.md) and
+[verification](../verification/2026-11-16-score-authoring.md) record the feature
+branch checks and real runtime evidence; acceptance/merge remain pending.
+
+SC-06 (issue #83): synchronized form/document tabs in the
+[Score contract](../architecture/contracts/score-workload.md) →
+[UC-16 specification](../usecase/UC-16/specification.md),
+[realization](../usecase/UC-16/realization.md) and
+[screens](../usecase/UC-16/ui/screens.md) → WorkloadEditorPage,
+ScoreDocuments component tests and Score authoring browser scenario.

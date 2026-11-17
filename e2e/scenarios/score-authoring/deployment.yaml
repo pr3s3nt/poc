@@ -1,0 +1,18 @@
+apiVersion: score.dev/v1b1
+metadata:
+  name: database-client
+containers:
+  main:
+    image: postgres:16.14-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    command: [/bin/sh, -c]
+    args:
+      - 'until pg_isready -h "$PGHOST" -p 5432; do sleep 2; done; echo score83-database-ready; exec sleep infinity'
+    variables:
+      PGHOST: ${resources.db.host}
+resources:
+  db:
+    type: postgres
+    id: score-db
+    params:
+      database: score_acceptance
+      username: score_app

@@ -14,7 +14,8 @@ import (
 )
 
 type parseWorkloadRequest struct {
-	Content string `json:"content"`
+	Content    string `json:"content"`
+	Extensions string `json:"extensions,omitempty"`
 }
 
 func (s *Server) handleParseWorkloadDocument(w http.ResponseWriter, r *http.Request) {
@@ -38,16 +39,24 @@ func (s *Server) handleParseWorkloadDocument(w http.ResponseWriter, r *http.Requ
 		writeCode(w, codeInvalidRequest, "")
 		return
 	}
-	if err := s.workloads.ValidateImport(r.Context(), app, env, score); err != nil {
-		s.writeError(w, err)
-		return
+	var extension map[string]any
+	if strings.TrimSpace(req.Extensions) != "" {
+		ed := yaml.NewDecoder(strings.NewReader(req.Extensions))
+		if err := ed.Decode(&extension); err != nil || extension == nil {
+			writeCode(w, codeInvalidRequest, "")
+			return
+		}
+		if err := ed.Decode(&extra); err != io.EOF {
+			writeCode(w, codeInvalidRequest, "")
+			return
+		}
 	}
-	parsed, err := workloadspec.FromMap(score)
+	normalized, err := s.workloads.ImportDocument(r.Context(), app, env, score, extension)
 	if err != nil {
 		s.writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"workload": parsed.Map()})
+	writeJSON(w, http.StatusOK, map[string]any{"workload": normalized})
 }
 
 func (s *Server) handleListWorkloadDrafts(w http.ResponseWriter, r *http.Request) {
@@ -199,4 +208,42 @@ func (s *Server) handleResolveWorkloadDefaults(w http.ResponseWriter, r *http.Re
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"workload": out, "sources": sources})
+}
+
+func (s *Server) handleExportWorkloadDocument(w http.ResponseWriter, r *http.Request) {
+	app, env, ok := s.authorizedConfiguration(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		Workload map[string]any `json:"workload"`
+	}
+	if !decodeStrict(w, r, 3<<20, &req) {
+		return
+	}
+	if err := s.workloads.ValidateImport(r.Context(), app, env, req.Workload); err != nil {
+		s.writeError(w, err)
+		return
+	}
+	doc, err := workloadspec.FromMap(req.Workload)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	score, extension, err := workloadspec.ExportScore(doc)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	a, err := yaml.Marshal(score)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	b, err := yaml.Marshal(extension)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"score": string(a), "extensions": string(b)})
 }

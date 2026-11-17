@@ -4195,5 +4195,19 @@
   "catalogDocument.checked": "Configuration is valid. Ready to register.",
   "catalogDocument.checkFailed": "Could not check the configuration.",
   "catalogDocument.downloadFailed": "Could not download the configuration. Try again.",
-  "catalogDocument.definitionFormat": "One object, UTF-8, up to 1 MiB. Git modules use source: {url, ref, path}. Check the configuration before registering."
+  "catalogDocument.definitionFormat": "One object, UTF-8, up to 1 MiB. Git modules use source: {url, ref, path}. Check the configuration before registering.",
+  "workloads.score.extensionFile": "Extension file (optional)",
+  "workloads.score.export": "Download Score + extension",
+  "workloads.score.exportError": "Could not export workload as Score.",
+  "workloads.score.checking": "Checking…",
+  "workloads.score.schemaError": "The file does not match the Score score.dev/v1b1 schema.",
+  "workloads.score.unsupportedError": "The Score or extension contains configuration this platform does not support.",
+  "workloads.score.profileError": "The profile is unavailable, ambiguous or incompatible with the selected workload source. Check the profile ID and version.",
+  "workloads.score.viewDocument": "View parsed configuration",
+  "workloads.score.content": "Score content (YAML/JSON)",
+  "workloads.score.extensionContent": "Extension content (optional)",
+  "workloads.score.finishVariables": "Fix errors or confirm secrets in the environment variables first.",
+  "workloads.score.finishPorts": "Fix Service port names and numbers before opening YAML.",
+  "workloads.score.syncing": "Synchronizing…",
+  "workloads.score.check": "Check"
 }

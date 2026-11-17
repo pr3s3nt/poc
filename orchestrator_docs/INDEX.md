@@ -2,7 +2,7 @@
 id: DOC-INDEX
 artifact: documentation-index
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-16
 ---
 
 # Documentation index
@@ -144,6 +144,14 @@ Kết quả và cleanup cuối: [bàn giao M04](verification/2026-10-16-m04-comp
 [verified handoff](verification/2026-11-04-direct-bootstrap.md).
 SchemaVersion 3 nhận input môi trường, bootstrap Definitions không cần Catalog
 và deploy acceptance app ở cuối lệnh đầy đủ; schemaVersion 2 Catalog được giữ.
+
+## Score authoring — issue #83
+
+[Score admission and extensions](architecture/contracts/score-workload.md) defines
+standard input, profile resolution and the unchanged infrastructure boundary.
+[Implementation](implementation/score-workload.md) and
+[verification](verification/2026-11-16-score-authoring.md) record feature-branch
+status and baseline/runtime limits.
 
 ## Generic Workload and Template Driver
 

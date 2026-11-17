@@ -522,6 +522,9 @@ HTTP status, org/app/env scoping, CAS, fencing và transaction semantics giữ n
 | Code | HTTP | Ý nghĩa/hành động Console |
 |---|---|---|
 | `INVALID_REQUEST` | 400 | Body/field không hợp lệ; giữ draft để sửa. |
+| `SCORE_SCHEMA_INVALID` | 400 | Score không khớp schema v1b1; không trả raw validation values. |
+| `SCORE_UNSUPPORTED` | 400 | Score/extension dùng field hoặc feature ngoài subset đã công bố; giữ nội dung nhập. |
+| `SCORE_PROFILE_INVALID` | 400 | Profile không có, không duy nhất hoặc không khớp source/pin/kiểu thực thi đã chọn; field `profile`. |
 | `INVALID_ID` | 400 | ID sai quy tắc; không normalize. |
 | `INVALID_VARIABLE` | 400 | Tên/giá trị/tham chiếu biến không hợp lệ; không trả giá trị. |
 | `INVALID_SCORE` | 400 | Score/import/resource params không hợp lệ. |

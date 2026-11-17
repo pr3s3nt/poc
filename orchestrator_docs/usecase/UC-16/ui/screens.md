@@ -307,3 +307,36 @@ mặc định giữ. Checkbox literal đánh dấu draft, toolbar chọn nhiều
 dấu Bí mật. Xác nhận Secret chung hiển thị tên/result mỗi dòng và boundary commit,
 không lặp value. Reference secrecy read-only. Dùng shared Button/Dialog,
 VI/EN, focus/keyboard hiện hành. [Grammar](../envfile-specification.md).
+
+## Score import/export — issue #83
+
+Restore the existing form/import tabs. Import accepts a Score file plus an optional
+extension file using the current file-input pattern. Parse errors retain file
+choices and prevent saving a previous import. Scope changes discard late replies.
+Export downloads Score and, when needed, an extension from the current authored
+document using the same authorized API; errors preserve the editor. No shell,
+navigation or field-group redesign. The native read-only document remains available.
+
+The parsed internal document and frozen defaults sit in a collapsed native
+`details` disclosure. Name, file selection and Save/export actions remain visible;
+the user can inspect the full configuration with keyboard or pointer when needed.
+
+## Direct document entry — issue #83 refinement, 2026-11-16
+
+Users can type/paste Score and optional extension YAML/JSON directly in the
+existing import tab. File selection fills the same editable text. A Check action
+uses the existing scoped parse API; edits immediately invalidate earlier results
+and block stale Save/export until the current content passes validation. File
+imports retain their existing automatic check. Empty extension means no extension.
+No backend, graph, matching or provisioning behavior changes.
+
+## Synchronized form/document tabs — issue #83, 2026-11-17
+
+Keep the current tabs, labels, shell, field groups and parsed-document disclosure.
+Entering Nhập Workload exports the current form into Score and extension text;
+returning to Nhập bằng form parses both before switching. Show a short conversion
+status and disable tabs/Save/export while a conversion is pending. Rejected export
+keeps the form; rejected parse keeps exact document text and blocks stale writes.
+An untouched new form can start in the blank document editor. Existing advanced
+configurations populate documents but retain the lossless form restriction.
+No per-keystroke synchronization, automatic Save or local-file overwrite.
