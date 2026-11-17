@@ -297,4 +297,5 @@ url/ref/path authoring, explicit check then pinned registration and portable Git
 [UC-00 SSO](usecase/UC-00/specification.md#keycloak-sso--issue-77),
 [configuration/test lifecycle](operations/keycloak-sso.md),
 [browser acceptance](../e2e/scenarios/keycloak-sso/README.md),
-[verification](verification/2026-11-13-keycloak-sso.md).
+[feature verification](verification/2026-11-13-keycloak-sso.md),
+[accepted main integration/local-mode rollout](verification/2026-11-17-keycloak-main.md).

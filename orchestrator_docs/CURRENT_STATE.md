@@ -2498,7 +2498,7 @@ comparison and rollout are in [main verification](verification/2026-11-12-catalo
 
 ## Keycloak SSO — issue #77
 
-Accepted for main integration by the user on 2026-11-17. UC-00 adds configured
+Integrated into main on 2026-11-17 after user acceptance. UC-00 adds configured
 OIDC Authorization Code + PKCE with backend-owned tokens and the existing opaque
 session cookie. Issuer/subject identity persists through schema version 11; no
 old-account migration/linking. Three client roles map to existing backend/UI
@@ -2515,3 +2515,9 @@ main-baseline failures are recorded in the
 
 [Configuration and lifecycle](operations/keycloak-sso.md),
 [browser scenario](../e2e/scenarios/keycloak-sso/README.md).
+
+[Accepted main integration](verification/2026-11-17-keycloak-main.md) records fresh
+full checks and the retained v10→v11 rollout. Main deliberately keeps local login
+per the user’s decision; Keycloak deployment/configuration is a later step.
+Installation/users/catalog/Application identities are preserved. Full backend
+remains baseline-red; the final full frontend passes 1,077 tests.
