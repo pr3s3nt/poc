@@ -382,3 +382,21 @@ probe host/headers và chuỗi resource reference không biểu diễn được 
 hiện tại bị từ chối; không đọc file host, tải mạng hoặc bỏ qua trường.
 Schema/unsupported/profile errors là lỗi riêng, không trả raw values.
 Xem [contract và bảng mapping](../architecture/contracts/score-workload.md).
+
+## Đồng bộ form và Score/extension — issue #83
+
+Trong editor của feature Score, hai tab là hai cách sửa cùng một bản nháp:
+
+1. Sửa trên **Nhập bằng form**, rồi chọn **Nhập Workload**: hai ô Score/extension
+   tự điền theo cấu hình vừa sửa, kể cả khi chưa Save.
+2. Sửa Score hoặc extension, rồi chọn **Nhập bằng form**: Console kiểm tra và
+   chỉ chuyển khi dữ liệu hợp lệ. Nút **Kiểm tra** riêng vẫn dùng được.
+3. Nếu YAML lỗi, Console giữ nguyên text và báo lỗi; Save/export bị khóa. Nếu
+   form có hàng biến/cổng/tài nguyên nhập dở, sửa hàng đó trước khi mở YAML.
+4. Bấm **Lưu draft Workload** để lưu. Đổi tab không tự lưu hoặc triển khai.
+   Mở lại workload rồi mở tab tài liệu sẽ thấy cấu hình đã lưu.
+
+Các trường nâng cao form chưa biểu diễn đầy đủ tiếp tục dùng editor tài liệu;
+Console không bỏ chúng để ép chuyển form. Secret chỉ xuất hiện dưới dạng tham
+chiếu. Nội dung YAML có thể được định dạng lại khi sinh từ form. File trên máy
+không tự ghi đè; dùng **Tải Score + extension** để lấy bản mới.

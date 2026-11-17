@@ -109,3 +109,27 @@ uses the existing scoped parse API; edits immediately invalidate earlier results
 and block stale Save/export until the current content passes validation. File
 imports retain their existing automatic check. Empty extension means no extension.
 No backend, graph, matching or provisioning behavior changes.
+
+## SC-06 — Synchronized form and document tabs — approved 2026-11-17
+
+Form and Score/extension are two representations of the same unsaved workload.
+Entering the document tab exports the current authored configuration through the
+existing scoped export API and fills both editors. Reopening a saved workload
+therefore exposes its current Score and extension, including immutable pins and
+native advanced fields. An untouched empty new form may open blank document
+editors directly; an invalid edited form stays intact when export is rejected.
+
+Returning to the form checks the current document pair through the parse API
+before replacing form state. Invalid documents remain visible with their error;
+Save/export stay blocked and the previous valid form is not overwritten. File
+input and explicit Check retain their current behavior. Editing is synchronized
+on tab changes, not on each keystroke. Save remains explicit and never deploys.
+
+During conversion, tab/Save/export actions are locked; late replies after a scope
+change, replacement document, or newer form edit are ignored. Export failures
+retain form edits and allow retry. A successfully parsed configuration the form
+cannot represent losslessly stays in the document editor with the existing
+advanced-field notice. Secret references, resource identities, authored omission
+and explicit zero/false, source pins and template-owned defaults survive the
+supported round trip; no secret values are resolved or copied into documents.
+Only in-Console text is synchronized; local files change through download.

@@ -1675,6 +1675,13 @@ SC-01–05: [contract](../architecture/contracts/score-workload.md) →
 [verification](../verification/2026-11-16-score-authoring.md) record the feature
 branch checks and real runtime evidence; acceptance/merge remain pending.
 
+SC-06 (issue #83): synchronized form/document tabs in the
+[Score contract](../architecture/contracts/score-workload.md) →
+[UC-16 specification](../usecase/UC-16/specification.md),
+[realization](../usecase/UC-16/realization.md) and
+[screens](../usecase/UC-16/ui/screens.md) → WorkloadEditorPage,
+ScoreDocuments component tests and Score authoring browser scenario.
+
 ## Namespace placement and template routes — issue #84
 
 | Requirement | Realization | Code and focused validation |

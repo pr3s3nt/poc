@@ -4213,5 +4213,8 @@
   "gatewayDriver.invalidReference": "Chọn tham chiếu output gateway của resource k8s-gateway.",
   "gatewayDriver.invalidCluster": "Chọn tham chiếu output cluster của resource k8s-cluster.",
   "gatewayDriver.providerSource": "Nguồn kết nối",
-  "gatewayDriver.namespaceClass": "Class namespace"
+  "gatewayDriver.namespaceClass": "Class namespace",
+  "workloads.score.finishVariables": "Hãy sửa lỗi hoặc xác nhận bí mật trong phần biến môi trường trước.",
+  "workloads.score.finishPorts": "Hãy sửa tên và số cổng Service trước khi mở YAML.",
+  "workloads.score.syncing": "Đang đồng bộ…"
 }

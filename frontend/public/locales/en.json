@@ -4213,5 +4213,8 @@
   "gatewayDriver.invalidReference": "Select the gateway output reference of a k8s-gateway resource.",
   "gatewayDriver.invalidCluster": "Select the cluster output reference of a k8s-cluster resource.",
   "gatewayDriver.providerSource": "Connection source",
-  "gatewayDriver.namespaceClass": "Namespace class"
+  "gatewayDriver.namespaceClass": "Namespace class",
+  "workloads.score.finishVariables": "Fix errors or confirm secrets in the environment variables first.",
+  "workloads.score.finishPorts": "Fix Service port names and numbers before opening YAML.",
+  "workloads.score.syncing": "Synchronizing…"
 }

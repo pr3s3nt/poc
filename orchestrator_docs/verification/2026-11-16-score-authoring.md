@@ -198,14 +198,53 @@ The feature Docker stack is retained for user review. Access URL and private
 login/restart instructions are provided only in the user handoff, not this public
 record. User acceptance is required before merge or retained main deployment.
 
-## Manual document entry — commit checkpoint
+## Manual document entry — follow-up verification
 
 User requested editable Score/extension text alongside the file pickers. Both
 inputs share the existing parse API. Edits invalidate earlier results and block
 stale Save/export; selected files fill the same editable textareas.
-The TypeScript test locator error was corrected. Focused authoring tests,
-typecheck/lint/build and docs/whitespace checks are run for this checkpoint.
-The full frontend/kind and browser acceptance for this refinement remain pending;
-the full-suite/runtime results above belong to the preceding committed version.
-Backend sources/configuration are unchanged. No merge or stack update is claimed
-for this checkpoint.
+Commit `621fa61d` corrected the TypeScript test locator and passed 76 focused
+authoring tests plus typecheck/lint/build and docs/whitespace checks. The
+following execution completes the pending manual-entry verification. No merge
+or retained main deployment has occurred.
+
+The follow-up browser run uses `manual-entry.mjs` against the updated feature
+frontend and the real backend through the actual Tailscale origin. It passes
+manual Score/extension entry without selecting files; explicit Check; stale
+Save/export invalidation after edits; invalid text preservation; file-to-text
+editing; export/reparse equality; and edited draft persistence. VI/EN labels and
+keyboard Check pass. A receipt-owned disposable Application was deleted through
+the product API with terminal SUCCEEDED; no workload deployment occurred.
+
+The retained review route was opened separately in the browser. Both manual
+inputs and Check are visible, the same-origin workload API returns 200 with the
+two existing drafts, and no review data was saved or overwritten. The feature
+frontend container was updated; the backend container and source remain unchanged
+from the original runtime verification (`git diff 137909bb -- backend` is empty).
+The backend full-suite comparison and runtime evidence above are reused for this
+frontend-only refinement.
+
+Visual review compares the preceding Score import screen with the new VI/EN
+screens and the existing shared AppShell, form controls and preview-form styles.
+Shell/navigation/actions remain consistent. The repeated import introduction was
+removed; parsed internals stay collapsed. The two document labels and Check are
+the visible guidance needed to complete entry. Evidence and the exact reviewed
+URL remain outside Git; the stack, data volumes and restart instructions are kept
+for acceptance.
+
+
+Full frontend on the isolated kind runner passes **113 files / 1065 tests**.
+The first run had one observability assertion failure (a log element became
+absent at the final pause assertion); its log is retained. That test passes on
+pinned main `cd40a792` in a focused five-test run and in the complete candidate
+rerun. The observability source and tests are unchanged from main. No assertion
+was removed or weakened. This is an observed intermittent failure, not evidence
+that the first run passed.
+
+The final kind run also passes typecheck, lint (the existing PlatformSettingsPage
+ref warning), and production build (the existing chunk-size warning). The local
+docs checker and whitespace/syntax checks pass. No diagrams changed in this
+refinement; PlantUML is not installed on the host, so this run reuses the prior
+container syntax checks above. The receipt-owned full-check namespace was deleted
+with matching ownership label and UID/resourceVersion preconditions; absence was
+verified. No unrelated user changes were present or committed.

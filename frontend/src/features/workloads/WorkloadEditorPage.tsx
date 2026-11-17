@@ -224,6 +224,8 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   const [templateMetadata, setTemplateMetadata] = useState<WorkloadTemplate>();
   const [templateInputProblems, setTemplateInputProblems] = useState(0);
   const [form, setForm] = useState<Form>(emptyForm);
+  const latestForm = useRef(form);
+  useEffect(() => { latestForm.current = form; }, [form]);
   const [catalog, setCatalog] = useState<KeyCatalog>({ status: 'loading' });
   const [catalogAttempt, setCatalogAttempt] = useState(0);
   const [types, setTypes] = useState<ResourceType[]>([]);
@@ -238,6 +240,14 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   const importAttempt = useRef(0);
   const [importPending, setImportPending] = useState(false);
   const [exportPending, setExportPending] = useState(false);
+  const [syncPending, setSyncPending] = useState(false);
+  const syncAttempt = useRef(0);
+  const fillDocuments = useCallback((result: { score: string; extensions: string }) => {
+    if (typeof result.score !== 'string' || typeof result.extensions !== 'string') throw new Error('Invalid document export');
+    const documents = { content: result.score, extensions: result.extensions };
+    documentInputs.current = documents;
+    setDocumentText(documents);
+  }, []);
   const [imported, setImported] = useState<Record<string, unknown>>();
   const [dirty, setDirty] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -281,7 +291,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     scope.current += 1;
     setEnvfileBlocked({}); setSecretBusy(false);
     setWorkloadMeta({ classes: [], defaultAvailable: false });
-    documentInputs.current = {content: '', extensions: ''}; setDocumentText({content: '', extensions: ''}); importAttempt.current += 1; setImportPending(false); setExportPending(false);
+    documentInputs.current = {content: '', extensions: ''}; setDocumentText({content: '', extensions: ''}); importAttempt.current += 1; syncAttempt.current += 1; setImportPending(false); setExportPending(false); setSyncPending(false);
     setTemplateMetadata(undefined); setTemplateInputProblems(0); setForm(emptyForm()); setImported(undefined); setDirty(false); setMode('form'); setAdvancedScore(false); setBlocked(false); setSaving(false); setReloading(false); setWorkloads([]); setDialog(undefined); setFocusRequest(undefined); setShowIncomplete(false); setShowNameProblem(false);
   }, [application.id, environment, workloadId, selectedTemplate]);
 
@@ -294,7 +304,19 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
       setWorkloads(list.workloads); setTypes(catalog.resourceTypes.filter((type) => type.key !== 'workload')); setWorkloadMeta(workloadClassMeta(catalog.resourceTypes)); setClassMetadata('ready'); setVersion(list.draftVersion);
       const existing = list.workloads.find((item) => item.id === workloadId);
       if (existing?.workload && hasRemovedPublicPort(existing.workload)) { setForm({ ...emptyForm(), name: workloadId ?? '' }); setBlocked(true); setError(removedPublicPortMessage); }
-      else if (existing?.workload) { setForm(readForm(existing.workload)); setImported(existing.workload); setBlocked(false); const advanced = needsScoreEditor(existing.workload, catalog.resourceTypes); setAdvancedScore(advanced); if (advanced) setMode('import'); }
+      else if (existing?.workload) {
+        setForm(readForm(existing.workload)); setImported(existing.workload); setBlocked(false);
+        const advanced = needsScoreEditor(existing.workload, catalog.resourceTypes); setAdvancedScore(advanced);
+        if (advanced) {
+          setMode('import');
+          if (authoringFeatures.workloadImport) {
+            try {
+              const documents = await exportWorkload(application.id, environment, existing.workload);
+              if (!cancelled) fillDocuments(documents);
+            } catch (err) { if (!cancelled) setError(describeError(err, t('workloads.score.exportError'))); }
+          }
+        }
+      }
       else if (selectedTemplate) {
         const templates = await getWorkloadTemplates(application.id, environment); if (cancelled) return;
         const chosen = templates.find(item => templateKey(item) === selectedTemplate);
@@ -306,7 +328,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
       else if (workloadId) { setForm({ ...emptyForm(), name: workloadId }); setBlocked(true); setError(existing ? t('workloads.workloadEditor.thisDeployedWorkloadHasNo') : t('workloads.workloadEditor.workloadNotFoundInThis')); }
     }).catch((err: unknown) => { if (!cancelled) { setError(describeError(err, t('workloads.workloadEditor.couldNotLoadTheWorkload'))); setLoadFailed(true); setClassMetadata('error'); } }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [application.id, environment, workloadId, selectedTemplate, loadAttempt]);
+  }, [application.id, environment, workloadId, selectedTemplate, loadAttempt, fillDocuments]);
 
   const templateImage = form.execution?.templateDefaults?.profile.image ?? templateMetadata?.runtimeDefaults?.environments?.[environment]?.image ?? templateMetadata?.runtimeDefaults?.image;
   const missingTemplateImage = Boolean(form.execution?.template) && form.containers.some(container => !container.image && !((!container.role || container.role === 'app') && typeof templateImage === 'string' && templateImage.length > 0));
@@ -436,7 +458,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
     }).catch(() => {}); // The shared check below reports the read error.
     void checkDocuments(attempt);
   }
-  async function checkDocuments(attempt = invalidateImport()) {
+  async function checkDocuments(attempt = invalidateImport(), returnToForm = false) {
     const at = scope.current;
     setImportPending(true);
     try {
@@ -445,10 +467,40 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
       if (!content.trim()) return;
       const result = await parseWorkloadImport(application.id, environment, content, extensions);
       if (at !== scope.current || attempt !== importAttempt.current) return;
-      setImported(result.workload); setForm(readForm(result.workload)); setAdvancedScore(needsScoreEditor(result.workload, types)); setDirty(false); setBlocked(false);
+      const advanced = needsScoreEditor(result.workload, types);
+      setImported(result.workload); setForm(readForm(result.workload)); setAdvancedScore(advanced); setDirty(false); setBlocked(false);
+      if (returnToForm && !advanced) setMode('form');
     }
     catch (err) { if (at === scope.current && attempt === importAttempt.current) setError(describeError(err, t('workloads.workloadEditor.couldNotImportTheScore'))); }
     finally { if (at === scope.current && attempt === importAttempt.current) setImportPending(false); }
+  }
+  async function openDocuments() {
+    if (loading || syncPending || importPending || exportPending || saving || secretBusy) return;
+    if (Object.values(envfileBlocked).some(Boolean) || form.containers.some(c => c.bindings.some(row => row.secretDraft))) {
+      setError(t('workloads.score.finishVariables')); return;
+    }
+    // An untouched new form can start directly with pasted/uploaded documents.
+    if (!imported && !dirty) { setMode('import'); return; }
+    // Keep edited text, including invalid input, when the active tab is clicked.
+    if (mode === 'import' && (documentText.content || blocked)) return;
+    if (dirty && (templateInputProblems > 0 || !validateForm())) return;
+    if (dirty && (validPortNames(form.servicePorts).size !== form.servicePorts.length || form.servicePorts.some(port => port.targetPort && !validPortNumber(port.targetPort)))) {
+      setError(t('workloads.score.finishPorts')); return;
+    }
+    const at = scope.current, attempt = ++syncAttempt.current, submittedForm = form;
+    setSyncPending(true); setError('');
+    try {
+      const workload = !dirty && imported ? imported : buildScore(form, types);
+      const documents = await exportWorkload(application.id, environment, workload);
+      if (at !== scope.current || attempt !== syncAttempt.current || latestForm.current !== submittedForm) return;
+      fillDocuments(documents); setImported(workload); setDirty(false); setMode('import');
+    } catch (err) {
+      if (at === scope.current && attempt === syncAttempt.current && latestForm.current === submittedForm) setError(describeError(err, t('workloads.score.exportError')));
+    } finally { if (at === scope.current && attempt === syncAttempt.current) setSyncPending(false); }
+  }
+  function openForm() {
+    if (mode === 'form' || loading || syncPending || importPending || exportPending || saving || secretBusy) return;
+    void checkDocuments(undefined, true);
   }
   async function downloadScore() {
     const at = scope.current;
@@ -492,32 +544,34 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   const savedWorkloadClass = workloadId && imported ? String((imported.metadata as { class?: string } | undefined)?.class ?? '') : undefined;
   const nameProblem = !workloadId && showNameProblem ? workloadNameProblem(form.name, form.execution?.kind) : '';
   const rowContext = buildRowContext(catalog, form.dependencies, types, workloads, form.name);
+  function validateForm() {
+    if (!workloadId && workloadNameProblem(form.name, form.execution?.kind)) { setShowNameProblem(true); nameInput.current?.focus(); return false; }
+    if(missingTemplateImage){setError(wd('imageRequiredForDefaults'));return false;}
+    if (new Set(form.annotations.map(a => a.name)).size !== form.annotations.length || form.annotations.some(a => !a.name)) { setError(t('workloads.volumes.invalid')); return false; }
+    if (!validRuntimeIntent(form.containers.map(c=>({...c,image:c.image||String(fieldValue(resolution,`containers.${c.name}.image`)??'')})), form.execution, catalog.status === 'ready' ? catalog.keys.filter(k => k.kind === 'SECRET' && k.configured).map(k => k.name) : undefined, Boolean(form.execution?.template))) { setError(t('workloads.volumes.invalid')); return false; }
+    if (form.workloadClass && !validWorkloadClass(form.workloadClass)) { setError(t('workloads.workloadEditor.invalidWorkloadClassUseOnly')); return false; }
+    if (classMetadata === 'ready' && form.workloadClass !== savedWorkloadClass && classChoiceMissing(workloadMeta, '', form.workloadClass)) { setError(t('shared.classChoices.required', { name: 'Workload' })); return false; }
+    if (classMetadata !== 'ready' && form.dependencies.length > 0) { setError(classMetadata === 'loading' ? t('workloads.workloadEditor.classMetadataIsLoadingWait') : t('workloads.workloadEditor.theResourceClassMetadataIs')); return false; }
+    const aliasesIssue = dependencyAliasesProblem(form.dependencies, form.containers.flatMap((container) => container.bindings.filter((row) => row.source === 'SERVICE').map((row) => row.alias || serviceAlias(row.workload, row.port))));
+    if (aliasesIssue) { setError(aliasesIssue); return false; }
+    for (const dependency of form.dependencies) {
+      if (dependency.type === 'endpoint' && (form.dependencies.filter(d => d.type === 'endpoint').length > 1 || form.execution?.serviceEnabled === false || !endpointPorts(form.servicePorts).some(p => p.name === dependency.params.port))) { setError(t('workloads.endpoint.invalidPort')); return false; }
+      const dependencyIssue = sharedSelectionProblem(dependency, resourceChoices) || dependencyProblem(dependency, types);
+      if (dependencyIssue) { setError(dependencyIssue); return false; }
+    }
+    // The key catalog is only needed when a row references an Application key.
+    const usesKeys = !!form.execution?.secretFiles?.length || form.containers.some((container) => container.bindings.some((row) => isKeySource(row.source)));
+    if (usesKeys && catalog.status !== 'ready') { setError(catalog.status === 'loading' ? t('workloads.workloadEditor.applicationVariablesAndSecretsAre') : t('workloads.workloadEditor.couldNotLoadApplicationVariables')); return false; }
+    const problem = bindingProblem(form.containers, rowContext);
+    if (problem) { setError(problem); setShowIncomplete(true); return false; }
+    return true;
+  }
   async function save() {
-    if (secretBusy || Object.values(envfileBlocked).some(Boolean) || form.containers.some(container => container.bindings.some(row => row.secretDraft))) return;
+    if (syncPending || importPending || secretBusy || Object.values(envfileBlocked).some(Boolean) || form.containers.some(container => container.bindings.some(row => row.secretDraft))) return;
     if (environmentBusy) return;
     if (blocked || stale || templateInputProblems > 0) return;
     if (form.execution?.mounts?.some(mount => !form.dependencies.some(dep => dep.alias === mount.resource) || !form.containers.some(c => c.name === mount.container) || !mount.path.startsWith('/'))) { setError(t('workloads.templates.mountInvalid')); return; }
-    if (mode === 'form' || dirty) {
-      if (!workloadId && workloadNameProblem(form.name, form.execution?.kind)) { setShowNameProblem(true); nameInput.current?.focus(); return; }
-      if(missingTemplateImage){setError(wd('imageRequiredForDefaults'));return;}
-      if (new Set(form.annotations.map(a => a.name)).size !== form.annotations.length || form.annotations.some(a => !a.name)) { setError(t('workloads.volumes.invalid')); return; }
-      if (!validRuntimeIntent(form.containers.map(c=>({...c,image:c.image||String(fieldValue(resolution,`containers.${c.name}.image`)??'')})), form.execution, catalog.status === 'ready' ? catalog.keys.filter(k => k.kind === 'SECRET' && k.configured).map(k => k.name) : undefined, Boolean(form.execution?.template))) { setError(t('workloads.volumes.invalid')); return; }
-      if (form.workloadClass && !validWorkloadClass(form.workloadClass)) { setError(t('workloads.workloadEditor.invalidWorkloadClassUseOnly')); return; }
-      if (classMetadata === 'ready' && form.workloadClass !== savedWorkloadClass && classChoiceMissing(workloadMeta, '', form.workloadClass)) { setError(t('shared.classChoices.required', { name: 'Workload' })); return; }
-      if (classMetadata !== 'ready' && form.dependencies.length > 0) { setError(classMetadata === 'loading' ? t('workloads.workloadEditor.classMetadataIsLoadingWait') : t('workloads.workloadEditor.theResourceClassMetadataIs')); return; }
-      const aliasesIssue = dependencyAliasesProblem(form.dependencies, form.containers.flatMap((container) => container.bindings.filter((row) => row.source === 'SERVICE').map((row) => row.alias || serviceAlias(row.workload, row.port))));
-      if (aliasesIssue) { setError(aliasesIssue); return; }
-      for (const dependency of form.dependencies) {
-        if (dependency.type === 'endpoint' && (form.dependencies.filter(d => d.type === 'endpoint').length > 1 || form.execution?.serviceEnabled === false || !endpointPorts(form.servicePorts).some(p => p.name === dependency.params.port))) { setError(t('workloads.endpoint.invalidPort')); return; }
-        const dependencyIssue = sharedSelectionProblem(dependency, resourceChoices) || dependencyProblem(dependency, types);
-        if (dependencyIssue) { setError(dependencyIssue); return; }
-      }
-      // The key catalog is only needed when a row references an Application key.
-      const usesKeys = !!form.execution?.secretFiles?.length || form.containers.some((container) => container.bindings.some((row) => isKeySource(row.source)));
-      if (usesKeys && catalog.status !== 'ready') { setError(catalog.status === 'loading' ? t('workloads.workloadEditor.applicationVariablesAndSecretsAre') : t('workloads.workloadEditor.couldNotLoadApplicationVariables')); return; }
-      const problem = bindingProblem(form.containers, rowContext);
-      if (problem) { setError(problem); setShowIncomplete(true); return; }
-    }
+    if ((mode === 'form' || dirty) && !validateForm()) return;
     const workload = mode === 'import' && imported && !dirty ? imported : !dirty && imported ? imported : buildScore(form, types);
     const id = String((workload.metadata as { name?: string } | undefined)?.name ?? '');
     if (!id) { setError(t('workloads.workloadEditor.enterAWorkloadName')); return; }
@@ -538,7 +592,8 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
   return <section className="page workload-editor">
     <button className="back-link" onClick={() => navigate({ name: 'application', applicationId: application.id, environment })}>← {application.name} / {environment}</button>
     <header className="page-header application-header"><div><p className="eyebrow">{t('workloads.workloadEditor.environmentWorkloadConfiguration', { environment })}</p><h1>{workloadId ? t('workloads.workloadEditor.editWorkloadId', { workloadId }) : t('workloads.workloadEditor.addWorkload')}</h1><p>{t('workloads.workloadEditor.saveTheDraftFirstPreview')}</p></div><Button onClick={() => navigate({ name: 'settings', applicationId: application.id, environment })}>{t('workloads.workloadEditor.variablesSecrets')}</Button></header>
-    {authoringFeatures.workloadImport ? <div className="tabs" role="tablist"><button className={mode === 'form' ? 'tab tab-active' : 'tab'} disabled={advancedScore} onClick={() => setMode('form')}>{t('workloads.workloadEditor.formInput')}</button><button className={mode === 'import' ? 'tab tab-active' : 'tab'} onClick={() => setMode('import')}>{t('workloads.workloadEditor.importScore')}</button></div> : null}
+    {authoringFeatures.workloadImport ? <div className="tabs" role="tablist"><button className={mode === 'form' ? 'tab tab-active' : 'tab'} disabled={advancedScore || loading || syncPending || importPending || exportPending || saving || secretBusy} onClick={openForm}>{t('workloads.workloadEditor.formInput')}</button><button className={mode === 'import' ? 'tab tab-active' : 'tab'} disabled={loading || syncPending || importPending || exportPending || saving || secretBusy} onClick={() => void openDocuments()}>{t('workloads.workloadEditor.importScore')}</button></div> : null}
+    {syncPending ? <p role="status">{t('workloads.score.syncing')}</p> : null}
     {advancedScore ? <p className="feature-note">{t(authoringFeatures.workloadImport ? 'workloads.workloadEditor.thisScoreHasFieldsThe' : 'workloads.workloadEditor.advancedReadOnly')}</p> : null}
     {error ? <div className="form-error" role="alert">{error}{loadFailed ? <> <Button onClick={() => setLoadAttempt((value) => value + 1)}>{t('workloads.workloadEditor.retry')}</Button></> : null}</div> : null}
     {stale ? <div className="form-error" role="alert" aria-label={t('workloads.workloadEditor.workloadDraftIsStale')}>{t('workloads.workloadEditor.workloadsIn')}{' '} {environment} {' '}{t('workloads.workloadEditor.changedAfterThisPageWas')}{' '} <Button disabled={reloading} onClick={() => void reloadCurrent()}>{reloading ? t('workloads.workloadEditor.reloading') : t('workloads.workloadEditor.reloadCurrentState')}</Button>{reloadError ? <p>{reloadError}</p> : null}</div> : null}
@@ -643,6 +698,6 @@ export function WorkloadEditorPage({ application, environment, workloadId, selec
         setFocusRequest({ rowId, field: 'output' });
       })(scope.current, dialog.rowId)} /> : null}
     {!loading && environmentBusy ? <div className="form-info" role="status">{t('workloads.workloadEditor.anEnvironmentOperationIsRunning', { environment })}</div> : null}
-    {!loading ? <div className="form-actions editor-actions"><Button disabled={exportPending || importPending || blocked || loading || secretBusy} onClick={() => void downloadScore()}>{t('workloads.score.export')}</Button><Button disabled={secretBusy} onClick={() => navigate({ name: 'application', applicationId: application.id, environment })}>{t('workloads.workloadEditor.cancel')}</Button><Button tone="primary" disabled={importPending || secretBusy || Object.values(envfileBlocked).some(Boolean) || form.containers.some(c => c.bindings.some(row => row.secretDraft)) || environmentBusy || blocked || saving || stale || loadFailed || (mode === 'import' && !imported)} onClick={() => void save()}>{t('workloads.workloadEditor.saveWorkloadDraft')}</Button></div> : null}
+    {!loading ? <div className="form-actions editor-actions"><Button disabled={syncPending || exportPending || importPending || blocked || loading || secretBusy} onClick={() => void downloadScore()}>{t('workloads.score.export')}</Button><Button disabled={secretBusy} onClick={() => navigate({ name: 'application', applicationId: application.id, environment })}>{t('workloads.workloadEditor.cancel')}</Button><Button tone="primary" disabled={syncPending || importPending || secretBusy || Object.values(envfileBlocked).some(Boolean) || form.containers.some(c => c.bindings.some(row => row.secretDraft)) || environmentBusy || blocked || saving || stale || loadFailed || (mode === 'import' && !imported)} onClick={() => void save()}>{t('workloads.workloadEditor.saveWorkloadDraft')}</Button></div> : null}
   </section>;
 }

@@ -77,3 +77,47 @@ Application deletion, remove only receipt-owned setup RBAC after withdrawal and
 resume product cleanup if namespace guards stopped at that setup. Verify
 namespace, controller and PV absence; a successful DELETE response alone is not
 proof that cleanup finished.
+
+## Manual document entry
+
+Run from the repository root with the shared Console variables and a private
+`ORCH_EVIDENCE_DIR`:
+
+```sh
+node e2e/scenarios/score-authoring/manual-entry.mjs
+```
+
+This uses the real feature backend and the same `git-dev` fixtures/source as
+above. It creates a separate Application, types Score and extension without
+selecting files, checks through the real parse API, verifies that edits block
+stale Save/export, retains invalid text, loads a file into editable text, then
+exports/reimports and saves the edited draft. VI/EN labels and keyboard activation
+of Check are covered. No Preview, Deploy or workload infrastructure is created.
+
+The runner records its Application identity before saving and deletes only that
+Application through deletion-preview/deletions in `finally`, after checking its
+name. PASS requires both assertions and terminal SUCCEEDED cleanup. Each run
+creates a new Application; keep the private receipt and failed screenshots when
+diagnosing a failure. If cleanup fails, use the receipt to inspect and resume
+product deletion rather than deleting another Application. Logs, downloaded YAML,
+screenshots and receipts stay in the private evidence directory outside Git.
+
+## Form/document tab synchronization
+
+```sh
+node e2e/scenarios/score-authoring/tab-sync.mjs
+```
+
+Use the same shared Console variables, dependencies and private
+`ORCH_EVIDENCE_DIR` as manual entry. This scenario creates a separate Application
+and uses the real `git-dev` fixture/template source. It checks YAML-to-form on
+switch without explicit Check, unsaved form-to-Score image changes, YAML variable
+and extension replica changes back to form, template/resource-reference
+preservation, invalid text retention and disabled stale writes, no implicit Save,
+explicit Save and reopening equivalent documents, plus VI/EN and keyboard use.
+
+Only the owned Application and one workload draft are created; no Preview/Deploy
+or workload infrastructure. The same receipt/name-checked product deletion in
+`finally` must reach SUCCEEDED. Preserve failed evidence and inspect the receipt
+before resuming interrupted cleanup. Existing user Applications are never saved
+or deleted by this scenario. Screenshot/receipt/data files remain outside Git.

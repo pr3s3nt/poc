@@ -2,13 +2,14 @@
 id: IMP-SCORE-WORKLOAD
 artifact: implementation-handoff
 status: current
-last_reviewed: 2026-11-16
+last_reviewed: 2026-11-17
 ---
 
 # Score authoring — issue #83
 
-Implemented on `features/score`, awaiting user acceptance. Required behavior is
-owned by [SC-01–05](../architecture/contracts/score-workload.md); this record maps
+Accepted and integrated into main at `8651a603`, with retained kind Console
+rollout verified. See [main integration](../verification/2026-11-17-score-main.md).
+Required behavior is owned by [SC-01–06](../architecture/contracts/score-workload.md); this record maps
 that contract to implementation and its verification limits.
 
 ## Implementation
@@ -51,7 +52,8 @@ namespaced export extension. No Job workload profile is introduced.
 - `http/workload_score_test.go`: scoped export, advanced preservation, rejected
   unsupported/multiple-document imports and no draft writes.
 - `ScoreDocuments.test.tsx`: two-file import, stale reply rejection, invalid
-  replacement and export of current form edits. Existing authoring suites retained.
+  replacement, export and bidirectional tab synchronization, invalid input,
+  stale replies and preservation of pins/defaults/refs. Existing authoring suites retained.
 - [Browser and kind scenario](../../e2e/scenarios/score-authoring/README.md).
 - [Verification](../verification/2026-11-16-score-authoring.md) records full
   candidate/main comparison, real runtime outcomes and cleanup status.

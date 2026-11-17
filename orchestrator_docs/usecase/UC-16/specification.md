@@ -375,6 +375,15 @@ and block stale Save/export until the current content passes validation. File
 imports retain their existing automatic check. Empty extension means no extension.
 No backend, graph, matching or provisioning behavior changes.
 
+## Form/document synchronization — approved issue #83 follow-up, 2026-11-17
+
+SC-06 in the [Score contract](../../architecture/contracts/score-workload.md)
+defines two synchronized editor representations. Switching form → document
+populates Score/extension from current edits; switching document → form validates
+before applying. Invalid text and prior valid form are kept, with stale writes
+blocked. Opening saved workloads, asynchronous scope guards and lossless advanced
+configuration follow the same contract. Save/Preview/Deploy remain separate.
+
 ## Namespace placement and template routes — issue #84
 
 [NP-01, GW-01/02 and RT-01–03](../../architecture/contracts/namespace-template-routes.md)
