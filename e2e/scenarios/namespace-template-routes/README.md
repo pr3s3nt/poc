@@ -125,3 +125,10 @@ Definition only, never an implicit migration. Receipts record driver and prefix.
 The browser phase checks the selected Definition driver and each Deployment's
 Gateway resource key/status/output, recording executed Echo evidence alongside
 the Console and real workload browser checks.
+
+`ORCH_ROUTE_PHASE=reference-controls` reviews the saved Gateway and endpoint
+class dropdowns, clears/reselects the stored class and verifies generated review
+JSON keeps the reference, driver and version. It never submits Save and compares
+all Definitions before/after. `ORCH_ROUTE_REFERENCE_PREFIXES` may explicitly name
+comma-separated legacy/review prefixes; default is the receipt prefix. It records
+private screenshots and a timestamp without creating extra catalog Definitions.

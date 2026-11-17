@@ -1,10 +1,12 @@
 import { t } from '../../shared/i18n';
+import type { TypeContract } from './moduleMapping';
+import { ResourceClassReferenceField } from './ResourceClassReferenceField';
 
 // Platform routing policy of the built-in endpoint driver (EP-02). Developers
 // choose only name/port/path; these literal values are never overridden.
 export type EndpointDriverDraft = { gateway?: string; rootDomain: string; scheme: 'http' | 'https'; gatewayName: string; gatewayNamespace: string; gatewaySectionName: string; reservedNames: string };
 export const emptyEndpointDriver = (): EndpointDriverDraft => ({ rootDomain: '', scheme: 'https', gatewayName: '', gatewayNamespace: '', gatewaySectionName: '', reservedNames: '' });
-export const emptyEndpointReference = (): EndpointDriverDraft => ({ ...emptyEndpointDriver(), gateway: "${resources['k8s-gateway.default#environments.@app.@env'].outputs.gateway}" });
+export const emptyEndpointReference = (): EndpointDriverDraft => ({ ...emptyEndpointDriver(), gateway: '' });
 
 const label = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 const domain = (value: string) => value.length <= 253 && value.includes('.') && value.split('.').every((part) => label.test(part));
@@ -36,10 +38,10 @@ export function endpointFromVariables(variables: Record<string, unknown>): Endpo
   };
 }
 
-export function EndpointDriverFields({ value, onChange, disabled, title = t('endpointDriver.title') }: { value: EndpointDriverDraft; onChange: (value: EndpointDriverDraft) => void; disabled: boolean; title?: string }) {
+export function EndpointDriverFields({ value, onChange, disabled, title = t('endpointDriver.title'), gatewayType }: { value: EndpointDriverDraft; onChange: (value: EndpointDriverDraft) => void; disabled: boolean; title?: string; gatewayType?: TypeContract }) {
   const patch = (change: Partial<EndpointDriverDraft>) => onChange({ ...value, ...change });
   if (value.gateway !== undefined) return <section className="definition-card" aria-label={title}>
-    <h3>{title}</h3><label>{t('gatewayDriver.reference')}<input value={value.gateway} disabled={disabled} aria-required="true" onChange={(event) => patch({ gateway: event.target.value })} /></label>
+    <h3>{title}</h3><ResourceClassReferenceField label={t('gatewayDriver.gatewayClass')} type={gatewayType} resourceType="k8s-gateway" output="gateway" value={value.gateway} disabled={disabled} onChange={(gateway) => patch({ gateway })} />
   </section>;
   const sample = value.rootDomain.trim() ? `${value.scheme}://<name>.${value.rootDomain.trim()}/` : '';
   return <section className="definition-card" aria-label={title}>

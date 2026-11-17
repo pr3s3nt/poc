@@ -355,3 +355,14 @@ Kết quả thành công có một dòng trạng thái ngắn và SavedSourceSum
 (repository/path/full commit); không mặc định hiển thị canonical JSON/pin.
 Nội dung trợ giúp chỉ mô tả source url/ref/path, đặt trong Định dạng.
 Tải file ở danh sách và revision dùng server projection để có Git source portable.
+
+## Gateway reference controls — issue #84, approved 2026-11-17
+
+Reuse the namespace provider's class dropdown and shared class metadata rules:
+Gateway shows **Nhóm cluster**, Gateway-bound endpoint shows **Nhóm Gateway**.
+The output and current Application/Environment scope are fixed by the contract;
+the form serializes the whole reference. New forms require an explicit class
+choice. Show the expression only under technical details. Stored classes remain
+listed when unavailable; advanced references remain unchanged until an explicit
+replacement. Keep legacy endpoint policy fields, driver/layout and pins. No new
+shell, source discovery or code editor is introduced by this slice.

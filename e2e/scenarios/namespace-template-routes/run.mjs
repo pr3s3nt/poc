@@ -52,9 +52,12 @@ try {
    await page.getByLabel('ID cấu hình (Definition ID)',{exact:true}).fill(key);
    await page.getByLabel('Tên hiển thị',{exact:true}).fill(name);
    if (type==='k8s-gateway') {
-    for (const [label,value] of [['Tham chiếu cluster',variables.cluster],['Domain gốc',variables.rootDomain],['Tên Gateway',variables.gatewayName],['Namespace của Gateway',variables.gatewayNamespace],['Listener (tùy chọn)',variables.gatewaySectionName]]) await page.getByLabel(label,{exact:true}).fill(value);
+    const clusterClass = /^\$\{resources\['k8s-cluster\.([^'#\s]+)#environments\.@app\.@env'\]\.outputs\.cluster\}$/.exec(variables.cluster)?.[1];
+    assert(clusterClass,'Configuration requires an Environment-scoped cluster reference');
+    await page.getByLabel('Nhóm cluster',{exact:true}).selectOption(clusterClass);
+    for (const [label,value] of [['Domain gốc',variables.rootDomain],['Tên Gateway',variables.gatewayName],['Namespace của Gateway',variables.gatewayNamespace],['Listener (tùy chọn)',variables.gatewaySectionName]]) await page.getByLabel(label,{exact:true}).fill(value);
     await page.getByLabel(/Giao thức/).selectOption('http');
-   } else await page.getByLabel('Tham chiếu Gateway',{exact:true}).fill(values.gateway);
+   } else await page.getByLabel('Nhóm Gateway',{exact:true}).selectOption('default');
    if(scoped){
     await page.getByRole('tab',{name:/Điều kiện áp dụng/}).click();
     const rule=page.getByRole('region',{name:'Trường hợp 1',exact:true});
@@ -160,6 +163,35 @@ try {
   }
   receipt.deletionSucceeded=true;save();await page.screenshot({path:join(evidence,'cleanup-done.png'),fullPage:true});
   console.log('PASS: receipt-owned Application deleted through product UI');
+ } else if (phase==='reference-controls') {
+  const before=(await get('/resource-definitions')).resourceDefinitions;
+  const labels=JSON.parse(readFileSync(new URL('../../../frontend/public/locales/vi.json',import.meta.url)));
+  const prefixes=(process.env.ORCH_ROUTE_REFERENCE_PREFIXES??receipt.definitionPrefix).split(',');
+  for(const prefix of prefixes){
+   for(const [suffix,label,field,output] of [['gateway','Nhóm cluster','cluster','cluster'],['endpoint','Nhóm Gateway','gateway','gateway']]){
+    const key=prefix+'-'+suffix;
+    const definition=before.find(d=>d.key===key);assert(definition,'Missing review Definition');
+    const variables=definition.driverInputs.values.variables;
+    const reference=(definition.driverType==='echo'?variables.gateway:variables)[field];
+    const className=/^\$\{resources\['[^.]+\.([^#]+)#environments\.@app\.@env'\]\.outputs\.[^}]+\}$/.exec(reference)?.[1];
+    assert(className,'Review requires an Environment-scoped reference');
+    await page.goto(definitionsRoute);
+    await page.locator(`[data-definition="${key}"]`).waitFor({state:'visible'});
+    await page.getByRole('button',{name:labels['platform.resourceDefinitions.editDefinitionKey'].replace('{key}',key),exact:true}).click();
+    const select=page.getByRole('combobox',{name:label,exact:true});
+    await expect(select).toHaveValue(className);
+    await select.selectOption('');
+    await select.selectOption(className);
+    const document=JSON.parse(await page.getByLabel('Bản cấu hình đang nhập',{exact:true}).textContent());
+    assert.equal((definition.driverType==='echo'?document.driverInputs.values.variables.gateway:document.driverInputs.values.variables)[field],reference);
+    assert.equal(document.driverType,definition.driverType);assert.equal(document.version,definition.version);
+    assert(reference.endsWith('.outputs.'+output+'}'));
+    await page.screenshot({path:join(evidence,key+'-class-controls.png'),fullPage:true});
+   }
+  }
+  assert.deepEqual((await get('/resource-definitions')).resourceDefinitions,before,'Read-only form review changed Definitions');
+  receipt.referenceControlsVerified={at:new Date().toISOString(),prefixes};save();
+  console.log('PASS: class controls and generated code agree; stored drivers/versions/values unchanged');
  } else if (phase==='browser') {
   assert.equal(receipt.report?.status,'SUCCEEDED');
   const app=(await get('/applications/'+receipt.appId)).application;assert.equal(app.name,receipt.name);

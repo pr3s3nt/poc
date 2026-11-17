@@ -4,6 +4,7 @@ import { authoringFeatures } from '../../shared/authoringFeatures';
 import { SavedSourceSummary, moduleOrigin } from './SavedSourceSummary';
 import { TemplateDriverFields, emptyTemplateDriver, type TemplateDriverDraft } from "./TemplateDriverFields";
 import { EndpointDriverFields, emptyEndpointDriver, emptyEndpointReference, endpointFromVariables, endpointToVariables, type EndpointDriverDraft } from './EndpointDriverFields';
+import { ResourceClassReferenceField } from './ResourceClassReferenceField';
 import { DefinitionVersions } from './DefinitionVersions';
 import { CatalogModuleSource, type CatalogModuleSelection } from './CatalogModuleSource';
 import { ZIPSource } from './ZIPSource';
@@ -116,7 +117,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
  const isGateway = resourceType === "k8s-gateway";
  const [gatewayDriver, setGatewayDriver] = useState<'echo' | 'existing-gateway'>('echo');
  const [gatewayPolicy, setGatewayPolicy] = useState<EndpointDriverDraft>(emptyEndpointDriver);
- const [gatewayCluster, setGatewayCluster] = useState("${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}");
+ const [gatewayCluster, setGatewayCluster] = useState('');
  const [templateDraft, setTemplateDraft] = useState<TemplateDriverDraft>(emptyTemplateDriver);
  const [endpointDraft, setEndpointDraft] = useState<EndpointDriverDraft>(emptyEndpointReference);
   const [clusterMethod, setClusterMethod] = useState<'terraform' | 'existing-cluster'>('terraform');
@@ -317,7 +318,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   }
 
   function resetForm() {
-    setTab('configuration'); setAdvancedOpen(false); setTemplateDraft(emptyTemplateDriver()); setEndpointDraft(emptyEndpointReference()); setGatewayPolicy(emptyEndpointDriver()); setGatewayDriver('echo');
+    setTab('configuration'); setAdvancedOpen(false); setTemplateDraft(emptyTemplateDriver()); setEndpointDraft(emptyEndpointReference()); setGatewayPolicy(emptyEndpointDriver()); setGatewayDriver('echo'); setGatewayCluster('');
     setSourceMode('git'); setGitPin(null); setCatalogSelection(undefined); setInitialCatalogSelection(undefined); setGitDraftVersion((version) => version + 1); setClusterMethod('terraform');
     setKey(''); setName(''); setIdError(''); setNameError(''); setError(''); setReview(null); setEditing(null); setSourceLost(false);
     setDrafts({}); setCriteriaDraft(emptyDraft()); setPinChoice('');
@@ -547,8 +548,8 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
         {!editing ? <section className="definition-card definition-create-identity" aria-label={t('platform.resourceDefinitions.definitionDetails')}>{identityFields}</section> : null}
         {resourceType === clusterType ? <section className="definition-card"><label>{t('platform.resourceDefinitions.clusterProvisioning')}<select value={clusterMethod} onChange={(event) => { setClusterMethod(event.target.value as 'terraform' | 'existing-cluster'); if(editing)setChangingSource(true); }}><option value="terraform">{t('platform.resourceDefinitions.createAClusterWithTerraform')}</option><option value="existing-cluster" disabled={!existingCapability}>{t('platform.resourceDefinitions.useAnExistingCluster')}</option></select></label></section> : null}
         {isTemplate ? <TemplateDriverFields key={editing?.key ?? 'new'} value={templateDraft} onChange={setTemplateDraft} disabled={saving} editing={Boolean(editing)} /> : null}
-        {isEndpoint && pin ? <EndpointDriverFields value={endpointDraft} onChange={setEndpointDraft} disabled={saving} /> : null}
-        {isGateway && pin ? <><section className="definition-card"><label>{t('gatewayDriver.cluster')}<input value={gatewayCluster} disabled={saving} aria-required="true" onChange={(event) => setGatewayCluster(event.target.value)} /></label></section><EndpointDriverFields title={t('gatewayDriver.title')} value={gatewayPolicy} onChange={setGatewayPolicy} disabled={saving} /></> : null}
+        {isEndpoint && pin ? <EndpointDriverFields value={endpointDraft} onChange={setEndpointDraft} disabled={saving || !typesReady} gatewayType={types.find((type) => type.key === 'k8s-gateway')} /> : null}
+        {isGateway && pin ? <><section className="definition-card"><ResourceClassReferenceField label={t('gatewayDriver.clusterClass')} type={types.find((type) => type.key === clusterType)} resourceType={clusterType} output="cluster" value={gatewayCluster} disabled={saving || !typesReady} onChange={setGatewayCluster} /></section><EndpointDriverFields title={t('gatewayDriver.title')} value={gatewayPolicy} onChange={setGatewayPolicy} disabled={saving} /></> : null}
         {existingCluster ? <section className="definition-card"><h3>{t('platform.resourceDefinitions.existingCluster')}</h3><p>{t('platform.resourceDefinitions.chooseAnInternalAccountRegistered')}</p></section> : null}
         <section hidden={existingCluster || isTemplate || isEndpoint || isGateway} className="definition-card definition-module" aria-label={t('platform.resourceDefinitions.terraformModule')}><div className="definition-card-title"><span className="definition-step">1</span><h3>{t('platform.resourceDefinitions.terraformModule')}</h3>{pin ? <span className="definition-verified">{t('platform.resourceDefinitions.verified')}</span> : null}</div>
         {pin?.source ? <SavedSourceSummary source={moduleOrigin(pin.source)} catalog={catalogSelection} /> : null}

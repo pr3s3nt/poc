@@ -643,3 +643,15 @@ cluster/account pins; preserve PREEXISTING ownership and legacy existing-gateway
 revisions. Echo performs metadata transformation only. Real Gateway admission
 checks remain before workload rendering/publication; cluster authentication
 continues through the dedicated existing-cluster driver and Driver Account.
+
+### Gateway reference controls — approved 2026-11-17
+
+Gateway authoring selects a cluster class; Gateway-bound endpoint authoring
+selects a Gateway class from Resource Type metadata, following the existing
+namespace provider controls. The form generates the whole output reference in
+the current Application/Environment scope; authors do not type placeholders.
+Reference expressions remain in collapsed technical details. Opening/editing
+preserves stored driver, layout, reference scope, class and immutable pins;
+unavailable classes or advanced references remain visible and are not silently
+replaced. Explicit class selection replaces that reference only. Literal legacy
+endpoint forms remain unchanged. This does not add Kubernetes Gateway discovery.

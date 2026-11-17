@@ -119,3 +119,15 @@ leaving the suite baseline-red. The owned full-check namespace was cleaned.
 [2026-11-17 execution evidence](../verification/2026-11-17-echo-gateway.md) owns
 these results; the 2026-11-16 record remains historical. User acceptance, feature
 merge into main, retained-stack rollout and any template tag remain outstanding.
+
+## Gateway reference controls — approved 2026-11-17
+
+The user requested reuse of existing Definition authoring patterns. Gateway's
+cluster and endpoint's Gateway references now use class dropdowns backed by
+Resource Type metadata and the shared class rules. The form generates the
+Environment-scoped output reference, displayed under technical details. New
+forms require a class choice; legacy driver/layout, unknown classes and advanced
+stored references are retained without implicit pin changes. Focused checks and
+browser/full frontend verification are recorded at the next checkpoint. The user
+also requested synchronized YAML/JSON editing for all Definitions; that broader
+editor extension is a separate proposed issue, not implemented by this slice.
