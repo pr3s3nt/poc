@@ -22,6 +22,8 @@ type UserAccount struct {
 	ID              string        `json:"id"`
 	OrganizationKey string        `json:"organizationKey"`
 	Username        string        `json:"username"`
+	OIDCIssuer      string        `json:"oidcIssuer,omitempty"`
+	OIDCSubject     string        `json:"oidcSubject,omitempty"`
 	PasswordHash    string        `json:"passwordHash"`
 	Role            Role          `json:"role"`
 	Status          AccountStatus `json:"status"`

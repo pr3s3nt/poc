@@ -788,3 +788,9 @@ fieldset.volume-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 .env-entry-name { display:flex; align-items:center; gap:8px; }
 .env-entry-name > input[type=checkbox] { width:auto; flex:none; }
 .env-entry-name > input:not([type=checkbox]) { min-width:0; flex:1; }
+
+/* Optional personal test account on the SSO sign-in surface. */
+.sign-in-local summary { cursor: pointer; }
+.sign-in-local[open] > summary { margin-bottom: 16px; }
+.sign-in-local label { margin-top: 12px; }
+.sign-in-local button[type="submit"] { margin-top: 16px; width: 100%; }

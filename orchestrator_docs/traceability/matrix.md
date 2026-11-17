@@ -1681,3 +1681,9 @@ SC-06 (issue #83): synchronized form/document tabs in the
 [realization](../usecase/UC-16/realization.md) and
 [screens](../usecase/UC-16/ui/screens.md) → WorkloadEditorPage,
 ScoreDocuments component tests and Score authoring browser scenario.
+
+## Keycloak SSO — issue #77
+
+| Requirement | Realization | Implementation / checks |
+|---|---|---|
+| UC-00 SSO-01..07 | UC-00 OIDC collaboration | authentication federation, OIDC adapter, HTTP auth handlers; focused Go tests and keycloak-sso browser scenario |

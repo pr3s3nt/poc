@@ -327,3 +327,10 @@ across switches, use named tablist/tab/tabpanel relations and arrow/Home/End
 keyboard navigation; disable method changes during registration/upload. Definition
 edit keeps its existing form without a new registration import entry. Format help
 remains a disclosure within the import panel; no shell/navigation change.
+
+## Personal test login alongside SSO — issue #77
+
+UC-00 SSO-07 and its screen design own the optional same-Console local Admin
+path. Reuse sign-in fields, Button, details/summary disclosure and current error
+patterns; keep SSO primary. Employee management stays Keycloak-owned and the
+local test Admin retains only its own password-change control.

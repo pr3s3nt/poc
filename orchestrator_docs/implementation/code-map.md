@@ -1473,3 +1473,25 @@ Backend capability/provisioning/Definition behavior is unchanged.
   and real Console Save/reopen checks.
 - [Contract](../architecture/contracts/score-workload.md); no graph/provisioning
   algorithms changed. See [implementation and evidence](score-workload.md).
+
+## Keycloak SSO — issue #77
+
+- OIDC provider contract: `backend/internal/ports/oidc`.
+- OIDC discovery/exchange/verification: `backend/internal/adapters/oidc`.
+- Browser transactions, issuer/subject accounts and refresh-bound sessions:
+  `backend/internal/application/authentication/federation.go`.
+- Server configuration: `backend/internal/bootstrap/oidc.go`;
+  delivery: `backend/internal/delivery/http/oidc.go`.
+- External account fields: `internal/domain/identity`, PostgreSQL repositories
+  and immutable migration/reference 011.
+- Console: `SignInEntry`, `SignInPage`, App/AuthProvider, AppShell external controls.
+- Dedicated runtime: `deploy/local/compose.keycloak.yml`; fixtures/acceptance
+  under `e2e/setup/keycloak` and `e2e/scenarios/keycloak-sso`. Shared Console
+  helper `scripts/bootstrap/lib/console.mjs` supports verified OIDC issuer entry.
+
+SSO-07 personal local Admin: configured `localTestAdminUsername` is enforced
+in authentication on both password login and every restored session; auth/config
+exposes only availability and session identity exposes UserManagement=false.
+SignInEntry/SignInPage offer the scoped disclosure on the same Console; AppShell
+keeps own password change and hides employee management. The shared Console
+helper accepts ORCH_AUTH_MODE=local only when the server explicitly allows it.

@@ -4209,5 +4209,11 @@
   "workloads.score.finishVariables": "Fix errors or confirm secrets in the environment variables first.",
   "workloads.score.finishPorts": "Fix Service port names and numbers before opening YAML.",
   "workloads.score.syncing": "Synchronizing…",
-  "workloads.score.check": "Check"
+  "workloads.score.check": "Check",
+  "auth.sso.signIn": "Sign in with SSO",
+  "auth.sso.failed": "SSO sign-in failed. Check your access or try again.",
+  "auth.sso.configError": "Could not load sign-in configuration.",
+  "auth.sso.managed": "Your account and access are managed in the company identity system.",
+  "auth.sso.localAccount": "Test account",
+  "auth.sso.localSignIn": "Sign in locally"
 }
