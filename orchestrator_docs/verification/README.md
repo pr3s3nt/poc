@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-17 | Keycloak Score trial: Vault auth/address setup repair, Secret Store copy, fresh Console deploy, managed HTTPRoute and browser/OIDC checks | [Keycloak Score](2026-11-17-keycloak-score.md) |
 | 2026-11-11 | Issue #72 accepted/merged; verified image rollout and trial cleanup; user waived main retest | [Envfile main merge](2026-11-11-envfile-main.md) |
 | 2026-11-11 | Issue #72 latest choice: right-aligned green file-entry action | [Green file entry](2026-11-11-envfile-entry-green.md) |
 | 2026-11-11 | Issue #72: left-aligned blue file-entry action; browser geometry/color/keyboard checks | [File-entry accent](2026-11-11-envfile-entry-accent.md) |

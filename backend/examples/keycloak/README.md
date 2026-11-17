@@ -21,6 +21,12 @@ Không dùng mẫu này như cấu hình production/HA.
    Platform phải đăng ký Type `endpoint` và Definition driver `endpoint` với
    `rootDomain`, `scheme`, Gateway/listener thực tế theo
    [endpoint setup](../../../projects/platform-resources/bootstrap/HTTPROUTE.md).
+   Secret Store phải có Kubernetes auth mount đã cấu hình, reviewer có quyền
+   TokenReview, và `workloadAddress` truy cập được từ cụm/VSO. Tên `vault` trong
+   Docker Compose không mặc nhiên phân giải được trong Kubernetes. Nếu cần
+   đổi endpoint của Store đã đăng ký, đăng ký Store mới và dùng chức năng
+   chuyển Store/copy Secret của sản phẩm; không sửa trực tiếp database hoặc
+   yêu cầu người dùng nhập lại mật khẩu.
 2. Mở **Biến & Bí mật**, tạo key `KEYCLOAK_ADMIN_PASSWORD`, loại **Secret**,
    nhập mật khẩu admin bạn tự chọn. Giá trị này không đặt trong Score hay Git.
    Bootstrap chỉ tạo admin lúc database chưa có admin; đổi Secret này về sau
@@ -73,11 +79,15 @@ Secret; export/reparse giữ nguyên các binding và saved draft không đổi.
 Schema Score pinned và docs/whitespace checker pass. Definition matching-preview
 hiện từ chối driver endpoint (`definition.driverType`); đây là giới hạn sẵn có,
 không phải kết quả Environment Preview. Chưa submit Preview/Deploy trên draft
-của người dùng. DNS và ingress relay tới Gateway được kiểm tra; URL Keycloak
-hiện trả 404 vì chưa có route/workload được triển khai. Không coi đây là link
-Keycloak sẵn sàng sử dụng. Cần reimport mẫu endpoint, Save và Preview/Deploy,
-sau đó kiểm tra HTTPRoute Accepted/ResolvedRefs, Keycloak readiness và browser
-login trước khi bàn giao URL hoạt động.
+của người dùng. DNS và ingress relay tới Gateway được kiểm tra; URL Keycloak tại
+checkpoint đó trả 404 vì chưa có route/workload; kết quả này không chứng minh
+Keycloak đã hoạt động.
+
+Follow-up 2026-11-17: sau khi sửa Kubernetes auth và địa chỉ workload của Vault,
+chuyển Store bằng chức năng copy Secret của sản phẩm, fresh Console Preview/Deploy
+trả SUCCEEDED. Keycloak/PostgreSQL Ready, VSO synced, HTTPRoute Accepted/ResolvedRefs;
+browser mở được form đăng nhập và OIDC discovery có issuer đúng public origin.
+Không đọc hay submit mật khẩu admin. Xem [verification](../../../orchestrator_docs/verification/2026-11-17-keycloak-score.md).
 
 Nguồn:
 [Keycloak downloads](https://www.keycloak.org/downloads),

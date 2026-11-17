@@ -7,7 +7,7 @@ last_reviewed: 2026-11-11
 
 # Current project state
 
-## Score authoring — issue #83, 2026-11-16
+## Score authoring — issue #83, 2026-11-17
 
 Manual Score/extension entry and file-to-text editing are verified through the
 real feature Console, including explicit Check, stale Save/export prevention,
@@ -15,6 +15,11 @@ round-trip and VI/EN keyboard use. Full frontend on kind passes 1065 tests.
 Backend sources are unchanged; the existing backend comparison/runtime evidence
 is reused. See the verification record for first-run test instability and checks.
 
+
+Keycloak + PostgreSQL + managed endpoint now deploy successfully on the feature
+stack after repairing its Vault Kubernetes auth and workload address configuration.
+The user Secret was preserved through the product Store-copy operation; real
+login-page/OIDC checks pass. See [Keycloak verification](verification/2026-11-17-keycloak-score.md).
 
 Implemented on `features/score`, not merged or deployed to retained main. Score
 v1b1 plus a supported Humanitec-format extension resolves profiles within the
