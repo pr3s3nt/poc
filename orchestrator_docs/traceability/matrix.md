@@ -1688,6 +1688,7 @@ ScoreDocuments component tests and Score authoring browser scenario.
 |---|---|---|
 | NP-01 | Namespace provider inheritance | planning/provider_bindings.go; namespace_provider_test.go; provisioning pin/provenance guards |
 | GW-01/02 | Separate preexisting Gateway and endpoint reference | catalog/gateway_registration_test.go; planning/gateway_resource_test.go; provisioning/echo_gateway_test.go; kubernetes/gateway_verifier.go; kubernetes/existing_gateway_test.go |
+| UC-03 Gateway reference controls | ResourceClassReferenceField; shared class metadata and whole output references | EndpointDefinition tests; [read-only legacy/Echo browser review](../verification/2026-11-17-gateway-reference-controls.md) |
 | RT-01/02 | Authorized neutral input and Git render/guard | domain/endpoint/intent.go; templatedriver/endpoint_test.go; standard/resources/httproute.tpl |
 | RT-03 | Explicit pin transition and unchanged ownership/claims | legacy endpoint deployment tests retained; [merged runtime evidence](../verification/2026-11-17-echo-gateway.md) verifies deploy/update/restart/cleanup and preexisting Gateway identity; no live legacy-to-new pin migration claimed |
 

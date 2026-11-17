@@ -2526,3 +2526,15 @@ not a complete green suite. Owned test namespace cleanup is verified. See
 [the new execution record](verification/2026-11-17-echo-gateway.md) for source
 attribution. Prior 2026-11-16 evidence does not prove this revision. No feature
 merge into main, retained-stack upgrade or release tag is claimed.
+
+### Issue #84 reference controls — 2026-11-17
+
+Gateway cluster and Endpoint Gateway references now use class dropdowns from
+Resource Type metadata, consistent with namespace provider selection. The form
+generates the reference and keeps it under technical details; existing advanced
+references and Echo/legacy driver/layout/pins are preserved. Read-only browser
+review confirms legacy and Echo forms agree with generated JSON, with no saved
+Definition/revision changes. 28 focused tests and the fresh full frontend's 1078
+tests, typecheck/lint/build pass; disposable namespace cleanup is verified.
+Backend source is unchanged and the completed comparison above is
+explicitly reused. See [reference controls evidence](verification/2026-11-17-gateway-reference-controls.md).

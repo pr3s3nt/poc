@@ -127,7 +127,10 @@ cluster and endpoint's Gateway references now use class dropdowns backed by
 Resource Type metadata and the shared class rules. The form generates the
 Environment-scoped output reference, displayed under technical details. New
 forms require a class choice; legacy driver/layout, unknown classes and advanced
-stored references are retained without implicit pin changes. Focused checks and
-browser/full frontend verification are recorded at the next checkpoint. The user
+stored references are retained without implicit pin changes. 28 focused tests,
+live legacy/Echo form review and fresh full frontend checks (1078 tests plus
+typecheck/lint/build) pass; owned namespace cleanup is verified. Backend source
+is unchanged and completed evidence is explicitly reused. See the
+[reference control record](../verification/2026-11-17-gateway-reference-controls.md). The user
 also requested synchronized YAML/JSON editing for all Definitions; that broader
 editor extension is a separate proposed issue, not implemented by this slice.
