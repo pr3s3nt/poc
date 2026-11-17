@@ -2508,10 +2508,21 @@ merge/upgrade, user acceptance or full green backend suite is claimed. See
 [implementation and remaining gates](implementation/namespace-template-routes.md)
 and [execution evidence](verification/2026-11-16-namespace-template-routes.md).
 
-### Issue #84 refinement approved 2026-11-17 — in progress
+### Issue #84 refinement approved 2026-11-17 — awaiting acceptance
 
 New Gateway Definitions use Echo metadata with separate pre-render Kubernetes
 verification; existing-gateway driver/layout/revision compatibility remains.
-Cluster authentication stays in existing-cluster/Driver Account. Focused contract,
-provenance and authoring checks pass; refreshed live acceptance and full kind
-checks remain pending. Prior 2026-11-16 evidence does not prove this revision.
+Cluster authentication stays in existing-cluster/Driver Account. Current main
+`ab37e2d4` was merged into the feature at `df719115`, preserving Score changes.
+Focused contract/provenance/authoring checks and merged native/Score live
+deploy/update/restart/product cleanup pass. A fresh review app is retained;
+Deployment API confirms both READY Echo Gateway executions, and native SQL/routes
+plus browser checks of the Console and two workloads pass. Legacy forms retain
+their stored driver/values/version. Full merged frontend passes 1076 tests and
+typecheck/lint/build. Fresh backend/main have identical 101 top-level failure
+events, 20 failed packages and 8 skips; both builds pass and no main pass is
+missing. Both PostgreSQL packages time out at 30 minutes; this is baseline-red,
+not a complete green suite. Owned test namespace cleanup is verified. See
+[the new execution record](verification/2026-11-17-echo-gateway.md) for source
+attribution. Prior 2026-11-16 evidence does not prove this revision. No feature
+merge into main, retained-stack upgrade or release tag is claimed.

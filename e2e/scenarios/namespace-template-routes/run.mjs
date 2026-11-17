@@ -93,6 +93,7 @@ try {
    await page.goto(config.baseURL+'/ui'+base+'/workloads/'+(phase==='update'?name:'new'));
    await page.getByRole('button',{name:'Nhập Workload',exact:true}).click();
    if(extension) await page.getByLabel('File extension (tùy chọn)',{exact:true}).setInputFiles({name:'extension.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(extension))});
+   else await page.getByRole('textbox',{name:'Nội dung extension (tùy chọn)',exact:true}).fill('');
    const parsed=page.waitForResponse(r=>r.request().method()==='POST' && r.url().endsWith('/workloads/parse'));
    await page.getByLabel('File Workload',{exact:true}).setInputFiles({name:format+'.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(document))});
    const response=await parsed; const body=await response.json(); assert(response.ok(),'Parse HTTP '+response.status()+' '+(body.code??''));
@@ -162,6 +163,25 @@ try {
  } else if (phase==='browser') {
   assert.equal(receipt.report?.status,'SUCCEEDED');
   const app=(await get('/applications/'+receipt.appId)).application;assert.equal(app.name,receipt.name);
+  if(receipt.gatewayDriver==='echo'){
+   const definitionKey=receipt.definitionPrefix+'-gateway';
+   const definition=(await get('/resource-definitions')).resourceDefinitions.find(d=>d.key===definitionKey);
+   assert.equal(definition?.driverType,'echo');
+   const proofs=[];
+   for(const result of receipt.report.results){
+    if(!result.deploymentId)continue;
+    const view=await get(`/applications/${receipt.appId}/environments/staging/deployments/${result.deploymentId}`);
+    for(const resource of view.resources.filter(r=>r.resourceType==='k8s-gateway')){
+     assert.equal(resource.definitionKey,definitionKey,'Deployment used another Gateway Definition');
+     assert.equal(resource.status,'READY');
+     assert(resource.outputs.gateway,'Executed Echo Gateway output is missing');
+     proofs.push({deploymentId:result.deploymentId,definitionKey,status:resource.status});
+    }
+   }
+   assert(proofs.length||receipt.gatewayRuntimeProof?.length,'No executed Echo Gateway evidence');
+   if(proofs.length)receipt.gatewayRuntimeProof=proofs;
+   save();
+  }
   await page.goto(config.baseURL+'/ui/applications/'+receipt.appId);
   await expect(page.getByRole('heading',{name:receipt.name,exact:true})).toBeVisible();
   await expect(page.locator('.workload-table .table-row')).toHaveCount(2);

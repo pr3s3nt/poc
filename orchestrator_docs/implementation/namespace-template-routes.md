@@ -105,7 +105,17 @@ metadata and stale/foreign account/target/descriptor before Echo execution. Echo
 receives no Connection/Target and retains no physical instance/target. Logical
 ActiveResource identity/account provenance survives explicit legacy upgrades.
 
-Focused registration/planner/runtime/legacy-form checks pass; cluster API/auth/
-readiness and provider-pin tests are reused. No SQL/schema change. Runtime
-acceptance, full kind comparison and final handoff for this refinement remain
-outstanding; the 2026-11-16 execution record is historical evidence only.
+Current main `ab37e2d4` was merged into this feature at `df719115` and pushed before
+continuing verification. Focused registration/planner/runtime/legacy-form checks
+pass; cluster API/auth/readiness and provider-pin tests are reused. No SQL/schema
+change. Merged native/Score deploy/update/restart and Console product cleanup pass.
+A fresh review app is retained with native SQL/routes, both executed READY Echo
+Gateway resources and browser-verified Console/workload access. Legacy form
+versions/values remain unchanged. Full merged frontend passes 1076 tests and
+typecheck/lint/build. Fresh backend/main have identical 101 top-level failure
+events (141 including subtests), 20 failed packages and 8 skips; both builds pass
+and no main pass is missing. Both PostgreSQL packages time out at 30 minutes,
+leaving the suite baseline-red. The owned full-check namespace was cleaned.
+[2026-11-17 execution evidence](../verification/2026-11-17-echo-gateway.md) owns
+these results; the 2026-11-16 record remains historical. User acceptance, feature
+merge into main, retained-stack rollout and any template tag remain outstanding.

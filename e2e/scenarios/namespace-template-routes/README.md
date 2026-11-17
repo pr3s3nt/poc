@@ -122,3 +122,6 @@ drafts before one Environment Deploy as usual. Use unused explicit endpoint name
 and a separately configured task-owned web forward; do not overwrite old routes.
 `ORCH_GATEWAY_DRIVER=existing-gateway` permits read/reuse of an existing legacy
 Definition only, never an implicit migration. Receipts record driver and prefix.
+The browser phase checks the selected Definition driver and each Deployment's
+Gateway resource key/status/output, recording executed Echo evidence alongside
+the Console and real workload browser checks.
