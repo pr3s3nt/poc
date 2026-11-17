@@ -101,3 +101,23 @@ creates a new Application; keep the private receipt and failed screenshots when
 diagnosing a failure. If cleanup fails, use the receipt to inspect and resume
 product deletion rather than deleting another Application. Logs, downloaded YAML,
 screenshots and receipts stay in the private evidence directory outside Git.
+
+## Form/document tab synchronization
+
+```sh
+node e2e/scenarios/score-authoring/tab-sync.mjs
+```
+
+Use the same shared Console variables, dependencies and private
+`ORCH_EVIDENCE_DIR` as manual entry. This scenario creates a separate Application
+and uses the real `git-dev` fixture/template source. It checks YAML-to-form on
+switch without explicit Check, unsaved form-to-Score image changes, YAML variable
+and extension replica changes back to form, template/resource-reference
+preservation, invalid text retention and disabled stale writes, no implicit Save,
+explicit Save and reopening equivalent documents, plus VI/EN and keyboard use.
+
+Only the owned Application and one workload draft are created; no Preview/Deploy
+or workload infrastructure. The same receipt/name-checked product deletion in
+`finally` must reach SUCCEEDED. Preserve failed evidence and inspect the receipt
+before resuming interrupted cleanup. Existing user Applications are never saved
+or deleted by this scenario. Screenshot/receipt/data files remain outside Git.

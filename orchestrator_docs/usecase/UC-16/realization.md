@@ -180,3 +180,9 @@ template pin, then calls WorkloadConfigService with Generic Workload. Existing
 Save/Preview/planner/deployment collaborations and dependency identities stay
 unchanged. Export reverses the authoring conversion without resolving secrets.
 See the [contract](../../architecture/contracts/score-workload.md).
+
+SC-06: the Console coordinates tab transitions through the existing scoped
+export/parse endpoints. Export fills document inputs from current authored state;
+parse success replaces the form atomically. Conversion failures and late replies
+retain the owning draft. No planner, persistence or deployment collaboration is
+added; unrepresentable fields retain the advanced-document path.

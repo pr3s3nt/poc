@@ -51,7 +51,8 @@ namespaced export extension. No Job workload profile is introduced.
 - `http/workload_score_test.go`: scoped export, advanced preservation, rejected
   unsupported/multiple-document imports and no draft writes.
 - `ScoreDocuments.test.tsx`: two-file import, stale reply rejection, invalid
-  replacement and export of current form edits. Existing authoring suites retained.
+  replacement, export and bidirectional tab synchronization, invalid input,
+  stale replies and preservation of pins/defaults/refs. Existing authoring suites retained.
 - [Browser and kind scenario](../../e2e/scenarios/score-authoring/README.md).
 - [Verification](../verification/2026-11-16-score-authoring.md) records full
   candidate/main comparison, real runtime outcomes and cleanup status.

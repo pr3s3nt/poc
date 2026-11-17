@@ -4206,5 +4206,8 @@
   "workloads.score.viewDocument": "View parsed configuration",
   "workloads.score.content": "Score content (YAML/JSON)",
   "workloads.score.extensionContent": "Extension content (optional)",
+  "workloads.score.finishVariables": "Fix errors or confirm secrets in the environment variables first.",
+  "workloads.score.finishPorts": "Fix Service port names and numbers before opening YAML.",
+  "workloads.score.syncing": "Synchronizing…",
   "workloads.score.check": "Check"
 }

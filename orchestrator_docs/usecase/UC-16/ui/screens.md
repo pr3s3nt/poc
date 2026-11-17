@@ -329,3 +329,14 @@ uses the existing scoped parse API; edits immediately invalidate earlier results
 and block stale Save/export until the current content passes validation. File
 imports retain their existing automatic check. Empty extension means no extension.
 No backend, graph, matching or provisioning behavior changes.
+
+## Synchronized form/document tabs — issue #83, 2026-11-17
+
+Keep the current tabs, labels, shell, field groups and parsed-document disclosure.
+Entering Nhập Workload exports the current form into Score and extension text;
+returning to Nhập bằng form parses both before switching. Show a short conversion
+status and disable tabs/Save/export while a conversion is pending. Rejected export
+keeps the form; rejected parse keeps exact document text and blocks stale writes.
+An untouched new form can start in the blank document editor. Existing advanced
+configurations populate documents but retain the lossless form restriction.
+No per-keystroke synchronization, automatic Save or local-file overwrite.

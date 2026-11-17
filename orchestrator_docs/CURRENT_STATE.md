@@ -9,11 +9,13 @@ last_reviewed: 2026-11-11
 
 ## Score authoring — issue #83, 2026-11-17
 
-Manual Score/extension entry and file-to-text editing are verified through the
-real feature Console, including explicit Check, stale Save/export prevention,
-round-trip and VI/EN keyboard use. Full frontend on kind passes 1065 tests.
-Backend sources are unchanged; the existing backend comparison/runtime evidence
-is reused. See the verification record for first-run test instability and checks.
+SC-06 synchronizes form and Score/extension when switching tabs, including saved
+workload reopening, validation/error retention, stale reply guards and preservation
+of refs/pins/defaults. Real Console/browser tests, explicit Save/reopen, VI/EN and
+keyboard checks pass; the user's Keycloak remains unchanged. Full frontend on
+kind passes 1072 tests. Backend sources are unchanged and reuse the prior
+backend comparison/runtime evidence. See
+[tab synchronization verification](verification/2026-11-17-score-tab-sync.md).
 
 
 Keycloak + PostgreSQL + managed endpoint now deploy successfully on the feature

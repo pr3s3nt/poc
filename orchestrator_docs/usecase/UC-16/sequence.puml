@@ -50,14 +50,19 @@ opt Edit runtime/template defaults [WD-01..10]
  Defaults --> UI: Independent effective configuration + field provenance
  Dev -> UI: Reset removes override; template adoption is explicit
 end
-opt Import Score or export current document [SC-01..04]
-  Dev -> UI: Select Score and optional extension / export current edits
-  UI -> Config: Scoped parse / export (no writes)
+opt Import/export or synchronize form/document tabs [SC-01..06]
+  Dev -> UI: Select files / Check / switch form-document tabs
+  UI -> Config: Export current form / parse current documents (no writes)
   Config -> Config: Offline schema and supported-field validation
   Config -> Catalog: Existing matching + selected source profile metadata
   Catalog --> Config: Immutable template ID/version/digest
   Config -> Defaults: Verify pin and freeze template-owned defaults
-  Config --> UI: Normalized workload / lossless Score + extension
+  Config --> UI: Normalized workload / lossless Score + extension / safe error
+  alt Valid response for current scope and draft
+    UI -> UI: Apply target representation; switch only if form is lossless
+  else Invalid input, transport failure or outdated response
+    UI -> UI: Retain owning edits; block stale Save/export for invalid documents
+  end
 end
 Dev -> UI: Save workload [MS-06..07]
 UI -> UI: Validate names/sources; encode ordinary literal strings

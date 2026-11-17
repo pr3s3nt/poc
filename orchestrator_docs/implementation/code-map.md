@@ -1466,6 +1466,10 @@ Backend capability/provisioning/Definition behavior is unchanged.
   resolution using existing Definition matching and selected source metadata.
 - `backend/internal/delivery/http/workloads.go`: scoped parse/export boundaries.
 - `frontend/src/features/workloads/WorkloadEditorPage.tsx`: existing form,
-  Score/extension file admission and export of current edits.
+  Score/extension file/text admission, export and synchronized form/document tab
+  transitions with scope/form guards.
+- `frontend/src/features/workloads/ScoreDocuments.test.tsx` and
+  `e2e/scenarios/score-authoring/tab-sync.mjs`: synchronization/error/preservation
+  and real Console Save/reopen checks.
 - [Contract](../architecture/contracts/score-workload.md); no graph/provisioning
   algorithms changed. See [implementation and evidence](score-workload.md).
