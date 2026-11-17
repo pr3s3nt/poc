@@ -394,22 +394,19 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 			}
 		}
 		return nil, nil
-	case resource.DriverExistingGateway:
-		if def.ResourceTypeKey != endpoint.GatewayType || def.DriverAccount != "" || len(typ.Inputs) != 0 {
-			return nil, fmt.Errorf("existing-gateway serves Gateway resources without account or developer inputs")
+	case resource.DriverEcho, resource.DriverExistingGateway:
+		// Echo is public only for the approved external Gateway contract.
+		if def.DriverType == resource.DriverEcho && def.ResourceTypeKey != endpoint.GatewayType {
+			return nil, invalidField("definition.driverType", fmt.Errorf("%w: Echo registration is supported only for Gateway metadata", ErrInvalid))
 		}
-		field, ok := typ.Output(endpoint.GatewayOutput)
-		if !ok || field.Secret || field.Type != "any" {
-			return nil, fmt.Errorf("Gateway requires a nonsecret gateway output of type any")
-		}
-		if _, err := endpoint.GatewayPolicy(variables); err != nil {
+		if err := endpoint.ValidateGatewayType(typ, def.DriverType); err != nil {
 			return nil, err
 		}
-		text, _ := variables[resource.VariableCluster].(string)
-		ref, output, whole := resource.WorkloadReference(text)
-		if !whole || output != resource.ClusterTargetOutput {
-			return nil, fmt.Errorf("Gateway needs a whole cluster target reference")
+		metadata, err := endpoint.GatewayDefinitionValues(*def)
+		if err != nil {
+			return nil, err
 		}
+		ref, _, _ := resource.WorkloadReference(metadata[resource.VariableCluster].(string))
 		if err := checkResourceReferenceKind(ref, planning.TypeCluster, types); err != nil {
 			return nil, err
 		}

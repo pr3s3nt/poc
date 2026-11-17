@@ -35,7 +35,7 @@ type Definition = {
   key: string; name?: string; version?: number; resourceType: string; driverType: string; driverAccount?: string;
   driverInputs?: { values?: Record<string, unknown>; catalog?: CatalogModuleSelection }; provision?: Record<string, unknown>; criteria?: Partial<Criterion>[];
 };
-const driverLabels: Record<string, string> = { terraform: t('platform.resourceDefinitions.terraformVerifiedModule'), kubernetes: t('platform.resourceDefinitions.createInClusterKubernetes'), template: 'Template', 'existing-cluster': t('platform.resourceDefinitions.existingClusterExistingCluster'), endpoint: t('endpointDriver.driver'), 'existing-gateway': t('gatewayDriver.title') };
+const driverLabels: Record<string, string> = { terraform: t('platform.resourceDefinitions.terraformVerifiedModule'), kubernetes: t('platform.resourceDefinitions.createInClusterKubernetes'), template: 'Template', 'existing-cluster': t('platform.resourceDefinitions.existingClusterExistingCluster'), endpoint: t('endpointDriver.driver'), 'existing-gateway': t('gatewayDriver.title'), echo: 'Echo' };
 const idShape = /^[a-z0-9-]+$/;
 const regionShape = /^[a-z]{2}(-[a-z]+)+-[0-9]{1,2}$/;
 const maxNameLength = 253;
@@ -114,6 +114,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
  const isTemplate = resourceType === 'workload';
  const isEndpoint = resourceType === endpointType;
  const isGateway = resourceType === "k8s-gateway";
+ const [gatewayDriver, setGatewayDriver] = useState<'echo' | 'existing-gateway'>('echo');
  const [gatewayPolicy, setGatewayPolicy] = useState<EndpointDriverDraft>(emptyEndpointDriver);
  const [gatewayCluster, setGatewayCluster] = useState("${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}");
  const [templateDraft, setTemplateDraft] = useState<TemplateDriverDraft>(emptyTemplateDriver);
@@ -142,8 +143,8 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   const existingCapability = metadataReady ? capabilityList.items.find((item) => item.resourceType === resourceType && item.resourceType === clusterType && item.driverType === 'existing-cluster') : undefined;
   const existingCluster = resourceType === clusterType && clusterMethod === 'existing-cluster';
   const endpointCapability = metadataReady ? capabilityList.items.find((item) => item.resourceType === endpointType && item.driverType === 'endpoint') : undefined;
-  const gatewayCapability = metadataReady ? capabilityList.items.find((item) => item.resourceType === "k8s-gateway" && item.driverType === "existing-gateway") : undefined;
-  const supportedType = (typeKey: string) => typeKey === 'workload' || verifiedPins(typeKey).length > 0 || (metadataReady && capabilityList.items.some((item) => item.resourceType === typeKey && ((typeKey === clusterType && item.driverType === 'existing-cluster') || (typeKey === endpointType && item.driverType === 'endpoint') || (typeKey === 'k8s-gateway' && item.driverType === 'existing-gateway'))));
+  const gatewayCapability = metadataReady ? (capabilityList.items.find((item) => item.resourceType === "k8s-gateway" && item.driverType === "echo") ?? capabilityList.items.find((item) => item.resourceType === "k8s-gateway" && item.driverType === "existing-gateway")) : undefined;
+  const supportedType = (typeKey: string) => typeKey === 'workload' || verifiedPins(typeKey).length > 0 || (metadataReady && capabilityList.items.some((item) => item.resourceType === typeKey && ((typeKey === clusterType && item.driverType === 'existing-cluster') || (typeKey === endpointType && item.driverType === 'endpoint') || (typeKey === 'k8s-gateway' && ['echo', 'existing-gateway'].includes(item.driverType)))));
   const typePins = verifiedPins(resourceType);
   const typeContract: TypeContract | undefined = types.find((type) => type.key === resourceType);
   const namespaceClasses = typeList.items.find((type) => type.key === 'k8s-namespace')?.classes ?? [];
@@ -157,7 +158,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   }, [typeList.loading, typeList.loadError, typeList.items, capabilityList.loading, capabilityList.loadError, capabilityList.items, initialResourceType]);
 
   // One verified pin is chosen for the user; several need an explicit choice.
-  const pin: Capability | undefined = isTemplate ? capabilityList.items.find((item) => item.resourceType === 'workload' && item.driverType === 'template') : isEndpoint ? endpointCapability : isGateway ? gatewayCapability : existingCluster ? existingCapability : sourceMode !== 'installed' ? (gitPin?.resourceType === resourceType ? gitPin : undefined) : (!editing || changingSource) && typePins.length === 1 && !sourceLost ? typePins[0] : typePins.find((candidate) => capabilityKey(candidate) === pinChoice);
+  const pin: Capability | undefined = isTemplate ? capabilityList.items.find((item) => item.resourceType === 'workload' && item.driverType === 'template') : isEndpoint ? endpointCapability : isGateway ? (gatewayCapability && { ...gatewayCapability, driverType: editing ? gatewayDriver : gatewayCapability.driverType }) : existingCluster ? existingCapability : sourceMode !== 'installed' ? (gitPin?.resourceType === resourceType ? gitPin : undefined) : (!editing || changingSource) && typePins.length === 1 && !sourceLost ? typePins[0] : typePins.find((candidate) => capabilityKey(candidate) === pinChoice);
   const draftKey = pin ? capabilityKey(pin) : '';
   const draft = drafts[draftKey] ?? initialDraft();
   const patchDraft = (change: Partial<PairDraft>) => { if (draftKey) setDrafts((current) => ({ ...current, [draftKey]: { ...initialDraft(), ...current[draftKey], ...change } })); };
@@ -253,7 +254,8 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
       const policy = endpointToVariables(gatewayPolicy);
       if (!policy.variables) return { problem: policy.problem };
       if (!/^\$\{resources\['k8s-cluster\.[^'\]\s]+#[^'\]\s]+'\]\.outputs\.cluster\}$/.test(gatewayCluster.trim())) return { problem: t('gatewayDriver.invalidCluster') };
-      return { values: { variables: { ...policy.variables, cluster: gatewayCluster.trim() } }, provision: {} };
+      const metadata = { ...policy.variables, cluster: gatewayCluster.trim() };
+      return { values: { variables: pin.driverType === 'echo' ? { gateway: metadata } : metadata }, provision: {} };
     }
     if (existingCluster && pin) {
       const provision = draft.provMode === 'typed' ? rowsToProvision(draft.rows) : parseObjectText(draft.provJSON, t('platform.resourceDefinitions.relatedResourceRules'));
@@ -315,7 +317,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   }
 
   function resetForm() {
-    setTab('configuration'); setAdvancedOpen(false); setTemplateDraft(emptyTemplateDriver()); setEndpointDraft(emptyEndpointReference()); setGatewayPolicy(emptyEndpointDriver());
+    setTab('configuration'); setAdvancedOpen(false); setTemplateDraft(emptyTemplateDriver()); setEndpointDraft(emptyEndpointReference()); setGatewayPolicy(emptyEndpointDriver()); setGatewayDriver('echo');
     setSourceMode('git'); setGitPin(null); setCatalogSelection(undefined); setInitialCatalogSelection(undefined); setGitDraftVersion((version) => version + 1); setClusterMethod('terraform');
     setKey(''); setName(''); setIdError(''); setNameError(''); setError(''); setReview(null); setEditing(null); setSourceLost(false);
     setDrafts({}); setCriteriaDraft(emptyDraft()); setPinChoice('');
@@ -323,9 +325,11 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
 
   // Loads a stored Definition into the form for editing (UC-03 V02-06): the ID and Resource Type stay fixed.
   function startEdit(definition: Definition) {
- if (definition.driverType === 'existing-gateway') {
+ if (definition.resourceType === 'k8s-gateway' && ['echo', 'existing-gateway'].includes(definition.driverType)) {
   const values = definition.driverInputs?.values;
-  const variables = isObject(values?.variables) ? values.variables : {};
+  const stored = isObject(values?.variables) ? values.variables : {};
+  const variables = definition.driverType === 'echo' && isObject(stored.gateway) ? stored.gateway : stored;
+  setGatewayDriver(definition.driverType === 'echo' ? 'echo' : 'existing-gateway');
   setGatewayPolicy(endpointFromVariables(variables)); setGatewayCluster(typeof variables.cluster === 'string' ? variables.cluster : '');
   setView('editor'); setTab('configuration'); setKey(definition.key); setName(definition.name ?? ''); setResourceType(definition.resourceType); setCriteriaDraft(draftFromCriteria(definition.criteria)); setEditing({ key: definition.key, version: definition.version ?? 0 }); setError(''); setNotice(''); setReview(null); setSourceLost(false); return;
  }

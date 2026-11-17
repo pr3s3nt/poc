@@ -2,7 +2,7 @@
 id: IMP-NAMESPACE-TEMPLATE-ROUTES
 artifact: implementation-handoff
 status: current
-last_reviewed: 2026-11-16
+last_reviewed: 2026-11-17
 ---
 
 # Namespace placement and template routes — issue #84
@@ -92,3 +92,20 @@ acceptance, main integration and any release tag are still outstanding.
   AppShell, styles/tokens and Button. No unrelated UI was redesigned. The candidate
   forms retain the same shell/styles and short field labels. Final handoff must
   record the reviewed screens; setup/bootstrap is not app acceptance.
+
+## Approved Echo refinement — 2026-11-17
+
+User approved the new Gateway metadata/verification boundary and updating #84.
+ADR-043/GW-01 and affected use cases are amended first. New Gateway forms use
+Echo with a gateway output envelope; legacy edits preserve driver/layout/version.
+A generic identity executor is wired, public registration remains Gateway-scoped,
+and standalone GatewayVerifier runs before render/CD. Planner checks supported
+contract and same-cluster pins; provisioning refuses params, secret-derived
+metadata and stale/foreign account/target/descriptor before Echo execution. Echo
+receives no Connection/Target and retains no physical instance/target. Logical
+ActiveResource identity/account provenance survives explicit legacy upgrades.
+
+Focused registration/planner/runtime/legacy-form checks pass; cluster API/auth/
+readiness and provider-pin tests are reused. No SQL/schema change. Runtime
+acceptance, full kind comparison and final handoff for this refinement remain
+outstanding; the 2026-11-16 execution record is historical evidence only.

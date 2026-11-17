@@ -2,7 +2,7 @@
 id: NAMESPACE-TEMPLATE-ROUTE-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-11-16
+last_reviewed: 2026-11-17
 related: [ADR-043, ENDPOINT-CONTRACT]
 ---
 
@@ -31,18 +31,43 @@ inferred from a namespace display name.
 ## GW-01 — Separate preexisting Gateway resource
 
 Resource Type `k8s-gateway` has no Developer inputs and a nonsecret required `any`
-output `gateway`. Its `existing-gateway` Definition takes no Driver Account,
-Terraform module or template source. Variables are a whole `cluster` output
+output `gateway`. Its new `echo` Definition takes no Driver Account,
+Terraform module or template source. The single variable `gateway` is an object containing a whole `cluster` output
 reference plus the nonsecret endpoint policy fields: `rootDomain`, `scheme`,
 `gatewayName`, `gatewayNamespace`, optional `gatewaySectionName` and `reservedNames`.
 No Gateway policy is stored in cluster Definition variables.
 
 The cluster reference forms a graph edge and carries the existing cluster/EKS
 target identity. Planning and Preview are read-only and make no Kubernetes calls.
-Provisioning authenticates to that target and reads Gateway readiness/listener
-support. The Gateway is PREEXISTING; no apply, adoption, ownership label or destroy
-operation is permitted. Gateway UID is observation evidence, not app ownership.
-Unreachable, unready or unavailable configured listeners fail safely.
+Metadata provisioning verifies pinned cluster/account provenance without a
+Kubernetes call; the pre-render target verifier reads Gateway/listener support. The Gateway is PREEXISTING; no apply, adoption, ownership label or destroy
+operation is permitted. Gateway UID is observation evidence, not app ownership. The Echo output equals
+the expanded variables and never grants physical ownership. A valid Gateway Type
+with a supported metadata driver is required; matching an output name alone is
+insufficient. Other Echo resources are not implicitly PREEXISTING.
+Unreachable, unready or unavailable configured listeners fail before render/CD.
+
+Legacy `existing-gateway` keeps its flat variables and adapter. Both layouts
+validate the same policy and whole typed cluster target, forbid developer params,
+Driver Account, source, extra output envelopes and secret-derived metadata. New
+Echo Gateway registration requires exactly one required nonsecret `any` output
+`gateway`; credentials remain in the referenced cluster account. The executor is
+generic identity transformation and receives no Connection/Target; the service
+retains logical cluster provenance for explicit legacy-to-Echo upgrades.
+
+```yaml
+driverType: echo
+driverInputs:
+  values:
+    variables:
+      gateway:
+        cluster: "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"
+        rootDomain: apps.example.com
+        scheme: https
+        gatewayName: public
+        gatewayNamespace: gateway-system
+        gatewaySectionName: websecure
+```
 
 ## GW-02 — Endpoint selects Gateway
 

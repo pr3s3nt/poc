@@ -1479,3 +1479,10 @@ Backend capability/provisioning/Definition behavior is unchanged.
 `EndpointDriverFields.tsx`, `ResourceDefinitionsPage.tsx`,
 `InfrastructureConnection.tsx` and `moduleMapping.ts`.
 [Checkpoint and remaining runtime gates](namespace-template-routes.md).
+
+Issue #84 Echo refinement (2026-11-17): domain/endpoint/gateway.go owns both
+metadata layouts and the Gateway output contract; adapters/echo/executor.go is
+the generic identity executor. Kubernetes GatewayVerifier is independent of
+legacy ExistingGatewayAdapter provisioning. Catalog/planner/runtime contract
+tests include gateway_registration_test.go, gateway_resource_test.go and
+provisioning/echo_gateway_test.go. Cluster readiness/pin adapters remain unchanged.

@@ -2494,3 +2494,11 @@ passes 1067 tests/typecheck/lint/build. Full backend and main share the exact sa
 merge/upgrade, user acceptance or full green backend suite is claimed. See
 [implementation and remaining gates](implementation/namespace-template-routes.md)
 and [execution evidence](verification/2026-11-16-namespace-template-routes.md).
+
+### Issue #84 refinement approved 2026-11-17 — in progress
+
+New Gateway Definitions use Echo metadata with separate pre-render Kubernetes
+verification; existing-gateway driver/layout/revision compatibility remains.
+Cluster authentication stays in existing-cluster/Driver Account. Focused contract,
+provenance and authoring checks pass; refreshed live acceptance and full kind
+checks remain pending. Prior 2026-11-16 evidence does not prove this revision.

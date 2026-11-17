@@ -111,3 +111,14 @@ requires the identical backend Git tree; reusing frontend requires all its check
 passed and its Git tree unchanged. The runner copies earlier evidence without
 claiming a fresh run; compare actual Go/Terraform tool versions and exact
 failure/skip sets. Failed frontend checks require including `frontend` in rerun.
+
+## Echo Gateway refinement (2026-11-17)
+
+Configuration defaults to the new Echo envelope. To keep the retained legacy
+trial app unchanged, use `ORCH_ROUTE_SCOPED_DEFINITIONS=1`: create a new Application
+through Console, then register uniquely named Gateway/endpoint Definitions with
+app_id matching criteria via the existing criteria form. Save both workload
+drafts before one Environment Deploy as usual. Use unused explicit endpoint names
+and a separately configured task-owned web forward; do not overwrite old routes.
+`ORCH_GATEWAY_DRIVER=existing-gateway` permits read/reuse of an existing legacy
+Definition only, never an implicit migration. Receipts record driver and prefix.

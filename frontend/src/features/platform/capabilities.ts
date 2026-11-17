@@ -2,7 +2,7 @@ import { api } from '../../shared/api/client';
 import { fail, filled, flag, isObject, members, text } from './metadata';
 
 // existing-cluster, template and endpoint are platform pairs without a Terraform module pin (ADR-016, EP-02).
-export type Driver = 'terraform' | 'kubernetes' | 'existing-cluster' | 'template' | 'endpoint' | 'existing-gateway';
+export type Driver = 'terraform' | 'kubernetes' | 'existing-cluster' | 'template' | 'endpoint' | 'existing-gateway' | 'echo';
 
 // Public, secret-free metadata of GET /resource-definition-capabilities (UC-03 BR-23, OC-04d).
 export type CapabilityVariable = {

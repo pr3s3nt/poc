@@ -44,3 +44,57 @@ func TestGatewayRegistrationIsSeparateFromClusterAndEndpoint(t *testing.T) {
 		})
 	}
 }
+
+func TestEchoGatewayRegistrationValidatesEnvelopeAndOutputSchema(t *testing.T) {
+	ctx := context.Background()
+	st, svc, opts := seededCatalog(t, nil)
+	withClusterOutput(t, st, opts)
+	typ := resource.Type{Key: "k8s-gateway", Outputs: []resource.OutputField{{Name: "gateway", Type: "any", Required: true}}}
+	if err := st.SaveResourceType(ctx, opts.OrganizationKey, typ); err != nil {
+		t.Fatal(err)
+	}
+	metadata := map[string]any{"cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}", "rootDomain": "apps.example.com", "scheme": "http", "gatewayName": "public", "gatewayNamespace": "gateway-system"}
+	def := resource.Definition{Key: "echo-edge", Name: "Echo edge", ResourceTypeKey: typ.Key, DriverType: resource.DriverEcho, Criteria: []resource.Criterion{{}}, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"gateway": metadata}}}}
+	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); err != nil {
+		t.Fatal(err)
+	}
+	for _, mode := range []string{"flat", "extra-output", "missing-cluster", "wrong-output", "inline-secret", "account", "optional-output", "secret-output"} {
+		t.Run(mode, func(t *testing.T) {
+			bad := def
+			bad.Key = "bad-echo-edge"
+			values := map[string]any{}
+			for k, v := range metadata {
+				values[k] = v
+			}
+			envelope := map[string]any{"gateway": values}
+			bad.DriverInputs = map[string]any{"values": map[string]any{"variables": envelope}}
+			changedType := typ
+			changedType.Outputs = append([]resource.OutputField(nil), typ.Outputs...)
+			switch mode {
+			case "flat":
+				bad.DriverInputs = map[string]any{"values": map[string]any{"variables": values}}
+			case "extra-output":
+				envelope["extra"] = "no"
+			case "missing-cluster":
+				delete(values, "cluster")
+			case "wrong-output":
+				values["cluster"] = "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.name}"
+			case "inline-secret":
+				values["token"] = "sentinel"
+			case "account":
+				bad.DriverAccount = "other"
+			case "optional-output":
+				changedType.Outputs[0].Required = false
+			case "secret-output":
+				changedType.Outputs[0].Secret = true
+			}
+			if err := st.SaveResourceType(ctx, opts.OrganizationKey, changedType); err != nil {
+				t.Fatal(err)
+			}
+			defer st.SaveResourceType(ctx, opts.OrganizationKey, typ)
+			if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, bad); err == nil {
+				t.Fatal("invalid Echo Gateway accepted")
+			}
+		})
+	}
+}

@@ -15,7 +15,8 @@ Planner -> Planner: Resolve endpoint -> Gateway -> cluster
 Planner -> Planner: Require same cluster and route capability; pin policy
 Planner --> User: Plan / no reservation or Kubernetes mutation
 User -> Provisioning: Deploy reviewed plan
-Provisioning -> Kube: Read existing cluster and Gateway/listener
+Provisioning -> Kube: Verify existing cluster API / readiness
+Provisioning -> Provisioning: Echo Gateway metadata; verify pinned provenance
 Provisioning -> Kube: Create owned namespace and database in dependency order
 Provisioning -> Provisioning: Reserve hostname/path atomically
 Provisioning -> Kube: Read listener readiness / allowed namespace

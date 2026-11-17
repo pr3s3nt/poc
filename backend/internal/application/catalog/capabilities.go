@@ -6,6 +6,7 @@ import (
 	"path"
 	"sort"
 
+	"orchestrator/internal/domain/endpoint"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
 )
@@ -226,12 +227,15 @@ func platformCapabilities(types map[string]resource.Type) []Capability {
 	}
 	if typ, ok := types["k8s-gateway"]; ok {
 		if field, found := typ.Output("gateway"); found && !field.Secret && field.Type == "any" {
-			out = append(out, Capability{ResourceType: typ.Key, DriverType: string(resource.DriverExistingGateway),
-				Variables: []CapabilityVariable{{Name: "cluster", Type: "string", Required: true, Preset: ClusterReferencePreset},
-					{Name: "rootDomain", Type: "string", Required: true}, {Name: "scheme", Type: "string", Required: true},
-					{Name: "gatewayName", Type: "string", Required: true}, {Name: "gatewayNamespace", Type: "string", Required: true},
-					{Name: "gatewaySectionName", Type: "string"}, {Name: "reservedNames", Type: "list(string)"}},
-				Outputs: []CapabilityOutput{{Name: "gateway", Type: "any"}}, ExecutorOwned: []string{}, Bindings: []CapabilityBinding{}})
+			driver := resource.DriverEcho
+			variables := []CapabilityVariable{{Name: "gateway", Type: "any", Required: true}}
+			if endpoint.ValidateGatewayType(typ, driver) != nil {
+				driver = resource.DriverExistingGateway
+				variables = []CapabilityVariable{{Name: "cluster", Type: "string", Required: true, Preset: ClusterReferencePreset}, {Name: "rootDomain", Type: "string", Required: true}, {Name: "scheme", Type: "string", Required: true}, {Name: "gatewayName", Type: "string", Required: true}, {Name: "gatewayNamespace", Type: "string", Required: true}, {Name: "gatewaySectionName", Type: "string"}, {Name: "reservedNames", Type: "list(string)"}}
+			}
+			out = append(out, Capability{ResourceType: typ.Key, DriverType: string(driver),
+				Variables: variables,
+				Outputs:   []CapabilityOutput{{Name: "gateway", Type: "any"}}, ExecutorOwned: []string{}, Bindings: []CapabilityBinding{}})
 		}
 	}
 	if typ, ok := types[resource.ClusterTargetType]; ok {

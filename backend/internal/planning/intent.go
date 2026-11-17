@@ -3,6 +3,7 @@ package planning
 import (
 	"sort"
 
+	"orchestrator/internal/domain/endpoint"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/platform/canon"
 )
@@ -176,7 +177,7 @@ func (p *Plan) ResourceIntents(previous func(Node) *Plan) []ResourceIntent {
 			Scope: node.Scope.Key(), Ownership: OwnerOrchestrator,
 			DefinitionKey: match.DefinitionKey, DriverType: string(match.DriverType),
 		}
-		if match.DriverType == resource.DriverExistingCluster || match.DriverType == resource.DriverExistingGateway {
+		if match.DriverType == resource.DriverExistingCluster || endpoint.GatewayMetadataDriver(node.ResourceType, match.DriverType) {
 			intent.DriverAccount, intent.AccountVersion = match.DriverAccount, match.AccountVersion
 			intent.Ownership = OwnerPreexisting
 		}

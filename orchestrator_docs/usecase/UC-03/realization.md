@@ -14,7 +14,7 @@ last_reviewed: 2026-10-28
 
 Issue #84 amendment: registration collaborates with the existing module/source
 inspectors and reference validator for namespace provider bindings and nonsecret
-cluster Gateway policies. No inspection provisions a Gateway or rewrites an
+separate Gateway metadata contracts. No inspection provisions a Gateway or rewrites an
 existing Definition. See [ADR-043](../../architecture/decisions/ADR-043-namespace-placement-template-routes.md).
 
 > **2026-11-02 — Definition forms and Catalog module sources.**

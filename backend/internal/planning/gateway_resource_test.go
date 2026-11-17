@@ -1,6 +1,7 @@
 package planning_test
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -83,5 +84,42 @@ func TestGatewayEndpointRejectsWrongResourceOrMissingTemplateCapability(t *testi
 				t.Fatalf("expected routing rejection, got %v", err)
 			}
 		})
+	}
+}
+
+func TestEchoGatewayUsesMetadataContractAndPreservesLegacyPolicy(t *testing.T) {
+	legacy, err := planning.NewService(nil).Plan(gatewayRequest(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := gatewayRequest(t)
+	for i := range req.Catalog.Definitions {
+		def := &req.Catalog.Definitions[i]
+		if def.ResourceTypeKey == endpoint.GatewayType {
+			metadata := def.Variables()
+			def.DriverType = resource.DriverEcho
+			def.DriverInputs = map[string]any{"values": map[string]any{"variables": map[string]any{"gateway": metadata}}}
+		}
+	}
+	plan, err := planning.NewService(nil).Plan(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(plan.Endpoints["backend"], legacy.Endpoints["backend"]) {
+		t.Fatal("Echo changed endpoint policy")
+	}
+	for _, intent := range plan.ResourceIntents(nil) {
+		if intent.ResourceType == endpoint.GatewayType && intent.Ownership != planning.OwnerPreexisting {
+			t.Fatal("Echo Gateway became owned")
+		}
+	}
+	for i := range req.Catalog.Definitions {
+		def := &req.Catalog.Definitions[i]
+		if def.ResourceTypeKey == endpoint.GatewayType {
+			def.Variables()["extra"] = "unexpected"
+		}
+	}
+	if _, err := planning.NewService(nil).Plan(req); err == nil {
+		t.Fatal("extra Echo outputs accepted")
 	}
 }

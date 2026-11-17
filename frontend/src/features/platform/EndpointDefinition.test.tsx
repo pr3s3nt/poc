@@ -75,7 +75,7 @@ describe('endpoint policy conversion', () => {
 it('registers a separate existing Gateway with its cluster and policy', async () => {
   const user = userEvent.setup();
   const gatewayType = { key: 'k8s-gateway', inputs: [], outputs: [{name:'gateway',type:'any'}],classes:['default'] };
-  const gatewayCapability = { ...endpointCapability, resourceType:'k8s-gateway',driverType:'existing-gateway',outputs:[{name:'gateway',type:'any',sensitive:false}] };
+  const gatewayCapability = { ...endpointCapability, resourceType:'k8s-gateway',driverType:'echo',outputs:[{name:'gateway',type:'any',sensitive:false}] };
   const {posted} = await open({ types:[...typeFixture,endpointType,gatewayType],capabilities:[...capabilityFixture,endpointCapability,gatewayCapability] });
   await user.click(screen.getByRole('button',{name:'Tạo cấu hình'}));
   await user.selectOptions(field('Loại tài nguyên'),'k8s-gateway');
@@ -87,5 +87,20 @@ it('registers a separate existing Gateway with its cluster and policy', async ()
   expect(screen.queryByRole('region',{name:'Module Terraform'})).not.toBeInTheDocument();
   await user.click(within(section()).getByRole('button',{name:'Đăng ký cấu hình tài nguyên'}));
   await waitFor(()=>expect(posted).toHaveLength(1));
-  expect(posted[0]).toMatchObject({ resourceType:'k8s-gateway',driverType:'existing-gateway',driverInputs:{values:{variables:{gatewayName:'public',gatewayNamespace:'gateway-system',cluster:"${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"}}} });
+  expect(posted[0]).toMatchObject({ resourceType:'k8s-gateway',driverType:'echo',driverInputs:{values:{variables:{gateway:{gatewayName:'public',gatewayNamespace:'gateway-system',cluster:"${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"}}}} });
+});
+
+it.each(['echo', 'existing-gateway'])('preserves stored %s Gateway driver and layout on edit', async driver => {
+  const user = userEvent.setup();
+  const metadata = { cluster: "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}", rootDomain:'apps.example.com', scheme:'http', gatewayName:'public',gatewayNamespace:'gateway-system' };
+  const variables = driver === 'echo' ? { gateway:metadata } : metadata;
+  const definition = { key:'stored-gateway',name:'Stored Gateway',version:3,resourceType:'k8s-gateway',driverType:driver,driverInputs:{values:{variables}},criteria:[{}],provision:{} };
+  const capability = { ...endpointCapability,resourceType:'k8s-gateway',driverType:'echo',outputs:[{name:'gateway',type:'any',sensitive:false}] };
+  const {puts} = await open({definitions:[definition],types:[...typeFixture,{key:'k8s-gateway',inputs:[],outputs:[{name:'gateway',type:'any'}],classes:['default']}],capabilities:[...capabilityFixture,capability]});
+  await user.click(await screen.findByRole('button',{name:'Sửa cấu hình stored-gateway'}));
+  expect(field('Tham chiếu cluster')).toHaveValue(metadata.cluster);
+  expect(field('Tên Gateway')).toHaveValue('public');
+  await user.click(screen.getByRole('button',{name:'Lưu thay đổi'}));
+  await waitFor(()=>expect(puts).toHaveLength(1));
+  expect(puts[0]?.body).toMatchObject({driverType:driver,version:3,driverInputs:{values:{variables}}});
 });

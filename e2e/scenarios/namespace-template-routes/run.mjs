@@ -19,15 +19,33 @@ const { page } = session;
 const get = async path => { const r = await page.request.get(config.baseURL + '/api/v1' + path); assert(r.ok(), `Read ${path}: HTTP ${r.status()}`); return r.json(); };
 const required = key => { assert(process.env[key], 'Missing ' + key); return process.env[key]; };
 const definitionsRoute = config.baseURL + '/ui/platform/resource-definitions';
+async function ensureApplication(){
+ if (!receipt.appId) {
+   await page.goto(config.baseURL+'/ui/applications/new');
+   await page.getByLabel('Tên ứng dụng',{exact:true}).fill(receipt.name);
+   const posted=page.waitForResponse(r=>r.request().method()==='POST' && new URL(r.url()).pathname==='/api/v1/applications');
+   await page.getByRole('button',{name:'Tạo ứng dụng',exact:true}).click();
+   const response=await posted; assert(response.ok(),'Application create failed');
+   const body=await response.json(); receipt.appId=body.application.key??body.application.id; save();
+  }
+}
+
 try {
  if (phase === 'configure') {
+  const scoped = process.env.ORCH_ROUTE_SCOPED_DEFINITIONS === '1';
+  if(scoped)await ensureApplication();
+  const driver = process.env.ORCH_GATEWAY_DRIVER ?? 'echo';
+  assert(['echo','existing-gateway'].includes(driver));
+  const criteria = scoped ? [{app_id:receipt.appId}] : [{}];
+  const prefix = scoped ? receipt.name : 'httproute84';
   const variables = { cluster: required('ORCH_GATEWAY_CLUSTER_REFERENCE'), rootDomain: required('ORCH_GATEWAY_ROOT_DOMAIN'), scheme: 'http', gatewayName: required('ORCH_GATEWAY_NAME'), gatewayNamespace: required('ORCH_GATEWAY_NAMESPACE'), gatewaySectionName: required('ORCH_GATEWAY_LISTENER') };
   for (const [type,key,name,values] of [
-   ['k8s-gateway','httproute84-gateway','HTTPRoute existing Gateway',variables],
-   ['endpoint','httproute84-endpoint','HTTPRoute Gateway endpoint',{gateway:"${resources['k8s-gateway.default#environments.@app.@env'].outputs.gateway}"}],
+   ['k8s-gateway',prefix+'-gateway','HTTPRoute existing Gateway',driver==='echo'?{gateway:variables}:variables],
+   ['endpoint',prefix+'-endpoint','HTTPRoute Gateway endpoint',{gateway:"${resources['k8s-gateway.default#environments.@app.@env'].outputs.gateway}"}],
   ]) {
    const stored = (await get('/resource-definitions')).resourceDefinitions.find(d=>d.key===key);
-   if (stored) { assert.equal(stored.resourceType,type); assert.deepEqual(stored.driverInputs.values.variables,values); continue; }
+   if (stored) { assert.equal(stored.resourceType,type); assert.equal(stored.driverType,type==='k8s-gateway'?driver:'endpoint'); assert.deepEqual(stored.driverInputs.values.variables,values); assert.deepEqual(stored.criteria,criteria); continue; }
+   assert(type!=='k8s-gateway'||driver==='echo','Legacy Definitions are reused, never silently migrated');
    await page.goto(definitionsRoute);
    await page.getByRole('button',{name:'Tạo cấu hình',exact:true}).click();
    await page.getByRole('combobox').filter({has:page.locator('option[value="k8s-gateway"]')}).selectOption(type);
@@ -37,24 +55,24 @@ try {
     for (const [label,value] of [['Tham chiếu cluster',variables.cluster],['Domain gốc',variables.rootDomain],['Tên Gateway',variables.gatewayName],['Namespace của Gateway',variables.gatewayNamespace],['Listener (tùy chọn)',variables.gatewaySectionName]]) await page.getByLabel(label,{exact:true}).fill(value);
     await page.getByLabel(/Giao thức/).selectOption('http');
    } else await page.getByLabel('Tham chiếu Gateway',{exact:true}).fill(values.gateway);
+   if(scoped){
+    await page.getByRole('tab',{name:/Điều kiện áp dụng/}).click();
+    const rule=page.getByRole('region',{name:'Trường hợp 1',exact:true});
+    await rule.getByRole('button',{name:'+ Thêm điều kiện',exact:true}).click();
+    await page.getByLabel('Trường hợp 1 thuộc tính 1',{exact:true}).selectOption('app_id');
+    await page.getByLabel('Điều kiện 1 ID ứng dụng',{exact:true}).fill(receipt.appId);
+   }
    const posted = page.waitForResponse(r=>r.request().method()==='POST' && r.url().endsWith('/resource-definitions'));
    await page.getByRole('button',{name:'Đăng ký cấu hình tài nguyên',exact:true}).click();
    const response=await posted; assert(response.ok(),'Definition save HTTP '+response.status());
    const read=(await get('/resource-definitions')).resourceDefinitions.find(d=>d.key===key);
-   assert.deepEqual(read.driverInputs.values.variables,values);
+   assert.deepEqual(read.driverInputs.values.variables,values);assert.deepEqual(read.criteria,criteria);assert.equal(read.driverType,type==='k8s-gateway'?driver:'endpoint');
    await page.screenshot({path:join(evidence,type+'-form.png'),fullPage:true});
   }
-  receipt.configured=true; save(); console.log('PASS: separate existing Gateway and endpoint registered through Console');
+  receipt.gatewayDriver=driver;receipt.definitionPrefix=prefix;receipt.configured=true; save(); console.log('PASS: separate existing Gateway and endpoint registered through Console');
  } else if (phase==='author' || phase==='update') {
   assert(receipt.configured);
-  if (!receipt.appId) {
-   await page.goto(config.baseURL+'/ui/applications/new');
-   await page.getByLabel('Tên ứng dụng',{exact:true}).fill(receipt.name);
-   const posted=page.waitForResponse(r=>r.request().method()==='POST' && new URL(r.url()).pathname==='/api/v1/applications');
-   await page.getByRole('button',{name:'Tạo ứng dụng',exact:true}).click();
-   const response=await posted; assert(response.ok(),'Application create failed');
-   const body=await response.json(); receipt.appId=body.application.key??body.application.id; save();
-  }
+  await ensureApplication();
   const app=(await get('/applications/'+receipt.appId)).application; assert.equal(app.name,receipt.name);
   receipt.namespace=app.environments.find(e=>e.key==='staging').namespaceIdentity; save();
   const image=required('ORCH_ROUTE_IMAGE');

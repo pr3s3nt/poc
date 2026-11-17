@@ -1680,7 +1680,7 @@ branch checks and real runtime evidence; acceptance/merge remain pending.
 | Requirement | Realization | Code and focused validation |
 |---|---|---|
 | NP-01 | Namespace provider inheritance | planning/provider_bindings.go; namespace_provider_test.go; provisioning pin/provenance guards |
-| GW-01/02 | Separate preexisting Gateway and endpoint reference | catalog/gateway_registration_test.go; planning/gateway_resource_test.go; kubernetes/existing_gateway_test.go |
+| GW-01/02 | Separate preexisting Gateway and endpoint reference | catalog/gateway_registration_test.go; planning/gateway_resource_test.go; provisioning/echo_gateway_test.go; kubernetes/gateway_verifier.go; kubernetes/existing_gateway_test.go |
 | RT-01/02 | Authorized neutral input and Git render/guard | domain/endpoint/intent.go; templatedriver/endpoint_test.go; standard/resources/httproute.tpl |
 | RT-03 | Explicit pin transition and unchanged ownership/claims | legacy endpoint deployment tests retained; real acceptance/full checks pending |
 

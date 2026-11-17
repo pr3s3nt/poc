@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"orchestrator/internal/adapters/awsaccess"
+	"orchestrator/internal/adapters/echo"
 	k8s "orchestrator/internal/adapters/kubernetes"
 	moduleregistry "orchestrator/internal/adapters/terraform/registry"
 	"orchestrator/internal/application/connection"
@@ -60,6 +61,7 @@ func realAdapters(opts Options, credentials *connection.CredentialResolver, kube
 	existingGateway.Credentials = kubeconfig
 	executors := map[resource.DriverType]execution.ResourceExecutor{
 		resource.DriverExistingGateway: existingGateway,
+		resource.DriverEcho:            echo.Executor{},
 		resource.DriverKubernetes:      kubernetesExecutor,
 		resource.DriverExistingCluster: existingCluster,
 	}
