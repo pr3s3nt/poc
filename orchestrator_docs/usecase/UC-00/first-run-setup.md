@@ -68,7 +68,8 @@ source identity. Each import response reports CREATED/REUSED/CONFLICT/error.
 
 API: GET /api/v1/setup (public availability); POST /api/v1/setup (claim token and
 identity fields, no session creation); GET /api/v1/platform/setup (scoped progress);
-POST /api/v1/platform/setup/discover (url/ref/path); existing prepare/import APIs
+POST /api/v1/platform/setup/discover (url/ref/path); POST /api/v1/platform/setup/preview
+(documents with Type or Definition and optional template Git source); existing prepare/import APIs
 perform confirmed registration. All setup responses are no-store.
 
 ## UI

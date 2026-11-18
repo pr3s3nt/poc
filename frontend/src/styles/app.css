@@ -796,3 +796,17 @@ fieldset.volume-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 .sign-in-local button[type="submit"] { margin-top: 16px; width: 100%; }
 
 .definition-page .definition-code-editor .editor-grid { gap:16px; }
+
+.setup-steps { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.setup-fields { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); align-items: end; }
+.setup-document { border-bottom: 1px solid var(--border, #dce3eb); padding: 12px 0; }
+.setup-page .content-panel fieldset { margin: 12px 0; padding: 16px; display: grid; gap: 12px; }
+.setup-page .content-panel label { display: grid; gap: 6px; }
+.setup-page .content-panel .setup-document > label { display: flex; align-items: center; }
+.setup-page input[type=checkbox] { width: auto; }
+.setup-page textarea { width: 100%; font-family: monospace; }
+.setup-page pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 400px; overflow: auto; }
+.setup-page table { width: 100%; text-align: left; margin: 16px 0; }
+.setup-page th, .setup-page td { padding: 8px; overflow-wrap: anywhere; }
+
+.setup-page > .page { max-width: none; padding: 24px 0; }

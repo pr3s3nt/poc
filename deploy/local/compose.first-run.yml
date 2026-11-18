@@ -1,0 +1,24 @@
+# Opt-in browser initialization for a new installation. Existing Organizations
+# permanently close the claim API. Keep the setup-token volume across restarts.
+services:
+  setup-token:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    user: "0:0"
+    entrypoint: ["/bin/sh", "/local/init-setup-token.sh"]
+    volumes:
+      - ./deploy/local/init-setup-token.sh:/local/init-setup-token.sh:ro
+      - setup-token:/setup
+    restart: "no"
+    networks: [orchestrator-net]
+  backend:
+    environment:
+      ORCHESTRATOR_SETUP_TOKEN_FILE: /run/installation-setup/token
+      # Configure the workload Secret Store through the setup guide.
+      ORCHESTRATOR_PLATFORM_VAULT_BOOTSTRAP: "false"
+    volumes:
+      - setup-token:/run/installation-setup:ro
+    depends_on:
+      setup-token:
+        condition: service_completed_successfully
+volumes:
+  setup-token:

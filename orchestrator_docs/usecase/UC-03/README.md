@@ -56,3 +56,9 @@ Platform Git credentials: [approved specification and contract](git-access.md).
 Versioned catalog releases: [specification](catalog-releases.md).
 
 Controlled upgrades: [Definition versions](definition-versions.md).
+
+## First-run platform setup — issue #89
+
+[UC-00 SETUP](../UC-00/first-run-setup.md) orchestrates existing configuration
+forms and user-supplied Git Type/Definition initialization; ordinary validation
+and registration ownership remain in this use case.
