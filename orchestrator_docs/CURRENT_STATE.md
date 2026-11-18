@@ -2585,5 +2585,10 @@ No main merge, rollout or full green backend gate claimed. See
 User approved integration on 2026-11-18 into features/Httproute for a single
 review Console. Merge conflict resolution preserves namespace/Gateway/template
 contracts and synchronized code editing, including Echo/legacy Gateway layouts.
-Combined validation and preserved trial-stack upgrade are in progress. No main
-merge, completed combined gate or user acceptance is claimed yet.
+Merge `35cbc638` runs on the preserved trial stack following normal v10→v11
+owner upgrade. Combined editor checks across existing driver layouts, one
+Environment update for both workloads, guarded restart and Tailscale browser
+checks pass. Full frontend passes 1102 tests/typecheck/lint/build. Fresh full
+backend candidate/main comparison remains pending. See
+[combined verification](verification/2026-11-18-integrated-routes-editor.md).
+No main merge, completed combined backend gate or user acceptance is claimed yet.

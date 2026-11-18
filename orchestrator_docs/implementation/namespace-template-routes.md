@@ -142,8 +142,11 @@ features/Httproute for one Console trial before main acceptance. Both canonical
 contracts remain: Endpoint references a separate Gateway; templates create
 HTTPRoute; the Definition form and YAML/JSON share one draft. Gateway Echo and
 legacy hydration/reset now use the code editor bridge without replacing layout,
-class controls or pins. Focused integration checks are underway; previous records
-remain source-attributed historical evidence. The task Console database is backed
-up before its recognized v10→v11 owner upgrade. Existing trial apps/configuration
-are preserved; full candidate/main checks and combined runtime/editor evidence
-will be recorded before handoff. No main merge or shared Gateway change approved.
+class controls or pins. Merge `35cbc638` is deployed to the task Console; its
+recognized v10→v11 owner upgrade preserves installation/catalog/Application
+identities. Focused integration checks, real editor round-trips for all existing
+driver layouts, workload update, guarded restart and real Tailscale browser
+checks pass. Full frontend passes 1102 tests/typecheck/lint/build. Fresh backend
+candidate/main comparison is pending; previous evidence remains source-attributed.
+See [combined verification](../verification/2026-11-18-integrated-routes-editor.md).
+No main merge or shared Gateway change approved.

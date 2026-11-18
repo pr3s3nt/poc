@@ -132,3 +132,18 @@ JSON keeps the reference, driver and version. It never submits Save and compares
 all Definitions before/after. `ORCH_ROUTE_REFERENCE_PREFIXES` may explicitly name
 comma-separated legacy/review prefixes; default is the receipt prefix. It records
 private screenshots and a timestamp without creating extra catalog Definitions.
+
+## Integrated Definition editor — issues #84/#87
+
+`editor.mjs` requires the same Console/browser dependencies and real retained
+review/legacy Definitions. Supply an external `ORCH_EVIDENCE_DIR`,
+`ORCH_ROUTE_DEFINITION_PREFIX` for the owned Echo review pair and
+`ORCH_ROUTE_LEGACY_PREFIX` for a distinct existing-gateway pair. It never creates
+Definitions or Applications. It reviews legacy form→YAML→form without Save,
+then edits only display names of the Echo Gateway and reference endpoint through
+form→YAML→form Save and JSON Save. Each review Definition gains two proposed
+revisions; active revision, driver/account/input pins and matching criteria must
+stay unchanged. Other Definitions and Applications must remain byte-equivalent
+in API snapshots; deployment requests must remain zero. There is no destructive
+cleanup: keep the proposed review revisions and private screenshots for user
+acceptance. Do not rerun without checking the recorded version changes.

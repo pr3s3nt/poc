@@ -45,9 +45,14 @@ and four examples are retained for acceptance. No main merge/rollout approved.
 ## Combined acceptance — approved 2026-11-18
 
 The user requested one integrated trial with #84. features/definition-code-editor
-is being merged into features/Httproute; it is not merged into main. The Gateway
+was merged into features/Httproute at `35cbc638`; it is not merged into main. The Gateway
 Echo/legacy and Gateway-bound endpoint forms retain class controls and typed
 metadata while sharing the CODE-01–06 bridge. New integration tests cover both
-Gateway layouts and reference-only Endpoint UI↔code conversion. Earlier isolated
-#87 results do not substitute for this combined check. Main rollout remains
-subject to user acceptance.
+Gateway layouts and reference-only Endpoint UI↔code conversion. The combined
+Console preserves installation/catalog data through normal owner upgrade; real
+editor checks for Echo/legacy Gateway, reference Endpoint and the original four
+driver layouts pass. Update/restart/browser checks and 1102 full frontend tests
+pass. Fresh full backend comparison remains pending. See
+[combined verification](../verification/2026-11-18-integrated-routes-editor.md).
+Earlier isolated #87 results do not substitute for combined evidence. Main rollout
+remains subject to user acceptance.

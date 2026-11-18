@@ -206,3 +206,5 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [Existing volume sources before creation — WC-23](2026-11-06-reuse-first-volumes.md).
 - [2026-11-11 One Fleet bundle per Environment, versioned secrets — issue #67](2026-11-11-environment-bundle.md)
 - [2026-11-11 Stuck StatefulSet recovery and Active Definition revision — issue #68](2026-11-11-stuck-statefulset.md)
+
+- [2026-11-18 Combined Gateway/routes and synchronized Definition editor — issues #84/#87](2026-11-18-integrated-routes-editor.md).

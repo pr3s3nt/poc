@@ -34,3 +34,13 @@ Bookworm, one worker, install/test/typecheck/lint/build; private receipts/logs
 record every exit status. Namespace deletion uses UID/resourceVersion conditions
 and confirms absence. It is frontend-only: unchanged backend evidence must be
 attributed separately by exact Git tree; a failed baseline stays failed.
+
+`read-only.mjs` additionally checks selected existing Definitions on an integrated
+Console. Supply the shared Console variables, external `ORCH_EVIDENCE_DIR` and
+explicit comma-separated `ORCH_DEFINITION_KEYS`. It opens each real form, compares
+JSON driver/input/account/criteria/provision to the API record, supplies equivalent
+YAML, returns to the form and compares the complete generated document again.
+It never presses Save, registers data, activates revisions or deploys; catalog and
+Application API snapshots must remain unchanged. Only private screenshots and a
+receipt are retained; there is no platform cleanup. This is a read-only editor
+check, not application deployment acceptance.
