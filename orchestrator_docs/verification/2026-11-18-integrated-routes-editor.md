@@ -313,3 +313,31 @@ longer represent retained running apps because the user deleted those apps.
 No product source changed. Validation is the bounded SQL assertions, exact API
 comparisons, real browser/UI operations and native read-only inventory/UID checks;
 the earlier full product suite remains attributed to its unchanged source.
+
+## Explicit default classes and clear names — user-approved follow-up
+
+On the same feature branch the user approved names `Gateway Traefik có sẵn` and
+`Endpoint qua Gateway`, each with the explicit criterion `{"class":"default"}`.
+The existing Console code editor saved each as r7; the Versions UI promoted both
+with generation-CAS. Form↔code round-trip, exact name/criterion, unchanged keys,
+driver/account/infrastructure inputs and Endpoint reference to
+`k8s-gateway.default` were verified. Other four Definitions remain API-identical.
+This changes trial configuration only, not product source or shared Gateway.
+
+A temporary Application tested one Environment Preview containing both saved
+native and Score workload drafts. Preview succeeded with one Gateway node and
+two Endpoint nodes, all class default and selecting the retained r7 Definitions.
+No Deploy was submitted. The temporary Application was deleted through the
+product confirmation/scope/admission/polling flow; deletion SUCCEEDED and the
+active Application list is empty again. Final browser check confirms six catalog
+cards, the new names and active revisions over the actual Tailscale URL.
+
+Initial harness attempts are retained: an overly long temporary Application name
+was rejected with HTTP400/name before creation; a shorter name succeeded. A
+separate Definition Matching Preview request revealed its current driver allowlist
+accepts Terraform/template/existing-cluster only, so Echo/Endpoint are rejected.
+That separate API limitation is not changed or reported as passing here. Actual
+Environment Preview, using the current planner, supplied the selection evidence.
+No full product suite was rerun because no product source changed; the prior full
+run remains source-attributed. Focused validation is UI/code/API invariance,
+real Environment Preview, product cleanup, native read-only checks and docs checks.

@@ -2602,3 +2602,8 @@ with UI-saved/promoted r6 default criteria for new test Applications. Cluster,
 namespace, workload and PostgreSQL Definitions and shared Gateway identity are
 unchanged; immutable history is retained. See the cleanup section of the
 [combined verification](verification/2026-11-18-integrated-routes-editor.md).
+The next approved trial revision r7 names the pair `Gateway Traefik có sẵn` and
+`Endpoint qua Gateway` and explicitly matches class `default` for both. Native/
+Score Environment Preview selects both r7 Definitions; its temporary Application
+is product-deleted. Definition Matching Preview's separate driver allowlist still
+excludes Echo/Endpoint; this configuration change does not extend that API.
