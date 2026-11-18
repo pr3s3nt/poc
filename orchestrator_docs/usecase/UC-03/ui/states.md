@@ -2,7 +2,7 @@
 id: UC-03-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-18
 related: UC-03
 ---
 

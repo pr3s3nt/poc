@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-11-07
+last_reviewed: 2026-11-18
 ---
 
 # Design-to-code map

@@ -2,7 +2,7 @@
 id: UC-03-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-18
 ---
 
 > Generic Workload replacement: [ADR-035](../../architecture/decisions/ADR-035-generic-workload-template-driver.md)

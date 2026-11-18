@@ -2,7 +2,7 @@
 id: UI-ARCHITECTURE-INDEX
 artifact: shared-ui-design
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-18
 ---
 
 # Shared Web Console UI

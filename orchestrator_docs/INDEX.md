@@ -2,7 +2,7 @@
 id: DOC-INDEX
 artifact: documentation-index
 status: current
-last_reviewed: 2026-11-16
+last_reviewed: 2026-11-18
 ---
 
 # Documentation index

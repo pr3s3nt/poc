@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-11
+last_reviewed: 2026-11-18
 ---
 
 # Current project state
@@ -2522,11 +2522,15 @@ per the user’s decision; Keycloak deployment/configuration is a later step.
 Installation/users/catalog/Application identities are preserved. Full backend
 remains baseline-red; the final full frontend passes 1,077 tests.
 
-## Definition code editor — issue #87, implementation in progress
+## Definition code editor — issue #87, awaiting acceptance
 
 Separate features/definition-code-editor branch from main 725541ef. Existing
 Definition edit supports synchronized form/YAML/JSON with the same validation,
 source pins and version-CAS Save. Four-driver real browser round-trip and scoped
-checks pass; final full frontend/source attribution/handoff are being completed.
+checks pass. Final full frontend on kind passes 116 files / 1093 tests and
+typecheck/lint/build; owned test namespace cleanup is verified. Backend source
+is identical to main, with completed accepted-main evidence explicitly reused;
+its failures/skips/PG timeout remain baseline-red. The isolated trial and four
+examples remain available for acceptance.
 No main merge, rollout or full green backend gate claimed. See
 [implementation](implementation/definition-code-editor.md).

@@ -36,5 +36,8 @@ Samples and stack volumes are retained for review.
 
 This main revision has no #84 Gateway driver; the generic authoring DTO path is
 independent of driver-specific forms and can be retained on #84 integration.
-Remaining: final checks, fresh full frontend on kind, unchanged-backend evidence
-attribution, visual review and Tailscale handoff. No main merge/rollout approved.
+Final full frontend on kind passes 116 files / 1093 tests and typecheck/lint/build;
+both full namespaces are cleaned. Unchanged backend evidence is explicitly reused,
+retaining its baseline failures/skips/PG timeout. Final visual/browser checks pass.
+See [verification](../verification/2026-11-18-definition-code-editor.md). Trial stack
+and four examples are retained for acceptance. No main merge/rollout approved.

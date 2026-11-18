@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-11-08
+last_reviewed: 2026-11-18
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
