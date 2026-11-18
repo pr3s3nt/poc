@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-18 | Accepted #89/#91 merges, retained kind rollout, private backup/restore, browser/API and trial retirement | [Setup/Kubernetes main integration](2026-11-18-setup-kubernetes-main.md) |
 | 2026-11-18 | Issue #91 independent kind installation, TLS/manual unseal, retained update/restart and full-suite baseline limits | [Kubernetes installation](2026-11-18-kubernetes-installations.md) |
 | 2026-11-18 | Accepted #84/#87 main merge, waived repeat tests, retained kind rollout and trial retirement | [Routes/editor main integration](2026-11-18-routes-editor-main.md) |
 | 2026-11-18 | Issue #83 user-requested trial cleanup, owned resources removed and current main preserved | [Score trial cleanup](2026-11-18-score-cleanup.md) |

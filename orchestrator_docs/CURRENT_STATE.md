@@ -2623,12 +2623,13 @@ stopped with data retained; both feature branches are deleted. Trial r7 catalog
 configuration was not imported into main. See
 [accepted merge/rollout](verification/2026-11-18-routes-editor-main.md).
 
-## First-run setup — issue #89, feature branch 2026-11-18
+## First-run setup — issue #89, accepted main integration 2026-11-18
 
 `features/setup` implements operator-token initialization, a platform guide using
 existing configuration forms and user-supplied Git Type/Definition discovery,
 preview and confirmed import. Workload remains a Type/template Definition.
-Not merged/deployed to main; user acceptance is pending. Browser initialization and
+Accepted and merged into main; retained kind Console rollout and exact Tailscale
+browser/API checks passed without changing its Organization/authentication. Browser initialization and
 10-Type/8-Definition Git import/rerun/restart passed. Full frontend passes 1104 tests;
 full backend has the same 103 failures and 8 skips as main, with eight added passing
 setup tests and no new failure/skip. Both full-check namespaces were cleaned.
@@ -2636,12 +2637,12 @@ setup tests and no new failure/skip. Both full-check namespaces were cleaned.
 [verification and baseline inventory](verification/2026-11-18-first-run-setup.md).
 
 
-## Independent Kubernetes installations — issue #91, feature branch 2026-11-18
+## Independent Kubernetes installations — issue #91, accepted main integration 2026-11-18
 
 `features/kubernetes-manifests` packages separate kind/staging/production overlays
 with PostgreSQL/Vault TLS, private generated inputs, manual Vault unseal, an owner
 Job before runtime, Traefik HTTPRoute and quiesced private backup/upgrade tooling.
-It includes unmerged #89; acceptance and main merge are pending. A separate kind
+Accepted and merged together with #89. A separate kind
 installation has real Console/Git initialization, persisted credential, retained
 update/restart checks and an isolated PostgreSQL/Vault/backend backup restore. Staging/production are operator-run samples, not deployed
 by this task. Full frontend passes 1104 tests; full Go retains 103 shared failures,
@@ -2649,3 +2650,8 @@ eight skips and one extra intermittent unchanged Git test (focused 50-repeat pas
 See [runbook](../deploy/kubernetes/README.md),
 [code map](implementation/code-map.md#independent-kubernetes-installations--issue-91)
 and [execution/limits](verification/2026-11-18-kubernetes-installations.md).
+The backup-listing transport fix is included in main `969f50e9`: seven focused
+installer tests and an actual retained-dump listing pass. No product tree changed
+from the accepted full-suite sources. Both feature branches are removed; Docker
+trials and the kind trial are stopped with data retained. Main stays running.
+See [main integration](verification/2026-11-18-setup-kubernetes-main.md).

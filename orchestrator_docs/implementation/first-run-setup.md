@@ -7,7 +7,9 @@ last_reviewed: 2026-11-18
 
 # First-run setup — issue #89
 
-Feature branch `features/setup`; not merged or deployed to the main Console.
+Accepted and merged into main on 2026-11-18 (`8a357d2e`, combined merge
+`d772495f`). The retained kind Console runs the accepted product images; its
+existing Organization and SSO/personal-Admin configuration remain unchanged.
 Approved behavior: [UC-00 SETUP](../usecase/UC-00/first-run-setup.md).
 Operation and restart: [runbook](../operations/first-run-setup.md).
 
@@ -36,5 +38,9 @@ The guide reflects saved verification, not continuous liveness or deploy accepta
 initialization, Git Terraform/template import and preserved rerun/restart data.
 Full frontend passes 1104 tests. Full backend has exactly the main baseline
 103 failures/8 skips, no added failure/skip and eight additional passing tests.
-The backend gate remains red; feature acceptance/merge is pending. Both isolated
-full-check namespaces were cleaned; trial Docker stacks and data remain available.
+The backend gate remains red. The subsequent combined run also observed one
+intermittent unchanged Git cancellation test; see the
+[combined evidence](../verification/2026-11-18-kubernetes-installations.md).
+Both features are accepted/merged; trial Docker stacks are stopped with volumes
+retained. See [main integration](../verification/2026-11-18-setup-kubernetes-main.md)
+for rollout, exact browser/API verification and retired trial access.
