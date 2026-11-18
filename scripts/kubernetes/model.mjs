@@ -5,6 +5,9 @@ import { execFileSync } from 'node:child_process';
 import { parseAllDocuments, stringify } from 'yaml';
 export const root = resolve(new URL('../..', import.meta.url).pathname);
 export const owner = 'orchestrator-installer';
+// pg_restore --list can finish after the TOC. Drain the remaining stream so
+// kubectl does not wait forever on a stdin copier, preserving the tool status.
+export const archiveListingScript = 'pg_restore --list; status=$?; cat >/dev/null; exit "$status"';
 export function requireThat(test, message) { if (!test) throw new Error(message); }
 export function privateDirectory(dir) {
  dir=resolve(dir);for(let p=dir;;p=dirname(p)){requireThat(!existsSync(join(p,'.git')),'Private directory must be outside Git');if(p===dirname(p))break;}

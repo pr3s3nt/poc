@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, openSync, closeSync
 import { resolve, join } from 'node:path';
 import { request as httpsRequest } from 'node:https';
 import { randomUUID } from 'node:crypto';
-import { loadConfig, privateDirectory, privateRead, savePrivate, prepare, render, serialize, desiredSecrets, sameSecret, assertNamespace, requireThat, digest, root, owner } from './model.mjs';
+import { loadConfig, privateDirectory, privateRead, savePrivate, prepare, render, serialize, desiredSecrets, sameSecret, assertNamespace, requireThat, digest, root, owner, archiveListingScript } from './model.mjs';
 
 const args=process.argv.slice(2),command=args.shift();
 const options={};for(let i=0;i<args.length;i++){requireThat(args[i].startsWith('--'),'Unknown argument');const key=args[i].slice(2);options[key]=args[i+1]&&!args[i+1].startsWith('--')?args[++i]:true;}
@@ -158,7 +158,7 @@ try{
   const receipt={namespaceUID:state.namespaceUID,id:state.id,createdAt:new Date().toISOString(),complete:false};savePrivate(join(destination,'receipt.json'),JSON.stringify(receipt,null,2)+'\n',true);
   scale('backend',0);scale('frontend',0);waitPodsDeleted('backend');waitPodsDeleted('frontend');assertIdle();
   streamFile(['exec','deployment/postgres','--','sh','-ec','PGPASSWORD=$(cat /private/password); export PGPASSWORD; pg_dump -U orchestrator -d orchestrator -Fc'],join(destination,'database.dump'));
-  streamFile(['exec','-i','deployment/postgres','--','pg_restore','--list'],join(destination,'database-list.txt'),join(destination,'database.dump'));
+  streamFile(['exec','-i','deployment/postgres','--','sh','-c',archiveListingScript],join(destination,'database-list.txt'),join(destination,'database.dump'));
   scale('vault',0);waitPodsDeleted('vault');
   for(const [claim,node]of [['backend-data',backendNode],['vault-data',vaultNode]]){
    const name='backup-'+randomUUID().slice(0,8);const object={apiVersion:'v1',kind:'Pod',metadata:{name,namespace:c.namespace,labels:{'app.kubernetes.io/managed-by':owner,'orchestrator.dev/installation':state.id}},spec:{automountServiceAccountToken:false,nodeName:node,terminationGracePeriodSeconds:0,restartPolicy:'Never',containers:[{name:'archive',image:c.images.postgres,command:['sleep','600'],volumeMounts:[{name:'data',mountPath:'/data',readOnly:true}]}],volumes:[{name:'data',persistentVolumeClaim:{claimName:claim,readOnly:true}}]}};
