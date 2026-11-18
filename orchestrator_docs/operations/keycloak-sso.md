@@ -11,6 +11,13 @@ last_reviewed: 2026-11-12
 owns product behavior. This procedure is for issue #77's dedicated test setup;
 no company Keycloak is changed. Existing backend authorization remains in place.
 
+For enabling this existing integration on the retained kind Console, use the
+[kind OIDC rollout procedure](../../deploy/kind-k8s-4f/README.md#bật-keycloak-sso-trên-installation-hiện-có--issue-88).
+The [issue #88 verification](../verification/2026-11-18-keycloak-platform.md)
+records the main installation's activation, separate from the feature preview
+below. It uses a dedicated platform-managed Keycloak and preserves local users;
+SSO usernames must differ because account migration/linking is not supported.
+
 ## Backend configuration
 
 Set `ORCHESTRATOR_OIDC_CONFIG_FILE` to an owner-only JSON file readable by the

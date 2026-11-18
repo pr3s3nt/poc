@@ -2517,7 +2517,18 @@ main-baseline failures are recorded in the
 [browser scenario](../e2e/scenarios/keycloak-sso/README.md).
 
 [Accepted main integration](verification/2026-11-17-keycloak-main.md) records fresh
-full checks and the retained v10→v11 rollout. Main deliberately keeps local login
-per the user’s decision; Keycloak deployment/configuration is a later step.
+full checks and the retained v10→v11 rollout. At that handoff main deliberately
+kept local login pending the user's Keycloak deployment.
 Installation/users/catalog/Application identities are preserved. Full backend
 remains baseline-red; the final full frontend passes 1,077 tests.
+
+Operational follow-up 2026-11-18, issue #88: the existing Platform Engineer
+deployed a separate Keycloak/PostgreSQL Application through the main Console.
+The retained main installation now uses that dedicated realm for SSO and admits
+only the configured personal local Admin for password login. Three SSO roles,
+same-origin APIs, local Admin and restart/session identity preservation pass
+real browser checks through Tailscale. Existing local identities/domain data are
+preserved; the Score-preview Keycloak is unchanged. No product source/schema
+changed or full-suite green result is claimed. Patch/runbook are on the task
+branch awaiting acceptance; runtime configuration is enabled at user request.
+See [deployment/activation evidence](verification/2026-11-18-keycloak-platform.md).

@@ -299,3 +299,7 @@ url/ref/path authoring, explicit check then pinned registration and portable Git
 [browser acceptance](../e2e/scenarios/keycloak-sso/README.md),
 [feature verification](verification/2026-11-13-keycloak-sso.md),
 [accepted main integration/local-mode rollout](verification/2026-11-17-keycloak-main.md).
+
+[Main Console Keycloak deployment and SSO activation — issue #88](verification/2026-11-18-keycloak-platform.md)
+records the operational follow-up; [kind OIDC rollout](../deploy/kind-k8s-4f/README.md#bật-keycloak-sso-trên-installation-hiện-có--issue-88)
+owns the installation procedure.
