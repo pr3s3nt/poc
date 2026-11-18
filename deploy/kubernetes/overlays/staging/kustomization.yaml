@@ -1,0 +1,76 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: orchestrator-staging
+resources:
+  - ../../base
+labels:
+  - pairs:
+      app.kubernetes.io/managed-by: orchestrator-installer
+      app.kubernetes.io/part-of: orchestrator
+      orchestrator.dev/environment: staging
+configMapGenerator:
+  - name: installation-settings
+    literals:
+      - CONTEXT=CHANGE_ME_CONTEXT
+      - HOSTNAME=CHANGE_ME_HOSTNAME
+      - GATEWAY=CHANGE_ME_GATEWAY
+      - GATEWAY_NAMESPACE=CHANGE_ME_GATEWAY_NAMESPACE
+      - LISTENER=CHANGE_ME_HTTPS_LISTENER
+      - SCHEME=https
+      - STORAGE_CLASS=CHANGE_ME_STORAGE_CLASS
+    options:
+      disableNameSuffixHash: true
+      labels:
+        orchestrator.dev/phase: config
+replacements:
+  - source:
+      kind: ConfigMap
+      name: installation-settings
+      fieldPath: data.HOSTNAME
+    targets:
+      - select:
+          kind: HTTPRoute
+          name: console
+        fieldPaths:
+          - spec.hostnames.0
+  - source:
+      kind: ConfigMap
+      name: installation-settings
+      fieldPath: data.GATEWAY
+    targets:
+      - select:
+          kind: HTTPRoute
+          name: console
+        fieldPaths:
+          - spec.parentRefs.0.name
+  - source:
+      kind: ConfigMap
+      name: installation-settings
+      fieldPath: data.GATEWAY_NAMESPACE
+    targets:
+      - select:
+          kind: HTTPRoute
+          name: console
+        fieldPaths:
+          - spec.parentRefs.0.namespace
+  - source:
+      kind: ConfigMap
+      name: installation-settings
+      fieldPath: data.LISTENER
+    targets:
+      - select:
+          kind: HTTPRoute
+          name: console
+        fieldPaths:
+          - spec.parentRefs.0.sectionName
+  - source:
+      kind: ConfigMap
+      name: installation-settings
+      fieldPath: data.STORAGE_CLASS
+    targets:
+      - select:
+          kind: PersistentVolumeClaim
+        fieldPaths:
+          - spec.storageClassName
+        options:
+          create: true

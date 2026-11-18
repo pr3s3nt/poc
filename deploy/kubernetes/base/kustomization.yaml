@@ -1,0 +1,35 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace-orchestrator.yaml
+  - persistentvolumeclaim-postgres-data.yaml
+  - persistentvolumeclaim-vault-data.yaml
+  - persistentvolumeclaim-backend-data.yaml
+  - service-postgres.yaml
+  - deployment-postgres.yaml
+  - service-vault.yaml
+  - deployment-vault.yaml
+  - job-database-setup.yaml
+  - service-backend.yaml
+  - deployment-backend.yaml
+  - service-frontend.yaml
+  - deployment-frontend.yaml
+  - httproute-console.yaml
+  - ../scripts
+  - ../../local
+configMapGenerator:
+  - name: vault-config
+    literals:
+      - |
+        vault.hcl=ui = false
+        disable_mlock = true
+        storage "file" { path = "/vault/data" }
+        listener "tcp" {
+          address = "0.0.0.0:8200"
+          tls_cert_file = "/private/server.crt"
+          tls_key_file = "/private/server.key"
+        }
+        api_addr = "https://vault:8200"
+    options:
+      labels:
+        orchestrator.dev/phase: config

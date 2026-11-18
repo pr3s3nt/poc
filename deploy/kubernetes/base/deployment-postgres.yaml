@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  labels:
+    orchestrator.dev/phase: dependencies
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      automountServiceAccountToken: false
+      initContainers:
+        - name: private-files
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -ec
+            - PRIVATE_UID=$(id -u postgres); export PRIVATE_UID; sh
+              /scripts/prepare-private.sh
+          env:
+            - name: PRIVATE_UID
+              value: "70"
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: source
+              mountPath: /source
+              readOnly: true
+            - name: private
+              mountPath: /private
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          args:
+            - -c
+            - ssl=on
+            - -c
+            - ssl_cert_file=/private/server.crt
+            - -c
+            - ssl_key_file=/private/server.key
+          env:
+            - name: POSTGRES_DB
+              value: orchestrator
+            - name: POSTGRES_USER
+              value: orchestrator
+            - name: POSTGRES_PASSWORD_FILE
+              value: /private/password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: private
+              mountPath: /private
+              readOnly: true
+            - name: private
+              mountPath: /run/orchestrator/role-passwords
+              readOnly: true
+            - name: legacy-scripts
+              mountPath: /docker-entrypoint-initdb.d/10-roles.sh
+              readOnly: true
+              subPath: postgres-init-roles.sh
+            - name: scripts
+              mountPath: /docker-entrypoint-initdb.d/20-tls.sh
+              readOnly: true
+              subPath: postgres-require-tls.sh
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - orchestrator
+                - -d
+                - orchestrator
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgres-data
+        - name: private
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: installation-scripts
+            defaultMode: 292
+        - name: source
+          projected:
+            defaultMode: 256
+            sources:
+              - secret:
+                  name: orchestrator-postgres
+              - secret:
+                  name: orchestrator-db-roles
+              - secret:
+                  name: postgres-tls
+                  items:
+                    - key: tls.crt
+                      path: server.crt
+                    - key: tls.key
+                      path: server.key
+        - name: legacy-scripts
+          configMap:
+            name: installation-policies
+            defaultMode: 292

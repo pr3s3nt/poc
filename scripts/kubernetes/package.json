@@ -1,0 +1,1 @@
+{"name":"orchestrator-kubernetes-installer","private":true,"type":"module","engines":{"node":">=22"},"scripts":{"test":"node --test test/*.test.mjs"},"dependencies":{"yaml":"2.9.1"}}
