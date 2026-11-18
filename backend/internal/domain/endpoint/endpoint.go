@@ -19,11 +19,14 @@ type Policy struct {
 }
 
 type Desired struct {
-	Hostname string `json:"hostname"`
-	URL      string `json:"url"`
-	Port     string `json:"port"`
-	Path     string `json:"path"`
-	Policy   Policy `json:"policy"`
+	// TemplateOwned marks the explicit cluster-bound endpoint path.
+	TemplateOwned bool   `json:"templateOwned,omitempty"`
+	Cluster       string `json:"cluster,omitempty"`
+	Hostname      string `json:"hostname"`
+	URL           string `json:"url"`
+	Port          string `json:"port"`
+	Path          string `json:"path"`
+	Policy        Policy `json:"policy"`
 }
 
 // Claim is one reserved hostname path (EP-07).

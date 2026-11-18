@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-11-07
+last_reviewed: 2026-11-18
 ---
 
 # Design-to-code map
@@ -1474,6 +1474,23 @@ Backend capability/provisioning/Definition behavior is unchanged.
 - [Contract](../architecture/contracts/score-workload.md); no graph/provisioning
   algorithms changed. See [implementation and evidence](score-workload.md).
 
+## Namespace placement and template routes — issue #84
+
+[Contract/sequence](../architecture/contracts/namespace-template-routes.md) →
+`planning/provider_bindings.go`, `planning/endpoint.go`, `catalog/service.go`,
+`kubernetes/existing_gateway.go`, `templatedriver/endpoint.go` and
+`template-sources/standard/resources/httproute.tpl`. Console uses
+`EndpointDriverFields.tsx`, `ResourceDefinitionsPage.tsx`,
+`InfrastructureConnection.tsx` and `moduleMapping.ts`.
+[Checkpoint and remaining runtime gates](namespace-template-routes.md).
+
+Issue #84 Echo refinement (2026-11-17): domain/endpoint/gateway.go owns both
+metadata layouts and the Gateway output contract; adapters/echo/executor.go is
+the generic identity executor. Kubernetes GatewayVerifier is independent of
+legacy ExistingGatewayAdapter provisioning. Catalog/planner/runtime contract
+tests include gateway_registration_test.go, gateway_resource_test.go and
+provisioning/echo_gateway_test.go. Cluster readiness/pin adapters remain unchanged.
+
 ## Keycloak SSO — issue #77
 
 - OIDC provider contract: `backend/internal/ports/oidc`.
@@ -1495,3 +1512,18 @@ exposes only availability and session identity exposes UserManagement=false.
 SignInEntry/SignInPage offer the scoped disclosure on the same Console; AppShell
 keeps own password change and hides employee management. The shared Console
 helper accepts ORCH_AUTH_MODE=local only when the server explicitly allows it.
+
+## Definition code editing — issue #87
+
+UC-03 CODE-01–06 → frontend ResourceDefinitionsPage / DefinitionEditMethods /
+useDefinitionCodeEditor / definitionEditDraft; strict catalogDocument parser and
+existing prepare + PUT APIs. DefinitionCodeEditor and definitionEditDraft tests;
+real scenario e2e/scenarios/definition-code-editor. No backend/schema change.
+
+Integrated #84/#87 runtime checks:
+`e2e/scenarios/namespace-template-routes/editor.mjs` checks Echo/legacy Gateway
+and reference Endpoint; `e2e/scenarios/definition-code-editor/read-only.mjs`
+checks retained cluster/Terraform/template layouts without saving.
+[Combined execution](../verification/2026-11-18-integrated-routes-editor.md)
+records preserved installation upgrade, real editor/update/restart/browser checks
+and the fresh full candidate/main comparison.

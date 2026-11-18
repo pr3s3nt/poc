@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-11-08
+last_reviewed: 2026-11-18
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -1682,8 +1682,36 @@ SC-06 (issue #83): synchronized form/document tabs in the
 [screens](../usecase/UC-16/ui/screens.md) → WorkloadEditorPage,
 ScoreDocuments component tests and Score authoring browser scenario.
 
+## Namespace placement and template routes — issue #84
+
+| Requirement | Realization | Code and focused validation |
+|---|---|---|
+| NP-01 | Namespace provider inheritance | planning/provider_bindings.go; namespace_provider_test.go; provisioning pin/provenance guards |
+| GW-01/02 | Separate preexisting Gateway and endpoint reference | catalog/gateway_registration_test.go; planning/gateway_resource_test.go; provisioning/echo_gateway_test.go; kubernetes/gateway_verifier.go; kubernetes/existing_gateway_test.go |
+| UC-03 Gateway reference controls | ResourceClassReferenceField; shared class metadata and whole output references | EndpointDefinition tests; [read-only legacy/Echo browser review](../verification/2026-11-17-gateway-reference-controls.md) |
+| RT-01/02 | Authorized neutral input and Git render/guard | domain/endpoint/intent.go; templatedriver/endpoint_test.go; standard/resources/httproute.tpl |
+| RT-03 | Explicit pin transition and unchanged ownership/claims | legacy endpoint deployment tests retained; [merged runtime evidence](../verification/2026-11-17-echo-gateway.md) verifies deploy/update/restart/cleanup and preexisting Gateway identity; no live legacy-to-new pin migration claimed |
+
+Canonical [contract/sequence](../architecture/contracts/namespace-template-routes.md).
+[Implementation and remaining gates](../implementation/namespace-template-routes.md).
+
 ## Keycloak SSO — issue #77
 
 | Requirement | Realization | Implementation / checks |
 |---|---|---|
 | UC-00 SSO-01..07 | UC-00 OIDC collaboration | authentication federation, OIDC adapter, HTTP auth handlers; focused Go tests and keycloak-sso browser scenario |
+
+## Definition code editing — issue #87
+
+| Requirement | Realization and validation |
+|---|---|
+| CODE-01/02 | DefinitionEditMethods, useDefinitionCodeEditor, definitionEditDraft; four-driver UI/code round-trip, advanced-field tests and real browser scenario |
+| CODE-03/04 | Strict parser, context key/type/version, existing prepare and PUT; identity/system-field and exact checked Git pin tests |
+| CODE-05/06 | Shared Save/reload guards, accessible tabs and existing shell; stale/network/uncertain/unmount tests; visual browser review |
+
+Combined #84/#87 execution: Gateway/Endpoint editor round-trip and Save,
+read-only existing cluster/Terraform/template round-trip, inherited PostgreSQL
+reuse through update/restart and Tailscale browser checks are recorded in
+[the integrated verification](../verification/2026-11-18-integrated-routes-editor.md).
+Its fresh full candidate/main check retains identical baseline failures/skips;
+owned full-test namespace cleanup is verified. No main merge/acceptance claimed.

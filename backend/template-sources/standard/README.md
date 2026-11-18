@@ -46,3 +46,9 @@ through the same field-level merge. Publish new immutable preset versions; old
 source pins and existing snapshots remain unchanged. Host isolation follows
 Kubernetes defaults; hostPath support is not removed or represented as Baseline
 compliance. Validate real rendered/injected Pods during acceptance.
+
+With capability `endpoint-httproute-v1`, `resources/httproute.tpl` constructs the
+HTTPRoute from authorized `.Input.endpoint` and actual rendered Service ports.
+Gateway policy is selected through a separate Gateway Definition; the template
+never provisions that shared Gateway or chooses a different cluster/domain.
+The platform validates the rendered route before normal CD publication.

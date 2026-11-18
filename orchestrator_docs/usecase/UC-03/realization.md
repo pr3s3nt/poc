@@ -2,7 +2,7 @@
 id: UC-03-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-18
 ---
 
 > Generic Workload replacement: [ADR-035](../../architecture/decisions/ADR-035-generic-workload-template-driver.md)
@@ -11,6 +11,11 @@ last_reviewed: 2026-10-28
 > identity, secret and delivery guarantees remain.
 
 # UC-03 — Use Case Realization
+
+Issue #84 amendment: registration collaborates with the existing module/source
+inspectors and reference validator for namespace provider bindings and nonsecret
+separate Gateway metadata contracts. No inspection provisions a Gateway or rewrites an
+existing Definition. See [ADR-043](../../architecture/decisions/ADR-043-namespace-placement-template-routes.md).
 
 > **2026-11-02 — Definition forms and Catalog module sources.**
 > Direct Definition/render authoring and matching are restored. Catalog is an
@@ -242,3 +247,13 @@ hiện có, không kiểm tra lại branch. Export endpoint đọc Definition ho
 scoped và verified bundle metadata đã lưu, project Git URL/exact commit/path.
 Không thêm table hay receipt store: canonical immutable pin được registry kiểm
 tra lại tại registration; client không thể bypass validation bằng prepared draft.
+
+
+## Synchronized Definition edit — issue #87
+
+Console giữ public authoring draft cùng context key/type/version. Form delta áp
+lên draft gốc, giữ fields chưa có control. Code dùng parser YAML/JSON strict
+chung và prepare hiện hành. Code → form hydrate rồi đối chiếu canonical round-trip;
+không lossless thì giữ code. Save hai tab dùng cùng PUT và stale/unknown handling.
+Không thêm participant/API/transaction/runtime; sequence Create/Update và GFILE
+prepare giữ nguyên.

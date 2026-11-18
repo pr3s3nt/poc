@@ -10,6 +10,7 @@ inputsSchema: inputs.schema.json
 defaults: defaults.yaml
 normalize: normalize/workload.tpl
 workloadCapabilities:
+  - endpoint-httproute-v1
   - template-defaults-v1
   - runtime-security-v1
   - controller-policy-v1
@@ -24,6 +25,7 @@ resources:
   - resources/configmaps.tpl
   - resources/deployment.tpl
   - resources/service.tpl
+  - resources/httproute.tpl
   - resources/identity.tpl
   - resources/migrate.tpl
 patches:

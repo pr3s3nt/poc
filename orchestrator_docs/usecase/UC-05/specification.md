@@ -312,3 +312,19 @@ per-resource evidence; changing a Definition does not silently upgrade this scop
 
 [EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
 preview, atomic hostname reservation, manifest delivery and safe release.
+
+## Namespace placement and template routes — issue #84
+
+[NP-01, GW-01/02 and RT-01–03](../../architecture/contracts/namespace-template-routes.md)
+apply to this use case. Registration/Preview remain read-only; Deploy uses pinned
+namespace/Gateway target identities and template-rendered HTTPRoute; updates and
+removal retain existing claims, state and ownership guarantees.
+
+### Gateway metadata refinement — approved 2026-11-17
+
+ADR-043/GW-01 permits new Echo Gateway Definitions with the required gateway
+output envelope. Validate supported driver, typed policy/reference contract and
+cluster/account pins; preserve PREEXISTING ownership and legacy existing-gateway
+revisions. Echo performs metadata transformation only. Real Gateway admission
+checks remain before workload rendering/publication; cluster authentication
+continues through the dedicated existing-cluster driver and Driver Account.

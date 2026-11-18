@@ -311,6 +311,12 @@ as specified above.
 
 ## Public endpoint resource
 
+Issue #84: [ADR-043](../../architecture/decisions/ADR-043-namespace-placement-template-routes.md)
+keeps Developer endpoint authoring at name/Service-port/path. The platform pins
+the selected Gateway policy and validates agreement with the workload namespace's
+cluster; capable Git templates render HTTPRoute. Score and native input must
+produce equivalent endpoint intent and retain explicit Save/Preview/Deploy.
+
 [EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
 preview, atomic hostname reservation, manifest delivery and safe release.
 
@@ -377,3 +383,10 @@ populates Score/extension from current edits; switching document → form valida
 before applying. Invalid text and prior valid form are kept, with stale writes
 blocked. Opening saved workloads, asynchronous scope guards and lossless advanced
 configuration follow the same contract. Save/Preview/Deploy remain separate.
+
+## Namespace placement and template routes — issue #84
+
+[NP-01, GW-01/02 and RT-01–03](../../architecture/contracts/namespace-template-routes.md)
+apply to this use case. Registration/Preview remain read-only; Deploy uses pinned
+namespace/Gateway target identities and template-rendered HTTPRoute; updates and
+removal retain existing claims, state and ownership guarantees.

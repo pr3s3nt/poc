@@ -378,7 +378,13 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 		if def.ResourceTypeKey != "endpoint" || def.DriverAccount != "" {
 			return nil, fmt.Errorf("endpoint driver serves endpoint resources without a driver account")
 		}
-		if _, err := endpoint.ParsePolicy(variables); err != nil {
+		if ref, selected, err := endpoint.GatewaySelection(variables); err != nil {
+			return nil, err
+		} else if selected {
+			if err := checkResourceReferenceKind(ref, endpoint.GatewayType, types); err != nil {
+				return nil, err
+			}
+		} else if _, err := endpoint.ParsePolicy(variables); err != nil {
 			return nil, err
 		}
 		for _, name := range []string{"hostname", "url"} {
@@ -386,6 +392,23 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 			if !ok || field.Secret || field.Type != "string" {
 				return nil, fmt.Errorf("endpoint requires nonsecret string output %s", name)
 			}
+		}
+		return nil, nil
+	case resource.DriverEcho, resource.DriverExistingGateway:
+		// Echo is public only for the approved external Gateway contract.
+		if def.DriverType == resource.DriverEcho && def.ResourceTypeKey != endpoint.GatewayType {
+			return nil, invalidField("definition.driverType", fmt.Errorf("%w: Echo registration is supported only for Gateway metadata", ErrInvalid))
+		}
+		if err := endpoint.ValidateGatewayType(typ, def.DriverType); err != nil {
+			return nil, err
+		}
+		metadata, err := endpoint.GatewayDefinitionValues(*def)
+		if err != nil {
+			return nil, err
+		}
+		ref, _, _ := resource.WorkloadReference(metadata[resource.VariableCluster].(string))
+		if err := checkResourceReferenceKind(ref, planning.TypeCluster, types); err != nil {
+			return nil, err
 		}
 		return nil, nil
 	case resource.DriverExistingCluster:
@@ -499,4 +522,18 @@ func (s *Service) SetTemplateSources(bundles map[string]resource.TemplateSource)
 func (s *Service) PrepareReleaseDefinition(ctx context.Context, org string, def resource.Definition) (resource.Definition, error) {
 	prepared, _, err := s.prepareDefinition(ctx, org, def)
 	return prepared, err
+}
+
+func checkResourceReferenceKind(ref, want string, types []resource.Type) error {
+	ctx := planning.Context{App: application.Application{Key: "sample-app"}, Env: environment.Environment{Key: "staging"}}
+	descriptor, err := planning.ParseDescriptorText(ref, &planning.Node{Class: "default"}, ctx)
+	if err != nil || descriptor.Type != want {
+		return fmt.Errorf("reference must name a %s resource", want)
+	}
+	for _, typ := range types {
+		if typ.Key == want {
+			return nil
+		}
+	}
+	return fmt.Errorf("reference names an unregistered resource type")
 }

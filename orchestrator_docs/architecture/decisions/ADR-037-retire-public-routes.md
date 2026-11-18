@@ -8,6 +8,11 @@ related: [ADR-024, ADR-027, ADR-035, ADR-036]
 
 # Retire public routes and Application subdomains; endpoint is the only address
 
+[ADR-043](ADR-043-namespace-placement-template-routes.md), issue #84, supersedes
+the prohibition on template-rendered HTTPRoute for the explicit new endpoint
+template capability. Endpoint remains the only hostname/path authority; legacy
+revisions retain their original renderer during transition.
+
 ## Accepted decision — 2026-11-05
 
 The user decided that the public endpoint Resource Type

@@ -11,6 +11,7 @@ import (
 
 	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/deployment"
+	"orchestrator/internal/domain/endpoint"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/domain/tfresource"
@@ -140,6 +141,16 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	}
 
 	isTerraform := def.DriverType == resource.DriverTerraform
+	gatewayMetadata := node.ResourceType == endpoint.GatewayType
+	if gatewayMetadata {
+		if err := endpoint.ValidateGatewayType(typ, def.DriverType); err != nil {
+			return err
+		}
+		if _, err := endpoint.GatewayDefinitionValues(def); err != nil {
+			return err
+		}
+	}
+	echoGateway := gatewayMetadata && def.DriverType == resource.DriverEcho
 	// Every variable and param is expanded on its own so a secret source is
 	// attributed to the exact input it would feed. For Terraform consumers any
 	// secret-derived value (Type, module or runtime classification, nested or
@@ -152,7 +163,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 			if err != nil {
 				return nil, fmt.Errorf("provisioning: resolve driver %s of %s: %w", kind, descriptor, err)
 			}
-			if isTerraform && len(tracker.secretUsed) > 0 {
+			if (isTerraform || echoGateway) && len(tracker.secretUsed) > 0 {
 				return nil, fmt.Errorf("%w: %s %q of %s uses the secret output %s", ErrSecretInput, kind, name, descriptor, tracker.secretUsed[0])
 			}
 			out[name] = value
@@ -164,7 +175,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		return err
 	}
 	nodeParams := node.Params
-	if match.DriverType == resource.DriverExistingCluster && len(nodeParams) > 0 {
+	if (match.DriverType == resource.DriverExistingCluster || gatewayMetadata) && len(nodeParams) > 0 {
 		return fmt.Errorf("provisioning: %s: an existing cluster accepts no params; its identity comes from the driver account", descriptor)
 	}
 	params, err := expand(mapOrEmpty(nodeParams), "param")
@@ -201,6 +212,15 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	}
 
 	target := ResolveTarget(req.Plan.Graph, result, descriptor)
+	if placement := req.Plan.Placements[descriptor]; placement.Namespace != "" && isTerraform {
+		target, err = ResolveWorkloadTarget(req.Plan, result, descriptor, req.Context.OrganizationKey)
+		if err != nil {
+			return err
+		}
+		if inputMap[resource.VariableNamespace] != target.Namespace {
+			return fmt.Errorf("%w: resource namespace differs from its pinned namespace", ErrWorkloadTarget)
+		}
+	}
 
 	// A Terraform v2 executor verifies the pinned module itself and resolves
 	// the plan's provider pins; it never receives a pre-verified artifact.
@@ -265,6 +285,12 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	if err == nil && match.DriverType == resource.DriverExistingCluster && (connection.Key != match.DriverAccount || connection.Version != match.AccountVersion) {
 		err = fmt.Errorf("the driver account changed after the plan; plan again")
 	}
+	if err == nil && gatewayMetadata {
+		placement, pinned := req.Plan.Placements[descriptor]
+		if !pinned || placement.Account != connection.Key || placement.AccountVersion != connection.Version {
+			err = errPinStale
+		}
+	}
 	if def.DriverType == resource.DriverEndpoint {
 		// The built-in endpoint driver is a database reservation: it has no
 		// Driver Account, Connection or cluster access (EP-02).
@@ -286,6 +312,18 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		progress.FinishedAt = &finished
 		_ = s.store.SaveDeploymentResource(ctx, progress)
 		return fmt.Errorf("provisioning: %s: %w", descriptor, errPriorConnectionMismatch)
+	}
+
+	if echoGateway {
+		metadata, ok := inputMap[endpoint.GatewayOutput].(map[string]any)
+		cluster, clusterErr := execution.ParseClusterOutput(metadata[resource.VariableCluster])
+		if !ok || clusterErr != nil || cluster.Descriptor != req.Plan.Placements[descriptor].Cluster || cluster.AccountVersion != connection.Version || cluster.Target.Organization != req.Context.OrganizationKey || cluster.Target.Connection != connection.Key || cluster.Target.Connection != target.Connection || cluster.Target.ClusterName != target.ClusterName || cluster.Target.Provider != target.Provider || cluster.Target.Region != target.Region {
+			progress.Status = deployment.ResourceFailed
+			finished := s.clock.Now()
+			progress.FinishedAt = &finished
+			_ = s.store.SaveDeploymentResource(ctx, progress)
+			return fmt.Errorf("%w: Gateway metadata differs from its pinned cluster", errPinStale)
+		}
 	}
 
 	if selfVerifying {
@@ -362,6 +400,10 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		execReq.ProviderPins = pins
 		execReq.ProviderTargets = providerTargets(pins, result)
 		execReq.ProviderInstanceIDs = providerInstances(req.Plan.Graph, result, descriptor)
+	}
+	if echoGateway {
+		execReq.Connection = appdomain.Connection{}
+		execReq.Target = execution.Target{}
 	}
 	var execResult execution.ProvisionResult
 	if def.DriverType == resource.DriverEndpoint {
@@ -613,6 +655,9 @@ func effectiveConnection(def resource.Definition, pins []tfmodule.ProviderPin, s
 		}
 		return "", ""
 	}
+	if endpoint.GatewayMetadataDriver(def.ResourceTypeKey, def.DriverType) && target.Provider == "eks" {
+		return target.Connection, appdomain.ConnectionAWS
+	}
 	// A non-Terraform Kubernetes driver runs with the account of the cluster its references resolved to.
 	return target.Connection, appdomain.ConnectionKubernetes
 }
@@ -795,8 +840,28 @@ func checkPinsAgainstPlan(plan *planning.Plan, descriptor string, pins []tfmodul
 				return errPinStale
 			}
 		case tfmodule.BindingKubernetes:
-			if pin.Provider == "" || !providers[pin.Provider] {
+			if pin.Provider == "" {
 				return errPinForeign
+			}
+			if pin.Namespace == "" {
+				if !providers[pin.Provider] {
+					return errPinForeign
+				}
+			} else {
+				if !providers[pin.Namespace] {
+					return errPinForeign
+				}
+				nsCluster := false
+				for _, provider := range plan.Graph.Providers(pin.Namespace) {
+					if provider == pin.Provider {
+						nsCluster = true
+					}
+				}
+				placement, placed := plan.Placements[descriptor]
+				nsPlacement, nsPlaced := plan.Placements[pin.Namespace]
+				if !nsCluster || !placed || !nsPlaced || placement.Namespace != pin.Namespace || placement.Cluster != pin.Provider || nsPlacement.Cluster != pin.Provider {
+					return errPinForeign
+				}
 			}
 			if pin.ClusterProvider == planning.ClusterEKS {
 				// A cluster the plan itself creates (ADR-017): no Kubernetes Connection exists. The node

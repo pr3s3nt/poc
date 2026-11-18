@@ -2,7 +2,7 @@
 id: UC-03-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-18
 ---
 
 > Generic Workload replacement: [ADR-035](../../architecture/decisions/ADR-035-generic-workload-template-driver.md)
@@ -558,6 +558,12 @@ in CM-04. Existing Environments retain frozen revisions until explicitly upgrade
 
 ## Public endpoint resource
 
+Issue #84: [ADR-043](../../architecture/decisions/ADR-043-namespace-placement-template-routes.md)
+adds namespace-bound Kubernetes providers, separate existing Gateway
+resources/Definitions and endpoint references to those resources. Registration
+must validate reference kinds and nonsecret policy without provisioning or
+changing existing infrastructure. Legacy immutable revisions remain readable.
+
 [EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
 preview, atomic hostname reservation, manifest delivery and safe release.
 
@@ -621,3 +627,52 @@ This UI restriction supersedes earlier multi-source Console choices only.
 - **GFILE-05:** REUSED/CONFLICT vẫn so canonical cấu hình sau chuẩn bị, insert-only
   và scoped Organization; không cập nhật Definition/revision khi trùng key.
   Existing form POST/PUT, pin execution và template sources không thay đổi.
+
+## Namespace placement and template routes — issue #84
+
+[NP-01, GW-01/02 and RT-01–03](../../architecture/contracts/namespace-template-routes.md)
+apply to this use case. Registration/Preview remain read-only; Deploy uses pinned
+namespace/Gateway target identities and template-rendered HTTPRoute; updates and
+removal retain existing claims, state and ownership guarantees.
+
+### Gateway metadata refinement — approved 2026-11-17
+
+ADR-043/GW-01 permits new Echo Gateway Definitions with the required gateway
+output envelope. Validate supported driver, typed policy/reference contract and
+cluster/account pins; preserve PREEXISTING ownership and legacy existing-gateway
+revisions. Echo performs metadata transformation only. Real Gateway admission
+checks remain before workload rendering/publication; cluster authentication
+continues through the dedicated existing-cluster driver and Driver Account.
+
+### Gateway reference controls — approved 2026-11-17
+
+Gateway authoring selects a cluster class; Gateway-bound endpoint authoring
+selects a Gateway class from Resource Type metadata, following the existing
+namespace provider controls. The form generates the whole output reference in
+the current Application/Environment scope; authors do not type placeholders.
+Reference expressions remain in collapsed technical details. Opening/editing
+preserves stored driver, layout, reference scope, class and immutable pins;
+unavailable classes or advanced references remain visible and are not silently
+replaced. Explicit class selection replaces that reference only. Literal legacy
+endpoint forms remain unchanged. This does not add Kubernetes Gateway discovery.
+
+
+## Sửa Definition bằng code — issue #87, approved 2026-11-18
+
+- **CODE-01:** PE/Admin sửa mọi Definition được backend hỗ trợ qua Biểu mẫu /
+  YAML/JSON. Hai tab dùng chung draft, giữ public fields/kiểu dữ liệu,
+  criteria/provision/mapping, account và source pin; không sửa Type/state/secret.
+- **CODE-02:** UI → code giữ thay đổi hiện tại và fields hợp lệ chưa có control.
+  Code → UI sau parse strict và prepare validation. UI không biểu diễn lossless
+  thì giữ code và báo rõ; không bỏ trường, đổi default hoặc thay draft. Syntax
+  lỗi giữ nội dung/tab. Save code vẫn được phép sau validation đầy đủ.
+- **CODE-03:** ID/Resource Type cố định theo context sửa; expected version ở
+  ngoài code. Unknown/system fields bị từ chối, không âm thầm lọc. Built-in
+  Definition không được sửa vẫn giữ guard.
+- **CODE-04:** Check dùng prepare hiện có, không ghi Definition/revision/deploy.
+  Save dùng canonical draft và PUT/version-CAS hiện có, không import insert-only.
+  Git chỉ resolve khi check; lưu đúng pin đã check. Edits/scope hủy kết quả cũ.
+- **CODE-05:** Error/stale/unknown outcome giữ draft, không tự replay. Explicit
+  reload mới thay bằng bản server. Success cập nhật version và dữ liệu canonical
+  cho hai tab; không tự đổi pin Environment.
+- **CODE-06:** Giữ shell, accessible tabs và lỗi ngắn; tạo mới giữ import hiện có.

@@ -2499,6 +2499,51 @@ kind Console. Main import/export smoke passed without changing catalog/revision
 history or existing Applications. Full backend remains baseline-red; the complete
 comparison and rollout are in [main verification](verification/2026-11-12-catalog-documents-main.md).
 
+## Namespace placement / template routes — issue #84, awaiting acceptance
+
+On `features/Httproute` (including the explicitly requested Score branch base),
+namespace-inherited providers, separate preexisting Gateway Definitions and
+explicit template-rendered HTTPRoute are implemented with focused validation.
+Real native/Score batch Deploy, authenticated PostgreSQL, browser reachability,
+update/restart UID preservation and Console product cleanup passed on kind.
+A fresh review application reuses the released endpoint names. Full frontend
+passes 1067 tests/typecheck/lint/build. Full backend and main share the exact same
+103 failing top-level tests / 20 packages and 8 skips; both builds pass. No main
+merge/upgrade, user acceptance or full green backend suite is claimed. See
+[implementation and remaining gates](implementation/namespace-template-routes.md)
+and [execution evidence](verification/2026-11-16-namespace-template-routes.md).
+
+### Issue #84 refinement approved 2026-11-17 — awaiting acceptance
+
+New Gateway Definitions use Echo metadata with separate pre-render Kubernetes
+verification; existing-gateway driver/layout/revision compatibility remains.
+Cluster authentication stays in existing-cluster/Driver Account. Current main
+`ab37e2d4` was merged into the feature at `df719115`, preserving Score changes.
+Focused contract/provenance/authoring checks and merged native/Score live
+deploy/update/restart/product cleanup pass. A fresh review app is retained;
+Deployment API confirms both READY Echo Gateway executions, and native SQL/routes
+plus browser checks of the Console and two workloads pass. Legacy forms retain
+their stored driver/values/version. Full merged frontend passes 1076 tests and
+typecheck/lint/build. Fresh backend/main have identical 101 top-level failure
+events, 20 failed packages and 8 skips; both builds pass and no main pass is
+missing. Both PostgreSQL packages time out at 30 minutes; this is baseline-red,
+not a complete green suite. Owned test namespace cleanup is verified. See
+[the new execution record](verification/2026-11-17-echo-gateway.md) for source
+attribution. Prior 2026-11-16 evidence does not prove this revision. No feature
+merge into main, retained-stack upgrade or release tag is claimed.
+
+### Issue #84 reference controls — 2026-11-17
+
+Gateway cluster and Endpoint Gateway references now use class dropdowns from
+Resource Type metadata, consistent with namespace provider selection. The form
+generates the reference and keeps it under technical details; existing advanced
+references and Echo/legacy driver/layout/pins are preserved. Read-only browser
+review confirms legacy and Echo forms agree with generated JSON, with no saved
+Definition/revision changes. 28 focused tests and the fresh full frontend's 1078
+tests, typecheck/lint/build pass; disposable namespace cleanup is verified.
+Backend source is unchanged and the completed comparison above is
+explicitly reused. See [reference controls evidence](verification/2026-11-17-gateway-reference-controls.md).
+
 ## Keycloak SSO — issue #77
 
 Integrated into main on 2026-11-17 after user acceptance. UC-00 adds configured
@@ -2524,3 +2569,44 @@ full checks and the retained v10→v11 rollout. Main deliberately keeps local lo
 per the user’s decision; Keycloak deployment/configuration is a later step.
 Installation/users/catalog/Application identities are preserved. Full backend
 remains baseline-red; the final full frontend passes 1,077 tests.
+
+## Definition code editor — issue #87, awaiting acceptance
+
+Separate features/definition-code-editor branch from main 725541ef. Existing
+Definition edit supports synchronized form/YAML/JSON with the same validation,
+source pins and version-CAS Save. Four-driver real browser round-trip and scoped
+checks pass. Final full frontend on kind passes 116 files / 1093 tests and
+typecheck/lint/build; owned test namespace cleanup is verified. Backend source
+is identical to main, with completed accepted-main evidence explicitly reused;
+its failures/skips/PG timeout remain baseline-red. The isolated trial and four
+examples remain available for acceptance.
+No main merge, rollout or full green backend gate claimed. See
+[implementation](implementation/definition-code-editor.md).
+
+## Combined Gateway/routes and Definition editor — issues #84/#87
+
+User approved integration on 2026-11-18 into features/Httproute for a single
+review Console. Merge conflict resolution preserves namespace/Gateway/template
+contracts and synchronized code editing, including Echo/legacy Gateway layouts.
+Merge `35cbc638` runs on the preserved trial stack following normal v10→v11
+owner upgrade. Combined editor checks across existing driver layouts, one
+Environment update for both workloads, guarded restart and Tailscale browser
+checks pass. Full frontend passes 1102 tests/typecheck/lint/build. Fresh full
+backend candidate/main checks complete with identical 103 top-level failures,
+143 failing events, 20 failed packages and 8 skips; no new failure/skip or missing
+main passing test. Both builds pass and the owned test namespace is cleaned. See
+[combined verification](verification/2026-11-18-integrated-routes-editor.md).
+Backend remains baseline-red. No main merge or user acceptance is claimed.
+
+User-approved trial cleanup on 2026-11-18 removes three obsolete Gateway/Endpoint
+pairs from the task catalog. All five task Applications were already DELETED;
+no task namespaces/PVs remain. One Echo Gateway/reference Endpoint pair remains,
+with UI-saved/promoted r6 default criteria for new test Applications. Cluster,
+namespace, workload and PostgreSQL Definitions and shared Gateway identity are
+unchanged; immutable history is retained. See the cleanup section of the
+[combined verification](verification/2026-11-18-integrated-routes-editor.md).
+The next approved trial revision r7 names the pair `Gateway Traefik có sẵn` and
+`Endpoint qua Gateway` and explicitly matches class `default` for both. Native/
+Score Environment Preview selects both r7 Definitions; its temporary Application
+is product-deleted. Definition Matching Preview's separate driver allowlist still
+excludes Echo/Endpoint; this configuration change does not extend that API.

@@ -1,0 +1,78 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+import { openConsole, readConsoleConfig, closeConsole } from '../../lib/console.mjs';
+const { expect } = createRequire(new URL('../../../scripts/bootstrap/package.json', import.meta.url))('@playwright/test');
+const { stringify } = createRequire(new URL('../../../frontend/package.json', import.meta.url))('yaml');
+const config = readConsoleConfig();
+const evidence = resolve(process.env.ORCH_EVIDENCE_DIR ?? '');
+assert(process.env.ORCH_EVIDENCE_DIR && !evidence.startsWith(resolve('.') + '/'));
+mkdirSync(evidence, { recursive: true, mode: 0o700 });
+const setup = JSON.parse(readFileSync(join(evidence, 'setup.json')));
+assert.equal(setup.definitions.length, 4, 'Real isolated fixtures required');
+const labels = JSON.parse(readFileSync(new URL('../../../frontend/public/locales/vi.json', import.meta.url)));
+const session = await openConsole(config); const { page } = session;
+const route = config.baseURL + '/ui/platform/resource-definitions';
+const result = { checked: [], consoleURL: route };
+const save = () => writeFileSync(join(evidence, 'browser.json'), JSON.stringify(result, null, 2), { mode: 0o600 });
+const get = async path => { const response = await page.request.get(config.baseURL + '/api/v1' + path); assert(response.ok(), path + ': HTTP ' + response.status()); return response.json(); };
+const codeTab = () => page.getByRole('tab', { name: 'YAML/JSON', exact: true });
+const formTab = () => page.getByRole('tab', { name: 'Biểu mẫu', exact: true });
+const text = () => page.getByRole('textbox', { name: 'Nội dung YAML/JSON', exact: true });
+async function saveEdit(key) {
+  const saved = page.waitForResponse(r => r.request().method() === 'PUT' && new URL(r.url()).pathname === '/api/v1/resource-definitions/' + key);
+  await page.getByRole('button', { name: 'Lưu thay đổi', exact: true }).click();
+  const response = await saved; const body = await response.json();
+  assert(response.ok(), 'Save failed: ' + response.status() + ' ' + (body.code ?? ''));
+  await expect(page.getByRole('button', { name: 'Lưu thay đổi', exact: true })).toBeEnabled();
+  return body;
+}
+let deployments = 0;
+page.on('request', request => { if (request.method() !== 'GET' && /\/deploy(?:ments)?(?:\/|$)/.test(new URL(request.url()).pathname)) deployments++; });
+try {
+  const applications = (await get('/applications')).applications;
+  for (const key of setup.definitions) {
+    const before = (await get('/resource-definitions')).resourceDefinitions.find(d => d.key === key); assert(before);
+    const history = (await get('/resource-definitions/' + key + '/versions')).history;
+    await page.goto(route);
+    await page.locator(`[data-definition="${key}"]`).waitFor({ state: 'visible' });
+    await page.getByRole('button', { name: labels['platform.resourceDefinitions.editDefinitionKey'].replace('{key}', key), exact: true }).click();
+    const formName = 'Editor ' + before.resourceType + ' – UI';
+    await page.getByLabel('Tên hiển thị', { exact: true }).fill(formName);
+    await codeTab().click();
+    await expect(codeTab()).toHaveAttribute('aria-selected', 'true');
+    const box = await text().boundingBox();
+    const panel = await page.getByRole('tabpanel', { name: 'YAML/JSON', exact: true }).boundingBox();
+    assert(box && panel && box.width > panel.width * 0.8, 'Code editor does not use available panel width');
+    const generated = JSON.parse(await text().inputValue()); assert.equal(generated.name, formName); assert(!('version' in generated));
+    const codeName = 'Editor ' + before.resourceType + ' – YAML';
+    await text().fill(stringify({ ...generated, name: codeName }));
+    await formTab().click();
+    await expect(formTab()).toHaveAttribute('aria-selected', 'true', { timeout: 120_000 });
+    await expect(page.getByLabel('Tên hiển thị', { exact: true })).toHaveValue(codeName);
+    const first = await saveEdit(key); assert.equal(first.version, before.version + 1);
+    await codeTab().click();
+    const roundTrip = JSON.parse(await text().inputValue()); assert.equal(roundTrip.name, codeName);
+    const finalName = 'Editor ' + before.resourceType + ' – đồng bộ';
+    await text().fill(JSON.stringify({ ...roundTrip, name: finalName }, null, 2));
+    const second = await saveEdit(key); assert.equal(second.version, before.version + 2); assert.equal(second.name, finalName);
+    assert.deepEqual(second.driverInputs, before.driverInputs, 'Source/input pins changed during a name edit');
+    assert.equal(second.driverType, before.driverType); assert.equal(second.driverAccount, before.driverAccount);
+    assert.deepEqual(second.criteria, before.criteria); assert.deepEqual(second.provision ?? {}, before.provision ?? {});
+    const afterHistory = (await get('/resource-definitions/' + key + '/versions')).history;
+    assert.equal(afterHistory.activeId, history.activeId, 'Save activated a revision');
+    assert.equal(afterHistory.versions.length, history.versions.length + 2);
+    await page.screenshot({ path: join(evidence, key + '-code.png'), fullPage: true });
+    await formTab().click(); await expect(formTab()).toHaveAttribute('aria-selected', 'true', { timeout: 120_000 });
+    await expect(page.getByLabel('Tên hiển thị', { exact: true })).toHaveValue(finalName);
+    await page.screenshot({ path: join(evidence, key + '-form.png'), fullPage: true });
+    result.checked.push({ key, driver: second.driverType, beforeVersion: before.version, afterVersion: second.version, activeRevisionUnchanged: true }); save();
+  }
+  assert.deepEqual((await get('/applications')).applications, applications);
+  assert.equal(deployments, 0, 'Saving triggered deployment');
+  await page.goto(route); await page.locator('[data-definition="definition-editor-endpoint"]').waitFor({ state: 'visible' });
+  await page.screenshot({ path: join(evidence, 'console-catalog.png'), fullPage: true });
+  result.passed = true; result.at = new Date().toISOString(); save();
+  console.log('PASS: four real drivers synchronize both directions and save with CAS; pins/active revisions preserved; no deployment');
+} finally { await closeConsole(session, config); }

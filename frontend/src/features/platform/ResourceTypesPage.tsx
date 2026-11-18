@@ -17,11 +17,13 @@ const fieldTypes = ['string', 'number', 'bool', 'any'];
 const newInput = (): InputField => ({ name: '', type: 'string', required: false });
 const newOutput = (): OutputField => ({ name: '', type: 'string', required: false, secret: false });
 const yesNo = (value: boolean | undefined) => (value === true ? t('platform.resourceTypes.yes') : t('platform.resourceTypes.no'));
-const supportsProvisioning = (pair: Capability) => isVerifiedPin(pair) || ['template', 'endpoint', 'existing-cluster'].includes(pair.driverType);
+const supportsProvisioning = (pair: Capability) => isVerifiedPin(pair) || ['template', 'endpoint', 'existing-cluster', 'existing-gateway', 'echo'].includes(pair.driverType);
 const driverText = (pair: Capability) => {
   switch (pair.driverType) {
     case 'terraform': return `Terraform/${pair.module}`;
     case 'template': return 'Template';
+    case 'echo':
+    case 'existing-gateway': return t('gatewayDriver.title');
     case 'endpoint': return t('endpointDriver.driver');
     case 'existing-cluster': return t('platform.resourceDefinitions.existingClusterExistingCluster');
     default: return pair.driverType;

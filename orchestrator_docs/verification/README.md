@@ -14,9 +14,13 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 | Date | Scope | Record |
 |---|---|---|
 | 2026-11-18 | Issue #83 user-requested trial cleanup, owned resources removed and current main preserved | [Score trial cleanup](2026-11-18-score-cleanup.md) |
+| 2026-11-18 | Issue #87 synchronized Definition form/code, four real drivers, unchanged active pins; 1093 frontend tests and guarded cleanup; unchanged backend evidence reused | [Definition editor](2026-11-18-definition-code-editor.md) |
+| 2026-11-17 | Issue #84 class dropdowns replace raw references; legacy/Echo live forms and generated JSON agree; 1078 frontend tests, owned cleanup, unchanged backend evidence reused | [Reference controls](2026-11-17-gateway-reference-controls.md) |
+| 2026-11-17 | Issue #84 Echo refinement after incoming main merge: native/Score lifecycle and cleanup, 1076 frontend tests; identical backend/main failures/skips and PostgreSQL timeout | [Echo Gateway](2026-11-17-echo-gateway.md) |
 | 2026-11-17 | Issue #83 accepted main merge, kind rollout, post-rollout browser checks and preserved user trial | [Score main integration](2026-11-17-score-main.md) |
 | 2026-11-17 | Issue #83 synchronized form/Score/extension tabs, preservation/error guards and actual Console round trip | [Score tab synchronization](2026-11-17-score-tab-sync.md) |
 | 2026-11-17 | Keycloak Score trial: Vault auth/address setup repair, Secret Store copy, fresh Console deploy, managed HTTPRoute and browser/OIDC checks | [Keycloak Score](2026-11-17-keycloak-score.md) |
+| 2026-11-16 | Issue #84: native/Score template routes, namespace DB, update/restart/cleanup; 1067 frontend tests, identical main backend failures/skips | [Namespace/template routes](2026-11-16-namespace-template-routes.md) |
 | 2026-11-11 | Issue #72 accepted/merged; verified image rollout and trial cleanup; user waived main retest | [Envfile main merge](2026-11-11-envfile-main.md) |
 | 2026-11-11 | Issue #72 latest choice: right-aligned green file-entry action | [Green file entry](2026-11-11-envfile-entry-green.md) |
 | 2026-11-11 | Issue #72: left-aligned blue file-entry action; browser geometry/color/keyboard checks | [File-entry accent](2026-11-11-envfile-entry-accent.md) |
@@ -203,3 +207,5 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [Existing volume sources before creation — WC-23](2026-11-06-reuse-first-volumes.md).
 - [2026-11-11 One Fleet bundle per Environment, versioned secrets — issue #67](2026-11-11-environment-bundle.md)
 - [2026-11-11 Stuck StatefulSet recovery and Active Definition revision — issue #68](2026-11-11-stuck-statefulset.md)
+
+- [2026-11-18 Combined Gateway/routes and synchronized Definition editor — issues #84/#87](2026-11-18-integrated-routes-editor.md).

@@ -186,3 +186,12 @@ export/parse endpoints. Export fills document inputs from current authored state
 parse success replaces the form atomically. Conversion failures and late replies
 retain the owning draft. No planner, persistence or deployment collaboration is
 added; unrepresentable fields retain the advanced-document path.
+
+## Namespace and Gateway collaboration — issue #84
+
+The planner resolves the namespace/cluster and endpoint/Gateway chains;
+provisioning resolves Echo Gateway metadata (or the legacy adapter); the target
+verifier observes Gateway admission before render, while the template renderer owns
+HTTPRoute construction and the platform guard owns intent validation. CD and
+inventory own publication/pruning; reservations remain in the existing store.
+See the [shared sequence](../../architecture/contracts/namespace-template-routes.md#collaboration).

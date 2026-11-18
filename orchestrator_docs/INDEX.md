@@ -2,7 +2,7 @@
 id: DOC-INDEX
 artifact: documentation-index
 status: current
-last_reviewed: 2026-11-16
+last_reviewed: 2026-11-18
 ---
 
 # Documentation index
@@ -147,6 +147,11 @@ và deploy acceptance app ở cuối lệnh đầy đủ; schemaVersion 2 Catalo
 
 ## Score authoring — issue #83
 
+Namespace/provider inheritance and template-owned HTTPRoute — issue #84:
+[accepted decision](architecture/decisions/ADR-043-namespace-placement-template-routes.md),
+[contract/sequence](architecture/contracts/namespace-template-routes.md),
+[implementation and live inspection](implementation/namespace-template-routes.md).
+
 [Score admission and extensions](architecture/contracts/score-workload.md) defines
 standard input, profile resolution and the unchanged infrastructure boundary.
 [Implementation](implementation/score-workload.md) and
@@ -273,6 +278,10 @@ Integrated into main after acceptance; see the
 [merge/deployment record](verification/2026-11-11-envfile-main.md).
 
 ## Catalog document registration — issue #76
+
+Synchronized editing of existing Definitions — issue #87:
+[implementation and checks](implementation/definition-code-editor.md),
+[CODE-01–06](usecase/UC-03/specification.md#sửa-definition-bằng-code--issue-87-approved-2026-11-18).
 
 [Hướng dẫn viết và nhập file Type/Definition](operations/resource-catalog-files.md):
 mẫu YAML/JSON, source pins, mapping, criteria, fallback và cách dùng tab nhập.

@@ -1,0 +1,33 @@
+@startuml
+title Namespace placement and template-owned HTTPRoute (issue 84)
+actor "PE / Developer" as User
+participant "Console / Catalog" as Catalog
+participant Planner
+participant Provisioning
+participant "Kubernetes API" as Kube
+participant "Git Template" as Template
+participant "CD / Inventory" as CD
+User -> Catalog: Register namespace, Gateway and endpoint Definitions
+Catalog -> Catalog: Validate references / no infrastructure writes
+User -> Planner: Preview native or Score workload
+Planner -> Planner: Resolve consumer -> namespace -> cluster
+Planner -> Planner: Resolve endpoint -> Gateway -> cluster
+Planner -> Planner: Require same cluster and route capability; pin policy
+Planner --> User: Plan / no reservation or Kubernetes mutation
+User -> Provisioning: Deploy reviewed plan
+Provisioning -> Kube: Verify existing cluster API / readiness
+Provisioning -> Provisioning: Echo Gateway metadata; verify pinned provenance
+Provisioning -> Kube: Create owned namespace and database in dependency order
+Provisioning -> Provisioning: Reserve hostname/path atomically
+Provisioning -> Kube: Read listener readiness / allowed namespace
+Provisioning -> Template: Authorized endpoint intent + workload inputs
+Template --> Provisioning: Workload, Service and HTTPRoute manifests
+Provisioning -> Provisioning: Validate route against intent and actual Service
+Provisioning -> CD: Publish one workload inventory
+CD -> Kube: Reconcile owned objects
+User -> CD: Update / remove application
+CD -> Kube: Prune owned HTTPRoute and workload objects
+CD -> Provisioning: Acknowledged removal
+Provisioning -> Provisioning: Release claims / cleanup owned DB and namespace
+note over Kube: Shared Gateway, Traefik, DNS and TLS are never changed or destroyed
+@enduml
