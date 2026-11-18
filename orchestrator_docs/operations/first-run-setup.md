@@ -18,7 +18,10 @@ mode 0600/0400, with at least 32 random characters. Configure
 `ORCHESTRATOR_SETUP_TOKEN_FILE` or `-setup-token-file`. It requires durable
 PostgreSQL or JSON storage and local authentication; OIDC cannot be combined with
 initialization mode. Keep the same setting/file across restarts: it suppresses
-legacy fixture seeding and restores the persisted Organization identity. No token
+legacy fixture seeding and restores the persisted Organization identity. To later
+switch to the existing OIDC startup path, first supply an explicit Organization
+identity file matching the saved key/name, then remove the setup-token setting;
+SSO configuration remains a separate operator task. No token
 is logged or returned by the API. Existing Organizations close initialization,
 even if they do not yet have Admin accounts; use the existing operator CLI for
 those installations, never reset them to expose setup.
@@ -74,7 +77,9 @@ The backend resolves one commit and reads only regular bounded files through the
 existing hardened Git transport, credentials and CA configuration. YAML/JSON
 objects are classified by product fields. Invalid documents are shown and cannot
 be selected. Non-product documents are ignored. Maximum: 100 recognized documents,
-1 MiB each, existing Git tree bounds and no symlinks/executables/submodules.
+1 MiB each, 8 MiB per preview request, existing Git tree bounds and no
+symlinks/executables/submodules. Select a smaller subset when the batch exceeds
+the request limit.
 
 Review/select documents and edit their YAML/JSON if needed. Environment placeholders
 written as `<...>` become inputs. Values replace placeholders only; product
