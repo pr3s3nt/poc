@@ -44,7 +44,8 @@ Organization của họ.
 
 - **BR-01:** Chế độ local sử dụng internal account trong database; không có
   self-registration. Chỉ Admin tạo account mới (BR-09) và Admin đầu tiên được
-  khởi tạo bằng lệnh CLI (BR-10).
+  khởi tạo bằng lệnh CLI (BR-10) hoặc luồng setup do operator cấp mã
+  theo [SETUP-01/02](first-run-setup.md).
 - **BR-02:** Password chỉ được persist dưới dạng hash.
 - **BR-03:** Account có một trong các role cơ bản: `ADMIN`,
   `PLATFORM_ENGINEER`, `DEVELOPER`.
@@ -63,6 +64,8 @@ Organization của họ.
   quyền `ADMIN` ở API, không tin role do client gửi.
 - **BR-10:** Admin đầu tiên được khởi tạo bằng lệnh CLI của orchestrator với
   username và file chứa password; không có password Admin mặc định trong code.
+  Installation mới cũng hỗ trợ browser setup theo [SETUP-01/02](first-run-setup.md):
+  mã riêng do operator giữ, tạo Organization/Admin nguyên tử và khóa sau khởi tạo.
 - **BR-11:** Chỉ account role `ADMIN` đặt lại được password của một account
   trong cùng Organization: nhập password mới và xác nhận password mới. Password
   mới phải thỏa chính sách password tối thiểu; đặt lại thành công thu hồi mọi

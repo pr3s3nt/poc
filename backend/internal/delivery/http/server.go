@@ -30,6 +30,7 @@ import (
 	driftapp "orchestrator/internal/application/drift"
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/gitaccess"
+	"orchestrator/internal/application/installationsetup"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/preview"
 	"orchestrator/internal/application/resourcecleanup"
@@ -47,6 +48,7 @@ import (
 
 // Server wires the HTTP handlers to the application services.
 type Server struct {
+	setup           *installationsetup.Service
 	catalogReleases *catalogapp.Service
 	gitAccess       *gitaccess.Service
 	gitTester       GitTester
@@ -78,6 +80,7 @@ type Server struct {
 
 // Config configures the HTTP server.
 type Config struct {
+	Setup           *installationsetup.Service
 	CatalogReleases *catalogapp.Service
 	GitAccess       *gitaccess.Service
 	GitTester       GitTester
@@ -124,6 +127,7 @@ type Config struct {
 // NewServer builds the HTTP handler tree.
 func NewServer(cfg Config) *Server {
 	s := &Server{
+		setup:           cfg.Setup,
 		catalogReleases: cfg.CatalogReleases,
 		gitAccess:       cfg.GitAccess, gitTester: cfg.GitTester,
 		reconciliation:  cfg.Reconciliation,
@@ -172,6 +176,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) routes() {
+	s.mux.HandleFunc("GET /api/v1/platform/setup", s.handleSetupProgress)
+	s.mux.HandleFunc("POST /api/v1/platform/setup/discover", s.handleDiscoverSetup)
+	s.mux.HandleFunc("POST /api/v1/platform/setup/preview", s.handlePreviewSetup)
+	s.mux.HandleFunc("GET /api/v1/setup", s.handleSetupStatus)
+	s.mux.HandleFunc("POST /api/v1/setup", s.handleSetupClaim)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/catalog", s.handleGetEnvironmentCatalog)
 	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/catalog", s.handleSelectEnvironmentCatalog)
 	s.mux.HandleFunc("GET /api/v1/platform/catalog/sources", s.handleListCatalogSources)

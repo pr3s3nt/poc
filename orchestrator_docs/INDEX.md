@@ -308,3 +308,11 @@ url/ref/path authoring, explicit check then pinned registration and portable Git
 [browser acceptance](../e2e/scenarios/keycloak-sso/README.md),
 [feature verification](verification/2026-11-13-keycloak-sso.md),
 [accepted main integration/local-mode rollout](verification/2026-11-17-keycloak-main.md).
+
+## First-run setup — issue #89
+
+[Approved behavior and design](usecase/UC-00/first-run-setup.md): operator-authorized
+Console initialization and a platform guide with user-supplied Git catalog sources.
+
+Setup [implementation/code map](implementation/first-run-setup.md) and
+[operator procedure](operations/first-run-setup.md).

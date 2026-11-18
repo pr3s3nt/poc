@@ -33,3 +33,9 @@ UI: [screens](ui/screens.md), [states](ui/states.md), [HTTP mapping](ui/api-mapp
 
 Issue #52 bổ sung output tuỳ chọn: [specification EXT](specification.md#bổ-sung-output-tuỳ-chọn--issue-52),
 [sequence-extend](sequence-extend.puml).
+
+## First-run platform setup — issue #89
+
+[UC-00 SETUP](../UC-00/first-run-setup.md) orchestrates existing configuration
+forms and user-supplied Git Type/Definition initialization; ordinary validation
+and registration ownership remain in this use case.

@@ -1715,3 +1715,9 @@ reuse through update/restart and Tailscale browser checks are recorded in
 [the integrated verification](../verification/2026-11-18-integrated-routes-editor.md).
 Its fresh full candidate/main check retains identical baseline failures/skips;
 owned full-test namespace cleanup is verified. No main merge/acceptance claimed.
+
+## First-run setup — issue #89
+
+| Requirement | Design / realization | Implementation and tests |
+|---|---|---|
+| SETUP-01–08 | [UC-00 first-run setup](../usecase/UC-00/first-run-setup.md) | [Setup code map and validation](../implementation/first-run-setup.md), [browser scenario](../../e2e/scenarios/first-run-setup/README.md) |

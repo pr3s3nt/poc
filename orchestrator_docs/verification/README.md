@@ -210,3 +210,5 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [2026-11-11 Stuck StatefulSet recovery and Active Definition revision — issue #68](2026-11-11-stuck-statefulset.md)
 
 - [2026-11-18 Combined Gateway/routes and synchronized Definition editor — issues #84/#87](2026-11-18-integrated-routes-editor.md).
+
+- [2026-11-18 First-run Console and user-supplied Git platform setup — issue #89](2026-11-18-first-run-setup.md).
