@@ -69,3 +69,9 @@ Simplified authoring and reusable Git Connections: [ADR-034](../../architecture/
 Rancher-compatible Fleet discovery: CD-12 in the specification, ADR-034 topology
 extension, [kind-only verification](../../verification/2026-11-04-rancher-fleet.md)
 and [scenario](../../../e2e/scenarios/rancher-fleet/README.md).
+
+## First-run platform setup — issue #89
+
+[UC-00 SETUP](../UC-00/first-run-setup.md) orchestrates existing configuration
+forms and user-supplied Git Type/Definition initialization; ordinary validation
+and registration ownership remain in this use case.

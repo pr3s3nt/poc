@@ -313,3 +313,6 @@ url/ref/path authoring, explicit check then pinned registration and portable Git
 
 [Approved behavior and design](usecase/UC-00/first-run-setup.md): operator-authorized
 Console initialization and a platform guide with user-supplied Git catalog sources.
+
+Setup [implementation/code map](implementation/first-run-setup.md) and
+[operator procedure](operations/first-run-setup.md).

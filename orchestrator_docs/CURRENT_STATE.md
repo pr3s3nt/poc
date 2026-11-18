@@ -2622,3 +2622,11 @@ No product suites or functional/browser scenarios were rerun. Trial stacks are
 stopped with data retained; both feature branches are deleted. Trial r7 catalog
 configuration was not imported into main. See
 [accepted merge/rollout](verification/2026-11-18-routes-editor-main.md).
+
+## First-run setup — issue #89, feature branch 2026-11-18
+
+`features/setup` implements operator-token initialization, a platform guide using
+existing configuration forms and user-supplied Git Type/Definition discovery,
+preview and confirmed import. Workload remains a Type/template Definition.
+Not merged/deployed to main; full validation and user acceptance are pending.
+[Scope, code map and limits](implementation/first-run-setup.md).
