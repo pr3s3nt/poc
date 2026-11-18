@@ -2594,3 +2594,11 @@ backend candidate/main checks complete with identical 103 top-level failures,
 main passing test. Both builds pass and the owned test namespace is cleaned. See
 [combined verification](verification/2026-11-18-integrated-routes-editor.md).
 Backend remains baseline-red. No main merge or user acceptance is claimed.
+
+User-approved trial cleanup on 2026-11-18 removes three obsolete Gateway/Endpoint
+pairs from the task catalog. All five task Applications were already DELETED;
+no task namespaces/PVs remain. One Echo Gateway/reference Endpoint pair remains,
+with UI-saved/promoted r6 default criteria for new test Applications. Cluster,
+namespace, workload and PostgreSQL Definitions and shared Gateway identity are
+unchanged; immutable history is retained. See the cleanup section of the
+[combined verification](verification/2026-11-18-integrated-routes-editor.md).

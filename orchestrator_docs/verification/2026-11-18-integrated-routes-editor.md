@@ -268,3 +268,48 @@ Skipped test/subtest events (same eight on both):
 - `orchestrator/internal/application/accountdiag TestRealKindProbes`
 - `orchestrator/test/integration/v03run TestCleanupUsesActualPrivateXvfbLaunchRecord`
 - `orchestrator/test/integration/v03run TestSharedXvfbLauncherWorksForCallerWithoutPrivateDirectory`
+
+## User-approved test catalog cleanup
+
+After handoff the user authorized deletion of all test Applications/data while
+keeping the current Gateway/Endpoint pair. At cleanup entry all five task
+Applications were already DELETED, no Environment operation was claimed, and all
+12 runtime records linked to the six obsolete Definitions were UNREFERENCED.
+There were no Terraform instance references to those 12 records. Native reads
+confirmed no remaining task Application namespaces/PVs and unchanged shared
+Gateway UID. This cleanup did not perform Application deletion or mutate Kubernetes.
+
+The task backend writer was stopped and a new private custom-format PostgreSQL
+backup was checked with pg_restore's archive listing. The product has no
+Definition delete API. One bounded owner transaction removed the six explicitly
+listed obsolete test Definition rows and 12 retired runtime records. It cleared
+46 nullable deployment-resource links to those retired records, preserving the
+historical deployment rows and their Definition keys/input/output snapshots.
+Foreign keys and triggers stayed enabled. The transaction asserted all remaining
+Definitions, all immutable revision snapshots and all revision policies were
+unchanged. No schema/migration, Terraform state, credential or immutable revision
+was edited/deleted. Backup, SQL plan, transaction log and receipts remain private.
+
+The retained pair is `httproute84-mwkl4ysg-gateway` (Echo) and
+`httproute84-mwkl4ysg-endpoint`. Because its original test Application is deleted,
+the existing Console YAML/JSON editor changed only each matching criterion from
+that Application ID to the default empty criterion. Save created revision 6;
+the existing Versions UI promoted each r6 with generation-CAS. Driver, account,
+reference values and all infrastructure inputs stayed unchanged. This makes the
+single pair usable by new test Applications. All four cluster/namespace/workload/
+PostgreSQL Definitions remain API-identical; no new Application or Definition was
+created. Immutable old revisions/policies remain as historical records for the
+removed test families; those families no longer appear in the selectable catalog.
+
+A first browser login after backend restart saw HTTP 502 because the existing
+frontend proxy retained its previous backend address. Restarting only the task
+frontend refreshed that connection. The next complete browser check passed:
+real API data, exactly six catalog cards including one Gateway and one Endpoint,
+both revisions promoted, no active Applications. Screenshots record the cleaned
+catalog and both defaults. The actual Tailscale Console URL was checked again;
+services and Console forwards remain available. The previous workload URLs no
+longer represent retained running apps because the user deleted those apps.
+
+No product source changed. Validation is the bounded SQL assertions, exact API
+comparisons, real browser/UI operations and native read-only inventory/UID checks;
+the earlier full product suite remains attributed to its unchanged source.
