@@ -1,0 +1,44 @@
+# Optional strategic-merge patch. Prepare Secret backend-oidc with key oidc.json
+# first; substitute IMAGE_TAG with the image already running on this installation.
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: prepare-oidc
+        image: orchestrator-backend:IMAGE_TAG
+        imagePullPolicy: Never
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+        command:
+        - sh
+        - -ec
+        - |
+          umask 077
+          cp /oidc-source/oidc.json /oidc-runtime/oidc.json
+          chown 65532:65532 /oidc-runtime/oidc.json
+          chmod 600 /oidc-runtime/oidc.json
+        volumeMounts:
+        - name: oidc-source
+          mountPath: /oidc-source
+          readOnly: true
+        - name: oidc-runtime
+          mountPath: /oidc-runtime
+      containers:
+      - name: backend
+        env:
+        - name: ORCHESTRATOR_OIDC_CONFIG_FILE
+          value: /run/oidc/oidc.json
+        volumeMounts:
+        - name: oidc-runtime
+          mountPath: /run/oidc
+          readOnly: true
+      volumes:
+      - name: oidc-source
+        secret:
+          secretName: backend-oidc
+          defaultMode: 256
+      - name: oidc-runtime
+        emptyDir:
+          medium: Memory
+          sizeLimit: 1Mi

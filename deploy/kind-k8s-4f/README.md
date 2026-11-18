@@ -79,6 +79,61 @@ $K wait --for=condition=available deployment/backend deployment/frontend --timeo
 
 Job cũ được giữ làm dấu vết của từng lần nâng cấp.
 
+## Bật Keycloak SSO trên installation hiện có — issue #88
+
+Đây là thao tác vận hành tích hợp OIDC đã có, không cài lại Console/database.
+Đọc [SSO lifecycle](../../orchestrator_docs/operations/keycloak-sso.md) trước.
+Triển khai Keycloak bằng tài khoản Platform Engineer qua Console theo
+[mẫu Score](../../backend/examples/keycloak/README.md). Trên installation có
+Definition PostgreSQL `in-cluster`, khai báo `class: in-cluster` cho resource
+`db`. Dùng Application, PostgreSQL/PVC, Secret admin và endpoint riêng; không
+chiếm hostname hoặc dữ liệu của bản thử khác. Lưu toàn bộ draft trước một lần
+Environment Preview/Deploy. Bounded Fleet namespace setup theo runbook của mẫu.
+
+Chỉ bật SSO sau khi workload/database Ready, VSO synced, HTTPRoute được chấp nhận,
+và browser mở được đúng endpoint qua Tailscale. Backend cũng phải truy cập được
+issuer/discovery/JWKS/token endpoint bằng hostname đã công bố. Tạo realm/client
+confidential với Authorization Code, PKCE S256, callback chính xác của Console
+và client-role mapper trong ID token. Dùng username SSO khác username local đã
+có: sản phẩm không liên kết/migrate tài khoản trùng tên. Giữ một personal local
+ACTIVE Admin cùng Organization qua `localTestAdminUsername`; bootstrap bằng CLI
+với password file riêng nếu chưa có. Không cấp quyền quản trị Keycloak cho các
+role nhân viên của nền tảng.
+
+Trước rollout, kiểm tra không có operation đang chạy/giữ môi trường; lưu inventory,
+Deployment hiện tại và backup PostgreSQL ra ngoài Git. Chuẩn bị file OIDC JSON
+0600 ngoài Git theo SSO runbook. `OIDC_CONFIG_FILE` dưới đây là đường dẫn tới file
+riêng đó, không phải giá trị secret. Không in nội dung hoặc dùng secret trên CLI.
+
+```bash
+kubectl --context kind-k8s-4f -n orchestrator-dev-3070 create secret generic backend-oidc \
+  --from-file=oidc.json="$OIDC_CONFIG_FILE"
+# TAG phải trùng image backend đang chạy, không lấy HEAD docs-only để đoán image.
+sed "s/IMAGE_TAG/$TAG/g" deploy/kind-k8s-4f/22-oidc.patch.yaml > "$PRIVATE_DIR/oidc.patch.yaml"
+kubectl --context kind-k8s-4f -n orchestrator-dev-3070 patch deployment backend \
+  --type=strategic --patch-file "$PRIVATE_DIR/oidc.patch.yaml"
+$K rollout status deployment/backend --timeout=180s
+```
+
+Patch sao chép Secret sang memory volume, owner 65532 và mode 0600; backend chỉ
+mount bản sao read-only, không có owner database credential. Một replica theo
+giới hạn provider-session hiện có. Đổi Secret không tự reload cấu hình: restart
+backend sau khi xác minh thay đổi. Khi upgrade base manifest, áp dụng lại patch
+trước khi start runtime để tránh vô tình đổi authentication mode.
+
+Kiểm tra browser trên đúng URL Console/Keycloak qua Tailscale: ba role SSO,
+Applications/session APIs, personal local Admin và logout. Restart backend phải
+yêu cầu SSO login lại nhưng giữ User ID và domain data. Giữ config, dữ liệu và
+forward/relay cần cho các URL. Exact URLs, password files, inventory và resource
+UIDs chỉ ở private handoff, không đăng issue public.
+
+Nếu bật SSO thất bại, kiểm tra log an toàn và khôi phục Deployment đã lưu trước
+rollout (hoặc `rollout undo` sau khi xác nhận revision đích đúng bản local trước
+đó). Không reset database, xóa external accounts hay đổi schema marker. Giữ
+Secret cấu hình và Keycloak/PVC để chẩn đoán; rollback authentication không phải
+cleanup workload. Khi người dùng yêu cầu gỡ, dùng product Application deletion
+và cleanup bounded RBAC theo UID/ownership sau CD withdrawal.
+
 ## Vault Kubernetes auth cho workload
 
 Workload nhận secret qua VSO, nên Vault của Console cần auth mount `kubernetes`.
