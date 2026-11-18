@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync, spawn } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, openSync, closeSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { request as httpsRequest } from 'node:https';
 import { randomUUID } from 'node:crypto';
@@ -28,6 +28,7 @@ try{
  };
  const json=(a,input)=>JSON.parse(k(a,input));
  const scoped=(a,input,opt)=>k(['-n',c.namespace,...a],input,opt);
+ const streamFile=(a,file,inputFile)=>{const output=openSync(file,'wx',0o600);const input=inputFile?openSync(inputFile,'r'):undefined;try{execFileSync('kubectl',[...kube,'-n',c.namespace,...a],{stdio:[input??'ignore',output,'pipe'],maxBuffer:1<<20});}catch{throw new Error('Private backup stream failed; retained partial output requires operator review');}finally{closeSync(output);if(input!==undefined)closeSync(input);}};
  const get=(kind,name)=>{const raw=k(['-n',c.namespace,'get',kind,name,'--ignore-not-found','-o','json']);return raw.trim()?JSON.parse(raw):undefined;};
  const getNamespace=()=>{const raw=k(['get','namespace',c.namespace,'--ignore-not-found','-o','json']);return raw.trim()?JSON.parse(raw):undefined;};
  const persist=()=>savePrivate(statePath,JSON.stringify(state,null,2)+'\n');
@@ -47,6 +48,10 @@ try{
  const waitPodsDeleted=name=>scoped(['wait','--for=delete','pod','-l','app='+name,'--timeout=180s']);
  const scale=(name,count)=>{const d=get('deployment',name);requireThat(d&&d.metadata.labels?.['orchestrator.dev/installation']===state.id,'Missing owned deployment '+name);scoped(['scale','deployment/'+name,'--replicas='+count]);};
  async function vaultForward(){
+  // Running is earlier than the TLS listener. A refused first connection kills
+  // kubectl port-forward, so wait locally before opening the operator tunnel.
+  const deadline=Date.now()+180000;
+  for(;;){try{scoped(['exec','deployment/vault','-c','vault','--','sh','-ec','set +e; vault status >/dev/null 2>&1; code=$?; [ "$code" = 0 ] || [ "$code" = 2 ]']);break;}catch{requireThat(Date.now()<deadline,'Vault TLS listener did not become reachable');await new Promise(r=>setTimeout(r,1000));}}
   const child=spawn('kubectl',[...kube,'-n',c.namespace,'port-forward','--address=127.0.0.1','service/vault',':8200','--pod-running-timeout=120s'],{stdio:['ignore','pipe','pipe']});
   let timeout;const port=await new Promise((resolve,reject)=>{
    timeout=setTimeout(()=>reject(new Error('Vault port-forward did not become ready')),130000);
@@ -126,7 +131,7 @@ try{
   }
  }
  async function check(){
-  ownership();checkGateway();secrets(true,true);await readyVault();rollout('postgres');assertDatabase();rollout('vault');rollout('backend');rollout('frontend');
+  ownership();for(const name of ['postgres','vault','backend','frontend'])requireThat(get('deployment',name)?.spec.replicas===1,'Expected running single replica for '+name);checkGateway();assertStorage();secrets(true,true);await readyVault();rollout('postgres');assertDatabase();rollout('vault');rollout('backend');rollout('frontend');
   const route=get('httproute','console');requireThat(route?.status?.parents?.some(p=>p.conditions?.some(x=>x.type==='Accepted'&&x.status==='True')&&p.conditions?.some(x=>x.type==='ResolvedRefs'&&x.status==='True')),'HTTPRoute not accepted/resolved');
   console.log('Owned installation, TLS dependencies, rollouts and HTTPRoute checked; browser acceptance is separate');
  }
@@ -144,20 +149,21 @@ try{
   await readyVault();rollout('vault');runDatabase(true);apply(phase('application'));await check();console.log('Console installed; use the private setup token in the browser');
  }
  const pods=name=>{const items=json(['-n',c.namespace,'get','pods','-l','app='+name,'-o','json']).items;requireThat(items.every(p=>p.metadata.labels?.['orchestrator.dev/installation']===state.id),'Unexpected Pod ownership');return items;};
+ function assertStorage(){for(const name of ['postgres','vault','backend']){const pvc=get('pvc',name+'-data');requireThat(pvc?.metadata.labels?.['orchestrator.dev/installation']===state.id&&pvc.spec.storageClassName===c.storage.class&&pvc.spec.resources.requests.storage===c.storage[name],'Storage changes require a separate reviewed procedure');}}
  function assertIdle(){const count=scoped(['exec','deployment/postgres','--','psql','-U','orchestrator','-d','orchestrator','-At','-c',"SELECT count(*) FROM environment_operations WHERE status IN ('ACTIVE','RECOVERING','INTERRUPTED')"]).trim();requireThat(count==='0','Installation has active/interrupted operations; resolve before upgrade');}
  async function backup(){
-  ownership();assertDatabase();assertIdle();requireThat(options['backup-dir'],'Explicit private --backup-dir required');const destination=privateDirectory(options['backup-dir']);
+  ownership();assertDatabase();assertStorage();assertIdle();requireThat(options['backup-dir'],'Explicit private --backup-dir required');const destination=privateDirectory(options['backup-dir']);
   requireThat(!existsSync(join(destination,'receipt.json')),'Use a new backup directory');
   const backendNode=pods('backend')[0]?.spec.nodeName,vaultNode=pods('vault')[0]?.spec.nodeName;requireThat(backendNode&&vaultNode,'Backup requires running source Pods to capture placement');
   const receipt={namespaceUID:state.namespaceUID,id:state.id,createdAt:new Date().toISOString(),complete:false};savePrivate(join(destination,'receipt.json'),JSON.stringify(receipt,null,2)+'\n',true);
   scale('backend',0);scale('frontend',0);waitPodsDeleted('backend');waitPodsDeleted('frontend');assertIdle();
-  const dump=scoped(['exec','deployment/postgres','--','sh','-ec','PGPASSWORD=$(cat /private/password); export PGPASSWORD; pg_dump -U orchestrator -d orchestrator -Fc'],undefined,{binary:true});savePrivate(join(destination,'database.dump'),dump,true);
-  const listing=scoped(['exec','-i','deployment/postgres','--','pg_restore','--list'],dump);savePrivate(join(destination,'database-list.txt'),listing,true);
+  streamFile(['exec','deployment/postgres','--','sh','-ec','PGPASSWORD=$(cat /private/password); export PGPASSWORD; pg_dump -U orchestrator -d orchestrator -Fc'],join(destination,'database.dump'));
+  streamFile(['exec','-i','deployment/postgres','--','pg_restore','--list'],join(destination,'database-list.txt'),join(destination,'database.dump'));
   scale('vault',0);waitPodsDeleted('vault');
   for(const [claim,node]of [['backend-data',backendNode],['vault-data',vaultNode]]){
-   const name='backup-'+randomUUID().slice(0,8);const object={apiVersion:'v1',kind:'Pod',metadata:{name,namespace:c.namespace,labels:{'app.kubernetes.io/managed-by':owner,'orchestrator.dev/installation':state.id}},spec:{automountServiceAccountToken:false,nodeName:node,restartPolicy:'Never',containers:[{name:'archive',image:c.images.postgres,command:['sleep','600'],volumeMounts:[{name:'data',mountPath:'/data',readOnly:true}]}],volumes:[{name:'data',persistentVolumeClaim:{claimName:claim,readOnly:true}}]}};
+   const name='backup-'+randomUUID().slice(0,8);const object={apiVersion:'v1',kind:'Pod',metadata:{name,namespace:c.namespace,labels:{'app.kubernetes.io/managed-by':owner,'orchestrator.dev/installation':state.id}},spec:{automountServiceAccountToken:false,nodeName:node,terminationGracePeriodSeconds:0,restartPolicy:'Never',containers:[{name:'archive',image:c.images.postgres,command:['sleep','600'],volumeMounts:[{name:'data',mountPath:'/data',readOnly:true}]}],volumes:[{name:'data',persistentVolumeClaim:{claimName:claim,readOnly:true}}]}};
    const created=json(['create','-f','-','-o','json'],JSON.stringify(object));
-   try{scoped(['wait','--for=condition=Ready','pod/'+name,'--timeout=180s']);const archive=scoped(['exec',name,'--','tar','-czf','-','-C','/data','.'],undefined,{binary:true});savePrivate(join(destination,claim+'.tgz'),archive,true);try{execFileSync('tar',['-tzf',join(destination,claim+'.tgz')],{stdio:['ignore','pipe','pipe']});}catch{throw new Error('Backup archive validation failed');}}
+   try{scoped(['wait','--for=condition=Ready','pod/'+name,'--timeout=180s']);streamFile(['exec',name,'--','tar','-czf','-','-C','/data','.'],join(destination,claim+'.tgz'));try{execFileSync('tar',['-tzf',join(destination,claim+'.tgz')],{stdio:['ignore','ignore','pipe']});}catch{throw new Error('Backup archive validation failed');}}
    finally{const live=get('pod',name);if(live){requireThat(live.metadata.uid===created.metadata.uid&&live.metadata.labels?.['orchestrator.dev/installation']===state.id,'Backup Pod ownership changed');scoped(['delete','--raw',`/api/v1/namespaces/${c.namespace}/pods/${name}`,'-f','-'],JSON.stringify({apiVersion:'v1',kind:'DeleteOptions',preconditions:{uid:live.metadata.uid,resourceVersion:live.metadata.resourceVersion}}));scoped(['wait','--for=delete','pod/'+name,'--timeout=180s']);}}
   }
   savePrivate(join(destination,'installation.json'),privateRead(statePath),true);if(existsSync(join(dir,'vault-init.json')))savePrivate(join(destination,'vault-init.json'),privateRead(join(dir,'vault-init.json')),true);

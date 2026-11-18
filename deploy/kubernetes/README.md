@@ -48,7 +48,7 @@ Do not point the kind overlay at the main Console's namespace.
 Supply absolute paths to `tls.postgres` and `tls.vault` CA/cert/private-key files.
 Certificates must validate for service DNS names postgres/vault and the appropriate
 namespace DNS names; trust/chain and hostname checks must pass. Private keys must
-be regular owner-only files. Test CA generation is allowed only with explicit
+be regular owner-only files and match their corresponding certificates. Test CA generation is allowed only with explicit
 `--test-certificates` on the kind environment; never promote its short-lived test
 certificates to staging/production. Use your reviewed PKI there.
 
@@ -118,7 +118,7 @@ can instead reference an owner-only JSON file with `keys: [share1, share2, share
 Root authorization is not required to unseal. Scoped token expiry/revocation is an
 explicit operator recovery/rotation action, never silent regeneration by install.
 Private state and Kubernetes Secrets must remain together with their matching data.
-Check validates ownership, Secret data, database installation identity, TLS service
+Check requires all four single replicas running and validates ownership, Secret data, database installation identity, TLS service
 readiness and Accepted/ResolvedRefs HTTPRoute; it never creates missing credentials.
 
 ## Upgrade and backup
@@ -130,7 +130,10 @@ to zero, takes a custom-format database dump and verifies its archive listing.
 It stops Vault to archive its file backend consistently and archives the backend
 PVC separately on the original consumer node, using owned temporary Pods with
 read-only mounts. It retains matching private inputs/certificates outside Git.
-Backup Pods are deleted using fresh UID/resourceVersion preconditions.
+Backup Pods are deleted using fresh UID/resourceVersion preconditions. Archive bytes
+stream to exclusive private files rather than accumulating in memory. Changes to
+PVC class or requested size require a separate reviewed storage procedure; this
+installer refuses them before stopping writers.
 
 ```sh
 node scripts/kubernetes/run.mjs upgrade --config /private/installation/config.json \

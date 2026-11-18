@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync, lstatSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
-import { randomBytes, randomUUID, createHash } from 'node:crypto';
+import { randomBytes, randomUUID, createHash, createPublicKey, X509Certificate } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { parseAllDocuments, stringify } from 'yaml';
 export const root = resolve(new URL('../..', import.meta.url).pathname);
@@ -23,6 +23,7 @@ export function loadConfig(file,{complete=true}={}) {
   requireThat(!/[\s\/:?#]/.test(c.hostname)&&c.hostname.includes('.'),'Hostname must be a DNS name');
   requireThat(['http','https'].includes(c.scheme),'Invalid route scheme');
   requireThat(c.environment==='kind'||c.scheme==='https','Staging/production require an HTTPS Gateway listener');
+  for(const name of ['backend','frontend','postgres','vault'])requireThat(typeof c.images[name]==='string'&&c.images[name],'All four images are required');
   for(const image of Object.values(c.images))requireThat(typeof image==='string'&&image&&!/\s/.test(image),'Invalid image');
   if(c.environment!=='kind')for(const image of Object.values(c.images))requireThat(/@sha256:[a-f0-9]{64}$/.test(image),'Staging/production require immutable image digests');
   for(const n of ['postgres','vault','backend'])requireThat(/^\d+(Gi|Mi)$/.test(c.storage[n]),'Invalid PVC size');
@@ -75,7 +76,7 @@ export function prepare(dir,c,{testCertificates=false}={}) {
    s.tls[name]={ca,cert:prefix+'.crt',key:prefix+'.key'};
   }
  }else{s.tls=c.tls;requireThat(s.tls?.postgres&&s.tls?.vault,'Supply PostgreSQL/Vault TLS file paths');}
- for(const name of ['postgres','vault']){const tls=s.tls[name];requireThat(tls.ca&&tls.cert&&tls.key,'Missing TLS file');privateRead(tls.key);runSSL(['verify','-CAfile',tls.ca,tls.cert]);runSSL(['x509','-in',tls.cert,'-noout','-checkhost',name]);}
+ for(const name of ['postgres','vault']){const tls=s.tls[name];requireThat(tls.ca&&tls.cert&&tls.key,'Missing TLS file');const key=privateRead(tls.key);let matches=false;try{matches=new X509Certificate(readFileSync(tls.cert)).publicKey.export({type:'spki',format:'der'}).equals(createPublicKey(key).export({type:'spki',format:'der'}));}catch{throw new Error('Invalid TLS certificate/key material');}requireThat(matches,'TLS certificate and private key do not match');runSSL(['verify','-CAfile',tls.ca,tls.cert]);runSSL(['x509','-in',tls.cert,'-noout','-checkhost',name]);}
  savePrivate(file,JSON.stringify(s,null,2)+'\n',true);savePrivate(join(dir,'setup-token'),s.setupToken+'\n',true);return s;
 }
 export function desiredSecrets(c,s,{vault=false}={}) {

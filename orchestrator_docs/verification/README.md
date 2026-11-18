@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-18 | Issue #91 independent kind installation, TLS/manual unseal, retained update/restart and full-suite baseline limits | [Kubernetes installation](2026-11-18-kubernetes-installations.md) |
 | 2026-11-18 | Accepted #84/#87 main merge, waived repeat tests, retained kind rollout and trial retirement | [Routes/editor main integration](2026-11-18-routes-editor-main.md) |
 | 2026-11-18 | Issue #83 user-requested trial cleanup, owned resources removed and current main preserved | [Score trial cleanup](2026-11-18-score-cleanup.md) |
 | 2026-11-18 | Issue #87 synchronized Definition form/code, four real drivers, unchanged active pins; 1093 frontend tests and guarded cleanup; unchanged backend evidence reused | [Definition editor](2026-11-18-definition-code-editor.md) |

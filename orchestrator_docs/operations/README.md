@@ -33,6 +33,11 @@ UC-18 Developer deletion at the end of the existing kind and AWS A02 harnesses.
 opt-in volume test file and scheduled PostgreSQL receipts, with browser
 observations separate from authorized Kubernetes lifecycle verification.
 
+[Independent kind/staging/production installations](../../deploy/kubernetes/README.md)
+provide the phased Kubernetes operator procedure, PostgreSQL/Vault TLS, manual
+unseal, retained-data backup and upgrade. Staging/production execution remains an
+operator action; agent verification uses an isolated kind namespace.
+
 | Environment | Runbook | External mutation |
 |---|---|---|
 | Application telemetry | [Native logging/monitoring](observability.md) | Read-only collector; Metrics Server/RBAC/database preparation is an explicit operator action |
