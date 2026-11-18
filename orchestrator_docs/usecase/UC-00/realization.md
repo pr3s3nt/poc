@@ -85,3 +85,9 @@ empty OIDC issuer/subject and the configured Organization. Identity exposes
 UserManagement=false in OIDC mode so both local test Admin and SSO users keep
 company-managed account boundaries. Self password change is local-only for this
 account; all OIDC user-management endpoints remain denied.
+
+## Operator-authorized first-run setup — issue #89
+
+[SETUP realization and API contracts](first-run-setup.md#realization-and-contracts)
+extends first-Admin creation with installation locking and atomic identity creation.
+The ordinary authenticated platform configuration services own subsequent writes.

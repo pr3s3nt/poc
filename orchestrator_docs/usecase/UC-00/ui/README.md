@@ -21,3 +21,8 @@ UC-00 screen; UC-00 owns the transition into it.
 3. [API mapping](api-mapping.md)
 4. [Wireframe](wireframe.puml)
 5. [Shared shell](../../../architecture/ui/README.md)
+
+## First-run setup — issue #89
+
+[SETUP UI and states](../first-run-setup.md#ui) defines operator-token initialization
+and the authenticated platform guide. Reuse sign-in controls and the shared shell.

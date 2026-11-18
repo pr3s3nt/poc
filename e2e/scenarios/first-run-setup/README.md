@@ -18,9 +18,9 @@ node e2e/scenarios/first-run-setup/run.mjs
 
 Assertions: browser initializes the Organization/Admin when needed, local sign-in,
 closed claim state, every platform form loads, Git discovers workload Type and
-Definition, explicit import of every Type and the workload Definition with a real Git template, REUSED rerun and persisted progress on
-reload. The reference repository supplies 10 Types and the workload Definition. Other
-platform Definition acceptance requires environment values, real accounts,
+Definition, explicit import of 10 Types and 8 Definitions with real Git Terraform/template sources, REUSED rerun and persisted progress on
+reload. The reference scenario excludes cluster/MySQL/MongoDB Definitions that need account
+or image substitutions. Their acceptance requires environment values, real accounts,
 module inspection and existing controller prerequisites. It is not workload deploy
 acceptance. No fixture backend, cloud mutation or controller installation.
 
