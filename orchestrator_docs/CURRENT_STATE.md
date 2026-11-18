@@ -2499,7 +2499,7 @@ kind Console. Main import/export smoke passed without changing catalog/revision
 history or existing Applications. Full backend remains baseline-red; the complete
 comparison and rollout are in [main verification](verification/2026-11-12-catalog-documents-main.md).
 
-## Namespace placement / template routes — issue #84, awaiting acceptance
+## Namespace placement / template routes — issue #84, accepted into main
 
 On `features/Httproute` (including the explicitly requested Score branch base),
 namespace-inherited providers, separate preexisting Gateway Definitions and
@@ -2508,12 +2508,12 @@ Real native/Score batch Deploy, authenticated PostgreSQL, browser reachability,
 update/restart UID preservation and Console product cleanup passed on kind.
 A fresh review application reuses the released endpoint names. Full frontend
 passes 1067 tests/typecheck/lint/build. Full backend and main share the exact same
-103 failing top-level tests / 20 packages and 8 skips; both builds pass. No main
-merge/upgrade, user acceptance or full green backend suite is claimed. See
+103 failing top-level tests / 20 packages and 8 skips; both builds pass. These
+are the original feature-checkpoint results; no green backend suite is claimed. See
 [implementation and remaining gates](implementation/namespace-template-routes.md)
 and [execution evidence](verification/2026-11-16-namespace-template-routes.md).
 
-### Issue #84 refinement approved 2026-11-17 — awaiting acceptance
+### Issue #84 refinement approved 2026-11-17 — pre-merge verification history
 
 New Gateway Definitions use Echo metadata with separate pre-render Kubernetes
 verification; existing-gateway driver/layout/revision compatibility remains.
@@ -2570,7 +2570,7 @@ per the user’s decision; Keycloak deployment/configuration is a later step.
 Installation/users/catalog/Application identities are preserved. Full backend
 remains baseline-red; the final full frontend passes 1,077 tests.
 
-## Definition code editor — issue #87, awaiting acceptance
+## Definition code editor — issue #87, accepted into main
 
 Separate features/definition-code-editor branch from main 725541ef. Existing
 Definition edit supports synchronized form/YAML/JSON with the same validation,
@@ -2580,7 +2580,8 @@ typecheck/lint/build; owned test namespace cleanup is verified. Backend source
 is identical to main, with completed accepted-main evidence explicitly reused;
 its failures/skips/PG timeout remain baseline-red. The isolated trial and four
 examples remain available for acceptance.
-No main merge, rollout or full green backend gate claimed. See
+These isolated results precede the combined accepted main integration below;
+no full green backend gate is claimed. See
 [implementation](implementation/definition-code-editor.md).
 
 ## Combined Gateway/routes and Definition editor — issues #84/#87
@@ -2596,7 +2597,7 @@ backend candidate/main checks complete with identical 103 top-level failures,
 143 failing events, 20 failed packages and 8 skips; no new failure/skip or missing
 main passing test. Both builds pass and the owned test namespace is cleaned. See
 [combined verification](verification/2026-11-18-integrated-routes-editor.md).
-Backend remains baseline-red. No main merge or user acceptance is claimed.
+Backend remains baseline-red; the accepted merge/rollout is recorded below.
 
 User-approved trial cleanup on 2026-11-18 removes three obsolete Gateway/Endpoint
 pairs from the task catalog. All five task Applications were already DELETED;
@@ -2610,3 +2611,14 @@ The next approved trial revision r7 names the pair `Gateway Traefik có sẵn` a
 Score Environment Preview selects both r7 Definitions; its temporary Application
 is product-deleted. Definition Matching Preview's separate driver allowlist still
 excludes Echo/Endpoint; this configuration change does not extend that API.
+
+## Accepted main integration of #84/#87 — 2026-11-18
+
+User accepted merge and explicitly waived repeated tests. Merge `6084919e` is
+pushed to main; product sources match accepted feature `aeeb338b`. The retained
+kind runtime now uses those accepted images, with owner setup complete, backend/
+frontend Ready and installation/user/account/Application identities preserved.
+No product suites or functional/browser scenarios were rerun. Trial stacks are
+stopped with data retained; both feature branches are deleted. Trial r7 catalog
+configuration was not imported into main. See
+[accepted merge/rollout](verification/2026-11-18-routes-editor-main.md).

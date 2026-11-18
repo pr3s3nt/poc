@@ -2,10 +2,15 @@
 id: IMP-NAMESPACE-TEMPLATE-ROUTES
 artifact: implementation-handoff
 status: current
-last_reviewed: 2026-11-17
+last_reviewed: 2026-11-18
 ---
 
 # Namespace placement and template routes — issue #84
+
+Accepted and merged into main at `6084919e` on 2026-11-18; retained runtime
+rollout completed. User waived repeated testing. Earlier checkpoint narratives
+below retain their historical source/acceptance status. Current result:
+[accepted merge and rollout](../verification/2026-11-18-routes-editor-main.md).
 
 Branch `features/Httproute`, based on main `cd40a792` and explicitly fast-forwarded
 to Score checkpoint `621fa61d` by the user's request. No merge to main is approved.

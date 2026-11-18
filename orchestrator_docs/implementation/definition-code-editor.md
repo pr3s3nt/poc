@@ -7,6 +7,11 @@ last_reviewed: 2026-11-18
 
 # Synchronized Definition code editor — issue #87
 
+Accepted and merged into main at `6084919e` on 2026-11-18; retained runtime
+rollout completed. User waived repeated testing. Earlier checkpoint narratives
+below retain their historical source/acceptance status. Current result:
+[accepted merge and rollout](../verification/2026-11-18-routes-editor-main.md).
+
 Approved 2026-11-18: [issue #87](https://github.com/pr3s3nt/poc/issues/87), branch
 features/definition-code-editor from origin/main `725541ef`, separate checkout.
 #84 branch and its trial are preserved. Required behavior:
