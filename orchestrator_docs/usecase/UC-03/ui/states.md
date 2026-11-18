@@ -262,3 +262,12 @@ settings screen at `/ui/platform/settings`, separate from Definition authoring.
 
 Non-Terraform Definitions cũng được check bằng cùng full validation; không hiện
 source summary khi không có Git source. Resource Type import giữ luồng một bước.
+
+
+## Definition code edit — issue #87
+
+Form/code share one authoring draft. Code syntax/prepare error or lossy form
+projection preserves text and code mode. Preparation/Save lock conflicting
+actions; scope change/unmount invalidates replies. Stale/unknown Save keeps draft
+and holds mutation until explicit reload. Success updates version and canonical
+data for both projections. Advanced supported fields are never silently dropped.

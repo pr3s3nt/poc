@@ -794,3 +794,5 @@ fieldset.volume-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 .sign-in-local[open] > summary { margin-bottom: 16px; }
 .sign-in-local label { margin-top: 12px; }
 .sign-in-local button[type="submit"] { margin-top: 16px; width: 100%; }
+
+.definition-page .definition-code-editor .editor-grid { gap:16px; }

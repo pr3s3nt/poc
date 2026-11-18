@@ -4215,5 +4215,10 @@
   "auth.sso.configError": "Không thể tải cấu hình đăng nhập.",
   "auth.sso.managed": "Tài khoản và quyền được quản lý trong hệ thống danh tính của công ty.",
   "auth.sso.localAccount": "Tài khoản test",
-  "auth.sso.localSignIn": "Đăng nhập local"
+  "auth.sso.localSignIn": "Đăng nhập local",
+  "definitionCode.method": "Cách chỉnh sửa",
+  "definitionCode.identity": "ID và loại tài nguyên phải giữ nguyên. Phiên bản được lấy từ cấu hình đang sửa.",
+  "definitionCode.projection": "Biểu mẫu chưa biểu diễn đầy đủ cấu hình này. Nội dung vẫn được giữ trong YAML/JSON.",
+  "definitionCode.formInvalid": "Sửa lỗi trong biểu mẫu trước khi chuyển sang YAML/JSON.",
+  "definitionCode.help": "Chỉnh sửa cấu hình hiện tại bằng YAML hoặc JSON. Giữ nguyên ID và loại tài nguyên; phiên bản được quản lý khi lưu."
 }

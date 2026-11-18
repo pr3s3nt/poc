@@ -274,6 +274,10 @@ Integrated into main after acceptance; see the
 
 ## Catalog document registration — issue #76
 
+Synchronized editing of existing Definitions — issue #87:
+[implementation and checks](implementation/definition-code-editor.md),
+[CODE-01–06](usecase/UC-03/specification.md#sửa-definition-bằng-code--issue-87-approved-2026-11-18).
+
 [Hướng dẫn viết và nhập file Type/Definition](operations/resource-catalog-files.md):
 mẫu YAML/JSON, source pins, mapping, criteria, fallback và cách dùng tab nhập.
 

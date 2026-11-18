@@ -1687,3 +1687,11 @@ ScoreDocuments component tests and Score authoring browser scenario.
 | Requirement | Realization | Implementation / checks |
 |---|---|---|
 | UC-00 SSO-01..07 | UC-00 OIDC collaboration | authentication federation, OIDC adapter, HTTP auth handlers; focused Go tests and keycloak-sso browser scenario |
+
+## Definition code editing — issue #87
+
+| Requirement | Realization and validation |
+|---|---|
+| CODE-01/02 | DefinitionEditMethods, useDefinitionCodeEditor, definitionEditDraft; four-driver UI/code round-trip, advanced-field tests and real browser scenario |
+| CODE-03/04 | Strict parser, context key/type/version, existing prepare and PUT; identity/system-field and exact checked Git pin tests |
+| CODE-05/06 | Shared Save/reload guards, accessible tabs and existing shell; stale/network/uncertain/unmount tests; visual browser review |

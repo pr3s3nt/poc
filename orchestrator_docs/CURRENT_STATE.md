@@ -2521,3 +2521,12 @@ full checks and the retained v10→v11 rollout. Main deliberately keeps local lo
 per the user’s decision; Keycloak deployment/configuration is a later step.
 Installation/users/catalog/Application identities are preserved. Full backend
 remains baseline-red; the final full frontend passes 1,077 tests.
+
+## Definition code editor — issue #87, implementation in progress
+
+Separate features/definition-code-editor branch from main 725541ef. Existing
+Definition edit supports synchronized form/YAML/JSON with the same validation,
+source pins and version-CAS Save. Four-driver real browser round-trip and scoped
+checks pass; final full frontend/source attribution/handoff are being completed.
+No main merge, rollout or full green backend gate claimed. See
+[implementation](implementation/definition-code-editor.md).

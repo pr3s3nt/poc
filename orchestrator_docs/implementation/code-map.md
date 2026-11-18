@@ -1495,3 +1495,10 @@ exposes only availability and session identity exposes UserManagement=false.
 SignInEntry/SignInPage offer the scoped disclosure on the same Console; AppShell
 keeps own password change and hides employee management. The shared Console
 helper accepts ORCH_AUTH_MODE=local only when the server explicitly allows it.
+
+## Definition code editing — issue #87
+
+UC-03 CODE-01–06 → frontend ResourceDefinitionsPage / DefinitionEditMethods /
+useDefinitionCodeEditor / definitionEditDraft; strict catalogDocument parser and
+existing prepare + PUT APIs. DefinitionCodeEditor and definitionEditDraft tests;
+real scenario e2e/scenarios/definition-code-editor. No backend/schema change.
