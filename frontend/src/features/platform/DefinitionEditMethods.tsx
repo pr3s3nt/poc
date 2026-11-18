@@ -32,7 +32,7 @@ export function DefinitionEditMethods({ children, enabled, mode, text, busy, hel
       <details><summary>{t('catalogDocument.help')}</summary><p>{t('definitionCode.help')}</p></details>
       {prepared?.source ? <SavedSourceSummary source={{ kind: 'git', ...prepared.source }} /> : null}
       {prepared ? <p role="status" className="form-success">{t('catalogDocument.checked')}</p> : null}
-      {notice ? <p role="status" className="form-success">{notice}</p> : null}
+      {mode === 'code' && notice ? <p role="status" className="form-success">{notice}</p> : null}
       {busy ? <p role="status">{t('catalogDocument.checking')}</p> : null}
       <div className="form-actions"><Button type="button" disabled={busy || held || !text.trim()} onClick={onCheck}>{t('catalogDocument.check')}</Button><Button type="button" disabled={busy} onClick={onCancel}>{t('platform.resourceDefinitions.cancelEditing')}</Button><Button type="button" tone="primary" disabled={busy || held || !text.trim()} onClick={onSave}>{t('platform.resourceDefinitions.saveChanges')}</Button></div>
       </fieldset>
