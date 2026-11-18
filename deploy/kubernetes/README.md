@@ -131,7 +131,9 @@ It stops Vault to archive its file backend consistently and archives the backend
 PVC separately on the original consumer node, using owned temporary Pods with
 read-only mounts. It retains matching private inputs/certificates outside Git.
 Backup Pods are deleted using fresh UID/resourceVersion preconditions. Archive bytes
-stream to exclusive private files rather than accumulating in memory. Changes to
+stream to exclusive private files rather than accumulating in memory. Database
+listing drains the remaining input after reading its table of contents, so kubectl
+can close the stream even for a large dump; listing failures remain failures. Changes to
 PVC class or requested size require a separate reviewed storage procedure; this
 installer refuses them before stopping writers.
 
