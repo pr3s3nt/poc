@@ -29,3 +29,12 @@ seed; after initialization, platform entries are configured explicitly in the gu
 Source selection/editor drafts are transient. Durable resume means rerun the same
 pinned source against saved configuration, not persistence of browser form contents.
 The guide reflects saved verification, not continuous liveness or deploy acceptance.
+
+## Validation and handoff
+
+[Verification](../verification/2026-11-18-first-run-setup.md) records real browser
+initialization, Git Terraform/template import and preserved rerun/restart data.
+Full frontend passes 1104 tests. Full backend has exactly the main baseline
+103 failures/8 skips, no added failure/skip and eight additional passing tests.
+The backend gate remains red; feature acceptance/merge is pending. Both isolated
+full-check namespaces were cleaned; trial Docker stacks and data remain available.

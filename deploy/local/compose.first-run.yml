@@ -1,6 +1,10 @@
 # Opt-in browser initialization for a new installation. Existing Organizations
 # permanently close the claim API. Keep the setup-token volume across restarts.
 services:
+  # Build the shared image through backend only; avoid racing two image builds.
+  db-setup:
+    build: !reset null
+    pull_policy: never
   setup-token:
     image: ${POSTGRES_IMAGE:-postgres:16-alpine}
     user: "0:0"
