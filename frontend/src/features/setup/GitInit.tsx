@@ -104,7 +104,7 @@ export function GitInit({ onImported }: { onImported(): void }) {
     </> : null}
     {review ? <><h3>{t('setup.review')}</h3><table><thead><tr><th>{t('setup.document')}</th><th>{t('setup.status')}</th><th>{t('setup.fields')}</th></tr></thead><tbody>{review.map(doc => <tr key={doc.file}><td>{doc.file}</td><td>{t(`setup.${results[doc.file] ?? doc.status}`)}</td><td>{doc.fields?.join(', ')}</td></tr>)}</tbody></table>
       <details><summary>{t('setup.prepared')}</summary><pre>{JSON.stringify(review.map(({ file, type, definition }) => ({ file, type, definition })), null, 2)}</pre></details>
-      <Button disabled={busy || review.some(d => d.status === 'INVALID' || d.status === 'CONFLICT')} onClick={() => void importDocuments()}>{t(busy ? 'setup.working' : 'setup.confirmImport')}</Button>
+      <Button tone="primary" disabled={busy || review.some(d => d.status === 'INVALID' || d.status === 'CONFLICT')} onClick={() => void importDocuments()}>{t(busy ? 'setup.working' : 'setup.confirmImport')}</Button>
       <p>{t('setup.retained')}</p>
     </> : null}
   </section>;
