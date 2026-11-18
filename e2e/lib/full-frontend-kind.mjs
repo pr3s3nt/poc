@@ -12,7 +12,7 @@ mkdirSync(evidence, { recursive: true, mode: 0o700 });
 const runID = 'definition87-full-' + Date.now().toString(36);
 const base = ['--kubeconfig', process.env.ORCH_KUBECONFIG, '--context', process.env.ORCH_CONTEXT, '--request-timeout=60s'];
 const kube = (args, input) => execFileSync('kubectl', [...base, ...args], { input, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
-const json = args => JSON.parse(kube(args));
+const json = (args, input) => JSON.parse(kube(args, input));
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const source = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 const receipt = { runID, source, frontendTree: execFileSync('git', ['rev-parse', 'HEAD:frontend'], { encoding: 'utf8' }).trim(), cleanup: false };
