@@ -43,7 +43,7 @@ func TestRetirePublicRoutesUpgradeFromPopulatedVersionNine(t *testing.T) {
 	preserved := map[string]string{}
 	for table, columns := range map[string]string{
 		"organizations": "id,organization_key,name", "applications": "id,application_key,organization_id,name,version,status",
-		"environments": "id,application_id,environment_key,version,namespace_identity", "user_accounts": "*", "sessions": "*", "template_sources": "*",
+		"environments": "id,application_id,environment_key,version,namespace_identity", "user_accounts": "id,organization_id,username,password_hash,role,status,created_at,updated_at", "sessions": "*", "template_sources": "*",
 	} {
 		preserved[table] = scalar[string](t, owner, `SELECT COALESCE(string_agg(row_to_json(r)::text, ',' ORDER BY row_to_json(r)::text),'') FROM (SELECT `+columns+` FROM `+table+`) r`)
 	}
@@ -51,18 +51,18 @@ func TestRetirePublicRoutesUpgradeFromPopulatedVersionNine(t *testing.T) {
 	if err != nil || !initialized {
 		t.Fatalf("upgrade: changed=%v err=%v", initialized, err)
 	}
-	if got := scalar[string](t, owner, `SELECT baseline FROM schema_baseline`); got != "orchestrator-schema-v10" {
+	if got := scalar[string](t, owner, `SELECT baseline FROM schema_baseline`); got != "orchestrator-schema-v11" {
 		t.Fatal(got)
 	}
 	if scalar[string](t, owner, `SELECT installation_id::text FROM schema_baseline`) != "11111111-1111-4111-8111-111111111111" {
 		t.Fatal("installation identity changed")
 	}
-	if scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`) != 10 {
+	if scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`) != 11 {
 		t.Fatal("history not advanced to 10")
 	}
 	for table, columns := range map[string]string{
 		"organizations": "id,organization_key,name", "applications": "id,application_key,organization_id,name,version,status",
-		"environments": "id,application_id,environment_key,version,namespace_identity", "user_accounts": "*", "sessions": "*", "template_sources": "*",
+		"environments": "id,application_id,environment_key,version,namespace_identity", "user_accounts": "id,organization_id,username,password_hash,role,status,created_at,updated_at", "sessions": "*", "template_sources": "*",
 	} {
 		if got := scalar[string](t, owner, `SELECT COALESCE(string_agg(row_to_json(r)::text, ',' ORDER BY row_to_json(r)::text),'') FROM (SELECT `+columns+` FROM `+table+`) r`); got != preserved[table] {
 			t.Fatalf("%s changed during upgrade", table)

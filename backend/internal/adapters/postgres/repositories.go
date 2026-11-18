@@ -52,15 +52,15 @@ func (s *Store) GetUserAccount(ctx context.Context, id string) (identity.UserAcc
 }
 func (s *Store) getUser(ctx context.Context, column, value string) (identity.UserAccount, error) {
 	var v identity.UserAccount
-	q := `SELECT u.id,o.organization_key,u.username,u.password_hash,u.role,u.status FROM user_accounts u JOIN organizations o ON o.id=u.organization_id WHERE ` + column + `=$1`
-	err := s.q(ctx).QueryRow(ctx, q, value).Scan(&v.ID, &v.OrganizationKey, &v.Username, &v.PasswordHash, &v.Role, &v.Status)
+	q := `SELECT u.id,o.organization_key,u.username,u.password_hash,u.role,u.status,u.oidc_issuer,u.oidc_subject FROM user_accounts u JOIN organizations o ON o.id=u.organization_id WHERE ` + column + `=$1`
+	err := s.q(ctx).QueryRow(ctx, q, value).Scan(&v.ID, &v.OrganizationKey, &v.Username, &v.PasswordHash, &v.Role, &v.Status, &v.OIDCIssuer, &v.OIDCSubject)
 	if err != nil {
 		return v, fmt.Errorf("postgres: get user: %w", translate(err))
 	}
 	return v, nil
 }
 func (s *Store) ListUserAccounts(ctx context.Context, organizationKey string) ([]identity.UserAccount, error) {
-	rows, err := s.q(ctx).Query(ctx, `SELECT u.id,o.organization_key,u.username,u.password_hash,u.role,u.status FROM user_accounts u JOIN organizations o ON o.id=u.organization_id WHERE o.organization_key=$1 ORDER BY u.username`, organizationKey)
+	rows, err := s.q(ctx).Query(ctx, `SELECT u.id,o.organization_key,u.username,u.password_hash,u.role,u.status,u.oidc_issuer,u.oidc_subject FROM user_accounts u JOIN organizations o ON o.id=u.organization_id WHERE o.organization_key=$1 ORDER BY u.username`, organizationKey)
 	if err != nil {
 		return nil, fmt.Errorf("postgres: list users: %w", translate(err))
 	}
@@ -68,7 +68,7 @@ func (s *Store) ListUserAccounts(ctx context.Context, organizationKey string) ([
 	out := []identity.UserAccount{}
 	for rows.Next() {
 		var v identity.UserAccount
-		if err := rows.Scan(&v.ID, &v.OrganizationKey, &v.Username, &v.PasswordHash, &v.Role, &v.Status); err != nil {
+		if err := rows.Scan(&v.ID, &v.OrganizationKey, &v.Username, &v.PasswordHash, &v.Role, &v.Status, &v.OIDCIssuer, &v.OIDCSubject); err != nil {
 			return nil, fmt.Errorf("postgres: list users: %w", translate(err))
 		}
 		out = append(out, v)
@@ -90,7 +90,7 @@ func (s *Store) RevokeSessionsForUser(ctx context.Context, userAccountID string,
 	return nil
 }
 func (s *Store) SaveUserAccount(ctx context.Context, v identity.UserAccount) error {
-	_, err := s.q(ctx).Exec(ctx, `INSERT INTO user_accounts(id,organization_id,username,password_hash,role,status) SELECT $1,o.id,$3,$4,$5,$6 FROM organizations o WHERE o.organization_key=$2 ON CONFLICT(id) DO UPDATE SET username=EXCLUDED.username,password_hash=EXCLUDED.password_hash,role=EXCLUDED.role,status=EXCLUDED.status,updated_at=now()`, v.ID, v.OrganizationKey, v.Username, v.PasswordHash, v.Role, v.Status)
+	_, err := s.q(ctx).Exec(ctx, `INSERT INTO user_accounts(id,organization_id,username,password_hash,role,status,oidc_issuer,oidc_subject) SELECT $1,o.id,$3,$4,$5,$6,$7,$8 FROM organizations o WHERE o.organization_key=$2 ON CONFLICT(id) DO UPDATE SET username=EXCLUDED.username,password_hash=EXCLUDED.password_hash,role=EXCLUDED.role,status=EXCLUDED.status,oidc_issuer=EXCLUDED.oidc_issuer,oidc_subject=EXCLUDED.oidc_subject,updated_at=now()`, v.ID, v.OrganizationKey, v.Username, v.PasswordHash, v.Role, v.Status, v.OIDCIssuer, v.OIDCSubject)
 	if err != nil {
 		return fmt.Errorf("postgres: save user: %w", translate(err))
 	}

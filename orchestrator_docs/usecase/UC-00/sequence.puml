@@ -20,3 +20,31 @@ SessionRepo --> Service: Session
 Service --> API: opaque session token
 API --> User: Set HttpOnly cookie; open app [MS-05]
 @enduml
+
+@startuml
+title UC-00 - Keycloak SSO (issue 77)
+actor User
+boundary Console
+boundary Backend
+control AuthenticationService as Auth
+participant Keycloak
+database Store
+User -> Console: Sign in SSO
+Console -> Backend: GET oidc/start
+Backend -> Auth: BeginOIDC
+Auth --> Backend: state, nonce, PKCE, browser binding
+Backend --> User: transaction cookie + redirect
+User -> Keycloak: Authorization Code + PKCE
+Keycloak --> Backend: browser callback (code, state)
+Backend -> Auth: CompleteOIDC(code, state, cookie)
+Auth -> Keycloak: exchange code; verify signed ID token
+Auth -> Store: upsert issuer/subject account; save session hash
+Auth --> Backend: opaque session token
+Backend --> Console: HttpOnly session cookie; redirect /ui/
+Console -> Backend: protected API
+Backend -> Auth: IdentityForToken
+opt grant older than 30 seconds or expired
+Auth -> Keycloak: refresh; verify subject and current client role
+end
+Auth --> Backend: trusted Organization and role
+@enduml

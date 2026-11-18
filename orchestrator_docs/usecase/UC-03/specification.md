@@ -2,7 +2,7 @@
 id: UC-03-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-18
 ---
 
 > Generic Workload replacement: [ADR-035](../../architecture/decisions/ADR-035-generic-workload-template-driver.md)
@@ -655,3 +655,24 @@ preserves stored driver, layout, reference scope, class and immutable pins;
 unavailable classes or advanced references remain visible and are not silently
 replaced. Explicit class selection replaces that reference only. Literal legacy
 endpoint forms remain unchanged. This does not add Kubernetes Gateway discovery.
+
+
+## Sửa Definition bằng code — issue #87, approved 2026-11-18
+
+- **CODE-01:** PE/Admin sửa mọi Definition được backend hỗ trợ qua Biểu mẫu /
+  YAML/JSON. Hai tab dùng chung draft, giữ public fields/kiểu dữ liệu,
+  criteria/provision/mapping, account và source pin; không sửa Type/state/secret.
+- **CODE-02:** UI → code giữ thay đổi hiện tại và fields hợp lệ chưa có control.
+  Code → UI sau parse strict và prepare validation. UI không biểu diễn lossless
+  thì giữ code và báo rõ; không bỏ trường, đổi default hoặc thay draft. Syntax
+  lỗi giữ nội dung/tab. Save code vẫn được phép sau validation đầy đủ.
+- **CODE-03:** ID/Resource Type cố định theo context sửa; expected version ở
+  ngoài code. Unknown/system fields bị từ chối, không âm thầm lọc. Built-in
+  Definition không được sửa vẫn giữ guard.
+- **CODE-04:** Check dùng prepare hiện có, không ghi Definition/revision/deploy.
+  Save dùng canonical draft và PUT/version-CAS hiện có, không import insert-only.
+  Git chỉ resolve khi check; lưu đúng pin đã check. Edits/scope hủy kết quả cũ.
+- **CODE-05:** Error/stale/unknown outcome giữ draft, không tự replay. Explicit
+  reload mới thay bằng bản server. Success cập nhật version và dữ liệu canonical
+  cho hai tab; không tự đổi pin Environment.
+- **CODE-06:** Giữ shell, accessible tabs và lỗi ngắn; tạo mới giữ import hiện có.

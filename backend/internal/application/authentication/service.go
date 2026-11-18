@@ -51,11 +51,14 @@ var usernamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{1,62}$`)
 type Identity struct {
 	UserID, OrganizationKey, Username string
 	Role                              identity.Role
+	AuthProvider                      string
+	UserManagement                    bool
 }
 type Service struct {
-	store    persistence.Store
-	now      func() time.Time
-	rejected map[string]bool
+	federation *Federation
+	store      persistence.Store
+	now        func() time.Time
+	rejected   map[string]bool
 }
 
 // NewService builds the UC-00 service. Sign-in and session restore are refused
@@ -75,10 +78,16 @@ func (s *Service) accepted(account identity.UserAccount) bool {
 }
 
 func (s *Service) SignIn(ctx context.Context, username, rawPassword string) (string, Identity, error) {
+	if s.OIDCEnabled() && !strings.EqualFold(strings.TrimSpace(username), s.federation.LocalTestAdminUsername) {
+		return "", Identity{}, ErrForbidden
+	}
 	account, err := s.store.GetUserAccountByUsername(ctx, strings.ToLower(strings.TrimSpace(username)))
-	if err != nil || !s.accepted(account) || !password.Verify(account.PasswordHash, rawPassword) {
+	if err != nil || !s.accepted(account) || !s.localAccountAllowed(account) || !password.Verify(account.PasswordHash, rawPassword) {
 		return "", Identity{}, ErrInvalidCredentials
 	}
+	return s.newSession(ctx, account)
+}
+func (s *Service) newSession(ctx context.Context, account identity.UserAccount) (string, Identity, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return "", Identity{}, err
@@ -89,7 +98,7 @@ func (s *Service) SignIn(ctx context.Context, username, rawPassword string) (str
 	if err := s.store.Transact(ctx, func(ctx context.Context) error { return s.store.SaveSession(ctx, session) }); err != nil {
 		return "", Identity{}, err
 	}
-	return token, Identity{UserID: account.ID, OrganizationKey: account.OrganizationKey, Username: account.Username, Role: account.Role}, nil
+	return token, s.localIdentity(account), nil
 }
 func (s *Service) IdentityForToken(ctx context.Context, token string) (Identity, error) {
 	session, err := s.store.GetSessionByTokenHash(ctx, hashToken(token))
@@ -100,9 +109,26 @@ func (s *Service) IdentityForToken(ctx context.Context, token string) (Identity,
 	if err != nil || !s.accepted(account) {
 		return Identity{}, ErrUnauthorized
 	}
-	return Identity{UserID: account.ID, OrganizationKey: account.OrganizationKey, Username: account.Username, Role: account.Role}, nil
+	if account.OIDCIssuer != "" {
+		return s.externalIdentity(ctx, token, account)
+	}
+	if !s.localAccountAllowed(account) {
+		return Identity{}, ErrUnauthorized
+	}
+	return s.localIdentity(account), nil
 }
 func (s *Service) SignOut(ctx context.Context, token string) error {
+	s.revokeExternal(ctx, token, true)
+	return s.revokeSession(ctx, token)
+}
+
+// EndReplacedSession retires a browser cookie without revoking a provider grant
+// which may share the newly established Keycloak client session.
+func (s *Service) EndReplacedSession(ctx context.Context, token string) error {
+	s.revokeExternal(ctx, token, false)
+	return s.revokeSession(ctx, token)
+}
+func (s *Service) revokeSession(ctx context.Context, token string) error {
 	session, err := s.store.GetSessionByTokenHash(ctx, hashToken(token))
 	if err != nil {
 		return nil
@@ -111,15 +137,22 @@ func (s *Service) SignOut(ctx context.Context, token string) error {
 	session.RevokedAt = &now
 	return s.store.Transact(ctx, func(ctx context.Context) error { return s.store.SaveSession(ctx, session) })
 }
+
 // ChangePassword replaces the account password after verifying the current one
 // and revokes every session of the account in the same transaction, so a
 // successful change ends all sign-ins including the current one (BR-08).
 func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
+	if s.OIDCEnabled() {
+		account, err := s.store.GetUserAccount(ctx, userID)
+		if err != nil || !s.localAccountAllowed(account) {
+			return ErrForbidden
+		}
+	}
 	if len(newPassword) < MinPasswordLength {
 		return ErrInvalidPassword
 	}
 	account, err := s.store.GetUserAccount(ctx, userID)
-	if err != nil || !s.accepted(account) || !password.Verify(account.PasswordHash, currentPassword) {
+	if err != nil || !s.accepted(account) || account.OIDCIssuer != "" || !password.Verify(account.PasswordHash, currentPassword) {
 		return ErrInvalidCredentials
 	}
 	hash, err := password.Hash(newPassword)
@@ -138,7 +171,7 @@ func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, n
 // ListUsers returns the accounts of the caller's Organization; only an Admin
 // may list them (BR-09). The caller identity comes from the session.
 func (s *Service) ListUsers(ctx context.Context, caller Identity) ([]identity.UserAccount, error) {
-	if caller.Role != identity.RoleAdmin {
+	if s.OIDCEnabled() || caller.Role != identity.RoleAdmin {
 		return nil, ErrForbidden
 	}
 	return s.store.ListUserAccounts(ctx, caller.OrganizationKey)
@@ -147,7 +180,7 @@ func (s *Service) ListUsers(ctx context.Context, caller Identity) ([]identity.Us
 // CreateUser registers an account in the caller's Organization; only an Admin
 // may create accounts (BR-09). The password is stored as a hash only (BR-02).
 func (s *Service) CreateUser(ctx context.Context, caller Identity, username, rawPassword string, role identity.Role) (identity.UserAccount, error) {
-	if caller.Role != identity.RoleAdmin {
+	if s.OIDCEnabled() || caller.Role != identity.RoleAdmin {
 		return identity.UserAccount{}, ErrForbidden
 	}
 	username = strings.ToLower(strings.TrimSpace(username))
@@ -192,7 +225,7 @@ func (s *Service) CreateUser(ctx context.Context, caller Identity, username, raw
 // Admin may reset passwords; the Admin never reads the current password. The
 // new password is stored as a hash only (BR-02).
 func (s *Service) ResetUserPassword(ctx context.Context, caller Identity, targetUserID, newPassword string) error {
-	if caller.Role != identity.RoleAdmin {
+	if s.OIDCEnabled() || caller.Role != identity.RoleAdmin {
 		return ErrForbidden
 	}
 	if len(newPassword) < MinPasswordLength {
@@ -252,4 +285,21 @@ func (s *Service) BootstrapAdmin(ctx context.Context, organizationKey, username,
 func hashToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
+}
+
+// LocalTestLoginAllowed advertises availability, never the configured username.
+func (s *Service) LocalTestLoginAllowed() bool {
+	return s.federation != nil && s.federation.LocalTestAdminUsername != ""
+}
+func (s *Service) localAccountAllowed(a identity.UserAccount) bool {
+	if a.OIDCIssuer != "" || a.OIDCSubject != "" {
+		return false
+	}
+	if s.federation == nil {
+		return true
+	}
+	return s.LocalTestLoginAllowed() && a.Username == s.federation.LocalTestAdminUsername && a.Role == identity.RoleAdmin && a.OrganizationKey == s.federation.OrganizationKey
+}
+func (s *Service) localIdentity(a identity.UserAccount) Identity {
+	return Identity{UserID: a.ID, OrganizationKey: a.OrganizationKey, Username: a.Username, Role: a.Role, AuthProvider: "local", UserManagement: !s.OIDCEnabled()}
 }

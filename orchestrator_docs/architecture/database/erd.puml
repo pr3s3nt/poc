@@ -42,6 +42,8 @@ note right of organizations
   Driver Accounts belong to Organization and are selected by Definitions.
 end note
 entity user_accounts {
+  oidc_issuer : text
+  oidc_subject : text
   * id : uuid <<PK>>
   * organization_id : uuid <<FK>>
   --

@@ -187,6 +187,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/healthz", s.handleHealth)
 	s.effectivenessRoutes()
 	s.observabilityRoutes()
+	s.mux.HandleFunc("GET /api/v1/auth/config", s.handleAuthConfig)
+	s.mux.HandleFunc("GET /api/v1/auth/oidc/start", s.handleOIDCStart)
+	s.mux.HandleFunc("GET /api/v1/auth/oidc/callback", s.handleOIDCCallback)
 	s.mux.HandleFunc("POST /api/v1/auth/sign-in", s.handleSignIn)
 	s.mux.HandleFunc("GET /api/v1/auth/session", s.handleSession)
 	s.mux.HandleFunc("GET /api/v1/organization", s.handleOrganization)
@@ -389,6 +392,10 @@ type signInRequest struct {
 }
 
 func (s *Server) handleSignIn(w http.ResponseWriter, r *http.Request) {
+	if s.auth.OIDCEnabled() && !s.auth.LocalTestLoginAllowed() {
+		writeCode(w, codeForbidden, "")
+		return
+	}
 	var req signInRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeCode(w, codeInvalidRequest, "")
@@ -396,10 +403,14 @@ func (s *Server) handleSignIn(w http.ResponseWriter, r *http.Request) {
 	}
 	token, identity, err := s.auth.SignIn(r.Context(), req.Username, req.Password)
 	if err != nil {
+		if errors.Is(err, authentication.ErrForbidden) {
+			writeCode(w, codeForbidden, "")
+			return
+		}
 		writeCode(w, codeInvalidCredentials, "")
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 8 * 60 * 60})
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, Secure: s.auth.SecureCookie(), SameSite: http.SameSiteLaxMode, MaxAge: 8 * 60 * 60})
 	writeJSON(w, http.StatusOK, map[string]any{"user": identity})
 }
 func (s *Server) sessionIdentity(r *http.Request) (authentication.Identity, bool) {
@@ -411,6 +422,7 @@ func (s *Server) sessionIdentity(r *http.Request) (authentication.Identity, bool
 	return identity, err == nil
 }
 func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	identity, ok := s.sessionIdentity(r)
 	if !ok {
 		writeCode(w, codeUnauthorized, "")
@@ -422,7 +434,7 @@ func (s *Server) handleSignOut(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(sessionCookie); err == nil {
 		_ = s.auth.SignOut(r.Context(), cookie.Value)
 	}
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", HttpOnly: true, MaxAge: -1})
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", HttpOnly: true, Secure: s.auth.SecureCookie(), SameSite: http.SameSiteLaxMode, MaxAge: -1})
 	w.WriteHeader(http.StatusNoContent)
 }
 

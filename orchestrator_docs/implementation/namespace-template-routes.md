@@ -134,3 +134,16 @@ is unchanged and completed evidence is explicitly reused. See the
 [reference control record](../verification/2026-11-17-gateway-reference-controls.md). The user
 also requested synchronized YAML/JSON editing for all Definitions; that broader
 editor extension is a separate proposed issue, not implemented by this slice.
+
+## Combined acceptance with issue #87 — approved 2026-11-18
+
+The user approved integrating features/definition-code-editor into
+features/Httproute for one Console trial before main acceptance. Both canonical
+contracts remain: Endpoint references a separate Gateway; templates create
+HTTPRoute; the Definition form and YAML/JSON share one draft. Gateway Echo and
+legacy hydration/reset now use the code editor bridge without replacing layout,
+class controls or pins. Focused integration checks are underway; previous records
+remain source-attributed historical evidence. The task Console database is backed
+up before its recognized v10→v11 owner upgrade. Existing trial apps/configuration
+are preserved; full candidate/main checks and combined runtime/editor evidence
+will be recorded before handoff. No main merge or shared Gateway change approved.

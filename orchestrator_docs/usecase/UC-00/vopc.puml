@@ -17,6 +17,8 @@ class UserAccount <<entity>> {
   +Status: AccountStatus
   +OrganizationID: OrganizationID
   +Role: UserRole
+  +OIDCIssuer: string
+  +OIDCSubject: string
 }
 class Session <<entity>> {
   +TokenHash: string
@@ -42,4 +44,11 @@ AuthenticationService --> SessionRepository
 AuthenticationService ..> UserAccount
 AuthenticationService ..> Session
 UserAccount "1" o-- "0..*" Session
+interface OIDCProvider {
+  +AuthorizationURL(state, nonce, verifier)
+  +Exchange(code, verifier, nonce)
+  +Refresh(refreshToken)
+  +Revoke(refreshToken)
+}
+AuthenticationService --> OIDCProvider
 @enduml

@@ -11,7 +11,7 @@ last_reviewed: 2026-10-28
 
 | Aggregate | Root | Owned objects | Invariant chính |
 |---|---|---|---|
-| User Account | `UserAccount` | password hash, Organization identity, role, status | Username unique; chỉ `ACTIVE` account được authenticate; plaintext password không persist. |
+| User Account | `UserAccount` | password hash or OIDC issuer/subject, Organization identity, role, status | Username unique; chỉ `ACTIVE` account được authenticate; external identity unique by issuer/subject and has no local password. |
 | Session | `Session` | token hash, expiry, lifecycle status | Opaque token chỉ tồn tại ở browser/request memory; token hash unique và session revoked/expired không authenticate được. |
 | Application | `Application` | system ID/key, Organization, name, version | ID do hệ thống sinh; không có target/provider fields; Secret Store binding thuộc Environment; deployment targets/account/region theo từng resource/workload, không backfill từ Application (T26/ADR-017). |
 | Environment | `Environment` | namespace identity, versioned Secret Store/configuration, identity generation/scope, operation owner, current-set pointer, public-route pending flag | Thuộc một Application; UC-01 tạo đúng `staging` và `production`; desired endpoint được suy ra từ Application Subdomain và Environment key; current Deployment Set chỉ đổi trong final deployment transaction. Route pending cho phép retry sau lỗi Fleet mà không restart workload. |
@@ -52,7 +52,7 @@ separate database aggregate.
 - `BatchScheduler`: provider-first Kahn batches.
 - `ResourceProvisioningService`: application service executing resource batches.
 - `OutputBindingResolver`: resolves context and completed provider outputs.
-- `AuthenticationService`: verifies internal accounts and creates/revokes opaque sessions.
+- `AuthenticationService`: verifies internal accounts or configured OIDC grants, creates/revokes opaque sessions and refreshes external role/state. OIDC provider contracts live in `backend/internal/ports/oidc`; adapters do not depend on application services.
 
 ## Deployment Delta Snapshot contract
 

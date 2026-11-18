@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-11
+last_reviewed: 2026-11-18
 ---
 
 # Current project state
@@ -1757,7 +1757,9 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
 - Conformance loader bỏ Definition thiếu criteria hoặc `criteria: []` khỏi
   challenge catalog và giữ criterion `{}` thành wildcard điểm 0; product planner
   vẫn từ chối catalog có Definition không có criterion.
-- UC-00 có cookie session cho local/test, chưa có production-grade RBAC. UC-04
+- UC-00 có cookie session cho local/test và tùy chọn Keycloak OIDC (issue #77,
+  một backend instance, role refresh theo request tối đa mỗi 30 giây); chưa có
+  production-grade RBAC/HA. UC-04
   chưa có AWS registration/durable credential flow. UC-05 standalone Preview và
   UC-07 update/remove đã có local verification. UC-02/03 đã có đăng
   ký catalog và PostgreSQL persistence nhưng chưa có đầy đủ lifecycle quản trị.
@@ -2538,3 +2540,50 @@ Definition/revision changes. 28 focused tests and the fresh full frontend's 1078
 tests, typecheck/lint/build pass; disposable namespace cleanup is verified.
 Backend source is unchanged and the completed comparison above is
 explicitly reused. See [reference controls evidence](verification/2026-11-17-gateway-reference-controls.md).
+
+## Keycloak SSO — issue #77
+
+Integrated into main on 2026-11-17 after user acceptance. UC-00 adds configured
+OIDC Authorization Code + PKCE with backend-owned tokens and the existing opaque
+session cookie. Issuer/subject identity persists through schema version 11; no
+old-account migration/linking. Three client roles map to existing backend/UI
+authorization. Employee account management is disabled in OIDC mode. SSO-07 optionally admits
+one configured personal local Admin for fast testing on the same Console; only
+its own password change is allowed, and every other employee still requires SSO.
+
+Dedicated Keycloak/PostgreSQL browser acceptance passed for all three roles,
+missing-role rejection, active-session promotion/demotion, user disabling and
+logout. Tokens stay in backend memory: restart requires login; this is a
+single-instance test slice, not company integration/HA. Full-suite result and
+main-baseline failures are recorded in the
+[verification](verification/2026-11-13-keycloak-sso.md).
+
+[Configuration and lifecycle](operations/keycloak-sso.md),
+[browser scenario](../e2e/scenarios/keycloak-sso/README.md).
+
+[Accepted main integration](verification/2026-11-17-keycloak-main.md) records fresh
+full checks and the retained v10→v11 rollout. Main deliberately keeps local login
+per the user’s decision; Keycloak deployment/configuration is a later step.
+Installation/users/catalog/Application identities are preserved. Full backend
+remains baseline-red; the final full frontend passes 1,077 tests.
+
+## Definition code editor — issue #87, awaiting acceptance
+
+Separate features/definition-code-editor branch from main 725541ef. Existing
+Definition edit supports synchronized form/YAML/JSON with the same validation,
+source pins and version-CAS Save. Four-driver real browser round-trip and scoped
+checks pass. Final full frontend on kind passes 116 files / 1093 tests and
+typecheck/lint/build; owned test namespace cleanup is verified. Backend source
+is identical to main, with completed accepted-main evidence explicitly reused;
+its failures/skips/PG timeout remain baseline-red. The isolated trial and four
+examples remain available for acceptance.
+No main merge, rollout or full green backend gate claimed. See
+[implementation](implementation/definition-code-editor.md).
+
+## Combined Gateway/routes and Definition editor — issues #84/#87
+
+User approved integration on 2026-11-18 into features/Httproute for a single
+review Console. Merge conflict resolution preserves namespace/Gateway/template
+contracts and synchronized code editing, including Echo/legacy Gateway layouts.
+Combined validation and preserved trial-stack upgrade are in progress. No main
+merge, completed combined gate or user acceptance is claimed yet.

@@ -4,8 +4,8 @@ import { CatalogDocumentImport } from './CatalogDocumentImport';
 import type { DocumentKind } from './catalogDocument';
 
 // Keep both editors mounted so switching methods preserves independent drafts.
-export function CatalogEntryTabs({ children, kind, onRegistered, disabled = false, importAvailable = true }: {
-  children: ReactNode; kind: DocumentKind; onRegistered(): Promise<unknown>; disabled?: boolean; importAvailable?: boolean;
+export function CatalogEntryTabs({ children, kind, onRegistered, disabled = false, importAvailable = true, hideTabs = false }: {
+  children: ReactNode; kind: DocumentKind; onRegistered(): Promise<unknown>; disabled?: boolean; importAvailable?: boolean; hideTabs?: boolean;
 }) {
   const id = useId();
   const [selected, setSelected] = useState('form');
@@ -14,7 +14,7 @@ export function CatalogEntryTabs({ children, kind, onRegistered, disabled = fals
   const locked = disabled || importBusy;
   const tabs = importAvailable ? ['form', 'import'] : ['form'];
   return <>
-    <div className="tabs" role="tablist" aria-label={t('catalogDocument.method')}>
+    <div className="tabs" role="tablist" aria-label={t('catalogDocument.method')} hidden={hideTabs}>
       {tabs.map((tab, index) => <button type="button" role="tab" key={tab} id={`${id}-${tab}-tab`} aria-controls={`${id}-${tab}-panel`} aria-selected={active === tab} tabIndex={active === tab ? 0 : -1} disabled={locked} className={`tab ${active === tab ? 'tab-active' : ''}`} onClick={() => setSelected(tab)} onKeyDown={event => {
         if (locked || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
@@ -22,7 +22,7 @@ export function CatalogEntryTabs({ children, kind, onRegistered, disabled = fals
         setSelected(next); document.getElementById(`${id}-${next}-tab`)?.focus();
       }}>{t(tab === 'form' ? 'catalogDocument.form' : 'catalogDocument.title')}</button>)}
     </div>
-    <div role="tabpanel" id={`${id}-form-panel`} aria-labelledby={`${id}-form-tab`} hidden={active !== 'form'}>{children}</div>
+    <div role={hideTabs ? undefined : 'tabpanel'} id={`${id}-form-panel`} aria-labelledby={hideTabs ? undefined : `${id}-form-tab`} hidden={active !== 'form'}>{children}</div>
     <div role="tabpanel" id={`${id}-import-panel`} aria-labelledby={`${id}-import-tab`} hidden={active !== 'import' || !importAvailable}>
       <CatalogDocumentImport kind={kind} onRegistered={onRegistered} onBusyChange={setImportBusy} />
     </div>

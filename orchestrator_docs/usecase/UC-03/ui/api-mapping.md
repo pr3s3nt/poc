@@ -2,7 +2,7 @@
 id: UC-03-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-18
 related: UC-03
 ---
 
@@ -284,3 +284,12 @@ with Git authoring source supplied by the document endpoint below.
 Errors dùng public error codes/field paths hiện hành, không trả Git stderr,
 credential hoặc giá trị cấu hình trong error. Git source lỗi đặt tại
 `definition.driverInputs.values.source`; mapping/account giữ đường dẫn chuẩn.
+
+
+## Definition code edit — issue #87
+
+Use existing POST `/resource-definitions/import/prepare` for strict check and
+canonical pin preparation, then existing PUT `/resource-definitions/{key}` with
+the expected version from the loaded editing context. Never use insert-only
+import to edit or accept version/key/type changes from code. GET/list/reload and
+stale/uncertain outcomes retain current contracts. No new API is required.

@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-11-08
+last_reviewed: 2026-11-18
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -1694,3 +1694,17 @@ ScoreDocuments component tests and Score authoring browser scenario.
 
 Canonical [contract/sequence](../architecture/contracts/namespace-template-routes.md).
 [Implementation and remaining gates](../implementation/namespace-template-routes.md).
+
+## Keycloak SSO — issue #77
+
+| Requirement | Realization | Implementation / checks |
+|---|---|---|
+| UC-00 SSO-01..07 | UC-00 OIDC collaboration | authentication federation, OIDC adapter, HTTP auth handlers; focused Go tests and keycloak-sso browser scenario |
+
+## Definition code editing — issue #87
+
+| Requirement | Realization and validation |
+|---|---|
+| CODE-01/02 | DefinitionEditMethods, useDefinitionCodeEditor, definitionEditDraft; four-driver UI/code round-trip, advanced-field tests and real browser scenario |
+| CODE-03/04 | Strict parser, context key/type/version, existing prepare and PUT; identity/system-field and exact checked Git pin tests |
+| CODE-05/06 | Shared Save/reload guards, accessible tabs and existing shell; stale/network/uncertain/unmount tests; visual browser review |

@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-11-11
+last_reviewed: 2026-11-18
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-18 | Issue #87 synchronized Definition form/code, four real drivers, unchanged active pins; 1093 frontend tests and guarded cleanup; unchanged backend evidence reused | [Definition editor](2026-11-18-definition-code-editor.md) |
 | 2026-11-17 | Issue #84 class dropdowns replace raw references; legacy/Echo live forms and generated JSON agree; 1078 frontend tests, owned cleanup, unchanged backend evidence reused | [Reference controls](2026-11-17-gateway-reference-controls.md) |
 | 2026-11-17 | Issue #84 Echo refinement after incoming main merge: native/Score lifecycle and cleanup, 1076 frontend tests; identical backend/main failures/skips and PostgreSQL timeout | [Echo Gateway](2026-11-17-echo-gateway.md) |
 | 2026-11-17 | Issue #83 accepted main merge, kind rollout, post-rollout browser checks and preserved user trial | [Score main integration](2026-11-17-score-main.md) |

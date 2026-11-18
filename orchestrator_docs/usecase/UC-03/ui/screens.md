@@ -2,7 +2,7 @@
 id: UC-03-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-18
 related: UC-03
 ---
 
@@ -341,7 +341,7 @@ Theo phản hồi nghiệm thu, giữ shell/form hiện hành trong tab Biểu m
 Nhập YAML/JSON bên cạnh chứa cả file picker và
 textarea có nhãn, nút Đăng ký; upload điền editor trước khi submit. Busy khóa
 editor/upload/submit và chuyển tab; hai bản nháp được giữ khi chuyển tab.
-Definition đặt hai tab trong luồng Tạo cấu hình, không hiện import khi sửa.
+Definition tạo mới giữ import; sửa hiện có theo CODE-01–06 bên dưới.
 Lỗi giữ nội dung, status CREATED/REUSED/CONFLICT rõ ràng.
 CONFLICT hiện field paths không hiện values. Tải file nằm tại chi tiết schema
 hoặc Definition và từng revision. Trợ giúp định dạng nằm trong disclosure.
@@ -366,3 +366,13 @@ choice. Show the expression only under technical details. Stored classes remain
 listed when unavailable; advanced references remain unchanged until an explicit
 replacement. Keep legacy endpoint policy fields, driver/layout and pins. No new
 shell, source discovery or code editor is introduced by this slice.
+
+
+## Sửa YAML/JSON đồng bộ — issue #87
+
+Sửa hiện có dùng tab Biểu mẫu / YAML/JSON chung heading/version badge. Form giữ
+Configuration/Matching; code có textarea, Kiểm tra cấu hình và Lưu thay đổi/Hủy sửa.
+Chuyển tab đồng bộ draft. Code chỉ public authoring fields, version từ context.
+Syntax/contract lỗi giữ code; projection UI không lossless thì không chuyển và
+có lỗi rõ. Check/Save khóa conflicting actions; stale/unknown giữ notice/reload
+hiện hành. Không đổi shell/theme; source pin giữ nguyên khi sửa fields khác.

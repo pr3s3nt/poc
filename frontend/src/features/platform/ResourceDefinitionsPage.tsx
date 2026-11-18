@@ -1,4 +1,7 @@
 import { CatalogEntryTabs } from './CatalogEntryTabs';
+import { DefinitionEditMethods } from './DefinitionEditMethods';
+import { useDefinitionCodeEditor } from './useDefinitionCodeEditor';
+import type { DefinitionDocument } from './definitionEditDraft';
 import { DefinitionDocumentDownload } from './DefinitionDocumentDownload';
 import { authoringFeatures } from '../../shared/authoringFeatures';
 import { SavedSourceSummary, moduleOrigin } from './SavedSourceSummary';
@@ -239,7 +242,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   const variables: Record<string, unknown> = { template_source: templateDraft.source, template_inputs: templateDraft.inputs };
   const references = parseObjectText(templateDraft.references, t('templateDriver.references'));
   if (!references.value) return { problem: references.error };
-  if (Object.keys(references.value).length) variables.resource_references = references.value;
+  if (Object.keys(references.value).length || templateDraft.hasReferences) variables.resource_references = references.value;
   if (templateDraft.namespace.trim()) variables.namespace = templateDraft.namespace.trim();
   if (templateDraft.cluster.trim()) variables.cluster = templateDraft.cluster.trim();
   return { values: { variables }, provision: provision.value };
@@ -318,6 +321,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   }
 
   function resetForm() {
+    code.reset();
     setTab('configuration'); setAdvancedOpen(false); setTemplateDraft(emptyTemplateDriver()); setEndpointDraft(emptyEndpointReference()); setGatewayPolicy(emptyEndpointDriver()); setGatewayDriver('echo'); setGatewayCluster('');
     setSourceMode('git'); setGitPin(null); setCatalogSelection(undefined); setInitialCatalogSelection(undefined); setGitDraftVersion((version) => version + 1); setClusterMethod('terraform');
     setKey(''); setName(''); setIdError(''); setNameError(''); setError(''); setReview(null); setEditing(null); setSourceLost(false);
@@ -326,6 +330,13 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
 
   // Loads a stored Definition into the form for editing (UC-03 V02-06): the ID and Resource Type stay fixed.
   function startEdit(definition: Definition) {
+    code.open(definition);
+    hydrateDefinition(definition);
+  }
+
+  function hydrateDefinition(definition: Definition) {
+    setChangingSource(false); setSourceLost(false);
+    if (definition.driverType !== 'terraform') { setSourceMode('git'); setCatalogSelection(undefined); setGitPin(null); }
  if (definition.resourceType === 'k8s-gateway' && ['echo', 'existing-gateway'].includes(definition.driverType)) {
   const values = definition.driverInputs?.values;
   const stored = isObject(values?.variables) ? values.variables : {};
@@ -342,7 +353,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
  if (definition.driverType === 'template') {
   const values = definition.driverInputs?.values;
   const variables = isObject(values?.variables) ? values.variables : {};
-  setTemplateDraft({ references: JSON.stringify(variables.resource_references ?? {}, null, 2), source: typeof variables.template_source === 'string' ? variables.template_source : '', inputs: isObject(variables.template_inputs) ? variables.template_inputs : {}, namespace: typeof variables.namespace === 'string' ? variables.namespace : '', cluster: typeof variables.cluster === 'string' ? variables.cluster : '', provision: JSON.stringify(definition.provision ?? {}, null, 2) });
+  setTemplateDraft({ hasReferences: Object.hasOwn(variables, 'resource_references'), references: JSON.stringify(variables.resource_references ?? {}, null, 2), source: typeof variables.template_source === 'string' ? variables.template_source : '', inputs: isObject(variables.template_inputs) ? variables.template_inputs : {}, namespace: typeof variables.namespace === 'string' ? variables.namespace : '', cluster: typeof variables.cluster === 'string' ? variables.cluster : '', provision: JSON.stringify(definition.provision ?? {}, null, 2) });
   setView('editor'); setTab('configuration'); setKey(definition.key); setName(definition.name ?? ''); setResourceType('workload'); setCriteriaDraft(draftFromCriteria(definition.criteria)); setEditing({key:definition.key, version:definition.version ?? 0}); setError(''); setNotice(''); setReview(null); return;
  }
 
@@ -426,6 +437,32 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
     setNotice(t('platform.resourceDefinitions.theLatestVersionWasReloaded'));
   }
 
+  async function persistEdited(body: DefinitionDocument): Promise<boolean> {
+    if (!editing || saving || review) return false;
+    setSaving(true); setError(''); setNotice('');
+    let saved: Definition;
+    try {
+      saved = await api<Definition>(`/resource-definitions/${encodeURIComponent(editing.key)}`, { method: 'PUT', body: JSON.stringify({ ...body, version: editing.version }) });
+    } catch (reason) {
+      setSaving(false);
+      if (reason instanceof ApiError && isStaleConflict(reason)) { setReview({ kind: 'stale' }); setError(''); return false; }
+      const unknown = !(reason instanceof ApiError) || reason.code === 'COMMIT_UNCERTAIN';
+      if (unknown) { setReview({ kind: 'unknown' }); void definitionList.reload(); }
+      setError(describeFailure(reason, true));
+      return false;
+    }
+    // Committed: stay on the edited Definition at its new version; the list reload is a separate, retryable GET.
+    if (code.mode === 'code') hydrateDefinition(saved);
+    code.saved(saved);
+    setChangingSource(false);
+    setEditing({ key: saved.key, version: saved.version ?? editing.version + 1 });
+    setNotice(t('platform.resourceDefinitions.savedDefinitionKeyVersionValue', { key: saved.key, value: saved.version ?? editing.version + 1 }));
+    setSaving(false);
+    // Definition criteria change the server-computed Resource Type classes.
+    await Promise.all([definitionList.reload(), typeList.reload(), capabilityList.reload()]);
+    return true;
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving || review) return;
@@ -444,28 +481,8 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
     const submitted = key;
     const submittedDraft = draftKey;
     const body = { key: submitted, name, resourceType, driverType: pin?.driverType ?? 'terraform', ...(accountRequired ? { driverAccount: chosenAccount } : {}), driverInputs: { values: inputs.values, ...(sourceMode === 'catalog' && catalogSelection ? { catalog: catalogSelection } : {}) }, provision: inputs.provision, criteria: cleanCriteria };
+    if (editing) { await persistEdited(code.document ?? body); return; }
     setSaving(true);
-    if (editing) {
-      let saved: Definition;
-      try {
-        saved = await api<Definition>(`/resource-definitions/${encodeURIComponent(editing.key)}`, { method: 'PUT', body: JSON.stringify({ ...body, version: editing.version }) });
-      } catch (reason) {
-        setSaving(false);
-        if (reason instanceof ApiError && isStaleConflict(reason)) { setReview({ kind: 'stale' }); setError(''); return; }
-        const unknown = !(reason instanceof ApiError) || reason.code === 'COMMIT_UNCERTAIN';
-        if (unknown) { setReview({ kind: 'unknown' }); void definitionList.reload(); }
-        setError(describeFailure(reason, true));
-        return;
-      }
-      // Committed: stay on the edited Definition at its new version; the list reload is a separate, retryable GET.
-      setChangingSource(false);
-      setEditing({ key: saved.key, version: saved.version ?? editing.version + 1 });
-      setNotice(t('platform.resourceDefinitions.savedDefinitionKeyVersionValue', { key: saved.key, value: saved.version ?? editing.version + 1 }));
-      setSaving(false);
-      // Definition criteria change the server-computed Resource Type classes.
-      await Promise.all([definitionList.reload(), typeList.reload(), capabilityList.reload()]);
-      return;
-    }
     try {
       await api('/resource-definitions', { method: 'POST', body: JSON.stringify(body) });
     } catch (reason) {
@@ -504,6 +521,12 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   const reviewDocument = reviewProblem ? null : { key, name, resourceType, driverType: pin?.driverType ?? 'terraform', ...(accountRequired ? { driverAccount: chosenAccount } : {}), driverInputs: { values: reviewInputs.values, ...(sourceMode === 'catalog' && catalogSelection ? { catalog: catalogSelection } : {}) }, provision: reviewInputs.provision, criteria: reviewCriteria.criteria, ...(editing ? { version: editing.version } : {}) };
   const saveDisabled = sourceLost || saving || types.length === 0 || !metadataReady || review !== null || (!isTemplate && !isEndpoint && !isGateway && !existingCluster && sourceMode !== 'installed' && !gitPin);
 
+  const code = useDefinitionCodeEditor({
+    form: reviewDocument, context: editing ? { ...editing, resourceType } : null,
+    hydrate: (doc, version) => hydrateDefinition({ ...doc, version } as Definition),
+    save: persistEdited, describeFailure: reason => describeFailure(reason, true),
+  });
+
   const identityFields = <>
 <div className={`field-grid definition-identity-fields${editing ? ' definition-edit-identity' : ''}`}><label>{t('platform.resourceDefinitions.definitionID')}<input value={key} tabIndex={editing ? -1 : undefined} readOnly={editing !== null} aria-readonly={editing !== null ? true : undefined} aria-required="true" aria-invalid={idError ? true : undefined} aria-describedby={idError ? 'definition-id-hint definition-id-error' : 'definition-id-hint'} onChange={(event) => { setKey(event.target.value); setIdError(''); }} /></label>
           <label>{t('platform.resourceDefinitions.displayName')}<input value={name} maxLength={maxNameLength} aria-required="true" aria-invalid={nameError ? true : undefined} aria-describedby={nameError ? 'definition-name-error' : undefined} onChange={(event) => { setName(event.target.value); setNameError(''); }} /></label>
@@ -517,11 +540,11 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
     <div hidden={view !== 'catalog'}>
     <header className="page-header"><div><p className="eyebrow">{t('platform.resourceDefinitions.platform')}</p><h1>{t('platform.resourceDefinitions.resourceDefinitions')}</h1><p>{t('platform.resourceDefinitions.manageHowResourcesAreCreated')}</p></div><div className="form-actions">{editing || key || name ? <Button type="button" onClick={() => setView('editor')}>{t('platform.resourceDefinitions.continueDraft')}</Button> : null}<Button type="button" tone="primary" onClick={() => { if (editing) resetForm(); setNotice(''); setView('editor'); }}>{t('platform.resourceDefinitions.createDefinition')}</Button></div></header>
     <section className="content-panel"><div className="section-header"><h2>{t('platform.resourceDefinitions.registeredDefinitions')}</h2></div>{listError ? <div className="form-error" role="alert" aria-label={t('platform.resourceDefinitions.listLoadError')}>{listError} <Button type="button" onClick={() => { void definitionList.reload(); }}>{t('platform.resourceDefinitions.retry')}</Button></div> : definitionList.loading && definitionList.items.length === 0 ? <p>{t('platform.resourceDefinitions.loadingResourceDefinitions')}</p> : definitions.length === 0 ? <p>{t('platform.resourceDefinitions.noResourceDefinitionsYet')}</p> : <div className="catalog-list">{definitions.map((definition) => <div key={definition.key} className="catalog-entry catalog-entry-row" data-definition={definition.key}><div className="catalog-entry-main"><strong>{definition.name || definition.key}</strong><span>ID <code>{definition.key}</code> · {definition.resourceType} · {own(driverLabels, definition.driverType) ?? definition.driverType}{definition.driverAccount ? t('platform.resourceDefinitions.accountAccountName', { accountName: accountName(definition.driverAccount) }) : ''} {' '}{t('platform.resourceDefinitions.version')}{' '} {definition.version ?? '?'} · {definition.criteria?.length ?? 0} {' '}{t('platform.resourceDefinitions.matchingCriteria')}</span></div>
-      <div className="form-actions"><DefinitionDocumentDownload definitionKey={definition.key} label={`v${definition.version ?? 1}`} version={definition.version ?? 1} /><Button type="button" onClick={() => setHistoryKey(definition.key)}>{t('versions.title')}</Button>{definition.key !== 'builtin-existing-cluster' ? <Button type="button" aria-label={t('platform.resourceDefinitions.editDefinitionKey', { key: definition.key })} disabled={saving || !metadataReady || !typesReady} onClick={() => startEdit(definition)}>{t('platform.resourceDefinitions.edit')}</Button> : null}</div></div>)}</div>}</section>
+      <div className="form-actions"><DefinitionDocumentDownload definitionKey={definition.key} label={`v${definition.version ?? 1}`} version={definition.version ?? 1} /><Button type="button" onClick={() => setHistoryKey(definition.key)}>{t('versions.title')}</Button>{definition.key !== 'builtin-existing-cluster' ? <Button type="button" aria-label={t('platform.resourceDefinitions.editDefinitionKey', { key: definition.key })} disabled={saving || code.busy || !metadataReady || !typesReady} onClick={() => startEdit(definition)}>{t('platform.resourceDefinitions.edit')}</Button> : null}</div></div>)}</div>}</section>
     {historyKey ? <DefinitionVersions key={`${historyKey}-${definitionList.items.find(d => d.key === historyKey)?.version}`} definitionKey={historyKey} onClose={() => setHistoryKey('')} /> : null}
     </div>
     <section className="definition-detail" hidden={view !== 'editor'} ref={formRef} aria-label={editing ? t('platform.resourceDefinitions.editResourceDefinition') : t('platform.resourceDefinitions.registerResourceDefinition')}>
-      <nav className="definition-breadcrumb" aria-label={t('platform.resourceDefinitions.definitionPath')}><span>{t('platform.resourceDefinitions.platform')}</span><span>/</span><button type="button" disabled={saving} onClick={() => { setView('catalog'); }}>{t('platform.resourceDefinitions.resourceDefinitions')}</button><span>/</span><span>{editing?.key || t('platform.resourceDefinitions.create')}</span></nav>
+      <nav className="definition-breadcrumb" aria-label={t('platform.resourceDefinitions.definitionPath')}><span>{t('platform.resourceDefinitions.platform')}</span><span>/</span><button type="button" disabled={saving || code.busy} onClick={() => { setView('catalog'); }}>{t('platform.resourceDefinitions.resourceDefinitions')}</button><span>/</span><span>{editing?.key || t('platform.resourceDefinitions.create')}</span></nav>
       <header className="definition-heading"><div><h1>{name || (editing ? editing.key : t('platform.resourceDefinitions.newResourceDefinition'))} {pin ? <span className="definition-driver">{isTemplate ? 'Template' : isEndpoint ? t('endpointDriver.driver') : isGateway ? t('gatewayDriver.title') : existingCluster ? t('platform.resourceDefinitions.existingCluster') : 'Terraform'}</span> : null}</h1><p>{key || t('platform.resourceDefinitions.newDraft')} <span>/</span> {' '}{t('platform.resourceDefinitions.resourceType2')}{' '} {resourceType || t('platform.resourceDefinitions.notSelected')}</p></div>{editing ? <span className="definition-version">{t('platform.resourceDefinitions.versionVersion', { version: editing.version })}</span> : null}</header>
       <h2 className="definition-sr-only">{editing ? t('platform.resourceDefinitions.editDefinitionKey', { key: editing.key }) : t('platform.resourceDefinitions.registerResourceDefinition')}</h2>
       {view === 'editor' && listError ? <div className="form-error" role="alert" aria-label={t('platform.resourceDefinitions.listLoadError')}>{listError} <Button type="button" onClick={() => { void definitionList.reload(); }}>{t('platform.resourceDefinitions.retry')}</Button></div> : null}
@@ -529,8 +552,9 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
         <p>{review.kind === 'stale' ? t('platform.resourceDefinitions.theDefinitionWasChangedBy') : review.created ? t('platform.resourceDefinitions.itIsUnknownWhetherThe') : t('platform.resourceDefinitions.itIsUnknownWhetherThe2')}</p>
         <p>{review.created ? t('platform.resourceDefinitions.checkOnTheServerIf') : t('platform.resourceDefinitions.reloadTheLatestVersionReview')}</p>
         <div className="form-actions"><Button type="button" onClick={() => { void definitionList.reload(); }}>{t('platform.resourceDefinitions.reloadList')}</Button><Button type="button" tone="primary" onClick={() => { void reloadLatest(); }}>{review.created ? t('platform.resourceDefinitions.checkOnServer') : t('platform.resourceDefinitions.reloadLatestVersion')}</Button></div></div> : null}
-      <CatalogEntryTabs kind="resource-definitions" onRegistered={definitionList.reload} disabled={saving} importAvailable={!editing}>
-      {editing ? <p className="feature-note">{t('versions.editNote')}</p> : null}<form onSubmit={submit} noValidate><fieldset className="editor-grid form-fieldset" disabled={saving} aria-busy={saving}>
+      <DefinitionEditMethods enabled={Boolean(editing)} mode={code.mode} text={code.text} busy={saving || code.busy} held={Boolean(review)} error={code.mode === 'code' ? code.error || error : code.error} notice={notice} prepared={code.prepared} onMode={code.show} onChange={code.change} onCheck={() => { void code.run('check'); }} onSave={() => { void code.run('save'); }} onCancel={resetForm}>
+      <CatalogEntryTabs kind="resource-definitions" onRegistered={definitionList.reload} disabled={saving || code.busy} importAvailable={!editing} hideTabs={Boolean(editing)}>
+      {editing ? <p className="feature-note">{t('versions.editNote')}</p> : null}<form onSubmit={submit} noValidate><fieldset className="editor-grid form-fieldset" disabled={saving || code.busy} aria-busy={saving || code.busy}>
         {typeList.loadError ? <div className="form-error" role="alert" aria-label={t('platform.resourceDefinitions.resourceTypeLoadError')}>{t('platform.resourceDefinitions.couldNotLoadResourceTypes')}{' '} <Button type="button" onClick={() => { void typeList.reload(); }}>{t('platform.resourceDefinitions.retry')}</Button></div> : null}
         {capabilityList.loading ? <p role="status" className="feature-note">{t('platform.resourceDefinitions.loadingVerifiedModuleMetadata')}</p> : null}
         {capabilityList.loadError ? <div className="form-error" role="alert" aria-label={t('platform.resourceDefinitions.moduleMetadataLoadError')}>{capabilityList.loadError} {' '}{t('platform.resourceDefinitions.noModuleCanBeChosen')}{' '} <Button type="button" onClick={() => { void capabilityList.reload(); }}>{t('platform.resourceDefinitions.retry')}</Button></div> : null}
@@ -622,9 +646,9 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
           <p className="feature-note">{t('platform.resourceDefinitions.currentContentTheServerStill')}</p>
           {reviewProblem ? <p role="status">{t('platform.resourceDefinitions.couldNotBuildTheContent', { reviewProblem })}</p> : <pre aria-label={t('platform.resourceDefinitions.definitionBeingEntered')}>{JSON.stringify(reviewDocument, null, 2)}</pre>}
         </details>
-        {error ? <div className="form-error" role="alert">{error}</div> : null}{notice ? <div className="form-success" role="status">{notice}</div> : null}<div className="definition-savebar"><span>{editing ? t('platform.resourceDefinitions.editingVersionVersion', { version: editing.version }) : t('platform.resourceDefinitions.draftUnsaved')}</span><div className="form-actions">{editing ? <Button type="button" onClick={resetForm}>{t('platform.resourceDefinitions.cancelEditing')}</Button> : null}<Button type="submit" tone="primary" disabled={saveDisabled}>{saving ? (editing ? t('platform.resourceDefinitions.saving') : t('platform.resourceDefinitions.registering')) : editing ? t('platform.resourceDefinitions.saveChanges') : t('platform.resourceDefinitions.registerResourceDefinition')}</Button></div></div>
+        {error ? <div className="form-error" role="alert">{error}</div> : null}{notice && (!editing || code.mode === 'form') ? <div className="form-success" role="status">{notice}</div> : null}<div className="definition-savebar"><span>{editing ? t('platform.resourceDefinitions.editingVersionVersion', { version: editing.version }) : t('platform.resourceDefinitions.draftUnsaved')}</span><div className="form-actions">{editing ? <Button type="button" onClick={resetForm}>{t('platform.resourceDefinitions.cancelEditing')}</Button> : null}<Button type="submit" tone="primary" disabled={saveDisabled}>{saving ? (editing ? t('platform.resourceDefinitions.saving') : t('platform.resourceDefinitions.registering')) : editing ? t('platform.resourceDefinitions.saveChanges') : t('platform.resourceDefinitions.registerResourceDefinition')}</Button></div></div>
       </fieldset></form>
-      </CatalogEntryTabs>
+      </CatalogEntryTabs></DefinitionEditMethods>
     </section>
   </section>;
 }

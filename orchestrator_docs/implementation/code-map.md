@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-11-07
+last_reviewed: 2026-11-18
 ---
 
 # Design-to-code map
@@ -1490,3 +1490,32 @@ the generic identity executor. Kubernetes GatewayVerifier is independent of
 legacy ExistingGatewayAdapter provisioning. Catalog/planner/runtime contract
 tests include gateway_registration_test.go, gateway_resource_test.go and
 provisioning/echo_gateway_test.go. Cluster readiness/pin adapters remain unchanged.
+
+## Keycloak SSO — issue #77
+
+- OIDC provider contract: `backend/internal/ports/oidc`.
+- OIDC discovery/exchange/verification: `backend/internal/adapters/oidc`.
+- Browser transactions, issuer/subject accounts and refresh-bound sessions:
+  `backend/internal/application/authentication/federation.go`.
+- Server configuration: `backend/internal/bootstrap/oidc.go`;
+  delivery: `backend/internal/delivery/http/oidc.go`.
+- External account fields: `internal/domain/identity`, PostgreSQL repositories
+  and immutable migration/reference 011.
+- Console: `SignInEntry`, `SignInPage`, App/AuthProvider, AppShell external controls.
+- Dedicated runtime: `deploy/local/compose.keycloak.yml`; fixtures/acceptance
+  under `e2e/setup/keycloak` and `e2e/scenarios/keycloak-sso`. Shared Console
+  helper `scripts/bootstrap/lib/console.mjs` supports verified OIDC issuer entry.
+
+SSO-07 personal local Admin: configured `localTestAdminUsername` is enforced
+in authentication on both password login and every restored session; auth/config
+exposes only availability and session identity exposes UserManagement=false.
+SignInEntry/SignInPage offer the scoped disclosure on the same Console; AppShell
+keeps own password change and hides employee management. The shared Console
+helper accepts ORCH_AUTH_MODE=local only when the server explicitly allows it.
+
+## Definition code editing — issue #87
+
+UC-03 CODE-01–06 → frontend ResourceDefinitionsPage / DefinitionEditMethods /
+useDefinitionCodeEditor / definitionEditDraft; strict catalogDocument parser and
+existing prepare + PUT APIs. DefinitionCodeEditor and definitionEditDraft tests;
+real scenario e2e/scenarios/definition-code-editor. No backend/schema change.

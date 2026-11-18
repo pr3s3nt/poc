@@ -2,7 +2,7 @@
 id: OPS-RESOURCE-CATALOG-FILES
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-11-12
+last_reviewed: 2026-11-18
 related: [UC-02-SPEC, UC-03-SPEC]
 ---
 
@@ -462,3 +462,20 @@ Hướng dẫn này giải thích cách sử dụng contract hiện có, không 
 Các [fixture bootstrap](../../scripts/bootstrap/git-assets/) là dữ liệu cho luồng
 bootstrap: thay pin/ID như hướng dẫn ở trên, không coi mọi placeholder bootstrap
 hoặc file cấu hình nhiều Definition là một file Console có thể import trực tiếp.
+
+## Sửa Definition hiện có bằng YAML/JSON — issue #87
+
+Trong Resource Definitions, mở **Sửa**, chọn **YAML/JSON**. Hai tab Biểu mẫu và
+YAML/JSON dùng chung bản nháp: đổi trên form rồi mở code sẽ thấy giá trị mới;
+code hợp lệ được kiểm tra trước khi chuyển lại form. Không tạo Definition khác
+hoặc dùng import để thay thế một lần sửa.
+
+Code chứa public authoring fields; giữ nguyên key/resourceType. Expected version
+được lấy từ cấu hình đang sửa, không thêm version/revisionId vào nội dung. Bấm
+Kiểm tra cấu hình để validate và chốt Git source pin, rồi Lưu thay đổi; Save cũng
+kiểm tra nếu chưa có kết quả phù hợp. Edit nội dung hủy kết quả check cũ.
+
+Code lỗi hoặc form chưa biểu diễn được lossless vẫn được giữ trong tab code,
+cùng thông báo. Sau khi kiểm tra hợp lệ có thể lưu trực tiếp bằng code. Save
+stale/không rõ kết quả giữ draft và yêu cầu tải lại theo luồng hiện hành. Lưu tạo
+bản đề xuất, không tự deploy hay chuyển pin Environment đang chạy.

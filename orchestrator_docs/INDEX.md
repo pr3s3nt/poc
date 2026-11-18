@@ -2,7 +2,7 @@
 id: DOC-INDEX
 artifact: documentation-index
 status: current
-last_reviewed: 2026-11-16
+last_reviewed: 2026-11-18
 ---
 
 # Documentation index
@@ -279,6 +279,10 @@ Integrated into main after acceptance; see the
 
 ## Catalog document registration — issue #76
 
+Synchronized editing of existing Definitions — issue #87:
+[implementation and checks](implementation/definition-code-editor.md),
+[CODE-01–06](usecase/UC-03/specification.md#sửa-definition-bằng-code--issue-87-approved-2026-11-18).
+
 [Hướng dẫn viết và nhập file Type/Definition](operations/resource-catalog-files.md):
 mẫu YAML/JSON, source pins, mapping, criteria, fallback và cách dùng tab nhập.
 
@@ -296,3 +300,11 @@ records the complete baseline comparison, preserved data and post-rollout checks
 [prepare/export API](usecase/UC-03/ui/api-mapping.md#git-document-preparationexport--issue-79)
 and [file authoring guide](operations/resource-catalog-files.md) cover
 url/ref/path authoring, explicit check then pinned registration and portable Git exports.
+
+## Keycloak SSO — issue #77
+
+[UC-00 SSO](usecase/UC-00/specification.md#keycloak-sso--issue-77),
+[configuration/test lifecycle](operations/keycloak-sso.md),
+[browser acceptance](../e2e/scenarios/keycloak-sso/README.md),
+[feature verification](verification/2026-11-13-keycloak-sso.md),
+[accepted main integration/local-mode rollout](verification/2026-11-17-keycloak-main.md).

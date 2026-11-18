@@ -11,7 +11,7 @@ import { parseTemplateSource, parseTemplateSources, type TemplateSource } from '
 import { RenderInputsEditor } from './RenderInputsEditor';
 import type { JsonObject } from './typedVariables';
 
-export type TemplateDriverDraft = { source: string; inputs: JsonObject; namespace: string; cluster: string; provision: string; references: string; blocked?: boolean };
+export type TemplateDriverDraft = { source: string; inputs: JsonObject; namespace: string; cluster: string; provision: string; references: string; hasReferences?: boolean; blocked?: boolean };
 export const emptyTemplateDriver = (): TemplateDriverDraft => ({ source: '', inputs: {}, namespace: '', cluster: '', provision: '{}', references: '{}' });
 
 const initialFiles = JSON.stringify({
