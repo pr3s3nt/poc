@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-11-11
+last_reviewed: 2026-11-18
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-18 | Issue #83 user-requested trial cleanup, owned resources removed and current main preserved | [Score trial cleanup](2026-11-18-score-cleanup.md) |
 | 2026-11-17 | Issue #83 accepted main merge, kind rollout, post-rollout browser checks and preserved user trial | [Score main integration](2026-11-17-score-main.md) |
 | 2026-11-17 | Issue #83 synchronized form/Score/extension tabs, preservation/error guards and actual Console round trip | [Score tab synchronization](2026-11-17-score-tab-sync.md) |
 | 2026-11-17 | Keycloak Score trial: Vault auth/address setup repair, Secret Store copy, fresh Console deploy, managed HTTPRoute and browser/OIDC checks | [Keycloak Score](2026-11-17-keycloak-score.md) |

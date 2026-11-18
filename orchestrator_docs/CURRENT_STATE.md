@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-11
+last_reviewed: 2026-11-18
 ---
 
 # Current project state
@@ -26,9 +26,12 @@ login-page/OIDC checks pass. See [Keycloak verification](verification/2026-11-17
 Accepted and merged into main at `8651a603`; backend/frontend are deployed to
 the retained kind Console. Post-rollout browser/API checks and preservation of
 existing inventory pass; see [main integration](verification/2026-11-17-score-main.md).
-The live Keycloak trial remains managed by its separate stack, deliberately
-retained to preserve user-owned data and secret delivery; no cross-installation
-migration occurred. Score
+On 2026-11-18 the user requested session cleanup: all three remaining trial
+Applications were deleted through the product, and their Kubernetes resources,
+feature Docker stack, volumes and dedicated relays were removed. Main remains
+running at its newer SSO rollout; no cross-installation migration occurred.
+Private backups/evidence and three delivery repositories are retained. See
+[trial cleanup](verification/2026-11-18-score-cleanup.md). Score
 v1b1 plus a supported Humanitec-format extension resolves profiles within the
 matched Definition source, preserving existing internal storage, immutable pins,
 template defaults and infrastructure algorithms. Console import/export and legacy
