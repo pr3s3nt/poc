@@ -1,0 +1,176 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    orchestrator.dev/phase: application
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 65532
+      initContainers:
+        - name: private-files
+          image: orchestrator-backend:RELEASE
+          command:
+            - sh
+            - /scripts/prepare-private.sh
+          env:
+            - name: PRIVATE_UID
+              value: "65532"
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: source
+              mountPath: /source
+              readOnly: true
+            - name: private
+              mountPath: /private
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+      containers:
+        - name: backend
+          image: orchestrator-backend:RELEASE
+          env:
+            - name: ORCHESTRATOR_LISTEN_ADDR
+              value: 0.0.0.0:8080
+            - name: ORCHESTRATOR_ADAPTERS
+              value: kubernetes
+            - name: ORCHESTRATOR_DATABASE_URL_FILE
+              value: /private/console-database-url
+            - name: ORCHESTRATOR_TERRAFORM_STATE_DATABASE_URL_FILE
+              value: /private/state-database-url
+            - name: ORCHESTRATOR_TERRAFORM_STATE_KEY_FILE
+              value: /private/key
+            - name: ORCHESTRATOR_TERRAFORM_STATE_KEY_ID
+              value: installation-state-key-1
+            - name: ORCHESTRATOR_SETUP_TOKEN_FILE
+              value: /private/setup-token
+            - name: ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE
+              value: vault
+            - name: ORCHESTRATOR_CONNECTION_VAULT_ADDR
+              value: https://vault:8200
+            - name: ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE
+              value: /private/connection-token
+            - name: ORCHESTRATOR_OUTPUT_SECRET_STORE
+              value: vault
+            - name: ORCHESTRATOR_OUTPUT_SECRET_VAULT_ADDR
+              value: https://vault:8200
+            - name: ORCHESTRATOR_OUTPUT_SECRET_VAULT_TOKEN_FILE
+              value: /private/output-token
+            - name: ORCHESTRATOR_TERRAFORM_RECOVERY_DIR
+              value: /var/lib/orchestrator/recovery
+            - name: ORCHESTRATOR_TERRAFORM_MODULE_CACHE_DIR
+              value: /var/lib/orchestrator/module-cache
+            - name: ORCHESTRATOR_TEMPLATE_SOURCE_CACHE_DIR
+              value: /var/lib/orchestrator/template-source-cache
+            - name: ORCHESTRATOR_DELIVERY_GIT_ROOT
+              value: /var/lib/orchestrator/delivery-git
+            - name: SSL_CERT_FILE
+              value: /private/ca-bundle.crt
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/orchestrator
+            - name: private
+              mountPath: /private
+              readOnly: true
+          startupProbe:
+            httpGet:
+              port: 8080
+              path: /api/v1/healthz
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              port: 8080
+              path: /api/v1/healthz
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              memory: 2Gi
+        - name: vault-token-renewer
+          image: hashicorp/vault:1.21
+          command:
+            - sh
+            - /scripts/renew-vault-tokens.sh
+          env:
+            - name: VAULT_ADDR
+              value: https://vault:8200
+            - name: VAULT_CACERT
+              value: /private/vault-ca.crt
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: private
+              subPath: connection-token
+              mountPath: /private/connection-token
+              readOnly: true
+            - name: private
+              subPath: output-token
+              mountPath: /private/output-token
+              readOnly: true
+            - name: private
+              subPath: app-token
+              mountPath: /private/app-token
+              readOnly: true
+            - name: private
+              subPath: vault-ca.crt
+              mountPath: /private/vault-ca.crt
+              readOnly: true
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              memory: 128Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: backend-data
+        - name: private
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: installation-scripts
+            defaultMode: 292
+        - name: source
+          projected:
+            defaultMode: 256
+            sources:
+              - secret:
+                  name: orchestrator-runtime
+              - secret:
+                  name: orchestrator-state-key
+              - secret:
+                  name: orchestrator-setup
+              - secret:
+                  name: orchestrator-vault-runtime
+              - secret:
+                  name: orchestrator-trust

@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+configMapGenerator:
+  - name: installation-scripts
+    files:
+      - prepare-private.sh
+      - renew-vault-tokens.sh
+      - postgres-require-tls.sh
+    options:
+      labels:
+        orchestrator.dev/phase: config

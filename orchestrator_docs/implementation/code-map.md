@@ -7,6 +7,19 @@ last_reviewed: 2026-11-18
 
 # Design-to-code map
 
+## Independent Kubernetes installations — issue #91
+
+[Deployment design](../architecture/deployment/kubernetes.md) maps to
+`deploy/kubernetes/base`, the three environment overlays and the operator
+[runbook](../../deploy/kubernetes/README.md). `scripts/kubernetes/model.mjs` owns
+private preparation, TLS validation, rendering and ownership predicates;
+`run.mjs` owns phased installation, operator unseal, checks and quiesced backups/
+owner-gated upgrades. Policies/role initialization reuse `deploy/local` files.
+Focused tests are `scripts/kubernetes/test/model.test.mjs`; actual Console/Git,
+credential persistence, restart/update and isolated restore assertions live in
+`e2e/scenarios/kubernetes-installation/`. This packages existing product sources;
+it adds no database migration or product runtime API.
+
 ## Custom workload runtime authoring — GW-06/07
 
 `environment/volumes.go`, `probes.go`, `execution.go` and `workloadspec/workload.go`

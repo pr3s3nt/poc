@@ -2634,3 +2634,18 @@ full backend has the same 103 failures and 8 skips as main, with eight added pas
 setup tests and no new failure/skip. Both full-check namespaces were cleaned.
 [Scope/code map](implementation/first-run-setup.md),
 [verification and baseline inventory](verification/2026-11-18-first-run-setup.md).
+
+
+## Independent Kubernetes installations — issue #91, feature branch 2026-11-18
+
+`features/kubernetes-manifests` packages separate kind/staging/production overlays
+with PostgreSQL/Vault TLS, private generated inputs, manual Vault unseal, an owner
+Job before runtime, Traefik HTTPRoute and quiesced private backup/upgrade tooling.
+It includes unmerged #89; acceptance and main merge are pending. A separate kind
+installation has real Console/Git initialization, persisted credential, retained
+update/restart checks and an isolated PostgreSQL/Vault/backend backup restore. Staging/production are operator-run samples, not deployed
+by this task. Full frontend passes 1104 tests; full Go retains 103 shared failures,
+eight skips and one extra intermittent unchanged Git test (focused 50-repeat pass).
+See [runbook](../deploy/kubernetes/README.md),
+[code map](implementation/code-map.md#independent-kubernetes-installations--issue-91)
+and [execution/limits](verification/2026-11-18-kubernetes-installations.md).

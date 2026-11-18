@@ -316,3 +316,8 @@ Console initialization and a platform guide with user-supplied Git catalog sourc
 
 Setup [implementation/code map](implementation/first-run-setup.md) and
 [operator procedure](operations/first-run-setup.md).
+
+## Kubernetes installation package — issue #91
+
+[Deployment architecture](architecture/deployment/kubernetes.md) owns independent
+kind/staging/production packaging, manual Vault unseal and phase/ownership gates.
