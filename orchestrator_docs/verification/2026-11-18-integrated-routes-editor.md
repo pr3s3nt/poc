@@ -95,7 +95,176 @@ Tailscale. The review Application and its data remain available for acceptance;
 this update/restart is not a new create/delete lifecycle claim. Earlier cleanup
 evidence stays attributed to the previous source.
 
-Fresh candidate/main backend full checks are still running. Full frontend from exact `35cbc638` on
-kind passes **116 files / 1102 tests**, with install/typecheck/lint/build all 0.
-No completed backend comparison, cleanup or green full-backend gate is claimed
-until the final results are recorded here.
+Fresh full candidate `35cbc638` and main `725541ef` checks completed on the
+explicitly authorized kind cluster, each with independent PostgreSQL 16,
+REQUIRE_POSTGRES/REQUIRE_TERRAFORM, Go 1.25.14 and Terraform 1.9.8. Sources were
+exact Git archives; later E2E/docs commits leave backend/frontend trees identical.
+Both Go builds pass. Full frontend on Node 22.23.4 Bookworm passes
+**116 files / 1102 tests**, with install/typecheck/lint/build all 0.
+
+| Backend result | Candidate | Main |
+|---|---:|---:|
+| Passing top-level tests | 1603 | 1590 |
+| Failing top-level tests | 103 | 103 |
+| Passing test/subtest events | 2530 | 2478 |
+| Failing test/subtest events | 143 | 143 |
+| Skipped test/subtest events | 8 | 8 |
+| Failed packages | 20 | 20 |
+
+The complete failure and skip sets match exactly. No candidate-only or main-only
+failure/skip, and no missing main passing top-level test. The 13 added passing
+top-level tests cover namespace inheritance, Gateway Echo/legacy validation,
+preexisting Gateway verification and template HTTPRoute intent. This execution
+has no test timeout. All existing failures remain failures; this is a
+baseline-red full-backend result, not a green gate or an assertion that failed
+tests completed all their assertions. No fixture or assertion was relaxed.
+
+The disposable namespace was deleted with owner/UID/resourceVersion conditions;
+its absence was confirmed and the receipt records cleanup=true. Review stacks,
+apps, data and access forwards remain running. Both issues remain open pending
+user acceptance; no merge to main or retained-main rollout was performed.
+
+## Identical backend failure inventory
+
+| Package | Failing top-level tests |
+|---|---:|
+| `orchestrator/examples/acceptance-app/backend` | 10 |
+| `orchestrator/examples/acceptance-app/internal/jobcache` | 14 |
+| `orchestrator/examples/acceptance-app/internal/jobstore` | 1 |
+| `orchestrator/examples/acceptance-app/worker` | 3 |
+| `orchestrator/internal/adapters/postgres` | 5 |
+| `orchestrator/internal/adapters/templatesources` | 1 |
+| `orchestrator/internal/application/catalog` | 2 |
+| `orchestrator/internal/application/configuration` | 1 |
+| `orchestrator/internal/application/deployment` | 12 |
+| `orchestrator/internal/application/pending` | 10 |
+| `orchestrator/internal/application/preview` | 11 |
+| `orchestrator/internal/application/provisioning` | 10 |
+| `orchestrator/internal/application/tfexec` | 1 |
+| `orchestrator/internal/bootstrap` | 1 |
+| `orchestrator/test/conformance` | 2 |
+| `orchestrator/test/e2e` | 12 |
+| `orchestrator/test/integration/v03run` | 3 |
+| `orchestrator/test/integration/v04run` | 2 |
+| `orchestrator/test/integration/v2cleanup` | 1 |
+| `orchestrator/test/integration/v2run` | 1 |
+
+<details>
+<summary>Exact top-level failures, identical on candidate and main</summary>
+
+- `orchestrator/examples/acceptance-app/backend TestBackendBadRequestsDoNotTouchTheCache`
+- `orchestrator/examples/acceptance-app/backend TestBackendCacheHitMissRefillThroughTheAPI`
+- `orchestrator/examples/acceptance-app/backend TestBackendDeniedCacheOperationFailsDiagnosticsWhilePingAndProbeWork`
+- `orchestrator/examples/acceptance-app/backend TestBackendHealthyLookupOfOtherJobDoesNotHideDeniedJobs`
+- `orchestrator/examples/acceptance-app/backend TestBackendPingAllowedButProbeDeniedFails`
+- `orchestrator/examples/acceptance-app/backend TestBackendPooledRedisAuthConnectionsRequireScopedKillAndRecoverFromPostgres`
+- `orchestrator/examples/acceptance-app/backend TestBackendRedisOutageFailsDiagnosticsButKeepsDurableResult`
+- `orchestrator/examples/acceptance-app/backend TestBackendUnmarkedCompletedJobIsNotVerifiedUntilMarked`
+- `orchestrator/examples/acceptance-app/backend TestBackendWorkerWriteFailureStaysVisibleAfterRedisRecovers`
+- `orchestrator/examples/acceptance-app/backend TestBackendWrongRedisPasswordCannotPass`
+- `orchestrator/examples/acceptance-app/internal/jobcache TestCacheEntryExpiresToMiss`
+- `orchestrator/examples/acceptance-app/internal/jobcache TestCacheFailuresAreClassifiedAndNeverMisses`
+- `orchestrator/examples/acceptance-app/internal/jobcache TestCacheOutageIsUnreachableNotMiss`
+- `orchestrator/examples/acceptance-app/internal/jobcache TestCachePutGetAuthenticatedWithDeterministicTTL`
+- `orchestrator/examples/acceptance-app/internal/jobcache TestCacheTLSClientToPlainServerFails`
+- `orchestrator/examples/acceptance-app/internal/jobcache TestCacheTLSRejectsWrongHostname`
+- `orchestrator/examples/acceptance-app/internal/jobcache TestCacheTLSVerifiesChainAndHostname`
+- `orchestrator/examples/acceptance-app/internal/jobcache TestLookupCompletedFailsFastWhenCacheIsDown`
+- `orchestrator/examples/acceptance-app/internal/jobcache TestResolverCacheOutageServesDurableResultButReportsFailure`
+- `orchestrator/examples/acceptance-app/internal/jobcache TestResolverCorruptEntryIsOverwrittenFromDatabase`
+- `orchestrator/examples/acceptance-app/internal/jobcache TestResolverHitThenExpiredMissReadsSameRowAndRefills`
+- `orchestrator/examples/acceptance-app/internal/jobcache TestResolverInvalidBindingReportsConfigFailure`
+- `orchestrator/examples/acceptance-app/internal/jobcache TestResolverPendingIsNeverFrozenByTheCache`
+- `orchestrator/examples/acceptance-app/internal/jobcache TestResolverWrongPasswordIsFailureNotMiss`
+- `orchestrator/examples/acceptance-app/internal/jobstore TestStoreWithReservedCharacterPassword`
+- `orchestrator/examples/acceptance-app/worker TestWaitForCacheFailsClosed`
+- `orchestrator/examples/acceptance-app/worker TestWorkerCacheFailureAfterCommitKeepsOneCompletedJob`
+- `orchestrator/examples/acceptance-app/worker TestWorkerCommitsToPostgreSQLThenWritesThroughRedis`
+- `orchestrator/internal/adapters/postgres TestBaselineEnforcesCurrentConstraints`
+- `orchestrator/internal/adapters/postgres TestUpgradeBackupRestore`
+- `orchestrator/internal/adapters/postgres TestUpgradeHTTPLoginPreviewDeploy`
+- `orchestrator/internal/adapters/postgres TestVersionSevenPreservesConnectionsAndAdmitsGit`
+- `orchestrator/internal/adapters/postgres TestVersionSixCapturesPopulatedFiveAndProtectsSnapshots`
+- `orchestrator/internal/adapters/templatesources TestInspectRejectsUnsafeSourcesWithoutFetching`
+- `orchestrator/internal/application/catalog TestListDefinitionCapabilities_PlatformPairsExistingClusterAndWorkload`
+- `orchestrator/internal/application/catalog TestWorkloadRegistration_TypedPlacementInputsAndCompanions`
+- `orchestrator/internal/application/configuration TestRenameWithReferencesPreservesAliasesManyToOneAndOtherFields`
+- `orchestrator/internal/application/deployment TestCredentialBackedTarget_RemovalAfterRestart`
+- `orchestrator/internal/application/deployment TestDeploymentHistoryHidesUnsafeFailureReasons`
+- `orchestrator/internal/application/deployment TestEnvironmentWritesDuringAdmittedDeployAreRejected`
+- `orchestrator/internal/application/deployment TestFailedWorkloadRemovalKeepsOriginalOwnershipDeployment`
+- `orchestrator/internal/application/deployment TestPostgresRemove_CommitsSetStatusAndMarkerAtomically`
+- `orchestrator/internal/application/deployment TestRemoveDeliveredAlsoRemovesTheApplicationsSecretDeliveryObjects`
+- `orchestrator/internal/application/deployment TestRemoveDeliveredRefusesAWrongGenerationAndProtectsOthers`
+- `orchestrator/internal/application/deployment TestRemoveDeliveredRetryUsesOriginalOwnerAfterRemovalSnapshotChanged`
+- `orchestrator/internal/application/deployment TestRemoveDeliveredUsesTheClaimAndEachOriginalTarget`
+- `orchestrator/internal/application/deployment TestRemoveWorkload_PreservesSharedDatabaseAndMarksLastReference`
+- `orchestrator/internal/application/deployment TestUnreferencedMarking_StaysInOrganizationAndEnvironmentScope`
+- `orchestrator/internal/application/deployment TestWorkloadRemovalAlsoRemovesItsSecretDeliveryObjects`
+- `orchestrator/internal/application/pending TestDesiredPlansDraftsBeforeDeployAndTheUnchangedAppliedState`
+- `orchestrator/internal/application/pending TestDesiredReadsOneSnapshotAgainstConcurrentWriters`
+- `orchestrator/internal/application/pending TestIntentEvidenceStaysInternal`
+- `orchestrator/internal/application/pending TestPendingPreviewReadsOneSnapshot`
+- `orchestrator/internal/application/pending TestPendingPreviewReadsOneSnapshotOnPostgres`
+- `orchestrator/internal/application/pending TestPreviewIntentSameDefinitionKeyChangedFallbackIsUpdate`
+- `orchestrator/internal/application/pending TestPreviewIntentUpdateRetainUnverifiedForExistingIdentity`
+- `orchestrator/internal/application/pending TestRequiredRendererDeployRendersWithRealCLIAfterOutputs`
+- `orchestrator/internal/application/pending TestRequiredRendererMissingTieAndUnavailableFailBeforeResources`
+- `orchestrator/internal/application/pending TestRequiredRendererPreviewIsPurePinsAndDeployRendersAfterOutputs`
+- `orchestrator/internal/application/preview TestPostgresPreview_RepeatableReadAndNoWrites`
+- `orchestrator/internal/application/preview TestPreview_BaselineEvidenceMissingIsUnverifiedAndStoreFailureFails`
+- `orchestrator/internal/application/preview TestPreview_BaselinePlansAreCapturedInsideTheSnapshot`
+- `orchestrator/internal/application/preview TestPreview_CatalogErrorsNeverEchoed`
+- `orchestrator/internal/application/preview TestPreview_DeltaInvariantAndContainerResources`
+- `orchestrator/internal/application/preview TestPreview_MatchesDeployPlan`
+- `orchestrator/internal/application/preview TestPreview_NoChangeHasEmptyDelta`
+- `orchestrator/internal/application/preview TestPreview_NoRuntimeMutation`
+- `orchestrator/internal/application/preview TestPreview_PublicViewRedactsWithoutChangingPlan`
+- `orchestrator/internal/application/preview TestPreview_ReadsOneConsistentSnapshot`
+- `orchestrator/internal/application/preview TestPreview_StrictQuery`
+- `orchestrator/internal/application/provisioning TestDeployWithUnknownTerraformOutcomeHoldsTheEnvironment`
+- `orchestrator/internal/application/provisioning TestProvision_ClusterReadinessFailureBlocksEveryConsumer`
+- `orchestrator/internal/application/provisioning TestProvision_EKSCreatedInTheSameExecutionDrivesNamespaceDatabaseAndWorkload`
+- `orchestrator/internal/application/provisioning TestProvision_EKSIsReusedNotDuplicatedByALaterDeployment`
+- `orchestrator/internal/application/provisioning TestProvision_MissingRequiredOutputBlocksTheConsumerAndIsRecorded`
+- `orchestrator/internal/application/provisioning TestProvision_PostgresOutputContractEquivalentAcrossPlacements`
+- `orchestrator/internal/application/provisioning TestProvision_ReusesEnvironmentScopedVPCAndEKS`
+- `orchestrator/internal/application/provisioning TestProvision_UsableClusterLetsConsumersRunAndIsCheckedEachDeployment`
+- `orchestrator/internal/application/provisioning TestProvision_V2ExecutorGetsPinsIdentityAndProviderInstances`
+- `orchestrator/internal/application/provisioning TestProvision_V2RuntimeSensitiveOutputsAreStoredAsReferences`
+- `orchestrator/internal/application/tfexec TestDestroyUsesRetainedHistoricalReleaseNeverTheCurrentOne`
+- `orchestrator/internal/bootstrap TestRealProfileAcceptsOnlyTheFullRealWiring`
+- `orchestrator/test/conformance TestPlannerMatchesChallengeFixtures`
+- `orchestrator/test/conformance TestProductPlannerRejectsCriteriaLessDefinition`
+- `orchestrator/test/e2e TestConfigurationDTOIsRedactedAndVariableCRUDNeverResolvesRegistry`
+- `orchestrator/test/e2e TestEnvironmentSettingsStoreSelectionConflictsAndBusyStateOverHTTP`
+- `orchestrator/test/e2e TestHTTPDeploymentEndToEnd`
+- `orchestrator/test/e2e TestHTTPDeploymentHistoryScopeFilterPlanningFailureAndSafeJSON`
+- `orchestrator/test/e2e TestHTTPDeploymentReadsOnPostgres`
+- `orchestrator/test/e2e TestHTTPDeploymentReadsRequireScopedSessionAndHideResolvedInputs`
+- `orchestrator/test/e2e TestHTTPUsesTheConfiguredRunID`
+- `orchestrator/test/e2e TestPendingDeployPartialFailureCanRetryOnlyRemainingWorkload`
+- `orchestrator/test/e2e TestPreviewRefusesIneligibleRootsWithAllowlistedReasons`
+- `orchestrator/test/e2e TestSavedUndeployedDraftIsPlannedIntoExactRequirementsBeforeAnyProbe`
+- `orchestrator/test/e2e TestStaleStateIsRejectedBeforeAnyEffect`
+- `orchestrator/test/e2e TestUC12UC16HTTPDraftFlow`
+- `orchestrator/test/integration/v03run TestCleanupRefusesToSignalForeignAuxiliaryProcessIdentity`
+- `orchestrator/test/integration/v03run TestCleanupWaitsForRunOwnedVaultProcessAndPortAbsence`
+- `orchestrator/test/integration/v03run TestSupervisorStopsActualOwnedServiceAfterRunnerDeathAndDeadline`
+- `orchestrator/test/integration/v04run TestCleanupRefusesUncertainAuxiliaryOwnershipAndRetainsRecovery`
+- `orchestrator/test/integration/v04run TestCleanupStopsExactOwnedAuxiliaryAndVerifiesServiceAbsence`
+- `orchestrator/test/integration/v2cleanup TestDeliveryCleansAppliedTargetsWithoutLegacyEnvironmentBinding`
+- `orchestrator/test/integration/v2run TestTheScenarioScriptRecordsExactlyTheAssertionsTheRunnerRequires`
+
+</details>
+
+Skipped test/subtest events (same eight on both):
+
+- `orchestrator/internal/adapters/delivery/fleet TestFleetOwnedClusterHTTPSPublicationAndWithdrawal`
+- `orchestrator/internal/adapters/delivery/fleet TestFleetTopologyKindReadOnly`
+- `orchestrator/internal/adapters/kubernetes TestOpenObjectLifecycleOnKind`
+- `orchestrator/internal/adapters/kubernetes TestOwnedClusterMetadataHandoffAllowsNextFleetSSA`
+- `orchestrator/internal/adapters/templatedriver TestRuntimeDefaultsOnOwnedKind`
+- `orchestrator/internal/application/accountdiag TestRealKindProbes`
+- `orchestrator/test/integration/v03run TestCleanupUsesActualPrivateXvfbLaunchRecord`
+- `orchestrator/test/integration/v03run TestSharedXvfbLauncherWorksForCallerWithoutPrivateDirectory`

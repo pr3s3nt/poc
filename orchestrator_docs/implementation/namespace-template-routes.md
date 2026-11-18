@@ -147,6 +147,8 @@ recognized v10→v11 owner upgrade preserves installation/catalog/Application
 identities. Focused integration checks, real editor round-trips for all existing
 driver layouts, workload update, guarded restart and real Tailscale browser
 checks pass. Full frontend passes 1102 tests/typecheck/lint/build. Fresh backend
-candidate/main comparison is pending; previous evidence remains source-attributed.
+candidate/main checks complete with identical 103 top-level failures and 8 skips,
+no new failure/skip or missing main passing test. Both builds pass; disposable
+namespace cleanup is verified. Backend remains baseline-red.
 See [combined verification](../verification/2026-11-18-integrated-routes-editor.md).
 No main merge or shared Gateway change approved.

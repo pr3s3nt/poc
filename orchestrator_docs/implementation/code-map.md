@@ -1519,3 +1519,11 @@ UC-03 CODE-01–06 → frontend ResourceDefinitionsPage / DefinitionEditMethods 
 useDefinitionCodeEditor / definitionEditDraft; strict catalogDocument parser and
 existing prepare + PUT APIs. DefinitionCodeEditor and definitionEditDraft tests;
 real scenario e2e/scenarios/definition-code-editor. No backend/schema change.
+
+Integrated #84/#87 runtime checks:
+`e2e/scenarios/namespace-template-routes/editor.mjs` checks Echo/legacy Gateway
+and reference Endpoint; `e2e/scenarios/definition-code-editor/read-only.mjs`
+checks retained cluster/Terraform/template layouts without saving.
+[Combined execution](../verification/2026-11-18-integrated-routes-editor.md)
+records preserved installation upgrade, real editor/update/restart/browser checks
+and the fresh full candidate/main comparison.

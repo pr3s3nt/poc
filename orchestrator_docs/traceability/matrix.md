@@ -1708,3 +1708,10 @@ Canonical [contract/sequence](../architecture/contracts/namespace-template-route
 | CODE-01/02 | DefinitionEditMethods, useDefinitionCodeEditor, definitionEditDraft; four-driver UI/code round-trip, advanced-field tests and real browser scenario |
 | CODE-03/04 | Strict parser, context key/type/version, existing prepare and PUT; identity/system-field and exact checked Git pin tests |
 | CODE-05/06 | Shared Save/reload guards, accessible tabs and existing shell; stale/network/uncertain/unmount tests; visual browser review |
+
+Combined #84/#87 execution: Gateway/Endpoint editor round-trip and Save,
+read-only existing cluster/Terraform/template round-trip, inherited PostgreSQL
+reuse through update/restart and Tailscale browser checks are recorded in
+[the integrated verification](../verification/2026-11-18-integrated-routes-editor.md).
+Its fresh full candidate/main check retains identical baseline failures/skips;
+owned full-test namespace cleanup is verified. No main merge/acceptance claimed.

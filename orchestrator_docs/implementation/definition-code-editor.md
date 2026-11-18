@@ -52,7 +52,9 @@ Gateway layouts and reference-only Endpoint UI↔code conversion. The combined
 Console preserves installation/catalog data through normal owner upgrade; real
 editor checks for Echo/legacy Gateway, reference Endpoint and the original four
 driver layouts pass. Update/restart/browser checks and 1102 full frontend tests
-pass. Fresh full backend comparison remains pending. See
+pass. Fresh full backend comparison completes with identical 103 top-level failures
+and 8 skips; no new failure/skip or missing main passing test. Both builds pass
+and the owned test namespace is cleaned. See
 [combined verification](../verification/2026-11-18-integrated-routes-editor.md).
 Earlier isolated #87 results do not substitute for combined evidence. Main rollout
 remains subject to user acceptance.

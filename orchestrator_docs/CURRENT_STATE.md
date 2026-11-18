@@ -2589,6 +2589,8 @@ Merge `35cbc638` runs on the preserved trial stack following normal v10→v11
 owner upgrade. Combined editor checks across existing driver layouts, one
 Environment update for both workloads, guarded restart and Tailscale browser
 checks pass. Full frontend passes 1102 tests/typecheck/lint/build. Fresh full
-backend candidate/main comparison remains pending. See
+backend candidate/main checks complete with identical 103 top-level failures,
+143 failing events, 20 failed packages and 8 skips; no new failure/skip or missing
+main passing test. Both builds pass and the owned test namespace is cleaned. See
 [combined verification](verification/2026-11-18-integrated-routes-editor.md).
-No main merge, completed combined backend gate or user acceptance is claimed yet.
+Backend remains baseline-red. No main merge or user acceptance is claimed.
