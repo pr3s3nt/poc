@@ -70,3 +70,9 @@ POST `/api/v1/resource-types` giữ insert-only, không trở thành upsert.
 registration (Console converts one YAML/JSON document). PE/Admin, 1 MiB maximum.
 HTTP 200 returns `{status: CREATED|REUSED|CONFLICT, fields?: string[]}`; fields
 contain changed paths only. No overwrite. Existing form POST retains 201/409.
+
+## Catalog deletion — issue #80
+
+DELETE /api/v1/resource-types/{key} returns 204 after removal.
+An out-of-scope ID returns 404. A protected or referenced entry returns 409
+with a stable code and safe reference labels. No provider mutation is admitted.

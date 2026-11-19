@@ -816,3 +816,12 @@ of the shared layout is pending explicit external mutation authorization. Do not
 reuse prior six-controller evidence as proof of the new layout. Full backend
 suite baseline failures remain independently reproduced; see
 [verification](../verification/2026-11-05-application-fleet-gitrepo.md).
+
+## IMP-080 — Complete Application deletion (2026-11-12)
+
+Issue #80 is approved and in progress. Current code skips failed-but-published
+units during withdrawal (#73), requires an UNREFERENCED root which can be absent
+after first-deploy failure (#58), and lacks cleanup recovery while the Application
+freeze blocks the recovery endpoint (#56). Saved-stage retry can bypass a missed
+withdrawal. Existing DeletionPanel exposes only coarse progress. UC-18 DEL-01..07
+owns the approved behavior; implementation and real-kind acceptance remain open.

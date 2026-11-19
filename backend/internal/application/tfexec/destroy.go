@@ -28,6 +28,8 @@ type DestroyRequest struct {
 	// RunID is the provenance of this cleanup operation (not the run that
 	// created the resource).
 	RunID string
+	// VerifyStorage also checks PVs bound to original Kubernetes claims.
+	VerifyStorage bool
 	// OnStage, when set, is told each cleanup stage as it starts
 	// (CHECKING, DESTROYING, VERIFYING).
 	OnStage func(stage string)
@@ -245,7 +247,7 @@ func (s *Service) destroy(ctx context.Context, req DestroyRequest) (out DestroyO
 		return out, s.settleFailure(ctx, st, prev, ferr)
 	}
 	out.Stage = StageVerifying
-	remaining, verr := s.proveAbsence(ctx, st)
+	remaining, verr := s.proveAbsence(ctx, st, req.VerifyStorage)
 	if verr != nil {
 		if ferr := s.finalizeAttempt(ctx, st, StageVerifying, tfresource.AttemptFailed, codeFailed); ferr != nil {
 			return out, holdOn(ctx, "the verification result could not be recorded")
@@ -254,7 +256,7 @@ func (s *Service) destroy(ctx context.Context, req DestroyRequest) (out DestroyO
 			return out, holdOn(ctx, "the instance status could not be recorded")
 		}
 		out.Remaining = append([]string(nil), st.observed...)
-		return out, fmt.Errorf("%w: the physical absence could not be verified", ErrExecution)
+		return out, fmt.Errorf("%w: the physical absence could not be verified: %w", ErrExecution, verr)
 	}
 	if len(remaining) > 0 {
 		st.observed = remaining
@@ -265,6 +267,9 @@ func (s *Service) destroy(ctx context.Context, req DestroyRequest) (out DestroyO
 			return out, holdOn(ctx, "the instance status could not be recorded")
 		}
 		out.Remaining = remaining
+		if strings.HasPrefix(remaining[0], "persistentvolume/") {
+			return out, errStorageRemaining
+		}
 		return out, fmt.Errorf("%w: physical objects remain after destroy", ErrExecution)
 	}
 	if ferr := s.finalizeAttempt(ctx, st, StageDestroyed, tfresource.AttemptSucceeded, ""); ferr != nil {
@@ -528,7 +533,7 @@ func destroyCycle(attempts []tfresource.Attempt) (handle string, effects bool) {
 // to verify: after a destroy it is empty. It polls within the configured
 // bound so eventually consistent deletions can settle. An unreadable original
 // is an error, never an empty want.
-func (s *Service) proveAbsence(ctx context.Context, st *execState) ([]string, error) {
+func (s *Service) proveAbsence(ctx context.Context, st *execState, verifyStorage bool) ([]string, error) {
 	s.progress(ctx, st, StageVerifying, tfresource.AttemptRunning, "")
 	if st.onStage != nil {
 		st.onStage(StageVerifying)
@@ -554,9 +559,6 @@ func (s *Service) proveAbsence(ctx context.Context, st *execState) ([]string, er
 			}
 			want[r.Address] = r
 		}
-		if len(want) == 0 {
-			return nil, nil
-		}
 		gone := map[string]bool{}
 		for _, address := range drift {
 			gone[address] = true
@@ -565,6 +567,12 @@ func (s *Service) proveAbsence(ctx context.Context, st *execState) ([]string, er
 		for address, r := range want {
 			if !gone[address] {
 				remaining = append(remaining, address+"="+r.ID)
+			}
+		}
+		if len(remaining) == 0 && verifyStorage {
+			remaining, err = s.remainingApplicationVolumes(ctx, st, resources)
+			if err != nil {
+				return nil, err
 			}
 		}
 		if len(remaining) == 0 {

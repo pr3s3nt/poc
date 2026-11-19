@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"orchestrator/internal/application/envops"
+	appdomain "orchestrator/internal/domain/application"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/ports/execution"
@@ -30,23 +31,25 @@ func (s *Service) RemoveRetiredAuxiliary(ctx context.Context, appKey, envKey str
 			retired = append(retired, w)
 		}
 	}
-	if len(retired) == 0 {
+	if app.Lifecycle() != appdomain.StatusDeleting {
+		return ErrGenerationMismatch
+	}
+	if len(retired) == 0 && s.delivery == nil {
 		return nil
 	}
 	lease, err := s.operations().Begin(ctx, envops.Claim{ApplicationKey: appKey, EnvironmentKey: envKey, Kind: environment.OpRemove, Pins: environment.OperationPins{CheckEnvVersion: true, EnvVersion: env.Version}, Detail: map[string]any{"retiredAuxiliary": true}})
 	if err != nil {
 		return err
 	}
+	if s.delivery != nil {
+		err = s.delivery.RemoveApplicationDelivery(lease.Ctx, app.OrganizationKey, env)
+	}
 	for _, w := range retired {
+		if err != nil {
+			break
+		}
 		target := execution.Target{Namespace: env.Namespace(), Extra: map[string]string{"application": appKey, "environment": envKey, "deployment": workloadOwnerDeploymentID(w)}}
 		if err = restoreEnvironmentTarget(&target, w.TargetRef, app.OrganizationKey, env); err != nil {
-			break
-		}
-		if s.delivery == nil {
-			err = ErrGenerationMismatch
-			break
-		}
-		if err = s.delivery.RemoveWorkload(lease.Ctx, app.OrganizationKey, env.ID, w.WorkloadID); err != nil {
 			break
 		}
 		if err = s.deployer.Remove(lease.Ctx, legacyAuxiliaryTarget(target, w), w.WorkloadID); err != nil {

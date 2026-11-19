@@ -23,3 +23,7 @@ that meets new blockers is `409 APPLICATION_DELETION_BLOCKED` with blocker codes
 While the Application is `DELETING`, every existing mutation endpoint under
 the Application returns `409` with code `APPLICATION_DELETING`. Reads continue.
 Responses never contain secret values, Terraform state or credentials.
+
+Force uses the same preview and confirmation routes with optional `force: true`
+in both request bodies. A Force token is valid only for a Force confirmation.
+Omitting the field preserves the original API.

@@ -254,14 +254,14 @@ describe('UC-02 resource type details and copy', () => {
     expect(posted).toHaveLength(1);
   });
 
-  it('offers no edit, delete or version control on registered types, only adding outputs (UC-02 EXT)', async () => {
+  it('offers schema, adding outputs and deletion for registered custom types', async () => {
     const user = userEvent.setup();
     backend();
     render(<ResourceTypesPage />);
     await open(user, 'cache');
     const scope = within(entry('cache'));
-    expect(scope.getAllByRole('button').map((button) => button.textContent)).toEqual(['Ẩn schema', 'Tải file', 'Sao chép schema', 'Thêm output']);
-    expect(screen.queryByRole('button', { name: /sửa|xóa loại|phiên bản|version|delete|edit/i })).not.toBeInTheDocument();
+    expect(scope.getAllByRole('button').map((button) => button.textContent)).toEqual(['Ẩn schema', 'Xóa', 'Tải file', 'Sao chép schema', 'Thêm output']);
+    expect(screen.queryByRole('button', { name: /sửa|phiên bản|version|edit/i })).not.toBeInTheDocument();
   });
 });
 

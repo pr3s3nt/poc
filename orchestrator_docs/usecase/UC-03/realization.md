@@ -257,3 +257,10 @@ chung và prepare hiện hành. Code → form hydrate rồi đối chiếu canon
 không lossless thì giữ code. Save hai tab dùng cùng PUT và stale/unknown handling.
 Không thêm participant/API/transaction/runtime; sequence Create/Update và GFILE
 prepare giữ nguyên.
+
+## Catalog deletion — issue #80
+
+The platform-scoped HTTP handler delegates to catalog deletion. Persistence
+rechecks the referenced scope in the same transaction as removing the entry.
+The Console opens confirmation from the existing catalog list and reloads it
+after success. A rejection keeps the confirmation open with safe references.

@@ -43,6 +43,7 @@ import (
 // err.Error(): cause text can quote submitted values, credentials, provider
 // output or catalog content. Clients choose their own wording from the code.
 const (
+	codeCatalogDeletionBlocked    = "CATALOG_DELETION_BLOCKED"
 	codeCatalogRequired           = "CATALOG_REQUIRED"
 	codePlatformCDRequired        = "PLATFORM_CD_REQUIRED"
 	codeRepositoryUnavailable     = "DELIVERY_REPOSITORY_UNAVAILABLE"
@@ -126,6 +127,7 @@ type publicError struct {
 }
 
 var publicErrors = map[string]publicError{
+	codeCatalogDeletionBlocked:          {http.StatusConflict, "the catalog entry has references or is protected"},
 	codeCatalogRequired:                 {http.StatusConflict, "select a catalog release in Environment Settings"},
 	codePlatformCDRequired:              {http.StatusUnprocessableEntity, "configure a verified platform CD default before creating an Application"},
 	codeRepositoryUnavailable:           {http.StatusServiceUnavailable, "application deployment repository is unavailable"},
@@ -261,7 +263,7 @@ type failure struct {
 
 // extraKeys are the only additional response keys: the visible operation owner
 // and the recovery result DTO. They never replace code, error, field or params.
-var extraKeys = []string{"operation", "recovery", "blockers"}
+var extraKeys = []string{"operation", "recovery", "blockers", "references"}
 
 // safeParams keeps only allow-listed planner stage/reason values.
 func safeParams(in map[string]string) map[string]string {

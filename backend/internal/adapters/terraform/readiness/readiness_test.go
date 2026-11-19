@@ -421,3 +421,29 @@ func TestEC2RoleReadinessRetrievesFreshScopedCredentialsEachPoll(t *testing.T) {
 		t.Fatal("readiness accepted unauthorized source", err)
 	}
 }
+
+func TestRemainingVolumesFiltersNamespaceAndExactClaimUID(t *testing.T) {
+	file := t.TempDir() + "/kubeconfig"
+	if err := os.WriteFile(file, []byte("fixture"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c := &Checker{Kubectl: "kubectl", Dir: t.TempDir(), Run: func(_ context.Context, _ string, args []string, _ []string) ([]byte, error) {
+		if len(args) < 6 || strings.Join(args[2:], " ") != "get persistentvolumes -o json" {
+			t.Fatalf("unexpected volume read: %v", args)
+		}
+		return []byte(`{"items":[
+			{"metadata":{"name":"owned"},"spec":{"claimRef":{"namespace":"app","name":"data","uid":"a"},"persistentVolumeReclaimPolicy":"Retain"}},
+			{"metadata":{"name":"old"},"spec":{"claimRef":{"namespace":"app","name":"data","uid":"b"}}},
+			{"metadata":{"name":"foreign"},"spec":{"claimRef":{"namespace":"different","name":"data","uid":"a"}}}
+		]}`), nil
+	}}
+	env := []string{"KUBE_CONFIG_PATH=" + file}
+	owned, err := c.RemainingVolumes(context.Background(), env, "app", map[string]string{"data": "a"})
+	if err != nil || strings.Join(owned, ",") != "persistentvolume/owned" {
+		t.Fatalf("exact claim volumes = %v, %v", owned, err)
+	}
+	all, err := c.RemainingVolumes(context.Background(), env, "app", nil)
+	if err != nil || strings.Join(all, ",") != "persistentvolume/old,persistentvolume/owned" {
+		t.Fatalf("namespace volumes = %v, %v", all, err)
+	}
+}

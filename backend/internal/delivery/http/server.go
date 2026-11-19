@@ -237,6 +237,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/workload-preview", s.handleWorkloadPreview)
 	s.mux.HandleFunc("GET /api/v1/workload-samples", s.handleWorkloadSamples)
 	s.mux.HandleFunc("GET /api/v1/resource-types", s.handleResourceTypes)
+	s.mux.HandleFunc("DELETE /api/v1/resource-types/{key}", s.handleDeleteCatalogEntry(false))
+	s.mux.HandleFunc("DELETE /api/v1/resource-definitions/{key}", s.handleDeleteCatalogEntry(true))
 	s.mux.HandleFunc("POST /api/v1/resource-types/import", s.handleImportResourceType)
 	s.mux.HandleFunc("POST /api/v1/resource-definitions/import", s.handleImportResourceDefinition)
 	s.mux.HandleFunc("POST /api/v1/resource-definitions/import/prepare", s.handlePrepareDefinitionDocument)

@@ -92,3 +92,10 @@ kiểm role/size/DTO; catalog dùng validation đăng ký hiện có, chuẩn h�
 contract và so sánh key scoped Organization. Insert-only registration giữ unique
 constraint làm chốt race; duplicate được đọc/so sánh lại, không upsert. Export là
 projection public authoring từ Type hoặc Definition revision, không thêm entity.
+
+## Catalog deletion — issue #80
+
+The platform-scoped HTTP handler delegates to catalog deletion. Persistence
+rechecks the referenced scope in the same transaction as removing the entry.
+The Console opens confirmation from the existing catalog list and reloads it
+after success. A rejection keeps the confirmation open with safe references.

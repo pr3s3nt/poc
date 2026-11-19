@@ -213,6 +213,17 @@ func TestApplicationDeletionBlockedByHeldResource(t *testing.T) {
 }
 
 func TestApplicationDeletionFailureKeepsDeletingAndRetryCompletes(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		force bool
+	}{{name: "retry"}, {name: "force", force: true}} {
+		t.Run(test.name, func(t *testing.T) { checkApplicationDeletionResume(t, test.force) })
+	}
+}
+
+func checkApplicationDeletionResume(t *testing.T, force bool) {
+	t.Helper()
+
 	f := newRCFixture(t)
 	f.engine.mu.Lock()
 	f.engine.script[f.b.Identity.Descriptor] = "fail"
@@ -235,7 +246,17 @@ func TestApplicationDeletionFailureKeepsDeletingAndRetryCompletes(t *testing.T) 
 	f.engine.mu.Lock()
 	delete(f.engine.script, f.b.Identity.Descriptor)
 	f.engine.mu.Unlock()
-	status, raw, retry := f.deleteApplication(f.pe, f.appDeletionToken(f.pe), "Payments")
+	status, raw, response := f.do(f.pe, http.MethodPost, f.appURL()+"/deletion-preview", map[string]any{"force": force})
+	if status != http.StatusOK {
+		t.Fatalf("resume preview = %d %s", status, raw)
+	}
+	token, _ := response["preview"].(map[string]any)["token"].(string)
+	if token == "" {
+		t.Fatalf("resume preview is blocked: %s", raw)
+	}
+	status, raw, retry := f.do(f.pe, http.MethodPost, f.appURL()+"/deletions", map[string]any{
+		"force": force, "token": token, "confirmationName": "Payments",
+	})
 	if status != http.StatusAccepted || retry["deletion"].(map[string]any)["operationId"] != opID {
 		t.Fatalf("retry = %d %s", status, raw)
 	}
@@ -245,5 +266,39 @@ func TestApplicationDeletionFailureKeepsDeletingAndRetryCompletes(t *testing.T) 
 	}
 	if got := f.instanceStatus(f.b.ID); got != tfresource.InstanceDestroyed {
 		t.Fatalf("retried resource = %s", got)
+	}
+}
+
+func TestApplicationDeletionForceFromActiveBindsPreviewMode(t *testing.T) {
+	f := newRCFixture(t)
+	status, raw, body := f.do(f.dev, http.MethodPost, f.appURL()+"/deletion-preview", map[string]any{"force": true})
+	if status != http.StatusOK {
+		t.Fatalf("force preview = %d %s", status, raw)
+	}
+	preview := body["preview"].(map[string]any)
+	token, _ := preview["token"].(string)
+	if token == "" || preview["status"] != "ACTIVE" || len(preview["environments"].([]any)) != 2 {
+		t.Fatalf("force preview = %s", raw)
+	}
+	if status, _, _ := f.deleteApplication(f.dev, token, "Payments"); status != http.StatusConflict {
+		t.Fatalf("using a Force token for normal deletion = %d", status)
+	}
+
+	confirm := func(name string) (int, string, map[string]any) {
+		return f.do(f.dev, http.MethodPost, f.appURL()+"/deletions", map[string]any{
+			"force": true, "token": token, "confirmationName": name,
+		})
+	}
+	if status, _, _ := confirm("payments"); status != http.StatusBadRequest {
+		t.Fatalf("incorrect confirmation name = %d", status)
+	}
+	status, raw, body = confirm("Payments")
+	if status != http.StatusAccepted {
+		t.Fatalf("force confirmation = %d %s", status, raw)
+	}
+	operationID := body["deletion"].(map[string]any)["operationId"].(string)
+	view := f.waitAppDeletion(f.dev, operationID)
+	if view["applicationStatus"] != "DELETED" || f.instanceStatus(f.plat.ID) != tfresource.InstanceReady {
+		t.Fatalf("force cleanup failed or platform resource changed: %v", view)
 	}
 }

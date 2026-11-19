@@ -3,25 +3,27 @@ import { ApiError, describeError } from '../../../shared/api/client';
 import { Button } from '../../../shared/ui/Button';
 import { Dialog } from '../../../shared/ui/Dialog';
 import { t } from '../../../shared/i18n';
-import { deleteApplication, previewApplicationDeletion, type Admission, type DeletionPreview } from './api';
+import { deleteApplication, previewApplicationDeletion, recoverDeletionOperation, type Admission, type DeletionPreview } from './api';
 import { codeLabel } from './labels';
 
 type Phase = 'loading' | 'error' | 'ready' | 'blocked' | 'submitting' | 'stale' | 'lost';
 
 /** Confirmation of UC-18 MS-01..04: the server computes the scope; nothing is sent until the exact name is typed. */
-export function DeleteApplicationDialog({ applicationId, onClose, onAccepted, onLost, now = () => Date.now() }: {
-  applicationId: string; onClose(): void; onAccepted(admission: Admission): void; onLost(): void; now?(): number;
+export function DeleteApplicationDialog({ applicationId, force = false, onClose, onAccepted, onLost, now = () => Date.now() }: {
+  applicationId: string; force?: boolean; onClose(): void; onAccepted(admission: Admission): void; onLost(): void; now?(): number;
 }) {
   const [phase, setPhase] = useState<Phase>('loading');
   const [preview, setPreview] = useState<DeletionPreview>();
   const [typed, setTyped] = useState('');
   const [message, setMessage] = useState('');
+  const [recovery, setRecovery] = useState<{ env: string; operation: string }>();
+  const [recovering, setRecovering] = useState(false);
   const request = useRef(0);
 
   const load = useCallback(() => {
     const current = ++request.current;
-    setPhase('loading'); setMessage(''); setTyped('');
-    previewApplicationDeletion(applicationId).then((value) => {
+    setPhase('loading'); setMessage(''); setTyped(''); setRecovery(undefined);
+    previewApplicationDeletion(applicationId, force).then((value) => {
       if (current !== request.current) return;
       setPreview(value);
       setPhase(value.blocked || !value.token ? 'blocked' : 'ready');
@@ -30,7 +32,7 @@ export function DeleteApplicationDialog({ applicationId, onClose, onAccepted, on
       setPreview(undefined); setPhase('error');
       setMessage(describeError(err, t('applications.deletion.couldNotLoadScope')));
     });
-  }, [applicationId]);
+  }, [applicationId, force]);
 
   useEffect(() => { load(); return () => { request.current += 1; }; }, [load]);
 
@@ -51,7 +53,7 @@ export function DeleteApplicationDialog({ applicationId, onClose, onAccepted, on
     const current = ++request.current;
     setPhase('submitting'); setMessage('');
     try {
-      const admission = await deleteApplication(applicationId, preview.token, typed);
+      const admission = await deleteApplication(applicationId, preview.token, typed, force);
       if (current === request.current) onAccepted(admission);
     } catch (err) {
       if (current !== request.current) return;
@@ -67,9 +69,25 @@ export function DeleteApplicationDialog({ applicationId, onClose, onAccepted, on
     }
   }
 
-  const busy = phase === 'submitting';
-  return <Dialog label={t('applications.deletion.title')} busy={busy} onClose={onClose}>
-    <h2>{t('applications.deletion.title')}</h2>
+  async function recover() {
+    if (!recovery || recovering) return;
+    setRecovering(true);
+    setMessage('');
+    try {
+      await recoverDeletionOperation(applicationId, recovery.env, recovery.operation);
+      load();
+    } catch (err) {
+      setMessage(describeError(err, t('applications.deletion.recoveryFailed')));
+      setRecovery(undefined);
+    } finally {
+      setRecovering(false);
+    }
+  }
+
+  const busy = phase === 'submitting' || recovering;
+  const title = t(force ? 'applications.deletion.forceTitle' : 'applications.deletion.title');
+  return <Dialog label={title} busy={busy} onClose={onClose}>
+    <h2>{title}</h2>
     <p className="warning-text"><strong>{t('applications.deletion.permanent')}</strong> {t('applications.deletion.permanentDetail')}</p>
     {phase === 'loading' ? <p role="status" aria-busy="true">{t('applications.deletion.loadingScope')}</p> : null}
     {message ? <div className="form-error" role="alert">{message}</div> : null}
@@ -82,7 +100,8 @@ export function DeleteApplicationDialog({ applicationId, onClose, onAccepted, on
           <li>{t('applications.deletion.secretsCount', { count: env.secretValues })}</li>
         </ul>
         {env.resources.length ? <details><summary>{t('applications.deletion.showResources')}</summary><ul>{env.resources.map((r) => <li key={r.id}><code>{r.descriptor}</code> · {r.status}{r.generation ? ` · gen ${r.generation}` : ''}</li>)}</ul></details> : null}
-        {env.blockers.length ? <ul className="form-error" role="alert">{env.blockers.map((b, i) => <li key={`${b.code}-${b.resourceId ?? b.operationId ?? i}`}>{codeLabel(b.code)}{b.descriptor ? <> · <code>{b.descriptor}</code></> : null}</li>)}</ul> : null}
+        {env.blockers.length ? <ul className="form-error" role="alert">{env.blockers.map((b, i) => <li key={`${b.code}-${b.resourceId ?? b.operationId ?? i}`}>{codeLabel(b.code)}{b.descriptor ? <> · <code>{b.descriptor}</code></> : null}
+          {force && b.operationStatus === 'INTERRUPTED' && b.operationId ? <>{' '}<Button disabled={busy} onClick={() => setRecovery({ env: env.key, operation: b.operationId! })}>{t('applications.deletion.recover')}</Button></> : null}</li>)}</ul> : null}
       </section>)}
       <section aria-label={t('applications.deletion.kept')}>
         <h3>{t('applications.deletion.kept')}</h3>
@@ -91,12 +110,16 @@ export function DeleteApplicationDialog({ applicationId, onClose, onAccepted, on
       </section>
     </> : null}
     {phase === 'error' ? <div className="form-actions"><Button onClick={load}>{t('applications.deletion.retryLoad')}</Button><Button onClick={onClose}>{t('applications.deletion.close')}</Button></div> : null}
-    {phase === 'blocked' ? <div className="form-actions"><Button onClick={load}>{t('applications.deletion.checkAgain')}</Button><Button onClick={onClose}>{t('applications.deletion.close')}</Button></div> : null}
+    {recovery ? <div className="form-info">
+      <p>{t('applications.deletion.recoveryConfirm', { env: recovery.env })}</p>
+      <Button tone="danger" disabled={busy} onClick={() => void recover()}>{t('applications.deletion.recoverConfirmed')}</Button>
+    </div> : null}
+    {phase === 'blocked' ? <div className="form-actions"><Button disabled={busy} onClick={load}>{t('applications.deletion.checkAgain')}</Button><Button disabled={busy} onClick={onClose}>{t('applications.deletion.close')}</Button></div> : null}
     {phase === 'stale' ? <div className="form-actions"><Button tone="primary" onClick={load}>{t('applications.deletion.reviewScope')}</Button><Button onClick={onClose}>{t('applications.deletion.close')}</Button></div> : null}
     {phase === 'lost' ? <div className="form-actions"><Button tone="primary" onClick={onLost}>{t('applications.deletion.reloadStatus')}</Button><Button onClick={onClose}>{t('applications.deletion.close')}</Button></div> : null}
     {preview && (phase === 'ready' || phase === 'submitting') ? <>
       <label className="field">{t('applications.deletion.typeName', { name: preview.confirmationName })}<input value={typed} onChange={(event) => { setTyped(event.target.value); setMessage(''); }} disabled={busy} autoComplete="off" spellCheck={false} /></label>
-      <div className="form-actions"><Button tone="danger" disabled={!canConfirm} onClick={() => void confirm()}>{busy ? t('applications.deletion.sending') : t('applications.deletion.confirm')}</Button><Button disabled={busy} onClick={onClose}>{t('applications.deletion.cancel')}</Button></div>
+      <div className="form-actions"><Button tone="danger" disabled={!canConfirm} onClick={() => void confirm()}>{busy ? t('applications.deletion.sending') : t(force ? 'applications.deletion.forceTitle' : 'applications.deletion.confirm')}</Button><Button disabled={busy} onClick={onClose}>{t('applications.deletion.cancel')}</Button></div>
     </> : null}
   </Dialog>;
 }

@@ -236,3 +236,63 @@ func (c *Checker) VerifyAbsent(ctx context.Context, env []string, namespace stri
 	}
 	return checkNamespaceAbsent()
 }
+
+// RemainingVolumes reads only identities linked to the checked namespace or
+// original claims. A Retain, Released or terminating volume is still present.
+func (c *Checker) RemainingVolumes(ctx context.Context, env []string, namespace string, claims map[string]string) ([]string, error) {
+	if !validName(namespace) {
+		return nil, ErrUnavailable
+	}
+	dir, err := os.MkdirTemp(c.Dir, "inspect-volumes-")
+	if err != nil {
+		return nil, ErrUnavailable
+	}
+	defer os.RemoveAll(dir)
+	kubeconfig, err := writeKubeconfig(dir, env)
+	if err != nil {
+		return nil, ErrUnavailable
+	}
+	args := []string{"--kubeconfig", kubeconfig}
+	if name := value(env, "KUBE_CTX"); name != "" {
+		args = append(args, "--context", name)
+	}
+	args = append(args, "get", "persistentvolumes", "-o", "json")
+	cmdEnv := []string{"PATH=" + os.TempDir() + "/no-path", "HOME=" + dir, "KUBECONFIG=" + kubeconfig}
+	raw, err := c.run()(ctx, c.Kubectl, args, cmdEnv)
+	if err != nil {
+		return nil, ErrUnavailable
+	}
+	var volumes struct {
+		Items []struct {
+			Metadata struct {
+				Name string `json:"name"`
+			} `json:"metadata"`
+			Spec struct {
+				ClaimRef *struct {
+					Namespace string `json:"namespace"`
+					Name      string `json:"name"`
+					UID       string `json:"uid"`
+				} `json:"claimRef"`
+			} `json:"spec"`
+		} `json:"items"`
+	}
+	if json.Unmarshal(raw, &volumes) != nil || volumes.Items == nil {
+		return nil, ErrUnavailable
+	}
+	var remaining []string
+	for _, volume := range volumes.Items {
+		claim := volume.Spec.ClaimRef
+		if claim == nil || claim.Namespace != namespace {
+			continue
+		}
+		if claims != nil && (claim.UID == "" || claims[claim.Name] != claim.UID) {
+			continue
+		}
+		if !validName(volume.Metadata.Name) {
+			return nil, ErrUnavailable
+		}
+		remaining = append(remaining, "persistentvolume/"+volume.Metadata.Name)
+	}
+	sort.Strings(remaining)
+	return remaining, nil
+}

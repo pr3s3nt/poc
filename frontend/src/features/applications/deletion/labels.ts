@@ -33,3 +33,14 @@ const statuses: Record<string, string> = {
 export const stageLabel = (stage: string) => t(stages[stage] ?? 'applications.deletion.stageUnknown');
 export const codeLabel = (code: string) => t(codes[code] ?? 'applications.deletion.codeUnknown');
 export const statusLabel = (status: string) => t(statuses[status] ?? 'applications.deletion.statusUnknown');
+
+const resourceReasons: Record<string, string> = {
+  STORAGE_REMAINS: 'applications.deletion.storageRemains',
+  STORAGE_UNVERIFIED: 'applications.deletion.storageUnverified',
+  NAMESPACE_NOT_OWNED: 'applications.deletion.namespaceNotOwned',
+  OWNERSHIP_UNVERIFIED: 'applications.deletion.codeOwnershipUnverified',
+  RESOURCE_HELD: 'applications.deletion.codeResourceHeld',
+  INSTANCE_HELD: 'applications.deletion.codeResourceHeld',
+};
+
+export const resourceReason = (code: string) => resourceReasons[code] ? t(resourceReasons[code]) : code;

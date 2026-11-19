@@ -60,3 +60,9 @@ Definition đặt hai tab trong luồng Tạo cấu hình, không hiện import 
 Lỗi giữ nội dung, status CREATED/REUSED/CONFLICT rõ ràng.
 CONFLICT hiện field paths không hiện values. Tải file nằm tại chi tiết schema
 hoặc Definition và từng revision. Trợ giúp định dạng nằm trong disclosure.
+
+## Catalog deletion — issue #80
+
+Use the existing entry actions and shared confirmation dialog. Display the item
+identity, destructive action and Cancel. A blocked response keeps the dialog
+open and shows references. Success closes it and refreshes the list.

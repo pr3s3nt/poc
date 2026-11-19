@@ -10,9 +10,10 @@ export class ApiError extends Error {
   readonly code?: string;
   readonly field?: string;
   readonly params?: ErrorParams;
+  readonly references?: string[];
   // Every field is validated here, so a manually built or mocked instance can
   // never carry unknown codes, fields or params past the public contract.
-  constructor(status: number, code?: unknown, field?: unknown, params?: unknown) {
+  constructor(status: number, code?: unknown, field?: unknown, params?: unknown, references?: unknown) {
     const safeStatus = Number.isInteger(status) ? status : 0;
     const safeCode = knownCode(code) ? code : undefined;
     const clean = safeParams(params);
@@ -22,6 +23,9 @@ export class ApiError extends Error {
     this.code = safeCode;
     this.field = safeField;
     this.params = clean;
+    if (safeCode === 'CATALOG_DELETION_BLOCKED' && Array.isArray(references)) {
+      this.references = references.filter((item): item is string => typeof item === 'string' && /^[a-zA-Z0-9._:/#@-]{1,512}$/.test(item));
+    }
   }
 }
 
@@ -33,10 +37,10 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!(init?.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   const response = await fetch(`/api/v1${path}`, { credentials: 'same-origin', ...init, headers });
   if (!response.ok) {
-    const body = await response.json().catch(() => ({})) as { code?: unknown; field?: unknown; params?: unknown } | null;
+    const body = await response.json().catch(() => ({})) as { code?: unknown; field?: unknown; params?: unknown; references?: unknown } | null;
     if (response.status === 401 && !path.startsWith('/auth/')) window.dispatchEvent(new Event(sessionExpiredEvent));
     const source = typeof body === 'object' && body !== null ? body : {};
-    throw new ApiError(response.status, source.code, source.field, source.params);
+    throw new ApiError(response.status, source.code, source.field, source.params, source.references);
   }
   return response.status === 204 ? undefined as T : response.json() as Promise<T>;
 }

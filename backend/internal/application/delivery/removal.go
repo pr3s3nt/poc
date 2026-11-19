@@ -1,13 +1,14 @@
 package delivery
 
 import (
-	"log"
 	"context"
 	"errors"
+	"log"
 	"sort"
 	"time"
 
 	domain "orchestrator/internal/domain/delivery"
+	"orchestrator/internal/domain/environment"
 	port "orchestrator/internal/ports/delivery"
 	"orchestrator/internal/ports/persistence"
 )
@@ -21,7 +22,7 @@ func (c *Coordinator) RemoveWorkload(ctx context.Context, orgKey string, envID, 
 	if err != nil {
 		return err
 	}
-	latest, err := activeExecutions(executions, workload)
+	latest, err := withdrawalExecutions(executions, workload, false)
 	if err != nil {
 		persistence.MarkHold(ctx)
 		return err
@@ -34,18 +35,52 @@ func (c *Coordinator) RemoveWorkload(ctx context.Context, orgKey string, envID, 
 	return nil
 }
 
+// RemoveApplicationDelivery withdraws all remaining units for an Environment
+// under the caller's removal claim, including units of failed workloads that
+// never entered the applied Deployment Set.
+func (c *Coordinator) RemoveApplicationDelivery(ctx context.Context, orgKey string, env environment.Environment) error {
+	org, err := c.Store.GetOrganization(ctx, orgKey)
+	if err != nil {
+		return err
+	}
+	executions, err := c.Store.ListDeliveryExecutions(ctx, org.ID, env.ID)
+	if err != nil {
+		return err
+	}
+	latest, err := withdrawalExecutions(executions, "", true)
+	if err != nil {
+		persistence.MarkHold(ctx)
+		return err
+	}
+	for _, execution := range latest {
+		if err := c.removeExecution(ctx, orgKey, execution); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func activeExecutions(executions []persistence.DeliveryExecution, workload string) ([]persistence.DeliveryExecution, error) {
-	// Only the latest successful revision of each unit is authoritative. Unknown
-	// earlier publication/removal keeps the Environment held rather than deleting.
+	return selectExecutions(executions, workload, false, false)
+}
+
+func withdrawalExecutions(executions []persistence.DeliveryExecution, workload string, entireEnvironment bool) ([]persistence.DeliveryExecution, error) {
+	return selectExecutions(executions, workload, entireEnvironment, true)
+}
+
+func selectExecutions(executions []persistence.DeliveryExecution, workload string, entireEnvironment, includePublishedFailures bool) ([]persistence.DeliveryExecution, error) {
+	// A failed submission with an exact publication receipt still controls the
+	// unit. Unresolved publication or withdrawal keeps the Environment held.
 	latest := map[string]persistence.DeliveryExecution{}
 	for _, e := range executions {
-		if e.WorkloadID != workload {
+		if !entireEnvironment && e.WorkloadID != workload {
 			continue
 		}
 		if e.Mutation.Status == domain.IntentRunning || e.Mutation.Status == domain.IntentUnknown {
 			return nil, domain.ErrOutcomeUnknown
 		}
-		if e.Mutation.Status == domain.IntentAcknowledged {
+		if e.Mutation.Status == domain.IntentAcknowledged ||
+			(includePublishedFailures && e.Mutation.Action == domain.Submit && e.Mutation.Status == domain.IntentFailed && published(e)) {
 			if prior, exists := latest[e.UnitID]; !exists || e.CreatedAt.After(prior.CreatedAt) {
 				latest[e.UnitID] = e
 			}

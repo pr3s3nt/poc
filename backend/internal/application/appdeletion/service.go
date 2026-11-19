@@ -42,6 +42,7 @@ type Cleanup interface {
 	EnvironmentInventory(ctx context.Context, sc resourcecleanup.Scope) (resourcecleanup.Inventory, error)
 	AdmitEnvironmentCleanup(ctx context.Context, sc resourcecleanup.Scope, actor resourcecleanup.Actor, in resourcecleanup.EnvironmentCleanupInput) (resourcecleanup.AdmissionView, error)
 	WaitCleanup(ctx context.Context, sc resourcecleanup.Scope, operationID string, every time.Duration) (resourcecleanup.CleanupView, error)
+	GetCleanup(ctx context.Context, sc resourcecleanup.Scope, operationID string) (resourcecleanup.CleanupView, error)
 }
 
 // Service implements UC-18.
@@ -113,6 +114,7 @@ func (s *Service) scoped(ctx context.Context, org, appKey string) (appdomain.App
 // tokenBody is everything a preview pins.
 type tokenBody struct {
 	Version     int               `json:"v"`
+	Force       bool              `json:"force,omitempty"`
 	Actor       string            `json:"actor"`
 	Org         string            `json:"org"`
 	Application string            `json:"application"`
@@ -136,6 +138,7 @@ type tokenEnvironent struct {
 
 type snapshot struct {
 	app       appdomain.Application
+	force     bool
 	envs      []environment.Environment
 	preview   PreviewView
 	pins      []tokenEnvironent
@@ -205,7 +208,11 @@ func (s *Service) load(ctx context.Context, org, appKey string) (*snapshot, erro
 			}
 		}
 		if env.ActiveOperationID != "" {
-			ep.Blockers = append([]Blocker{{Code: BlockerEnvironmentBusy, OperationID: env.ActiveOperationID}}, ep.Blockers...)
+			op, err := s.store.GetOperation(ctx, env.ActiveOperationID)
+			if err != nil {
+				return nil, err
+			}
+			ep.Blockers = append([]Blocker{{Code: BlockerEnvironmentBusy, OperationID: op.ID, OperationStatus: string(op.Status)}}, ep.Blockers...)
 		}
 		revisions, err := s.life.ListConfigurationRevisions(ctx, appKey, env.Key)
 		if err != nil {
@@ -297,7 +304,7 @@ func (s *Service) load(ctx context.Context, org, appKey string) (*snapshot, erro
 }
 
 func (s *Service) hashOf(snap *snapshot, actor, org string, expires int64, nonce string) (string, error) {
-	return canon.Hash(tokenBody{Version: 1, Actor: actor, Org: org, Application: snap.app.Key, AppVersion: snap.app.Version,
+	return canon.Hash(tokenBody{Version: 1, Force: snap.force, Actor: actor, Org: org, Application: snap.app.Key, AppVersion: snap.app.Version,
 		Status: string(snap.app.Lifecycle()), Expires: expires, Nonce: nonce, Envs: snap.pins})
 }
 
@@ -305,6 +312,10 @@ func (s *Service) hashOf(snap *snapshot, actor, org string, expires int64, nonce
 // metadata only: no provider call and no write. A blocked preview carries no
 // token.
 func (s *Service) Preview(ctx context.Context, org, appKey string, actor Actor) (PreviewView, error) {
+	return s.PreviewMode(ctx, org, appKey, actor, false)
+}
+
+func (s *Service) PreviewMode(ctx context.Context, org, appKey string, actor Actor, force bool) (PreviewView, error) {
 	if _, err := s.scoped(ctx, org, appKey); err != nil {
 		return PreviewView{}, err
 	}
@@ -318,6 +329,7 @@ func (s *Service) Preview(ctx context.Context, org, appKey string, actor Actor) 
 	if err != nil {
 		return PreviewView{}, err
 	}
+	snap.force = force
 	out := snap.preview
 	if out.Blocked {
 		return out, nil
@@ -360,6 +372,10 @@ func requestHashOf(org, token string) string {
 // a compare-and-set on the Application version, so any change after the
 // preview makes the request stale. The run starts only after the write.
 func (s *Service) Delete(ctx context.Context, org, appKey string, actor Actor, token, confirmationName string) (AdmissionView, error) {
+	return s.DeleteMode(ctx, org, appKey, actor, token, confirmationName, false)
+}
+
+func (s *Service) DeleteMode(ctx context.Context, org, appKey string, actor Actor, token, confirmationName string, force bool) (AdmissionView, error) {
 	app, err := s.scoped(ctx, org, appKey)
 	if err != nil {
 		return AdmissionView{}, err
@@ -378,6 +394,9 @@ func (s *Service) Delete(ctx context.Context, org, appKey string, actor Actor, t
 		return AdmissionView{}, ErrUnavailable
 	}
 	requestHash := requestHashOf(org, token)
+	if force {
+		requestHash = requestHashOf(org, "force|"+token)
+	}
 	if d := app.Deletion; d != nil && d.RequestHash == requestHash && d.Actor == actor.Username {
 		if confirmationName != app.Name {
 			return AdmissionView{}, ErrConfirmationMismatch
@@ -394,6 +413,7 @@ func (s *Service) Delete(ctx context.Context, org, appKey string, actor Actor, t
 	if err != nil {
 		return AdmissionView{}, err
 	}
+	snap.force = force
 	again, err := s.hashOf(snap, actor.Username, org, expires.Unix(), nonce)
 	if err != nil {
 		return AdmissionView{}, err
@@ -433,6 +453,9 @@ func (s *Service) Delete(ctx context.Context, org, appKey string, actor Actor, t
 	byKey := map[string]bool{}
 	for i := range next.Environments {
 		byKey[next.Environments[i].Key] = true
+		if force && next.Environments[i].Stage != appdomain.StageDone {
+			next.Environments[i].Stage = appdomain.StageRemovingWorkload
+		}
 		if next.Environments[i].Stage != appdomain.StageDone {
 			next.Environments[i].Status, next.Environments[i].FailureCode = appdomain.DeletionRunning, ""
 		}
@@ -467,7 +490,35 @@ func (s *Service) Get(ctx context.Context, org, appKey, operationID string) (Del
 	if org == "" || app.OrganizationKey != org || app.Deletion == nil || app.Deletion.OperationID != operationID {
 		return DeletionView{}, persistence.ErrNotFound
 	}
-	return s.viewOf(app), nil
+	view := s.viewOf(app)
+	if app.Lifecycle() == appdomain.StatusDeleted {
+		return view, nil
+	}
+	for index := range view.Environments {
+		current := &view.Environments[index]
+		env, err := s.store.GetEnvironment(ctx, appKey, current.Key)
+		if err != nil {
+			return DeletionView{}, err
+		}
+		if env.ActiveOperationID != "" {
+			op, err := s.store.GetOperation(ctx, env.ActiveOperationID)
+			if err != nil {
+				return DeletionView{}, err
+			}
+			current.OperationID, current.OperationStatus = op.ID, string(op.Status)
+		}
+		if current.Stage == appdomain.StageDestroying {
+			scope := resourcecleanup.Scope{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: current.Key}
+			for _, id := range current.CleanupIDs {
+				progress, err := s.cleanup.GetCleanup(ctx, scope, id)
+				if err != nil {
+					return DeletionView{}, err
+				}
+				current.Resources = mergeResources(current.Resources, progress)
+			}
+		}
+	}
+	return view, nil
 }
 
 func (s *Service) viewOf(app appdomain.Application) DeletionView {
@@ -520,6 +571,9 @@ func (s *Service) run(org string, app appdomain.Application, actor string, snap 
 	if _, err := s.life.TransitionApplication(ctx, app.Key, r.version, appdomain.StatusDeleted, r.deletion); err != nil {
 		log.Printf("appdeletion: finalize %s: %v", app.Key, err)
 		if fresh, gerr := s.store.GetApplication(ctx, app.Key); gerr == nil {
+			if !r.ownsAttempt(fresh) {
+				return
+			}
 			r.version = fresh.Version
 			if _, err := s.life.TransitionApplication(ctx, app.Key, r.version, appdomain.StatusDeleted, r.deletion); err != nil {
 				log.Printf("appdeletion: finalize retry %s: %v", app.Key, err)
@@ -548,25 +602,31 @@ type runner struct {
 }
 
 // update persists one progress change; the Application stays DELETING.
-func (r *runner) update(ctx context.Context, change func(d *appdomain.Deletion)) {
+func (r *runner) update(ctx context.Context, change func(d *appdomain.Deletion)) bool {
 	change(r.deletion)
 	r.deletion.UpdatedAt = r.s.now()
 	for attempt := 0; attempt < 3; attempt++ {
 		stored, err := r.s.life.TransitionApplication(ctx, r.appKey, r.version, appdomain.StatusDeleting, r.deletion)
 		if err == nil {
 			r.version = stored.Version
-			return
+			return true
 		}
 		if !errors.Is(err, persistence.ErrVersionConflict) {
 			log.Printf("appdeletion: persist progress %s: %v", r.appKey, err)
-			return
+			return false
 		}
 		fresh, gerr := r.s.store.GetApplication(ctx, r.appKey)
-		if gerr != nil {
-			return
+		if gerr != nil || !r.ownsAttempt(fresh) {
+			return false
 		}
 		r.version = fresh.Version
 	}
+	return false
+}
+
+func (r *runner) ownsAttempt(app appdomain.Application) bool {
+	return app.Lifecycle() == appdomain.StatusDeleting && app.Deletion != nil &&
+		app.Deletion.OperationID == r.deletion.OperationID && app.Deletion.Attempt == r.deletion.Attempt
 }
 
 func (r *runner) scope(env string) resourcecleanup.Scope {
@@ -584,10 +644,22 @@ func (r *runner) environment(ctx context.Context, i int) string {
 			start = k
 		}
 	}
+	if start == 1 {
+		// Re-establish withdrawal before admitting another destroy.
+		start = 0
+	}
 	for _, stage := range stages[start:] {
-		r.update(ctx, func(d *appdomain.Deletion) {
-			d.Environments[i].Stage, d.Environments[i].Status, d.Environments[i].FailureCode = stage, appdomain.DeletionRunning, ""
-		})
+		if !r.update(ctx, func(d *appdomain.Deletion) {
+			now := r.s.now()
+			target := &d.Environments[i]
+			target.Stage, target.Status, target.FailureCode = stage, appdomain.DeletionRunning, ""
+			if target.StartedAt == nil {
+				target.StartedAt = &now
+			}
+			target.UpdatedAt = &now
+		}) {
+			return FailInterrupted
+		}
 		var code string
 		switch stage {
 		case appdomain.StageRemovingWorkload:
@@ -603,9 +675,11 @@ func (r *runner) environment(ctx context.Context, i int) string {
 			return code
 		}
 	}
-	r.update(ctx, func(d *appdomain.Deletion) {
+	if !r.update(ctx, func(d *appdomain.Deletion) {
 		d.Environments[i].Stage, d.Environments[i].Status = appdomain.StageDone, appdomain.DeletionSucceeded
-	})
+	}) {
+		return FailInterrupted
+	}
 	return ""
 }
 
@@ -636,6 +710,12 @@ func (r *runner) removeWorkloads(ctx context.Context, i int, env string) string 
 		if w.State == "" {
 			removed = append(removed, w.ID)
 		}
+	}
+	// An empty applied Set with no drafts needs no deployment Preview.
+	// The destroy stage still checks durable delivery receipts, including
+	// failed publications that never reached the applied Set.
+	if len(view.Workloads) == 0 {
+		return ""
 	}
 	sort.Strings(removed)
 	preview, err := r.s.pending.Preview(ctx, r.appKey, env)
@@ -689,6 +769,26 @@ func (r *runner) destroy(ctx context.Context, i int, env string) string {
 		if len(inv.Items) == 0 {
 			return ""
 		}
+		if !r.update(ctx, func(d *appdomain.Deletion) {
+			current := &d.Environments[i]
+			reported := make(map[string]bool, len(current.Resources))
+			for _, resource := range current.Resources {
+				reported[resource.ID] = true
+			}
+			for _, item := range inv.Items {
+				if item.Blocker != "" || !reported[item.ID] {
+					outcome := "PENDING"
+					if item.Blocker != "" {
+						outcome = "RETAINED"
+					}
+					current.Resources = storeResource(current.Resources, appdomain.DeletionResource{
+						ID: item.ID, Descriptor: item.Descriptor, Outcome: outcome, ReasonCode: item.Blocker, RemainingUnknown: item.Blocker != "",
+					})
+				}
+			}
+		}) {
+			return FailInterrupted
+		}
 		for _, item := range inv.Items {
 			if item.Blocker != "" {
 				return FailCleanupRefused
@@ -722,19 +822,29 @@ func (r *runner) destroy(ctx context.Context, i int, env string) string {
 // record keeps the per-resource outcome of one cleanup operation.
 func (r *runner) record(ctx context.Context, i int, view resourcecleanup.CleanupView) {
 	r.update(ctx, func(d *appdomain.Deletion) {
-		index := map[string]int{}
-		for k, res := range d.Environments[i].Resources {
-			index[res.ID] = k
-		}
-		for _, res := range view.Resources {
-			item := appdomain.DeletionResource{ID: res.ID, Descriptor: res.Descriptor, Outcome: res.Outcome, Remaining: append([]string(nil), res.Remaining...)}
-			if k, ok := index[res.ID]; ok {
-				d.Environments[i].Resources[k] = item
-			} else {
-				d.Environments[i].Resources = append(d.Environments[i].Resources, item)
-			}
-		}
+		d.Environments[i].Resources = mergeResources(d.Environments[i].Resources, view)
+		d.Environments[i].UpdatedAt = &view.UpdatedAt
 	})
+}
+
+func mergeResources(resources []appdomain.DeletionResource, view resourcecleanup.CleanupView) []appdomain.DeletionResource {
+	for _, res := range view.Resources {
+		resources = storeResource(resources, appdomain.DeletionResource{
+			ID: res.ID, Descriptor: res.Descriptor, Outcome: res.Outcome,
+			Remaining: append([]string(nil), res.Remaining...), RemainingUnknown: res.RemainingUnknown, ReasonCode: res.ReasonCode,
+		})
+	}
+	return resources
+}
+
+func storeResource(resources []appdomain.DeletionResource, entry appdomain.DeletionResource) []appdomain.DeletionResource {
+	for i := range resources {
+		if resources[i].ID == entry.ID {
+			resources[i] = entry
+			return resources
+		}
+	}
+	return append(resources, entry)
 }
 
 // verify checks that no owned instance and no workload remains.

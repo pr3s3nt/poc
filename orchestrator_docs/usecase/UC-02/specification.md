@@ -159,3 +159,13 @@ sửa hay version hóa schema.
   ghi revision ở tên file/nút; round-trip không đổi trả REUSED.
 - **FILE-05:** Không thay form, matching, binding, Preview/Deploy hay mặc định
   của Type; fallback/override và dependency tuân contract hiện có.
+
+## Delete an unused Resource Type — issue #80
+
+- TYPE-DEL-01: Admin or Platform Engineer may delete a user-registered Type
+  in their Organization after confirmation. Built-in Types are protected.
+- TYPE-DEL-02: Reject deletion when a Definition or configuration still uses
+  the Type, including dependencies and references admitted concurrently.
+  Return safe references within the caller's Organization.
+- TYPE-DEL-03: Remove the eligible Type from catalog and matching inputs.
+  Type deletion does not change provider resources or cascade to Definitions.
