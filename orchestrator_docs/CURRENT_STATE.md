@@ -732,6 +732,13 @@ PostgreSQL/Redis/PVC reuse, Application deletion, native namespace/PV and exact
 Vault value/bundle absence, name reuse and clean teardown
 ([record](verification/2026-10-28-application-deletion-form-integration.md)).
 
+Issue #80 adds a separate Force action in Cài đặt for ACTIVE and stalled
+DELETING Applications. Force inventories both Environments again, fences an
+interrupted writer before resuming, and verifies removal of owned resources.
+The Console also supports deleting unused Resource Definitions and custom
+Resource Types, with reference and built-in Type protection.
+[Main kind and catalog verification](verification/2026-11-19-application-catalog-deletion.md).
+
 ## ZIP module and rendering sources — 2026-10-28
 
 [ADR-026](architecture/decisions/ADR-026-zip-source-upload.md) adds multipart ZIP

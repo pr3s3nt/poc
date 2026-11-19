@@ -819,9 +819,16 @@ suite baseline failures remain independently reproduced; see
 
 ## IMP-080 — Complete Application deletion (2026-11-12)
 
-Issue #80 is approved and in progress. Current code skips failed-but-published
-units during withdrawal (#73), requires an UNREFERENCED root which can be absent
-after first-deploy failure (#58), and lacks cleanup recovery while the Application
-freeze blocks the recovery endpoint (#56). Saved-stage retry can bypass a missed
-withdrawal. Existing DeletionPanel exposes only coarse progress. UC-18 DEL-01..07
-owns the approved behavior; implementation and real-kind acceptance remain open.
+Issue #80 added complete withdrawal of published units, inventory of owned
+resources from failed deployment attempts, cleanup recovery with fencing, and
+the separate Force action in the Console. The change was integrated on `main`
+in `77fee0d1`. The main kind test verified live Fleet withdrawal, Job and
+Deployment removal, PostgreSQL and storage cleanup, and Force recovery from
+`DELETING` after an ownership guard blocked namespace removal. Follow-up
+`9f03b41a` verifies remaining objects from acknowledged Fleet removals
+that lacked observed object UIDs. See the
+[verification record](../verification/2026-11-19-application-catalog-deletion.md).
+
+The original `migrate71` was already DELETED before this rollout and its
+Fleet GitRepo still exists. The ACTIVE/DELETING Force action cannot reconcile
+an existing tombstone. This leaves the original-fixture criterion open.
