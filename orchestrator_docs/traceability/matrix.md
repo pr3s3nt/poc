@@ -389,6 +389,7 @@ integration proof is claimed.
 | APP-01, UC-01 MS-01/02, BR-01/02/14 | UC-01 UI screens/states T09: gợi ý slug, giữ manual edits, name/subdomain only | CreateApplicationPage và tests; T09 UI tạo/trùng/validation/payload/navigation | [T09 local verification](../verification/2026-10-11-T09-create-application.md) |
 | VI-02/04/05 | Vietnamese labels/errors, retain draft, explicit retry | 309 frontend tests; headed fake T09, async 500 mock được ghi rõ | [T09 evidence](../verification/2026-10-11-T09-create-application.md) |
 | Issue #93 | [Bài Tạo ứng dụng](../usecase/UC-01/ui/screens.md#bài-tạo-ứng-dụng-issue-93) | [Guide](../../frontend/src/features/documentation/CreateApplicationGuide.tsx), [navigation and session tests](../../frontend/src/app/App.test.tsx) | Vietnamese and English article linked from the signed-in sidebar |
+| Issues #82, #93 | [Bài Tạo Workload và Viết file .env](../usecase/UC-16/ui/screens.md#bài-hướng-dẫn-trong-console-issue-82-93) | [Workload](../../frontend/src/features/documentation/CreateWorkloadGuide.tsx), [.env](../../frontend/src/features/documentation/EnvFileGuide.tsx), [navigation tests](../../frontend/src/app/App.test.tsx) | Two bilingual articles in the Documentation menu |
 
 ## T08 — Workload editor frontend trace
 

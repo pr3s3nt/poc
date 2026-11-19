@@ -15,6 +15,10 @@ renders the article menu and the active article. The
 is served at `/ui/docs/create-application`. The signed-in navigation and article
 route use [AppShell](../../frontend/src/app/AppShell.tsx) and
 [routes](../../frontend/src/app/routes.ts).
+The [Workload](../../frontend/src/features/documentation/CreateWorkloadGuide.tsx)
+and [.env](../../frontend/src/features/documentation/EnvFileGuide.tsx) articles
+use the same menu and VI/EN catalogs. UC-16 and the
+[.env specification](../usecase/UC-16/envfile-specification.md) own their source behavior.
 
 ## Independent Kubernetes installations — issue #91
 

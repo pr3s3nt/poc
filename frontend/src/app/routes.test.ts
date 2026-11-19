@@ -56,6 +56,8 @@ describe('console routes', () => {
     const route = { name: 'documentation', article: 'create-application' } as const;
     expect(href(route)).toBe('/ui/docs/create-application');
     expect(parseRoute(href(route))).toEqual(route);
+    expect(parseRoute('/ui/docs/create-workload')).toEqual({ name: 'documentation', article: 'create-workload' });
+    expect(href({ name: 'documentation', article: 'write-env-file' })).toBe('/ui/docs/write-env-file');
     expect(parseRoute('/ui/docs/unpublished')).toEqual({ name: 'applications' });
   });
 

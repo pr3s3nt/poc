@@ -12,6 +12,8 @@ last_reviewed: 2026-11-18
 The `features/tailieu` Console adds [Create Application help](usecase/UC-01/ui/screens.md#bài-tạo-ứng-dụng-issue-93)
 in Vietnamese and English. Authenticated roles can open it from the sidebar,
 from the **Articles** menu, or directly at `/ui/docs/create-application`.
+The menu includes [Create a Workload and write an .env file](usecase/UC-16/ui/screens.md#bài-hướng-dẫn-trong-console-issue-82-93)
+at `/ui/docs/create-workload` and `/ui/docs/write-env-file`.
 
 ## Score authoring — issue #83, 2026-11-17
 

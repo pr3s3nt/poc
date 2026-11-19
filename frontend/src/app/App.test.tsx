@@ -80,9 +80,26 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     const articleLink = within(articleMenu).getByRole('link', { name: 'Tạo ứng dụng' });
     expect(articleLink).toHaveAttribute('href', '/ui/docs/create-application');
     expect(articleLink).toHaveAttribute('aria-current', 'page');
+    expect(within(articleMenu).getAllByRole('link').map((item) => item.textContent?.trim())).toEqual([
+      'Tạo ứng dụng', 'Tạo Workload', 'Viết và nhập file .env',
+    ]);
     expect(screen.getByRole('heading', { name: 'Tạo ứng dụng', level: 1 })).toBeInTheDocument();
     expect(screen.getByText(/cấu hình CD mặc định đã được xác minh/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Mở biểu mẫu tạo ứng dụng' })).toHaveAttribute('href', '/ui/applications/new');
+    expect(requests.every(({ method }) => method === 'GET')).toBe(true);
+  });
+
+  it.each([
+    ['create-workload', 'Tạo Workload', 'Lưu và triển khai'],
+    ['write-env-file', 'Viết và nhập file .env', 'Đánh dấu giá trị bí mật'],
+  ])('opens a published article at %s and marks it current', async (slug, title, section) => {
+    authenticated = true;
+    window.history.replaceState({}, '', `/ui/docs/${slug}`);
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: title, level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: section, level: 2 })).toBeInTheDocument();
+    const menu = screen.getByRole('navigation', { name: 'Bài viết' });
+    expect(within(menu).getByRole('link', { name: title })).toHaveAttribute('aria-current', 'page');
     expect(requests.every(({ method }) => method === 'GET')).toBe(true);
   });
 

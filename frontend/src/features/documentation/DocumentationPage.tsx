@@ -2,12 +2,22 @@ import type { ComponentType } from 'react';
 import { documentationArticles, href, type DocumentationArticle } from '../../app/routes';
 import { t } from '../../shared/i18n';
 import { CreateApplicationGuide } from './CreateApplicationGuide';
+import { CreateWorkloadGuide } from './CreateWorkloadGuide';
+import { EnvFileGuide } from './EnvFileGuide';
 import './documentation.css';
 
 const articles: Record<DocumentationArticle, { titleKey: string; Content: ComponentType }> = {
   'create-application': {
     titleKey: 'applications.createApplication.createApplication',
     Content: CreateApplicationGuide,
+  },
+  'create-workload': {
+    titleKey: 'documentation.createWorkload.title',
+    Content: CreateWorkloadGuide,
+  },
+  'write-env-file': {
+    titleKey: 'documentation.envFile.title',
+    Content: EnvFileGuide,
   },
 };
 
