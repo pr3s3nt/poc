@@ -404,6 +404,28 @@ ALTER TABLE connections ADD CONSTRAINT connections_authentication_type_check CHE
 					}
 				}
 			}
+			// The populated fixture starts on the current schema. Restore the
+			// guard bodies from the targeted release before checking its shape.
+			for _, name := range []string{"terraform_retained", "terraform_dependency_guard", "delivery_immutable_guard", "reconciliation_artifact_guard"} {
+				declaration := "CREATE FUNCTION " + name + "()"
+				_, body, found := strings.Cut(source, declaration)
+				if !found {
+					continue
+				}
+				body, _, found = strings.Cut(body, "$$;")
+				if !found {
+					t.Fatalf("frozen guard %s has no end", name)
+				}
+				if _, err = tx.Exec(ctx, "CREATE OR REPLACE FUNCTION "+name+"()"+body+"$$;"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err = tx.Exec(ctx, `DROP FUNCTION purge_one_application(text,text,uuid,text,boolean);
+DROP FUNCTION application_purge_scope_matches(uuid);
+DROP TABLE application_purge_policy;`); err != nil {
+				t.Fatal(err)
+			}
+
 			if err = compareSchemaSQL(ctx, tx, "public", source); err != nil {
 				t.Fatal(err)
 			}
