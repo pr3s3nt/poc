@@ -71,6 +71,15 @@ biến quy tắc thành task redesign toàn bộ các màn hình cũ.
 - Main content owns the page title, primary action and use-case-specific state.
 - The sign-in page is intentionally outside the authenticated shell.
 
+The signed-in sidebar includes **Tài liệu / Documentation** for all roles,
+after deployment history. Reuse the active route, collapsed icon and focus
+patterns. The documentation page reuses the page and content panel. A secondary
+navigation called **Bài viết / Articles** lists published articles and marks the
+current page. It sits beside the article and moves above it at narrow widths.
+Each article has a direct link. The sidebar opens the first article.
+See the [Create Application article](../../usecase/UC-01/ui/screens.md#bài-tạo-ứng-dụng-issue-93)
+and the [Workload and .env articles](../../usecase/UC-16/ui/screens.md#bài-hướng-dẫn-trong-console-issue-82-93).
+
 ### Desktop sidebar and Preview space — 2026-10-23
 
 The left navigation has an explicit keyboard-accessible collapse/expand button.

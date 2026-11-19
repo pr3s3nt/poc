@@ -7,6 +7,19 @@ last_reviewed: 2026-11-18
 
 # Design-to-code map
 
+## Create Application guide — issue #93
+
+The [documentation page](../../frontend/src/features/documentation/DocumentationPage.tsx)
+renders the article menu and the active article. The
+[Create Application guide](../../frontend/src/features/documentation/CreateApplicationGuide.tsx)
+is served at `/ui/docs/create-application`. The signed-in navigation and article
+route use [AppShell](../../frontend/src/app/AppShell.tsx) and
+[routes](../../frontend/src/app/routes.ts).
+The [Workload](../../frontend/src/features/documentation/CreateWorkloadGuide.tsx)
+and [.env](../../frontend/src/features/documentation/EnvFileGuide.tsx) articles
+use the same menu and VI/EN catalogs. UC-16 and the
+[.env specification](../usecase/UC-16/envfile-specification.md) own their source behavior.
+
 ## Independent Kubernetes installations — issue #91
 
 [Deployment design](../architecture/deployment/kubernetes.md) maps to

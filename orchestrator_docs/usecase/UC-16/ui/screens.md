@@ -308,6 +308,16 @@ dấu Bí mật. Xác nhận Secret chung hiển thị tên/result mỗi dòng v
 không lặp value. Reference secrecy read-only. Dùng shared Button/Dialog,
 VI/EN, focus/keyboard hiện hành. [Grammar](../envfile-specification.md).
 
+### Bài hướng dẫn trong Console (issue #82, #93)
+
+Hai bài VI/EN về Workload và file .env xuất hiện trong **Tài liệu → Bài viết**.
+`/ui/docs/create-workload` hướng dẫn chọn môi trường, mẫu, tên và ảnh container,
+cấu hình tùy nhu cầu rồi Lưu draft → Xem trước → Triển khai.
+`/ui/docs/write-env-file` hướng dẫn cú pháp, tham chiếu, nhập và tải file theo
+từng container, cùng ranh giới lưu của Secret. Các ví dụ dùng dữ liệu minh họa.
+Hành vi của hai màn hình do [UC-16](../specification.md) và
+[đặc tả .env](../envfile-specification.md) quy định.
+
 ## Score import/export — issue #83
 
 Restore the existing form/import tabs. Import accepts a Score file plus an optional
