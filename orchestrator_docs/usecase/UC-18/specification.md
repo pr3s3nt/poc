@@ -223,3 +223,23 @@ Giới hạn còn lại ở [IMP-038](../../implementation/deviations.md#imp-038
 - DEL-10: Verify absence before completing Force deletion. Incomplete cleanup
   exposes the remaining identities and safe reasons. A shared or PREEXISTING
   object remains outside the destructive scope.
+
+## Database-only Application purge — issue #94
+
+- DBP-01: The database operator can preview and hard-delete exactly one test
+  Application by Organization key and Application key. Execution requires its
+  exact display name and confirmation that the installation's database writers
+  and prior executors have stopped.
+- DBP-02: Purge removes the Application and its exclusively-owned metadata,
+  including Environments, deployment and delivery history, and Terraform
+  state. It works for a stalled DELETING Application with existing recovery
+  records. One PostgreSQL transaction covers all changes. Database ownership,
+  foreign keys, and checks against unrelated metadata protect other Applications.
+- DBP-03: Purge does not delete Catalog entries. Once the selected
+  Application's references have been removed, ordinary Catalog deletion
+  can delete entries that have no remaining references. Metadata that another
+  Application uses remains or blocks purge when its ownership cannot be resolved.
+- DBP-04: The operator command performs no external cleanup. Its safe report
+  contains known namespace, Fleet and resource identities for manual follow-up.
+  Kubernetes, Fleet, Vault and physical storage can outlive loss of the database
+  metadata. Console deletion and Force retain their existing contracts.

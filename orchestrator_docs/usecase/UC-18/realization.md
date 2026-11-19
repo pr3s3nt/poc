@@ -151,3 +151,19 @@ Application cleanup checks Kubernetes PersistentVolumes through their original
 claim namespace and, for explicitly managed claims, the claim UID. Retained or
 unverified volumes remain in progress as blocked. Exact Vault metadata, workload
 role and policy deletion requires a matching subsequent NotFound.
+
+## Database-only Application purge — issue #94
+
+The owner-only CLI opens PostgreSQL directly and resolves a single Application
+under its Organization. Preview reads the target and emits the known external
+identities. Execution locks the same target, checks the exact name and deletes
+its private relational graph in a single transaction. Dependent rows are removed
+before their owners. Existing deferred foreign keys validate cycles at commit.
+The operator runs it while database writers are stopped.
+
+To erase protected history, the schema owner temporarily suspends only the named
+history-retention triggers needed for the purge, then restores those triggers
+inside the same transaction. Foreign keys and unrelated guards stay enabled.
+The transaction validates the current schema before mutation and rolls back on
+any failed deletion or constraint. The runtime and CRUD APIs retain their roles
+and permissions. External delivery and execution adapters take no part.
