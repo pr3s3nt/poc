@@ -709,6 +709,12 @@ func (r *runner) removeWorkloads(ctx context.Context, i int, env string) string 
 			removed = append(removed, w.ID)
 		}
 	}
+	// An empty applied Set with no drafts needs no deployment Preview.
+	// The destroy stage still checks durable delivery receipts, including
+	// failed publications that never reached the applied Set.
+	if len(view.Workloads) == 0 {
+		return ""
+	}
 	sort.Strings(removed)
 	preview, err := r.s.pending.Preview(ctx, r.appKey, env)
 	if err != nil {
