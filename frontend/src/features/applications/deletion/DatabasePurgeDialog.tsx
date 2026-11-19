@@ -88,15 +88,15 @@ export function DatabasePurgeDialog({ applicationId, onClose, onDeleted }: {
           <input type="checkbox" checked={priorStopped} disabled={submitting} onChange={event => setPriorStopped(event.target.checked)} />
           {t('applications.databasePurge.priorStopped')}
         </label> : null}
-        <label>{t('applications.deletion.typeName', { name: preview.displayName })}
-          <input value={typedName} disabled={submitting} autoComplete="off" onChange={event => setTypedName(event.target.value)} />
+        <label className="field">{t('applications.deletion.typeName', { name: preview.displayName })}
+          <input value={typedName} disabled={submitting} autoComplete="off" spellCheck={false} onChange={event => setTypedName(event.target.value)} />
         </label>
       </>}
     </> : null}
     <div className="form-actions">
       <Button disabled={submitting} onClick={onClose}>{t('applications.deletion.close')}</Button>
       {error || preview?.busy ? <Button disabled={submitting} onClick={reviewAgain}>{t('applications.deletion.retryLoad')}</Button> : null}
-      <Button tone="danger" disabled={submitting || !canSubmit || Boolean(error)} onClick={() => void submit()}>{title}</Button>
+      <Button tone="danger" disabled={submitting || !canSubmit || Boolean(error)} onClick={() => void submit()}>{submitting ? t('applications.deletion.sending') : title}</Button>
     </div>
   </Dialog>;
 }

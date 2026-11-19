@@ -245,8 +245,8 @@ func TestUpgradeSupportedPopulatedSources(t *testing.T) {
 				t.Fatal("retained session missing")
 			}
 			retainedTemplates := 0
-			if source == versionEightSQL || source == versionNineSQL || source == versionTenSQL {
-				retainedTemplates = 1 // versions 9/10 never touch current template sources
+			if source == versionEightSQL || source == versionNineSQL || source == versionTenSQL || source == versionElevenSQL {
+				retainedTemplates = 1 // current template sources survive the upgrade
 			}
 			if n := scalar[int](t, owner, `SELECT count(*) FROM template_sources WHERE source_kind='git' AND source_url='https://example.invalid/retained.git'`); n != retainedTemplates {
 				t.Fatal("template source retention changed", n)
