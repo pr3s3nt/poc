@@ -119,7 +119,7 @@ func (s *Server) lifecycleGuard(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	id, sub, _ := strings.Cut(rest, "/")
-	if id == "" || sub == "deletion-preview" || sub == "deletions" || strings.HasPrefix(sub, "deletions/") {
+	if id == "" || sub == "database-purge" || sub == "deletion-preview" || sub == "deletions" || strings.HasPrefix(sub, "deletions/") {
 		return false
 	}
 	who, signedIn := s.sessionIdentity(r)

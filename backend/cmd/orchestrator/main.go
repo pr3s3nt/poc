@@ -103,7 +103,15 @@ func main() {
 	purgeOrganization := flag.String("purge-organization", "", "exact Organization key of the Application to purge")
 	purgeName := flag.String("purge-confirm-name", "", "exact display name to execute the Application purge")
 	purgeWritersStopped := flag.Bool("purge-writers-stopped", false, "confirm that database writers and prior executors have stopped")
+	webPurgePolicy := flag.String("web-application-purge-policy", "", "owner step: enable or disable the Web Console Application database purge")
 	flag.Parse()
+	if *webPurgePolicy != "" {
+		if *setupDatabase || *pruneDrift || *bootstrapAdmin || *purgeApplication != "" {
+			log.Print("orchestrator: change the Web purge policy separately from other owner modes")
+			os.Exit(1)
+		}
+		os.Exit(runWebPurgePolicy(*ownerURLFile, *webPurgePolicy))
+	}
 	if *purgeApplication != "" || *purgeOrganization != "" || *purgeName != "" || *purgeWritersStopped {
 		if *pruneDrift || *setupDatabase || *bootstrapAdmin {
 			log.Print("orchestrator: run Application purge separately from other owner modes")
@@ -395,5 +403,25 @@ func runApplicationPurge(ownerURLFile string, in postgres.ApplicationPurge) int 
 		log.Print("orchestrator: could not write Application purge report")
 		return 1
 	}
+	return 0
+}
+
+func runWebPurgePolicy(ownerURLFile, policy string) int {
+	if policy != "enable" && policy != "disable" {
+		log.Print("orchestrator: Web purge policy requires enable or disable")
+		return 1
+	}
+	ownerURL, err := bootstrap.ReadCredentialFile("database owner URL", ownerURLFile)
+	if err != nil {
+		log.Printf("orchestrator: %v", err)
+		return 1
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	if err := postgres.SetWebApplicationPurge(ctx, ownerURL, policy == "enable"); err != nil {
+		log.Printf("orchestrator: %v", err)
+		return 1
+	}
+	fmt.Printf("orchestrator: Web Application purge set to %s\n", policy)
 	return 0
 }

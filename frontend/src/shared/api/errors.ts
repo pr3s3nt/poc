@@ -68,6 +68,8 @@ const messageTable = {
   INTERNAL_ERROR: t('shared.errors.theServerHitAnUnknown'),
   APPLICATION_DELETING: t('shared.errors.applicationDeleting'),
   CATALOG_DELETION_BLOCKED: t('catalogDeletion.blocked'),
+  APPLICATION_PURGE_RECOVERY_REQUIRED: t('applications.databasePurge.priorStopped'),
+  APPLICATION_PURGE_FAILED: t('applications.databasePurge.failed'),
   APPLICATION_DELETION_BLOCKED: t('shared.errors.applicationDeletionBlocked'),
   APPLICATION_CONFIRMATION_MISMATCH: t('shared.errors.applicationConfirmationMismatch'),
   DIAGNOSTIC_SCOPE_INVALID: t('shared.errors.diagnosticScopeInvalid'),

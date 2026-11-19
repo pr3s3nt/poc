@@ -8,14 +8,35 @@ last_reviewed: 2026-11-19
 # Xóa một Application thử nghiệm khỏi PostgreSQL
 
 [UC-18 DBP](../usecase/UC-18/specification.md#database-only-application-purge--issue-94)
-quy định lệnh quản trị riêng cho issue #94. Lệnh dùng cho một app thử nghiệm, kể
+quy định cách xóa qua Web Console hoặc lệnh quản trị. Thao tác dùng cho một app thử nghiệm, kể
 cả app đang DELETING và còn bản ghi recovery. Sau khi purge, Orchestrator không
 còn lịch sử, trạng thái Terraform hay khả năng tiếp tục cleanup cho app đó.
 Các tài nguyên Fleet, Git, Kubernetes, Vault và storage có vòng đời riêng.
 Giữ bản sao lưu PostgreSQL riêng tư và lưu lại báo cáo định danh trước khi
 xóa nếu bạn cần đối chiếu hoặc phục hồi về sau.
 
-## Xem trước
+## Web Console
+
+Chạy bước `-setup-database` của release để nâng PostgreSQL lên schema 12.
+Owner của installation thử nghiệm bật tính năng bằng binary của release:
+
+```bash
+./orchestrator -web-application-purge-policy enable \
+  -database-owner-url-file /private/test-db-owner-url
+```
+
+Admin và Platform Engineer tải lại Console, mở **App → Cài đặt → Vùng nguy
+hiểm → Xóa app khỏi DB**, xem danh sách định danh đã ghi nhận, gõ đúng tên và
+xác nhận. Trang danh sách mở lại sau khi giao dịch commit. Nếu app còn thao
+tác đang chạy, chờ thao tác kết thúc. Nếu thao tác đã bị gián đoạn, kiểm tra
+executor cũ đã dừng trước khi đánh dấu xác nhận.
+
+Dùng `-web-application-purge-policy disable` với cùng file owner để tắt.
+Console sử dụng login PostgreSQL runtime trong suốt quá trình.
+
+## Lệnh quản trị
+
+### Xem trước
 
 Dùng binary của release này trên máy quản trị có đường truy cập PostgreSQL
 của installation thử nghiệm. Dùng file URL của login **owner** hiện có, mode
@@ -34,7 +55,7 @@ và app dự kiến. Mảng rỗng chỉ có nghĩa PostgreSQL thiếu định d
 File URL cùng dữ liệu state, ciphertext và nội dung receipt thô nằm ngoài
 báo cáo. Giữ báo cáo riêng tư để hỗ trợ kiểm tra hạ tầng sau purge.
 
-## Xóa khỏi DB
+### Xóa khỏi DB
 
 Dừng các writer của installation thử nghiệm, gồm backend và tác vụ đang ghi
 PostgreSQL. Xác minh executor cũ của app đã dừng. Một bản ghi thao tác bị gián
@@ -52,9 +73,8 @@ khi còn kết nối ghi. File URL owner chỉ thuộc phiên quản trị này.
 Kết quả `"purged":true` xác nhận PostgreSQL đã commit. Lỗi trong quá trình
 xóa làm toàn bộ giao dịch rollback. Một tham chiếu từ app khác có thể chặn
 purge để bảo toàn dữ liệu, và kết nối bị gián đoạn lúc commit cần được xác
-minh lại bằng preview. Lệnh giữ các ràng buộc khóa ngoại và kiểm tra audit
-trigger khôi phục đúng trạng thái trước commit. Thao tác có thể giữ khóa bảng
-trong lúc chạy.
+minh lại bằng preview. PostgreSQL kiểm tra khóa ngoại trước khi commit.
+Trigger lịch sử chỉ cho phép routine xóa dữ liệu trong phạm vi app đã xác nhận.
 
 Khởi động lại backend sau khi xác minh kết quả. Mở Catalog để xóa Definition
 rồi Type nếu đã hết tham chiếu. Đối chiếu các đối tượng bên ngoài theo báo cáo

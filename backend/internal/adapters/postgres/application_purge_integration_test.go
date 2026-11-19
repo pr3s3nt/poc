@@ -136,7 +136,7 @@ func TestApplicationPurgeRemovesHeldHistoryAndReleasesCatalog(t *testing.T) {
 	}
 
 	// Inject a cross-app FK to cause an error late in the purge. Earlier
-	// deletes and trigger suspensions must roll back together.
+	// deletes must roll back together.
 	conflict := ids.New()
 	sqlOn(t, f.db.Admin, `INSERT INTO workload_instances(id,environment_id,workload_id,last_deployment_id,target_ref,manifest_digest,status,observed_at)
  VALUES('`+conflict+`','`+otherEnv.ID+`','cross-app','`+deploymentID+`','{}','digest','READY',now())`)

@@ -161,12 +161,11 @@ its private relational graph in a single transaction. Dependent rows are removed
 before their owners. Existing deferred foreign keys validate cycles at commit.
 The operator runs it while database writers are stopped.
 
-To erase protected history, the schema owner temporarily suspends only the named
-history-retention triggers needed for the purge, then restores those triggers
-inside the same transaction. Foreign keys and unrelated guards stay enabled.
-The transaction validates the current schema before mutation and rolls back on
-any failed deletion or constraint. The runtime and CRUD APIs retain their roles
-and permissions. External delivery and execution adapters take no part.
+The CLI verifies the schema and calls the same scoped purge routine as the
+Console. Retention triggers remain installed. They allow the routine to delete
+the verified target's protected history. Any failed statement or foreign key
+check rolls back the transaction. External delivery and execution adapters
+take no part.
 
 ### Web Console entry point
 

@@ -51,14 +51,14 @@ func TestRetirePublicRoutesUpgradeFromPopulatedVersionNine(t *testing.T) {
 	if err != nil || !initialized {
 		t.Fatalf("upgrade: changed=%v err=%v", initialized, err)
 	}
-	if got := scalar[string](t, owner, `SELECT baseline FROM schema_baseline`); got != "orchestrator-schema-v11" {
+	if got := scalar[string](t, owner, `SELECT baseline FROM schema_baseline`); got != baselineIdentity {
 		t.Fatal(got)
 	}
 	if scalar[string](t, owner, `SELECT installation_id::text FROM schema_baseline`) != "11111111-1111-4111-8111-111111111111" {
 		t.Fatal("installation identity changed")
 	}
-	if scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`) != 11 {
-		t.Fatal("history not advanced to 10")
+	if scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`) != 12 {
+		t.Fatal("history not advanced to 12")
 	}
 	for table, columns := range map[string]string{
 		"organizations": "id,organization_key,name", "applications": "id,application_key,organization_id,name,version,status",

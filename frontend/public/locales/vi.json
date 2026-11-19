@@ -4370,5 +4370,14 @@
   "setup.incomplete": "Hoàn tất các bước cần thiết cho platform của bạn.",
   "setup.counts": "{types} Types · {definitions} Definitions",
   "setup.prerequisites": "Cluster, Vault, CD controller, DNS/TLS và quyền truy cập cần có sẵn. Kết quả setup chưa xác nhận triển khai workload thành công.",
-  "setup.forbidden": "Chỉ Admin và Kỹ sư nền tảng được thiết lập platform."
+  "setup.forbidden": "Chỉ Admin và Kỹ sư nền tảng được thiết lập platform.",
+  "applications.databasePurge.title": "Xóa app khỏi DB",
+  "applications.databasePurge.scope": "Dữ liệu app trong PostgreSQL sẽ bị xóa vĩnh viễn. Tài nguyên còn trên cụm cần được dọn riêng.",
+  "applications.databasePurge.inventory": "Định danh để đối chiếu",
+  "applications.databasePurge.loading": "Đang đọc phạm vi xóa…",
+  "applications.databasePurge.previewFailed": "Không đọc được phạm vi xóa khỏi DB.",
+  "applications.databasePurge.busy": "Đang có thao tác ghi. Hãy đợi thao tác đó kết thúc rồi tải lại phạm vi.",
+  "applications.databasePurge.priorStopped": "Tôi xác nhận tiến trình trước đó đã dừng.",
+  "applications.databasePurge.failed": "Không xác nhận được kết quả xóa khỏi DB. Tải lại phạm vi trước khi thử lại.",
+  "applications.databasePurge.unknownOutcome": "Mất kết nối khi xóa. Tải lại danh sách ứng dụng để kiểm tra kết quả."
 }

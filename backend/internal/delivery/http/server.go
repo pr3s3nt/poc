@@ -211,6 +211,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/applications", s.handleCreateApplication)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}", s.handleGetApplication)
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/deletion-preview", s.handleApplicationDeletionPreview)
+	s.mux.HandleFunc("GET /api/v1/applications/{id}/database-purge", s.handleWebApplicationPurge)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/database-purge", s.handleWebApplicationPurge)
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/deletions", s.handleApplicationDeletion)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/deletions/{operationId}", s.handleGetApplicationDeletion)
 	s.mux.HandleFunc("GET /api/v1/secret-stores", s.handleListSecretStores)
@@ -480,7 +482,7 @@ func (s *Server) handleApplications(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, view)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"applications": out})
+	writeJSON(w, http.StatusOK, map[string]any{"applications": out, "databasePurgeEnabled": s.webPurgeAvailable(r, identity.Role)})
 }
 
 type createApplicationRequest struct {

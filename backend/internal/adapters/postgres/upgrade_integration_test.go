@@ -42,7 +42,7 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 		t.Fatal(err)
 	}
 	identity := "orchestrator-fresh-baseline-v02"
-	if sql == versionThreeSQL || sql == versionFourSQL || sql == versionFiveSQL || sql == versionSixSQL || sql == versionSevenSQL || sql == versionEightSQL || sql == versionNineSQL || sql == versionTenSQL {
+	if sql == versionThreeSQL || sql == versionFourSQL || sql == versionFiveSQL || sql == versionSixSQL || sql == versionSevenSQL || sql == versionEightSQL || sql == versionNineSQL || sql == versionTenSQL || sql == versionElevenSQL {
 		identity = "orchestrator-schema-v3"
 		if err = recordVersionOne(ctx, tx, digest(versionOneSQL)); err != nil {
 			t.Fatal(err)
@@ -54,45 +54,51 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 			t.Fatal(err)
 		}
 	}
-	if sql == versionFourSQL || sql == versionFiveSQL || sql == versionSixSQL || sql == versionSevenSQL || sql == versionEightSQL || sql == versionNineSQL || sql == versionTenSQL {
+	if sql == versionFourSQL || sql == versionFiveSQL || sql == versionSixSQL || sql == versionSevenSQL || sql == versionEightSQL || sql == versionNineSQL || sql == versionTenSQL || sql == versionElevenSQL {
 		identity = "orchestrator-schema-v4"
 		if err = recordVersionFour(ctx, tx); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if sql == versionFiveSQL || sql == versionSixSQL || sql == versionSevenSQL || sql == versionEightSQL || sql == versionNineSQL || sql == versionTenSQL {
+	if sql == versionFiveSQL || sql == versionSixSQL || sql == versionSevenSQL || sql == versionEightSQL || sql == versionNineSQL || sql == versionTenSQL || sql == versionElevenSQL {
 		identity = "orchestrator-schema-v5"
 		if err = recordVersionFive(ctx, tx); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if sql == versionSixSQL || sql == versionSevenSQL || sql == versionEightSQL || sql == versionNineSQL || sql == versionTenSQL {
+	if sql == versionSixSQL || sql == versionSevenSQL || sql == versionEightSQL || sql == versionNineSQL || sql == versionTenSQL || sql == versionElevenSQL {
 		identity = "orchestrator-schema-v6"
 		if err = recordVersionSix(ctx, tx); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if sql == versionSevenSQL || sql == versionEightSQL || sql == versionNineSQL || sql == versionTenSQL {
+	if sql == versionSevenSQL || sql == versionEightSQL || sql == versionNineSQL || sql == versionTenSQL || sql == versionElevenSQL {
 		identity = "orchestrator-schema-v7"
 		if err = recordVersionSeven(ctx, tx); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if sql == versionEightSQL || sql == versionNineSQL || sql == versionTenSQL {
+	if sql == versionEightSQL || sql == versionNineSQL || sql == versionTenSQL || sql == versionElevenSQL {
 		identity = "orchestrator-schema-v8"
 		if err = recordVersionEight(ctx, tx); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if sql == versionNineSQL || sql == versionTenSQL {
+	if sql == versionNineSQL || sql == versionTenSQL || sql == versionElevenSQL {
 		identity = "orchestrator-schema-v9"
 		if err = recordVersionNine(ctx, tx); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if sql == versionTenSQL {
+	if sql == versionTenSQL || sql == versionElevenSQL {
 		identity = "orchestrator-schema-v10"
 		if err = recordVersionTen(ctx, tx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if sql == versionElevenSQL {
+		identity = "orchestrator-schema-v11"
+		if err = recordVersionEleven(ctx, tx); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -115,7 +121,7 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 		t.Fatal(err)
 	}
 	templateRow := `INSERT INTO render_bundles(id,organization_id,source_url,source_path,source_revision,content_sha256,engine_contract,renderer_version,renderer_binary_sha256,contract,created_at) VALUES('66666666-6666-4666-8666-666666666666','22222222-2222-4222-8222-222222222222','https://example.invalid/retained.git','.',repeat('a',40),repeat('b',64),'git-render-v1','0.15.0',repeat('c',64),'{}',now())`
-	if sql == versionEightSQL || sql == versionNineSQL || sql == versionTenSQL {
+	if sql == versionEightSQL || sql == versionNineSQL || sql == versionTenSQL || sql == versionElevenSQL {
 		templateRow = `INSERT INTO template_sources(id,organization_id,source_url,source_path,source_revision,content_sha256,engine_contract,renderer_version,renderer_binary_sha256,contract,created_at) VALUES('66666666-6666-4666-8666-666666666666','22222222-2222-4222-8222-222222222222','https://example.invalid/retained.git','.',repeat('a',40),repeat('b',64),'template-v1','1.0.0',repeat('c',64),'{}',now())`
 	}
 	for _, q := range []string{
@@ -130,7 +136,7 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 		`GRANT CONNECT ON DATABASE ` + pgx.Identifier{db.Name}.Sanitize() + ` TO ` + pgx.Identifier{db.ConsoleRole}.Sanitize() + `,` + pgx.Identifier{db.StateRole}.Sanitize(),
 		`GRANT USAGE ON SCHEMA public TO ` + pgx.Identifier{db.ConsoleRole}.Sanitize() + `,` + pgx.Identifier{db.StateRole}.Sanitize(),
 	} {
-		if sql == versionTenSQL {
+		if sql == versionTenSQL || sql == versionElevenSQL {
 			q = strings.ReplaceAll(q, "name,subdomain,version", "name,version")
 			q = strings.ReplaceAll(q, "'Retained','retained',7", "'Retained',7")
 		}
@@ -145,16 +151,19 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 	}
 	for role, name := range map[RuntimeRole]string{ConsoleRuntime: db.ConsoleRole, StateRuntime: db.StateRole} {
 		for _, g := range grantsOf(role) {
-			if (g.table == "endpoint_hosts" || g.table == "endpoint_paths") && sql != versionTenSQL {
-				continue // introduced by version 10
-			}
-			if g.table == "template_sources" && sql != versionEightSQL && sql != versionNineSQL && sql != versionTenSQL {
-				g.table = "render_bundles"
-			}
-			if ((g.table == "platform_delivery_defaults" || g.table == "application_delivery_repositories") && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL && sql != versionEightSQL && sql != versionNineSQL && sql != versionTenSQL) || ((g.table == "resource_definition_versions" || g.table == "resource_definition_policies" || g.table == "environment_definition_selections") && sql != versionSixSQL && sql != versionSevenSQL && sql != versionEightSQL && sql != versionNineSQL && sql != versionTenSQL) || (catalogTable(g.table) && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL && sql != versionEightSQL && sql != versionNineSQL && sql != versionTenSQL) || (reconciliationTable(g.table) && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL && sql != versionEightSQL && sql != versionNineSQL && sql != versionTenSQL) || (g.table == "platform_git_settings" && sql != versionTwoSQL && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL && sql != versionEightSQL && sql != versionNineSQL && sql != versionTenSQL) || (g.table == "schema_upgrade_history" && sql != versionOneSQL && sql != versionTwoSQL && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL && sql != versionEightSQL && sql != versionNineSQL && sql != versionTenSQL) {
+			if g.table == "application_purge_policy" {
 				continue
 			}
-			if role == StateRuntime && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL && sql != versionEightSQL && sql != versionNineSQL && sql != versionTenSQL {
+			if (g.table == "endpoint_hosts" || g.table == "endpoint_paths") && sql != versionTenSQL && sql != versionElevenSQL {
+				continue // introduced by version 10
+			}
+			if g.table == "template_sources" && sql != versionEightSQL && sql != versionNineSQL && sql != versionTenSQL && sql != versionElevenSQL {
+				g.table = "render_bundles"
+			}
+			if ((g.table == "platform_delivery_defaults" || g.table == "application_delivery_repositories") && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL && sql != versionEightSQL && sql != versionNineSQL && sql != versionTenSQL && sql != versionElevenSQL) || ((g.table == "resource_definition_versions" || g.table == "resource_definition_policies" || g.table == "environment_definition_selections") && sql != versionSixSQL && sql != versionSevenSQL && sql != versionEightSQL && sql != versionNineSQL && sql != versionTenSQL && sql != versionElevenSQL) || (catalogTable(g.table) && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL && sql != versionEightSQL && sql != versionNineSQL && sql != versionTenSQL && sql != versionElevenSQL) || (reconciliationTable(g.table) && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL && sql != versionEightSQL && sql != versionNineSQL && sql != versionTenSQL && sql != versionElevenSQL) || (g.table == "platform_git_settings" && sql != versionTwoSQL && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL && sql != versionEightSQL && sql != versionNineSQL && sql != versionTenSQL && sql != versionElevenSQL) || (g.table == "schema_upgrade_history" && sql != versionOneSQL && sql != versionTwoSQL && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL && sql != versionEightSQL && sql != versionNineSQL && sql != versionTenSQL && sql != versionElevenSQL) {
+				continue
+			}
+			if role == StateRuntime && sql != versionThreeSQL && sql != versionFourSQL && sql != versionFiveSQL && sql != versionSixSQL && sql != versionSevenSQL && sql != versionEightSQL && sql != versionNineSQL && sql != versionTenSQL && sql != versionElevenSQL {
 				if g.table == "environments" {
 					g.columns = []string{"id", "application_id", "active_operation_id", "generation_high"}
 				}
@@ -192,7 +201,7 @@ func legacyDatabase(t *testing.T, sql string) (string, string, Roles) {
 }
 
 func TestUpgradeSupportedPopulatedSources(t *testing.T) {
-	for name, source := range map[string]string{"staging-1516dec": sourceOldSQL, "preview-2a111db": sourceCurrentSQL, "version-1": versionOneSQL, "version-2": versionTwoSQL, "version-3": versionThreeSQL, "version-4": versionFourSQL, "version-5": versionFiveSQL, "version-6": versionSixSQL, "version-7": versionSevenSQL, "version-8": versionEightSQL, "version-9": versionNineSQL, "version-10": versionTenSQL} {
+	for name, source := range map[string]string{"staging-1516dec": sourceOldSQL, "preview-2a111db": sourceCurrentSQL, "version-1": versionOneSQL, "version-2": versionTwoSQL, "version-3": versionThreeSQL, "version-4": versionFourSQL, "version-5": versionFiveSQL, "version-6": versionSixSQL, "version-7": versionSevenSQL, "version-8": versionEightSQL, "version-9": versionNineSQL, "version-10": versionTenSQL, "version-11": versionElevenSQL} {
 		t.Run(name, func(t *testing.T) {
 			owner, console, roles := legacyDatabase(t, source)
 			stamp := scalar[string](t, owner, `SELECT created_at::text FROM schema_baseline`)
@@ -209,7 +218,7 @@ func TestUpgradeSupportedPopulatedSources(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if n := scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`); n != 11 {
+			if n := scalar[int](t, owner, `SELECT count(*) FROM schema_upgrade_history`); n != 12 {
 				t.Fatal(n)
 			}
 			if got := scalar[string](t, owner, `SELECT installation_id::text FROM schema_baseline`); got != "11111111-1111-4111-8111-111111111111" {
@@ -591,7 +600,7 @@ func TestBaselineCommentChangesDoNotRequireUpgrade(t *testing.T) {
 func TestUpgradeHistoryTamperingIsRejected(t *testing.T) {
 	for name, mutation := range map[string]string{
 		"checksum":       `UPDATE schema_upgrade_history SET migration_sha256=repeat('0',64)`,
-		"future-version": `UPDATE schema_upgrade_history SET version=12 WHERE version=11`,
+		"future-version": `UPDATE schema_upgrade_history SET version=13 WHERE version=12`,
 		"source":         `UPDATE schema_upgrade_history SET source_sha256=repeat('0',64)`,
 		"missing":        `DELETE FROM schema_upgrade_history`,
 	} {

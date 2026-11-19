@@ -31,6 +31,16 @@ note right of schema_upgrade_history
   Console/State SELECT only.
 end note
 
+entity application_purge_policy {
+  * singleton : boolean <<PK,true>>
+  --
+  enabled : boolean
+}
+note right of application_purge_policy
+  Installation policy, disabled without an enabled row.
+  Owner writes. Console SELECT only.
+end note
+
 entity organizations {
   * id : uuid <<PK>>
   --

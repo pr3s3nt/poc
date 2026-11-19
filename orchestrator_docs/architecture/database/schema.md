@@ -1089,10 +1089,10 @@ terminal states, cleanup operations) are retained; nothing cascades. The
 product list omits DELETED rows. Fresh-baseline policy applies: a retained
 database created from the previous baseline fails startup and is not migrated.
 
-An explicit [owner-only test Application purge](../../operations/application-database-purge.md)
-can erase one Application and its exclusive history within a single maintenance
-transaction. It uses the existing schema and restores the named retention
-triggers before commit. Runtime lifecycle and privileges follow ADR-025.
+An explicit [test Application purge](../../operations/application-database-purge.md)
+erases one Application and its exclusive history in a single transaction.
+The Console and owner CLI use the scoped routine introduced in schema 12.
+The ordinary lifecycle continues to follow ADR-025.
 
 ## ZIP source persistence — ADR-026
 

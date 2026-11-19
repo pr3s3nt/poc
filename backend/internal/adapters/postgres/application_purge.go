@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,10 +10,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-)
 
-//go:embed application_purge.sql
-var applicationPurgeSQL string
+	"orchestrator/internal/ports/persistence"
+)
 
 // ApplicationPurge identifies one Application in one installation. An empty
 // ConfirmationName selects a read-only preview.
@@ -25,30 +23,7 @@ type ApplicationPurge struct {
 	WritersStopped   bool
 }
 
-type ApplicationPurgeReport struct {
-	InstallationID string                  `json:"installationId"`
-	ApplicationID  string                  `json:"applicationId"`
-	Organization   string                  `json:"organization"`
-	Application    string                  `json:"application"`
-	DisplayName    string                  `json:"displayName"`
-	Status         string                  `json:"status"`
-	Purged         bool                    `json:"purged"`
-	Environments   []ApplicationPurgeEnv   `json:"environments"`
-	Resources      []string                `json:"resources"`
-	Fleet          []ApplicationPurgeFleet `json:"fleet"`
-	GitRepos       []string                `json:"gitRepositories"`
-}
-
-type ApplicationPurgeEnv struct {
-	Key       string `json:"key"`
-	Namespace string `json:"namespace"`
-}
-
-type ApplicationPurgeFleet struct {
-	GitRepo   string `json:"gitRepo"`
-	Release   string `json:"release"`
-	Namespace string `json:"namespace"`
-}
+type ApplicationPurgeReport = persistence.ApplicationPurgeReport
 
 // PurgeApplication runs as the operator's database owner and never wires the
 // application runtime or the external cleanup adapters.
@@ -110,14 +85,13 @@ FROM pg_namespace n JOIN pg_roles r ON r.rolname=current_user WHERE n.nspname=cu
 
 	result.InstallationID = marker.installation
 	result.Organization, result.Application = in.Organization, in.Application
-	var organizationID string
-	lookup := `SELECT a.id::text,o.id::text,a.name,a.status FROM applications a
+	lookup := `SELECT a.id::text,a.name,a.status FROM applications a
 JOIN organizations o ON o.id=a.organization_id WHERE o.organization_key=$1 AND a.application_key=$2`
 	if execute {
 		lookup += ` FOR UPDATE OF a`
 	}
 	err = tx.QueryRow(ctx, lookup, in.Organization, in.Application).Scan(
-		&result.ApplicationID, &organizationID, &result.DisplayName, &result.Status)
+		&result.ApplicationID, &result.DisplayName, &result.Status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return result, errors.New("postgres: Application key was not found in the specified Organization")
 	}
@@ -149,20 +123,14 @@ JOIN organizations o ON o.id=a.organization_id WHERE o.organization_key=$1 AND a
 	if writers {
 		return result, errors.New("postgres: the installation still has database writer connections; stop the writers and retry")
 	}
-	if _, err := tx.Exec(ctx, `SELECT id FROM environments WHERE application_id=$1::uuid ORDER BY id FOR UPDATE`, result.ApplicationID); err != nil {
-		return result, purgeError("lock Application environments", err)
-	}
-	if _, err := tx.Exec(ctx, `CREATE TEMP TABLE app_purge_target (
- application_id uuid PRIMARY KEY, organization_id uuid NOT NULL, application_key text NOT NULL
-) ON COMMIT DROP`); err != nil {
-		return result, purgeError("stage exact Application identity", err)
-	}
-	if _, err := tx.Exec(ctx, `INSERT INTO pg_temp.app_purge_target VALUES ($1::uuid,$2::uuid,$3)`,
-		result.ApplicationID, organizationID, in.Application); err != nil {
-		return result, purgeError("stage exact Application identity", err)
-	}
-	if _, err := tx.Exec(ctx, applicationPurgeSQL); err != nil {
+	var outcome string
+	err = tx.QueryRow(ctx, `SELECT purge_one_application($1,$2,$3::uuid,$4,true)`,
+		in.Organization, in.Application, result.ApplicationID, in.ConfirmationName).Scan(&outcome)
+	if err != nil {
 		return result, purgeError("remove Application metadata", err)
+	}
+	if outcome != "PURGED" {
+		return result, fmt.Errorf("postgres: Application purge did not complete (%s)", outcome)
 	}
 	catalog, err = catalogDump(ctx, tx, schema)
 	if err != nil {
@@ -178,7 +146,9 @@ JOIN organizations o ON o.id=a.organization_id WHERE o.organization_key=$1 AND a
 	return result, nil
 }
 
-func readApplicationPurgeReport(ctx context.Context, tx pgx.Tx, report *ApplicationPurgeReport) error {
+func readApplicationPurgeReport(ctx context.Context, tx interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, report *ApplicationPurgeReport) error {
 	var environments, fleet []byte
 	err := tx.QueryRow(ctx, `
 WITH env AS (SELECT id,environment_key,namespace_identity FROM environments WHERE application_id=$1::uuid),

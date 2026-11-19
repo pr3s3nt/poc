@@ -119,6 +119,8 @@ const (
 	codeApplicationDeleting             = "APPLICATION_DELETING"
 	codeApplicationDeletionBlocked      = "APPLICATION_DELETION_BLOCKED"
 	codeApplicationConfirmationMismatch = "APPLICATION_CONFIRMATION_MISMATCH"
+	codePurgeNeedsStopped               = "APPLICATION_PURGE_RECOVERY_REQUIRED"
+	codePurgeFailed                     = "APPLICATION_PURGE_FAILED"
 )
 
 type publicError struct {
@@ -201,6 +203,8 @@ var publicErrors = map[string]publicError{
 	codeApplicationDeleting:             {http.StatusConflict, "the application is being deleted"},
 	codeApplicationDeletionBlocked:      {http.StatusConflict, "the application deletion is blocked"},
 	codeApplicationConfirmationMismatch: {http.StatusBadRequest, "the confirmation name does not match"},
+	codePurgeNeedsStopped:               {http.StatusConflict, "confirm that the prior executor has stopped"},
+	codePurgeFailed:                     {http.StatusConflict, "the database purge could not be confirmed"},
 }
 
 // Trusted response fields. A field is echoed only when it is in this set:

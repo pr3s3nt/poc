@@ -1573,11 +1573,13 @@ and the fresh full candidate/main comparison.
   applying a workload, so cached render content cannot block withdrawal-only steps.
 
 
-### Owner-only Application database purge — issue #94
+### Application database purge — issue #94
 
-The [CLI](../../backend/cmd/orchestrator/main.go) passes exact Organization
-and Application keys to the
-[PostgreSQL owner maintenance operation](../../backend/internal/adapters/postgres/application_purge.go).
-The [scoped transaction](../../backend/internal/adapters/postgres/application_purge.sql)
-removes the Application graph and restores the named audit triggers.
+The [Settings dialog](../../frontend/src/features/applications/deletion/DatabasePurgeDialog.tsx)
+calls the [Console API](../../backend/internal/delivery/http/application_purge.go).
+The [store](../../backend/internal/adapters/postgres/web_application_purge.go) checks
+installation opt-in and invokes the
+[schema 12 routine](../../backend/internal/adapters/postgres/migrations/012-web-application-purge.sql).
+The [owner CLI](../../backend/internal/adapters/postgres/application_purge.go)
+uses the same routine during maintenance.
 See the [operator runbook](../operations/application-database-purge.md).
