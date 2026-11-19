@@ -282,7 +282,8 @@ func (s *Service) checkCleanup(ctx context.Context, req tfresource.CleanupReques
 		}
 		// A user deletion starts from an unreferenced (or failed) root; the
 		// admission checked this, and the claim must not have changed it.
-		if req.Mode == tfresource.CleanupUserConfirmed && id == req.RootInstanceID && inst.Status != tfresource.InstanceUnreferenced {
+		appDeletionID, _ := req.ScopeSnapshot["applicationDeletionId"].(string)
+		if req.Mode == tfresource.CleanupUserConfirmed && id == req.RootInstanceID && inst.Status != tfresource.InstanceUnreferenced && appDeletionID == "" {
 			return reject("the root resource must be UNREFERENCED")
 		}
 		instances[id] = inst

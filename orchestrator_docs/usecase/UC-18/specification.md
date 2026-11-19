@@ -183,7 +183,7 @@ Giới hạn còn lại ở [IMP-038](../../implementation/deviations.md#imp-038
   Known published failures must be withdrawn with original receipts/UID inventory;
   unknown outcomes require recovery before downstream effects.
 - DEL-03: After workloads/drafts are empty, whole-Application cleanup may
-  establish an eligible UNREFERENCED root under the Environment claim, preserving
+  establish an eligible owned root under the Environment claim, preserving
   ownership, original state/module/target and external-consumer guards. It must
   not require a previous successful deployment or a synthetic deployment.
 - DEL-04: Cleanup persists progress before effects and exposes each selected

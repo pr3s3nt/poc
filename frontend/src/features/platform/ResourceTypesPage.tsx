@@ -1,3 +1,4 @@
+import { CatalogDeleteButton } from './CatalogDeleteButton';
 import { CatalogEntryTabs } from './CatalogEntryTabs';
 import { downloadDocument } from './catalogDocument';
 import { useRef, useState, type FormEvent } from 'react';
@@ -151,6 +152,12 @@ export function ResourceTypesPage() {
       <div className="form-actions">
         <Button type="button" aria-expanded={open} aria-label={`${open ? t('platform.resourceTypes.hide') : t('platform.resourceTypes.view')} schema ${type.key}`} onClick={() => setExpanded(open ? '' : type.key)}>{open ? t('platform.resourceTypes.hideSchema') : 'Xem schema'}</Button>
         {rule ? <a className="button" href={href({ name: 'resource-definitions', resourceType: type.key })} aria-label={t('platform.resourceTypes.createAResourceDefinitionFor', { key: type.key })} onClick={(event) => { event.preventDefault(); navigate({ name: 'resource-definitions', resourceType: type.key }); }}>{t('platform.resourceTypes.createResourceDefinition')}</a> : null}
+        {!['workload', 'k8s-cluster', 'k8s-namespace', 'vpc', 'k8s-gateway', 'endpoint', 'postgres', 'redis'].includes(type.key) ? <CatalogDeleteButton collection="resource-types" itemKey={type.key} disabled={addSaving} onDeleted={() => {
+          if (adding === type.key) { setAdding(''); setAdded([]); setAddError(''); }
+          setAddNotice(t('catalogDeletion.deleted', { key: type.key }));
+          void reload();
+          void capabilityList.reload();
+        }} /> : null}
       </div></div>
       {open ? <section className="catalog-details" aria-label={t('platform.resourceTypes.schemaOfKey', { key: type.key })}>
         <Button type="button" onClick={() => downloadDocument('resource-types', type)}>{t('catalogDocument.download')}</Button><h3>{t('platform.resourceTypes.inputs')}</h3>{inputList.length === 0 ? <p className="muted">{t('platform.resourceTypes.noInputParametersDeclared')}</p> : <SchemaTable label={t('platform.resourceTypes.inputsOfKey', { key: type.key })} fields={inputList} secret={false} />}

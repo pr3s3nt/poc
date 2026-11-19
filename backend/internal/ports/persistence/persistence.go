@@ -266,6 +266,7 @@ type OperationRepository interface {
 
 // CatalogRepository owns Resource Types and Resource Definitions.
 type CatalogRepository interface {
+	DeleteCatalogEntry(ctx context.Context, org, key string, definition bool, check func(context.Context) error) error
 	ListResourceTypes(ctx context.Context, organizationKey string) ([]resource.Type, error)
 	ListResourceDefinitions(ctx context.Context, organizationKey string) ([]resource.Definition, error)
 	SaveResourceType(ctx context.Context, organizationKey string, t resource.Type) error

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	appsvc "orchestrator/internal/application/deployment"
+	"orchestrator/internal/application/resourcecleanup"
+	appdomain "orchestrator/internal/domain/application"
 	deliverydomain "orchestrator/internal/domain/delivery"
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
@@ -106,6 +108,25 @@ func (s *Server) handleRecoverOperation(w http.ResponseWriter, r *http.Request) 
 		s.writeError(w, persistence.ErrNotFound)
 		return
 	}
+	if app.Lifecycle() == appdomain.StatusDeleting {
+		if app.Deletion == nil || s.appDeletion == nil || op.StartedAt.Before(app.Deletion.RequestedAt) ||
+			(op.Kind != environment.OpRemove && op.Kind != environment.OpDeploy && op.Kind != environment.OpResourceCleanup) {
+			writeCode(w, codeApplicationDeleting, "")
+			return
+		}
+		deletion, err := s.appDeletion.Get(r.Context(), app.OrganizationKey, appKey, app.Deletion.OperationID)
+		if err != nil || deletion.Running {
+			writeCode(w, codeApplicationDeleting, "")
+			return
+		}
+	}
+	if op.Kind == environment.OpResourceCleanup {
+		deletionID, _ := op.Detail["applicationDeletionId"].(string)
+		if app.Deletion == nil || deletionID != app.Deletion.OperationID || s.resourceCleanup == nil {
+			writeCode(w, codeRecoveryIncomplete, "")
+			return
+		}
+	}
 	// Generic workload recovery cannot release an unresolved CD mutation. A
 	// transfer uses its dedicated forward protocol below; ordinary submissions
 	// require exact provider outcome recovery, including provider-verified receipt reconstruction.
@@ -170,6 +191,21 @@ func (s *Server) handleRecoverOperation(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusOK, map[string]any{"recovery": result})
 		return
 	}
+	if op.Kind == environment.OpResourceCleanup {
+		scope := resourcecleanup.Scope{OrganizationKey: app.OrganizationKey, ApplicationKey: appKey, EnvironmentKey: envKey}
+		if err := s.resourceCleanup.CheckStoppedCleanup(lease.Ctx, scope, op.ID); err != nil {
+			_ = lease.Suspend("CLEANUP_RECOVERY_REQUIRED")
+			writeCode(w, codeRecoveryIncomplete, "")
+			return
+		}
+		if err := lease.End(environment.OpRecovered, ""); err != nil {
+			s.writeError(w, err)
+			return
+		}
+		result["outcome"] = "RECOVERED"
+		writeJSON(w, http.StatusOK, map[string]any{"recovery": result})
+		return
+	}
 	if op.Kind != environment.OpDeploy && op.Kind != environment.OpRemove && op.Kind != environment.OpRoutes {
 		reason := "recovery cannot prove cleanup state; the Environment remains held"
 		_ = lease.Suspend(reason)
@@ -227,6 +263,14 @@ func (s *Server) handleRecoverOperation(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	progress.Check(lease.Ctx, progress.Step{ID: "delivery", Kind: "RECOVERY_DELIVERY", Status: "SUCCEEDED"})
+	if app.Lifecycle() == appdomain.StatusDeleting && s.resourceCleanup != nil {
+		scope := resourcecleanup.Scope{OrganizationKey: app.OrganizationKey, ApplicationKey: appKey, EnvironmentKey: envKey}
+		if err := s.resourceCleanup.CheckStoppedAttempts(lease.Ctx, scope, op.ID); err != nil {
+			_ = lease.Suspend("CLEANUP_RECOVERY_REQUIRED")
+			writeCode(w, codeRecoveryIncomplete, "")
+			return
+		}
+	}
 	progress.Check(lease.Ctx, progress.Step{ID: "records", Kind: "RECOVERY_RECORDS", Status: "RUNNING"})
 	list, err := s.store.ListDeployments(lease.Ctx, app.Key, envKey)
 	if err == nil {

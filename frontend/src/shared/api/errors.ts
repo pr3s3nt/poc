@@ -67,6 +67,7 @@ const messageTable = {
   SERVICE_UNAVAILABLE: t('shared.errors.aRequiredServiceIsNot'),
   INTERNAL_ERROR: t('shared.errors.theServerHitAnUnknown'),
   APPLICATION_DELETING: t('shared.errors.applicationDeleting'),
+  CATALOG_DELETION_BLOCKED: t('catalogDeletion.blocked'),
   APPLICATION_DELETION_BLOCKED: t('shared.errors.applicationDeletionBlocked'),
   APPLICATION_CONFIRMATION_MISMATCH: t('shared.errors.applicationConfirmationMismatch'),
   DIAGNOSTIC_SCOPE_INVALID: t('shared.errors.diagnosticScopeInvalid'),

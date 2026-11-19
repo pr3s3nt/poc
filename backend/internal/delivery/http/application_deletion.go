@@ -15,6 +15,7 @@ import (
 // the same for all of them.
 
 type applicationDeletionBody struct {
+	Force            bool   `json:"force,omitempty"`
 	Token            string `json:"token"`
 	ConfirmationName string `json:"confirmationName"`
 }
@@ -63,11 +64,13 @@ func (s *Server) handleApplicationDeletionPreview(w http.ResponseWriter, r *http
 	if !ok {
 		return
 	}
-	var body struct{}
+	var body struct {
+		Force bool `json:"force,omitempty"`
+	}
 	if !decodeStrict(w, r, 1<<10, &body) {
 		return
 	}
-	view, err := s.appDeletion.Preview(r.Context(), org, r.PathValue("id"), actor)
+	view, err := s.appDeletion.PreviewMode(r.Context(), org, r.PathValue("id"), actor, body.Force)
 	if err != nil {
 		s.writeDeletionError(w, err)
 		return
@@ -84,7 +87,7 @@ func (s *Server) handleApplicationDeletion(w http.ResponseWriter, r *http.Reques
 	if !decodeStrict(w, r, 16<<10, &body) {
 		return
 	}
-	view, err := s.appDeletion.Delete(r.Context(), org, r.PathValue("id"), actor, body.Token, body.ConfirmationName)
+	view, err := s.appDeletion.DeleteMode(r.Context(), org, r.PathValue("id"), actor, body.Token, body.ConfirmationName, body.Force)
 	if err != nil {
 		s.writeDeletionError(w, err)
 		return
@@ -132,6 +135,12 @@ func (s *Server) lifecycleGuard(w http.ResponseWriter, r *http.Request) bool {
 		writeCode(w, codeNotFound, "")
 		return true
 	case appdomain.StatusDeleting:
+		if r.Method == http.MethodPost && strings.HasPrefix(sub, "environments/") && strings.HasSuffix(sub, "/recover") {
+			parts := strings.Split(sub, "/")
+			if len(parts) == 5 && parts[2] == "operations" {
+				return false
+			}
+		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			writeCode(w, codeApplicationDeleting, "")
 			return true

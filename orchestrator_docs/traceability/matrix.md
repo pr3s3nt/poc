@@ -1721,3 +1721,11 @@ owned full-test namespace cleanup is verified. No main merge/acceptance claimed.
 | Requirement | Design / realization | Implementation and tests |
 |---|---|---|
 | SETUP-01–08 | [UC-00 first-run setup](../usecase/UC-00/first-run-setup.md) | [Setup code map and validation](../implementation/first-run-setup.md), [browser scenario](../../e2e/scenarios/first-run-setup/README.md) |
+
+## Catalog and Force Application deletion — issue #80
+
+| Requirements | Implementation | Focused verification |
+|---|---|---|
+| UC-02 TYPE-DEL-01..03, UC-03 DEF-DEL-01..03 | Scoped catalog deletion with a reference check and Environment version invalidation in one transaction | `TestCatalogDeletionRequiresScopedRoleAndNoReferences`; real PostgreSQL and Console confirmation |
+| UC-18 DEL-01..03 | Delivery withdrawal includes failed published units; Environment cleanup keeps original target and confirmed ownership | `TestApplicationWithdrawalIncludesFailedPublicationOutsideAppliedSet`; application deletion integration tests |
+| UC-18 DEL-04..10 | Persisted per-resource results, stopped-operation recovery, Force mode token and separate Settings action | `TestApplicationDeletionForceFromActiveBindsPreviewMode`; application deletion dialog and progress tests |

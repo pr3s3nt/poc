@@ -273,6 +273,22 @@ func Select(ctx context.Context, st persistence.Store, org, app, env, key, id st
 		if err != nil {
 			return err
 		}
+		// Immutable history remains readable after catalog deletion. A new
+		// selection must still refer to a current authored Definition.
+		heads, err := st.ListResourceDefinitions(ctx, org)
+		if err != nil {
+			return err
+		}
+		available := false
+		for _, head := range heads {
+			if head.Key == key {
+				available = true
+				break
+			}
+		}
+		if !available {
+			return ErrInvalid
+		}
 		var chosen *resource.Definition
 		for _, v := range h.Versions {
 			if v.ID == id && !v.Archived {

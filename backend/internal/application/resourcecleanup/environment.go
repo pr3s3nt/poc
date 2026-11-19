@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"orchestrator/internal/application/envops"
+	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfresource"
@@ -178,6 +179,14 @@ func selectGeneration(snap *snapshot, generation int64) (generationSelection, er
 		}
 	}
 	if root == "" {
+		for _, id := range selected {
+			if !consumed[id] {
+				root = id
+				break
+			}
+		}
+	}
+	if root == "" {
 		return generationSelection{}, &RefusedError{Reason: ReasonNoRootEligible}
 	}
 	return generationSelection{root: root, selected: selected}, nil
@@ -209,11 +218,24 @@ func (s *Service) AdmitEnvironmentCleanup(ctx context.Context, sc Scope, actor A
 	if !s.mutable() {
 		return AdmissionView{}, ErrUnavailable
 	}
+	verifyDeletion := func(ctx context.Context, view persistence.Store) error {
+		app, err := view.GetApplication(ctx, sc.ApplicationKey)
+		if err != nil {
+			return err
+		}
+		if app.Lifecycle() != appdomain.StatusDeleting || app.Deletion == nil || app.Deletion.OperationID != in.DeletionID {
+			return ErrForbidden
+		}
+		return nil
+	}
 	var (
 		pre *snapshot
 		sel generationSelection
 	)
 	if err := s.store.ReadSnapshot(ctx, func(ctx context.Context, view persistence.Store) error {
+		if err := verifyDeletion(ctx, view); err != nil {
+			return err
+		}
 		snap, err := loadSnapshot(ctx, view, s.reader, sc)
 		if err != nil {
 			return err
@@ -251,6 +273,9 @@ func (s *Service) AdmitEnvironmentCleanup(ctx context.Context, sc Scope, actor A
 	}
 	expected := append([]string(nil), sel.selected...)
 	check := func(ctx context.Context) error {
+		if err := verifyDeletion(ctx, s.store); err != nil {
+			return err
+		}
 		snap, err := loadSnapshot(ctx, s.store, s.reader, sc)
 		if err != nil {
 			return err
@@ -313,4 +338,46 @@ func (s *Service) WaitCleanup(ctx context.Context, sc Scope, operationID string,
 		case <-time.After(every):
 		}
 	}
+}
+
+// CheckStoppedAttempts verifies retry can safely use the persisted Terraform
+// records after the caller adopts recovery with a fresh Environment fence.
+func (s *Service) CheckStoppedAttempts(ctx context.Context, sc Scope, operationID string) error {
+	attempts, err := s.reader.ListOperationAttempts(ctx, sc.ApplicationKey, sc.EnvironmentKey, operationID)
+	if err != nil {
+		return err
+	}
+	for _, attempt := range attempts {
+		if attempt.Status != tfresource.AttemptSucceeded && attempt.Status != tfresource.AttemptFailed {
+			return &RefusedError{Reason: ReasonInstanceHeld}
+		}
+	}
+	return nil
+}
+
+// CheckStoppedCleanup releases a fenced prior cleanup only when durable attempts
+// and instance statuses show that no destroy was left unresolved.
+func (s *Service) CheckStoppedCleanup(ctx context.Context, sc Scope, operationID string) error {
+	if !s.readable() {
+		return ErrUnavailable
+	}
+	if err := s.CheckStoppedAttempts(ctx, sc, operationID); err != nil {
+		return err
+	}
+	view, err := s.GetCleanup(ctx, sc, operationID)
+	if err != nil {
+		return err
+	}
+	for _, item := range view.Resources {
+		switch item.CurrentStatus {
+		case string(tfresource.InstanceDestroyed):
+			if !item.Verified {
+				return &RefusedError{Reason: ReasonInstanceHeld}
+			}
+		case string(tfresource.InstanceReady), string(tfresource.InstanceUnreferenced), string(tfresource.InstanceFailed), string(tfresource.InstancePending):
+		default:
+			return &RefusedError{Reason: ReasonInstanceHeld}
+		}
+	}
+	return nil
 }

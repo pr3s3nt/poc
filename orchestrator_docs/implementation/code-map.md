@@ -1540,3 +1540,18 @@ checks retained cluster/Terraform/template layouts without saving.
 [Combined execution](../verification/2026-11-18-integrated-routes-editor.md)
 records preserved installation upgrade, real editor/update/restart/browser checks
 and the fresh full candidate/main comparison.
+
+### Catalog and Application deletion — issue #80
+
+- Catalog guards and reference checks live in
+  [catalog deletion](../../backend/internal/application/catalog/deletion.go).
+  Both stores perform the check and write atomically and invalidate stale
+  Environment writes. The
+  [Console confirmation](../../frontend/src/features/platform/CatalogDeleteButton.tsx)
+  reports safe references.
+- Application preview and admission use the existing
+  [service](../../backend/internal/application/appdeletion/service.go) with a
+  mode-bound token. Settings and the stalled deletion panel use separate Force
+  actions. The
+  [delivery coordinator](../../backend/internal/application/delivery/removal.go)
+  withdraws published units before owned Terraform cleanup.

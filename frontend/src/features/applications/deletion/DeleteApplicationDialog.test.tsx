@@ -20,9 +20,9 @@ const preview = (over: Partial<DeletionPreview> = {}): DeletionPreview => ({
   kept: { secretStores: ['platform-vault'], platformResources: 1, definitions: [] }, warnings: [], blocked: false, ...over,
 });
 
-function open() {
+function open(force = false) {
   const handlers = { onClose: vi.fn(), onAccepted: vi.fn(), onLost: vi.fn() };
-  render(<DeleteApplicationDialog applicationId="shop" {...handlers} />);
+  render(<DeleteApplicationDialog applicationId="shop" force={force} {...handlers} />);
   return handlers;
 }
 
@@ -44,6 +44,18 @@ describe('application deletion dialog (UC-18 MS-01..04)', () => {
     await waitFor(() => expect(onAccepted).toHaveBeenCalledWith({ operationId: 'op-1', status: 'RUNNING', replayed: false }));
     expect(calls.filter(isDelete)).toHaveLength(1);
     expect(calls.filter(isDelete)[0]?.body).toEqual({ token: 'ad1.token', confirmationName: 'Shop' });
+  });
+
+  it('uses a distinct Force dialog and sends the Force mode with both requests', async () => {
+    const calls = stubApi((c) => isPreview(c) ? Response.json({ preview: preview() }) : undefined,
+      (c) => isDelete(c) ? Response.json({ deletion: { operationId: 'op-1', status: 'RUNNING' } }, { status: 202 }) : undefined);
+    const { onAccepted } = open(true);
+    expect(screen.getByRole('dialog', { name: 'Force xóa ứng dụng' })).toBeInTheDocument();
+    await userEvent.type(await screen.findByRole('textbox'), 'Shop');
+    await userEvent.click(screen.getByRole('button', { name: 'Force xóa ứng dụng' }));
+    await waitFor(() => expect(onAccepted).toHaveBeenCalledOnce());
+    expect(calls.find(isPreview)?.body).toEqual({ force: true });
+    expect(calls.find(isDelete)?.body).toEqual({ token: 'ad1.token', confirmationName: 'Shop', force: true });
   });
 
   it('shows blockers without a confirmation field', async () => {

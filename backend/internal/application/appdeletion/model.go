@@ -71,10 +71,11 @@ type Actor struct {
 
 // Blocker is one reason the deletion cannot be admitted now.
 type Blocker struct {
-	Code        string `json:"code"`
-	ResourceID  string `json:"resourceId,omitempty"`
-	Descriptor  string `json:"descriptor,omitempty"`
-	OperationID string `json:"operationId,omitempty"`
+	Code            string `json:"code"`
+	ResourceID      string `json:"resourceId,omitempty"`
+	Descriptor      string `json:"descriptor,omitempty"`
+	OperationID     string `json:"operationId,omitempty"`
+	OperationStatus string `json:"operationStatus,omitempty"`
 }
 
 // EnvironmentPreview is the deletion scope of one Environment.

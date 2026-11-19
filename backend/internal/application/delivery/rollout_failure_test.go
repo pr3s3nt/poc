@@ -413,3 +413,27 @@ func TestRecoveryAfterPublishedFailureObservesTheFailedPinAndReleases(t *testing
 		t.Fatal("corrected rollout did not replace the failed revision", rollouts, failedRevision)
 	}
 }
+
+func TestApplicationWithdrawalIncludesFailedPublicationOutsideAppliedSet(t *testing.T) {
+	started := time.Now().UTC()
+	failed := persistence.DeliveryExecution{
+		UnitID: "failed-job", WorkloadID: "first-deploy", CreatedAt: started,
+		Revision: domain.Revision{ID: "job-revision", Phase: domain.Job},
+		Mutation: domain.Mutation{ID: "job-submit", Action: domain.Submit, Status: domain.IntentFailed},
+		Receipt:  port.Receipt{IntentID: "job-submit", RevisionID: "job-revision"},
+	}
+	absent := failed
+	absent.Receipt = port.Receipt{}
+	absent.CreatedAt = started.Add(time.Second)
+	selected, err := withdrawalExecutions([]persistence.DeliveryExecution{failed, absent}, "", true)
+	if err != nil || len(selected) != 1 || selected[0].Receipt.RevisionID != "job-revision" {
+		t.Fatalf("failed published unit was not selected: %v %v", selected, err)
+	}
+	withdrawn := failed
+	withdrawn.Mutation = domain.Mutation{Action: domain.Withdraw, Status: domain.IntentAcknowledged}
+	withdrawn.CreatedAt = started.Add(2 * time.Second)
+	selected, err = withdrawalExecutions([]persistence.DeliveryExecution{failed, absent, withdrawn}, "", true)
+	if err != nil || len(selected) != 0 {
+		t.Fatalf("already withdrawn unit was selected again: %v %v", selected, err)
+	}
+}

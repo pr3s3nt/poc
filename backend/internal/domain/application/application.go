@@ -94,15 +94,21 @@ type DeletionEnvironment struct {
 	DeploymentID     string             `json:"deploymentId,omitempty"`
 	CleanupIDs       []string           `json:"cleanupOperationIds"`
 	Resources        []DeletionResource `json:"resources"`
+	StartedAt        *time.Time         `json:"startedAt,omitempty"`
+	UpdatedAt        *time.Time         `json:"updatedAt,omitempty"`
+	OperationID      string             `json:"activeOperationId,omitempty"`
+	OperationStatus  string             `json:"activeOperationStatus,omitempty"`
 	SecretsPurged    int                `json:"secretsPurged"`
 }
 
 // DeletionResource is the result of one owned resource instance.
 type DeletionResource struct {
-	ID         string   `json:"id"`
-	Descriptor string   `json:"descriptor"`
-	Outcome    string   `json:"outcome"`
-	Remaining  []string `json:"remaining,omitempty"`
+	ID               string   `json:"id"`
+	Descriptor       string   `json:"descriptor"`
+	Outcome          string   `json:"outcome"`
+	Remaining        []string `json:"remaining,omitempty"`
+	RemainingUnknown bool     `json:"remainingUnknown,omitempty"`
+	ReasonCode       string   `json:"reasonCode,omitempty"`
 }
 
 // Clone returns a deep copy of the deletion progress.
