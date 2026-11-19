@@ -31,7 +31,7 @@ func InspectDeliveryObjects(ctx context.Context, cli CLI, target execution.Targe
 // RemoveRetainedDeliveryObject deletes exactly the observed incarnation after
 // ownership has been released by its CD provider. It does not infer permission
 // from a namespace or name prefix.
-func RemoveRetainedDeliveryObject(ctx context.Context, cli CLI, target execution.Target, ref execution.ObjectRef, uid, release, releaseNamespace string) error {
+func RemoveRetainedDeliveryObject(ctx context.Context, cli CLI, target execution.Target, ref execution.ObjectRef, uid, release, releaseNamespace, expectedRevision string) error {
 	if uid == "" || release == "" {
 		return ErrDeliveryOwnership
 	}
@@ -47,6 +47,9 @@ func RemoveRetainedDeliveryObject(ctx context.Context, cli CLI, target execution
 	labels, _ := md["labels"].(map[string]any)
 	annotations, _ := md["annotations"].(map[string]any)
 	if md["uid"] != uid || labels["orchestrator.io/managed-by"] != "orchestrator" || labels["orchestrator.io/application"] != target.Extra["application"] || labels["orchestrator.io/environment"] != target.Extra["environment"] || annotations["meta.helm.sh/release-name"] != release || annotations["meta.helm.sh/release-namespace"] != releaseNamespace {
+		return ErrDeliveryOwnership
+	}
+	if expectedRevision != "" && annotations["orchestrator.io/delivery-revision"] != expectedRevision {
 		return ErrDeliveryOwnership
 	}
 	return deleteDeliveryObject(ctx, cli, discovery, target, ref, uid, md["resourceVersion"])

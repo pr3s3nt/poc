@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"maps"
 	"sort"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 	port "orchestrator/internal/ports/delivery"
 	"orchestrator/internal/ports/persistence"
 )
+
+const verifiedWithdrawalInventory = "verifiedWithdrawalInventory"
 
 func (c *Coordinator) RemoveWorkload(ctx context.Context, orgKey string, envID, workload string) error {
 	org, err := c.Store.GetOrganization(ctx, orgKey)
@@ -72,6 +75,7 @@ func selectExecutions(executions []persistence.DeliveryExecution, workload strin
 	// A failed submission with an exact publication receipt still controls the
 	// unit. Unresolved publication or withdrawal keeps the Environment held.
 	latest := map[string]persistence.DeliveryExecution{}
+	failedPublications := map[string]persistence.DeliveryExecution{}
 	for _, e := range executions {
 		if !entireEnvironment && e.WorkloadID != workload {
 			continue
@@ -79,8 +83,11 @@ func selectExecutions(executions []persistence.DeliveryExecution, workload strin
 		if e.Mutation.Status == domain.IntentRunning || e.Mutation.Status == domain.IntentUnknown {
 			return nil, domain.ErrOutcomeUnknown
 		}
-		if e.Mutation.Status == domain.IntentAcknowledged ||
-			(includePublishedFailures && e.Mutation.Action == domain.Submit && e.Mutation.Status == domain.IntentFailed && published(e)) {
+		failedPublication := includePublishedFailures && e.Mutation.Action == domain.Submit && e.Mutation.Status == domain.IntentFailed && published(e)
+		if entireEnvironment && failedPublication {
+			failedPublications[e.Mutation.ID] = e
+		}
+		if e.Mutation.Status == domain.IntentAcknowledged || failedPublication {
 			if prior, exists := latest[e.UnitID]; !exists || e.CreatedAt.After(prior.CreatedAt) {
 				latest[e.UnitID] = e
 			}
@@ -90,6 +97,17 @@ func selectExecutions(executions []persistence.DeliveryExecution, workload strin
 	for _, e := range latest {
 		if e.Mutation.Action == domain.Submit || e.Mutation.Action == domain.Adopt {
 			out = append(out, e)
+			continue
+		}
+		// Older acknowledged removals of failed Fleet publications could
+		// leave retained objects behind. Replay only the exact receipt of
+		// the latest removal, under the new Environment fence.
+		source, failed := failedPublications[e.Receipt.IntentID]
+		if failed && source.UnitID == e.UnitID && source.Revision.ID == e.Receipt.RevisionID &&
+			e.Receipt.Handle["inventory"] != "" && e.Receipt.Handle[verifiedWithdrawalInventory] == "" &&
+			e.Mutation.Action == domain.Withdraw &&
+			e.Mutation.ID == stableID("delivery-withdraw", e.Mutation.OperationID, e.UnitID, e.Receipt.RevisionID) {
+			out = append(out, source)
 		}
 	}
 	// Reverse lifecycle order: stop rollout/Jobs before their prerequisites.
@@ -207,6 +225,10 @@ func (c *Coordinator) withdrawExecution(ctx context.Context, orgKey string, sour
 		return err
 	}
 	record.UpdatedAt = time.Now().UTC()
+	if remove && record.Receipt.Handle["inventory"] != "" {
+		record.Receipt.Handle = maps.Clone(record.Receipt.Handle)
+		record.Receipt.Handle[verifiedWithdrawalInventory] = "true"
+	}
 	_, err = c.Store.UpdateDeliveryExecution(ctx, record, old)
 	if err != nil {
 		return err

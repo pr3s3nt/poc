@@ -10,8 +10,9 @@ import (
 	"orchestrator/internal/ports/persistence"
 )
 
-// RecoverRemovals resumes only the original UID-guarded withdrawal. It cannot
-// turn a release-only handoff into a delete, invent inventory or replay Submit.
+// RecoverRemovals resumes only the original withdrawal, using its saved UIDs
+// or the exact publication receipt. It cannot turn a handoff into a delete
+// or replay Submit.
 func (c *Coordinator) RecoverRemovals(ctx context.Context, orgKey string, env environment.Environment) error {
 	owner, ok := persistence.OwnerFrom(ctx)
 	if !ok {
@@ -33,14 +34,16 @@ func (c *Coordinator) RecoverRemovals(ctx context.Context, orgKey string, env en
 		if record.Mutation.OperationID != owner.OperationID || record.Mutation.Action != domain.Withdraw || record.Mutation.Status == domain.IntentAcknowledged {
 			continue
 		}
-		if record.Receipt.IntentID == "" || len(record.Inventory) == 0 {
+		if record.Receipt.IntentID == "" || (len(record.Inventory) == 0 && record.Receipt.Handle["inventory"] == "") {
 			return domain.ErrOutcomeUnknown
 		}
 		source, err := c.Store.GetDeliveryExecution(ctx, org.ID, record.Receipt.IntentID)
 		if err != nil {
 			return err
 		}
-		if source.Mutation.Status != domain.IntentAcknowledged || (source.Mutation.Action != domain.Submit && source.Mutation.Action != domain.Adopt) || source.EnvironmentID != env.ID || source.UnitID != record.UnitID || source.Revision.ID != record.Receipt.RevisionID || !reflect.DeepEqual(source.Receipt, record.Receipt) || !reflect.DeepEqual(source.Inventory, record.Inventory) || record.Mutation.ID != stableID("delivery-withdraw", owner.OperationID, source.UnitID, source.Revision.ID) {
+		acknowledged := source.Mutation.Status == domain.IntentAcknowledged && (source.Mutation.Action == domain.Submit || source.Mutation.Action == domain.Adopt)
+		failedPublication := source.Mutation.Status == domain.IntentFailed && source.Mutation.Action == domain.Submit && published(source) && source.Receipt.Handle["inventory"] != ""
+		if (!acknowledged && !failedPublication) || source.EnvironmentID != env.ID || source.UnitID != record.UnitID || source.Revision.ID != record.Receipt.RevisionID || !reflect.DeepEqual(source.Receipt, record.Receipt) || !reflect.DeepEqual(source.Inventory, record.Inventory) || record.Mutation.ID != stableID("delivery-withdraw", owner.OperationID, source.UnitID, source.Revision.ID) {
 			return domain.ErrOutcomeUnknown
 		}
 		binding, provider, err := c.sourceProvider(ctx, source)

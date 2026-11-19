@@ -437,3 +437,35 @@ func TestApplicationWithdrawalIncludesFailedPublicationOutsideAppliedSet(t *test
 		t.Fatalf("already withdrawn unit was selected again: %v %v", selected, err)
 	}
 }
+
+func TestApplicationWithdrawalRechecksOldAcknowledgedFailedRemoval(t *testing.T) {
+	started := time.Now().UTC()
+	source := persistence.DeliveryExecution{
+		UnitID: "migration", CreatedAt: started,
+		Revision: domain.Revision{ID: "failed-revision", Phase: domain.Job},
+		Mutation: domain.Mutation{ID: "failed-submit", Action: domain.Submit, Status: domain.IntentFailed},
+		Receipt:  port.Receipt{IntentID: "failed-submit", RevisionID: "failed-revision", Handle: map[string]string{"inventory": "receipted"}},
+	}
+	withdrawn := source
+	withdrawn.CreatedAt = started.Add(time.Second)
+	withdrawn.Mutation = domain.Mutation{
+		Action: domain.Withdraw, Status: domain.IntentAcknowledged, OperationID: "previous-cleanup",
+		ID: stableID("delivery-withdraw", "previous-cleanup", source.UnitID, source.Revision.ID),
+	}
+	executions := []persistence.DeliveryExecution{source, withdrawn}
+	selected, err := withdrawalExecutions(executions, "", true)
+	if err != nil || len(selected) != 1 || selected[0].Mutation.ID != source.Mutation.ID {
+		t.Fatalf("expected the exact source receipt for recheck: %v %v", selected, err)
+	}
+
+	executions[1].Mutation.ID = stableID("delivery-release", "previous-cleanup", source.UnitID, source.Revision.ID)
+	if selected, err := withdrawalExecutions(executions, "", true); err != nil || len(selected) != 0 {
+		t.Fatalf("a release for handoff must stay excluded from deletion: %v %v", selected, err)
+	}
+
+	executions[1].Mutation.ID = withdrawn.Mutation.ID
+	executions[1].Receipt.Handle = map[string]string{"inventory": "receipted", verifiedWithdrawalInventory: "true"}
+	if selected, err := withdrawalExecutions(executions, "", true); err != nil || len(selected) != 0 {
+		t.Fatalf("already verified receipt was replayed: %v %v", selected, err)
+	}
+}

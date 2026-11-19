@@ -591,7 +591,15 @@ func (p *Provider) RemoveRetainedObjects(ctx context.Context, i port.Intent, r p
 		return err
 	}
 	defer close()
-	for _, object := range objects {
+	recordedCount := len(objects)
+	if r.Handle["completionOnly"] != "true" && r.Handle["inventory"] != "" {
+		extra, err := retainedReceiptObjects(ctx, cli, i, r, objects)
+		if err != nil {
+			return err
+		}
+		objects = append(objects, extra...)
+	}
+	for index, object := range objects {
 		if r.Handle["completionOnly"] == "true" {
 			if err := p.Manager.Guard(ctx, i); err != nil {
 				return err
@@ -607,7 +615,11 @@ func (p *Provider) RemoveRetainedObjects(ctx context.Context, i port.Intent, r p
 		if err := p.Manager.Guard(ctx, i); err != nil {
 			return err
 		}
-		if err := k8s.RemoveRetainedDeliveryObject(ctx, cli, i.Target, object.ObjectRef, object.UID, object.Release, r.Handle["releaseNamespace"]); err != nil {
+		expectedRevision := ""
+		if index >= recordedCount {
+			expectedRevision = r.RevisionID
+		}
+		if err := k8s.RemoveRetainedDeliveryObject(ctx, cli, i.Target, object.ObjectRef, object.UID, object.Release, r.Handle["releaseNamespace"], expectedRevision); err != nil {
 			return err
 		}
 		if object.APIVersion == "secrets.hashicorp.com/v1beta1" && object.Kind == "VaultStaticSecret" {
@@ -617,6 +629,45 @@ func (p *Provider) RemoveRetainedObjects(ctx context.Context, i port.Intent, r p
 		}
 	}
 	return nil
+}
+
+// Failed Helm installs can leave kept objects without an applied UID in
+// delivery history. Only the exact revision and refs pinned by the original
+// publication can supply a missing UID after Fleet withdrawal.
+func retainedReceiptObjects(ctx context.Context, cli k8s.CLI, i port.Intent, r port.Receipt, recorded []port.AppliedObject) ([]port.AppliedObject, error) {
+	var refs []execution.ObjectRef
+	if err := json.Unmarshal([]byte(r.Handle["inventory"]), &refs); err != nil {
+		return nil, ErrOwnership
+	}
+	known := make(map[string]bool, len(recorded))
+	for _, object := range recorded {
+		known[object.Key()] = true
+	}
+	missing := make([]execution.ObjectRef, 0, len(refs))
+	for _, ref := range refs {
+		if !known[ref.Key()] {
+			missing = append(missing, ref)
+		}
+	}
+	live, err := k8s.InspectDeliveryObjects(ctx, cli, i.Target, missing)
+	if err != nil {
+		return nil, err
+	}
+	var extra []port.AppliedObject
+	for _, ref := range missing {
+		object, found := live[ref.Key()]
+		if !found {
+			continue
+		}
+		metadata, _ := object["metadata"].(map[string]any)
+		annotations, _ := metadata["annotations"].(map[string]any)
+		uid, _ := metadata["uid"].(string)
+		if uid == "" || annotations["orchestrator.io/delivery-revision"] != r.RevisionID {
+			return nil, ErrOwnership
+		}
+		extra = append(extra, port.AppliedObject{ObjectRef: ref, UID: uid, Release: r.Handle["release"]})
+	}
+	return extra, nil
 }
 
 func (p *Provider) PruneReleasedObjects(ctx context.Context, i port.Intent, r port.Receipt, stale []port.AppliedObject) error {
@@ -691,7 +742,7 @@ func (p *Provider) pruneRetainedInventory(ctx context.Context, i port.Intent, r 
 		if err := guard(ctx, i); err != nil {
 			return err
 		}
-		if err := k8s.RemoveRetainedDeliveryObject(ctx, cli, i.Target, o.ObjectRef, o.UID, o.Release, r.Handle["releaseNamespace"]); err != nil {
+		if err := k8s.RemoveRetainedDeliveryObject(ctx, cli, i.Target, o.ObjectRef, o.UID, o.Release, r.Handle["releaseNamespace"], ""); err != nil {
 			return err
 		}
 		if o.APIVersion == "secrets.hashicorp.com/v1beta1" && o.Kind == "VaultStaticSecret" {
