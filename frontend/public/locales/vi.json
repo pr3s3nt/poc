@@ -365,6 +365,7 @@
   "deployments.recentDeployments.loadingDeployments": "Đang tải triển khai…",
   "deployments.recentDeployments.retry": "Thử lại",
   "deployments.recentDeployments.noDeploymentsInEnvironmentYet": "Chưa có triển khai nào trong {environment}.",
+  "documentation.articles": "Bài viết",
   "documentation.createApplication.steps": "Các bước tạo ứng dụng",
   "documentation.createApplication.openForm": "Trong thanh bên, mở Ứng dụng rồi chọn + Tạo ứng dụng.",
   "documentation.createApplication.enterName": "Nhập Tên ứng dụng ngắn có chữ cái Latinh hoặc chữ số, ví dụ “Thanh toán”.",

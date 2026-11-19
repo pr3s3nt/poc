@@ -1,5 +1,5 @@
 import { useState, type PropsWithChildren, type ReactNode } from 'react';
-import { href, navigate } from './routes';
+import { documentationArticles, href, navigate } from './routes';
 import { Button } from '../shared/ui/Button';
 import { LanguageSelect } from '../shared/ui/LanguageSelect';
 import { t } from '../shared/i18n';
@@ -24,7 +24,7 @@ function NavigationIcon({ name }: { name: string }) {
     users: <><circle cx="7" cy="6" r="2.5" /><circle cx="14" cy="7" r="2" /><path d="M2 16c1-4 9-4 10 0" /><path d="M11 15c.8-3 6.6-3 7.4 0" /></>,
     effectiveness: <><path d="M3 17h14M5 14V9m4 5V5m4 9v-3m4 3V7" /></>,
     history: <><circle cx="10" cy="10" r="7" /><path d="M10 6v4l3 2" /></>,
-    'create-application-guide': <><rect x="4" y="2" width="12" height="16" rx="2" /><path d="M7 6h6M7 10h6M7 14h4" /></>,
+    documentation: <><rect x="4" y="2" width="12" height="16" rx="2" /><path d="M7 6h6M7 10h6M7 14h4" /></>,
   };
   return <svg viewBox="0 0 20 20" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -44,7 +44,7 @@ export function AppShell({ children, onSignOut, username, role, activeRoute, ext
   const isAdmin = role === 'ADMIN';
   const activeNav = ['application', 'create-application', 'settings', 'workload', 'workload-preview', 'deployments', 'deployment', 'resource', 'observability'].includes(activeRoute) ? 'applications' : activeRoute;
   const navClass = (name: string) => `nav-item${activeNav === name ? ' nav-item-active' : ''}`;
-  const guideRoute = { name: 'create-application-guide' } as const;
+  const guideRoute = { name: 'documentation', article: documentationArticles[0] } as const;
   const guideLabel = t('app.appShell.documentation');
   const links = [
     { route: 'applications', label: t('app.appShell.applications'), tone: 'blue', platform: false, admin: false },

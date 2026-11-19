@@ -365,6 +365,7 @@
   "deployments.recentDeployments.loadingDeployments": "Loading deployments…",
   "deployments.recentDeployments.retry": "Retry",
   "deployments.recentDeployments.noDeploymentsInEnvironmentYet": "No deployments in {environment} yet.",
+  "documentation.articles": "Articles",
   "documentation.createApplication.steps": "Steps to create an application",
   "documentation.createApplication.openForm": "From the sidebar, open Applications and select + Create application.",
   "documentation.createApplication.enterName": "Enter a short Application name with Latin letters or digits, such as “Payments”.",

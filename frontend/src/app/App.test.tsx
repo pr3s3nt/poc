@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { capabilityFixture } from '../test/capabilities';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -76,6 +76,10 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     await user.click(link);
     expect(window.location.pathname).toBe('/ui/docs/create-application');
     expect(link).toHaveAttribute('aria-current', 'page');
+    const articleMenu = screen.getByRole('navigation', { name: 'Bài viết' });
+    const articleLink = within(articleMenu).getByRole('link', { name: 'Tạo ứng dụng' });
+    expect(articleLink).toHaveAttribute('href', '/ui/docs/create-application');
+    expect(articleLink).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('heading', { name: 'Tạo ứng dụng', level: 1 })).toBeInTheDocument();
     expect(screen.getByText(/cấu hình CD mặc định đã được xác minh/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Mở biểu mẫu tạo ứng dụng' })).toHaveAttribute('href', '/ui/applications/new');
@@ -88,6 +92,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     render(<App />);
     if (signedIn) {
       expect(await screen.findByRole('heading', { name: 'Tạo ứng dụng', level: 1 })).toBeInTheDocument();
+      expect(screen.getByRole('navigation', { name: 'Bài viết' })).toBeInTheDocument();
     } else {
       expect(await screen.findByLabelText('Mật khẩu')).toBeInTheDocument();
       expect(screen.queryByRole('heading', { name: 'Tạo ứng dụng' })).not.toBeInTheDocument();

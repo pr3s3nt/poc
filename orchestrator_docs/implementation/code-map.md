@@ -9,9 +9,11 @@ last_reviewed: 2026-11-18
 
 ## Create Application guide — issue #93
 
-The Console's [Create Application guide](../../frontend/src/features/documentation/CreateApplicationGuide.tsx)
-is served at `/ui/docs/create-application`. The signed-in navigation and route
-use [AppShell](../../frontend/src/app/AppShell.tsx) and
+The [documentation page](../../frontend/src/features/documentation/DocumentationPage.tsx)
+renders the article menu and the active article. The
+[Create Application guide](../../frontend/src/features/documentation/CreateApplicationGuide.tsx)
+is served at `/ui/docs/create-application`. The signed-in navigation and article
+route use [AppShell](../../frontend/src/app/AppShell.tsx) and
 [routes](../../frontend/src/app/routes.ts).
 
 ## Independent Kubernetes installations — issue #91

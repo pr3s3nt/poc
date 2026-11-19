@@ -73,8 +73,11 @@ biến quy tắc thành task redesign toàn bộ các màn hình cũ.
 
 The signed-in sidebar includes **Tài liệu / Documentation** for all roles,
 after deployment history. Reuse the active route, collapsed icon and focus
-patterns. The [Create Application article](../../usecase/UC-01/ui/screens.md#bài-tạo-ứng-dụng-issue-93)
-uses the existing narrow page and content panel.
+patterns. The documentation page reuses the page and content panel. A secondary
+navigation called **Bài viết / Articles** lists published articles and marks the
+current page. It sits beside the article and moves above it at narrow widths.
+Each article has a direct link. The sidebar opens the first article.
+See the [Create Application article](../../usecase/UC-01/ui/screens.md#bài-tạo-ứng-dụng-issue-93).
 
 ### Desktop sidebar and Preview space — 2026-10-23
 

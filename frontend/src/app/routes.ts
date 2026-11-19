@@ -1,10 +1,13 @@
 export type TelemetryRouteQuery = { from?: string; to?: string; workload?: string; q?: string; level?: string; focus?: 'cpu' | 'memory' | 'signals' };
 
+export const documentationArticles = ['create-application'] as const;
+export type DocumentationArticle = typeof documentationArticles[number];
+
 export type Route =
   | { name: 'sign-in' }
   | { name: 'setup' }
   | { name: 'applications' }
-  | { name: 'create-application-guide' }
+  | { name: 'documentation'; article: DocumentationArticle }
   | { name: 'resource-types' }
   | { name: 'resource-definitions'; resourceType?: string }
   | { name: 'driver-accounts'; account?: string; tab?: 'diagnose'; purpose?: 'use-case'; report?: string }
@@ -39,7 +42,8 @@ export function parseRoute(path = window.location.pathname): Route {
   if (relative === '/' || relative === '/sign-in') return { name: 'sign-in' };
   if (relative === '/setup') return { name: 'setup' };
   if (relative === '/applications') return { name: 'applications' };
-  if (relative === '/docs/create-application') return { name: 'create-application-guide' };
+  const article = documentationArticles.find((slug) => relative === `/docs/${slug}`);
+  if (article) return { name: 'documentation', article };
   if (relative === '/platform/resource-types') return { name: 'resource-types' };
   if (relative === '/platform/resource-definitions') {
     // Raw query value: the page validates it against the loaded catalog (T04).
@@ -103,7 +107,7 @@ export function href(route: Route): string {
     case 'setup': return `${base}/setup`;
     case 'sign-in': return `${base}/sign-in`;
     case 'applications': return `${base}/applications`;
-    case 'create-application-guide': return `${base}/docs/create-application`;
+    case 'documentation': return `${base}/docs/${route.article}`;
     case 'resource-types': return `${base}/platform/resource-types`;
     case 'resource-definitions': return `${base}/platform/resource-definitions${route.resourceType ? `?resourceType=${encodeURIComponent(route.resourceType)}` : ''}`;
     case 'driver-accounts': {

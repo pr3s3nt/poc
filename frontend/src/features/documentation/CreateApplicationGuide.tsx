@@ -2,13 +2,7 @@ import { href } from '../../app/routes';
 import { t } from '../../shared/i18n';
 
 export function CreateApplicationGuide() {
-  return <article className="page narrow-page">
-    <header className="page-header">
-      <div>
-        <p className="eyebrow">{t('app.appShell.documentation')}</p>
-        <h1>{t('applications.createApplication.createApplication')}</h1>
-      </div>
-    </header>
+  return <>
     <section className="content-panel" aria-labelledby="guide-create-steps">
       <div className="section-header"><h2 id="guide-create-steps">{t('documentation.createApplication.steps')}</h2></div>
       <p>{t('documentation.createApplication.platformPrerequisite')}</p>
@@ -29,5 +23,5 @@ export function CreateApplicationGuide() {
         <li>{t('documentation.createApplication.reviewAndDeploy')}</li>
       </ol>
     </section>
-  </article>;
+  </>;
 }

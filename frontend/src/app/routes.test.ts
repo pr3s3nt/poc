@@ -52,6 +52,13 @@ describe('console routes', () => {
     expect(parseRoute('/ui/platform/rendering-templates')).toEqual({ name: 'resource-definitions', resourceType: 'workload' });
   });
 
+  it('round-trips a published documentation article and falls back for an unknown one', () => {
+    const route = { name: 'documentation', article: 'create-application' } as const;
+    expect(href(route)).toBe('/ui/docs/create-application');
+    expect(parseRoute(href(route))).toEqual(route);
+    expect(parseRoute('/ui/docs/unpublished')).toEqual({ name: 'applications' });
+  });
+
   it('carries the resourceType query of the definitions page and drops an empty one', () => {
     expect(parseRoute('/ui/platform/resource-definitions')).toEqual({ name: 'resource-definitions' });
     expect(parseRoute('/ui/platform/resource-definitions?resourceType=postgres')).toEqual({ name: 'resource-definitions', resourceType: 'postgres' });
