@@ -52,3 +52,10 @@ Recovery with explicit prior-executor-stop confirmation, followed by Retry only
 when recovery proves it safe. Error details must identify the affected resource
 and next action without raw provider diagnostics. Reuse shared Button/details and
 VI/EN catalogs; do not add navigation, a second progress screen or percentages.
+
+### Force delete
+
+Place a separate Force delete button beside Delete Application in Settings.
+Show it for ACTIVE Applications and in Settings while a deletion is stalled.
+Reuse the scope layout and exact-name input with a distinct dialog title and
+confirmation label. Show unresolved ownership or operation blockers by Environment.

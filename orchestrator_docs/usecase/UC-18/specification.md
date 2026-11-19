@@ -207,3 +207,19 @@ Giới hạn còn lại ở [IMP-038](../../implementation/deviations.md#imp-038
   Verify physical absence and preservation of foreign/platform resources. No
   database edits, detach, manual resource deletion or forced finalizer removal
   may substitute for product completion.
+
+## Force Application deletion — issue #80
+
+- DEL-08: Application Settings exposes an independent Force delete action for
+  ACTIVE and DELETING Applications. Preview is read-only and shows both
+  Environments. Force admission binds the mode to the preview token and
+  requires the exact current Application name. A concurrent deletion may
+  hold the action. Stale or replayed requests cannot start another executor.
+- DEL-09: Force restarts reconciliation of the remaining inventory from
+  workload withdrawal, including known published units of failed deploys.
+  Existing deletion progress and operation identity are retained. An unresolved
+  writer blocks effects until existing fenced recovery establishes safety.
+  Ownership, original target and UID checks apply to every effect.
+- DEL-10: Verify absence before completing Force deletion. Incomplete cleanup
+  exposes the remaining identities and safe reasons. A shared or PREEXISTING
+  object remains outside the destructive scope.

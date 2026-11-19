@@ -676,3 +676,14 @@ endpoint forms remain unchanged. This does not add Kubernetes Gateway discovery.
   reload mới thay bằng bản server. Success cập nhật version và dữ liệu canonical
   cho hai tab; không tự đổi pin Environment.
 - **CODE-06:** Giữ shell, accessible tabs và lỗi ngắn; tạo mới giữ import hiện có.
+
+## Delete an unused Resource Definition — issue #80
+
+- DEF-DEL-01: Admin or Platform Engineer may delete a registered Definition in
+  their Organization after confirmation. Protect built-in Definitions.
+- DEF-DEL-02: Reject deletion while a configuration, provisioning or recovery
+  reference needs the Definition or one of its revisions. Recheck atomically
+  with deletion. Return safe references within the caller's Organization.
+- DEF-DEL-03: Remove the eligible Definition from the authoring catalog and
+  matching. Preserve immutable deployment and revision evidence. Deletion does
+  not mutate provider state or cascade to other catalog entries.

@@ -376,3 +376,9 @@ Chuyển tab đồng bộ draft. Code chỉ public authoring fields, version t�
 Syntax/contract lỗi giữ code; projection UI không lossless thì không chuyển và
 có lỗi rõ. Check/Save khóa conflicting actions; stale/unknown giữ notice/reload
 hiện hành. Không đổi shell/theme; source pin giữ nguyên khi sửa fields khác.
+
+## Catalog deletion — issue #80
+
+Use the existing entry actions and shared confirmation dialog. Display the item
+identity, destructive action and Cancel. A blocked response keeps the dialog
+open and shows references. Success closes it and refreshes the list.

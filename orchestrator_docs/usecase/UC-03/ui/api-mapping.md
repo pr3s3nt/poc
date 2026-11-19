@@ -293,3 +293,9 @@ canonical pin preparation, then existing PUT `/resource-definitions/{key}` with
 the expected version from the loaded editing context. Never use insert-only
 import to edit or accept version/key/type changes from code. GET/list/reload and
 stale/uncertain outcomes retain current contracts. No new API is required.
+
+## Catalog deletion — issue #80
+
+DELETE /api/v1/resource-definitions/{key} returns 204 after removal.
+An out-of-scope ID returns 404. A protected or referenced entry returns 409
+with a stable code and safe reference labels. No provider mutation is admitted.

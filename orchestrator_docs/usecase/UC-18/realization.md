@@ -140,3 +140,9 @@ Application progress retains terminal results. Settings uses its existing
 DeletionPanel and shared progress/detail patterns. Recovery uses the existing
 operation fence and exact admitted cleanup selection; unknown effects stay held
 until state/physical evidence can be reconciled. See UC-18 DEL-01..07.
+
+### Force confirmation
+
+Settings opens a mode-specific preview. Admission verifies the mode and
+Application name, then resumes the same staged workflow with a fresh inventory.
+The coordinator rechecks published workload authority before resource cleanup.
