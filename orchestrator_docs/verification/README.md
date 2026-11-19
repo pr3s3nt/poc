@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-19 | Issue #80 workload removal with an unavailable template, PostgreSQL API checks, kind rollout and full-suite comparison | [Workload removal template cache](2026-11-19-workload-removal-template-cache.md) |
 | 2026-11-19 | Issue #80 main rollout, Console Force and Retry, live Fleet/Job/PostgreSQL/PV cleanup, catalog deletion and full-suite comparison | [Application and catalog deletion](2026-11-19-application-catalog-deletion.md) |
 | 2026-11-18 | Accepted #89/#91 merges, retained kind rollout, private backup/restore, browser/API and trial retirement | [Setup/Kubernetes main integration](2026-11-18-setup-kubernetes-main.md) |
 | 2026-11-18 | Issue #91 independent kind installation, TLS/manual unseal, retained update/restart and full-suite baseline limits | [Kubernetes installation](2026-11-18-kubernetes-installations.md) |
