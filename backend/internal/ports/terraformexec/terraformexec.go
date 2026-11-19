@@ -478,6 +478,13 @@ type NamespaceAbsenceInspector interface {
 	VerifyAbsent(ctx context.Context, env []string, namespace string, resources []StateResource) error
 }
 
+// VolumeInspector finds retained PersistentVolumes through their original
+// claim references. Empty claims selects all volumes referring to an owned
+// namespace; otherwise only the exact name/UID pairs are selected.
+type VolumeInspector interface {
+	RemainingVolumes(ctx context.Context, env []string, namespace string, claims map[string]string) ([]string, error)
+}
+
 // VerificationStore keeps the private encrypted pre-destroy state of one
 // destroy cycle, written BEFORE any destroy effect and never overwritten, so a
 // later retry can still query the ORIGINAL physical objects after the backend

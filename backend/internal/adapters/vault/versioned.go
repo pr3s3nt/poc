@@ -197,22 +197,13 @@ func (p *Provider) DeleteWorkload(ctx context.Context, app, env, workload string
 	if !safeSegment.MatchString(app) || !safeSegment.MatchString(workload) || (env != "staging" && env != "production") {
 		return fmt.Errorf("vault: invalid workload scope")
 	}
-	if err := p.DeleteValue(ctx, "kv2://"+p.mount+"/"+WorkloadValuePath(app, env, workload)); err != nil {
+	if err := p.deleteAndVerifyValue(ctx, "kv2://"+p.mount+"/"+WorkloadValuePath(app, env, workload)); err != nil {
 		return err
 	}
 	role := WorkloadRole(app, env, workload)
 	for _, path := range []string{"/v1/auth/" + p.AuthMount() + "/role/" + role, "/v1/sys/policies/acl/" + role} {
-		status, err := p.request(ctx, http.MethodDelete, path, nil, nil)
-		if err != nil {
+		if err := p.deleteAndVerify(ctx, path); err != nil {
 			return err
-		}
-		// A store token without delete on the fixed role/policy (older
-		// installations) leaves a role that can only read the deleted path.
-		if status == http.StatusForbidden {
-			continue
-		}
-		if status != http.StatusOK && status != http.StatusNoContent && status != http.StatusNotFound {
-			return fmt.Errorf("vault: delete workload access status %d", status)
 		}
 	}
 	return nil

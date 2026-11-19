@@ -81,6 +81,12 @@ func (kv *versionedKV) handle(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	case strings.HasPrefix(path, "sys/policies/acl/"):
 		name := strings.TrimPrefix(path, "sys/policies/acl/")
+		if r.Method == http.MethodGet {
+			if _, found := kv.policies[name]; !found {
+				w.WriteHeader(http.StatusNotFound)
+			}
+			return
+		}
 		if r.Method == http.MethodDelete {
 			delete(kv.policies, name)
 		} else {
@@ -91,6 +97,12 @@ func (kv *versionedKV) handle(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	case strings.HasPrefix(path, "auth/kubernetes/role/"):
 		name := strings.TrimPrefix(path, "auth/kubernetes/role/")
+		if r.Method == http.MethodGet {
+			if _, found := kv.roles[name]; !found {
+				w.WriteHeader(http.StatusNotFound)
+			}
+			return
+		}
 		if r.Method == http.MethodDelete {
 			delete(kv.roles, name)
 		} else {
@@ -161,5 +173,28 @@ func TestVersionedBundleRejectsUnsafeScope(t *testing.T) {
 	}
 	if _, err := p.writeVersionedBundle(context.Background(), "shop", "staging", "back/end", "ns", map[string]map[string]string{"main": {"A": "b"}}); err == nil {
 		t.Fatal("unsafe workload accepted")
+	}
+}
+
+func TestDeleteAndVerifyValueRefusesVaultObjectStillPresent(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/v1/kv/metadata/orchestrator/apps/shop/envs/staging/values/test" {
+			t.Errorf("unexpected Vault request %s %s", req.Method, req.URL.Path)
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		if req.Method == http.MethodDelete {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	p, err := New(server.URL, "token", "kv", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.deleteAndVerifyValue(context.Background(), "kv2://kv/orchestrator/apps/shop/envs/staging/values/test"); err == nil {
+		t.Fatal("Vault still holds the object despite acknowledging DELETE")
 	}
 }

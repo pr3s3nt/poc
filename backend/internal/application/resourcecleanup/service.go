@@ -869,7 +869,7 @@ func sanitizeIDs(in []string) []string {
 
 var resultCodes = map[string]bool{
 	tfexec.CodeNotAttempted: true, tfexec.CodeRetainedConsumer: true, tfexec.CodeNeedsAttention: true, tfexec.CodeInstanceHeld: true,
-	tfexec.CodeTargetUnreach: true, tfexec.CodeDestructivePlan: true, tfexec.CodeNamespaceContent: true, tfexec.CodeDestroyFailed: true,
+	tfexec.CodeTargetUnreach: true, tfexec.CodeDestructivePlan: true, tfexec.CodeNamespaceContent: true, tfexec.CodeDestroyFailed: true, tfexec.CodeStorageRemaining: true, tfexec.CodeStorageUnknown: true,
 }
 
 func allowCode(code string) string {

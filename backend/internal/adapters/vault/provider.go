@@ -235,6 +235,34 @@ func (p *Provider) DeleteValue(ctx context.Context, ref string) error {
 	return nil
 }
 
+// deleteAndVerify checks the exact Vault object after deletion and needs no
+// listing or value read. A store without read/delete authority stays blocked.
+func (p *Provider) deleteAndVerify(ctx context.Context, path string) error {
+	status, err := p.request(ctx, http.MethodDelete, path, nil, nil)
+	if err != nil {
+		return err
+	}
+	if status != http.StatusOK && status != http.StatusNoContent && status != http.StatusNotFound {
+		return fmt.Errorf("vault: delete status %d", status)
+	}
+	status, err = p.request(ctx, http.MethodGet, path, nil, nil)
+	if err != nil {
+		return err
+	}
+	if status != http.StatusNotFound {
+		return fmt.Errorf("vault: object absence is unverified (status %d)", status)
+	}
+	return nil
+}
+
+func (p *Provider) deleteAndVerifyValue(ctx context.Context, ref string) error {
+	path, ok := strings.CutPrefix(ref, "kv2://"+p.mount+"/")
+	if !ok || !validValuePath(path) {
+		return fmt.Errorf("vault: invalid value reference")
+	}
+	return p.deleteAndVerify(ctx, "/v1/"+p.mount+"/metadata/"+path)
+}
+
 func (p *Provider) writeObject(ctx context.Context, path string, body any) error {
 	encoded, err := json.Marshal(body)
 	if err != nil {

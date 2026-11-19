@@ -195,7 +195,7 @@ func (r *Registry) PurgeValues(ctx context.Context, org, storeKey, app, env stri
 		targets = append(targets, ref)
 	}
 	for _, ref := range targets {
-		if err := p.DeleteValue(ctx, ref); err != nil {
+		if err := p.deleteAndVerifyValue(ctx, ref); err != nil {
 			return 0, err
 		}
 	}

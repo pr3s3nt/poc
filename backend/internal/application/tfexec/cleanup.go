@@ -124,6 +124,7 @@ func (s *Service) RunCleanup(ctx context.Context, organizationKey string, source
 		selected[id] = true
 	}
 	held := false
+	appDeletionID, _ := req.ScopeSnapshot["applicationDeletionId"].(string)
 	for _, id := range order.destroyOrder {
 		res := InstanceResult{InstanceID: id}
 		switch {
@@ -135,7 +136,7 @@ func (s *Service) RunCleanup(ctx context.Context, organizationKey string, source
 				break
 			}
 			say(CleanupDestroying, map[string]any{"resource": id})
-			out, derr := s.Destroy(ctx, DestroyRequest{InstanceID: id, OrganizationKey: organizationKey, RunID: runID, OnStage: func(stage string) { say(stage, map[string]any{"resource": id}) }})
+			out, derr := s.Destroy(ctx, DestroyRequest{InstanceID: id, OrganizationKey: organizationKey, RunID: runID, VerifyStorage: appDeletionID != "", OnStage: func(stage string) { say(stage, map[string]any{"resource": id}) }})
 			res.Destroyed, res.Remaining, res.RemainingUnknown = out.Destroyed, out.Remaining, out.RemainingUnknown
 			switch {
 			case derr == nil && out.Destroyed:
@@ -187,6 +188,8 @@ const (
 	CodeDestructivePlan  = "DESTRUCTIVE_PLAN"
 	CodeNamespaceContent = "NAMESPACE_NOT_OWNED"
 	CodeDestroyFailed    = "DESTROY_FAILED"
+	CodeStorageRemaining = "STORAGE_REMAINS"
+	CodeStorageUnknown   = "STORAGE_UNVERIFIED"
 )
 
 func safeReasonCode(err error) string {
@@ -199,6 +202,10 @@ func safeReasonCode(err error) string {
 		return CodeDestructivePlan
 	case errors.Is(err, ErrNamespaceContents):
 		return CodeNamespaceContent
+	case errors.Is(err, errStorageRemaining):
+		return CodeStorageRemaining
+	case errors.Is(err, errStorageUnknown):
+		return CodeStorageUnknown
 	}
 	return CodeDestroyFailed
 }

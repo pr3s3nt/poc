@@ -675,9 +675,11 @@ func (r *runner) environment(ctx context.Context, i int) string {
 			return code
 		}
 	}
-	r.update(ctx, func(d *appdomain.Deletion) {
+	if !r.update(ctx, func(d *appdomain.Deletion) {
 		d.Environments[i].Stage, d.Environments[i].Status = appdomain.StageDone, appdomain.DeletionSucceeded
-	})
+	}) {
+		return FailInterrupted
+	}
 	return ""
 }
 
