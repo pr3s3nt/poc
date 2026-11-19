@@ -68,6 +68,31 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(window.location.pathname).toBe('/ui/applications');
   });
 
+  it('opens the Create Application guide from the sidebar without writing data', async () => {
+    authenticated = true;
+    const user = userEvent.setup();
+    render(<App />);
+    const link = await screen.findByRole('link', { name: 'Tài liệu' });
+    await user.click(link);
+    expect(window.location.pathname).toBe('/ui/docs/create-application');
+    expect(link).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('heading', { name: 'Tạo ứng dụng', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mở biểu mẫu tạo ứng dụng' })).toHaveAttribute('href', '/ui/applications/new');
+    expect(requests.every(({ method }) => method === 'GET')).toBe(true);
+  });
+
+  it.each([false, true])('honors the session on a direct guide link (authenticated: %s)', async (signedIn) => {
+    authenticated = signedIn;
+    window.history.replaceState({}, '', '/ui/docs/create-application');
+    render(<App />);
+    if (signedIn) {
+      expect(await screen.findByRole('heading', { name: 'Tạo ứng dụng', level: 1 })).toBeInTheDocument();
+    } else {
+      expect(await screen.findByLabelText('Mật khẩu')).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Tạo ứng dụng' })).not.toBeInTheDocument();
+    }
+  });
+
   it('restores an existing session without showing sign-in', async () => {
     authenticated = true;
     render(<App />);

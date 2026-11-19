@@ -24,6 +24,7 @@ function NavigationIcon({ name }: { name: string }) {
     users: <><circle cx="7" cy="6" r="2.5" /><circle cx="14" cy="7" r="2" /><path d="M2 16c1-4 9-4 10 0" /><path d="M11 15c.8-3 6.6-3 7.4 0" /></>,
     effectiveness: <><path d="M3 17h14M5 14V9m4 5V5m4 9v-3m4 3V7" /></>,
     history: <><circle cx="10" cy="10" r="7" /><path d="M10 6v4l3 2" /></>,
+    'create-application-guide': <><rect x="4" y="2" width="12" height="16" rx="2" /><path d="M7 6h6M7 10h6M7 14h4" /></>,
   };
   return <svg viewBox="0 0 20 20" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -43,6 +44,8 @@ export function AppShell({ children, onSignOut, username, role, activeRoute, ext
   const isAdmin = role === 'ADMIN';
   const activeNav = ['application', 'create-application', 'settings', 'workload', 'workload-preview', 'deployments', 'deployment', 'resource', 'observability'].includes(activeRoute) ? 'applications' : activeRoute;
   const navClass = (name: string) => `nav-item${activeNav === name ? ' nav-item-active' : ''}`;
+  const guideRoute = { name: 'create-application-guide' } as const;
+  const guideLabel = t('app.appShell.documentation');
   const links = [
     { route: 'applications', label: t('app.appShell.applications'), tone: 'blue', platform: false, admin: false },
     { route: 'setup', label: t('setup.title'), tone: 'blue', platform: true, admin: false },
@@ -67,6 +70,7 @@ export function AppShell({ children, onSignOut, username, role, activeRoute, ext
         <nav className="nav" id="primary-navigation" aria-label={t('app.appShell.mainNavigation')}>
           {links.filter((item) => (!item.platform || isPlatformEngineer) && (!item.admin || (isAdmin && !externalIdentity && manageUsers))).map((item) => <a key={item.route} className={navClass(item.route)} aria-current={activeNav === item.route ? 'page' : undefined} title={item.label} href={href({ name: item.route })} onClick={(event) => { event.preventDefault(); navigate({ name: item.route }); }}><span className="nav-icon" data-tone={item.tone} aria-hidden="true"><NavigationIcon name={item.route} /></span><span className="sidebar-label">{item.label}</span></a>)}
           <span className="nav-item nav-item-disabled" aria-disabled="true" aria-label={t('app.appShell.deploymentHistoryComingSoon')} title={t('app.appShell.deploymentHistoryComingSoon')}><span className="nav-icon" aria-hidden="true"><NavigationIcon name="history" /></span><span className="sidebar-label">{t('app.appShell.deploymentHistory')}</span><small className="sidebar-label">{t('app.appShell.comingSoon')}</small></span>
+          <a className={navClass(guideRoute.name)} aria-current={activeNav === guideRoute.name ? 'page' : undefined} title={guideLabel} href={href(guideRoute)} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) { event.preventDefault(); navigate(guideRoute); } }}><span className="nav-icon" data-tone="blue" aria-hidden="true"><NavigationIcon name={guideRoute.name} /></span><span className="sidebar-label">{guideLabel}</span></a>
         </nav>
         <div className="sidebar-footer">
           <div className="user-chip" aria-label={`${username} · ${roleLabel(role)}`} title={`${username} · ${roleLabel(role)}`}><span className="avatar" aria-hidden="true">{username.slice(0, 2).toUpperCase()}</span><span className="sidebar-label"><strong>{username}</strong><small>{roleLabel(role)}</small></span></div>

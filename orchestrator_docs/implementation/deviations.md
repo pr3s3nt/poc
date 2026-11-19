@@ -825,3 +825,12 @@ after first-deploy failure (#58), and lacks cleanup recovery while the Applicati
 freeze blocks the recovery endpoint (#56). Saved-stage retry can bypass a missed
 withdrawal. Existing DeletionPanel exposes only coarse progress. UC-18 DEL-01..07
 owns the approved behavior; implementation and real-kind acceptance remain open.
+
+## IMP-093 — Create Application helper text references retired selector
+
+The Create Application form still directs users to choose a Connection in
+Environment Settings. The current internal Environment Settings screen has no
+such selector, as specified by [UC-01](../usecase/UC-01/specification.md) and
+[ADR-016](../architecture/decisions/ADR-016-definition-selected-workload-targets.md).
+The help article describes the available workflow. The existing form copy is
+outside issue #93's scope.

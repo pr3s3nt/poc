@@ -71,6 +71,11 @@ biến quy tắc thành task redesign toàn bộ các màn hình cũ.
 - Main content owns the page title, primary action and use-case-specific state.
 - The sign-in page is intentionally outside the authenticated shell.
 
+The signed-in sidebar includes **Tài liệu / Documentation** for all roles,
+after deployment history. Reuse the active route, collapsed icon and focus
+patterns. The [Create Application article](../../usecase/UC-01/ui/screens.md#bài-tạo-ứng-dụng-issue-93)
+uses the existing narrow page and content panel.
+
 ### Desktop sidebar and Preview space — 2026-10-23
 
 The left navigation has an explicit keyboard-accessible collapse/expand button.

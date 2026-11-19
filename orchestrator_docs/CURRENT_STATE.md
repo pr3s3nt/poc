@@ -7,6 +7,12 @@ last_reviewed: 2026-11-18
 
 # Current project state
 
+## Console Documentation — issue #93
+
+The `features/tailieu` Console adds [Create Application help](usecase/UC-01/ui/screens.md#bài-tạo-ứng-dụng-issue-93)
+in Vietnamese and English. Authenticated roles can open it from the sidebar or
+directly at `/ui/docs/create-application`.
+
 ## Score authoring — issue #83, 2026-11-17
 
 SC-06 synchronizes form and Score/extension when switching tabs, including saved

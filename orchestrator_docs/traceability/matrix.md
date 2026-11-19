@@ -388,6 +388,7 @@ integration proof is claimed.
 |---|---|---|---|
 | APP-01, UC-01 MS-01/02, BR-01/02/14 | UC-01 UI screens/states T09: gợi ý slug, giữ manual edits, name/subdomain only | CreateApplicationPage và tests; T09 UI tạo/trùng/validation/payload/navigation | [T09 local verification](../verification/2026-10-11-T09-create-application.md) |
 | VI-02/04/05 | Vietnamese labels/errors, retain draft, explicit retry | 309 frontend tests; headed fake T09, async 500 mock được ghi rõ | [T09 evidence](../verification/2026-10-11-T09-create-application.md) |
+| Issue #93 | [Bài Tạo ứng dụng](../usecase/UC-01/ui/screens.md#bài-tạo-ứng-dụng-issue-93) | [Guide](../../frontend/src/features/documentation/CreateApplicationGuide.tsx), [navigation and session tests](../../frontend/src/app/App.test.tsx) | Vietnamese and English article linked from the signed-in sidebar |
 
 ## T08 — Workload editor frontend trace
 

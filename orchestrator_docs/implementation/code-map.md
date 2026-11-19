@@ -7,6 +7,13 @@ last_reviewed: 2026-11-18
 
 # Design-to-code map
 
+## Create Application guide — issue #93
+
+The Console's [Create Application guide](../../frontend/src/features/documentation/CreateApplicationGuide.tsx)
+is served at `/ui/docs/create-application`. The signed-in navigation and route
+use [AppShell](../../frontend/src/app/AppShell.tsx) and
+[routes](../../frontend/src/app/routes.ts).
+
 ## Independent Kubernetes installations — issue #91
 
 [Deployment design](../architecture/deployment/kubernetes.md) maps to

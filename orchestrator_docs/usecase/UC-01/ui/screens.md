@@ -51,6 +51,14 @@ dùng tiếng Việt. Backend quyết định ID và kiểm tra trùng tên. Kh�
 chỉ dự kiến: địa chỉ public đến từ endpoint của workload. Submit chỉ gửi name;
 tạo thành công mở Application home staging. Không thêm lựa chọn đích/provider.
 
+### Bài Tạo ứng dụng (issue #93)
+
+Mục **Tài liệu** mở bài tại `/ui/docs/create-application` cho mọi vai trò đã
+đăng nhập. Bài VI/EN hướng dẫn mở biểu mẫu, nhập tên, xử lý tên trùng và xác định
+môi trường mặc định. Phần tiếp theo chỉ rõ nơi kiểm tra Cài đặt môi trường,
+thêm Workload và xem trước trước khi triển khai. Bài có liên kết tới biểu mẫu
+hiện hành. Đọc bài không ghi dữ liệu.
+
 ## T11 — Danh sách ứng dụng (VI-02/04/05)
 
 Trang dùng tiêu đề “Ứng dụng của bạn”, nhãn “Không gian làm việc”, hướng dẫn
