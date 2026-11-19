@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -89,7 +90,7 @@ func main() {
 	terraformStateKeyID := flag.String("terraform-state-key-id", os.Getenv("ORCHESTRATOR_TERRAFORM_STATE_KEY_ID"), "identifier of the Terraform state key recorded with every encrypted state")
 	terraformStateDatabaseURLFile := flag.String("terraform-state-database-url-file", os.Getenv("ORCHESTRATOR_TERRAFORM_STATE_DATABASE_URL_FILE"), "owner-only file holding the PostgreSQL URL of the State runtime login (separate from the Console login of -database-url-file, same database)")
 	setupDatabase := flag.Bool("setup-database", false, "owner step: initialize or upgrade a supported database, validate schema and runtime grants, then exit")
-	ownerURLFile := flag.String("database-owner-url-file", os.Getenv("ORCHESTRATOR_DATABASE_OWNER_URL_FILE"), "owner-only file holding the PostgreSQL URL of the owner role (used only with -setup-database)")
+	ownerURLFile := flag.String("database-owner-url-file", os.Getenv("ORCHESTRATOR_DATABASE_OWNER_URL_FILE"), "owner-only file holding the PostgreSQL URL of the owner role (used by explicit owner maintenance modes)")
 	consoleRole := flag.String("console-database-role", os.Getenv("ORCHESTRATOR_CONSOLE_DATABASE_ROLE"), "Console runtime login role granted by -setup-database")
 	stateRole := flag.String("state-database-role", os.Getenv("ORCHESTRATOR_STATE_DATABASE_ROLE"), "State runtime login role granted by -setup-database")
 	bootstrapAdmin := flag.Bool("bootstrap-admin", false, "owner step: create the first ADMIN account (UC-00 BR-10) and exit; the password comes only from -bootstrap-admin-password-file, there is no default Admin password")
@@ -98,7 +99,21 @@ func main() {
 	pruneDrift := flag.Bool("prune-drift-history", false, "explicit owner-only retention: bounded expiry of settled repair plans after 24h and unreferenced scans after 30d, then exit")
 	organizationFile := flag.String("organization-file", os.Getenv("ORCHESTRATOR_ORGANIZATION_FILE"), "owner-only JSON file containing installation Organization key and name")
 	setupTokenFile := flag.String("setup-token-file", os.Getenv("ORCHESTRATOR_SETUP_TOKEN_FILE"), "private operator token file enabling first-run browser setup on an empty installation")
+	purgeApplication := flag.String("purge-application", "", "owner step: preview database-only purge of one test Application key and exit")
+	purgeOrganization := flag.String("purge-organization", "", "exact Organization key of the Application to purge")
+	purgeName := flag.String("purge-confirm-name", "", "exact display name to execute the Application purge")
+	purgeWritersStopped := flag.Bool("purge-writers-stopped", false, "confirm that database writers and prior executors have stopped")
 	flag.Parse()
+	if *purgeApplication != "" || *purgeOrganization != "" || *purgeName != "" || *purgeWritersStopped {
+		if *pruneDrift || *setupDatabase || *bootstrapAdmin {
+			log.Print("orchestrator: run Application purge separately from other owner modes")
+			os.Exit(1)
+		}
+		os.Exit(runApplicationPurge(*ownerURLFile, postgres.ApplicationPurge{
+			Organization: *purgeOrganization, Application: *purgeApplication,
+			ConfirmationName: *purgeName, WritersStopped: *purgeWritersStopped,
+		}))
+	}
 	if *pruneDrift {
 		if *setupDatabase {
 			log.Print("orchestrator: choose setup or retention separately")
@@ -360,5 +375,25 @@ func runDriftRetention(ownerURLFile string) int {
 		return 1
 	}
 	fmt.Printf("orchestrator: expired %d safe scans and %d private repair plans\n", scans, plans)
+	return 0
+}
+
+func runApplicationPurge(ownerURLFile string, in postgres.ApplicationPurge) int {
+	ownerURL, err := bootstrap.ReadCredentialFile("database owner URL", ownerURLFile)
+	if err != nil {
+		log.Printf("orchestrator: %v", err)
+		return 1
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	report, err := postgres.PurgeApplication(ctx, ownerURL, in)
+	if err != nil {
+		log.Printf("orchestrator: %v", err)
+		return 1
+	}
+	if err := json.NewEncoder(os.Stdout).Encode(report); err != nil {
+		log.Print("orchestrator: could not write Application purge report")
+		return 1
+	}
 	return 0
 }

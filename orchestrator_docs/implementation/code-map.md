@@ -1571,3 +1571,13 @@ and the fresh full candidate/main comparison.
   the [deployment service](../../backend/internal/application/deployment/service.go)
   uses the recorded target and inventory. Runtime renderer preflight applies when
   applying a workload, so cached render content cannot block withdrawal-only steps.
+
+
+### Owner-only Application database purge — issue #94
+
+The [CLI](../../backend/cmd/orchestrator/main.go) passes exact Organization
+and Application keys to the
+[PostgreSQL owner maintenance operation](../../backend/internal/adapters/postgres/application_purge.go).
+The [scoped transaction](../../backend/internal/adapters/postgres/application_purge.sql)
+removes the Application graph and restores the named audit triggers.
+See the [operator runbook](../operations/application-database-purge.md).
