@@ -1402,3 +1402,13 @@ Existing IDs, Organization relationships, sessions, domain and Terraform state
 remain unchanged. Owner migration 011 adds only these fields/constraints/index;
 frozen v10 remains immutable and v11 is the active complete reference. No tokens
 or provider credentials are stored in PostgreSQL.
+
+## Web Application purge — schema 12
+
+Issue #94 adds the owner-managed singleton `application_purge_policy` and
+a scoped owner-defined DML routine for one Application. The Console login has
+read access to the capability and EXECUTE only on that entry point. The State
+login has neither. The routine defaults to disabled, checks the confirmed app
+identity and fences executing writes. Retention triggers allow deletes only in
+the verified routine scope. Runtime credentials and DDL privileges stay
+separate from owner setup.

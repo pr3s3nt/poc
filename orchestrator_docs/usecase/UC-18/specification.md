@@ -243,3 +243,19 @@ Giới hạn còn lại ở [IMP-038](../../implementation/deviations.md#imp-038
   contains known namespace, Fleet and resource identities for manual follow-up.
   Kubernetes, Fleet, Vault and physical storage can outlive loss of the database
   metadata. Console deletion and Force retain their existing contracts.
+
+### Web Console entry point
+
+- DBP-05: Admins and Platform Engineers can preview and purge one Application
+  in their Organization from a separate Settings action. The action is
+  available for ACTIVE or stalled DELETING Applications. The installation
+  owner explicitly enables this test-only capability. The default is disabled.
+- DBP-06: The dialog shows the exact Application, known external identities and
+  the permanent data-loss boundary. A confirmed purge returns success only
+  after the database transaction commits, then removes the Application from
+  the Console. Ordinary Catalog deletion remains separate.
+- DBP-07: The API verifies role, Organization, immutable Application identity
+  and exact confirmation name. It blocks active writers. For a held operation,
+  execution requires explicit confirmation that its prior executor stopped.
+  Web runtime calls only a scoped database routine using its regular login.
+  Database owner setup alone installs and enables the routine.

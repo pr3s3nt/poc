@@ -167,3 +167,14 @@ inside the same transaction. Foreign keys and unrelated guards stay enabled.
 The transaction validates the current schema before mutation and rolls back on
 any failed deletion or constraint. The runtime and CRUD APIs retain their roles
 and permissions. External delivery and execution adapters take no part.
+
+### Web Console entry point
+
+Settings shares the role and installation capability gate with the API. The
+preview returns safe retained identities for the intended one-Application
+scope. Execution uses the normal Console database login to call one scoped
+owner-defined routine. The routine locks the Application and its Environments,
+checks old writer state, deletes the bounded dependency graph and verifies
+deferred foreign keys. History triggers remain installed and allow DELETE
+within the routine's exact scope. Owner setup applies the schema version.
+An owner maintenance action can enable or disable the test capability.
