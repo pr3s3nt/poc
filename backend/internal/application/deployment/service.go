@@ -362,14 +362,19 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	}
 	plan.Review = s.reviewer.Assemble(ctx, plan, plan.ResourceIntents(snapshot.Baselines.Reader()), snapshot.ReviewBaselines)
 
-	if validator, ok := s.renderer.(execution.RenderPreflight); ok {
+	// Removal uses the applied workload's target and inventory. Rendering
+	// pins for the other workloads in the candidate set are only needed to
+	// apply a workload.
+	if after != nil && len(plan.Rendering) > 0 {
+		validator, ok := s.renderer.(execution.RenderPreflight)
+		if !ok {
+			return nil, s.fail(ctx, record, fmt.Errorf("deployment: selected renderer is unavailable"))
+		}
 		for _, selection := range plan.Rendering {
 			if err := validator.ValidateSelection(ctx, selection); err != nil {
 				return nil, s.fail(ctx, record, err)
 			}
 		}
-	} else if len(plan.Rendering) > 0 {
-		return nil, s.fail(ctx, record, fmt.Errorf("deployment: selected renderer is unavailable"))
 	}
 	candidateSet := environment.DeploymentSet{
 		ID:                    ids.New(),

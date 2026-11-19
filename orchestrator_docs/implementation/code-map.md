@@ -1567,4 +1567,7 @@ and the fresh full candidate/main comparison.
   mode-bound token. Settings and the stalled deletion panel use separate Force
   actions. The
   [delivery coordinator](../../backend/internal/application/delivery/removal.go)
-  withdraws published units before owned Terraform cleanup.
+  withdraws published units before owned Terraform cleanup. Workload removal in
+  the [deployment service](../../backend/internal/application/deployment/service.go)
+  uses the recorded target and inventory. Runtime renderer preflight applies when
+  applying a workload, so cached render content cannot block withdrawal-only steps.

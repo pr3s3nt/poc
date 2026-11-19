@@ -4,7 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"orchestrator/internal/seed/seedtest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -15,7 +16,11 @@ import (
 	"orchestrator/internal/bootstrap/bootstraptest"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/ports/execution"
+	"orchestrator/internal/ports/persistence"
+	"orchestrator/internal/ports/renderregistry"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
+	standardtemplates "orchestrator/template-sources"
 )
 
 // consumerOf returns a Workload whose variable references provider's http Service.
@@ -64,6 +69,58 @@ func TestRemovingReferencedServiceIsBlockedUnlessConsumerGoesToo(t *testing.T) {
 	report, err := svc.Deploy(ctx, opts.ApplicationKey, opts.EnvironmentKey, "test", both.Token)
 	if err != nil || report.Status != "SUCCEEDED" || len(app.FakeDeploy.Applied) != applied {
 		t.Fatalf("batch removal: %+v %v", report, err)
+	}
+}
+
+func TestBatchRemovalContinuesWhenTemplatePinIsUnavailable(t *testing.T) {
+	ctx := context.Background()
+	opts := seedtest.Defaults()
+	cache := filepath.Join(t.TempDir(), "templates")
+	app, err := bootstraptest.Build(ctx, bootstrap.Options{
+		Seed: opts, Adapters: bootstrap.AdapterFake, TemplateSourceCacheDir: cache,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(app.Close)
+	for _, name := range []string{"backend", "frontend"} {
+		deploy(t, app, opts, name, scoreFor(name, "example.invalid/"+name+":v1", false))
+	}
+	bundles, err := persistence.TemplateSourcesOf(ctx, app.Store, opts.OrganizationKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := bundles[standardtemplates.ID(opts.OrganizationKey)]
+	if bundle.Source.ContentSHA256 == "" {
+		t.Fatal("missing standard template digest before cache loss")
+	}
+	if err := os.Rename(filepath.Join(cache, "bundles", bundle.Source.ContentSHA256), filepath.Join(cache, "missing-bundle")); err != nil {
+		t.Fatal(err)
+	}
+
+	backend := scoreFor("backend", "example.invalid/backend:v1", false)
+	updated := scoreFor("backend", "example.invalid/backend:v2", false)
+	if _, err := app.Deployments.DeployWorkload(ctx, deployCommand(opts, "backend", backend, updated)); !errors.Is(err, renderregistry.ErrBundleUnavailable) {
+		t.Fatalf("update must still require its renderer: %v", err)
+	}
+
+	view, err := app.Workloads.List(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, workload := range view.Workloads {
+		view, err = app.Workloads.Delete(ctx, opts.ApplicationKey, opts.EnvironmentKey, workload.ID, view.DraftVersion)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	preview, err := app.Pending.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil || len(preview.Changes) != 2 {
+		t.Fatalf("preview removal: %+v %v", preview.Changes, err)
+	}
+	report, err := app.Pending.Deploy(ctx, opts.ApplicationKey, opts.EnvironmentKey, "test", preview.Token)
+	if err != nil || report.Status != "SUCCEEDED" || len(app.FakeDeploy.Removed) != 2 {
+		t.Fatalf("batch removal with a missing template: %+v, %v, removed: %v", report, err, app.FakeDeploy.Removed)
 	}
 }
 
