@@ -11,6 +11,7 @@ export function CreateApplicationGuide() {
     </header>
     <section className="content-panel" aria-labelledby="guide-create-steps">
       <div className="section-header"><h2 id="guide-create-steps">{t('documentation.createApplication.steps')}</h2></div>
+      <p>{t('documentation.createApplication.platformPrerequisite')}</p>
       <ol>
         <li>{t('documentation.createApplication.openForm')}</li>
         <li>{t('documentation.createApplication.enterName')}</li>

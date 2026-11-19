@@ -77,6 +77,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(window.location.pathname).toBe('/ui/docs/create-application');
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('heading', { name: 'Tạo ứng dụng', level: 1 })).toBeInTheDocument();
+    expect(screen.getByText(/cấu hình CD mặc định đã được xác minh/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Mở biểu mẫu tạo ứng dụng' })).toHaveAttribute('href', '/ui/applications/new');
     expect(requests.every(({ method }) => method === 'GET')).toBe(true);
   });

@@ -55,7 +55,9 @@ tạo thành công mở Application home staging. Không thêm lựa chọn đí
 
 Mục **Tài liệu** mở bài tại `/ui/docs/create-application` cho mọi vai trò đã
 đăng nhập. Bài VI/EN hướng dẫn mở biểu mẫu, nhập tên, xử lý tên trùng và xác định
-môi trường mặc định. Phần tiếp theo chỉ rõ nơi kiểm tra Cài đặt môi trường,
+môi trường mặc định. Bài nhắc điều kiện
+[CD mặc định đã xác minh](../../UC-04/ui/cd-providers.md#platform-managed-applications--adr-033)
+trước khi tạo. Phần tiếp theo chỉ rõ nơi kiểm tra Cài đặt môi trường,
 thêm Workload và xem trước trước khi triển khai. Bài có liên kết tới biểu mẫu
 hiện hành. Đọc bài không ghi dữ liệu.
 
