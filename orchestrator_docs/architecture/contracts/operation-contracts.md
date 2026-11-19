@@ -522,6 +522,9 @@ HTTP status, org/app/env scoping, CAS, fencing và transaction semantics giữ n
 | Code | HTTP | Ý nghĩa/hành động Console |
 |---|---|---|
 | `INVALID_REQUEST` | 400 | Body/field không hợp lệ; giữ draft để sửa. |
+| `SCORE_SCHEMA_INVALID` | 400 | Score không khớp schema v1b1; không trả raw validation values. |
+| `SCORE_UNSUPPORTED` | 400 | Score/extension dùng field hoặc feature ngoài subset đã công bố; giữ nội dung nhập. |
+| `SCORE_PROFILE_INVALID` | 400 | Profile không có, không duy nhất hoặc không khớp source/pin/kiểu thực thi đã chọn; field `profile`. |
 | `INVALID_ID` | 400 | ID sai quy tắc; không normalize. |
 | `INVALID_VARIABLE` | 400 | Tên/giá trị/tham chiếu biến không hợp lệ; không trả giá trị. |
 | `INVALID_SCORE` | 400 | Score/import/resource params không hợp lệ. |
@@ -994,3 +997,25 @@ seed may require an exact key/name match before other mutations.
 text syntax only; HTTP Workload bindings stay unchanged. Marked literals must be
 converted to Secret references through explicit UC-12 create-only confirmation
 before workload Save. No bulk upsert, secret readback or new API/schema is added.
+
+## OIDC authentication — issue #77
+
+UC-00 SSO-01..06 owns behavior. `GET /api/v1/auth/config` returns `{mode:
+"local"|"oidc"}` without secrets. `GET /api/v1/auth/oidc/start` creates a
+browser-bound transaction and redirects to the configured provider;
+`GET /api/v1/auth/oidc/callback` consumes state/code and redirects to `/ui/` or
+`/ui/?sso_error=1` on any safe generic failure. Existing session response adds
+`AuthProvider` (`local` or `oidc`); no token is exposed. Existing sign-out remains
+POST, returns 204, clears/revokes the platform session and best-effort revokes
+provider refresh credentials. By default local sign-in/user management/password endpoints
+return 403 in OIDC mode; the explicit SSO-07 personal Admin exception below
+applies only to local sign-in and own password change. Tokens, provider errors and callback parameters are not
+logged. Organization and role always come from trusted server/provider state.
+
+SSO-07 adds `localLoginAllowed` to auth/config, false unless a single local test
+Admin is configured. Session identity adds `UserManagement` (false in OIDC mode,
+true in standalone local mode). `POST auth/sign-in` admits only that configured
+local ACTIVE ADMIN in the pinned Organization; other local attempts return 403 or
+401. `POST auth/change-password` admits the same local session only; SSO users
+and all OIDC user-management endpoints stay forbidden. No username is exposed by
+auth/config and the local password never goes to the provider.

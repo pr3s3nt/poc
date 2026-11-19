@@ -1,0 +1,74 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: database-setup
+  labels:
+    orchestrator.dev/phase: database
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app: database-setup
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      initContainers:
+        - name: private-files
+          image: orchestrator-backend:RELEASE
+          command:
+            - sh
+            - /scripts/prepare-private.sh
+          env:
+            - name: PRIVATE_UID
+              value: "65532"
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: source
+              mountPath: /source
+              readOnly: true
+            - name: private
+              mountPath: /private
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+      containers:
+        - name: setup
+          image: orchestrator-backend:RELEASE
+          command:
+            - /usr/local/bin/orchestrator
+            - -setup-database
+            - -database-owner-url-file
+            - /private/database-url
+            - -console-database-role
+            - orchestrator_console
+            - -state-database-role
+            - orchestrator_state
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+          env:
+            - name: SSL_CERT_FILE
+              value: /private/ca-bundle.crt
+          volumeMounts:
+            - name: private
+              mountPath: /private
+              readOnly: true
+      volumes:
+        - name: private
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: installation-scripts
+            defaultMode: 292
+        - name: source
+          projected:
+            defaultMode: 256
+            sources:
+              - secret:
+                  name: orchestrator-owner
+              - secret:
+                  name: orchestrator-trust

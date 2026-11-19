@@ -73,7 +73,8 @@ type DeployResult struct {
 
 // Service orchestrates plan, provision, render, apply and commit.
 type Service struct {
-	simulation bool // Explicit fake-adapter simulation; never a real-cluster fallback.
+	gatewayReadiness execution.GatewayReadiness
+	simulation       bool // Explicit fake-adapter simulation; never a real-cluster fallback.
 
 	delivery        *deliveryapp.Coordinator
 	store           persistence.Store
@@ -90,6 +91,8 @@ type Service struct {
 	instanceMarker  InstanceMarker
 	reviewer        deploymentreview.Assembler
 }
+
+func (s *Service) SetGatewayReadiness(check execution.GatewayReadiness) { s.gatewayReadiness = check }
 
 func (s *Service) SetDelivery(c *deliveryapp.Coordinator) { s.delivery = c }
 func (s *Service) UpdateDeliveryPolicy(ctx context.Context, orgKey string, env environment.Environment, stage func(string, map[string]any) error) error {
@@ -983,7 +986,16 @@ func (s *Service) applyWorkload(
 	}
 	progress.Report(ctx, progress.Step{ID: record.ID + ":secret", Workload: workloadID, DeploymentID: record.ID, Kind: "SECRETS", Status: "SUCCEEDED", SecretBindings: &secretBindingCount})
 	progress.Report(ctx, progress.Step{ID: record.ID + ":render", Workload: workloadID, DeploymentID: record.ID, Kind: "RENDER", Status: "RUNNING"})
+	if desired, ok := plan.Endpoints[workloadID]; ok && desired.TemplateOwned {
+		if s.gatewayReadiness == nil {
+			return fmt.Errorf("endpoint: Gateway readiness verifier unavailable")
+		}
+		if err := s.gatewayReadiness.CheckGateway(ctx, target, desired); err != nil {
+			return err
+		}
+	}
 	manifests, err := s.renderer.Render(ctx, execution.RenderRequest{
+		Endpoint:           plan.Endpoints[workloadID].Intent(endpointOwner(planCtx, workloadID)),
 		ResourceReferences: renderReferences,
 		Storage:            storage,
 		Selection:          plan.Rendering[workloadID],
@@ -1003,7 +1015,7 @@ func (s *Service) applyWorkload(
 	if err != nil {
 		return err
 	}
-	if desired, ok := plan.Endpoints[workloadID]; ok {
+	if desired, ok := plan.Endpoints[workloadID]; ok && !desired.TemplateOwned {
 		route, err := endpointManifest(desired, endpointOwner(planCtx, workloadID), target.Namespace, record.ID, manifests)
 		if err != nil {
 			return err

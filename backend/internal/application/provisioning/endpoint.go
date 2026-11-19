@@ -16,14 +16,6 @@ func (s *Service) provisionEndpoint(ctx context.Context, req Request, node plann
 	if node.Scope.Type != resource.ScopeWorkload {
 		return out, fmt.Errorf("endpoint: shared endpoint resources are not supported")
 	}
-	p, err := endpoint.ParsePolicy(def.Variables())
-	if err != nil {
-		return out, err
-	}
-	desired, err := endpoint.Resolve(p, params)
-	if err != nil {
-		return out, err
-	}
 	parsed, err := resource.ParseDescriptor(node.Descriptor)
 	if err != nil {
 		return out, err
@@ -31,6 +23,10 @@ func (s *Service) provisionEndpoint(ctx context.Context, req Request, node plann
 	parts := strings.Split(parsed.ID, ".")
 	if len(parts) < 4 || parts[0] != "modules" || parts[2] != "externals" {
 		return out, fmt.Errorf("endpoint: endpoint must belong to one workload")
+	}
+	desired, planned := req.Plan.Endpoints[parts[1]]
+	if !planned {
+		return out, fmt.Errorf("endpoint: resolved policy is absent from the pinned plan")
 	}
 	owner := endpoint.Owner{Organization: req.Context.OrganizationKey, Application: req.Context.App.Key, Environment: req.Context.Env.Key, Generation: req.Context.Env.TargetGeneration, Workload: parts[1]}
 	repo, ok := s.store.(persistence.EndpointRepository)

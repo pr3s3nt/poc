@@ -62,7 +62,34 @@ một transaction riêng. Token thô chỉ tồn tại trong memory và HTTP coo
 External API seed prepares a credential-free identity JSON from its YAML input.
 CLI reads and validates that file before bootstrap; seed initializes the missing
 Organization transactionally or checks an existing name without rewriting it.
-The first Admin remains a local CLI operation. After sign-in, the read-only
+The first Admin supports the local CLI; issue #89 additionally permits
+operator-token browser initialization on an empty installation (SETUP below).
+After sign-in, the read-only
 Organization handler resolves only the session Organization through the store.
-Importer checks key/name before any platform writes; this adds no anonymous
-bootstrap, Organization rename or account reassignment flow.
+Importer checks key/name before any platform writes; the seed importer itself
+does not bootstrap Admin, rename Organizations or reassign accounts.
+
+## OIDC collaboration — issue #77
+
+OIDC adapter discovers the configured provider and verifies ID tokens. The
+AuthenticationService owns bounded, expiring browser transactions and in-memory
+refresh credentials keyed by hashed platform session token. HTTP start sets an
+HttpOnly transaction cookie, callback consumes it and sets the ordinary session
+cookie. Both Authorization Code and refresh validation pass through the adapter.
+Issuer/subject persist on UserAccount; no OIDC tokens are persisted. A missing
+in-memory grant after restart makes an external account session unauthorized.
+Refresh serializes per session; current role is derived from the validated grant,
+not client input. Local identity/session paths remain available only in local mode.
+
+SSO-07 allows one explicitly configured local Admin on the same Console. Local
+password verification and each session restore check username, ACTIVE, ADMIN,
+empty OIDC issuer/subject and the configured Organization. Identity exposes
+UserManagement=false in OIDC mode so both local test Admin and SSO users keep
+company-managed account boundaries. Self password change is local-only for this
+account; all OIDC user-management endpoints remain denied.
+
+## Operator-authorized first-run setup — issue #89
+
+[SETUP realization and API contracts](first-run-setup.md#realization-and-contracts)
+extends first-Admin creation with installation locking and atomic identity creation.
+The ordinary authenticated platform configuration services own subsequent writes.

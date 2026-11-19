@@ -15,9 +15,10 @@ UI --> Keys : explicit create-only key
 UI --> Env : explicit initial Secret Store save
 UI --> UI : new shared ID / existing scoped selection
 UI --> UI : dependency added to local draft
-UI --> Config : validate/save/delete workload
+UI --> Config : parse/export/save/delete workload
 Keys --> Store : CAS configuration revision
-Config --> Catalog : verify Type params and references
+Config --> Catalog : verify Type params/references
+Config --> Catalog : read matched source/profile pins (SC-03)
 Config --> Store : CAS pending change + provenance
 Store ..> Change
 Store ..> Provenance

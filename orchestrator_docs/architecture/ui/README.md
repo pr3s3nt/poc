@@ -2,7 +2,7 @@
 id: UI-ARCHITECTURE-INDEX
 artifact: shared-ui-design
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-18
 ---
 
 # Shared Web Console UI
@@ -327,3 +327,27 @@ across switches, use named tablist/tab/tabpanel relations and arrow/Home/End
 keyboard navigation; disable method changes during registration/upload. Definition
 edit keeps its existing form without a new registration import entry. Format help
 remains a disclosure within the import panel; no shell/navigation change.
+
+## Personal test login alongside SSO — issue #77
+
+UC-00 SSO-07 and its screen design own the optional same-Console local Admin
+path. Reuse sign-in fields, Button, details/summary disclosure and current error
+patterns; keep SSO primary. Employee management stays Keycloak-owned and the
+local test Admin retains only its own password-change control.
+
+
+### Synchronized Definition editing — issue #87, approved 2026-11-18
+
+Existing Definition edit now uses Biểu mẫu / YAML/JSON with a shared draft,
+overriding the edit-only restriction above. Reuse current tab/textarea/Button,
+source summary and version/stale/error patterns; no theme or shell change.
+UC-03 CODE-01–06 owns validation, lossless switching and version-CAS Save.
+
+## First-run setup — issue #89
+
+[UC-00 SETUP](../../usecase/UC-00/first-run-setup.md) adds operator-authorized
+initialization outside the authenticated shell, reusing sign-in controls. PE/Admin
+navigation adds Thiết lập platform / Platform setup at `/ui/setup`. The guide
+reuses existing Git, account, Secret Store and CD screens. Git init owns only
+source selection, document/environment review and explicit import; no fixed source,
+Application authoring, controller installation or theme change.

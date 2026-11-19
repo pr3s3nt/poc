@@ -167,7 +167,7 @@ func (b *graphBuilder) resolvePlacements(matches map[string]Match, matcher *defi
 			if pin.Provider == "" {
 				return nil, placementErr(StageContract, "%s has a Kubernetes provider binding without a cluster resource", contract.Descriptor)
 			}
-			if err := place(contract.Descriptor, pin.Provider, "", PlacementProviderBinding); err != nil {
+			if err := place(contract.Descriptor, pin.Provider, pin.Namespace, PlacementProviderBinding); err != nil {
 				return nil, err
 			}
 		}

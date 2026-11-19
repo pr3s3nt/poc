@@ -22,6 +22,25 @@ func EndpointTaken(hostname string) error {
 func planEndpoints(plan *Plan, catalog Catalog) (map[string]endpoint.Desired, error) {
 	out := map[string]endpoint.Desired{}
 	for _, node := range plan.Graph.Nodes {
+		if node.ResourceType != endpoint.GatewayType {
+			continue
+		}
+		match := plan.Matches[node.Descriptor]
+		if err := endpoint.ValidateGatewayType(catalog.Types[node.ResourceType], match.DriverType); err != nil {
+			return nil, endpointErr(ReasonEndpointPolicy, err)
+		}
+		for _, def := range catalog.Definitions {
+			if def.Key == match.DefinitionKey {
+				if _, err := endpoint.GatewayDefinitionValues(def); err != nil {
+					return nil, endpointErr(ReasonEndpointPolicy, err)
+				}
+			}
+		}
+		if len(node.Params) != 0 {
+			return nil, endpointErr(ReasonEndpointPolicy, fmt.Errorf("Gateway accepts no developer inputs"))
+		}
+	}
+	for _, node := range plan.Graph.Nodes {
 		if node.ResourceType != "endpoint" {
 			continue
 		}
@@ -51,13 +70,17 @@ func planEndpoints(plan *Plan, catalog Catalog) (map[string]endpoint.Desired, er
 		if def.DriverType != resource.DriverEndpoint {
 			return nil, endpointErr(ReasonEndpointPolicy, fmt.Errorf("endpoint: endpoint requires the built-in endpoint driver"))
 		}
-		policy, err := endpoint.ParsePolicy(def.Variables())
+		policy, cluster, selected, err := endpointPolicyForPlan(plan, node, def, catalog)
 		if err != nil {
 			return nil, endpointErr(ReasonEndpointPolicy, err)
 		}
 		desired, err := endpoint.Resolve(policy, node.Params)
 		if err != nil {
 			return nil, endpointErr(ReasonEndpointInvalid, err)
+		}
+		desired.Cluster, desired.TemplateOwned = cluster, selected
+		if selected && endpointWorkloadCluster(plan, workload) != cluster {
+			return nil, endpointErr(ReasonEndpointPolicy, fmt.Errorf("endpoint: Gateway cluster differs from workload namespace cluster"))
 		}
 		module, ok := plan.CandidateSet.Modules[workload]
 		if !ok || module.Spec.EffectiveService() == nil {
@@ -77,4 +100,58 @@ func planEndpoints(plan *Plan, catalog Catalog) (map[string]endpoint.Desired, er
 		out[workload] = desired
 	}
 	return out, nil
+}
+
+func endpointWorkloadCluster(plan *Plan, workload string) string {
+	for _, node := range plan.Graph.Nodes {
+		if node.Kind == NodeWorkload && descriptorID(node.Descriptor) == "modules."+workload {
+			return plan.Placements[node.Descriptor].Cluster
+		}
+	}
+	return ""
+}
+
+func endpointPolicyForPlan(plan *Plan, node Node, def resource.Definition, catalog Catalog) (endpoint.Policy, string, bool, error) {
+	ref, selected, err := endpoint.GatewaySelection(def.Variables())
+	if err != nil {
+		return endpoint.Policy{}, "", selected, err
+	}
+	if !selected {
+		p, err := endpoint.ParsePolicy(def.Variables())
+		return p, "", false, err
+	}
+	descriptor := node.Bindings[ref]
+	gateway, exists := plan.Graph.Node(descriptor)
+	match, matched := plan.Matches[descriptor]
+	if !exists || !matched || gateway.ResourceType != endpoint.GatewayType || !endpoint.GatewayMetadataDriver(gateway.ResourceType, match.DriverType) {
+		return endpoint.Policy{}, "", true, fmt.Errorf("endpoint: Gateway resource is unresolved or has the wrong driver")
+	}
+	for _, definition := range catalog.Definitions {
+		if definition.Key != match.DefinitionKey {
+			continue
+		}
+		if len(gateway.Params) != 0 {
+			return endpoint.Policy{}, "", true, fmt.Errorf("Gateway accepts no developer inputs")
+		}
+		metadata, err := endpoint.GatewayDefinitionValues(definition)
+		if err != nil {
+			return endpoint.Policy{}, "", true, err
+		}
+		clusterText, _ := metadata[resource.VariableCluster].(string)
+		clusterReference, output, whole := resource.WorkloadReference(clusterText)
+		clusterNode, found := plan.Graph.Node(gateway.Bindings[clusterReference])
+		if !whole || output != resource.ClusterTargetOutput || !found || clusterNode.ResourceType != TypeCluster {
+			return endpoint.Policy{}, "", true, fmt.Errorf("Gateway must reference a whole Kubernetes cluster target output")
+		}
+		policy, err := endpoint.GatewayPolicy(metadata)
+		if err != nil {
+			return endpoint.Policy{}, "", true, err
+		}
+		placement, ok := plan.Placements[descriptor]
+		if !ok || placement.Cluster == "" {
+			return endpoint.Policy{}, "", true, fmt.Errorf("Gateway has no pinned cluster")
+		}
+		return policy, placement.Cluster, true, nil
+	}
+	return endpoint.Policy{}, "", true, fmt.Errorf("endpoint: Gateway Definition is unavailable")
 }

@@ -2,10 +2,23 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-11-07
+last_reviewed: 2026-11-18
 ---
 
 # Design-to-code map
+
+## Independent Kubernetes installations — issue #91
+
+[Deployment design](../architecture/deployment/kubernetes.md) maps to
+`deploy/kubernetes/base`, the three environment overlays and the operator
+[runbook](../../deploy/kubernetes/README.md). `scripts/kubernetes/model.mjs` owns
+private preparation, TLS validation, rendering and ownership predicates;
+`run.mjs` owns phased installation, operator unseal, checks and quiesced backups/
+owner-gated upgrades. Policies/role initialization reuse `deploy/local` files.
+Focused tests are `scripts/kubernetes/test/model.test.mjs`; actual Console/Git,
+credential persistence, restart/update and isolated restore assertions live in
+`e2e/scenarios/kubernetes-installation/`. This packages existing product sources;
+it adds no database migration or product runtime API.
 
 ## Custom workload runtime authoring — GW-06/07
 
@@ -1435,3 +1448,95 @@ Type/Definition pages and `DefinitionVersions.tsx` (revision download).
 boundaries; `application/catalog/document_import.go` reuses insert-only validation
 and compares normalized public contracts/defaults without upsert. Focused tests
 sit beside these modules; browser runner is `e2e/scenarios/catalog-document/`.
+
+
+## Git Definition document authoring — issue #79
+
+UC-03 GFILE-01..05: `application/catalog/definition_document.go` prepares portable
+Git sources with the shared inspector/full validation and exports scoped saved
+Definition/revision metadata without fetching. HTTP prepare/document routes are
+in `delivery/http/document_import.go`; existing import remains canonical-pin
+registration. `CatalogDocumentImport.tsx` owns check/review/invalidation;
+`DefinitionDocumentDownload.tsx` downloads the server's portable projection for
+list/history. Focused catalog/HTTP/component tests cover these boundaries;
+`e2e/scenarios/definition-git-import/` checks real MongoDB Git file registration.
+
+
+## Resource Type driver support — issue #81
+
+`frontend/src/features/platform/ResourceTypesPage.tsx` projects support/CTA and
+deduplicated driver labels from capability metadata. Verified Terraform pins and
+built-in endpoint/existing-cluster/template capabilities are recognized without
+a Type-ID whitelist; absent/unknown driver capability stays contract-only and
+loading/errors stay unconfirmed. Focused coverage is in ResourceTypesPage.test.tsx.
+Backend capability/provisioning/Definition behavior is unchanged.
+
+## Score authoring — issue #83
+
+- `backend/internal/planning/workloadspec/score_adapter.go`: upstream schema,
+  Humanitec-format subset, portable/native conversion and lossless export.
+- `backend/internal/application/workloadconfig/score.go`: read-only profile
+  resolution using existing Definition matching and selected source metadata.
+- `backend/internal/delivery/http/workloads.go`: scoped parse/export boundaries.
+- `frontend/src/features/workloads/WorkloadEditorPage.tsx`: existing form,
+  Score/extension file/text admission, export and synchronized form/document tab
+  transitions with scope/form guards.
+- `frontend/src/features/workloads/ScoreDocuments.test.tsx` and
+  `e2e/scenarios/score-authoring/tab-sync.mjs`: synchronization/error/preservation
+  and real Console Save/reopen checks.
+- [Contract](../architecture/contracts/score-workload.md); no graph/provisioning
+  algorithms changed. See [implementation and evidence](score-workload.md).
+
+## Namespace placement and template routes — issue #84
+
+[Contract/sequence](../architecture/contracts/namespace-template-routes.md) →
+`planning/provider_bindings.go`, `planning/endpoint.go`, `catalog/service.go`,
+`kubernetes/existing_gateway.go`, `templatedriver/endpoint.go` and
+`template-sources/standard/resources/httproute.tpl`. Console uses
+`EndpointDriverFields.tsx`, `ResourceDefinitionsPage.tsx`,
+`InfrastructureConnection.tsx` and `moduleMapping.ts`.
+[Checkpoint and remaining runtime gates](namespace-template-routes.md).
+
+Issue #84 Echo refinement (2026-11-17): domain/endpoint/gateway.go owns both
+metadata layouts and the Gateway output contract; adapters/echo/executor.go is
+the generic identity executor. Kubernetes GatewayVerifier is independent of
+legacy ExistingGatewayAdapter provisioning. Catalog/planner/runtime contract
+tests include gateway_registration_test.go, gateway_resource_test.go and
+provisioning/echo_gateway_test.go. Cluster readiness/pin adapters remain unchanged.
+
+## Keycloak SSO — issue #77
+
+- OIDC provider contract: `backend/internal/ports/oidc`.
+- OIDC discovery/exchange/verification: `backend/internal/adapters/oidc`.
+- Browser transactions, issuer/subject accounts and refresh-bound sessions:
+  `backend/internal/application/authentication/federation.go`.
+- Server configuration: `backend/internal/bootstrap/oidc.go`;
+  delivery: `backend/internal/delivery/http/oidc.go`.
+- External account fields: `internal/domain/identity`, PostgreSQL repositories
+  and immutable migration/reference 011.
+- Console: `SignInEntry`, `SignInPage`, App/AuthProvider, AppShell external controls.
+- Dedicated runtime: `deploy/local/compose.keycloak.yml`; fixtures/acceptance
+  under `e2e/setup/keycloak` and `e2e/scenarios/keycloak-sso`. Shared Console
+  helper `scripts/bootstrap/lib/console.mjs` supports verified OIDC issuer entry.
+
+SSO-07 personal local Admin: configured `localTestAdminUsername` is enforced
+in authentication on both password login and every restored session; auth/config
+exposes only availability and session identity exposes UserManagement=false.
+SignInEntry/SignInPage offer the scoped disclosure on the same Console; AppShell
+keeps own password change and hides employee management. The shared Console
+helper accepts ORCH_AUTH_MODE=local only when the server explicitly allows it.
+
+## Definition code editing — issue #87
+
+UC-03 CODE-01–06 → frontend ResourceDefinitionsPage / DefinitionEditMethods /
+useDefinitionCodeEditor / definitionEditDraft; strict catalogDocument parser and
+existing prepare + PUT APIs. DefinitionCodeEditor and definitionEditDraft tests;
+real scenario e2e/scenarios/definition-code-editor. No backend/schema change.
+
+Integrated #84/#87 runtime checks:
+`e2e/scenarios/namespace-template-routes/editor.mjs` checks Echo/legacy Gateway
+and reference Endpoint; `e2e/scenarios/definition-code-editor/read-only.mjs`
+checks retained cluster/Terraform/template layouts without saving.
+[Combined execution](../verification/2026-11-18-integrated-routes-editor.md)
+records preserved installation upgrade, real editor/update/restart/browser checks
+and the fresh full candidate/main comparison.

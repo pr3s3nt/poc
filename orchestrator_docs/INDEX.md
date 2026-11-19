@@ -2,7 +2,7 @@
 id: DOC-INDEX
 artifact: documentation-index
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-18
 ---
 
 # Documentation index
@@ -145,6 +145,19 @@ Kết quả và cleanup cuối: [bàn giao M04](verification/2026-10-16-m04-comp
 SchemaVersion 3 nhận input môi trường, bootstrap Definitions không cần Catalog
 và deploy acceptance app ở cuối lệnh đầy đủ; schemaVersion 2 Catalog được giữ.
 
+## Score authoring — issue #83
+
+Namespace/provider inheritance and template-owned HTTPRoute — issue #84:
+[accepted decision](architecture/decisions/ADR-043-namespace-placement-template-routes.md),
+[contract/sequence](architecture/contracts/namespace-template-routes.md),
+[implementation and live inspection](implementation/namespace-template-routes.md).
+
+[Score admission and extensions](architecture/contracts/score-workload.md) defines
+standard input, profile resolution and the unchanged infrastructure boundary.
+[Implementation](implementation/score-workload.md) and
+[verification](verification/2026-11-16-score-authoring.md) record feature-branch
+status and baseline/runtime limits.
+
 ## Generic Workload and Template Driver
 
 Approved replacement: [ADR-035](architecture/decisions/ADR-035-generic-workload-template-driver.md),
@@ -266,6 +279,10 @@ Integrated into main after acceptance; see the
 
 ## Catalog document registration — issue #76
 
+Synchronized editing of existing Definitions — issue #87:
+[implementation and checks](implementation/definition-code-editor.md),
+[CODE-01–06](usecase/UC-03/specification.md#sửa-definition-bằng-code--issue-87-approved-2026-11-18).
+
 [Hướng dẫn viết và nhập file Type/Definition](operations/resource-catalog-files.md):
 mẫu YAML/JSON, source pins, mapping, criteria, fallback và cách dùng tab nhập.
 
@@ -276,3 +293,31 @@ mẫu YAML/JSON, source pins, mapping, criteria, fallback và cách dùng tab nh
 
 [Accepted main integration and rollout — issue #76](verification/2026-11-12-catalog-documents-main.md)
 records the complete baseline comparison, preserved data and post-rollout checks.
+
+## Definition Git document source — issue #79
+
+[UC-03 GFILE](usecase/UC-03/specification.md#nguồn-git-trong-file-definition--issue-79),
+[prepare/export API](usecase/UC-03/ui/api-mapping.md#git-document-preparationexport--issue-79)
+and [file authoring guide](operations/resource-catalog-files.md) cover
+url/ref/path authoring, explicit check then pinned registration and portable Git exports.
+
+## Keycloak SSO — issue #77
+
+[UC-00 SSO](usecase/UC-00/specification.md#keycloak-sso--issue-77),
+[configuration/test lifecycle](operations/keycloak-sso.md),
+[browser acceptance](../e2e/scenarios/keycloak-sso/README.md),
+[feature verification](verification/2026-11-13-keycloak-sso.md),
+[accepted main integration/local-mode rollout](verification/2026-11-17-keycloak-main.md).
+
+## First-run setup — issue #89
+
+[Approved behavior and design](usecase/UC-00/first-run-setup.md): operator-authorized
+Console initialization and a platform guide with user-supplied Git catalog sources.
+
+Setup [implementation/code map](implementation/first-run-setup.md) and
+[operator procedure](operations/first-run-setup.md).
+
+## Kubernetes installation package — issue #91
+
+[Deployment architecture](architecture/deployment/kubernetes.md) owns independent
+kind/staging/production packaging, manual Vault unseal and phase/ownership gates.

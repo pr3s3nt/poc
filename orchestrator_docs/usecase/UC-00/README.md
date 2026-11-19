@@ -36,3 +36,17 @@ password exists. Every password input offers a show/hide plain-text toggle.
 - `backend/internal/delivery/http`
 - `backend/internal/ports/persistence`
 - `frontend/src/features/auth`
+
+## Keycloak SSO — issue #77
+
+The optional single-instance OIDC slice uses a dedicated Keycloak test realm,
+server-owned code exchange, stable issuer/subject accounts and existing role
+gates. See SSO-01..07 in the specification and
+[operations](../../operations/keycloak-sso.md). Employee account APIs are disabled
+when OIDC is enabled; SSO-07 optionally admits one personal local Admin and its
+own password change on the same Console; provider grants in memory require new login after restart.
+
+## First-run setup — issue #89
+
+[Approved specification and realization](first-run-setup.md) owns browser initialization
+and the platform setup guide, including user-supplied Git Type/Definition init.

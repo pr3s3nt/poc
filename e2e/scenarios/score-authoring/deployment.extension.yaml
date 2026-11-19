@@ -1,0 +1,8 @@
+apiVersion: humanitec.org/v1b1
+profile: backend
+spec:
+  orchestrator:
+    metadata:
+      class: git-dev
+  deployment:
+    replicas: 1

@@ -2,12 +2,22 @@
 id: ADR-035
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-11-04
+last_reviewed: 2026-11-16
 ---
 
 # ADR-035 — Generic Workload and Template Driver
 
-## Decision
+## Score authoring refinement — issue #83, approved 2026-11-16
+
+Restore standard Score authoring with an optional Humanitec-format extension and
+profile, translated into the existing internal Generic Workload model. This
+supersedes the removal of Score input below, not the direct Template Driver.
+Keep Go templates, Definition matching, dependency graphs, Terraform provisioning,
+CD/Fleet, immutable source pins and template-owned defaults. No score-k8s or Helm
+runtime is introduced. Existing stored workloads remain readable.
+See the [Score admission contract](../contracts/score-workload.md).
+
+## Original decision (rendering remains current)
 
 The approved change replaces Score, score-k8s and the Render Bundle product
 with Generic Workload and the `template` driver. There are no retained running

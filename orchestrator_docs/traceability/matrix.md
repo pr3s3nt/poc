@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-11-08
+last_reviewed: 2026-11-18
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -1655,3 +1655,69 @@ separate in the Environment rollback verification record.
 | UC-02/03 FILE-03 | Insert-only registration and duplicate winner comparison | catalog/document_import.go and document_import_test.go; Type/Definition CREATED/REUSED/CONFLICT browser assertions |
 | UC-02/03 FILE-04 | Public authoring projection of displayed revision | catalogDocument.ts, DefinitionVersions.tsx; export allowlist test and real YAML round-trip scenario |
 | UC-02/03 FILE-05 | Existing capability/source/driver validation | Existing registration tests; Preview/Deploy acceptance remains a runtime gate until recorded |
+
+
+## Portable Git Definition files — issue #79
+
+| Requirement | Realization | Code and validation |
+|---|---|---|
+| UC-03 GFILE-01/02 | Shared Git inspection and full canonical preparation | catalog/definition_document.go; TestGitDocumentRejectsAmbiguousSourcesAndInvalidMappings; HTTP strict/RBAC tests |
+| UC-03 GFILE-03 | Canonical immutable pin plus draft/scope invalidation | CatalogDocumentImport; component late-reply/upload/edit tests; TestGitDocumentPreparePinsBranchWithoutDefinitionWritesAndRoundTrips |
+| UC-03 GFILE-04 | Metadata-only scoped export of exact revision | ExportDefinitionDocument; DefinitionDocumentDownload; scoped/revision/download tests and real Git MongoDB round-trip |
+| UC-03 GFILE-05 | Existing insert-only import and normalized comparison | Existing document_import tests; real CREATED/REUSED/CONFLICT/history invariance scenario |
+
+## Score authoring — issue #83
+
+SC-01–05: [contract](../architecture/contracts/score-workload.md) →
+[UC-16](../usecase/UC-16/specification.md#score-input-and-extensions--issue-83) →
+[realization](../usecase/UC-16/realization.md#score-authoring-adapter--issue-83).
+[Implementation/tests](../implementation/score-workload.md) and
+[verification](../verification/2026-11-16-score-authoring.md) record the feature
+branch checks and real runtime evidence; acceptance/merge remain pending.
+
+SC-06 (issue #83): synchronized form/document tabs in the
+[Score contract](../architecture/contracts/score-workload.md) →
+[UC-16 specification](../usecase/UC-16/specification.md),
+[realization](../usecase/UC-16/realization.md) and
+[screens](../usecase/UC-16/ui/screens.md) → WorkloadEditorPage,
+ScoreDocuments component tests and Score authoring browser scenario.
+
+## Namespace placement and template routes — issue #84
+
+| Requirement | Realization | Code and focused validation |
+|---|---|---|
+| NP-01 | Namespace provider inheritance | planning/provider_bindings.go; namespace_provider_test.go; provisioning pin/provenance guards |
+| GW-01/02 | Separate preexisting Gateway and endpoint reference | catalog/gateway_registration_test.go; planning/gateway_resource_test.go; provisioning/echo_gateway_test.go; kubernetes/gateway_verifier.go; kubernetes/existing_gateway_test.go |
+| UC-03 Gateway reference controls | ResourceClassReferenceField; shared class metadata and whole output references | EndpointDefinition tests; [read-only legacy/Echo browser review](../verification/2026-11-17-gateway-reference-controls.md) |
+| RT-01/02 | Authorized neutral input and Git render/guard | domain/endpoint/intent.go; templatedriver/endpoint_test.go; standard/resources/httproute.tpl |
+| RT-03 | Explicit pin transition and unchanged ownership/claims | legacy endpoint deployment tests retained; [merged runtime evidence](../verification/2026-11-17-echo-gateway.md) verifies deploy/update/restart/cleanup and preexisting Gateway identity; no live legacy-to-new pin migration claimed |
+
+Canonical [contract/sequence](../architecture/contracts/namespace-template-routes.md).
+[Implementation and remaining gates](../implementation/namespace-template-routes.md).
+
+## Keycloak SSO — issue #77
+
+| Requirement | Realization | Implementation / checks |
+|---|---|---|
+| UC-00 SSO-01..07 | UC-00 OIDC collaboration | authentication federation, OIDC adapter, HTTP auth handlers; focused Go tests and keycloak-sso browser scenario |
+
+## Definition code editing — issue #87
+
+| Requirement | Realization and validation |
+|---|---|
+| CODE-01/02 | DefinitionEditMethods, useDefinitionCodeEditor, definitionEditDraft; four-driver UI/code round-trip, advanced-field tests and real browser scenario |
+| CODE-03/04 | Strict parser, context key/type/version, existing prepare and PUT; identity/system-field and exact checked Git pin tests |
+| CODE-05/06 | Shared Save/reload guards, accessible tabs and existing shell; stale/network/uncertain/unmount tests; visual browser review |
+
+Combined #84/#87 execution: Gateway/Endpoint editor round-trip and Save,
+read-only existing cluster/Terraform/template round-trip, inherited PostgreSQL
+reuse through update/restart and Tailscale browser checks are recorded in
+[the integrated verification](../verification/2026-11-18-integrated-routes-editor.md).
+Its fresh full candidate/main check retains identical baseline failures/skips;
+owned full-test namespace cleanup is verified. No main merge/acceptance claimed.
+
+## First-run setup — issue #89
+
+| Requirement | Design / realization | Implementation and tests |
+|---|---|---|
+| SETUP-01–08 | [UC-00 first-run setup](../usecase/UC-00/first-run-setup.md) | [Setup code map and validation](../implementation/first-run-setup.md), [browser scenario](../../e2e/scenarios/first-run-setup/README.md) |

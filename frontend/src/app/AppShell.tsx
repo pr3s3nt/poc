@@ -17,6 +17,7 @@ function NavigationIcon({ name }: { name: string }) {
     'resource-definitions': <><path d="m2 6 8-4 8 4-8 4-8-4Zm0 4 8 4 8-4M2 14l8 4 8-4" /></>,
     'driver-accounts': <><path d="m10 2 7 3v5c0 4-4 7-7 8-3-1-7-4-7-8V5l7-3Z" /><circle cx="10" cy="8" r="2" /><path d="M6 14c1-4 7-4 8 0" /></>,
     'catalog': <><rect x="3" y="3" width="14" height="14" rx="2" /><path d="M3 8h14M8 8v9" /></>,
+    setup: <><path d="M3 5h14M3 10h14M3 15h14M6 3v4m8 1v4m-5 1v4" /></>,
     'platform-settings': <><circle cx="10" cy="10" r="3" /><path d="M10 2v3m0 10v3M2 10h3m10 0h3M4 4l2 2m8 8 2 2M4 16l2-2M14 6l2-2" /></>,
     'cd-providers': <><path d="M4 5h12v10H4zM7 2v3m6-3v3M7 15v3m6-3v3" /><path d="m8 8 4 2-4 2Z" /></>,
     'secret-stores': <><rect x="4" y="8" width="12" height="10" rx="2" /><path d="M6 8V6a4 4 0 0 1 8 0v2m-4 4v2" /></>,
@@ -27,7 +28,7 @@ function NavigationIcon({ name }: { name: string }) {
   return <svg viewBox="0 0 20 20" aria-hidden="true">{paths[name]}</svg>;
 }
 
-export function AppShell({ children, onSignOut, username, role, activeRoute }: PropsWithChildren<{ onSignOut(): void; username: string; role: string; activeRoute: string }>) {
+export function AppShell({ children, onSignOut, username, role, activeRoute, externalIdentity = false, manageUsers = true }: PropsWithChildren<{ onSignOut(): void; username: string; role: string; activeRoute: string; externalIdentity?: boolean; manageUsers?: boolean }>) {
   const [collapsed, setCollapsed] = useState(() => {
     try { return window.localStorage.getItem('orchestrator.sidebar.collapsed') === 'true'; }
     catch { return false; }
@@ -44,6 +45,7 @@ export function AppShell({ children, onSignOut, username, role, activeRoute }: P
   const navClass = (name: string) => `nav-item${activeNav === name ? ' nav-item-active' : ''}`;
   const links = [
     { route: 'applications', label: t('app.appShell.applications'), tone: 'blue', platform: false, admin: false },
+    { route: 'setup', label: t('setup.title'), tone: 'blue', platform: true, admin: false },
     { route: 'resource-types', label: t('app.appShell.resourceTypes'), tone: 'teal', platform: true, admin: false },
     { route: 'resource-definitions', label: t('app.appShell.resourceDefinitions'), tone: 'violet', platform: true, admin: false },
     { route: 'driver-accounts', label: t('app.appShell.infrastructureAccounts'), tone: 'blue', platform: true, admin: false },
@@ -63,12 +65,12 @@ export function AppShell({ children, onSignOut, username, role, activeRoute }: P
           <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="3" width="16" height="14" rx="2" /><path d="M7 3v14" /><path d={collapsed ? 'm10 7 3 3-3 3' : 'm14 7-3 3 3 3'} /></svg><span className="sidebar-label">{t('app.appShell.collapseSidebar')}</span>
         </button>
         <nav className="nav" id="primary-navigation" aria-label={t('app.appShell.mainNavigation')}>
-          {links.filter((item) => (!item.platform || isPlatformEngineer) && (!item.admin || isAdmin)).map((item) => <a key={item.route} className={navClass(item.route)} aria-current={activeNav === item.route ? 'page' : undefined} title={item.label} href={href({ name: item.route })} onClick={(event) => { event.preventDefault(); navigate({ name: item.route }); }}><span className="nav-icon" data-tone={item.tone} aria-hidden="true"><NavigationIcon name={item.route} /></span><span className="sidebar-label">{item.label}</span></a>)}
+          {links.filter((item) => (!item.platform || isPlatformEngineer) && (!item.admin || (isAdmin && !externalIdentity && manageUsers))).map((item) => <a key={item.route} className={navClass(item.route)} aria-current={activeNav === item.route ? 'page' : undefined} title={item.label} href={href({ name: item.route })} onClick={(event) => { event.preventDefault(); navigate({ name: item.route }); }}><span className="nav-icon" data-tone={item.tone} aria-hidden="true"><NavigationIcon name={item.route} /></span><span className="sidebar-label">{item.label}</span></a>)}
           <span className="nav-item nav-item-disabled" aria-disabled="true" aria-label={t('app.appShell.deploymentHistoryComingSoon')} title={t('app.appShell.deploymentHistoryComingSoon')}><span className="nav-icon" aria-hidden="true"><NavigationIcon name="history" /></span><span className="sidebar-label">{t('app.appShell.deploymentHistory')}</span><small className="sidebar-label">{t('app.appShell.comingSoon')}</small></span>
         </nav>
         <div className="sidebar-footer">
           <div className="user-chip" aria-label={`${username} · ${roleLabel(role)}`} title={`${username} · ${roleLabel(role)}`}><span className="avatar" aria-hidden="true">{username.slice(0, 2).toUpperCase()}</span><span className="sidebar-label"><strong>{username}</strong><small>{roleLabel(role)}</small></span></div>
-          <Button tone="quiet" onClick={() => navigate({ name: 'account' })} aria-label={t('app.appShell.changePassword')} title={t('app.appShell.changePassword')}><svg className="sign-out-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="7" cy="10" r="3" /><path d="M10 10h8m-3-2.5v5m-3-5v3" /></svg><span className="sidebar-label">{t('app.appShell.changePassword')}</span></Button>
+          {!externalIdentity ? <Button tone="quiet" onClick={() => navigate({ name: 'account' })} aria-label={t('app.appShell.changePassword')} title={t('app.appShell.changePassword')}><svg className="sign-out-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="7" cy="10" r="3" /><path d="M10 10h8m-3-2.5v5m-3-5v3" /></svg><span className="sidebar-label">{t('app.appShell.changePassword')}</span></Button> : null}
           <Button tone="quiet" onClick={onSignOut} aria-label={t('app.appShell.signOut')} title={t('app.appShell.signOut')}><svg className="sign-out-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3H3v14h5m4-11 4 4-4 4m-5-4h9" /></svg><span className="sidebar-label">{t('app.appShell.signOut')}</span></Button>
           <LanguageSelect />
         </div>

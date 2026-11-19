@@ -12,7 +12,7 @@ export const getWorkloads = (app: string, env: EnvironmentKey) => api<WorkloadLi
 export const saveWorkload = (app: string, env: EnvironmentKey, id: string, workload: Record<string, unknown>, version: number) => api<WorkloadList>(item(app, env, id), { method: 'PUT', body: JSON.stringify({ workload, version }) });
 export const deleteWorkload = (app: string, env: EnvironmentKey, id: string, version: number) => api<WorkloadList>(item(app, env, id), { method: 'DELETE', body: JSON.stringify({ version }) });
 export const undoWorkloadDelete = (app: string, env: EnvironmentKey, id: string, version: number) => api<WorkloadList>(`${item(app, env, id)}/undo`, { method: 'POST', body: JSON.stringify({ version }) });
-export const parseWorkloadImport = (app: string, env: EnvironmentKey, content: string) => api<{ workload: Record<string, unknown> }>(`${base(app, env)}/parse`, { method: 'POST', body: JSON.stringify({ content }) });
+export const parseWorkloadImport = (app: string, env: EnvironmentKey, content: string, extensions?: string) => api<{ workload: Record<string, unknown> }>(`${base(app, env)}/parse`, { method: 'POST', body: JSON.stringify({ content, ...(extensions ? { extensions } : {}) }) });
 
 // Safe projection of one resource node of a Preview (UC-05 BR-10): no params, resolved inputs, secret or state reference.
 export type ResourceIntent = {
@@ -49,3 +49,5 @@ export function parseResourceTypes(body: unknown): { resourceTypes: ResourceType
   }) };
 }
 export const getResourceTypes = async () => parseResourceTypes(await api<unknown>('/resource-types'));
+
+export const exportWorkload = (app: string, env: EnvironmentKey, workload: Record<string, unknown>) => api<{ score: string; extensions: string }>(`${base(app, env)}/export`, { method: 'POST', body: JSON.stringify({ workload }) });

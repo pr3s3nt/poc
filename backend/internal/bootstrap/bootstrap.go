@@ -12,6 +12,7 @@ import (
 	catalogapp "orchestrator/internal/application/catalogrelease"
 	"orchestrator/internal/application/definitionversions"
 	"orchestrator/internal/application/gitaccess"
+	"orchestrator/internal/application/installationsetup"
 	diagprobes "orchestrator/internal/ports/diagnostics"
 	"os"
 	"os/exec"
@@ -82,13 +83,15 @@ const (
 
 // Options configures one orchestrator instance.
 type Options struct {
-	Seed          seed.Options
-	UIDir         string
-	StatePath     string
-	DatabaseURL   string
-	Adapters      AdapterMode
-	KubectlPath   string
-	TerraformPath string
+	SetupTokenFile string
+	OIDCConfigFile string
+	Seed           seed.Options
+	UIDir          string
+	StatePath      string
+	DatabaseURL    string
+	Adapters       AdapterMode
+	KubectlPath    string
+	TerraformPath  string
 	// RequireTemplateRenderer is the product mode (UC-05 BR-09, UC-06 BR-17):
 	// every Workload needs exactly one compatible template Definition and an
 	// installed bundle on both profiles; there is no native renderer
@@ -360,9 +363,26 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		return nil, err
 	}
 
-	if err := seed.Apply(ctx, st, opts.Seed); err != nil {
+	setupToken := ""
+	if opts.SetupTokenFile != "" {
+		if opts.OIDCConfigFile != "" || (opts.StatePath == "" && opts.DatabaseURL == "") {
+			return nil, errors.New("bootstrap: first-run setup requires durable storage and local authentication")
+		}
+		setupToken, err = ReadCredentialFile("setup token", opts.SetupTokenFile)
+		if err != nil || len(setupToken) < 32 {
+			return nil, errors.New("bootstrap: setup token needs a private file with at least 32 characters")
+		}
+		orgs, listErr := st.(persistence.InstallationSetup).ListOrganizations(ctx)
+		if listErr != nil {
+			return nil, listErr
+		}
+		if len(orgs) == 1 {
+			opts.Seed.OrganizationKey, opts.Seed.OrganizationName = orgs[0].Key, orgs[0].Name
+		}
+	} else if err := seed.Apply(ctx, st, opts.Seed); err != nil {
 		return nil, err
 	}
+	setupService := installationsetup.New(st, setupToken)
 
 	if opts.StatePath != "" && opts.DatabaseURL == "" {
 		if err := st.Transact(ctx, func(ctx context.Context) error {
@@ -458,8 +478,10 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		if transport, ok := renderRegistry.Git.(*moduleregistry.GitCLI); ok {
 			transport.Access = gitAccess
 		}
-		if _, err := renderRegistry.PrepareStandard(ctx, opts.Seed.OrganizationKey); err != nil {
-			return nil, err
+		if opts.SetupTokenFile == "" {
+			if _, err := renderRegistry.PrepareStandard(ctx, opts.Seed.OrganizationKey); err != nil {
+				return nil, err
+			}
 		}
 		templateRenderer.SetGitBundles(renderRegistry, renderengine.Executor{Command: opts.RenderWorkerPath})
 		renderer = templateRenderer
@@ -485,6 +507,9 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		deployments = appsvc.NewSimulationService(st, planner, prov, renderer, deployer, inspector, c)
 	}
 	deployments.SetReviewer(reviewer)
+	if !fakeRenderer {
+		deployments.SetGatewayReadiness(&k8s.GatewayVerifier{KubectlPath: opts.KubectlPath, Credentials: kubeconfigSource})
+	}
 	if opts.DeliveryGitRoot != "" && opts.HarborPullSecretName != "" {
 		deployments.SetImagePullSecret(opts.HarborPullSecretName)
 	}
@@ -502,6 +527,9 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		}
 	}
 	auth := authentication.NewService(st, rejectedAccountIDs...)
+	if err := configureOIDC(ctx, st, auth, opts.OIDCConfigFile); err != nil {
+		return nil, err
+	}
 	applications := appcreate.NewService(st)
 	if !fakeRenderer {
 		applications.SetDeliveryDefaults(deliveryBindings)
@@ -537,7 +565,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	}
 	configurations := appconfig.NewService(st, storeRegistry, operations)
 	secretStoreService := secretstores.NewService(st, storeVerifier, connectionCredentials)
-	if opts.PlatformVault != nil {
+	if opts.PlatformVault != nil && opts.SetupTokenFile == "" {
 		if err := seedPlatformVault(ctx, st, secretStoreService, opts); err != nil {
 			return nil, err
 		}
@@ -657,6 +685,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		*closers = append(*closers, func() { workerCancel(); <-done })
 	}
 	server := deliveryhttp.NewServer(deliveryhttp.Config{
+		Setup:                 setupService,
 		CatalogReleases:       catalogReleases,
 		Drift:                 driftService,
 		Reconciliation:        deliveryCoordinator,

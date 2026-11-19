@@ -77,3 +77,19 @@ và không cần mật khẩu hiện tại của account.
 Validation inline: bắt buộc nhập, mật khẩu mới tối thiểu 8 ký tự, xác nhận phải
 khớp. Thành công đóng dialog và hiện `Đã đặt lại mật khẩu của {username}.`;
 mật khẩu không giữ trong state sau khi gửi.
+
+## Keycloak SSO — issue #77
+
+Reuse SignInPage branding, layout, shared Button, LanguageSelect and status/error
+styles. In OIDC mode show one localized “Đăng nhập SSO” action instead of local
+username/password inputs and local-test helper. Callback failure uses a fixed
+localized error, never provider text. While config is unavailable, show retry/error
+and do not enable local login. Hide local user management and password navigation
+for SSO identity; deep links show a short managed-at-company notice. Keep every
+other role gate and shell pattern unchanged.
+
+SSO-07: when the server advertises localLoginAllowed, retain SSO as the primary
+action and put the existing local form in a “Tài khoản test” disclosure. Only the
+configured local Admin can use it. Its own password-change action remains; user
+management stays hidden/blocked in OIDC mode, including for that Admin. Do not
+add self-registration or local login for employees.

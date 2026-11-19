@@ -30,6 +30,7 @@ import (
 	driftapp "orchestrator/internal/application/drift"
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/gitaccess"
+	"orchestrator/internal/application/installationsetup"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/preview"
 	"orchestrator/internal/application/resourcecleanup"
@@ -47,6 +48,7 @@ import (
 
 // Server wires the HTTP handlers to the application services.
 type Server struct {
+	setup           *installationsetup.Service
 	catalogReleases *catalogapp.Service
 	gitAccess       *gitaccess.Service
 	gitTester       GitTester
@@ -78,6 +80,7 @@ type Server struct {
 
 // Config configures the HTTP server.
 type Config struct {
+	Setup           *installationsetup.Service
 	CatalogReleases *catalogapp.Service
 	GitAccess       *gitaccess.Service
 	GitTester       GitTester
@@ -124,6 +127,7 @@ type Config struct {
 // NewServer builds the HTTP handler tree.
 func NewServer(cfg Config) *Server {
 	s := &Server{
+		setup:           cfg.Setup,
 		catalogReleases: cfg.CatalogReleases,
 		gitAccess:       cfg.GitAccess, gitTester: cfg.GitTester,
 		reconciliation:  cfg.Reconciliation,
@@ -172,6 +176,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) routes() {
+	s.mux.HandleFunc("GET /api/v1/platform/setup", s.handleSetupProgress)
+	s.mux.HandleFunc("POST /api/v1/platform/setup/discover", s.handleDiscoverSetup)
+	s.mux.HandleFunc("POST /api/v1/platform/setup/preview", s.handlePreviewSetup)
+	s.mux.HandleFunc("GET /api/v1/setup", s.handleSetupStatus)
+	s.mux.HandleFunc("POST /api/v1/setup", s.handleSetupClaim)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/catalog", s.handleGetEnvironmentCatalog)
 	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/catalog", s.handleSelectEnvironmentCatalog)
 	s.mux.HandleFunc("GET /api/v1/platform/catalog/sources", s.handleListCatalogSources)
@@ -187,6 +196,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/healthz", s.handleHealth)
 	s.effectivenessRoutes()
 	s.observabilityRoutes()
+	s.mux.HandleFunc("GET /api/v1/auth/config", s.handleAuthConfig)
+	s.mux.HandleFunc("GET /api/v1/auth/oidc/start", s.handleOIDCStart)
+	s.mux.HandleFunc("GET /api/v1/auth/oidc/callback", s.handleOIDCCallback)
 	s.mux.HandleFunc("POST /api/v1/auth/sign-in", s.handleSignIn)
 	s.mux.HandleFunc("GET /api/v1/auth/session", s.handleSession)
 	s.mux.HandleFunc("GET /api/v1/organization", s.handleOrganization)
@@ -215,6 +227,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/workload-templates", s.handleWorkloadTemplates)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/workloads", s.handleListWorkloadDrafts)
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/workloads/parse", s.handleParseWorkloadDocument)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/workloads/export", s.handleExportWorkloadDocument)
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/workloads/resolve-defaults", s.handleResolveWorkloadDefaults)
 	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/workloads/{workload}", s.handleSaveWorkloadDraft)
 	s.mux.HandleFunc("DELETE /api/v1/applications/{id}/environments/{env}/workloads/{workload}", s.handleDeleteWorkloadDraft)
@@ -226,6 +239,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/resource-types", s.handleResourceTypes)
 	s.mux.HandleFunc("POST /api/v1/resource-types/import", s.handleImportResourceType)
 	s.mux.HandleFunc("POST /api/v1/resource-definitions/import", s.handleImportResourceDefinition)
+	s.mux.HandleFunc("POST /api/v1/resource-definitions/import/prepare", s.handlePrepareDefinitionDocument)
+	s.mux.HandleFunc("GET /api/v1/resource-definitions/{key}/document", s.handleExportDefinitionDocument)
 	s.mux.HandleFunc("POST /api/v1/resource-types", s.handleRegisterResourceType)
 	s.mux.HandleFunc("POST /api/v1/resource-types/{key}/outputs", s.handleAddResourceTypeOutputs)
 	s.mux.HandleFunc("GET /api/v1/resource-definitions/{key}/versions", s.handleDefinitionVersions)
@@ -386,6 +401,10 @@ type signInRequest struct {
 }
 
 func (s *Server) handleSignIn(w http.ResponseWriter, r *http.Request) {
+	if s.auth.OIDCEnabled() && !s.auth.LocalTestLoginAllowed() {
+		writeCode(w, codeForbidden, "")
+		return
+	}
 	var req signInRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeCode(w, codeInvalidRequest, "")
@@ -393,10 +412,14 @@ func (s *Server) handleSignIn(w http.ResponseWriter, r *http.Request) {
 	}
 	token, identity, err := s.auth.SignIn(r.Context(), req.Username, req.Password)
 	if err != nil {
+		if errors.Is(err, authentication.ErrForbidden) {
+			writeCode(w, codeForbidden, "")
+			return
+		}
 		writeCode(w, codeInvalidCredentials, "")
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 8 * 60 * 60})
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, Secure: s.auth.SecureCookie(), SameSite: http.SameSiteLaxMode, MaxAge: 8 * 60 * 60})
 	writeJSON(w, http.StatusOK, map[string]any{"user": identity})
 }
 func (s *Server) sessionIdentity(r *http.Request) (authentication.Identity, bool) {
@@ -408,6 +431,7 @@ func (s *Server) sessionIdentity(r *http.Request) (authentication.Identity, bool
 	return identity, err == nil
 }
 func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	identity, ok := s.sessionIdentity(r)
 	if !ok {
 		writeCode(w, codeUnauthorized, "")
@@ -419,7 +443,7 @@ func (s *Server) handleSignOut(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(sessionCookie); err == nil {
 		_ = s.auth.SignOut(r.Context(), cookie.Value)
 	}
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", HttpOnly: true, MaxAge: -1})
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", HttpOnly: true, Secure: s.auth.SecureCookie(), SameSite: http.SameSiteLaxMode, MaxAge: -1})
 	w.WriteHeader(http.StatusNoContent)
 }
 

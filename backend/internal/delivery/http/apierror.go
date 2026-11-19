@@ -53,6 +53,9 @@ const (
 	codeDriftBaselineUnavailable  = "DRIFT_BASELINE_UNAVAILABLE"
 	codeDriftRepairBlocked        = "DRIFT_REPAIR_BLOCKED"
 	codeDriftRepairStale          = "DRIFT_REPAIR_STALE"
+	codeScoreSchema               = "SCORE_SCHEMA_INVALID"
+	codeScoreUnsupported          = "SCORE_UNSUPPORTED"
+	codeScoreProfile              = "SCORE_PROFILE_INVALID"
 	codeInvalidRequest            = "INVALID_REQUEST"
 	codeInvalidID                 = "INVALID_ID"
 	codeInvalidVariable           = "INVALID_VARIABLE"
@@ -133,6 +136,9 @@ var publicErrors = map[string]publicError{
 	codeDriftBaselineUnavailable:        {http.StatusUnprocessableEntity, "an acknowledged execution baseline is required"},
 	codeDriftRepairBlocked:              {http.StatusUnprocessableEntity, "this repair requires a normal deployment review"},
 	codeDriftRepairStale:                {http.StatusConflict, "the infrastructure repair review is stale"},
+	codeScoreSchema:                     {http.StatusBadRequest, "the Score document does not match its schema"},
+	codeScoreUnsupported:                {http.StatusBadRequest, "the Score or extension feature is not supported"},
+	codeScoreProfile:                    {http.StatusBadRequest, "the profile is unavailable, ambiguous or incompatible with the selected workload source"},
 	codeInvalidRequest:                  {http.StatusBadRequest, "the request is not valid"},
 	codeInvalidID:                       {http.StatusBadRequest, "the id does not follow the id rules"},
 	codeInvalidVariable:                 {http.StatusBadRequest, "a variable name, value or reference is not valid"},
@@ -532,6 +538,12 @@ func classify(err error) (failure, bool) {
 			f.params = map[string]string{"resourceType": paramErr.Type}
 		}
 		return f, true
+	case errors.Is(err, workloadspec.ErrScoreSchema):
+		return failure{code: codeScoreSchema}, true
+	case errors.Is(err, workloadspec.ErrScoreUnsupported):
+		return failure{code: codeScoreUnsupported}, true
+	case errors.Is(err, workloadconfig.ErrScoreProfile):
+		return failure{code: codeScoreProfile, field: "profile"}, true
 	case errors.Is(err, workloadconfig.ErrUnknownResourceType):
 		return failure{code: codeInvalidWorkload, field: "resources"}, true
 	case errors.Is(err, workloadconfig.ErrInvalidVariable), errors.Is(err, appconfig.ErrInvalid):

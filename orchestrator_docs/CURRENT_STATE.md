@@ -2,10 +2,69 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-11-11
+last_reviewed: 2026-11-18
 ---
 
 # Current project state
+
+## Score authoring — issue #83, 2026-11-17
+
+SC-06 synchronizes form and Score/extension when switching tabs, including saved
+workload reopening, validation/error retention, stale reply guards and preservation
+of refs/pins/defaults. Real Console/browser tests, explicit Save/reopen, VI/EN and
+keyboard checks pass; the user's Keycloak remains unchanged. Full frontend on
+kind passes 1072 tests. Backend sources are unchanged and reuse the prior
+backend comparison/runtime evidence. See
+[tab synchronization verification](verification/2026-11-17-score-tab-sync.md).
+
+
+Keycloak + PostgreSQL + managed endpoint now deploy successfully on the feature
+stack after repairing its Vault Kubernetes auth and workload address configuration.
+The user Secret was preserved through the product Store-copy operation; real
+login-page/OIDC checks pass. See [Keycloak verification](verification/2026-11-17-keycloak-score.md).
+
+Accepted and merged into main at `8651a603`; backend/frontend are deployed to
+the retained kind Console. Post-rollout browser/API checks and preservation of
+existing inventory pass; see [main integration](verification/2026-11-17-score-main.md).
+On 2026-11-18 the user requested session cleanup: all three remaining trial
+Applications were deleted through the product, and their Kubernetes resources,
+feature Docker stack, volumes and dedicated relays were removed. Main remains
+running at its newer SSO rollout; no cross-installation migration occurred.
+Private backups/evidence and three delivery repositories are retained. See
+[trial cleanup](verification/2026-11-18-score-cleanup.md). Score
+v1b1 plus a supported Humanitec-format extension resolves profiles within the
+matched Definition source, preserving existing internal storage, immutable pins,
+template defaults and infrastructure algorithms. Console import/export and legacy
+workload readers are retained. See [implementation](implementation/score-workload.md)
+and [verification](verification/2026-11-16-score-authoring.md). Full frontend passes;
+full backend has the same 70 top-level failures as main, with no additional
+candidate failures/skips and both builds passing. This is baseline parity, not a
+green backend suite. Pre-merge retesting was explicitly waived by the user.
+
+
+## Resource Type driver support — issue #81
+
+Implemented directly on main at `86d79cc5` at the user's request. Resource Types
+recognize built-in endpoint/existing-cluster/template capabilities and show their
+actual driver labels and Definition CTA. Support is independent of Definition
+count; verified Terraform pins and metadata failure states remain intact. The
+retained Console received a frontend-only rollout; real Tailscale browser checks
+and 23 focused component tests pass. Backend and existing catalog records were
+unchanged. [Verification](verification/2026-11-12-resource-type-driver-support.md).
+
+## Portable Git Definition files — issue #79
+
+Accepted and merged into main at `9bf70931`; the retained kind Console runs the
+matching backend/frontend images. Release repository sample merged at `3e4d54f`.
+Terraform Definition files use `source: {url, ref, path}`; explicit Check validates
+and reviews the immutable commit before registration. Git Definition/revision
+exports use URL/exact commit/path. Existing form/pinned registration and other
+drivers remain available. Scoped Go tests and 24 frontend tests pass; real
+browser on retained main confirmed export/check/REUSED without changing history
+or existing Applications. Git settings and the READY default CD were preserved.
+The user limited checks to affected areas; no full-suite green claim. The owned
+kind test namespace and merged branches were removed; feature stack stopped with
+its volumes retained. [Verification](verification/2026-11-12-definition-git-import.md).
 
 ## Stuck StatefulSet Pods and unselected Environments — issue #68
 
@@ -1701,7 +1760,9 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
 - Conformance loader bỏ Definition thiếu criteria hoặc `criteria: []` khỏi
   challenge catalog và giữ criterion `{}` thành wildcard điểm 0; product planner
   vẫn từ chối catalog có Definition không có criterion.
-- UC-00 có cookie session cho local/test, chưa có production-grade RBAC. UC-04
+- UC-00 có cookie session cho local/test và tùy chọn Keycloak OIDC (issue #77,
+  một backend instance, role refresh theo request tối đa mỗi 30 giây); chưa có
+  production-grade RBAC/HA. UC-04
   chưa có AWS registration/durable credential flow. UC-05 standalone Preview và
   UC-07 update/remove đã có local verification. UC-02/03 đã có đăng
   ký catalog và PostgreSQL persistence nhưng chưa có đầy đủ lifecycle quản trị.
@@ -2437,3 +2498,160 @@ Merged into main at `48f28ad1` after user acceptance and deployed on the retaine
 kind Console. Main import/export smoke passed without changing catalog/revision
 history or existing Applications. Full backend remains baseline-red; the complete
 comparison and rollout are in [main verification](verification/2026-11-12-catalog-documents-main.md).
+
+## Namespace placement / template routes — issue #84, accepted into main
+
+On `features/Httproute` (including the explicitly requested Score branch base),
+namespace-inherited providers, separate preexisting Gateway Definitions and
+explicit template-rendered HTTPRoute are implemented with focused validation.
+Real native/Score batch Deploy, authenticated PostgreSQL, browser reachability,
+update/restart UID preservation and Console product cleanup passed on kind.
+A fresh review application reuses the released endpoint names. Full frontend
+passes 1067 tests/typecheck/lint/build. Full backend and main share the exact same
+103 failing top-level tests / 20 packages and 8 skips; both builds pass. These
+are the original feature-checkpoint results; no green backend suite is claimed. See
+[implementation and remaining gates](implementation/namespace-template-routes.md)
+and [execution evidence](verification/2026-11-16-namespace-template-routes.md).
+
+### Issue #84 refinement approved 2026-11-17 — pre-merge verification history
+
+New Gateway Definitions use Echo metadata with separate pre-render Kubernetes
+verification; existing-gateway driver/layout/revision compatibility remains.
+Cluster authentication stays in existing-cluster/Driver Account. Current main
+`ab37e2d4` was merged into the feature at `df719115`, preserving Score changes.
+Focused contract/provenance/authoring checks and merged native/Score live
+deploy/update/restart/product cleanup pass. A fresh review app is retained;
+Deployment API confirms both READY Echo Gateway executions, and native SQL/routes
+plus browser checks of the Console and two workloads pass. Legacy forms retain
+their stored driver/values/version. Full merged frontend passes 1076 tests and
+typecheck/lint/build. Fresh backend/main have identical 101 top-level failure
+events, 20 failed packages and 8 skips; both builds pass and no main pass is
+missing. Both PostgreSQL packages time out at 30 minutes; this is baseline-red,
+not a complete green suite. Owned test namespace cleanup is verified. See
+[the new execution record](verification/2026-11-17-echo-gateway.md) for source
+attribution. Prior 2026-11-16 evidence does not prove this revision. No feature
+merge into main, retained-stack upgrade or release tag is claimed.
+
+### Issue #84 reference controls — 2026-11-17
+
+Gateway cluster and Endpoint Gateway references now use class dropdowns from
+Resource Type metadata, consistent with namespace provider selection. The form
+generates the reference and keeps it under technical details; existing advanced
+references and Echo/legacy driver/layout/pins are preserved. Read-only browser
+review confirms legacy and Echo forms agree with generated JSON, with no saved
+Definition/revision changes. 28 focused tests and the fresh full frontend's 1078
+tests, typecheck/lint/build pass; disposable namespace cleanup is verified.
+Backend source is unchanged and the completed comparison above is
+explicitly reused. See [reference controls evidence](verification/2026-11-17-gateway-reference-controls.md).
+
+## Keycloak SSO — issue #77
+
+Integrated into main on 2026-11-17 after user acceptance. UC-00 adds configured
+OIDC Authorization Code + PKCE with backend-owned tokens and the existing opaque
+session cookie. Issuer/subject identity persists through schema version 11; no
+old-account migration/linking. Three client roles map to existing backend/UI
+authorization. Employee account management is disabled in OIDC mode. SSO-07 optionally admits
+one configured personal local Admin for fast testing on the same Console; only
+its own password change is allowed, and every other employee still requires SSO.
+
+Dedicated Keycloak/PostgreSQL browser acceptance passed for all three roles,
+missing-role rejection, active-session promotion/demotion, user disabling and
+logout. Tokens stay in backend memory: restart requires login; this is a
+single-instance test slice, not company integration/HA. Full-suite result and
+main-baseline failures are recorded in the
+[verification](verification/2026-11-13-keycloak-sso.md).
+
+[Configuration and lifecycle](operations/keycloak-sso.md),
+[browser scenario](../e2e/scenarios/keycloak-sso/README.md).
+
+[Accepted main integration](verification/2026-11-17-keycloak-main.md) records fresh
+full checks and the retained v10→v11 rollout. Main deliberately keeps local login
+per the user’s decision; Keycloak deployment/configuration is a later step.
+Installation/users/catalog/Application identities are preserved. Full backend
+remains baseline-red; the final full frontend passes 1,077 tests.
+
+## Definition code editor — issue #87, accepted into main
+
+Separate features/definition-code-editor branch from main 725541ef. Existing
+Definition edit supports synchronized form/YAML/JSON with the same validation,
+source pins and version-CAS Save. Four-driver real browser round-trip and scoped
+checks pass. Final full frontend on kind passes 116 files / 1093 tests and
+typecheck/lint/build; owned test namespace cleanup is verified. Backend source
+is identical to main, with completed accepted-main evidence explicitly reused;
+its failures/skips/PG timeout remain baseline-red. The isolated trial and four
+examples remain available for acceptance.
+These isolated results precede the combined accepted main integration below;
+no full green backend gate is claimed. See
+[implementation](implementation/definition-code-editor.md).
+
+## Combined Gateway/routes and Definition editor — issues #84/#87
+
+User approved integration on 2026-11-18 into features/Httproute for a single
+review Console. Merge conflict resolution preserves namespace/Gateway/template
+contracts and synchronized code editing, including Echo/legacy Gateway layouts.
+Merge `35cbc638` runs on the preserved trial stack following normal v10→v11
+owner upgrade. Combined editor checks across existing driver layouts, one
+Environment update for both workloads, guarded restart and Tailscale browser
+checks pass. Full frontend passes 1102 tests/typecheck/lint/build. Fresh full
+backend candidate/main checks complete with identical 103 top-level failures,
+143 failing events, 20 failed packages and 8 skips; no new failure/skip or missing
+main passing test. Both builds pass and the owned test namespace is cleaned. See
+[combined verification](verification/2026-11-18-integrated-routes-editor.md).
+Backend remains baseline-red; the accepted merge/rollout is recorded below.
+
+User-approved trial cleanup on 2026-11-18 removes three obsolete Gateway/Endpoint
+pairs from the task catalog. All five task Applications were already DELETED;
+no task namespaces/PVs remain. One Echo Gateway/reference Endpoint pair remains,
+with UI-saved/promoted r6 default criteria for new test Applications. Cluster,
+namespace, workload and PostgreSQL Definitions and shared Gateway identity are
+unchanged; immutable history is retained. See the cleanup section of the
+[combined verification](verification/2026-11-18-integrated-routes-editor.md).
+The next approved trial revision r7 names the pair `Gateway Traefik có sẵn` and
+`Endpoint qua Gateway` and explicitly matches class `default` for both. Native/
+Score Environment Preview selects both r7 Definitions; its temporary Application
+is product-deleted. Definition Matching Preview's separate driver allowlist still
+excludes Echo/Endpoint; this configuration change does not extend that API.
+
+## Accepted main integration of #84/#87 — 2026-11-18
+
+User accepted merge and explicitly waived repeated tests. Merge `6084919e` is
+pushed to main; product sources match accepted feature `aeeb338b`. The retained
+kind runtime now uses those accepted images, with owner setup complete, backend/
+frontend Ready and installation/user/account/Application identities preserved.
+No product suites or functional/browser scenarios were rerun. Trial stacks are
+stopped with data retained; both feature branches are deleted. Trial r7 catalog
+configuration was not imported into main. See
+[accepted merge/rollout](verification/2026-11-18-routes-editor-main.md).
+
+## First-run setup — issue #89, accepted main integration 2026-11-18
+
+`features/setup` implements operator-token initialization, a platform guide using
+existing configuration forms and user-supplied Git Type/Definition discovery,
+preview and confirmed import. Workload remains a Type/template Definition.
+Accepted and merged into main; retained kind Console rollout and exact Tailscale
+browser/API checks passed without changing its Organization/authentication. Browser initialization and
+10-Type/8-Definition Git import/rerun/restart passed. Full frontend passes 1104 tests;
+full backend has the same 103 failures and 8 skips as main, with eight added passing
+setup tests and no new failure/skip. Both full-check namespaces were cleaned.
+[Scope/code map](implementation/first-run-setup.md),
+[verification and baseline inventory](verification/2026-11-18-first-run-setup.md).
+
+
+## Independent Kubernetes installations — issue #91, accepted main integration 2026-11-18
+
+`features/kubernetes-manifests` packages separate kind/staging/production overlays
+with PostgreSQL/Vault TLS, private generated inputs, manual Vault unseal, an owner
+Job before runtime, Traefik HTTPRoute and quiesced private backup/upgrade tooling.
+Accepted and merged together with #89. A separate kind
+installation has real Console/Git initialization, persisted credential, retained
+update/restart checks and an isolated PostgreSQL/Vault/backend backup restore. Staging/production are operator-run samples, not deployed
+by this task. Full frontend passes 1104 tests; full Go retains 103 shared failures,
+eight skips and one extra intermittent unchanged Git test (focused 50-repeat pass).
+See [runbook](../deploy/kubernetes/README.md),
+[code map](implementation/code-map.md#independent-kubernetes-installations--issue-91)
+and [execution/limits](verification/2026-11-18-kubernetes-installations.md).
+The backup-listing transport fix is included in main `969f50e9`: seven focused
+installer tests and an actual retained-dump listing pass. No product tree changed
+from the accepted full-suite sources. Both feature branches are removed; Docker
+trials and the kind trial are stopped with data retained. Main stays running.
+See [main integration](verification/2026-11-18-setup-kubernetes-main.md).

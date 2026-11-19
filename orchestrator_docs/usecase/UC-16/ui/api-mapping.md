@@ -2,7 +2,7 @@
 id: UC-16-UI-API-MAPPING
 artifact: use-case-ui-api-mapping
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-16
 related: UC-12, UC-16, UC-05, UC-07
 ---
 
@@ -108,3 +108,22 @@ POST workloads/resolve-defaults reports rejected resolved runtime/compute intent
 internal 500 merely because the invalid combination emerged after template merge.
 Response text stays fixed and safe; Console uses its allowlisted code messages.
 Actual source/network/server failures retain retry and preserve the local draft.
+
+## Score documents — issue #83
+
+SC-01–05 in the [admission contract](../../../architecture/contracts/score-workload.md)
+own normalized data and profile semantics. All routes retain the existing
+authenticated Application/Environment authoring scope; no external provisioning
+or Secret resolution occurs during parse/export.
+
+| Action | Scoped route | Body/result |
+|---|---|---|
+| Import | `POST .../environments/{env}/workloads/parse` | `{content, extensions?}` single YAML/JSON document strings → `{workload}` normalized Generic Workload |
+| Export current edits | `POST .../environments/{env}/workloads/export` | `{workload}` → `{score, extensions}` YAML strings |
+| Save | Existing versioned workload PUT | Normalized workload and current draft version; direct Score is admitted through the same scoped profile resolver |
+
+The Console reads both selected files for each parse attempt, ignores older or
+foreign-scope replies and blocks stale import content after replacement errors.
+Export uses current authored edits; normalized details are a native disclosure.
+SCORE_SCHEMA_INVALID / SCORE_UNSUPPORTED / SCORE_PROFILE_INVALID are safe HTTP 400
+codes with VI/EN messages; generic/native errors and stale/BUSY handling remain.

@@ -311,6 +311,12 @@ as specified above.
 
 ## Public endpoint resource
 
+Issue #84: [ADR-043](../../architecture/decisions/ADR-043-namespace-placement-template-routes.md)
+keeps Developer endpoint authoring at name/Service-port/path. The platform pins
+the selected Gateway policy and validates agreement with the workload namespace's
+cluster; capable Git templates render HTTPRoute. Score and native input must
+produce equivalent endpoint intent and retain explicit Save/Preview/Deploy.
+
 [EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
 preview, atomic hostname reservation, manifest delivery and safe release.
 
@@ -352,3 +358,35 @@ No template records, API visibility or deployment behavior change.
 
 [ENVFILE-01–06](envfile-specification.md) mở rộng bảng biến và supersede hành vi
 checkbox tạo Secret ngay ở BR-27. Không thay đổi secret delivery/Preview/Deploy.
+
+## Score input and extensions — issue #83
+
+SC-01–05 in the [Score contract](../../architecture/contracts/score-workload.md)
+own admission/export/profile behavior. Restore Console file import (superseding
+issue #45 for workload import only), retain the form, add optional extension input
+and lossless export. No graph/matching/provisioning behavior changes.
+
+## Direct document entry — issue #83 refinement, 2026-11-16
+
+Users can type/paste Score and optional extension YAML/JSON directly in the
+existing import tab. File selection fills the same editable text. A Check action
+uses the existing scoped parse API; edits immediately invalidate earlier results
+and block stale Save/export until the current content passes validation. File
+imports retain their existing automatic check. Empty extension means no extension.
+No backend, graph, matching or provisioning behavior changes.
+
+## Form/document synchronization — approved issue #83 follow-up, 2026-11-17
+
+SC-06 in the [Score contract](../../architecture/contracts/score-workload.md)
+defines two synchronized editor representations. Switching form → document
+populates Score/extension from current edits; switching document → form validates
+before applying. Invalid text and prior valid form are kept, with stale writes
+blocked. Opening saved workloads, asynchronous scope guards and lossless advanced
+configuration follow the same contract. Save/Preview/Deploy remain separate.
+
+## Namespace placement and template routes — issue #84
+
+[NP-01, GW-01/02 and RT-01–03](../../architecture/contracts/namespace-template-routes.md)
+apply to this use case. Registration/Preview remain read-only; Deploy uses pinned
+namespace/Gateway target identities and template-rendered HTTPRoute; updates and
+removal retain existing claims, state and ownership guarantees.

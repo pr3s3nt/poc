@@ -2,7 +2,7 @@
 id: UC-03-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-18
 ---
 
 > Generic Workload replacement: [ADR-035](../../architecture/decisions/ADR-035-generic-workload-template-driver.md)
@@ -558,6 +558,12 @@ in CM-04. Existing Environments retain frozen revisions until explicitly upgrade
 
 ## Public endpoint resource
 
+Issue #84: [ADR-043](../../architecture/decisions/ADR-043-namespace-placement-template-routes.md)
+adds namespace-bound Kubernetes providers, separate existing Gateway
+resources/Definitions and endpoint references to those resources. Registration
+must validate reference kinds and nonsecret policy without provisioning or
+changing existing infrastructure. Legacy immutable revisions remain readable.
+
 [EP-01–06](../../architecture/contracts/endpoint.md) define endpoint policy,
 preview, atomic hostname reservation, manifest delivery and safe release.
 
@@ -580,14 +586,93 @@ This UI restriction supersedes earlier multi-source Console choices only.
   unknown/system/retired fields hoặc scalar không biểu diễn được bằng JSON
   (như số vô hạn/NaN). Upload hiện trong editor và sửa được; lỗi giữ draft.
 - **FILE-02:** Validation dùng contract đăng ký hiện có, gồm source pin/tham chiếu
-  chuẩn bị trước. Không inspect Git hoặc provision/deploy khi import.
+  chuẩn bị trước hoặc qua GFILE-01..05 bên dưới. Bước đăng ký không resolve Git
+  ref hoặc provision/deploy; bước kiểm tra được phép inspect Git.
 - **FILE-03:** Key mới trả CREATED; cấu hình tương đương sau chuẩn hóa contract
   trả REUSED; khác trả CONFLICT với đường dẫn field khác biệt, không trả giá trị.
   Reuse/conflict không ghi record, revision hoặc association. Race insert kiểm lại
   bản thắng; không replay mutation có kết quả chưa rõ.
 - **FILE-04:** Tải YAML body có thể nhập lại, chỉ public authoring fields; bỏ
   version/revisionId/sourceFingerprint/renderPin, credential và giá trị secret.
-  Giữ source pin, symbolic refs. Definition xuất đúng revision đang hiển thị và
+  Giữ symbolic refs; Git Terraform xuất authoring source theo GFILE-04, các
+  nguồn khác giữ pin. Definition xuất đúng revision đang hiển thị và
   ghi revision ở tên file/nút; round-trip không đổi trả REUSED.
 - **FILE-05:** Không thay form, matching, binding, Preview/Deploy hay mặc định
   của Type; fallback/override và dependency tuân contract hiện có.
+
+
+## Nguồn Git trong file Definition — issue #79
+
+- **GFILE-01:** File Terraform Definition được khai báo nguồn tại
+  `driverInputs.values.source: {url, ref, path}`. URL HTTPS không chứa credential;
+  ref có thể là branch/tag/commit; path tương đối trong repository. Không trộn
+  ba trường authoring với các trường pin nội bộ hoặc Catalog provenance.
+  Các driver khác và body pin đã hỗ trợ tiếp tục giữ contract hiện hành.
+- **GFILE-02:** Người dùng bấm **Kiểm tra cấu hình** trước đăng ký file Definition.
+  Backend dùng cùng Git inspection (Git settings/policy/Organization) và pipeline
+  validation đăng ký: Type, module, mappings, accounts, bindings, references.
+  Resolve ref thành commit bất biến; chỉ chuẩn bị verified bundle/cache, không
+  ghi Definition/revision/association, không provision. Lỗi an toàn giữ draft.
+- **GFILE-03:** Kết quả gồm canonical DefinitionDraft với pin đã xác minh và
+  nguồn Git/commit để review. Đăng ký gửi đúng canonical draft đó qua import
+  hiện hành, kiểm tra lại pin và cấu hình; không resolve lại branch/tag.
+  Sửa nội dung, upload mới hoặc đổi scope hủy kết quả; late replies không phục
+  hồi kết quả cũ. Git branch đổi sau kiểm tra không đổi commit được lưu.
+- **GFILE-04:** Export Definition/revision Terraform có Git provenance đã lưu
+  dùng `{url, ref: exactCommit, path}` thay pin installation. Không fetch Git
+  hay resolve lại branch khi export. Non-Git giữ dạng hiện hành; thiếu metadata
+  Git cần thiết báo lỗi an toàn thay vì đoán source. Chỉ public authoring fields,
+  không credential, fingerprint/runtime metadata. File được kiểm tra lại trên
+  installation đích; export không hứa account/Type/dependencies đã có ở đó.
+- **GFILE-05:** REUSED/CONFLICT vẫn so canonical cấu hình sau chuẩn bị, insert-only
+  và scoped Organization; không cập nhật Definition/revision khi trùng key.
+  Existing form POST/PUT, pin execution và template sources không thay đổi.
+
+## Namespace placement and template routes — issue #84
+
+[NP-01, GW-01/02 and RT-01–03](../../architecture/contracts/namespace-template-routes.md)
+apply to this use case. Registration/Preview remain read-only; Deploy uses pinned
+namespace/Gateway target identities and template-rendered HTTPRoute; updates and
+removal retain existing claims, state and ownership guarantees.
+
+### Gateway metadata refinement — approved 2026-11-17
+
+ADR-043/GW-01 permits new Echo Gateway Definitions with the required gateway
+output envelope. Validate supported driver, typed policy/reference contract and
+cluster/account pins; preserve PREEXISTING ownership and legacy existing-gateway
+revisions. Echo performs metadata transformation only. Real Gateway admission
+checks remain before workload rendering/publication; cluster authentication
+continues through the dedicated existing-cluster driver and Driver Account.
+
+### Gateway reference controls — approved 2026-11-17
+
+Gateway authoring selects a cluster class; Gateway-bound endpoint authoring
+selects a Gateway class from Resource Type metadata, following the existing
+namespace provider controls. The form generates the whole output reference in
+the current Application/Environment scope; authors do not type placeholders.
+Reference expressions remain in collapsed technical details. Opening/editing
+preserves stored driver, layout, reference scope, class and immutable pins;
+unavailable classes or advanced references remain visible and are not silently
+replaced. Explicit class selection replaces that reference only. Literal legacy
+endpoint forms remain unchanged. This does not add Kubernetes Gateway discovery.
+
+
+## Sửa Definition bằng code — issue #87, approved 2026-11-18
+
+- **CODE-01:** PE/Admin sửa mọi Definition được backend hỗ trợ qua Biểu mẫu /
+  YAML/JSON. Hai tab dùng chung draft, giữ public fields/kiểu dữ liệu,
+  criteria/provision/mapping, account và source pin; không sửa Type/state/secret.
+- **CODE-02:** UI → code giữ thay đổi hiện tại và fields hợp lệ chưa có control.
+  Code → UI sau parse strict và prepare validation. UI không biểu diễn lossless
+  thì giữ code và báo rõ; không bỏ trường, đổi default hoặc thay draft. Syntax
+  lỗi giữ nội dung/tab. Save code vẫn được phép sau validation đầy đủ.
+- **CODE-03:** ID/Resource Type cố định theo context sửa; expected version ở
+  ngoài code. Unknown/system fields bị từ chối, không âm thầm lọc. Built-in
+  Definition không được sửa vẫn giữ guard.
+- **CODE-04:** Check dùng prepare hiện có, không ghi Definition/revision/deploy.
+  Save dùng canonical draft và PUT/version-CAS hiện có, không import insert-only.
+  Git chỉ resolve khi check; lưu đúng pin đã check. Edits/scope hủy kết quả cũ.
+- **CODE-05:** Error/stale/unknown outcome giữ draft, không tự replay. Explicit
+  reload mới thay bằng bản server. Success cập nhật version và dữ liệu canonical
+  cho hai tab; không tự đổi pin Environment.
+- **CODE-06:** Giữ shell, accessible tabs và lỗi ngắn; tạo mới giữ import hiện có.

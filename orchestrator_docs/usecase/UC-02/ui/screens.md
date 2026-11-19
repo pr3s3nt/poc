@@ -26,6 +26,11 @@ Loading/error metadata không được diễn giải là contract-only hoặc h�
 Thử lại và không CTA trước khi xác nhận. Metadata không bảo đảm deploy thành công.
 CTA mở form UC-03 chọn sẵn type, không tự đăng ký/triển khai.
 
+Driver có sẵn `endpoint`, `existing-cluster` và `template` không cần Terraform
+pin: khi capability API công bố cặp tương ứng, hiển thị hỗ trợ/CTA và đúng tên
+driver. Terraform vẫn cần verified pin. Không hardcode ID Type để tính hỗ trợ,
+không suy từ số Definition; gộp tên driver/module trùng giữa các revision.
+
 ## Đăng ký và sao chép schema
 
 Form gồm ID, các dòng tham số đầu vào và đầu ra. Types `string`, `number`,

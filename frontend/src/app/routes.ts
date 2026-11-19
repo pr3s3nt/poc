@@ -2,6 +2,7 @@ export type TelemetryRouteQuery = { from?: string; to?: string; workload?: strin
 
 export type Route =
   | { name: 'sign-in' }
+  | { name: 'setup' }
   | { name: 'applications' }
   | { name: 'resource-types' }
   | { name: 'resource-definitions'; resourceType?: string }
@@ -35,6 +36,7 @@ export function parseRoute(path = window.location.pathname): Route {
   const search = queryAt === -1 ? (path === window.location.pathname ? window.location.search : '') : path.slice(queryAt);
   const relative = pathname.startsWith(base) ? pathname.slice(base.length) || '/' : pathname;
   if (relative === '/' || relative === '/sign-in') return { name: 'sign-in' };
+  if (relative === '/setup') return { name: 'setup' };
   if (relative === '/applications') return { name: 'applications' };
   if (relative === '/platform/resource-types') return { name: 'resource-types' };
   if (relative === '/platform/resource-definitions') {
@@ -96,6 +98,7 @@ export function parseRoute(path = window.location.pathname): Route {
 
 export function href(route: Route): string {
   switch (route.name) {
+    case 'setup': return `${base}/setup`;
     case 'sign-in': return `${base}/sign-in`;
     case 'applications': return `${base}/applications`;
     case 'resource-types': return `${base}/platform/resource-types`;

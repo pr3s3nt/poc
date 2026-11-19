@@ -98,6 +98,24 @@ func Parse(b []byte) (*Document, error) {
 }
 
 func parse(b []byte) (*Document, error) {
+	var header struct {
+		APIVersion string `json:"apiVersion"`
+	}
+	_ = json.Unmarshal(b, &header)
+	if header.APIVersion == ScoreAPIVersion {
+		var raw map[string]any
+		if err := json.Unmarshal(b, &raw); err != nil {
+			return nil, err
+		}
+		converted, err := DecodeScore(raw, nil)
+		if err != nil {
+			return nil, err
+		}
+		b, err = json.Marshal(converted.Workload)
+		if err != nil {
+			return nil, err
+		}
+	}
 	b, replicaSet, err := normalizeDocument(b)
 	if err != nil {
 		return nil, err

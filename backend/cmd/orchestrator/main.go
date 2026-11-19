@@ -97,6 +97,7 @@ func main() {
 	bootstrapAdminPasswordFile := flag.String("bootstrap-admin-password-file", os.Getenv("ORCHESTRATOR_BOOTSTRAP_ADMIN_PASSWORD_FILE"), "owner-only file holding the password of the bootstrapped ADMIN account")
 	pruneDrift := flag.Bool("prune-drift-history", false, "explicit owner-only retention: bounded expiry of settled repair plans after 24h and unreferenced scans after 30d, then exit")
 	organizationFile := flag.String("organization-file", os.Getenv("ORCHESTRATOR_ORGANIZATION_FILE"), "owner-only JSON file containing installation Organization key and name")
+	setupTokenFile := flag.String("setup-token-file", os.Getenv("ORCHESTRATOR_SETUP_TOKEN_FILE"), "private operator token file enabling first-run browser setup on an empty installation")
 	flag.Parse()
 	if *pruneDrift {
 		if *setupDatabase {
@@ -148,6 +149,7 @@ func main() {
 	opts.NamespaceIdentity = *namespace
 	opts.ApplicationKey = *applicationKey
 	opts.Profile = *profile
+	optsOIDCFile := os.Getenv("ORCHESTRATOR_OIDC_CONFIG_FILE")
 	opts.Catalog = *seedCatalog
 	if opts.Profile == seed.ProfileAcceptanceV2 && (opts.Catalog == "" || opts.Catalog == seed.CatalogStaging) {
 		opts.Catalog = seed.CatalogNone
@@ -189,6 +191,8 @@ func main() {
 	}
 
 	app, err := bootstrap.Build(context.Background(), bootstrap.Options{
+		SetupTokenFile:                *setupTokenFile,
+		OIDCConfigFile:                optsOIDCFile,
 		RequireTemplateRenderer:       true,
 		Seed:                          opts,
 		UIDir:                         *uiDir,

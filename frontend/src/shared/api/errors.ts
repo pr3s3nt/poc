@@ -4,6 +4,9 @@
 import { t } from '../i18n';
 
 const messageTable = {
+ SCORE_SCHEMA_INVALID:t('workloads.score.schemaError'),
+ SCORE_UNSUPPORTED:t('workloads.score.unsupportedError'),
+ SCORE_PROFILE_INVALID:t('workloads.score.profileError'),
  PLATFORM_CD_REQUIRED:t('cd.platformRequired'),
  DELIVERY_REPOSITORY_UNAVAILABLE:t('cd.repositoryUnavailable'),
  DELIVERY_REPOSITORY_IDENTITY:t('cd.repositoryIdentity'),

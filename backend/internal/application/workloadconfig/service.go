@@ -190,6 +190,13 @@ func portNames(service *environment.Service) []string {
 }
 
 func (s *Service) Save(ctx context.Context, app, env, workload string, raw map[string]any, expectedVersion int64) (View, error) {
+	if raw["apiVersion"] == workloadspec.ScoreAPIVersion {
+		normalized, err := s.ImportDocument(ctx, app, env, raw, nil)
+		if err != nil {
+			return View{}, err
+		}
+		raw = normalized
+	}
 	doc, err := workloadspec.FromMap(raw)
 	if err != nil {
 		return View{}, err

@@ -628,6 +628,8 @@ type ProviderPin struct {
 	// Provider is the descriptor of the cluster resource node that supplies
 	// the target of a resource binding (the dependency edge points at it).
 	Provider string `json:"provider,omitempty"`
+	// Namespace is the authored namespace provider, when the cluster is inherited.
+	Namespace string `json:"namespace,omitempty"`
 	// ClusterProvider and ClusterAccount pin a Kubernetes binding whose cluster is created by a
 	// Terraform EKS module in the same plan (ADR-017): the producing cluster's AWS Driver Account
 	// (AccountVersion and Region describe it). No Kubernetes Connection supplies credentials then;

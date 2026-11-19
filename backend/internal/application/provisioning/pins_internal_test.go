@@ -15,6 +15,23 @@ func pinPlan(provider string) *planning.Plan {
 	return &planning.Plan{Graph: planning.Graph{Edges: []planning.Edge{{Consumer: "redis.default#modules.x", Provider: provider, Reason: planning.ReasonProviderBinding}}}}
 }
 
+func TestCheckPinsAgainstPlanFollowsOnlyThePinnedNamespaceCluster(t *testing.T) {
+	consumer, namespace, cluster := "postgres.default#modules.x", "k8s-namespace.default#environments.shop.staging", "k8s-cluster.internal#environments.shop.staging"
+	plan := &planning.Plan{Graph: planning.Graph{Edges: []planning.Edge{{Consumer: consumer, Provider: namespace, Reason: planning.ReasonProviderBinding}, {Consumer: namespace, Provider: cluster, Reason: planning.ReasonProviderBinding}}}, Placements: map[string]planning.Placement{
+		consumer: {Namespace: namespace, Cluster: cluster}, namespace: {Cluster: cluster},
+	}}
+	pin := tfmodule.ProviderPin{Kind: tfmodule.BindingKubernetes, Target: tfmodule.TargetResource, Provider: cluster, Namespace: namespace, Generation: 1, ConnectionKey: "lab", AccountVersion: 3}
+	account := application.Connection{Key: "lab", Version: 3}
+	ctx := pinContext("", "", "", 1)
+	if err := checkPinsAgainstPlan(plan, consumer, []tfmodule.ProviderPin{pin}, resource.Definition{}, account, ctx); err != nil {
+		t.Fatal(err)
+	}
+	plan.Placements[namespace] = planning.Placement{Cluster: "k8s-cluster.other#environments.shop.staging"}
+	if err := checkPinsAgainstPlan(plan, consumer, []tfmodule.ProviderPin{pin}, resource.Definition{}, account, ctx); !errors.Is(err, ErrProviderPin) {
+		t.Fatal("changed namespace cluster was accepted")
+	}
+}
+
 func pinContext(_ string, _ string, _ string, generation int64) planning.Context {
 	return planning.Context{Env: environment.Environment{TargetGeneration: generation}}
 }
