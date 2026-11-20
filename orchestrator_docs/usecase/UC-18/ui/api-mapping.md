@@ -27,3 +27,15 @@ Responses never contain secret values, Terraform state or credentials.
 Force uses the same preview and confirmation routes with optional `force: true`
 in both request bodies. A Force token is valid only for a Force confirmation.
 Omitting the field preserves the original API.
+
+## Xóa app khỏi DB
+
+| Thao tác | Method/path | Kết quả |
+|---|---|---|
+| Xác định quyền hiển thị | `GET /api/v1/applications` | `databasePurgeEnabled: true` cho Admin hoặc Platform Engineer khi owner đã bật tính năng |
+| Xem trước | `GET /database-purge` | `{preview}` gồm app UUID, tên, trạng thái writer và các định danh hạ tầng đã ghi nhận |
+| Xác nhận | `POST /database-purge` | `{applicationId, confirmationName, priorExecutionStopped}` → `204` sau khi transaction commit |
+
+API xác định Organization từ phiên đăng nhập. App đang DELETING vẫn có thể
+mở thao tác này. API trả `409` khi còn thao tác đang chạy hoặc chưa xác nhận
+executor bị gián đoạn đã dừng. UUID và tên được kiểm tra lại khi xác nhận.

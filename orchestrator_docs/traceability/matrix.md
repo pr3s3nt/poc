@@ -1731,3 +1731,9 @@ owned full-test namespace cleanup is verified. No main merge/acceptance claimed.
 | UC-02 TYPE-DEL-01..03, UC-03 DEF-DEL-01..03 | Scoped catalog deletion with a reference check and Environment version invalidation in one transaction | `TestCatalogDeletionRequiresScopedRoleAndNoReferences`; real PostgreSQL and Console confirmation |
 | UC-18 DEL-01..03 | Delivery withdrawal includes failed published units; Environment cleanup keeps original target and confirmed ownership | `TestApplicationWithdrawalIncludesFailedPublicationOutsideAppliedSet`; application deletion integration tests |
 | UC-18 DEL-04..10 | Persisted per-resource results, stopped-operation recovery, Force mode token and separate Settings action | `TestApplicationDeletionForceFromActiveBindsPreviewMode`; application deletion dialog and progress tests |
+## Application database purge — issue #94
+
+| Requirements | Implementation | Focused verification |
+|---|---|---|
+| UC-18 DBP-01..04 | Owner maintenance CLI and one scoped PostgreSQL transaction | `TestApplicationPurgeRemovesHeldHistoryAndReleasesCatalog` |
+| UC-18 DBP-05..07 | Settings action, session-scoped API, installation opt-in and fenced PostgreSQL purge | `TestDatabasePurgeOverHTTP`, `TestWebPurgeUpgradeRollsBackOnUnexpectedGrant`, `DatabasePurgeDialog.test.tsx` |

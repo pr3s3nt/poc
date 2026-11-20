@@ -69,7 +69,7 @@ var (
 // Verified Git render bundles (ADR-021) are insert-only like module bundles.
 func consoleGrants() []grant {
 	var out []grant
-	out = append(out, grant{table: "schema_baseline", privilege: "SELECT"}, grant{table: "schema_upgrade_history", privilege: "SELECT"})
+	out = append(out, grant{table: "schema_baseline", privilege: "SELECT"}, grant{table: "schema_upgrade_history", privilege: "SELECT"}, grant{table: "application_purge_policy", privilege: "SELECT"})
 	for _, table := range productTables {
 		for _, privilege := range []string{"SELECT", "INSERT", "UPDATE", "DELETE"} {
 			out = append(out, grant{table: table, privilege: privilege})
@@ -182,7 +182,16 @@ func grantStatements(role RuntimeRole, roleName string) []string {
 		}
 		out = append(out, "GRANT "+g.privilege+cols+" ON TABLE "+pgx.Identifier{g.table}.Sanitize()+" TO "+pgx.Identifier{roleName}.Sanitize())
 	}
+	if role == ConsoleRuntime {
+		out = append(out, webPurgeGrant(pgx.Identifier{roleName}.Sanitize()))
+	}
 	return out
+}
+
+const webPurgeSignature = "purge_one_application(text,text,uuid,text,boolean)"
+
+func webPurgeGrant(quotedRole string) string {
+	return "GRANT EXECUTE ON FUNCTION " + webPurgeSignature + " TO " + quotedRole
 }
 
 // expected reports whether role must hold privilege on table.column; an
@@ -301,10 +310,17 @@ func verifyPrivileges(ctx context.Context, tx pgx.Tx, schema string, roleOID uin
 	}
 
 	var executable int64
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1 AND has_function_privilege($2::oid,p.oid,'EXECUTE')`, schema, roleOID).Scan(&executable); err != nil {
+	var purgeExecute, grantable bool
+	if err := tx.QueryRow(ctx, `SELECT count(*),
+ COALESCE(bool_or(p.oid=to_regprocedure(format('%I.%s',$1::text,$3::text))),false),
+ COALESCE(bool_or(has_function_privilege($2::oid,p.oid,'EXECUTE WITH GRANT OPTION')),false)
+ FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname=$1 AND has_function_privilege($2::oid,p.oid,'EXECUTE')`,
+		schema, roleOID, webPurgeSignature).Scan(&executable, &purgeExecute, &grantable); err != nil {
 		return fmt.Errorf("inspect function privileges (%s)", sqlState(err))
 	}
-	if executable != 0 {
+	if grantable || (role == ConsoleRuntime && (executable != 1 || !purgeExecute)) ||
+		(role == StateRuntime && executable != 0) {
 		return mismatch("schema functions")
 	}
 

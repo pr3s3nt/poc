@@ -44,7 +44,13 @@ var versionNineSQL string
 var versionTenSQL string
 
 //go:embed migrations/version-011.sql
+var versionElevenSQL string
+
+//go:embed migrations/version-012.sql
 var versionSQL string
+
+//go:embed migrations/012-web-application-purge.sql
+var webPurgeUpgradeSQL string
 
 //go:embed migrations/011-oidc-identity.sql
 var oidcIdentityUpgradeSQL string
@@ -135,7 +141,10 @@ func recordUpgrade(ctx context.Context, tx pgx.Tx, source string) error {
 	if err := recordVersionTen(ctx, tx); err != nil {
 		return err
 	}
-	return recordVersionEleven(ctx, tx)
+	if err := recordVersionEleven(ctx, tx); err != nil {
+		return err
+	}
+	return recordVersionTwelve(ctx, tx)
 }
 func recordVersionOne(ctx context.Context, tx pgx.Tx, source string) error {
 	_, err := tx.Exec(ctx, `INSERT INTO schema_upgrade_history(version,migration_sha256,source_sha256) VALUES(1,$1,$2)`, migrationChecksum(), source)
@@ -193,8 +202,12 @@ func recordVersionEleven(ctx context.Context, tx pgx.Tx) error {
 	_, err := tx.Exec(ctx, `INSERT INTO schema_upgrade_history(version,migration_sha256,source_sha256) VALUES(11,$1,$2)`, digest(oidcIdentityUpgradeSQL), digest(versionTenSQL))
 	return err
 }
+func recordVersionTwelve(ctx context.Context, tx pgx.Tx) error {
+	_, err := tx.Exec(ctx, `INSERT INTO schema_upgrade_history(version,migration_sha256,source_sha256) VALUES(12,$1,$2)`, digest(webPurgeUpgradeSQL), digest(versionElevenSQL))
+	return err
+}
 func verifyUpgradeHistory(ctx context.Context, tx pgx.Tx) error {
-	return verifyHistoryThrough(ctx, tx, 11)
+	return verifyHistoryThrough(ctx, tx, 12)
 }
 func verifyHistoryThrough(ctx context.Context, tx pgx.Tx, want int) error {
 	rows, err := tx.Query(ctx, `SELECT version,migration_sha256,source_sha256 FROM schema_upgrade_history ORDER BY version`)
@@ -228,6 +241,8 @@ func verifyHistoryThrough(ctx context.Context, tx pgx.Tx, want int) error {
 			valid = valid && checksum == digest(managedDeliveryUpgradeSQL) && source == digest(versionFourSQL)
 		case 6:
 			valid = valid && checksum == digest(definitionVersionsUpgradeSQL) && source == digest(versionFiveSQL)
+		case 12:
+			valid = valid && checksum == digest(webPurgeUpgradeSQL) && source == digest(versionElevenSQL)
 		case 11:
 			valid = valid && checksum == digest(oidcIdentityUpgradeSQL) && source == digest(versionTenSQL)
 		case 10:
@@ -311,6 +326,7 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 		return false, nil
 	}
 	source := supportedSource(sum)
+	versionEleven := identity == "orchestrator-schema-v11" && sum == digest(versionElevenSQL)
 	versionTen := identity == "orchestrator-schema-v10" && sum == digest(versionTenSQL)
 	versionNine := identity == "orchestrator-schema-v9" && sum == digest(versionNineSQL)
 	versionEight := identity == "orchestrator-schema-v8" && sum == digest(versionEightSQL)
@@ -321,6 +337,9 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 	versionThree := identity == "orchestrator-schema-v3" && sum == digest(versionThreeSQL)
 	versionOne := identity == "orchestrator-schema-v1" && sum == digest(versionOneSQL)
 	versionTwo := identity == "orchestrator-schema-v2" && sum == digest(versionTwoSQL)
+	if versionEleven {
+		source = versionElevenSQL
+	}
 	if versionTen {
 		source = versionTenSQL
 	}
@@ -351,7 +370,7 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 	if versionTwo {
 		source = versionTwoSQL
 	}
-	if (!versionOne && !versionTwo && !versionThree && !versionFour && !versionFive && !versionSix && !versionSeven && !versionEight && !versionNine && !versionTen && (identity != "orchestrator-fresh-baseline-v02" || source == "")) || name != schema {
+	if (!versionOne && !versionTwo && !versionThree && !versionFour && !versionFive && !versionSix && !versionSeven && !versionEight && !versionNine && !versionTen && !versionEleven && (identity != "orchestrator-fresh-baseline-v02" || source == "")) || name != schema {
 		return false, resetRequired("unsupported source version; a reviewed migration is required")
 	}
 	var count int
@@ -367,6 +386,12 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 	}
 	if err = compareSchemaSQL(ctx, tx, schema, source); err != nil {
 		return false, err
+	}
+	if versionEleven {
+		if err = verifyHistoryThrough(ctx, tx, 11); err != nil {
+			return false, err
+		}
+		return finishWebPurgeUpgrade(ctx, tx, schema, roles)
 	}
 	if versionTen {
 		if err = verifyHistoryThrough(ctx, tx, 10); err != nil {
@@ -605,9 +630,6 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 	if _, err = tx.Exec(ctx, oidcIdentityUpgradeSQL); err != nil {
 		return false, fmt.Errorf("postgres: apply upgrade 11 (%s)", sqlState(err))
 	}
-	if err = compareSchemaSQL(ctx, tx, schema, versionSQL); err != nil {
-		return false, err
-	}
 	if err = recordVersionEleven(ctx, tx); err != nil {
 		return false, err
 	}
@@ -626,17 +648,37 @@ func upgradeDatabase(ctx context.Context, tx pgx.Tx, schema string, roles Roles)
 		}
 	}
 
-	actual, err = catalogDump(ctx, tx, schema)
-	if err != nil {
-		return false, err
-	}
-	if _, err = tx.Exec(ctx, `UPDATE schema_baseline SET baseline=$1,baseline_sha256=$2,catalog_sha256=$3`, baselineIdentity, digest(versionSQL), digest(strings.Join(actual, "\n"))); err != nil {
-		return false, fmt.Errorf("postgres: update version marker (%s)", sqlState(err))
-	}
 	for _, role := range []string{roles.Console, roles.State} {
 		if _, err = tx.Exec(ctx, `GRANT SELECT ON schema_upgrade_history TO `+pgx.Identifier{role}.Sanitize()); err != nil {
 			return false, fmt.Errorf("postgres: grant upgrade history (%s)", sqlState(err))
 		}
+	}
+	return finishWebPurgeUpgrade(ctx, tx, schema, roles)
+}
+
+func finishWebPurgeUpgrade(ctx context.Context, tx pgx.Tx, schema string, roles Roles) (bool, error) {
+	if _, err := tx.Exec(ctx, webPurgeUpgradeSQL); err != nil {
+		return false, fmt.Errorf("postgres: apply upgrade 12 (%s)", sqlState(err))
+	}
+	if err := compareSchemaSQL(ctx, tx, schema, versionSQL); err != nil {
+		return false, err
+	}
+	if err := recordVersionTwelve(ctx, tx); err != nil {
+		return false, err
+	}
+	console := pgx.Identifier{roles.Console}.Sanitize()
+	for _, query := range []string{`GRANT SELECT ON application_purge_policy TO ` + console, webPurgeGrant(console)} {
+		if _, err := tx.Exec(ctx, query); err != nil {
+			return false, fmt.Errorf("postgres: grant upgrade 12 (%s)", sqlState(err))
+		}
+	}
+	actual, err := catalogDump(ctx, tx, schema)
+	if err != nil {
+		return false, err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE schema_baseline SET baseline=$1,baseline_sha256=$2,catalog_sha256=$3`,
+		baselineIdentity, digest(versionSQL), digest(strings.Join(actual, "\n"))); err != nil {
+		return false, fmt.Errorf("postgres: update version marker (%s)", sqlState(err))
 	}
 	return true, nil
 }

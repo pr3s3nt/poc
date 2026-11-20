@@ -4370,5 +4370,14 @@
   "setup.incomplete": "Complete the steps required for your platform.",
   "setup.counts": "{types} Types · {definitions} Definitions",
   "setup.prerequisites": "Cluster, Vault, CD controllers, DNS/TLS and permissions must already exist. Setup does not verify successful workload deployment.",
-  "setup.forbidden": "Only Admins and Platform Engineers can configure the platform."
+  "setup.forbidden": "Only Admins and Platform Engineers can configure the platform.",
+  "applications.databasePurge.title": "Delete app from DB",
+  "applications.databasePurge.scope": "Application data in PostgreSQL will be permanently deleted. Remaining cluster resources require separate cleanup.",
+  "applications.databasePurge.inventory": "Resource identities",
+  "applications.databasePurge.loading": "Loading purge scope…",
+  "applications.databasePurge.previewFailed": "Could not load the database purge scope.",
+  "applications.databasePurge.busy": "A write operation is still running. Reload after it finishes.",
+  "applications.databasePurge.priorStopped": "I confirm the prior executor has stopped.",
+  "applications.databasePurge.failed": "Could not confirm database purge. Reload the scope before trying again.",
+  "applications.databasePurge.unknownOutcome": "The connection was lost. Reload the Application list to check the result."
 }

@@ -747,6 +747,14 @@ The Console also supports deleting unused Resource Definitions and custom
 Resource Types, with reference and built-in Type protection.
 [Main kind and catalog verification](verification/2026-11-19-application-catalog-deletion.md).
 
+Issue #94 adds a separate [database purge](operations/application-database-purge.md)
+for one test Application and its exclusive PostgreSQL history. It is available
+in Settings to Admin and Platform Engineer after the installation owner opts in.
+The maintenance CLI requires stopped installation writers. The PostgreSQL
+routine supports stalled DELETING Applications and preserves external resources
+for manual cleanup.
+[PostgreSQL and kind verification](verification/2026-11-19-application-database-purge.md).
+
 ## ZIP module and rendering sources — 2026-10-28
 
 [ADR-026](architecture/decisions/ADR-026-zip-source-upload.md) adds multipart ZIP

@@ -59,3 +59,11 @@ Place a separate Force delete button beside Delete Application in Settings.
 Show it for ACTIVE Applications and in Settings while a deletion is stalled.
 Reuse the scope layout and exact-name input with a distinct dialog title and
 confirmation label. Show unresolved ownership or operation blockers by Environment.
+
+## Xóa app khỏi DB — issue #94
+
+Admin và Platform Engineer thấy nút **Xóa app khỏi DB** trong Cài đặt của
+installation thử nghiệm đã bật tính năng. Dùng cùng vị trí thao tác nguy hiểm
+cho app ACTIVE và app đang DELETING. Dialog riêng hiển thị phạm vi PostgreSQL,
+namespace/Fleet đã biết, và ô xác nhận đúng tên app. Nếu có thao tác gián đoạn,
+người dùng phải xác minh lượt cũ đã dừng. Thành công trở về danh sách ứng dụng.
