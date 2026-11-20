@@ -17,6 +17,14 @@ export function privateDirectory(dir) {
 export function privateRead(file) { const s=lstatSync(file);requireThat(s.isFile()&&!s.isSymbolicLink()&&!(s.mode&0o077),'Private input must be a regular owner-only file');return readFileSync(file); }
 export function savePrivate(file,data,exclusive=false) { writeFileSync(file,data,{mode:0o600,flag:exclusive?'wx':'w'}); }
 export function digest(value){return createHash('sha256').update(typeof value==='string'?value:JSON.stringify(value)).digest('hex');}
+function usesInternalTLS(config) {
+ return config.environment !== 'staging' || config.tls !== undefined;
+}
+export function assertInstallationConfig(config, state) {
+ requireThat(state.context === config.context && state.namespace === config.namespace && state.environment === config.environment,
+  'Private inputs belong to another target');
+ requireThat(Boolean(state.tls) === usesInternalTLS(config), 'Cannot change internal TLS mode for a prepared installation');
+}
 export function loadConfig(file,{complete=true}={}) {
  const c=JSON.parse(readFileSync(file,'utf8'));
  requireThat(['kind','staging','production'].includes(c.environment),'Unknown environment');
@@ -34,6 +42,36 @@ export function loadConfig(file,{complete=true}={}) {
  return c;
 }
 export function readDocuments(text) { return parseAllDocuments(text,{uniqueKeys:true}).map(d=>{requireThat(!d.errors.length,'Invalid rendered YAML');return d.toJS()}).filter(Boolean); }
+function configurePlaintext(document, pod) {
+ const name = document.metadata.name;
+ if (document.kind === 'ConfigMap' && name.startsWith('vault-config-')) {
+  document.data['vault.hcl'] = document.data['vault.hcl']
+   .replace(/^[ \t]*tls_(?:cert|key)_file[ \t]*=.*\n/gm, '')
+   .replace('listener "tcp" {', 'listener "tcp" {\n  tls_disable = true')
+   .replace('https://vault:8200', 'http://vault:8200');
+ }
+ if (!pod || name === 'frontend') return;
+ if (name === 'vault') {
+  delete pod.initContainers;
+  pod.volumes = pod.volumes.filter(volume => !['private', 'scripts', 'source'].includes(volume.name));
+  const [vault] = pod.containers;
+  vault.env = [{name:'VAULT_ADDR', value:'http://127.0.0.1:8200'}];
+  vault.volumeMounts = vault.volumeMounts.filter(mount => mount.name !== 'private');
+  return;
+ }
+ const source = pod.volumes.find(volume => volume.name === 'source').projected;
+ source.sources = source.sources.filter(entry => !['postgres-tls', 'orchestrator-trust'].includes(entry.secret?.name));
+ for (const container of pod.containers) {
+  if (container.env) {
+   container.env = container.env.filter(entry => !['SSL_CERT_FILE', 'VAULT_CACERT'].includes(entry.name));
+   for (const entry of container.env) {
+    if (entry.value === 'https://vault:8200') entry.value = 'http://vault:8200';
+   }
+  }
+  container.volumeMounts = container.volumeMounts.filter(mount => !['postgres-require-tls.sh', 'vault-ca.crt'].includes(mount.subPath));
+ }
+ if (name === 'postgres') pod.containers[0].args = ['-c', 'ssl=off'];
+}
 export function render(c,installationID='unprepared') {
  const yaml=execFileSync('kubectl',['kustomize',join(root,'deploy/kubernetes/overlays',c.environment)],{encoding:'utf8',maxBuffer:8<<20});
  const docs=readDocuments(yaml);
@@ -44,6 +82,7 @@ export function render(c,installationID='unprepared') {
   if(d.kind==='PersistentVolumeClaim'){d.spec.storageClassName=c.storage.class;d.spec.resources.requests.storage=c.storage[d.metadata.name.replace('-data','')];}
   if(d.kind==='HTTPRoute'){d.spec.hostnames=[c.hostname];d.spec.parentRefs=[{name:c.gateway.name,namespace:c.gateway.namespace,sectionName:c.gateway.listener}];}
   const pod=d.kind==='Deployment'?d.spec.template.spec:d.kind==='Job'?d.spec.template.spec:undefined;
+  if(!usesInternalTLS(c))configurePlaintext(d,pod);
   if(pod){
    d.spec.template.metadata.labels={...d.spec.template.metadata.labels,'app.kubernetes.io/managed-by':owner,'orchestrator.dev/installation':installationID};
    if(c.imagePullSecrets?.length)pod.imagePullSecrets=c.imagePullSecrets.map(name=>({name}));
@@ -62,13 +101,13 @@ export function render(c,installationID='unprepared') {
 export const serialize=docs=>docs.map(d=>stringify(d)).join('---\n');
 function runSSL(args){try{return execFileSync('openssl',args,{stdio:['ignore','pipe','pipe']});}catch{throw new Error('Certificate preparation/validation failed');}}
 export function prepare(dir,c,{testCertificates=false}={}) {
+ requireThat(!testCertificates || c.environment === 'kind','Test CA generation is restricted to kind');
  dir=privateDirectory(dir);const file=join(dir,'installation.json');
- if(existsSync(file)){const state=JSON.parse(privateRead(file));requireThat(state.context===c.context&&state.namespace===c.namespace&&state.environment===c.environment,'Private state belongs to another target');return state;}
+ if(existsSync(file)){const state=JSON.parse(privateRead(file));assertInstallationConfig(c,state);return state;}
  requireThat(!existsSync(join(dir,'prepare-intent')),'Interrupted preparation requires operator recovery');savePrivate(join(dir,'prepare-intent'),'Preparing independent installation\n',true);
  const hex=n=>randomBytes(n).toString('hex');
  const s={id:randomUUID(),context:c.context,namespace:c.namespace,environment:c.environment,passwords:{postgres:hex(24),owner:hex(24),console:hex(24),state:hex(24)},stateKey:hex(32),setupToken:hex(32),vaultTokens:{'connection-token':'orch-'+hex(32),'output-token':'orch-'+hex(32),'app-token':'orch-'+hex(32)}};
  if(testCertificates){
-  requireThat(c.environment==='kind','Test CA generation is restricted to kind');
   const ca=join(dir,'ca.crt'),key=join(dir,'ca.key');
   runSSL(['req','-x509','-newkey','rsa:3072','-nodes','-keyout',key,'-out',ca,'-days','30','-subj','/CN=Orchestrator kind fixture']);
   s.tls={};
@@ -78,14 +117,21 @@ export function prepare(dir,c,{testCertificates=false}={}) {
    runSSL(['x509','-req','-in',prefix+'.csr','-CA',ca,'-CAkey',key,'-CAcreateserial','-out',prefix+'.crt','-days','30','-extfile',prefix+'.ext']);
    s.tls[name]={ca,cert:prefix+'.crt',key:prefix+'.key'};
   }
- }else{s.tls=c.tls;requireThat(s.tls?.postgres&&s.tls?.vault,'Supply PostgreSQL/Vault TLS file paths');}
- for(const name of ['postgres','vault']){const tls=s.tls[name];requireThat(tls.ca&&tls.cert&&tls.key,'Missing TLS file');const key=privateRead(tls.key);let matches=false;try{matches=new X509Certificate(readFileSync(tls.cert)).publicKey.export({type:'spki',format:'der'}).equals(createPublicKey(key).export({type:'spki',format:'der'}));}catch{throw new Error('Invalid TLS certificate/key material');}requireThat(matches,'TLS certificate and private key do not match');runSSL(['verify','-CAfile',tls.ca,tls.cert]);runSSL(['x509','-in',tls.cert,'-noout','-checkhost',name]);}
+ }else if(usesInternalTLS(c)){s.tls=c.tls;}
+ if(usesInternalTLS(c)){
+  requireThat(s.tls?.postgres&&s.tls?.vault,'Supply PostgreSQL/Vault TLS file paths');
+  for(const name of ['postgres','vault']){const tls=s.tls[name];requireThat(tls.ca&&tls.cert&&tls.key,'Missing TLS file');const key=privateRead(tls.key);let matches=false;try{matches=new X509Certificate(readFileSync(tls.cert)).publicKey.export({type:'spki',format:'der'}).equals(createPublicKey(key).export({type:'spki',format:'der'}));}catch{throw new Error('Invalid TLS certificate/key material');}requireThat(matches,'TLS certificate and private key do not match');runSSL(['verify','-CAfile',tls.ca,tls.cert]);runSSL(['x509','-in',tls.cert,'-noout','-checkhost',name]);}
+ }
  savePrivate(file,JSON.stringify(s,null,2)+'\n',true);savePrivate(join(dir,'setup-token'),s.setupToken+'\n',true);return s;
 }
 export function desiredSecrets(c,s,{vault=false}={}) {
- const url=role=>`postgres://orchestrator_${role}:${s.passwords[role]}@postgres:5432/orchestrator?sslmode=verify-full&sslrootcert=/private/postgres-ca.crt`;
- const values={'orchestrator-postgres':{password:s.passwords.postgres},'orchestrator-db-roles':{owner:s.passwords.owner,console:s.passwords.console,state:s.passwords.state},'orchestrator-runtime':{'console-database-url':url('console'),'state-database-url':url('state')},'orchestrator-owner':{'database-url':url('owner')},'orchestrator-state-key':{key:s.stateKey},'orchestrator-setup':{'setup-token':s.setupToken},'orchestrator-trust':{'postgres-ca.crt':readFileSync(s.tls.postgres.ca),'vault-ca.crt':readFileSync(s.tls.vault.ca)}};
- for(const n of ['postgres','vault'])values[n+'-tls']={'tls.crt':readFileSync(s.tls[n].cert),'tls.key':privateRead(s.tls[n].key)};
+ const ssl=s.tls?'sslmode=verify-full&sslrootcert=/private/postgres-ca.crt':'sslmode=disable';
+ const url=role=>`postgres://orchestrator_${role}:${s.passwords[role]}@postgres:5432/orchestrator?${ssl}`;
+ const values={'orchestrator-postgres':{password:s.passwords.postgres},'orchestrator-db-roles':{owner:s.passwords.owner,console:s.passwords.console,state:s.passwords.state},'orchestrator-runtime':{'console-database-url':url('console'),'state-database-url':url('state')},'orchestrator-owner':{'database-url':url('owner')},'orchestrator-state-key':{key:s.stateKey},'orchestrator-setup':{'setup-token':s.setupToken}};
+ if(s.tls){
+  values['orchestrator-trust']={'postgres-ca.crt':readFileSync(s.tls.postgres.ca),'vault-ca.crt':readFileSync(s.tls.vault.ca)};
+  for(const n of ['postgres','vault'])values[n+'-tls']={'tls.crt':readFileSync(s.tls[n].cert),'tls.key':privateRead(s.tls[n].key)};
+ }
  if(vault)values['orchestrator-vault-runtime']=s.vaultTokens;
  return Object.entries(values).map(([name,data])=>({apiVersion:'v1',kind:'Secret',type:'Opaque',metadata:{name,namespace:c.namespace,labels:{'app.kubernetes.io/managed-by':owner,'orchestrator.dev/installation':s.id}},data:Object.fromEntries(Object.entries(data).map(([k,v])=>[k,Buffer.from(v).toString('base64')]))}));
 }

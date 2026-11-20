@@ -52,11 +52,15 @@ outside Git in operator-owned mode-0700 directories and mode-0600 files.
 6. Browser creates Organization/Admin using SETUP-01/02, then ordinary product
    configuration/Git init APIs. No fixed Admin, Organization or business catalog seed.
 
-PostgreSQL and Vault use TLS with operator-supplied trust/certificate Secrets;
-kind may explicitly generate a task-owned test CA outside Git. Staging/production
-samples require reviewed image digests, certificates and Gateway HTTPS settings;
-unresolved placeholders cannot deploy. Hostname, trust and ownership are checked,
-never bypassed with insecure TLS. Backend/frontend initially have one replica;
+For a new staging installation, omitting the optional `tls` configuration selects
+plaintext PostgreSQL and HTTP Vault on internal Services. Use this mode only on a
+trusted cluster network because credentials and data traverse it unencrypted.
+Keep the transport selected during preparation for the lifetime of the installation.
+With `tls` configured, staging verifies PostgreSQL and Vault certificates against
+operator-supplied trust. Production requires that TLS configuration. Kind requires
+TLS and may explicitly generate a task-owned test CA outside Git. Staging and
+production require reviewed image digests and Gateway HTTPS settings.
+Backend/frontend initially have one replica;
 backend uses Recreate with retained workspace. This package does not establish HA.
 
 ## Upgrade and retained data

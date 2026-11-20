@@ -12,7 +12,7 @@ PostgreSQL/Vault/state key/setup token, no fixed Organization/Admin/catalog.
   Gateway must permit this namespace. This package never installs or widens them.
 - StorageClass supporting three RWO PVCs; reviewed backend/frontend/PostgreSQL/Vault
   images and registry access. Initial backend/frontend/PostgreSQL/Vault are single
-  replicas; this is not an HA package. PostgreSQL/Vault require TLS, not dev mode.
+  replicas; this is not an HA package. Vault always uses persistent server mode.
 - Explicit operator Kubernetes context, with permissions confined to the installation
   resources and read access to its existing Gateway. No runtime ServiceAccount token,
   ClusterRole or shared RBAC is created. VSO/Fleet/workload permissions are separate
@@ -30,7 +30,7 @@ There are no duplicated credential policies or changes to the older kind/main
 installation. Rootless Docker/WSL, local image loading and test domains are not
 requirements of the staging package.
 
-Preview ordinary Kustomize YAML without touching a cluster:
+Preview the overlay before installer substitutions without touching a cluster:
 
 ```sh
 kubectl kustomize deploy/kubernetes/overlays/staging
@@ -45,12 +45,21 @@ Backend/frontend should use the exact same release digests promoted from staging
 Local kind may use reviewed locally loaded tags and its existing HTTP listener.
 Do not point the kind overlay at the main Console's namespace.
 
-Supply absolute paths to `tls.postgres` and `tls.vault` CA/cert/private-key files.
+For a new staging installation on a trusted cluster network, omit `tls` as in the
+staging sample. The installer uses PostgreSQL with `sslmode=disable` and Vault
+over HTTP on internal Services. Database credentials and Vault traffic are
+unencrypted on the cluster network in this mode. The Console still uses HTTPS
+at the Gateway. Use the installer's `render` command to see the selected transport.
+
+To enable internal TLS on staging, copy the `tls` object from the production
+sample. Production requires this configuration. Supply absolute paths to
+`tls.postgres` and `tls.vault` CA/cert/private-key files.
 Certificates must validate for service DNS names postgres/vault and the appropriate
 namespace DNS names; trust/chain and hostname checks must pass. Private keys must
 be regular owner-only files and match their corresponding certificates. Test CA generation is allowed only with explicit
 `--test-certificates` on the kind environment; never promote its short-lived test
-certificates to staging/production. Use your reviewed PKI there.
+certificates to staging/production. Use your reviewed PKI there. Keep the internal
+TLS mode selected by `prepare` for the lifetime of the installation.
 
 ## New installation
 
@@ -74,7 +83,7 @@ node scripts/kubernetes/run.mjs install --config /private/installation/config.js
 
 For the task-owned kind trial only, prepare may add `--test-certificates`. Install
 never initializes/unseals Vault in a background Pod. `dependencies` waits for
-PostgreSQL and proves Vault process/TLS reachability; Vault can still be sealed.
+PostgreSQL and proves Vault reachability. Vault can still be sealed.
 `vault-init` is the explicit operator action: it creates five Shamir shares with
 threshold three, saves the complete response privately outside the cluster, unseals
 and configures KV v2 plus the three canonical scoped policies/tokens. No root token
@@ -83,8 +92,9 @@ mount. The operator must archive/distribute shares using their custody procedure
 keeping the combined response privately is not split-person custody by itself.
 
 Scope tokens are periodic and renewed by a sidecar that mounts only the three scoped
-token files and public Vault CA. Backend mounts Console/State runtime database URLs,
-state key, setup token, scoped tokens and public trust; it cannot mount database
+token files and, with TLS enabled, the public Vault CA. Backend mounts Console/State
+runtime database URLs, state key, setup token, scoped tokens and TLS trust when
+configured. It cannot mount database
 owner/superuser credentials. The database Job alone gets owner authorization.
 Root initContainers only normalize private-file ownership into emptyDir before
 non-root consumers start; credentials are never made group/world readable.
@@ -118,8 +128,9 @@ can instead reference an owner-only JSON file with `keys: [share1, share2, share
 Root authorization is not required to unseal. Scoped token expiry/revocation is an
 explicit operator recovery/rotation action, never silent regeneration by install.
 Private state and Kubernetes Secrets must remain together with their matching data.
-Check requires all four single replicas running and validates ownership, Secret data, database installation identity, TLS service
-readiness and Accepted/ResolvedRefs HTTPRoute; it never creates missing credentials.
+Check requires all four single replicas running and validates ownership, Secret
+data, database installation identity, dependency readiness and HTTPRoute
+Accepted/ResolvedRefs conditions. It never creates missing credentials.
 
 ## Upgrade and backup
 

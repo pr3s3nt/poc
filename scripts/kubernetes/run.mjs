@@ -3,8 +3,9 @@ import { execFileSync, spawn } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, openSync, closeSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { request as httpsRequest } from 'node:https';
+import { request as httpRequest } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { loadConfig, privateDirectory, privateRead, savePrivate, prepare, render, serialize, desiredSecrets, sameSecret, assertNamespace, requireThat, digest, root, owner, archiveListingScript } from './model.mjs';
+import { loadConfig, privateDirectory, privateRead, savePrivate, prepare, render, serialize, desiredSecrets, sameSecret, assertNamespace, assertInstallationConfig, requireThat, digest, root, owner, archiveListingScript } from './model.mjs';
 
 const args=process.argv.slice(2),command=args.shift();
 const options={};for(let i=0;i<args.length;i++){requireThat(args[i].startsWith('--'),'Unknown argument');const key=args[i].slice(2);options[key]=args[i+1]&&!args[i+1].startsWith('--')?args[++i]:true;}
@@ -17,7 +18,7 @@ try{
  let state;
  if(command==='prepare') {state=prepare(dir,c,{testCertificates:options['test-certificates']===true});console.log('Private installation inputs prepared; setup token is in the private directory');process.exit(0);}
  requireThat(existsSync(statePath),'Run prepare first');state=JSON.parse(privateRead(statePath));
- requireThat(state.context===c.context&&state.namespace===c.namespace&&state.environment===c.environment,'Private inputs belong to another target');
+ assertInstallationConfig(c,state);
  const docs=render(c,state.id);
  if(command==='render'){requireThat(options.output,'Use --output to write rendered nonsecret manifests');const out=resolve(options.output);requireThat(out.startsWith(dir+'/'),'Render output must be in private directory');savePrivate(out,serialize(docs));console.log('Nonsecret manifests rendered');process.exit(0);}
  requireThat(options.context===c.context&&typeof options.kubeconfig==='string','Explicit --kubeconfig and matching --context required');
@@ -48,10 +49,10 @@ try{
  const waitPodsDeleted=name=>scoped(['wait','--for=delete','pod','-l','app='+name,'--timeout=180s']);
  const scale=(name,count)=>{const d=get('deployment',name);requireThat(d&&d.metadata.labels?.['orchestrator.dev/installation']===state.id,'Missing owned deployment '+name);scoped(['scale','deployment/'+name,'--replicas='+count]);};
  async function vaultForward(){
-  // Running is earlier than the TLS listener. A refused first connection kills
+  // Running is earlier than the Vault listener. A refused first connection kills
   // kubectl port-forward, so wait locally before opening the operator tunnel.
   const deadline=Date.now()+180000;
-  for(;;){try{scoped(['exec','deployment/vault','-c','vault','--','sh','-ec','set +e; vault status >/dev/null 2>&1; code=$?; [ "$code" = 0 ] || [ "$code" = 2 ]']);break;}catch{requireThat(Date.now()<deadline,'Vault TLS listener did not become reachable');await new Promise(r=>setTimeout(r,1000));}}
+  for(;;){try{scoped(['exec','deployment/vault','-c','vault','--','sh','-ec','set +e; vault status >/dev/null 2>&1; code=$?; [ "$code" = 0 ] || [ "$code" = 2 ]']);break;}catch{requireThat(Date.now()<deadline,'Vault listener did not become reachable');await new Promise(r=>setTimeout(r,1000));}}
   const child=spawn('kubectl',[...kube,'-n',c.namespace,'port-forward','--address=127.0.0.1','service/vault',':8200','--pod-running-timeout=120s'],{stdio:['ignore','pipe','pipe']});
   let timeout;const port=await new Promise((resolve,reject)=>{
    timeout=setTimeout(()=>reject(new Error('Vault port-forward did not become ready')),130000);
@@ -60,7 +61,9 @@ try{
   }).catch(err=>{child.kill();throw err;}).finally(()=>clearTimeout(timeout));
   return {close:()=>child.kill('SIGTERM'),call:(path,{method='GET',body,token,allow=[]}={})=>new Promise((resolve,reject)=>{
    const data=body===undefined?undefined:JSON.stringify(body);
-   const req=httpsRequest({hostname:'127.0.0.1',port,servername:'vault',ca:readFileSync(state.tls.vault.ca),path:'/v1/'+path,method,headers:{...(token?{'X-Vault-Token':token}:{}),...(data?{'Content-Type':'application/json','Content-Length':Buffer.byteLength(data)}:{})}},res=>{
+   const request=state.tls?httpsRequest:httpRequest;
+   const trust=state.tls?{servername:'vault',ca:readFileSync(state.tls.vault.ca)}:{};
+   const req=request({hostname:'127.0.0.1',port,...trust,path:'/v1/'+path,method,headers:{...(token?{'X-Vault-Token':token}:{}),...(data?{'Content-Type':'application/json','Content-Length':Buffer.byteLength(data)}:{})}},res=>{
     let text='';res.on('data',chunk=>{text+=chunk;if(text.length>2<<20)req.destroy()});res.on('end',()=>{if((res.statusCode<200||res.statusCode>=300)&&!allow.includes(res.statusCode))return reject(new Error('Vault request rejected ('+path+', HTTP '+res.statusCode+')'));try{resolve({status:res.statusCode,value:text?JSON.parse(text):{}})}catch{reject(new Error('Invalid Vault response'))}});
    });req.setTimeout(20000,()=>req.destroy());req.on('error',()=>reject(new Error('Vault transport failed; no automatic replay')));if(data)req.write(data);req.end();
   })};
@@ -133,7 +136,7 @@ try{
  async function check(){
   ownership();for(const name of ['postgres','vault','backend','frontend'])requireThat(get('deployment',name)?.spec.replicas===1,'Expected running single replica for '+name);checkGateway();assertStorage();secrets(true,true);await readyVault();rollout('postgres');assertDatabase();rollout('vault');rollout('backend');rollout('frontend');
   const route=get('httproute','console');requireThat(route?.status?.parents?.some(p=>p.conditions?.some(x=>x.type==='Accepted'&&x.status==='True')&&p.conditions?.some(x=>x.type==='ResolvedRefs'&&x.status==='True')),'HTTPRoute not accepted/resolved');
-  console.log('Owned installation, TLS dependencies, rollouts and HTTPRoute checked; browser acceptance is separate');
+  console.log('Owned installation, dependency readiness, rollouts and HTTPRoute checked; browser acceptance is separate');
  }
  async function install(dependenciesOnly=false){
   checkGateway();let ns=getNamespace();
@@ -167,7 +170,9 @@ try{
    finally{const live=get('pod',name);if(live){requireThat(live.metadata.uid===created.metadata.uid&&live.metadata.labels?.['orchestrator.dev/installation']===state.id,'Backup Pod ownership changed');scoped(['delete','--raw',`/api/v1/namespaces/${c.namespace}/pods/${name}`,'-f','-'],JSON.stringify({apiVersion:'v1',kind:'DeleteOptions',preconditions:{uid:live.metadata.uid,resourceVersion:live.metadata.resourceVersion}}));scoped(['wait','--for=delete','pod/'+name,'--timeout=180s']);}}
   }
   savePrivate(join(destination,'installation.json'),privateRead(statePath),true);if(existsSync(join(dir,'vault-init.json')))savePrivate(join(destination,'vault-init.json'),privateRead(join(dir,'vault-init.json')),true);
-  for(const service of ['postgres','vault'])for(const type of ['ca','cert','key'])savePrivate(join(destination,service+'-'+type+'.pem'),readFileSync(state.tls[service][type]),true);
+  if(state.tls){
+   for(const service of ['postgres','vault'])for(const type of ['ca','cert','key'])savePrivate(join(destination,service+'-'+type+'.pem'),readFileSync(state.tls[service][type]),true);
+  }
   receipt.complete=true;savePrivate(join(destination,'receipt.json'),JSON.stringify(receipt,null,2)+'\n');
   console.log('Private database/data backup archives validated; writers and Vault remain stopped until explicit resume/upgrade');return destination;
  }

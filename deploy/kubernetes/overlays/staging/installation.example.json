@@ -7,6 +7,5 @@
   "gateway": {"name": "CHANGE_ME_GATEWAY", "namespace": "CHANGE_ME_GATEWAY_NAMESPACE", "listener": "CHANGE_ME_HTTPS_LISTENER"},
   "storage": {"class": "CHANGE_ME_STORAGE_CLASS", "postgres": "8Gi", "vault": "4Gi", "backend": "8Gi"},
   "images": {"backend": "CHANGE_ME_BACKEND_DIGEST", "frontend": "CHANGE_ME_FRONTEND_DIGEST", "postgres": "CHANGE_ME_POSTGRES_DIGEST", "vault": "CHANGE_ME_VAULT_DIGEST"},
-  "imagePullSecrets": [],
-  "tls": {"postgres": {"ca": "/private/postgres-ca.crt", "cert": "/private/postgres.crt", "key": "/private/postgres.key"}, "vault": {"ca": "/private/vault-ca.crt", "cert": "/private/vault.crt", "key": "/private/vault.key"}}
+  "imagePullSecrets": []
 }
