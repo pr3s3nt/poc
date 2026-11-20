@@ -28,8 +28,37 @@ test('secret reuse compares complete byte data without allowing silent rotation'
 test('private material is excluded from Git and rejects broad permissions',()=>{
  const dir=mkdtempSync(join(tmpdir(),'manifest-private-'));try{chmodSync(dir,0o700);assert.equal(privateDirectory(dir),dir);chmodSync(dir,0o755);assert.throws(()=>privateDirectory(dir));chmodSync(dir,0o700);mkdirSync(join(dir,'.git'));assert.throws(()=>privateDirectory(dir));}finally{rmSync(dir,{recursive:true,force:true});}
 });
-test('staging deployment requires completed configuration, HTTPS and digest pins',()=>{
- const dir=mkdtempSync(join(tmpdir(),'manifest-config-'));const file=join(dir,'config.json');try{writeFileSync(file,JSON.stringify({...config,environment:'staging'}));assert.throws(()=>loadConfig(file));const c={...config,environment:'staging',scheme:'https',images:Object.fromEntries(Object.keys(config.images).map(k=>[k,'registry.example.com/'+k+'@sha256:'+'a'.repeat(64)]))};writeFileSync(file,JSON.stringify(c));assert.equal(loadConfig(file).environment,'staging');writeFileSync(file,JSON.stringify({...c,hostname:'CHANGE_ME_HOSTNAME'}));assert.throws(()=>loadConfig(file));}finally{rmSync(dir,{recursive:true,force:true});}
+test('staging accepts mixed image tags and digests while production requires all digests',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'manifest-config-'));
+ const file=join(dir,'config.json');
+ const load=configuration=>{
+  writeFileSync(file,JSON.stringify(configuration));
+  return loadConfig(file);
+ };
+ const digest='sha256:'+'a'.repeat(64);
+ const staging={...config,environment:'staging',scheme:'https',images:{
+  ...config.images,
+  backend:'registry.example.com:5000/orchestrator/backend:v1.2.3',
+  frontend:'registry.example.com/orchestrator/frontend@'+digest,
+ }};
+ try{
+  assert.deepEqual(load(staging),staging);
+  const manifests=render(load(staging));
+  for(const name of Object.keys(staging.images)){
+   const deployment=manifests.find(document=>document.kind==='Deployment'&&document.metadata.name===name);
+   assert.equal(deployment.spec.template.spec.containers[0].image,staging.images[name]);
+  }
+  assert.throws(()=>load({...staging,scheme:'http'}),/require an HTTPS Gateway listener/);
+  assert.throws(()=>load({...staging,hostname:'CHANGE_ME_HOSTNAME'}),/Resolve configuration placeholders/);
+  for(const image of ['postgres','postgres@sha256:short','postgres:invalid:tag']){
+   assert.throws(()=>load({...staging,images:{...staging.images,postgres:image}}),/explicit tag or SHA-256 digest/);
+  }
+
+  const production={...staging,environment:'production'};
+  assert.throws(()=>load(production),/Production requires immutable image digests/);
+  const pinnedImages=Object.fromEntries(Object.keys(production.images).map(name=>[name,'registry.example.com/'+name+'@'+digest]));
+  assert.deepEqual(load({...production,images:pinnedImages}).images,pinnedImages);
+ }finally{rmSync(dir,{recursive:true,force:true});}
 });
 
 test('new staging without internal TLS renders compatible services, clients and secrets',()=>{

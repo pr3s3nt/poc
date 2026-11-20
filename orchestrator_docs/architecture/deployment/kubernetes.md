@@ -58,8 +58,10 @@ trusted cluster network because credentials and data traverse it unencrypted.
 Keep the transport selected during preparation for the lifetime of the installation.
 With `tls` configured, staging verifies PostgreSQL and Vault certificates against
 operator-supplied trust. Production requires that TLS configuration. Kind requires
-TLS and may explicitly generate a task-owned test CA outside Git. Staging and
-production require reviewed image digests and Gateway HTTPS settings.
+TLS and may explicitly generate a task-owned test CA outside Git. Staging accepts
+explicit image tags or SHA-256 digests. Production requires reviewed image digests.
+Both environments require Gateway HTTPS settings. Use a new tag or digest for a new
+release so the installer can detect the change.
 Backend/frontend initially have one replica;
 backend uses Recreate with retained workspace. This package does not establish HA.
 

@@ -39,9 +39,12 @@ kubectl kustomize deploy/kubernetes/overlays/staging
 The checked-in examples deliberately contain CHANGE_ME placeholders. Copy the
 selected `installation.example.json` outside Git and fill context, namespace,
 hostname/scheme, Gateway namespace/name/listener, StorageClass/sizes, image references
-and optional existing imagePullSecret names. Staging/production require HTTPS and
-image digests for all four images; unresolved configuration refuses deployment.
-Backend/frontend should use the exact same release digests promoted from staging.
+and optional existing imagePullSecret names. Staging and production require HTTPS.
+In staging, each of the four images can use an explicit tag, such as
+`postgres:16-alpine`, or a SHA-256 digest. You can mix tags and digests in one
+configuration. Production requires digests for all four images. Use the digests
+of the backend and frontend images verified on staging when promoting to production.
+Unresolved configuration refuses deployment.
 Local kind may use reviewed locally loaded tags and its existing HTTP listener.
 Do not point the kind overlay at the main Console's namespace.
 
@@ -134,8 +137,11 @@ Accepted/ResolvedRefs conditions. It never creates missing credentials.
 
 ## Upgrade and backup
 
-Review target image digests/configuration first and have the matching private
-installation inputs. Resolve active/interrupted operations before upgrade. The
+Review target image references and configuration first and have the matching
+private installation inputs. If using staging tags, choose a new version tag for
+each changed image. Repointing a tag in the registry can change the image pulled
+on Pod restart without changing the release the installer sees.
+Resolve active/interrupted operations before upgrade. The
 runner checks them before and after writer quiescence, scales backend/frontend
 to zero, takes a custom-format database dump and verifies its archive listing.
 It stops Vault to archive its file backend consistently and archives the backend

@@ -5,6 +5,8 @@ import { execFileSync } from 'node:child_process';
 import { parseAllDocuments, stringify } from 'yaml';
 export const root = resolve(new URL('../..', import.meta.url).pathname);
 export const owner = 'orchestrator-installer';
+const imageDigest = /^[^@]+@sha256:[a-f0-9]{64}$/;
+const imageTag = /(?:^|\/)[^:@/]+:\w[\w.-]{0,127}$/;
 // pg_restore --list can finish after the TOC. Drain the remaining stream so
 // kubectl does not wait forever on a stdin copier, preserving the tool status.
 export const archiveListingScript = 'pg_restore --list; status=$?; cat >/dev/null; exit "$status"';
@@ -36,7 +38,10 @@ export function loadConfig(file,{complete=true}={}) {
   requireThat(c.environment==='kind'||c.scheme==='https','Staging/production require an HTTPS Gateway listener');
   for(const name of ['backend','frontend','postgres','vault'])requireThat(typeof c.images[name]==='string'&&c.images[name],'All four images are required');
   for(const image of Object.values(c.images))requireThat(typeof image==='string'&&image&&!/\s/.test(image),'Invalid image');
-  if(c.environment!=='kind')for(const image of Object.values(c.images))requireThat(/@sha256:[a-f0-9]{64}$/.test(image),'Staging/production require immutable image digests');
+  for(const image of Object.values(c.images)){
+   if(c.environment==='production')requireThat(imageDigest.test(image),'Production requires immutable image digests');
+   if(c.environment==='staging')requireThat(imageDigest.test(image)||(!image.includes('@')&&imageTag.test(image)),'Staging images require an explicit tag or SHA-256 digest');
+  }
   for(const n of ['postgres','vault','backend'])requireThat(/^\d+(Gi|Mi)$/.test(c.storage[n]),'Invalid PVC size');
  }
  return c;
