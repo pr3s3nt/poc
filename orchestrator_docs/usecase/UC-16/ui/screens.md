@@ -318,6 +318,11 @@ từng container, cùng ranh giới lưu của Secret. Các ví dụ dùng dữ 
 Hành vi của hai màn hình do [UC-16](../specification.md) và
 [đặc tả .env](../envfile-specification.md) quy định.
 
+Bài **Ví dụ triển khai Keycloak** tại `/ui/docs/deploy-keycloak` trình bày luồng
+VI/EN với một Application thử, Secret quản trị, hai file Score và extension,
+PostgreSQL mới và endpoint qua Gateway. Bài dùng các màn hiện hành từ tạo
+Application đến xác nhận triển khai rồi mở trang quản trị Keycloak.
+
 ## Score import/export — issue #83
 
 Restore the existing form/import tabs. Import accepts a Score file plus an optional

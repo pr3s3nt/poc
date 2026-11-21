@@ -4,6 +4,7 @@ import { t } from '../../shared/i18n';
 import { CreateApplicationGuide } from './CreateApplicationGuide';
 import { CreateWorkloadGuide } from './CreateWorkloadGuide';
 import { EnvFileGuide } from './EnvFileGuide';
+import { KeycloakGuide } from './KeycloakGuide';
 import './documentation.css';
 
 const articles: Record<DocumentationArticle, { titleKey: string; Content: ComponentType }> = {
@@ -18,6 +19,10 @@ const articles: Record<DocumentationArticle, { titleKey: string; Content: Compon
   'write-env-file': {
     titleKey: 'documentation.envFile.title',
     Content: EnvFileGuide,
+  },
+  'deploy-keycloak': {
+    titleKey: 'documentation.keycloak.title',
+    Content: KeycloakGuide,
   },
 };
 

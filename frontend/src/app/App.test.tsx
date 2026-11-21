@@ -81,7 +81,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(articleLink).toHaveAttribute('href', '/ui/docs/create-application');
     expect(articleLink).toHaveAttribute('aria-current', 'page');
     expect(within(articleMenu).getAllByRole('link').map((item) => item.textContent?.trim())).toEqual([
-      'Tạo ứng dụng', 'Tạo Workload', 'Viết và nhập file .env',
+      'Tạo ứng dụng', 'Tạo Workload', 'Viết và nhập file .env', 'Ví dụ triển khai Keycloak',
     ]);
     expect(screen.getByRole('heading', { name: 'Tạo ứng dụng', level: 1 })).toBeInTheDocument();
     expect(screen.getByText(/cấu hình CD mặc định đã được xác minh/)).toBeInTheDocument();
@@ -92,6 +92,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
   it.each([
     ['create-workload', 'Tạo Workload', 'Lưu và triển khai'],
     ['write-env-file', 'Viết và nhập file .env', 'Đánh dấu giá trị bí mật'],
+    ['deploy-keycloak', 'Ví dụ triển khai Keycloak', '5. Kiểm tra Keycloak'],
   ])('opens a published article at %s and marks it current', async (slug, title, section) => {
     authenticated = true;
     window.history.replaceState({}, '', `/ui/docs/${slug}`);
@@ -101,6 +102,14 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     const menu = screen.getByRole('navigation', { name: 'Bài viết' });
     expect(within(menu).getByRole('link', { name: title })).toHaveAttribute('aria-current', 'page');
     expect(requests.every(({ method }) => method === 'GET')).toBe(true);
+  });
+
+  it('offers both Keycloak example files as downloads', async () => {
+    authenticated = true;
+    window.history.replaceState({}, '', '/ui/docs/deploy-keycloak');
+    render(<App />);
+    expect(await screen.findByRole('link', { name: 'keycloak.score.yaml' })).toHaveAttribute('download', 'keycloak.score.yaml');
+    expect(screen.getByRole('link', { name: 'keycloak.extension.yaml' })).toHaveAttribute('download', 'keycloak.extension.yaml');
   });
 
   it.each([false, true])('honors the session on a direct guide link (authenticated: %s)', async (signedIn) => {

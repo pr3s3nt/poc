@@ -19,6 +19,11 @@ The [Workload](../../frontend/src/features/documentation/CreateWorkloadGuide.tsx
 and [.env](../../frontend/src/features/documentation/EnvFileGuide.tsx) articles
 use the same menu and VI/EN catalogs. UC-16 and the
 [.env specification](../usecase/UC-16/envfile-specification.md) own their source behavior.
+The [Keycloak guide](../../frontend/src/features/documentation/KeycloakGuide.tsx)
+at `/ui/docs/deploy-keycloak` bundles the
+[Score](../../frontend/src/features/documentation/examples/keycloak.score.yaml)
+and [extension](../../frontend/src/features/documentation/examples/keycloak.extension.yaml)
+for the default-class kind walkthrough.
 
 ## Independent Kubernetes installations — issue #91
 

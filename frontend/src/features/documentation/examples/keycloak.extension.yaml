@@ -1,0 +1,29 @@
+apiVersion: humanitec.org/v1b1
+profile: backend
+spec:
+  deployment:
+    replicas: 1
+  orchestrator:
+    metadata:
+      class: default
+    containers:
+      main:
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 0
+          runAsNonRoot: true
+          readOnlyRootFilesystem: false
+        startupProbe:
+          type: http
+          path: /realms/master/.well-known/openid-configuration
+          port: 8080
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 60
+        livenessProbe:
+          type: http
+          path: /realms/master/.well-known/openid-configuration
+          port: 8080
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 6
