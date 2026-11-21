@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-11-19
+last_reviewed: 2026-11-21
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-11-21 | Issue #96 Keycloak guide, real Console deploy on kind, Vault/PostgreSQL/admin login and scoped cleanup | [Keycloak deployment guide](2026-11-21-keycloak-guide.md) |
 | 2026-11-19 | Issue #94 database-only purge, real PostgreSQL, shared references and rollback, full kind comparison | [Application database purge](2026-11-19-application-database-purge.md) |
 | 2026-11-19 | Issue #80 workload removal with an unavailable template, PostgreSQL API checks, kind rollout and full-suite comparison | [Workload removal template cache](2026-11-19-workload-removal-template-cache.md) |
 | 2026-11-19 | Issue #80 main rollout, Console Force and Retry, live Fleet/Job/PostgreSQL/PV cleanup, catalog deletion and full-suite comparison | [Application and catalog deletion](2026-11-19-application-catalog-deletion.md) |
