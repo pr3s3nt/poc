@@ -11,6 +11,10 @@ test('all overlays render without secrets; kind substitutions and least-consumer
   const docs=render({...config,environment,tls:{}},'test-installation');assert(!docs.some(x=>x.kind==='Secret'));
   assert.equal(docs.filter(x=>x.kind==='PersistentVolumeClaim').length,3);
   const backend=docs.find(x=>x.kind==='Deployment'&&x.metadata.name==='backend').spec.template.spec;
+  assert.equal(backend.securityContext?.fsGroup,undefined);
+  const privateFiles=backend.initContainers.find(container=>container.name==='private-files');
+  assert(privateFiles.command.some(command=>command.includes('prepare-backend-data.sh /backend-data')));
+  assert(privateFiles.volumeMounts.some(mount=>mount.name==='data'&&mount.mountPath==='/backend-data'));
   const sources=backend.volumes.find(v=>v.name==='source').projected.sources.map(s=>s.secret.name);
   assert(!sources.includes('orchestrator-owner'));assert(!sources.includes('orchestrator-postgres'));assert(!JSON.stringify(docs).includes('root-token'));
   const renewer=backend.containers.find(c=>c.name==='vault-token-renewer');assert(renewer.volumeMounts.filter(m=>m.name==='private').every(m=>m.subPath));

@@ -17,14 +17,15 @@ spec:
         app: backend
     spec:
       automountServiceAccountToken: false
-      securityContext:
-        fsGroup: 65532
       initContainers:
         - name: private-files
           image: orchestrator-backend:RELEASE
           command:
             - sh
-            - /scripts/prepare-private.sh
+            - -ec
+            - |
+              sh /scripts/prepare-private.sh
+              sh /scripts/prepare-backend-data.sh /backend-data
           env:
             - name: PRIVATE_UID
               value: "65532"
@@ -32,6 +33,8 @@ spec:
             runAsUser: 0
             allowPrivilegeEscalation: false
           volumeMounts:
+            - name: data
+              mountPath: /backend-data
             - name: source
               mountPath: /source
               readOnly: true

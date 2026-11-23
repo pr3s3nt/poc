@@ -107,8 +107,9 @@ token files and, with TLS enabled, the public Vault CA. Backend mounts Console/S
 runtime database URLs, state key, setup token, scoped tokens and TLS trust when
 configured. It cannot mount database
 owner/superuser credentials. The database Job alone gets owner authorization.
-Root initContainers only normalize private-file ownership into emptyDir before
-non-root consumers start; credentials are never made group/world readable.
+Root initContainers prepare private files in emptyDir for non-root consumers.
+The backend init container also restores private permissions on its retained
+workspace before the backend opens its caches.
 
 The namespace is labelled with a fresh private installation ID and its UID saved.
 Existing mismatching namespaces/resources/Secret bytes fail rather than being

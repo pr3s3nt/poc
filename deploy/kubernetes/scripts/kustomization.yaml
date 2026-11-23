@@ -4,6 +4,7 @@ configMapGenerator:
   - name: installation-scripts
     files:
       - prepare-private.sh
+      - prepare-backend-data.sh
       - renew-vault-tokens.sh
       - postgres-require-tls.sh
     options:
