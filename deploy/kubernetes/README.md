@@ -124,7 +124,8 @@ A successful rollout or HTTPRoute condition does not replace browser/API checks.
 
 ## Vault Web UI
 
-For staging with internal HTTP transport, add a separate hostname for Vault:
+The staging sample includes `"vaultUI": {}` for private forwarding. For staging
+with internal HTTP transport, set a separate hostname to add a Gateway route:
 
 ```json
 "vaultUI": {"hostname": "vault.staging.example.com"}
