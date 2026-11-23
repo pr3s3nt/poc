@@ -5,7 +5,11 @@ import { resolve, join } from 'node:path';
 import { request as httpsRequest } from 'node:https';
 import { request as httpRequest } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { loadConfig, privateDirectory, privateRead, savePrivate, prepare, render, serialize, desiredSecrets, sameSecret, assertNamespace, assertInstallationConfig, requireThat, digest, root, owner, archiveListingScript } from './model.mjs';
+import { isDeepStrictEqual } from 'node:util';
+import { loadConfig, privateDirectory, privateRead, savePrivate, prepare, render, serialize, desiredSecrets, sameSecret, assertNamespace, assertInstallationConfig, requireThat, digest, root, owner, archiveListingScript, vaultReviewerMount } from './model.mjs';
+
+const vaultAuthPath = 'auth/kubernetes/config';
+const kubernetesHost = 'https://kubernetes.default.svc:443';
 
 const args=process.argv.slice(2),command=args.shift();
 const options={};for(let i=0;i<args.length;i++){requireThat(args[i].startsWith('--'),'Unknown argument');const key=args[i].slice(2);options[key]=args[i+1]&&!args[i+1].startsWith('--')?args[++i]:true;}
@@ -40,6 +44,35 @@ try{
   k(['apply','-f','-'],JSON.stringify(object));
  }};
  const phase=name=>docs.filter(d=>d.metadata.labels?.['orchestrator.dev/phase']===name);
+ function reviewerResources(mode) {
+  for(const desired of phase('vault-reviewer')){
+   const namespace = desired.metadata.namespace ? ['-n',c.namespace] : [];
+   const output = k([...namespace,'get',desired.kind,desired.metadata.name,'--ignore-not-found','-o','json']);
+   if(output.trim()){
+    const live = JSON.parse(output);
+    const fields = {ServiceAccount:['automountServiceAccountToken'],ClusterRole:['rules'],ClusterRoleBinding:['roleRef','subjects']};
+    requireThat(live.metadata.labels?.['app.kubernetes.io/managed-by']===owner &&
+     live.metadata.labels?.['orchestrator.dev/installation']===state.id &&
+     fields[desired.kind].every(field=>isDeepStrictEqual(live[field],desired[field])),
+    'Existing Vault reviewer resource conflicts: '+desired.kind);
+   }else{
+    requireThat(mode!=='check','Missing Vault reviewer resource: '+desired.kind);
+    const dryRun = mode==='preflight' ? ['--dry-run=server'] : [];
+    k(['create',...dryRun,'-f','-'],JSON.stringify(desired));
+   }
+  }
+  if(mode==='create'&&c.vaultKubernetesAuth&&!state.vaultKubernetesAuth){
+   state.vaultKubernetesAuth=true;persist();
+  }
+ }
+ function checkReviewerMount() {
+  scoped(['exec','deployment/vault','-c','vault','--','test','-r',vaultReviewerMount+'/token']);
+  scoped(['exec','deployment/vault','-c','vault','--','test','-r',vaultReviewerMount+'/ca.crt']);
+ }
+ function applyApplication() {
+  if(c.vaultUI?.hostname&&!state.vaultUIRouted){state.vaultUIRouted=true;persist();}
+  apply(phase('application'));
+ }
  const secrets=(includeVault=false,readOnly=false)=>{for(const d of desiredSecrets(c,state,{vault:includeVault})){
   const old=get('secret',d.metadata.name);
   if(old){requireThat(old.metadata.labels?.['orchestrator.dev/installation']===state.id&&sameSecret(old,d),'Existing Secret conflicts; nothing rotated');}
@@ -69,6 +102,28 @@ try{
   })};
  }
  async function vaultState(client){return (await client.call('sys/health',{allow:[429,472,473,501,503]})).value;}
+ async function vaultReviewerConfigured(client) {
+  const response = await client.call(vaultAuthPath,{token:state.vaultTokens['app-token'],allow:[404]});
+  if(response.status===404)return false;
+  const config=response.value.data;
+  requireThat(config?.kubernetes_host===kubernetesHost && !config.disable_local_ca_jwt &&
+   !config.token_reviewer_jwt_set && !config.kubernetes_ca_cert,
+   'Existing Vault Kubernetes Auth differs; review its API host and reviewer before changing it');
+  return true;
+ }
+ async function configureVaultReviewer(client,{preflight=false,rootToken}={}) {
+  if(!c.vaultKubernetesAuth || await vaultReviewerConfigured(client))return;
+  const token=rootToken??JSON.parse(privateRead(join(dir,'vault-init.json'))).root_token;
+  requireThat(token,'Private Vault owner authorization is required to configure Kubernetes Auth');
+  const response=(await client.call('sys/auth',{token})).value;
+  const mount=(response.data??response)['kubernetes/'];
+  requireThat(!mount || mount.type==='kubernetes','Existing kubernetes auth mount has a different type');
+  if(preflight)return;
+  if(!mount)await client.call('sys/auth/kubernetes',{method:'POST',token,body:{type:'kubernetes'}});
+  await client.call(vaultAuthPath,{method:'POST',token,body:{kubernetes_host:kubernetesHost,disable_local_ca_jwt:false}});
+  requireThat(await vaultReviewerConfigured(client),'Vault Kubernetes Auth is not readable by the application token');
+  console.log('Vault Kubernetes Auth configured');
+ }
  async function unseal(client){
   const file=options['shares-file']?resolve(options['shares-file']):join(dir,'vault-init.json');
   const saved=JSON.parse(privateRead(file)),keys=saved.unseal_keys_b64??saved.keys;
@@ -97,7 +152,7 @@ try{
   secrets(true);savePrivate(join(dir,'application-vault-token'),state.vaultTokens['app-token']+'\n');
  }
  async function initializeVault(){
-  ownership();const client=await vaultForward();
+  ownership();reviewerResources('check');const client=await vaultForward();
   try{
    let health=await vaultState(client);const file=join(dir,'vault-init.json');
    if(!health.initialized){
@@ -107,10 +162,18 @@ try{
     savePrivate(file,JSON.stringify(result.value,null,2)+'\n',true);
    }
    await unseal(client);const saved=JSON.parse(privateRead(file));requireThat(saved.root_token,'Private owner root authorization required');
-   await configureVault(client,saved.root_token);console.log('Vault initialized/unsealed; shares/root authorization remain outside the cluster');
+   await configureVault(client,saved.root_token);
+   if(c.vaultKubernetesAuth)checkReviewerMount();
+   await configureVaultReviewer(client,{rootToken:saved.root_token});
+   console.log('Vault initialized/unsealed; shares/root authorization remain outside the cluster');
   }finally{client.close();}
  }
- async function readyVault(){const client=await vaultForward();try{const v=await vaultState(client);requireThat(v.initialized&&!v.sealed,'Vault is sealed/uninitialized: run vault-init or unseal explicitly');requireThat(get('secret','orchestrator-vault-runtime'),'Run vault-init to configure scoped runtime tokens');}finally{client.close();}}
+ async function readyVault(){const client=await vaultForward();try{const v=await vaultState(client);requireThat(v.initialized&&!v.sealed,'Vault is sealed/uninitialized: run vault-init or unseal explicitly');requireThat(get('secret','orchestrator-vault-runtime'),'Run vault-init to configure scoped runtime tokens');
+  if(c.vaultKubernetesAuth){
+   checkReviewerMount();
+   requireThat(await vaultReviewerConfigured(client),'Run vault-init to configure Vault Kubernetes Auth');
+  }
+ }finally{client.close();}}
  function databaseIdentity(){return scoped(['exec','deployment/postgres','--','psql','-U','orchestrator','-d','orchestrator','-At','-c','SELECT installation_id::text FROM schema_baseline']).trim();}
  function assertDatabase(){requireThat(state.databaseID&&databaseIdentity()===state.databaseID,'Database installation identity changed/missing; restore matching retained data');}
  function runDatabase(initial=false){
@@ -125,6 +188,11 @@ try{
   requireThat(gateway.status?.conditions?.some(x=>x.type==='Programmed'&&x.status==='True'),'Gateway is not Programmed');
   const listener=gateway.spec.listeners.find(x=>x.name===c.gateway.listener);requireThat(listener,'Gateway listener missing');
   requireThat(listener.protocol===(c.scheme==='https'?'HTTPS':'HTTP'),'Gateway listener scheme differs');
+  if(c.vaultUI?.hostname && listener.hostname){
+   const host=listener.hostname;
+   requireThat(host===c.vaultUI.hostname || (host.startsWith('*.')&&c.vaultUI.hostname.endsWith(host.slice(1))),
+    'Vault UI hostname does not match the Gateway listener');
+  }
   const permission=listener.allowedRoutes?.namespaces?.from??'Same';
   if(permission==='Same')requireThat(c.gateway.namespace===c.namespace,'Gateway does not allow this namespace');
   if(permission==='Selector'){
@@ -134,8 +202,10 @@ try{
   }
  }
  async function check(){
-  ownership();for(const name of ['postgres','vault','backend','frontend'])requireThat(get('deployment',name)?.spec.replicas===1,'Expected running single replica for '+name);checkGateway();assertStorage();secrets(true,true);await readyVault();rollout('postgres');assertDatabase();rollout('vault');rollout('backend');rollout('frontend');
-  const route=get('httproute','console');requireThat(route?.status?.parents?.some(p=>p.conditions?.some(x=>x.type==='Accepted'&&x.status==='True')&&p.conditions?.some(x=>x.type==='ResolvedRefs'&&x.status==='True')),'HTTPRoute not accepted/resolved');
+  ownership();for(const name of ['postgres','vault','backend','frontend'])requireThat(get('deployment',name)?.spec.replicas===1,'Expected running single replica for '+name);checkGateway();assertStorage();secrets(true,true);reviewerResources('check');await readyVault();rollout('postgres');assertDatabase();rollout('vault');rollout('backend');rollout('frontend');
+  for(const name of c.vaultUI?.hostname?['console','vault-ui']:['console']){
+   const route=get('httproute',name);requireThat(route?.status?.parents?.some(p=>p.conditions?.some(x=>x.type==='Accepted'&&x.status==='True')&&p.conditions?.some(x=>x.type==='ResolvedRefs'&&x.status==='True')),'HTTPRoute not accepted/resolved: '+name);
+  }
   console.log('Owned installation, dependency readiness, rollouts and HTTPRoute checked; browser acceptance is separate');
  }
  async function install(dependenciesOnly=false){
@@ -147,9 +217,10 @@ try{
    requireThat(current.spec.template.metadata.annotations?.['orchestrator.dev/release']===desired.spec.template.metadata.annotations['orchestrator.dev/release'],'Existing release differs: use upgrade with backup');
    await check();console.log('Existing installation reused without owner/credential changes');return;
   }
+  reviewerResources('preflight');reviewerResources('create');
   apply(phase('config').filter(d=>d.kind!=='Namespace'));secrets();apply(phase('storage'));apply(phase('dependencies'));rollout('postgres');
   if(dependenciesOnly){const client=await vaultForward();try{await vaultState(client);}finally{client.close();}console.log('PostgreSQL ready and Vault reachable; run vault-init before install');return;}
-  await readyVault();rollout('vault');runDatabase(true);apply(phase('application'));await check();console.log('Console installed; use the private setup token in the browser');
+  await readyVault();rollout('vault');runDatabase(true);applyApplication();await check();console.log('Console installed; use the private setup token in the browser');
  }
  const pods=name=>{const items=json(['-n',c.namespace,'get','pods','-l','app='+name,'-o','json']).items;requireThat(items.every(p=>p.metadata.labels?.['orchestrator.dev/installation']===state.id),'Unexpected Pod ownership');return items;};
  function assertStorage(){for(const name of ['postgres','vault','backend']){const pvc=get('pvc',name+'-data');requireThat(pvc?.metadata.labels?.['orchestrator.dev/installation']===state.id&&pvc.spec.storageClassName===c.storage.class&&pvc.spec.resources.requests.storage===c.storage[name],'Storage changes require a separate reviewed procedure');}}
@@ -183,10 +254,23 @@ try{
  if(command==='unseal'){ownership();const client=await vaultForward();try{await unseal(client);console.log('Vault unsealed by operator');}finally{client.close();}}
  if(command==='backup')await backup();
  if(command==='upgrade'){
-  ownership();checkGateway();secrets(true,true);await backup();
+  ownership();checkGateway();secrets(true,true);reviewerResources('preflight');
+  if(c.vaultKubernetesAuth){
+   const client=await vaultForward();
+   try{
+    const status=await vaultState(client);
+    requireThat(!status.sealed,'Unseal the existing Vault before upgrading Kubernetes Auth');
+    await configureVaultReviewer(client,{preflight:true});
+   }finally{client.close();}
+  }
+  await backup();reviewerResources('create');
   apply(phase('config').filter(d=>d.kind!=='Namespace'));apply(phase('dependencies'));scale('vault',1);rollout('postgres');
-  const client=await vaultForward();try{await unseal(client);}finally{client.close();}rollout('vault');
-  runDatabase();apply(phase('application'));scale('backend',1);scale('frontend',1);await check();console.log('Upgrade checked; retained volumes and credentials preserved');
+  const client=await vaultForward();try{
+   await unseal(client);
+   if(c.vaultKubernetesAuth)checkReviewerMount();
+   await configureVaultReviewer(client);
+  }finally{client.close();}rollout('vault');
+  runDatabase();applyApplication();scale('backend',1);scale('frontend',1);await check();console.log('Upgrade checked; retained volumes and credentials preserved');
  }
  if(command==='diagnostics'){
   ownership();const objects=json(['-n',c.namespace,'get','deploy,pods,pvc,job,httproute','-o','json']);

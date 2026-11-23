@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,readFileSync,writeFileSync,mkdirSync,chmodSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {render,readDocuments,serialize,assertNamespace,sameSecret,privateDirectory,loadConfig,owner,prepare,desiredSecrets,archiveListingScript} from '../model.mjs';
+import {render,readDocuments,serialize,assertNamespace,assertInstallationConfig,sameSecret,privateDirectory,loadConfig,owner,prepare,desiredSecrets,archiveListingScript,vaultReviewerMount} from '../model.mjs';
 const config={environment:'kind',context:'kind-test',namespace:'owned-test',hostname:'test.example.com',scheme:'http',gateway:{name:'gateway',namespace:'infra',listener:'web'},storage:{class:'standard',postgres:'8Gi',vault:'4Gi',backend:'8Gi'},images:{backend:'orchestrator-backend:test',frontend:'orchestrator-frontend:test',postgres:'postgres:16-alpine',vault:'hashicorp/vault:1.21'}};
 test('all overlays render without secrets; kind substitutions and least-consumer mounts are explicit',()=>{
  for(const environment of ['kind','staging','production']){
@@ -114,6 +114,69 @@ test('production and staging with an explicit TLS object require certificate pat
   try{assert.throws(()=>prepare(dir,{...config,...configOverride}),/Supply PostgreSQL\/Vault TLS file paths/);}
   finally{rmSync(dir,{recursive:true,force:true});}
  }
+});
+
+test('optional Vault reviewer has scoped TokenReview access and a Vault-only projected token',()=>{
+ const staging={...config,environment:'staging',scheme:'https'};
+ const disabled=render(staging);
+ assert(!disabled.some(d=>['ServiceAccount','ClusterRole','ClusterRoleBinding'].includes(d.kind)));
+ const docs=render({...staging,vaultKubernetesAuth:true},'installation-one');
+ const other=render({...staging,vaultKubernetesAuth:true},'installation-two');
+ const role=docs.find(d=>d.kind==='ClusterRole');
+ const binding=docs.find(d=>d.kind==='ClusterRoleBinding');
+ const account=docs.find(d=>d.kind==='ServiceAccount');
+ assert.notEqual(role.metadata.name,other.find(d=>d.kind==='ClusterRole').metadata.name);
+ assert.deepEqual(role.rules,[{apiGroups:['authentication.k8s.io'],resources:['tokenreviews'],verbs:['create']}]);
+ assert.equal(role.metadata.namespace,undefined);
+ assert.equal(binding.metadata.namespace,undefined);
+ assert.equal(account.metadata.namespace,staging.namespace);
+ assert.equal(account.automountServiceAccountToken,false);
+ assert.equal(binding.roleRef.name,role.metadata.name);
+ assert.deepEqual(binding.subjects,[{kind:'ServiceAccount',name:account.metadata.name,namespace:staging.namespace}]);
+ for(const deployment of docs.filter(d=>d.kind==='Deployment')){
+  const pod=deployment.spec.template.spec;
+  assert.equal(pod.automountServiceAccountToken,false);
+  if(deployment.metadata.name==='vault'){
+   assert.equal(pod.serviceAccountName,account.metadata.name);
+   const mount=pod.containers[0].volumeMounts.find(m=>m.mountPath===vaultReviewerMount);
+   assert.equal(mount.readOnly,true);
+   const volume=pod.volumes.find(v=>v.name===mount.name);
+   assert.equal(volume.projected.sources[0].serviceAccountToken.expirationSeconds,3600);
+  }else{
+   assert(!pod.serviceAccountName);
+   assert(!JSON.stringify(pod).includes(vaultReviewerMount));
+  }
+  assert(!(pod.initContainers??[]).some(container=>container.volumeMounts.some(m=>m.mountPath===vaultReviewerMount)));
+ }
+ assert.throws(()=>assertInstallationConfig(staging,{...staging,vaultKubernetesAuth:true}),/Removing managed Vault Kubernetes Auth/);
+});
+
+test('Vault UI is explicit and an optional route uses a distinct HTTPS hostname',()=>{
+ const staging={...config,environment:'staging',scheme:'https'};
+ const uiConfig={...staging,vaultUI:{hostname:'vault.test.example.com'}};
+ const vaultHCL=docs=>docs.find(d=>d.data?.['vault.hcl']).data['vault.hcl'];
+ assert.match(vaultHCL(render(staging)),/^ui = false$/m);
+ const privateUI=render({...staging,vaultUI:{}});
+ assert.match(vaultHCL(privateUI),/^ui = true$/m);
+ assert.equal(privateUI.filter(d=>d.kind==='HTTPRoute').length,1);
+ const routed=render(uiConfig);
+ const route=routed.find(d=>d.kind==='HTTPRoute'&&d.metadata.name==='vault-ui');
+ assert.deepEqual(route.spec.hostnames,[uiConfig.vaultUI.hostname]);
+ assert.deepEqual(route.spec.rules[0].backendRefs,[{name:'vault',port:8200}]);
+ assert.deepEqual(routed.find(d=>d.metadata.name==='console'&&d.kind==='HTTPRoute').spec.hostnames,[staging.hostname]);
+ assert.throws(()=>assertInstallationConfig(staging,{...staging,vaultUIRouted:true}),/Removing the Vault UI route/);
+ const dir=mkdtempSync(join(tmpdir(),'manifest-vault-options-'));
+ const file=join(dir,'config.json');
+ const load=configuration=>{
+  writeFileSync(file,JSON.stringify(configuration));
+  return loadConfig(file);
+ };
+ try{
+  assert.deepEqual(load(uiConfig),uiConfig);
+  assert.throws(()=>load({...uiConfig,vaultUI:{hostname:staging.hostname}}),/own DNS hostname/);
+  assert.throws(()=>load({...uiConfig,tls:{}}),/requires HTTPS at the Gateway and HTTP to Vault/);
+  assert.throws(()=>load({...uiConfig,vaultKubernetesAuth:'yes'}),/must be a boolean/);
+ }finally{rmSync(dir,{recursive:true,force:true});}
 });
 
 test('private preparation is reusable for one target, independent across targets and validates matching TLS keys',()=>{

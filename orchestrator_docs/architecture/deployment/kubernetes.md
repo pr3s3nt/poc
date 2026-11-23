@@ -43,6 +43,10 @@ outside Git in operator-owned mode-0700 directories and mode-0600 files.
    token is persisted in a Pod, Secret, PVC, log or backend mount. Private root
    authorization is used only transiently through a task-owned port-forward.
    Configure KV/policies and issue three scoped periodic runtime/application tokens.
+   With `vaultKubernetesAuth: true`, the installer also configures the
+   `kubernetes` auth mount for this cluster. Only the Vault container mounts the
+   rotating reviewer ServiceAccount token and Kubernetes CA. A named,
+   installation-owned ClusterRole and binding grant only TokenReview creation.
    Renewal uses scoped tokens, never a retained root token. Vault restart requires
    explicit operator unseal with the matching private shares.
 5. Execute the versioned owner database Job, wait for success and only then apply
@@ -68,6 +72,10 @@ backend uses Recreate with retained workspace. This package does not establish H
 ## Upgrade and retained data
 
 Preserve Secrets, all three PVCs, Vault shares/root authorization and state key.
+Enable Kubernetes Auth for an existing installation via the backed-up upgrade
+workflow. The installer reuses matching reviewer resources and Vault auth
+configuration. An existing configuration with a different reviewer or API host
+requires operator review.
 Stop old writers/frontend, take private PostgreSQL backup and backend/Vault data
 archives, validate archives, then run owner setup before starting new runtime.
 Restore is operator-controlled with a matching source/image and isolated rehearsal;
@@ -84,6 +92,12 @@ Services. Gateway must permit the installation namespace; no broadening of share
 allowedRoutes is automatic. TLS/DNS for the Console belongs to the existing Gateway
 operator. Gateway/controller, VSO/Fleet, workload RBAC and registry credentials remain
 prerequisites for later workload deployment, not proof supplied by Console install.
+
+An optional `vaultUI` object enables the Vault UI. A separate HTTPS hostname in
+`vaultUI.hostname` adds an HTTPRoute on the existing Gateway for staging when
+Vault serves HTTP internally. Without a hostname, the UI is available via a
+private forward. Vault continues to authenticate UI and API requests. Internal
+TLS installations can expose the UI through a trusted TLS forward.
 
 The kind overlay is an isolated test installation, never the existing main Console.
 A real browser must test the exact Tailscale handoff URL and related APIs. Restore,

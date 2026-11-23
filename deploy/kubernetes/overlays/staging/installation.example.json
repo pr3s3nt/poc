@@ -6,6 +6,7 @@
   "scheme": "https",
   "gateway": {"name": "traefik-gateway", "namespace": "traefik", "listener": "websecure"},
   "storage": {"class": "rook-ceph-block", "postgres": "8Gi", "vault": "4Gi", "backend": "8Gi"},
+  "vaultKubernetesAuth": true,
   "images": {"backend": "CHANGE_ME_BACKEND_DIGEST", "frontend": "CHANGE_ME_FRONTEND_DIGEST", "postgres": "CHANGE_ME_POSTGRES_DIGEST", "vault": "CHANGE_ME_VAULT_DIGEST"},
   "imagePullSecrets": []
 }

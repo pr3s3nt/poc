@@ -13,10 +13,11 @@ PostgreSQL/Vault/state key/setup token, no fixed Organization/Admin/catalog.
 - StorageClass supporting three RWO PVCs; reviewed backend/frontend/PostgreSQL/Vault
   images and registry access. Initial backend/frontend/PostgreSQL/Vault are single
   replicas; this is not an HA package. Vault always uses persistent server mode.
-- Explicit operator Kubernetes context, with permissions confined to the installation
-  resources and read access to its existing Gateway. No runtime ServiceAccount token,
-  ClusterRole or shared RBAC is created. VSO/Fleet/workload permissions are separate
-  prerequisites for subsequent application deployment.
+- Explicit operator Kubernetes context with access to the installation resources
+  and read access to its existing Gateway. The staging sample enables
+  `vaultKubernetesAuth`, which additionally requires permission to create an
+  installation-owned ClusterRole and ClusterRoleBinding for TokenReview.
+  VSO/Fleet/workload permissions are separate prerequisites.
 - Owner-controlled private directory outside every Git tree, mode 0700. Keep
   credentials, CA/private keys, Vault initialization response and evidence there.
 
@@ -94,6 +95,13 @@ or unseal share is stored in a Secret, PVC, manifest, process argument or runtim
 mount. The operator must archive/distribute shares using their custody procedure;
 keeping the combined response privately is not split-person custody by itself.
 
+With `vaultKubernetesAuth: true`, the installer projects a rotating reviewer
+ServiceAccount token into the Vault container. `vault-init` enables the
+`kubernetes` auth method for the same cluster's API server. The application
+token can then read `auth/kubernetes/config`. Use this setting when Vault and
+the workloads it authenticates run on the same cluster. Configure the Secret
+Store with auth mount `kubernetes`.
+
 Scope tokens are periodic and renewed by a sidecar that mounts only the three scoped
 token files and, with TLS enabled, the public Vault CA. Backend mounts Console/State
 runtime database URLs, state key, setup token, scoped tokens and TLS trust when
@@ -113,6 +121,23 @@ choose your Organization/Admin, sign in and configure the platform/Git source.
 The token is not a Git token. Organization creation permanently closes claim.
 No fixed seed account, workload instance, Application or deployment is created.
 A successful rollout or HTTPRoute condition does not replace browser/API checks.
+
+## Vault Web UI
+
+For staging with internal HTTP transport, add a separate hostname for Vault:
+
+```json
+"vaultUI": {"hostname": "vault.staging.example.com"}
+```
+
+Use DNS and a Gateway certificate that cover the Vault hostname. The same
+HTTPS listener must allow both hostnames and the installation namespace.
+Open `/ui/` on the Vault hostname. The route serves the UI and API with Vault's
+own authentication and access policies.
+
+Use `"vaultUI": {}` to enable the UI for a private forward. Forward port 8200
+from Service `vault` and open `/ui/` with the Vault Service's configured protocol
+and trust. Removing a managed route requires explicit operator cleanup.
 
 ## Restart / unseal
 
@@ -167,6 +192,14 @@ PVCs/Secret values/state key/installation identity are preserved. A different
 existing release requires upgrade, not install. An unchanged install reuses the
 existing installation and performs checks only. Missing/different data identity
 requires restore/recovery, never reset.
+
+For an existing installation, add `vaultKubernetesAuth: true` and the optional
+`vaultUI` settings to its existing configuration, verify that Vault is unsealed,
+then run `upgrade` with matching private inputs and a new backup directory.
+Keep the current images and storage settings if only enabling these features.
+An existing Vault auth configuration with a different reviewer or API host
+requires operator review. Decommissioning an installation should remove its
+dedicated reviewer ClusterRoleBinding and ClusterRole after checking ownership.
 
 `backup` uses the same private archive procedure and deliberately leaves writers
 and Vault stopped. Resume only as a reviewed upgrade/recovery action; do not use

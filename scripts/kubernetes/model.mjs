@@ -5,6 +5,8 @@ import { execFileSync } from 'node:child_process';
 import { parseAllDocuments, stringify } from 'yaml';
 export const root = resolve(new URL('../..', import.meta.url).pathname);
 export const owner = 'orchestrator-installer';
+export const vaultReviewerMount = '/var/run/secrets/kubernetes.io/serviceaccount';
+const vaultReviewerVolume = 'vault-kubernetes-reviewer';
 const imageDigest = /^[^@]+@sha256:[a-f0-9]{64}$/;
 const imageTag = /(?:^|\/)[^:@/]+:\w[\w.-]{0,127}$/;
 // pg_restore --list can finish after the TOC. Drain the remaining stream so
@@ -26,12 +28,28 @@ export function assertInstallationConfig(config, state) {
  requireThat(state.context === config.context && state.namespace === config.namespace && state.environment === config.environment,
   'Private inputs belong to another target');
  requireThat(Boolean(state.tls) === usesInternalTLS(config), 'Cannot change internal TLS mode for a prepared installation');
+ requireThat(!state.vaultKubernetesAuth || config.vaultKubernetesAuth === true,
+  'Removing managed Vault Kubernetes Auth requires a separate operator procedure');
+ requireThat(!state.vaultUIRouted || config.vaultUI?.hostname,
+  'Removing the Vault UI route requires a separate operator procedure');
 }
 export function loadConfig(file,{complete=true}={}) {
  const c=JSON.parse(readFileSync(file,'utf8'));
  requireThat(['kind','staging','production'].includes(c.environment),'Unknown environment');
  requireThat(/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(c.namespace),'Invalid namespace');
  requireThat(typeof c.context==='string'&&c.context&&c.gateway&&c.images&&c.storage,'Missing target/configuration');
+ requireThat(c.vaultKubernetesAuth === undefined || typeof c.vaultKubernetesAuth === 'boolean',
+  'vaultKubernetesAuth must be a boolean');
+ if (c.vaultUI !== undefined) {
+  requireThat(c.vaultUI && typeof c.vaultUI === 'object' && !Array.isArray(c.vaultUI) &&
+   Object.keys(c.vaultUI).every(key => key === 'hostname'), 'vaultUI must be an object with an optional hostname');
+  if (c.vaultUI.hostname !== undefined) {
+   const hostname = c.vaultUI.hostname;
+   requireThat(typeof hostname === 'string' && /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(hostname) &&
+    hostname !== c.hostname, 'Vault UI requires its own DNS hostname');
+   requireThat(c.scheme === 'https' && !usesInternalTLS(c), 'The Vault UI Gateway route requires HTTPS at the Gateway and HTTP to Vault');
+  }
+ }
  if(complete){requireThat(!JSON.stringify(c).includes('CHANGE_ME'),'Resolve configuration placeholders');
   requireThat(!/[\s\/:?#]/.test(c.hostname)&&c.hostname.includes('.'),'Hostname must be a DNS name');
   requireThat(['http','https'].includes(c.scheme),'Invalid route scheme');
@@ -47,6 +65,22 @@ export function loadConfig(file,{complete=true}={}) {
  return c;
 }
 export function readDocuments(text) { return parseAllDocuments(text,{uniqueKeys:true}).map(d=>{requireThat(!d.errors.length,'Invalid rendered YAML');return d.toJS()}).filter(Boolean); }
+function configureVaultReviewer(pod, reviewerName) {
+ pod.serviceAccountName = reviewerName;
+ pod.volumes.push({
+  name: vaultReviewerVolume,
+  projected: {
+   defaultMode: 0o440,
+   sources: [
+    {serviceAccountToken: {path:'token', expirationSeconds:3600}},
+    {configMap: {name:'kube-root-ca.crt', items:[{key:'ca.crt', path:'ca.crt'}]}},
+   ],
+  },
+ });
+ pod.containers.find(container => container.name === 'vault').volumeMounts.push({
+  name:vaultReviewerVolume, mountPath:vaultReviewerMount, readOnly:true,
+ });
+}
 function configurePlaintext(document, pod) {
  const name = document.metadata.name;
  if (document.kind === 'ConfigMap' && name.startsWith('vault-config-')) {
@@ -80,14 +114,30 @@ function configurePlaintext(document, pod) {
 export function render(c,installationID='unprepared') {
  const yaml=execFileSync('kubectl',['kustomize',join(root,'deploy/kubernetes/overlays',c.environment)],{encoding:'utf8',maxBuffer:8<<20});
  const docs=readDocuments(yaml);
+ const optional = file => readDocuments(readFileSync(join(root,'deploy/kubernetes/base',file),'utf8'));
+ const reviewerName = 'orchestrator-vault-reviewer-' + installationID;
+ if(c.vaultKubernetesAuth){
+  const resources = optional('vault-kubernetes-auth.yaml');
+  for(const resource of resources)resource.metadata.name = reviewerName;
+  const binding = resources.find(resource => resource.kind === 'ClusterRoleBinding');
+  binding.roleRef.name = reviewerName;
+  binding.subjects[0] = {...binding.subjects[0], name:reviewerName, namespace:c.namespace};
+  docs.push(...resources);
+ }
+ if(c.vaultUI?.hostname)docs.push(...optional('httproute-vault.yaml'));
  for(const d of docs){
   d.metadata.labels={...d.metadata.labels,'app.kubernetes.io/managed-by':owner,'orchestrator.dev/installation':installationID};
-  if(d.kind==='Namespace')d.metadata.name=c.namespace;else d.metadata.namespace=c.namespace;
+  if(d.kind==='Namespace')d.metadata.name=c.namespace;
+  else if(!['ClusterRole','ClusterRoleBinding'].includes(d.kind))d.metadata.namespace=c.namespace;
   if(d.kind==='ConfigMap'&&d.metadata.name==='installation-settings')d.data={CONTEXT:c.context,HOSTNAME:c.hostname,GATEWAY:c.gateway.name,GATEWAY_NAMESPACE:c.gateway.namespace,LISTENER:c.gateway.listener,SCHEME:c.scheme,STORAGE_CLASS:c.storage.class};
   if(d.kind==='PersistentVolumeClaim'){d.spec.storageClassName=c.storage.class;d.spec.resources.requests.storage=c.storage[d.metadata.name.replace('-data','')];}
-  if(d.kind==='HTTPRoute'){d.spec.hostnames=[c.hostname];d.spec.parentRefs=[{name:c.gateway.name,namespace:c.gateway.namespace,sectionName:c.gateway.listener}];}
+  if(d.kind==='HTTPRoute'){d.spec.hostnames=[d.metadata.name==='vault-ui'?c.vaultUI.hostname:c.hostname];d.spec.parentRefs=[{name:c.gateway.name,namespace:c.gateway.namespace,sectionName:c.gateway.listener}];}
   const pod=d.kind==='Deployment'?d.spec.template.spec:d.kind==='Job'?d.spec.template.spec:undefined;
   if(!usesInternalTLS(c))configurePlaintext(d,pod);
+  if(c.vaultUI && d.kind==='ConfigMap' && d.data?.['vault.hcl']){
+   d.data['vault.hcl']=d.data['vault.hcl'].replace(/^ui = false$/m,'ui = true');
+  }
+  if(c.vaultKubernetesAuth && d.kind==='Deployment' && d.metadata.name==='vault')configureVaultReviewer(pod,reviewerName);
   if(pod){
    d.spec.template.metadata.labels={...d.spec.template.metadata.labels,'app.kubernetes.io/managed-by':owner,'orchestrator.dev/installation':installationID};
    if(c.imagePullSecrets?.length)pod.imagePullSecrets=c.imagePullSecrets.map(name=>({name}));
