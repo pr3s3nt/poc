@@ -40,6 +40,7 @@ export function loadConfig(file,{complete=true}={}) {
  requireThat(typeof c.context==='string'&&c.context&&c.gateway&&c.images&&c.storage,'Missing target/configuration');
  requireThat(c.vaultKubernetesAuth === undefined || typeof c.vaultKubernetesAuth === 'boolean',
   'vaultKubernetesAuth must be a boolean');
+ requireThat(c.oidc === undefined || typeof c.oidc === 'boolean', 'oidc must be a boolean');
  if (c.vaultUI !== undefined) {
   requireThat(c.vaultUI && typeof c.vaultUI === 'object' && !Array.isArray(c.vaultUI) &&
    Object.keys(c.vaultUI).every(key => key === 'hostname'), 'vaultUI must be an object with an optional hostname');
@@ -63,6 +64,24 @@ export function loadConfig(file,{complete=true}={}) {
   for(const n of ['postgres','vault','backend'])requireThat(/^\d+(Gi|Mi)$/.test(c.storage[n]),'Invalid PVC size');
  }
  return c;
+}
+export function loadOIDC(c, dir) {
+ if (!c.oidc) return undefined;
+ const input = JSON.parse(privateRead(join(dir, 'oidc.json')));
+ requireThat(input && typeof input === 'object' && !Array.isArray(input), 'Invalid OIDC configuration');
+ for (const field of ['issuer', 'clientId', 'clientSecret', 'organizationKey', 'publicUrl']) {
+  requireThat(typeof input[field] === 'string' && input[field].trim(), 'Missing OIDC field: ' + field);
+ }
+ requireThat(input.publicUrl === c.scheme + '://' + c.hostname, 'OIDC publicUrl must match the Console origin');
+ const issuer = URL.parse(input.issuer);
+ const allowHTTP = c.environment === 'kind' && input.allowHttp === true;
+ requireThat(input.allowHttp === undefined || input.allowHttp === false || allowHTTP,
+  'OIDC allowHttp is restricted to kind');
+ requireThat((c.scheme === 'https' || allowHTTP) && issuer &&
+  (issuer.protocol === 'https:' || (allowHTTP && issuer.protocol === 'http:')) &&
+  !issuer.username && !issuer.password && !issuer.search && !issuer.hash && !input.issuer.endsWith('/'),
+  'OIDC requires HTTPS and a canonical issuer URL');
+ return input;
 }
 export function readDocuments(text) { return parseAllDocuments(text,{uniqueKeys:true}).map(d=>{requireThat(!d.errors.length,'Invalid rendered YAML');return d.toJS()}).filter(Boolean); }
 function configureVaultReviewer(pod, reviewerName) {
@@ -138,6 +157,12 @@ export function render(c,installationID='unprepared') {
    d.data['vault.hcl']=d.data['vault.hcl'].replace(/^ui = false$/m,'ui = true');
   }
   if(c.vaultKubernetesAuth && d.kind==='Deployment' && d.metadata.name==='vault')configureVaultReviewer(pod,reviewerName);
+  if(c.oidc && d.kind==='Deployment' && d.metadata.name==='backend'){
+   pod.volumes.find(volume=>volume.name==='source').projected.sources.push({secret:{name:'orchestrator-oidc'}});
+   pod.containers.find(container=>container.name==='backend').env.push({
+    name:'ORCHESTRATOR_OIDC_CONFIG_FILE',value:'/private/oidc.json'
+   });
+  }
   if(pod){
    d.spec.template.metadata.labels={...d.spec.template.metadata.labels,'app.kubernetes.io/managed-by':owner,'orchestrator.dev/installation':installationID};
    if(c.imagePullSecrets?.length)pod.imagePullSecrets=c.imagePullSecrets.map(name=>({name}));
@@ -179,7 +204,7 @@ export function prepare(dir,c,{testCertificates=false}={}) {
  }
  savePrivate(file,JSON.stringify(s,null,2)+'\n',true);savePrivate(join(dir,'setup-token'),s.setupToken+'\n',true);return s;
 }
-export function desiredSecrets(c,s,{vault=false}={}) {
+export function desiredSecrets(c,s,{vault=false,oidc}={}) {
  const ssl=s.tls?'sslmode=verify-full&sslrootcert=/private/postgres-ca.crt':'sslmode=disable';
  const url=role=>`postgres://orchestrator_${role}:${s.passwords[role]}@postgres:5432/orchestrator?${ssl}`;
  const values={'orchestrator-postgres':{password:s.passwords.postgres},'orchestrator-db-roles':{owner:s.passwords.owner,console:s.passwords.console,state:s.passwords.state},'orchestrator-runtime':{'console-database-url':url('console'),'state-database-url':url('state')},'orchestrator-owner':{'database-url':url('owner')},'orchestrator-state-key':{key:s.stateKey},'orchestrator-setup':{'setup-token':s.setupToken}};
@@ -188,6 +213,7 @@ export function desiredSecrets(c,s,{vault=false}={}) {
   for(const n of ['postgres','vault'])values[n+'-tls']={'tls.crt':readFileSync(s.tls[n].cert),'tls.key':privateRead(s.tls[n].key)};
  }
  if(vault)values['orchestrator-vault-runtime']=s.vaultTokens;
+ if(oidc)values['orchestrator-oidc']={'oidc.json':JSON.stringify(oidc)};
  return Object.entries(values).map(([name,data])=>({apiVersion:'v1',kind:'Secret',type:'Opaque',metadata:{name,namespace:c.namespace,labels:{'app.kubernetes.io/managed-by':owner,'orchestrator.dev/installation':s.id}},data:Object.fromEntries(Object.entries(data).map(([k,v])=>[k,Buffer.from(v).toString('base64')]))}));
 }
 export function sameSecret(existing,desired){return JSON.stringify(Object.entries(existing.data??{}).sort())===JSON.stringify(Object.entries(desired.data).sort());}
