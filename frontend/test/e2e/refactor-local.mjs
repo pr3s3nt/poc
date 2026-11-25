@@ -2330,8 +2330,16 @@ export const SCENARIOS = {
   // tài khoản ADMIN; cookie phiên vẫn là của Kỹ sư nền tảng thật.
   async T10({ page, h, ui, caption, mark, check, baseURL }) {
     const chip = () => page.locator('.user-chip');
-    const platformLinks = ['navResourceTypes', 'navResourceDefinitions', 'navRenderingTemplates', 'navConnections', 'navSecretStores'];
-    const platformPaths = { navResourceTypes: 'resource-types', navResourceDefinitions: 'resource-definitions', navRenderingTemplates: 'rendering-templates', navConnections: 'connections', navSecretStores: 'secret-stores' };
+    const platformLinks = [
+      ['Loại tài nguyên', '/ui/platform/resource-types'],
+      ['Cấu hình tài nguyên', '/ui/platform/resource-definitions'],
+      ['Tài khoản hạ tầng', '/ui/platform/driver-accounts'],
+      ['Cấu hình Git', '/ui/platform/settings'],
+      ['Cấu hình CD', '/ui/platform/cd-providers'],
+      ['Kho bí mật', '/ui/platform/secret-stores'],
+      ['Khởi tạo nền tảng', '/ui/setup'],
+    ];
+    const platformLink = (name) => page.getByRole('link', { name, exact: true });
     // The inline error span sits inside the label, so a field with an error is matched by prefix.
     const userField = () => page.getByLabel('Tên đăng nhập');
     const passField = () => page.getByLabel('Mật khẩu');
@@ -2350,7 +2358,7 @@ export const SCENARIOS = {
     await expect(page.getByText('Nền tảng nội bộ cho nhà phát triển', { exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Làm việc nhanh hơn.');
     await expect(page.getByText('Hạ tầng giúp bạn tập trung vào dịch vụ.', { exact: true })).toBeVisible();
-    await expect(page.getByText('Dùng tài khoản kiểm thử local của bạn.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Dùng tài khoản nội bộ của bạn.', { exact: true })).toBeVisible();
     await expect(ui('signIn', 'password')).toHaveAttribute('type', 'password');
     check('sign-in page (real): Vietnamese heading, brand text and helper, password input type=password');
     mark('sign-in-page');
@@ -2390,27 +2398,27 @@ export const SCENARIOS = {
     mark('developer-signed-in');
     await h.pause(SHORT_READ);
 
-    caption('Bước 5: Thanh điều hướng của Nhà phát triển: chỉ Ứng dụng; Lịch sử triển khai bị khóa (Sắp có)');
+    caption('Bước 5: Thanh điều hướng của Nhà phát triển: Dịch vụ và Tài liệu');
     const nav = ui('shell', 'nav');
     await expect(nav).toBeVisible();
     await expect(ui('shell', 'navApplications')).toHaveAttribute('href', '/ui/applications');
-    for (const link of platformLinks) await expect(ui('shell', link)).toHaveCount(0);
-    await expect(nav.locator('.nav-item-disabled')).toContainText('Lịch sử triển khai');
-    await expect(nav.locator('.nav-item-disabled')).toContainText('Sắp có');
-    await expect(nav.getByRole('link')).toHaveCount(1);
+    for (const [name] of platformLinks) await expect(platformLink(name)).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: 'Nền tảng', exact: true })).toHaveCount(0);
+    await expect(nav).not.toContainText('Lịch sử triển khai');
+    await expect(nav.getByRole('link')).toHaveText(['Dịch vụ', 'Tài liệu']);
     await expect(chip()).toContainText('developer');
     await expect(chip()).toContainText('Nhà phát triển');
-    check('developer shell (real session): only Dịch vụ link, disabled "Lịch sử triển khai / Sắp có", footer developer + Nhà phát triển');
+    check('developer shell (real session): Dịch vụ and Tài liệu links, footer developer + Nhà phát triển');
     mark('developer-nav');
     await h.moveTo(chip());
     await h.read('Nhà phát triển không thấy mục nền tảng');
 
-    caption('Bước 6: Nhà phát triển mở thẳng đường dẫn Mẫu dựng ứng dụng; trang không hiển thị');
-    await page.goto(`${baseURL}/ui/platform/rendering-templates`);
+    caption('Bước 6: Nhà phát triển mở thẳng đường dẫn Cấu hình tài nguyên; trang không hiển thị');
+    await page.goto(`${baseURL}/ui/platform/resource-definitions`);
     await expect(nav).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Mẫu dựng dịch vụ' })).toHaveCount(0);
-    await expect(ui('shell', 'navRenderingTemplates')).toHaveCount(0);
-    check('role gate (real): developer deep link /ui/platform/rendering-templates renders no page and no link');
+    await expect(page.getByRole('heading', { name: 'Cấu hình tài nguyên' })).toHaveCount(0);
+    await expect(platformLink('Cấu hình tài nguyên')).toHaveCount(0);
+    check('role gate (real): developer deep link /ui/platform/resource-definitions renders no page and no link');
     mark('developer-gate');
     await h.read('Đường dẫn trực tiếp bị chặn theo vai trò');
 
@@ -2445,35 +2453,35 @@ export const SCENARIOS = {
     await expect(ui('applications', 'heading')).toBeVisible();
     await expect(chip()).toContainText('platform-engineer');
     await expect(chip()).toContainText('Kỹ sư nền tảng');
-    await expect(nav.getByRole('link')).toHaveCount(6);
+    await expect(nav.getByRole('link')).toHaveCount(10);
     await expect(ui('shell', 'navApplications')).toHaveAttribute('href', '/ui/applications');
-    for (const link of platformLinks) await expect(ui('shell', link)).toHaveAttribute('href', `/ui/platform/${platformPaths[link]}`);
-    await expect(nav.locator('.nav-item-disabled')).toContainText('Sắp có');
-    check('platform-engineer shell (real session): six links with expected hrefs, role label Kỹ sư nền tảng');
+    for (const [name, path] of platformLinks) await expect(platformLink(name)).toHaveAttribute('href', path);
+    await expect(nav).not.toContainText('Lịch sử triển khai');
+    check('platform-engineer shell (real session): ten links with expected hrefs, role label Kỹ sư nền tảng');
     mark('pe-nav');
     await h.moveTo(chip());
     await h.read('Kỹ sư nền tảng thấy đủ mục');
 
-    caption('Bước 11: Bấm từng mục nền tảng, gồm Mẫu dựng ứng dụng; đường dẫn và mục đang chọn đúng');
-    for (const link of platformLinks) {
-      await h.click(ui('shell', link));
-      await expect(page).toHaveURL(`${baseURL}/ui/platform/${platformPaths[link]}`);
-      await expect(ui('shell', link)).toHaveClass(/nav-item-active/);
-      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    caption('Bước 11: Bấm từng mục trong nhóm Nền tảng; đường dẫn và mục đang chọn đúng');
+    for (const [name, path] of platformLinks) {
+      await h.click(platformLink(name));
+      await expect(page).toHaveURL(`${baseURL}${path}`);
+      await expect(platformLink(name)).toHaveAttribute('aria-current', 'page');
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
       await h.pause(800);
     }
-    check('platform links (real): all five open their route with active highlight');
+    check('platform links (real): all seven open their route with active highlight');
     mark('pe-links');
     await h.read('Các mục nền tảng mở đúng trang');
 
     caption('Bước 12: Mô phỏng vai trò Quản trị viên (MOCK GET /auth/session); tải lại, thấy cùng mục và nhãn Quản trị viên');
     await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: { user: { Username: 'admin-mo-phong', Role: 'ADMIN' } } }));
-    await page.goto(`${baseURL}/ui/platform/rendering-templates`);
-    await expect(page.getByRole('heading', { name: 'Mẫu dựng dịch vụ', level: 1 })).toBeVisible();
+    await page.goto(`${baseURL}/ui/platform/resource-definitions`);
+    await expect(page.getByRole('heading', { name: 'Cấu hình tài nguyên', level: 1 })).toBeVisible();
     await expect(chip()).toContainText('Quản trị viên');
-    await expect(nav.getByRole('link')).toHaveCount(6);
-    for (const link of platformLinks) await expect(ui('shell', link)).toBeVisible();
-    check('ADMIN (MOCKED session projection, real PE cookie): label Quản trị viên, six links, rendering templates page renders');
+    await expect(nav.getByRole('link')).toHaveCount(11);
+    for (const [name] of platformLinks) await expect(platformLink(name)).toBeVisible();
+    check('ADMIN (MOCKED session projection, real PE cookie): label Quản trị viên, eleven links, Resource definitions page renders');
     mark('admin-mock');
     await h.read('Vai trò ADMIN (mô phỏng) hiển thị Quản trị viên');
     await page.unroute('**/api/v1/auth/session');

@@ -102,7 +102,7 @@ try {
   mark('sign-in');
   await signIn('platform-engineer');
   await h.click(page.getByRole('link', { name: /(^|\s)Kho bí mật$/ }));
-  await expect(page.getByRole('heading', { name: 'Kho bí mật', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Cấu hình kho bí mật', level: 1 })).toBeVisible();
   await expect(page.getByText('Chưa có kho bí mật nào được đăng ký.')).toBeVisible();
   await h.pause(READ);
   for (const store of stores) {

@@ -26,18 +26,18 @@ const TABLES = {
   shell: {
     signOut: { role: 'button', vi: 'Đăng xuất', current: 'Đăng xuất' },
     nav: { role: 'navigation', vi: 'Điều hướng chính', current: 'Điều hướng chính' },
-    navApplications: { role: 'link', vi: 'Ứng dụng', current: 'Ứng dụng' },
+    navApplications: { role: 'link', vi: 'Dịch vụ', current: 'Dịch vụ' },
     navResourceTypes: { role: 'link', vi: 'Loại tài nguyên', current: 'Loại tài nguyên' },
     navResourceDefinitions: { role: 'link', vi: 'Cấu hình tài nguyên', current: 'Cấu hình tài nguyên' },
-    navRenderingTemplates: { role: 'link', vi: 'Mẫu dựng ứng dụng', current: 'Mẫu dựng ứng dụng' },
+    navRenderingTemplates: { role: 'link', vi: 'Mẫu dựng dịch vụ', current: 'Mẫu dựng dịch vụ' },
     navConnections: { role: 'link', vi: 'Kết nối', current: 'Kết nối' },
     navSecretStores: { role: 'link', vi: 'Kho bí mật', current: 'Kho bí mật' },
   },
   applications: {
-    heading: { role: 'heading', level: 1, vi: 'Ứng dụng của bạn', current: 'Ứng dụng của bạn' },
-    create: { role: 'button', vi: '+ Tạo ứng dụng', current: '+ Tạo ứng dụng' },
-    loading: { role: 'status', vi: 'Đang tải ứng dụng', current: 'Đang tải ứng dụng' },
-    emptyHeading: { role: 'heading', level: 2, vi: 'Bắt đầu với ứng dụng mới', current: 'Bắt đầu với ứng dụng mới' },
+    heading: { role: 'heading', level: 1, vi: 'Dịch vụ của bạn', current: 'Dịch vụ của bạn' },
+    create: { role: 'button', vi: '+ Tạo dịch vụ', current: '+ Tạo dịch vụ' },
+    loading: { role: 'status', vi: 'Đang tải dịch vụ', current: 'Đang tải dịch vụ' },
+    emptyHeading: { role: 'heading', level: 2, vi: 'Bắt đầu với dịch vụ mới', current: 'Bắt đầu với dịch vụ mới' },
     retry: { role: 'button', vi: 'Thử lại', current: 'Thử lại' },
   },
   // T04 translated this page; `current` equals `vi` for its entries.
@@ -75,10 +75,10 @@ const TABLES = {
   },
   // T03 page is Vietnamese from the start; `current` equals `vi`.
   renderingTemplates: {
-    heading: { role: 'heading', level: 1, vi: 'Mẫu dựng ứng dụng', current: 'Mẫu dựng ứng dụng' },
+    heading: { role: 'heading', level: 1, vi: 'Mẫu dựng dịch vụ', current: 'Mẫu dựng dịch vụ' },
     id: { role: 'label', vi: 'ID mẫu', current: 'ID mẫu' },
-    bundle: { role: 'label', wrapsOptions: true, vi: 'Bundle dựng ứng dụng', current: 'Bundle dựng ứng dụng' },
-    submit: { role: 'button', vi: 'Đăng ký mẫu dựng ứng dụng', current: 'Đăng ký mẫu dựng ứng dụng' },
+    bundle: { role: 'label', wrapsOptions: true, vi: 'Bundle dựng dịch vụ', current: 'Bundle dựng dịch vụ' },
+    submit: { role: 'button', vi: 'Đăng ký mẫu dựng dịch vụ', current: 'Đăng ký mẫu dựng dịch vụ' },
   },
   // T06 translated this page; `current` equals `vi` for its entries.
   connections: {
