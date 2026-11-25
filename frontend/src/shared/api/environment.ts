@@ -11,6 +11,8 @@ export type APIEnvironment = {
   targetGeneration?: number;
   draftVersion?: number;
   activeOperation?: EnvironmentOperation;
+  deploymentStatus?: EnvironmentTarget['deploymentStatus'];
+  priorRevisionServing?: boolean;
   endpoints?: { workloadId: string; url: string }[];
 };
 
@@ -25,5 +27,7 @@ export function toTarget(item: APIEnvironment): EnvironmentTarget {
     draftVersion: item.draftVersion ?? 0,
     endpoints: item.endpoints ?? [],
     activeOperation: item.activeOperation,
+    deploymentStatus: item.deploymentStatus,
+    priorRevisionServing: item.priorRevisionServing,
   };
 }

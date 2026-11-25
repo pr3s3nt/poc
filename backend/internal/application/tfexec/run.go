@@ -308,6 +308,20 @@ func (s *Service) write(ctx context.Context, st *execState, stage string, status
 		reason := ""
 		if state == "FAILED" || state == "INTERRUPTED" {
 			reason = "TERRAFORM"
+			if stage == StagePlanning && st.planDiagnostic != "" {
+				reason = st.planDiagnostic
+			} else if stage == StagePlanning {
+				switch code {
+				case codeInput:
+					reason = "TERRAFORM_PLAN_INPUT"
+				case codeAuth:
+					reason = "TERRAFORM_PLAN_AUTH"
+				case codeBackend:
+					reason = "TERRAFORM_PLAN_BACKEND"
+				case codeTransient:
+					reason = "TERRAFORM_PLAN_TRANSIENT"
+				}
+			}
 		}
 		if st.req.DeploymentID != "" {
 			deadline := updated.Deadline
@@ -349,6 +363,9 @@ func (s *Service) setInstance(ctx context.Context, st *execState, status tfresou
 // A confirmed failure leaves the acknowledged state usable by cleanup and
 // restores the previous status when nothing could have changed.
 func (s *Service) settleFailure(ctx context.Context, st *execState, prev tfresource.InstanceStatus, f *stepFailure) error {
+	if f.stage == StagePlanning && f.step != nil && f.step.ImageDigestRequired {
+		st.planDiagnostic = "TERRAFORM_IMAGE_DIGEST"
+	}
 	// A clean CLI exit after a mutating step proves nothing about the
 	// provider, whatever the error class and however many retries ran: every
 	// failed APPLY/DESTROY must be accounted for by acknowledged state, or the

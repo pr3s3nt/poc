@@ -341,14 +341,22 @@ func (s *Service) Query(ctx context.Context, scope telemetry.Scope, kind string,
 	rank := map[string]int{"RECEIVING": 0, "METRICS_UNAVAILABLE": 1, "WAITING": 2, "PARTIAL": 3, "STALE": 4, "STORAGE_LIMIT": 5}
 	for _, state := range data.Sources {
 		known[state.Source.WorkloadID] = true
-		out.Sources = append(out.Sources, SourceHealth{state.Source.WorkloadID, telemetry.SafeCode(state.LogsCode), telemetry.SafeCode(state.MetricsCode), state.ObservedAt, state.LastLogAt, state.LastMetricAt, state.Limited})
+		logsCode, metricsCode := telemetry.SafeCode(state.LogsCode), telemetry.SafeCode(state.MetricsCode)
+		stale := state.ObservedAt != nil && state.ObservedAt.Before(now.Add(-3*telemetry.Interval))
+		if stale && logsCode == telemetry.OK {
+			logsCode = telemetry.Stale
+		}
+		if stale && metricsCode == telemetry.OK {
+			metricsCode = telemetry.Stale
+		}
+		out.Sources = append(out.Sources, SourceHealth{state.Source.WorkloadID, logsCode, metricsCode, state.ObservedAt, state.LastLogAt, state.LastMetricAt, state.Limited})
 		health := "RECEIVING"
 		switch {
 		case state.Limited:
 			health = "STORAGE_LIMIT"
 		case state.ObservedAt == nil:
 			health = "WAITING"
-		case state.ObservedAt.Before(now.Add(-3 * telemetry.Interval)):
+		case stale:
 			health = "STALE"
 		case state.LogsCode == telemetry.Waiting && state.MetricsCode == telemetry.Waiting:
 			health = "WAITING"

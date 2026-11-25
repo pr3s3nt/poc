@@ -203,15 +203,16 @@ func (s *Service) Provision(ctx context.Context, req execution.ProvisionRequest)
 
 // execState is the per-execution working record.
 type execState struct {
-	req      ExecuteRequest
-	bundle   tfmodule.Bundle
-	inst     tfresource.Instance
-	attempt  tfresource.Attempt
-	action   tfresource.Action
-	vars     variables
-	env      terraformexec.ProviderEnv
-	token    string
-	hasState bool
+	planDiagnostic string
+	req            ExecuteRequest
+	bundle         tfmodule.Bundle
+	inst           tfresource.Instance
+	attempt        tfresource.Attempt
+	action         tfresource.Action
+	vars           variables
+	env            terraformexec.ProviderEnv
+	token          string
+	hasState       bool
 	// verifyHandle names the destroy cycle's private pre-destroy artifact;
 	// cycleEffects reports an earlier destroy attempt of the cycle that may
 	// have changed provider objects; verifyState is the original state.

@@ -172,3 +172,11 @@ metadata; it cannot select a target for a new or existing Environment.
 - **CD-03:** Self-heal is a separate explicit capability-gated option, initially
   off; enabling CD does not implicitly enable repair. Infrastructure behavior is
   independent. Busy, stale, unsupported and unknown-outcome states are explicit.
+
+## Trạng thái môi trường và Preview (issue #98)
+
+Danh sách Ứng dụng dùng trạng thái triển khai thực tế riêng cho staging và
+production. Khi thiếu dữ liệu đáng tin cậy chỉ hiện tên. Nếu lần cập nhật thất
+bại và có quan sát xác nhận bản trước vẫn phục vụ, thể hiện cả hai. Chỉ hiện
+Đang chạy khi có dữ liệu sức khỏe workload. Application ẩn lối tắt Xem trước
+Workload cạnh Thêm Workload, đồng thời giữ Xem trước thay đổi cho bản nháp đã lưu.

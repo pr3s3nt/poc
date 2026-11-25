@@ -18,6 +18,7 @@ type Pod struct {
 	Restarts int    `json:"restarts"`
 }
 type Event struct {
+	Node     string    `json:"node,omitempty"`
 	Workload string    `json:"workload,omitempty"`
 	Reason   string    `json:"reason"`
 	Object   string    `json:"object"`
@@ -69,6 +70,7 @@ type Record struct {
 	PriorHeartbeat *time.Time `json:"priorHeartbeat,omitempty"`
 }
 
+var nodeName = regexp.MustCompile(`^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$`)
 var identity = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._:/#@+-]{0,255}$`)
 var digest = regexp.MustCompile(`^[A-Za-z0-9_+.-]+:[a-fA-F0-9]{32,128}$`)
 var image = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._/:@-]{0,511}$`)
@@ -81,7 +83,7 @@ func Identity(v string) string {
 }
 func Reason(v string) string {
 	switch v {
-	case "Pulling", "Killing", "SuccessfulDelete", "ScalingReplicaSet", "FLEET_FORBIDDEN", "FLEET_AUTH", "FLEET_APPLY_FAILED", "ABSENT", "PUBLISHED", "DELIVERY_CONFIRMED", "WAITING_DEPENDENCY", "ImagePullBackOff", "ErrImagePull", "InvalidImageName", "CrashLoopBackOff", "CreateContainerConfigError", "CreateContainerError", "FailedScheduling", "Pending", "OOMKilled", "Error", "Completed", "Running", "ContainerCreating", "PodInitializing", "Failed", "BackOff", "FailedMount", "FailedAttachVolume", "Unhealthy", "FailedToRetrieveImagePullSecret", "Scheduled", "Pulled", "Created", "Started", "SuccessfulCreate", "NotReady", "OWNERSHIP", "CONTROLLER", "CONFIG", "TARGET", "UNKNOWN", "GIT", "GIT_CONFLICT", "GIT_INVALID", "TERRAFORM", "JOB_FAILED", "SECRET_NOT_READY", "WAITING_FLEET", "WAITING_READINESS", "RECOVERY_REQUIRED", "PRIOR_STOPPED":
+	case "TERRAFORM_IMAGE_DIGEST", "TERRAFORM_PLAN_INPUT", "TERRAFORM_PLAN_AUTH", "TERRAFORM_PLAN_BACKEND", "TERRAFORM_PLAN_TRANSIENT", "KUBELET_POD_DIRECTORY_READ_ONLY", "Pulling", "Killing", "SuccessfulDelete", "ScalingReplicaSet", "FLEET_FORBIDDEN", "FLEET_AUTH", "FLEET_APPLY_FAILED", "ABSENT", "PUBLISHED", "DELIVERY_CONFIRMED", "WAITING_DEPENDENCY", "ImagePullBackOff", "ErrImagePull", "InvalidImageName", "CrashLoopBackOff", "CreateContainerConfigError", "CreateContainerError", "FailedScheduling", "Pending", "OOMKilled", "Error", "Completed", "Running", "ContainerCreating", "PodInitializing", "Failed", "BackOff", "FailedMount", "FailedAttachVolume", "Unhealthy", "FailedToRetrieveImagePullSecret", "Scheduled", "Pulled", "Created", "Started", "SuccessfulCreate", "NotReady", "OWNERSHIP", "CONTROLLER", "CONFIG", "TARGET", "UNKNOWN", "GIT", "GIT_CONFLICT", "GIT_INVALID", "TERRAFORM", "JOB_FAILED", "SECRET_NOT_READY", "WAITING_FLEET", "WAITING_READINESS", "RECOVERY_REQUIRED", "PRIOR_STOPPED":
 		return v
 	}
 	return "UNKNOWN"
@@ -202,6 +204,9 @@ func (s Step) Safe() Step {
 	for _, e := range s.Events {
 		e.Workload = Identity(e.Workload)
 		e.Reason = Reason(e.Reason)
+		if e.Reason != "KUBELET_POD_DIRECTORY_READ_ONLY" || !nodeName.MatchString(e.Node) {
+			e.Node = ""
+		}
 		e.Object = Identity(e.Object)
 		if e.Object != "" {
 			events = append(events, e)

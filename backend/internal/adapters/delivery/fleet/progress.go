@@ -8,6 +8,7 @@ import (
 	port "orchestrator/internal/ports/delivery"
 	"orchestrator/internal/ports/execution"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -101,11 +102,16 @@ collect:
 			}
 			var list struct {
 				Items []struct {
-					Reason        string    `json:"reason"`
-					LastTimestamp time.Time `json:"lastTimestamp"`
-					EventTime     time.Time `json:"eventTime"`
-					Count         int       `json:"count"`
-					Metadata      struct {
+					Reason  string `json:"reason"`
+					Message string `json:"message"`
+					Source  struct {
+						Component string `json:"component"`
+					} `json:"source"`
+					ReportingComponent string    `json:"reportingComponent"`
+					LastTimestamp      time.Time `json:"lastTimestamp"`
+					EventTime          time.Time `json:"eventTime"`
+					Count              int       `json:"count"`
+					Metadata           struct {
 						CreationTimestamp time.Time `json:"creationTimestamp"`
 					} `json:"metadata"`
 					Series struct {
@@ -127,7 +133,15 @@ collect:
 				if at.IsZero() {
 					at = e.Metadata.CreationTimestamp
 				}
-				events = append(events, progress.Event{Workload: workload, Reason: progress.Reason(e.Reason), Object: name, At: at, Count: e.Count})
+				event := progress.Event{Workload: workload, Reason: progress.Reason(e.Reason), Object: name, At: at, Count: e.Count}
+				if (e.Source.Component == "kubelet" || e.ReportingComponent == "kubelet") &&
+					strings.Contains(e.Message, "mkdir /var/lib/kubelet/pods/"+uid) &&
+					strings.Contains(e.Message, ": read-only file system") {
+					event.Reason = "KUBELET_POD_DIRECTORY_READ_ONLY"
+					spec, _ := pod["spec"].(map[string]any)
+					event.Node, _ = spec["nodeName"].(string)
+				}
+				events = append(events, event)
 			}
 		}
 	}

@@ -11,7 +11,7 @@ vi.mock('../observability/OverviewPanel', () => ({ OverviewPanel: () => null }))
 
 const application: Application = { id: 'catalog', name: 'Catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); window.history.replaceState({}, '', '/'); });
 
 it('binds a fresh review request ID and polls only exact scoped deployments', async () => {
   let requestId = ''; const filteredRequests:string[] = [];
@@ -230,6 +230,7 @@ it('reports truthfully when the reload after a conflict fails', async () => {
     if (init?.method === 'DELETE') return Response.json({ error: 'conflict' }, { status: 409 });
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
     if (url.includes('/resources')) return Response.json({ resources: [] });
+    if (url.includes('/operations')) return Response.json({ operations: [] });
     lists += 1;
     if (lists === 2) return Response.json({ error: 'unavailable' }, { status: 500 });
     return list('staging', [{ id: 'api', state: '', ready: true, workload: {} }], lists);
@@ -673,4 +674,32 @@ it('shows the current deployment step and warning on the main Environment page',
   expect(await screen.findByText(/backend-1: ImagePullBackOff/)).toBeInTheDocument();
   expect(screen.getByText(/backend — Chờ ổn định/)).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Xem chi tiết →' })).toBeEnabled();
+});
+
+it('restores the saved execution timeline for the selected environment after reload', async () => {
+  const requestId = 'c9c415d8-4649-4826-b161-77a12002f132';
+  const operation = {
+    id: 'stored-op', kind: 'DEPLOY', status: 'FAILED', reviewRequestId: requestId,
+    progress: { version: 1, steps: [{
+      id: 'plan', kind: 'TERRAFORM', status: 'FAILED', reason: 'TERRAFORM_IMAGE_DIGEST',
+      resourceName: 'postgres.main', startedAt: '2026-11-25T00:00:00Z',
+      updatedAt: '2026-11-25T00:00:01Z', finishedAt: '2026-11-25T00:00:01Z',
+    }] },
+  };
+  const requests: string[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: string, init?: RequestInit) => {
+    expect(init?.method ?? 'GET').toBe('GET');
+    requests.push(input);
+    if (input.includes('/production/operations')) return Response.json({ operations: [operation] });
+    if (input.endsWith('/workloads')) return list('production', [], 1);
+    if (input.includes('/deployments')) return Response.json({ deployments: [] });
+    return Response.json({ resources: [] });
+  }));
+  window.history.replaceState({}, '', `/ui/applications/catalog?environment=production&reviewRequestId=${requestId}`);
+  render(<ApplicationHomePage application={application} initialEnvironment="production" />);
+  expect(await screen.findByRole('heading', { name: 'Trạng thái triển khai' })).toBeInTheDocument();
+  expect((await screen.findAllByText(/biến image phải ghim digest/i)).length).toBeGreaterThan(0);
+  expect(requests).toContain(`/api/v1/applications/catalog/environments/production/operations?reviewRequestId=${requestId}`);
+  expect(screen.queryByRole('button', { name: 'Xem trước Workload' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Xem trước thay đổi' })).toBeEnabled();
 });

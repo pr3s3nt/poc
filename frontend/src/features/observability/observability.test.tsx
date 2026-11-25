@@ -79,3 +79,21 @@ it('pauses at the latest followed interval without rewinding received logs', asy
   expect(await screen.findByText(newer.message)).toBeInTheDocument();
   now.mockRestore();
 });
+
+it('explains a metrics-only outage while keeping logs available and clears the warning after recovery', async () => {
+  const recovered = fixture();
+  const outage = { ...recovered, state: 'METRICS_UNAVAILABLE', sources: recovered.sources.map(source => ({ ...source, metricsCode: 'FORBIDDEN' })) };
+  let response = outage;
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(response)));
+  const user = userEvent.setup();
+  render(<HistoryPage application={{ id: 'shop', name: 'Shop', environments: bothConfigured(), workloads: { staging: [], production: [] } }} environment="staging" tab="logs" />);
+  const cause = await screen.findByText(text('viewCause'));
+  await user.click(cause);
+  expect(screen.getByText(text('collectionCause.FORBIDDEN'))).toBeVisible();
+  expect(screen.queryByText(`api · ${text('logs')}`)).not.toBeInTheDocument();
+  expect(screen.getByText(recovered.logs[0]!.message)).toBeVisible();
+  response = recovered;
+  await user.click(screen.getByRole('button', { name: text('refresh') }));
+  await waitFor(() => expect(screen.queryByText(text('viewCause'))).not.toBeInTheDocument());
+  expect(screen.getByText(recovered.logs[0]!.message)).toBeVisible();
+});

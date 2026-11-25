@@ -17,7 +17,8 @@ import (
 // mapping, I04-07). Classes are never a Type registration field.
 type ResourceTypeView struct {
 	resource.Type
-	Classes []string `json:"classes"`
+	Classes           []string `json:"classes"`
+	DeletionProtected bool     `json:"deletionProtected"`
 	// DefaultAvailable reports whether the class `default` (an omitted class)
 	// can be served: an offered Definition has a criterion that declares no
 	// class or declares `default` (issue #61). Clients offer "Default" only then.
@@ -76,7 +77,7 @@ func (s *Service) ListResourceTypeViews(ctx context.Context, organizationKey str
 	}
 	out := make([]ResourceTypeView, 0, len(types))
 	for _, typ := range types {
-		view := ResourceTypeView{Type: typ, Classes: []string{}, DefaultAvailable: defaults[typ.Key]}
+		view := ResourceTypeView{Type: typ, Classes: []string{}, DefaultAvailable: defaults[typ.Key], DeletionProtected: IsDeletionProtected(typ.Key, false)}
 		for class := range classes[typ.Key] {
 			view.Classes = append(view.Classes, class)
 		}

@@ -6,7 +6,7 @@ import { OverviewPanel } from '../observability/OverviewPanel';
 import { ReconciliationPanel } from '../delivery/ReconciliationPanel';
 import { InfrastructureDriftPanel } from '../delivery/InfrastructureDriftPanel';
 import { useEffect, useRef, useState } from 'react';
-import { navigate } from '../../app/routes';
+import { href, navigate } from '../../app/routes';
 import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 import { endpointFor } from '../../shared/types/application';
 import { ApiError, isBusy, isStaleConflict } from '../../shared/api/client';
@@ -27,6 +27,7 @@ import { DeploymentReview, type DeploymentReviewData } from '../preview/Deployme
 import { getDeployment, listDeployments, listReviewOperations, type DeploymentDetail, type ReviewOperation } from '../deployments/api';
 import { t } from '../../shared/i18n';
 import { isRolloutFailure, RolloutFailure } from '../deployments/RolloutFailure';
+import { ExecutionProgress } from '../deployments/ExecutionProgress';
 import { PodWaits } from '../deployments/PodWaits';
 
 const actions: Record<string, string> = { DEPLOY: t('applications.applicationHome.deploy'), UPDATE: t('applications.applicationHome.update'), REMOVE: t('applications.applicationHome.remove') };
@@ -55,6 +56,16 @@ export function ApplicationHomePage({ application, initialEnvironment = 'staging
   const [templatePicker, setTemplatePicker] = useState(false);
   const [environment, setEnvironment] = useState<EnvironmentKey>(initialEnvironment);
   useEffect(() => setJobHistory(undefined), [application.id, environment]);
+  function pinReview(next: EnvironmentKey, requestId?: string) {
+    const url = new URL(href({ name: 'application', applicationId: application.id, environment: next }), window.location.origin);
+    if (requestId) url.searchParams.set('reviewRequestId', requestId);
+    window.history.replaceState(window.history.state, '', url);
+  }
+  function selectEnvironment(next: EnvironmentKey) {
+    if (next === environment) return;
+    pinReview(next);
+    setEnvironment(next);
+  }
   // Draft Delete/Undo are Environment writes: held while an operation owns it.
   const environmentBusy = useEnvironmentBusy(application, environment, onTargetChange);
   const [data, setData] = useState<WorkloadList>();
@@ -84,17 +95,47 @@ export function ApplicationHomePage({ application, initialEnvironment = 'staging
   }, [application.id, environment]);
 
   useEffect(() => {
+    const url = new URL(window.location.href);
+    const home = new URL(href({ name: 'application', applicationId: application.id }), url.origin);
+    const pinned = url.searchParams.get('reviewRequestId');
+    if (url.pathname === home.pathname && url.searchParams.get('environment') === environment &&
+        pinned && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(pinned)) {
+      setReviewRequestId(pinned);
+      return;
+    }
+    let cancelled = false;
+    listReviewOperations(application.id, environment)
+      .then(({ operations }) => {
+        const latest = operations.find((entry) => entry.kind === 'DEPLOY' && entry.reviewRequestId);
+        if (!cancelled && latest) setReviewRequestId((current) => current || latest.reviewRequestId || '');
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [application.id, environment]);
+
+  useEffect(() => {
     if (!reviewRequestId) return;
     let cancelled = false; let timer: number | undefined;
+    const started = Date.now();
     const refresh = async () => {
       let terminal = false;
       try {
         const [list, operations] = await Promise.all([listDeployments(application.id, environment, undefined, reviewRequestId), listReviewOperations(application.id, environment, reviewRequestId)]);
-        const exact = await Promise.all(list.deployments.map((entry) => getDeployment(application.id, environment, entry.id)));
         if (cancelled) return;
         const operation = operations.operations.find((entry) => entry.reviewRequestId === reviewRequestId);
-        setObserved(exact); setReviewOperation(operation); setObservationStale(false);
-        terminal = Boolean(operation && ['SUCCEEDED', 'FAILED', 'RECOVERED'].includes(operation.status) && exact.every((entry) => ['SUCCEEDED', 'FAILED'].includes(entry.deployment.status)));
+        setReviewOperation(operation);
+        const details = await Promise.allSettled(list.deployments.map((entry) => getDeployment(application.id, environment, entry.id)));
+        if (cancelled) return;
+        const exact = details.flatMap((entry) => entry.status === 'fulfilled' ? [entry.value] : []);
+        setObserved((previous) => list.deployments.flatMap(({ id }) => {
+          const detail = exact.find((entry) => entry.deployment.id === id) ?? previous.find((entry) => entry.deployment.id === id);
+          return detail ? [detail] : [];
+        }));
+        const review = exact.find((entry) => entry.review)?.review;
+        if (review) setActiveReview((current) => current ?? review);
+        const incomplete = exact.length !== details.length;
+        setObservationStale(incomplete || (!operation && Date.now() - started > 30_000));
+        terminal = Boolean(!incomplete && operation && ['SUCCEEDED', 'FAILED', 'RECOVERED'].includes(operation.status));
       } catch {
         if (cancelled) return;
         setObservationStale(true);
@@ -118,7 +159,11 @@ export function ApplicationHomePage({ application, initialEnvironment = 'staging
     } catch (err) {
       if (current !== scope.current) return;
       setPreview(undefined);
-      if (kind === 'deploy' && err instanceof ApiError && err.status >= 400 && err.status < 500) { setReviewRequestId(''); setActiveReview(undefined); }
+      if (kind === 'deploy' && err instanceof ApiError && err.status >= 400 && err.status < 500) {
+        pinReview(environment);
+        setReviewRequestId('');
+        setActiveReview(undefined);
+      }
       if (isBusy(err)) {
         setError((err as ApiError).message);
       } else if (isStaleConflict(err)) {
@@ -153,6 +198,7 @@ export function ApplicationHomePage({ application, initialEnvironment = 'staging
     void run(undo ? `undo:${id}` : `delete:${id}`, () => undo ? undoWorkloadDelete(application.id, environment, id, version) : deleteWorkload(application.id, environment, id, version), (list) => { setPreview(undefined); setData(list); });
   }
   function loadPreview() {
+    pinReview(environment);
     setReviewRequestId(''); setActiveReview(undefined); setObserved([]); setReviewOperation(undefined);
     setPreview(undefined); setDeployReport(undefined);
     void run('preview', () => previewChanges(application.id, environment), setPreview);
@@ -161,6 +207,7 @@ export function ApplicationHomePage({ application, initialEnvironment = 'staging
     if (!preview || (preview.changes.length === 0 && !preview.deliveryPending && !preview.catalogPending)) return;
     const token = preview.token;
     const requestId = newReviewRequestId();
+    pinReview(environment, requestId);
     setActiveReview(preview.review); setObserved([]); setReviewOperation(undefined); setReviewRequestId(requestId); setObservationStale(false);
     const current = scope.current;
     void run('deploy', () => deployChanges(application.id, environment, token, requestId), async (report) => {
@@ -179,12 +226,12 @@ export function ApplicationHomePage({ application, initialEnvironment = 'staging
     {application.status === 'DELETING' ? <div className="form-error" role="status">{t('applications.deletion.deletingBanner')} <Button onClick={() => navigate({ name: 'settings', applicationId: application.id, environment })}>{t('applications.deletion.viewProgress')}</Button></div> : null}
     <header className="page-header application-header"><div><p className="eyebrow">{t('applications.applicationHome.application')}</p><h1>{application.name}</h1>{application.environments[environment]?.endpoints?.length ? <ul className="endpoint-list" aria-label={t('preview.endpoint')}>{application.environments[environment]!.endpoints!.map((endpoint) => <li key={endpoint.workloadId + endpoint.url}>{endpoint.workloadId} · <a href={endpoint.url} target="_blank" rel="noreferrer">{endpoint.url}</a></li>)}</ul> : null}<ApplicationTarget application={application} environment={environment} /></div><Button disabled={busy === 'deploy'} onClick={() => navigate({ name: 'settings', applicationId: application.id, environment })}>{t('applications.applicationHome.environmentSettings')}</Button></header>
     {created ? <div className="form-success" role="status">{t('applications.applicationHome.applicationCreatedTheDeploymentTarget')}</div> : null}
-    <div className="tabs" role="tablist"><button className={environment === 'staging' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => setEnvironment('staging')}>staging<span>{endpointFor(application, 'staging')}</span></button><button className={environment === 'production' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => setEnvironment('production')}>production<span>{endpointFor(application, 'production')}</span></button></div>
+    <div className="tabs" role="tablist"><button className={environment === 'staging' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => selectEnvironment('staging')}>staging<span>{endpointFor(application, 'staging')}</span></button><button className={environment === 'production' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => selectEnvironment('production')}>production<span>{endpointFor(application, 'production')}</span></button></div>
     {onTargetChange ? <OperationBanner application={application} environment={environment} onTargetChange={onTargetChange} /> : null}
     {application.environments[environment].reconciliationEnabled ? <ReconciliationPanel key={`${application.id}/${environment}`} applicationId={application.id} environment={environment} refreshKey={String(reload)} /> : null}
     {application.environments[environment].infrastructureDriftEnabled ? <InfrastructureDriftPanel key={`infrastructure/${application.id}/${environment}`} applicationId={application.id} environment={environment} canManage={canManageInfrastructure} busy={environmentBusy} refreshKey={String(reload)} /> : null}
     <OverviewPanel applicationId={application.id} environment={environment} refreshKey={String(reload)} />
-    <section className="content-panel"><div className="section-header"><div><h2>Workload</h2><p>{t('applications.applicationHome.configurationOfEnvironmentSavingHere', { environment })}</p></div><span><Button disabled={busy === 'deploy'} onClick={() => navigate({ name: 'workload-preview', applicationId: application.id, environment })}>{t('applications.applicationHome.previewScore')}</Button><Button disabled={locked} onClick={() => setTemplatePicker(true)}>{t('applications.applicationHome.addWorkload')}</Button></span></div>
+    <section className="content-panel"><div className="section-header"><div><h2>Workload</h2><p>{t('applications.applicationHome.configurationOfEnvironmentSavingHere', { environment })}</p></div><span><Button disabled={locked} onClick={() => setTemplatePicker(true)}>{t('applications.applicationHome.addWorkload')}</Button></span></div>
       {error ? <div className="form-error" role="alert">{error}{!data && !loading ? <> <Button onClick={() => void reloadList(scope.current)}>{t('applications.applicationHome.retry')}</Button></> : null}</div> : null}
       {environmentBusy ? <div className="form-info" role="status">{t('applications.applicationHome.anEnvironmentOperationIsRunning', { environment })}</div> : null}
       {notice ? <div className="form-info" role="status">{notice}</div> : null}
@@ -192,10 +239,10 @@ export function ApplicationHomePage({ application, initialEnvironment = 'staging
       <div className="form-actions"><Button tone="primary" disabled={locked} onClick={loadPreview}>{busy === 'preview' ? t('applications.applicationHome.computingPreview') : t('applications.applicationHome.previewChanges')}</Button></div>
     </section>
       {preview && !reviewRequestId ? <div className="content-panel preview-container" aria-label={t('applications.applicationHome.deploymentPreview')}><header className="review-section-heading"><div><h2>{t('applications.applicationHome.previewChanges')}</h2><ApplicationTarget application={application} environment={environment} /></div><span className="review-section-status">{t('applications.applicationHome.pendingDeployment')}</span></header><DeploymentReview review={preview.review} /><PreviewEndpoints changes={preview.changes} />{preview.newerDefinitions?.map(n => <p key={n.key} className="form-info" role="status">{t('versions.newerInPreview', { key: n.key, selected: n.selectedNumber, active: n.activeNumber })}</p>)}{preview.catalogPending ? <p className="form-info">{preview.desiredCatalog ? t('catalog.previewChange', { from: preview.appliedCatalog ? `${preview.appliedCatalog.sourceId} · ${preview.appliedCatalog.tag}` : t('catalog.unselected'), to: `${preview.desiredCatalog.sourceId} · ${preview.desiredCatalog.tag}` }) : t('catalog.upgradePreview')}</p> : null}{preview.deliveryPending ? <div className="form-info" role="status">{preview.deliveryPolicyOnly ? t('delivery.previewPolicy', { policy: preview.desiredDelivery?.selfHeal ? t('delivery.policyOn') : t('delivery.policyOff') }) : t('delivery.previewChange', { source: preview.appliedDelivery?.mode === 'CD' ? t('delivery.provider') : t('delivery.direct'), destination: preview.desiredDelivery?.mode === 'CD' ? t('delivery.provider') : t('delivery.direct') })}</div> : null}{preview.deliveryTransfer || preview.deliveryPolicyOnly ? <div className="form-info"><strong>{t('delivery.retainedInfrastructure')}</strong><ul>{preview.deliveryUnits?.map(unit => <li key={`${unit.workloadId}/${unit.phase}`}>{unit.workloadId === '_routes' ? t('reconciliation.routes') : unit.workloadId} · {t(`delivery.phase.${unit.phase}`)} · {t('delivery.objectCount', { count: unit.objects })}</li>)}</ul></div> : null}{preview.changes.length ? <details className="review-plan-details" open={preview.review ? undefined : true}><summary>{t('applications.applicationHome.technicalPlanDetails')}</summary><ul className="preview-changes">{preview.changes.map((change) => <li key={change.workloadId}><strong>{change.workloadId}</strong> · {actionLabel(change.action)} {' '}{t('applications.applicationHome.renderer')}{' '} {rendererText(change.rendering)} · {change.resources.new.length} {' '}{t('applications.applicationHome.newResources')}{change.resources.unreferenced.length ? t('applications.applicationHome.countResourcesWillNoLonger', { count: change.resources.unreferenced.length }) : ''}<Placements placements={change.placements} label={t('applications.applicationHome.deploymentTargetOfWorkloadId', { workloadId: change.workloadId })} /><ResourceIntents intents={change.resourceIntents} label={t('applications.applicationHome.resourcesOfWorkloadId', { workloadId: change.workloadId })} /></li>)}</ul></details> : <p>{t('applications.applicationHome.noWorkloadChangesToDeploy')}</p>}<footer className="review-action-bar"><div><strong>{t('applications.applicationHome.readyForReview')}</strong><small>{t('applications.applicationHome.countWorkloadsAffectedReviewThe', { count: preview.changes.length })}</small></div><Button tone="primary" disabled={busy !== '' || (preview.changes.length === 0 && !preview.deliveryPending && !preview.catalogPending)} onClick={deployPreview}>{busy === 'deploy' ? t('applications.applicationHome.deploying') : t('applications.applicationHome.deployTheseChanges')}</Button></footer></div> : null}
-      {reviewRequestId ? <div className="content-panel preview-container" aria-label={t('applications.applicationHome.trackDeployment')}><header className="review-section-heading"><div><h2>{t('applications.applicationHome.deploymentStatus')}</h2><p>{t('applications.applicationHome.environmentTrackTheReadinessOf', { environment })}</p></div><span className="review-section-status">{reviewOperation ? `${reviewOperation.status} · ${reviewOperation.stage || t('applications.applicationHome.waitingForRecord')}` : t('applications.applicationHome.waitingForTheExecutionRecord')}</span></header>{observationStale ? <div className="form-error" role="alert">{t('applications.applicationHome.couldNotRefreshTheStatus')}</div> : null}<PodWaits groups={reviewOperation?.podWaits} /><DeploymentReview review={activeReview} progress={progress} title={t('applications.applicationHome.mapAndActualProgress')} />{busy === 'deploy' ? <footer className="review-action-bar"><div><strong>{t('applications.applicationHome.deploymentInProgress')}</strong><small>{t('applications.applicationHome.statusUpdatesPerComponent')}</small></div><Button tone="primary" disabled>{t('applications.applicationHome.deploying')}</Button></footer> : null}{observed.length ? <ul>{observed.map((item) => <li key={item.deployment.id}><a href="#" onClick={(event) => { event.preventDefault(); navigate({ name: 'deployment', applicationId: application.id, environment, deploymentId: item.deployment.id }); }}>{item.deployment.workloadId} · {item.deployment.status}</a></li>)}</ul> : <p>{t('applications.applicationHome.noDeploymentForThisRequest')}</p>}</div> : null}
+      {reviewRequestId ? <div className="content-panel preview-container" aria-label={t('applications.applicationHome.trackDeployment')}><header className="review-section-heading"><div><h2>{t('applications.applicationHome.deploymentStatus')}</h2><p>{t('applications.applicationHome.environmentTrackTheReadinessOf', { environment })}</p></div><span className="review-section-status">{reviewOperation ? `${reviewOperation.status} · ${reviewOperation.stage || t('applications.applicationHome.waitingForRecord')}` : t('applications.applicationHome.waitingForTheExecutionRecord')}</span></header>{observationStale ? <div className="form-error" role="alert">{t('applications.applicationHome.couldNotRefreshTheStatus')}</div> : null}{reviewOperation?.progress?.steps?.length ? <ExecutionProgress record={reviewOperation.progress} operationStatus={reviewOperation.status} /> : null}<PodWaits groups={reviewOperation?.podWaits} /><DeploymentReview review={activeReview} progress={progress} title={t('applications.applicationHome.mapAndActualProgress')} />{busy === 'deploy' ? <footer className="review-action-bar"><div><strong>{t('applications.applicationHome.deploymentInProgress')}</strong><small>{t('applications.applicationHome.statusUpdatesPerComponent')}</small></div><Button tone="primary" disabled>{t('applications.applicationHome.deploying')}</Button></footer> : null}{observed.length ? <ul>{observed.map((item) => <li key={item.deployment.id}><a href="#" onClick={(event) => { event.preventDefault(); navigate({ name: 'deployment', applicationId: application.id, environment, deploymentId: item.deployment.id }); }}>{item.deployment.workloadId} · {item.deployment.status}</a></li>)}</ul> : <p>{t('applications.applicationHome.noDeploymentForThisRequest')}</p>}</div> : null}
       {deployReport ? <div className="content-panel" aria-label={t('applications.applicationHome.deploymentResult')}><h3>{t('applications.applicationHome.deploymentReportLabel', { reportLabel: reportLabel(deployReport.status) })}</h3><ApplicationTarget application={application} environment={environment} /><ul>{deployReport.results.map((result) => <li key={result.workloadId}>{result.workloadId} · {actionLabel(result.action)}: {resultLabel(result.status)}{result.deploymentId ? <> · <a href="#" onClick={(event) => { event.preventDefault(); navigate({ name: 'deployment', applicationId: application.id, environment, deploymentId: result.deploymentId as string }); }}>{t('applications.applicationHome.viewDeployment')}</a></> : null}{result.error ? isRolloutFailure(result.errorCode) ? <>{' — '}<RolloutFailure code={result.errorCode} applicationId={application.id} environment={environment} workloadId={result.workloadId} /></> : t('applications.applicationHome.thisWorkloadCouldNotBe') : ''}</li>)}</ul>{deployReport.status !== 'SUCCEEDED' ? <p>{t('applications.applicationHome.incompleteChangesStayPendingPreview')}</p> : null}</div> : null}
     <EnvironmentResources applicationId={application.id} environment={environment} refreshKey={`${reload}`} />
-    <EnvironmentRollback key={`rollback:${application.id}:${environment}`} applicationId={application.id} environment={environment} disabled={environmentBusy || Boolean(busy)} onCompleted={() => { setPreview(undefined); setDeployReport(undefined); setReviewRequestId(''); setActiveReview(undefined); setObserved([]); setReviewOperation(undefined); setReload(value => value + 1); void reloadList(scope.current); }} />
+    <EnvironmentRollback key={`rollback:${application.id}:${environment}`} applicationId={application.id} environment={environment} disabled={environmentBusy || Boolean(busy)} onCompleted={() => { pinReview(environment); setPreview(undefined); setDeployReport(undefined); setReviewRequestId(''); setActiveReview(undefined); setObserved([]); setReviewOperation(undefined); setReload(value => value + 1); void reloadList(scope.current); }} />
     <RecentDeployments applicationId={application.id} environment={environment} refreshKey={`${reload}`} />
   </section>;
 }

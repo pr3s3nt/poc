@@ -9,7 +9,7 @@ vi.mock('../features/observability/OverviewPanel', () => ({ OverviewPanel: () =>
 type Handler = (url: string, init?: RequestInit) => Response | Promise<Response> | undefined;
 
 let authenticated: boolean;
-type StubEnvironment = { key: string; version: number; secretStoreKey?: string; targetGeneration?: number; activeOperation?: { id: string; status: string } };
+type StubEnvironment = { key: string; deploymentStatus?: 'FAILED' | 'DEPLOYED'; priorRevisionServing?: boolean; version: number; secretStoreKey?: string; targetGeneration?: number; activeOperation?: { id: string; status: string } };
 type StubApplication = { key: string; name: string; environments: StubEnvironment[] };
 const environmentFixture = (key: string): StubEnvironment => ({ key, version: 1, secretStoreKey: '', targetGeneration: 0 });
 let applications: StubApplication[];
@@ -168,7 +168,10 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
   it('lists several applications in returned order with Vietnamese card labels and deep links', async () => {
     authenticated = true;
     applications = [
-      { key: 'zeta', name: 'Zeta', environments: [environmentFixture('staging'), environmentFixture('production')] },
+      { key: 'zeta', name: 'Zeta', environments: [
+        { ...environmentFixture('staging'), deploymentStatus: 'FAILED', priorRevisionServing: true },
+        { ...environmentFixture('production'), deploymentStatus: 'DEPLOYED' },
+      ] },
       { key: 'alpha', name: 'Alpha', environments: [environmentFixture('staging'), environmentFixture('production')] },
     ];
     const user = userEvent.setup();
@@ -177,7 +180,10 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(screen.getByRole('heading', { name: 'Ứng dụng của bạn', level: 1 })).toBeInTheDocument();
     const cards = (await screen.findAllByText(/^(Zeta|Alpha)$/)).map((node) => node.textContent);
     expect(cards).toEqual(['Zeta', 'Alpha']);
-    expect(screen.getAllByText('Sẵn sàng cấu hình')).toHaveLength(4);
+    expect(screen.queryByText('Sẵn sàng cấu hình')).not.toBeInTheDocument();
+    expect(screen.getByText('Lần triển khai gần nhất thất bại')).toBeInTheDocument();
+    expect(screen.getByText('Có workload từ bản trước vẫn phục vụ')).toBeInTheDocument();
+    expect(screen.getByText('Đã triển khai')).toBeInTheDocument();
     expect(screen.getAllByText('staging')).toHaveLength(2);
     expect(screen.getAllByText('production')).toHaveLength(2);
     expect(screen.queryByText(/^(Staging|Production)$/)).not.toBeInTheDocument();

@@ -327,7 +327,9 @@ type environmentView struct {
 	ActiveOperation  *operationView `json:"activeOperation,omitempty"`
 	// Endpoints are the actual public addresses of ready endpoint resources
 	// (ADR-037); no address is derived from the Application.
-	Endpoints []endpointView `json:"endpoints,omitempty"`
+	Endpoints            []endpointView `json:"endpoints,omitempty"`
+	DeploymentStatus     string         `json:"deploymentStatus,omitempty"`
+	PriorRevisionServing bool           `json:"priorRevisionServing,omitempty"`
 }
 
 type endpointView struct {
@@ -478,7 +480,9 @@ func (s *Server) handleApplications(w http.ResponseWriter, r *http.Request) {
 		}
 		lifecycleOf(&view, a)
 		for _, e := range envs {
-			view.Environments = append(view.Environments, s.environmentViewOf(r.Context(), a.OrganizationKey, e))
+			envView := s.environmentViewOf(r.Context(), a.OrganizationKey, e)
+			envView.DeploymentStatus, envView.PriorRevisionServing = s.environmentDeploymentStatus(r.Context(), a.OrganizationKey, e)
+			view.Environments = append(view.Environments, envView)
 		}
 		out = append(out, view)
 	}

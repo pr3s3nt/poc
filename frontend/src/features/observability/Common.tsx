@@ -1,15 +1,36 @@
 import { Button } from '../../shared/ui/Button';
 import type { Snapshot } from './api';
-import { text } from './model';
+import { text, time } from './model';
 
 export function CollectionNotice({ data }: { data: Snapshot }) {
   let key = '';
-  if (data.state === 'METRICS_UNAVAILABLE') key = 'missingHelp';
+  if (data.state === 'WAITING') key = 'waitingHelp';
+  else if (data.state === 'METRICS_UNAVAILABLE') key = 'missingHelp';
   else if (data.state === 'STORAGE_LIMIT') key = 'storageHelp';
   else if (data.state === 'STALE' || data.state === 'PARTIAL') key = 'staleHelp';
   else if (data.state === 'UNAVAILABLE') key = 'unavailableHelp';
   else if (data.state === 'INACTIVE') key = 'inactiveHelp';
-  return key ? <div className="obs-warning" role="status"><span>{text(key)}</span></div> : null;
+  if (!key) return null;
+
+  const affected = data.sources.flatMap(source => [
+    { signal: 'logs', code: source.logsCode, last: source.lastLogAt },
+    { signal: 'metrics', code: source.metricsCode, last: source.lastMetricAt },
+  ].filter(item => item.code !== 'OK' || source.storageLimited).map(item => ({
+    ...item,
+    code: source.storageLimited ? 'STORAGE_LIMIT' : item.code,
+    workload: source.workloadId,
+  })));
+  const known = new Set(['FORBIDDEN', 'UNAVAILABLE', 'STALE', 'GAP', 'TRUNCATED', 'STORAGE_LIMIT']);
+  return <div className="obs-warning">
+    <span role="status">{text(key)}</span>
+    {data.state !== 'INACTIVE' ? <details><summary>{text('viewCause')}</summary>
+      {affected.length ? <ul>{affected.map(item => <li key={`${item.workload}/${item.signal}`}>
+        <strong>{item.workload} · {text(item.signal)}</strong>
+        {item.last ? <span> · {text('lastCollected', { time: time(item.last, true) })}</span> : null}
+        <p>{text(known.has(item.code) ? `collectionCause.${item.code}` : 'collectionCause.unknown')}</p>
+      </li>)}</ul> : <p>{text('collectionCause.unknown')}</p>}
+    </details> : null}
+  </div>;
 }
 
 export function EmptyTelemetry({ state }: { state: string }) {

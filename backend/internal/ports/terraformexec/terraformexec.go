@@ -59,9 +59,10 @@ const (
 // StepError is the only error a Session returns for a failed CLI step. Its
 // message is a fixed safe sentence; raw output stays private.
 type StepError struct {
-	Step    string
-	Class   Class
-	Outcome Outcome
+	ImageDigestRequired bool
+	Step                string
+	Class               Class
+	Outcome             Outcome
 	// Stopped reports that the process group was confirmed stopped.
 	Stopped bool
 }

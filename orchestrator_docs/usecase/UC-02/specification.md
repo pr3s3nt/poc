@@ -169,3 +169,9 @@ sửa hay version hóa schema.
   Return safe references within the caller's Organization.
 - TYPE-DEL-03: Remove the eligible Type from catalog and matching inputs.
   Type deletion does not change provider resources or cascade to Definitions.
+
+## Thao tác xóa trên danh sách (issue #98)
+
+Hiện thao tác Xóa theo từng dòng đủ điều kiện và yêu cầu xác nhận. Hiện lý do
+bảo vệ theo quy tắc catalog, kể cả với Type nhập từ Git. Khi xóa bị chặn vì còn
+tham chiếu, hiện lý do và các tham chiếu được phép công bố. Giữ quy tắc #80.

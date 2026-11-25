@@ -365,6 +365,9 @@ func (s *session) step(ctx context.Context, name string, maxOut int, args ...str
 		step.Class, step.Outcome = terraformexec.ClassFailed, terraformexec.OutcomeConfirmed
 	default:
 		step.Class, step.Outcome = classify(string(res.stderr)), terraformexec.OutcomeConfirmed
+		const digestDiagnostic = "image must be a digest-pinned reference (name[:tag]@sha256:<64 hex>)."
+		step.ImageDigestRequired = name == "plan" && !res.truncated &&
+			step.Class == terraformexec.ClassInput && strings.Contains(string(res.stderr), digestDiagnostic)
 	}
 	return nil, step
 }

@@ -31,11 +31,11 @@ case " $* " in
 JSON
  ;;
  *" get pods "*) cat <<'JSON'
-{"items":[{"metadata":{"name":"backend-0","uid":"pod-uid"},"status":{"phase":"Pending","message":"password=PRIVATE","containerStatuses":[{"image":"ghcr.io/acme/backend:missing","restartCount":2,"state":{"waiting":{"reason":"ImagePullBackOff","message":"token=PRIVATE"}}}]}}]}
+{"items":[{"metadata":{"name":"backend-0","uid":"pod-uid"},"spec":{"nodeName":"kind-worker"},"status":{"phase":"Pending","message":"password=PRIVATE","containerStatuses":[{"image":"ghcr.io/acme/backend:missing","restartCount":2,"state":{"waiting":{"reason":"ImagePullBackOff","message":"token=PRIVATE"}}}]}}]}
 JSON
  ;;
  *" get events "*) cat <<'JSON'
-{"items":[{"reason":"Failed","message":"secret=PRIVATE","lastTimestamp":"2026-11-11T00:00:00Z","count":3}]}
+{"items":[{"reason":"Failed","message":"secret=PRIVATE","lastTimestamp":"2026-11-11T00:00:00Z","count":3},{"reason":"Failed","source":{"component":"kubelet"},"message":"mkdir /var/lib/kubelet/pods/pod-uid: read-only file system token=PRIVATE","lastTimestamp":"2026-11-11T00:01:00Z"},{"reason":"Failed","source":{"component":"kubelet"},"message":"mkdir /app/tmp: read-only file system","lastTimestamp":"2026-11-11T00:02:00Z"}]}
 JSON
  ;;
  *) exit 1;;
@@ -55,7 +55,7 @@ esac
 			}
 			safe := progress.Step{ID: "wait", Kind: "READINESS", Status: "RUNNING", Pods: pods, Events: events}.Safe()
 			raw, _ := json.Marshal(safe)
-			if strings.Contains(string(raw), "PRIVATE") || len(safe.Pods) != 1 || safe.Pods[0].Reason != "ImagePullBackOff" || safe.Pods[0].Restarts != 2 || len(safe.Events) != 1 {
+			if strings.Contains(string(raw), "PRIVATE") || len(safe.Pods) != 1 || safe.Pods[0].Reason != "ImagePullBackOff" || safe.Pods[0].Restarts != 2 || len(safe.Events) != 3 || safe.Events[0].Reason != "Failed" || safe.Events[1].Reason != "KUBELET_POD_DIRECTORY_READ_ONLY" || safe.Events[1].Node != "kind-worker" {
 				t.Fatalf("unsafe or missing facts: %s", raw)
 			}
 			if !strings.Contains(string(calls), "app=backend,controller-revision-hash=new") || !strings.Contains(string(calls), "involvedObject.uid=pod-uid") {

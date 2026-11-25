@@ -90,3 +90,9 @@ No app-readiness guarantee follows from collector availability. An app logging
 no lines may still have successfully inspected empty log streams; distinguish
 that from “log records received.” Each response reports the last observation,
 last received log/metric and missing coverage independently.
+
+### Chi tiết cảnh báo (issue #98)
+
+Console dùng mã sức khỏe từng nguồn và timestamp thu gần nhất trong snapshot
+để giải thích cảnh báo; khi mã thiếu hoặc không xác định, hiển thị nguyên nhân
+chưa xác định. Lịch sử giữ nguyên cửa sổ và bộ lọc đang xem.
