@@ -171,7 +171,7 @@ export function makeKit(ctx) {
     await h.type(page.getByLabel('Mật khẩu', { exact: true }), FIXTURE_PASSWORD);
     await expect(page.getByLabel('Mật khẩu', { exact: true })).toHaveAttribute('type', 'password');
     await h.click(page.getByRole('button', { name: 'Đăng nhập', exact: true }));
-    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn', level: 1 })).toBeVisible();
   }
   async function signOut() {
     await h.click(page.getByRole('button', { name: 'Đăng xuất', exact: true }));

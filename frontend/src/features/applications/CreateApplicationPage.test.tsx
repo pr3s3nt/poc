@@ -6,8 +6,8 @@ import { ApiError } from '../../shared/api/client';
 
 afterEach(() => vi.unstubAllGlobals());
 
-const nameInput = () => screen.getByLabelText('Tên ứng dụng');
-const submitButton = () => screen.getByRole('button', { name: 'Tạo ứng dụng' });
+const nameInput = () => screen.getByLabelText('Tên dịch vụ');
+const submitButton = () => screen.getByRole('button', { name: 'Tạo dịch vụ' });
 
 // ADR-037: an Application has a name only; no subdomain or derived address.
 it('asks only for the name and never loads or offers a connection', async () => {
@@ -38,6 +38,6 @@ it('maps a duplicate name to its field and keeps the draft', async () => {
   render(<CreateApplicationPage onCreate={onCreate} />);
   await user.type(nameInput(), 'Catalog');
   await user.click(submitButton());
-  expect(await screen.findByText('Tên ứng dụng này đã tồn tại.')).toBeInTheDocument();
+  expect(await screen.findByText('Tên dịch vụ này đã tồn tại.')).toBeInTheDocument();
   expect(nameInput()).toHaveValue('Catalog');
 });

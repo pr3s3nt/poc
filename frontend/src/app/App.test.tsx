@@ -46,7 +46,7 @@ async function signIn(user: ReturnType<typeof userEvent.setup>) {
   await user.type(await screen.findByLabelText('Tên đăng nhập'), 'developer');
   await user.type(screen.getByLabelText('Mật khẩu'), 'test-password');
   await user.click(screen.getByRole('button', { name: 'Đăng nhập' }));
-  await screen.findByRole('heading', { name: 'Ứng dụng của bạn' });
+  await screen.findByRole('heading', { name: 'Dịch vụ của bạn' });
 }
 
 describe('developer onboarding shell (UC-00/UC-01)', () => {
@@ -77,15 +77,15 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(window.location.pathname).toBe('/ui/docs/create-application');
     expect(link).toHaveAttribute('aria-current', 'page');
     const articleMenu = screen.getByRole('navigation', { name: 'Bài viết' });
-    const articleLink = within(articleMenu).getByRole('link', { name: 'Tạo ứng dụng' });
+    const articleLink = within(articleMenu).getByRole('link', { name: 'Tạo dịch vụ' });
     expect(articleLink).toHaveAttribute('href', '/ui/docs/create-application');
     expect(articleLink).toHaveAttribute('aria-current', 'page');
     expect(within(articleMenu).getAllByRole('link').map((item) => item.textContent?.trim())).toEqual([
-      'Tạo ứng dụng', 'Tạo Workload', 'Viết và nhập file .env', 'Ví dụ triển khai Keycloak',
+      'Tạo dịch vụ', 'Tạo Workload', 'Viết và nhập file .env', 'Ví dụ triển khai Keycloak',
     ]);
-    expect(screen.getByRole('heading', { name: 'Tạo ứng dụng', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Tạo dịch vụ', level: 1 })).toBeInTheDocument();
     expect(screen.getByText(/cấu hình CD mặc định đã được xác minh/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Mở biểu mẫu tạo ứng dụng' })).toHaveAttribute('href', '/ui/applications/new');
+    expect(screen.getByRole('link', { name: 'Mở biểu mẫu tạo dịch vụ' })).toHaveAttribute('href', '/ui/applications/new');
     expect(requests.every(({ method }) => method === 'GET')).toBe(true);
   });
 
@@ -117,18 +117,18 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     window.history.replaceState({}, '', '/ui/docs/create-application');
     render(<App />);
     if (signedIn) {
-      expect(await screen.findByRole('heading', { name: 'Tạo ứng dụng', level: 1 })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'Tạo dịch vụ', level: 1 })).toBeInTheDocument();
       expect(screen.getByRole('navigation', { name: 'Bài viết' })).toBeInTheDocument();
     } else {
       expect(await screen.findByLabelText('Mật khẩu')).toBeInTheDocument();
-      expect(screen.queryByRole('heading', { name: 'Tạo ứng dụng' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Tạo dịch vụ' })).not.toBeInTheDocument();
     }
   });
 
   it('restores an existing session without showing sign-in', async () => {
     authenticated = true;
     render(<App />);
-    expect(await screen.findByRole('heading', { name: 'Ứng dụng của bạn' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Dịch vụ của bạn' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Mật khẩu')).not.toBeInTheDocument();
     expect(window.location.pathname).toBe('/ui/applications');
   });
@@ -146,9 +146,9 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     let release: () => void = () => undefined;
     override = (url) => url.endsWith('/applications') ? new Promise<Response>((resolve) => { release = () => resolve(Response.json({ applications: [] })); }) as unknown as Response : undefined;
     render(<App />);
-    expect(await screen.findByRole('status', { name: 'Đang tải ứng dụng' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'Đang tải dịch vụ' })).toBeInTheDocument();
     release();
-    expect(await screen.findByRole('heading', { name: 'Bắt đầu với ứng dụng mới' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Bắt đầu với dịch vụ mới' })).toBeInTheDocument();
   });
 
   it('shows a retryable list error without substituting data', async () => {
@@ -157,7 +157,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     override = (url) => url.endsWith('/applications') && failures-- > 0 ? Response.json({ error: 'database unavailable' }, { status: 500 }) : undefined;
     const user = userEvent.setup();
     render(<App />);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải danh sách ứng dụng.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải danh sách dịch vụ.');
     expect(screen.getByRole('alert')).not.toHaveTextContent(/database unavailable/);
     expect(screen.queryByText(/database unavailable/)).not.toBeInTheDocument();
     expect(screen.queryByText('Payment')).not.toBeInTheDocument();
@@ -174,7 +174,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     const user = userEvent.setup();
     render(<App />);
     expect(await screen.findByText('Không gian làm việc')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Ứng dụng của bạn', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Dịch vụ của bạn', level: 1 })).toBeInTheDocument();
     const cards = (await screen.findAllByText(/^(Zeta|Alpha)$/)).map((node) => node.textContent);
     expect(cards).toEqual(['Zeta', 'Alpha']);
     expect(screen.getAllByText('Sẵn sàng cấu hình')).toHaveLength(4);
@@ -196,11 +196,11 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     applications = [];
     const user = userEvent.setup();
     render(<App />);
-    expect(await screen.findByRole('heading', { name: 'Bắt đầu với ứng dụng mới' })).toBeInTheDocument();
-    const buttons = screen.getAllByRole('button', { name: '+ Tạo ứng dụng' });
+    expect(await screen.findByRole('heading', { name: 'Bắt đầu với dịch vụ mới' })).toBeInTheDocument();
+    const buttons = screen.getAllByRole('button', { name: '+ Tạo dịch vụ' });
     expect(buttons).toHaveLength(2);
     await user.click(buttons[index]!);
-    expect(await screen.findAllByRole('form', { name: 'Tạo ứng dụng' })).toHaveLength(1);
+    expect(await screen.findAllByRole('form', { name: 'Tạo dịch vụ' })).toHaveLength(1);
     expect(requests.some((request) => request.method === 'POST')).toBe(false);
   });
 
@@ -216,16 +216,16 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     const user = userEvent.setup();
     render(<App />);
     await signIn(user);
-    await user.click(screen.getAllByRole('button', { name: '+ Tạo ứng dụng' })[0]!);
-    await user.type(screen.getByLabelText('Tên ứng dụng'), 'Catalog');
+    await user.click(screen.getAllByRole('button', { name: '+ Tạo dịch vụ' })[0]!);
+    await user.type(screen.getByLabelText('Tên dịch vụ'), 'Catalog');
     expect(screen.queryByLabelText('Subdomain')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Connection')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Kết nối')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Tạo ứng dụng' }));
+    await user.click(screen.getByRole('button', { name: 'Tạo dịch vụ' }));
 
     expect(await screen.findByRole('heading', { name: 'Catalog' })).toBeInTheDocument();
     expect(screen.getByLabelText('Đích triển khai')).toHaveTextContent('staging · Đích được xác định từ Resource Definition và các tham chiếu Workload.');
-    expect(screen.getByRole('status')).toHaveTextContent('Đã tạo ứng dụng.');
+    expect(screen.getByRole('status')).toHaveTextContent('Đã tạo dịch vụ.');
     expect(screen.getByRole('button', { name: /staging/ })).toHaveClass('tab-active');
     const create = requests.find((request) => request.method === 'POST' && request.url.endsWith('/applications'));
     expect(JSON.parse(create?.body ?? '{}')).toEqual({ name: 'Catalog' });
@@ -295,7 +295,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     window.history.replaceState({}, '', '/ui/applications/payment/environments/staging/deployments');
     render(<App />);
     await waitFor(() => expect(requests.some((request) => request.url.includes('/deployments'))).toBe(true));
-    expect(screen.queryByText('Không tìm thấy ứng dụng')).not.toBeInTheDocument();
+    expect(screen.queryByText('Không tìm thấy dịch vụ')).not.toBeInTheDocument();
   });
   describe.each(['PLATFORM_ENGINEER', 'ADMIN'])('unified workload Definition route for %s', (role) => {
     it('opens the unified Definition editor through the retired bookmark', async () => {
@@ -306,7 +306,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       render(<App />);
       expect(await screen.findByRole('heading', { name: /Cấu hình tài nguyên mới/ })).toBeInTheDocument();
       const link = screen.getByRole('link', { name: /(^|\s)Cấu hình tài nguyên$/ });
-      expect(screen.queryByRole('link', { name: /Mẫu dựng ứng dụng/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /Mẫu dựng dịch vụ/ })).not.toBeInTheDocument();
       expect(link).toHaveAttribute('href', '/ui/platform/resource-definitions');
       expect(link).toHaveClass('nav-item-active');
 
@@ -318,9 +318,9 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     window.history.replaceState({}, '', '/ui/platform/rendering-templates');
     render(<App />);
     await screen.findByRole('navigation', { name: 'Điều hướng chính' });
-    expect(screen.queryByRole('link', { name: /Mẫu dựng ứng dụng/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Mẫu dựng ứng dụng' })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Bundle dựng ứng dụng')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Mẫu dựng dịch vụ/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Mẫu dựng dịch vụ' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Bundle dựng dịch vụ')).not.toBeInTheDocument();
     expect(requests.some((request) => request.url.endsWith('/resource-definitions'))).toBe(false);
   });
   it('hides the effectiveness link and page from a developer deep link (UC-17)', async () => {
@@ -328,8 +328,8 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     window.history.replaceState({}, '', '/ui/platform/effectiveness?application=payment');
     render(<App />);
     await screen.findByRole('navigation', { name: 'Điều hướng chính' });
-    expect(screen.queryByRole('link', { name: /Hiệu quả platform/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Hiệu quả platform' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Hiệu quả nền tảng/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Hiệu quả nền tảng' })).not.toBeInTheDocument();
     expect(requests.some((request) => request.url.includes('/effectiveness/'))).toBe(false);
   });
   it('renders the effectiveness page for a platform engineer deep link (UC-17)', async () => {
@@ -337,8 +337,8 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     window.history.replaceState({}, '', '/ui/platform/effectiveness?application=payment&days=7');
     override = (url) => url.endsWith('/auth/session') ? Response.json({ user: { Username: 'platform', Role: 'PLATFORM_ENGINEER' } }) : undefined;
     render(<App />);
-    expect(await screen.findByRole('heading', { name: 'Hiệu quả platform' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Hiệu quả platform/ })).toHaveClass('nav-item-active');
+    expect(await screen.findByRole('heading', { name: 'Hiệu quả nền tảng' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Hiệu quả nền tảng/ })).toHaveClass('nav-item-active');
     await waitFor(() => expect(requests.some((request) => request.url.includes('/effectiveness/report?') && request.url.includes('application=payment'))).toBe(true));
   });
   describe('Resource Types to Definitions navigation (T04)', () => {
@@ -448,7 +448,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       window.history.replaceState({}, '', '/ui/applications/payment');
       const user = userEvent.setup();
       render(<App />);
-      expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải danh sách ứng dụng.');
+      expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải danh sách dịch vụ.');
       expect(screen.getByRole('alert')).not.toHaveTextContent(/database unavailable/);
       expect(screen.queryByText(/database unavailable/)).not.toBeInTheDocument();
       await user.click(screen.getByRole('button', { name: 'Thử lại' }));
@@ -460,14 +460,14 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       override = (url) => url.endsWith('/applications') ? new Promise<Response>(() => undefined) as unknown as Response : undefined;
       window.history.replaceState({}, '', '/ui/applications/payment');
       render(<App />);
-      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Đang tải ứng dụng…'));
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Đang tải dịch vụ…'));
     });
 
     it('shows the Vietnamese missing-application state', async () => {
       authenticated = true;
       window.history.replaceState({}, '', '/ui/applications/missing');
       render(<App />);
-      expect(await screen.findByRole('heading', { name: 'Không tìm thấy ứng dụng' })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'Không tìm thấy dịch vụ' })).toBeInTheDocument();
     });
 
     it('shows only the developer navigation and role label', async () => {
@@ -475,10 +475,10 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       override = asRole('DEVELOPER');
       render(<App />);
       const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
-      expect(nav).toHaveTextContent('Ứng dụng');
-      expect(nav).toHaveTextContent('Lịch sử triển khai');
-      expect(nav).toHaveTextContent('Sắp có');
-      for (const name of [/Loại tài nguyên/, /Cấu hình tài nguyên/, /Mẫu dựng ứng dụng/, /Tài khoản hạ tầng/, /Kết nối/, /Cấu hình kho bí mật/, /Hiệu quả platform/]) expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
+      expect(nav).toHaveTextContent('Dịch vụ');
+      expect(nav).not.toHaveTextContent('Lịch sử triển khai');
+      expect(within(nav).queryByRole('button', { name: 'Nền tảng' })).not.toBeInTheDocument();
+      for (const name of [/Loại tài nguyên/, /Cấu hình tài nguyên/, /Mẫu dựng dịch vụ/, /Tài khoản hạ tầng/, /Kết nối/, /Kho bí mật/, /Hiệu quả nền tảng/]) expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
       expect(screen.getByText('Nhà phát triển')).toBeInTheDocument();
       expect(screen.getByText('tester')).toBeInTheDocument();
     });
@@ -488,7 +488,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       override = asRole(role);
       render(<App />);
       await screen.findByRole('navigation', { name: 'Điều hướng chính' });
-      const expected: [RegExp, string][] = [[/Ứng dụng/, '/ui/applications'], [/Loại tài nguyên/, '/ui/platform/resource-types'], [/Cấu hình tài nguyên/, '/ui/platform/resource-definitions'], [/Tài khoản hạ tầng/, '/ui/platform/driver-accounts'], [/Cấu hình kho bí mật/, '/ui/platform/secret-stores'], [/Hiệu quả platform/, '/ui/platform/effectiveness']];
+      const expected: [RegExp, string][] = [[/Dịch vụ/, '/ui/applications'], [/Loại tài nguyên/, '/ui/platform/resource-types'], [/Cấu hình tài nguyên/, '/ui/platform/resource-definitions'], [/Tài khoản hạ tầng/, '/ui/platform/driver-accounts'], [/Kho bí mật/, '/ui/platform/secret-stores'], [/Hiệu quả nền tảng/, '/ui/platform/effectiveness']];
       for (const [name, path] of expected) expect(screen.getByRole('link', { name })).toHaveAttribute('href', path);
       expect(screen.queryByRole('link', { name: 'Kết nối' })).not.toBeInTheDocument();
       expect(screen.getByText(label)).toBeInTheDocument();

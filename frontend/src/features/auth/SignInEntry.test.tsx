@@ -8,7 +8,7 @@ it('shows SSO without local credentials and uses a safe callback error', async (
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({ mode: 'oidc' })));
   window.history.replaceState({}, '', '/ui/?sso_error=1&error_description=private-provider-error');
   render(<SignInEntry onSuccess={vi.fn()} />);
-  expect(await screen.findByRole('button', { name: 'Đăng nhập SSO' })).toBeEnabled();
+  expect(await screen.findByRole('button', { name: 'Đăng nhập qua Keycloak' })).toBeEnabled();
   expect(screen.queryByLabelText('Mật khẩu')).not.toBeInTheDocument();
   expect(screen.getByRole('alert')).not.toHaveTextContent('private-provider-error');
 });
@@ -25,8 +25,8 @@ it('offers a local test disclosure alongside SSO only when enabled', async () =>
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({ mode: 'oidc', localLoginAllowed: true })));
   const login = vi.fn(async () => undefined);
   render(<SignInEntry onSuccess={login} />);
-  expect(await screen.findByRole('button', { name: 'Đăng nhập SSO' })).toBeEnabled();
-  await userEvent.click(screen.getByText('Tài khoản test'));
+  expect(await screen.findByRole('button', { name: 'Đăng nhập qua Keycloak' })).toBeEnabled();
+  await userEvent.click(screen.getByText('Tài khoản nội bộ'));
   await userEvent.type(screen.getByLabelText('Tên đăng nhập'), 'local-admin');
   await userEvent.type(screen.getByLabelText('Mật khẩu'), 'private-test-password');
   await userEvent.click(screen.getByRole('button', { name: 'Đăng nhập local' }));

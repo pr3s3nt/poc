@@ -57,7 +57,7 @@ không đổi. Nhãn không đổi API enum hoặc matching semantics.
 
 | Khái niệm/giá trị | Nhãn Console | Quy tắc |
 |---|---|---|
-| Application | Ứng dụng | Name/ID người dùng giữ nguyên. |
+| Application | Dịch vụ / Service | Name/ID người dùng giữ nguyên. |
 | Environment | Môi trường | Tab và giá trị vẫn `staging`, `production`. |
 | Resource Type | Loại tài nguyên | Kèm Resource Type trong trợ giúp nếu cần tra contract. |
 | Resource Definition | Cấu hình tài nguyên | Mô tả: cách tạo tài nguyên và điều kiện áp dụng. |
@@ -69,8 +69,8 @@ không đổi. Nhãn không đổi API enum hoặc matching semantics.
 | profile rỗng | Dùng chung | Giải thích: xét ở mọi profile, vẫn phải thỏa điều kiện áp dụng. |
 | Terraform | Tạo trên AWS (Terraform) | Payload driver `terraform` giữ nguyên. |
 | Kubernetes | Tạo trong cluster (Kubernetes) | Payload driver `kubernetes` giữ nguyên. |
-| score-k8s UI entry | Mẫu dựng ứng dụng | Technical driver/bundle ID giữ nguyên. |
-| Matching criteria | Điều kiện áp dụng | Modes: Mọi nơi; Theo loại môi trường; Theo ứng dụng; Tùy chỉnh nâng cao. |
+| score-k8s UI entry | Mẫu dựng dịch vụ | Technical driver/bundle ID giữ nguyên. |
+| Matching criteria | Điều kiện áp dụng | Modes: Mọi nơi; Theo loại môi trường; Theo dịch vụ; Tùy chỉnh nâng cao. |
 | Driver variables | Tham số cấu hình | Không dịch JSON keys hoặc placeholder. |
 | Provision rules | Quy tắc tạo tài nguyên liên quan | Không gọi chung là phụ thuộc vì hướng dependency có thể khác. |
 | Workload / Container / Service | Workload / Container / Service | Giữ thuật ngữ kỹ thuật; hướng dẫn tiếng Việt. |

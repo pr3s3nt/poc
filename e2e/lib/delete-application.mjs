@@ -46,19 +46,19 @@ export async function deleteApplicationViaUI({ page, baseURL, appId, name, names
   }
   expect(liveBundles.length).toBeGreaterThan(0);
   await page.goto(`${baseURL}/ui/applications/${appId}/settings`);
-  await page.getByRole('region', { name: 'Xóa ứng dụng', exact: true }).getByRole('button', { name: 'Xóa ứng dụng', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Xóa ứng dụng', exact: true });
+  await page.getByRole('region', { name: 'Xóa dịch vụ', exact: true }).getByRole('button', { name: 'Xóa dịch vụ', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Xóa dịch vụ', exact: true });
   await expect(dialog.getByRole('region', { name: 'staging', exact: true })).toContainText('Workload sẽ bị gỡ: 3');
   await expect(dialog.getByRole('region', { name: 'staging', exact: true })).toContainText(`Tài nguyên sẽ bị xóa: ${before}`);
   await expect(dialog.getByRole('region', { name: 'production', exact: true })).toContainText('Tài nguyên sẽ bị xóa: 0');
   await dialog.getByRole('textbox').fill(name);
   await page.screenshot({ path: `${evidence}/delete-confirmation.png`, fullPage: true });
   const reply = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname === `/api/v1/applications/${appId}/deletions`);
-  await dialog.getByRole('button', { name: 'Xóa vĩnh viễn ứng dụng', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Xóa vĩnh viễn dịch vụ', exact: true }).click();
   const response = await reply;
   expect(response.status()).toBe(202);
   const operationId = (await response.json()).deletion.operationId;
-  await expect(page.getByRole('region', { name: 'Tiến trình xóa ứng dụng', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Tiến trình xóa dịch vụ', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '+ Thêm biến', exact: true })).toBeDisabled();
   let progress;
   await expect.poll(async () => {
@@ -68,8 +68,8 @@ export async function deleteApplicationViaUI({ page, baseURL, appId, name, names
   expect(progress.status, progress.failureCode).toBe('SUCCEEDED');
   expect(progress.applicationStatus).toBe('DELETED');
   expect(progress.environments.map(env => env.status)).toEqual(['SUCCEEDED', 'SUCCEEDED']);
-  await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn', exact: true })).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByRole('status').filter({ hasText: `Đã xóa ứng dụng ${name}.` })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn', exact: true })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('status').filter({ hasText: `Đã xóa dịch vụ ${name}.` })).toBeVisible();
   expect((await page.request.get(api)).status()).toBe(404);
   expect(Number(sql(countOwned))).toBe(0);
   expect(sql(`SELECT status FROM applications WHERE application_key='${appId}'`)).toBe('DELETED');
@@ -85,24 +85,24 @@ export async function deleteApplicationViaUI({ page, baseURL, appId, name, names
   writeFileSync(`${evidence}/deletion.json`, JSON.stringify(progress, null, 2));
   check('Whole Application deleted through UI; three owned instances DESTROYED, namespace absent, tombstone retained, platform cluster serving');
   await page.screenshot({ path: `${evidence}/deleted.png`, fullPage: true });
-  await page.getByRole('button', { name: '+ Tạo ứng dụng', exact: true }).click();
-  await page.getByLabel('Tên ứng dụng', { exact: true }).fill(name);
+  await page.getByRole('button', { name: '+ Tạo dịch vụ', exact: true }).click();
+  await page.getByLabel('Tên dịch vụ', { exact: true }).fill(name);
   await page.getByLabel('Subdomain', { exact: true }).fill(name);
-  await page.getByRole('button', { name: 'Tạo ứng dụng', exact: true }).click();
+  await page.getByRole('button', { name: 'Tạo dịch vụ', exact: true }).click();
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
   const reusedId = new URL(page.url()).pathname.match(/\/applications\/([^/]+)$/)?.[1];
   expect(reusedId).toMatch(/^[0-9a-f-]{36}$/);
   expect(reusedId).not.toBe(appId);
   await page.goto(`${baseURL}/ui/applications/${reusedId}/settings`);
-  await page.getByRole('region', { name: 'Xóa ứng dụng', exact: true }).getByRole('button', { name: 'Xóa ứng dụng', exact: true }).click();
-  const emptyDialog = page.getByRole('dialog', { name: 'Xóa ứng dụng', exact: true });
+  await page.getByRole('region', { name: 'Xóa dịch vụ', exact: true }).getByRole('button', { name: 'Xóa dịch vụ', exact: true }).click();
+  const emptyDialog = page.getByRole('dialog', { name: 'Xóa dịch vụ', exact: true });
   for (const env of ['staging', 'production']) {
     await expect(emptyDialog.getByRole('region', { name: env, exact: true })).toContainText('Workload sẽ bị gỡ: 0');
     await expect(emptyDialog.getByRole('region', { name: env, exact: true })).toContainText('Tài nguyên sẽ bị xóa: 0');
   }
   await emptyDialog.getByRole('textbox').fill(name);
-  await emptyDialog.getByRole('button', { name: 'Xóa vĩnh viễn ứng dụng', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn', exact: true })).toBeVisible({ timeout: 60_000 });
+  await emptyDialog.getByRole('button', { name: 'Xóa vĩnh viễn dịch vụ', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn', exact: true })).toBeVisible({ timeout: 60_000 });
   expect((await page.request.get(`${baseURL}/api/v1/applications/${reusedId}`)).status()).toBe(404);
   writeFileSync(`${evidence}/name-reuse.json`, JSON.stringify({ originalId: appId, reusedId, reusedApplicationDeleted: true }, null, 2));
   check('Same name/subdomain accepted with a fresh ID; empty replacement also deleted through UI');

@@ -34,12 +34,12 @@ try {
   await h.type(page.getByLabel('Tên đăng nhập'), 'platform-engineer');
   await h.type(page.getByLabel('Mật khẩu'), 'test-password');
   await h.click(page.getByRole('button', { name: 'Đăng nhập', exact: true }));
-  await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible();
   check('platform engineer signs in', true);
 
   // 2. Merged navigation: preview's collapsible rail carries manager's effectiveness link.
   const nav = page.getByRole('navigation', { name: 'Điều hướng chính' });
-  check('effectiveness link is in the collapsible rail', await nav.getByRole('link', { name: 'Hiệu quả platform' }).isVisible());
+  check('effectiveness link is in the collapsible rail', await nav.getByRole('link', { name: 'Hiệu quả nền tảng' }).isVisible());
   await h.click(page.getByRole('button', { name: 'Thu gọn thanh điều hướng' }));
   await expect(page.getByRole('button', { name: 'Mở rộng thanh điều hướng' })).toHaveAttribute('aria-expanded', 'false');
   await h.pause(1200);
@@ -110,8 +110,8 @@ try {
   await shot('02-deployed');
 
   // 7. Platform effectiveness (UC-17) through the sidebar.
-  await h.click(nav.getByRole('link', { name: 'Hiệu quả platform' }));
-  await expect(page.getByRole('heading', { name: 'Hiệu quả platform', level: 1 })).toBeVisible();
+  await h.click(nav.getByRole('link', { name: 'Hiệu quả nền tảng' }));
+  await expect(page.getByRole('heading', { name: 'Hiệu quả nền tảng', level: 1 })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Giao phần mềm (DORA)' })).toBeVisible();
   check('effectiveness report renders for the organization', true);
   await h.read('Báo cáo hiệu quả toàn tổ chức');
@@ -121,7 +121,7 @@ try {
 
   const reportWait = page.waitForResponse((r) => r.url().includes('/api/v1/effectiveness/report') && r.url().includes(`application=${app}`));
   reportWait.catch(() => {});
-  await h.choose(page.getByRole('combobox', { name: /^Ứng dụng/ }), appName);
+  await h.choose(page.getByRole('combobox', { name: /^Dịch vụ/ }), appName);
   const scoped = await (await reportWait).json();
   const completed = scoped.metrics.find((m) => m.id === 'completed_work');
   check('application scope counts the two completed deployments', scoped.scope.level === 'APPLICATION' && completed.status === 'COLLECTED' && completed.value === 2);
@@ -173,8 +173,8 @@ try {
   await shot('04-effectiveness-baseline');
 
   // 8. Back to the Application through the sidebar; deployment remains visible.
-  await h.click(nav.getByRole('link', { name: 'Ứng dụng', exact: true }));
-  await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
+  await h.click(nav.getByRole('link', { name: 'Dịch vụ', exact: true }));
+  await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible();
   await h.click(page.getByText(appName, { exact: true }).first());
   await expect(page.getByRole('heading', { name: appName })).toBeVisible();
   check('application reopens after visiting effectiveness', true);

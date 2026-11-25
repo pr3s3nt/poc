@@ -53,7 +53,7 @@ async function shared(name, value, secret = false) {
   await input.fill(value);
   await dialog.getByRole('button', { name: 'Tạo và chọn', exact: true }).click();
   await expect(dialog).not.toBeVisible();
-  await expect(entry.getByRole('button', { name: /Đổi nguồn/ })).toContainText(`Ứng dụng / ${name}`);
+  await expect(entry.getByRole('button', { name: /Đổi nguồn/ })).toContainText(`Dịch vụ / ${name}`);
   if (secret) { await expect(page.locator('body')).not.toContainText(value); check('Secret entered masked, stored as app/environment reference, never read back'); }
 }
 async function resource(alias, type, reuse) {
@@ -142,10 +142,10 @@ async function verifyApplication(minimumWrites) {
   check(`All application checks PASS after ${minimumWrites} jobs; Redis worker writes confirmed, none failed/unverified`);
 }
 try {
-  await click('+ Tạo ứng dụng');
-  await page.getByLabel('Tên ứng dụng', { exact: true }).fill(run);
+  await click('+ Tạo dịch vụ');
+  await page.getByLabel('Tên dịch vụ', { exact: true }).fill(run);
   await page.getByLabel('Subdomain', { exact: true }).fill(run);
-  await click('Tạo ứng dụng'); await expect(page.getByRole('heading', { name: run, exact: true })).toBeVisible();
+  await click('Tạo dịch vụ'); await expect(page.getByRole('heading', { name: run, exact: true })).toBeVisible();
   appId = new URL(page.url()).pathname.match(/\/applications\/([^/]+)$/)?.[1];
   if (!appId) throw Error('Missing new app ID');
   await writeFile(`${evidence}/run.json`, JSON.stringify({run, appId, kube, imageTag:tag, baseURL:config.baseURL},null,2));

@@ -49,7 +49,7 @@ export const SCENARIOS = {
       await h.type(page.getByLabel('Mật khẩu', { exact: true }), SEEDED_PASSWORD);
       await expect(page.getByLabel('Mật khẩu', { exact: true })).toHaveAttribute('type', 'password');
       await h.click(page.getByRole('button', { name: 'Đăng nhập', exact: true }));
-      await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn', level: 1 })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn', level: 1 })).toBeVisible();
     }
     async function signOut() {
       await h.click(page.getByRole('button', { name: 'Đăng xuất', exact: true }));
@@ -284,7 +284,7 @@ export const SCENARIOS = {
     // No-match guard: there is no rendering template yet.
     caption('Bước 14: Xem trước khi chưa có Mẫu dựng ứng dụng; hệ thống chặn trước khi tạo tài nguyên và không dùng renderer mặc định');
     await h.click(page.getByRole('button', { name: 'Xem trước thay đổi', exact: true }));
-    await expect(page.getByRole('alert').filter({ hasText: 'Chưa có Mẫu dựng ứng dụng (score-k8s)' })).toBeVisible();
+    await expect(page.getByRole('alert').filter({ hasText: 'Chưa có Mẫu dựng dịch vụ (score-k8s)' })).toBeVisible();
     await expect(page.getByLabel('Xem trước triển khai')).toHaveCount(0);
     check('preview without a rendering template is refused with renderer-no-match; no Deploy action is offered');
     mark('no-template-guard');
@@ -295,13 +295,13 @@ export const SCENARIOS = {
     // ---- Platform Engineer registers the rendering template ---------------
     caption('Bước 15: Kỹ sư nền tảng đăng ký đúng một Mẫu dựng ứng dụng score-k8s cho phạm vi cluster nội bộ; bundle lấy từ danh sách đã cài');
     await signIn('platform-engineer');
-    await h.click(nav('Mẫu dựng ứng dụng'));
-    await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng', level: 1, exact: true })).toBeVisible();
+    await h.click(nav('Mẫu dựng dịch vụ'));
+    await expect(page.getByRole('heading', { name: 'Mẫu dựng dịch vụ', level: 1, exact: true })).toBeVisible();
     await h.type(form('ID mẫu'), 'render-internal');
     await h.type(form('Tên hiển thị'), 'Mẫu dựng cluster nội bộ');
     await expect(form('Bundle dựng ứng dụng')).toHaveValue('score-k8s-internal-v1');
-    await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }));
-    await expect(page.getByRole('status').filter({ hasText: 'Đã đăng ký mẫu dựng ứng dụng render-internal.' })).toBeVisible();
+    await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng dịch vụ', exact: true }));
+    await expect(page.getByRole('status').filter({ hasText: 'Đã đăng ký mẫu dựng dịch vụ render-internal.' })).toBeVisible();
     check('rendering template registered for internal-k8s from the installed bundle list (the real pinned score-k8s)');
     mark('template-registered');
     await h.read('Đã đăng ký mẫu dựng ứng dụng');

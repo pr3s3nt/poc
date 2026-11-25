@@ -33,7 +33,7 @@ try {
     await page.getByLabel('Tên đăng nhập').fill('developer');
     await page.getByLabel('Mật khẩu').fill('test-password');
     await page.getByRole('button', { name: 'Đăng nhập' }).click();
-    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible();
     await expect(page).toHaveURL(/\/ui\/applications$/);
   }
 
@@ -61,12 +61,12 @@ try {
     const session = cookies.find((cookie) => cookie.name === 'orchestrator_session');
     if (!session?.httpOnly) throw new Error('session cookie must be HttpOnly');
 
-    await page.getByRole('button', { name: '+ Tạo ứng dụng' }).first().click();
-    await page.getByLabel('Tên ứng dụng').fill(name);
+    await page.getByRole('button', { name: '+ Tạo dịch vụ' }).first().click();
+    await page.getByLabel('Tên dịch vụ').fill(name);
     await page.getByLabel('Subdomain').fill(subdomain);
     await expect(page.getByText(`staging.${subdomain}.example.com`)).toBeVisible();
-    await page.getByRole('button', { name: 'Tạo ứng dụng' }).click();
-    await expect(page.locator('.form-success')).toContainText('Đã tạo ứng dụng.');
+    await page.getByRole('button', { name: 'Tạo dịch vụ' }).click();
+    await expect(page.locator('.form-success')).toContainText('Đã tạo dịch vụ.');
     const appId = new URL(page.url()).pathname.match(/\/ui\/applications\/([0-9a-f-]{36})$/)?.[1];
     if (!appId) throw new Error(`unexpected Application URL ${page.url()}`);
     await expectApplicationHome(appId);

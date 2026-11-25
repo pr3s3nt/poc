@@ -105,7 +105,7 @@ try {
  const current = await ui.get('/delivery-default');
  if (current.bindingId !== binding.id || current.bindingVersion !== binding.version) {
   const row = page.locator('tbody tr').filter({ has: page.getByRole('cell', { name, exact: true }) });
-  await ui.submit('/delivery-default', 'PUT', row.getByRole('button', { name: 'Dùng cho ứng dụng mới', exact: true }));
+  await ui.submit('/delivery-default', 'PUT', row.getByRole('button', { name: 'Dùng cho dịch vụ mới', exact: true }));
  }
  for (const pin of state.pins) {
   const view = await ui.get(`/applications/${pin.app}/environments/${pin.env}/delivery`);

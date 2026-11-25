@@ -19,10 +19,10 @@ const labels = {
 };
 async function createApp(name) {
   await page.goto(`${config.baseURL}/ui/applications`);
-  await page.getByRole('button', { name: '+ Tạo ứng dụng', exact: true }).first().click();
-  await page.getByLabel('Tên ứng dụng', { exact: true }).fill(name);
+  await page.getByRole('button', { name: '+ Tạo dịch vụ', exact: true }).first().click();
+  await page.getByLabel('Tên dịch vụ', { exact: true }).fill(name);
   await page.getByLabel('Subdomain', { exact: true }).fill(name);
-  await page.getByRole('button', { name: 'Tạo ứng dụng', exact: true }).click();
+  await page.getByRole('button', { name: 'Tạo dịch vụ', exact: true }).click();
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
   return new URL(page.url()).pathname.split('/').at(-1);
 }

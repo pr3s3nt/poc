@@ -25,7 +25,7 @@ try {
   console.log(`Console: ${config.baseURL}`);
   session = await openConsole(config, { role: 'PLATFORM_ENGINEER' });
   const { page } = session;
-  await page.getByRole('link', { name: /(^|\s)Cấu hình kho bí mật$/ }).click();
+  await page.getByRole('link', { name: /(^|\s)Kho bí mật$/ }).click();
   await expect(page.getByRole('heading', { name: 'Cấu hình kho bí mật', level: 1 })).toBeVisible();
   const list = page.getByRole('region', { name: 'Kho bí mật đã đăng ký' });
   await expect(list.locator('.settings-table').or(list.getByText('Chưa có kho bí mật nào được đăng ký.'))).toBeVisible();

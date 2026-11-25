@@ -74,18 +74,18 @@ try {
   await h.type(page.getByLabel('Tên đăng nhập'), 'platform-engineer');
   await h.type(page.getByLabel('Mật khẩu'), 'test-password');
   await h.click(page.getByRole('button', { name: 'Đăng nhập', exact: true }));
-  await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible();
   check('sign in to the real Console', true);
   const applications = (await get('/api/v1/applications')).applications;
   check('real Applications are listed', applications.length >= 7);
   await h.read('Danh sách ứng dụng thật');
   await h.click(page.getByRole('button', { name: 'Thu gọn thanh điều hướng' }));
   await h.pause(1200);
-  await h.click(nav.getByRole('link', { name: 'Hiệu quả platform' }));
-  await expect(page.getByRole('heading', { name: 'Hiệu quả platform', level: 1 })).toBeVisible();
+  await h.click(nav.getByRole('link', { name: 'Hiệu quả nền tảng' }));
+  await expect(page.getByRole('heading', { name: 'Hiệu quả nền tảng', level: 1 })).toBeVisible();
   check('effectiveness reachable from the collapsed rail', true);
   await h.click(page.getByRole('button', { name: 'Mở rộng thanh điều hướng' }));
-  await h.click(nav.getByRole('link', { name: 'Ứng dụng', exact: true }));
+  await h.click(nav.getByRole('link', { name: 'Dịch vụ', exact: true }));
 
   // ---- A. Preview on an existing Application (read-only) ----
   const sample = applications.find((a) => a.key === '7de8dc65-afcf-4808-9809-340c0225c79a');
@@ -113,7 +113,7 @@ try {
   // ---- B. New owned Application, real deployment on kind ----
   const stamp = Date.now().toString().slice(-8);
   const appName = `Tester Merge ${stamp}`;
-  await h.click(nav.getByRole('link', { name: 'Ứng dụng', exact: true }));
+  await h.click(nav.getByRole('link', { name: 'Dịch vụ', exact: true }));
   const app = await createApplication(h, appName, `tester-${stamp}`);
   const ns = `app-${app}-staging`;
   const path = `/api/v1/applications/${app}/environments/staging`;
@@ -197,7 +197,7 @@ try {
   check('owned namespace absent on kind after product cleanup', kube('get', 'namespace', ns, '--ignore-not-found', '-o', 'name').trim() === '');
 
   // ---- C. Platform effectiveness on the real history ----
-  await h.click(nav.getByRole('link', { name: 'Hiệu quả platform' }));
+  await h.click(nav.getByRole('link', { name: 'Hiệu quả nền tảng' }));
   const orgReport = page.waitForResponse((r) => r.url().includes('/api/v1/effectiveness/report'));
   orgReport.catch(() => {});
   await page.reload();
@@ -208,7 +208,7 @@ try {
   const orgCompleted = org.metrics.find((m) => m.id === 'completed_work');
   check('organization completed work includes real history', orgCompleted.status === 'COLLECTED' && orgCompleted.value >= 10);
   await h.read('Báo cáo toàn tổ chức trên dữ liệu thật');
-  await h.moveTo(page.getByRole('heading', { name: 'Theo ứng dụng' }));
+  await h.moveTo(page.getByRole('heading', { name: 'Theo dịch vụ' }));
   await h.read('Bảng theo ứng dụng');
   await shot('C1-organization');
 
@@ -239,10 +239,10 @@ try {
   await h.read('Chi tiết deployment từ bản ghi');
   await shot('C4-deployment-detail');
   await page.goBack();
-  await expect(page.getByRole('heading', { name: 'Hiệu quả platform', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Hiệu quả nền tảng', level: 1 })).toBeVisible();
 
   // Sample Application, then a workload drill-down.
-  await h.choose(page.getByRole('combobox', { name: /^Ứng dụng/ }), sample.name);
+  await h.choose(page.getByRole('combobox', { name: /^Dịch vụ/ }), sample.name);
   await expect(page.getByRole('heading', { name: 'Theo workload' })).toBeVisible();
   await h.choose(page.getByRole('combobox', { name: /^Workload/ }), 'frontend');
   await expect(page.getByRole('navigation', { name: 'Phạm vi' })).toContainText('frontend');
@@ -264,7 +264,7 @@ try {
   check('CSV has no secret-like values', !/password|BEGIN [A-Z ]*PRIVATE KEY|token/i.test(csv));
 
   // Baseline version for the tester Application.
-  await h.choose(page.getByRole('combobox', { name: /^Ứng dụng/ }), appName);
+  await h.choose(page.getByRole('combobox', { name: /^Dịch vụ/ }), appName);
   await h.click(page.getByRole('button', { name: 'Mốc so sánh', exact: true }));
   const baseline = page.getByRole('dialog');
   await h.type(baseline.getByLabel('Thời gian thực hiện trung vị (phút)'), '30');

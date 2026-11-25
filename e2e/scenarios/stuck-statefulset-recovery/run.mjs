@@ -107,8 +107,8 @@ async function createDeveloper(ui) {
 
 async function createApplication(ui, name) {
   await ui.page.goto(`${ui.baseURL}/ui/applications/new`);
-  await ui.page.getByLabel('Tên ứng dụng', { exact: true }).fill(name);
-  const app = (await ui.submit('/applications', 'POST', ui.page.getByRole('button', { name: 'Tạo ứng dụng', exact: true }))).application;
+  await ui.page.getByLabel('Tên dịch vụ', { exact: true }).fill(name);
+  const app = (await ui.submit('/applications', 'POST', ui.page.getByRole('button', { name: 'Tạo dịch vụ', exact: true }))).application;
   const store = (await ui.get('/secret-store-choices')).secretStores.find((s) => s.name === STORE);
   assert(store, 'secret store ' + STORE);
   await ui.page.goto(`${ui.baseURL}/ui/applications/${app.key}/settings?environment=${ENV}`);
@@ -407,10 +407,10 @@ async function cleanup() {
     const namespace = app.environments.find((e) => e.key === ENV).namespaceIdentity;
     if (kubectl('get', 'namespace', namespace, '--ignore-not-found', '-o', 'name')) kubectl('-n', namespace, 'delete', 'role,rolebinding', '-l', 'bootstrap.orchestrator.dev/application=' + app.key, '--ignore-not-found');
     await dev.page.goto(`${dev.baseURL}/ui/applications/${app.key}/settings`);
-    await dev.page.getByRole('region', { name: 'Xóa ứng dụng', exact: true }).getByRole('button', { name: 'Xóa ứng dụng', exact: true }).click();
-    const dialog = dev.page.getByRole('dialog', { name: 'Xóa ứng dụng', exact: true });
+    await dev.page.getByRole('region', { name: 'Xóa dịch vụ', exact: true }).getByRole('button', { name: 'Xóa dịch vụ', exact: true }).click();
+    const dialog = dev.page.getByRole('dialog', { name: 'Xóa dịch vụ', exact: true });
     await dialog.getByRole('textbox').fill(app.name);
-    const deletion = await dev.submit(`/applications/${app.key}/deletions`, 'POST', dialog.getByRole('button', { name: 'Xóa vĩnh viễn ứng dụng', exact: true }));
+    const deletion = await dev.submit(`/applications/${app.key}/deletions`, 'POST', dialog.getByRole('button', { name: 'Xóa vĩnh viễn dịch vụ', exact: true }));
     const deadline = Date.now() + 1_800_000;
     let progress;
     for (;;) {

@@ -301,7 +301,7 @@ export const SCENARIOS = {
     await h.type(ui('resourceDefinitions', 'id'), 'pg-t02b-env');
     await h.click(mode(/Theo loại môi trường/));
     await expect(editor.getByLabel('Loại môi trường', { exact: true })).toBeVisible();
-    await expect(editor.getByLabel('Ứng dụng', { exact: true })).toHaveCount(0);
+    await expect(editor.getByLabel('Dịch vụ', { exact: true })).toHaveCount(0);
     await h.type(editor.getByLabel('Loại môi trường', { exact: true }), 'development');
     await expect(group('Tóm tắt phạm vi áp dụng')).toContainText('Loại môi trường (env_type): development');
     await expect(group('Tóm tắt phạm vi áp dụng')).toContainText('không phải Loại môi trường (env_type)');
@@ -315,15 +315,15 @@ export const SCENARIOS = {
 
     caption('Bước 6: Chế độ Theo ứng dụng (+ môi trường): chọn ứng dụng và môi trường thật từ danh sách');
     await h.type(ui('resourceDefinitions', 'id'), 'pg-t02b-app');
-    await h.click(mode(/Theo ứng dụng/));
-    const appOptions = await select(/^Ứng dụng(?! mẫu)/).locator('option').evaluateAll((options) => options.map((option) => option.value));
+    await h.click(mode(/Theo dịch vụ/));
+    const appOptions = await select(/^Dịch vụ(?! mẫu)/).locator('option').evaluateAll((options) => options.map((option) => option.value));
     expect(appOptions).toEqual(['', 'acceptance']);
     await expect(select(/^Môi trường \(tùy chọn\)/)).toBeDisabled();
-    await h.choose(select(/^Ứng dụng(?! mẫu)/), APP);
+    await h.choose(select(/^Dịch vụ(?! mẫu)/), APP);
     const envOptions = await select(/^Môi trường \(tùy chọn\)/).locator('option').evaluateAll((options) => options.map((option) => option.value));
     expect(envOptions).toEqual(['', 'dev']);
     await h.choose(select(/^Môi trường \(tùy chọn\)/), ENV);
-    await expect(group('Tóm tắt phạm vi áp dụng')).toContainText('Ứng dụng (app_id): Acceptance Application (acceptance)');
+    await expect(group('Tóm tắt phạm vi áp dụng')).toContainText('Dịch vụ (app_id): Acceptance Application (acceptance)');
     await expect(group('Tóm tắt phạm vi áp dụng')).toContainText('Môi trường (env_id): dev');
     check('app/env dropdown: real IDs from GET /api/v1/applications, environment follows the application');
     mark('mode-app-env');
@@ -331,8 +331,8 @@ export const SCENARIOS = {
 
     caption('Bước 7: Xem trước phạm vi thiếu context; báo cần thêm res_id và Class, không lưu gì');
     const preview = group(/Xem trước phạm vi/);
-    await expect(preview).toContainText('Cần thêm context: ứng dụng và môi trường mẫu, ID tài nguyên (res_id), Class');
-    await h.choose(select(/^Ứng dụng mẫu/), APP);
+    await expect(preview).toContainText('Cần thêm context: dịch vụ và môi trường mẫu, ID tài nguyên (res_id), Class');
+    await h.choose(select(/^Dịch vụ mẫu/), APP);
     await h.choose(select(/^Môi trường mẫu/), 'Development (dev)');
     await expect(preview).toContainText('Cần thêm context: ID tài nguyên (res_id), Class');
     mark('preview-incomplete');
@@ -356,11 +356,11 @@ export const SCENARIOS = {
     caption('Bước 8: Tùy chỉnh nâng cao: năm field và nhiều dòng điều kiện');
     await h.type(ui('resourceDefinitions', 'id'), 'pg-t02b-adv');
     await h.click(mode(/Tùy chỉnh nâng cao/));
-    for (const label of ['Loại môi trường', 'ID ứng dụng', 'ID môi trường', 'ID tài nguyên', 'Class']) await expect(editor.getByLabel(`Điều kiện 1 ${label}`)).toBeVisible();
+    for (const label of ['Loại môi trường', 'ID dịch vụ', 'ID môi trường', 'ID tài nguyên', 'Class']) await expect(editor.getByLabel(`Điều kiện 1 ${label}`)).toBeVisible();
     await h.type(editor.getByLabel('Điều kiện 1 Loại môi trường'), 'development');
     await h.type(editor.getByLabel('Điều kiện 1 Class'), 'fast');
     await h.click(editor.getByRole('button', { name: '+ Thêm điều kiện' }));
-    await h.type(editor.getByLabel('Điều kiện 2 ID ứng dụng'), 'acceptance-cloud');
+    await h.type(editor.getByLabel('Điều kiện 2 ID dịch vụ'), 'acceptance-cloud');
     await h.type(editor.getByLabel('Điều kiện 2 ID tài nguyên'), 'db');
     mark('mode-advanced');
     await h.read('Hai dòng điều kiện là lựa chọn thay thế nhau');
@@ -477,7 +477,7 @@ export const SCENARIOS = {
     await h.click(ui('shell', 'navRenderingTemplates'));
     await expect(ui('renderingTemplates', 'heading')).toBeVisible();
     await expect(page).toHaveURL(`${baseURL}/ui/platform/rendering-templates`);
-    await expect(page.getByText('Chưa có mẫu dựng ứng dụng nào.')).toBeVisible();
+    await expect(page.getByText('Chưa có mẫu dựng dịch vụ nào.')).toBeVisible();
     await expect(page.getByText(/Mẫu là tùy chọn và chỉ dùng cho cluster nội bộ/)).toBeVisible();
     await expect(page.getByText(/không chuyển âm thầm sang renderer mặc định/)).toBeVisible();
     await expect(page.getByText(/Một bundle duy nhất được chọn sẵn; nhiều bundle cần chọn tường minh/)).toBeVisible();
@@ -497,8 +497,8 @@ export const SCENARIOS = {
     caption('Bước 4: Nhập bundle không tồn tại; máy chủ từ chối, ID, bundle và điều kiện được giữ');
     await h.type(ui('renderingTemplates', 'id'), 'tpl-web');
     await h.choose(ui('renderingTemplates', 'bundle'), 'bundle-khong-co (phiên bản 0.0.0)');
-    await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
-    await h.choose(select(/^Ứng dụng(?! mẫu)/), await optionLabel(select(/^Ứng dụng(?! mẫu)/), templateId));
+    await h.click(editor.getByRole('radio', { name: /Theo dịch vụ/ }));
+    await h.choose(select(/^Dịch vụ(?! mẫu)/), await optionLabel(select(/^Dịch vụ(?! mẫu)/), templateId));
     await h.choose(select(/^Môi trường \(tùy chọn\)/), await optionLabel(select(/^Môi trường \(tùy chọn\)/), 'staging'));
     await h.click(ui('renderingTemplates', 'submit'));
     await expect(formAlert()).toContainText('Máy chủ từ chối mẫu này');
@@ -506,7 +506,7 @@ export const SCENARIOS = {
     expect(await formAlert().innerText()).not.toMatch(/bundle-khong-co|unavailable|not installed|invalid/i);
     await expect(ui('renderingTemplates', 'id')).toHaveValue('tpl-web');
     await expect(ui('renderingTemplates', 'bundle')).toHaveValue('bundle-khong-co');
-    await expect(select(/^Ứng dụng(?! mẫu)/)).toHaveValue(templateId);
+    await expect(select(/^Dịch vụ(?! mẫu)/)).toHaveValue(templateId);
     await expect(select(/^Môi trường \(tùy chọn\)/)).toHaveValue('staging');
     expect((await definitions()).some((item) => item.key === 'tpl-web')).toBe(false);
     check('unavailable bundle: safe Vietnamese error without raw detail, ID/bundle/criteria kept, nothing registered');
@@ -517,7 +517,7 @@ export const SCENARIOS = {
     caption('Bước 5: Nhập đúng bundle score-k8s-internal-v1 rồi đăng ký mẫu cho ứng dụng thứ hai');
     await h.choose(ui('renderingTemplates', 'bundle'), 'score-k8s-internal-v1 (phiên bản 0.15.0)');
     await h.click(ui('renderingTemplates', 'submit'));
-    await expect(page.getByRole('status').filter({ hasText: 'Đã đăng ký mẫu dựng ứng dụng tpl-web.' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Đã đăng ký mẫu dựng dịch vụ tpl-web.' })).toBeVisible();
     const entry = page.locator('.catalog-entry').filter({ has: page.getByText('tpl-web', { exact: true }) });
     await expect(entry).toContainText('Bundle: score-k8s-internal-v1 · 1 điều kiện áp dụng');
     await expect(ui('renderingTemplates', 'id')).toHaveValue('');
@@ -644,9 +644,9 @@ export const SCENARIOS = {
     await expect(entry('vpc')).toContainText('Terraform/vpc');
     await expect(entry('k8s-cluster')).toContainText('Terraform/eks');
     await expect(ctas()).toHaveCount(4);
-    await expect(entry('workload').getByRole('link', { name: 'Mẫu dựng ứng dụng' })).toBeVisible();
+    await expect(entry('workload').getByRole('link', { name: 'Mẫu dựng dịch vụ' })).toBeVisible();
     await expect(entry('workload').getByRole('link', { name: /Tạo Cấu hình tài nguyên/ })).toHaveCount(0);
-    check('list: vpc/k8s-cluster/k8s-namespace/postgres labelled "Có cách tạo hỗ trợ" with drivers; workload "Chỉ có contract" pointing to Mẫu dựng ứng dụng; exactly 4 definition CTAs');
+    check('list: vpc/k8s-cluster/k8s-namespace/postgres labelled "Có cách tạo hỗ trợ" with drivers; workload "Chỉ có contract" pointing to Mẫu dựng dịch vụ; exactly 4 definition CTAs');
     mark('types-page');
     await h.moveTo(entry('postgres'));
     await h.read('Chỉ bốn type có cách tạo được gắn nhãn hỗ trợ; workload đi qua Mẫu dựng ứng dụng');
@@ -751,10 +751,10 @@ export const SCENARIOS = {
     caption('Bước 10: Quay lại Loại tài nguyên; workload dẫn sang Mẫu dựng ứng dụng, không có CTA');
     await h.click(ui('shell', 'navResourceTypes'));
     await expect(ui('resourceTypes', 'heading')).toBeVisible();
-    await h.click(entry('workload').getByRole('link', { name: 'Mẫu dựng ứng dụng' }));
+    await h.click(entry('workload').getByRole('link', { name: 'Mẫu dựng dịch vụ' }));
     await expect(ui('renderingTemplates', 'heading')).toBeVisible();
     await expect(page).toHaveURL(`${baseURL}/ui/platform/rendering-templates`);
-    check('workload guidance link opens Mẫu dựng ứng dụng');
+    check('workload guidance link opens Mẫu dựng dịch vụ');
     mark('workload-templates');
     await h.read('workload được tạo bằng Mẫu dựng ứng dụng');
 
@@ -921,7 +921,7 @@ export const SCENARIOS = {
     await expect(rowA).toContainText('Trạng thái: Sẵn sàng');
     await expect(rowA).toContainText('Xác minh backend: Backend đã xác minh khi đăng ký');
     await expect(rowA).toContainText('Xác thực Kubernetes: Đã cấu hình');
-    await expect(page.getByLabel('Kho bí mật đã đăng ký')).toContainText('không đảm bảo ứng dụng đã sẵn sàng triển khai');
+    await expect(page.getByLabel('Kho bí mật đã đăng ký')).toContainText('không đảm bảo dịch vụ đã sẵn sàng triển khai');
     const apiA = (await storeApi()).find((store) => store.name === 'Kho A');
     expect(apiA.verification.kubernetesAuth, 'real fake-backend projection').toBe('CONFIGURED');
     check('list (real fake backend): both addresses, mount, READY as "Sẵn sàng", backend verification and Kubernetes auth CONFIGURED separate, READY not deploy-ready');
@@ -1736,7 +1736,7 @@ export const SCENARIOS = {
     await expect(impact.getByRole('button', { name: 'Bắt đầu chuyển đích' })).toBeDisabled();
     await h.moveTo(impact);
     await h.read('Preview liệt kê tác động; nút bắt đầu bị khóa cho đến khi xác nhận downtime');
-    await h.click(impact.getByLabel(/ứng dụng sẽ bị dừng trong lúc dữ liệu được sao chép/));
+    await h.click(impact.getByLabel(/dịch vụ sẽ bị dừng trong lúc dữ liệu được sao chép/));
     await h.click(impact.getByRole('button', { name: 'Bắt đầu chuyển đích' }));
     await expect(panel.getByLabel('Tiến trình chuyển đích')).toContainText('Chuyển đích đang chạy');
     await expect(panel.getByLabel('Tiến trình chuyển đích')).toContainText('Khôi phục dữ liệu', { timeout: 30_000 });
@@ -1894,8 +1894,8 @@ export const SCENARIOS = {
     check('environment table starts empty: no key, variable or secret (API_URL, LOG_LEVEL, API_TOKEN MOCKED secret entry) is selected on load');
     await h.click(envTable.getByRole('button', { name: '+ Thêm biến', exact: true }));
     await h.type(envTable.getByLabel('Tên biến, dòng 1', { exact: true }), 'BACKEND_URL');
-    await h.choose(envTable.getByLabel('Lấy giá trị từ, dòng 1', { exact: true }), 'Biến của ứng dụng');
-    await h.choose(envTable.getByLabel('Biến của ứng dụng, dòng 1', { exact: true }), 'API_URL');
+    await h.choose(envTable.getByLabel('Lấy giá trị từ, dòng 1', { exact: true }), 'Biến của dịch vụ');
+    await h.choose(envTable.getByLabel('Biến của dịch vụ, dòng 1', { exact: true }), 'API_URL');
     await expect(envTable.getByLabel(/^Tên biến, dòng/)).toHaveCount(1);
     mark('key-alias');
     await h.read('Chỉ key được chọn mới đi vào Score; secret và biến khác vẫn chưa chọn');
@@ -2047,8 +2047,8 @@ export const SCENARIOS = {
     const importedTable = page.getByRole('region', { name: 'Biến môi trường của container main', exact: true });
     await expect(importedTable.getByLabel('Tên biến, dòng 1', { exact: true })).toHaveValue('PRIMARY_URL');
     await expect(importedTable.getByLabel('Tên biến, dòng 2', { exact: true })).toHaveValue('SECONDARY_URL');
-    await expect(importedTable.getByLabel('Biến của ứng dụng, dòng 1', { exact: true })).toHaveValue('API_URL');
-    await expect(importedTable.getByLabel('Biến của ứng dụng, dòng 2', { exact: true })).toHaveValue('API_URL');
+    await expect(importedTable.getByLabel('Biến của dịch vụ, dòng 1', { exact: true })).toHaveValue('API_URL');
+    await expect(importedTable.getByLabel('Biến của dịch vụ, dòng 2', { exact: true })).toHaveValue('API_URL');
     await expect(note('Tóm tắt nâng cao Container 1')).toContainText('CPU 250m (tường minh) · Bộ nhớ 256Mi (theo limit). Giới hạn: CPU chưa đặt · Bộ nhớ 256Mi.');
     await expect(note('Tóm tắt nâng cao tài nguyên q')).toContainText('Lớp hiệu lực: gold (tường minh)');
     await expect(note('Tóm tắt nâng cao cổng http')).toContainText('Cổng đích hiệu lực: 8080 (ghi đè)');
@@ -2162,14 +2162,14 @@ export const SCENARIOS = {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'internal secret detail xyz' }) });
     });
-    const nameField = () => page.getByLabel('Tên ứng dụng', { exact: true });
+    const nameField = () => page.getByLabel('Tên dịch vụ', { exact: true });
     const subdomainField = () => page.getByLabel('Subdomain', { exact: true });
-    const submitButton = () => page.getByRole('button', { name: 'Tạo ứng dụng', exact: true });
+    const submitButton = () => page.getByRole('button', { name: 'Tạo dịch vụ', exact: true });
     const preview = () => page.getByRole('group', { name: 'Endpoint sẽ được tạo' });
     const openForm = async () => {
-      await h.click(page.getByRole('button', { name: '+ Tạo ứng dụng' }).first());
-      await expect(page.getByRole('heading', { name: 'Tạo ứng dụng', level: 1 })).toBeVisible();
-      await expect(page.getByRole('form', { name: 'Tạo ứng dụng' })).toBeVisible();
+      await h.click(page.getByRole('button', { name: '+ Tạo dịch vụ' }).first());
+      await expect(page.getByRole('heading', { name: 'Tạo dịch vụ', level: 1 })).toBeVisible();
+      await expect(page.getByRole('form', { name: 'Tạo dịch vụ' })).toBeVisible();
     };
     const signInAs = async (username) => {
       await h.type(ui('signIn', 'username'), username);
@@ -2230,7 +2230,7 @@ export const SCENARIOS = {
     await h.type(subdomainField(), 'Bad_Label', { replace: true });
     await h.type(nameField(), '', { replace: true });
     await h.click(submitButton());
-    await expect(page.getByText('Nhập tên ứng dụng.')).toBeVisible();
+    await expect(page.getByText('Nhập tên dịch vụ.')).toBeVisible();
     await expect(page.getByText(/Chỉ dùng chữ thường không dấu, số và dấu gạch ngang; bắt đầu/)).toBeVisible();
     await expect(preview()).toContainText('staging.bad_label.example.com');
     expect(posts).toHaveLength(0);
@@ -2263,7 +2263,7 @@ export const SCENARIOS = {
     await h.type(subdomainField(), 't09-other', { replace: true });
     const before = posts.length;
     await h.click(submitButton());
-    await expect(page.getByText('Tên ứng dụng này đã tồn tại.')).toBeVisible();
+    await expect(page.getByText('Tên dịch vụ này đã tồn tại.')).toBeVisible();
     await expect(nameField()).toHaveValue(FIRST);
     await expect(subdomainField()).toHaveValue('t09-other');
     expect(posts).toHaveLength(before + 1);
@@ -2291,11 +2291,11 @@ export const SCENARIOS = {
     mock.failNext = 1;
     const beforeAsync = posts.length;
     await h.click(submitButton());
-    await expect(page.getByRole('button', { name: 'Đang tạo ứng dụng…' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Đang tạo dịch vụ…' })).toBeDisabled();
     await expect(nameField()).toBeDisabled();
     await expect(subdomainField()).toBeDisabled();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('alert')).toHaveText('Không thể tạo ứng dụng. Hãy thử lại.');
+    await expect(page.getByRole('alert')).toHaveText('Không thể tạo dịch vụ. Hãy thử lại.');
     await expect(page.getByText('internal secret detail')).toHaveCount(0);
     await expect(nameField()).toHaveValue('T09 Ứng dụng khác');
     await expect(subdomainField()).toHaveValue('t09-async');
@@ -2309,7 +2309,7 @@ export const SCENARIOS = {
     const retried = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/applications');
     await h.click(submitButton());
     expect((await retried).postDataJSON()).toEqual({ name: 'T09 Ứng dụng khác', subdomain: 't09-async' });
-    await expect(page.getByRole('heading', { name: 'T09 Ứng dụng khác' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'T09 Dịch vụ khác' })).toBeVisible();
     await expect(page.getByRole('button', { name: /Staging/i })).toHaveClass(/tab-active/);
     expect(posts).toHaveLength(beforeAsync + 2);
     check('explicit retry (real backend): POST {name, subdomain} only, navigated to the new application home with Staging active');
@@ -2349,7 +2349,7 @@ export const SCENARIOS = {
     await expect(page.getByText('Chào mừng trở lại', { exact: true })).toBeVisible();
     await expect(page.getByText('Nền tảng nội bộ cho nhà phát triển', { exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Làm việc nhanh hơn.');
-    await expect(page.getByText('Hạ tầng giúp bạn tập trung vào ứng dụng.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Hạ tầng giúp bạn tập trung vào dịch vụ.', { exact: true })).toBeVisible();
     await expect(page.getByText('Dùng tài khoản kiểm thử local của bạn.', { exact: true })).toBeVisible();
     await expect(ui('signIn', 'password')).toHaveAttribute('type', 'password');
     check('sign-in page (real): Vietnamese heading, brand text and helper, password input type=password');
@@ -2400,7 +2400,7 @@ export const SCENARIOS = {
     await expect(nav.getByRole('link')).toHaveCount(1);
     await expect(chip()).toContainText('developer');
     await expect(chip()).toContainText('Nhà phát triển');
-    check('developer shell (real session): only Ứng dụng link, disabled "Lịch sử triển khai / Sắp có", footer developer + Nhà phát triển');
+    check('developer shell (real session): only Dịch vụ link, disabled "Lịch sử triển khai / Sắp có", footer developer + Nhà phát triển');
     mark('developer-nav');
     await h.moveTo(chip());
     await h.read('Nhà phát triển không thấy mục nền tảng');
@@ -2408,7 +2408,7 @@ export const SCENARIOS = {
     caption('Bước 6: Nhà phát triển mở thẳng đường dẫn Mẫu dựng ứng dụng; trang không hiển thị');
     await page.goto(`${baseURL}/ui/platform/rendering-templates`);
     await expect(nav).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Mẫu dựng dịch vụ' })).toHaveCount(0);
     await expect(ui('shell', 'navRenderingTemplates')).toHaveCount(0);
     check('role gate (real): developer deep link /ui/platform/rendering-templates renders no page and no link');
     mark('developer-gate');
@@ -2425,7 +2425,7 @@ export const SCENARIOS = {
 
     caption('Bước 8: Mở ứng dụng không tồn tại; hiển thị "Không tìm thấy ứng dụng"');
     await page.goto(`${baseURL}/ui/applications/khong-ton-tai`);
-    await expect(page.getByRole('heading', { name: 'Không tìm thấy ứng dụng' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Không tìm thấy dịch vụ' })).toBeVisible();
     check('missing application (real, unknown key): Vietnamese not-found heading inside the shell');
     mark('missing-application');
     await h.read('Không tìm thấy ứng dụng');
@@ -2469,7 +2469,7 @@ export const SCENARIOS = {
     caption('Bước 12: Mô phỏng vai trò Quản trị viên (MOCK GET /auth/session); tải lại, thấy cùng mục và nhãn Quản trị viên');
     await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: { user: { Username: 'admin-mo-phong', Role: 'ADMIN' } } }));
     await page.goto(`${baseURL}/ui/platform/rendering-templates`);
-    await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Mẫu dựng dịch vụ', level: 1 })).toBeVisible();
     await expect(chip()).toContainText('Quản trị viên');
     await expect(nav.getByRole('link')).toHaveCount(6);
     for (const link of platformLinks) await expect(ui('shell', link)).toBeVisible();
@@ -2544,7 +2544,7 @@ export const SCENARIOS = {
     await h.click(ui('signIn', 'submit'));
     await expect(ui('applications', 'heading')).toBeVisible();
     await expect(page.getByText('Không gian làm việc', { exact: true })).toBeVisible();
-    await expect(page.getByText('Tạo ứng dụng, sau đó triển khai lên staging hoặc production.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Tạo dịch vụ, sau đó triển khai lên staging hoặc production.', { exact: true })).toBeVisible();
     await expect(createButtons()).toHaveCount(1);
     const seeded = await apiList();
     expect(seeded.length).toBeGreaterThan(0);
@@ -2557,12 +2557,12 @@ export const SCENARIOS = {
     mock.emptyNext = 1;
     await page.reload();
     await expect(ui('applications', 'emptyHeading')).toBeVisible();
-    await expect(page.getByText('Tạo ứng dụng để có môi trường staging và production.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Tạo dịch vụ để có môi trường staging và production.', { exact: true })).toBeVisible();
     await expect(createButtons()).toHaveCount(2);
     await expect(cards()).toHaveCount(0);
     await h.read('Trạng thái rỗng tiếng Việt: nút tạo ở header và trong khung rỗng');
     await h.click(createButtons().nth(1));
-    await expect(page.getByRole('form', { name: 'Tạo ứng dụng' })).toBeVisible();
+    await expect(page.getByRole('form', { name: 'Tạo dịch vụ' })).toBeVisible();
     expect(posts).toHaveLength(0);
     check('empty state (MOCKED empty reply): Vietnamese heading/hint, header and empty create buttons; empty button opens the create form; no POST sent');
     mark('empty-create-cta');
@@ -2606,13 +2606,13 @@ export const SCENARIOS = {
     await h.read('Đang tải ứng dụng: skeleton có role status');
     await expect(cards()).toHaveCount(apps.length);
     expect(await cards().locator('strong').allTextContents()).toEqual(apps.map((app) => app.name));
-    check('loading (MOCKED hold): role=status aria-busy "Đang tải ứng dụng", then the same cards in the same order');
+    check('loading (MOCKED hold): role=status aria-busy "Đang tải dịch vụ", then the same cards in the same order');
     mark('loading');
 
     caption('Bước 6: Lỗi tải danh sách (MOCK 500): thông báo tiếng Việt, không lộ lỗi backend, không dữ liệu giả; bấm Thử lại mới đọc lại');
     mock.failNext = 1;
     await page.reload();
-    await expect(page.getByRole('alert')).toContainText('Không thể tải danh sách ứng dụng.');
+    await expect(page.getByRole('alert')).toContainText('Không thể tải danh sách dịch vụ.');
     await expect(page.getByRole('alert')).not.toContainText('internal secret');
     await expect(page.getByText(/internal secret detail|xyz/)).toHaveCount(0);
     expect(await page.locator('body').innerText()).not.toContain('internal secret detail xyz');
@@ -2704,7 +2704,7 @@ export const SCENARIOS = {
     await h.click(ui('signIn', 'submit'));
     await expect(ui('applications', 'heading')).toBeVisible();
     appId = await createApplication(h, NAME, 't12-trang-ung-dung', { connections: null });
-    await expect(page.getByRole('status').filter({ hasText: 'Đã tạo ứng dụng. Hãy chọn kết nối cho từng môi trường trong Cài đặt môi trường' })).toContainText('chưa có gì được triển khai');
+    await expect(page.getByRole('status').filter({ hasText: 'Đã tạo dịch vụ. Hãy chọn kết nối cho từng môi trường trong Cài đặt môi trường' })).toContainText('chưa có gì được triển khai');
     await expect(page.getByLabel('Đích triển khai').first()).toContainText('staging chưa có kết nối triển khai');
     await expect(page.getByText('Môi trường này chưa có Workload nào.')).toBeVisible();
     await expect(page.getByText('Chưa có triển khai nào trong staging.')).toBeVisible();
@@ -3089,7 +3089,7 @@ export const SCENARIOS = {
       await route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: RAW }) });
     });
     await h.click(submit());
-    await expect(alert()).toContainText('Không tìm thấy ứng dụng hoặc môi trường này.');
+    await expect(alert()).toContainText('Không tìm thấy dịch vụ hoặc môi trường này.');
     await noRaw();
     check('404 (MOCKED): Vietnamese, no raw text');
     mark('mock-404');
@@ -3606,7 +3606,7 @@ export const SCENARIOS = {
     await page.goto(`${baseURL}/ui/applications/${appId}/environments/production/deployments/${encodeURIComponent(apiId)}`);
     await expect(page.getByRole('heading', { name: 'Không tìm thấy triển khai' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Thử lại' })).toHaveCount(0);
-    await expect(page.getByText('Triển khai này không tồn tại trong ứng dụng và môi trường đã chọn.')).toBeVisible();
+    await expect(page.getByText('Triển khai này không tồn tại trong dịch vụ và môi trường đã chọn.')).toBeVisible();
     expect(detailGets.at(-1)).toBe(`production/deployments/${apiId}`);
     check('not found: MOCKED 404 and REAL 404 (staging deployment ID opened under production) show Vietnamese heading/explanation, no Thử lại, no leaked backend text');
     mark('real-404');
@@ -3754,8 +3754,8 @@ export const SCENARIOS = {
     await pick(ui('resourceDefinitions', 'account'), 'aws-account');
     await h.type(ui('resourceDefinitions', 'region'), 'us-east-1');
     await h.click(page.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }));
-    await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
-    await h.choose(select(/^Ứng dụng(?! kiểm tra)/), `${NAME} (${appId})`);
+    await h.click(editor.getByRole('radio', { name: /Theo dịch vụ/ }));
+    await h.choose(select(/^Dịch vụ(?! kiểm tra)/), `${NAME} (${appId})`);
     await typeVariablesJson(h, ui, '{"name":"${context.infra.resourceName}","cidr":"10.30.0.0/16"}', { replace: true, delay: 30 });
     await h.click(ui('resourceDefinitions', 'submit'));
     await registered('vpc-t16');
@@ -3780,7 +3780,7 @@ export const SCENARIOS = {
     await h.click(page.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }));
     // The seeded EKS Definition matches Class eks; app + Class eks is strictly more specific.
     await h.click(editor.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
-    await h.type(editor.getByLabel('Điều kiện 1 ID ứng dụng'), appId);
+    await h.type(editor.getByLabel('Điều kiện 1 ID dịch vụ'), appId);
     await h.type(editor.getByLabel('Điều kiện 1 Class'), 'eks');
     await typeVariablesJson(h, ui, eksVars, { replace: true, delay: 5 });
     await h.click(ui('resourceDefinitions', 'submit'));
@@ -3799,8 +3799,8 @@ export const SCENARIOS = {
     await expect(ui('resourceDefinitions', 'account')).toBeVisible();
     await h.click(page.getByRole('button', { name: 'Ghép đầu vào theo tên trùng', exact: true }));
     await h.click(page.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }));
-    await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
-    await h.choose(select(/^Ứng dụng(?! kiểm tra)/), `${NAME} (${appId})`);
+    await h.click(editor.getByRole('radio', { name: /Theo dịch vụ/ }));
+    await h.choose(select(/^Dịch vụ(?! kiểm tra)/), `${NAME} (${appId})`);
     await typeVariablesJson(h, ui, auroraVars, { replace: true, delay: 5 });
     const postsBefore = posts.length;
     await h.click(ui('resourceDefinitions', 'submit'));
@@ -3829,10 +3829,10 @@ export const SCENARIOS = {
     await expect(ui('renderingTemplates', 'heading')).toBeVisible();
     await h.type(ui('renderingTemplates', 'id'), 'tpl-t16');
     await h.type(page.getByLabel('Tên hiển thị', { exact: true }), 'Mẫu T16');
-    await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
-    await h.choose(select(/^Ứng dụng(?! kiểm tra)/), `${NAME} (${appId})`);
+    await h.click(editor.getByRole('radio', { name: /Theo dịch vụ/ }));
+    await h.choose(select(/^Dịch vụ(?! kiểm tra)/), `${NAME} (${appId})`);
     await h.click(ui('renderingTemplates', 'submit'));
-    await expect(page.getByRole('status').filter({ hasText: 'Đã đăng ký mẫu dựng ứng dụng tpl-t16.' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Đã đăng ký mẫu dựng dịch vụ tpl-t16.' })).toBeVisible();
     expect(await apiDefinition('tpl-t16')).toMatchObject({ name: 'Mẫu T16', version: 1, resourceType: 'workload', driverType: 'score-k8s', criteria: [{ app_id: appId }] });
     check('registered tpl-t16 through UI: Name, version 1, score-k8s, criteria app_id only, no profile');
     mark('template-registered');
@@ -4032,15 +4032,15 @@ export const SCENARIOS = {
     await h.moveTo(bundle());
     await h.read('Có nhiều bundle thì không tự chọn');
     await h.click(submit());
-    await expect(page.getByRole('alert').filter({ hasText: 'Chọn bundle dựng ứng dụng.' })).toBeVisible();
+    await expect(page.getByRole('alert').filter({ hasText: 'Chọn bundle dựng dịch vụ.' })).toBeVisible();
     expect(posts).toHaveLength(0);
     check('submit without an explicit selection: Vietnamese validation, no POST');
     mark('select-required');
 
     caption('Bước 6: Chọn bundle mà máy chủ không còn có; POST bị từ chối, ID, bundle và điều kiện được giữ');
     await h.choose(bundle(), `${EXTRA.id} (phiên bản ${EXTRA.version})`);
-    await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
-    await h.choose(select(/^Ứng dụng(?! mẫu)/), await optionLabel(select(/^Ứng dụng(?! mẫu)/), appId));
+    await h.click(editor.getByRole('radio', { name: /Theo dịch vụ/ }));
+    await h.choose(select(/^Dịch vụ(?! mẫu)/), await optionLabel(select(/^Dịch vụ(?! mẫu)/), appId));
     await h.choose(select(/^Môi trường \(tùy chọn\)/), await optionLabel(select(/^Môi trường \(tùy chọn\)/), 'staging'));
     await h.click(submit());
     const rejected = page.getByRole('alert').filter({ hasText: 'Máy chủ từ chối mẫu này' });
@@ -4048,7 +4048,7 @@ export const SCENARIOS = {
     expect(await rejected.innerText()).not.toMatch(/unavailable|not installed|invalid|score-k8s-bundle-gone/i);
     await expect(ui('renderingTemplates', 'id')).toHaveValue(TEMPLATE);
     await expect(bundle()).toHaveValue(EXTRA.id);
-    await expect(select(/^Ứng dụng(?! mẫu)/)).toHaveValue(appId);
+    await expect(select(/^Dịch vụ(?! mẫu)/)).toHaveValue(appId);
     await expect(select(/^Môi trường \(tùy chọn\)/)).toHaveValue('staging');
     expect(posts).toHaveLength(1);
     expect(posts[0].driverInputs.values.variables).toEqual({ render_bundle: EXTRA.id });
@@ -4075,7 +4075,7 @@ export const SCENARIOS = {
     caption('Bước 8: Chọn bundle đã cài rồi đăng ký mẫu; sau khi lưu, form mới tự chọn bundle duy nhất');
     await h.choose(bundle(), REAL_LABEL);
     await h.click(submit());
-    await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký mẫu dựng ứng dụng ${TEMPLATE}.` })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký mẫu dựng dịch vụ ${TEMPLATE}.` })).toBeVisible();
     const entry = page.locator('.catalog-entry').filter({ has: page.getByText(TEMPLATE, { exact: true }) });
     await expect(entry).toContainText(`Bundle: ${real.id} · 1 điều kiện áp dụng`);
     await expect(ui('renderingTemplates', 'id')).toHaveValue('');
@@ -4173,7 +4173,7 @@ export const SCENARIOS = {
     await expect(ui('resourceDefinitions', 'driver')).toHaveValue('kubernetes');
     await expect(ui('resourceDefinitions', 'scope')).toHaveValue('internal-k8s');
     await expect(run).toBeDisabled();
-    await expect(panel).toContainText('Chọn ứng dụng và môi trường mẫu');
+    await expect(panel).toContainText('Chọn dịch vụ và môi trường mẫu');
     check('exact preview is disabled with a Vietnamese reason until app/env sample context is chosen');
     mark('draft-wild');
     await h.read('Chưa chọn context mẫu thì chưa thể kiểm tra matching chính xác');
@@ -4359,16 +4359,16 @@ export const SCENARIOS = {
     caption('Bước 3 (thật): Tạo lại ứng dụng cùng tên; mã DUPLICATE hiện ở ô Tên, bản nháp được giữ');
     await h.click(ui('shell', 'navApplications'));
     await expect(ui('applications', 'heading')).toBeVisible();
-    await h.click(page.getByRole('button', { name: '+ Tạo ứng dụng' }).first());
-    await h.type(page.getByLabel('Tên ứng dụng'), NAME);
+    await h.click(page.getByRole('button', { name: '+ Tạo dịch vụ' }).first());
+    await h.type(page.getByLabel('Tên dịch vụ'), NAME);
     await h.type(page.getByLabel('Subdomain'), 't20-trung-ten', { replace: true });
     const dup = waitFor('POST', '/applications');
-    await h.click(page.getByRole('button', { name: 'Tạo ứng dụng' }));
+    await h.click(page.getByRole('button', { name: 'Tạo dịch vụ' }));
     await expectBody(dup, 409, 'DUPLICATE');
-    await expect(page.getByText('Tên ứng dụng này đã tồn tại.')).toBeVisible();
+    await expect(page.getByText('Tên dịch vụ này đã tồn tại.')).toBeVisible();
     await expect(page.getByLabel('Subdomain')).toHaveValue('t20-trung-ten');
     check('REAL: duplicate: 409 DUPLICATE with field name shows the field message and keeps the draft');
-    await reveal(page.getByText('Tên ứng dụng này đã tồn tại.'));
+    await reveal(page.getByText('Tên dịch vụ này đã tồn tại.'));
     mark('duplicate-app');
     await h.read('Trùng tên ứng dụng: thông báo ở đúng ô, nội dung đang nhập được giữ');
 

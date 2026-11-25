@@ -44,7 +44,7 @@ try {
   const vi = await open('vi-VN', { width: 1512, height: 980 });
   const { page, context } = vi;
   await signIn(page);
-  await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible();
   const h = createHuman(page, { fast: true });
   const stamp = Date.now().toString().slice(-8);
   const app = await createApplication(h, `DevEx Env QA ${stamp}`, `devex-${stamp}`);
@@ -112,7 +112,7 @@ try {
   // Application variable created inline.
   await h.click(table.getByRole('button', { name: '+ Thêm biến', exact: true }));
   await h.type(table.getByLabel('Tên biến, dòng 3', { exact: true }), 'REGION');
-  await h.choose(table.getByLabel('Lấy giá trị từ, dòng 3', { exact: true }), 'Biến của ứng dụng');
+  await h.choose(table.getByLabel('Lấy giá trị từ, dòng 3', { exact: true }), 'Biến của dịch vụ');
   await h.click(table.getByRole('button', { name: 'Tạo biến', exact: true }));
   dialog = page.getByRole('dialog', { name: 'Tạo biến' });
   await expect(dialog.getByLabel('Tên key', { exact: true })).toHaveValue('REGION');
@@ -121,8 +121,8 @@ try {
   const created = page.waitForResponse((r) => r.url().endsWith('/configuration/keys') && r.request().method() === 'POST');
   await h.click(dialog.getByRole('button', { name: 'Tạo và chọn', exact: true }));
   check('create-only POST returned 201', (await created).status() === 201);
-  await expect(table.getByLabel('Biến của ứng dụng, dòng 3', { exact: true })).toHaveValue('REGION');
-  await expect(table.getByLabel('Biến của ứng dụng, dòng 3', { exact: true })).toBeFocused();
+  await expect(table.getByLabel('Biến của dịch vụ, dòng 3', { exact: true })).toHaveValue('REGION');
+  await expect(table.getByLabel('Biến của dịch vụ, dòng 3', { exact: true })).toBeFocused();
 
   // Secret created inline, with the initial Secret Store chosen in the same dialog.
   await h.click(table.getByRole('button', { name: '+ Thêm biến', exact: true }));
@@ -206,7 +206,7 @@ try {
   await h.click(reopened.getByRole('button', { name: '+ Thêm biến', exact: true }));
   const last = (await reopened.getByLabel(/^Tên biến, dòng/).count());
   await h.type(reopened.getByLabel(`Tên biến, dòng ${last}`, { exact: true }), 'REGION2');
-  await h.choose(reopened.getByLabel(`Lấy giá trị từ, dòng ${last}`, { exact: true }), 'Biến của ứng dụng');
+  await h.choose(reopened.getByLabel(`Lấy giá trị từ, dòng ${last}`, { exact: true }), 'Biến của dịch vụ');
   await h.click(reopened.getByRole('button', { name: 'Tạo biến', exact: true }).last());
   dialog = page.getByRole('dialog', { name: 'Tạo biến' });
   await dialog.getByLabel('Tên key', { exact: true }).fill('REGION');
@@ -242,7 +242,7 @@ try {
     const regionRow = region.getByRole('row').filter({ has: en.page.locator('input[value="REGION"]') });
     const keySearch = regionRow.getByRole('searchbox');
     await keySearch.fill('SEARCH_KEY_10');
-    const keyChoice = regionRow.getByRole('combobox', { name: /^Application variable, row/ });
+    const keyChoice = regionRow.getByRole('combobox', { name: /^Service variable, row/ });
     await expect(keyChoice).toHaveValue('REGION');
     await expect(keyChoice.locator('option')).toHaveCount(3);
     check(`long key catalog filters by name and preserves selection (${label})`, true);

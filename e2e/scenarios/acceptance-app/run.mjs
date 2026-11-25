@@ -57,10 +57,10 @@ let lastStep = 'Khởi tạo';
 const step = (text) => { lastStep = text; console.log(`- ${text}`); };
 
 async function createApplication(page, name) {
-  await page.getByRole('button', { name: '+ Tạo ứng dụng' }).first().click();
-  await page.getByLabel('Tên ứng dụng').fill(name);
+  await page.getByRole('button', { name: '+ Tạo dịch vụ' }).first().click();
+  await page.getByLabel('Tên dịch vụ').fill(name);
   await page.getByLabel('Subdomain').fill(name);
-  await page.getByRole('button', { name: 'Tạo ứng dụng' }).click();
+  await page.getByRole('button', { name: 'Tạo dịch vụ' }).click();
   await expect(page.getByRole('heading', { name })).toBeVisible();
   const id = new URL(page.url()).pathname.match(/\/applications\/([^/]+)$/)?.[1];
   if (!id) throw new ConsoleError('Không đọc được ID ứng dụng từ địa chỉ trang');

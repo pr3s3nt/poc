@@ -115,9 +115,9 @@ try {
   const second = page.getByRole('region', { name: 'Trường hợp 2', exact: true });
   await second.getByRole('button', { name: '+ Thêm điều kiện', exact: true }).click();
   await page.getByLabel('Trường hợp 2 thuộc tính 1', { exact: true }).selectOption('app_id');
-  await page.getByLabel('Điều kiện 2 ID ứng dụng', { exact: true }).fill(application.key);
+  await page.getByLabel('Điều kiện 2 ID dịch vụ', { exact: true }).fill(application.key);
   await disclose('Kiểm tra cấu hình được chọn');
-  await page.getByLabel('Ứng dụng kiểm tra', { exact: true }).selectOption(application.key);
+  await page.getByLabel('Dịch vụ kiểm tra', { exact: true }).selectOption(application.key);
   await page.getByLabel('Môi trường kiểm tra', { exact: true }).selectOption(environment.key);
   await page.getByLabel('ID tài nguyên kiểm tra (res_id)', { exact: true }).fill('sample');
   await page.getByLabel('Class kiểm tra', { exact: true }).fill('default');
@@ -159,7 +159,7 @@ try {
   await expect(page.getByLabel('Tài nguyên đi kèm 1: các tài nguyên đang dùng vthree cũng phải chờ vthree (match_dependents)', { exact: true })).not.toBeChecked();
   await criteria().click();
   await expect(page.getByLabel('Điều kiện 1 Class', { exact: true })).toHaveValue('default');
-  await expect(page.getByLabel('Điều kiện 2 ID ứng dụng', { exact: true })).toHaveValue(application.key);
+  await expect(page.getByLabel('Điều kiện 2 ID dịch vụ', { exact: true })).toHaveValue(application.key);
   await config().click();
   await page.getByLabel('Tên hiển thị', { exact: true }).fill('Unsaved edit retained');
   await page.getByRole('button', { name: 'Cấu hình tài nguyên', exact: true }).click();
@@ -173,7 +173,7 @@ try {
   await page.getByRole('button', { name: 'Lưu thay đổi', exact: true }).click();
   expect((await conflict).status()).toBe(409);
   await expect(page.getByRole('alert', { name: 'Cần tải lại cấu hình', exact: true })).toBeVisible();
-  await expect(page.getByLabel('Điều kiện 2 ID ứng dụng', { exact: true })).toHaveValue(application.key);
+  await expect(page.getByLabel('Điều kiện 2 ID dịch vụ', { exact: true })).toHaveValue(application.key);
   await page.getByRole('button', { name: 'Tải lại bản mới nhất', exact: true }).click();
   await expect(page.getByLabel('Tên hiển thị', { exact: true })).toHaveValue('Concurrent winner');
   await page.getByLabel('Tên hiển thị', { exact: true }).fill('V3 final');
@@ -202,7 +202,7 @@ try {
   await page.getByRole('button', { name: 'Sao chép điều kiện', exact: true }).click();
   await page.getByRole('button', { name: 'Thay bằng bản sao chép', exact: true }).click();
   await expect(page.getByLabel('Điều kiện 1 Class', { exact: true })).toHaveValue('default');
-  await expect(page.getByLabel('Điều kiện 2 ID ứng dụng', { exact: true })).toHaveValue(application.key);
+  await expect(page.getByLabel('Điều kiện 2 ID dịch vụ', { exact: true })).toHaveValue(application.key);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByLabel('Điều kiện 1 Class', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -220,7 +220,7 @@ try {
   await page.getByLabel('Điều kiện 2 ID tài nguyên', { exact: true }).fill('modules.web');
   await expect(page.getByLabel('Điều kiện 1 Class', { exact: true })).toHaveValue('renderer-class');
   await expect(page.getByRole('note', { name: 'Quy tắc so khớp', exact: true })).toContainText('env_type 1 · app_id 2 · env_id 4 · res_id 8 · class 16');
-  await expect(page.getByLabel('Ứng dụng kiểm tra', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Dịch vụ kiểm tra', { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
   console.log('PASS: v3 real HTTP/Git create/edit/CAS/reload, unequal input/output mapping names, typed/JSON preservation, companion params/flags, AND/OR/copy/matching, keyboard/mobile');
   console.log(`Screenshots: ${evidence}`);

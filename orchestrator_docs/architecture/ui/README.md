@@ -64,15 +64,15 @@ biến quy tắc thành task redesign toàn bộ các màn hình cũ.
 
 ## Shared shell
 
-- A signed-in page has a persistent left sidebar with `Ứng dụng` and
-  `Lịch sử triển khai` navigation.
+- A signed-in page has a persistent left sidebar with `Dịch vụ` and the sections
+  available to the signed-in role.
 - The footer of the sidebar shows authenticated User name and role, plus a
   sign-out action.
 - Main content owns the page title, primary action and use-case-specific state.
 - The sign-in page is intentionally outside the authenticated shell.
 
 The signed-in sidebar includes **Tài liệu / Documentation** for all roles,
-after deployment history. Reuse the active route, collapsed icon and focus
+as its last item. Reuse the active route, collapsed icon and focus
 patterns. The documentation page reuses the page and content panel. A secondary
 navigation called **Bài viết / Articles** lists published articles and marks the
 current page. It sits beside the article and moves above it at narrow widths.
@@ -154,16 +154,19 @@ patterns. See UC-03 CM-01–04; no shell or theme redesign.
 
 ## Shared shell tiếng Việt (T10)
 
-Navigation có accessible name “Điều hướng chính”; các link giữ nguyên routes
-và gate: “Ứng dụng”, “Loại tài nguyên”, “Kết nối”, “Kho bí mật”. Mục triển khai chưa có link vẫn disabled, nhãn
-“Lịch sử triển khai” / “Sắp có”. Không thêm tính năng điều hướng.
+Navigation có accessible name “Điều hướng chính”. Theo issue #99, thứ tự
+là **Dịch vụ**, **Nền tảng**, **Hiệu quả nền tảng**, **Người dùng**, **Tài liệu**,
+áp dụng theo quyền hiện có. Nút **Nền tảng / Platform** mở hoặc thu gọn bằng
+bàn phím. Khi vào route con, nhóm mở và link hiện tại có `aria-current="page"`.
 
-Footer giữ username thực; role ADMIN/PLATFORM_ENGINEER/DEVELOPER hiển thị lần
-lượt “Quản trị viên” / “Kỹ sư nền tảng” / “Nhà phát triển”, không đổi role ID.
-Nút “Đăng xuất” giữ behavior hiện tại. Shared missing-application state dùng
-“Không tìm thấy ứng dụng”; loading “Đang tải ứng dụng…”; lỗi tải “Không thể tải
-danh sách ứng dụng.” và nút “Thử lại”. T10 không dịch nội dung list/home/preview/
-history/details thuộc T11–T15, không đổi parsing unknown routes.
+- **Tài nguyên / Resources** gồm Loại tài nguyên, Cấu hình tài nguyên.
+- **Kết nối và triển khai / Connections and deployment** gồm Tài khoản hạ tầng,
+  Cấu hình Git, Cấu hình CD, Kho bí mật.
+- **Khởi tạo nền tảng / Platform Bootstrap** nằm cuối nhóm. Trang giới thiệu
+  tác vụ kết nối hạ tầng và nhập danh mục tài nguyên để bắt đầu triển khai dịch vụ.
+
+Bỏ mục giữ chỗ “Lịch sử triển khai — Sắp có”. Lịch sử theo môi trường vẫn mở
+từ dịch vụ. Footer hiển thị username thực, vai trò và thao tác đăng xuất.
 
 ## Trình bày lỗi theo code — T20 / VI-03
 
@@ -182,11 +185,9 @@ và committed-success/reload-failure vẫn tách biệt; scope đổi bỏ late 
 
 ## Navigation Hiệu quả platform (UC-17)
 
-Sidebar thêm mục “Hiệu quả platform” sau “Cấu hình kho bí mật”, route
+Mục “Hiệu quả nền tảng” hiển thị riêng sau nhóm Nền tảng, route
 `/ui/platform/effectiveness`, cùng gate PLATFORM_ENGINEER/ADMIN như các mục
-platform. Developer không thấy mục và không render trang qua deep link. Mục
-“Lịch sử triển khai” vẫn disabled; chi tiết bản ghi mở lịch sử theo Environment
-hiện có. Trang thuộc [UC-17 screens](../../usecase/UC-17/ui/screens.md).
+platform. Developer không thấy mục và không render trang qua deep link. Chi tiết bản ghi mở lịch sử theo Environment hiện có. Trang thuộc [UC-17 screens](../../usecase/UC-17/ui/screens.md).
 
 ## Git rendering source reuse — ADR-021
 
@@ -231,7 +232,7 @@ Private scope is advanced. No shell/navigation or cross-Application scope change
 ## Git configuration — Git access
 
 Nav/page labels (2026-11-05, user decision): “Cấu hình Git” (EN “Git configuration”)
-and “Cấu hình kho bí mật” (EN “Secret store configuration”). Routes unchanged.
+and “Kho bí mật” (EN “Secret stores”) in the sidebar. Routes unchanged.
 
 Sidebar adds “Cấu hình Git” at `/ui/platform/settings`, in the platform
 group with PLATFORM_ENGINEER/ADMIN gating. Reuse the existing Secret Stores

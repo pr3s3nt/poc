@@ -196,8 +196,8 @@ try {
   }
 
   // ---- WM-E02: production bundle from the manifest repository --------------------------------
-  await h.click(kit.nav('Mẫu dựng ứng dụng'));
-  await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng', level: 1, exact: true })).toBeVisible();
+  await h.click(kit.nav('Mẫu dựng dịch vụ'));
+  await expect(page.getByRole('heading', { name: 'Mẫu dựng dịch vụ', level: 1, exact: true })).toBeVisible();
   await h.type(page.getByLabel('ID mẫu', { exact: true }), 'git-workload');
   await h.type(page.getByLabel('Tên hiển thị', { exact: true }), 'Workload production');
   await h.type(page.getByLabel('Git HTTPS URL', { exact: true }), source.url);
@@ -215,7 +215,7 @@ try {
   await h.click(page.getByRole('button', { name: 'Dùng gợi ý cluster', exact: true }));
   await shot('E02-template');
   const created = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/resource-definitions');
-  await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }));
+  await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng dịch vụ', exact: true }));
   ui('WM-E02.saved', (await created).status() === 201, 'production template registered with the verified pin');
 
   // ---- WM-E03: Developer application with production annotations -----------------------------
@@ -355,16 +355,16 @@ try {
     check('WM-E08.vault-before', valuesBefore.length > 0, `${valuesBefore.length} value objects under the Application's staging path before deletion`);
     const instancesBefore = Number(sql(`SELECT count(*) FROM terraform_resource_instances i JOIN environments e ON e.id=i.environment_id JOIN applications a ON a.id=e.application_id WHERE a.application_key='${input.applicationKey}' AND i.status<>'DESTROYED' AND i.scope_type<>'APPLICATION' AND i.descriptor NOT LIKE 'k8s-cluster.%' AND i.descriptor NOT LIKE '%#connections.%'`));
     await page.goto(`${baseURL}/ui/applications/${input.applicationKey}/settings`);
-    const zone = page.getByRole('region', { name: 'Xóa ứng dụng' });
-    await h.click(zone.getByRole('button', { name: 'Xóa ứng dụng', exact: true }));
-    const dialog = page.getByRole('dialog', { name: 'Xóa ứng dụng', exact: true });
+    const zone = page.getByRole('region', { name: 'Xóa dịch vụ' });
+    await h.click(zone.getByRole('button', { name: 'Xóa dịch vụ', exact: true }));
+    const dialog = page.getByRole('dialog', { name: 'Xóa dịch vụ', exact: true });
     const stagingScope = dialog.getByRole('region', { name: 'staging' });
     await expect(stagingScope).toContainText('Workload sẽ bị gỡ: 3');
     await expect(stagingScope).toContainText(`Tài nguyên sẽ bị xóa: ${instancesBefore}`);
     await expect(dialog.getByRole('region', { name: 'production' })).toContainText('Tài nguyên sẽ bị xóa: 0');
     await shot('E08-dialog');
     ui('WM-E08.scope', true, `dialog lists 3 workloads and ${instancesBefore} owned resources in staging, nothing in production`);
-    const confirm = dialog.getByRole('button', { name: 'Xóa vĩnh viễn ứng dụng', exact: true });
+    const confirm = dialog.getByRole('button', { name: 'Xóa vĩnh viễn dịch vụ', exact: true });
     await h.type(dialog.getByRole('textbox'), input.applicationName.toLowerCase());
     ui('WM-E08.exact-name', await confirm.isDisabled(), 'a case-folded name keeps the confirmation disabled');
     await h.type(dialog.getByRole('textbox'), input.applicationName, { replace: true });
@@ -375,7 +375,7 @@ try {
     ui('WM-E08.admitted', admission.status() === 202 && Boolean(operationId), `deletion ${operationId} admitted`);
     const frozen = await page.request.put(`${baseURL}/api/v1${kit.appPath}/workloads/backend`, { data: { version: 0, score: {} } });
     check('WM-E08.frozen', frozen.status() === 409 && (await frozen.json()).code === 'APPLICATION_DELETING', `mutation while deleting = ${frozen.status()}`);
-    await expect(page.getByRole('region', { name: 'Tiến trình xóa ứng dụng' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Tiến trình xóa dịch vụ' })).toBeVisible();
     await shot('E08-progress');
     let progress = null;
     await expect.poll(async () => {
@@ -386,8 +386,8 @@ try {
     facts.deletion = progress;
     saveFacts();
     ui('WM-E08.succeeded', progress?.status === 'SUCCEEDED' && progress?.applicationStatus === 'DELETED', `deletion ${progress?.status} (${progress?.failureCode ?? 'no failure'})`);
-    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByRole('status').filter({ hasText: `Đã xóa ứng dụng ${input.applicationName}.` })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('status').filter({ hasText: `Đã xóa dịch vụ ${input.applicationName}.` })).toBeVisible();
     ui('WM-E08.list', !(await page.getByText(input.applicationName, { exact: true }).isVisible()), 'the Application is gone from the list with a notice');
     await shot('E08-deleted');
     const notFound = await page.request.get(`${baseURL}/api/v1/applications/${input.applicationKey}`);

@@ -110,8 +110,8 @@ try {
  app = apps.find(entry => entry.name === name);
  if (state.app && !(mode === 'cleanup' && state.cleanupPassed && !app)) assert(app?.key === state.app, 'Recorded Application identity changed');
  if (!app && mode === 'run') {
-  await page.goto(config.baseURL + '/ui/applications/new'); await page.getByLabel('Tên ứng dụng', { exact: true }).fill(name);
-  await submit('/applications', 'POST', page.getByRole('button', { name: 'Tạo ứng dụng', exact: true }));
+  await page.goto(config.baseURL + '/ui/applications/new'); await page.getByLabel('Tên dịch vụ', { exact: true }).fill(name);
+  await submit('/applications', 'POST', page.getByRole('button', { name: 'Tạo dịch vụ', exact: true }));
   app = (await get('/applications')).applications.find(entry => entry.name === name);
  }
  if (!app && mode === 'cleanup' && state.cleanupPassed) { console.log('PASS: recorded cleanup remains complete'); }
@@ -135,7 +135,7 @@ try {
    await page.getByLabel('Tham chiếu namespace', { exact: true }).fill(namespaceRef);
    await page.getByRole('textbox', { name: /^Tham chiếu output \(JSON\)/ }).fill(JSON.stringify({ namespaceName: namespaceRef }));
    await page.getByRole('tab', { name: /^Điều kiện áp dụng/ }).click(); await page.getByRole('button', { name: '+ Thêm điều kiện', exact: true }).click();
-   await page.getByRole('combobox', { name: 'Trường hợp 1 thuộc tính 1', exact: true }).selectOption('app_id'); await page.getByRole('textbox', { name: /Điều kiện 1.*ID ứng dụng/ }).fill(app.key);
+   await page.getByRole('combobox', { name: 'Trường hợp 1 thuộc tính 1', exact: true }).selectOption('app_id'); await page.getByRole('textbox', { name: /Điều kiện 1.*ID dịch vụ/ }).fill(app.key);
    await submit('/resource-definitions', 'POST', page.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên', exact: true })); await screenshot('definition-saved');
   }
   if (!state.baselinePassed) { await importWorkload(2, (await get(base + '/workloads')).workloads.some(entry => entry.id === 'order-api')); await previewDeploy(); await verify(2); state.baselinePassed = true; save(); }
@@ -161,10 +161,10 @@ try {
    else { assert.equal(accessName, 'generic-workload-fleet'); assert.equal(object.metadata.labels['orchestrator.io/test-run'], name); }
    native(['delete', '--raw', `/apis/rbac.authorization.k8s.io/v1/namespaces/${namespace}/${kind}s/${accessName}`, '-f', '-'], JSON.stringify({ apiVersion: 'v1', kind: 'DeleteOptions', preconditions: { uid: object.metadata.uid } }));
   }
-  await page.goto(config.baseURL + `/ui/applications/${app.key}/settings?environment=staging`); await page.getByRole('region', { name: 'Xóa ứng dụng', exact: true }).getByRole('button', { name: 'Xóa ứng dụng', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Xóa ứng dụng', exact: true }); await dialog.getByRole('textbox').fill(name); await screenshot('cleanup-confirmation');
-  await submit(`/applications/${app.key}/deletions`, 'POST', dialog.getByRole('button', { name: 'Xóa vĩnh viễn ứng dụng', exact: true }));
-  await page.getByRole('heading', { name: 'Ứng dụng của bạn', exact: true }).waitFor({ timeout: 600000 });
+  await page.goto(config.baseURL + `/ui/applications/${app.key}/settings?environment=staging`); await page.getByRole('region', { name: 'Xóa dịch vụ', exact: true }).getByRole('button', { name: 'Xóa dịch vụ', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Xóa dịch vụ', exact: true }); await dialog.getByRole('textbox').fill(name); await screenshot('cleanup-confirmation');
+  await submit(`/applications/${app.key}/deletions`, 'POST', dialog.getByRole('button', { name: 'Xóa vĩnh viễn dịch vụ', exact: true }));
+  await page.getByRole('heading', { name: 'Dịch vụ của bạn', exact: true }).waitFor({ timeout: 600000 });
   assert.equal((await page.request.get(config.baseURL + '/api/v1/applications/' + app.key)).status(), 404);
   assert.equal(native(['get', 'namespace', namespace, '--ignore-not-found', '-o', 'name']).trim(), ''); state.cleanupPassed = true; save(); await screenshot('cleanup-passed'); console.log('PASS: product cleanup and namespace absence');
  }

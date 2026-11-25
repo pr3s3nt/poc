@@ -57,7 +57,7 @@ export async function runBusiness({ page, context, baseURL, run, state, saveStat
   }
   await step('Create application through form', async () => {
     if (state.appID) { await home(); return; }
-    await page.goto(`${baseURL}/ui/applications`); await page.getByRole('button', { name: '+ Tạo ứng dụng', exact: true }).first().click(); await page.getByLabel('Tên ứng dụng', { exact: true }).fill(appName); await page.getByLabel('Subdomain', { exact: true }).fill(appName); await click('Tạo ứng dụng');
+    await page.goto(`${baseURL}/ui/applications`); await page.getByRole('button', { name: '+ Tạo dịch vụ', exact: true }).first().click(); await page.getByLabel('Tên dịch vụ', { exact: true }).fill(appName); await page.getByLabel('Subdomain', { exact: true }).fill(appName); await click('Tạo dịch vụ');
     await expect(page.getByRole('heading', { name: appName, exact: true })).toBeVisible(); state.appID = new URL(page.url()).pathname.split('/').at(-1); state.appName = appName; saveState();
   });
   const app = await getApp(); const namespace = app.environments.find(e => e.key === 'staging').namespaceIdentity; state.namespace = namespace; saveState();

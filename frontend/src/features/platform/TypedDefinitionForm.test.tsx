@@ -23,9 +23,9 @@ describe('T31 typed Definition variables over verified pins', () => {
     // Nothing is sent for a default variable or a mapped param until the author picks a source.
     expect(card('storage')).toHaveTextContent('Mặc định của module');
     expect(card('storage')).toHaveTextContent('1Gi');
-    expect(card('database')).toHaveTextContent('Tham số ứng dụng cung cấp');
+    expect(card('database')).toHaveTextContent('Tham số dịch vụ cung cấp');
     expect(card('database')).toHaveTextContent('database → database');
-    expect(within(card('database')).getByText(/Tham số ứng dụng được ưu tiên/)).toBeInTheDocument();
+    expect(within(card('database')).getByText(/Tham số dịch vụ được ưu tiên/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Giá trị storage')).not.toBeInTheDocument();
     await provideLiteral(user, 'storage', '5Gi');
     expect(card('storage')).toHaveTextContent('Nhập trực tiếp');

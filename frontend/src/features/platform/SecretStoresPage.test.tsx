@@ -315,6 +315,6 @@ it('lists both addresses, backend verification and Kubernetes auth separately, w
   expect(row('Old')).not.toHaveTextContent('legacy');
   expect(row('Old')).toHaveTextContent('Xác minh backend: Backend xác minh không đạt');
   expect(row('Old')).toHaveTextContent('Xác thực Kubernetes: Chưa rõ');
-  expect(list).toHaveTextContent('không đảm bảo ứng dụng đã sẵn sàng triển khai');
+  expect(list).toHaveTextContent('không đảm bảo dịch vụ đã sẵn sàng triển khai');
   expect(document.body.textContent).not.toMatch(/secret-ref-123|hvs\.leak/);
 });

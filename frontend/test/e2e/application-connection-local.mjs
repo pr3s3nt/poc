@@ -44,7 +44,7 @@ try {
     await target.getByLabel('Tên đăng nhập').fill(username);
     await target.getByLabel('Mật khẩu').fill('test-password');
     await target.getByRole('button', { name: 'Đăng nhập' }).click();
-    await expect(target.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
+    await expect(target.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible();
   }
   const targetText = (environment, key) => `${environment} · Kết nối ${key} (${key}) · Phạm vi triển khai Cluster nội bộ (internal-k8s)`;
   async function expectTarget(label, environment = 'staging', key = labKey) {
@@ -112,13 +112,13 @@ try {
 
     // Developer: the create form asks for name and subdomain only.
     await signIn(page, 'developer');
-    await page.getByRole('button', { name: '+ Tạo ứng dụng' }).first().click();
+    await page.getByRole('button', { name: '+ Tạo dịch vụ' }).first().click();
     await expect(page.getByLabel('Connection')).toHaveCount(0);
-    await page.getByLabel('Tên ứng dụng').fill(name);
+    await page.getByLabel('Tên dịch vụ').fill(name);
     await page.getByLabel('Subdomain').fill(subdomain);
     await shot('create-form');
-    await page.getByRole('button', { name: 'Tạo ứng dụng' }).click();
-    await expect(page.getByText('Đã tạo ứng dụng.')).toBeVisible();
+    await page.getByRole('button', { name: 'Tạo dịch vụ' }).click();
+    await expect(page.getByText('Đã tạo dịch vụ.')).toBeVisible();
     const appId = new URL(page.url()).pathname.match(/\/ui\/applications\/([0-9a-f-]{36})$/)?.[1];
     if (!appId) throw new Error(`unexpected Application URL ${page.url()}`);
     expect(createBodies.map((body) => JSON.parse(body ?? '{}'))).toEqual([{ name, subdomain }]);

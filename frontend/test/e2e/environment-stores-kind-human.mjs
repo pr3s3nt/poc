@@ -89,7 +89,7 @@ try {
     await h.type(page.getByLabel('Tên đăng nhập'), user);
     await h.type(page.getByLabel('Mật khẩu'), 'test-password');
     await h.click(page.getByRole('button', { name: 'Đăng nhập' }));
-    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible();
     await h.pause(SHORT_READ);
   }
   async function signOut() {
@@ -137,10 +137,10 @@ try {
 
   // ---- 2. Developer: application, per-Environment connection and store ----------
   await signIn('developer');
-  await h.click(page.getByRole('button', { name: '+ Tạo ứng dụng' }).first());
-  await h.type(page.getByLabel('Tên ứng dụng'), applicationName);
+  await h.click(page.getByRole('button', { name: '+ Tạo dịch vụ' }).first());
+  await h.type(page.getByLabel('Tên dịch vụ'), applicationName);
   await h.type(page.getByLabel('Subdomain'), subdomain, { replace: true });
-  await h.click(page.getByRole('button', { name: 'Tạo ứng dụng' }));
+  await h.click(page.getByRole('button', { name: 'Tạo dịch vụ' }));
   await expect(page.getByRole('heading', { name: applicationName })).toBeVisible();
   await h.pause(SHORT_READ);
   const appId = new URL(page.url()).pathname.match(/\/applications\/([^/]+)$/)?.[1];
@@ -321,7 +321,7 @@ try {
   await page.bringToFront();
   x11.focusBrowser();
   await h.showCursor();
-  await h.click(impact.getByLabel(/ứng dụng sẽ bị dừng trong lúc dữ liệu được sao chép/));
+  await h.click(impact.getByLabel(/dịch vụ sẽ bị dừng trong lúc dữ liệu được sao chép/));
   const stale = page.waitForResponse((response) => response.request().method() === 'POST' && response.url().endsWith('/connection-transitions'));
   await h.click(impact.getByRole('button', { name: 'Bắt đầu chuyển đích' }));
   expect((await stale).status(), 'stale preview').toBe(409);
@@ -339,7 +339,7 @@ try {
   await h.moveTo(panel.getByLabel('Xem trước chuyển đích'));
   mark('transition-preview-2');
   await h.pause(SHORT_READ);
-  await h.click(panel.getByLabel(/ứng dụng sẽ bị dừng trong lúc dữ liệu được sao chép/));
+  await h.click(panel.getByLabel(/dịch vụ sẽ bị dừng trong lúc dữ liệu được sao chép/));
   const started = page.waitForResponse((response) => response.request().method() === 'POST' && response.url().endsWith('/connection-transitions'));
   await h.click(panel.getByRole('button', { name: 'Bắt đầu chuyển đích' }));
   expect((await started).status()).toBe(202);

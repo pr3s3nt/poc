@@ -22,8 +22,8 @@ try{
 if(stage==='prepare'){
  if(!state.app){
   assert(!(await ui.get('/applications')).applications.some(a=>a.name==='fb-issue47'),'Inspect existing same-name app before adopting it');
-  await page.goto(c.baseURL+'/ui/applications/new');await page.getByLabel('Tên ứng dụng',{exact:true}).fill('fb-issue47');
-  state.app=(await ui.submit('/applications','POST',page.getByRole('button',{name:'Tạo ứng dụng',exact:true}))).application;save();
+  await page.goto(c.baseURL+'/ui/applications/new');await page.getByLabel('Tên dịch vụ',{exact:true}).fill('fb-issue47');
+  state.app=(await ui.submit('/applications','POST',page.getByRole('button',{name:'Tạo dịch vụ',exact:true}))).application;save();
  }
  const app=state.app,base=`/applications/${app.key}/environments/staging`;
  await ensureTypes(ui,[{key:'endpoint',inputs:[{name:'name',type:'string',required:true},{name:'port',type:'string',required:true},{name:'path',type:'string',required:false}],outputs:[{name:'hostname',type:'string',required:true,secret:false},{name:'url',type:'string',required:true,secret:false}]}],rt);

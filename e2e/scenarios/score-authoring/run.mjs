@@ -29,9 +29,9 @@ try {
  if (phase === 'author' || phase === 'update') {
   if (!receipt.appId) {
   await page.goto(config.baseURL + '/ui/applications/new');
-  await page.getByLabel('Tên ứng dụng', { exact: true }).fill(receipt.name);
+  await page.getByLabel('Tên dịch vụ', { exact: true }).fill(receipt.name);
   const creation = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/applications');
-  await page.getByRole('button', { name: 'Tạo ứng dụng', exact: true }).click();
+  await page.getByRole('button', { name: 'Tạo dịch vụ', exact: true }).click();
   const response = await creation;
   assert(response.ok(), 'Application create failed');
   const created = await response.json();

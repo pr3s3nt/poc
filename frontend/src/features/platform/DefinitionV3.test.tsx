@@ -114,7 +114,7 @@ describe('Resource Definition v3 task layout', () => {
     await completeDefinition(user, { id: 'ns-matching', type: 'k8s-namespace' });
     await user.click(criteriaTab());
     await user.click(screen.getByText('Kiểm tra cấu hình được chọn'));
-    await user.selectOptions(field('Ứng dụng kiểm tra'), 'shop');
+    await user.selectOptions(field('Dịch vụ kiểm tra'), 'shop');
     await user.selectOptions(field('Môi trường kiểm tra'), 'staging');
     await user.type(field('ID tài nguyên kiểm tra (res_id)'), 'ns');
     await user.type(field('Class kiểm tra'), 'default');

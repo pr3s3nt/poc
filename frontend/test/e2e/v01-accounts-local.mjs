@@ -157,7 +157,7 @@ export const SCENARIOS = {
     await h.type(page.getByLabel('Tên đăng nhập', { exact: true }), 'developer');
     await h.type(page.getByLabel('Mật khẩu', { exact: true }), SEEDED_PASSWORD);
     await h.click(page.getByRole('button', { name: 'Đăng nhập', exact: true }));
-    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn', level: 1 })).toBeVisible();
     await expect(nav('Tài khoản hạ tầng')).toHaveCount(0);
     check('developer: the "Tài khoản hạ tầng" navigation entry is absent');
     mark('developer-signed-in');
@@ -187,7 +187,7 @@ export const SCENARIOS = {
     await h.type(page.getByLabel('Mật khẩu', { exact: true }), SEEDED_PASSWORD);
     await expect(page.getByLabel('Mật khẩu', { exact: true })).toHaveAttribute('type', 'password');
     await h.click(page.getByRole('button', { name: 'Đăng nhập', exact: true }));
-    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn', level: 1 })).toBeVisible();
     mark('platform-engineer-signed-in');
     await h.pause(SHORT_READ);
 

@@ -58,8 +58,8 @@ try {
   await page.getByLabel('Git HTTPS URL', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'Tải ZIP', exact: true }).click();
   await page.getByRole('button', { name: 'Module đã đăng ký', exact: true }).click();
-  await page.getByRole('link', { name: 'Mẫu dựng ứng dụng', exact: true }).click();
-  await page.getByRole('heading', { name: 'Mẫu dựng ứng dụng', exact: true }).waitFor();
+  await page.getByRole('link', { name: 'Mẫu dựng dịch vụ', exact: true }).click();
+  await page.getByRole('heading', { name: 'Mẫu dựng dịch vụ', exact: true }).waitFor();
   assert.deepEqual(await get('/applications'), beforeApps, 'Read-only checks changed Application state');
   assert.deepEqual(await get('/resource-definitions'), beforeDefs, 'Draft inspection saved a Definition');
   assert.deepEqual(errors, [], 'Browser runtime errors');

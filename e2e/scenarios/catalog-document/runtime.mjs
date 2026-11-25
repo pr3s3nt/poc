@@ -13,7 +13,7 @@ const c=readConsoleConfig(),s=await openConsole(c,{}),{page}=s,ui=makeUI(page,c.
 const kube=(...args)=>execFileSync('kubectl',['--kubeconfig',process.env.KUBECONFIG,'--context','kind-k8s-4f',...args],{encoding:'utf8',timeout:15000,stdio:['ignore','pipe','pipe']});
 try {
 if(stage==='prepare') {
- if(!state.app) {await page.goto(c.baseURL+'/ui/applications/new');await page.getByLabel('Tên ứng dụng',{exact:true}).fill(process.env.ORCH_APP_NAME??'import76-'+Date.now().toString(36));state.app=(await ui.submit('/applications','POST',page.getByRole('button',{name:'Tạo ứng dụng',exact:true}))).application;save();}
+ if(!state.app) {await page.goto(c.baseURL+'/ui/applications/new');await page.getByLabel('Tên dịch vụ',{exact:true}).fill(process.env.ORCH_APP_NAME??'import76-'+Date.now().toString(36));state.app=(await ui.submit('/applications','POST',page.getByRole('button',{name:'Tạo dịch vụ',exact:true}))).application;save();}
  const bindings=(await ui.get('/delivery-bindings')).bindings;const selected=bindings.find(x=>x.name==='dev-fleet');assert(selected?.status==='READY');const binding=await ui.get('/delivery-bindings/'+selected.id+'?version='+selected.version);state.deliverySubject={name:binding.config.serviceAccount,namespace:binding.config.agentNamespace};save();
  const defs=(await ui.get('/resource-definitions')).resourceDefinitions.filter(x=>x.key.startsWith(preparedPrefix+'-'));
  assert.deepEqual(defs.map(x=>x.resourceType).sort(),['k8s-cluster','k8s-namespace','postgres','workload']);
@@ -88,11 +88,11 @@ async function cleanup() {
   }
   await page.goto(c.baseURL + `/ui/applications/${state.app.key}/settings?environment=staging`);
   const app = (await ui.get('/applications/' + state.app.key)).application;
-  if (app.status === 'DELETING') await page.getByRole('region', { name: 'Tiến trình xóa ứng dụng', exact: true }).getByRole('button', { name: 'Thử lại', exact: true }).click();
-  else await page.getByRole('region', { name: 'Xóa ứng dụng', exact: true }).getByRole('button', { name: 'Xóa ứng dụng', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Xóa ứng dụng', exact: true });
+  if (app.status === 'DELETING') await page.getByRole('region', { name: 'Tiến trình xóa dịch vụ', exact: true }).getByRole('button', { name: 'Thử lại', exact: true }).click();
+  else await page.getByRole('region', { name: 'Xóa dịch vụ', exact: true }).getByRole('button', { name: 'Xóa dịch vụ', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Xóa dịch vụ', exact: true });
   await dialog.getByRole('textbox').fill(state.app.name);
-  const response = await ui.submit(`/applications/${state.app.key}/deletions`, 'POST', dialog.getByRole('button', { name: 'Xóa vĩnh viễn ứng dụng', exact: true }));
+  const response = await ui.submit(`/applications/${state.app.key}/deletions`, 'POST', dialog.getByRole('button', { name: 'Xóa vĩnh viễn dịch vụ', exact: true }));
   const operation = response.deletion.operationId; state.deletionId = operation; save();
   const deadline = Date.now() + 1_800_000;
   for (;;) { const result = (await ui.get(`/applications/${state.app.key}/deletions/${operation}`)).deletion; if (!result.running) { assert.equal(result.status, 'SUCCEEDED'); break; } assert(Date.now() < deadline); await page.waitForTimeout(3000); }

@@ -36,7 +36,7 @@ describe('criteria draft projection', () => {
   });
   it('never turns an incomplete simple mode into a silent wildcard', () => {
     expect(draftToCriteria({ mode: 'env_type', rows: emptyDraft().rows }).problem).toMatch(/loại môi trường/);
-    expect(draftToCriteria({ mode: 'app_env', rows: emptyDraft().rows }).problem).toMatch(/ứng dụng/);
+    expect(draftToCriteria({ mode: 'app_env', rows: emptyDraft().rows }).problem).toMatch(/dịch vụ/);
   });
   it('classifies only losslessly simple criteria and keeps the rest advanced', () => {
     expect(draftFromCriteria(undefined).mode).toBe('all');
@@ -112,7 +112,7 @@ describe('CriteriaEditor', () => {
     render(<Harness applications={{ items: typed, loading: false, error: '', onRetry: vi.fn() }} initial={draftFromCriteria([{ app_id: 'shop' }])} />);
     expect(screen.queryByRole('group', { name: /Xem trước phạm vi/ })).not.toBeInTheDocument();
     const context = screen.getByRole('group', { name: 'Ngữ cảnh kiểm tra matching' });
-    await user.selectOptions(screen.getByLabelText('Ứng dụng kiểm tra'), 'shop');
+    await user.selectOptions(screen.getByLabelText('Dịch vụ kiểm tra'), 'shop');
     await user.selectOptions(screen.getByLabelText('Môi trường kiểm tra'), 'prod');
     await user.type(screen.getByLabelText('ID tài nguyên kiểm tra (res_id)'), 'db');
     await user.type(screen.getByLabelText('Class kiểm tra'), 'fast');
@@ -125,21 +125,21 @@ describe('CriteriaEditor', () => {
     const user = userEvent.setup();
     const seen: CriteriaDraft[] = [];
     render(<Harness onDraft={(draft) => seen.push(draft)} />);
-    for (const name of ['Mọi nơi', 'Theo loại môi trường', 'Theo ứng dụng (+ môi trường)', 'Tùy chỉnh nâng cao']) expect(mode(new RegExp(name.replace(/[()+]/g, '\\$&')))).toBeInTheDocument();
+    for (const name of ['Mọi nơi', 'Theo loại môi trường', 'Theo dịch vụ (+ môi trường)', 'Tùy chỉnh nâng cao']) expect(mode(new RegExp(name.replace(/[()+]/g, '\\$&')))).toBeInTheDocument();
     expect(mode(/Mọi nơi/)).toBeChecked();
     expect(screen.queryByLabelText('Loại môi trường')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Ứng dụng')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Dịch vụ')).not.toBeInTheDocument();
     await user.click(mode(/Theo loại môi trường/));
     await user.type(screen.getByLabelText('Loại môi trường'), 'staging');
     expect(payload(seen.at(-1)!)).toEqual([{ env_type: 'staging' }]);
-    await user.click(mode(/Theo ứng dụng/));
+    await user.click(mode(/Theo dịch vụ/));
     expect(screen.queryByLabelText('Loại môi trường')).not.toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText('Ứng dụng'), 'shop');
+    await user.selectOptions(screen.getByLabelText('Dịch vụ'), 'shop');
     expect(within(screen.getByLabelText('Môi trường (tùy chọn)')).getAllByRole('option').map((option) => option.getAttribute('value'))).toEqual(['', 'staging', 'production']);
     await user.selectOptions(screen.getByLabelText('Môi trường (tùy chọn)'), 'production');
     expect(payload(seen.at(-1)!)).toEqual([{ app_id: 'shop', env_id: 'production' }]);
     // Another application resets an environment that belongs to the previous one.
-    await user.selectOptions(screen.getByLabelText('Ứng dụng'), 'blog');
+    await user.selectOptions(screen.getByLabelText('Dịch vụ'), 'blog');
     expect(screen.getByLabelText('Môi trường (tùy chọn)')).toHaveValue('');
     expect(payload(seen.at(-1)!)).toEqual([{ app_id: 'blog' }]);
     await user.click(mode(/Mọi nơi/));
@@ -151,11 +151,11 @@ describe('CriteriaEditor', () => {
     const seen: CriteriaDraft[] = [];
     render(<Harness onDraft={(draft) => seen.push(draft)} />);
     await user.click(mode(/Tùy chỉnh nâng cao/));
-    for (const label of ['Loại môi trường', 'ID ứng dụng', 'ID môi trường', 'ID tài nguyên', 'Class']) expect(screen.getByLabelText(`Điều kiện 1 ${label}`)).toBeInTheDocument();
+    for (const label of ['Loại môi trường', 'ID dịch vụ', 'ID môi trường', 'ID tài nguyên', 'Class']) expect(screen.getByLabelText(`Điều kiện 1 ${label}`)).toBeInTheDocument();
     await user.type(screen.getByLabelText('Điều kiện 1 Loại môi trường'), 'staging');
     await user.type(screen.getByLabelText('Điều kiện 1 Class'), 'fast');
     await user.click(screen.getByRole('button', { name: '+ Thêm điều kiện' }));
-    await user.type(screen.getByLabelText('Điều kiện 2 ID ứng dụng'), 'shop');
+    await user.type(screen.getByLabelText('Điều kiện 2 ID dịch vụ'), 'shop');
     await user.type(screen.getByLabelText('Điều kiện 2 ID tài nguyên'), 'db');
     expect(payload(seen.at(-1)!)).toEqual([{ env_type: 'staging', class: 'fast' }, { app_id: 'shop', res_id: 'db' }]);
     await user.click(screen.getByRole('button', { name: 'Xóa điều kiện 1' }));
@@ -175,7 +175,7 @@ describe('CriteriaEditor', () => {
     await user.click(mode(/Tùy chỉnh nâng cao/));
     await user.type(screen.getByLabelText('Điều kiện 1 Class'), 'fast');
     await user.click(screen.getByRole('button', { name: '+ Thêm điều kiện' }));
-    await user.type(screen.getByLabelText('Điều kiện 2 ID ứng dụng'), 'shop');
+    await user.type(screen.getByLabelText('Điều kiện 2 ID dịch vụ'), 'shop');
     const before = seen.length;
     await user.click(mode(/Mọi nơi/));
     const prompt = screen.getByRole('group', { name: 'Xác nhận thay đổi điều kiện' });
@@ -183,11 +183,11 @@ describe('CriteriaEditor', () => {
     expect(mode(/Tùy chỉnh nâng cao/)).toBeChecked();
     expect(seen).toHaveLength(before);
     await user.click(within(prompt).getByRole('button', { name: 'Giữ điều kiện nâng cao' }));
-    expect(screen.getByLabelText('Điều kiện 2 ID ứng dụng')).toHaveValue('shop');
-    await user.click(mode(/Theo ứng dụng/));
+    expect(screen.getByLabelText('Điều kiện 2 ID dịch vụ')).toHaveValue('shop');
+    await user.click(mode(/Theo dịch vụ/));
     expect(screen.getByRole('group', { name: 'Xác nhận thay đổi điều kiện' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Bỏ điều kiện và chuyển chế độ' }));
-    expect(mode(/Theo ứng dụng/)).toBeChecked();
+    expect(mode(/Theo dịch vụ/)).toBeChecked();
     expect(screen.queryByRole('group', { name: 'Xác nhận thay đổi điều kiện' })).not.toBeInTheDocument();
   });
 
@@ -216,7 +216,7 @@ describe('CriteriaEditor', () => {
     const user = userEvent.setup();
     render(<Harness initial={draftFromCriteria([{ app_id: 'shop', env_id: 'staging' }])} />);
     const summary = screen.getByRole('group', { name: 'Tóm tắt phạm vi áp dụng' });
-    expect(summary).toHaveTextContent('Ứng dụng (app_id): Cửa hàng (shop)');
+    expect(summary).toHaveTextContent('Dịch vụ (app_id): Cửa hàng (shop)');
     expect(summary).toHaveTextContent('Môi trường (env_id): staging');
     expect(summary).not.toHaveTextContent('Loại môi trường (env_type):');
     expect(summary).not.toHaveTextContent(/executionProfile|Phạm vi triển khai|profile/i);
@@ -240,8 +240,8 @@ describe('CriteriaEditor', () => {
     const user = userEvent.setup();
     render(<Harness initial={draftFromCriteria([{ app_id: 'shop', class: 'fast' }])} />);
     const context = screen.getByRole('group', { name: 'Ngữ cảnh kiểm tra matching' });
-    expect(context).toHaveTextContent(/Cần thêm ngữ cảnh: ứng dụng và môi trường, ID tài nguyên \(res_id\), Class/);
-    await user.selectOptions(screen.getByLabelText('Ứng dụng kiểm tra'), 'shop');
+    expect(context).toHaveTextContent(/Cần thêm ngữ cảnh: dịch vụ và môi trường, ID tài nguyên \(res_id\), Class/);
+    await user.selectOptions(screen.getByLabelText('Dịch vụ kiểm tra'), 'shop');
     await user.selectOptions(screen.getByLabelText('Môi trường kiểm tra'), 'staging');
     await user.type(screen.getByLabelText('ID tài nguyên kiểm tra (res_id)'), 'db');
     expect(context).toHaveTextContent(/Cần thêm ngữ cảnh: Class/);
@@ -272,11 +272,11 @@ describe('CriteriaEditor', () => {
     const user = userEvent.setup();
     const retry = vi.fn();
     const { rerender } = render(<Harness initial={draftFromCriteria([{ app_id: 'gone', env_id: 'x' }])} applications={{ items: [], loading: true, error: '', onRetry: retry }} />);
-    expect(screen.getByLabelText('Ứng dụng')).toHaveValue('gone');
+    expect(screen.getByLabelText('Dịch vụ')).toHaveValue('gone');
     expect(screen.getByRole('option', { name: 'gone (không có trong danh sách hiện tại)' })).toBeInTheDocument();
     rerender(<Harness initial={draftFromCriteria([{ app_id: 'gone', env_id: 'x' }])} applications={{ items: [], loading: false, error: 'lỗi', onRetry: retry }} />);
-    const alert = screen.getByRole('alert', { name: 'Lỗi tải ứng dụng' });
-    expect(screen.getByLabelText('Ứng dụng')).toHaveValue('gone');
+    const alert = screen.getByRole('alert', { name: 'Lỗi tải dịch vụ' });
+    expect(screen.getByLabelText('Dịch vụ')).toHaveValue('gone');
     await user.click(within(alert).getByRole('button', { name: 'Thử lại' }));
     expect(retry).toHaveBeenCalledTimes(1);
   });

@@ -42,7 +42,7 @@ try {
  if (next.status !== 'READY') next = await ui.submit(`/delivery-bindings/${next.id}/verify`, 'POST', row(next.version).getByRole('button', { name: 'Xác minh', exact: true }));
  assert.equal(next.status, 'READY');
  const current = await ui.get('/delivery-default');
- if (current.bindingId !== next.id || current.bindingVersion !== next.version) await ui.submit('/delivery-default', 'PUT', row(next.version).getByRole('button', { name: 'Dùng cho ứng dụng mới', exact: true }));
+ if (current.bindingId !== next.id || current.bindingVersion !== next.version) await ui.submit('/delivery-default', 'PUT', row(next.version).getByRole('button', { name: 'Dùng cho dịch vụ mới', exact: true }));
  const after = await ui.get(base + '/delivery');
  assert.deepEqual(after.desired, before.desired); assert.deepEqual(after.applied, before.applied);
  state.nextBinding = next;

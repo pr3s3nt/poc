@@ -111,7 +111,7 @@ export async function registerExistingCluster(kit, { id, accountName, appKey, kl
   if (appKey) {
     await h.click(section.getByRole('button', { name: '+ Thêm điều kiện', exact: true }));
     await section.getByLabel('Trường hợp 1 thuộc tính 1').selectOption('app_id');
-    await h.type(section.getByLabel('Điều kiện 1 ID ứng dụng', { exact: true }), appKey);
+    await h.type(section.getByLabel('Điều kiện 1 ID dịch vụ', { exact: true }), appKey);
   }
   await h.click(section.getByRole('button', { name: '+ Thêm điều kiện', exact: true }));
   await section.getByLabel(`Trường hợp 1 thuộc tính ${appKey ? 2 : 1}`).selectOption('class');
@@ -180,8 +180,8 @@ export async function registerK8sModuleDefinition(kit, spec) {
 /** Workload rendering template: literal bundle + whole namespace/cluster references (+ optional companion rule). */
 export async function registerWorkloadTemplate(kit, { id, bundle, companion, clusterRef, envType }) {
   const { page, h, nav, form, get } = kit;
-  await h.click(nav('Mẫu dựng ứng dụng'));
-  await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng', level: 1, exact: true })).toBeVisible();
+  await h.click(nav('Mẫu dựng dịch vụ'));
+  await expect(page.getByRole('heading', { name: 'Mẫu dựng dịch vụ', level: 1, exact: true })).toBeVisible();
   await h.type(form('ID mẫu'), id);
   await h.type(form('Tên hiển thị'), 'Mẫu dựng ứng dụng đầy đủ (score-k8s)');
   const verified = page.getByRole('button', { name: 'Bundle đã xác minh', exact: true });
@@ -201,8 +201,8 @@ export async function registerWorkloadTemplate(kit, { id, bundle, companion, clu
   }
   await h.pause(SHORT_READ);
   await addEnvironmentCriterion(page, envType);
-  await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }));
-  await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký mẫu dựng ứng dụng ${id}.` })).toBeVisible();
+  await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng dịch vụ', exact: true }));
+  await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký mẫu dựng dịch vụ ${id}.` })).toBeVisible();
   return (await get('/resource-definitions')).resourceDefinitions.find((d) => d.key === id);
 }
 

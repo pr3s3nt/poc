@@ -68,12 +68,12 @@ describe('EffectivenessPage', () => {
     expect(await screen.findByRole('button', { name: 'Tần suất triển khai: 12. Xem chi tiết' })).toBeInTheDocument();
     const { from, to } = periodOf(30);
     expect(calls[0]?.url).toBe(`/api/v1/effectiveness/report?from=${from}&to=${to}`);
-    expect(screen.getByRole('heading', { name: 'Hiệu quả platform', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Hiệu quả nền tảng', level: 1 })).toBeInTheDocument();
     expect(screen.getByText('Dữ liệu kiểm thử')).toBeInTheDocument();
     expect(screen.queryByRole('tab')).toBeNull();
     expect(screen.queryByText('Dữ liệu', { selector: 'button' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Commit đến production: Chưa thu thập. Xem chi tiết' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Ứng dụng hoạt động: 1/2. Xem chi tiết' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Dịch vụ hoạt động: 1/2. Xem chi tiết' })).toBeInTheDocument();
     expect(screen.getByText('Độ phủ 14/15')).toBeInTheDocument();
     expect(screen.getByText('Chưa có mốc so sánh')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Tự phục vụ: Chưa thu thập. Xem chi tiết' })).toBeInTheDocument();
@@ -100,9 +100,9 @@ describe('EffectivenessPage', () => {
     const user = userEvent.setup();
     render(<EffectivenessPage applications={applications} application="shop" workload="api" />);
     expect(await screen.findByRole('navigation', { name: 'Phạm vi' })).toHaveTextContent('Toàn tổ chức›Shop›api');
-    expect(screen.getByText('Mốc so sánh áp dụng cho tổ chức hoặc ứng dụng')).toBeInTheDocument();
+    expect(screen.getByText('Mốc so sánh áp dụng cho tổ chức hoặc dịch vụ')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Mốc so sánh' }));
-    expect(within(screen.getByRole('dialog')).getByText('Mốc so sánh áp dụng cho tổ chức hoặc ứng dụng.')).toBeInTheDocument();
+    expect(within(screen.getByRole('dialog')).getByText('Mốc so sánh áp dụng cho tổ chức hoặc dịch vụ.')).toBeInTheDocument();
   });
 
   it('opens metric evidence with the formula and links records to the deployment history', async () => {

@@ -1,5 +1,5 @@
 import { useState, type PropsWithChildren, type ReactNode } from 'react';
-import { documentationArticles, href, navigate } from './routes';
+import { documentationArticles, href, navigate, type Route } from './routes';
 import { Button } from '../shared/ui/Button';
 import { LanguageSelect } from '../shared/ui/LanguageSelect';
 import { t } from '../shared/i18n';
@@ -17,13 +17,13 @@ function NavigationIcon({ name }: { name: string }) {
     'resource-definitions': <><path d="m2 6 8-4 8 4-8 4-8-4Zm0 4 8 4 8-4M2 14l8 4 8-4" /></>,
     'driver-accounts': <><path d="m10 2 7 3v5c0 4-4 7-7 8-3-1-7-4-7-8V5l7-3Z" /><circle cx="10" cy="8" r="2" /><path d="M6 14c1-4 7-4 8 0" /></>,
     'catalog': <><rect x="3" y="3" width="14" height="14" rx="2" /><path d="M3 8h14M8 8v9" /></>,
+    platform: <><path d="M3 5h14M3 10h14M3 15h14" /><circle cx="6" cy="5" r="1" /><circle cx="13" cy="10" r="1" /><circle cx="8" cy="15" r="1" /></>,
     setup: <><path d="M3 5h14M3 10h14M3 15h14M6 3v4m8 1v4m-5 1v4" /></>,
     'platform-settings': <><circle cx="10" cy="10" r="3" /><path d="M10 2v3m0 10v3M2 10h3m10 0h3M4 4l2 2m8 8 2 2M4 16l2-2M14 6l2-2" /></>,
     'cd-providers': <><path d="M4 5h12v10H4zM7 2v3m6-3v3M7 15v3m6-3v3" /><path d="m8 8 4 2-4 2Z" /></>,
     'secret-stores': <><rect x="4" y="8" width="12" height="10" rx="2" /><path d="M6 8V6a4 4 0 0 1 8 0v2m-4 4v2" /></>,
     users: <><circle cx="7" cy="6" r="2.5" /><circle cx="14" cy="7" r="2" /><path d="M2 16c1-4 9-4 10 0" /><path d="M11 15c.8-3 6.6-3 7.4 0" /></>,
     effectiveness: <><path d="M3 17h14M5 14V9m4 5V5m4 9v-3m4 3V7" /></>,
-    history: <><circle cx="10" cy="10" r="7" /><path d="M10 6v4l3 2" /></>,
     documentation: <><rect x="4" y="2" width="12" height="16" rx="2" /><path d="M7 6h6M7 10h6M7 14h4" /></>,
   };
   return <svg viewBox="0 0 20 20" aria-hidden="true">{paths[name]}</svg>;
@@ -43,21 +43,41 @@ export function AppShell({ children, onSignOut, username, role, activeRoute, ext
   const isPlatformEngineer = role === 'PLATFORM_ENGINEER' || role === 'ADMIN';
   const isAdmin = role === 'ADMIN';
   const activeNav = ['application', 'create-application', 'settings', 'workload', 'workload-preview', 'deployments', 'deployment', 'resource', 'observability'].includes(activeRoute) ? 'applications' : activeRoute;
-  const navClass = (name: string) => `nav-item${activeNav === name ? ' nav-item-active' : ''}`;
-  const guideRoute = { name: 'documentation', article: documentationArticles[0] } as const;
-  const guideLabel = t('app.appShell.documentation');
-  const links = [
-    { route: 'applications', label: t('app.appShell.applications'), tone: 'blue', platform: false, admin: false },
-    { route: 'setup', label: t('setup.title'), tone: 'blue', platform: true, admin: false },
-    { route: 'resource-types', label: t('app.appShell.resourceTypes'), tone: 'teal', platform: true, admin: false },
-    { route: 'resource-definitions', label: t('app.appShell.resourceDefinitions'), tone: 'violet', platform: true, admin: false },
-    { route: 'driver-accounts', label: t('app.appShell.infrastructureAccounts'), tone: 'blue', platform: true, admin: false },
-    { route: 'platform-settings', label: t('platform.git.title'), tone: 'blue', platform: true, admin: false },
-    { route: 'cd-providers', label: t('cd.title'), tone: 'teal', platform: true, admin: false },
-    { route: 'secret-stores', label: t('app.appShell.secretStores'), tone: 'rose', platform: true, admin: false },
-    { route: 'effectiveness', label: t('app.appShell.platformEffectiveness'), tone: 'violet', platform: true, admin: false },
-    { route: 'users', label: t('app.appShell.users'), tone: 'teal', platform: false, admin: true },
+  const platformSections = [
+    {
+      label: t('app.appShell.platformResources'),
+      links: [
+        { name: 'resource-types', label: t('app.appShell.resourceTypes'), tone: 'teal' },
+        { name: 'resource-definitions', label: t('app.appShell.resourceDefinitions'), tone: 'violet' },
+      ],
+    },
+    {
+      label: t('app.appShell.platformConnections'),
+      links: [
+        { name: 'driver-accounts', label: t('app.appShell.infrastructureAccounts'), tone: 'blue' },
+        { name: 'platform-settings', label: t('platform.git.title'), tone: 'blue' },
+        { name: 'cd-providers', label: t('cd.title'), tone: 'teal' },
+        { name: 'secret-stores', label: t('app.appShell.secretStores'), tone: 'rose' },
+      ],
+    },
   ] as const;
+  const isPlatformPage = activeNav === 'setup' || platformSections.some(({ links }) => links.some(({ name }) => name === activeNav));
+  const [platformOpen, setPlatformOpen] = useState(true);
+  const [previousNav, setPreviousNav] = useState(activeNav);
+  if (previousNav !== activeNav) {
+    setPreviousNav(activeNav);
+    if (isPlatformPage) setPlatformOpen(true);
+  }
+  const platformLabel = t('app.appShell.platform');
+  function navLink(route: Route, label: string, tone: string) {
+    const current = activeNav === route.name;
+    return <a key={route.name} className={`nav-item${current ? ' nav-item-active' : ''}`} aria-current={current ? 'page' : undefined} title={label} href={href(route)} onClick={(event) => {
+      if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+        event.preventDefault();
+        navigate(route);
+      }
+    }}><span className="nav-icon" data-tone={tone} aria-hidden="true"><NavigationIcon name={route.name} /></span><span className="sidebar-label">{label}</span></a>;
+  }
   return (
     <div className={`app-shell${collapsed ? ' app-shell-collapsed' : ''}`}>
       <aside className="sidebar">
@@ -68,9 +88,30 @@ export function AppShell({ children, onSignOut, username, role, activeRoute, ext
           <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="3" width="16" height="14" rx="2" /><path d="M7 3v14" /><path d={collapsed ? 'm10 7 3 3-3 3' : 'm14 7-3 3 3 3'} /></svg><span className="sidebar-label">{t('app.appShell.collapseSidebar')}</span>
         </button>
         <nav className="nav" id="primary-navigation" aria-label={t('app.appShell.mainNavigation')}>
-          {links.filter((item) => (!item.platform || isPlatformEngineer) && (!item.admin || (isAdmin && !externalIdentity && manageUsers))).map((item) => <a key={item.route} className={navClass(item.route)} aria-current={activeNav === item.route ? 'page' : undefined} title={item.label} href={href({ name: item.route })} onClick={(event) => { event.preventDefault(); navigate({ name: item.route }); }}><span className="nav-icon" data-tone={item.tone} aria-hidden="true"><NavigationIcon name={item.route} /></span><span className="sidebar-label">{item.label}</span></a>)}
-          <span className="nav-item nav-item-disabled" aria-disabled="true" aria-label={t('app.appShell.deploymentHistoryComingSoon')} title={t('app.appShell.deploymentHistoryComingSoon')}><span className="nav-icon" aria-hidden="true"><NavigationIcon name="history" /></span><span className="sidebar-label">{t('app.appShell.deploymentHistory')}</span><small className="sidebar-label">{t('app.appShell.comingSoon')}</small></span>
-          <a className={navClass(guideRoute.name)} aria-current={activeNav === guideRoute.name ? 'page' : undefined} title={guideLabel} href={href(guideRoute)} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) { event.preventDefault(); navigate(guideRoute); } }}><span className="nav-icon" data-tone="blue" aria-hidden="true"><NavigationIcon name={guideRoute.name} /></span><span className="sidebar-label">{guideLabel}</span></a>
+          {navLink({ name: 'applications' }, t('app.appShell.applications'), 'blue')}
+          {isPlatformEngineer && (
+            <>
+              <div className="nav-platform">
+                <button type="button" className={`nav-item nav-platform-toggle${isPlatformPage && !platformOpen ? ' nav-item-active' : ''}`} title={platformLabel} aria-expanded={platformOpen} aria-controls="platform-navigation" onClick={() => setPlatformOpen(!platformOpen)}>
+                  <span className="nav-icon" data-tone="blue" aria-hidden="true"><NavigationIcon name="platform" /></span>
+                  <span className="sidebar-label">{platformLabel}</span>
+                  <svg className="nav-platform-chevron sidebar-label" viewBox="0 0 20 20" aria-hidden="true"><path d={platformOpen ? 'm5 12 5-5 5 5' : 'm5 8 5 5 5-5'} /></svg>
+                </button>
+                <div id="platform-navigation" className="nav-platform-links" hidden={!platformOpen}>
+                  {platformSections.map(({ label, links }) => (
+                    <div key={label} role="group" aria-label={label}>
+                      <div className="nav-platform-label sidebar-label" aria-hidden="true">{label}</div>
+                      {links.map(({ name, label, tone }) => navLink({ name }, label, tone))}
+                    </div>
+                  ))}
+                  {navLink({ name: 'setup' }, t('setup.title'), 'blue')}
+                </div>
+              </div>
+              {navLink({ name: 'effectiveness' }, t('app.appShell.platformEffectiveness'), 'violet')}
+            </>
+          )}
+          {isAdmin && !externalIdentity && manageUsers && navLink({ name: 'users' }, t('app.appShell.users'), 'teal')}
+          {navLink({ name: 'documentation', article: documentationArticles[0] }, t('app.appShell.documentation'), 'blue')}
         </nav>
         <div className="sidebar-footer">
           <div className="user-chip" aria-label={`${username} · ${roleLabel(role)}`} title={`${username} · ${roleLabel(role)}`}><span className="avatar" aria-hidden="true">{username.slice(0, 2).toUpperCase()}</span><span className="sidebar-label"><strong>{username}</strong><small>{roleLabel(role)}</small></span></div>

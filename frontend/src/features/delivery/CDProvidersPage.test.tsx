@@ -124,13 +124,13 @@ it('sets the platform default using its revision and reloads after a lost acknow
     return Response.json({ bindings: [verified] });
   }));
   const user = userEvent.setup(); render(<CDProvidersPage />);
-  const button = await screen.findByRole('button', { name: 'Dùng cho ứng dụng mới' });
+  const button = await screen.findByRole('button', { name: 'Dùng cho dịch vụ mới' });
   await user.click(button);
   await waitFor(() => expect(button).toBeDisabled());
   expect(writes).toBe(1);
   await user.click(screen.getByRole('button', { name: 'Tải lại' }));
   expect(await screen.findByText('Mặc định')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Dùng cho ứng dụng mới' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Dùng cho dịch vụ mới' })).toBeDisabled();
   expect(writes).toBe(1);
 });
 

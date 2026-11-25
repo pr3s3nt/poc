@@ -138,7 +138,7 @@ export const SCENARIOS = {
       await h.type(page.getByLabel('Mật khẩu', { exact: true }), SEEDED_PASSWORD);
       await expect(page.getByLabel('Mật khẩu', { exact: true })).toHaveAttribute('type', 'password');
       await h.click(page.getByRole('button', { name: 'Đăng nhập', exact: true }));
-      await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn', level: 1 })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn', level: 1 })).toBeVisible();
     }
     async function signOut() {
       await h.click(page.getByRole('button', { name: 'Đăng xuất', exact: true }));
@@ -195,7 +195,7 @@ export const SCENARIOS = {
     await h.pause(SHORT_READ);
 
     caption('Bước 4 (chuẩn bị bằng API, không phải thao tác UI): hai tài khoản AWS GIẢ LẬP, bốn Loại tài nguyên, ba đối thủ vpc và một cấu hình EKS. AWS giả lập; Vault và PostgreSQL thật');
-    await h.moveTo(page.getByRole('heading', { name: 'Ứng dụng của bạn', level: 1 }));
+    await h.moveTo(page.getByRole('heading', { name: 'Dịch vụ của bạn', level: 1 }));
     for (const type of [
       { key: 'vpc', inputs: [], outputs: [{ name: 'id', type: 'string', required: true }, { name: 'cidr', type: 'string' }, { name: 'subnetIds', type: 'any' }, { name: 'privateSubnetIds', type: 'any' }] },
       { key: 'k8s-namespace', inputs: [], outputs: [{ name: 'name', type: 'string', required: true }] },
@@ -299,7 +299,7 @@ export const SCENARIOS = {
 
     // ---- 8. Matching preview before saving --------------------------------
     caption('Bước 8: Điều kiện “Theo ứng dụng” và kiểm tra matching TRÊN MÁY CHỦ; Môi trường chưa cấu hình kết nối vẫn kiểm tra được; trình duyệt không tự chọn cấu hình thắng');
-    await h.click(page.getByRole('radio', { name: /Theo ứng dụng/ }));
+    await h.click(page.getByRole('radio', { name: /Theo dịch vụ/ }));
     await choose(form('Ứng dụng'), APP_LABEL);
     await setContext({ resource: 'network', klass: 'fast' });
     mark('context-set');
@@ -562,14 +562,14 @@ export const SCENARIOS = {
 
     // ---- 21c. Rendering template (the current consumer): Name, version, criteria
     caption('Bước 21c: Mẫu dựng ứng dụng (score-k8s, người dùng hiện tại của cấu hình) cũng có Tên và phiên bản, không có profile: tạo, kiểm tra matching TRÊN MÁY CHỦ, rồi lưu');
-    await h.click(nav('Mẫu dựng ứng dụng'));
-    await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng', level: 1, exact: true })).toBeVisible();
+    await h.click(nav('Mẫu dựng dịch vụ'));
+    await expect(page.getByRole('heading', { name: 'Mẫu dựng dịch vụ', level: 1, exact: true })).toBeVisible();
     await expect(page.getByLabel('Phạm vi triển khai')).toHaveCount(0);
     await h.type(form('ID mẫu'), ID.tpl);
     await h.type(form('Tên hiển thị'), names.tpl);
     const bundleSelect = form('Bundle dựng ứng dụng');
     await expect(bundleSelect.locator('option:not([value=""])')).not.toHaveCount(0);
-    await h.click(page.getByRole('radio', { name: /Theo ứng dụng/ }));
+    await h.click(page.getByRole('radio', { name: /Theo dịch vụ/ }));
     // The bundle selector's label also contains "ứng dụng", so address the criteria editor's own select.
     await choose(page.locator('.criteria-editor label').filter({ hasText: /^Ứng dụng(?! kiểm tra)/ }).locator('select'), APP_LABEL);
     await setContext({ resource: 'modules.web', klass: 'default' });
@@ -577,7 +577,7 @@ export const SCENARIOS = {
     await expect(winner).toContainText(`ID ${ID.tpl}`);
     await expect(winner).toContainText(names.tpl);
     check('template preview on the server: the unsaved template is the unique score-k8s winner (profile-free, five-field criteria, UNCONFIGURED Environment)');
-    const tplCreated = await sent(() => h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true })));
+    const tplCreated = await sent(() => h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng dịch vụ', exact: true })));
     expect(tplCreated).toMatchObject({ method: 'POST', status: 201, key: ID.tpl, version: 1 });
     const tplRecord = await stored(ID.tpl);
     expect(tplRecord).toMatchObject({ name: names.tpl, version: 1, resourceType: 'workload', driverType: 'score-k8s', criteria: [{ app_id: APP }] });

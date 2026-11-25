@@ -25,14 +25,14 @@ try {
   await page.getByLabel('Mật khẩu').fill('test-password');
   await reviewPause(page, 1000);
   await page.getByRole('button', { name: 'Đăng nhập' }).click();
-  await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible();
   await reviewPause(page, 1500);
-  await page.getByRole('button', { name: '+ Tạo ứng dụng' }).first().click();
+  await page.getByRole('button', { name: '+ Tạo dịch vụ' }).first().click();
   await reviewPause(page, 1200);
-  await page.getByLabel('Tên ứng dụng').fill(`Acceptance ${runId}`);
+  await page.getByLabel('Tên dịch vụ').fill(`Acceptance ${runId}`);
   await page.getByLabel('Subdomain').fill(runId);
   await reviewPause(page, 1000);
-  await page.getByRole('button', { name: 'Tạo ứng dụng' }).click();
+  await page.getByRole('button', { name: 'Tạo dịch vụ' }).click();
   await expect(page.getByRole('heading', { name: `Acceptance ${runId}` })).toBeVisible();
   await reviewPause(page, 2000);
   const appId = new URL(page.url()).pathname.match(/\/applications\/([^/]+)$/)?.[1];

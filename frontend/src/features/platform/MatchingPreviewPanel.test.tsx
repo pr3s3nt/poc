@@ -62,7 +62,7 @@ describe('exact matching preview panel (T19)', () => {
     expect(screen.getByText('Nhập ID cấu hình hợp lệ.')).toBeInTheDocument();
     expect(run()).toBeDisabled();
     rerender(<MatchingPreviewPanel candidate={{ definition, problem: '' }} sample={{ ...sample, applicationId: '', environmentId: '' }} />);
-    expect(screen.getByText(/Chọn ứng dụng và môi trường mẫu/)).toBeInTheDocument();
+    expect(screen.getByText(/Chọn dịch vụ và môi trường mẫu/)).toBeInTheDocument();
     expect(run()).toBeDisabled();
     expect(calls).toHaveLength(0);
   });
@@ -86,7 +86,7 @@ describe('exact matching preview panel (T19)', () => {
   });
 
   it('maps validation, scope and target statuses to Vietnamese transport messages', async () => {
-    for (const [status, text] of [[400, /từ chối cấu hình/], [404, /Không tìm thấy ứng dụng/], [403, /không có quyền/]] as const) {
+    for (const [status, text] of [[400, /từ chối cấu hình/], [404, /Không tìm thấy dịch vụ/], [403, /không có quyền/]] as const) {
       stub(() => Response.json({ error: 'English backend text' }, { status }));
       const { unmount } = render(<MatchingPreviewPanel candidate={{ definition, problem: '' }} sample={sample} />);
       await userEvent.setup().click(run());
@@ -166,7 +166,7 @@ describe('exact matching preview in the unified workload Definition form', () =>
   await user.selectOptions(screen.getByLabelText('Nguồn đã xác thực'),'source-a');
   await user.click(screen.getByLabelText('Tham chiếu namespace'));await user.paste("${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}");
   await user.click(screen.getByRole('tab',{name:/^Điều kiện áp dụng/}));await user.click(screen.getByText('Kiểm tra cấu hình được chọn',{exact:true}));
-  await user.selectOptions(screen.getByLabelText('Ứng dụng kiểm tra'),'shop');await user.selectOptions(screen.getByLabelText('Môi trường kiểm tra'),'staging');
+  await user.selectOptions(screen.getByLabelText('Dịch vụ kiểm tra'),'shop');await user.selectOptions(screen.getByLabelText('Môi trường kiểm tra'),'staging');
   await user.type(screen.getByLabelText('ID tài nguyên kiểm tra (res_id)'),'modules.web');await user.type(screen.getByLabelText('Class kiểm tra'),'default');
   await user.click(run());await screen.findByRole('region',{name:'Kết quả matching chính xác'});
   expect(posts).toHaveLength(1);expect(posts[0]?.url).toBe('/api/v1/resource-definitions/matching-preview');
@@ -225,7 +225,7 @@ describe('exact matching preview invalidation by context metadata (T19)', () => 
     stub(() => Response.json(tie));
     const view = render(editor(app('v1')));
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText('Ứng dụng kiểm tra'), 'shop');
+    await user.selectOptions(screen.getByLabelText('Dịch vụ kiểm tra'), 'shop');
     await user.selectOptions(screen.getByLabelText('Môi trường kiểm tra'), 'staging');
     await user.click(run());
     await screen.findByRole('region', { name: 'Kết quả matching chính xác' });
@@ -259,7 +259,7 @@ describe('exact matching preview invalidation by context metadata (T19)', () => 
     stub(() => Response.json(tie));
     const view = render(editor(app('v1'), false, [source as CriteriaSource]));
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText('Ứng dụng kiểm tra'), 'shop');
+    await user.selectOptions(screen.getByLabelText('Dịch vụ kiểm tra'), 'shop');
     await user.selectOptions(screen.getByLabelText('Môi trường kiểm tra'), 'staging');
     await user.click(run());
     await screen.findByRole('region', { name: 'Kết quả matching chính xác' });
@@ -271,7 +271,7 @@ describe('exact matching preview invalidation by context metadata (T19)', () => 
     stub(() => new Promise<Response>((resolve) => { release = resolve; }));
     const view = render(editor(app('v1'), false, [source]));
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText('Ứng dụng kiểm tra'), 'shop');
+    await user.selectOptions(screen.getByLabelText('Dịch vụ kiểm tra'), 'shop');
     await user.selectOptions(screen.getByLabelText('Môi trường kiểm tra'), 'staging');
     await user.click(run());
     await screen.findByText('Đang kiểm tra matching…');

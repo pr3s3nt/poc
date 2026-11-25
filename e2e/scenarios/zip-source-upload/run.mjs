@@ -68,7 +68,7 @@ try {
   await page.getByRole('button', { name: 'Dùng gợi ý cluster', exact: true }).click();
   await screenshots('bundle-upload');
   const saved = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/resource-definitions');
-  await page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }).click();
+  await page.getByRole('button', { name: 'Đăng ký mẫu dựng dịch vụ', exact: true }).click();
   assert.equal((await saved).status(), 201, 'save uploaded bundle Definition');
   await page.reload();
   const row = page.locator('.catalog-entry').filter({ hasText: runID });

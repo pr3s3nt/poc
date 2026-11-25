@@ -31,15 +31,15 @@ try{
  const snapshot=JSON.parse(await template.locator('pre').textContent());
  assert.equal(snapshot.driverType,'template');assert.ok(snapshot.criteria.length);
  assert.equal(await detail.getByRole('textbox').count(),0);
- assert.equal(await page.getByRole('link',{name:/Mẫu dựng ứng dụng|Cấu hình tài nguyên/}).count(),0);
+ assert.equal(await page.getByRole('link',{name:/Mẫu dựng dịch vụ|Cấu hình tài nguyên/}).count(),0);
  await page.screenshot({path:join(evidence,'release.png'),fullPage:true});
  const beforeApps=(await get('/applications')).applications.map(value=>value.key).sort();
  if(!appKey){
   await page.goto(config.baseURL+'/ui/applications/new');
-  await page.getByLabel('Tên ứng dụng',{exact:true}).fill('Catalog live '+Date.now());
+  await page.getByLabel('Tên dịch vụ',{exact:true}).fill('Catalog live '+Date.now());
   await page.getByLabel('Subdomain',{exact:true}).fill('catalog-live-'+Date.now());
   const created=responseFor('/applications','POST');
-  await page.getByRole('button',{name:'Tạo ứng dụng',exact:true}).click();
+  await page.getByRole('button',{name:'Tạo dịch vụ',exact:true}).click();
   const reply=await created;assert.equal(reply.status(),201);
   appKey=(await reply.json()).application.key;
  }

@@ -48,7 +48,7 @@ try {
   await page.getByLabel('Tên đăng nhập').fill('platform-engineer');
   await page.getByLabel('Mật khẩu').fill('test-password');
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible();
   if (!resumed) {
     for (const [path, key] of [['driver-accounts', 'accounts'], ['resource-types', 'resourceTypes'], ['resource-definitions', 'resourceDefinitions']]) {
       const response = await context.request.get(`${baseURL}/api/v1/${path}`);

@@ -148,7 +148,7 @@ export async function provisionScenario({ page, h, caption, mark, check, baseURL
     await h.type(page.getByLabel('Mật khẩu', { exact: true }), SEEDED_PASSWORD);
     await expect(page.getByLabel('Mật khẩu', { exact: true })).toHaveAttribute('type', 'password');
     await h.click(page.getByRole('button', { name: 'Đăng nhập', exact: true }));
-    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn', level: 1 })).toBeVisible();
   }
   async function openDefinitions() {
     await h.click(nav('Cấu hình tài nguyên'));
@@ -185,7 +185,7 @@ export async function provisionScenario({ page, h, caption, mark, check, baseURL
 
   // The Score Preview of the Application Environment through the Console.
   async function previewScore(runId) {
-    await h.click(nav('Ứng dụng'));
+    await h.click(nav('Dịch vụ'));
     await h.click(page.locator('.application-card').first());
     await h.click(page.getByRole('button', { name: 'Xem trước Score', exact: true }));
     await expect(page.getByRole('heading', { name: 'Xem trước Score', level: 1 })).toBeVisible();
@@ -251,7 +251,7 @@ export async function provisionScenario({ page, h, caption, mark, check, baseURL
 
   // ---- 2. Labelled fixtures -------------------------------------------------
   caption('Bước 2 (chuẩn bị bằng API, không phải thao tác UI): 5 Loại tài nguyên, tài khoản Internal GIẢ LẬP, Definition namespace và PostgreSQL đi kèm. PostgreSQL và Vault thật');
-  await h.moveTo(page.getByRole('heading', { name: 'Ứng dụng của bạn', level: 1 }));
+  await h.moveTo(page.getByRole('heading', { name: 'Dịch vụ của bạn', level: 1 }));
   const field = (name, type, required = false) => ({ name, type, required });
   const redisOutputs = [field('host', 'string', true), field('port', 'number', true), field('username', 'string', true), field('password', 'string', true), field('tls', 'bool', true)];
   for (const type of [

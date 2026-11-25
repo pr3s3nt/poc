@@ -35,8 +35,8 @@ try {
  await page.getByLabel('Tên đăng nhập', { exact: true }).fill('setup-admin');
  await page.getByLabel(/^Mật khẩu/).fill(password);
  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
- await page.getByRole('link', { name: 'Thiết lập platform', exact: true }).click();
- await page.getByRole('heading', { name: 'Thiết lập platform', exact: true }).waitFor();
+ await page.getByRole('link', { name: 'Khởi tạo nền tảng', exact: true }).click();
+ await page.getByRole('heading', { name: 'Khởi tạo nền tảng', exact: true }).waitFor();
  const status = await (await page.request.get(url + '/api/v1/setup')).json();
  assert.equal(status.available, false); check('Initialization remains closed after sign-in');
  await screenshot('platform-guide');
@@ -78,7 +78,7 @@ try {
  check('Rerun preview reuses 10 Types and 8 Definitions');
  await screenshot('import-reused');
  await page.reload();
- await page.getByRole('heading', { name: 'Thiết lập platform', exact: true }).waitFor();
+ await page.getByRole('heading', { name: 'Khởi tạo nền tảng', exact: true }).waitFor();
  const progress = await (await page.request.get(url + '/api/v1/platform/setup')).json();
  assert.equal(progress.types, 10); assert.equal(progress.definitions, 8);check('Reload restores server configuration progress');
  receipt.progress = progress;

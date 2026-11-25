@@ -32,8 +32,8 @@ async function newWorkloadPage(){
 async function prepare(){
  if(!state.app){
   assert(!(await ui.get('/applications')).applications.some(a=>a.name===APP_NAME),'Inspect existing same-name app before adopting it');
-  await page.goto(c.baseURL+'/ui/applications/new');await page.getByLabel('Tên ứng dụng',{exact:true}).fill(APP_NAME);
-  state.app=(await ui.submit('/applications','POST',page.getByRole('button',{name:'Tạo ứng dụng',exact:true}))).application;save();
+  await page.goto(c.baseURL+'/ui/applications/new');await page.getByLabel('Tên dịch vụ',{exact:true}).fill(APP_NAME);
+  state.app=(await ui.submit('/applications','POST',page.getByRole('button',{name:'Tạo dịch vụ',exact:true}))).application;save();
  }
  const store=(await ui.get('/secret-stores')).secretStores.find(x=>x.key===input.secretStoreKey);assert(store,'Secret Store');
  await ensureEnvironment(ui,{schemaVersion:3,application:{environment:ENV,variables:{},secretFiles:{}}},state.app,store,{},rt);
@@ -115,11 +115,11 @@ async function cleanup(){
  await page.goto(c.baseURL+`/ui/applications/${state.app.key}/settings`);
  // The Fleet access granted by this scenario (outside the product) would keep the namespace alive.
  if(kubectl('get','namespace',ns,'--ignore-not-found','-o','name').trim())console.log(kubectl('-n',ns,'delete','role,rolebinding','-l','bootstrap.orchestrator.dev/application='+state.app.key,'--ignore-not-found').trim());
- if(app.status==='DELETING')await page.getByRole('region',{name:'Tiến trình xóa ứng dụng',exact:true}).getByRole('button',{name:'Thử lại',exact:true}).click();
- else await page.getByRole('region',{name:'Xóa ứng dụng',exact:true}).getByRole('button',{name:'Xóa ứng dụng',exact:true}).click();
- const dialog=page.getByRole('dialog',{name:'Xóa ứng dụng',exact:true});
+ if(app.status==='DELETING')await page.getByRole('region',{name:'Tiến trình xóa dịch vụ',exact:true}).getByRole('button',{name:'Thử lại',exact:true}).click();
+ else await page.getByRole('region',{name:'Xóa dịch vụ',exact:true}).getByRole('button',{name:'Xóa dịch vụ',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Xóa dịch vụ',exact:true});
  await dialog.getByRole('textbox').fill(app.name);
- const deletion=await ui.submit(`/applications/${state.app.key}/deletions`,'POST',dialog.getByRole('button',{name:'Xóa vĩnh viễn ứng dụng',exact:true}));
+ const deletion=await ui.submit(`/applications/${state.app.key}/deletions`,'POST',dialog.getByRole('button',{name:'Xóa vĩnh viễn dịch vụ',exact:true}));
  const id=deletion.deletion.operationId,deadline=Date.now()+1800000;let progress;
  for(;;){progress=(await ui.get(`/applications/${state.app.key}/deletions/${id}`)).deletion;if(!progress.running)break;assert(Date.now()<deadline,'deletion still running');await page.waitForTimeout(5000);}
  writeFileSync(dir+'/deletion.json',JSON.stringify(progress,null,2));

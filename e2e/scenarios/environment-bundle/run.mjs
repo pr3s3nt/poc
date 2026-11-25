@@ -122,8 +122,8 @@ async function createDeveloper(ui) {
 
 async function createApplication(ui, name) {
   await ui.page.goto(`${ui.baseURL}/ui/applications/new`);
-  await ui.page.getByLabel('Tên ứng dụng', { exact: true }).fill(name);
-  return (await ui.submit('/applications', 'POST', ui.page.getByRole('button', { name: 'Tạo ứng dụng', exact: true }))).application;
+  await ui.page.getByLabel('Tên dịch vụ', { exact: true }).fill(name);
+  return (await ui.submit('/applications', 'POST', ui.page.getByRole('button', { name: 'Tạo dịch vụ', exact: true }))).application;
 }
 
 async function openSettings(ui) {
@@ -692,11 +692,11 @@ async function cleanup() {
   }
   if (kubectl('get', 'namespace', namespace, '--ignore-not-found', '-o', 'name')) kubectl('-n', namespace, 'delete', 'role,rolebinding', '-l', 'bootstrap.orchestrator.dev/application=' + state.app.key, '--ignore-not-found');
   await dev.page.goto(`${dev.baseURL}/ui/applications/${state.app.key}/settings`);
-  if (app.status === 'DELETING') await dev.page.getByRole('region', { name: 'Tiến trình xóa ứng dụng', exact: true }).getByRole('button', { name: 'Thử lại', exact: true }).click();
-  else await dev.page.getByRole('region', { name: 'Xóa ứng dụng', exact: true }).getByRole('button', { name: 'Xóa ứng dụng', exact: true }).click();
-  const dialog = dev.page.getByRole('dialog', { name: 'Xóa ứng dụng', exact: true });
+  if (app.status === 'DELETING') await dev.page.getByRole('region', { name: 'Tiến trình xóa dịch vụ', exact: true }).getByRole('button', { name: 'Thử lại', exact: true }).click();
+  else await dev.page.getByRole('region', { name: 'Xóa dịch vụ', exact: true }).getByRole('button', { name: 'Xóa dịch vụ', exact: true }).click();
+  const dialog = dev.page.getByRole('dialog', { name: 'Xóa dịch vụ', exact: true });
   await dialog.getByRole('textbox').fill(app.name);
-  const deletion = await dev.submit(`/applications/${state.app.key}/deletions`, 'POST', dialog.getByRole('button', { name: 'Xóa vĩnh viễn ứng dụng', exact: true }));
+  const deletion = await dev.submit(`/applications/${state.app.key}/deletions`, 'POST', dialog.getByRole('button', { name: 'Xóa vĩnh viễn dịch vụ', exact: true }));
   const id = deletion.deletion.operationId;
   const deadline = Date.now() + 1_800_000;
   let progress;

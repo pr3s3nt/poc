@@ -121,8 +121,8 @@ async function signInAs(username) {
 }
 
 async function openTemplates() {
-  await h.click(kit.nav('Mẫu dựng ứng dụng'));
-  await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng', level: 1, exact: true })).toBeVisible();
+  await h.click(kit.nav('Mẫu dựng dịch vụ'));
+  await expect(page.getByRole('heading', { name: 'Mẫu dựng dịch vụ', level: 1, exact: true })).toBeVisible();
 }
 
 async function inspect(ref, commit) {
@@ -146,7 +146,7 @@ async function saveTemplate(expectedVersion) {
   await h.click(page.getByRole('button', { name: 'Lưu thay đổi', exact: true }));
   const reply = await response;
   if (!reply.ok()) throw new Error(`template save HTTP ${reply.status()}`);
-  await expect(page.getByRole('status').filter({ hasText: `Đã lưu mẫu dựng ứng dụng git-workload (phiên bản ${expectedVersion})` })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: `Đã lưu mẫu dựng dịch vụ git-workload (phiên bản ${expectedVersion})` })).toBeVisible();
 }
 
 async function storedTemplate() {
@@ -154,7 +154,7 @@ async function storedTemplate() {
 }
 
 async function openApp() {
-  await h.click(kit.nav('Ứng dụng'));
+  await h.click(kit.nav('Dịch vụ'));
   await kit.openApplication();
 }
 
@@ -233,7 +233,7 @@ try {
   await h.click(page.getByRole('button', { name: 'Dùng gợi ý namespace', exact: true }));
   await h.click(page.getByRole('button', { name: 'Dùng gợi ý cluster', exact: true }));
   await h.click(page.getByRole('button', { name: 'JSON nâng cao', exact: true }));
-  const json = JSON.parse(await page.getByLabel('JSON nâng cao của mẫu dựng ứng dụng').inputValue());
+  const json = JSON.parse(await page.getByLabel('JSON nâng cao của mẫu dựng dịch vụ').inputValue());
   ui('RB-E02.json-roundtrip', json.variables.render_bundle === bundleA.id && JSON.stringify(json.variables.render_inputs) === '{"team":"payments"}', 'advanced JSON holds the verified UUID and the typed inputs only');
   await h.click(page.getByRole('button', { name: 'Biểu mẫu', exact: true }));
   await expect(page.getByLabel('Team', { exact: true })).toHaveValue('payments');
@@ -241,7 +241,7 @@ try {
   // Visual comparison with the product reference (Resource Definitions Git module source) at 1512px and 1280px.
   for (const width of [1512, 1280]) {
     await page.setViewportSize({ width, height: 960 });
-    await page.getByRole('region', { name: 'Nguồn bundle dựng ứng dụng' }).screenshot({ path: `${shots}/ui-${width}-template-source.png` });
+    await page.getByRole('region', { name: 'Nguồn bundle dựng dịch vụ' }).screenshot({ path: `${shots}/ui-${width}-template-source.png` });
     await page.screenshot({ path: `${shots}/ui-${width}-template-page.png`, fullPage: true });
   }
   const templateDraft = page.url();
@@ -256,10 +256,10 @@ try {
   await page.setViewportSize({ width: 1512, height: 960 });
   ui('UI.visual-reference', page.url() === templateDraft, 'screenshots of the edited source section and the Resource Definition Git source at 1512px/1280px');
   const created = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/resource-definitions');
-  await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }));
+  await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng dịch vụ', exact: true }));
   const createdReply = await created;
   const createdRaw = await createdReply.text();
-  await expect(page.getByRole('status').filter({ hasText: 'Đã đăng ký mẫu dựng ứng dụng git-workload.' })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Đã đăng ký mẫu dựng dịch vụ git-workload.' })).toBeVisible();
   let template = await storedTemplate();
   ui('RB-E02.saved', createdReply.status() === 201 && template.driverInputs.values.variables.render_bundle === bundleA.id && template.driverInputs.values.variables.render_inputs.team === 'payments'
     && !/token|password|kubeconfig/i.test(createdRaw), `template v${template.version} pins ${bundleA.id}`);

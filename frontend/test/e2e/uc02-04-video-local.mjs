@@ -99,7 +99,7 @@ try {
     await h.type(page.getByLabel('Tên đăng nhập'), user);
     await h.type(page.getByLabel('Mật khẩu'), 'test-password');
     await h.click(page.getByRole('button', { name: 'Đăng nhập' }));
-    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible();
   }
   async function signOut() {
     await h.click(page.getByRole('button', { name: 'Đăng xuất' }));

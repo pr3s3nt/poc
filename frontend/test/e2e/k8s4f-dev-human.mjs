@@ -112,7 +112,7 @@ try {
     await h.type(page.getByLabel('Tên đăng nhập'), user);
     await h.type(page.getByLabel('Mật khẩu'), 'test-password');
     await h.click(page.getByRole('button', { name: 'Đăng nhập' }));
-    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible();
     await h.pause(SHORT_READ);
   }
   async function signOut() {
@@ -181,7 +181,7 @@ try {
     caption(`Connection ${connectionName} (${connectionKey}) và Secret store ${storeName} (${storeKey}) đã đăng ký từ lần chạy trước, dùng lại`);
     await h.click(page.getByRole('link', { name: /(^|\s)Kết nối$/ }));
     await h.pause(READ);
-    await h.click(page.getByRole('link', { name: /(^|\s)Cấu hình kho bí mật$/ }));
+    await h.click(page.getByRole('link', { name: /(^|\s)Kho bí mật$/ }));
     await h.pause(READ);
     mark('connection-ready');
     await signOut();
@@ -240,7 +240,7 @@ try {
   }
 
   caption('Bước 4: Platform → Secret stores: đăng ký Vault riêng của cụm mới (token dán vào ô mật khẩu, luôn bị che)');
-  await h.click(page.getByRole('link', { name: /(^|\s)Cấu hình kho bí mật$/ }));
+  await h.click(page.getByRole('link', { name: /(^|\s)Kho bí mật$/ }));
   await expect(page.getByRole('heading', { name: 'Cấu hình kho bí mật', level: 1 })).toBeVisible();
   await h.pause(SHORT_READ);
   await h.type(page.getByLabel('Tên kho', { exact: true }), storeName);
@@ -385,7 +385,7 @@ try {
   x11.type(`${baseURL}/ui/`);
   await h.pause(SHORT_READ);
   x11.keys(['Return']);
-  await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible();
   await h.click(page.getByText(applicationName, { exact: true }).first());
   await expect(page.getByRole('heading', { name: applicationName })).toBeVisible();
   await page.reload();

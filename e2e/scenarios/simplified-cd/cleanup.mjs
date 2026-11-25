@@ -72,12 +72,12 @@ try {
    native(['delete', '--raw', `/apis/rbac.authorization.k8s.io/v1/namespaces/${namespace}/${kind}s/bootstrap-fleet-access`, '-f', '-'], JSON.stringify({ apiVersion: 'v1', kind: 'DeleteOptions', preconditions: { uid: object.metadata.uid } }));
   }
   await page.goto(config.console.baseURL + `/ui/applications/${state.appKey}/settings?environment=staging`);
-  await page.getByRole('region', { name: 'Xóa ứng dụng', exact: true }).getByRole('button', { name: 'Xóa ứng dụng', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Xóa ứng dụng', exact: true });
+  await page.getByRole('region', { name: 'Xóa dịch vụ', exact: true }).getByRole('button', { name: 'Xóa dịch vụ', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Xóa dịch vụ', exact: true });
   await dialog.getByRole('textbox').fill(config.application.name);
   await page.screenshot({ path: join(directory, 'cleanup-confirmation.png'), fullPage: true });
-  await ui.submit(`/applications/${state.appKey}/deletions`, 'POST', dialog.getByRole('button', { name: 'Xóa vĩnh viễn ứng dụng', exact: true }));
-  await page.getByRole('heading', { name: 'Ứng dụng của bạn', exact: true }).waitFor({ timeout: config.runtime.timeoutMs });
+  await ui.submit(`/applications/${state.appKey}/deletions`, 'POST', dialog.getByRole('button', { name: 'Xóa vĩnh viễn dịch vụ', exact: true }));
+  await page.getByRole('heading', { name: 'Dịch vụ của bạn', exact: true }).waitFor({ timeout: config.runtime.timeoutMs });
  }
  assert.equal((await page.request.get(config.console.baseURL + '/api/v1/applications/' + state.appKey)).status(), 404);
  assert.equal(native(['get', 'namespace', namespace, '--ignore-not-found', '-o', 'name']).trim(), '');
@@ -89,7 +89,7 @@ try {
   const original = await ui.get(`/delivery-bindings/${setup.originalDefault.bindingId}?version=${setup.originalDefault.bindingVersion}`);
   await page.goto(config.console.baseURL + '/ui/platform/cd-providers');
   const row = page.locator('tbody tr').filter({ has: page.getByRole('cell', { name: original.binding.name, exact: true }) }).filter({ has: page.locator('td:nth-child(3)').filter({ hasText: new RegExp('^' + setup.originalDefault.bindingVersion + '$') }) });
-  await ui.submit('/delivery-default', 'PUT', row.getByRole('button', { name: 'Dùng cho ứng dụng mới', exact: true }));
+  await ui.submit('/delivery-default', 'PUT', row.getByRole('button', { name: 'Dùng cho dịch vụ mới', exact: true }));
  }
  const restored = await ui.get('/delivery-default');
  assert.equal(restored.bindingId, setup.originalDefault.bindingId);

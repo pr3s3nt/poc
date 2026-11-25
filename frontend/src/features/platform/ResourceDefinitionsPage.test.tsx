@@ -164,7 +164,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     // The region has its own control and is never a generic typed variable.
     expect(screen.queryByLabelText('Ghi đè region')).not.toBeInTheDocument();
     // database/username arrive as Type params: they need no Definition value and outrank any fallback or module default.
-    for (const name of ['database', 'username']) expect(card(name)).toHaveTextContent('Tham số ứng dụng cung cấp');
+    for (const name of ['database', 'username']) expect(card(name)).toHaveTextContent('Tham số dịch vụ cung cấp');
     await submitDefinition(user);
     expect(await screen.findByRole('alert')).toHaveTextContent(/Cần nhập trước khi lưu: engine_version, max_capacity, min_capacity/);
     expect(posted).toEqual([]);
@@ -770,7 +770,7 @@ describe('UC-03 Definition form states and errors', () => {
       await screen.findByText(/Đã đăng ký cấu hình tài nguyên ns-env/);
       await completeDefinition(user, { id: 'ns-app', type: 'k8s-namespace' });
       await user.click(screen.getByRole('tab', { name: /Điều kiện áp dụng/ }));
-      await add(user, 1, 'app_id', 'ID ứng dụng', 'shop');
+      await add(user, 1, 'app_id', 'ID dịch vụ', 'shop');
       await add(user, 1, 'env_id', 'ID môi trường', 'production');
       await submitDefinition(user);
       await waitFor(() => expect(posted).toHaveLength(3));
@@ -805,24 +805,24 @@ describe('UC-03 Definition form states and errors', () => {
       await submitDefinition(user);
       expect(await screen.findByRole('alert')).toHaveTextContent('Máy chủ gặp lỗi');
       expect(field('Điều kiện 1 Class')).toHaveValue('fast');
-      expect(field('Điều kiện 2 ID ứng dụng')).toHaveValue('shop');
+      expect(field('Điều kiện 2 ID dịch vụ')).toHaveValue('shop');
       expect(posted[0]?.criteria).toEqual([{ env_type: 'staging', class: 'fast' }, { app_id: 'shop' }]);
     });
     it.each([true, false])('keeps manually entered IDs/cases on a late applications reply (fails=%s) and retries only that list', async (fails) => {
       const user = userEvent.setup();
       let release: (response: Response) => void = () => undefined;
       const { gets, posted } = await start(user, 'ns-late', { applicationLists: [() => new Promise<Response>((resolve) => { release = resolve; })] });
-      await add(user, 1, 'app_id', 'ID ứng dụng', 'typed-before');
+      await add(user, 1, 'app_id', 'ID dịch vụ', 'typed-before');
       await user.click(screen.getByRole('button', { name: '+ Thêm trường hợp áp dụng' }));
       await add(user, 2, 'class', 'Class', 'fast');
       release(fails ? Response.json({}, { status: 500 }) : Response.json({ applications: defaultApplications }));
       if (fails) {
-        const alert = await screen.findByRole('alert', { name: 'Lỗi tải ứng dụng' });
+        const alert = await screen.findByRole('alert', { name: 'Lỗi tải dịch vụ' });
         await user.click(within(alert).getByRole('button', { name: 'Thử lại' }));
-        await waitFor(() => expect(screen.queryByRole('alert', { name: 'Lỗi tải ứng dụng' })).not.toBeInTheDocument());
+        await waitFor(() => expect(screen.queryByRole('alert', { name: 'Lỗi tải dịch vụ' })).not.toBeInTheDocument());
         expect(gets.filter((url) => url.endsWith('/applications'))).toHaveLength(2);
       }
-      expect(field('Điều kiện 1 ID ứng dụng')).toHaveValue('typed-before');
+      expect(field('Điều kiện 1 ID dịch vụ')).toHaveValue('typed-before');
       expect(field('Điều kiện 2 Class')).toHaveValue('fast');
       expect(field('ID cấu hình (Definition ID)')).toHaveValue('ns-late');
       expect(posted).toHaveLength(0);
@@ -886,7 +886,7 @@ describe('UC-03 V02 Definition edit', () => {
     expect(field('Vùng AWS')).toHaveValue('ap-southeast-1');
     expect(screen.queryByLabelText('Module đã kiểm chứng')).not.toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: /Điều kiện áp dụng/ }));
-    expect(field('Điều kiện 1 ID ứng dụng')).toHaveValue('shop');
+    expect(field('Điều kiện 1 ID dịch vụ')).toHaveValue('shop');
     expect(field('Điều kiện 1 ID môi trường')).toHaveValue('production');
     await user.click(screen.getByRole('tab', { name: 'Cấu hình' }));
     expect(screen.getByRole('button', { name: 'Lưu thay đổi' })).toBeEnabled();

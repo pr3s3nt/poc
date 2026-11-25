@@ -9,8 +9,8 @@ try{
  assert(!existsSync(file),'Inspect the recorded prior run before creating another application');
  const apps=(await ui.get('/applications')).applications;assert(!apps.some(a=>a.name==='rollback-empty-issue49'),'Application name already exists');
  await page.goto(config.baseURL+'/ui/applications/new');
- await page.getByLabel('Tên ứng dụng',{exact:true}).fill('rollback-empty-issue49');
- const result=await ui.submit('/applications','POST',page.getByRole('button',{name:'Tạo ứng dụng',exact:true}));
+ await page.getByLabel('Tên dịch vụ',{exact:true}).fill('rollback-empty-issue49');
+ const result=await ui.submit('/applications','POST',page.getByRole('button',{name:'Tạo dịch vụ',exact:true}));
  const app=result.application;writeFileSync(file,JSON.stringify(app,null,2),{mode:0o600});
  const base=`/applications/${app.key}/environments/staging`;
  await page.goto(config.baseURL+`/ui/applications/${app.key}?environment=staging`);

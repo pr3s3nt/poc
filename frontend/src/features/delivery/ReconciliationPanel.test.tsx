@@ -10,7 +10,7 @@ it('shows persisted independent dimensions and exact revisions; refresh only rea
  render(<ReconciliationPanel applicationId="app" environment="staging"/>);
  const panel=screen.getByRole('region',{name:'Đối soát workload'});
  expect(await within(panel).findByText('Đã đồng bộ')).toBeInTheDocument();expect(within(panel).getByText('Khỏe')).toBeInTheDocument();expect(within(panel).getByText('Không lệch')).toBeInTheDocument();
- await userEvent.click(within(panel).getByText('api · Ứng dụng'));expect(within(panel).getAllByText('admitted')).toHaveLength(2);
+ await userEvent.click(within(panel).getByText('api · Dịch vụ'));expect(within(panel).getAllByText('admitted')).toHaveLength(2);
  await userEvent.click(within(panel).getByRole('button',{name:'Tải lại'}));expect(requests).toEqual(['GET','GET']);
 });
 it('shows stale observations as unknown instead of retaining a clean status',async()=>{

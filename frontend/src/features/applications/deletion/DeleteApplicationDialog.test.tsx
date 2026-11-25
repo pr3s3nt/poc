@@ -33,7 +33,7 @@ describe('application deletion dialog (UC-18 MS-01..04)', () => {
     const { onAccepted } = open();
     expect(await screen.findByRole('region', { name: 'staging' })).toHaveTextContent('postgres.default#modules.api.externals.db');
     expect(screen.getByText(/Xóa vĩnh viễn dữ liệu, không thể hoàn tác/)).toBeInTheDocument();
-    const confirm = screen.getByRole('button', { name: 'Xóa vĩnh viễn ứng dụng' });
+    const confirm = screen.getByRole('button', { name: 'Xóa vĩnh viễn dịch vụ' });
     expect(confirm).toBeDisabled();
     await userEvent.type(screen.getByRole('textbox'), 'shop');
     expect(confirm).toBeDisabled();
@@ -50,9 +50,9 @@ describe('application deletion dialog (UC-18 MS-01..04)', () => {
     const calls = stubApi((c) => isPreview(c) ? Response.json({ preview: preview() }) : undefined,
       (c) => isDelete(c) ? Response.json({ deletion: { operationId: 'op-1', status: 'RUNNING' } }, { status: 202 }) : undefined);
     const { onAccepted } = open(true);
-    expect(screen.getByRole('dialog', { name: 'Force xóa ứng dụng' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Force xóa dịch vụ' })).toBeInTheDocument();
     await userEvent.type(await screen.findByRole('textbox'), 'Shop');
-    await userEvent.click(screen.getByRole('button', { name: 'Force xóa ứng dụng' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Force xóa dịch vụ' }));
     await waitFor(() => expect(onAccepted).toHaveBeenCalledOnce());
     expect(calls.find(isPreview)?.body).toEqual({ force: true });
     expect(calls.find(isDelete)?.body).toEqual({ token: 'ad1.token', confirmationName: 'Shop', force: true });
@@ -70,7 +70,7 @@ describe('application deletion dialog (UC-18 MS-01..04)', () => {
       (c) => isDelete(c) ? apiError(409, 'STALE_PREVIEW', undefined, 'token') : undefined);
     open();
     await userEvent.type(await screen.findByRole('textbox'), 'Shop');
-    await userEvent.click(screen.getByRole('button', { name: 'Xóa vĩnh viễn ứng dụng' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Xóa vĩnh viễn dịch vụ' }));
     expect(await screen.findByRole('button', { name: 'Xem lại phạm vi' })).toBeInTheDocument();
     expect(calls.filter(isDelete)).toHaveLength(1);
   });

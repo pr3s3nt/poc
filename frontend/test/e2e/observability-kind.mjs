@@ -58,7 +58,7 @@ try {
   await registerTypesUi(kit, FULL_APP_TYPES.filter(t => ['workload', 'k8s-cluster', 'k8s-namespace'].includes(t.key)));
   await registerExistingCluster(kit, { id: 'observability-cluster', accountName: input.account.name });
   await registerK8sModuleDefinition(kit, { id: 'observability-namespace', type: 'k8s-namespace', module: 'k8s-namespace', presetName: 'name', clusterClass: 'internal' });
-  await h.click(kit.nav('Mẫu dựng ứng dụng'));await h.click(page.getByRole('button', { name: 'Bundle đã xác minh', exact: true }));
+  await h.click(kit.nav('Mẫu dựng dịch vụ'));await h.click(page.getByRole('button', { name: 'Bundle đã xác minh', exact: true }));
   const bundles = (await kit.get('/render-bundles')).renderBundles.filter(bundle => bundle.status === 'AVAILABLE' && !bundle.source);
   record('NEW.real-installed-renderer', bundles.length === 1);
   await h.type(page.getByLabel('ID mẫu', { exact: true }), 'observability-workload');
@@ -66,8 +66,8 @@ try {
   await expect(kit.form('Bundle dựng ứng dụng')).toHaveValue(bundles[0].id);
   await h.click(page.getByRole('button', { name: 'Dùng gợi ý namespace', exact: true }));
   await h.click(page.getByRole('button', { name: 'Dùng gợi ý cluster', exact: true }));
-  await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }));
-  await expect(page.getByRole('status').filter({ hasText: 'Đã đăng ký mẫu dựng ứng dụng observability-workload.' })).toBeVisible();
+  await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng dịch vụ', exact: true }));
+  await expect(page.getByRole('status').filter({ hasText: 'Đã đăng ký mẫu dựng dịch vụ observability-workload.' })).toBeVisible();
   record('NEW.catalog-authored-through-ui', true);await shot('01-onboarded-template');
   await kit.signOut();await kit.signIn('developer');
   input.applicationKey = await createApplication(h, input.applicationName, run);
@@ -93,7 +93,7 @@ try {
   forward = spawn('kubectl', ['--kubeconfig', input.kube.kubeconfig, '--context', target, '-n', input.namespace, 'port-forward', 'service/telemetry-app', `${port}:8080`], { stdio: 'ignore' });
   app = await context.newPage();const appURL = `http://127.0.0.1:${port}`;
   await wait('APP.http-live', async () => { try { return (await app.request.get(`${appURL}/healthz`)).ok(); } catch { return false; } }, 60_000);
-  await app.goto(appURL);await expect(app.getByRole('heading', { name: 'Ứng dụng kiểm chứng telemetry' })).toBeVisible();
+  await app.goto(appURL);await expect(app.getByRole('heading', { name: 'Dịch vụ kiểm chứng telemetry' })).toBeVisible();
   await app.getByRole('button', { name: 'Ghi INFO', exact: true }).click();await app.getByRole('button', { name: 'Ghi WARN', exact: true }).click();await app.getByRole('button', { name: 'Ghi ERROR', exact: true }).click();await app.getByRole('button', { name: 'Ghi 120 dòng', exact: true }).click();
   await wait('LOGS.real-stdout-stderr-received', async () => { const d = await history();return d.state === 'RECEIVING' && d.errorCount === 1 && d.logCount >= 125; });
   facts.beforeRestart = await history();save();

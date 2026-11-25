@@ -22,9 +22,9 @@ const definitionsRoute = config.baseURL + '/ui/platform/resource-definitions';
 async function ensureApplication(){
  if (!receipt.appId) {
    await page.goto(config.baseURL+'/ui/applications/new');
-   await page.getByLabel('Tên ứng dụng',{exact:true}).fill(receipt.name);
+   await page.getByLabel('Tên dịch vụ',{exact:true}).fill(receipt.name);
    const posted=page.waitForResponse(r=>r.request().method()==='POST' && new URL(r.url()).pathname==='/api/v1/applications');
-   await page.getByRole('button',{name:'Tạo ứng dụng',exact:true}).click();
+   await page.getByRole('button',{name:'Tạo dịch vụ',exact:true}).click();
    const response=await posted; assert(response.ok(),'Application create failed');
    const body=await response.json(); receipt.appId=body.application.key??body.application.id; save();
   }
@@ -63,7 +63,7 @@ try {
     const rule=page.getByRole('region',{name:'Trường hợp 1',exact:true});
     await rule.getByRole('button',{name:'+ Thêm điều kiện',exact:true}).click();
     await page.getByLabel('Trường hợp 1 thuộc tính 1',{exact:true}).selectOption('app_id');
-    await page.getByLabel('Điều kiện 1 ID ứng dụng',{exact:true}).fill(receipt.appId);
+    await page.getByLabel('Điều kiện 1 ID dịch vụ',{exact:true}).fill(receipt.appId);
    }
    const posted = page.waitForResponse(r=>r.request().method()==='POST' && r.url().endsWith('/resource-definitions'));
    await page.getByRole('button',{name:'Đăng ký cấu hình tài nguyên',exact:true}).click();
@@ -149,10 +149,10 @@ try {
   await page.locator('.danger-zone').getByRole('button').click();
   const reply=await preview;assert(reply.ok());const {preview:scope}=await reply.json();
   assert(!scope.blocked&&scope.token,'Deletion blocked; inspect product scope');assert.equal(scope.confirmationName,receipt.name);
-  const dialog=page.getByRole('dialog',{name:'Xóa ứng dụng',exact:true});
+  const dialog=page.getByRole('dialog',{name:'Xóa dịch vụ',exact:true});
   await dialog.locator('input').fill(receipt.name);
   const admission=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith('/deletions'));
-  await dialog.getByRole('button',{name:'Xóa vĩnh viễn ứng dụng',exact:true}).click();
+  await dialog.getByRole('button',{name:'Xóa vĩnh viễn dịch vụ',exact:true}).click();
   const admitted=await admission;assert(admitted.ok());receipt.deletion=(await admitted.json()).deletion;save();
   const deadline=Date.now()+600000;
   for(;;){

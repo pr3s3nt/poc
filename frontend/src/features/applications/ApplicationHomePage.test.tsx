@@ -605,7 +605,7 @@ it('tracks a delivery-only transfer with no workload graph without losing the re
   const user = userEvent.setup(); render(<ApplicationHomePage application={application} />);
   await screen.findByText('api'); await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
   expect(await screen.findByText('Không đổi cluster hoặc dữ liệu')).toBeInTheDocument();
-  expect(screen.getByText(/api · Ứng dụng · 2 tài nguyên/)).toBeInTheDocument();
+  expect(screen.getByText(/api · Dịch vụ · 2 tài nguyên/)).toBeInTheDocument();
   await user.click(await screen.findByRole('button', { name: 'Triển khai các thay đổi này' }));
   expect(await screen.findByRole('heading', { name: 'Triển khai thành công' })).toBeInTheDocument();
   expect(await screen.findByText('SUCCEEDED · COMPLETED')).toBeInTheDocument(); expect(submits).toBe(1);

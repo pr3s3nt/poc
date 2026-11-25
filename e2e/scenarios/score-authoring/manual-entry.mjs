@@ -13,9 +13,9 @@ const session=await openConsole(config,{}),{page}=session;page.setDefaultTimeout
 let failure;
 try {
  await page.goto(config.baseURL+'/ui/applications/new');
- await page.getByLabel('Tên ứng dụng',{exact:true}).fill(receipt.name);
+ await page.getByLabel('Tên dịch vụ',{exact:true}).fill(receipt.name);
  const created=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/v1/applications');
- await page.getByRole('button',{name:'Tạo ứng dụng',exact:true}).click();
+ await page.getByRole('button',{name:'Tạo dịch vụ',exact:true}).click();
  const creation=await created;assert(creation.ok());const {application}=await creation.json();receipt.appId=application.key??application.id;save();
  const base=`/api/v1/applications/${receipt.appId}/environments/staging`;
  await page.goto(config.baseURL+`/ui/applications/${receipt.appId}/environments/staging/workloads/new`);

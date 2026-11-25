@@ -117,10 +117,10 @@ describe('account diagnostics tab', () => {
     expect(await within(dialog).findByText('Chọn ít nhất một use case.')).toBeInTheDocument();
     expect(calls.some((c) => c.method === 'POST')).toBe(false);
     await u.click(within(dialog).getByLabelText('Cơ sở dữ liệu'));
-    await u.selectOptions(await within(dialog).findByLabelText('Ứng dụng (tùy chọn)'), 'shop');
+    await u.selectOptions(await within(dialog).findByLabelText('Dịch vụ (tùy chọn)'), 'shop');
     await u.click(within(dialog).getByLabelText(/Thực thi/));
     await u.click(within(dialog).getByRole('button', { name: 'Bắt đầu kiểm tra' }));
-    expect(await within(dialog).findByText('Chọn môi trường của ứng dụng.')).toBeInTheDocument();
+    expect(await within(dialog).findByText('Chọn môi trường của dịch vụ.')).toBeInTheDocument();
     await u.selectOptions(within(dialog).getByLabelText('Môi trường'), 'staging');
     await u.click(within(dialog).getByRole('button', { name: 'Bắt đầu kiểm tra' }));
     await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ version: 3, purpose: 'USE_CASE', mode: 'EXECUTION', useCases: ['database'], application: 'shop', environment: 'staging' }));
@@ -188,7 +188,7 @@ describe('account diagnostics tab', () => {
     release();
     await tick();
     expect(screen.queryByText(/API Kubernetes/)).not.toBeInTheDocument();
-    expect(screen.getAllByText('Ngữ cảnh ứng dụng').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Ngữ cảnh dịch vụ').length).toBeGreaterThan(0);
   });
 
   it('exports only the safe report with its scope, limits and findings', async () => {
@@ -303,7 +303,7 @@ describe('report selection', () => {
     expect(within(dialog).getByLabelText('Cache')).toBeChecked();
     expect(within(dialog).getByLabelText('Triển khai')).not.toBeChecked();
     expect(within(dialog).getByLabelText(/Thực thi/)).toBeChecked();
-    await waitFor(() => expect(within(dialog).getByLabelText('Ứng dụng (tùy chọn)')).toHaveValue('shop'));
+    await waitFor(() => expect(within(dialog).getByLabelText('Dịch vụ (tùy chọn)')).toHaveValue('shop'));
     await u.click(within(dialog).getByRole('button', { name: 'Bắt đầu kiểm tra' }));
     await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({ purpose: 'USE_CASE', mode: 'EXECUTION', useCases: ['database', 'cache'], application: 'shop', environment: 'staging' }));
     await waitFor(() => expect(onChanged).toHaveBeenCalled());

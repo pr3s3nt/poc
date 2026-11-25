@@ -49,9 +49,9 @@ try {
     const name = `chinhform-${receipt.run}`;
     assert(!(await json(dev.context, '/applications')).applications.some(a => a.name === name), 'Application outcome needs reconciliation');
     await page.goto(`${devConfig.baseURL}/ui/applications/new`);
-    await page.getByLabel('Tên ứng dụng', { exact: true }).fill(name);
+    await page.getByLabel('Tên dịch vụ', { exact: true }).fill(name);
     const reply = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/applications');
-    await page.getByRole('button', { name: 'Tạo ứng dụng', exact: true }).click();
+    await page.getByRole('button', { name: 'Tạo dịch vụ', exact: true }).click();
     const response = await reply; assert.equal(response.status(), 201);
     receipt.appKey = (await response.json()).application.key; receipt.stage = 'application-created'; record();
   }

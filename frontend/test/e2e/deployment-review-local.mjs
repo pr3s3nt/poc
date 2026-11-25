@@ -16,7 +16,7 @@ const check=(name,value)=>{if(!value)throw Error(name);assertions.push(name);};
 try{
  await page.goto(`${base}/ui/sign-in`);
  await page.getByLabel('Tên đăng nhập').fill('platform-engineer');await page.getByLabel('Mật khẩu').fill('test-password');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
- await expect(page.getByRole('heading',{name:'Ứng dụng của bạn'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Dịch vụ của bạn'})).toBeVisible();
  const h=createHuman(page,{fast:true});
  const app=await createApplication(h,`Deployment Review QA ${Date.now()}`, `review-${Date.now().toString().slice(-8)}`);
  const prefix=`/api/v1/applications/${app}/environments/staging`;

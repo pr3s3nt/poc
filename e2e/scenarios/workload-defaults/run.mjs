@@ -51,7 +51,7 @@ function verifyWeb(replicas,policy){
 try{
  app=(await get('/applications')).applications.find(a=>a.name===name);
  if(!app&&mode==='run'){
- await page.goto(config.baseURL+'/ui/applications/new');await page.getByLabel('Tên ứng dụng',{exact:true}).fill(name);const created=await submit('/applications','POST',page.getByRole('button',{name:'Tạo ứng dụng',exact:true}));app=created.application;
+ await page.goto(config.baseURL+'/ui/applications/new');await page.getByLabel('Tên dịch vụ',{exact:true}).fill(name);const created=await submit('/applications','POST',page.getByRole('button',{name:'Tạo dịch vụ',exact:true}));app=created.application;
  }
  if(mode==='cleanup'&&!app&&state.cleanupPassed){console.log('PASS recorded cleanup');}
  else{
@@ -83,7 +83,7 @@ try{
  const workloads=(await get(base+'/workloads')).workloads;
  if(workloads.some(w=>w.id==='web')){page.on('dialog',d=>d.accept());await page.goto(config.baseURL+`/ui/applications/${app.key}?environment=staging`);const row=page.locator('.table-row').filter({has:page.locator('.workload-name').filter({hasText:/web$/})});await submit(base+'/workloads/web','DELETE',row.getByRole('button',{name:'Xóa',exact:true}));await deploy('remove')}
  for(const kind of ['rolebinding','role']){const text=native(['-n',namespace,'get',kind,'bootstrap-fleet-access','--ignore-not-found','-o','json']);if(!text.trim())continue;const object=JSON.parse(text);assert.equal(object.metadata.labels['bootstrap.orchestrator.dev/application'],app.key);native(['delete','--raw',`/apis/rbac.authorization.k8s.io/v1/namespaces/${namespace}/${kind}s/bootstrap-fleet-access`,'-f','-'],JSON.stringify({apiVersion:'v1',kind:'DeleteOptions',preconditions:{uid:object.metadata.uid}}))}
- await page.goto(config.baseURL+`/ui/applications/${app.key}/settings?environment=staging`);await page.getByRole('region',{name:'Xóa ứng dụng',exact:true}).getByRole('button',{name:'Xóa ứng dụng',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Xóa ứng dụng',exact:true});await dialog.getByRole('textbox').fill(name);await submit(`/applications/${app.key}/deletions`,'POST',dialog.getByRole('button',{name:'Xóa vĩnh viễn ứng dụng',exact:true}));await page.getByRole('heading',{name:'Ứng dụng của bạn',exact:true}).waitFor({timeout:600000});assert.equal(native(['get','namespace',namespace,'--ignore-not-found','-o','name']).trim(),'');state.cleanupPassed=true;save();console.log('PASS product cleanup and namespace absence');
+ await page.goto(config.baseURL+`/ui/applications/${app.key}/settings?environment=staging`);await page.getByRole('region',{name:'Xóa dịch vụ',exact:true}).getByRole('button',{name:'Xóa dịch vụ',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Xóa dịch vụ',exact:true});await dialog.getByRole('textbox').fill(name);await submit(`/applications/${app.key}/deletions`,'POST',dialog.getByRole('button',{name:'Xóa vĩnh viễn dịch vụ',exact:true}));await page.getByRole('heading',{name:'Dịch vụ của bạn',exact:true}).waitFor({timeout:600000});assert.equal(native(['get','namespace',namespace,'--ignore-not-found','-o','name']).trim(),'');state.cleanupPassed=true;save();console.log('PASS product cleanup and namespace absence');
  }
  }
 }catch(error){state.failure={message:error.message,time:new Date().toISOString()};save();await screenshot('failure');throw error}finally{await closeConsole(session,config)}

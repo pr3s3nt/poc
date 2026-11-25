@@ -45,18 +45,18 @@ try {
   }
   await page.goto(`${config.baseURL}/ui/applications/${state.appID}/settings?environment=staging`);
   if (body.application.status === 'DELETING') {
-   await page.getByRole('region',{name:'Tiến trình xóa ứng dụng',exact:true}).getByRole('button',{name:'Thử lại',exact:true}).click();
+   await page.getByRole('region',{name:'Tiến trình xóa dịch vụ',exact:true}).getByRole('button',{name:'Thử lại',exact:true}).click();
   } else {
-   await page.getByRole('region',{name:'Xóa ứng dụng',exact:true}).getByRole('button',{name:'Xóa ứng dụng',exact:true}).click();
+   await page.getByRole('region',{name:'Xóa dịch vụ',exact:true}).getByRole('button',{name:'Xóa dịch vụ',exact:true}).click();
   }
-  const dialog=page.getByRole('dialog',{name:'Xóa ứng dụng',exact:true});
+  const dialog=page.getByRole('dialog',{name:'Xóa dịch vụ',exact:true});
   await expect(dialog.getByRole('region',{name:'staging',exact:true})).toContainText('Workload sẽ bị gỡ: 0');
   await expect(dialog.getByRole('region',{name:'production',exact:true})).toContainText('Tài nguyên sẽ bị xóa: 0');
   await dialog.getByRole('textbox').fill(state.appName);
   await page.screenshot({path:join(run,'ui-evidence','deletion-confirmation.png'),fullPage:true});
-  await dialog.getByRole('button',{name:'Xóa vĩnh viễn ứng dụng',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Ứng dụng của bạn',exact:true})).toBeVisible({timeout:20*60_000});
-  await expect(page.getByRole('status').filter({hasText:`Đã xóa ứng dụng ${state.appName}.`})).toBeVisible();
+  await dialog.getByRole('button',{name:'Xóa vĩnh viễn dịch vụ',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Dịch vụ của bạn',exact:true})).toBeVisible({timeout:20*60_000});
+  await expect(page.getByRole('status').filter({hasText:`Đã xóa dịch vụ ${state.appName}.`})).toBeVisible();
  }
  expect((await page.request.get(`${config.baseURL}/api/v1/applications/${state.appID}`)).status()).toBe(404);
  expect(kube('get','namespace',state.namespace,'--ignore-not-found','-o','name').trim()).toBe('');

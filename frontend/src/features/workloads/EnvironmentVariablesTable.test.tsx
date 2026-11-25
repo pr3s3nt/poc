@@ -120,8 +120,8 @@ it('projects literal, shared Variable/Secret, secret output and Service without 
   await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên' }));
   await user.type(screen.getByLabelText('Alias tài nguyên'), 'db'); await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'postgres');
   await addRow(user, 1, 'LOG'); await user.type(table().getByLabelText('Giá trị nhập, dòng 1'), 'debug');
-  await addRow(user, 2, 'REGION'); await reference(user, 2, 'Ứng dụng / API_URL');
-  await addRow(user, 3, 'TOKEN'); await reference(user, 3, 'Ứng dụng / DATABASE_PASSWORD Bí mật');
+  await addRow(user, 2, 'REGION'); await reference(user, 2, 'Dịch vụ / API_URL');
+  await addRow(user, 3, 'TOKEN'); await reference(user, 3, 'Dịch vụ / DATABASE_PASSWORD Bí mật');
   await addRow(user, 4, 'DB_HOST'); await reference(user, 4, 'db.host');
   await addRow(user, 5, 'DB_PASSWORD'); await reference(user, 5, 'db.password Bí mật');
   await addRow(user, 6, 'BACKEND_URL'); await reference(user, 6, 'db-api / http');
@@ -141,26 +141,26 @@ it('searches only scoped shared keys, declared outputs and eligible Services, ne
   expect(dialog.queryByRole('button',{name:/api \/ self|deleted \/ http|no-service/})).not.toBeInTheDocument();
   expect(dialog.getByRole('button',{name:'db-api / http'})).toBeInTheDocument();
   await user.type(dialog.getByRole('searchbox'),'API_URL');
-  expect(dialog.getByRole('button',{name:'Ứng dụng / API_URL'})).toBeInTheDocument();
-  expect(dialog.queryByRole('button',{name:'Ứng dụng / LOG_LEVEL'})).not.toBeInTheDocument();
+  expect(dialog.getByRole('button',{name:'Dịch vụ / API_URL'})).toBeInTheDocument();
+  expect(dialog.queryByRole('button',{name:'Dịch vụ / LOG_LEVEL'})).not.toBeInTheDocument();
 });
 
 it('preserves an entered name, suggests only for a blank Application key and permits repeated references',async()=>{
   const api=serve();const user=userEvent.setup();await newWorkload(user);
-  await addRow(user,1,'');await reference(user,1,'Ứng dụng / API_URL');expect(table().getByLabelText('Tên biến, dòng 1')).toHaveValue('API_URL');
-  await addRow(user,2,'ALIAS');await reference(user,2,'Ứng dụng / API_URL');await user.click(save());
+  await addRow(user,1,'');await reference(user,1,'Dịch vụ / API_URL');expect(table().getByLabelText('Tên biến, dòng 1')).toHaveValue('API_URL');
+  await addRow(user,2,'ALIAS');await reference(user,2,'Dịch vụ / API_URL');await user.click(save());
   expect(api.puts()[0]!.workload.containers.main?.variables).toEqual({API_URL:'${resources.env.API_URL}',ALIAS:'${resources.env.API_URL}'});
 });
 
 it('clears old source payload when returning to direct entry and leaves shared values untouched',async()=>{
-  const api=serve();const user=userEvent.setup();await newWorkload(user);await addRow(user,1,'TOKEN');await reference(user,1,'Ứng dụng / DATABASE_PASSWORD Bí mật');
+  const api=serve();const user=userEvent.setup();await newWorkload(user);await addRow(user,1,'TOKEN');await reference(user,1,'Dịch vụ / DATABASE_PASSWORD Bí mật');
   const dialog=await picker(user);await user.click(dialog.getByRole('button',{name:'Nhập giá trị trực tiếp'}));
   expect(table().getByLabelText('Giá trị nhập, dòng 1')).toHaveValue('');await user.type(table().getByLabelText('Giá trị nhập, dòng 1'),'plain');await user.click(save());
   expect(api.puts()[0]!.workload.containers.main?.variables).toEqual({TOKEN:'plain'});expect(api.puts()[0]!.workload.resources).toBeUndefined();expect(api.configurationChanged()).toHaveLength(0);
 });
 
 it('removes one mapping without deleting the key or other aliases',async()=>{
-  const api=serve();const user=userEvent.setup();await newWorkload(user);await addRow(user,1,'A');await reference(user,1,'Ứng dụng / API_URL');await addRow(user,2,'B');await reference(user,2,'Ứng dụng / API_URL');
+  const api=serve();const user=userEvent.setup();await newWorkload(user);await addRow(user,1,'A');await reference(user,1,'Dịch vụ / API_URL');await addRow(user,2,'B');await reference(user,2,'Dịch vụ / API_URL');
   await user.click(table().getByRole('button',{name:'Xóa biến A, dòng 1'}));await user.click(save());
   expect(api.puts()[0]!.workload.containers.main?.variables).toEqual({B:'${resources.env.API_URL}'});expect(api.calls.some(c=>c.method==='DELETE')).toBe(false);
 });
@@ -169,7 +169,7 @@ it('creates a shared variable with create-only semantics and keeps the parent dr
   const api=serve();const user=userEvent.setup();await newWorkload(user);await addRow(user,1,'REGION');const dialog=await create(user,'Tạo biến');
   expect(dialog.getByLabelText('Tên key')).toHaveValue('REGION');await user.type(dialog.getByLabelText('Giá trị'),'eu-west');await user.click(dialog.getByRole('button',{name:'Tạo và chọn'}));
   await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-  expect(api.creates()[0]!.body).toEqual({name:'REGION',kind:'VARIABLE',value:'eu-west',version:1});expect(table().getByRole('button',{name:'Đổi nguồn, dòng 1'})).toHaveTextContent('Ứng dụng / REGION');expect(api.puts()).toHaveLength(0);
+  expect(api.creates()[0]!.body).toEqual({name:'REGION',kind:'VARIABLE',value:'eu-west',version:1});expect(table().getByRole('button',{name:'Đổi nguồn, dòng 1'})).toHaveTextContent('Dịch vụ / REGION');expect(api.puts()).toHaveLength(0);
 });
 
 it('marks an entered literal in the draft and creates it only after bulk confirmation',async()=>{
@@ -192,7 +192,7 @@ it('cancelling bulk confirmation preserves the entered literal and marker withou
 it('duplicate create never overwrites and selecting existing remains explicit',async()=>{
   const api=serve({create:()=>Response.json({code:'DUPLICATE'},{status:409})});const user=userEvent.setup();await newWorkload(user);await addRow(user,1,'LOG_LEVEL');const dialog=await create(user,'Tạo biến');
   await user.type(dialog.getByLabelText('Giá trị'),'trace');await user.click(dialog.getByRole('button',{name:'Tạo và chọn'}));await dialog.findByRole('alert');expect(api.creates()).toHaveLength(1);expect(api.puts()).toHaveLength(0);
-  expect(table().getByLabelText('Giá trị nhập, dòng 1')).toHaveValue('');await user.click(dialog.getByRole('button',{name:'Dùng key hiện có'}));expect(table().getByRole('button',{name:'Đổi nguồn, dòng 1'})).toHaveTextContent('Ứng dụng / LOG_LEVEL');expect(api.configurationChanged()).toHaveLength(0);
+  expect(table().getByLabelText('Giá trị nhập, dòng 1')).toHaveValue('');await user.click(dialog.getByRole('button',{name:'Dùng key hiện có'}));expect(table().getByRole('button',{name:'Đổi nguồn, dòng 1'})).toHaveTextContent('Dịch vụ / LOG_LEVEL');expect(api.configurationChanged()).toHaveLength(0);
 });
 
 it('Escape closes source search and returns focus without losing a typed value',async()=>{
@@ -202,7 +202,7 @@ it('Escape closes source search and returns focus without losing a typed value',
 
 it('keeps unavailable imported references visible and blocks Save without retargeting',async()=>{
   const api=serve({workloads:[{id:'api',ready:true,workload:{apiVersion:'orchestrator.dev/workload/v1',metadata:{name:'api'},containers:{main:{image:'i',variables:{MISSING:'${resources.env.REMOVED}',OUTPUT:'${resources.db.missing}'}}},resources:{env:{type:'environment'},db:{type:'postgres'}}}}],types:[postgres]});const user=userEvent.setup();render(<WorkloadEditorPage application={application} environment="staging" workloadId="api"/>);await screen.findByRole('heading',{name:'Sửa api'});
-  expect(table().getByRole('button',{name:'Đổi nguồn, dòng 1'})).toHaveTextContent('Ứng dụng / REMOVED');expect(table().getByRole('button',{name:'Đổi nguồn, dòng 2'})).toHaveTextContent('db.missing');await user.click(save());expect(api.puts()).toHaveLength(0);expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
+  expect(table().getByRole('button',{name:'Đổi nguồn, dòng 1'})).toHaveTextContent('Dịch vụ / REMOVED');expect(table().getByRole('button',{name:'Đổi nguồn, dòng 2'})).toHaveTextContent('db.missing');await user.click(save());expect(api.puts()).toHaveLength(0);expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
 });
 
 it('saves empty, whitespace and placeholder-looking values exactly and escapes ${...} typed in the form', async () => {
@@ -346,7 +346,7 @@ it('does not replay a create whose outcome is unknown: it asks for a review firs
   const api = serve({ create: () => { throw new TypeError('network'); } });
   const user = userEvent.setup();
   await newWorkload(user);
-  await addRow(user, 1, 'NEW_KEY', 'Biến của ứng dụng');
+  await addRow(user, 1, 'NEW_KEY', 'Biến của dịch vụ');
   await create(user, 'Tạo biến');
   const dialog = screen.getByRole('dialog', { name: 'Tạo biến' });
   await user.type(within(dialog).getByLabelText('Giá trị'), 'v');
@@ -365,7 +365,7 @@ it('keeps the form and does not retry on a stale or busy create', async () => {
   const api = serve({ create: (_, call) => replies[call - 1]! });
   const user = userEvent.setup();
   await newWorkload(user);
-  await addRow(user, 1, 'NEW_KEY', 'Biến của ứng dụng');
+  await addRow(user, 1, 'NEW_KEY', 'Biến của dịch vụ');
   await create(user, 'Tạo biến');
   const dialog = screen.getByRole('dialog', { name: 'Tạo biến' });
   await user.type(within(dialog).getByLabelText('Giá trị'), 'v');
@@ -418,7 +418,7 @@ it('applies the late reply of a running create to the row that opened the dialog
   const api = serve({ create: () => gate(gates) });
   const user = userEvent.setup();
   await newWorkload(user);
-  await addRow(user, 1, 'FIRST', 'Biến của ứng dụng');
+  await addRow(user, 1, 'FIRST', 'Biến của dịch vụ');
   await create(user, 'Tạo biến');
   const dialog = screen.getByRole('dialog', { name: 'Tạo biến' });
   await user.type(within(dialog).getByLabelText('Giá trị'), 'v');
@@ -434,7 +434,7 @@ it('applies the late reply of a running create to the row that opened the dialog
     gates[0]!.resolve(Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 2, secretStoreKey: 'vault-a', keys: [...catalogKeys, { name: 'FIRST', kind: 'VARIABLE', configured: true, value: 'v', usedBy: [] }] }, { status: 201 }));
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  expect(table().getByRole('button', { name: 'Đổi nguồn, dòng 1' })).toHaveTextContent('Ứng dụng / FIRST');
+  expect(table().getByRole('button', { name: 'Đổi nguồn, dòng 1' })).toHaveTextContent('Dịch vụ / FIRST');
   expect(api.puts()).toHaveLength(0);
 });
 
@@ -445,7 +445,7 @@ it('drops the reply of a create started in the previous Environment: no key, row
   const user = userEvent.setup();
   const view = render(<WorkloadEditorPage application={application} environment="staging" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
-  await addRow(user, 1, 'FIRST', 'Biến của ứng dụng');
+  await addRow(user, 1, 'FIRST', 'Biến của dịch vụ');
   await create(user, 'Tạo biến');
   const dialog = screen.getByRole('dialog', { name: 'Tạo biến' });
   await user.type(within(dialog).getByLabelText('Giá trị'), 'v');
@@ -453,7 +453,7 @@ it('drops the reply of a create started in the previous Environment: no key, row
   await waitFor(() => expect(gates).toHaveLength(1));
   view.rerender(<WorkloadEditorPage application={application} environment="production" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
-  await addRow(user, 1, 'OTHER', 'Biến của ứng dụng');
+  await addRow(user, 1, 'OTHER', 'Biến của dịch vụ');
   await create(user, 'Tạo biến');
   await act(async () => {
     gates[0]!.resolve(Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 2, keys: [...catalogKeys, { name: 'FIRST', kind: 'VARIABLE', configured: true, value: 'v', usedBy: [] }] }, { status: 201 }));
@@ -506,7 +506,7 @@ it('renders direct entry and the shared source picker in English', async () => {
     expect(region.queryByRole('combobox')).not.toBeInTheDocument();
     await user.click(region.getByRole('button', { name: 'Choose source, row 1' }));
     const dialog = within(screen.getByRole('dialog', { name: 'Choose an existing value' }));
-    expect(dialog.getByRole('button', { name: 'Application / DATABASE_PASSWORD Secret' })).toBeInTheDocument();
+    expect(dialog.getByRole('button', { name: 'Service / DATABASE_PASSWORD Secret' })).toBeInTheDocument();
     await user.click(dialog.getByRole('button', { name: 'Create secret' }));
     expect(within(screen.getByRole('dialog', { name: 'Create secret' })).getByRole('button', { name: 'Create and select' })).toBeInTheDocument();
   } finally { setCatalogs('vi', read('vi.json')); }
@@ -518,8 +518,8 @@ it('preserves imported literal and repeated shared references in the form', asyn
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="importer" />);
   await screen.findByRole('heading', { name: 'Sửa importer' });
   // Without an authored order (GW-09) rows are sorted: A, B, LEVEL, TOKEN.
-  expect(table().getByRole('button', { name: 'Đổi nguồn, dòng 1' })).toHaveTextContent('Ứng dụng / API_URL');
-  expect(table().getByRole('button', { name: 'Đổi nguồn, dòng 2' })).toHaveTextContent('Ứng dụng / API_URL');
+  expect(table().getByRole('button', { name: 'Đổi nguồn, dòng 1' })).toHaveTextContent('Dịch vụ / API_URL');
+  expect(table().getByRole('button', { name: 'Đổi nguồn, dòng 2' })).toHaveTextContent('Dịch vụ / API_URL');
   expect(table().getByLabelText('Giá trị nhập, dòng 3')).toHaveValue('debug');
   expect(table().getByLabelText('Bí mật, dòng 4')).toBeChecked();
   await user.click(save()); expect(api.puts()[0]!.workload.containers.main?.variables).toEqual(workload.containers.main.variables);
@@ -565,7 +565,7 @@ it('retains local edits on catalog failure and distinguishes it from an empty li
 it('serializes Object prototype names as own variables rather than dropping mappings', async () => {
   const keys: ConfigKey[] = ['__proto__', 'constructor', 'toString'].map((name) => ({ name, kind: 'VARIABLE', configured: true, value: 'v', usedBy: [] }));
   const api = serve({ keys }); const user = userEvent.setup(); await newWorkload(user);
-  for (const [i, key] of keys.entries()) { await addRow(user, i + 1, ''); await reference(user, i + 1, `Ứng dụng / ${key.name}`); }
+  for (const [i, key] of keys.entries()) { await addRow(user, i + 1, ''); await reference(user, i + 1, `Dịch vụ / ${key.name}`); }
   await user.click(save());
   const variables = api.puts()[0]!.workload.containers.main?.variables ?? {};
   expect(Object.keys(variables)).toEqual(['__proto__', 'constructor', 'toString']);
@@ -583,9 +583,9 @@ it('does not leak a late catalog response from staging into production source se
   await waitFor(() => expect(gates).toHaveLength(1));
   view.rerender(<WorkloadEditorPage application={application} environment="production" />);
   await screen.findByRole('heading', { name: 'Thông tin cơ bản' }); await addRow(user, 1, 'K'); const dialog = await picker(user);
-  expect(dialog.getByRole('button', { name: 'Ứng dụng / PROD_ONLY' })).toBeInTheDocument();
+  expect(dialog.getByRole('button', { name: 'Dịch vụ / PROD_ONLY' })).toBeInTheDocument();
   await act(async () => { gates[0]!.resolve(Response.json({ version: 1, keys: catalogKeys })); await new Promise((resolve) => setTimeout(resolve, 0)); });
-  expect(dialog.queryByRole('button', { name: 'Ứng dụng / API_URL' })).not.toBeInTheDocument();
+  expect(dialog.queryByRole('button', { name: 'Dịch vụ / API_URL' })).not.toBeInTheDocument();
 });
 
 

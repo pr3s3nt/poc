@@ -36,21 +36,21 @@ try{
    await page.goto(`${config.baseURL}/ui/platform/resource-definitions`);await page.getByRole('button',{name:'Tạo cấu hình',exact:true}).click();await registerK8sModuleDefinition(kit,spec);
   }
   if(!(await get('/resource-definitions')).resourceDefinitions.some(d=>d.key==='catalog-renderer')){
-  await page.getByRole('link',{name:/(^|\s)Mẫu dựng ứng dụng$/}).click();
+  await page.getByRole('link',{name:/(^|\s)Mẫu dựng dịch vụ$/}).click();
   await page.getByLabel('ID mẫu',{exact:true}).fill('catalog-renderer');await page.getByLabel('Tên hiển thị',{exact:true}).fill('Catalog workload');
   await page.getByLabel('Git HTTPS URL',{exact:true}).fill(source.url);await page.getByLabel('Thư mục bundle',{exact:true}).fill('backend/template-sources/standard');await page.getByLabel('Tag hoặc commit',{exact:true}).fill(source.ref);
   const inspected=page.waitForResponse(r=>r.url().endsWith('/api/v1/template-sources/inspect'),{timeout:180000});await page.getByRole('button',{name:'Kiểm tra bundle',exact:true}).click();const response=await inspected;if(!response.ok())throw new Error(`bundle inspect ${response.status()}`);
-  await page.getByRole('button',{name:'Dùng gợi ý namespace',exact:true}).click();await page.getByRole('button',{name:'Dùng gợi ý cluster',exact:true}).click();await page.getByRole('button',{name:'Đăng ký mẫu dựng ứng dụng',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Đã đăng ký mẫu dựng ứng dụng catalog-renderer.'})).toBeVisible();
+  await page.getByRole('button',{name:'Dùng gợi ý namespace',exact:true}).click();await page.getByRole('button',{name:'Dùng gợi ý cluster',exact:true}).click();await page.getByRole('button',{name:'Đăng ký mẫu dựng dịch vụ',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Đã đăng ký mẫu dựng dịch vụ catalog-renderer.'})).toBeVisible();
   }
  }
- await page.getByRole('link',{name:/(^|\s)Ứng dụng$/}).click();const existing=(await get('/applications')).applications.find(item=>item.name===input.applicationName);if(existing&&previousScope?.applicationKey!==existing.key)throw new Error('Refusing to reuse an application without this run evidence/ownership record');input.applicationKey=existing?.key??await createApplication(h,input.applicationName,`catalog-${runId}`);await page.goto(`${config.baseURL}/ui/applications/${input.applicationKey}`);
+ await page.getByRole('link',{name:/(^|\s)Dịch vụ$/}).click();const existing=(await get('/applications')).applications.find(item=>item.name===input.applicationName);if(existing&&previousScope?.applicationKey!==existing.key)throw new Error('Refusing to reuse an application without this run evidence/ownership record');input.applicationKey=existing?.key??await createApplication(h,input.applicationName,`catalog-${runId}`);await page.goto(`${config.baseURL}/ui/applications/${input.applicationKey}`);
  kit=makeKit({page,context,h,input,baseURL:config.baseURL,evidenceDir:evidence,rec,caption(){},phase(){},forwarders:[]});
  const appPath=`/applications/${input.applicationKey}/environments/staging`;const home=()=>page.goto(`${config.baseURL}/ui/applications/${input.applicationKey}`);
  const apps=(await get('/applications')).applications;const app=apps.find(a=>a.key===input.applicationKey);input.namespace=app.environments.find(e=>e.key==='staging').namespaceIdentity ?? `app-${input.applicationKey}-staging`;
  writeFileSync(`${evidence}/scope.json`,JSON.stringify({runId,applicationKey:input.applicationKey,namespace:input.namespace,context:input.kube.context,buildRef:process.env.WC_BUILD_REF,gitSourceRef:source.ref},null,2));
  async function createStateful(){
  await page.getByRole('button',{name:'+ Thêm Workload',exact:true}).click();await expect(page.getByRole('dialog',{name:'Chọn loại workload'})).toBeVisible();await page.screenshot({path:`${evidence}/picker.png`});
- await page.getByRole('button',{name:/Ứng dụng có dữ liệu/}).click();await page.getByLabel('Tên Workload',{exact:true}).fill('stateful');await page.getByLabel('Ảnh Container',{exact:true}).fill(process.env.WC_IMAGE??'busybox:1.37');
+ await page.getByRole('button',{name:/Dịch vụ có dữ liệu/}).click();await page.getByLabel('Tên Workload',{exact:true}).fill('stateful');await page.getByLabel('Ảnh Container',{exact:true}).fill(process.env.WC_IMAGE??'busybox:1.37');
  await page.getByRole('button',{name:'Hiện nâng cao Container 1',exact:true}).click();await page.getByLabel('Lệnh (mỗi dòng một phần tử)',{exact:true}).fill('sh\n-c');await page.getByLabel('Tham số (mỗi dòng một phần tử)',{exact:true}).fill('test -f /data/proof || echo retained-'+runId+' > /data/proof; exec httpd -f -p 8080 -h /data');
  await page.getByRole('button',{name:'+ Thêm tài nguyên',exact:true}).click();
  // The shared dependency controls use explicit labels; no API fixture creates the PVC.
@@ -159,11 +159,11 @@ try{
  record('owned-namespace-cleaned',kubectl(['get','namespace',input.namespace,'--ignore-not-found','-o','name'])==='');
 
  await page.goto(`${config.baseURL}/ui/applications/${input.applicationKey}/settings?environment=staging`);
- await page.getByRole('button',{name:'Xóa ứng dụng',exact:true}).click();
- const deletionDialog=page.getByRole('dialog',{name:'Xóa ứng dụng',exact:true});
- await deletionDialog.getByLabel(`Nhập tên ứng dụng (${input.applicationName})`,{exact:true}).fill(input.applicationName);
+ await page.getByRole('button',{name:'Xóa dịch vụ',exact:true}).click();
+ const deletionDialog=page.getByRole('dialog',{name:'Xóa dịch vụ',exact:true});
+ await deletionDialog.getByLabel(`Nhập tên dịch vụ (${input.applicationName})`,{exact:true}).fill(input.applicationName);
  const deleted=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith(`/applications/${input.applicationKey}/deletions`));
- await deletionDialog.getByRole('button',{name:'Xóa vĩnh viễn ứng dụng',exact:true}).click();
+ await deletionDialog.getByRole('button',{name:'Xóa vĩnh viễn dịch vụ',exact:true}).click();
  const deletionResponse=await deleted;if(!deletionResponse.ok())throw new Error(`application deletion admission ${deletionResponse.status()}`);
  const {deletion:applicationAdmission}=await deletionResponse.json();
  await expect.poll(async()=>{const {deletion}=await get(`/applications/${input.applicationKey}/deletions/${applicationAdmission.operationId}`);if(deletion.status==='FAILED')throw new Error(`application deletion ${deletion.failureCode}`);return deletion.applicationStatus;},{timeout:120000,intervals:[1500]}).toBe('DELETED');

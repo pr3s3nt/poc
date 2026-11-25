@@ -99,7 +99,7 @@ try {
     await h.type(page.getByLabel('Tên đăng nhập'), user);
     await h.type(page.getByLabel('Mật khẩu'), 'test-password');
     await h.click(page.getByRole('button', { name: 'Đăng nhập' }));
-    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible();
     await h.pause(SHORT_READ);
   }
   async function signOut() {
@@ -172,17 +172,17 @@ try {
 
   // 3. Developer creates an Application: name and subdomain only.
   await signIn('developer');
-  await h.click(page.getByRole('button', { name: '+ Tạo ứng dụng' }).first());
-  await expect(page.getByRole('heading', { name: 'Tạo ứng dụng', level: 1 })).toBeVisible();
+  await h.click(page.getByRole('button', { name: '+ Tạo dịch vụ' }).first());
+  await expect(page.getByRole('heading', { name: 'Tạo dịch vụ', level: 1 })).toBeVisible();
   const applicationName = `Environment ${runId}`;
-  await h.type(page.getByLabel('Tên ứng dụng'), applicationName);
+  await h.type(page.getByLabel('Tên dịch vụ'), applicationName);
   await h.type(page.getByLabel('Subdomain'), runId, { replace: true });
   await expect(page.getByLabel('Connection', { exact: true })).toHaveCount(0);
   await h.moveTo(page.getByText(/Chọn kết nối cho từng môi trường sau/));
   mark('create-form-no-connection');
   await h.pause(READ);
   const createRequest = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/applications');
-  await h.click(page.getByRole('button', { name: 'Tạo ứng dụng' }));
+  await h.click(page.getByRole('button', { name: 'Tạo dịch vụ' }));
   expect((await createRequest).postDataJSON()).toEqual({ name: applicationName, subdomain: runId });
   await expect(page.getByRole('heading', { name: applicationName })).toBeVisible();
   const appId = new URL(page.url()).pathname.match(/\/applications\/([^/]+)$/)?.[1];

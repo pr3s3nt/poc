@@ -71,7 +71,7 @@ async function signIn(user) {
   await page.getByLabel('Tên đăng nhập').fill(user);
   await page.getByLabel('Mật khẩu').fill('test-password');
   await page.getByRole('button', { name: 'Đăng nhập' }).click();
-  await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible();
 }
 const api = async (path, init) => {
   const response = await page.request.fetch(`${URL_BASE}/api/v1${path}`, init);
@@ -124,7 +124,7 @@ async function startFromConfigure({ uses, application, environment, mode, unuse 
     for (const use of unuse) { const box = dialog.getByLabel(use, { exact: true }); if (await box.isChecked()) await box.uncheck(); }
     for (const use of uses) { const box = dialog.getByLabel(use, { exact: true }); if (!(await box.isChecked())) await box.check(); }
     if (application) {
-      await dialog.getByLabel('Ứng dụng (tùy chọn)').selectOption(application);
+      await dialog.getByLabel('Dịch vụ (tùy chọn)').selectOption(application);
       await dialog.getByLabel('Môi trường', { exact: true }).selectOption(environment);
     }
     await dialog.getByLabel(mode === 'EXECUTION' ? /Thực thi/ : /Điều kiện/).check();
@@ -378,7 +378,7 @@ try {
     await developer.getByLabel('Tên đăng nhập').fill('developer');
     await developer.getByLabel('Mật khẩu').fill('test-password');
     await developer.getByRole('button', { name: 'Đăng nhập' }).click();
-    await expect(developer.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
+    await expect(developer.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible();
     const denied = await developer.request.get(`${URL_BASE}/api/v1/driver-accounts/${state.accountKey}/diagnostics`);
     record('DG-E08.developer-forbidden', denied.status() === 403, `HTTP ${denied.status()}`);
     record('DG-E01.connection-unchanged', (await api(`/driver-accounts/${state.accountKey}`)).body.version === baseline.version, `account version stayed ${baseline.version} through every run`);

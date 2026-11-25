@@ -22,7 +22,7 @@ export function SetupPage() {
   }, []);
   useEffect(() => { void refresh(); }, [refresh, step]);
   const complete = progress && progress.git && progress.kubernetes && progress.vault && progress.cd && progress.types > 0 && progress.definitions > 0;
-  return <div className="page setup-page"><header className="page-header"><div><h1>{t('setup.title')}</h1></div><Button tone="secondary" onClick={() => void refresh()}>{t('setup.refresh')}</Button></header>
+  return <div className="page setup-page"><header className="page-header"><div><h1>{t('setup.title')}</h1><p>{t('setup.description')}</p></div><Button tone="secondary" onClick={() => void refresh()}>{t('setup.refresh')}</Button></header>
     {error ? <p role="alert" className="form-error">{error}</p> : null}
     <nav aria-label={t('setup.steps')} className="setup-steps">{steps.map((name, index) => <Button key={name} tone={step === name ? 'primary' : 'secondary'} aria-current={step === name ? 'step' : undefined} onClick={() => setStep(name)}>{index + 1}. {t(`setup.step.${name}`)} · {t(progress ? name === 'catalog' ? progress.types > 0 && progress.definitions > 0 ? 'setup.configured' : 'setup.missing' : progress[name] ? name === 'git' ? 'setup.configured' : 'setup.verified' : 'setup.missing' : 'setup.loading')}</Button>)}</nav>
     <p className="form-info" role="status">{t(complete ? 'setup.complete' : 'setup.incomplete')}</p>

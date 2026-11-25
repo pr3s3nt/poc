@@ -157,7 +157,7 @@ export const SCENARIOS = {
       await h.type(page.getByLabel('Mật khẩu', { exact: true }), FIXTURE_PASSWORD);
       await expect(page.getByLabel('Mật khẩu', { exact: true })).toHaveAttribute('type', 'password');
       await h.click(page.getByRole('button', { name: 'Đăng nhập', exact: true }));
-      await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn', level: 1 })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn', level: 1 })).toBeVisible();
     }
     async function signOut() {
       await h.click(page.getByRole('button', { name: 'Đăng xuất', exact: true }));
@@ -319,7 +319,7 @@ export const SCENARIOS = {
     await h.type(clusterSection.getByLabel('Tên hiển thị cluster', { exact: true }), 'Cluster k8s-4f (có sẵn)');
     await choose(form('Tài khoản Internal của cluster'), input.account.name);
     await h.click(clusterSection.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
-    await h.type(clusterSection.getByLabel('Điều kiện 1 ID ứng dụng', { exact: true }), input.applicationKey);
+    await h.type(clusterSection.getByLabel('Điều kiện 1 ID dịch vụ', { exact: true }), input.applicationKey);
     await h.type(clusterSection.getByLabel('Điều kiện 1 Class', { exact: true }), 'internal');
     await h.pause(SHORT_READ);
     await h.click(clusterSection.getByRole('button', { name: 'Đăng ký cấu hình cluster', exact: true }));
@@ -351,8 +351,8 @@ export const SCENARIOS = {
       `namespace module binds its Kubernetes provider to ${binding?.resource_ref}; no account of its own`);
 
     // Workload rendering template: literal bundle + whole namespace/cluster references + a companion namespace.
-    await h.click(nav('Mẫu dựng ứng dụng'));
-    await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng', level: 1, exact: true })).toBeVisible();
+    await h.click(nav('Mẫu dựng dịch vụ'));
+    await expect(page.getByRole('heading', { name: 'Mẫu dựng dịch vụ', level: 1, exact: true })).toBeVisible();
     await h.type(form('ID mẫu'), ids.template);
     await h.type(form('Tên hiển thị'), 'Mẫu dựng frontend (score-k8s)');
     await expect(form('Bundle dựng ứng dụng')).toHaveValue(input.bundle);
@@ -362,8 +362,8 @@ export const SCENARIOS = {
     await h.type(page.getByLabel('Descriptor tài nguyên đi kèm 1', { exact: true }), 'k8s-namespace.default#environments.@app.@env-aux');
     await h.type(page.getByLabel('Params tài nguyên đi kèm 1 (JSON object)', { exact: true }), JSON.stringify({ name: input.companionNamespace }), { replace: true });
     await h.pause(SHORT_READ);
-    await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }));
-    await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký mẫu dựng ứng dụng ${ids.template}.` })).toBeVisible();
+    await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng dịch vụ', exact: true }));
+    await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký mẫu dựng dịch vụ ${ids.template}.` })).toBeVisible();
     const storedTemplate = (await get('/resource-definitions')).resourceDefinitions.find((d) => d.key === ids.template);
     const templateVars = storedTemplate?.driverInputs?.values?.variables ?? {};
     rec.record('ui.definition.workload', 'FORM', 'ui',
@@ -585,9 +585,9 @@ export const SCENARIOS = {
     phase('PREVIEW', 'Kiểm tra phủ định: ứng dụng khác không khớp cấu hình cluster nào và hai cấu hình đồng hạng đều bị chặn ngay khi xem trước, không tạo gì và không rơi về cluster khác');
     await signOut();
     await signIn('developer');
-    await h.click(page.getByRole('button', { name: '+ Tạo ứng dụng' }).first());
-    await h.type(page.getByLabel('Tên ứng dụng', { exact: true }), input.negativeApplication.name);
-    await h.click(page.getByRole('button', { name: 'Tạo ứng dụng', exact: true }));
+    await h.click(page.getByRole('button', { name: '+ Tạo dịch vụ' }).first());
+    await h.type(page.getByLabel('Tên dịch vụ', { exact: true }), input.negativeApplication.name);
+    await h.click(page.getByRole('button', { name: 'Tạo dịch vụ', exact: true }));
     await expect(page.getByRole('heading', { name: input.negativeApplication.name })).toBeVisible();
     const negativeKey = (await get('/applications')).applications.find((a) => a.name === input.negativeApplication.name)?.key;
     // The negative Application is configured exactly like the main one (PORT and BACKEND_URL), so its Score is valid and the

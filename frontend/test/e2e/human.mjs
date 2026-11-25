@@ -145,7 +145,7 @@ export async function signIn(h) {
   await h.type(h.page.getByLabel('Tên đăng nhập'), 'developer');
   await h.type(h.page.getByLabel('Mật khẩu'), 'test-password');
   await h.click(h.page.getByRole('button', { name: 'Đăng nhập' }));
-  await expect(h.page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
+  await expect(h.page.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible();
   await h.pause(1500);
 }
 
@@ -158,10 +158,10 @@ export async function setEnvironmentConnections() {
 export async function createApplication(h, name, subdomain, { connections } = {}) {
   if (connections) throw new Error('Historical Environment Connection setup retired; author Definitions before deploying');
   const { page } = h;
-  await h.click(page.getByRole('button', { name: '+ Tạo ứng dụng' }).first());
-  await h.type(page.getByLabel('Tên ứng dụng'), name);
+  await h.click(page.getByRole('button', { name: '+ Tạo dịch vụ' }).first());
+  await h.type(page.getByLabel('Tên dịch vụ'), name);
   await h.type(page.getByLabel('Subdomain'), subdomain, { replace: true });
-  await h.click(page.getByRole('button', { name: 'Tạo ứng dụng' }));
+  await h.click(page.getByRole('button', { name: 'Tạo dịch vụ' }));
   await expect(page.getByRole('heading', { name })).toBeVisible();
   await h.pause(1500);
   const appId = new URL(page.url()).pathname.match(/\/applications\/([^/]+)$/)?.[1];
@@ -285,7 +285,7 @@ export async function addWorkload(h, spec) {
     const source = SOURCE_LABELS[binding.source] ?? binding.source;
     if (source !== 'Giá trị nhập') await h.choose(table.getByLabel(`Lấy giá trị từ, dòng ${row}`, { exact: true }), source);
     if (binding.source === 'Entered value') await h.type(table.getByLabel(`Giá trị nhập, dòng ${row}`, { exact: true }), binding.value, { replace: true });
-    if (binding.source === 'Application variable') await h.choose(table.getByLabel(`Biến của ứng dụng, dòng ${row}`, { exact: true }), binding.key);
+    if (binding.source === 'Application variable') await h.choose(table.getByLabel(`Biến của dịch vụ, dòng ${row}`, { exact: true }), binding.key);
     if (binding.source === 'Application secret') await h.choose(table.getByLabel(`Bí mật, dòng ${row}`, { exact: true }), binding.key);
     if (binding.alias) {
       await h.choose(table.getByLabel(`Tài nguyên, dòng ${row}`, { exact: true }), binding.alias);

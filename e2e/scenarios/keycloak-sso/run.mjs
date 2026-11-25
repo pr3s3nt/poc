@@ -44,7 +44,7 @@ try {
     const session = await signInContext(browser, cfg, { role: expected });
     sessions.push({ ...session, config: cfg });
     const { page } = session;
-    await page.getByRole('heading', { name: 'Ứng dụng của bạn', exact: true }).waitFor();
+    await page.getByRole('heading', { name: 'Dịch vụ của bạn', exact: true }).waitFor();
     assert.equal(await page.getByRole('link', { name: 'Loại tài nguyên', exact: true }).count(), username === 'developer' ? 0 : 1);
     assert.equal(await page.getByRole('button', { name: 'Đổi mật khẩu', exact: true }).count(), 0);
     assert.equal(await page.getByRole('link', { name: 'Người dùng', exact: true }).count(), 0);
@@ -113,7 +113,7 @@ try {
   checks.push('disabled employee existing session rejected');
   const pe = sessions[1];
   await pe.page.getByRole('button', { name: 'Đăng xuất', exact: true }).click();
-  await pe.page.getByRole('button', { name: 'Đăng nhập SSO' }).waitFor();
+  await pe.page.getByRole('button', { name: 'Đăng nhập qua Keycloak' }).waitFor();
   assert.equal((await pe.page.request.get(`${config.baseURL}/api/v1/auth/session`)).status(), 401);
   checks.push('Console sign-out revokes platform session');
   writeFileSync(`${output}/result.json`, JSON.stringify({ status: 'PASS', checks, scope: 'dedicated test realm + real PostgreSQL platform; no company Keycloak mutation' }, null, 2), { mode: 0o600 });

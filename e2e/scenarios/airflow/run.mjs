@@ -152,8 +152,8 @@ if(stage==='platform'){
 }else if(stage==='prepare'){
  if(!state.app){
   assert(!(await ui.get('/applications')).applications.some(a=>a.name===APP_NAME),'Inspect existing same-name app before adopting it');
-  await page.goto(c.baseURL+'/ui/applications/new');await page.getByLabel('Tên ứng dụng',{exact:true}).fill(APP_NAME);
-  state.app=(await ui.submit('/applications','POST',page.getByRole('button',{name:'Tạo ứng dụng',exact:true}))).application;save();
+  await page.goto(c.baseURL+'/ui/applications/new');await page.getByLabel('Tên dịch vụ',{exact:true}).fill(APP_NAME);
+  state.app=(await ui.submit('/applications','POST',page.getByRole('button',{name:'Tạo dịch vụ',exact:true}))).application;save();
  }
  const store=(await ui.get('/secret-stores')).secretStores.find(x=>x.key===input.secretStoreKey);assert(store,'Secret Store');
  const secretFiles={AIRFLOW_JWT_SECRET:dir+'/secrets/jwt-secret',AIRFLOW_API_SECRET_KEY:dir+'/secrets/api-secret-key',AIRFLOW_FERNET_KEY:dir+'/secrets/fernet-key',AIRFLOW_ADMIN_PASSWORD:dir+'/secrets/admin-password'};

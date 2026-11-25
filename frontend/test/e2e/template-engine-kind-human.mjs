@@ -102,21 +102,21 @@ try {
   // 2. Platform Engineer: register the renderer Definition for this app only.
   mark('platform-sign-in');
   await signInAs('platform-engineer');
-  await h.click(page.getByRole('link', { name: /Mẫu dựng ứng dụng/ }));
-  await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng', level: 1 })).toBeVisible();
+  await h.click(page.getByRole('link', { name: /Mẫu dựng dịch vụ/ }));
+  await expect(page.getByRole('heading', { name: 'Mẫu dựng dịch vụ', level: 1 })).toBeVisible();
   await h.pause(2000);
   const definitionKey = `render-${runId}`.slice(0, 63);
   await h.type(page.getByLabel('ID mẫu', { exact: true }), definitionKey);
   // T18: the installed bundle comes from GET /render-bundles; the only installed bundle is selected automatically.
-  await expect(page.getByLabel('Bundle dựng ứng dụng', { exact: true })).toHaveValue('score-k8s-internal-v1');
+  await expect(page.getByLabel('Bundle dựng dịch vụ', { exact: true })).toHaveValue('score-k8s-internal-v1');
   await h.pause(3000);
   const criteria = page.locator('.criteria-editor');
   await h.click(criteria.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
-  await h.type(page.getByLabel('Điều kiện 1 ID ứng dụng'), appId);
+  await h.type(page.getByLabel('Điều kiện 1 ID dịch vụ'), appId);
   await h.type(page.getByLabel('Điều kiện 1 ID môi trường'), 'staging');
   await h.pause(3000);
-  await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng' }));
-  await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký mẫu dựng ứng dụng ${definitionKey}` })).toBeVisible();
+  await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng dịch vụ' }));
+  await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký mẫu dựng dịch vụ ${definitionKey}` })).toBeVisible();
   await expect(page.locator('.catalog-entry').filter({ hasText: definitionKey })).toContainText('Bundle: score-k8s-internal-v1 · 1 điều kiện áp dụng');
   await h.moveTo(page.locator('.catalog-entry').filter({ hasText: definitionKey }));
   mark('definition-registered');

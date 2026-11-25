@@ -25,14 +25,14 @@ try {
       await expect(region.getByRole('columnheader', { name: locale === 'vi' ? 'Giá trị' : 'Value', exact: true })).toBeVisible();
       await expect(region.getByRole('combobox')).toHaveCount(0);
       const secret = region.locator('tr').filter({ has: page.locator('input[value="ACCEPTANCE_SECRET"]') });
-      await expect(secret).toContainText(locale === 'vi' ? 'Ứng dụng / ACCEPTANCE_SECRET' : 'Application / ACCEPTANCE_SECRET');
+      await expect(secret).toContainText(locale === 'vi' ? 'Dịch vụ / ACCEPTANCE_SECRET' : 'Service / ACCEPTANCE_SECRET');
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
       await region.scrollIntoViewIfNeeded();
       await page.screenshot({ path: `${evidence}/${locale}-${width}-table.png`, fullPage: true });
       await region.getByRole('button', { name: /^(Chọn|Đổi) nguồn, dòng 1$|^(Choose|Change) source, row 1$/ }).click();
       const dialog = page.getByRole('dialog');
       await expect(dialog.getByRole('searchbox')).toBeFocused();
-      await expect(dialog.getByRole('button', { name: locale === 'vi' ? 'Ứng dụng / ACCEPTANCE_CONFIG' : 'Application / ACCEPTANCE_CONFIG', exact: true })).toBeVisible();
+      await expect(dialog.getByRole('button', { name: locale === 'vi' ? 'Dịch vụ / ACCEPTANCE_CONFIG' : 'Service / ACCEPTANCE_CONFIG', exact: true })).toBeVisible();
       expect(await dialog.locator('button').allTextContents()).not.toContain('ENV_UI_UPDATED');
       await page.screenshot({ path: `${evidence}/${locale}-${width}-picker.png` });
       await page.keyboard.press('Escape'); await expect(dialog).not.toBeVisible();

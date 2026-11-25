@@ -124,7 +124,7 @@ export async function registerAwsWorkloadTemplate(kit) {
   const { page, h, nav } = kit;
   // ADR-021: inspect and register the same public Git bundle through the current UI.
   // A packaged renderer ID from the historical AWS fixture is no longer a source.
-  await h.click(nav('Mẫu dựng ứng dụng'));
+  await h.click(nav('Mẫu dựng dịch vụ'));
   await h.type(page.getByLabel('ID mẫu', { exact: true }), 'render-eks');
   await h.type(page.getByLabel('Tên hiển thị', { exact: true }), 'AWS production workload');
   const bundleSource = {
@@ -144,7 +144,7 @@ export async function registerAwsWorkloadTemplate(kit) {
   await h.click(page.getByRole('button', { name: 'Dùng gợi ý namespace', exact: true }));
   await h.type(page.getByLabel('Tham chiếu cluster', { exact: true }), CLUSTER_REF, { replace: true });
   const templateSaved = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/resource-definitions');
-  await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }));
+  await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng dịch vụ', exact: true }));
   expect((await templateSaved).status()).toBe(201);
   return { bundleSource, bundlePin };
 }
@@ -642,14 +642,14 @@ export async function awsDefinitionScenario(ctx, scenario, { forbidden }) {
     await signIn('developer');
     await kit.openApplication();
     await kit.openSettings();
-    const zone = page.getByRole('region', { name: 'Xóa ứng dụng' });
-    await h.click(zone.getByRole('button', { name: 'Xóa ứng dụng', exact: true }));
-    const dialog = page.getByRole('dialog', { name: 'Xóa ứng dụng', exact: true });
+    const zone = page.getByRole('region', { name: 'Xóa dịch vụ' });
+    await h.click(zone.getByRole('button', { name: 'Xóa dịch vụ', exact: true }));
+    const dialog = page.getByRole('dialog', { name: 'Xóa dịch vụ', exact: true });
     const stagingScope = dialog.getByRole('region', { name: 'staging' });
     await expect(stagingScope).toContainText('Workload sẽ bị gỡ: 3', { timeout: 60_000 });
     const listed = Number((await stagingScope.innerText()).match(/Tài nguyên sẽ bị xóa: (\d+)/)?.[1] ?? '0');
     rec.record('appdel.scope', 'APP_DELETION', 'ui', listed >= 5, `the dialog lists 3 workloads and ${listed} owned resources (VPC, EKS, namespace, Aurora, ElastiCache) in staging`);
-    const confirm = dialog.getByRole('button', { name: 'Xóa vĩnh viễn ứng dụng', exact: true });
+    const confirm = dialog.getByRole('button', { name: 'Xóa vĩnh viễn dịch vụ', exact: true });
     await h.type(dialog.getByRole('textbox'), input.applicationName);
     const admitted = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/deletions'));
     await h.click(confirm);
@@ -657,7 +657,7 @@ export async function awsDefinitionScenario(ctx, scenario, { forbidden }) {
     const operationId = (await admission.json()).deletion?.operationId;
     rec.record('appdel.admitted', 'APP_DELETION', 'ui', admission.status() === 202 && Boolean(operationId), `deletion ${operationId} admitted after the exact typed name`);
     writeFileSync(`${ctx.evidenceDir}/app-deletion.json`, JSON.stringify({ operationId, applicationKey: input.applicationKey }, null, 2));
-    await expect(page.getByRole('region', { name: 'Tiến trình xóa ứng dụng' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Tiến trình xóa dịch vụ' })).toBeVisible();
     const addVariable = page.getByRole('button', { name: '+ Thêm biến', exact: true });
     rec.record('appdel.frozen', 'APP_DELETION', 'ui', await addVariable.isDisabled(), 'while deleting, the Settings editing controls are locked (the server also refuses writes with 409)');
     let progress = null;
@@ -669,7 +669,7 @@ export async function awsDefinitionScenario(ctx, scenario, { forbidden }) {
     const staging = progress.environments.find((e) => e.key === 'staging');
     rec.record('appdel.succeeded', 'APP_DELETION', 'ui', progress.status === 'SUCCEEDED' && progress.applicationStatus === 'DELETED' && staging?.resources.length >= 5 && staging.resources.every((r) => r.outcome === 'DESTROYED'),
       `deletion ${progress.status}; ${staging?.resources.map((r) => `${r.descriptor.split('#')[0]}=${r.outcome}`).join(', ')}`);
-    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByRole('heading', { name: 'Dịch vụ của bạn' })).toBeVisible({ timeout: 120_000 });
     const gone = (await get('/applications')).applications.every((a) => a.key !== input.applicationKey);
     rec.record('appdel.list', 'APP_DELETION', 'ui', gone, 'the Application is gone from the list after the deletion');
     for (const layer of ['app-resources', 'eks', 'vpc']) {
