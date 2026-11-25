@@ -264,3 +264,8 @@ The platform-scoped HTTP handler delegates to catalog deletion. Persistence
 rechecks the referenced scope in the same transaction as removing the entry.
 The Console opens confirmation from the existing catalog list and reloads it
 after success. A rejection keeps the confirmation open with safe references.
+
+### Trạng thái bảo vệ catalog (issue #98)
+
+Danh sách Definition dùng cùng quy tắc bảo vệ mà API DELETE dùng. Console yêu
+cầu xác nhận với dòng đủ điều kiện và giữ dòng khi API trả xung đột tham chiếu.

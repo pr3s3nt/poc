@@ -78,3 +78,9 @@ Canonical shared collaboration: [delivery sequence](../../architecture/component
 [infrastructure sequence](../../architecture/components/infrastructure-drift-sequence.puml).
 These supplement the existing direct-path diagrams for this new design slice;
 [CDR contract](../../architecture/contracts/delivery-reconciliation.md) owns port/API semantics.
+
+### Trạng thái triển khai trong danh sách (issue #98)
+
+Application API chiếu trạng thái từ Operation, Deployment và deployment set
+trong phạm vi từng môi trường. Nhãn bản trước vẫn phục vụ cần bằng chứng
+readiness của bản trước; thiếu bằng chứng thì chỉ hiện kết quả lần Deploy.

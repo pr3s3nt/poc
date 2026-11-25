@@ -31,6 +31,8 @@ export interface EnvironmentTarget {
   targetGeneration: number;
   draftVersion: number;
   activeOperation?: EnvironmentOperation;
+  deploymentStatus?: 'NOT_DEPLOYED' | 'DEPLOYING' | 'DEPLOYED' | 'FAILED';
+  priorRevisionServing?: boolean;
   /** Actual public URLs of ready endpoint resources (ADR-037). */
   endpoints?: readonly EnvironmentEndpoint[];
 }

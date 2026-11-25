@@ -687,3 +687,9 @@ endpoint forms remain unchanged. This does not add Kubernetes Gateway discovery.
 - DEF-DEL-03: Remove the eligible Definition from the authoring catalog and
   matching. Preserve immutable deployment and revision evidence. Deletion does
   not mutate provider state or cascade to other catalog entries.
+
+## Thao tác xóa trên danh sách (issue #98)
+
+Hiện thao tác Xóa theo từng dòng đủ điều kiện và yêu cầu xác nhận. Hiện lý do
+bảo vệ theo quy tắc catalog, kể cả với Type nhập từ Git. Khi xóa bị chặn vì còn
+tham chiếu, hiện lý do và các tham chiếu được phép công bố. Giữ quy tắc #80.

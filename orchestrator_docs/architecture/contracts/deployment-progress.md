@@ -63,3 +63,11 @@ Legacy records without correlation have no timeline. Recovery adds checks to the
 adopted operation and preserves the Deploy timeline. Everyone with existing
 Environment read permission can see the conclusion, required action and checks;
 existing Recovery authorization and stopped-worker confirmation remain intact.
+
+### Chẩn đoán trực tiếp trên Application (issue #98)
+
+Application ghim mã yêu cầu theo môi trường trong URL và đọc operation theo
+mã đó để hiển thị lại timeline sau reload.
+Terraform chỉ chuyển mã nguyên nhân cố định từ stderr của bước plan sang dòng
+tiến trình. Sự kiện kubelet được phân loại ngay ở adapter, chỉ chuyển mã nguyên
+nhân, tên Pod và tên node đã kiểm tra định dạng từ metadata của Pod nếu có.

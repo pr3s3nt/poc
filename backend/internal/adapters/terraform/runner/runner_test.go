@@ -420,7 +420,7 @@ func TestActualPrivateDriftPlanInspectionPreservesLocalBaseline(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !report.InPlaceOnly() || len(report.External) != 0 || len(report.Proposed) != 1 || report.Proposed[0].Address != "terraform_data.t" {
-		t.Fatalf("local update review gate: applyable=%v complete=%v external=%d proposed=%d outputs=%d unknownOutputs=%v", report.Applyable, report.Complete, len(report.External),len(report.Proposed),len(report.OutputNames),report.OutputsUnknown)
+		t.Fatalf("local update review gate: applyable=%v complete=%v external=%d proposed=%d outputs=%d unknownOutputs=%v", report.Applyable, report.Complete, len(report.External), len(report.Proposed), len(report.OutputNames), report.OutputsUnknown)
 	}
 	raw, err := inspector.ReadSavedPlan(ctx)
 	if err != nil || len(raw) == 0 {
@@ -433,5 +433,26 @@ func TestActualPrivateDriftPlanInspectionPreservesLocalBaseline(t *testing.T) {
 	public, err := json.Marshal(report)
 	if err != nil || strings.Contains(string(public), "s3cret-value") || strings.Contains(string(public), report.PrivateChangeDigest) || strings.Contains(string(public), "reviewed-update") {
 		t.Fatal("private plan data leaked")
+	}
+}
+
+func TestPlanDigestDiagnosticIsValueFree(t *testing.T) {
+	cli := runnertest.Script(t, `printf '%s
+' 'Error: Invalid value for variable' 'image must be a digest-pinned reference (name[:tag]@sha256:<64 hex>).' 'SECRET-TOKEN-123' >&2
+exit 1
+`)
+	art := runnertest.Artifact(t, fixtureModule(), cli)
+	defer art.Close()
+	session, err := runner.New(runner.Options{}).Open(context.Background(), terraformexec.SessionRequest{
+		Artifact: art, LocalState: []byte{}, Deadline: deadline(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	_, err = session.Plan(context.Background(), terraformexec.PlanApply)
+	var step *terraformexec.StepError
+	if !errors.As(err, &step) || !step.ImageDigestRequired || strings.Contains(err.Error(), "SECRET") {
+		t.Fatalf("missing or unsafe diagnostic: %v", err)
 	}
 }

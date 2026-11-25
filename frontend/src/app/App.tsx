@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { SetupPage } from '../features/setup/SetupPage';
 import { AppShell } from './AppShell';
 import { parseRoute, navigate, type Route } from './routes';
@@ -68,6 +68,12 @@ export function App() {
     try { const response = await api<ApplicationsResponse>('/applications'); setApplications(response.applications.map(mapApplication)); setDatabasePurgeEnabled(response.databasePurgeEnabled === true); setApplicationsState('ready'); }
     catch (err) { if (!(err instanceof ApiError && err.status === 401)) setApplicationsState('error'); }
   }, []);
+  const previousRoute = useRef(route.name);
+  useEffect(() => {
+    const previous = previousRoute.current;
+    previousRoute.current = route.name;
+    if (session === 'signed-in' && previous === 'application' && route.name === 'applications') void loadApplications();
+  }, [route.name, session, loadApplications]);
   const endSession = useCallback((expired: boolean) => { setSession('signed-out'); setSessionEnded(expired); setApplications([]); setApplicationsState('loading'); navigate({ name: 'sign-in' }); }, []);
   useEffect(() => { api<SessionResponse>('/auth/session').then((response) => { setIdentity({ username: response.user.Username ?? 'developer', role: response.user.Role ?? 'DEVELOPER', authProvider: response.user.AuthProvider ?? 'local', userManagement: response.user.UserManagement ?? (response.user.AuthProvider !== 'oidc') }); setSession('signed-in'); return loadApplications(); }).catch(() => setSession('signed-out')); }, [loadApplications]);
   useEffect(() => { const expire = () => endSession(true); window.addEventListener(sessionExpiredEvent, expire); return () => window.removeEventListener(sessionExpiredEvent, expire); }, [endSession]);

@@ -1737,3 +1737,12 @@ owned full-test namespace cleanup is verified. No main merge/acceptance claimed.
 |---|---|---|
 | UC-18 DBP-01..04 | Owner maintenance CLI and one scoped PostgreSQL transaction | `TestApplicationPurgeRemovesHeldHistoryAndReleasesCatalog` |
 | UC-18 DBP-05..07 | Settings action, session-scoped API, installation opt-in and fenced PostgreSQL purge | `TestDatabasePurgeOverHTTP`, `TestWebPurgeUpgradeRollsBackOnUnexpectedGrant`, `DatabasePurgeDialog.test.tsx` |
+
+## Deployment and catalog diagnostics — issue #98
+
+| Requirements | Implementation | Focused verification |
+|---|---|---|
+| UC-09 in-place progress, reload and safe diagnostics | Operation timeline, exact review request, Terraform runner, Fleet readiness facts | Application Home reload test, `TestPlanDigestDiagnosticIsValueFree`, `TestProgressReadsOnlyCurrentOwnedPodsAndDropsRawMessages` |
+| UC-09 collector cause and recovery | Source health projection and Logging & Monitoring warning disclosure | Metrics-only interruption and recovery in `observability.test.tsx` |
+| UC-01 environment status and Preview action | Application list projection and Application Workload actions | `TestApplicationListProjectsStatusPerEnvironment`, Application shell and Home tests |
+| UC-02/03 protected and referenced catalog entries | Shared catalog protection rule and per-row confirmation | `TestCatalogDeletionRequiresScopedRoleAndNoReferences`, Type and Definition page tests |

@@ -148,3 +148,11 @@ The generic Step projection bounds these counts and maps other kinds to Other.
 Recovery records checks under the adopted lease, retaining prior heartbeat
 evidence and the Deploy timeline. Stage replacement retains the progress key
 without changing the existing semantics of other operation detail fields. Storage errors never bypass execution guards.
+
+### Theo dõi tại Application (issue #98)
+
+Console nhận mã yêu cầu khi gửi Deploy và đọc Operation cùng các Deployment
+khớp mã đó. Khi mở lại Application, Console tìm lần Deploy đã lưu của môi
+trường đang chọn rồi dùng cùng đường đọc. Terraform runner và Fleet observer
+phân loại lỗi tại nguồn. Operation lưu mã cố định và các định danh đã lọc
+trong timeline hiện hành.

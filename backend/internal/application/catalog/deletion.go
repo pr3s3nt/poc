@@ -18,15 +18,21 @@ type DeletionBlocked struct {
 
 func (e *DeletionBlocked) Error() string { return "catalog: deletion is blocked" }
 
-func (s *Service) DeleteEntry(ctx context.Context, org, key string, definition bool) error {
-	if definition && key == planning.BuiltinClusterKey {
-		return &DeletionBlocked{References: []string{"builtin"}}
+// IsDeletionProtected is the shared policy for catalog reads and deletes.
+func IsDeletionProtected(key string, definition bool) bool {
+	if definition {
+		return key == planning.BuiltinClusterKey
 	}
-	if !definition {
-		switch key {
-		case planning.TypeWorkload, planning.TypeCluster, planning.TypeNamespace, planning.TypeVPC, endpoint.GatewayType, "endpoint", "postgres", "redis":
-			return &DeletionBlocked{References: []string{"builtin"}}
-		}
+	switch key {
+	case planning.TypeWorkload, planning.TypeCluster, planning.TypeNamespace, planning.TypeVPC, endpoint.GatewayType, "endpoint", "postgres", "redis":
+		return true
+	}
+	return false
+}
+
+func (s *Service) DeleteEntry(ctx context.Context, org, key string, definition bool) error {
+	if IsDeletionProtected(key, definition) {
+		return &DeletionBlocked{References: []string{"builtin"}}
 	}
 	return s.store.DeleteCatalogEntry(ctx, org, key, definition, func(ctx context.Context) error {
 		return s.checkDeletionReferences(ctx, org, key, definition)

@@ -20,10 +20,15 @@ func (s *Server) handleResourceDefinitions(w http.ResponseWriter, r *http.Reques
 		s.writeError(w, err)
 		return
 	}
-	if definitions == nil {
-		definitions = []resource.Definition{}
+	type definitionView struct {
+		resource.Definition
+		DeletionProtected bool `json:"deletionProtected"`
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"resourceDefinitions": definitions})
+	views := make([]definitionView, 0, len(definitions))
+	for _, definition := range definitions {
+		views = append(views, definitionView{Definition: definition, DeletionProtected: catalog.IsDeletionProtected(definition.Key, true)})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"resourceDefinitions": views})
 }
 
 func (s *Server) handleRegisterResourceDefinition(w http.ResponseWriter, r *http.Request) {

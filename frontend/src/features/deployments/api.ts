@@ -60,7 +60,7 @@ export function listDeployments(app: string, env: EnvironmentKey, status?: Deplo
   return api<{ deployments: Deployment[] }>(`${scopePath(app, env)}${query}`);
 }
 
-export type ReviewOperation = { id: string; reviewRequestId?: string; status: string; stage?: string; podWaits?: PodWaitGroup[] };
+export type ReviewOperation = { id: string; reviewRequestId?: string; kind?: string; status: string; stage?: string; podWaits?: PodWaitGroup[]; progress?: ExecutionRecord };
 export const listReviewOperations = (app: string, env: EnvironmentKey, requestId?: string) => api<{ operations: ReviewOperation[] }>(`/applications/${encodeURIComponent(app)}/environments/${env}/operations${requestId ? `?reviewRequestId=${encodeURIComponent(requestId)}` : ''}`);
 
 const text = (value: unknown): value is string => typeof value === 'string';

@@ -220,3 +220,16 @@ evidence remains UNKNOWN; current-run facts always take precedence.
   private paths never enter the public progress record. Kubernetes event messages
   are reconstructed from safe reason/resource fields. Terraform logs may only be
   exposed after explicit secret filtering; raw logs remain private.
+
+## Chẩn đoán và theo dõi trực tiếp (issue #98)
+
+- Sau khi xác nhận Deploy, Application theo dõi lần chạy theo mã yêu cầu trong
+  phạm vi Application và Environment, kể cả sau khi tải lại. Tiến trình và kết
+  quả đã lưu vẫn xem được. Chi tiết triển khai tiếp tục cung cấp lịch sử.
+- Lỗi Terraform plan cho biết tài nguyên và nguyên nhân đã xác định. Lỗi yêu
+  cầu ghim digest của biến `image` chỉ dẫn định dạng `@sha256:…`.
+- Sự kiện kubelet không tạo được thư mục Pod vì filesystem chỉ đọc chỉ dẫn kiểm
+  tra mount của kubelet trên node, cùng Pod và node nếu quan sát được.
+- Cảnh báo thu thập hiển thị nguồn bị ảnh hưởng, lần thu thành công gần nhất
+  nếu có và bước kiểm tra. Lịch sử vẫn truy cập được. Thu thập mới thành công
+  cập nhật cảnh báo. Khi thiếu bằng chứng, hiển thị chưa xác định nguyên nhân.
