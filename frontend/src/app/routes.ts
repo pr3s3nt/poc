@@ -1,6 +1,6 @@
 export type TelemetryRouteQuery = { from?: string; to?: string; workload?: string; q?: string; level?: string; focus?: 'cpu' | 'memory' | 'signals' };
 
-export const documentationArticles = ['create-application', 'create-workload', 'write-env-file', 'deploy-keycloak'] as const;
+export const documentationArticles = ['create-application', 'create-workload', 'write-env-file', 'deploy-keycloak', 'deploy-passbolt'] as const;
 export type DocumentationArticle = typeof documentationArticles[number];
 
 export type Route =

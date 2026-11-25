@@ -1,0 +1,45 @@
+apiVersion: score.dev/v1b1
+metadata:
+  name: passbolt
+containers:
+  main:
+    image: passbolt/passbolt:5.18.0-3-ce@sha256:a866a0c66db49ec6b222cab1dfd75c7e6accf09253a08e7117303b16908cee09
+    command: [/bin/sh, -c]
+    args:
+      - >-
+        export APP_FULL_BASE_URL="$(printf '%s' "$APP_FULL_BASE_URL" | sed 's:/$::')";
+        exec /usr/bin/wait-for.sh -t 0 "$DATASOURCES_DEFAULT_HOST:$DATASOURCES_DEFAULT_PORT" -- /docker-entrypoint.sh
+    variables:
+      APP_FULL_BASE_URL: ${resources.public.url}
+      DATASOURCES_DEFAULT_DRIVER: 'Cake\Database\Driver\Postgres'
+      DATASOURCES_DEFAULT_ENCODING: utf8
+      DATASOURCES_DEFAULT_HOST: ${resources.db.host}
+      DATASOURCES_DEFAULT_PORT: ${resources.db.port}
+      DATASOURCES_DEFAULT_DATABASE: ${resources.db.database}
+      DATASOURCES_DEFAULT_USERNAME: ${resources.db.username}
+      DATASOURCES_DEFAULT_PASSWORD: ${resources.db.password}
+      DATASOURCES_DEFAULT_SCHEMA: public
+      SECURITY_SALT: ${resources.env.PASSBOLT_SECURITY_SALT}
+    readinessProbe:
+      httpGet:
+        path: /auth/login
+        port: 80
+service:
+  ports:
+    http:
+      port: 80
+      targetPort: 80
+resources:
+  env:
+    type: environment
+  db:
+    type: postgres
+    params:
+      database: passbolt
+      username: passbolt
+  public:
+    type: endpoint
+    params:
+      name: passbolt-demo
+      port: http
+      path: /

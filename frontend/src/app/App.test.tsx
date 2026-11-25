@@ -81,7 +81,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(articleLink).toHaveAttribute('href', '/ui/docs/create-application');
     expect(articleLink).toHaveAttribute('aria-current', 'page');
     expect(within(articleMenu).getAllByRole('link').map((item) => item.textContent?.trim())).toEqual([
-      'Tạo dịch vụ', 'Tạo Workload', 'Viết và nhập file .env', 'Ví dụ triển khai Keycloak',
+      'Tạo dịch vụ', 'Tạo Workload', 'Viết và nhập file .env', 'Ví dụ triển khai Keycloak', 'Ví dụ triển khai Passbolt',
     ]);
     expect(screen.getByRole('heading', { name: 'Tạo dịch vụ', level: 1 })).toBeInTheDocument();
     expect(screen.getByText(/cấu hình CD mặc định đã được xác minh/)).toBeInTheDocument();
@@ -93,6 +93,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     ['create-workload', 'Tạo Workload', 'Lưu và triển khai'],
     ['write-env-file', 'Viết và nhập file .env', 'Đánh dấu giá trị bí mật'],
     ['deploy-keycloak', 'Ví dụ triển khai Keycloak', '5. Kiểm tra Keycloak'],
+    ['deploy-passbolt', 'Ví dụ triển khai Passbolt', '5. Kiểm tra Passbolt'],
   ])('opens a published article at %s and marks it current', async (slug, title, section) => {
     authenticated = true;
     window.history.replaceState({}, '', `/ui/docs/${slug}`);
@@ -104,12 +105,12 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(requests.every(({ method }) => method === 'GET')).toBe(true);
   });
 
-  it('offers both Keycloak example files as downloads', async () => {
+  it.each(['keycloak', 'passbolt'])('offers both %s example files as downloads', async (app) => {
     authenticated = true;
-    window.history.replaceState({}, '', '/ui/docs/deploy-keycloak');
+    window.history.replaceState({}, '', `/ui/docs/deploy-${app}`);
     render(<App />);
-    expect(await screen.findByRole('link', { name: 'keycloak.score.yaml' })).toHaveAttribute('download', 'keycloak.score.yaml');
-    expect(screen.getByRole('link', { name: 'keycloak.extension.yaml' })).toHaveAttribute('download', 'keycloak.extension.yaml');
+    expect(await screen.findByRole('link', { name: `${app}.score.yaml` })).toHaveAttribute('download', `${app}.score.yaml`);
+    expect(screen.getByRole('link', { name: `${app}.extension.yaml` })).toHaveAttribute('download', `${app}.extension.yaml`);
   });
 
   it.each([false, true])('honors the session on a direct guide link (authenticated: %s)', async (signedIn) => {

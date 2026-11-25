@@ -1,0 +1,25 @@
+apiVersion: humanitec.org/v1b1
+profile: backend
+spec:
+  deployment:
+    replicas: 1
+  pod:
+    securityContext:
+      fsGroup: 33
+  orchestrator:
+    metadata:
+      class: default
+    containers:
+      main:
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+          runAsNonRoot: false
+          readOnlyRootFilesystem: false
+        startupProbe:
+          type: http
+          path: /auth/login
+          port: 80
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 60

@@ -5,6 +5,7 @@ import { CreateApplicationGuide } from './CreateApplicationGuide';
 import { CreateWorkloadGuide } from './CreateWorkloadGuide';
 import { EnvFileGuide } from './EnvFileGuide';
 import { KeycloakGuide } from './KeycloakGuide';
+import { PassboltGuide } from './PassboltGuide';
 import './documentation.css';
 
 const articles: Record<DocumentationArticle, { titleKey: string; Content: ComponentType }> = {
@@ -19,6 +20,10 @@ const articles: Record<DocumentationArticle, { titleKey: string; Content: Compon
   'write-env-file': {
     titleKey: 'documentation.envFile.title',
     Content: EnvFileGuide,
+  },
+  'deploy-passbolt': {
+    titleKey: 'documentation.passbolt.title',
+    Content: PassboltGuide,
   },
   'deploy-keycloak': {
     titleKey: 'documentation.keycloak.title',
