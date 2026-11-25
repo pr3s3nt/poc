@@ -215,6 +215,12 @@ Keep the identifier and key together. Omit that setting for a fresh installation
 to generate an independent key. This setting does not restore the database,
 Vault, or workspace, and cannot rotate the key on an existing installation.
 
+For a logical PostgreSQL restore, preserve the database owner and database-level
+ACL as well as schema and table grants. A custom-format dump restored into an
+existing database does not automatically restore its database-level ACL. Compare
+source and target before running the owner Job. Rehearse with the matching
+encryption key and verify the restored encrypted state can be read.
+
 ## Upgrade and backup
 
 Review target image references and configuration first and have the matching

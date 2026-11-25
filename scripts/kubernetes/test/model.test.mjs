@@ -226,6 +226,9 @@ test('optional OIDC projects private input only into the backend Pod', () => {
   const backend = manifests.find(d => d.kind === 'Deployment' && d.metadata.name === 'backend');
   assert.match(serialize([backend]), /ORCHESTRATOR_OIDC_CONFIG_FILE/);
   assert.match(serialize([backend]), /name: orchestrator-oidc/);
+  assert(!serialize([backend]).includes('ORCHESTRATOR_SETUP_TOKEN_FILE'));
+  assert(!serialize([backend]).includes('name: orchestrator-setup'));
+  assert(serialize(render(config)).includes('ORCHESTRATOR_SETUP_TOKEN_FILE'));
   assert(!serialize(manifests.filter(d => d !== backend)).includes('orchestrator-oidc'));
   assert(!serialize(manifests).includes(input.clientSecret));
   assert(!serialize(render(config)).includes('ORCHESTRATOR_OIDC_CONFIG_FILE'));

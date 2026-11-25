@@ -184,7 +184,10 @@ export function render(c,installationID='unprepared') {
    const container=pod.containers.find(item=>item.name==='backend');
    container.env.find(item=>item.name==='ORCHESTRATOR_TERRAFORM_STATE_KEY_ID').value=c.stateKeyId??defaultStateKeyId;
    if(c.oidc){
-    pod.volumes.find(volume=>volume.name==='source').projected.sources.push({secret:{name:'orchestrator-oidc'}});
+    const source=pod.volumes.find(volume=>volume.name==='source').projected;
+    source.sources=source.sources.filter(item=>item.secret?.name!=='orchestrator-setup');
+    source.sources.push({secret:{name:'orchestrator-oidc'}});
+    container.env=container.env.filter(item=>item.name!=='ORCHESTRATOR_SETUP_TOKEN_FILE');
     container.env.push({name:'ORCHESTRATOR_OIDC_CONFIG_FILE',value:'/private/oidc.json'});
    }
    if(c.oidcNetwork){
