@@ -47,6 +47,7 @@ export function PassboltGuide() {
         <li>{t('documentation.passbolt.login')}</li>
         <li>{t('documentation.passbolt.discovery')}</li>
       </ol>
+      <pre><code>{"su -m -s /bin/sh -c '/usr/share/php/passbolt/bin/cake passbolt register_user -u EMAIL -f FIRST_NAME -l LAST_NAME -r admin' www-data"}</code></pre>
       <p>{t('documentation.passbolt.bootstrap')}</p>
       <p><a href="https://www.passbolt.com/docs/hosting/install/ce/docker/">{t('documentation.passbolt.upstream')}</a></p>
     </ArticleSection>
