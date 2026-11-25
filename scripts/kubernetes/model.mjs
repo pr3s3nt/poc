@@ -2,11 +2,13 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync, lstatSync
 import { resolve, dirname, join } from 'node:path';
 import { randomBytes, randomUUID, createHash, createPublicKey, X509Certificate } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { isIP } from 'node:net';
 import { parseAllDocuments, stringify } from 'yaml';
 export const root = resolve(new URL('../..', import.meta.url).pathname);
 export const owner = 'orchestrator-installer';
 export const vaultReviewerMount = '/var/run/secrets/kubernetes.io/serviceaccount';
 const vaultReviewerVolume = 'vault-kubernetes-reviewer';
+const defaultStateKeyId = 'installation-state-key-1';
 const imageDigest = /^[^@]+@sha256:[a-f0-9]{64}$/;
 const imageTag = /(?:^|\/)[^:@/]+:\w[\w.-]{0,127}$/;
 // pg_restore --list can finish after the TOC. Drain the remaining stream so
@@ -27,6 +29,8 @@ function usesInternalTLS(config) {
 export function assertInstallationConfig(config, state) {
  requireThat(state.context === config.context && state.namespace === config.namespace && state.environment === config.environment,
   'Private inputs belong to another target');
+ requireThat((state.stateKeyId ?? defaultStateKeyId) === (config.stateKeyId ?? defaultStateKeyId),
+  'Cannot change the state key identifier of a prepared installation');
  requireThat(Boolean(state.tls) === usesInternalTLS(config), 'Cannot change internal TLS mode for a prepared installation');
  requireThat(!state.vaultKubernetesAuth || config.vaultKubernetesAuth === true,
   'Removing managed Vault Kubernetes Auth requires a separate operator procedure');
@@ -40,6 +44,17 @@ export function loadConfig(file,{complete=true}={}) {
  requireThat(typeof c.context==='string'&&c.context&&c.gateway&&c.images&&c.storage,'Missing target/configuration');
  requireThat(c.vaultKubernetesAuth === undefined || typeof c.vaultKubernetesAuth === 'boolean',
   'vaultKubernetesAuth must be a boolean');
+ requireThat(c.stateKeyId === undefined || (typeof c.stateKeyId === 'string' && /^[A-Za-z0-9._-]{1,128}$/.test(c.stateKeyId)),
+  'Invalid stateKeyId');
+ if(c.oidcNetwork !== undefined){
+  const network=c.oidcNetwork;
+  requireThat(network && typeof network==='object' && !Array.isArray(network) &&
+   Object.keys(network).every(key=>['hostname','address','ca'].includes(key)) &&
+   typeof network.hostname==='string' && /^[a-z0-9][a-z0-9.-]+$/.test(network.hostname) &&
+   typeof network.address==='string' && isIP(network.address) &&
+   typeof network.ca==='string' && network.ca.startsWith('/'),
+   'oidcNetwork requires issuer hostname, IP address and an absolute CA certificate path');
+ }
  requireThat(c.oidc === undefined || typeof c.oidc === 'boolean', 'oidc must be a boolean');
  if (c.vaultUI !== undefined) {
   requireThat(c.vaultUI && typeof c.vaultUI === 'object' && !Array.isArray(c.vaultUI) &&
@@ -81,6 +96,7 @@ export function loadOIDC(c, dir) {
   (issuer.protocol === 'https:' || (allowHTTP && issuer.protocol === 'http:')) &&
   !issuer.username && !issuer.password && !issuer.search && !issuer.hash && !input.issuer.endsWith('/'),
   'OIDC requires HTTPS and a canonical issuer URL');
+ requireThat(!c.oidcNetwork || issuer.hostname===c.oidcNetwork.hostname, 'OIDC issuer does not match the configured relay hostname');
  return input;
 }
 export function readDocuments(text) { return parseAllDocuments(text,{uniqueKeys:true}).map(d=>{requireThat(!d.errors.length,'Invalid rendered YAML');return d.toJS()}).filter(Boolean); }
@@ -143,6 +159,13 @@ export function render(c,installationID='unprepared') {
   binding.subjects[0] = {...binding.subjects[0], name:reviewerName, namespace:c.namespace};
   docs.push(...resources);
  }
+ if(c.oidcNetwork){
+  const ca=readFileSync(c.oidcNetwork.ca,'utf8');
+  requireThat(!ca.includes('PRIVATE KEY'),'OIDC trust input must contain public certificates only');
+  try{new X509Certificate(ca);}catch{throw new Error('OIDC trust input is not a PEM certificate');}
+  docs.push({apiVersion:'v1',kind:'ConfigMap',metadata:{name:'orchestrator-oidc-ca',
+   labels:{'orchestrator.dev/phase':'config'}},data:{'issuer.crt':ca}});
+ }
  if(c.vaultUI?.hostname)docs.push(...optional('httproute-vault.yaml'));
  for(const d of docs){
   d.metadata.labels={...d.metadata.labels,'app.kubernetes.io/managed-by':owner,'orchestrator.dev/installation':installationID};
@@ -157,11 +180,19 @@ export function render(c,installationID='unprepared') {
    d.data['vault.hcl']=d.data['vault.hcl'].replace(/^ui = false$/m,'ui = true');
   }
   if(c.vaultKubernetesAuth && d.kind==='Deployment' && d.metadata.name==='vault')configureVaultReviewer(pod,reviewerName);
-  if(c.oidc && d.kind==='Deployment' && d.metadata.name==='backend'){
-   pod.volumes.find(volume=>volume.name==='source').projected.sources.push({secret:{name:'orchestrator-oidc'}});
-   pod.containers.find(container=>container.name==='backend').env.push({
-    name:'ORCHESTRATOR_OIDC_CONFIG_FILE',value:'/private/oidc.json'
-   });
+  if(d.kind==='Deployment' && d.metadata.name==='backend'){
+   const container=pod.containers.find(item=>item.name==='backend');
+   container.env.find(item=>item.name==='ORCHESTRATOR_TERRAFORM_STATE_KEY_ID').value=c.stateKeyId??defaultStateKeyId;
+   if(c.oidc){
+    pod.volumes.find(volume=>volume.name==='source').projected.sources.push({secret:{name:'orchestrator-oidc'}});
+    container.env.push({name:'ORCHESTRATOR_OIDC_CONFIG_FILE',value:'/private/oidc.json'});
+   }
+   if(c.oidcNetwork){
+    pod.hostAliases=[{ip:c.oidcNetwork.address,hostnames:[c.oidcNetwork.hostname]}];
+    pod.volumes.push({name:'oidc-ca',configMap:{name:'orchestrator-oidc-ca'}});
+    container.volumeMounts.push({name:'oidc-ca',mountPath:'/run/oidc-ca',readOnly:true});
+    container.env.push({name:'SSL_CERT_DIR',value:'/etc/ssl/certs:/run/oidc-ca'});
+   }
   }
   if(pod){
    d.spec.template.metadata.labels={...d.spec.template.metadata.labels,'app.kubernetes.io/managed-by':owner,'orchestrator.dev/installation':installationID};
@@ -184,9 +215,15 @@ export function prepare(dir,c,{testCertificates=false}={}) {
  requireThat(!testCertificates || c.environment === 'kind','Test CA generation is restricted to kind');
  dir=privateDirectory(dir);const file=join(dir,'installation.json');
  if(existsSync(file)){const state=JSON.parse(privateRead(file));assertInstallationConfig(c,state);return state;}
+ const retainedKey=c.stateKeyId?privateRead(join(dir,'retained-state-key')).toString().trim():undefined;
+ if(c.stateKeyId){
+  requireThat(/^[a-fA-F0-9]{64}$/.test(retainedKey) ||
+   (/^[A-Za-z0-9+/]{43}=$/.test(retainedKey) && Buffer.from(retainedKey,'base64').length===32),
+   'Retained state key must encode exactly 32 bytes');
+ }
  requireThat(!existsSync(join(dir,'prepare-intent')),'Interrupted preparation requires operator recovery');savePrivate(join(dir,'prepare-intent'),'Preparing independent installation\n',true);
  const hex=n=>randomBytes(n).toString('hex');
- const s={id:randomUUID(),context:c.context,namespace:c.namespace,environment:c.environment,passwords:{postgres:hex(24),owner:hex(24),console:hex(24),state:hex(24)},stateKey:hex(32),setupToken:hex(32),vaultTokens:{'connection-token':'orch-'+hex(32),'output-token':'orch-'+hex(32),'app-token':'orch-'+hex(32)}};
+ const s={id:randomUUID(),context:c.context,namespace:c.namespace,environment:c.environment,passwords:{postgres:hex(24),owner:hex(24),console:hex(24),state:hex(24)},stateKey:retainedKey??hex(32),...(c.stateKeyId?{stateKeyId:c.stateKeyId}:{}),setupToken:hex(32),vaultTokens:{'connection-token':'orch-'+hex(32),'output-token':'orch-'+hex(32),'app-token':'orch-'+hex(32)}};
  if(testCertificates){
   const ca=join(dir,'ca.crt'),key=join(dir,'ca.key');
   runSSL(['req','-x509','-newkey','rsa:3072','-nodes','-keyout',key,'-out',ca,'-days','30','-subj','/CN=Orchestrator kind fixture']);

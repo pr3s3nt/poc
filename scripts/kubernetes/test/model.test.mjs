@@ -241,3 +241,23 @@ test('optional OIDC projects private input only into the backend Pod', () => {
   rmSync(dir, {recursive:true, force:true});
  }
 });
+
+test('preparation pins the retained key and does not relabel it on rerun',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'installer-state-key-'));
+ try {
+  const c={...config,environment:'staging',stateKeyId:'retained-key-1'};
+  const file=join(dir,'retained-state-key');
+  writeFileSync(file,'invalid',{mode:0o600});
+  assert.throws(()=>prepare(dir,c),/encode exactly 32 bytes/);
+  writeFileSync(file,'ab'.repeat(32)+'\n');
+  const state=prepare(dir,c);
+  assert.equal(state.stateKey,'ab'.repeat(32));
+  assert.equal(state.stateKeyId,'retained-key-1');
+  assert.throws(()=>prepare(dir,{...c,stateKeyId:'another-key'}),/Cannot change the state key identifier/);
+  const backend=render(c).find(d=>d.kind==='Deployment'&&d.metadata.name==='backend');
+  assert(backend.spec.template.spec.containers[0].env.some(e=>e.name==='ORCHESTRATOR_TERRAFORM_STATE_KEY_ID'&&e.value==='retained-key-1'));
+  assert(!serialize(render(c)).includes(state.stateKey));
+ } finally {
+  rmSync(dir,{recursive:true,force:true});
+ }
+});

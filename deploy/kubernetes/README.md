@@ -146,7 +146,11 @@ the same `--private` directory as the installation state, with mode 0600:
 }
 ```
 
-Use the exact issuer from the realm discovery document. The Console origin must
+Use the exact issuer from the realm discovery document. When an isolated cluster
+needs a dedicated issuer relay, the optional `oidcNetwork` object sets
+`hostname`, `address` (relay IP) and `ca` (absolute path to a PEM certificate).
+Configure the relay and trust before enabling OIDC. Its hostname must be the
+issuer hostname, and the issuer URL and TLS validation stay in effect.  The Console origin must
 match the installation scheme and hostname. Use HTTPS with a certificate trusted
 by the backend. Only an isolated kind installation may opt in to HTTP with
 `"allowHttp": true`. Omit `localTestAdminUsername` if no local Admin should
@@ -201,6 +205,15 @@ Private state and Kubernetes Secrets must remain together with their matching da
 Check requires all four single replicas running and validates ownership, Secret
 data, database installation identity, dependency readiness and HTTPRoute
 Accepted/ResolvedRefs conditions. It never creates missing credentials.
+
+## Retained state key for a restore rehearsal
+
+When restoring a retained database and Terraform state into a newly prepared
+installation, save the matching key as `retained-state-key` in the private
+directory and set `stateKeyId` to its original identifier before `prepare`.
+Keep the identifier and key together. Omit that setting for a fresh installation
+to generate an independent key. This setting does not restore the database,
+Vault, or workspace, and cannot rotate the key on an existing installation.
 
 ## Upgrade and backup
 

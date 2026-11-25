@@ -207,7 +207,8 @@ try{
   const key=scoped(['exec','-i','deployment/postgres','--','psql','-U','orchestrator','-d','orchestrator',
    '-At','-v','ON_ERROR_STOP=1','-v','organization='+oidc.organizationKey],query).trim();
   requireThat(key==='1','OIDC Organization must already exist in this installation');
-  const discovery=scoped(['exec','deployment/backend','-c','backend','--','wget','-q','-T','10','-O','-',
+  const trust=c.oidcNetwork ? ['env','SSL_CERT_FILE=/run/oidc-ca/issuer.crt'] : [];
+  const discovery=scoped(['exec','deployment/backend','-c','backend','--',...trust,'wget','-q','-T','10','-O','-',
    oidc.issuer+'/.well-known/openid-configuration']);
   requireThat(JSON.parse(discovery).issuer===oidc.issuer,'OIDC discovery issuer does not match');
  }
