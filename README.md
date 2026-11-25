@@ -43,3 +43,7 @@ README này.
 
 PlantUML source (`.puml`) là artifact diagram chuẩn; ảnh `.png` đi kèm phục vụ
 review. Product backend dùng Go; Web Console dùng React + TypeScript strict.
+
+## Deployment
+
+Install and upgrade Orchestrator with the [Kubernetes package](deploy/kubernetes/README.md). Docker Compose is available for local development and tests.

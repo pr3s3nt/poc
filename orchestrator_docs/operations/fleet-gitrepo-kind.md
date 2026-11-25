@@ -25,7 +25,7 @@ as setup provenance, not a current executable acceptance procedure.
 - Private manifest repository: `pr3s3nt/poc-fleet-gitops`, branch `main`.
 - Local writable clone: `/home/thanhnt1/idp_lab/read_code/poc-fleet-gitops`.
 - Fleet GitRepo: `fleet-local/poc-workloads`, declared in
-  [`deploy/kind/fleet-poc-gitrepo.yaml`](../../deploy/kind/fleet-poc-gitrepo.yaml).
+  [`deploy/kind/fleet-poc-gitrepo.yaml`](https://github.com/pr3s3nt/poc/blob/087b1cae896c11b3762962c3fd79bd54890446ea/deploy/kind/fleet-poc-gitrepo.yaml).
 - Fleet's read-only SSH deploy key is outside the repository under the owner's
   `.local/share/poc-fleet/`; its Kubernetes SSH auth Secret is
   `fleet-local/fleet-poc-gitops-ro`.
@@ -73,7 +73,7 @@ The current Harbor chart exposes only a ClusterIP. A BusyBox sample image was
 mirrored to `library/busybox:1.37-poc` for verification; no source build was
 performed. The kind node reaches Harbor at `10.96.91.170:80`; HTTP registry
 access was configured on that node from
-[`deploy/kind/harbor-containerd-hosts.toml`](../../deploy/kind/harbor-containerd-hosts.toml)
+[`deploy/kind/harbor-containerd-hosts.toml`](https://github.com/pr3s3nt/poc/blob/087b1cae896c11b3762962c3fd79bd54890446ea/deploy/kind/harbor-containerd-hosts.toml)
 under `/etc/containerd/certs.d/10.96.91.170:80/hosts.toml`. This is kind-only
 and not a production TLS pattern. The Service IP and node config must be
 rechecked if Harbor or the cluster is recreated. Pod reachability alone does

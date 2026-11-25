@@ -18,7 +18,7 @@ in the product namespace is the technical setup shared with earlier Fleet scenar
 ## Prerequisites
 
 - A Console built from the branch in its own namespace on `kind-k8s-4f`
-  ([kind manifests](../../../deploy/kind-k8s-4f/README.md)), seeded with
+  ([kind manifests](../../../deploy/kubernetes/README.md)), seeded with
   `scripts/bootstrap/seed-api.mjs` (Git, cluster account, Vault store, Fleet CD) and
   `seed-definitions.mjs` (cluster, namespace, PostgreSQL `in-cluster`, Redis,
   storage, workload template from this branch).

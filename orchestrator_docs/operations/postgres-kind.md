@@ -7,13 +7,12 @@ last_reviewed: 2026-10-12
 
 # Orchestrator PostgreSQL on kind
 
-This is a dedicated, persistent PostgreSQL 16 instance in namespace
-`orchestrator-system` on `kind-idp-internal`. It does not use the `idp` or
-`harbor` databases. Installation is an explicit cluster mutation:
+This runbook records the previous dedicated PostgreSQL installation. For new
+installations, use the [Kubernetes package](../../deploy/kubernetes/README.md).
 
-```bash
-bash scripts/install-orchestrator-postgres-kind.sh
-```
+The previous setup used a persistent PostgreSQL 16 instance in namespace
+`orchestrator-system` on `kind-idp-internal`. It does not use the `idp` or
+`harbor` databases. The [installer used at the time](https://github.com/pr3s3nt/poc/blob/087b1cae896c11b3762962c3fd79bd54890446ea/scripts/install-orchestrator-postgres-kind.sh) is retained in Git history.
 
 The script requires current context `kind-idp-internal`, creates an owner-labeled
 namespace, an owner-only local password file outside the repository, Kubernetes

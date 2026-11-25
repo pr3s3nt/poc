@@ -24,7 +24,7 @@ Fleet scenarios.
 ## Prerequisites
 
 - A Console built from the branch, installed in its own namespace on
-  `kind-k8s-4f` per [kind manifests](../../../deploy/kind-k8s-4f/README.md), seeded
+  `kind-k8s-4f` per [kind manifests](../../../deploy/kubernetes/README.md), seeded
   with `scripts/bootstrap/seed-api.mjs` (Git, cluster account, Vault store, Fleet
   CD) and `seed-definitions.mjs` (cluster, namespace, PostgreSQL `in-cluster`,
   Redis `in-cluster`, persistent storage, and a workload Definition whose template

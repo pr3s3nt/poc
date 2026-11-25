@@ -2309,8 +2309,8 @@ Expected canonical role ARN/unique RoleId are verified through IMDSv2 + STS/IAM;
 role accounts store no credential object, retain Organization/version guards and
 support rename/reverification. Terraform has an authenticated per-invocation
 refresh source; readiness and EKS reuse explicit scoped identity resolution.
-The Console hides access keys/replacement for EC2 accounts. Full-stack EC2 Compose
-is available through `deploy/ec2/start.sh`.
+The Console hides access keys/replacement for EC2 accounts. The
+[former EC2 deployment](https://github.com/pr3s3nt/poc/blob/087b1cae896c11b3762962c3fd79bd54890446ea/deploy/ec2/start.sh) is retained in Git history.
 
 Local Go/frontend/docs checks and real PostgreSQL persistence checks passed.
 Live EC2 UI registration/rename/reverify and a production-binder Terraform VPC
@@ -2678,3 +2678,13 @@ installer tests and an actual retained-dump listing pass. No product tree change
 from the accepted full-suite sources. Both feature branches are removed; Docker
 trials and the kind trial are stopped with data retained. Main stays running.
 See [main integration](verification/2026-11-18-setup-kubernetes-main.md).
+
+## Kubernetes deployment consolidation — issue #101
+
+The feature branch uses the [Kubernetes package](../deploy/kubernetes/README.md)
+for installations and upgrades, with Docker Compose for local development and
+tests. The retained kind Console was moved to an installer-owned namespace.
+Both login methods, account/Application identities and the restored state were
+verified. The previous installation workloads are stopped and their storage is
+retained for rollback. See the
+[migration verification](verification/2026-11-25-kubernetes-only-deployment.md).

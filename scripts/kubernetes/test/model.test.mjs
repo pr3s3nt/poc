@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,readFileSync,writeFileSync,mkdirSync,chmodSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {render,readDocuments,serialize,assertNamespace,assertInstallationConfig,sameSecret,privateDirectory,loadConfig,owner,prepare,desiredSecrets,archiveListingScript,vaultReviewerMount} from '../model.mjs';
+import {render,readDocuments,serialize,assertNamespace,assertInstallationConfig,sameSecret,privateDirectory,loadConfig,loadOIDC,owner,prepare,desiredSecrets,archiveListingScript,vaultReviewerMount} from '../model.mjs';
 const config={environment:'kind',context:'kind-test',namespace:'owned-test',hostname:'test.example.com',scheme:'http',gateway:{name:'gateway',namespace:'infra',listener:'web'},storage:{class:'standard',postgres:'8Gi',vault:'4Gi',backend:'8Gi'},images:{backend:'orchestrator-backend:test',frontend:'orchestrator-frontend:test',postgres:'postgres:16-alpine',vault:'hashicorp/vault:1.21'}};
 test('all overlays render without secrets; kind substitutions and least-consumer mounts are explicit',()=>{
  for(const environment of ['kind','staging','production']){
@@ -207,4 +207,60 @@ test('archive listing drains a large stdin after early TOC completion and preser
   writeFileSync(fake,'#!/bin/sh\nprintf "archive listing\\n"\nexit 0\n',{mode:0o700});assert.equal(run(),'archive listing\n');
   writeFileSync(fake,'#!/bin/sh\nexit 7\n');assert.throws(run,e=>e.status===7&&!e.code);
  }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+test('optional OIDC projects private input only into the backend Pod', () => {
+ const dir = mkdtempSync(join(tmpdir(), 'installer-oidc-'));
+ const c = {...config, oidc:true, scheme:'https'};
+ const file = join(dir, 'oidc.json');
+ const input = {
+  issuer:'https://sso.example.com/realms/platform', clientId:'orchestrator',
+  clientSecret:'fixture-only-client-secret', publicUrl:'https://test.example.com',
+  organizationKey:'platform'
+ };
+ try {
+  writeFileSync(file, JSON.stringify(input), {mode:0o600});
+  assert.equal(loadOIDC(config, dir), undefined);
+  assert.deepEqual(loadOIDC(c, dir), input);
+  const manifests = render(c);
+  const backend = manifests.find(d => d.kind === 'Deployment' && d.metadata.name === 'backend');
+  assert.match(serialize([backend]), /ORCHESTRATOR_OIDC_CONFIG_FILE/);
+  assert.match(serialize([backend]), /name: orchestrator-oidc/);
+  assert(!serialize([backend]).includes('ORCHESTRATOR_SETUP_TOKEN_FILE'));
+  assert(!serialize([backend]).includes('name: orchestrator-setup'));
+  assert(serialize(render(config)).includes('ORCHESTRATOR_SETUP_TOKEN_FILE'));
+  assert(!serialize(manifests.filter(d => d !== backend)).includes('orchestrator-oidc'));
+  assert(!serialize(manifests).includes(input.clientSecret));
+  assert(!serialize(render(config)).includes('ORCHESTRATOR_OIDC_CONFIG_FILE'));
+  const state = {passwords:{postgres:'pg',owner:'owner',console:'console',state:'state'}, id:'test',stateKey:'key',setupToken:'setup'};
+  const secret = desiredSecrets(c, state, {oidc:input}).find(d => d.metadata.name === 'orchestrator-oidc');
+  assert.deepEqual(JSON.parse(Buffer.from(secret.data['oidc.json'], 'base64')), input);
+  assert.throws(() => loadOIDC({...c, hostname:'another.example.com'}, dir), /Console origin/);
+  writeFileSync(file, JSON.stringify({...input, allowHttp:true}));
+  assert.throws(() => loadOIDC({...c, environment:'staging'}, dir), /restricted to kind/);
+  chmodSync(file, 0o644);
+  assert.throws(() => loadOIDC(c, dir), /owner-only/);
+ } finally {
+  rmSync(dir, {recursive:true, force:true});
+ }
+});
+
+test('preparation pins the retained key and does not relabel it on rerun',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'installer-state-key-'));
+ try {
+  const c={...config,environment:'staging',stateKeyId:'retained-key-1'};
+  const file=join(dir,'retained-state-key');
+  writeFileSync(file,'invalid',{mode:0o600});
+  assert.throws(()=>prepare(dir,c),/encode exactly 32 bytes/);
+  writeFileSync(file,'ab'.repeat(32)+'\n');
+  const state=prepare(dir,c);
+  assert.equal(state.stateKey,'ab'.repeat(32));
+  assert.equal(state.stateKeyId,'retained-key-1');
+  assert.throws(()=>prepare(dir,{...c,stateKeyId:'another-key'}),/Cannot change the state key identifier/);
+  const backend=render(c).find(d=>d.kind==='Deployment'&&d.metadata.name==='backend');
+  assert(backend.spec.template.spec.containers[0].env.some(e=>e.name==='ORCHESTRATOR_TERRAFORM_STATE_KEY_ID'&&e.value==='retained-key-1'));
+  assert(!serialize(render(c)).includes(state.stateKey));
+ } finally {
+  rmSync(dir,{recursive:true,force:true});
+ }
 });

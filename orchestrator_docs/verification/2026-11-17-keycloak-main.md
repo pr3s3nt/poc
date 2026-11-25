@@ -94,7 +94,7 @@ The temporary backup Pod was removed with matching run label, UID and
 resourceVersion preconditions; its absence is verified. The completed owner
 setup Job remains as the upgrade audit record. Main services, the existing
 Tailscale Serve/forward and retained data remain available. Restart/exposure
-instructions are in the [kind Console runbook](../../deploy/kind-k8s-4f/README.md).
+instructions are in the [kind Console runbook](https://github.com/pr3s3nt/poc/blob/087b1cae896c11b3762962c3fd79bd54890446ea/deploy/kind-k8s-4f/README.md).
 
 The dedicated Keycloak preview containers are stopped after acceptance; their
 volumes and private inputs are preserved. No `down -v` or credential deletion

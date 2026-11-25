@@ -33,60 +33,13 @@ or Git module/template of its own. Traefik must support Gateway API and the
 Gateway must allow application namespaces. Endpoint registration is not proof
 of HTTPRoute, DNS or TLS reachability; these are checked after workload deploy.
 
-Approved 2026-11-06: install Orchestrator inside `kind-k8s-4f`, expose its Console
-through verified Tailscale port 3070, and import platform configuration through
-its API from the current checkout. Input YAML and credentials remain local,
-outside Git; no input ConfigMap, Secret or seed Job. This replaces the abandoned
-direct-service Go draft. Existing browser bootstrap remains separate.
+## Console prerequisite
 
-## Installation
-
-`deploy/kind/console.mjs` renders nonsecret manifests in phases `storage`, `setup`,
-`console` for a fresh, task-owned namespace `orchestrator-dev-3070`. Check ownership
-before applying; do not adopt/reset existing installations. Load the matching
-source images into kind first. Apply storage, wait for PostgreSQL/Vault readiness,
-apply setup and wait for successful Job completion, then apply console. Applying
-manifests alone does not prove readiness. No schema or product behavior changes.
-Retained upgrades follow [ADR-027 runbook](postgres-upgrades.md), never a reset.
-
-This personal dev installation uses one RWO PVC on single-node kind, with distinct
-subpaths for PostgreSQL, generated credentials, Vault and backend caches. Existing
-local bootstrap scripts generate independent owner, Console and State logins and
-state key inside the installation. Owner setup mounts owner credentials; backend
-mounts only runtime credentials and scoped Vault tokens. Backend cannot mount the
-Vault bootstrap/root material. File-backed Vault unseals using retained bootstrap
-material: this is local automation, not production HA/KMS. Keep the PVC; back up
-PostgreSQL, Vault/bootstrap, credentials, state key and caches together privately.
-
-Use a retained installation-owned frontend Service port-forward. Preserve existing
-Serve routes and verify the actual MagicDNS URL with a browser per
-[Tailscale handoff](tailscale-handoff.md). Do not remove the existing Compose stack
-or its volumes when moving the user-facing port.
-
-## Installation commands
-
-Use the current private kubeconfig and explicitly check the namespace is absent
-or has this installation's `app.kubernetes.io/managed-by=poc-local-installer`
-label. Do not use these commands to adopt an unrelated namespace. With the
-matching images already loaded:
-
-```sh
-export KUBECONFIG="$HOME/.local/state/orchestrator-dev-3070/private/kubeconfig"
-node deploy/kind/console.mjs storage | kubectl --context kind-k8s-4f apply -f -
-kubectl --context kind-k8s-4f -n orchestrator-dev-3070 wait \
-  --for=condition=available deployment/postgres deployment/vault --timeout=180s
-node deploy/kind/console.mjs setup | kubectl --context kind-k8s-4f apply -f -
-kubectl --context kind-k8s-4f -n orchestrator-dev-3070 wait \
-  --for=condition=complete job/db-setup --timeout=180s
-node deploy/kind/console.mjs console | kubectl --context kind-k8s-4f apply -f -
-kubectl --context kind-k8s-4f -n orchestrator-dev-3070 wait \
-  --for=condition=available deployment/backend deployment/frontend --timeout=180s
-```
-
-The completed owner Job is an initialization receipt, not a mechanism for
-upgrading retained data. Reusing it does not authorize a schema/image upgrade.
-Rebuild product images from `backend/` and `frontend/` for an intentional source
-upgrade, select reviewed tags and follow the database upgrade procedure first.
+Install and initialize the Console with the
+[Kubernetes package](../../deploy/kubernetes/README.md), using its kind overlay
+for a kind environment. Verify the Console route through
+[Tailscale](tailscale-handoff.md) before importing platform configuration.
+Keep input YAML and credentials private and outside Git.
 
 ## API import
 

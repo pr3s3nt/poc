@@ -74,8 +74,8 @@ directly; endpoint has no module/template inspection or attached Driver Account.
 Operator procedure: [runbook](../operations/platform-seed.md). Local CLI:
 `scripts/bootstrap/seed-api.mjs`; API orchestration, private input validation and
 rerun checks: `scripts/bootstrap/lib/api-seed.mjs`; focused tests beside it.
-Nonsecret Kubernetes installer manifests: `deploy/kind/console.mjs`; reuses
-`deploy/local/` credential/PostgreSQL/Vault scripts. Existing product registration
+Kubernetes installation: [manifests](../../deploy/kubernetes/README.md) and
+[operator CLI](../../scripts/kubernetes/run.mjs). Existing product registration
 services, HTTP authorization and schema stay unchanged.
 
 ## Readable IDP application names
@@ -253,7 +253,7 @@ Canonical behavior: [UC-04 DIAG-01..14](../usecase/UC-04/specification.md#accoun
 | Fake walking-skeleton adapters | [`backend/internal/adapters/fake`](../../backend/internal/adapters/fake/) |
 | Kubernetes executor/deployer | [`backend/internal/adapters/kubernetes`](../../backend/internal/adapters/kubernetes/) |
 | Environment public-path validation and route reconciliation | Retired by [ADR-037](../architecture/decisions/ADR-037-retire-public-routes.md); see the endpoint resource rows. | — |
-| Optional Fleet GitRepo workload delivery (kind) | [`backend/internal/adapters/gitops`](../../backend/internal/adapters/gitops/), [`deploy/kind/fleet-poc-gitrepo.yaml`](../../deploy/kind/fleet-poc-gitrepo.yaml) |
+| Optional Fleet GitRepo workload delivery (kind) | [`backend/internal/adapters/gitops`](../../backend/internal/adapters/gitops/), [historical Fleet fixture](https://github.com/pr3s3nt/poc/blob/087b1cae896c11b3762962c3fd79bd54890446ea/deploy/kind/fleet-poc-gitrepo.yaml) |
 | Terraform executor/modules/inspection | [`backend/internal/adapters/terraform`](../../backend/internal/adapters/terraform/) |
 | Seed catalog and profiles | [`backend/internal/seed`](../../backend/internal/seed/) |
 | UC-00/UC-01 Web Console and local browser verification | [`frontend/src/app`](../../frontend/src/app/), [`features/auth`](../../frontend/src/features/auth/), [`features/applications`](../../frontend/src/features/applications/), [`frontend/test/e2e/onboarding-local.mjs`](../../frontend/test/e2e/onboarding-local.mjs) and [`backend/test/integration/onboarding-playwright-local.sh`](../../backend/test/integration/onboarding-playwright-local.sh) |
@@ -754,8 +754,7 @@ Validation: [service/resolver tests](../../backend/internal/application/connecti
 [HTTP contract tests](../../backend/test/e2e/ec2_role_http_test.go),
 [Go live Terraform workload](../../backend/test/acceptance/ec2-role/main.go),
 [browser workload](../../frontend/test/e2e/ec2-role-real.mjs).
-Deployment: [EC2 Compose overlay](../../docker-compose.ec2.yml),
-[start command](../../deploy/ec2/start.sh), [Docker runbook](../operations/docker-local.md).
+Historical deployment: [EC2 Compose overlay](https://github.com/pr3s3nt/poc/blob/087b1cae896c11b3762962c3fd79bd54890446ea/docker-compose.ec2.yml).
 
 UI3-05 unified existing-cluster catalog/editor uses ResourceDefinitionsPage and
 ExistingClusterDefinition.test.tsx; the separate ExistingClusterSection was removed.

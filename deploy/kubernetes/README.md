@@ -123,6 +123,50 @@ The token is not a Git token. Organization creation permanently closes claim.
 No fixed seed account, workload instance, Application or deployment is created.
 A successful rollout or HTTPRoute condition does not replace browser/API checks.
 
+## Optional Keycloak SSO
+
+Complete [first-run setup](../../orchestrator_docs/operations/first-run-setup.md)
+in local mode before enabling SSO. Follow the
+[Keycloak SSO runbook](../../orchestrator_docs/operations/keycloak-sso.md) to
+register a confidential client, PKCE S256, the client role mapper, and the exact
+callback `https://CONSOLE_HOST/api/v1/auth/oidc/callback`. Configure GitHub or
+another upstream identity provider in the Keycloak realm.
+
+Set `"oidc": true` in the private installation config and save `oidc.json` in
+the same `--private` directory as the installation state, with mode 0600:
+
+```json
+{
+  "issuer": "https://KEYCLOAK_HOST/realms/REALM",
+  "clientId": "orchestrator",
+  "clientSecret": "KEYCLOAK_CLIENT_SECRET",
+  "publicUrl": "https://CONSOLE_HOST",
+  "organizationKey": "EXISTING_ORGANIZATION_KEY",
+  "localTestAdminUsername": "EXISTING_LOCAL_ADMIN"
+}
+```
+
+Use the exact issuer from the realm discovery document. When an isolated cluster
+needs a dedicated issuer relay, the optional `oidcNetwork` object sets
+`hostname`, `address` (relay IP) and `ca` (absolute path to a PEM certificate).
+Configure the relay and trust before enabling OIDC. Its hostname must be the
+issuer hostname, and the issuer URL and TLS validation stay in effect.  The Console origin must
+match the installation scheme and hostname. Use HTTPS with a certificate trusted
+by the backend. Only an isolated kind installation may opt in to HTTP with
+`"allowHttp": true`. Omit `localTestAdminUsername` if no local Admin should
+remain eligible in OIDC mode.
+
+Run `render` to inspect the nonsecret backend configuration, then run `upgrade`
+with the existing installation inputs. The installer checks the Organization
+and fetches issuer discovery from the running backend before stopping writers.
+It creates an installation-owned OIDC Secret and rejects mismatching bytes on
+reuse. The backend init container prepares a private copy for its runtime UID.
+Verify redirect, sign-in, role, and local Admin access through the Console.
+
+To return to local login, remove `oidc` from the private config and run the
+backed-up upgrade again. If the backend cannot start with OIDC, remove the
+option before retrying. The installer retains the OIDC Secret for reuse.
+
 ## Vault Web UI
 
 The staging sample includes `"vaultUI": {}` for private forwarding. For staging
@@ -161,6 +205,21 @@ Private state and Kubernetes Secrets must remain together with their matching da
 Check requires all four single replicas running and validates ownership, Secret
 data, database installation identity, dependency readiness and HTTPRoute
 Accepted/ResolvedRefs conditions. It never creates missing credentials.
+
+## Retained state key for a restore rehearsal
+
+When restoring a retained database and Terraform state into a newly prepared
+installation, save the matching key as `retained-state-key` in the private
+directory and set `stateKeyId` to its original identifier before `prepare`.
+Keep the identifier and key together. Omit that setting for a fresh installation
+to generate an independent key. This setting does not restore the database,
+Vault, or workspace, and cannot rotate the key on an existing installation.
+
+For a logical PostgreSQL restore, preserve the database owner and database-level
+ACL as well as schema and table grants. A custom-format dump restored into an
+existing database does not automatically restore its database-level ACL. Compare
+source and target before running the owner Job. Rehearse with the matching
+encryption key and verify the restored encrypted state can be read.
 
 ## Upgrade and backup
 

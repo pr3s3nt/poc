@@ -18,7 +18,7 @@ already present on the kind node, running `sleep`.
 ## Prerequisites
 
 - An isolated Console built from the branch under test in its own namespace on
-  `kind-k8s-4f` per [kind Console manifests](../../../deploy/kind-k8s-4f/README.md),
+  `kind-k8s-4f` per [kind Console manifests](../../../deploy/kubernetes/README.md),
   seeded with `scripts/bootstrap/seed-api.mjs`.
 - `npm ci --prefix scripts/bootstrap && npm ci --prefix e2e`, Chromium for Playwright.
 - `ORCH_TEST_RUN_DIR`: private directory outside Git with `config.json`

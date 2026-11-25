@@ -6,7 +6,7 @@ import { request as httpsRequest } from 'node:https';
 import { request as httpRequest } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { loadConfig, privateDirectory, privateRead, savePrivate, prepare, render, serialize, desiredSecrets, sameSecret, assertNamespace, assertInstallationConfig, requireThat, digest, root, owner, archiveListingScript, vaultReviewerMount } from './model.mjs';
+import { loadConfig, loadOIDC, privateDirectory, privateRead, savePrivate, prepare, render, serialize, desiredSecrets, sameSecret, assertNamespace, assertInstallationConfig, requireThat, digest, root, owner, archiveListingScript, vaultReviewerMount } from './model.mjs';
 
 const vaultAuthPath = 'auth/kubernetes/config';
 const kubernetesHost = 'https://kubernetes.default.svc:443';
@@ -23,6 +23,7 @@ try{
  if(command==='prepare') {state=prepare(dir,c,{testCertificates:options['test-certificates']===true});console.log('Private installation inputs prepared; setup token is in the private directory');process.exit(0);}
  requireThat(existsSync(statePath),'Run prepare first');state=JSON.parse(privateRead(statePath));
  assertInstallationConfig(c,state);
+ const oidc=loadOIDC(c,dir);
  const docs=render(c,state.id);
  if(command==='render'){requireThat(options.output,'Use --output to write rendered nonsecret manifests');const out=resolve(options.output);requireThat(out.startsWith(dir+'/'),'Render output must be in private directory');savePrivate(out,serialize(docs));console.log('Nonsecret manifests rendered');process.exit(0);}
  requireThat(options.context===c.context&&typeof options.kubeconfig==='string','Explicit --kubeconfig and matching --context required');
@@ -73,7 +74,7 @@ try{
   if(c.vaultUI?.hostname&&!state.vaultUIRouted){state.vaultUIRouted=true;persist();}
   apply(phase('application'));
  }
- const secrets=(includeVault=false,readOnly=false)=>{for(const d of desiredSecrets(c,state,{vault:includeVault})){
+ const secrets=(includeVault=false,readOnly=false,includeOIDC=true)=>{for(const d of desiredSecrets(c,state,{vault:includeVault,oidc:includeOIDC?oidc:undefined})){
   const old=get('secret',d.metadata.name);
   if(old){requireThat(old.metadata.labels?.['orchestrator.dev/installation']===state.id&&sameSecret(old,d),'Existing Secret conflicts; nothing rotated');}
   else {requireThat(!readOnly,'Required Secret missing; check never creates credentials');k(['create','-f','-'],JSON.stringify(d));}
@@ -201,6 +202,16 @@ try{
    for(const e of selector.matchExpressions??[]){const present=Object.hasOwn(labels,e.key),value=labels[e.key];const pass=e.operator==='In'?present&&e.values.includes(value):e.operator==='NotIn'?!present||!e.values.includes(value):e.operator==='Exists'?present:e.operator==='DoesNotExist'?!present:false;requireThat(pass,'Gateway namespace expression does not match');}
   }
  }
+ function checkOIDC(){
+  const query="SELECT 1 FROM organizations WHERE organization_key = :'organization';";
+  const key=scoped(['exec','-i','deployment/postgres','--','psql','-U','orchestrator','-d','orchestrator',
+   '-At','-v','ON_ERROR_STOP=1','-v','organization='+oidc.organizationKey],query).trim();
+  requireThat(key==='1','OIDC Organization must already exist in this installation');
+  const trust=c.oidcNetwork ? ['env','SSL_CERT_FILE=/run/oidc-ca/issuer.crt'] : [];
+  const discovery=scoped(['exec','deployment/backend','-c','backend','--',...trust,'wget','-q','-T','10','-O','-',
+   oidc.issuer+'/.well-known/openid-configuration']);
+  requireThat(JSON.parse(discovery).issuer===oidc.issuer,'OIDC discovery issuer does not match');
+ }
  async function check(){
   ownership();for(const name of ['postgres','vault','backend','frontend'])requireThat(get('deployment',name)?.spec.replicas===1,'Expected running single replica for '+name);checkGateway();assertStorage();secrets(true,true);reviewerResources('check');await readyVault();rollout('postgres');assertDatabase();rollout('vault');rollout('backend');rollout('frontend');
   for(const name of c.vaultUI?.hostname?['console','vault-ui']:['console']){
@@ -217,6 +228,7 @@ try{
    requireThat(current.spec.template.metadata.annotations?.['orchestrator.dev/release']===desired.spec.template.metadata.annotations['orchestrator.dev/release'],'Existing release differs: use upgrade with backup');
    await check();console.log('Existing installation reused without owner/credential changes');return;
   }
+  requireThat(!oidc,'Complete first-run setup in local mode before enabling OIDC through upgrade');
   reviewerResources('preflight');reviewerResources('create');
   apply(phase('config').filter(d=>d.kind!=='Namespace'));secrets();apply(phase('storage'));apply(phase('dependencies'));rollout('postgres');
   if(dependenciesOnly){const client=await vaultForward();try{await vaultState(client);}finally{client.close();}console.log('PostgreSQL ready and Vault reachable; run vault-init before install');return;}
@@ -254,7 +266,8 @@ try{
  if(command==='unseal'){ownership();const client=await vaultForward();try{await unseal(client);console.log('Vault unsealed by operator');}finally{client.close();}}
  if(command==='backup')await backup();
  if(command==='upgrade'){
-  ownership();checkGateway();secrets(true,true);reviewerResources('preflight');
+  ownership();checkGateway();secrets(true,true,false);reviewerResources('preflight');
+  if(oidc)checkOIDC();
   if(c.vaultKubernetesAuth){
    const client=await vaultForward();
    try{
@@ -263,6 +276,7 @@ try{
     await configureVaultReviewer(client,{preflight:true});
    }finally{client.close();}
   }
+  if(oidc)secrets(true);
   await backup();reviewerResources('create');
   apply(phase('config').filter(d=>d.kind!=='Namespace'));apply(phase('dependencies'));scale('vault',1);rollout('postgres');
   const client=await vaultForward();try{

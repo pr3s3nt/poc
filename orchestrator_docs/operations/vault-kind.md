@@ -11,7 +11,7 @@ The `kind-idp-internal` cluster has two Vault releases in namespace `vault`:
 the pre-existing `vault` release (development/in-memory, owns the Injector)
 and `vault-uc12` (standalone/file storage on a 1 GiB PVC). Do not replace the
 former or install a second Injector webhook. The declarative Helm values for
-the latter are [tracked here](../../deploy/kind/vault-uc12-values.yaml).
+the latter are [preserved in the historical revision](https://github.com/pr3s3nt/poc/blob/087b1cae896c11b3762962c3fd79bd54890446ea/deploy/kind/vault-uc12-values.yaml).
 
 ## Verify without reading credentials
 
