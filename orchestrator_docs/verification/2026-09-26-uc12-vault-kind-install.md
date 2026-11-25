@@ -11,7 +11,7 @@ last_reviewed: 2026-09-26
 
 Installed a second Vault release in the existing `kind-idp-internal` cluster,
 namespace `vault`, without changing the pre-existing `vault` release or its
-Agent Injector. Values: [kind Vault configuration](../../deploy/kind/vault-uc12-values.yaml).
+Agent Injector. Values: [kind Vault configuration](https://github.com/pr3s3nt/poc/blob/087b1cae896c11b3762962c3fd79bd54890446ea/deploy/kind/vault-uc12-values.yaml).
 
 ## Observations
 

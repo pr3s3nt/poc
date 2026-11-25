@@ -83,7 +83,7 @@ before/after upgrade; an initial request during forward reconnection failed and
 subsequent browser/API checks passed. Private network addresses and credentials
 are excluded from this public handoff. The final tested Console link is supplied
 in the user report. Keep the existing cluster and forwards running; restart and
-upgrade procedure: [Console manifests](../../deploy/kind-k8s-4f/README.md).
+upgrade procedure: [Console manifests](https://github.com/pr3s3nt/poc/blob/087b1cae896c11b3762962c3fd79bd54890446ea/deploy/kind-k8s-4f/README.md).
 
 Private logs/receipts remain outside Git: merge-kind, merge-acceptance/flow,
 merge-cleanup, merge-postgres, main-upgrade, main-upgrade receipt/backup archives,

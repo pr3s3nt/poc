@@ -22,7 +22,7 @@ change:
 ## Prerequisites
 
 - A Console built from the branch under test, installed in its own namespace on
-  `kind-k8s-4f` per [kind Console manifests](../../../deploy/kind-k8s-4f/README.md)
+  `kind-k8s-4f` per [kind Console manifests](../../../deploy/kubernetes/README.md)
   and seeded with `scripts/bootstrap/seed-api.mjs` (Git, cluster account, workload
   Vault with Kubernetes auth, Fleet CD, cluster/namespace/workload Definitions).
 - `npm ci --prefix scripts/bootstrap && npm ci --prefix e2e`, Chromium for Playwright.

@@ -2309,8 +2309,8 @@ Expected canonical role ARN/unique RoleId are verified through IMDSv2 + STS/IAM;
 role accounts store no credential object, retain Organization/version guards and
 support rename/reverification. Terraform has an authenticated per-invocation
 refresh source; readiness and EKS reuse explicit scoped identity resolution.
-The Console hides access keys/replacement for EC2 accounts. Full-stack EC2 Compose
-is available through `deploy/ec2/start.sh`.
+The Console hides access keys/replacement for EC2 accounts. The
+[former EC2 deployment](https://github.com/pr3s3nt/poc/blob/087b1cae896c11b3762962c3fd79bd54890446ea/deploy/ec2/start.sh) is retained in Git history.
 
 Local Go/frontend/docs checks and real PostgreSQL persistence checks passed.
 Live EC2 UI registration/rename/reverify and a production-binder Terraform VPC

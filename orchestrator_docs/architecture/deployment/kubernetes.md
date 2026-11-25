@@ -113,3 +113,26 @@ merged to main without user acceptance. Existing personal-machine scripts/manife
 remain supported. Reuse canonical policy files instead of copying policies or
 changing another installation's deployment procedure. Operational tooling is not a
 new product CLI, planner, API or executor implementation.
+
+## Deployment package consolidation
+
+New Orchestrator installations use the Kustomize package in
+`deploy/kubernetes/` and its operator CLI in `scripts/kubernetes/`. The kind
+overlay exercises the same installer lifecycle as staging and production.
+Docker Compose supports local development and tests.
+
+The retained kind Console is a legacy installation with one PVC. Migrate into
+a separately owned namespace and keep the source available for rollback.
+Do not relabel the source or change an installer ownership receipt to adopt it.
+Capture the source database, Vault storage, state encryption key and backend
+workspace while writes are stopped. Rehearse restoration before redirecting
+users. Verify the source database installation identifier, domain identities,
+Vault references and state decryptability after restoration.
+
+Confirm the Console origin and issuer remain stable for existing OIDC identities.
+Verify workloads that reference the previous Vault Service, including a fresh
+VSO authentication and reconciliation, before stopping the source Vault. Keep a
+single active Console writer at cutover. Retain source volumes and access
+configuration until the migrated installation is accepted. If rollback is needed
+after writes on the target, reconcile those writes before restoring source
+writer access.

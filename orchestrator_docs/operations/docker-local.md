@@ -128,17 +128,9 @@ patch](terraform-offline.md). Build requires Internet; packaged module
 provider installation at runtime does not. External Git sources and provider
 APIs still require their own network access.
 
-The default Compose runs `ORCHESTRATOR_ADAPTERS=kubernetes`. To execute
-Definition-driven AWS resources, add the override on every Compose command:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --build
-```
-
-It selects `-adapters aws` with the `acceptance-v2` seed profile and no seeded
-catalog. No AWS credential is configured in Compose: register an AWS Connection
-in the Console. The override creates real, billable AWS resources when a
-Deployment runs; it does not authorize any AWS run by itself.
+The local Compose stack runs with `ORCHESTRATOR_ADAPTERS=kubernetes`.
+For installation and upgrades use the
+[Kubernetes deployment guide](../../deploy/kubernetes/README.md).
 
 ## Stop, restart and troubleshoot
 

@@ -29,9 +29,8 @@ Environment secrets. Task logs are fetched from the scheduler by Pod IP
 
 - Retained Console `orchestrator-dev-3070` on `kind-k8s-4f` with its seeded Git,
   cluster account, Fleet default binding and `Dev Platform Vault`.
-- Vault Kubernetes auth for workloads: apply
-  `deploy/kind-k8s-4f/04-vault-kubernetes-auth.yaml`, then run
-  `deploy/kind-k8s-4f/vault-kubernetes-auth.sh` (see the deploy README).
+- Vault Kubernetes auth for workloads enabled with `vaultKubernetesAuth: true` in the
+  [Kubernetes installation config](../../../deploy/kubernetes/README.md).
 - An existing Gateway accepting routes from all namespaces, wildcard DNS for the
   root domain and a Tailscale listener reaching the Gateway.
 - `npm ci --prefix scripts/bootstrap && npm ci --prefix e2e`, Chromium for Playwright.

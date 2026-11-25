@@ -68,4 +68,4 @@ existing deployed workloads are retained, as are their endpoint forwards; no
 application or secret is removed as a side effect of integration. The main
 Console remains running, with its task-owned Tailscale/cluster forward sessions.
 Other user stacks, branches and tmux sessions are untouched. See the retained
-[Console runbook](../../deploy/kind-k8s-4f/README.md) for restart/upgrade.
+[Console runbook](https://github.com/pr3s3nt/poc/blob/087b1cae896c11b3762962c3fd79bd54890446ea/deploy/kind-k8s-4f/README.md) for restart/upgrade.
